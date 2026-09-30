@@ -88,8 +88,8 @@ Each onboarding session generates a customer account number in the format `ARB-#
 
 The customer provider buttons use these real server-side routes when configured:
 
-- `GET /api/oauth/google/start` and `/api/oauth/google/callback`
-- `GET /api/oauth/microsoft/start` and `/api/oauth/microsoft/callback`
+- `GET /api/oauth/google/start` and `GET /api/oauth/google/callback`
+- `GET /api/oauth/microsoft/start` and `GET /api/oauth/microsoft/callback`
 
 The implementation uses authorization-code + PKCE, an httpOnly state cookie for CSRF protection, server-only client secrets, provider profile retrieval, the existing user upsert, and the existing session-cookie mechanism. The customer is returned to profile completion after identity authentication. Missing credentials return a clear configuration response rather than exposing secrets or pretending the provider is active.
 
@@ -114,3 +114,19 @@ https://YOUR_DOMAIN/api/oauth/microsoft/callback
 ```
 
 OAuth configuration is live-capable, but balances, opportunities, deposits, withdrawals, and earnings remain simulated until separately integrated with regulated providers and a production ledger.
+
+## Authenticated customer workflows
+
+The customer `/customer` route now uses the platform's real Manus-authenticated application session rather than the former client-only test gate. The Power tools area includes:
+
+- Account-linked session registration and device revocation using request metadata; no hard-coded UK location.
+- Persisted risk-report requests routed to the admin operations surface.
+- Persisted support tickets with priority, status, thread messages, admin replies, and customer notifications.
+- Support attachments uploaded through an authenticated managed-storage presign endpoint and indexed in `support_attachments`.
+- Browser notification chimes after successful customer ticket submission and admin replies.
+
+The additive migration is `drizzle/0001_silent_tinkerer.sql`.
+
+### Production configuration boundary
+
+This change removes the fake session identity and client-only risk/ticket state. It does **not** invent live market, exchange, custody, banking, email, or push-notification credentials. Live investment opportunity data, real money movement, and external customer email require separately configured regulated providers and protected secrets. The managed storage presign endpoint returns a configuration error until the runtime storage capability is available.
