@@ -89,3 +89,26 @@ export async function getUserByOpenId(openId: string) {
 }
 
 // TODO: add feature queries here as your schema grows.
+
+
+import { and, desc, inArray } from "drizzle-orm";
+import { customerNotifications, customerSessions, riskReports, supportAttachments, supportMessages, supportTickets } from "../drizzle/schema";
+
+export async function createRiskReport(userId: number, title: string, requestedFor?: string) {
+  const db = await getDb(); if (!db) throw new Error("Database is not available");
+  const result = await db.insert(riskReports).values({ userId, title, requestedFor: requestedFor || null });
+  return { id: Number(result[0].insertId), status: "requested" as const };
+}
+export async function listRiskReports(userId: number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(riskReports).where(eq(riskReports.userId,userId)).orderBy(desc(riskReports.createdAt)); }
+export async function upsertCustomerSession(userId:number, data:{deviceLabel:string;ipAddress?:string;countryCode?:string;userAgent?:string}) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const existing=await db.select().from(customerSessions).where(and(eq(customerSessions.userId,userId),eq(customerSessions.deviceLabel,data.deviceLabel))).limit(1); if(existing[0]) { await db.update(customerSessions).set({ ...data, lastSeenAt:new Date(), isCurrent:true }).where(eq(customerSessions.id,existing[0].id)); return existing[0].id; } const result=await db.insert(customerSessions).values({userId,...data}); return Number(result[0].insertId); }
+export async function listCustomerSessions(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(customerSessions).where(eq(customerSessions.userId,userId)).orderBy(desc(customerSessions.lastSeenAt)); }
+export async function revokeCustomerSession(userId:number,id:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); await db.update(customerSessions).set({isCurrent:false}).where(and(eq(customerSessions.id,id),eq(customerSessions.userId,userId))); }
+export async function createTicket(userId:number,input:{subject:string;body:string;priority:"low"|"normal"|"high"|"urgent"}) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const ticketNumber=`ARB-${Date.now().toString(36).toUpperCase()}`; const result=await db.insert(supportTickets).values({ticketNumber,customerId:userId,subject:input.subject,priority:input.priority}); const ticketId=Number(result[0].insertId); await db.insert(supportMessages).values({ticketId,authorId:userId,body:input.body}); return {ticketId,ticketNumber}; }
+export async function listCustomerTickets(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(supportTickets).where(eq(supportTickets.customerId,userId)).orderBy(desc(supportTickets.updatedAt)); }
+export async function listAllTickets() { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(supportTickets).orderBy(desc(supportTickets.updatedAt)); }
+export async function addTicketMessage(actorId:number,ticketId:number,body:string,status?:"open"|"answered"|"resolved"|"closed") { const db=await getDb(); if(!db) throw new Error("Database is not available"); const ticket=(await db.select().from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1))[0]; if(!ticket) throw new Error("Ticket not found"); await db.insert(supportMessages).values({ticketId,authorId:actorId,body}); if(status) await db.update(supportTickets).set({status}).where(eq(supportTickets.id,ticketId)); }
+export async function listTicketMessages(ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(supportMessages).where(eq(supportMessages.ticketId,ticketId)).orderBy(supportMessages.createdAt); }
+export async function createNotification(userId:number,title:string,body:string) { const db=await getDb(); if(!db) throw new Error("Database is not available"); await db.insert(customerNotifications).values({userId,title,body}); }
+export async function listNotifications(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(customerNotifications).where(eq(customerNotifications.userId,userId)).orderBy(desc(customerNotifications.createdAt)); }
+
+export async function addTicketAttachment(userId:number,input:{ticketId:number;fileName:string;mimeType:string;sizeBytes:number;storageKey:string}) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const ticket=(await db.select().from(supportTickets).where(and(eq(supportTickets.id,input.ticketId),eq(supportTickets.customerId,userId))).limit(1))[0]; if(!ticket) throw new Error("Ticket not found"); await db.insert(supportAttachments).values({ticketId:input.ticketId,uploadedBy:userId,fileName:input.fileName,mimeType:input.mimeType,sizeBytes:input.sizeBytes,storageKey:input.storageKey}); return {success:true}; }

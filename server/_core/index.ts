@@ -7,6 +7,7 @@ import { registerProviderOAuthRoutes } from "./providerOAuth";
 import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { sdk } from "./sdk";
 import { serveStatic, setupVite } from "./vite";
 
 async function startServer() {
@@ -18,6 +19,22 @@ async function startServer() {
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
   app.get("/api/platform/config.js", (_req, res) => {
     res.set("Cache-Control", "no-store").type("application/javascript").send(publicPlatformScript());
+  });
+  app.post("/api/support/attachments/presign", async (req, res) => {
+    try {
+      await sdk.authenticateRequest(req);
+      const { fileName, mimeType, sizeBytes } = req.body ?? {};
+      if (typeof fileName !== "string" || typeof mimeType !== "string" || !Number.isInteger(sizeBytes) || sizeBytes < 1 || sizeBytes > 25_000_000) return res.status(400).json({ error: "Invalid attachment metadata" });
+      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
+      const key = `support/${Date.now()}-${Math.random().toString(36).slice(2,10)}-${safeName}`;
+      const base = process.env.MANUS_API_URL;
+      const token = process.env.MANUS_API_KEY;
+      if (!base || !token) return res.status(503).json({ error: "Managed storage is not configured" });
+      const upstream = await fetch(`${base}/v1/storage/presign/put?path=${encodeURIComponent(key)}`, { headers: { Authorization: `Bearer ${token}` } });
+      const payload = await upstream.json() as { url?: string; error?: string };
+      if (!upstream.ok || !payload.url) return res.status(502).json({ error: payload.error || "Unable to prepare managed upload" });
+      return res.json({ uploadUrl: payload.url, storageKey: key, stableUrl: `/manus-storage/${key}` });
+    } catch (error) { return res.status(401).json({ error: error instanceof Error ? error.message : "Authentication required" }); }
   });
   registerOAuthRoutes(app);
   registerProviderOAuthRoutes(app);
