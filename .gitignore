@@ -66,34 +66,21 @@ jspm_packages/
 .eslintcache
 
 # Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
+.rpt2_cache_cjs
+.rpt2_cache_cjs
+.rpt2_cache_es
+.rpt2_cache_umd
 
-# Optional REPL history
+# Optional npm package caches
 .node_repl_history
-
-# Output of 'npm pack'
 *.tgz
-
-# Yarn Integrity file
 .yarn-integrity
 
-# parcel-bundler cache (https://parceljs.org/)
+# Common build caches
 .cache
 .parcel-cache
-
-# Next.js build output
 .next
-
-# Nuxt.js build / generate output
 .nuxt
-
-# Gatsby files
-.cache/
-
-# Storybook build outputs
 .out
 .storybook-out
 
@@ -106,8 +93,10 @@ temp/
 *.sqlite
 *.sqlite3
 
-# Webdev artifacts (checkpoint zips, migrations, etc.)
+# Webdev artifacts
 .webdev/
-
-# Manus version file (auto-generated, not part of source)
 client/public/__manus__/version.json
+
+# Installer-generated secrets/state
+installer/.installed
+.admin-bootstrap.json

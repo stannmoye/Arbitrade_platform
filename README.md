@@ -9,7 +9,6 @@ This repository contains the first safe prototype slice of Arbitrade: a premium 
 - Total, available, locked, pending, invested-style and earned-style views
 - Opportunity radar with spread, capacity, freshness, risk and stress-case details
 - Reservation modal with explicit simulated allocation and no-guarantee disclosure
-- Wallet and fund-lock controls
 - Five admin-gated participation modules: swaps, token launches, protocol rewards, liquidity pools, and referral rewards
 - Admin feature registry with enable/disable toggles
 - Customer access and fund restriction controls
@@ -42,16 +41,16 @@ Before adding real money movement, integrate only through approved and regulated
 
 ## Production-shaped hosted test mode
 
-The application now exposes separate test portals:
+The application exposes separate test portals:
 
-- `/` — portal gateway
+- `/` — customer signup/login entry
 - `/customer` — customer portal
-- `/admin` — admin portal
+- `/ops-console-7f3a` — unlisted admin operations portal
 
 ### Seeded test accounts
 
 - Customer: `customer@arbitrade.test` — Pro package, Growth group
-- Admin: `admin@arbitrade.test` — Super admin test account
+- Admin: use the seeded hosted test credentials supplied in the test handoff
 - Additional seeded customers are visible in the admin portal: Amelia Stone and Noah Wilson.
 
 ### Customer portal capabilities
@@ -81,6 +80,37 @@ This is a production-shaped test environment, not a live financial deployment. P
 
 ## Customer onboarding and authentication
 
-The customer route now starts at a sign-up/sign-in experience. Sign-up offers Google, Microsoft and email methods. Google and Microsoft paths simulate successful identity authentication and then require the same profile-completion fields: first name, last name, address, country, phone and mobile phone. Email registration also requires a password with a 12-character strength hint.
+The customer route starts at a signup/sign-in experience. Sign-up offers Google, Microsoft and email methods. Google and Microsoft now start server-side provider OAuth when credentials have been configured; after callback the customer completes the same profile fields: first name, last name, address, country, phone and mobile phone. Email registration also requires a password with a 12-character strength hint.
 
-Each onboarding session generates a customer account number in the format `ARB-########`, displays it before portal access and provides a copy action. The screen also includes consent capture, email-verification readiness, 2FA readiness, device-alert readiness, password visibility control and a customer-safe test-account notice. In a live deployment, OAuth callbacks, profile data, password hashes, verification records and account numbers must be persisted server-side with secure session cookies and provider secrets kept off the client.
+Each onboarding session generates a customer account number in the format `ARB-########`, displays it before portal access and provides a copy action. The screen also includes consent capture, email-verification readiness, 2FA readiness, device-alert readiness, password visibility control and a customer-safe test-account notice.
+
+## Live Google/Microsoft sign-in and guided installation
+
+The customer provider buttons use these real server-side routes when configured:
+
+- `GET /api/oauth/google/start` and `/api/oauth/google/callback`
+- `GET /api/oauth/microsoft/start` and `/api/oauth/microsoft/callback`
+
+The implementation uses authorization-code + PKCE, an httpOnly state cookie for CSRF protection, server-only client secrets, provider profile retrieval, the existing user upsert, and the existing session-cookie mechanism. The customer is returned to profile completion after identity authentication. Missing credentials return a clear configuration response rather than exposing secrets or pretending the provider is active.
+
+### Installer assets
+
+- `.env.example` — server-only configuration reference
+- `installer/index.php` — temporary visual configuration wizard
+- `installer/install.sh` — CLI dependency preflight, locked install, database migration and optional demo seed
+- `installer/demo.sql` — explicit test-only demo users
+- `installer/README.md` — provider-console and hosting instructions
+- `plan.md` — implementation and deployment plan
+
+The installer asks for the public URL, database credentials, Google and Microsoft credentials, SendGrid/SMTP credentials, 2FA policy, and initial admin email/password. It writes `.env` atomically with restrictive permissions and can create the database when the supplied database user has permission.
+
+**Important:** PHP-only shared hosting cannot run this Express/React application. Use a VPS or a Node-compatible shared host. The installer does not execute package managers from a browser request; dependency installation is an explicit shell operation. Remove or rename the installer after setup and block access to `.env`.
+
+Register these exact provider redirect URIs for an installation at `https://YOUR_DOMAIN`:
+
+```text
+https://YOUR_DOMAIN/api/oauth/google/callback
+https://YOUR_DOMAIN/api/oauth/microsoft/callback
+```
+
+OAuth configuration is live-capable, but balances, opportunities, deposits, withdrawals, and earnings remain simulated until separately integrated with regulated providers and a production ledger.
