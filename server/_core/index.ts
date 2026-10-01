@@ -8,6 +8,7 @@ import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { sdk } from "./sdk";
+import { getTicketUploadPolicy } from "../db";
 import { serveStatic, setupVite } from "./vite";
 
 async function startServer() {
@@ -24,7 +25,9 @@ async function startServer() {
     try {
       await sdk.authenticateRequest(req);
       const { fileName, mimeType, sizeBytes } = req.body ?? {};
-      if (typeof fileName !== "string" || typeof mimeType !== "string" || !Number.isInteger(sizeBytes) || sizeBytes < 1 || sizeBytes > 25_000_000) return res.status(400).json({ error: "Invalid attachment metadata" });
+      const policy = await getTicketUploadPolicy();
+      const mimeAllowed = policy.allowedMimeTypes.some(rule => rule === mimeType || (rule.endsWith("/*") && mimeType.startsWith(rule.slice(0, -1))) || (rule.startsWith(".") && fileName.toLowerCase().endsWith(rule.toLowerCase())));
+      if (typeof fileName !== "string" || typeof mimeType !== "string" || !Number.isInteger(sizeBytes) || sizeBytes < 1 || sizeBytes > policy.maxAttachmentMb * 1_000_000 || !mimeAllowed) return res.status(400).json({ error: `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}` });
       const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
       const key = `support/${Date.now()}-${Math.random().toString(36).slice(2,10)}-${safeName}`;
       const base = process.env.MANUS_API_URL;

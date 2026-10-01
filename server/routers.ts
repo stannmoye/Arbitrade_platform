@@ -3,7 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { addTicketAttachment, addTicketMessage, createNotification, createRiskReport, createTicket, listAllTickets, listCustomerSessions, listCustomerTickets, listNotifications, listRiskReports, listTicketMessages, revokeCustomerSession, upsertCustomerSession } from "./db";
+import { addTicketAttachment, addTicketMessage, createNotification, createRiskReport, createTicket, getAppSetting, getTicketUploadPolicy, listAllTickets, listCustomerSessions, listCustomerTickets, listNotifications, listRiskReports, listTicketMessages, revokeCustomerSession, setAppSetting, upsertCustomerSession } from "./db";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -36,10 +36,13 @@ export const appRouter = router({
     ticketMessages: protectedProcedure.input(z.object({ ticketId: z.number().int().positive() })).query(async ({ ctx, input }) => { const tickets=await listCustomerTickets(ctx.user.id); if(!tickets.some(t=>t.id===input.ticketId)) throw new Error("Ticket not found"); return listTicketMessages(input.ticketId); }),
     replyTicket: protectedProcedure.input(z.object({ ticketId: z.number().int().positive(), body: z.string().min(1).max(20000), status: z.enum(["open", "resolved", "closed"]).optional() })).mutation(async ({ ctx, input }) => { const tickets=await listCustomerTickets(ctx.user.id); if(!tickets.some(t=>t.id===input.ticketId)) throw new Error("Ticket not found"); await addTicketMessage(ctx.user.id,input.ticketId,input.body,input.status); return { success:true }; }),
     addAttachment: protectedProcedure.input(z.object({ ticketId: z.number().int().positive(), fileName: z.string().max(255), mimeType: z.string().max(160), sizeBytes: z.number().int().positive().max(25_000_000), storageKey: z.string().max(512) })).mutation(({ ctx, input }) => addTicketAttachment(ctx.user.id, input)),
+    uploadPolicy: protectedProcedure.query(() => getTicketUploadPolicy()),
     notifications: protectedProcedure.query(({ ctx }) => listNotifications(ctx.user.id)),
   }),
 
   adminOperations: router({
+    settings: adminProcedure.query(async () => ({ ticket: await getTicketUploadPolicy(), email: { provider: await getAppSetting("email.provider", "smtp"), fromName: await getAppSetting("email.fromName", "Arbitrade Support"), fromAddress: await getAppSetting("email.fromAddress", "no-reply@example.com"), replyTo: await getAppSetting("email.replyTo", "") } })),
+    updateSettings: adminProcedure.input(z.object({ ticket: z.object({ maxAttachmentMb: z.number().int().min(1).max(100), allowedMimeTypes: z.array(z.string().min(1).max(120)).min(1).max(50) }).optional(), email: z.object({ provider: z.enum(["smtp", "sendgrid", "disabled"]), fromName: z.string().min(1).max(120), fromAddress: z.string().email(), replyTo: z.string().email().or(z.literal("")) }).optional() })).mutation(async ({ ctx, input }) => { if (input.ticket) { await setAppSetting("ticket.maxAttachmentMb", String(input.ticket.maxAttachmentMb), ctx.user.id); await setAppSetting("ticket.allowedMimeTypes", input.ticket.allowedMimeTypes.join(","), ctx.user.id); } if (input.email) { await setAppSetting("email.provider", input.email.provider, ctx.user.id); await setAppSetting("email.fromName", input.email.fromName, ctx.user.id); await setAppSetting("email.fromAddress", input.email.fromAddress, ctx.user.id); await setAppSetting("email.replyTo", input.email.replyTo, ctx.user.id); } return { success: true }; }),
     tickets: adminProcedure.query(() => listAllTickets()),
     ticketMessages: adminProcedure.input(z.object({ ticketId: z.number().int().positive() })).query(({ input }) => listTicketMessages(input.ticketId)),
     replyTicket: adminProcedure.input(z.object({ ticketId: z.number().int().positive(), customerId: z.number().int().positive(), body: z.string().min(1).max(20000), status: z.enum(["answered", "resolved", "closed"]) })).mutation(async ({ ctx, input }) => { await addTicketMessage(ctx.user.id,input.ticketId,input.body,input.status); await createNotification(input.customerId,"Support ticket updated",`An admin replied to ticket #${input.ticketId}.`); return { success:true }; }),
