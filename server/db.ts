@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, appSettings, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -16,6 +16,23 @@ export async function getDb() {
     }
   }
   return _db;
+}
+
+export async function getAppSetting(key: string, fallback?: string) {
+  const db = await getDb(); if (!db) return fallback;
+  const row = (await db.select().from(appSettings).where(eq(appSettings.settingKey, key)).limit(1))[0];
+  return row?.settingValue ?? fallback;
+}
+export async function setAppSetting(key: string, value: string, updatedBy?: number) {
+  const db = await getDb(); if (!db) throw new Error("Database is not available");
+  const existing = (await db.select().from(appSettings).where(eq(appSettings.settingKey, key)).limit(1))[0];
+  if (existing) await db.update(appSettings).set({ settingValue: value, updatedBy: updatedBy ?? null }).where(eq(appSettings.settingKey, key));
+  else await db.insert(appSettings).values({ settingKey: key, settingValue: value, updatedBy: updatedBy ?? null });
+}
+export async function getTicketUploadPolicy() {
+  const max = Number(await getAppSetting("ticket.maxAttachmentMb", "25"));
+  const types = (await getAppSetting("ticket.allowedMimeTypes", "image/*,application/pdf,text/plain,.doc,.docx,.xls,.xlsx"))!.split(",").map(v => v.trim()).filter(Boolean);
+  return { maxAttachmentMb: Number.isFinite(max) && max > 0 ? Math.min(max, 100) : 25, allowedMimeTypes: types };
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
