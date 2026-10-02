@@ -20,6 +20,7 @@ export const users = mysqlTable("users", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  passwordHash: varchar("passwordHash", { length: 255 }),
 });
 
 export type User = typeof users.$inferSelect;
@@ -94,4 +95,54 @@ export const appSettings = mysqlTable("app_settings", {
   settingValue: text("settingValue").notNull(),
   updatedBy: int("updatedBy"),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const customerBalances = mysqlTable("customer_balances", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  currency: varchar("currency", { length: 12 }).notNull(),
+  availableMinor: int("availableMinor").default(0).notNull(),
+  promotionalMinor: int("promotionalMinor").default(0).notNull(),
+  earnedMinor: int("earnedMinor").default(0).notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const balanceLedger = mysqlTable("balance_ledger", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  currency: varchar("currency", { length: 12 }).notNull(),
+  amountMinor: int("amountMinor").notNull(),
+  entryType: varchar("entryType", { length: 40 }).notNull(),
+  reference: varchar("reference", { length: 80 }).notNull(),
+  withdrawable: boolean("withdrawable").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const opportunityOffers = mysqlTable("opportunity_offers", {
+  id: int("id").autoincrement().primaryKey(),
+  symbol: varchar("symbol", { length: 40 }).notNull(),
+  venueFrom: varchar("venueFrom", { length: 80 }).notNull(),
+  venueTo: varchar("venueTo", { length: 80 }).notNull(),
+  currency: varchar("currency", { length: 12 }).notNull(),
+  minimumMinor: int("minimumMinor").notNull(),
+  expectedRewardBps: int("expectedRewardBps").notNull(),
+  durationSeconds: int("durationSeconds").notNull(),
+  opensAt: timestamp("opensAt").notNull(),
+  closesAt: timestamp("closesAt").notNull(),
+  rewardAt: timestamp("rewardAt").notNull(),
+  status: mysqlEnum("status", ["scheduled", "open", "closed", "settled", "cancelled"]).default("open").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const tradePositions = mysqlTable("trade_positions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  offerId: int("offerId").notNull(),
+  currency: varchar("currency", { length: 12 }).notNull(),
+  principalMinor: int("principalMinor").notNull(),
+  expectedRewardMinor: int("expectedRewardMinor").notNull(),
+  status: mysqlEnum("status", ["pending", "confirmed", "settled", "cancelled"]).default("confirmed").notNull(),
+  confirmedAt: timestamp("confirmedAt").defaultNow().notNull(),
+  settlesAt: timestamp("settlesAt").notNull(),
+  settledAt: timestamp("settledAt"),
 });

@@ -1,4 +1,5 @@
 import "dotenv/config";
+import crypto from "node:crypto";
 import express from "express";
 import { createServer } from "http";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -8,6 +9,9 @@ import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { sdk } from "./sdk";
+import { createLocalCustomer, getUserByEmail } from "../db";
+import { COOKIE_NAME } from "@shared/const";
+import { getSessionCookieOptions } from "./cookies";
 import { getTicketUploadPolicy } from "../db";
 import { serveStatic, setupVite } from "./vite";
 
@@ -18,6 +22,10 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
+  const hashPassword=(password:string)=>crypto.scryptSync(password, process.env.PASSWORD_PEPPER || "arbitrade-local-pepper", 32).toString("hex");
+  app.post("/api/customer/register", async (req,res)=>{try{const {email,password,firstName,lastName}=req.body||{};if(typeof email!=="string"||typeof password!=="string"||password.length<10)return res.status(400).json({error:"Use an email and a password of at least 10 characters"});const user=await createLocalCustomer({email,passwordHash:hashPassword(password),name:`${firstName||""} ${lastName||""}`.trim()||email});const token=await sdk.createSessionToken(user.openId,{name:user.name||email});res.cookie(COOKIE_NAME,token,getSessionCookieOptions(req));return res.json({user});}catch(error){return res.status(400).json({error:error instanceof Error?error.message:"Unable to register"});}});
+  app.post("/api/customer/login", async (req,res)=>{try{const {email,password}=req.body||{};const user=await getUserByEmail(String(email||""));if(!user?.passwordHash||hashPassword(String(password||""))!==user.passwordHash)return res.status(401).json({error:"Invalid email or password"});const token=await sdk.createSessionToken(user.openId,{name:user.name||user.email||"Customer"});res.cookie(COOKIE_NAME,token,getSessionCookieOptions(req));return res.json({user});}catch(error){return res.status(401).json({error:"Unable to sign in"});}});
+
   app.get("/api/platform/config.js", (_req, res) => {
     res.set("Cache-Control", "no-store").type("application/javascript").send(publicPlatformScript());
   });

@@ -93,6 +93,21 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
 }
 
+export async function getUserByEmail(email: string) {
+  const db = await getDb(); if (!db) throw new Error("Database is not available");
+  return (await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1))[0] ?? null;
+}
+export async function createLocalCustomer(input: { email: string; passwordHash: string; name: string }) {
+  const db = await getDb(); if (!db) throw new Error("Database is not available");
+  const email = input.email.toLowerCase();
+  const existing = await getUserByEmail(email);
+  if (existing) throw new Error("An account with this email already exists");
+  const openId = `local:customer:${email}`;
+  const result = await db.insert(users).values({ openId, email, name: input.name, loginMethod: "email", role: "user", passwordHash: input.passwordHash });
+  await provisionSignupCredit(Number(result[0].insertId));
+  return (await db.select().from(users).where(eq(users.id, Number(result[0].insertId))).limit(1))[0];
+}
+
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) {
@@ -129,3 +144,40 @@ export async function createNotification(userId:number,title:string,body:string)
 export async function listNotifications(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(customerNotifications).where(eq(customerNotifications.userId,userId)).orderBy(desc(customerNotifications.createdAt)); }
 
 export async function addTicketAttachment(userId:number,input:{ticketId:number;fileName:string;mimeType:string;sizeBytes:number;storageKey:string}) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const ticket=(await db.select().from(supportTickets).where(and(eq(supportTickets.id,input.ticketId),eq(supportTickets.customerId,userId))).limit(1))[0]; if(!ticket) throw new Error("Ticket not found"); await db.insert(supportAttachments).values({ticketId:input.ticketId,uploadedBy:userId,fileName:input.fileName,mimeType:input.mimeType,sizeBytes:input.sizeBytes,storageKey:input.storageKey}); return {success:true}; }
+
+// Controlled opportunity engine: this is an internal paper-ledger boundary. Real execution requires licensed providers/custody.
+import { customerBalances, balanceLedger, opportunityOffers, tradePositions } from "../drizzle/schema";
+
+export async function provisionSignupCredit(userId:number) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const amount=Number(await getAppSetting("signup.autoCreditMinor","1000"));
+  const currency=(await getAppSetting("signup.autoCreditCurrency","USD")) || "USD";
+  if(!Number.isFinite(amount) || amount<=0) return;
+  const existing=await db.select().from(balanceLedger).where(and(eq(balanceLedger.userId,userId),eq(balanceLedger.entryType,"signup_credit"))).limit(1);
+  if(existing[0]) return;
+  const balance=(await db.select().from(customerBalances).where(and(eq(customerBalances.userId,userId),eq(customerBalances.currency,currency))).limit(1))[0];
+  if(balance) await db.update(customerBalances).set({availableMinor:balance.availableMinor+amount,promotionalMinor:balance.promotionalMinor+amount}).where(eq(customerBalances.id,balance.id));
+  else await db.insert(customerBalances).values({userId,currency,availableMinor:amount,promotionalMinor:amount,earnedMinor:0});
+  await db.insert(balanceLedger).values({userId,currency,amountMinor:amount,entryType:"signup_credit",reference:`signup-${userId}`,withdrawable:false});
+}
+export async function listBalances(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");return db.select().from(customerBalances).where(eq(customerBalances.userId,userId));}
+export async function listOpenOffers(){const db=await getDb();if(!db)throw new Error("Database is not available");return db.select().from(opportunityOffers).where(eq(opportunityOffers.status,"open")).orderBy(opportunityOffers.closesAt);}
+export async function createTrade(userId:number,input:{offerId:number;amountMinor:number}){
+ const db=await getDb();if(!db)throw new Error("Database is not available");
+ return db.transaction(async tx=>{
+  const offer=(await tx.select().from(opportunityOffers).where(and(eq(opportunityOffers.id,input.offerId),eq(opportunityOffers.status,"open"))).limit(1))[0];
+  if(!offer || new Date(offer.closesAt).getTime()<=Date.now()) throw new Error("This opportunity is no longer open");
+  if(input.amountMinor<offer.minimumMinor) throw new Error("Amount is below the minimum investment");
+  const bal=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,userId),eq(customerBalances.currency,offer.currency))).limit(1))[0];
+  if(!bal || bal.availableMinor<input.amountMinor) throw new Error("Insufficient available balance");
+  const reward=Math.floor(input.amountMinor*offer.expectedRewardBps/10000);
+  await tx.update(customerBalances).set({availableMinor:bal.availableMinor-input.amountMinor}).where(eq(customerBalances.id,bal.id));
+  const ref=`trade-${offer.id}-${userId}-${Date.now()}`;
+  await tx.insert(balanceLedger).values({userId,currency:offer.currency,amountMinor:-input.amountMinor,entryType:"trade_reservation",reference:ref,withdrawable:false});
+  const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,settlesAt:offer.rewardAt});
+  return {tradeId:Number(result[0].insertId),rewardMinor:reward,settlesAt:offer.rewardAt,currency:offer.currency};
+ });
+}
+export async function listTrades(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");return db.select().from(tradePositions).where(eq(tradePositions.userId,userId)).orderBy(tradePositions.confirmedAt);}
+export async function settleTrade(tradeId:number){const db=await getDb();if(!db)throw new Error("Database is not available");return db.transaction(async tx=>{const t=(await tx.select().from(tradePositions).where(and(eq(tradePositions.id,tradeId),eq(tradePositions.status,"confirmed"))).limit(1))[0];if(!t||new Date(t.settlesAt).getTime()>Date.now())return false;const b=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,t.userId),eq(customerBalances.currency,t.currency))).limit(1))[0];if(!b)throw new Error("Balance not found");const total=t.principalMinor+t.expectedRewardMinor;await tx.update(customerBalances).set({availableMinor:b.availableMinor+total,earnedMinor:b.earnedMinor+t.expectedRewardMinor}).where(eq(customerBalances.id,b.id));await tx.insert(balanceLedger).values({userId:t.userId,currency:t.currency,amountMinor:total,entryType:"trade_settlement",reference:`trade-${tradeId}`,withdrawable:false});await tx.update(tradePositions).set({status:"settled",settledAt:new Date()}).where(eq(tradePositions.id,tradeId));return true;});}
+export async function createOpportunityOffer(input:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number}){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();const closesAt=new Date(now.getTime()+input.durationSeconds*1000);const result=await db.insert(opportunityOffers).values({...input,opensAt:now,closesAt,rewardAt:closesAt,status:"open"});return {id:Number(result[0].insertId),...input,opensAt:now,closesAt,rewardAt:closesAt};}
