@@ -130,3 +130,18 @@ The additive migration is `drizzle/0001_silent_tinkerer.sql`.
 ### Production configuration boundary
 
 This change removes the fake session identity and client-only risk/ticket state. It does **not** invent live market, exchange, custody, banking, email, or push-notification credentials. Live investment opportunity data, real money movement, and external customer email require separately configured regulated providers and protected secrets. The managed storage presign endpoint returns a configuration error until the runtime storage capability is available.
+
+
+## Controlled opportunity engine
+
+The application now includes an administrator-controlled opportunity ledger with:
+
+- Signup promotional credit configured from the admin opportunity-engine screen.
+- Promotional credit tracked separately and marked non-withdrawable.
+- Administrator-configurable popup frequency and submission countdown.
+- Published opportunity windows with symbol, venues, currency, minimum amount, expected reward basis points, duration, close time, and reward time.
+- Customer balances, immutable ledger entries, trade reservations, and settlement records.
+- Centered browser popup alerts with automatic fade/dismiss behavior and an optional notification chime.
+- Final confirmation before reserving an amount from available balance.
+
+This is an internal ledger workflow. It does **not** place real stock or cryptocurrency orders, custody assets, or guarantee returns. Real execution requires licensed market-data, brokerage/exchange, custody, payments, AML/KYC, disclosures, and jurisdictional approvals.
