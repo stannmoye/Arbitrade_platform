@@ -13,6 +13,7 @@ import { createLocalCustomer, getUserByEmail } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { getTicketUploadPolicy } from "../db";
+import { registerV5Api } from "../v5-api";
 import { serveStatic, setupVite } from "./vite";
 
 async function startServer() {
@@ -22,6 +23,28 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
+  const demoPassword = (role: "customer" | "admin") => process.env[`V5_DEMO_${role.toUpperCase()}_PASSWORD`] || (role === "admin" ? "Arbitrade-Admin-2026!" : "Arbitrade-Customer-2026!");
+  const demoEmail = (role: "customer" | "admin") => process.env[`V5_DEMO_${role.toUpperCase()}_EMAIL`] || (role === "admin" ? "admin@arbitrade.test" : "customer@arbitrade.test");
+  app.post("/api/v5/auth/login", (req, res) => {
+    const role = req.body?.role === "admin" ? "admin" : "customer";
+    const email = String(req.body?.email || "");
+    const password = String(req.body?.password || "");
+    if (email !== demoEmail(role) || password !== demoPassword(role)) return res.status(401).json({ error: "Invalid practice credentials" });
+    res.cookie("v5_demo_session", role, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 8 * 60 * 60 * 1000 });
+    return res.json({ role, email });
+  });
+  app.get("/api/v5/auth/session", (req, res) => {
+    const role = req.headers.cookie?.match(/(?:^|;\s*)v5_demo_session=(customer|admin)(?:;|$)/)?.[1];
+    return res.json({ authenticated: Boolean(role), role: role || null });
+  });
+  app.post("/api/v5/auth/logout", (_req, res) => { res.clearCookie("v5_demo_session"); return res.json({ ok: true }); });
+  app.use("/api/v5", (req, res, next) => {
+    if (req.path.startsWith("/auth/")) return next();
+    const role = req.headers.cookie?.match(/(?:^|;\s*)v5_demo_session=(customer|admin)(?:;|$)/)?.[1];
+    if (!role) return res.status(401).json({ error: "Practice login required" });
+    if (req.path.startsWith("/admin/") && role !== "admin") return res.status(403).json({ error: "Admin practice role required" });
+    return next();
+  });
   const hashPassword=(password:string)=>crypto.scryptSync(password, process.env.PASSWORD_PEPPER || "arbitrade-local-pepper", 32).toString("hex");
   app.post("/api/customer/register", async (req,res)=>{try{const {email,password,firstName,lastName}=req.body||{};if(typeof email!=="string"||typeof password!=="string"||password.length<10)return res.status(400).json({error:"Use an email and a password of at least 10 characters"});const user=await createLocalCustomer({email,passwordHash:hashPassword(password),name:`${firstName||""} ${lastName||""}`.trim()||email});const token=await sdk.createSessionToken(user.openId,{name:user.name||email});res.cookie(COOKIE_NAME,token,getSessionCookieOptions(req));return res.json({user});}catch(error){return res.status(400).json({error:error instanceof Error?error.message:"Unable to register"});}});
   app.post("/api/customer/login", async (req,res)=>{try{const {email,password}=req.body||{};const user=await getUserByEmail(String(email||""));if(!user?.passwordHash||hashPassword(String(password||""))!==user.passwordHash)return res.status(401).json({error:"Invalid email or password"});const token=await sdk.createSessionToken(user.openId,{name:user.name||user.email||"Customer"});res.cookie(COOKIE_NAME,token,getSessionCookieOptions(req));return res.json({user});}catch(error){return res.status(401).json({error:"Unable to sign in"});}});
@@ -49,6 +72,7 @@ async function startServer() {
   });
   registerOAuthRoutes(app);
   registerProviderOAuthRoutes(app);
+  registerV5Api(app);
   // tRPC API
   app.use(
     "/api/trpc",

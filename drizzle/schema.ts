@@ -157,3 +157,237 @@ export const tradePositions = mysqlTable("trade_positions", {
   settlesAt: timestamp("settlesAt").notNull(),
   settledAt: timestamp("settledAt"),
 });
+
+export const assetPrecisions = mysqlTable("asset_precisions", {
+  id: int("id").autoincrement().primaryKey(),
+  code: varchar("code", { length: 32 }).notNull().unique(),
+  scale: int("scale").notNull(),
+  minimumUnit: varchar("minimumUnit", { length: 64 }).notNull(),
+  roundingMode: mysqlEnum("roundingMode", ["half_up", "down", "up", "half_even"]).default("half_up").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const companies = mysqlTable("companies", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 160 }).notNull(),
+  logoUrl: varchar("logoUrl", { length: 512 }),
+  status: mysqlEnum("status", ["active", "disabled"]).default("active").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const tradingTypes = mysqlTable("trading_types", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 160 }).notNull().unique(),
+  description: text("description"),
+  mode: mysqlEnum("mode", ["PRACTICE", "SIMULATION", "RESEARCH", "LIVE"]).default("PRACTICE").notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const packages = mysqlTable("packages", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 80 }).notNull().unique(),
+  startsAt: timestamp("startsAt"),
+  expiresAt: timestamp("expiresAt"),
+  maxPopupsPerMinute: int("maxPopupsPerMinute").default(0).notNull(),
+  maxActiveInvestments: int("maxActiveInvestments").default(0).notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const packageEntitlements = mysqlTable("package_entitlements", {
+  id: int("id").autoincrement().primaryKey(),
+  packageId: int("packageId").notNull(),
+  entitlementKey: varchar("entitlementKey", { length: 120 }).notNull(),
+  entitlementValue: varchar("entitlementValue", { length: 512 }).notNull(),
+});
+
+export const customerPackageSubscriptions = mysqlTable("customer_package_subscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  packageId: int("packageId").notNull(),
+  startsAt: timestamp("startsAt").notNull(),
+  expiresAt: timestamp("expiresAt"),
+  status: mysqlEnum("status", ["active", "expired", "cancelled"]).default("active").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const v5Opportunities = mysqlTable("v5_opportunities", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull(),
+  tradingTypeId: int("tradingTypeId").notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  practiceMode: mysqlEnum("practiceMode", ["PRACTICE", "SIMULATION", "RESEARCH"]).default("PRACTICE").notNull(),
+  currency: varchar("currency", { length: 32 }).notNull(),
+  fixedInvestment: varchar("fixedInvestment", { length: 128 }).notNull(),
+  grossProfitRate: varchar("grossProfitRate", { length: 128 }).notNull(),
+  durationSeconds: int("durationSeconds").notNull(),
+  status: mysqlEnum("status", ["DRAFT", "ACTIVE", "PAUSED", "DISABLED", "EXPIRED"]).default("DRAFT").notNull(),
+  maxPurchases: int("maxPurchases"),
+  currentPurchases: int("currentPurchases").default(0).notNull(),
+  eligibilityJson: text("eligibilityJson"),
+  startsAt: timestamp("startsAt"),
+  expiresAt: timestamp("expiresAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const v5Purchases = mysqlTable("v5_purchases", {
+  id: int("id").autoincrement().primaryKey(),
+  opportunityId: int("opportunityId").notNull(),
+  userId: int("userId").notNull(),
+  idempotencyKey: varchar("idempotencyKey", { length: 128 }).notNull().unique(),
+  status: mysqlEnum("status", ["PENDING", "SUCCESSFUL", "FAILED", "CANCELLED", "EXPIRED"]).default("PENDING").notNull(),
+  attemptedAt: timestamp("attemptedAt").defaultNow().notNull(),
+  successfulAt: timestamp("successfulAt"),
+  failureReason: varchar("failureReason", { length: 255 }),
+});
+
+export const v5SuccessfulPurchaseKeys = mysqlTable("v5_successful_purchase_keys", {
+  id: int("id").autoincrement().primaryKey(),
+  opportunityId: int("opportunityId").notNull(),
+  userId: int("userId").notNull(),
+  purchaseId: int("purchaseId").notNull(),
+});
+
+export const v5Wallets = mysqlTable("v5_wallets", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  assetCode: varchar("assetCode", { length: 32 }).notNull(),
+  availableAmount: varchar("availableAmount", { length: 128 }).default("0").notNull(),
+  lockedAmount: varchar("lockedAmount", { length: 128 }).default("0").notNull(),
+  pendingAmount: varchar("pendingAmount", { length: 128 }).default("0").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const v5WalletLedger = mysqlTable("v5_wallet_ledger", {
+  id: int("id").autoincrement().primaryKey(),
+  walletId: int("walletId").notNull(),
+  entryType: varchar("entryType", { length: 40 }).notNull(),
+  amount: varchar("amount", { length: 128 }).notNull(),
+  assetCode: varchar("assetCode", { length: 32 }).notNull(),
+  referenceType: varchar("referenceType", { length: 80 }).notNull(),
+  referenceId: varchar("referenceId", { length: 128 }).notNull(),
+  idempotencyKey: varchar("idempotencyKey", { length: 128 }).notNull().unique(),
+  reversalOfId: int("reversalOfId"),
+  precisionSnapshotJson: text("precisionSnapshotJson").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const v5IdempotencyKeys = mysqlTable("v5_idempotency_keys", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId"),
+  keyValue: varchar("keyValue", { length: 160 }).notNull().unique(),
+  command: varchar("command", { length: 120 }).notNull(),
+  resultJson: text("resultJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const v5AuditEvents = mysqlTable("v5_audit_events", {
+  id: int("id").autoincrement().primaryKey(),
+  actorUserId: int("actorUserId"),
+  action: varchar("action", { length: 160 }).notNull(),
+  entityType: varchar("entityType", { length: 80 }).notNull(),
+  entityId: varchar("entityId", { length: 128 }).notNull(),
+  reason: text("reason"),
+  reference: varchar("reference", { length: 160 }),
+  metadataJson: text("metadataJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const v5FundingPlans = mysqlTable("v5_funding_plans", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  destinationAsset: varchar("destinationAsset", { length: 32 }).notNull(),
+  destinationAmount: varchar("destinationAmount", { length: 128 }).notNull(),
+  sourcesJson: text("sourcesJson").notNull(),
+  status: mysqlEnum("status", ["QUOTED", "APPROVED", "EXECUTED", "FAILED"]).default("QUOTED").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const v5FxQuotes = mysqlTable("v5_fx_quotes", {
+  id: int("id").autoincrement().primaryKey(),
+  provider: varchar("provider", { length: 120 }).notNull(),
+  fromAsset: varchar("fromAsset", { length: 32 }).notNull(),
+  toAsset: varchar("toAsset", { length: 32 }).notNull(),
+  sourceAmount: varchar("sourceAmount", { length: 128 }).notNull(),
+  destinationAmount: varchar("destinationAmount", { length: 128 }).notNull(),
+  rate: varchar("rate", { length: 128 }).notNull(),
+  fee: varchar("fee", { length: 128 }).notNull(),
+  spread: varchar("spread", { length: 128 }).notNull(),
+  quotedAt: timestamp("quotedAt").notNull(),
+  validUntil: timestamp("validUntil").notNull(),
+  status: mysqlEnum("status", ["QUOTED", "EXECUTED", "EXPIRED", "REJECTED"]).default("QUOTED").notNull(),
+  reference: varchar("reference", { length: 160 }).notNull(),
+});
+
+export const v5Conversions = mysqlTable("v5_conversions", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  quoteId: int("quoteId").notNull(),
+  fundingPlanId: int("fundingPlanId").notNull(),
+  sourceAsset: varchar("sourceAsset", { length: 32 }).notNull(),
+  destinationAsset: varchar("destinationAsset", { length: 32 }).notNull(),
+  sourceAmount: varchar("sourceAmount", { length: 128 }).notNull(),
+  destinationAmount: varchar("destinationAmount", { length: 128 }).notNull(),
+  executionRate: varchar("executionRate", { length: 128 }).notNull(),
+  fee: varchar("fee", { length: 128 }).notNull(),
+  status: mysqlEnum("status", ["PENDING", "COMPLETED", "FAILED", "REVERSED"]).default("PENDING").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const v5Investments = mysqlTable("v5_investments", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  opportunityId: int("opportunityId").notNull(),
+  purchaseId: int("purchaseId").notNull(),
+  principalAmount: varchar("principalAmount", { length: 128 }).notNull(),
+  assetCode: varchar("assetCode", { length: 32 }).notNull(),
+  settlementWalletId: int("settlementWalletId").notNull(),
+  settlementAsset: varchar("settlementAsset", { length: 32 }).notNull(),
+  status: mysqlEnum("status", ["ACTIVE", "PENDING_SETTLEMENT", "SETTLED_PROFIT", "SETTLED_ZERO", "SETTLED_LOSS", "FAILED_SETTLEMENT", "CANCELLED", "REVERSED"]).default("ACTIVE").notNull(),
+  startsAt: timestamp("startsAt").notNull(),
+  settlesAt: timestamp("settlesAt").notNull(),
+  tradingTypeSnapshot: varchar("tradingTypeSnapshot", { length: 160 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const v5Settlements = mysqlTable("v5_settlements", {
+  id: int("id").autoincrement().primaryKey(),
+  investmentId: int("investmentId").notNull().unique(),
+  status: varchar("status", { length: 40 }).notNull(),
+  principalAmount: varchar("principalAmount", { length: 128 }).notNull(),
+  grossProfit: varchar("grossProfit", { length: 128 }).notNull(),
+  fees: varchar("fees", { length: 128 }).notNull(),
+  takeHomeProfit: varchar("takeHomeProfit", { length: 128 }).notNull(),
+  totalReturned: varchar("totalReturned", { length: 128 }).notNull(),
+  resultReference: varchar("resultReference", { length: 160 }),
+  idempotencyKey: varchar("idempotencyKey", { length: 128 }).notNull().unique(),
+  settledAt: timestamp("settledAt").defaultNow().notNull(),
+});
+
+export const v5Reports = mysqlTable("v5_reports", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  reportingDate: varchar("reportingDate", { length: 10 }).notNull(),
+  timezone: varchar("timezone", { length: 80 }).notNull(),
+  periodStartUtc: timestamp("periodStartUtc").notNull(),
+  periodEndUtc: timestamp("periodEndUtc").notNull(),
+  status: mysqlEnum("status", ["GENERATED", "FAILED"]).default("GENERATED").notNull(),
+  storageKey: varchar("storageKey", { length: 512 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const v5EmailJobs = mysqlTable("v5_email_jobs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  reportId: int("reportId").notNull(),
+  status: mysqlEnum("status", ["QUEUED", "PROCESSING", "SENT", "FAILED", "RETRYING", "SUPPRESSED"]).notNull(),
+  attempts: int("attempts").default(0).notNull(),
+  lastError: text("lastError"),
+  idempotencyKey: varchar("idempotencyKey", { length: 160 }).notNull().unique(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
