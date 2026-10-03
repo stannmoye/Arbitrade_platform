@@ -21,6 +21,7 @@ export const users = mysqlTable("users", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
   passwordHash: varchar("passwordHash", { length: 255 }),
+  packageName: varchar("packageName", { length: 40 }).default("Starter").notNull(),
 });
 
 export type User = typeof users.$inferSelect;
@@ -93,6 +94,16 @@ export const appSettings = mysqlTable("app_settings", {
   id: int("id").autoincrement().primaryKey(),
   settingKey: varchar("settingKey", { length: 120 }).notNull().unique(),
   settingValue: text("settingValue").notNull(),
+  updatedBy: int("updatedBy"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const opportunityPackagePolicies = mysqlTable("opportunity_package_policies", {
+  id: int("id").autoincrement().primaryKey(),
+  packageName: varchar("packageName", { length: 40 }).notNull().unique(),
+  maxPopupsPerMinute: int("maxPopupsPerMinute").default(10).notNull(),
+  maxVisibleOffers: int("maxVisibleOffers").default(10).notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
   updatedBy: int("updatedBy"),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
