@@ -4,6 +4,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { addTicketAttachment, addTicketMessage, adjustCustomerBalance, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, createTrade, deleteAdminCustomer, getCustomerTicket, getAppSetting, getCustomerBalanceSummary, getTicketUploadPolicy, listAdminCustomers, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listNotifications, listOpenOffers, listOpportunityPackagePolicies, listRiskReports, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, setAppSetting, setCustomerPackage, settleTrade, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
+import { allocateStake, cancelStake, getStakeDashboard, projectStake } from "./stakeEarn";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -43,6 +44,12 @@ export const appRouter = router({
     invest: protectedProcedure.input(z.object({ offerId: z.number().int().positive(), amountMinor: z.number().int().positive() })).mutation(async ({ ctx, input }) => { const result=await createTrade(ctx.user.id,input); await createNotification(ctx.user.id,"Practice allocation recorded",`Your ${result.currency} allocation is recorded in practice mode. No configured reward is credited without a verified execution result.`); return result; }),
     settle: protectedProcedure.input(z.object({ tradeId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { const rows=await listTrades(ctx.user.id); if(!rows.some(row=>row.id===input.tradeId)) throw new Error("Trade not found"); return { settled: await settleTrade(input.tradeId) }; }),
     notifications: protectedProcedure.query(({ ctx }) => listNotifications(ctx.user.id)),
+    stakeEarn: router({
+      dashboard: protectedProcedure.query(({ ctx }) => getStakeDashboard(ctx.user.id)),
+      allocate: protectedProcedure.input(z.object({ productId: z.number().int().positive(), amountMinor: z.number().int().positive(), idempotencyKey: z.string().min(8).max(160) })).mutation(({ ctx, input }) => allocateStake(ctx.user.id, input)),
+      cancel: protectedProcedure.input(z.object({ positionId: z.number().int().positive(), idempotencyKey: z.string().min(8).max(160) })).mutation(({ ctx, input }) => cancelStake(ctx.user.id, input.positionId, input.idempotencyKey)),
+      project: protectedProcedure.input(z.object({ amountMinor: z.number().int().positive(), annualRateBps: z.number().int().min(0).max(100000), durationDays: z.number().int().positive(), compounding: z.boolean().optional() })).query(({ input }) => projectStake(input)),
+    }),
   }),
 
   adminOperations: router({
