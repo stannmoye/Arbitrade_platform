@@ -34,6 +34,10 @@ export const customerControls = mysqlTable("customer_controls", {
   accountStatus: mysqlEnum("accountStatus", ["active", "suspended", "restricted"]).default("active").notNull(),
   tradingEnabled: boolean("tradingEnabled").default(true).notNull(),
   opportunitiesEnabled: boolean("opportunitiesEnabled").default(true).notNull(),
+  autoTradeEnabled: boolean("autoTradeEnabled").default(true).notNull(),
+  autoTradeAmountMinor: int("autoTradeAmountMinor").default(10000).notNull(),
+  autoTradeMinRewardBps: int("autoTradeMinRewardBps").default(0).notNull(),
+  autoTradeDailyLimit: int("autoTradeDailyLimit").default(5).notNull(),
   withdrawalsEnabled: boolean("withdrawalsEnabled").default(false).notNull(),
   kycRequired: boolean("kycRequired").default(true).notNull(),
   twoFactorRequired: boolean("twoFactorRequired").default(false).notNull(),
@@ -178,6 +182,21 @@ export const opportunityOffers = mysqlTable("opportunity_offers", {
   rewardAt: timestamp("rewardAt").notNull(),
   status: mysqlEnum("status", ["scheduled", "open", "closed", "settled", "cancelled"]).default("open").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const missedOpportunities = mysqlTable("missed_opportunities", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  offerId: int("offerId").notNull(),
+  symbol: varchar("symbol", { length: 40 }).notNull(),
+  currency: varchar("currency", { length: 12 }).notNull(),
+  amountMinor: int("amountMinor").notNull(),
+  potentialRewardMinor: int("potentialRewardMinor").notNull(),
+  expectedRewardBps: int("expectedRewardBps").notNull(),
+  reason: varchar("reason", { length: 80 }).notNull(),
+  status: mysqlEnum("status", ["MISSED", "EXECUTED"]).default("MISSED").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export const tradePositions = mysqlTable("trade_positions", {
@@ -529,5 +548,28 @@ export const stakeEvents = mysqlTable("stake_events", {
   amountMinor: int("amountMinor").default(0).notNull(),
   asset: varchar("asset", { length: 32 }).notNull(),
   metadataJson: text("metadataJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const transactionConsoleEvents = mysqlTable("transaction_console_events", {
+  id: int("id").autoincrement().primaryKey(),
+  sessionKey: varchar("sessionKey", { length: 96 }).notNull(),
+  userId: int("userId").notNull(),
+  eventType: varchar("eventType", { length: 64 }).notNull(),
+  status: varchar("status", { length: 32 }).default("COMPLETED").notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  message: text("message").notNull(),
+  transactionCode: varchar("transactionCode", { length: 80 }),
+  amountMinor: int("amountMinor"),
+  asset: varchar("asset", { length: 32 }),
+  metadataJson: text("metadataJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const consoleActivityPhrases = mysqlTable("console_activity_phrases", {
+  id: int("id").autoincrement().primaryKey(),
+  category: varchar("category", { length: 48 }).notNull(),
+  phraseTemplate: varchar("phraseTemplate", { length: 500 }).notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

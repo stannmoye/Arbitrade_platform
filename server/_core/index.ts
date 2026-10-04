@@ -8,12 +8,13 @@ import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { sdk } from "./sdk";
-import { createLocalCustomer, getUserByEmail } from "../db";
+import { createLocalCustomer, getUserByEmail, runAutoTradeCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
 import { getTicketUploadPolicy } from "../db";
 import { serveStatic, setupVite } from "./vite";
+import { openTransactionConsoleSession } from "../transactionConsole";
 
 async function startServer() {
   const app = express();
@@ -31,6 +32,7 @@ async function startServer() {
       if (typeof email !== "string" || typeof password !== "string" || password.length < 12) return res.status(400).json({ error: "Use an email and a password of at least 12 characters" });
       const user = await createLocalCustomer({ email, passwordHash: passwordHash(password), name: `${firstName || ""} ${lastName || ""}`.trim() || email });
       setLocalSession(req, res, user);
+      await openTransactionConsoleSession(req, res, user.id);
       return res.json({ user });
     } catch (error) {
       return res.status(400).json({ error: error instanceof Error ? error.message : "Unable to register" });
@@ -42,6 +44,7 @@ async function startServer() {
       const user = await getUserByEmail(String(email || ""));
       if (!user || user.role !== "user" || !verifyPassword(String(password || ""), user.passwordHash)) return res.status(401).json({ error: "Invalid email or password" });
       setLocalSession(req, res, user);
+      await openTransactionConsoleSession(req, res, user.id);
       return res.json({ user });
     } catch {
       return res.status(503).json({ error: "Authentication service is not configured. Configure DATABASE_URL and run the migrations." });
@@ -53,6 +56,7 @@ async function startServer() {
       const user = await getUserByEmail(String(email || ""));
       if (!user || user.role !== "admin" || !verifyPassword(String(password || ""), user.passwordHash)) return res.status(401).json({ error: "Invalid administrator credentials" });
       setLocalSession(req, res, user);
+      await openTransactionConsoleSession(req, res, user.id);
       return res.json({ user });
     } catch {
       return res.status(503).json({ error: "Authentication service is not configured. Configure DATABASE_URL and run the migrations." });
@@ -98,6 +102,9 @@ async function startServer() {
 
   const port = Number(process.env.PORT || "3000");
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
+  const autoTradeTimer = setInterval(() => { void runAutoTradeCycle(); }, 30_000);
+  autoTradeTimer.unref();
+  void runAutoTradeCycle();
   server.on("error", error => { console.error("Server failed:", error.message); process.exit(1); });
   server.listen(port, "0.0.0.0", () => console.log(`Server listening on port ${port}`));
 }
