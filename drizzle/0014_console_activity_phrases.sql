@@ -137,5 +137,5 @@ INSERT INTO `console_activity_phrases` (`category`,`phraseTemplate`) VALUES
 ('LIFECYCLE','Trade confirmation channel is listening for a verified application event.'),
 ('LIFECYCLE','Fee schedule lookup is complete; no fee is posted without a configured rule.'),
 ('LIFECYCLE','Debit and credit controls are separated from telemetry output.'),
-('LIFECYCLE','The console is holding simulated telemetry until a real transaction arrives.'),
+('LIFECYCLE','The processing stream is holding position until a confirmed ledger event arrives.'),
 ('LIFECYCLE','Actual transaction events take priority over every system activity message.');
