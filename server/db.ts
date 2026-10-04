@@ -97,6 +97,10 @@ export async function getUserByEmail(email: string) {
   const db = await getDb(); if (!db) throw new Error("Database is not available");
   return (await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1))[0] ?? null;
 }
+export async function getUserById(id: number) {
+  const db = await getDb(); if (!db) throw new Error("Database is not available");
+  return (await db.select().from(users).where(eq(users.id, id)).limit(1))[0] ?? null;
+}
 export async function createLocalCustomer(input: { email: string; passwordHash: string; name: string }) {
   const db = await getDb(); if (!db) throw new Error("Database is not available");
   const email = input.email.toLowerCase();
