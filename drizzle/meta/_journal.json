@@ -71,6 +71,13 @@
       "when": 1791110831533,
       "tag": "0009_customer_opportunity_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1791112000000,
+      "tag": "0010_support_categories",
+      "breakpoints": true
     }
   ]
 }
