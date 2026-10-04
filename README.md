@@ -1,147 +1,74 @@
-# Arbitrade Crypto Opportunity Platform
+# Arbitrade Platform
 
-This repository contains the first safe prototype slice of Arbitrade: a premium simulated-funds market intelligence workspace with customer and admin views.
+Arbitrade is a Node.js/Express and React customer-and-operations platform for database-backed opportunity workflows, wallets, immutable ledger records, reporting, support, and administration.
 
-## Included in this build
+## Production requirements
 
-- Midnight Ledger dashboard UI
-- Simulated USD, EUR, GBP, BTC, ETH balances
-- Total, available, locked, pending, invested-style and earned-style views
-- Opportunity radar with spread, capacity, freshness, risk and stress-case details
-- Reservation modal with explicit simulated allocation and no-guarantee disclosure
-- Five admin-gated participation modules: swaps, token launches, protocol rewards, liquidity pools, and referral rewards
-- Admin feature registry with enable/disable toggles
-- Customer access and fund restriction controls
-- Demo-mode environment controls
-- Activity and notification centre
-- Responsive layout and reduced-motion support
-- Project-specific logo at `client/public/arbitrade-mark.svg`
-- Product/engineering specification at `docs/arbitrade-platform-spec.md`
+- Node.js 20+ (22 recommended)
+- pnpm 10.18
+- MySQL 8-compatible or MariaDB database
+- HTTPS
+- SMTP or an approved email provider
+- cPanel Setup Node.js App or a VPS
 
-## Run locally
+The application does not ship default users, default passwords, demo seed data, or client-only authentication fallbacks.
+
+## Local development
 
 ```bash
 pnpm install
+cp .env.example .env
 pnpm check
+pnpm test
 pnpm dev
 ```
 
-The app runs on port 3000 by default. All balances and actions are simulated. This prototype does not accept real deposits, connect live custody, place live trades, or process live cards/bank transfers.
+Set `DATABASE_URL`, `SESSION_SECRET`, and `PASSWORD_PEPPER` before using authentication. Do not commit `.env`.
 
-## Build
+## Production build
 
 ```bash
+pnpm install --frozen-lockfile
+pnpm db:migrate
 pnpm build
+ADMIN_EMAIL=admin@your-domain.example ADMIN_PASSWORD='use-a-new-12-character-password' pnpm admin:create
 pnpm start
 ```
 
-## Production boundary
+The administrator command stores a salted scrypt hash in MySQL and does not store the plaintext password.
 
-Before adding real money movement, integrate only through approved and regulated payment, custody, banking, exchange, KYC/AML, and blockchain providers. Add legal and compliance review, ledger reconciliation, independent security testing, and jurisdiction-specific customer disclosures first. Never present simulated or estimated outcomes as guaranteed returns.
+## cPanel deployment
 
-## Production-shaped hosted test mode
+Follow [`cpanel/README.md`](cpanel/README.md). Configure the Node application startup file as `dist/index.js`, keep `.env` outside the public document root, and use cPanel Cron for authenticated scheduled work. PHP-only hosting cannot run this Express application.
 
-The application exposes separate test portals:
+## Main routes
 
-- `/` — customer signup/login entry
-- `/customer` — customer portal
-- `/ops-console-7f3a` — unlisted admin operations portal
+- `/` — workspace gateway
+- `/customer` — database-authenticated customer portal
+- `/ops-console-7f3a` — database-authenticated administrator portal
+- `/api/health` — health check
 
-### Seeded test accounts
+## Database and security
 
-- Customer: `customer@arbitrade.test` — Pro package, Growth group
-- Admin: use the seeded hosted test credentials supplied in the test handoff
-- Additional seeded customers are visible in the admin portal: Amelia Stone and Noah Wilson.
+Customer and administrator accounts, roles, packages, opportunities, balances, ledger entries, support tickets, notifications, and operational settings are stored in MySQL. Local passwords use salted scrypt hashes; sessions are signed, httpOnly cookies. Financial values use decimal-safe server-side rules and immutable ledger records.
 
-### Customer portal capabilities
+Before production launch, configure HTTPS, SMTP, rate limiting, CSRF protections appropriate to the deployment, admin 2FA, backups, reconciliation, and provider secrets through the host environment.
 
-- Package-filtered opportunity feed
-- Configurable opportunity popups and sound preference
-- Persistent notification inbox
-- Wallet and cash views
-- Mock deposit and withdrawal workflows
-- Activity stream
-- Trade-limit visibility
-- Pro package entitlement display
+## Financial safety boundary
 
-### Admin portal capabilities
+The product is production-deployable, but real-money execution and verified returns are blocked until a named, approved execution/settlement mechanism is configured and independently verified. Until then, opportunities must be classified as Practice, Simulation, or Research. The application must not credit configured estimates as real profit or present simulated balances as withdrawable funds.
 
-- Customer groups and package overview
-- Global opportunity-rate ceiling
-- Starter, Growth, Pro and Institutional package policies
-- Per-customer KYC, withdrawal, 2FA and facial-verification toggles
-- Per-customer activity and trade-limit views
-- Provider/API registry
-- Mock adapter health states
-- Audit-log view
-- Production-shaped dual-approval and immutable-audit guidance
+## OAuth and email
 
-This is a production-shaped test environment, not a live financial deployment. Provider names such as MockPay, MockBank, MockKYC, MockExchange and MockChain are intentionally simulated. No real funds, custody, bank accounts, card networks, identity documents, blockchain transactions or withdrawals are connected.
-
-## Customer onboarding and authentication
-
-The customer route starts at a signup/sign-in experience. Sign-up offers Google, Microsoft and email methods. Google and Microsoft now start server-side provider OAuth when credentials have been configured; after callback the customer completes the same profile fields: first name, last name, address, country, phone and mobile phone. Email registration also requires a password with a 12-character strength hint.
-
-Each onboarding session generates a customer account number in the format `ARB-########`, displays it before portal access and provides a copy action. The screen also includes consent capture, email-verification readiness, 2FA readiness, device-alert readiness, password visibility control and a customer-safe test-account notice.
-
-## Live Google/Microsoft sign-in and guided installation
-
-The customer provider buttons use these real server-side routes when configured:
-
-- `GET /api/oauth/google/start` and `GET /api/oauth/google/callback`
-- `GET /api/oauth/microsoft/start` and `GET /api/oauth/microsoft/callback`
-
-The implementation uses authorization-code + PKCE, an httpOnly state cookie for CSRF protection, server-only client secrets, provider profile retrieval, the existing user upsert, and the existing session-cookie mechanism. The customer is returned to profile completion after identity authentication. Missing credentials return a clear configuration response rather than exposing secrets or pretending the provider is active.
-
-### Installer assets
-
-- `.env.example` — server-only configuration reference
-- `installer/index.php` — temporary visual configuration wizard
-- `installer/install.sh` — CLI dependency preflight, locked install, database migration and optional demo seed
-- `installer/demo.sql` — explicit test-only demo users
-- `installer/README.md` — provider-console and hosting instructions
-- `plan.md` — implementation and deployment plan
-
-The installer asks for the public URL, database credentials, Google and Microsoft credentials, SendGrid/SMTP credentials, 2FA policy, and initial admin email/password. It writes `.env` atomically with restrictive permissions and can create the database when the supplied database user has permission.
-
-**Important:** PHP-only shared hosting cannot run this Express/React application. Use a VPS or a Node-compatible shared host. The installer does not execute package managers from a browser request; dependency installation is an explicit shell operation. Remove or rename the installer after setup and block access to `.env`.
-
-Register these exact provider redirect URIs for an installation at `https://YOUR_DOMAIN`:
+OAuth callback URLs:
 
 ```text
 https://YOUR_DOMAIN/api/oauth/google/callback
 https://YOUR_DOMAIN/api/oauth/microsoft/callback
 ```
 
-OAuth configuration is live-capable, but balances, opportunities, deposits, withdrawals, and earnings remain simulated until separately integrated with regulated providers and a production ledger.
+Keep OAuth client secrets and SMTP credentials server-side. Configure SPF, DKIM, DMARC, sender verification, and failure/retry handling.
 
-## Authenticated customer workflows
+## Recovery
 
-The customer `/customer` route now uses the platform's real Manus-authenticated application session rather than the former client-only test gate. The Power tools area includes:
-
-- Account-linked session registration and device revocation using request metadata; no hard-coded UK location.
-- Persisted risk-report requests routed to the admin operations surface.
-- Persisted support tickets with priority, status, thread messages, admin replies, and customer notifications.
-- Support attachments uploaded through an authenticated managed-storage presign endpoint and indexed in `support_attachments`.
-- Browser notification chimes after successful customer ticket submission and admin replies.
-
-The additive migration is `drizzle/0001_silent_tinkerer.sql`.
-
-### Production configuration boundary
-
-This change removes the fake session identity and client-only risk/ticket state. It does **not** invent live market, exchange, custody, banking, email, or push-notification credentials. Live investment opportunity data, real money movement, and external customer email require separately configured regulated providers and protected secrets. The managed storage presign endpoint returns a configuration error until the runtime storage capability is available.
-
-
-## Controlled opportunity engine
-
-The application now includes an administrator-controlled opportunity ledger with:
-
-- Signup promotional credit configured from the admin opportunity-engine screen.
-- Promotional credit tracked separately and marked non-withdrawable.
-- Administrator-configurable popup frequency and submission countdown.
-- Published opportunity windows with symbol, venues, currency, minimum amount, expected reward basis points, duration, close time, and reward time.
-- Customer balances, immutable ledger entries, trade reservations, and settlement records.
-- Centered browser popup alerts with automatic fade/dismiss behavior and an optional notification chime.
-- Final confirmation before reserving an amount from available balance.
-
-This is an internal ledger workflow. It does **not** place real stock or cryptocurrency orders, custody assets, or guarantee returns. Real execution requires licensed market-data, brokerage/exchange, custody, payments, AML/KYC, disclosures, and jurisdictional approvals.
+Back up MySQL before migrations. Restore the database first, run forward migrations only, reconcile stored balances against the immutable ledger, retry incomplete jobs idempotently, and then restart the Node application.

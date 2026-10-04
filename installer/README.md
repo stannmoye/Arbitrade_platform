@@ -1,43 +1,32 @@
-# Arbitrade guided installer
+# Arbitrade production installer
 
 ## Supported deployment targets
 
-- **VPS / Node-compatible host:** supported. Use the visual wizard to create `.env`, then run `./installer/install.sh --seed-demo`.
-- **Node-compatible shared hosting:** supported only when the host provides Node.js 22+, persistent application startup or a managed Node app, MySQL access, and HTTPS.
-- **PHP-only shared hosting:** not supported for the Express application. The PHP wizard can collect configuration and create the environment file, but it cannot turn a PHP-only host into a Node runtime. Ask the host for Node support or use a VPS.
+- **cPanel Node.js application:** supported when the host provides Node.js 20+, MySQL/MariaDB, HTTPS, cron, and an application runner.
+- **VPS / Node-compatible host:** supported with Node.js 20+, pnpm 10.18, MySQL/MariaDB, HTTPS, cron, and SMTP/API access.
+- **PHP-only hosting:** not supported for the Express application. Use cPanel Setup Node.js App or a VPS.
 
-## Wizard
+## Production installation
 
-1. Copy the project to the server.
-2. Point a temporary protected URL at `installer/index.php`.
-3. Enter the public HTTPS URL, database credentials, OAuth credentials, email provider, 2FA policy, and initial admin email.
-4. The wizard tests/creates the database when the database user has permission, writes `.env` atomically, and applies restrictive file permissions.
-5. On the server shell run `./installer/install.sh --seed-demo`.
-6. Remove or rename `installer/index.php`, remove `installer/.installed`, and deny web access to `.env`.
-7. Run `pnpm build && pnpm start` behind a reverse proxy with TLS, or configure the host's Node application runner.
+1. Create a dedicated MySQL database and database user.
+2. Copy `.env.example` to `.env` and set `DATABASE_URL`, `SESSION_SECRET`, `PASSWORD_PEPPER`, `PUBLIC_APP_URL`, and email/provider settings.
+3. Protect `.env` (`chmod 600 .env`) and keep it outside the public web root.
+4. Run `./installer/install.sh` or the commands in `cpanel/README.md`.
+5. Provision the first administrator privately:
 
-The browser wizard must not be granted permission to run `apt`, `pnpm`, `npm`, or arbitrary shell commands. Dependency installation stays in the explicit CLI script.
+```bash
+ADMIN_EMAIL=admin@your-domain.example ADMIN_PASSWORD='use-a-new-12-character-password' pnpm admin:create
+```
 
-## Google Cloud setup
+6. Remove or protect `installer/index.php` after configuration. Never expose the installer publicly.
+7. Start the application with `pnpm start` through the cPanel Node application runner or a reverse proxy.
 
-Create an OAuth client for a Web application. Add the exact redirect URI:
+The installer does not create demo users, import demo data, or provide default credentials.
 
-`https://YOUR_DOMAIN/api/oauth/google/callback`
+## OAuth and email
 
-Enable OpenID Connect, email, and profile scopes. Put the client ID and secret into the wizard. Do not commit them.
+OAuth callback URLs are `/api/oauth/google/callback` and `/api/oauth/microsoft/callback`. Store all client secrets and SMTP credentials in `.env` or the cPanel environment settings. Configure SPF, DKIM, and DMARC for the production sender.
 
-## Microsoft Entra setup
+## Financial safety boundary
 
-Register a Web platform redirect URI:
-
-`https://YOUR_DOMAIN/api/oauth/microsoft/callback`
-
-Use the common tenant for multi-tenant sign-in or replace the authority with a tenant-specific authority in `providerOAuth.ts`. Grant `openid`, `profile`, `email`, and the minimum required Microsoft Graph permissions. Create a client secret with the shortest practical expiry and rotate it.
-
-## Email
-
-Use either SendGrid or an SMTP relay. Configure SPF, DKIM, DMARC, a verified sender, and bounce handling. Never use a personal mailbox password. Keep API keys and SMTP passwords in `.env` or the host's secret manager.
-
-## Important production boundary
-
-This installer configures real identity-provider login only. The current Arbitrade balances, opportunities, deposits, withdrawals, and earnings remain simulated. Live money movement requires separate regulated payment/custody/KYC/AML integrations, server-side ledger controls, audit logging, reconciliation, and legal review.
+The application is production-deployable, but real-money execution and verified returns require a real, approved execution and settlement integration. Until that provider is configured, opportunities must remain clearly classified as Practice, Simulation, or Research and must not be presented as live execution or withdrawable returns.

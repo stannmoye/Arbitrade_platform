@@ -1,36 +1,46 @@
-# Arbitrade V5 Deployment and Recovery
+# Arbitrade production deployment and recovery
 
-## Runtime boundary
-The V5 application is practice/simulation/research-only until a named, verifiable execution and settlement provider is configured. No seed balance or configured profit is withdrawable or presented as a real return.
+## Runtime
 
-## Container
-- Node.js 22 and pnpm 10.18.
-- `DATABASE_URL` is required at runtime for persistent data.
-- `MANUS_PROJECT_ID`, `MANUS_JWT_SECRET`, and `MANUS_OAUTH_API_URL` remain server-only.
-- `PORT` defaults to 3000.
-- Health check: `GET /api/health`.
+- Node.js 20+ (Node.js 22 recommended)
+- pnpm 10.18
+- MySQL 8-compatible or MariaDB database
+- HTTPS and secure cookies
+- cPanel Setup Node.js App or a VPS process manager
+- cPanel Cron or an equivalent UTC scheduler
+- SMTP/API credentials stored as server-side environment variables
 
-## Migrations and seed
-1. Back up the MySQL database.
-2. Run the additive Drizzle migration set, including `drizzle/0005_v5_foundation.sql`.
-3. Verify migration completion and run ledger/balance reconciliation.
-4. Only in a non-production environment, run `installer/v5-practice-seed.sql`.
-5. Never run practice seed data against a live-money database.
+Required environment variables are documented in `.env.example`. `DATABASE_URL`, `SESSION_SECRET`, and `PASSWORD_PEPPER` are mandatory for production.
 
-## Scheduled endpoints
-- `POST /api/scheduled/daily-reports` — generate reports after each customer's local reporting day closes.
-- `POST /api/scheduled/email-queue` — process queued email jobs with idempotent retries.
-- `POST /api/scheduled/reconcile` — compare stored wallet balances with immutable ledger totals.
-- `POST /api/scheduled/settlements` — settle eligible practice/simulation investments exactly once.
+## Database setup
 
-Use UTC cron and inspect each customer's timezone boundary inside the handler. A failed job must remain visible and retryable.
+1. Create a dedicated database and least-privilege application user.
+2. Back up the database before applying migrations.
+3. Run `pnpm db:migrate`.
+4. Provision an administrator using `pnpm admin:create` with `ADMIN_EMAIL` and `ADMIN_PASSWORD` supplied only in the private server shell.
+5. Verify `/api/health`, customer registration, customer login, administrator login, and role-protected procedures.
 
-## cPanel/shared hosting
-Required capabilities: Node.js 22+, MySQL 8-compatible database, HTTPS, writable application storage or object storage, cron, outbound HTTPS, and SMTP/API credentials. PHP-only hosting cannot run the Express server. Use a reverse proxy or the host's Node application runner, protect `.env`, and remove/rename the installer after setup.
+No demo users, default passwords, or development seed data are shipped or imported by the production installer.
+
+## cPanel
+
+Follow [`cpanel/README.md`](../cpanel/README.md). Set the Node application startup file to `dist/index.js`, keep `.env` outside the public document root, and run `pnpm build` after installing dependencies and applying migrations.
+
+PHP-only hosting cannot run this Express application. A cPanel account must provide the Node.js application runner.
+
+## Scheduled work
+
+Use authenticated UTC cron jobs for daily reports, queued email, wallet reconciliation, and settlement processing. A failed job must remain visible and retryable. Scheduled handlers must be idempotent and must never repeat a completed financial operation.
+
+## Financial safety boundary
+
+The application is production-deployable, but real-money execution and verified returns are **blocked** until a named, approved execution/settlement provider supplies verifiable results. Before that integration exists, opportunities must be classified as Practice, Simulation, or Research; no configured rate may be credited as real profit and no simulated balance may be presented as withdrawable funds.
 
 ## Recovery
-- Restore the latest database backup before application files.
-- Run migrations forward; never rewrite ledger history.
-- Reconcile stored balances against ledger totals.
-- Mark incomplete jobs for idempotent retry.
-- Keep live-money execution disabled until provider state and settlement results are verified.
+
+1. Stop the Node application.
+2. Restore the latest verified database backup.
+3. Run forward migrations only; never rewrite immutable ledger history.
+4. Reconcile stored wallet balances against ledger totals.
+5. Mark incomplete jobs for idempotent retry.
+6. Restart the application and verify health, authentication, authorization, reports, and email queue status.
