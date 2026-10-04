@@ -132,6 +132,7 @@ export const customerBalances = mysqlTable("customer_balances", {
   userId: int("userId").notNull(),
   currency: varchar("currency", { length: 12 }).notNull(),
   availableMinor: int("availableMinor").default(0).notNull(),
+  lockedMinor: int("lockedMinor").default(0).notNull(),
   promotionalMinor: int("promotionalMinor").default(0).notNull(),
   earnedMinor: int("earnedMinor").default(0).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -452,4 +453,81 @@ export const v5FailedJobs = mysqlTable("v5_failed_jobs", {
   status: mysqlEnum("status", ["FAILED", "RETRYING", "COMPLETED"]).default("FAILED").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const stakeProducts = mysqlTable("stake_products", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 160 }).notNull().unique(),
+  category: mysqlEnum("category", ["CORE_STAKING", "LIQUIDITY", "LENDING", "RESTAKING", "YIELD", "RWA"]).notNull(),
+  asset: varchar("asset", { length: 32 }).notNull(),
+  annualRateBps: int("annualRateBps").notNull(),
+  durationDays: int("durationDays").notNull(),
+  minMinor: int("minMinor").notNull(),
+  maxMinor: int("maxMinor").notNull(),
+  rewardFrequency: mysqlEnum("rewardFrequency", ["DAILY", "WEEKLY", "MONTHLY"]).notNull(),
+  lockDays: int("lockDays").notNull(),
+  riskLevel: mysqlEnum("riskLevel", ["LOW", "MODERATE", "ELEVATED", "HIGH"]).notNull(),
+  status: mysqlEnum("status", ["AVAILABLE", "PAUSED"]).default("AVAILABLE").notNull(),
+  supportsCompounding: boolean("supportsCompounding").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const stakePositions = mysqlTable("stake_positions", {
+  id: int("id").autoincrement().primaryKey(),
+  positionCode: varchar("positionCode", { length: 40 }).notNull().unique(),
+  userId: int("userId").notNull(),
+  productId: int("productId").notNull(),
+  asset: varchar("asset", { length: 32 }).notNull(),
+  principalMinor: int("principalMinor").notNull(),
+  rewardMinor: int("rewardMinor").default(0).notNull(),
+  rewardCount: int("rewardCount").default(0).notNull(),
+  status: mysqlEnum("status", ["PENDING", "PROCESSING", "ACTIVE", "REWARD_ACCRUING", "SETTLING", "COMPLETED", "FAILED", "CANCELLED"]).default("PENDING").notNull(),
+  openedAt: timestamp("openedAt").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  maturityAt: timestamp("maturityAt").notNull(),
+  completedAt: timestamp("completedAt"),
+  nextRewardAt: timestamp("nextRewardAt"),
+  originalLedgerReference: varchar("originalLedgerReference", { length: 160 }).notNull(),
+});
+
+export const stakeTransactions = mysqlTable("stake_transactions", {
+  id: int("id").autoincrement().primaryKey(),
+  transactionCode: varchar("transactionCode", { length: 48 }).notNull().unique(),
+  userId: int("userId").notNull(),
+  positionId: int("positionId").notNull(),
+  type: varchar("type", { length: 48 }).notNull(),
+  amountMinor: int("amountMinor").notNull(),
+  asset: varchar("asset", { length: 32 }).notNull(),
+  status: varchar("status", { length: 32 }).notNull(),
+  ledgerReference: varchar("ledgerReference", { length: 160 }).notNull(),
+  idempotencyKey: varchar("idempotencyKey", { length: 160 }).notNull().unique(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  completedAt: timestamp("completedAt"),
+});
+
+export const stakeRewards = mysqlTable("stake_rewards", {
+  id: int("id").autoincrement().primaryKey(),
+  positionId: int("positionId").notNull(),
+  userId: int("userId").notNull(),
+  amountMinor: int("amountMinor").notNull(),
+  asset: varchar("asset", { length: 32 }).notNull(),
+  status: mysqlEnum("status", ["CALCULATED", "VALIDATED", "APPROVED", "POSTED", "FAILED"]).notNull(),
+  calculatedAt: timestamp("calculatedAt").notNull(),
+  postedAt: timestamp("postedAt"),
+  ledgerReference: varchar("ledgerReference", { length: 160 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const stakeEvents = mysqlTable("stake_events", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  positionId: int("positionId").notNull(),
+  eventType: varchar("eventType", { length: 80 }).notNull(),
+  previousState: varchar("previousState", { length: 40 }).notNull(),
+  newState: varchar("newState", { length: 40 }).notNull(),
+  amountMinor: int("amountMinor").default(0).notNull(),
+  asset: varchar("asset", { length: 32 }).notNull(),
+  metadataJson: text("metadataJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
