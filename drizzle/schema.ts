@@ -135,6 +135,21 @@ export const customerBalances = mysqlTable("customer_balances", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const currencyRegistry = mysqlTable("currency_registry", {
+  id: int("id").autoincrement().primaryKey(),
+  code: varchar("code", { length: 32 }).notNull().unique(),
+  name: varchar("name", { length: 120 }).notNull(),
+  symbol: varchar("symbol", { length: 16 }).notNull(),
+  scale: int("scale").default(2).notNull(),
+  assetType: mysqlEnum("assetType", ["fiat", "crypto", "token"]).default("fiat").notNull(),
+  usdRate: varchar("usdRate", { length: 64 }).default("1").notNull(),
+  rateProvider: varchar("rateProvider", { length: 120 }).default("manual").notNull(),
+  externalCode: varchar("externalCode", { length: 80 }),
+  enabled: boolean("enabled").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export const balanceLedger = mysqlTable("balance_ledger", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
