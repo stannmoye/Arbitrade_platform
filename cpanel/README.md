@@ -18,10 +18,14 @@ From the Node application terminal:
 pnpm install --frozen-lockfile
 pnpm db:migrate
 pnpm build
-ADMIN_EMAIL=admin@your-domain.example ADMIN_PASSWORD='use-a-new-12-character-password' node installer/create-admin.mjs
+ADMIN_EMAIL=admin@your-domain.example ADMIN_PASSWORD='use-a-new-12-character-password' \
+CUSTOMER_EMAIL=customer@your-domain.example CUSTOMER_PASSWORD='use-a-different-12-character-password' \
+pnpm accounts:provision
 ```
 
-Run the administrator command only through the private cPanel terminal. The password is hashed with scrypt and is never stored in the repository.
+Run the provisioning command only through the private cPanel terminal. It creates or updates one administrator row and one customer row in `users`. Passwords are salted and hashed with scrypt and are never stored in the repository or `.env`.
+
+The command prints the account email addresses only. Keep the two passwords in your private password manager and change them after the first login if they were used as temporary onboarding credentials.
 
 ## 3. Start and verify
 
