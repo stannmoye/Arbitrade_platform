@@ -31,11 +31,13 @@ Set `DATABASE_URL`, `SESSION_SECRET`, and `PASSWORD_PEPPER` before using authent
 pnpm install --frozen-lockfile
 pnpm db:migrate
 pnpm build
-ADMIN_EMAIL=admin@your-domain.example ADMIN_PASSWORD='use-a-new-12-character-password' pnpm admin:create
+ADMIN_EMAIL=admin@your-domain.example ADMIN_PASSWORD='use-a-new-12-character-password' \
+CUSTOMER_EMAIL=customer@your-domain.example CUSTOMER_PASSWORD='use-a-different-12-character-password' \
+pnpm accounts:provision
 pnpm start
 ```
 
-The administrator command stores a salted scrypt hash in MySQL and does not store the plaintext password.
+The provisioning command creates both required accounts in MySQL, stores salted scrypt hashes, and never stores plaintext passwords in the repository.
 
 ## cPanel deployment
 
