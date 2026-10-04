@@ -5,6 +5,7 @@ import mysql from "mysql2/promise";
 export const TRANSACTION_CONSOLE_COOKIE = "arbitrade_transaction_console";
 const SESSION_TTL_SECONDS = 60 * 60 * 24;
 const REAL_TRANSACTION_PAUSE_MS = 12_000;
+const MAX_CONSOLE_EVENTS = 240;
 
 type ProcessingOutcome = "COMPLETED" | "FAILED" | "STALLED" | "PROCESSING" | "DELAYED";
 
@@ -73,6 +74,14 @@ async function withConnection<T>(fn: (connection: mysql.PoolConnection) => Promi
   try { return await fn(connection); } finally { connection.release(); await pool.end(); }
 }
 
+async function pruneConsoleEvents(connection: mysql.PoolConnection, userId: number, sessionKey: string) {
+  const [overflow] = await connection.query<any[]>("SELECT id FROM transaction_console_events WHERE userId=? AND sessionKey=? ORDER BY id DESC LIMIT 100000 OFFSET ?", [userId, sessionKey, MAX_CONSOLE_EVENTS]);
+  if (overflow.length) {
+    const placeholders = overflow.map(() => "?").join(",");
+    await connection.query(`DELETE FROM transaction_console_events WHERE id IN (${placeholders})`, overflow.map(row => row.id));
+  }
+}
+
 function readCookie(req: Request) {
   return req.headers.cookie?.match(new RegExp(`(?:^|;\\s*)${TRANSACTION_CONSOLE_COOKIE}=([^;]+)`))?.[1];
 }
@@ -105,6 +114,7 @@ export async function recordTransactionConsoleEvent(userId: number, req: Request
       if (existing.length) return;
     }
     await connection.execute("INSERT INTO transaction_console_events (sessionKey,userId,eventType,status,title,message,transactionCode,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?,?,?)", [sessionKey, userId, input.eventType, input.status || "COMPLETED", input.title, input.message, input.transactionCode || null, input.amountMinor ?? null, input.asset || null, JSON.stringify(input.metadata || {})]);
+    await pruneConsoleEvents(connection, userId, sessionKey);
   });
 }
 
@@ -140,6 +150,7 @@ export async function recordTransactionConsolePulse(userId: number, req: Request
     const selected = outcomeCopy[outcome.status];
     const message = selected.prefix + messageBase;
     await connection.execute("INSERT INTO transaction_console_events (sessionKey,userId,eventType,status,title,message,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)", [sessionKey, userId, "SYSTEM_ACTIVITY", outcome.status, selected.title, message, context.asset, JSON.stringify({ phraseId: phrases[0].id, category: phrases[0].category, generatedAt: new Date().toISOString(), sequence: context.sequence, source: "database_phrase_catalog", probabilityBands: outcome.probabilities, calculationMethod: outcome.method, calculationInputs: { offers: context.offers, investors: context.investors, rate: context.rate, previousStatus: previousRows[0]?.status || null } })]);
+    await pruneConsoleEvents(connection, userId, sessionKey);
     return { inserted: true, paused: false, eventType: "SYSTEM_ACTIVITY", status: outcome.status, probabilities: outcome.probabilities };
   });
 }
@@ -148,7 +159,7 @@ export async function listTransactionConsoleEvents(userId: number, req: Request)
   const sessionKey = readCookie(req);
   if (!sessionKey) return [];
   return withConnection(async connection => {
-    const [rows] = await connection.query<any[]>("SELECT id,eventType,status,title,message,transactionCode,amountMinor,asset,metadataJson,createdAt FROM transaction_console_events WHERE userId=? AND sessionKey=? ORDER BY id ASC LIMIT 500", [userId, sessionKey]);
+    const [rows] = await connection.query<any[]>("SELECT id,eventType,status,title,message,transactionCode,amountMinor,asset,metadataJson,createdAt FROM transaction_console_events WHERE userId=? AND sessionKey=? ORDER BY id ASC LIMIT ?", [userId, sessionKey, MAX_CONSOLE_EVENTS]);
     return rows;
   });
 }
