@@ -64,6 +64,13 @@
       "when": 1791107700180,
       "tag": "0008_currency_registry",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1791110831533,
+      "tag": "0009_customer_opportunity_visibility",
+      "breakpoints": true
     }
   ]
 }

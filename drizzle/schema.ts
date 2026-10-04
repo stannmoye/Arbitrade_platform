@@ -33,6 +33,7 @@ export const customerControls = mysqlTable("customer_controls", {
   userId: int("userId").notNull().unique(),
   accountStatus: mysqlEnum("accountStatus", ["active", "suspended", "restricted"]).default("active").notNull(),
   tradingEnabled: boolean("tradingEnabled").default(true).notNull(),
+  opportunitiesEnabled: boolean("opportunitiesEnabled").default(true).notNull(),
   withdrawalsEnabled: boolean("withdrawalsEnabled").default(false).notNull(),
   kycRequired: boolean("kycRequired").default(true).notNull(),
   twoFactorRequired: boolean("twoFactorRequired").default(false).notNull(),
