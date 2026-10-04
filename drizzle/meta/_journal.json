@@ -36,6 +36,20 @@
       "when": 1791014643235,
       "tag": "0004_legal_bloodscream",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1791103589960,
+      "tag": "0005_v5_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1791103589961,
+      "tag": "0006_v5_reporting_jobs",
+      "breakpoints": true
     }
   ]
 }

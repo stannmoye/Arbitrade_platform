@@ -40,7 +40,7 @@ export const appRouter = router({
     balances: protectedProcedure.query(({ ctx }) => listBalances(ctx.user.id)),
     opportunities: protectedProcedure.query(({ ctx }) => listCustomerOpportunities(ctx.user.id)),
     trades: protectedProcedure.query(async ({ ctx }) => { const rows=await listTrades(ctx.user.id); for (const row of rows) if (row.status === "confirmed" && new Date(row.settlesAt).getTime() <= Date.now()) await settleTrade(row.id); return listTrades(ctx.user.id); }),
-    invest: protectedProcedure.input(z.object({ offerId: z.number().int().positive(), amountMinor: z.number().int().positive() })).mutation(async ({ ctx, input }) => { const result=await createTrade(ctx.user.id,input); await createNotification(ctx.user.id,"Trade confirmed",`Your ${result.currency} opportunity allocation is confirmed. Reward settlement is scheduled.`); return result; }),
+    invest: protectedProcedure.input(z.object({ offerId: z.number().int().positive(), amountMinor: z.number().int().positive() })).mutation(async ({ ctx, input }) => { const result=await createTrade(ctx.user.id,input); await createNotification(ctx.user.id,"Practice allocation recorded",`Your ${result.currency} allocation is recorded in practice mode. No configured reward is credited without a verified execution result.`); return result; }),
     settle: protectedProcedure.input(z.object({ tradeId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { const rows=await listTrades(ctx.user.id); if(!rows.some(row=>row.id===input.tradeId)) throw new Error("Trade not found"); return { settled: await settleTrade(input.tradeId) }; }),
     notifications: protectedProcedure.query(({ ctx }) => listNotifications(ctx.user.id)),
   }),
