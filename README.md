@@ -39,6 +39,8 @@ pnpm start
 
 The provisioning command creates both required accounts in MySQL, stores salted scrypt hashes, and never stores plaintext passwords in the repository.
 
+Migration `0006_v5_reporting_jobs.sql` adds customer reporting-timezone history, daily-report preferences, failed-job visibility, and the customer/reporting-day uniqueness invariant. Back up MySQL before applying it and reconcile wallet balances afterward.
+
 ## cPanel deployment
 
 Follow [`cpanel/README.md`](cpanel/README.md). Configure the Node application startup file as `dist/index.js`, keep `.env` outside the public document root, and use cPanel Cron for authenticated scheduled work. PHP-only hosting cannot run this Express application.
@@ -55,6 +57,8 @@ Follow [`cpanel/README.md`](cpanel/README.md). Configure the Node application st
 Customer and administrator accounts, roles, packages, opportunities, balances, ledger entries, support tickets, notifications, and operational settings are stored in MySQL. Local passwords use salted scrypt hashes; sessions are signed, httpOnly cookies. Financial values use decimal-safe server-side rules and immutable ledger records.
 
 Before production launch, configure HTTPS, SMTP, rate limiting, CSRF protections appropriate to the deployment, admin 2FA, backups, reconciliation, and provider secrets through the host environment.
+
+The V5 workflow safety layer blocks `LIVE` execution without a named provider, execution reference, and result-retrieval mechanism. Settlement calculations require a verified provider result reference; configured opportunity estimates are never sufficient.
 
 ## Financial safety boundary
 

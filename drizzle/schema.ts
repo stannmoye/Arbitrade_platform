@@ -22,6 +22,7 @@ export const users = mysqlTable("users", {
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
   passwordHash: varchar("passwordHash", { length: 255 }),
   packageName: varchar("packageName", { length: 40 }).default("Starter").notNull(),
+  reportingTimezone: varchar("reportingTimezone", { length: 80 }),
 });
 
 export type User = typeof users.$inferSelect;
@@ -388,6 +389,34 @@ export const v5EmailJobs = mysqlTable("v5_email_jobs", {
   attempts: int("attempts").default(0).notNull(),
   lastError: text("lastError"),
   idempotencyKey: varchar("idempotencyKey", { length: 160 }).notNull().unique(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const customerTimezoneHistory = mysqlTable("customer_timezone_history", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  timezone: varchar("timezone", { length: 80 }).notNull(),
+  effectiveFrom: timestamp("effectiveFrom").notNull(),
+  effectiveUntil: timestamp("effectiveUntil"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const customerEmailPreferences = mysqlTable("customer_email_preferences", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  dailyTradingReports: boolean("dailyTradingReports").default(true).notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const v5FailedJobs = mysqlTable("v5_failed_jobs", {
+  id: int("id").autoincrement().primaryKey(),
+  jobType: varchar("jobType", { length: 80 }).notNull(),
+  idempotencyKey: varchar("idempotencyKey", { length: 160 }).notNull().unique(),
+  payloadJson: text("payloadJson").notNull(),
+  attempts: int("attempts").default(0).notNull(),
+  lastError: text("lastError").notNull(),
+  status: mysqlEnum("status", ["FAILED", "RETRYING", "COMPLETED"]).default("FAILED").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

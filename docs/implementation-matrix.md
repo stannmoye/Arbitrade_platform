@@ -26,15 +26,15 @@ Status vocabulary is exactly: **EXISTING / CORRECTED / EXTENDED / REBUILT / NEW 
 | Customer navigation | EXISTING → REBUILT | Visual sections exist | Home, Trade, Portfolio, History, Transactions, Reports, Notifications, Activity, Wallets, Settings, Security, Help, Tools | customer route pages |
 | UX state machine | EXTENDED | Toasts and some loading exist | Server-confirmed processing/success/failure/pending states | shared async/action components |
 | Trading history/transactions | EXTENDED → REBUILT | Simulated activity view | Ledger-derived, customer-scoped, fee/profit terminology | history queries, transaction queries |
-| PDF/CSV reports | NEW | Notifications simulate downloads | Daily local-time reports, access control, exports | reports, report_jobs, PDF service |
-| Reporting timezone/DST | NEW | No report boundaries | Effective timezone history and half-open UTC intervals | customer_timezone_history, reports |
-| Daily emails | NEW | No queue/log | queued/processing/sent/failed/retrying/suppressed with idempotency | email_queue, email_logs, settings |
+| PDF/CSV reports | EXTENDED | V5 report table existed without customer-day enforcement | Daily local-time reports, access control, exports | v5_reports, report service, PDF service |
+| Reporting timezone/DST | EXTENDED | No persisted timezone history or boundary helper | Effective timezone history and half-open UTC intervals, including DST | customer_timezone_history, server/modules/v5-workflows.ts |
+| Daily emails | EXTENDED | Email job statuses existed without preference persistence | queued/processing/sent/failed/retrying/suppressed with idempotency | v5_email_jobs, customer_email_preferences, settings |
 | Admin dashboard | EXISTING → REBUILT | Static test KPIs | Live DB counts, health, failed jobs, reports, wallets | admin queries/pages |
 | Admin settings | EXTENDED | Some app settings exist | Precision, fees, FX, SMTP, branding, email switch, funding rules | settings tables/API |
 | Balance adjustments | NEW | No safe adjustment path | Reason/reference, compensating ledger, audit trail | adjustments, audit_events |
 | Security baseline | EXTENDED → CORRECTED | Basic JWT/PKCE | CSRF, rate limits, secure upload, 2FA enforcement points, secret hygiene | middleware, security migrations |
-| Failed jobs/backups | NEW | No job visibility | DB queue, retries, failed-job admin view, recovery documentation | jobs, failed_jobs, docs |
+| Failed jobs/backups | EXTENDED | Recovery documentation existed without failed-job table | DB queue, retries, failed-job admin view, recovery documentation | v5_failed_jobs, docs/deployment-v5.md |
 | Seed/practice data | EXISTING → EXTENDED | Demo seed assets exist | Structurally separate practice data and labels | seed scripts, environment flags |
 | cPanel/container deployment | EXISTING → EXTENDED | Dockerfile and installer exist | Health path, cron routes, env docs, backup/recovery | Dockerfile, installer, docs |
-| Acceptance tests | EXISTING → NEW | Only 6 platform tests | Financial concurrency, quote, report, security and growth tests | `server/**/*.test.ts` |
+| Acceptance tests | EXTENDED | Core money/purchase tests existed | Add live gate, verified settlement, DST, correction and idempotency coverage | server/modules/v5-workflows.test.ts |
 | Hosting and URL | NEW | Local runtime only | Verified published/container URL; otherwise clearly labeled preview | webdev config/deployment |

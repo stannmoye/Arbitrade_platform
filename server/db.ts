@@ -189,7 +189,15 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
  });
 }
 export async function listTrades(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");return db.select().from(tradePositions).where(eq(tradePositions.userId,userId)).orderBy(tradePositions.confirmedAt);}
-export async function settleTrade(tradeId:number){const db=await getDb();if(!db)throw new Error("Database is not available");return db.transaction(async tx=>{const t=(await tx.select().from(tradePositions).where(and(eq(tradePositions.id,tradeId),eq(tradePositions.status,"confirmed"))).limit(1))[0];if(!t||new Date(t.settlesAt).getTime()>Date.now())return false;const b=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,t.userId),eq(customerBalances.currency,t.currency))).limit(1))[0];if(!b)throw new Error("Balance not found");const total=t.principalMinor+t.expectedRewardMinor;await tx.update(customerBalances).set({availableMinor:b.availableMinor+total,earnedMinor:b.earnedMinor+t.expectedRewardMinor}).where(eq(customerBalances.id,b.id));await tx.insert(balanceLedger).values({userId:t.userId,currency:t.currency,amountMinor:total,entryType:"trade_settlement",reference:`trade-${tradeId}`,withdrawable:false});await tx.update(tradePositions).set({status:"settled",settledAt:new Date()}).where(eq(tradePositions.id,tradeId));return true;});}
+/**
+ * Legacy paper-trade settlement is deliberately fail-closed. The old table stores
+ * an expected reward, not a provider-verified result, so it must never credit a
+ * customer balance as real profit. The V5 verified-settlement workflow is the only
+ * supported path for future provider-backed settlement.
+ */
+export async function settleTrade(_tradeId:number){
+  return false;
+}
 export async function createOpportunityOffer(input:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number}){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();const closesAt=new Date(now.getTime()+input.durationSeconds*1000);const result=await db.insert(opportunityOffers).values({...input,opensAt:now,closesAt,rewardAt:closesAt,status:"open"});return {id:Number(result[0].insertId),...input,opensAt:now,closesAt,rewardAt:closesAt};}
 
 export async function bulkCreateOpportunityOffers(inputs:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number;opensAt?:Date;closesAt?:Date;rewardAt?:Date}[]) { const db=await getDb(); if(!db) throw new Error("Database is not available"); if(!inputs.length) return {created:0}; const rows=inputs.map(input=>{const opensAt=input.opensAt||new Date(); const closesAt=input.closesAt||new Date(opensAt.getTime()+input.durationSeconds*1000); return {...input,opensAt,closesAt,rewardAt:input.rewardAt||closesAt,status:"open" as const};}); await db.insert(opportunityOffers).values(rows); return {created:rows.length}; }
