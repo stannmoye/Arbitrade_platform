@@ -6,6 +6,37 @@ export const TRANSACTION_CONSOLE_COOKIE = "arbitrade_transaction_console";
 const SESSION_TTL_SECONDS = 60 * 60 * 24;
 const REAL_TRANSACTION_PAUSE_MS = 12_000;
 
+type ProcessingOutcome = "COMPLETED" | "FAILED" | "STALLED" | "PROCESSING" | "DELAYED";
+
+function outcomeFor(userId: number, sessionKey: string, sequence: number, previous: string | undefined): { status: ProcessingOutcome; probabilities: Record<string, number> } {
+  const digest = crypto.createHash("sha256").update(`${userId}:${sessionKey}:${sequence}`).digest();
+  const unit = digest.readUInt32BE(0) / 0xffffffff;
+  const bounded = (offset: number, min: number, max: number) => min + (digest[offset] % (max - min + 1));
+  const bounds = { FAILED: [1, 8], STALLED: [1, 12], COMPLETED: [1, 65], PROCESSING: [1, 10], DELAYED: [1, 10] } as const;
+  const raw: Record<string, number> = { FAILED: bounded(4, 1, 8), STALLED: bounded(5, 1, 12), COMPLETED: bounded(6, 1, 65), PROCESSING: bounded(7, 1, 10), DELAYED: bounded(8, 1, 10) };
+  if (previous === "FAILED") raw.FAILED = Math.min(raw.FAILED, 2);
+  if (previous === "STALLED") raw.STALLED = Math.min(raw.STALLED, 4);
+  let total = Object.values(raw).reduce((sum, value) => sum + value, 0);
+  const order = Object.keys(raw);
+  const adjust = (direction: 1 | -1) => {
+    let remaining = Math.abs(100 - total);
+    const eligible = () => order.filter(key => direction === 1 ? raw[key] < bounds[key as keyof typeof bounds][1] : raw[key] > bounds[key as keyof typeof bounds][0]);
+    let cursorIndex = direction === 1 ? digest[9] % order.length : digest[10] % order.length;
+    while (remaining > 0) {
+      const candidates = eligible();
+      if (!candidates.length) break;
+      const key = candidates[cursorIndex % candidates.length];
+      raw[key] += direction; total += direction; remaining--; cursorIndex++;
+    }
+  };
+  if (total < 100) adjust(1);
+  if (total > 100) adjust(-1);
+  const probabilities = Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, value]));
+  let cursor = unit * 100;
+  for (const [status, weight] of Object.entries(raw)) { cursor -= weight; if (cursor <= 0) return { status: status as ProcessingOutcome, probabilities }; }
+  return { status: "DELAYED", probabilities };
+}
+
 type ConsoleEventInput = {
   eventType: string;
   status?: string;
@@ -82,9 +113,20 @@ export async function recordTransactionConsolePulse(userId: number, req: Request
     const [enabledRows] = await connection.query<any[]>("SELECT COUNT(*) AS count FROM customer_controls WHERE autoTradeEnabled=TRUE AND tradingEnabled=TRUE AND accountStatus='active'");
     const [eventRows] = await connection.query<any[]>("SELECT COUNT(*) AS count FROM transaction_console_events WHERE userId=? AND sessionKey=?", [userId, sessionKey]);
     const context = { asset: offerRows[0]?.asset || "the active route", currency: offerRows[0]?.currency || "the configured wallet", rate: offerRows[0]?.rate || 0, offers: offerRows[0]?.count || 0, investors: enabledRows[0]?.count || investorRows[0]?.count || 0, count: investorRows[0]?.count || 0, time: new Date().toLocaleTimeString(), sequence: Number(eventRows[0]?.count || 0) + 1 };
-    const message = String(phrases[0].phraseTemplate).replace(/{{(\w+)}}/g, (_match, key) => String((context as Record<string, unknown>)[key] ?? "the current ledger context"));
-    await connection.execute("INSERT INTO transaction_console_events (sessionKey,userId,eventType,status,title,message,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)", [sessionKey, userId, "SYSTEM_ACTIVITY", "SIMULATED", "Transaction orchestration", message, context.asset, JSON.stringify({ phraseId: phrases[0].id, category: phrases[0].category, generatedAt: new Date().toISOString(), sequence: context.sequence, source: "database_phrase_catalog" })]);
-    return { inserted: true, paused: false, eventType: "SYSTEM_ACTIVITY" };
+    const [previousRows] = await connection.query<any[]>("SELECT status FROM transaction_console_events WHERE userId=? AND sessionKey=? AND eventType='SYSTEM_ACTIVITY' ORDER BY id DESC LIMIT 1", [userId, sessionKey]);
+    const outcome = outcomeFor(userId, sessionKey, context.sequence, previousRows[0]?.status);
+    const messageBase = String(phrases[0].phraseTemplate).replace(/{{(\w+)}}/g, (_match, key) => String((context as Record<string, unknown>)[key] ?? "the current ledger context"));
+    const outcomeCopy: Record<ProcessingOutcome, { title: string; prefix: string }> = {
+      COMPLETED: { title: "Transaction route confirmed", prefix: "Route check completed · " },
+      FAILED: { title: "Transaction route interrupted", prefix: "Control check returned an exception · " },
+      STALLED: { title: "Transaction route awaiting clearance", prefix: "Processing is holding for a required checkpoint · " },
+      PROCESSING: { title: "Transaction route processing", prefix: "Allocation engine is advancing · " },
+      DELAYED: { title: "Transaction route delayed", prefix: "Timing variance detected · " },
+    };
+    const selected = outcomeCopy[outcome.status];
+    const message = selected.prefix + messageBase;
+    await connection.execute("INSERT INTO transaction_console_events (sessionKey,userId,eventType,status,title,message,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)", [sessionKey, userId, "SYSTEM_ACTIVITY", outcome.status, selected.title, message, context.asset, JSON.stringify({ phraseId: phrases[0].id, category: phrases[0].category, generatedAt: new Date().toISOString(), sequence: context.sequence, source: "database_phrase_catalog", probabilityBands: outcome.probabilities })]);
+    return { inserted: true, paused: false, eventType: "SYSTEM_ACTIVITY", status: outcome.status, probabilities: outcome.probabilities };
   });
 }
 
