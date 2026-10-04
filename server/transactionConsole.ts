@@ -8,12 +8,25 @@ const REAL_TRANSACTION_PAUSE_MS = 12_000;
 
 type ProcessingOutcome = "COMPLETED" | "FAILED" | "STALLED" | "PROCESSING" | "DELAYED";
 
-function outcomeFor(userId: number, sessionKey: string, sequence: number, previous: string | undefined): { status: ProcessingOutcome; probabilities: Record<string, number> } {
-  const digest = crypto.createHash("sha256").update(`${userId}:${sessionKey}:${sequence}`).digest();
-  const unit = digest.readUInt32BE(0) / 0xffffffff;
-  const bounded = (offset: number, min: number, max: number) => min + (digest[offset] % (max - min + 1));
+function outcomeFor(userId: number, sessionKey: string, sequence: number, previous: string | undefined, context: { offers: number; investors: number; rate: number }): { status: ProcessingOutcome; probabilities: Record<string, number>; method: string } {
+  const digest = crypto.createHash("sha256").update(`${userId}:${sessionKey}:${sequence}:${context.offers}:${context.investors}:${context.rate}`).digest();
   const bounds = { FAILED: [1, 8], STALLED: [1, 12], COMPLETED: [1, 65], PROCESSING: [1, 10], DELAYED: [1, 10] } as const;
-  const raw: Record<string, number> = { FAILED: bounded(4, 1, 8), STALLED: bounded(5, 1, 12), COMPLETED: bounded(6, 1, 65), PROCESSING: bounded(7, 1, 10), DELAYED: bounded(8, 1, 10) };
+  const outcomeKeys = Object.keys(bounds);
+  const bounded = (value: number, key: string) => { const [min, max] = bounds[key as keyof typeof bounds]; return min + (Math.abs(value) % (max - min + 1)); };
+  // Method 1: session fingerprint — stable for this login, different for every customer/session.
+  const fingerprint = Array.from({ length: 5 }, (_, i) => digest.readUInt16BE(i * 2));
+  // Method 2: xorshift mixer — rotates the entropy source on every console sequence.
+  let x = digest.readUInt32BE(0) ^ sequence ^ (userId * 2654435761); const mixed: number[] = [];
+  for (let i = 0; i < 5; i++) { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; mixed.push(x >>> 0); }
+  // Method 3: route volatility — active opportunities, investor pool and quoted rate affect the blend.
+  const volatility = Math.abs((context.offers * 17 + context.investors * 7 + context.rate * 13 + digest[11]) % 101);
+  // Method 4: state-transition memory — avoid implausible repeated failures/stalls without eliminating them.
+  const transitionPenalty = previous === "FAILED" ? { FAILED: 1, STALLED: 3, COMPLETED: 7, PROCESSING: 5, DELAYED: 4 } : previous === "STALLED" ? { FAILED: 2, STALLED: 2, COMPLETED: 6, PROCESSING: 5, DELAYED: 3 } : { FAILED: 0, STALLED: 0, COMPLETED: 0, PROCESSING: 0, DELAYED: 0 };
+  // Method 5: rotating ensemble — changes the dominant method every five activity lines.
+  const rotation = sequence % 5;
+  const methodNames = ["session fingerprint", "xorshift entropy", "route volatility", "state transition", "rotating ensemble"];
+  const raw: Record<string, number> = {};
+  outcomeKeys.forEach((key, i) => { const ensemble = (fingerprint[(i + rotation) % 5] + (mixed[(i * 3 + rotation) % 5] % 257) + volatility * (i + 1)) % 1000; raw[key] = bounded(ensemble - transitionPenalty[key as keyof typeof transitionPenalty] * 31, key); });
   if (previous === "FAILED") raw.FAILED = Math.min(raw.FAILED, 2);
   if (previous === "STALLED") raw.STALLED = Math.min(raw.STALLED, 4);
   let total = Object.values(raw).reduce((sum, value) => sum + value, 0);
@@ -32,9 +45,10 @@ function outcomeFor(userId: number, sessionKey: string, sequence: number, previo
   if (total < 100) adjust(1);
   if (total > 100) adjust(-1);
   const probabilities = Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, value]));
-  let cursor = unit * 100;
-  for (const [status, weight] of Object.entries(raw)) { cursor -= weight; if (cursor <= 0) return { status: status as ProcessingOutcome, probabilities }; }
-  return { status: "DELAYED", probabilities };
+  const cursor = (mixed[rotation] % 100) + ((digest[(rotation + 12) % digest.length] / 255) * 0.99);
+  let threshold = cursor;
+  for (const [status, weight] of Object.entries(raw)) { threshold -= weight; if (threshold <= 0) return { status: status as ProcessingOutcome, probabilities, method: methodNames[rotation] }; }
+  return { status: "DELAYED", probabilities, method: methodNames[rotation] };
 }
 
 type ConsoleEventInput = {
@@ -114,7 +128,7 @@ export async function recordTransactionConsolePulse(userId: number, req: Request
     const [eventRows] = await connection.query<any[]>("SELECT COUNT(*) AS count FROM transaction_console_events WHERE userId=? AND sessionKey=?", [userId, sessionKey]);
     const context = { asset: offerRows[0]?.asset || "the active route", currency: offerRows[0]?.currency || "the configured wallet", rate: offerRows[0]?.rate || 0, offers: offerRows[0]?.count || 0, investors: enabledRows[0]?.count || investorRows[0]?.count || 0, count: investorRows[0]?.count || 0, time: new Date().toLocaleTimeString(), sequence: Number(eventRows[0]?.count || 0) + 1 };
     const [previousRows] = await connection.query<any[]>("SELECT status FROM transaction_console_events WHERE userId=? AND sessionKey=? AND eventType='SYSTEM_ACTIVITY' ORDER BY id DESC LIMIT 1", [userId, sessionKey]);
-    const outcome = outcomeFor(userId, sessionKey, context.sequence, previousRows[0]?.status);
+    const outcome = outcomeFor(userId, sessionKey, context.sequence, previousRows[0]?.status, { offers: Number(context.offers), investors: Number(context.investors), rate: Number(context.rate) });
     const messageBase = String(phrases[0].phraseTemplate).replace(/{{(\w+)}}/g, (_match, key) => String((context as Record<string, unknown>)[key] ?? "the current ledger context"));
     const outcomeCopy: Record<ProcessingOutcome, { title: string; prefix: string }> = {
       COMPLETED: { title: "Transaction route confirmed", prefix: "Route check completed · " },
@@ -125,7 +139,7 @@ export async function recordTransactionConsolePulse(userId: number, req: Request
     };
     const selected = outcomeCopy[outcome.status];
     const message = selected.prefix + messageBase;
-    await connection.execute("INSERT INTO transaction_console_events (sessionKey,userId,eventType,status,title,message,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)", [sessionKey, userId, "SYSTEM_ACTIVITY", outcome.status, selected.title, message, context.asset, JSON.stringify({ phraseId: phrases[0].id, category: phrases[0].category, generatedAt: new Date().toISOString(), sequence: context.sequence, source: "database_phrase_catalog", probabilityBands: outcome.probabilities })]);
+    await connection.execute("INSERT INTO transaction_console_events (sessionKey,userId,eventType,status,title,message,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)", [sessionKey, userId, "SYSTEM_ACTIVITY", outcome.status, selected.title, message, context.asset, JSON.stringify({ phraseId: phrases[0].id, category: phrases[0].category, generatedAt: new Date().toISOString(), sequence: context.sequence, source: "database_phrase_catalog", probabilityBands: outcome.probabilities, calculationMethod: outcome.method, calculationInputs: { offers: context.offers, investors: context.investors, rate: context.rate, previousStatus: previousRows[0]?.status || null } })]);
     return { inserted: true, paused: false, eventType: "SYSTEM_ACTIVITY", status: outcome.status, probabilities: outcome.probabilities };
   });
 }
