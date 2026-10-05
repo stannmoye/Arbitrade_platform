@@ -103,12 +103,16 @@ async function startServer() {
 
   const port = Number(process.env.PORT || "3000");
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
-  const autoTradeTimer = setInterval(() => { void runAutoTradeCycle(); }, 30_000);
-  autoTradeTimer.unref();
-  void runAutoTradeCycle();
-  const marketSyncTimer = setInterval(() => { void refreshMarketData().then(() => ensureMarketDrivenOpportunities()).catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error)); }, 10 * 60_000);
-  marketSyncTimer.unref();
-  void refreshMarketData().then(() => ensureMarketDrivenOpportunities()).then(result => console.log("[MarketSync] ready", result)).catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error));
+  if (process.env.DATABASE_URL) {
+    const autoTradeTimer = setInterval(() => { void runAutoTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error)); }, 30_000);
+    autoTradeTimer.unref();
+    void runAutoTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error));
+    const marketSyncTimer = setInterval(() => { void refreshMarketData().then(() => ensureMarketDrivenOpportunities()).catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error)); }, 10 * 60_000);
+    marketSyncTimer.unref();
+    void refreshMarketData().then(() => ensureMarketDrivenOpportunities()).then(result => console.log("[MarketSync] ready", result)).catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error));
+  } else {
+    console.warn("[Database] DATABASE_URL is not configured; database workers are paused until production configuration is supplied.");
+  }
   server.on("error", error => { console.error("Server failed:", error.message); process.exit(1); });
   server.listen(port, "0.0.0.0", () => console.log(`Server listening on port ${port}`));
 }
