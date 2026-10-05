@@ -34,7 +34,8 @@ async function startServer() {
       const user = await createLocalCustomer({ email, passwordHash: passwordHash(password), name: `${firstName || ""} ${lastName || ""}`.trim() || email });
       setLocalSession(req, res, user);
       await openTransactionConsoleSession(req, res, user.id);
-      return res.json({ user });
+      const { passwordHash: _passwordHash, ...safeUser } = user;
+      return res.json({ user: safeUser });
     } catch (error) {
       return res.status(400).json({ error: error instanceof Error ? error.message : "Unable to register" });
     }
@@ -46,7 +47,8 @@ async function startServer() {
       if (!user || user.role !== "user" || !verifyPassword(String(password || ""), user.passwordHash)) return res.status(401).json({ error: "Invalid email or password" });
       setLocalSession(req, res, user);
       await openTransactionConsoleSession(req, res, user.id);
-      return res.json({ user });
+      const { passwordHash: _passwordHash, ...safeUser } = user;
+      return res.json({ user: safeUser });
     } catch {
       return res.status(503).json({ error: "Authentication service is not configured. Configure DATABASE_URL and run the migrations." });
     }
@@ -58,7 +60,8 @@ async function startServer() {
       if (!user || user.role !== "admin" || !verifyPassword(String(password || ""), user.passwordHash)) return res.status(401).json({ error: "Invalid administrator credentials" });
       setLocalSession(req, res, user);
       await openTransactionConsoleSession(req, res, user.id);
-      return res.json({ user });
+      const { passwordHash: _passwordHash, ...safeUser } = user;
+      return res.json({ user: safeUser });
     } catch {
       return res.status(503).json({ error: "Authentication service is not configured. Configure DATABASE_URL and run the migrations." });
     }
