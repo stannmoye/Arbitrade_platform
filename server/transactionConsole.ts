@@ -159,7 +159,7 @@ export async function listTransactionConsoleEvents(userId: number, req: Request)
   const sessionKey = readCookie(req);
   if (!sessionKey) return [];
   return withConnection(async connection => {
-    const [rows] = await connection.query<any[]>("SELECT id,eventType,status,title,message,transactionCode,amountMinor,asset,metadataJson,createdAt FROM transaction_console_events WHERE userId=? AND sessionKey=? ORDER BY id ASC LIMIT ?", [userId, sessionKey, MAX_CONSOLE_EVENTS]);
+    const [rows] = await connection.query<any[]>("SELECT id,eventType,status,title,message,transactionCode,amountMinor,asset,metadataJson,createdAt FROM transaction_console_events WHERE userId=? AND sessionKey=? ORDER BY id DESC LIMIT ?", [userId, sessionKey, MAX_CONSOLE_EVENTS]);
     return rows;
   });
 }
