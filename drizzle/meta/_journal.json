@@ -78,6 +78,34 @@
       "when": 1791112000000,
       "tag": "0010_support_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1788785580466,
+      "tag": "0011_stake_earn",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1788785580467,
+      "tag": "0012_transaction_console",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1788785580468,
+      "tag": "0013_auto_trade_missed_opportunities",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "5",
+      "when": 1788785580469,
+      "tag": "0014_console_activity_phrases",
+      "breakpoints": true
     }
   ]
 }
