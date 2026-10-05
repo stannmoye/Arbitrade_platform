@@ -181,7 +181,50 @@ export const opportunityOffers = mysqlTable("opportunity_offers", {
   closesAt: timestamp("closesAt").notNull(),
   rewardAt: timestamp("rewardAt").notNull(),
   status: mysqlEnum("status", ["scheduled", "open", "closed", "settled", "cancelled"]).default("open").notNull(),
+  instrumentId: int("instrumentId"),
+  marketSnapshotId: int("marketSnapshotId"),
+  marketValueUsd: varchar("marketValueUsd", { length: 64 }),
+  sector: varchar("sector", { length: 120 }),
+  industry: varchar("industry", { length: 160 }),
+  listingStatus: varchar("listingStatus", { length: 40 }),
+  marketObservedAt: timestamp("marketObservedAt"),
+  simulationSeed: varchar("simulationSeed", { length: 128 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export const marketInstruments = mysqlTable("market_instruments", {
+  id: int("id").autoincrement().primaryKey(),
+  symbol: varchar("symbol", { length: 40 }).notNull().unique(),
+  name: varchar("name", { length: 240 }).notNull(),
+  exchange: varchar("exchange", { length: 80 }),
+  country: varchar("country", { length: 80 }),
+  sector: varchar("sector", { length: 120 }),
+  industry: varchar("industry", { length: 160 }),
+  listingStatus: varchar("listingStatus", { length: 40 }).default("active").notNull(),
+  source: varchar("source", { length: 80 }).notNull(),
+  rawJson: text("rawJson").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export const marketSnapshots = mysqlTable("market_snapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  instrumentId: int("instrumentId").notNull(),
+  priceUsd: varchar("priceUsd", { length: 64 }),
+  marketValueUsd: varchar("marketValueUsd", { length: 64 }),
+  volume: varchar("volume", { length: 64 }),
+  netChange: varchar("netChange", { length: 64 }),
+  percentChange: varchar("percentChange", { length: 64 }),
+  observedAt: timestamp("observedAt").notNull(),
+  source: varchar("source", { length: 80 }).notNull(),
+  rawJson: text("rawJson").notNull(),
+});
+export const fxRateSnapshots = mysqlTable("fx_rate_snapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  baseAsset: varchar("baseAsset", { length: 16 }).notNull(),
+  quoteAsset: varchar("quoteAsset", { length: 16 }).notNull(),
+  rate: varchar("rate", { length: 64 }).notNull(),
+  provider: varchar("provider", { length: 80 }).notNull(),
+  sourceDate: varchar("sourceDate", { length: 16 }),
+  observedAt: timestamp("observedAt").defaultNow().notNull(),
+  rawJson: text("rawJson").notNull(),
 });
 
 export const missedOpportunities = mysqlTable("missed_opportunities", {
