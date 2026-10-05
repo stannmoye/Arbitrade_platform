@@ -13,6 +13,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
 import { getTicketUploadPolicy } from "../db";
+import { ensureMarketDrivenOpportunities, refreshMarketData } from "../marketSync";
 import { serveStatic, setupVite } from "./vite";
 import { openTransactionConsoleSession } from "../transactionConsole";
 
@@ -105,6 +106,9 @@ async function startServer() {
   const autoTradeTimer = setInterval(() => { void runAutoTradeCycle(); }, 30_000);
   autoTradeTimer.unref();
   void runAutoTradeCycle();
+  const marketSyncTimer = setInterval(() => { void refreshMarketData().then(() => ensureMarketDrivenOpportunities()).catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error)); }, 10 * 60_000);
+  marketSyncTimer.unref();
+  void refreshMarketData().then(() => ensureMarketDrivenOpportunities()).then(result => console.log("[MarketSync] ready", result)).catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error));
   server.on("error", error => { console.error("Server failed:", error.message); process.exit(1); });
   server.listen(port, "0.0.0.0", () => console.log(`Server listening on port ${port}`));
 }
