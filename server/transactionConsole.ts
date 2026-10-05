@@ -5,7 +5,7 @@ import mysql from "mysql2/promise";
 export const TRANSACTION_CONSOLE_COOKIE = "arbitrade_transaction_console";
 const SESSION_TTL_SECONDS = 60 * 60 * 24;
 const REAL_TRANSACTION_PAUSE_MS = 12_000;
-const MAX_CONSOLE_EVENTS = 240;
+const MAX_CONSOLE_EVENTS = 25;
 
 type ProcessingOutcome = "COMPLETED" | "FAILED" | "STALLED" | "PROCESSING" | "DELAYED";
 
