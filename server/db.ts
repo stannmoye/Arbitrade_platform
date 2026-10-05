@@ -3,7 +3,7 @@ import { and, desc, eq, gt, inArray, lte, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, appSettings, customerBalances, currencyRegistry, customerControls, customerNotifications, customerSessions, balanceLedger, tradePositions, users, missedOpportunities } from "../drizzle/schema";
 import { ENV } from './_core/env';
-
+import { calculateTradeSettlement } from "./modules/trade-settlement";
 let _db: ReturnType<typeof drizzle> | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
@@ -241,14 +241,14 @@ export async function settleDueTrades(userId:number){
       const reference=`trade-settlement:${trade.id}`;
       const existing=await tx.select({id:balanceLedger.id}).from(balanceLedger).where(eq(balanceLedger.reference,reference)).limit(1);
       if(existing.length)continue;
-      const balance=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,userId),eq(customerBalances.currency,trade.currency))).limit(1))[0];
+      const settlement=calculateTradeSettlement({currency:trade.currency,principalMinor:Number(trade.principalMinor),rewardMinor:Number(trade.expectedRewardMinor)});
+      const balance=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,userId),eq(customerBalances.currency,settlement.walletCurrency))).limit(1))[0];
       if(!balance)continue;
-      const principal=Number(trade.principalMinor), reward=Number(trade.expectedRewardMinor), total=principal+reward;
-      await tx.insert(balanceLedger).values({userId,currency:trade.currency,amountMinor:principal,entryType:"trade_principal_release",reference,withdrawable:false});
-      await tx.insert(balanceLedger).values({userId,currency:trade.currency,amountMinor:reward,entryType:"trade_reward",reference:`${reference}:reward`,withdrawable:false});
-      await tx.update(customerBalances).set({availableMinor:sql`${customerBalances.availableMinor}+${total}`,lockedMinor:sql`GREATEST(${customerBalances.lockedMinor}-${principal},0)`,earnedMinor:sql`${customerBalances.earnedMinor}+${reward}`,updatedAt:new Date()}).where(eq(customerBalances.id,balance.id));
+      await tx.insert(balanceLedger).values({userId,currency:settlement.walletCurrency,amountMinor:settlement.principalMinor,entryType:"trade_principal_release",reference,withdrawable:false});
+      await tx.insert(balanceLedger).values({userId,currency:settlement.walletCurrency,amountMinor:settlement.rewardMinor,entryType:"trade_reward",reference:`${reference}:reward`,withdrawable:false});
+      await tx.update(customerBalances).set({availableMinor:sql`${customerBalances.availableMinor}+${settlement.totalMinor}`,lockedMinor:sql`GREATEST(${customerBalances.lockedMinor}-${settlement.principalMinor},0)`,earnedMinor:sql`${customerBalances.earnedMinor}+${settlement.rewardMinor}`,updatedAt:new Date()}).where(eq(customerBalances.id,balance.id));
       await tx.update(tradePositions).set({status:"settled",settledAt:new Date()}).where(eq(tradePositions.id,trade.id));
-      settled.push({tradeId:trade.id,currency:trade.currency,principalMinor:principal,rewardMinor:reward,totalMinor:total,reference});
+      settled.push({tradeId:trade.id,currency:settlement.walletCurrency,principalMinor:settlement.principalMinor,rewardMinor:settlement.rewardMinor,totalMinor:settlement.totalMinor,reference});
     }
     return settled;
   });
