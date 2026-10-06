@@ -513,6 +513,17 @@ export const customerWalletPreferences = mysqlTable("customer_wallet_preferences
   withdrawalWhitelistEnabled: boolean("withdrawalWhitelistEnabled").default(true).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
+export const customerOpportunityRules = mysqlTable("customer_opportunity_rules", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  enabled: boolean("enabled").default(true).notNull(),
+  minimumRewardBps: int("minimumRewardBps").default(50).notNull(),
+  maxDailyAllocationMinor: int("maxDailyAllocationMinor").default(100000).notNull(),
+  allowedAssets: varchar("allowedAssets", { length: 255 }).default("USD,EUR,GBP,BTC,ETH").notNull(),
+  quietHoursStart: varchar("quietHoursStart", { length: 5 }).default("22:00").notNull(),
+  quietHoursEnd: varchar("quietHoursEnd", { length: 5 }).default("07:00").notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
 export const v5FailedJobs = mysqlTable("v5_failed_jobs", {
   id: int("id").autoincrement().primaryKey(),
   jobType: varchar("jobType", { length: 80 }).notNull(),

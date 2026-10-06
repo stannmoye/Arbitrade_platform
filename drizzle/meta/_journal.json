@@ -120,6 +120,13 @@
       "when": 1760000000000,
       "tag": "0016_customer_wallet_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1760000001000,
+      "tag": "0017_customer_opportunity_rules",
+      "breakpoints": true
     }
   ]
 }
