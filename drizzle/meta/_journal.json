@@ -113,6 +113,13 @@
       "when": 1791115000000,
       "tag": "0015_market_data_fx",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1760000000000,
+      "tag": "0016_customer_wallet_preferences",
+      "breakpoints": true
     }
   ]
 }

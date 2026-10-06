@@ -504,7 +504,15 @@ export const customerEmailPreferences = mysqlTable("customer_email_preferences",
   dailyTradingReports: boolean("dailyTradingReports").default(true).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
+export const customerWalletPreferences = mysqlTable("customer_wallet_preferences", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  tradingCurrency: varchar("tradingCurrency", { length: 32 }).default("USD").notNull(),
+  swapCurrency: varchar("swapCurrency", { length: 32 }).default("USD").notNull(),
+  autoTopUpEnabled: boolean("autoTopUpEnabled").default(false).notNull(),
+  withdrawalWhitelistEnabled: boolean("withdrawalWhitelistEnabled").default(true).notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
 export const v5FailedJobs = mysqlTable("v5_failed_jobs", {
   id: int("id").autoincrement().primaryKey(),
   jobType: varchar("jobType", { length: 80 }).notNull(),
