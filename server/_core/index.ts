@@ -8,7 +8,7 @@ import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { sdk } from "./sdk";
-import { createLocalCustomer, getAppSetting, getUserByEmail, runAutoTradeCycle } from "../db";
+import { countOutstandingTrades, createLocalCustomer, getAppSetting, getUserByEmail, runAutoTradeCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
@@ -111,9 +111,19 @@ async function startServer() {
     const popupRetentionTimer = setInterval(() => { void runOpportunityRetention().then(result => { if (result.deletedEvents || result.deletedDeliveryRows) console.log("[PopupRetention] archived and removed", result); }).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error)); }, 60 * 60_000);
     popupRetentionTimer.unref();
     void runOpportunityRetention().catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error));
-    const autoTradeTimer = setInterval(() => { void runAutoTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error)); }, 30_000);
+    const runTradeCycle = async () => {
+      const result = await runAutoTradeCycle();
+      const outstandingTrades = await countOutstandingTrades();
+      if (outstandingTrades === 0) {
+        const opportunities = await ensureMarketDrivenOpportunities(new Date());
+        console.log("[AutoTrade] cycle", { ...result, outstandingTrades, opportunities });
+      } else {
+        console.log("[AutoTrade] cycle", { ...result, outstandingTrades, pausedUntilSettled: true });
+      }
+    };
+    const autoTradeTimer = setInterval(() => { void runTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error)); }, 30_000);
     autoTradeTimer.unref();
-    void runAutoTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error));
+    void runTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error));
     const refreshMinutes = Number(await getAppSetting("market.refreshIntervalMinutes", "120"));
     if (!Number.isFinite(refreshMinutes) || refreshMinutes < 1) { console.error("[MarketSync] Invalid market.refreshIntervalMinutes; using safe 120-minute fallback"); }
     const safeRefreshMinutes = Number.isFinite(refreshMinutes) && refreshMinutes >= 1 ? refreshMinutes : 120;
