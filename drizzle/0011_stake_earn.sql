@@ -1,4 +1,5 @@
 ALTER TABLE `customer_balances` ADD COLUMN `lockedMinor` int NOT NULL DEFAULT 0 AFTER `availableMinor`;
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `stake_products` (
   `id` int AUTO_INCREMENT NOT NULL,
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS `stake_products` (
   CONSTRAINT `stake_products_id` PRIMARY KEY(`id`),
   CONSTRAINT `stake_products_name_unique` UNIQUE(`name`)
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `stake_positions` (
   `id` int AUTO_INCREMENT NOT NULL,
@@ -39,6 +41,7 @@ CREATE TABLE IF NOT EXISTS `stake_positions` (
   CONSTRAINT `stake_positions_id` PRIMARY KEY(`id`),
   CONSTRAINT `stake_positions_code_unique` UNIQUE(`positionCode`)
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `stake_transactions` (
   `id` int AUTO_INCREMENT NOT NULL,
@@ -57,6 +60,7 @@ CREATE TABLE IF NOT EXISTS `stake_transactions` (
   CONSTRAINT `stake_transactions_code_unique` UNIQUE(`transactionCode`),
   CONSTRAINT `stake_transactions_idempotency_unique` UNIQUE(`idempotencyKey`)
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `stake_rewards` (
   `id` int AUTO_INCREMENT NOT NULL,
@@ -71,6 +75,7 @@ CREATE TABLE IF NOT EXISTS `stake_rewards` (
   `createdAt` timestamp NOT NULL DEFAULT (now()),
   CONSTRAINT `stake_rewards_id` PRIMARY KEY(`id`)
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `stake_events` (
   `id` int AUTO_INCREMENT NOT NULL,

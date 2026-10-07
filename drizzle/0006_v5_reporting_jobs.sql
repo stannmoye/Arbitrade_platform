@@ -1,4 +1,5 @@
-ALTER TABLE `users` ADD COLUMN `reportingTimezone` varchar(80) NULL;
+ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `reportingTimezone` varchar(80) NULL;
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `customer_timezone_history` (
   `id` int AUTO_INCREMENT NOT NULL,
@@ -9,6 +10,7 @@ CREATE TABLE IF NOT EXISTS `customer_timezone_history` (
   `createdAt` timestamp NOT NULL DEFAULT (now()),
   CONSTRAINT `customer_timezone_history_id` PRIMARY KEY(`id`)
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `customer_email_preferences` (
   `id` int AUTO_INCREMENT NOT NULL,
@@ -18,6 +20,7 @@ CREATE TABLE IF NOT EXISTS `customer_email_preferences` (
   CONSTRAINT `customer_email_preferences_id` PRIMARY KEY(`id`),
   CONSTRAINT `customer_email_preferences_user_unique` UNIQUE(`userId`)
 );
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `v5_failed_jobs` (
   `id` int AUTO_INCREMENT NOT NULL,
@@ -32,9 +35,8 @@ CREATE TABLE IF NOT EXISTS `v5_failed_jobs` (
   CONSTRAINT `v5_failed_jobs_id` PRIMARY KEY(`id`),
   CONSTRAINT `v5_failed_jobs_idempotency_unique` UNIQUE(`idempotencyKey`)
 );
+--> statement-breakpoint
 
--- The unique customer/reporting-day invariant is required for idempotent retries.
-ALTER TABLE `v5_reports` ADD CONSTRAINT `v5_reports_customer_day_unique` UNIQUE(`userId`,`reportingDate`);
 
 INSERT INTO `app_settings` (`settingKey`, `settingValue`)
 VALUES

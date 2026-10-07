@@ -11,6 +11,7 @@ VALUES
   ('opportunity.popup.withdrawalProbabilityBps', '1200'),
   ('opportunity.popup.jitterSeconds', '90')
 ON DUPLICATE KEY UPDATE `settingValue` = VALUES(`settingValue`);
+--> statement-breakpoint
 
 UPDATE `opportunity_offers`
 SET `venueTo` = 'WiseBond Market Intelligence Desk'

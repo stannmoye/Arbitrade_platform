@@ -169,6 +169,34 @@
       "when": 1791355934397,
       "tag": "0023_popup_daily_aggregates",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791395748792,
+      "tag": "0024_admin_auto_trade_policy",
+      "breakpoints": false
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791397136509,
+      "tag": "0025_seed_opportunity_package_policies",
+      "breakpoints": false
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791398866824,
+      "tag": "0026_trade_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791399499782,
+      "tag": "0027_database_configuration_registry",
+      "breakpoints": true
     }
   ]
 }

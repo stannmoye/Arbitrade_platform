@@ -7,6 +7,7 @@ ALTER TABLE `opportunity_offers`
   ADD COLUMN IF NOT EXISTS `listingStatus` varchar(40) NULL,
   ADD COLUMN IF NOT EXISTS `marketObservedAt` timestamp NULL,
   ADD COLUMN IF NOT EXISTS `simulationSeed` varchar(128) NULL;
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS `market_instruments` (
   `id` int AUTO_INCREMENT NOT NULL,
   `symbol` varchar(40) NOT NULL,
@@ -21,6 +22,7 @@ CREATE TABLE IF NOT EXISTS `market_instruments` (
   `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`), UNIQUE KEY `market_instruments_symbol_unique` (`symbol`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS `market_snapshots` (
   `id` int AUTO_INCREMENT NOT NULL,
   `instrumentId` int NOT NULL,
@@ -34,6 +36,7 @@ CREATE TABLE IF NOT EXISTS `market_snapshots` (
   `rawJson` text NOT NULL,
   PRIMARY KEY (`id`), KEY `market_snapshots_instrument_observed_idx` (`instrumentId`,`observedAt`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS `fx_rate_snapshots` (
   `id` int AUTO_INCREMENT NOT NULL,
   `baseAsset` varchar(16) NOT NULL,
