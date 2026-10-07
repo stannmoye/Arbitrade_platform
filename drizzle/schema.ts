@@ -124,7 +124,7 @@ export const appSettings = mysqlTable("app_settings", {
 export const opportunityPackagePolicies = mysqlTable("opportunity_package_policies", {
   id: int("id").autoincrement().primaryKey(),
   packageName: varchar("packageName", { length: 40 }).notNull().unique(),
-  maxPopupsPerMinute: int("maxPopupsPerMinute").default(10).notNull(),
+  maxPopupsPerDay: int("maxPopupsPerDay").default(10).notNull(),
   maxVisibleOffers: int("maxVisibleOffers").default(10).notNull(),
   enabled: boolean("enabled").default(true).notNull(),
   updatedBy: int("updatedBy"),
@@ -287,7 +287,7 @@ export const packages = mysqlTable("packages", {
   name: varchar("name", { length: 80 }).notNull().unique(),
   startsAt: timestamp("startsAt"),
   expiresAt: timestamp("expiresAt"),
-  maxPopupsPerMinute: int("maxPopupsPerMinute").default(0).notNull(),
+  maxPopupsPerDay: int("maxPopupsPerDay").default(0).notNull(),
   maxActiveInvestments: int("maxActiveInvestments").default(0).notNull(),
   enabled: boolean("enabled").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
