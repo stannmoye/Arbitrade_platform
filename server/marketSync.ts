@@ -56,23 +56,29 @@ export async function ensureMarketDrivenOpportunities(refreshedAt = new Date()) 
   }
   if ((await getAppSetting("opportunity.drainMode")) === "true") return { created: 0, available: 0, drainMode: true };
   await db.update(opportunityOffers).set({ status: "closed" }).where(and(eq(opportunityOffers.status, "open"), lt(opportunityOffers.marketObservedAt, refreshedAt)));
-  const active = await db.select({ symbol: opportunityOffers.symbol }).from(opportunityOffers).where(and(eq(opportunityOffers.status, "open"), gt(opportunityOffers.closesAt, now)));
-  const activeSymbols = new Set(active.map(row => row.symbol));
+  const active = await db.select({ symbol: opportunityOffers.symbol, currency: opportunityOffers.currency }).from(opportunityOffers).where(and(eq(opportunityOffers.status, "open"), gt(opportunityOffers.closesAt, now)));
+  const activeKeys = new Set(active.map(row => `${row.symbol}:${row.currency}`));
   const instruments = await db.select().from(marketInstruments).orderBy(desc(marketInstruments.updatedAt)).limit(200);
+  const currencies = await db.select({ code: currencyRegistry.code, scale: currencyRegistry.scale }).from(currencyRegistry).where(eq(currencyRegistry.enabled, true));
   const deskLabel = await getAppSetting("opportunity.deskLabel");
   if (!deskLabel) throw new Error("Database setting opportunity.deskLabel is missing");
   let created = 0;
   for (const instrument of instruments) {
-    if (activeSymbols.has(instrument.symbol)) continue;
     const snapshot = (await db.select().from(marketSnapshots).where(eq(marketSnapshots.instrumentId, instrument.id)).orderBy(desc(marketSnapshots.observedAt)).limit(1))[0];
     if (!snapshot) continue;
-    const minimumMinor = simulationValue(instrument.symbol, snapshot.observedAt, 30_000, 36_000_000);
-    const expectedRewardBps = simulationValue(`${instrument.symbol}:reward`, snapshot.observedAt, 1000, 3500);
-    const durationSeconds = simulationValue(`${instrument.symbol}:duration`, snapshot.observedAt, 900, 3600);
-    const opensAt = new Date();
-    const closesAt = new Date(opensAt.getTime() + durationSeconds * 1000);
-    await db.insert(opportunityOffers).values({ symbol: instrument.symbol, venueFrom: instrument.exchange || "Listed market", venueTo: deskLabel, currency: "USD", minimumMinor, expectedRewardBps, durationSeconds, opensAt, closesAt, rewardAt: closesAt, status: "open", instrumentId: instrument.id, marketSnapshotId: snapshot.id, marketValueUsd: snapshot.marketValueUsd, sector: instrument.sector, industry: instrument.industry, listingStatus: instrument.listingStatus, marketObservedAt: snapshot.observedAt, simulationSeed: crypto.createHash("sha256").update(`${instrument.symbol}:${snapshot.id}:${snapshot.observedAt.toISOString()}:${process.env.SIMULATION_SALT || "arbitrade-default"}`).digest("hex") });
-    created++;
+    for (const currency of currencies) {
+      const activeKey = `${instrument.symbol}:${currency.code}`;
+      if (activeKeys.has(activeKey)) continue;
+      const factor = Math.pow(10, currency.scale);
+      const minimumMinor = simulationValue(`${instrument.symbol}:${currency.code}:minimum`, snapshot.observedAt, Math.round(100 * factor), Math.round(2500 * factor));
+      const expectedRewardBps = simulationValue(`${instrument.symbol}:${currency.code}:reward`, snapshot.observedAt, 1000, 3500);
+      const durationSeconds = simulationValue(`${instrument.symbol}:${currency.code}:duration`, snapshot.observedAt, 900, 3600);
+      const opensAt = new Date();
+      const closesAt = new Date(opensAt.getTime() + durationSeconds * 1000);
+      await db.insert(opportunityOffers).values({ symbol: instrument.symbol, venueFrom: instrument.exchange || "Listed market", venueTo: deskLabel, currency: currency.code, minimumMinor, expectedRewardBps, durationSeconds, opensAt, closesAt, rewardAt: closesAt, status: "open", instrumentId: instrument.id, marketSnapshotId: snapshot.id, marketValueUsd: snapshot.marketValueUsd, sector: instrument.sector, industry: instrument.industry, listingStatus: instrument.listingStatus, marketObservedAt: snapshot.observedAt, simulationSeed: crypto.createHash("sha256").update(`${instrument.symbol}:${currency.code}:${snapshot.id}:${snapshot.observedAt.toISOString()}:${process.env.SIMULATION_SALT || "arbitrade-default"}`).digest("hex") });
+      activeKeys.add(activeKey);
+      created++;
+    }
   }
-  return { created, available: instruments.length };
+  return { created, available: instruments.length * currencies.length };
 }
