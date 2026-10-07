@@ -134,6 +134,13 @@
       "when": 1760000002000,
       "tag": "0018_opportunity_refresh_popup_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1760000003000,
+      "tag": "0019_daily_opportunity_quotas",
+      "breakpoints": true
     }
   ]
 }
