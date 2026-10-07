@@ -268,7 +268,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   return {tradeId:Number(result[0].insertId),rewardMinor:reward,rewardBps:terms.rewardBps,minimumMinor:terms.minimumMinor,calculationMethod:terms.method,settlesAt,currency:offer.currency};
  });
 }
-export async function listTrades(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");return db.select().from(tradePositions).where(eq(tradePositions.userId,userId)).orderBy(tradePositions.confirmedAt);}
+export async function listTrades(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");await settleDueTrades(userId);return db.select().from(tradePositions).where(eq(tradePositions.userId,userId)).orderBy(tradePositions.confirmedAt);}
 export async function settleDueTrades(userId:number){
   const db=await getDb();if(!db)throw new Error("Database is not available");
   const settledRows=await db.transaction(async tx=>{
