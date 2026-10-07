@@ -103,8 +103,142 @@ function CustomerYieldStrategies({push}:{push:(message:string)=>void}) {
     {selectedPosition&&<div className="modal-backdrop" onMouseDown={()=>setSelectedPosition(null)}><div className="op-modal" onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={()=>setSelectedPosition(null)}><X size={18}/></button><div className="modal-kicker"><span className="pulse"/> POSITION TIMELINE</div><h2>{selectedPosition.positionCode}</h2><p>{selectedPosition.productName} · {selectedPosition.status}</p><div className="customer-metric-grid"><div><span>Allocated</span><strong>{display(selectedPosition.principalMinor,selectedPosition.asset)}</strong></div><div><span>Reward posted</span><strong>{display(selectedPosition.rewardMinor,selectedPosition.asset)}</strong></div><div><span>Maturity</span><strong>{new Date(selectedPosition.maturityAt).toLocaleDateString()}</strong></div></div><div className="console-output">{(dashboard.data?.events||[]).filter((e:any)=>e.positionId===selectedPosition.id).map((e:any)=><div key={e.id}><span>✓</span>{new Date(e.createdAt).toLocaleString()} · {e.eventType} · {e.newState}</div>)}</div>{["ACTIVE","REWARD_ACCRUING"].includes(selectedPosition.status)&&<button className="secondary-button wide" onClick={()=>cancel.mutate({positionId:selectedPosition.id,idempotencyKey:crypto.randomUUID()})} disabled={cancel.isPending}>{cancel.isPending?"Releasing…":"Request cancellation and release"}</button>}</div></div>}
   </div>;
 }
-function CustomerWorkspace({user}:{user:{name:string|null;email:string|null}}) { const soundSettingsQuery=trpc.customer.soundSettings.useQuery(undefined,{refetchInterval:15000}); const adminSounds={...defaultSoundSettings,...(soundSettingsQuery.data||{})} as SoundSettings; const opportunityMeta=trpc.customer.opportunities.useQuery(undefined,{refetchInterval:10000}); const [section,setSection]=useState("dashboard"); const [sound,setSound]=useState(true); const [notifications,setNotifications]=useState(3); const [toasts,setToasts]=useState<string[]>([]); const push=(message:string)=>{setToasts((x)=>[message,...x].slice(0,3));setNotifications((x)=>x+1);}; return <div className="separate-portal customer-portal"><PortalHeader mode="customer" user={user}/><CustomerBalanceRibbon push={push} packageName={opportunityMeta.data?.delivery.packageName} maxPopupsPerDay={opportunityMeta.data?.delivery.maxPopupsPerDay}/><div className="portal-body"><aside className="portal-rail">{[["dashboard","Home",LayoutDashboard],["intelligence","Portfolio Intelligence",BarChart3],["opportunities","Trade & Earn",Zap],["yield","Stake & Earn",Sparkles],["console","Console Mode",TerminalIcon],["wallet","Wallet Settings",WalletCards],["tradeSettings","Trade Settings",SlidersHorizontal],["account","Account Settings",Settings2],["advanced","Power tools",Sparkles],["activity","Activity",Activity],["security","Security Center",ShieldCheck],["notifications","Notifications",Bell],["support","Support",CircleHelp]].map(([id,label,Icon])=><button className={`${section===id?"active ":""}${id==="opportunities"?"trade-earn-nav-button":id==="yield"?"stake-earn-nav-button":""}`} key={id as string} onClick={()=>setSection(id as string)}><Icon size={16}/>{id==="opportunities"?<span className="trade-earn-nav-label"><i>★</i><span><strong>Trade &amp; Earn</strong></span><b>PRO</b></span>:id==="yield"?<span className="stake-earn-nav-label"><i>✦</i><span><strong>Stake &amp; Earn</strong><small>Grow your balance</small></span></span>:<span>{label as string}</span>}{id==="notifications"&&notifications>0&&<b>{notifications}</b>}</button>)}</aside><main key={section} className="portal-main">{section==="dashboard"&&<CustomerDashboard push={push} sound={sound} setSound={setSound} soundSettings={adminSounds} delivery={opportunityMeta.data?.delivery}/>} {section==="intelligence"&&<CustomerIntelligence push={push}/>} {section==="opportunities"&&<CustomerOpportunities push={push} sound={sound} soundSettings={adminSounds}/>} {section==="wallet"&&<CustomerWallet push={push}/>} {section==="tradeSettings"&&<CustomerTradeSettings push={push}/>} {section==="console"&&<CustomerConsoleMode push={push} sound={sound} soundSettings={adminSounds}/>} {section==="account"&&<CustomerAccountSettings push={push}/>} {section==="security"&&<CustomerSecurityCenter push={push}/>} {section==="activity"&&<CustomerActivity/>} {section==="notifications"&&<CustomerNotifications/>} {section==="advanced"&&<CustomerAdvanced push={push}/>} {section==="support"&&<CustomerSupportCenter push={push}/>} {section==="yield"&&<CustomerYieldStrategies push={push}/> } </main></div>{section !== "opportunities" && <CustomerOpportunityAlert sound={sound} soundSettings={adminSounds} delivery={opportunityMeta.data?.delivery} onOpen={()=>setSection("opportunities")} />}<div className="customer-toast-stack">{toasts.map((x,i)=><div className="customer-toast" key={`${x}-${i}`}><Zap size={14}/><span>{x}</span><button onClick={()=>setToasts((a)=>a.filter((_,j)=>j!==i))}><X size={13}/></button></div>)}</div></div>; }
-function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery}:{sound:boolean;soundSettings:SoundSettings;onOpen:()=>void;delivery?:any}) { const offers=trpc.customer.opportunities.useQuery(undefined,{refetchInterval:10000}); const [popup,setPopup]=useState<any>(null); const [preAlert,setPreAlert]=useState<any>(null); const popupRef=useRef<any>(null); const preAlertRef=useRef<any>(null); const seen=useRef<Set<number>>(new Set()); const shownAt=useRef<number[]>([]); const nextAllowedAt=useRef(0); const timer=useRef<number|null>(null); const preTimer=useRef<number|null>(null); const policy=delivery?.popupPolicy; const random=()=>{if(typeof crypto!=="undefined"&&crypto.getRandomValues){const values=new Uint32Array(1);crypto.getRandomValues(values);return values[0]/4294967295}return Math.random()}; const stop=()=>{stopConfiguredSound();popupRef.current=null;preAlertRef.current=null;setPopup(null);setPreAlert(null);if(timer.current)window.clearTimeout(timer.current);if(preTimer.current)window.clearTimeout(preTimer.current)}; const canShow=()=>Boolean(delivery?.enabled&&policy&&Number.isFinite(policy.popupMinGapSeconds)&&Number.isFinite(policy.popupMaxPerHour)&&Date.now()>=nextAllowedAt.current&&shownAt.current.filter(x=>Date.now()-x<86400000).length<(delivery.maxPopupsPerDay||0)); const showOffer=(offer:any)=>{if(!canShow()||popupRef.current)return;const now=Date.now();shownAt.current=[...shownAt.current.filter(x=>now-x<86400000),now];const remaining=Math.max(1,(delivery.maxPopupsPerDay||1)-shownAt.current.length);const dayProgress=(now%86400000)/86400000;const hoursRemaining=Math.max(1,24-dayProgress*24);const fairGapSeconds=(hoursRemaining*3600/remaining)*0.35;const exponentialJitter=Math.min(policy.popupJitterSeconds*3, -Math.log(Math.max(0.000001,1-random()))*policy.popupJitterSeconds);nextAllowedAt.current=now+Math.max(policy.popupMinGapSeconds,Math.min(21600,fairGapSeconds+exponentialJitter))*1000;popupRef.current=offer;setPopup(offer);if(sound&&soundSettings.enabled){unlockNotificationAudio();playConfiguredSound(soundSettings.opportunity,"opportunity",soundSettings.loopOpportunity)}timer.current=window.setTimeout(stop,Math.max(1,policy.popupDisplaySeconds)*1000)}; const consider=(offer:any)=>{if(seen.current.has(offer.id)||!canShow())return;seen.current.add(offer.id);if(random()*10000<policy.popupPreAlertProbabilityBps){preAlertRef.current=offer;setPreAlert(offer);preTimer.current=window.setTimeout(()=>{const withdrawn=random()*10000<policy.popupWithdrawalProbabilityBps;preAlertRef.current=null;setPreAlert(null);if(!withdrawn)showOffer(offer)},Math.max(1,policy.popupPreAlertSeconds)*1000)}else showOffer(offer)}; useEffect(()=>{const available=offers.data?.offers||[];if(!available.length||!policy)return;const candidates=available.filter((offer:any)=>offer.popupEligible!==false&&!seen.current.has(offer.id));if(candidates.length){const ranked=candidates.map((offer:any)=>({offer,score:(Number(offer.expectedRewardBps||0)%997)/997*0.25+random()*0.75})).sort((a:any,b:any)=>b.score-a.score);consider(ranked[0].offer)}},[offers.data,policy]); useEffect(()=>{const id=window.setInterval(()=>{const available=offers.data?.offers||[];if(!available.length||!policy||popupRef.current||preAlertRef.current)return;const candidates=available.filter((offer:any)=>offer.popupEligible!==false&&!seen.current.has(offer.id));if(candidates.length){const ranked=candidates.map((offer:any)=>({offer,score:(Number(offer.expectedRewardBps||0)%997)/997*0.25+random()*0.75})).sort((a:any,b:any)=>b.score-a.score);consider(ranked[0].offer)}},5000);return()=>{window.clearInterval(id);stop()}},[offers.data,policy]); if(preAlert){return <div className="center-opportunity-toast pre-alert-toast"><div className="toast-live"><span className="pulse"/> MARKET SIGNAL PREVIEW <span className="toast-live-status">API-backed</span></div><h3>{preAlert.symbol} window is being evaluated</h3><p>Fresh market data detected from the connected provider. A review window may become available shortly.</p><div className="toast-timing"><Clock size={14}/> Preview lasts {policy.preAlertSeconds}s; conditions can withdraw it before publication.</div><div className="toast-actions"><button className="toast-dismiss" onClick={stop}>Dismiss preview</button></div></div>} if(!popup)return null;const money=popup.currency==="BTC"||popup.currency==="ETH"?`${(popup.minimumMinor/1e8).toFixed(6)} ${popup.currency}`:`${(popup.minimumMinor/100).toFixed(2)} ${popup.currency}`;return <div className="center-opportunity-toast"><div className="toast-live"><span className="pulse"/> NEW OPPORTUNITY DETECTED <span className="toast-live-status">API-backed simulation</span></div><h3>{popup.symbol} spot allocation opened</h3><p>Minimum {money} · reward +{Math.round(popup.expectedRewardBps)/100}% · review before the window closes</p><div className="toast-timing"><span className="pulse"/> Live registry data · next alert is governed by the server cooldown and hourly cap.</div><div className="toast-actions"><button className="primary-button" onClick={()=>{stop();onOpen()}}>Review now <ArrowUpRight size={14}/></button><button className="toast-dismiss" onClick={stop}>Dismiss</button></div></div>; }
+function CustomerWorkspace({user}:{user:{name:string|null;email:string|null}}) { const soundSettingsQuery=trpc.customer.soundSettings.useQuery(undefined,{refetchInterval:15000}); const adminSounds={...defaultSoundSettings,...(soundSettingsQuery.data||{})} as SoundSettings; const opportunityMeta=trpc.customer.opportunities.useQuery(undefined,{refetchInterval:10000}); const [section,setSection]=useState("dashboard"); const [sound,setSound]=useState(true); const [notifications,setNotifications]=useState(3); const [toasts,setToasts]=useState<string[]>([]); const push=(message:string)=>{setToasts((x)=>[message,...x].slice(0,3));setNotifications((x)=>x+1);}; return <div className="separate-portal customer-portal"><PortalHeader mode="customer" user={user}/><CustomerBalanceRibbon push={push} packageName={opportunityMeta.data?.delivery.packageName} maxPopupsPerDay={opportunityMeta.data?.delivery.maxPopupsPerDay}/><div className="portal-body"><aside className="portal-rail">{[["dashboard","Home",LayoutDashboard],["intelligence","Portfolio Intelligence",BarChart3],["opportunities","Trade & Earn",Zap],["yield","Stake & Earn",Sparkles],["console","Console Mode",TerminalIcon],["wallet","Wallet Settings",WalletCards],["tradeSettings","Trade Settings",SlidersHorizontal],["account","Account Settings",Settings2],["advanced","Power tools",Sparkles],["activity","Activity",Activity],["security","Security Center",ShieldCheck],["notifications","Notifications",Bell],["support","Support",CircleHelp]].map(([id,label,Icon])=><button className={`${section===id?"active ":""}${id==="opportunities"?"trade-earn-nav-button":id==="yield"?"stake-earn-nav-button":""}`} key={id as string} onClick={()=>setSection(id as string)}><Icon size={16}/>{id==="opportunities"?<span className="trade-earn-nav-label"><i>★</i><span><strong>Trade &amp; Earn</strong></span><b>PRO</b></span>:id==="yield"?<span className="stake-earn-nav-label"><i>✦</i><span><strong>Stake &amp; Earn</strong><small>Grow your balance</small></span></span>:<span>{label as string}</span>}{id==="notifications"&&notifications>0&&<b>{notifications}</b>}</button>)}</aside><main key={section} className="portal-main">{section==="dashboard"&&<CustomerDashboard push={push} sound={sound} setSound={setSound} soundSettings={adminSounds} delivery={opportunityMeta.data?.delivery}/>} {section==="intelligence"&&<CustomerIntelligence push={push}/>} {section==="opportunities"&&<CustomerOpportunities push={push} sound={sound} soundSettings={adminSounds}/>} {section==="wallet"&&<CustomerWallet push={push}/>} {section==="tradeSettings"&&<CustomerTradeSettings push={push}/>} {section==="console"&&<CustomerConsoleMode push={push} sound={sound} soundSettings={adminSounds}/>} {section==="account"&&<CustomerAccountSettings push={push}/>} {section==="security"&&<CustomerSecurityCenter push={push}/>} {section==="activity"&&<CustomerActivity/>} {section==="notifications"&&<CustomerNotifications/>} {section==="advanced"&&<CustomerAdvanced push={push}/>} {section==="support"&&<CustomerSupportCenter push={push}/>} {section==="yield"&&<CustomerYieldStrategies push={push}/> } </main></div><CustomerOpportunityAlert sound={sound} soundSettings={adminSounds} delivery={opportunityMeta.data?.delivery} userEmail={user.email||""} onOpen={()=>setSection("opportunities")} /><div className="customer-toast-stack">{toasts.map((x,i)=><div className="customer-toast" key={`${x}-${i}`}><Zap size={14}/><span>{x}</span><button onClick={()=>setToasts((a)=>a.filter((_,j)=>j!==i))}><X size={13}/></button></div>)}</div></div>; }
+function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,userEmail}:{sound:boolean;soundSettings:SoundSettings;onOpen:()=>void;delivery?:any;userEmail:string}) {
+  const offers=trpc.customer.opportunities.useQuery(undefined,{refetchInterval:10000});
+  const [popup,setPopup]=useState<any>(null);
+  const [preAlert,setPreAlert]=useState<any>(null);
+  const popupRef=useRef<any>(null);
+  const preAlertRef=useRef<any>(null);
+  const seen=useRef<Set<number>>(new Set());
+  // Keep server-marked eligible opportunities until their visible popup is shown;
+  // later 10-second API refreshes must not silently discard the queue.
+  const pending=useRef<Map<number,any>>(new Map());
+  const shownAt=useRef<number[]>([]);
+  const nextAllowedAt=useRef(0);
+  const timer=useRef<number|null>(null);
+  const preTimer=useRef<number|null>(null);
+  const policy=delivery?.popupPolicy;
+  const storageKey=`arbitrade_opportunity_popup_timing:${String(userEmail||"unknown").trim().toLowerCase()}`;
+  const syncTiming=()=>{
+    try{
+      const saved=JSON.parse(window.localStorage.getItem(storageKey)||"null");
+      if(saved&&Array.isArray(saved.shownAt)){
+        const now=Date.now();
+        const incoming=saved.shownAt.filter((value:any)=>typeof value==="number"&&Number.isFinite(value)&&now-value<86400000);
+        shownAt.current=Array.from(new Set([...shownAt.current,...incoming])).sort((a,b)=>a-b);
+        nextAllowedAt.current=Math.max(nextAllowedAt.current,Number.isFinite(saved.nextAllowedAt)?saved.nextAllowedAt:0);
+      }
+    }catch{}
+  };
+  useEffect(()=>{
+    syncTiming();
+    const onStorage=(event:StorageEvent)=>{if(event.key===storageKey)syncTiming()};
+    window.addEventListener("storage",onStorage);
+    return()=>window.removeEventListener("storage",onStorage);
+  },[storageKey]);
+  const isOfferOpen=(offer:any)=>{const expiresAt=new Date(offer.closesAt).getTime();return Number.isFinite(expiresAt)&&expiresAt>Date.now()};
+  const isOfferCurrent=(offer:any)=>isOfferOpen(offer)&&Boolean(offers.data?.offers?.some((current:any)=>current.id===offer.id));
+  const random=()=>{
+    if(typeof crypto!=="undefined"&&crypto.getRandomValues){
+      const values=new Uint32Array(1);
+      crypto.getRandomValues(values);
+      return values[0]/4294967295;
+    }
+    return Math.random();
+  };
+  const canShow=()=>{
+    syncTiming();
+    const now=Date.now();
+    const shownLastHour=shownAt.current.filter((value)=>now-value<3600000).length;
+    const shownLastDay=shownAt.current.filter((value)=>now-value<86400000).length;
+    return Boolean(delivery?.enabled&&policy&&Number.isFinite(policy.popupMinGapSeconds)&&Number.isFinite(policy.popupMaxPerHour)&&shownLastHour<Number(policy.popupMaxPerHour)&&now>=nextAllowedAt.current&&shownLastDay<Number(delivery.maxPopupsPerDay||0));
+  };
+  const getCandidates=(available:any[])=>{
+    const now=Date.now();
+    for(const offer of available){
+      if(offer.popupEligible===true&&!seen.current.has(offer.id))pending.current.set(offer.id,offer);
+    }
+    const visibleIds=new Set(available.map((offer:any)=>offer.id));
+    for(const [id,offer] of pending.current){
+      if(!visibleIds.has(id)||!isOfferOpen(offer))pending.current.delete(id);
+    }
+    return Array.from(pending.current.values()).filter((offer:any)=>!seen.current.has(offer.id));
+  };
+  const stop=()=>{
+    stopConfiguredSound();
+    popupRef.current=null;
+    preAlertRef.current=null;
+    setPopup(null);
+    setPreAlert(null);
+    if(timer.current!==null)window.clearTimeout(timer.current);
+    if(preTimer.current!==null)window.clearTimeout(preTimer.current);
+    timer.current=null;
+    preTimer.current=null;
+  };
+  const showOffer=(offer:any)=>{
+    if(!isOfferCurrent(offer)||popupRef.current)return;
+    const display=()=>{
+      syncTiming();
+      if(!isOfferCurrent(offer)||!canShow()||popupRef.current)return;
+      const now=Date.now();
+      shownAt.current=[...shownAt.current.filter((value)=>now-value<86400000),now];
+      const remaining=Math.max(1,Number(delivery.maxPopupsPerDay||1)-shownAt.current.length);
+      const dayProgress=(now%86400000)/86400000;
+      const hoursRemaining=Math.max(1,24-dayProgress*24);
+      const fairGapSeconds=(hoursRemaining*3600/remaining)*0.35;
+      const jitterSeconds=Number(policy.popupJitterSeconds||0);
+      const exponentialJitter=Math.min(jitterSeconds*3,-Math.log(Math.max(0.000001,1-random()))*jitterSeconds);
+      nextAllowedAt.current=now+Math.max(Number(policy.popupMinGapSeconds||0),Math.min(21600,fairGapSeconds+exponentialJitter))*1000;
+      try{window.localStorage.setItem(storageKey,JSON.stringify({shownAt:shownAt.current,nextAllowedAt:nextAllowedAt.current}))}catch{}
+      popupRef.current=offer;
+      setPopup(offer);
+      if(sound&&soundSettings.enabled){
+        unlockNotificationAudio();
+        playConfiguredSound(soundSettings.opportunity,"opportunity",soundSettings.loopOpportunity);
+      }
+      timer.current=window.setTimeout(stop,Math.max(1,Number(policy.popupDisplaySeconds||8))*1000);
+    };
+    const locks=typeof navigator!=="undefined"?(navigator as any).locks:null;
+    if(locks?.request)void locks.request(`arbitrade-popup:${storageKey}`,()=>display()).catch(()=>display());
+    else display();
+  };
+  const consider=(offer:any)=>{
+    if(seen.current.has(offer.id)||!canShow())return;
+    seen.current.add(offer.id);
+    if(random()*10000<Number(policy.popupPreAlertProbabilityBps||0)){
+      preAlertRef.current=offer;
+      setPreAlert(offer);
+      preTimer.current=window.setTimeout(()=>{
+        const withdrawn=random()*10000<Number(policy.popupWithdrawalProbabilityBps||0);
+        preAlertRef.current=null;
+        setPreAlert(null);
+        if(!withdrawn&&isOfferOpen(offer))showOffer(offer);
+      },Math.max(1,Number(policy.popupPreAlertSeconds||0))*1000);
+    }else showOffer(offer);
+  };
+  const attemptNext=(available:any[])=>{
+    if(!policy)return;
+    const candidates=getCandidates(available);
+    if(!candidates.length||popupRef.current||preAlertRef.current||!canShow())return;
+    const ranked=candidates.map((offer:any)=>({offer,score:(Number(offer.expectedRewardBps||0)%997)/997*0.25+random()*0.75})).sort((a:any,b:any)=>b.score-a.score);
+    consider(ranked[0].offer);
+  };
+  useEffect(()=>{attemptNext(offers.data?.offers||[]);},[offers.data,policy,delivery]);
+  useEffect(()=>{
+    const id=window.setInterval(()=>attemptNext(offers.data?.offers||[]),5000);
+    return()=>window.clearInterval(id);
+  },[offers.data,policy,delivery]);
+  useEffect(()=>()=>{
+    stopConfiguredSound();
+    if(timer.current!==null)window.clearTimeout(timer.current);
+    if(preTimer.current!==null)window.clearTimeout(preTimer.current);
+  },[]);
+  if(preAlert)return <div className="center-opportunity-toast pre-alert-toast"><div className="toast-live"><span className="pulse"/> MARKET SIGNAL PREVIEW <span className="toast-live-status">API-backed</span></div><h3>{preAlert.symbol} window is being evaluated</h3><p>Fresh market data detected from the connected provider. A review window may become available shortly.</p><div className="toast-timing"><Clock size={14}/> Preview lasts {policy.popupPreAlertSeconds}s; conditions can withdraw it before publication.</div><div className="toast-actions"><button className="toast-dismiss" onClick={stop}>Dismiss preview</button></div></div>;
+  if(!popup)return null;
+  const money=popup.currency==="BTC"||popup.currency==="ETH"?`${(popup.minimumMinor/1e8).toFixed(6)} ${popup.currency}`:`${(popup.minimumMinor/100).toFixed(2)} ${popup.currency}`;
+  return <div className="center-opportunity-toast"><div className="toast-live"><span className="pulse"/> NEW OPPORTUNITY DETECTED <span className="toast-live-status">API-backed simulation</span></div><h3>{popup.symbol} spot allocation opened</h3><p>Minimum {money} · reward +{Math.round(popup.expectedRewardBps)/100}% · review before the window closes</p><div className="toast-timing"><span className="pulse"/> Live registry data · next alert is governed by the server cooldown and hourly cap.</div><div className="toast-actions"><button className="primary-button" onClick={()=>{stop();onOpen()}}>Review now <ArrowUpRight size={14}/></button><button className="toast-dismiss" onClick={stop}>Dismiss</button></div></div>;
+}
 function CustomerDashboard({push,sound,setSound,soundSettings,delivery}:{push:(x:string)=>void;sound:boolean;setSound:(x:boolean)=>void;soundSettings:SoundSettings;delivery?:{packageName:string;maxPopupsPerDay:number;maxVisibleOffers:number;autoTradeEnabled?:boolean}}) {
   const balances=trpc.customer.balances.useQuery(undefined,{refetchInterval:5000});
   const settings=trpc.customer.autoTradeSettings.useQuery(undefined,{refetchInterval:5000});
