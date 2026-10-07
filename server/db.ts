@@ -272,7 +272,7 @@ export async function listTrades(userId:number){const db=await getDb();if(!db)th
 export async function settleDueTrades(userId:number){
   const db=await getDb();if(!db)throw new Error("Database is not available");
   const settledRows=await db.transaction(async tx=>{
-    const due=await tx.select().from(tradePositions).where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed"),lte(tradePositions.settlesAt,new Date())));
+    const due=await tx.select().from(tradePositions).where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed"),lte(tradePositions.settlesAt,sql`UTC_TIMESTAMP()`)));
     const settled:any[]=[];
     for(const trade of due){
       const reference=`trade-settlement:${trade.id}`;
