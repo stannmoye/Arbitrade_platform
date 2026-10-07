@@ -8,7 +8,7 @@ import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { sdk } from "./sdk";
-import { createLocalCustomer, getUserByEmail, runAutoTradeCycle } from "../db";
+import { createLocalCustomer, getAppSetting, getUserByEmail, runAutoTradeCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
@@ -110,9 +110,12 @@ async function startServer() {
     const autoTradeTimer = setInterval(() => { void runAutoTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error)); }, 30_000);
     autoTradeTimer.unref();
     void runAutoTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error));
-    const marketSyncTimer = setInterval(() => { void refreshMarketData().then(() => ensureMarketDrivenOpportunities()).catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error)); }, 10 * 60_000);
+    const refreshMinutes = Number(await getAppSetting("market.refreshIntervalMinutes"));
+    if (!Number.isFinite(refreshMinutes) || refreshMinutes < 1) throw new Error("Database setting market.refreshIntervalMinutes is missing or invalid");
+    const runMarketRefresh = async () => { const result = await refreshMarketData(); const opportunities = await ensureMarketDrivenOpportunities(result.refreshedAt); console.log("[MarketSync] refreshed", { ...result, opportunities }); };
+    const marketSyncTimer = setInterval(() => { void runMarketRefresh().catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error)); }, refreshMinutes * 60_000);
     marketSyncTimer.unref();
-    void refreshMarketData().then(() => ensureMarketDrivenOpportunities()).then(result => console.log("[MarketSync] ready", result)).catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error));
+    void runMarketRefresh().catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error));
   } else {
     console.warn("[Database] DATABASE_URL is not configured; database workers are paused until production configuration is supplied.");
   }
