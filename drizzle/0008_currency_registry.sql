@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS `currency_registry` (
   `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`), UNIQUE KEY `currency_registry_code_unique` (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--> statement-breakpoint
 INSERT IGNORE INTO `currency_registry` (`code`,`name`,`symbol`,`scale`,`assetType`,`usdRate`,`rateProvider`,`externalCode`) VALUES
 ('USD','US Dollar','$',2,'fiat','1','manual','USD'),
 ('EUR','Euro','€',2,'fiat','1.08','manual','EUR'),

@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS `console_activity_phrases` (
   PRIMARY KEY (`id`),
   KEY `console_activity_phrases_enabled_idx` (`enabled`,`category`)
 );
+--> statement-breakpoint
 
 INSERT INTO `console_activity_phrases` (`category`,`phraseTemplate`) VALUES
 ('ROUTING','Scanning the current opportunity graph for {{asset}} exposure at {{rate}} basis points.'),

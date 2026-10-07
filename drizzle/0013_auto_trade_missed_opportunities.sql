@@ -3,6 +3,7 @@ ALTER TABLE `customer_controls`
   ADD COLUMN IF NOT EXISTS `autoTradeAmountMinor` int NOT NULL DEFAULT 10000,
   ADD COLUMN IF NOT EXISTS `autoTradeMinRewardBps` int NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS `autoTradeDailyLimit` int NOT NULL DEFAULT 5;
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `missed_opportunities` (
   `id` int AUTO_INCREMENT NOT NULL,
@@ -21,5 +22,6 @@ CREATE TABLE IF NOT EXISTS `missed_opportunities` (
   UNIQUE KEY `missed_opportunities_user_offer_unique` (`userId`,`offerId`),
   KEY `missed_opportunities_user_status_idx` (`userId`,`status`,`createdAt`)
 );
+--> statement-breakpoint
 
 UPDATE `customer_controls` SET `autoTradeEnabled`=TRUE WHERE `autoTradeEnabled` IS NULL;
