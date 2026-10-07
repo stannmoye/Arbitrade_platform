@@ -110,10 +110,11 @@ async function startServer() {
     const autoTradeTimer = setInterval(() => { void runAutoTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error)); }, 30_000);
     autoTradeTimer.unref();
     void runAutoTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error));
-    const refreshMinutes = Number(await getAppSetting("market.refreshIntervalMinutes"));
-    if (!Number.isFinite(refreshMinutes) || refreshMinutes < 1) throw new Error("Database setting market.refreshIntervalMinutes is missing or invalid");
+    const refreshMinutes = Number(await getAppSetting("market.refreshIntervalMinutes", "120"));
+    if (!Number.isFinite(refreshMinutes) || refreshMinutes < 1) { console.error("[MarketSync] Invalid market.refreshIntervalMinutes; using safe 120-minute fallback"); }
+    const safeRefreshMinutes = Number.isFinite(refreshMinutes) && refreshMinutes >= 1 ? refreshMinutes : 120;
     const runMarketRefresh = async () => { const result = await refreshMarketData(); const opportunities = await ensureMarketDrivenOpportunities(result.refreshedAt); console.log("[MarketSync] refreshed", { ...result, opportunities }); };
-    const marketSyncTimer = setInterval(() => { void runMarketRefresh().catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error)); }, refreshMinutes * 60_000);
+    const marketSyncTimer = setInterval(() => { void runMarketRefresh().catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error)); }, safeRefreshMinutes * 60_000);
     marketSyncTimer.unref();
     void runMarketRefresh().catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error));
   } else {
