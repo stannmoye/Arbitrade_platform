@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { and, desc, eq, gt, lt, lte } from "drizzle-orm";
-import { getAppSetting, getDb } from "./db";
+import { countOutstandingTrades, getAppSetting, getDb, getTradeSettlementPolicy } from "./db";
 import { currencyRegistry, fxRateSnapshots, marketInstruments, marketSnapshots, opportunityOffers } from "../drizzle/schema";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
 
@@ -46,6 +46,14 @@ export async function ensureMarketDrivenOpportunities(refreshedAt = new Date()) 
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const now = new Date();
+  const settlementPolicy = await getTradeSettlementPolicy();
+  if (settlementPolicy.blockUntilSettled) {
+    const outstandingTrades = await countOutstandingTrades();
+    if (outstandingTrades > 0) {
+      await db.update(opportunityOffers).set({ status: "closed" }).where(eq(opportunityOffers.status, "open"));
+      return { created: 0, available: 0, pausedUntilSettled: true, outstandingTrades, settlementDelaySeconds: settlementPolicy.delaySeconds };
+    }
+  }
   if ((await getAppSetting("opportunity.drainMode")) === "true") return { created: 0, available: 0, drainMode: true };
   await db.update(opportunityOffers).set({ status: "closed" }).where(and(eq(opportunityOffers.status, "open"), lt(opportunityOffers.marketObservedAt, refreshedAt)));
   const active = await db.select({ symbol: opportunityOffers.symbol }).from(opportunityOffers).where(and(eq(opportunityOffers.status, "open"), gt(opportunityOffers.closesAt, now)));
