@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
-import { and, desc, eq, gt, lte } from "drizzle-orm";
-import { getDb } from "./db";
+import { and, desc, eq, gt, lt, lte } from "drizzle-orm";
+import { getAppSetting, getDb } from "./db";
 import { currencyRegistry, fxRateSnapshots, marketInstruments, marketSnapshots, opportunityOffers } from "../drizzle/schema";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
 
@@ -14,6 +14,7 @@ const simulationValue = (symbol: string, observedAt: Date, min: number, max: num
 export async function refreshMarketData() {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
+  const refreshedAt = new Date();
   const [stocks, fiat, cryptoRates] = await Promise.allSettled([fetchMostActiveStocks(200), fetchFiatRates(), fetchCryptoRates()]);
   let stocksStored = 0;
   if (stocks.status === "fulfilled") {
@@ -38,16 +39,19 @@ export async function refreshMarketData() {
     await db.insert(currencyRegistry).values({ code: row.base, name: row.base === "BTC" ? "Bitcoin" : "Ethereum", symbol: row.base === "BTC" ? "₿" : "Ξ", scale: 8, assetType: "crypto", usdRate: row.rate, rateProvider: "coingecko", externalCode: row.base === "BTC" ? "bitcoin" : "ethereum", enabled: true }).onDuplicateKeyUpdate({ set: { usdRate: row.rate, rateProvider: "coingecko", externalCode: row.base === "BTC" ? "bitcoin" : "ethereum", enabled: true, updatedAt: new Date() } });
     fxStored++;
   }
-  return { stocksStored, fxStored, errors: [stocks, fiat, cryptoRates].filter(x => x.status === "rejected").map(x => x.status === "rejected" ? String(x.reason) : "") };
+  return { stocksStored, fxStored, refreshedAt, errors: [stocks, fiat, cryptoRates].filter(x => x.status === "rejected").map(x => x.status === "rejected" ? String(x.reason) : "") };
 }
 
-export async function ensureMarketDrivenOpportunities() {
+export async function ensureMarketDrivenOpportunities(refreshedAt = new Date()) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const now = new Date();
+  await db.update(opportunityOffers).set({ status: "closed" }).where(and(eq(opportunityOffers.status, "open"), lt(opportunityOffers.marketObservedAt, refreshedAt)));
   const active = await db.select({ symbol: opportunityOffers.symbol }).from(opportunityOffers).where(and(eq(opportunityOffers.status, "open"), gt(opportunityOffers.closesAt, now)));
   const activeSymbols = new Set(active.map(row => row.symbol));
   const instruments = await db.select().from(marketInstruments).orderBy(desc(marketInstruments.updatedAt)).limit(200);
+  const deskLabel = await getAppSetting("opportunity.deskLabel");
+  if (!deskLabel) throw new Error("Database setting opportunity.deskLabel is missing");
   let created = 0;
   for (const instrument of instruments) {
     if (activeSymbols.has(instrument.symbol)) continue;
@@ -58,7 +62,7 @@ export async function ensureMarketDrivenOpportunities() {
     const durationSeconds = simulationValue(`${instrument.symbol}:duration`, snapshot.observedAt, 900, 3600);
     const opensAt = new Date();
     const closesAt = new Date(opensAt.getTime() + durationSeconds * 1000);
-    await db.insert(opportunityOffers).values({ symbol: instrument.symbol, venueFrom: instrument.exchange || "Listed market", venueTo: "WiseBond Simulation Desk", currency: "USD", minimumMinor, expectedRewardBps, durationSeconds, opensAt, closesAt, rewardAt: closesAt, status: "open", instrumentId: instrument.id, marketSnapshotId: snapshot.id, marketValueUsd: snapshot.marketValueUsd, sector: instrument.sector, industry: instrument.industry, listingStatus: instrument.listingStatus, marketObservedAt: snapshot.observedAt, simulationSeed: crypto.randomBytes(16).toString("hex") });
+    await db.insert(opportunityOffers).values({ symbol: instrument.symbol, venueFrom: instrument.exchange || "Listed market", venueTo: deskLabel, currency: "USD", minimumMinor, expectedRewardBps, durationSeconds, opensAt, closesAt, rewardAt: closesAt, status: "open", instrumentId: instrument.id, marketSnapshotId: snapshot.id, marketValueUsd: snapshot.marketValueUsd, sector: instrument.sector, industry: instrument.industry, listingStatus: instrument.listingStatus, marketObservedAt: snapshot.observedAt, simulationSeed: crypto.randomBytes(16).toString("hex") });
     created++;
   }
   return { created, available: instruments.length };
