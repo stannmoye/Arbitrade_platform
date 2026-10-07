@@ -16,6 +16,7 @@ import { getTicketUploadPolicy } from "../db";
 import { ensureMarketDrivenOpportunities, refreshMarketData } from "../marketSync";
 import { serveStatic, setupVite } from "./vite";
 import { openTransactionConsoleSession } from "../transactionConsole";
+import { runOpportunityRetention } from "../opportunityLifecycle";
 
 async function startServer() {
   const app = express();
@@ -107,6 +108,9 @@ async function startServer() {
   const port = Number(process.env.PORT || "3000");
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
   if (process.env.DATABASE_URL) {
+    const popupRetentionTimer = setInterval(() => { void runOpportunityRetention().then(result => { if (result.deletedEvents || result.deletedDeliveryRows) console.log("[PopupRetention] archived and removed", result); }).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error)); }, 60 * 60_000);
+    popupRetentionTimer.unref();
+    void runOpportunityRetention().catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error));
     const autoTradeTimer = setInterval(() => { void runAutoTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error)); }, 30_000);
     autoTradeTimer.unref();
     void runAutoTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error));
