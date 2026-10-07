@@ -46,6 +46,7 @@ export async function ensureMarketDrivenOpportunities(refreshedAt = new Date()) 
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const now = new Date();
+  if ((await getAppSetting("opportunity.drainMode", "false")) === "true") return { created: 0, available: 0, drainMode: true };
   await db.update(opportunityOffers).set({ status: "closed" }).where(and(eq(opportunityOffers.status, "open"), lt(opportunityOffers.marketObservedAt, refreshedAt)));
   const active = await db.select({ symbol: opportunityOffers.symbol }).from(opportunityOffers).where(and(eq(opportunityOffers.status, "open"), gt(opportunityOffers.closesAt, now)));
   const activeSymbols = new Set(active.map(row => row.symbol));

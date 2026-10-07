@@ -148,6 +148,13 @@
       "when": 1760000004000,
       "tag": "0020_opportunity_delivery_events",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1760000005000,
+      "tag": "0021_adaptive_package_rate_profiles",
+      "breakpoints": true
     }
   ]
 }
