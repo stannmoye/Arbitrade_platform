@@ -113,6 +113,14 @@ export const customerNotifications = mysqlTable("customer_notifications", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export const opportunityDeliveryEvents = mysqlTable("opportunity_delivery_events", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  offerId: int("offerId").notNull(),
+  quotaDay: varchar("quotaDay", { length: 10 }).notNull(),
+  deliveredAt: timestamp("deliveredAt").defaultNow().notNull(),
+});
+
 export const appSettings = mysqlTable("app_settings", {
   id: int("id").autoincrement().primaryKey(),
   settingKey: varchar("settingKey", { length: 120 }).notNull().unique(),

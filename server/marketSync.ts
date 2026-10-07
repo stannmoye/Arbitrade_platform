@@ -62,7 +62,7 @@ export async function ensureMarketDrivenOpportunities(refreshedAt = new Date()) 
     const durationSeconds = simulationValue(`${instrument.symbol}:duration`, snapshot.observedAt, 900, 3600);
     const opensAt = new Date();
     const closesAt = new Date(opensAt.getTime() + durationSeconds * 1000);
-    await db.insert(opportunityOffers).values({ symbol: instrument.symbol, venueFrom: instrument.exchange || "Listed market", venueTo: deskLabel, currency: "USD", minimumMinor, expectedRewardBps, durationSeconds, opensAt, closesAt, rewardAt: closesAt, status: "open", instrumentId: instrument.id, marketSnapshotId: snapshot.id, marketValueUsd: snapshot.marketValueUsd, sector: instrument.sector, industry: instrument.industry, listingStatus: instrument.listingStatus, marketObservedAt: snapshot.observedAt, simulationSeed: crypto.randomBytes(16).toString("hex") });
+    await db.insert(opportunityOffers).values({ symbol: instrument.symbol, venueFrom: instrument.exchange || "Listed market", venueTo: deskLabel, currency: "USD", minimumMinor, expectedRewardBps, durationSeconds, opensAt, closesAt, rewardAt: closesAt, status: "open", instrumentId: instrument.id, marketSnapshotId: snapshot.id, marketValueUsd: snapshot.marketValueUsd, sector: instrument.sector, industry: instrument.industry, listingStatus: instrument.listingStatus, marketObservedAt: snapshot.observedAt, simulationSeed: crypto.createHash("sha256").update(`${instrument.symbol}:${snapshot.id}:${snapshot.observedAt.toISOString()}:${process.env.SIMULATION_SALT || "arbitrade-default"}`).digest("hex") });
     created++;
   }
   return { created, available: instruments.length };
