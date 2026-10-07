@@ -70,7 +70,11 @@ export async function ensureMarketDrivenOpportunities(refreshedAt = new Date()) 
       const activeKey = `${instrument.symbol}:${currency.code}`;
       if (activeKeys.has(activeKey)) continue;
       const factor = Math.pow(10, currency.scale);
-      const minimumMinor = simulationValue(`${instrument.symbol}:${currency.code}:minimum`, snapshot.observedAt, Math.round(100 * factor), Math.round(2500 * factor));
+      // Keep generated amounts within the wallet scale and the database INT range.
+      // Crypto opportunities use fractional coin amounts; fiat opportunities use currency units.
+      const minimumUnits = currency.scale >= 8 ? 0.0001 : 100;
+      const maximumUnits = currency.scale >= 8 ? 0.025 : 2500;
+      const minimumMinor = simulationValue(`${instrument.symbol}:${currency.code}:minimum`, snapshot.observedAt, Math.round(minimumUnits * factor), Math.round(maximumUnits * factor));
       const expectedRewardBps = simulationValue(`${instrument.symbol}:${currency.code}:reward`, snapshot.observedAt, 1000, 3500);
       const durationSeconds = simulationValue(`${instrument.symbol}:${currency.code}:duration`, snapshot.observedAt, 900, 3600);
       const opensAt = new Date();
