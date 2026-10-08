@@ -21,3 +21,15 @@ describe("fixed precision money", () => {
     expect(principal.subtract(fee).toString()).toBe("98.75");
   });
 });
+
+describe("live currency conversion helpers", () => {
+  it("converts native minor units to USD using the current registry rate", async () => {
+    const { nativeMinorToUsd } = await import("./money");
+    expect(nativeMinorToUsd(12500, 2, 1.1)).toBeCloseTo(137.5, 8);
+  });
+  it("converts whole USD units to native minor units", async () => {
+    const { usdUnitsToNativeMinor } = await import("./money");
+    expect(usdUnitsToNativeMinor(100, 2, 1.25)).toBe(8000);
+    expect(usdUnitsToNativeMinor(100, 8, 50000)).toBe(200000);
+  });
+});
