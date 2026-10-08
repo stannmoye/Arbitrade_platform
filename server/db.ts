@@ -298,6 +298,7 @@ export async function settleDueTrades(userId:number){
     return settled;
   });
   for (const settlement of settledRows) await updatePopupLifecycleForOffer(userId, settlement.offerId, "settled");
+  if (settledRows.length) await db.update(opportunityOffers).set({status:"closed"}).where(eq(opportunityOffers.status,"open"));
   return settledRows;
 }
 export async function settleTrade(tradeId:number){
