@@ -333,3 +333,24 @@ export async function settleTrade(tradeId:number){
 export async function createOpportunityOffer(input:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number}){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();const closesAt=new Date(now.getTime()+input.durationSeconds*1000);const result=await db.insert(opportunityOffers).values({...input,opensAt:now,closesAt,rewardAt:closesAt,status:"open"});return {id:Number(result[0].insertId),...input,opensAt:now,closesAt,rewardAt:closesAt};}
 
 export async function bulkCreateOpportunityOffers(inputs:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number;opensAt?:Date;closesAt?:Date;rewardAt?:Date}[]) { const db=await getDb(); if(!db) throw new Error("Database is not available"); if(!inputs.length) return {created:0}; const rows=inputs.map(input=>{const opensAt=input.opensAt||new Date(); const closesAt=input.closesAt||new Date(opensAt.getTime()+input.durationSeconds*1000); return {...input,opensAt,closesAt,rewardAt:input.rewardAt||closesAt,status:"open" as const};}); await db.insert(opportunityOffers).values(rows); return {created:rows.length}; }
+
+
+export async function listAdminRecentLedgerActivity(limit = 150) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const safeLimit = Math.max(1, Math.min(500, Math.floor(limit)));
+  return db.select({
+    id: balanceLedger.id,
+    userId: balanceLedger.userId,
+    customerName: users.name,
+    customerEmail: users.email,
+    currency: balanceLedger.currency,
+    amountMinor: balanceLedger.amountMinor,
+    entryType: balanceLedger.entryType,
+    withdrawable: balanceLedger.withdrawable,
+    createdAt: balanceLedger.createdAt,
+  }).from(balanceLedger)
+    .leftJoin(users, eq(users.id, balanceLedger.userId))
+    .orderBy(desc(balanceLedger.createdAt))
+    .limit(safeLimit);
+}
