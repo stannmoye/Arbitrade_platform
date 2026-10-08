@@ -308,6 +308,7 @@ export const tradePositions = mysqlTable("trade_positions", {
   status: mysqlEnum("status", ["pending", "confirmed", "settled", "cancelled"]).default("confirmed").notNull(),
   confirmedAt: timestamp("confirmedAt").defaultNow().notNull(),
   settlesAt: timestamp("settlesAt").notNull(),
+  creditAt: timestamp("creditAt"),
   settledAt: timestamp("settledAt"),
 });
 
