@@ -66,3 +66,19 @@ export function quantize(value: Decimal.Value, config: PrecisionConfig) {
   assertValidPrecision(config);
   return new FixedMoney(value, config);
 }
+
+/** Convert native ledger minor units to native asset units. */
+export function minorToMajor(minor: number, scale: number): number {
+  return Number(minor || 0) / Math.pow(10, scale);
+}
+
+/** Convert native asset minor units to the current USD reference value. */
+export function nativeMinorToUsd(minor: number, scale: number, usdRate: number): number {
+  return minorToMajor(minor, scale) * usdRate;
+}
+
+/** Convert whole USD units into native ledger minor units using the same live registry rate. */
+export function usdUnitsToNativeMinor(usdUnits: number, scale: number, usdRate: number): number {
+  if (!Number.isFinite(usdUnits) || usdUnits < 0 || !Number.isFinite(usdRate) || usdRate <= 0) throw new Error("Invalid currency conversion inputs");
+  return Math.max(1, Math.round((usdUnits / usdRate) * Math.pow(10, scale)));
+}
