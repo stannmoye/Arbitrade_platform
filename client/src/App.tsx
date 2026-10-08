@@ -111,7 +111,8 @@ function CustomerTradeProgress(){
   const active=rows.filter(t=>t.status==="confirmed"||t.status==="pending").sort((a,b)=>new Date(a.settlesAt).getTime()-new Date(b.settlesAt).getTime())[0];
   const latestSettled=rows.filter(t=>t.status==="settled"&&t.settledAt).sort((a,b)=>new Date(b.settledAt).getTime()-new Date(a.settledAt).getTime())[0];
   if(trades.isLoading&&!active)return null;
-  if(!active){return latestSettled?<div className="trade-progress-banner trade-progress-complete"><div className="trade-progress-icon"><Check size={16}/></div><div className="trade-progress-copy"><strong>Trade #{latestSettled.id} completed and paid</strong><span>Principal and earnings were credited to the originating {latestSettled.currency} wallet.</span></div><span className="trade-progress-state">PAID</span></div>:null;}
+  const recentlySettled=latestSettled&&now-new Date(latestSettled.settledAt).getTime()<10000;
+  if(!active){return recentlySettled?<div className="trade-progress-banner trade-progress-complete"><div className="trade-progress-icon"><Check size={16}/></div><div className="trade-progress-copy"><strong>Trade #{latestSettled.id} completed and paid</strong><span>Principal and earnings were credited to the originating {latestSettled.currency} wallet.</span></div><span className="trade-progress-state">PAID</span></div>:null;}
   const start=new Date(active.confirmedAt||active.createdAt||now).getTime();
   const finish=new Date(active.settlesAt).getTime();
   const total=Math.max(1,finish-start); const remaining=Math.max(0,Math.ceil((finish-now)/1000)); const progress=Math.max(0,Math.min(100,((now-start)/total)*100));
@@ -216,6 +217,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,userEmail
     candidates.sort((a:any,b:any)=>new Date(a.closesAt).getTime()-new Date(b.closesAt).getTime());
     consider(candidates[0]);
   };
+  useEffect(()=>{if(delivery?.pausedUntilSettled||delivery?.cooldownActive){pending.current.clear();seen.current.clear();stop();}},[delivery?.pausedUntilSettled,delivery?.cooldownActive]);
   useEffect(()=>{attemptNext(offers.data?.offers||[]);},[offers.data,policy,delivery]);
   useEffect(()=>{
     const id=window.setInterval(()=>attemptNext(offers.data?.offers||[]),5000);
