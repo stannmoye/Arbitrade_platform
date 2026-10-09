@@ -1,0 +1,3 @@
+SET FOREIGN_KEY_CHECKS=0;
+DROP TABLE IF EXISTS `kyc_audit_logs`,`kyc_retention_policies`,`kyc_rejection_reasons`,`kyc_provider_attempts`,`kyc_provider_configs`,`kyc_screening_results`,`kyc_consents`,`kyc_admin_overrides`,`kyc_manual_reviews`,`kyc_risk_rules`,`kyc_risk_scores`,`kyc_face_verifications`,`kyc_liveness_checks`,`kyc_consistency_results`,`kyc_document_extractions`,`kyc_documents`,`kyc_address_verifications`,`kyc_phone_verifications`,`kyc_email_verifications`,`kyc_attempts`,`kyc_verification_sessions`,`kyc_stage_states`,`kyc_stage_dependencies`,`kyc_stage_requirements`,`kyc_stages`,`kyc_levels`,`kyc_profiles`,`kyc_settings`;
+SET FOREIGN_KEY_CHECKS=1;
