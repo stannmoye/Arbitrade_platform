@@ -13,7 +13,7 @@ connectionUrl.searchParams.set("timezone", "Z");
 const connection = await mysql.createConnection(connectionUrl.toString());
 
 try {
-  for (const migration of ["0033_kyc_v2.sql", "0034_email_notifications.sql"]) {
+  for (const migration of ["0033_kyc_v2.sql", "0034_email_notifications.sql", "0035_default_portal_accounts.sql"]) {
     const sql = await readFile(resolve("drizzle", migration), "utf8");
     await connection.query(sql);
     console.log(`Applied ${migration}`);
