@@ -1,15 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, BarChart3, Bell, CircleHelp, FileText, LayoutDashboard, LockKeyhole, Menu, Search, Settings2, ShieldCheck, Sparkles, Terminal, TicketCheck, WalletCards, X, Zap } from "lucide-react";
+import { Activity, BarChart3, Bell, CircleHelp, LayoutDashboard, LockKeyhole, Menu, Search, Settings2, ShieldCheck, Sparkles, Terminal, X, type LucideIcon } from "lucide-react";
 
 type CustomerSlideMenuProps = { section: string; onNavigate: (section: string) => void };
-type CustomerDestination = { label: string; detail: string; target: string; icon: typeof LayoutDashboard };
+type CustomerDestination = { label: string; detail: string; target: string; icon: LucideIcon };
 
+// Primary investment destinations intentionally stay in the visible customer rail.
 const destinations: CustomerDestination[] = [
-  { label: "Home dashboard", detail: "Balances, live opportunities and account health", target: "dashboard", icon: LayoutDashboard },
   { label: "Portfolio intelligence", detail: "Allocation health and signal quality", target: "intelligence", icon: BarChart3 },
-  { label: "Trade & Earn", detail: "Review account-linked opportunities", target: "opportunities", icon: Zap },
-  { label: "Stake & Earn", detail: "Review configured ledger-backed strategies", target: "yield", icon: Sparkles },
-  { label: "Wallet settings", detail: "Wallet balances, locks and preferences", target: "wallet", icon: WalletCards },
   { label: "Console mode", detail: "Focused customer operating view", target: "console", icon: Terminal },
   { label: "Account settings", detail: "Profile, preferences and account controls", target: "account", icon: Settings2 },
   { label: "Power tools", detail: "Risk reports, sessions and support tools", target: "advanced", icon: Sparkles },
@@ -20,15 +17,23 @@ const destinations: CustomerDestination[] = [
   { label: "Support centre", detail: "Open and follow customer support cases", target: "support", icon: CircleHelp },
 ];
 
+const primaryLabels: Record<string, string> = {
+  dashboard: "Home dashboard", opportunities: "Trade & Earn", yield: "Stake & Earn", wallet: "Wallet settings",
+  "crypto-mining": "Crypto Mining", "token-launch": "Token Launch", "treasury-bond": "Treasury Bond", "cooperate-dept": "Cooperate Dept",
+  "litigation-funds": "Litigation Funds", "ip-royalties": "IP Royalties", "music-royalties": "Music Royalties", "agro-investment": "Agro Investment",
+  "carbon-credit": "Carbon Credit", "green-energy": "Green Energy",
+};
+
 export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLElement | null>(null);
-  const active = destinations.find((item) => item.target === section) || destinations[0];
+  const active = destinations.find((item) => item.target === section);
+  const activeLabel = active?.label || primaryLabels[section] || "Customer workspace";
   const filtered = destinations.filter((item) => `${item.label} ${item.detail}`.toLowerCase().includes(query.trim().toLowerCase()));
-  const quick = [destinations[2], destinations[3], destinations[4], destinations[12]];
-  const shortcuts = [destinations[1], destinations[9], destinations[10], destinations[11], destinations[8]];
+  const quick = [destinations[0], destinations[5], destinations[6], destinations[7]];
+  const shortcuts = [destinations[4], destinations[1], destinations[2], destinations[3], destinations[8]];
 
   useEffect(() => {
     if (!open) return;
@@ -55,17 +60,17 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
   return <div className={`admin-slide-layer customer-slide-layer${open ? " is-open" : ""}`}>
     <button ref={triggerRef} className="admin-slide-trigger customer-slide-trigger" type="button" aria-label={open ? "Close customer menu" : "Open customer menu"} aria-controls="customer-navigation-drawer" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setOpen(true)}><span className="admin-slide-trigger-icon"><Menu size={18} /></span><span className="admin-slide-trigger-copy">CUSTOMER MENU</span><span className="admin-slide-trigger-led" /></button>
     <button className="admin-slide-backdrop" type="button" aria-label="Close customer menu" tabIndex={open ? 0 : -1} onClick={close} />
-    <aside id="customer-navigation-drawer" ref={menuRef} className="admin-slide-drawer customer-slide-drawer" aria-label="Customer menu and shortcuts" aria-hidden={!open} role="dialog" aria-modal={open}>
+    <aside id="customer-navigation-drawer" ref={menuRef} className="admin-slide-drawer customer-slide-drawer" aria-label="Customer account menu" aria-hidden={!open} role="dialog" aria-modal={open}>
       <div className="admin-slide-drawer-topline"><span><i /> CUSTOMER COMMAND PANEL</span><span className="admin-slide-count">ACCOUNT-LINKED</span></div>
-      <div className="admin-slide-heading"><div className="admin-slide-mark"><img src="/arbitrade-mark.svg" alt="" /></div><div className="admin-slide-title"><span>YOUR WORKSPACE</span><h2>Customer menu</h2></div><button className="admin-slide-close" type="button" onClick={close} aria-label="Close customer menu" tabIndex={open ? 0 : -1}><X size={17} /></button></div>
-      <div className="admin-slide-current"><span className="admin-slide-current-icon"><Activity size={15} /></span><span><small>YOU ARE IN</small><strong>{active.label}</strong></span><span className="admin-slide-current-dot" /></div>
-      <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Jump to a customer destination" aria-label="Search customer destinations" /></div>
-      <nav className="admin-slide-nav quick-actions-nav" aria-label="Customer command panel">
-        <section className="admin-slide-group"><div className="admin-slide-group-title"><span>Quick access</span><i /></div><div className="admin-slide-items">{quick.map(renderItem)}</div></section>
+      <div className="admin-slide-heading"><div className="admin-slide-mark"><img src="/arbitrade-mark.svg" alt="" /></div><div className="admin-slide-title"><span>SECONDARY WORKSPACE</span><h2>Customer tools</h2></div><button className="admin-slide-close" type="button" onClick={close} aria-label="Close customer menu" tabIndex={open ? 0 : -1}><X size={17} /></button></div>
+      <div className="admin-slide-current"><span className="admin-slide-current-icon"><Activity size={15} /></span><span><small>YOU ARE IN</small><strong>{activeLabel}</strong></span><span className="admin-slide-current-dot" /></div>
+      <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search account tools" aria-label="Search customer account tools" /></div>
+      <nav className="admin-slide-nav quick-actions-nav" aria-label="Customer account tools">
+        <section className="admin-slide-group"><div className="admin-slide-group-title"><span>Important tools</span><i /></div><div className="admin-slide-items">{quick.map(renderItem)}</div></section>
         <section className="admin-slide-group"><div className="admin-slide-group-title"><span>Account shortcuts</span><i /></div><div className="quick-actions-counter-list">{shortcuts.map((item) => { const Icon = item.icon; return <button key={item.target} type="button" className="quick-actions-counter" tabIndex={open ? 0 : -1} onClick={() => navigate(item.target)}><Icon size={15} /><span><strong>{item.label}</strong><small>{item.detail}</small></span><span className="quick-actions-counter-arrow">→</span></button>; })}</div></section>
-        <section className="admin-slide-group"><div className="admin-slide-group-title"><span>All destinations</span><i /></div><div className="admin-slide-items">{filtered.map(renderItem)}</div></section>
+        <section className="admin-slide-group"><div className="admin-slide-group-title"><span>All account tools</span><i /></div><div className="admin-slide-items">{filtered.map(renderItem)}</div></section>
       </nav>
-      <div className="admin-slide-footer"><div className="quick-actions-status"><span><span className="quick-actions-status-dot" /> Account status</span><strong>Connected</strong><small>Database-backed customer workspace</small></div><button className="admin-slide-exit" type="button" tabIndex={open ? 0 : -1} onClick={() => navigate("account")}><Settings2 size={15} /> Account settings</button><div className="admin-slide-footer-note">Shortcuts open the canonical customer workspace.</div></div>
+      <div className="admin-slide-footer"><div className="quick-actions-status"><span><span className="quick-actions-status-dot" /> Account status</span><strong>Connected</strong><small>Database-backed customer workspace</small></div><button className="admin-slide-exit" type="button" tabIndex={open ? 0 : -1} onClick={() => navigate("account")}><Settings2 size={15} /> Account settings</button><div className="admin-slide-footer-note">Primary investment categories stay in the main menu.</div></div>
     </aside>
   </div>;
 }
