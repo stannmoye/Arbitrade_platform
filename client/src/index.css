@@ -341,3 +341,15 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .customer-standard-menu{grid-template-rows:repeat(2,minmax(36px,auto));gap:5px!important;padding-bottom:6px!important}
   .customer-standard-menu button{min-width:108px!important;height:36px!important;min-height:36px!important;padding:7px 9px!important;font-size:9px!important}
 }
+
+/* Final touch/tablet override: force a real two-row horizontal scroller. */
+@media (max-width:1100px), (pointer:coarse){
+  .customer-standard-menu-region{min-width:0!important;overflow:hidden!important}
+  .customer-standard-menu{display:grid!important;grid-template-rows:repeat(2,38px)!important;grid-auto-flow:column!important;grid-auto-columns:max-content!important;flex:none!important;flex-wrap:nowrap!important;align-items:stretch!important;justify-content:start!important;width:100%!important;max-width:100%!important;height:83px!important;overflow-x:auto!important;overflow-y:hidden!important;gap:6px!important;padding:0 3px 7px!important;touch-action:pan-x!important;overscroll-behavior-x:contain!important;-webkit-overflow-scrolling:touch!important;scroll-snap-type:x proximity!important;scrollbar-width:auto!important}
+  .customer-standard-menu button{display:inline-flex!important;grid-row:auto!important;flex:none!important;width:auto!important;min-width:118px!important;height:38px!important;min-height:38px!important;max-width:none!important;margin:0!important;scroll-snap-align:start!important}
+  .customer-standard-menu button:nth-child(odd){grid-row:1!important}.customer-standard-menu button:nth-child(even){grid-row:2!important}
+}
+@media (max-width:600px), (pointer:coarse){
+  .customer-standard-menu{grid-template-rows:repeat(2,36px)!important;height:79px!important;gap:5px!important;padding-bottom:7px!important}
+  .customer-standard-menu button{min-width:112px!important;height:36px!important;min-height:36px!important;padding:7px 9px!important;font-size:9px!important}
+}
