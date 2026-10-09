@@ -51,7 +51,9 @@ function Button({
   return (
     <Comp
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      data-wb-button="true"
+      data-wb-state={props["aria-busy"] ? "loading" : "idle"}
+      className={cn("wb-button", buttonVariants({ variant, size, className }))}
       {...props}
     />
   );
