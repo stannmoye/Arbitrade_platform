@@ -380,3 +380,19 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .customer-standard-menu[data-dragging="true"]{cursor:grabbing!important;scroll-behavior:auto!important}.customer-standard-menu[data-dragging="true"] button{pointer-events:none!important}
 }
 @media (max-width:600px){.customer-standard-menu{height:79px!important}.customer-standard-menu-track{grid-template-rows:repeat(2,36px)!important;gap:5px!important}.customer-standard-menu-track button{min-width:112px!important;height:36px!important;min-height:36px!important;padding:7px 9px!important;font-size:9px!important}}
+
+/* Mobile containment: never clip the customer rail or page; only the menu viewport may scroll horizontally. */
+@media (max-width:900px){
+  html,body,#root,.customer-portal{width:100%;max-width:100%;min-width:0;overflow-x:hidden!important}
+  .customer-portal .portal-body,.customer-portal .portal-main,.customer-portal .portal-page,.customer-primary-rail,.customer-main-menu-regions,.customer-standard-menu-region{width:100%;min-width:0;max-width:100%;overflow:visible!important}
+  .customer-standard-menu{box-sizing:border-box;width:100%!important;min-width:0!important;max-width:100%!important;overflow-x:auto!important;overflow-y:hidden!important}
+  .customer-standard-menu-track{width:max-content!important;min-width:100%!important;max-width:none!important}
+  .customer-standard-menu-region{contain:layout paint}
+}
+@media (max-width:900px){.customer-standard-menu-region{contain:none!important}}
+
+@media (max-width:900px){
+  .customer-portal .portal-header,.customer-portal .customer-balance-ribbon,.customer-portal .portal-body{overflow-x:clip!important}
+  .customer-portal .customer-slide-layer{inset:0!important;width:100vw!important;max-width:100vw!important;overflow:clip!important}
+  .customer-portal .customer-slide-layer .admin-slide-drawer{max-width:calc(100vw - 12px)!important}
+}
