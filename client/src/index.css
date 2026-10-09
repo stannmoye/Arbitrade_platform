@@ -236,3 +236,27 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* Never let the responsive rail cover page content: it participates in normal flow below desktop. */
 @media(max-width:900px){.admin-portal .portal-rail{position:relative!important;top:auto!important;z-index:2!important}.admin-portal .portal-main{position:relative!important;z-index:1!important}}
+
+/* Small-screen navigation is an off-canvas menu; content never sits underneath it. */
+.admin-mobile-nav-trigger,.admin-mobile-nav-backdrop{display:none}
+@media(max-width:900px){
+  .admin-portal .portal-body{display:block!important;min-height:calc(100dvh - 82px)!important}
+  .admin-portal .portal-main{width:100%!important;max-width:none!important;min-height:calc(100dvh - 82px)!important}
+  .admin-portal .portal-rail{position:fixed!important;inset:82px auto 0 0!important;width:min(350px,calc(100vw - 28px))!important;height:auto!important;max-height:calc(100dvh - 82px)!important;display:flex!important;flex-direction:column!important;transform:translateX(-105%);transition:transform .28s cubic-bezier(.22,.84,.28,1),box-shadow .28s ease!important;overflow:hidden!important;z-index:90!important;border-right:1px solid var(--wb-line-strong)!important;box-shadow:20px 0 60px rgba(0,0,0,.38)!important}
+  .admin-portal.mobile-nav-open .portal-rail{transform:translateX(0);box-shadow:24px 0 80px rgba(0,0,0,.55)!important}
+  .admin-portal .admin-canonical-nav{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important}
+  .admin-portal .portal-rail-bottom{display:block!important;flex:0 0 auto!important}
+  .admin-mobile-nav-trigger{position:fixed;top:94px;left:14px;display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:0 12px;border:1px solid rgba(121,227,189,.3);border-radius:11px;color:var(--wb-text);background:rgba(11,34,49,.92);box-shadow:0 10px 30px rgba(0,0,0,.24);font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;z-index:80}
+  .admin-mobile-nav-trigger:hover,.admin-mobile-nav-trigger:focus-visible{border-color:var(--wb-mint);background:rgba(24,70,76,.96);color:#fff}
+  .admin-mobile-nav-trigger-icon{color:var(--wb-mint);font-size:16px;line-height:1}
+  .admin-mobile-nav-backdrop{position:fixed;inset:82px 0 0;display:block;width:100%;height:auto;padding:0;border:0;background:rgba(2,9,17,.58);backdrop-filter:blur(3px);opacity:0;pointer-events:none;z-index:85;transition:opacity .25s ease}
+  .admin-portal.mobile-nav-open .admin-mobile-nav-backdrop{opacity:1;pointer-events:auto}
+  .admin-portal.mobile-nav-open .admin-mobile-nav-trigger{z-index:95}
+  .admin-portal .portal-page{padding-top:78px!important}
+}
+@media(max-width:600px){
+  .admin-portal .portal-rail{inset:70px auto 0 0!important;max-height:calc(100dvh - 70px)!important;width:min(330px,calc(100vw - 20px))!important}
+  .admin-mobile-nav-trigger{top:82px;left:10px;min-height:36px}
+  .admin-mobile-nav-backdrop{inset:70px 0 0}
+  .admin-portal .portal-page{padding-top:68px!important}
+}
