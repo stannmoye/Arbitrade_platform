@@ -360,3 +360,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .customer-standard-menu[data-dragging="true"]{cursor:grabbing!important;scroll-behavior:auto!important}
   .customer-standard-menu[data-dragging="true"] button{pointer-events:none!important}
 }
+
+/* Correct the scroll viewport: the container stays device-width; only its grid tracks grow. */
+@media (max-width:1100px), (pointer:coarse){
+  .customer-standard-menu{width:100%!important;min-width:0!important;max-width:100%!important;display:grid!important;overflow-x:auto!important;overflow-y:hidden!important;grid-auto-columns:max-content!important}
+}
