@@ -3,6 +3,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { addTicketAttachment, addTicketMessage, adjustCustomerBalance, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, createTrade, deleteAdminCustomer, getCustomerAutoTradeSettings, getCustomerTicket, getAppSetting, getAutoTradePolicy, getTradeSettlementPolicy, getCustomerBalanceSummary, getCustomerWalletPreferences, getCustomerOpportunityRules, markCustomerNotificationsRead, updateCustomerWalletPreferences, updateCustomerOpportunityRules, getTicketUploadPolicy, setTradeSettlementPolicy, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listNotifications, listOpenOffers, listOpportunityPackagePolicies, listRiskReports, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, setAppSetting, setAutoTradePolicy, setCustomerPackage, settleTrade, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
 import { allocateStake, cancelStake, getStakeDashboard, projectStake } from "./stakeEarn";
 import { closeTransactionConsoleSession, listTransactionConsoleEvents, recordTransactionConsoleEvent, recordTransactionConsolePulse } from "./transactionConsole";
@@ -11,6 +12,8 @@ import { confirmEmailVerification, requestEmailVerification } from "./emailAuth"
 import { enqueueAdminMessage, getCustomerEmailPreferences, updateCustomerEmailPreferences, sendEmailTest, getDailyDigestSchedule } from "./emailQueue";
 import { isEmailDeliveryConfigured } from "./email";
 import { ensureCustomerControls } from "./db";
+import { adminAuditEvents, adminCustomerDirectory, adminDashboard, adminDecision, adminOverride, adminQueue, getAdminKycSettings, getCenter, issueEmail, issuePhone, recordConsent, recordFace as recordFaceVerification, startStage, submitAddress, submitDocument, updateAdminKycSettings, verifyAuditChain, verifyEmail, verifyPhone } from "./kyc";
+import { isEmailAdminConfigured, listEmailRecipients, publicEmailConfig, runDailyEmailReports, saveEmailConfig, sendAdminComposedEmail, testEmailConnection } from "./emailAdmin";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -30,6 +33,16 @@ export const appRouter = router({
   }),
 
   customer: router({
+    kycCenter: protectedProcedure.query(({ ctx }) => getCenter(ctx.user.id)),
+    kycStartStage: protectedProcedure.input(z.object({ stage: z.enum(["EMAIL", "PHONE", "ADDRESS", "IDENTITY_DOCUMENT", "FACE_LIVENESS"]), idempotencyKey: z.string().min(8).max(160), deviceMetadata: z.record(z.string(), z.unknown()).optional() })).mutation(async ({ ctx, input }) => { try { return await startStage(ctx.user.id, input.stage, input.idempotencyKey, input.deviceMetadata); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "This KYC stage is not available yet." }); } }),
+    kycIssueEmail: protectedProcedure.mutation(({ ctx }) => issueEmail(ctx.user.id)),
+    kycVerifyEmail: protectedProcedure.input(z.object({ token: z.string().min(8).max(128) })).mutation(({ ctx, input }) => verifyEmail(ctx.user.id, input.token)),
+    kycIssuePhone: protectedProcedure.input(z.object({ phone: z.string().min(7).max(40) })).mutation(({ ctx, input }) => issuePhone(ctx.user.id, input.phone)),
+    kycVerifyPhone: protectedProcedure.input(z.object({ otp: z.string().regex(/^\d{6}$/) })).mutation(({ ctx, input }) => verifyPhone(ctx.user.id, input.otp)),
+    kycSubmitAddress: protectedProcedure.input(z.object({ countryCode: z.string().min(2).max(8), stateProvince: z.string().max(120).optional(), city: z.string().min(1).max(120), district: z.string().max(120).optional(), addressLine: z.string().min(3).max(255), postalCode: z.string().max(40).optional(), method: z.enum(["DECLARATION", "PROOF_DOCUMENT", "ADMIN", "PROVIDER"]).optional() })).mutation(({ ctx, input }) => submitAddress(ctx.user.id, input)),
+    kycConsent: protectedProcedure.input(z.object({ purpose: z.string().min(3).max(120), version: z.string().min(1).max(40) })).mutation(({ ctx, input }) => recordConsent(ctx.user.id, input.purpose, input.version, ctx.req.ip)),
+    kycSubmitDocument: protectedProcedure.input(z.object({ documentType: z.string().min(2).max(80), countryCode: z.string().min(2).max(8), frontStorageKey: z.string().min(1).max(512), backStorageKey: z.string().max(512).optional(), documentNumber: z.string().max(120).optional(), fields: z.record(z.string(), z.unknown()).optional() })).mutation(({ ctx, input }) => submitDocument(ctx.user.id, input)),
+    kycRecordFace: protectedProcedure.input(z.object({ sessionId: z.string().min(16).max(64), challenge: z.record(z.string(), z.unknown()).optional(), demo: z.boolean().optional(), demoOutcome: z.enum(["pass", "fail", "review"]).optional() })).mutation(({ ctx, input }) => recordFaceVerification(ctx.user.id, input)),
     session: protectedProcedure.input(z.object({ deviceLabel: z.string().max(160), countryCode: z.string().max(8).optional() })).mutation(async ({ ctx, input }) => {
       const forwarded = ctx.req.headers["x-forwarded-for"];
       const ipAddress = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : ctx.req.socket.remoteAddress;
@@ -75,6 +88,21 @@ export const appRouter = router({
   }),
 
   adminOperations: router({
+    kycDashboard: adminProcedure.query(() => adminDashboard()),
+    kycCustomers: adminProcedure.input(z.object({ page: z.number().int().positive().optional(), pageSize: z.number().int().min(10).max(100).optional(), search: z.string().max(100).optional(), status: z.enum(["NOT_STARTED", "IN_PROGRESS", "VERIFIED", "REVIEW_REQUIRED", "RETRY_AVAILABLE", "REJECTED"]).optional() }).optional()).query(({ input }) => adminCustomerDirectory(input || {})),
+    kycQueue: adminProcedure.query(() => adminQueue()),
+    kycSettings: adminProcedure.query(async () => getAdminKycSettings(await isEmailDeliveryConfigured() || await isEmailAdminConfigured())),
+    updateKycSettings: adminProcedure.input(z.object({ emailExpiryMinutes: z.number().int().min(5).max(60), phoneExpiryMinutes: z.number().int().min(1).max(30), rawRetentionDays: z.number().int().min(1).max(30), extractedRetentionDays: z.number().int().min(30).max(3650), resultRetentionDays: z.number().int().min(365).max(3650), faceMatchPassThreshold: z.number().min(0.7).max(0.99), faceMatchReviewThreshold: z.number().min(0.5).max(0.98), reviewSlaHours: z.number().int().min(1).max(168) })).mutation(({ ctx, input }) => updateAdminKycSettings(ctx.user.id, input)),
+    kycDecision: adminProcedure.input(z.object({ profileId: z.number().int().positive(), stage: z.enum(["EMAIL", "PHONE", "ADDRESS", "IDENTITY_DOCUMENT", "FACE_LIVENESS"]), decision: z.enum(["APPROVE", "REJECT"]), reason: z.string().trim().min(5).max(2000) })).mutation(({ ctx, input }) => adminDecision(ctx.user.id, input.profileId, input.stage, input.decision, input.reason)),
+    kycOverride: adminProcedure.input(z.object({ profileId: z.number().int().positive(), stage: z.enum(["EMAIL", "PHONE", "ADDRESS", "IDENTITY_DOCUMENT", "FACE_LIVENESS"]), reason: z.string().min(5).max(2000) })).mutation(({ ctx, input }) => adminOverride(ctx.user.id, input.profileId, input.stage, input.reason)),
+    kycAuditEvents: adminProcedure.query(() => adminAuditEvents()),
+    kycVerifyAudit: adminProcedure.query(() => verifyAuditChain()),
+    emailAdminConfig: adminProcedure.query(async () => ({ email: { smtp: await publicEmailConfig(), smtpReady: await isEmailAdminConfigured(), dailyCloseHourUtc: Number(await getAppSetting("email.dailyCloseHourUtc", "23")), dailyCloseMinuteUtc: Number(await getAppSetting("email.dailyCloseMinuteUtc", "59")) } })),
+    emailRecipients: adminProcedure.query(() => listEmailRecipients()),
+    testEmail: adminProcedure.input(z.object({ to: z.string().email() })).mutation(({ input }) => testEmailConnection(input.to)),
+    runDailyReports: adminProcedure.input(z.object({ force: z.boolean().optional() }).optional()).mutation(({ input }) => runDailyEmailReports(Boolean(input?.force))),
+    saveEmailConfig: adminProcedure.input(z.object({ mode: z.enum(["external", "direct"]), host: z.string().max(255), port: z.number().int().min(1).max(65535), secure: z.boolean(), authType: z.enum(["login", "plain", "none"]), user: z.string().max(255), password: z.string().max(2000).optional(), fromName: z.string().min(1).max(120), fromAddress: z.string().email(), replyTo: z.string().email().or(z.literal("")), dailyCloseHourUtc: z.number().int().min(0).max(23), dailyCloseMinuteUtc: z.number().int().min(0).max(59) })).mutation(async ({ ctx, input }) => { const { dailyCloseHourUtc, dailyCloseMinuteUtc, ...emailConfig } = input; const saved = await saveEmailConfig(emailConfig); await setAppSetting("email.dailyCloseHourUtc", String(dailyCloseHourUtc), ctx.user.id); await setAppSetting("email.dailyCloseMinuteUtc", String(dailyCloseMinuteUtc), ctx.user.id); return saved; }),
+    composeEmail: adminProcedure.input(z.object({ recipients: z.array(z.string().email()).min(1).max(500), subject: z.string().trim().min(3).max(200), htmlBody: z.string().min(1).max(200000), textBody: z.string().max(200000).optional(), attachments: z.array(z.object({ filename: z.string().min(1).max(255), content: z.string().max(35000000), contentType: z.string().max(160).optional() })).max(10).optional() })).mutation(({ ctx, input }) => sendAdminComposedEmail(ctx.user.id, input)),
     emailStatus: adminProcedure.query(() => ({ smtpConfigured: isEmailDeliveryConfigured(), dailyDigestSchedule: getDailyDigestSchedule() })),
     sendTestEmail: adminProcedure.input(z.object({ userId: z.number().int().positive().optional() }).optional()).mutation(({ ctx, input }) => sendEmailTest(input?.userId || ctx.user.id)),
     sendCustomerEmail: adminProcedure.input(z.object({ userId: z.number().int().positive(), subject: z.string().trim().min(3).max(160), body: z.string().trim().min(1).max(8000) })).mutation(({ ctx, input }) => enqueueAdminMessage(input.userId, input.subject, input.body, `admin:${ctx.user.id}:${Date.now()}:${input.userId}`)),
