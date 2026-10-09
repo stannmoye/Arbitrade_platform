@@ -6,6 +6,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   FileText,
+  Mail,
   Menu,
   Search,
   ShieldAlert,
@@ -21,6 +22,8 @@ const menuItems: AdminMenuItem[] = [
   { id: "suiteTickets", label: "Tickets", detail: "Customer support queue", icon: TicketCheck },
   { id: "deliveryMonitor", label: "Opportunity Delivery", detail: "Popup lifecycle and reach", icon: Activity },
   { id: "verificationOversight", label: "Verification Oversight", detail: "Email and KYC controls", icon: BadgeCheck },
+  { id: "kycCenter", label: "KYC Control Center", detail: "KYC reviews, settings and audit", icon: BadgeCheck },
+  { id: "smtpCenter", label: "SMTP & Reports", detail: "Mail configuration and campaigns", icon: Mail },
   { id: "riskWatchlist", label: "Risk Watchlist", detail: "Risk tiers and account state", icon: ShieldAlert },
   { id: "transactionReview", label: "Transaction Review", detail: "Read-only wallet ledger", icon: CircleDollarSign },
   { id: "reportsExports", label: "Reports & Exports", detail: "Download operational records", icon: FileText },
@@ -123,7 +126,7 @@ export function AdminSlideMenu({
         onPointerEnter={() => { userInteracted.current = true; }}
         onFocusCapture={() => { userInteracted.current = true; }}
       >
-        <div className="admin-slide-drawer-topline"><span><i /> ADMIN OPERATIONS</span><span className="admin-slide-count">06 TOOLS</span></div>
+        <div className="admin-slide-drawer-topline"><span><i /> ADMIN OPERATIONS</span><span className="admin-slide-count">08 TOOLS</span></div>
         <div className="admin-slide-heading">
           <div className="admin-slide-mark"><img src="/arbitrade-mark.svg" alt="" /></div>
           <div className="admin-slide-title"><span>SUPPLEMENTAL SUITE</span><h2>Operations</h2></div>
