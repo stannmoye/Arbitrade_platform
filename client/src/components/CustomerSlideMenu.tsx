@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, BarChart3, Bell, CircleHelp, LayoutDashboard, LockKeyhole, Menu, Search, Settings2, ShieldCheck, Sparkles, Terminal, X, type LucideIcon } from "lucide-react";
+import { Activity, BarChart3, Bell, CircleHelp, LayoutDashboard, LockKeyhole, Menu, Search, Settings2, ShieldCheck, Sparkles, Terminal, WalletCards, X, type LucideIcon } from "lucide-react";
 
 type CustomerSlideMenuProps = { section: string; onNavigate: (section: string) => void };
 type CustomerDestination = { label: string; detail: string; target: string; icon: LucideIcon };
@@ -7,6 +7,7 @@ type CustomerDestination = { label: string; detail: string; target: string; icon
 // Primary investment destinations intentionally stay in the visible customer rail.
 const destinations: CustomerDestination[] = [
   { label: "Portfolio intelligence", detail: "Allocation health and signal quality", target: "intelligence", icon: BarChart3 },
+  { label: "Wallet settings", detail: "Wallet balances, locks and preferences", target: "wallet", icon: WalletCards },
   { label: "Console mode", detail: "Focused customer operating view", target: "console", icon: Terminal },
   { label: "Account settings", detail: "Profile, preferences and account controls", target: "account", icon: Settings2 },
   { label: "Power tools", detail: "Risk reports, sessions and support tools", target: "advanced", icon: Sparkles },
@@ -32,8 +33,8 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
   const active = destinations.find((item) => item.target === section);
   const activeLabel = active?.label || primaryLabels[section] || "Customer workspace";
   const filtered = destinations.filter((item) => `${item.label} ${item.detail}`.toLowerCase().includes(query.trim().toLowerCase()));
-  const quick = [destinations[0], destinations[5], destinations[6], destinations[7]];
-  const shortcuts = [destinations[4], destinations[1], destinations[2], destinations[3], destinations[8]];
+  const quick = [destinations[1], destinations[0], destinations[6], destinations[7]];
+  const shortcuts = [destinations[4], destinations[2], destinations[3], destinations[8], destinations[9]];
 
   useEffect(() => {
     if (!open) return;
