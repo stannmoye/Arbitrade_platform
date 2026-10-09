@@ -396,3 +396,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .customer-portal .customer-slide-layer{inset:0!important;width:100vw!important;max-width:100vw!important;overflow:clip!important}
   .customer-portal .customer-slide-layer .admin-slide-drawer{max-width:calc(100vw - 12px)!important}
 }
+
+/* Wallet-parity scrolling: native touch overflow only, with no JS gesture interception. */
+@media (max-width:900px), (pointer:coarse){
+  .customer-standard-menu{display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;height:83px!important;overflow-x:auto!important;overflow-y:hidden!important;touch-action:auto!important;overscroll-behavior:auto!important;-webkit-overflow-scrolling:touch!important;scroll-snap-type:none!important;user-select:auto!important;-webkit-user-select:auto!important;cursor:auto!important}
+  .customer-standard-menu-track{display:grid!important;grid-template-rows:repeat(2,38px)!important;grid-auto-flow:column!important;grid-auto-columns:max-content!important;align-items:stretch!important;justify-content:start!important;width:max-content!important;min-width:100%!important;max-width:none!important;gap:6px!important}
+  .customer-standard-menu-track button{display:inline-flex!important;grid-row:auto!important;min-width:118px!important;width:auto!important;height:38px!important;min-height:38px!important;scroll-snap-align:none!important}
+  .customer-standard-menu-track button:nth-child(odd){grid-row:1!important}.customer-standard-menu-track button:nth-child(even){grid-row:2!important}
+}
+@media (max-width:600px){.customer-standard-menu{height:79px!important}.customer-standard-menu-track{grid-template-rows:repeat(2,36px)!important;gap:5px!important}.customer-standard-menu-track button{min-width:112px!important;width:auto!important;height:36px!important;min-height:36px!important}}
