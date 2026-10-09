@@ -28,6 +28,7 @@ export function CustomerKycCenter() {
   const doc = trpc.customer.kycSubmitDocument.useMutation();
   const face = trpc.customer.kycRecordFace.useMutation();
   const [selected, setSelected] = useState<StageCode>("EMAIL");
+  useEffect(() => { const token = new URLSearchParams(window.location.search).get("kyc_token"); if (token && !verifyEmail.isPending) verifyEmail.mutate({ token }, { onSuccess: () => { window.history.replaceState({}, "", "/customer"); void q.refetch(); } }); }, []);
   const [token, setToken] = useState("");
   const [otp, setOtp] = useState("");
   const [phoneValue, setPhoneValue] = useState("");

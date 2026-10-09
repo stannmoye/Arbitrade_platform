@@ -17,6 +17,7 @@ import { ensureMarketDrivenOpportunities, refreshMarketData } from "../marketSyn
 import { serveStatic, setupVite } from "./vite";
 import { openTransactionConsoleSession } from "../transactionConsole";
 import { runOpportunityRetention } from "../opportunityLifecycle";
+import { issuePasswordReset, resetPassword, runDailyEmailReports } from "../email";
 
 async function startServer() {
   const app = express();
@@ -40,6 +41,21 @@ async function startServer() {
     } catch (error) {
       return res.status(400).json({ error: error instanceof Error ? error.message : "Unable to register" });
     }
+  });
+  app.post("/api/customer/forgot-password", async (req, res) => {
+    try {
+      const user = await getUserByEmail(String(req.body?.email || ""));
+      if (user?.role === "user" && user.email) await issuePasswordReset(user.id, user.email);
+      return res.json({ sent: true });
+    } catch (error) { return res.status(503).json({ error: error instanceof Error ? error.message : "Unable to send password reset email" }); }
+  });
+  app.post("/api/customer/reset-password", async (req, res) => {
+    try {
+      const token = String(req.body?.token || ""); const password = String(req.body?.password || "");
+      if (password.length < 12) return res.status(400).json({ error: "Use a password of at least 12 characters" });
+      const result = await resetPassword(token, passwordHash(password));
+      return res.json(result);
+    } catch (error) { return res.status(400).json({ error: error instanceof Error ? error.message : "Unable to reset password" }); }
   });
   app.post("/api/customer/login", async (req, res) => {
     try {
@@ -129,6 +145,9 @@ async function startServer() {
     const safeRefreshMinutes = Number.isFinite(refreshMinutes) && refreshMinutes >= 1 ? refreshMinutes : 120;
     const runMarketRefresh = async () => { const result = await refreshMarketData(); const opportunities = await ensureMarketDrivenOpportunities(result.refreshedAt); console.log("[MarketSync] refreshed", { ...result, opportunities }); };
     const marketSyncTimer = setInterval(() => { void runMarketRefresh().catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error)); }, safeRefreshMinutes * 60_000);
+    const dailyEmailTimer = setInterval(() => { void runDailyEmailReports().catch(error => console.error("[EmailReports]", error instanceof Error ? error.message : error)); }, 60_000);
+    dailyEmailTimer.unref();
+    void runDailyEmailReports().catch(error => console.error("[EmailReports]", error instanceof Error ? error.message : error));
     marketSyncTimer.unref();
     void runMarketRefresh().catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error));
   } else {
