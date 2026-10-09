@@ -8,7 +8,7 @@ import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { sdk } from "./sdk";
-import { countOutstandingTrades, createLocalCustomer, getAppSetting, getUserByEmail, runAutoTradeCycle } from "../db";
+import { countOutstandingTrades, createLocalCustomer, getAppSetting, getUserByEmail, getUserById, runAutoTradeCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
@@ -17,6 +17,9 @@ import { ensureMarketDrivenOpportunities, refreshMarketData } from "../marketSyn
 import { serveStatic, setupVite } from "./vite";
 import { openTransactionConsoleSession } from "../transactionConsole";
 import { runOpportunityRetention } from "../opportunityLifecycle";
+import { getLocalSessionFromRequest } from "./localAuth";
+import { confirmEmailVerification, requestEmailVerification, requestPasswordReset, resetPasswordWithCode } from "../emailAuth";
+import { startEmailWorkers } from "../emailQueue";
 
 async function startServer() {
   const app = express();
@@ -25,8 +28,8 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
-  const setLocalSession = (req: express.Request, res: express.Response, user: { id: number }) => {
-    res.cookie(COOKIE_NAME, createLocalSession(user.id), { ...getSessionCookieOptions(req), maxAge: 30 * 24 * 60 * 60 * 1000 });
+  const setLocalSession = (req: express.Request, res: express.Response, user: { id: number; authVersion?: number }) => {
+    res.cookie(COOKIE_NAME, createLocalSession(user.id, user.authVersion || 0), { ...getSessionCookieOptions(req), maxAge: 30 * 24 * 60 * 60 * 1000 });
   };
   app.post("/api/customer/register", async (req, res) => {
     try {
@@ -34,6 +37,7 @@ async function startServer() {
       if (typeof email !== "string" || typeof password !== "string" || password.length < 12) return res.status(400).json({ error: "Use an email and a password of at least 12 characters" });
       const user = await createLocalCustomer({ email, passwordHash: passwordHash(password), name: `${firstName || ""} ${lastName || ""}`.trim() || email });
       setLocalSession(req, res, user);
+      void requestEmailVerification(user.id).catch(error => console.error("[Email] Registration verification enqueue failed:", error instanceof Error ? error.name : "UnknownError"));
       await openTransactionConsoleSession(req, res, user.id);
       const { passwordHash: _passwordHash, ...safeUser } = user;
       return res.json({ user: safeUser });
@@ -66,6 +70,38 @@ async function startServer() {
     } catch {
       return res.status(503).json({ error: "Authentication service is not configured. Configure DATABASE_URL and run the migrations." });
     }
+  });
+  app.post("/api/customer/password-reset/request", async (req, res) => {
+    const email = typeof req.body?.email === "string" ? req.body.email : "";
+    await requestPasswordReset(email);
+    return res.status(202).json({ message: "If the account exists and email delivery is configured, a reset code will be sent." });
+  });
+  app.post("/api/customer/password-reset/confirm", async (req, res) => {
+    try {
+      const { email, code, password } = req.body || {};
+      if (typeof email !== "string" || typeof code !== "string" || typeof password !== "string") return res.status(400).json({ error: "Email, reset code and new password are required" });
+      await resetPasswordWithCode(email, code, password);
+      return res.json({ success: true });
+    } catch (error) { return res.status(400).json({ error: error instanceof Error ? error.message : "The reset code is invalid or expired" }); }
+  });
+  app.post("/api/customer/email-verification/request", async (req, res) => {
+    const session = getLocalSessionFromRequest(req);
+    if (!session) return res.status(401).json({ error: "Authentication required" });
+    const user = await getUserById(session.userId);
+    if (!user || Number(user.authVersion || 0) !== session.authVersion) return res.status(401).json({ error: "Authentication required" });
+    await requestEmailVerification(session.userId);
+    return res.status(202).json({ message: "If email delivery is configured, a verification code will be sent." });
+  });
+  app.post("/api/customer/email-verification/confirm", async (req, res) => {
+    const session = getLocalSessionFromRequest(req);
+    if (!session) return res.status(401).json({ error: "Authentication required" });
+    try {
+      const user = await getUserById(session.userId);
+      if (!user || Number(user.authVersion || 0) !== session.authVersion) return res.status(401).json({ error: "Authentication required" });
+      const code = typeof req.body?.code === "string" ? req.body.code : "";
+      await confirmEmailVerification(session.userId, code);
+      return res.json({ success: true });
+    } catch (error) { return res.status(400).json({ error: error instanceof Error ? error.message : "The verification code is invalid or expired" }); }
   });
   app.get("/api/platform/config.js", (_req, res) => {
     res.set("Cache-Control", "no-store").type("application/javascript").send(publicPlatformScript());
@@ -108,6 +144,7 @@ async function startServer() {
   const port = Number(process.env.PORT || "3000");
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
   if (process.env.DATABASE_URL) {
+    startEmailWorkers();
     const popupRetentionTimer = setInterval(() => { void runOpportunityRetention().then(result => { if (result.deletedEvents || result.deletedDeliveryRows) console.log("[PopupRetention] archived and removed", result); }).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error)); }, 60 * 60_000);
     popupRetentionTimer.unref();
     void runOpportunityRetention().catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error));

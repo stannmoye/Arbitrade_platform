@@ -7,12 +7,18 @@ import { addTicketAttachment, addTicketMessage, adjustCustomerBalance, bulkCreat
 import { allocateStake, cancelStake, getStakeDashboard, projectStake } from "./stakeEarn";
 import { closeTransactionConsoleSession, listTransactionConsoleEvents, recordTransactionConsoleEvent, recordTransactionConsolePulse } from "./transactionConsole";
 import { getOpportunityLifecycleSummary, runOpportunityRetention, updatePopupLifecycle } from "./opportunityLifecycle";
+import { confirmEmailVerification, requestEmailVerification } from "./emailAuth";
+import { enqueueAdminMessage, getCustomerEmailPreferences, updateCustomerEmailPreferences, sendEmailTest, getDailyDigestSchedule } from "./emailQueue";
+import { isEmailDeliveryConfigured } from "./email";
+import { ensureCustomerControls } from "./db";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
+    requestEmailVerification: protectedProcedure.mutation(({ ctx }) => requestEmailVerification(ctx.user.id)),
+    confirmEmailVerification: protectedProcedure.input(z.object({ code: z.string().regex(/^\d{8}$/) })).mutation(({ ctx, input }) => confirmEmailVerification(ctx.user.id, input.code)),
     logout: publicProcedure.mutation(async ({ ctx }) => {
       if (ctx.user) await closeTransactionConsoleSession(ctx.req, ctx.res, ctx.user.id);
       const cookieOptions = getSessionCookieOptions(ctx.req);
@@ -57,6 +63,9 @@ export const appRouter = router({
     settle: protectedProcedure.input(z.object({ tradeId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { const rows=await listTrades(ctx.user.id); if(!rows.some(row=>row.id===input.tradeId)) throw new Error("Trade not found"); const settled=await settleTrade(input.tradeId); await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{eventType:"TRADE_SETTLEMENT",status:"COMPLETED",title:"Transaction settlement processed",message:`Trade ${input.tradeId} reached its settlement step and the authoritative ledger was refreshed.`,transactionCode:String(input.tradeId)}); return { settled }; }),
     notifications: protectedProcedure.query(({ ctx }) => listNotifications(ctx.user.id)),
     markNotificationsRead: protectedProcedure.input(z.object({ id: z.number().int().positive().optional() }).optional()).mutation(({ ctx, input }) => markCustomerNotificationsRead(ctx.user.id, input?.id)),
+    emailPreferences: protectedProcedure.query(({ ctx }) => getCustomerEmailPreferences(ctx.user.id)),
+    updateEmailPreferences: protectedProcedure.input(z.object({ dailyTradingReports: z.boolean().optional(), systemAlerts: z.boolean().optional(), transactionAlerts: z.boolean().optional(), adminMessages: z.boolean().optional() })).mutation(({ ctx, input }) => updateCustomerEmailPreferences(ctx.user.id, input)),
+    emailStatus: protectedProcedure.query(async ({ ctx }) => ({ emailVerified: (await ensureCustomerControls(ctx.user.id)).emailVerified })),
     stakeEarn: router({
       dashboard: protectedProcedure.query(async ({ ctx }) => { const result=await getStakeDashboard(ctx.user.id); for (const event of result.events.filter((item:any)=>["reward.posted","position.completed"].includes(item.eventType))) await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{eventType:event.eventType === "reward.posted" ? "REWARD_POSTED" : "POSITION_SETTLED",status:"COMPLETED",title:event.eventType === "reward.posted" ? "Reward posting completed" : "Position settlement completed",message:`${event.eventType} was committed to the authoritative ledger.`,transactionCode:`stake-event:${event.id}`,amountMinor:event.amountMinor,asset:event.asset,metadata:{positionId:event.positionId}}); return result; }),
       allocate: protectedProcedure.input(z.object({ productId: z.number().int().positive(), amountMinor: z.number().int().positive(), idempotencyKey: z.string().min(8).max(160) })).mutation(async ({ ctx, input }) => { const result=await allocateStake(ctx.user.id,input); await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{eventType:"DEBIT",status:"COMPLETED",title:"Wallet debit posted",message:`${result.asset} available balance was debited and locked for the Stake & Earn position.`,transactionCode:`debit:${result.positionCode}`,amountMinor:-result.principalMinor,asset:result.asset,metadata:{positionId:result.positionId}}); await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{eventType:"INVESTMENT",status:"COMPLETED",title:"Stake investment confirmed",message:`${result.asset} principal was reserved through the wallet ledger and the position is active.`,transactionCode:`investment:${result.positionCode}`,amountMinor:result.principalMinor,asset:result.asset,metadata:{positionId:result.positionId}}); return result; }),
@@ -66,6 +75,9 @@ export const appRouter = router({
   }),
 
   adminOperations: router({
+    emailStatus: adminProcedure.query(() => ({ smtpConfigured: isEmailDeliveryConfigured(), dailyDigestSchedule: getDailyDigestSchedule() })),
+    sendTestEmail: adminProcedure.input(z.object({ userId: z.number().int().positive().optional() }).optional()).mutation(({ ctx, input }) => sendEmailTest(input?.userId || ctx.user.id)),
+    sendCustomerEmail: adminProcedure.input(z.object({ userId: z.number().int().positive(), subject: z.string().trim().min(3).max(160), body: z.string().trim().min(1).max(8000) })).mutation(({ ctx, input }) => enqueueAdminMessage(input.userId, input.subject, input.body, `admin:${ctx.user.id}:${Date.now()}:${input.userId}`)),
     customers: adminProcedure.query(() => listAdminCustomers()),
     audit: adminProcedure.query(() => listAdminAuditEvents()),
     ledgerActivity: adminProcedure.query(() => listAdminRecentLedgerActivity()),
