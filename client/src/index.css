@@ -353,3 +353,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .customer-standard-menu{grid-template-rows:repeat(2,36px)!important;height:79px!important;gap:5px!important;padding-bottom:7px!important}
   .customer-standard-menu button{min-width:112px!important;height:36px!important;min-height:36px!important;padding:7px 9px!important;font-size:9px!important}
 }
+
+/* Pointer-drag fallback: reliable swipe behavior even when native touch scrolling is intercepted. */
+@media (max-width:1100px), (pointer:coarse){
+  .customer-standard-menu{width:max-content!important;min-width:100%!important;cursor:grab!important;user-select:none!important;-webkit-user-select:none!important}
+  .customer-standard-menu[data-dragging="true"]{cursor:grabbing!important;scroll-behavior:auto!important}
+  .customer-standard-menu[data-dragging="true"] button{pointer-events:none!important}
+}
