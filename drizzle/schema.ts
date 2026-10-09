@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, index, uniqueIndex } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -21,6 +21,7 @@ export const users = mysqlTable("users", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
   passwordHash: varchar("passwordHash", { length: 255 }),
+  authVersion: int("authVersion").default(0).notNull(),
   packageName: varchar("packageName", { length: 40 }).default("Starter").notNull(),
   reportingTimezone: varchar("reportingTimezone", { length: 80 }),
 });
@@ -561,8 +562,48 @@ export const customerEmailPreferences = mysqlTable("customer_email_preferences",
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull().unique(),
   dailyTradingReports: boolean("dailyTradingReports").default(true).notNull(),
+  systemAlerts: boolean("systemAlerts").default(true).notNull(),
+  transactionAlerts: boolean("transactionAlerts").default(true).notNull(),
+  adminMessages: boolean("adminMessages").default(true).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
+
+export const emailOutbox = mysqlTable("email_outbox", {
+  id: int("id").autoincrement().primaryKey(),
+  recipient: varchar("recipient", { length: 320 }).notNull(),
+  templateKey: varchar("templateKey", { length: 64 }).notNull(),
+  encryptedPayload: text("encryptedPayload").notNull(),
+  idempotencyKey: varchar("idempotencyKey", { length: 190 }).notNull(),
+  status: mysqlEnum("status", ["QUEUED", "PROCESSING", "SENT", "RETRYING", "FAILED"]).default("QUEUED").notNull(),
+  attempts: int("attempts").default(0).notNull(),
+  nextAttemptAt: timestamp("nextAttemptAt").defaultNow().notNull(),
+  leaseUntil: timestamp("leaseUntil"),
+  lastError: varchar("lastError", { length: 500 }),
+  providerMessageId: varchar("providerMessageId", { length: 255 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  sentAt: timestamp("sentAt"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => ({
+  idempotency: uniqueIndex("email_outbox_idempotency_uq").on(table.idempotencyKey),
+  statusDue: index("email_outbox_status_due_idx").on(table.status, table.nextAttemptAt),
+  lease: index("email_outbox_lease_idx").on(table.leaseUntil),
+}));
+
+export const authEmailTokens = mysqlTable("auth_email_tokens", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  purpose: mysqlEnum("purpose", ["EMAIL_VERIFY", "PASSWORD_RESET"]).notNull(),
+  tokenSalt: varchar("tokenSalt", { length: 32 }).notNull(),
+  tokenHash: varchar("tokenHash", { length: 64 }).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  attempts: int("attempts").default(0).notNull(),
+  lastRequestedAt: timestamp("lastRequestedAt").defaultNow().notNull(),
+  consumedAt: timestamp("consumedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => ({
+  userPurpose: uniqueIndex("auth_email_tokens_user_purpose_uq").on(table.userId, table.purpose),
+  expiry: index("auth_email_tokens_expiry_idx").on(table.expiresAt),
+}));
 export const customerWalletPreferences = mysqlTable("customer_wallet_preferences", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull().unique(),

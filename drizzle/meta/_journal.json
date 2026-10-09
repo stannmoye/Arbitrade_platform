@@ -232,6 +232,13 @@
       "when": 1760000006000,
       "tag": "0032_package_trade_dollar_units",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791535401065,
+      "tag": "0033_email_delivery_flows",
+      "breakpoints": true
     }
   ]
 }

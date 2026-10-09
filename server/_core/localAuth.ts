@@ -8,21 +8,25 @@ function secret() {
   return value || "development-only-session-secret";
 }
 function sign(value: string) { return crypto.createHmac("sha256", secret()).update(value).digest("base64url"); }
-export function createLocalSession(userId: number) {
+export function createLocalSession(userId: number, authVersion = 0) {
   const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
-  const payload = `${userId}.${exp}`;
+  const payload = `${userId}.${exp}.${authVersion}`;
   return `${payload}.${sign(payload)}`;
 }
 export function verifyLocalSession(token: string | undefined) {
   if (!token) return null;
-  const [userIdText, expText, signature] = token.split(".");
-  if (!userIdText || !expText || !signature || !/^\d+$/.test(userIdText) || !/^\d+$/.test(expText)) return null;
-  const payload = `${userIdText}.${expText}`;
+  const parts = token.split(".");
+  const legacy = parts.length === 3;
+  const [userIdText, expText, versionText, signature] = legacy
+    ? [parts[0], parts[1], "0", parts[2]]
+    : [parts[0], parts[1], parts[2], parts[3]];
+  if (!userIdText || !expText || !versionText || !signature || !/^\d+$/.test(userIdText) || !/^\d+$/.test(expText) || !/^\d+$/.test(versionText)) return null;
+  const payload = legacy ? `${userIdText}.${expText}` : `${userIdText}.${expText}.${versionText}`;
   const expected = sign(payload);
   const a = Buffer.from(signature); const b = Buffer.from(expected);
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   if (Number(expText) <= Math.floor(Date.now() / 1000)) return null;
-  return { userId: Number(userIdText), expiresAt: Number(expText) };
+  return { userId: Number(userIdText), expiresAt: Number(expText), authVersion: Number(versionText) };
 }
 export function getLocalSessionFromRequest(req: Request) {
   const raw = req.headers.cookie?.match(/(?:^|;\s*)webdev_app_session=([^;]+)/)?.[1];

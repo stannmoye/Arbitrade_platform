@@ -17,7 +17,10 @@ export async function createContext(
 
   try {
     const local = getLocalSessionFromRequest(opts.req);
-    if (local) user = await getUserById(local.userId);
+    if (local) {
+      const candidate = await getUserById(local.userId);
+      if (candidate && Number(candidate.authVersion || 0) === local.authVersion) user = candidate;
+    }
   } catch {
     user = null;
   }
