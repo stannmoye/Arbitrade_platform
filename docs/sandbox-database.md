@@ -13,7 +13,7 @@ set +a
 pnpm exec drizzle-kit push --force
 ```
 
-This setup uses a sandbox-only database. The exported SQL snapshot is the portable backup; the source migrations and schema definitions are under `drizzle/`.
+This setup uses a sandbox-only database. The exported SQL snapshot is the portable backup; the source migrations and schema definitions are under `drizzle/`. The live sandbox schema was created with `drizzle-kit push --force` rather than replaying the historical migration chain: some legacy files contain `ADD COLUMN IF NOT EXISTS`, which MySQL 8 rejects. Use the full SQL snapshot for exact restore, or repair migration compatibility before replaying those files.
 
 This snapshot follows the current `main` branch. The separate `feature/kyc-v2` branch has additional KYC code/schema that has not been integrated into this sandbox build.
 
