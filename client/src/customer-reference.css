@@ -811,6 +811,21 @@
   }
 
   .customer-home-page .customer-quick-actions > button {
-    min-height: 54px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
+  }
+
+  .customer-home-page .customer-quick-icon {
+    flex-basis: 30px;
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .customer-home-page .customer-quick-tile-icon {
+    width: 24px;
+    height: 24px;
   }
 }
