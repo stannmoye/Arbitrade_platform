@@ -53,3 +53,44 @@
     border-radius: 999px;
   }
 }
+
+
+/* Primary actions: one horizontal swipe row on mobile. */
+@media (max-width: 760px) {
+  .customer-quick-actions {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    grid-template-columns: none !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(45, 221, 195, .48) transparent;
+    padding: 0 14px 8px 0;
+  }
+
+  .customer-quick-actions > button {
+    flex-shrink: 0 !important;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  .customer-quick-actions .customer-quick-feature {
+    flex: 0 0 clamp(168px, 49vw, 220px) !important;
+  }
+
+  .customer-quick-actions .customer-quick-tile {
+    flex: 0 0 clamp(92px, 26vw, 122px) !important;
+  }
+
+  .customer-quick-actions::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .customer-quick-actions::-webkit-scrollbar-thumb {
+    background: rgba(45, 221, 195, .48);
+    border-radius: 999px;
+  }
+}
