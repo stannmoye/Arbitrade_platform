@@ -214,3 +214,18 @@
     border-radius: 999px;
   }
 }
+
+
+/* The dashboard welcome panel follows the wallet band and precedes all menus. */
+.customer-portal .customer-top-welcome-band {
+  position: relative;
+  z-index: 68;
+  width: 100%;
+  padding: 0 24px 12px;
+}
+
+@media (max-width: 760px) {
+  .customer-portal .customer-top-welcome-band {
+    padding: 0 8px 10px;
+  }
+}
