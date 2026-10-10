@@ -230,9 +230,72 @@
 }
 
 
-/* Mobile workspace menu: keep all 12 destinations in one swipeable row. */
+/* Dedicated 12-destination menu directly below the welcome panel. */
+.customer-portal .customer-top-workspace-menu {
+  position: relative;
+  z-index: 67;
+  width: min(100%, 980px);
+  box-sizing: border-box;
+  margin: 0 auto 14px;
+  padding: 10px 12px 12px;
+  border: 1px solid rgba(58, 124, 178, .37);
+  border-radius: 15px;
+  background: linear-gradient(145deg, rgba(6, 25, 44, .96), rgba(6, 24, 43, .92));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .18);
+}
+
+.customer-top-workspace-menu .customer-menu-label {
+  margin: 0 0 8px 4px;
+}
+
+.customer-top-workspace-menu .customer-workspace-categories {
+  display: grid !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+}
+
+.customer-top-workspace-menu .customer-workspace-categories > button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  width: 100%;
+  min-width: 0 !important;
+  min-height: 38px !important;
+  padding: 7px 9px !important;
+  border: 1px solid rgba(74, 132, 178, .25) !important;
+  border-radius: 9px !important;
+  background: rgba(5, 26, 46, .88) !important;
+  color: #d9e8f4 !important;
+  font-size: 9px !important;
+  text-align: left !important;
+}
+
+.customer-top-workspace-menu .customer-workspace-categories > button.active {
+  border-color: rgba(33, 232, 189, .58) !important;
+  background: linear-gradient(100deg, rgba(0, 143, 124, .54), rgba(5, 54, 62, .8)) !important;
+  color: #e8fff8 !important;
+  box-shadow: 0 0 14px rgba(21, 221, 185, .11);
+}
+
+.customer-top-workspace-menu .customer-workspace-categories > button svg {
+  flex: 0 0 auto;
+  color: #d4e8fa;
+}
+
+.customer-top-workspace-menu .customer-workspace-categories > button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 760px) {
-  .customer-workspace-card .customer-workspace-categories {
+  .customer-portal .customer-top-workspace-menu {
+    margin: 0 auto 10px;
+    padding: 8px;
+  }
+
+  .customer-top-workspace-menu .customer-workspace-categories {
     display: flex !important;
     flex-wrap: nowrap !important;
     justify-content: flex-start !important;
@@ -250,21 +313,19 @@
     padding: 0 2px 8px !important;
   }
 
-  .customer-workspace-card .customer-workspace-categories > button {
+  .customer-top-workspace-menu .customer-workspace-categories > button {
     flex: 0 0 clamp(140px, 42vw, 166px) !important;
     width: clamp(140px, 42vw, 166px) !important;
     min-width: clamp(140px, 42vw, 166px) !important;
-    min-height: 40px !important;
     scroll-snap-align: start;
     scroll-snap-stop: always;
-    white-space: nowrap;
   }
 
-  .customer-workspace-card .customer-workspace-categories::-webkit-scrollbar {
+  .customer-top-workspace-menu .customer-workspace-categories::-webkit-scrollbar {
     height: 4px;
   }
 
-  .customer-workspace-card .customer-workspace-categories::-webkit-scrollbar-thumb {
+  .customer-top-workspace-menu .customer-workspace-categories::-webkit-scrollbar-thumb {
     background: rgba(45, 221, 195, .48);
     border-radius: 999px;
   }
