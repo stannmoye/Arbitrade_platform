@@ -921,3 +921,15 @@
     transform: translateY(-50%) !important;
   }
 }
+
+
+/* Outrank the generic mobile rule that hides header buttons other than logout. */
+@media (max-width: 760px) {
+  .customer-portal .portal-session button.customer-header-bell:not(.secondary-button) {
+    display: grid !important;
+    flex: 0 0 32px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+}
