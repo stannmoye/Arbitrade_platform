@@ -577,3 +577,74 @@
     transition: none;
   }
 }
+
+
+/* Trade bot accent: solar-lime and brushed gold, distinct from the other shortcuts. */
+.customer-home-page .customer-quick-actions > .trade {
+  --action-glow: rgba(237, 220, 69, .62);
+  border-color: rgba(230, 218, 83, .72) !important;
+  background: radial-gradient(ellipse at 12% 50%, rgba(206, 188, 42, .2), transparent 52%), linear-gradient(108deg, rgba(69, 63, 12, .78), rgba(28, 58, 34, .92) 48%, #081a2a 94%) !important;
+  box-shadow: 0 0 0 1px rgba(228, 216, 87, .1), 0 7px 17px rgba(131, 117, 21, .17), inset 0 1px rgba(255, 250, 196, .1) !important;
+}
+
+.customer-home-page .customer-quick-actions > .trade::before {
+  background: radial-gradient(ellipse at 8% 50%, rgba(255, 230, 89, .45), transparent 61%);
+  opacity: .22;
+  animation: trade-bot-ambient 3.4s ease-in-out infinite;
+}
+
+.customer-home-page .customer-quick-actions > .trade::after {
+  position: absolute;
+  z-index: 0;
+  inset: 0 auto 0 -42%;
+  width: 36%;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 0%, rgba(255, 251, 204, .05) 28%, rgba(255, 244, 167, .44) 50%, rgba(246, 218, 85, .12) 70%, transparent 100%);
+  transform: skewX(-18deg);
+  animation: trade-bot-light-sweep 4.6s ease-in-out infinite;
+}
+
+.customer-home-page .customer-quick-feature.trade .customer-quick-icon {
+  border-color: rgba(245, 226, 102, .5);
+  background: linear-gradient(145deg, rgba(196, 170, 39, .24), rgba(39, 77, 48, .28)) !important;
+  color: #f3e878 !important;
+  box-shadow: inset 0 1px rgba(255, 255, 224, .12), 0 0 12px rgba(235, 211, 78, .12);
+  animation: trade-bot-core 2.8s ease-in-out infinite;
+}
+
+.customer-home-page .customer-quick-feature.trade .customer-bot-badge {
+  border-color: rgba(236, 223, 109, .42);
+  background: rgba(145, 126, 22, .18);
+  color: #f0e99c;
+}
+
+.customer-home-page .customer-quick-feature.trade .trade-word-accent {
+  color: #f1e66e;
+  text-shadow: 0 0 9px rgba(237, 220, 69, .26);
+}
+
+@keyframes trade-bot-ambient {
+  0%, 100% { opacity: .16; }
+  50% { opacity: .48; }
+}
+
+@keyframes trade-bot-light-sweep {
+  0%, 16% { transform: translateX(0) skewX(-18deg); opacity: 0; }
+  25% { opacity: .8; }
+  54% { transform: translateX(390%) skewX(-18deg); opacity: .04; }
+  100% { transform: translateX(390%) skewX(-18deg); opacity: 0; }
+}
+
+@keyframes trade-bot-core {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(241, 227, 91, .18)); }
+  50% { transform: scale(1.055); filter: drop-shadow(0 0 7px rgba(241, 227, 91, .42)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-home-page .customer-quick-actions > .trade::before,
+  .customer-home-page .customer-quick-actions > .trade::after,
+  .customer-home-page .customer-quick-feature.trade .customer-quick-icon {
+    animation: none;
+  }
+}
