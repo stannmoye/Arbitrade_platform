@@ -36,18 +36,33 @@ const connection = await mysql.createConnection({
   ssl: parsed.searchParams.get("ssl") === "true" ? {} : undefined,
 });
 
-const accountSql = `
-  INSERT INTO users (openId, name, email, loginMethod, role, passwordHash, packageName)
-  VALUES (?, ?, ?, 'password', ?, ?, ?)
-  ON DUPLICATE KEY UPDATE
-    name = VALUES(name),
-    loginMethod = VALUES(loginMethod),
-    role = VALUES(role),
-    passwordHash = VALUES(passwordHash),
-    packageName = VALUES(packageName)
-`;
-await connection.execute(accountSql, [`local:admin:${adminEmail}`, "Administrator", adminEmail, "admin", hashPassword(adminPassword), "Institutional"]);
-await connection.execute(accountSql, [`local:customer:${customerEmail}`, "Customer Account", customerEmail, "user", hashPassword(customerPassword), "Starter"]);
+async function provisionAccount({ email, name, role, packageName, password }) {
+  const [matches] = await connection.execute(
+    "SELECT id FROM users WHERE email = ? ORDER BY id ASC",
+    [email],
+  );
+  if (matches.length > 1) {
+    throw new Error(`Multiple user records found for ${email}; reconcile duplicates before provisioning.`);
+  }
+
+  const passwordHash = hashPassword(password);
+  if (matches.length === 1) {
+    await connection.execute(
+      "UPDATE users SET name = ?, loginMethod = 'password', role = ?, passwordHash = ?, packageName = ? WHERE id = ?",
+      [name, role, passwordHash, packageName, matches[0].id],
+    );
+    return;
+  }
+
+  const openIdPrefix = role === "admin" ? "local:admin:" : "local:user:";
+  await connection.execute(
+    "INSERT INTO users (openId, name, email, loginMethod, role, passwordHash, packageName) VALUES (?, ?, ?, 'password', ?, ?, ?)",
+    [`${openIdPrefix}${email}`, name, email, role, passwordHash, packageName],
+  );
+}
+
+await provisionAccount({ email: adminEmail, name: "Administrator", role: "admin", packageName: "Institutional", password: adminPassword });
+await provisionAccount({ email: customerEmail, name: "Customer Account", role: "user", packageName: "Starter", password: customerPassword });
 await connection.end();
 
 console.log(`Administrator account provisioned in database: ${adminEmail}`);
