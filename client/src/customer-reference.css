@@ -228,3 +228,44 @@
     padding: 0 8px 10px;
   }
 }
+
+
+/* Mobile workspace menu: keep all 12 destinations in one swipeable row. */
+@media (max-width: 760px) {
+  .customer-workspace-card .customer-workspace-categories {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    gap: 7px !important;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(45, 221, 195, .48) transparent;
+    padding: 0 2px 8px !important;
+  }
+
+  .customer-workspace-card .customer-workspace-categories > button {
+    flex: 0 0 clamp(140px, 42vw, 166px) !important;
+    width: clamp(140px, 42vw, 166px) !important;
+    min-width: clamp(140px, 42vw, 166px) !important;
+    min-height: 40px !important;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    white-space: nowrap;
+  }
+
+  .customer-workspace-card .customer-workspace-categories::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .customer-workspace-card .customer-workspace-categories::-webkit-scrollbar-thumb {
+    background: rgba(45, 221, 195, .48);
+    border-radius: 999px;
+  }
+}
