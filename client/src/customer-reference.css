@@ -330,3 +330,11 @@
     border-radius: 999px;
   }
 }
+
+
+/* The 12-item workspace menu replaces the redundant compact primary rail on phones. */
+@media (max-width: 760px) {
+  .customer-portal .customer-primary-rail {
+    display: none !important;
+  }
+}
