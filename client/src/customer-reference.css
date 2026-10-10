@@ -340,21 +340,23 @@
 }
 
 
-/* High-visibility shortcuts: luminous, color-coded customer action cards. */
+/* Compact automation shortcuts: precision controls, restrained neon, clear hierarchy. */
 .customer-home-page .customer-quick-actions {
-  gap: 11px !important;
-  margin: 16px 0 18px !important;
+  gap: 8px !important;
+  margin: 11px 0 14px !important;
 }
 
 .customer-home-page .customer-quick-actions > button {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  min-height: 82px !important;
-  border: 1px solid rgba(111, 164, 204, .34) !important;
-  border-radius: 16px !important;
-  box-shadow: 0 12px 25px rgba(0, 0, 0, .26), inset 0 1px rgba(255, 255, 255, .07) !important;
-  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+  min-height: 62px !important;
+  padding: 7px 9px !important;
+  border: 1px solid rgba(91, 137, 177, .3) !important;
+  border-radius: 12px !important;
+  background: linear-gradient(145deg, #091b2e, #071526) !important;
+  box-shadow: inset 0 1px rgba(220, 242, 255, .045), 0 5px 13px rgba(0, 0, 0, .16) !important;
+  transition: transform .16s ease, border-color .16s ease, background .16s ease;
 }
 
 .customer-home-page .customer-quick-actions > button::before {
@@ -363,7 +365,8 @@
   inset: 0;
   content: "";
   pointer-events: none;
-  background: radial-gradient(circle at 88% 8%, var(--action-glow), transparent 48%);
+  background: radial-gradient(ellipse at 5% 50%, var(--action-glow), transparent 62%);
+  opacity: .18;
 }
 
 .customer-home-page .customer-quick-actions > button > * {
@@ -372,288 +375,205 @@
 }
 
 .customer-home-page .customer-quick-actions > .trade {
-  --action-glow: rgba(42, 255, 201, .34);
-  border-color: rgba(48, 242, 194, .72) !important;
-  background: linear-gradient(130deg, rgba(6, 113, 91, .82), rgba(5, 32, 48, .98) 75%) !important;
-  box-shadow: 0 0 0 1px rgba(32, 239, 192, .12), 0 12px 26px rgba(0, 167, 133, .18), inset 0 1px rgba(255, 255, 255, .1) !important;
+  --action-glow: rgba(35, 220, 174, .45);
+  border-color: rgba(37, 208, 166, .44) !important;
+  background: linear-gradient(105deg, rgba(8, 63, 57, .72), #081a2a 74%) !important;
 }
 
 .customer-home-page .customer-quick-actions > .stake {
-  --action-glow: rgba(105, 173, 255, .38);
-  border-color: rgba(91, 164, 255, .7) !important;
-  background: linear-gradient(130deg, rgba(17, 83, 173, .85), rgba(6, 31, 61, .98) 75%) !important;
-  box-shadow: 0 0 0 1px rgba(74, 150, 255, .1), 0 12px 26px rgba(0, 94, 220, .2), inset 0 1px rgba(255, 255, 255, .1) !important;
+  --action-glow: rgba(91, 153, 255, .46);
+  border-color: rgba(81, 142, 224, .44) !important;
+  background: linear-gradient(105deg, rgba(18, 50, 93, .78), #081a2e 74%) !important;
 }
 
 .customer-home-page .customer-quick-actions > .wallet {
-  --action-glow: rgba(184, 126, 255, .4);
-  border-color: rgba(165, 116, 248, .62) !important;
-  background: linear-gradient(145deg, rgba(69, 42, 133, .7), rgba(16, 27, 60, .98)) !important;
-  color: #f0e8ff !important;
+  --action-glow: rgba(150, 120, 226, .36);
+  border-color: rgba(125, 108, 191, .34) !important;
+  background: linear-gradient(145deg, #151b37, #091629) !important;
 }
 
 .customer-home-page .customer-quick-actions > .kyc {
-  --action-glow: rgba(255, 193, 95, .36);
-  border-color: rgba(226, 170, 83, .62) !important;
-  background: linear-gradient(145deg, rgba(111, 71, 19, .56), rgba(35, 31, 37, .98)) !important;
-  color: #fff1d4 !important;
+  --action-glow: rgba(223, 171, 86, .3);
+  border-color: rgba(170, 135, 76, .34) !important;
+  background: linear-gradient(145deg, #252116, #0c1928) !important;
 }
 
 .customer-home-page .customer-quick-actions > .support {
-  --action-glow: rgba(70, 221, 255, .38);
-  border-color: rgba(62, 203, 236, .65) !important;
-  background: linear-gradient(145deg, rgba(15, 91, 123, .66), rgba(7, 31, 53, .98)) !important;
-  color: #e4faff !important;
+  --action-glow: rgba(72, 193, 217, .34);
+  border-color: rgba(71, 160, 186, .38) !important;
+  background: linear-gradient(145deg, #0b2936, #081829) !important;
 }
 
 .customer-home-page .customer-quick-feature.trade,
 .customer-home-page .customer-quick-feature.stake {
   justify-content: flex-start !important;
+  gap: 9px !important;
+  padding: 7px 10px !important;
   text-align: left !important;
-  padding: 13px 15px !important;
 }
 
 .customer-home-page .customer-quick-icon {
-  flex: 0 0 46px;
-  width: 46px !important;
-  height: 46px !important;
-  border: 1px solid rgba(255, 255, 255, .16);
-  border-radius: 14px !important;
-  background: rgba(20, 237, 190, .2) !important;
-  color: #70ffe0 !important;
-  box-shadow: 0 0 22px rgba(40, 242, 194, .18), inset 0 1px rgba(255, 255, 255, .14);
+  flex: 0 0 34px;
+  width: 34px !important;
+  height: 34px !important;
+  border: 1px solid rgba(70, 226, 188, .28);
+  border-radius: 10px !important;
+  background: rgba(25, 166, 132, .12) !important;
+  color: #7de5cc !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .06);
 }
 
 .customer-home-page .customer-quick-feature.stake .customer-quick-icon {
-  background: rgba(77, 155, 255, .24) !important;
-  color: #a7d4ff !important;
-  box-shadow: 0 0 22px rgba(79, 156, 255, .2), inset 0 1px rgba(255, 255, 255, .14);
+  border-color: rgba(116, 171, 247, .3);
+  background: rgba(64, 124, 204, .14) !important;
+  color: #a3c9ff !important;
 }
 
 .customer-home-page .customer-quick-feature strong {
-  font-size: 13px !important;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px !important;
+  font-weight: 750;
   letter-spacing: -.01em;
 }
 
 .customer-home-page .customer-quick-feature small {
-  color: rgba(226, 241, 250, .8) !important;
-  font-size: 9px !important;
-}
-
-.customer-home-page .customer-quick-feature.trade strong b,
-.customer-home-page .customer-quick-feature.stake strong b {
-  display: inline-flex !important;
-  align-items: center;
-  margin-left: 7px;
-  padding: 4px 8px;
-  border: 1px solid rgba(111, 255, 226, .28);
-  border-radius: 999px;
-  background: rgba(15, 221, 177, .19);
-  color: #9affeb;
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: .12em;
-  vertical-align: middle;
-}
-
-.customer-home-page .customer-quick-feature.stake strong b {
-  border-color: rgba(142, 194, 255, .32);
-  background: rgba(71, 146, 255, .2);
-  color: #c6e1ff;
+  color: #a9bfd1 !important;
+  font-size: 8px !important;
+  line-height: 1.25;
 }
 
 .customer-home-page .customer-quick-tile {
   justify-content: center !important;
-  gap: 7px !important;
-  padding: 9px 7px !important;
-  font-size: 11px !important;
-  font-weight: 750;
+  gap: 4px !important;
+  padding: 5px 6px !important;
+  font-size: 9px !important;
+  font-weight: 700;
   letter-spacing: .01em;
 }
 
 .customer-home-page .customer-quick-tile-icon {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid rgba(255, 255, 255, .16);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, .08);
-  box-shadow: inset 0 1px rgba(255, 255, 255, .12);
+  width: 29px;
+  height: 29px;
+  border: 1px solid rgba(196, 218, 239, .12);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .035);
+  color: #c7d8e8;
 }
 
 .customer-home-page .customer-quick-actions > .wallet .customer-quick-tile-icon {
-  background: rgba(187, 143, 255, .2);
-  color: #d1b2ff;
+  border-color: rgba(167, 143, 232, .2);
+  background: rgba(125, 99, 194, .1);
+  color: #c0adf1;
 }
 
 .customer-home-page .customer-quick-actions > .kyc .customer-quick-tile-icon {
-  background: rgba(255, 196, 103, .18);
-  color: #ffd98c;
+  border-color: rgba(210, 176, 111, .2);
+  background: rgba(171, 127, 48, .1);
+  color: #e3c582;
 }
 
 .customer-home-page .customer-quick-actions > .support .customer-quick-tile-icon {
-  background: rgba(65, 222, 255, .18);
-  color: #8deaff;
+  border-color: rgba(97, 195, 217, .2);
+  background: rgba(51, 138, 161, .11);
+  color: #91dbe9;
 }
 
 .customer-home-page .customer-quick-tile-icon svg {
-  width: 21px;
-  height: 21px;
-  filter: drop-shadow(0 0 7px currentColor);
+  width: 17px;
+  height: 17px;
 }
 
-.customer-workspace-featured button>b {
-  background: rgba(15, 221, 177, .2) !important;
-  border: 1px solid rgba(111, 255, 226, .28);
-  color: #9affeb !important;
-  font-size: 8px !important;
-  font-weight: 900;
-  letter-spacing: .12em;
+.customer-bot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 5px;
+  padding: 2px 5px;
+  border: 1px solid rgba(89, 226, 194, .25);
+  border-radius: 5px;
+  background: rgba(22, 144, 119, .11);
+  color: #85ddc8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  line-height: 1.2;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.customer-bot-badge > svg {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  color: inherit;
+}
+
+.customer-quick-feature.stake .customer-bot-badge,
+.customer-workspace-featured button:nth-child(2) .customer-bot-badge {
+  border-color: rgba(123, 175, 244, .28);
+  background: rgba(59, 111, 181, .12);
+  color: #a9caff;
+}
+
+.customer-bot-badge.compact {
+  gap: 3px;
+  margin-left: auto;
+  padding: 2px 4px;
+  font-size: 6px;
+}
+
+.customer-bot-badge.compact > svg {
+  width: 9px;
+  height: 9px;
+}
+
+.customer-workspace-featured .customer-bot-badge {
+  transform: scale(.92);
+  transform-origin: right center;
+}
+
+.customer-workspace-featured button:first-child {
+  border-color: rgba(37, 208, 166, .3) !important;
+  background: linear-gradient(100deg, rgba(8, 63, 57, .56), rgba(9, 31, 43, .78)) !important;
+}
+
+.customer-workspace-featured button:nth-child(2) {
+  border-color: rgba(81, 142, 224, .3) !important;
+  background: linear-gradient(100deg, rgba(18, 50, 93, .58), rgba(8, 27, 47, .8)) !important;
+}
+
+.customer-workspace-featured button:first-child .feature-medal.bot-medal {
+  border: 1px solid rgba(70, 226, 188, .24);
+  background: rgba(25, 166, 132, .12);
+  color: #80dfc8;
 }
 
 @media (hover: hover) {
   .customer-home-page .customer-quick-actions > button:hover {
-    transform: translateY(-3px);
-    filter: brightness(1.13);
-    box-shadow: 0 16px 32px rgba(0, 0, 0, .3), 0 0 22px var(--action-glow) !important;
+    transform: translateY(-1px);
+    border-color: rgba(114, 181, 214, .52) !important;
+    filter: brightness(1.06);
   }
 }
 
 .customer-home-page .customer-quick-actions > button:focus-visible {
-  outline: 2px solid #f0fcff;
-  outline-offset: 3px;
+  outline: 2px solid rgba(115, 224, 202, .8);
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .customer-home-page .customer-quick-actions > button {
+    min-height: 60px !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .customer-home-page .customer-quick-actions > button {
     transition: none;
-  }
-}
-
-
-/* Star-crested bot insignia: machine-readable BOT label with a premium beacon mark. */
-.customer-bot-star-badge {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 7px;
-  padding: 3px 7px 3px 4px;
-  border: 1px solid rgba(104, 255, 222, .48);
-  border-radius: 999px;
-  background: linear-gradient(115deg, rgba(12, 95, 86, .95), rgba(7, 32, 51, .96));
-  color: #e7fffa;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: .14em;
-  line-height: 1;
-  white-space: nowrap;
-  box-shadow: 0 0 13px rgba(25, 238, 194, .24), inset 0 1px rgba(255, 255, 255, .16);
-  vertical-align: middle;
-}
-
-.customer-bot-star-mark {
-  position: relative;
-  display: grid;
-  place-items: center;
-  flex: 0 0 17px;
-  width: 17px;
-  height: 17px;
-  border: 1px solid rgba(255, 250, 198, .76);
-  border-radius: 6px;
-  background: linear-gradient(145deg, #fff5a3, #f4be42 56%, #25e4bb);
-  color: #06323a;
-  transform: rotate(-7deg);
-  box-shadow: 0 0 10px rgba(255, 221, 94, .42), inset 0 1px rgba(255, 255, 255, .72);
-}
-
-.customer-bot-star-mark svg {
-  filter: drop-shadow(0 0 3px rgba(255, 255, 255, .55));
-  animation: customer-bot-star-glint 2.8s ease-in-out infinite;
-}
-
-.customer-bot-star-badge > svg {
-  flex: 0 0 auto;
-  color: #8dffe6;
-  filter: drop-shadow(0 0 5px rgba(46, 251, 207, .56));
-}
-
-.customer-bot-star-badge::after {
-  width: 4px;
-  height: 4px;
-  margin-left: 1px;
-  border-radius: 50%;
-  background: #63ffd5;
-  box-shadow: 0 0 8px #63ffd5;
-  content: "";
-  animation: customer-bot-signal 1.8s ease-in-out infinite;
-}
-
-.customer-quick-feature.stake .customer-bot-star-badge,
-.customer-workspace-featured button:nth-child(2) .customer-bot-star-badge {
-  border-color: rgba(163, 205, 255, .54);
-  background: linear-gradient(115deg, rgba(20, 81, 157, .95), rgba(8, 31, 60, .98));
-  box-shadow: 0 0 13px rgba(75, 151, 255, .25), inset 0 1px rgba(255, 255, 255, .16);
-}
-
-.customer-quick-feature.stake .customer-bot-star-badge > svg,
-.customer-workspace-featured button:nth-child(2) .customer-bot-star-badge > svg {
-  color: #b9dbff;
-  filter: drop-shadow(0 0 5px rgba(103, 171, 255, .62));
-}
-
-.customer-quick-feature.stake .customer-bot-star-mark,
-.customer-workspace-featured button:nth-child(2) .customer-bot-star-mark {
-  background: linear-gradient(145deg, #e9f6ff, #83baff 58%, #756cff);
-  color: #123b78;
-  box-shadow: 0 0 10px rgba(102, 170, 255, .46), inset 0 1px rgba(255, 255, 255, .72);
-}
-
-.customer-workspace-featured .customer-bot-star-badge {
-  margin-left: auto;
-  transform: scale(.88);
-  transform-origin: right center;
-}
-
-.customer-primary-rail .customer-bot-star-badge.compact {
-  margin-left: auto;
-  padding: 2px 5px 2px 3px;
-  font-size: 7px;
-  gap: 3px;
-}
-
-.customer-primary-rail .customer-bot-star-badge.compact .customer-bot-star-mark {
-  flex-basis: 13px;
-  width: 13px;
-  height: 13px;
-  border-radius: 4px;
-}
-
-.customer-primary-rail .customer-bot-star-badge.compact .customer-bot-star-mark svg {
-  width: 7px;
-  height: 7px;
-}
-
-.customer-primary-rail .customer-bot-star-badge.compact > svg {
-  width: 9px;
-  height: 9px;
-}
-
-@keyframes customer-bot-star-glint {
-  0%, 100% { transform: scale(.94) rotate(0deg); opacity: .9; }
-  50% { transform: scale(1.08) rotate(10deg); opacity: 1; }
-}
-
-@keyframes customer-bot-signal {
-  0%, 100% { opacity: .62; box-shadow: 0 0 4px #63ffd5; }
-  50% { opacity: 1; box-shadow: 0 0 10px #63ffd5; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .customer-bot-star-mark svg,
-  .customer-bot-star-badge::after {
-    animation: none;
   }
 }
