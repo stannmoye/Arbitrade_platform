@@ -829,3 +829,85 @@
     height: 24px;
   }
 }
+
+
+/* Mobile visibility fixes: keep key actions, market status, and account controls accessible. */
+@media (max-width: 760px) {
+  .customer-portal .portal-session > .customer-header-profile {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+    visibility: visible !important;
+  }
+
+  .customer-portal .portal-session > .customer-header-bell {
+    display: grid !important;
+    flex: 0 0 32px !important;
+    visibility: visible !important;
+  }
+
+  .customer-portal .customer-market-hero {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    min-height: 0 !important;
+  }
+
+  .customer-portal .customer-hero-copy {
+    max-width: 100% !important;
+  }
+
+  .customer-portal .customer-hero-copy p {
+    max-width: 100% !important;
+  }
+
+  .customer-portal .customer-hero-opportunity {
+    position: relative !important;
+    inset: auto !important;
+    display: flex !important;
+    width: auto !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  .customer-portal .customer-ledger-heading {
+    flex-wrap: wrap !important;
+  }
+
+  .customer-portal .customer-ledger-heading .portal-action {
+    display: inline-flex !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    width: auto !important;
+    min-width: 102px !important;
+    min-height: 36px !important;
+    padding: 8px 12px !important;
+    color: #ffffff !important;
+    font-size: 10px !important;
+    font-weight: 750 !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+    text-shadow: 0 1px 2px rgba(0, 24, 68, .65);
+    box-shadow: 0 4px 12px rgba(0, 87, 221, .28) !important;
+  }
+
+  .customer-portal .customer-ledger-heading .portal-action svg {
+    flex: 0 0 17px !important;
+    width: 17px !important;
+    height: 17px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .customer-portal .customer-hero-opportunity {
+    display: flex !important;
+  }
+
+  .customer-portal .customer-ledger-heading .portal-action {
+    min-width: 108px !important;
+    font-size: 10px !important;
+  }
+}
