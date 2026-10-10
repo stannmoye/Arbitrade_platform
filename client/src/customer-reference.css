@@ -933,3 +933,34 @@
     pointer-events: auto !important;
   }
 }
+
+
+/* Make the header customer avatar a real, accessible account-navigation control. */
+.customer-portal .portal-session .customer-header-profile {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  text-align: left !important;
+  cursor: pointer !important;
+}
+
+.customer-portal .portal-session .customer-header-profile:focus-visible {
+  outline: 2px solid rgba(45, 221, 195, .9) !important;
+  outline-offset: 3px !important;
+  border-radius: 10px;
+}
+
+@media (max-width: 760px) {
+  .customer-portal .portal-session button.customer-header-profile:not(.secondary-button) {
+    display: flex !important;
+    flex: 0 0 32px !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+}
