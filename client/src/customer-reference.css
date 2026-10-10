@@ -796,17 +796,21 @@
 }
 
 
-/* A more balanced mobile action row: compact cards, same horizontal swipe behavior. */
+/* Restore the original widths and compact the mobile action-row height. */
 @media (max-width: 760px) {
   .customer-home-page .customer-quick-actions .customer-quick-feature {
-    flex: 0 0 clamp(146px, 40vw, 180px) !important;
-    width: clamp(146px, 40vw, 180px) !important;
-    min-width: clamp(146px, 40vw, 180px) !important;
+    flex: 0 0 clamp(168px, 49vw, 220px) !important;
+    width: clamp(168px, 49vw, 220px) !important;
+    min-width: clamp(168px, 49vw, 220px) !important;
   }
 
   .customer-home-page .customer-quick-actions .customer-quick-tile {
-    flex: 0 0 clamp(80px, 22vw, 104px) !important;
-    width: clamp(80px, 22vw, 104px) !important;
-    min-width: clamp(80px, 22vw, 104px) !important;
+    flex: 0 0 clamp(92px, 26vw, 122px) !important;
+    width: clamp(92px, 26vw, 122px) !important;
+    min-width: clamp(92px, 26vw, 122px) !important;
+  }
+
+  .customer-home-page .customer-quick-actions > button {
+    min-height: 54px !important;
   }
 }
