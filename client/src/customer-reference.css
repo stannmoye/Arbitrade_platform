@@ -721,3 +721,99 @@
     animation: none;
   }
 }
+
+
+/* Continuous in-card waves for the two primary earn actions. */
+.customer-home-page .customer-quick-actions > .trade > .customer-quick-action-ripple,
+.customer-home-page .customer-quick-actions > .stake > .customer-quick-action-ripple {
+  position: absolute !important;
+  z-index: 0 !important;
+  inset: 0 !important;
+  display: block;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.customer-home-page .customer-quick-actions > .trade > .customer-quick-action-ripple {
+  --ripple-border: rgba(207, 182, 83, .4);
+  --ripple-glow: rgba(205, 176, 64, .17);
+}
+
+.customer-home-page .customer-quick-actions > .stake > .customer-quick-action-ripple {
+  --ripple-border: rgba(183, 117, 163, .42);
+  --ripple-glow: rgba(92, 139, 214, .2);
+}
+
+.customer-quick-action-ripple::before,
+.customer-quick-action-ripple::after {
+  position: absolute;
+  top: 50%;
+  left: 29px;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--ripple-border);
+  border-radius: 50%;
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 0 0 12px var(--ripple-glow);
+  transform: translate(-50%, -50%) scale(.45);
+  animation: customer-action-ripple 4.8s ease-out infinite;
+}
+
+.customer-quick-action-ripple::after {
+  animation-delay: -2.4s;
+}
+
+@keyframes customer-action-ripple {
+  0% { transform: translate(-50%, -50%) scale(.45); opacity: 0; }
+  12% { opacity: .48; }
+  66% { transform: translate(-50%, -50%) scale(5.6); opacity: .08; }
+  100% { transform: translate(-50%, -50%) scale(5.6); opacity: 0; }
+}
+
+/* New Featured Products surfaces: graphite/coral for Calculator, peacock/ice for Yield. */
+.customer-workspace-featured button:first-child {
+  border-color: rgba(204, 119, 105, .42) !important;
+  background: linear-gradient(108deg, rgba(83, 42, 43, .72), rgba(46, 34, 48, .9) 58%, rgba(10, 25, 41, .96)) !important;
+  box-shadow: inset 0 1px rgba(255, 223, 211, .06), 0 5px 13px rgba(0, 0, 0, .14) !important;
+}
+
+.customer-workspace-featured button:first-child .feature-medal.bot-medal {
+  border-color: rgba(224, 145, 124, .34);
+  background: rgba(164, 81, 72, .18);
+  color: #e7a99a;
+}
+
+.customer-workspace-featured button:first-child .customer-bot-badge {
+  border-color: rgba(213, 139, 119, .34);
+  background: rgba(119, 57, 54, .22);
+  color: #e2afa1;
+}
+
+.customer-workspace-featured button:nth-child(2) {
+  border-color: rgba(72, 181, 170, .4) !important;
+  background: linear-gradient(108deg, rgba(8, 78, 75, .76), rgba(13, 56, 70, .9) 58%, rgba(8, 25, 43, .96)) !important;
+  box-shadow: inset 0 1px rgba(203, 255, 248, .06), 0 5px 13px rgba(0, 0, 0, .14) !important;
+}
+
+.customer-workspace-featured button:nth-child(2) .feature-medal.mint {
+  border: 1px solid rgba(111, 218, 202, .3);
+  background: rgba(26, 145, 133, .18);
+  color: #92e4d8;
+}
+
+.customer-workspace-featured button:nth-child(2) .customer-bot-badge {
+  border-color: rgba(111, 218, 202, .32);
+  background: rgba(17, 117, 109, .2);
+  color: #a0e9df;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-quick-action-ripple::before,
+  .customer-quick-action-ripple::after {
+    animation: none;
+    opacity: 0;
+  }
+}
