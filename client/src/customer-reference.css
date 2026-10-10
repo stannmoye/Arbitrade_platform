@@ -530,3 +530,130 @@
     transition: none;
   }
 }
+
+
+/* Star-crested bot insignia: machine-readable BOT label with a premium beacon mark. */
+.customer-bot-star-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 7px;
+  padding: 3px 7px 3px 4px;
+  border: 1px solid rgba(104, 255, 222, .48);
+  border-radius: 999px;
+  background: linear-gradient(115deg, rgba(12, 95, 86, .95), rgba(7, 32, 51, .96));
+  color: #e7fffa;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .14em;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 0 13px rgba(25, 238, 194, .24), inset 0 1px rgba(255, 255, 255, .16);
+  vertical-align: middle;
+}
+
+.customer-bot-star-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 17px;
+  width: 17px;
+  height: 17px;
+  border: 1px solid rgba(255, 250, 198, .76);
+  border-radius: 6px;
+  background: linear-gradient(145deg, #fff5a3, #f4be42 56%, #25e4bb);
+  color: #06323a;
+  transform: rotate(-7deg);
+  box-shadow: 0 0 10px rgba(255, 221, 94, .42), inset 0 1px rgba(255, 255, 255, .72);
+}
+
+.customer-bot-star-mark svg {
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, .55));
+  animation: customer-bot-star-glint 2.8s ease-in-out infinite;
+}
+
+.customer-bot-star-badge > svg {
+  flex: 0 0 auto;
+  color: #8dffe6;
+  filter: drop-shadow(0 0 5px rgba(46, 251, 207, .56));
+}
+
+.customer-bot-star-badge::after {
+  width: 4px;
+  height: 4px;
+  margin-left: 1px;
+  border-radius: 50%;
+  background: #63ffd5;
+  box-shadow: 0 0 8px #63ffd5;
+  content: "";
+  animation: customer-bot-signal 1.8s ease-in-out infinite;
+}
+
+.customer-quick-feature.stake .customer-bot-star-badge,
+.customer-workspace-featured button:nth-child(2) .customer-bot-star-badge {
+  border-color: rgba(163, 205, 255, .54);
+  background: linear-gradient(115deg, rgba(20, 81, 157, .95), rgba(8, 31, 60, .98));
+  box-shadow: 0 0 13px rgba(75, 151, 255, .25), inset 0 1px rgba(255, 255, 255, .16);
+}
+
+.customer-quick-feature.stake .customer-bot-star-badge > svg,
+.customer-workspace-featured button:nth-child(2) .customer-bot-star-badge > svg {
+  color: #b9dbff;
+  filter: drop-shadow(0 0 5px rgba(103, 171, 255, .62));
+}
+
+.customer-quick-feature.stake .customer-bot-star-mark,
+.customer-workspace-featured button:nth-child(2) .customer-bot-star-mark {
+  background: linear-gradient(145deg, #e9f6ff, #83baff 58%, #756cff);
+  color: #123b78;
+  box-shadow: 0 0 10px rgba(102, 170, 255, .46), inset 0 1px rgba(255, 255, 255, .72);
+}
+
+.customer-workspace-featured .customer-bot-star-badge {
+  margin-left: auto;
+  transform: scale(.88);
+  transform-origin: right center;
+}
+
+.customer-primary-rail .customer-bot-star-badge.compact {
+  margin-left: auto;
+  padding: 2px 5px 2px 3px;
+  font-size: 7px;
+  gap: 3px;
+}
+
+.customer-primary-rail .customer-bot-star-badge.compact .customer-bot-star-mark {
+  flex-basis: 13px;
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+}
+
+.customer-primary-rail .customer-bot-star-badge.compact .customer-bot-star-mark svg {
+  width: 7px;
+  height: 7px;
+}
+
+.customer-primary-rail .customer-bot-star-badge.compact > svg {
+  width: 9px;
+  height: 9px;
+}
+
+@keyframes customer-bot-star-glint {
+  0%, 100% { transform: scale(.94) rotate(0deg); opacity: .9; }
+  50% { transform: scale(1.08) rotate(10deg); opacity: 1; }
+}
+
+@keyframes customer-bot-signal {
+  0%, 100% { opacity: .62; box-shadow: 0 0 4px #63ffd5; }
+  50% { opacity: 1; box-shadow: 0 0 10px #63ffd5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-bot-star-mark svg,
+  .customer-bot-star-badge::after {
+    animation: none;
+  }
+}
