@@ -513,8 +513,7 @@
   color: inherit;
 }
 
-.customer-quick-feature.stake .customer-bot-badge,
-.customer-workspace-featured button:nth-child(2) .customer-bot-badge {
+.customer-quick-feature.stake .customer-bot-badge {
   border-color: rgba(123, 175, 244, .28);
   background: rgba(59, 111, 181, .12);
   color: #a9caff;
@@ -532,11 +531,6 @@
   height: 9px;
 }
 
-.customer-workspace-featured .customer-bot-badge {
-  transform: scale(.92);
-  transform-origin: right center;
-}
-
 .customer-workspace-featured button:first-child {
   border-color: rgba(37, 208, 166, .3) !important;
   background: linear-gradient(100deg, rgba(8, 63, 57, .56), rgba(9, 31, 43, .78)) !important;
@@ -547,7 +541,7 @@
   background: linear-gradient(100deg, rgba(18, 50, 93, .58), rgba(8, 27, 47, .8)) !important;
 }
 
-.customer-workspace-featured button:first-child .feature-medal.bot-medal {
+.customer-workspace-featured button:first-child .feature-medal.calculator-medal {
   border: 1px solid rgba(70, 226, 188, .24);
   background: rgba(25, 166, 132, .12);
   color: #80dfc8;
@@ -607,12 +601,6 @@
 }
 
 .customer-home-page .customer-quick-feature.trade .customer-bot-badge,
-.customer-workspace-featured button:first-child .customer-bot-badge {
-  border-color: rgba(203, 179, 95, .34);
-  background: rgba(123, 99, 25, .15);
-  color: #d6c478;
-}
-
 .customer-home-page .customer-quick-feature.trade .trade-word-accent {
   color: #d9c86f;
   text-shadow: 0 0 7px rgba(195, 169, 59, .17);
@@ -623,7 +611,7 @@
   background: linear-gradient(100deg, rgba(58, 50, 20, .48), rgba(18, 38, 39, .78)) !important;
 }
 
-.customer-workspace-featured button:first-child .feature-medal.bot-medal {
+.customer-workspace-featured button:first-child .feature-medal.calculator-medal {
   border-color: rgba(201, 179, 80, .28);
   background: rgba(123, 99, 25, .13);
   color: #d6c478;
@@ -652,8 +640,7 @@
   animation: stake-bot-pulse 3.2s ease-in-out infinite;
 }
 
-.customer-home-page .customer-quick-feature.stake .customer-bot-badge,
-.customer-workspace-featured button:nth-child(2) .customer-bot-badge {
+.customer-home-page .customer-quick-feature.stake .customer-bot-badge {
   border-color: rgba(190, 127, 168, .4);
   background: rgba(98, 40, 78, .22);
   color: #d9adc9;
@@ -780,16 +767,10 @@
   box-shadow: inset 0 1px rgba(255, 223, 211, .06), 0 5px 13px rgba(0, 0, 0, .14) !important;
 }
 
-.customer-workspace-featured button:first-child .feature-medal.bot-medal {
+.customer-workspace-featured button:first-child .feature-medal.calculator-medal {
   border-color: rgba(224, 145, 124, .34);
   background: rgba(164, 81, 72, .18);
   color: #e7a99a;
-}
-
-.customer-workspace-featured button:first-child .customer-bot-badge {
-  border-color: rgba(213, 139, 119, .34);
-  background: rgba(119, 57, 54, .22);
-  color: #e2afa1;
 }
 
 .customer-workspace-featured button:nth-child(2) {
@@ -802,12 +783,6 @@
   border: 1px solid rgba(111, 218, 202, .3);
   background: rgba(26, 145, 133, .18);
   color: #92e4d8;
-}
-
-.customer-workspace-featured button:nth-child(2) .customer-bot-badge {
-  border-color: rgba(111, 218, 202, .32);
-  background: rgba(17, 117, 109, .2);
-  color: #a0e9df;
 }
 
 @media (prefers-reduced-motion: reduce) {
