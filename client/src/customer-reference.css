@@ -94,3 +94,123 @@
     border-radius: 999px;
   }
 }
+
+
+/* Wallet sits directly beneath the logo header and before the customer menus. */
+.customer-portal .customer-top-wallet-band {
+  position: relative;
+  z-index: 69;
+  width: 100%;
+  margin-top: 66px;
+  padding: 0 24px;
+}
+
+.customer-portal .customer-top-wallet-band .customer-balance-ribbon {
+  margin: 0 0 12px !important;
+  padding: 14px 13px !important;
+  border: 1px solid rgba(59, 130, 185, .35) !important;
+  border-radius: 15px !important;
+  background: linear-gradient(125deg, #071b2e, #08223a 62%, #071c31) !important;
+  box-shadow: 0 12px 27px rgba(0, 0, 0, .19) !important;
+}
+
+.customer-top-wallet-band .customer-balance-ribbon-head {
+  margin-bottom: 9px !important;
+}
+
+.customer-top-wallet-band .customer-balance-package {
+  gap: 11px !important;
+}
+
+.customer-top-wallet-band .customer-balance-package > svg {
+  color: #25e8bd !important;
+}
+
+.customer-top-wallet-band .customer-balance-package strong {
+  font-size: 14px !important;
+}
+
+.customer-top-wallet-band .customer-balance-package small {
+  font-size: 9px !important;
+}
+
+.customer-top-wallet-band .customer-balance-cards {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  overflow: visible !important;
+}
+
+.customer-top-wallet-band .customer-balance-card {
+  min-width: 0 !important;
+  border: 1px solid rgba(49, 123, 181, .38) !important;
+  border-radius: 11px !important;
+  background: rgba(3, 20, 37, .76) !important;
+}
+
+.customer-top-wallet-band .customer-balance-trigger {
+  min-height: 48px !important;
+  padding: 7px 9px !important;
+}
+
+.customer-top-wallet-band .customer-balance-icon {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 10px !important;
+  background: linear-gradient(140deg, #0876c8, #0750a5) !important;
+  color: white !important;
+}
+
+.customer-top-wallet-band .customer-balance-name strong {
+  font-size: 10px !important;
+}
+
+.customer-top-wallet-band .customer-balance-name small,
+.customer-top-wallet-band .customer-balance-trigger > b {
+  font-size: 9px !important;
+}
+
+.customer-top-wallet-band .customer-balance-note {
+  display: none !important;
+}
+
+.customer-portal .portal-body {
+  padding-top: 0 !important;
+}
+
+@media (max-width: 760px) {
+  .customer-portal .customer-top-wallet-band {
+    margin-top: 62px;
+    padding: 0 8px;
+  }
+
+  .customer-portal .customer-top-wallet-band .customer-balance-cards {
+    display: grid !important;
+    grid-template-columns: none !important;
+    grid-auto-flow: column !important;
+    grid-auto-columns: minmax(min(245px, 78vw), min(82vw, 340px)) !important;
+    gap: 9px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(45, 221, 195, .48) transparent;
+    padding: 0 14px 8px 0 !important;
+  }
+
+  .customer-top-wallet-band .customer-balance-cards > .customer-balance-card {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  .customer-top-wallet-band .customer-balance-cards::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .customer-top-wallet-band .customer-balance-cards::-webkit-scrollbar-thumb {
+    background: rgba(45, 221, 195, .48);
+    border-radius: 999px;
+  }
+}
