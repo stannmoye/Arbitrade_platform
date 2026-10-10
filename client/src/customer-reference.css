@@ -794,3 +794,19 @@
     opacity: 0;
   }
 }
+
+
+/* A more balanced mobile action row: compact cards, same horizontal swipe behavior. */
+@media (max-width: 760px) {
+  .customer-home-page .customer-quick-actions .customer-quick-feature {
+    flex: 0 0 clamp(146px, 40vw, 180px) !important;
+    width: clamp(146px, 40vw, 180px) !important;
+    min-width: clamp(146px, 40vw, 180px) !important;
+  }
+
+  .customer-home-page .customer-quick-actions .customer-quick-tile {
+    flex: 0 0 clamp(80px, 22vw, 104px) !important;
+    width: clamp(80px, 22vw, 104px) !important;
+    min-width: clamp(80px, 22vw, 104px) !important;
+  }
+}
