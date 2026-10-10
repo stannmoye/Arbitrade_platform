@@ -964,3 +964,122 @@
     pointer-events: auto !important;
   }
 }
+
+
+/* Distinct left-side navigation drawer for phone and tablet layouts. */
+.customer-mobile-left-trigger {
+  display: none;
+}
+.customer-primary-menu-scrim {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .customer-portal .portal-header .customer-mobile-left-trigger {
+    display: inline-flex !important;
+    flex: 0 0 36px !important;
+    width: 36px !important;
+    height: 36px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 8px 0 0 !important;
+    padding: 0 !important;
+    border: 1px solid rgba(91, 155, 190, .35) !important;
+    border-radius: 11px !important;
+    color: #b9d9e7 !important;
+    background: linear-gradient(145deg, rgba(24, 57, 82, .92), rgba(9, 28, 47, .96)) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 5px 14px rgba(0,0,0,.2) !important;
+    cursor: pointer !important;
+  }
+
+  .customer-portal .customer-primary-menu-scrim {
+    position: fixed !important;
+    display: block !important;
+    inset: 66px 0 0 !important;
+    z-index: 81 !important;
+    width: 100vw !important;
+    height: calc(100dvh - 66px) !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: rgba(1, 8, 18, .7) !important;
+    backdrop-filter: blur(2px);
+    cursor: pointer !important;
+  }
+
+  .customer-portal .portal-body .customer-primary-rail {
+    position: fixed !important;
+    inset: 66px auto 0 0 !important;
+    z-index: 82 !important;
+    display: flex !important;
+    flex: none !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    gap: 14px !important;
+    width: min(278px, 84vw) !important;
+    max-width: 84vw !important;
+    height: auto !important;
+    max-height: calc(100dvh - 66px) !important;
+    min-height: 0 !important;
+    padding: 18px 13px 20px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    border: 1px solid rgba(72, 137, 177, .34) !important;
+    border-top: 0 !important;
+    border-left: 0 !important;
+    border-radius: 0 18px 18px 0 !important;
+    background: linear-gradient(180deg, #071c30 0%, #041426 58%, #03111f 100%) !important;
+    box-shadow: 18px 18px 44px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(135, 195, 221, .06) !important;
+    transform: translateX(-105%) !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transition: transform .28s cubic-bezier(.2,.8,.2,1), visibility .28s ease !important;
+  }
+
+  .customer-portal .portal-body.customer-primary-menu-open .customer-primary-rail {
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  .customer-portal .customer-primary-rail .customer-rail-section {
+    width: 100% !important;
+  }
+  .customer-portal .customer-primary-rail .customer-rail-section > .eyebrow {
+    display: flex !important;
+    padding: 0 9px 13px !important;
+    color: #83a6b5 !important;
+  }
+  .customer-portal .customer-primary-rail nav {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+    gap: 5px !important;
+  }
+  .customer-portal .customer-primary-rail nav button {
+    box-sizing: border-box !important;
+    display: flex !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 44px !important;
+    padding: 9px 11px !important;
+    text-align: left !important;
+  }
+  .customer-portal .customer-primary-rail .customer-rail-promo {
+    display: flex !important;
+    min-height: 128px !important;
+    flex: 0 0 auto !important;
+    margin: 2px 3px 0 !important;
+  }
+  .customer-portal .customer-primary-rail .customer-rail-logout {
+    display: flex !important;
+    flex: 0 0 auto !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-portal .portal-body .customer-primary-rail {
+    transition: none !important;
+  }
+}
