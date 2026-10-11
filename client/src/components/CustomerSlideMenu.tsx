@@ -1,23 +1,56 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, BarChart3, Bell, CircleHelp, LayoutDashboard, LockKeyhole, Menu, Search, Settings2, ShieldCheck, Sparkles, Terminal, WalletCards, X, type LucideIcon } from "lucide-react";
+import {
+  Activity, BarChart3, BookMarked, BookOpen, CircleHelp, Coins, FileText, Library, Map,
+  Lightbulb, Newspaper, Scale, Search, ShieldAlert, Sparkles, Terminal, X, type LucideIcon,
+} from "lucide-react";
 
 type CustomerSlideMenuProps = { section: string; onNavigate: (section: string) => void };
-type CustomerDestination = { label: string; detail: string; target: string; icon: LucideIcon };
+type CustomerDestination = { label: string; detail: string; target: string; icon: LucideIcon; planned?: boolean };
+type CustomerDestinationGroup = { label: string; detail: string; items: CustomerDestination[] };
 
-// Primary investment destinations intentionally stay in the visible customer rail.
-const destinations: CustomerDestination[] = [
-  { label: "Portfolio intelligence", detail: "Allocation health and signal quality", target: "intelligence", icon: BarChart3 },
-  { label: "Wallet settings", detail: "Wallet balances, locks and preferences", target: "wallet", icon: WalletCards },
-  { label: "Console mode", detail: "Focused customer operating view", target: "console", icon: Terminal },
-  { label: "Account settings", detail: "Profile, preferences and account controls", target: "account", icon: Settings2 },
-  { label: "Power tools", detail: "Risk reports, sessions and support tools", target: "advanced", icon: Sparkles },
-  { label: "Activity centre", detail: "Recorded events and account history", target: "activity", icon: Activity },
-  { label: "Security centre", detail: "Sessions, access and protection controls", target: "security", icon: LockKeyhole },
-  { label: "KYC verification", detail: "Identity journey and verification status", target: "kyc", icon: ShieldCheck },
-  { label: "Notifications", detail: "Account updates and delivery notices", target: "notifications", icon: Bell },
-  { label: "Support centre", detail: "Open and follow customer support cases", target: "support", icon: CircleHelp },
+const destinationGroups: CustomerDestinationGroup[] = [
+  {
+    label: "Core Workspace",
+    detail: "Live account operating tools",
+    items: [
+      { label: "Console mode", detail: "Focused customer operating view", target: "console", icon: Terminal },
+      { label: "Power tools", detail: "Risk reports, sessions and support tools", target: "advanced", icon: Sparkles },
+      { label: "Portfolio intelligence", detail: "Allocation health and signal quality", target: "intelligence", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Project & Investment",
+    detail: "Project context before participation",
+    items: [
+      { label: "Whitepaper", detail: "Project thesis, architecture and operating model", target: "whitepaper", icon: BookOpen },
+      { label: "Token Launch", detail: "Planned offering · review only, not live", target: "token-launch", icon: Coins, planned: true },
+      { label: "Tokenomics", detail: "Planned token model · not currently active", target: "tokenomics", icon: Scale, planned: true },
+      { label: "Roadmap", detail: "Milestones, delivery phases and priorities", target: "roadmap", icon: Map },
+      { label: "Investment Research", detail: "Research notes, signals and market context", target: "investment-research", icon: Library },
+    ],
+  },
+  {
+    label: "Knowledge & Support",
+    detail: "Learn, compare and get help",
+    items: [
+      { label: "Knowledge Base", detail: "Answers to common platform questions", target: "knowledge-base", icon: BookMarked },
+      { label: "Documentation", detail: "How the platform and workflows operate", target: "documentation", icon: FileText },
+      { label: "FAQs", detail: "Fast answers for common decisions", target: "faqs", icon: CircleHelp },
+      { label: "Trading Guides", detail: "Practical guides for market workflows", target: "trading-guides", icon: Activity },
+    ],
+  },
+  {
+    label: "Transparency & Updates",
+    detail: "Risk, legal and platform updates",
+    items: [
+      { label: "Risk Disclosure", detail: "Important risks before any action", target: "risk-disclosure", icon: ShieldAlert },
+      { label: "Legal Documents", detail: "Terms, policies and formal notices", target: "legal-documents", icon: Scale },
+      { label: "News & Updates", detail: "Platform announcements and releases", target: "news-updates", icon: Newspaper },
+    ],
+  },
 ];
 
+const destinations = destinationGroups.flatMap((group) => group.items);
 const primaryLabels: Record<string, string> = {
   dashboard: "Home dashboard", opportunities: "Trade & Earn", yield: "Stake & Earn", wallet: "Wallet settings",
   "crypto-mining": "Crypto Mining", "token-launch": "Token Launch", "treasury-bond": "Treasury Bond", "cooperate-dept": "Cooperate Dept",
@@ -32,9 +65,11 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
   const menuRef = useRef<HTMLElement | null>(null);
   const active = destinations.find((item) => item.target === section);
   const activeLabel = active?.label || primaryLabels[section] || "Customer workspace";
-  const filtered = destinations.filter((item) => `${item.label} ${item.detail}`.toLowerCase().includes(query.trim().toLowerCase()));
-  const quick = [destinations[1], destinations[0], destinations[6], destinations[7]];
-  const shortcuts = [destinations[4], destinations[2], destinations[3], destinations[8], destinations[9]];
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredGroups = destinationGroups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => `${item.label} ${item.detail}`.toLowerCase().includes(normalizedQuery)),
+  })).filter((group) => group.items.length > 0);
 
   useEffect(() => {
     if (!open) return;
@@ -56,22 +91,21 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
 
   const close = () => { setOpen(false); window.requestAnimationFrame(() => triggerRef.current?.focus()); };
   const navigate = (target: string) => { onNavigate(target); close(); };
-  const renderItem = (item: CustomerDestination) => { const Icon = item.icon; return <button key={item.target} type="button" className={`admin-slide-item${section === item.target ? " is-active" : ""}`} tabIndex={open ? 0 : -1} onClick={() => navigate(item.target)}><span className="admin-slide-item-icon"><Icon size={17} /></span><span className="admin-slide-item-copy"><strong>{item.label}</strong><small>{item.detail}</small></span><span className="admin-slide-item-arrow">→</span></button>; };
+  const renderItem = (item: CustomerDestination) => { const Icon = item.icon; return <button key={item.target} type="button" className={`admin-slide-item${section === item.target ? " is-active" : ""}`} tabIndex={open ? 0 : -1} onClick={() => navigate(item.target)}><span className="admin-slide-item-icon"><Icon size={17} /></span><span className="admin-slide-item-copy"><strong>{item.label}{item.planned && <em className="customer-slide-planned">PLANNED</em>}</strong><small>{item.detail}</small></span><span className="admin-slide-item-arrow">→</span></button>; };
 
   return <div className={`admin-slide-layer customer-slide-layer${open ? " is-open" : ""}`}>
-    <button ref={triggerRef} className="admin-slide-trigger customer-slide-trigger" type="button" aria-label={open ? "Close customer menu" : "Open customer menu"} aria-controls="customer-navigation-drawer" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setOpen(true)}><span className="admin-slide-trigger-icon"><Menu size={18} /></span><span className="admin-slide-trigger-copy">CUSTOMER MENU</span><span className="admin-slide-trigger-led" /></button>
+    <button ref={triggerRef} className="admin-slide-trigger customer-slide-trigger customer-resource-peek-trigger" type="button" aria-label={open ? "Close Resources" : "Open Resources"} title={open ? "Close Resources" : "Open Resources"} aria-controls="customer-navigation-drawer" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setOpen(true)}><span className="customer-resource-bulb" aria-hidden="true"><Lightbulb size={27} strokeWidth={1.8} /></span><span className="customer-resource-bulb-label">Resources</span><span className="admin-slide-trigger-led" /></button>
     <button className="admin-slide-backdrop" type="button" aria-label="Close customer menu" tabIndex={open ? 0 : -1} onClick={close} />
-    <aside id="customer-navigation-drawer" ref={menuRef} className="admin-slide-drawer customer-slide-drawer" aria-label="Customer account menu" aria-hidden={!open} role="dialog" aria-modal={open}>
+    <aside id="customer-navigation-drawer" ref={menuRef} className="admin-slide-drawer customer-slide-drawer" aria-label="Customer resource menu" aria-hidden={!open} role="dialog" aria-modal={open}>
       <div className="admin-slide-drawer-topline"><span><i /> CUSTOMER COMMAND PANEL</span><span className="admin-slide-count">ACCOUNT-LINKED</span></div>
-      <div className="admin-slide-heading"><div className="admin-slide-mark"><img src="/arbitrade-mark.svg" alt="" /></div><div className="admin-slide-title"><span>SECONDARY WORKSPACE</span><h2>Customer tools</h2></div><button className="admin-slide-close" type="button" onClick={close} aria-label="Close customer menu" tabIndex={open ? 0 : -1}><X size={17} /></button></div>
+      <div className="admin-slide-heading"><div className="admin-slide-mark"><img src="/arbitrade-mark.svg" alt="" /></div><div className="admin-slide-title"><span>SECONDARY WORKSPACE</span><h2>Knowledge &amp; resources</h2></div><button className="admin-slide-close" type="button" onClick={close} aria-label="Close customer menu" tabIndex={open ? 0 : -1}><X size={17} /></button></div>
       <div className="admin-slide-current"><span className="admin-slide-current-icon"><Activity size={15} /></span><span><small>YOU ARE IN</small><strong>{activeLabel}</strong></span><span className="admin-slide-current-dot" /></div>
-      <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search account tools" aria-label="Search customer account tools" /></div>
-      <nav className="admin-slide-nav quick-actions-nav" aria-label="Customer account tools">
-        <section className="admin-slide-group"><div className="admin-slide-group-title"><span>Important tools</span><i /></div><div className="admin-slide-items">{quick.map(renderItem)}</div></section>
-        <section className="admin-slide-group"><div className="admin-slide-group-title"><span>Account shortcuts</span><i /></div><div className="quick-actions-counter-list">{shortcuts.map((item) => { const Icon = item.icon; return <button key={item.target} type="button" className="quick-actions-counter" tabIndex={open ? 0 : -1} onClick={() => navigate(item.target)}><Icon size={15} /><span><strong>{item.label}</strong><small>{item.detail}</small></span><span className="quick-actions-counter-arrow">→</span></button>; })}</div></section>
-        <section className="admin-slide-group"><div className="admin-slide-group-title"><span>All account tools</span><i /></div><div className="admin-slide-items">{filtered.map(renderItem)}</div></section>
+      <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search resources and tools" aria-label="Search customer resources and tools" /></div>
+      <nav className="admin-slide-nav quick-actions-nav customer-resource-nav" aria-label="Customer resources and tools">
+        {filteredGroups.map((group) => <section className="admin-slide-group customer-resource-group" key={group.label}><div className="admin-slide-group-title"><span>{group.label}</span><small>{group.detail}</small><i /></div><div className="admin-slide-items">{group.items.map(renderItem)}</div></section>)}
+        {!filteredGroups.length && <div className="customer-resource-empty">No resources match “{query}”.</div>}
       </nav>
-      <div className="admin-slide-footer"><div className="quick-actions-status"><span><span className="quick-actions-status-dot" /> Account status</span><strong>Connected</strong><small>Database-backed customer workspace</small></div><button className="admin-slide-exit" type="button" tabIndex={open ? 0 : -1} onClick={() => navigate("account")}><Settings2 size={15} /> Account settings</button><div className="admin-slide-footer-note">Primary investment categories stay in the main menu.</div></div>
+      <div className="admin-slide-footer"><div className="quick-actions-status"><span><span className="quick-actions-status-dot" /> Account status</span><strong>Connected</strong><small>Database-backed customer workspace</small></div><div className="admin-slide-footer-note">Account preferences stay in the primary left menu. Token-related items marked Planned are not live offerings.</div></div>
     </aside>
   </div>;
 }
