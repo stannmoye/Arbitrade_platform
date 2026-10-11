@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Activity, BarChart3, BookMarked, BookOpen, CircleHelp, Coins, FileText, Library, Map,
-  Lightbulb, Newspaper, Scale, Search, ShieldAlert, Sparkles, Terminal, X, type LucideIcon,
+  Lightbulb, Newspaper, Scale, Search, ShieldAlert, Sparkles, X, type LucideIcon,
 } from "lucide-react";
 
 type CustomerSlideMenuProps = { section: string; onNavigate: (section: string) => void };
@@ -13,7 +13,6 @@ const destinationGroups: CustomerDestinationGroup[] = [
     label: "Core Workspace",
     detail: "Live account operating tools",
     items: [
-      { label: "Console mode", detail: "Focused customer operating view", target: "console", icon: Terminal },
       { label: "Power tools", detail: "Risk reports, sessions and support tools", target: "advanced", icon: Sparkles },
       { label: "Portfolio intelligence", detail: "Allocation health and signal quality", target: "intelligence", icon: BarChart3 },
     ],
