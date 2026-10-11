@@ -148,14 +148,14 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
     const config = await loadMiningConfig(conn);
     if (!config.globalEnabled) throw new MiningError("Mining is paused; the package was not purchased");
     const [quotes] = await conn.query<any[]>(`SELECT q.*,s.*,p.id packageId,p.code,p.name,p.status packageStatus,p.currentVersionId,
-        v.version,v.versionStatus,v.baseThs,v.boostBonusThs,v.boostDurationSeconds,v.maxPerCustomer,v.stackingPolicy,v.expirySeconds,v.termsText,v.simulationAcknowledgementRequired
+        v.version,v.versionStatus,v.effectiveAt packageEffectiveAt,v.baseThs,v.boostBonusThs,v.boostDurationSeconds,v.maxPerCustomer,v.stackingPolicy,v.expirySeconds,v.termsText,v.simulationAcknowledgementRequired
       FROM v5_fx_quotes q JOIN mining_quote_snapshots s ON s.quoteId=q.id
       JOIN mining_package_versions v ON v.id=s.packageVersionId JOIN mining_packages p ON p.id=v.packageId
       WHERE q.id=? AND s.userId=? AND s.purpose='package_purchase' FOR UPDATE`, [input.quoteId, userId]);
     const quote = quotes[0];
     if (!quote || quote.status !== "QUOTED" || new Date(quote.validUntil).getTime() <= Date.now()) throw new MiningError("This package quote has expired; request a fresh quote");
     if (quote.packageStatus !== "published" || quote.versionStatus !== "published" || Number(quote.currentVersionId) !== Number(quote.packageVersionId)) throw new MiningError("Package terms changed after this quote; review a fresh package quote");
-    if (!quote.effectiveAt || new Date(quote.effectiveAt).getTime() > Date.now()) throw new MiningError("This package version is not effective yet");
+    if (!quote.packageEffectiveAt || new Date(quote.packageEffectiveAt).getTime() > Date.now()) throw new MiningError("This package version is not effective yet");
     if (Boolean(quote.simulationAcknowledgementRequired) && !input.acknowledgedSimulation) throw new MiningError("The package simulation acknowledgement is required");
     let details: any = {};
     try { details = JSON.parse(String(quote.detailsJson || "{}")); } catch { throw new MiningError("The stored quote details are invalid; request a fresh quote"); }
@@ -574,7 +574,7 @@ async function processConversionJob(conn: Db, jobId: number) {
     const conversion = await executeTokenConversion(conn,userId,{
       sourceAmount:amount,targetAsset,grossAmount:converted.grossAmount,netAmount:converted.netAmount,feeAmount:converted.feeAmount,
       feeBps:config.swapFeeBps,quoteId:quote.quoteId,provider:rates.marketProvider,marketObservedAt:rates.marketObservedAt,
-      idempotencyKey:requestKey("mining-auto-convert",userId,String(job.rewardEventId)),transactionType:"auto_conversion",configVersion:config.version,preferenceVersion:Number(job.preferenceVersion),
+      idempotencyKey:requestKey("mining-auto-convert",userId,`reward-event-${job.rewardEventId}`),transactionType:"auto_conversion",configVersion:config.version,preferenceVersion:Number(job.preferenceVersion),
     });
     await conn.execute(`UPDATE mining_conversion_jobs SET status='completed',conversionId=?,lastError=NULL,updatedAt=UTC_TIMESTAMP(3) WHERE id=?`,[conversion.conversionId,jobId]);
     await createMiningNotification(conn,userId,"Automatic Mining conversion completed",`${conversion.sourceAmount} TOKEN was converted to ${conversion.destinationAmount} simulated ${targetAsset}. Reference ${conversion.receiptReference}.`);
