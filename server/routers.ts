@@ -14,6 +14,8 @@ import { isEmailDeliveryConfigured } from "./email";
 import { ensureCustomerControls } from "./db";
 import { adminAuditEvents, adminCustomerDirectory, adminDashboard, adminDecision, adminOverride, adminQueue, getAdminKycSettings, getCenter, issueEmail, issuePhone, recordConsent, recordFace as recordFaceVerification, startStage, submitAddress, submitDocument, updateAdminKycSettings, verifyAuditChain, verifyEmail, verifyPhone } from "./kyc";
 import { isEmailAdminConfigured, listEmailRecipients, publicEmailConfig, runDailyEmailReports, saveEmailConfig, sendAdminComposedEmail, testEmailConnection } from "./emailAdmin";
+import * as mining from "./mining";
+import * as miningAdmin from "./mining-admin";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -89,9 +91,37 @@ export const appRouter = router({
       cancel: protectedProcedure.input(z.object({ positionId: z.number().int().positive(), idempotencyKey: z.string().min(8).max(160) })).mutation(async ({ ctx, input }) => { const result=await cancelStake(ctx.user.id, input.positionId, input.idempotencyKey); await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{eventType:"CREDIT",status:"COMPLETED",title:"Wallet credit posted",message:`Position ${input.positionId} was cancelled and principal was released back to the available wallet balance.`,transactionCode:`credit:stake:${input.positionId}`,asset:"USD",metadata:{positionId:input.positionId}}); return result; }),
       project: protectedProcedure.input(z.object({ amountMinor: z.number().int().positive(), annualRateBps: z.number().int().min(0).max(100000), durationDays: z.number().int().positive(), compounding: z.boolean().optional() })).query(({ input }) => projectStake(input)),
     }),
+    mining: router({
+      dashboard: protectedProcedure.query(({ ctx }) => mining.getCustomerMiningDashboard(ctx.user.id)),
+      packages: protectedProcedure.query(() => mining.listCustomerMiningPackages()),
+      boostStatus: protectedProcedure.query(({ ctx }) => mining.getCustomerMiningBoostStatus(ctx.user.id)),
+      quotePurchase: protectedProcedure.input(z.object({ packageVersionId: z.number().int().positive(), paymentAsset: z.string().min(2).max(12) })).mutation(({ ctx, input }) => mining.createCustomerMiningPurchaseQuote(ctx.user.id, input)),
+      confirmPurchase: protectedProcedure.input(z.object({ quoteId: z.number().int().positive(), idempotencyKey: z.string().min(8).max(160), acknowledgedSimulation: z.boolean() })).mutation(({ ctx, input }) => mining.confirmCustomerMiningPurchase(ctx.user.id, input)),
+      activateBoost: protectedProcedure.input(z.object({ idempotencyKey: z.string().min(8).max(160) })).mutation(({ ctx, input }) => mining.activateCustomerMiningBoost(ctx.user.id, input)),
+      updateConversionPreference: protectedProcedure.input(z.object({ enabled: z.boolean(), targetDenomination: z.string().min(2).max(12), minimumThreshold: z.string().min(1).max(64) })).mutation(({ ctx, input }) => mining.updateCustomerMiningConversionPreference(ctx.user.id, input)),
+      quoteSwap: protectedProcedure.input(z.object({ tokenAmount: z.string().min(1).max(64), targetAsset: z.string().min(2).max(12) })).mutation(({ ctx, input }) => mining.createCustomerMiningSwapQuote(ctx.user.id, input)),
+      confirmSwap: protectedProcedure.input(z.object({ quoteId: z.number().int().positive(), idempotencyKey: z.string().min(8).max(160) })).mutation(({ ctx, input }) => mining.confirmCustomerMiningSwap(ctx.user.id, input)),
+      transactions: protectedProcedure.query(({ ctx }) => mining.listCustomerMiningTransactions(ctx.user.id)),
+    }),
   }),
 
   adminOperations: router({
+    miningDashboard: adminProcedure.query(() => miningAdmin.getMiningAdminDashboard()),
+    miningPackages: adminProcedure.query(() => miningAdmin.getMiningAdminPackages()),
+    miningEconomics: adminProcedure.query(() => miningAdmin.getMiningAdminEconomics()),
+    saveMiningEconomics: adminProcedure.input(z.object({ globalEnabled:z.boolean(),boostsEnabled:z.boolean(),tokenUnitsPerUsd:z.string().min(1).max(64),rewardTokensPerThsHour:z.string().min(1).max(64),swapFeeBps:z.number().int().min(0).max(10000),purchaseFeeBps:z.number().int().min(0).max(10000),minSwapTokens:z.string().min(1).max(64),maxSwapTokens:z.string().min(1).max(64),defaultAutoConversionThreshold:z.string().min(1).max(64),boostCycleSeconds:z.number().int().min(60).max(31536000),boostDurationSeconds:z.number().int().min(10).max(31536000),quoteTtlSeconds:z.number().int().min(10).max(600),fiatMaxAgeSeconds:z.number().int().min(60).max(604800),cryptoMaxAgeSeconds:z.number().int().min(30).max(3600),maxRateDeviationBps:z.number().int().min(0).max(10000),dailyRewardCapTokens:z.string().min(1).max(64),dualApprovalThresholdUsd:z.string().min(1).max(64),reason:z.string().trim().min(10).max(2000) })).mutation(({ ctx,input }) => miningAdmin.saveMiningEconomics(ctx.user.id,input)),
+    saveMiningPackageDraft: adminProcedure.input(z.object({ packageId:z.number().int().positive().optional(),versionId:z.number().int().positive().optional(),code:z.string().min(2).max(48),name:z.string().min(2).max(120),priceAmount:z.string().min(1).max(64),priceAsset:z.string().min(2).max(12),baseThs:z.string().min(1).max(64),boostBonusThs:z.string().min(1).max(64),boostDurationSeconds:z.number().int().min(10).max(31536000).nullable().optional(),maxPerCustomer:z.number().int().min(0).max(100000),stackingPolicy:z.enum(["stack","replace"]),expirySeconds:z.number().int().min(60).max(31536000).nullable().optional(),termsText:z.string().min(80).max(12000),simulationAcknowledgementRequired:z.boolean(),reason:z.string().trim().min(10).max(2000) })).mutation(({ctx,input})=>miningAdmin.saveMiningPackageDraft(ctx.user.id,input)),
+    publishMiningPackage: adminProcedure.input(z.object({packageId:z.number().int().positive(),versionId:z.number().int().positive(),reason:z.string().trim().min(10).max(2000)})).mutation(({ctx,input})=>miningAdmin.publishMiningPackage(ctx.user.id,input)),
+    setMiningPackageStatus: adminProcedure.input(z.object({packageId:z.number().int().positive(),status:z.enum(["paused","retired"]),reason:z.string().trim().min(10).max(2000)})).mutation(({ctx,input})=>miningAdmin.setMiningPackageStatus(ctx.user.id,input)),
+    miningPriceFeeds: adminProcedure.query(()=>miningAdmin.getMiningAdminPriceFeeds()),
+    refreshMiningPriceFeeds: adminProcedure.mutation(()=>miningAdmin.refreshMiningPriceFeeds()),
+    miningCustomers: adminProcedure.input(z.object({query:z.string().max(120).optional(),limit:z.number().int().min(1).max(100).optional()}).optional()).query(({input})=>miningAdmin.listMiningAdminCustomers(input||{})),
+    miningCustomerDetail: adminProcedure.input(z.object({userId:z.number().int().positive()})).query(({input})=>miningAdmin.getMiningAdminCustomerDetail(input.userId)),
+    createMiningAdjustment: adminProcedure.input(z.object({userId:z.number().int().positive(),assetCode:z.string().min(2).max(12),amount:z.string().min(1).max(64),direction:z.enum(["credit","debit"]),reason:z.string().trim().min(10).max(2000),idempotencyKey:z.string().min(8).max(160)})).mutation(({ctx,input})=>miningAdmin.createMiningAdjustment(ctx.user.id,input)),
+    miningAdjustmentQueue: adminProcedure.query(()=>miningAdmin.listMiningAdjustmentQueue()),
+    resolveMiningAdjustment: adminProcedure.input(z.object({requestId:z.number().int().positive(),approve:z.boolean(),reason:z.string().trim().min(10).max(2000)})).mutation(({ctx,input})=>miningAdmin.resolveMiningAdjustment(ctx.user.id,input)),
+    reverseMiningTransaction: adminProcedure.input(z.object({transactionId:z.number().int().positive(),reason:z.string().trim().min(10).max(2000)})).mutation(({ctx,input})=>miningAdmin.reverseMiningTransaction(ctx.user.id,input)),
+    reconcileMiningLedger: adminProcedure.input(z.object({repair:z.boolean().optional(),reason:z.string().max(2000).optional()}).optional()).mutation(({ctx,input})=>miningAdmin.reconcileMiningLedger(ctx.user.id,input||{})),
     kycDashboard: adminProcedure.query(() => adminDashboard()),
     kycCustomers: adminProcedure.input(z.object({ page: z.number().int().positive().optional(), pageSize: z.number().int().min(10).max(100).optional(), search: z.string().max(100).optional(), status: z.enum(["NOT_STARTED", "IN_PROGRESS", "VERIFIED", "REVIEW_REQUIRED", "RETRY_AVAILABLE", "REJECTED"]).optional() }).optional()).query(({ input }) => adminCustomerDirectory(input || {})),
     kycQueue: adminProcedure.query(() => adminQueue()),
