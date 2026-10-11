@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, desc, eq, gt, lt, lte } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, lt, lte } from "drizzle-orm";
 import { countOutstandingTrades, getAppSetting, getDb, getTradeSettlementPolicy } from "./db";
 import { currencyRegistry, fxRateSnapshots, marketInstruments, marketSnapshots, opportunityOffers } from "../drizzle/schema";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
@@ -36,7 +36,8 @@ export async function refreshMarketData() {
   }
   if (cryptoRates.status === "fulfilled") for (const row of cryptoRates.value) {
     await db.insert(fxRateSnapshots).values({ baseAsset: row.base, quoteAsset: row.quote, rate: row.rate, provider: "coingecko", sourceDate: row.sourceDate?.slice(0, 16) ?? null, rawJson: JSON.stringify(row.raw) });
-    await db.insert(currencyRegistry).values({ code: row.base, name: row.base === "BTC" ? "Bitcoin" : "Ethereum", symbol: row.base === "BTC" ? "₿" : "Ξ", scale: 8, assetType: "crypto", usdRate: row.rate, rateProvider: "coingecko", externalCode: row.base === "BTC" ? "bitcoin" : "ethereum", enabled: true }).onDuplicateKeyUpdate({ set: { usdRate: row.rate, rateProvider: "coingecko", externalCode: row.base === "BTC" ? "bitcoin" : "ethereum", enabled: true, updatedAt: new Date() } });
+    const metadata = row.base === "BTC" ? { name: "Bitcoin", symbol: "₿", scale: 8, externalCode: "bitcoin" } : row.base === "ETH" ? { name: "Ethereum", symbol: "Ξ", scale: 8, externalCode: "ethereum" } : { name: "Tether USD", symbol: "₮", scale: 6, externalCode: "tether" };
+    await db.insert(currencyRegistry).values({ code: row.base, name: metadata.name, symbol: metadata.symbol, scale: metadata.scale, assetType: "crypto", usdRate: row.rate, rateProvider: "coingecko", externalCode: metadata.externalCode, enabled: true }).onDuplicateKeyUpdate({ set: { name: metadata.name, symbol: metadata.symbol, scale: metadata.scale, usdRate: row.rate, rateProvider: "coingecko", externalCode: metadata.externalCode, enabled: true, updatedAt: new Date() } });
     fxStored++;
   }
   return { stocksStored, fxStored, refreshedAt, errors: [stocks, fiat, cryptoRates].filter(x => x.status === "rejected").map(x => x.status === "rejected" ? String(x.reason) : "") };
@@ -59,7 +60,8 @@ export async function ensureMarketDrivenOpportunities(refreshedAt = new Date()) 
   const active = await db.select({ symbol: opportunityOffers.symbol, currency: opportunityOffers.currency }).from(opportunityOffers).where(and(eq(opportunityOffers.status, "open"), gt(opportunityOffers.closesAt, now)));
   const activeKeys = new Set(active.map(row => `${row.symbol}:${row.currency}`));
   const instruments = await db.select().from(marketInstruments).orderBy(desc(marketInstruments.updatedAt)).limit(200);
-  const currencies = await db.select({ code: currencyRegistry.code, scale: currencyRegistry.scale }).from(currencyRegistry).where(eq(currencyRegistry.enabled, true));
+  // Legacy market offers use scaled signed-INT amounts; Mining-only USDT and TOKEN belong in the high-precision v5 ledger instead.
+  const currencies = await db.select({ code: currencyRegistry.code, scale: currencyRegistry.scale }).from(currencyRegistry).where(and(eq(currencyRegistry.enabled, true), inArray(currencyRegistry.code, ["USD", "EUR", "GBP", "BTC", "ETH"])));
   const deskLabel = await getAppSetting("opportunity.deskLabel");
   if (!deskLabel) throw new Error("Database setting opportunity.deskLabel is missing");
   let created = 0;

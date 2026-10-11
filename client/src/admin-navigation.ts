@@ -57,6 +57,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "credit-adjustment", target: "credit", label: "Credit Adjustment", detail: "Auditable wallet credit action", icon: CircleDollarSign },
     { id: "debit-adjustment", target: "debit", label: "Debit Adjustment", detail: "Validated wallet debit action", icon: ReceiptText },
     { id: "currencies-assets", target: "currencies", label: "Currencies & Assets", detail: "Currency registry and valuation rates", icon: Coins },
+    { id: "mining-operations", target: "mining", label: "Mining", detail: "Simulated mining packages, rewards, conversions and ledger controls", icon: Coins },
   ]},
   { id: "opportunities", label: "Opportunities", detail: "Offers, delivery and execution policy", items: [
     { id: "opportunity-overview", target: "opportunity", label: "Overview", detail: "Offer management and opportunity operations", icon: Zap },
