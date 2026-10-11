@@ -244,6 +244,9 @@ INSERT INTO v5_wallets (userId, assetCode, availableAmount, lockedAmount, pendin
 SELECT 0, 'TOKEN', '0', '0', '0' FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM v5_wallets WHERE userId=0 AND assetCode='TOKEN');
 INSERT INTO v5_wallets (userId, assetCode, availableAmount, lockedAmount, pendingAmount)
+SELECT 0, 'CKI', '0', '0', '0' FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM v5_wallets WHERE userId=0 AND assetCode='CKI');
+INSERT INTO v5_wallets (userId, assetCode, availableAmount, lockedAmount, pendingAmount)
 SELECT 0, 'USD', '0', '0', '0' FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM v5_wallets WHERE userId=0 AND assetCode='USD');
 INSERT INTO v5_wallets (userId, assetCode, availableAmount, lockedAmount, pendingAmount)
