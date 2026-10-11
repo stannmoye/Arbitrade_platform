@@ -26,9 +26,15 @@ describe("mining reward rules", () => {
 });
 
 describe("mining conversion rules", () => {
-  it("uses the fixed platform reference, rate direction, fee, and target precision", () => {
+  it("uses the configured internal reference, rate direction, fee, and target precision", () => {
     expect(calculateMiningConversion({ tokenAmount: "1000", tokenUnitsPerUsd: "1000", usdPerTargetUnit: "1.25", feeBps: 100, targetScale: 2 })).toEqual({
       grossAmount: "0.80", feeAmount: "0.01", netAmount: "0.79", rate: "0.00079",
+    });
+  });
+
+  it("converts 1 CKI to exactly $1.60 at the initial CoinKi reference rate", () => {
+    expect(calculateMiningConversion({ tokenAmount: "1", tokenUnitsPerUsd: "0.625", usdPerTargetUnit: "1", feeBps: 0, targetScale: 2 })).toEqual({
+      grossAmount: "1.60", feeAmount: "0.00", netAmount: "1.60", rate: "1.6",
     });
   });
 

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Activity, ArrowDownUp, ArrowRight, BadgeCheck, Bolt, Clock3, Cpu, Database, Gauge, Info, LockKeyhole, RefreshCw, ShieldAlert, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
 
-const ASSETS = ["TOKEN", "USD", "EUR", "GBP", "BTC", "ETH", "USDT"];
-const TARGET_ASSETS = ASSETS.filter(asset => asset !== "TOKEN");
+const ASSETS = ["CKI", "USD", "EUR", "GBP", "BTC", "ETH", "USDT"];
+const TARGET_ASSETS = ASSETS.filter(asset => asset !== "CKI");
 const requestId = () => globalThis.crypto?.randomUUID?.() || `mining-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const dateText = (value?: string | null) => value ? new Date(value).toLocaleString() : "—";
 const fmt = (value: unknown, max = 8) => {
@@ -16,7 +16,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const packages = trpc.customer.mining.packages.useQuery(undefined, { refetchInterval: 30000 });
   const boostStatus = trpc.customer.mining.boostStatus.useQuery(undefined, { refetchInterval: 5000 });
   const history = trpc.customer.mining.transactions.useQuery(undefined, { refetchInterval: 12000 });
-  const [paymentAsset, setPaymentAsset] = useState("TOKEN");
+  const [paymentAsset, setPaymentAsset] = useState("USD");
   const [selectedPackage, setSelectedPackage] = useState<any | null>(null);
   const [purchaseQuote, setPurchaseQuote] = useState<any | null>(null);
   const [swapQuote, setSwapQuote] = useState<any | null>(null);
@@ -27,7 +27,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const [prefThreshold, setPrefThreshold] = useState("0");
   const [acknowledged, setAcknowledged] = useState(false);
   const [message, setMessage] = useState("");
-  const [busyKey, setBusyKey] = useState("");
+  const [busyKey,setBusyKey]=useState("");
 
   useEffect(() => {
     const preference = dashboard.data?.conversionPreference;
@@ -64,6 +64,8 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   });
 
   const data = dashboard.data;
+  const tokenName = data?.tokenName || "CoinKi";
+  const tokenSymbol = data?.tokenSymbol || "CKI";
   const packageRows = packages.data || [];
   const boost = boostStatus.data;
   const active = data?.packages || [];
@@ -83,20 +85,20 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
       <div className="cm-hero-status"><span><Database size={14}/> Separate simulation ledger</span><strong className={data?.miningStatus?.startsWith("Simulated") ? "is-running" : ""}>{data?.miningStatus || "Loading status"}</strong><small>{data?.serverTime ? `Updated ${dateText(data.serverTime)}` : "Connecting to Mining service"}</small></div>
     </header>
 
-    <div className="cm-disclosure" role="note"><ShieldAlert size={18}/><div><strong>Simulation-only feature · no external mining or cash payout</strong><span>No physical mining hardware, pool activity, guaranteed return, real-world settlement, or withdrawal is represented. TOKEN is an admin-configured internal reference; simulated balances are not redeemable.</span></div></div>
+    <div className="cm-disclosure" role="note"><ShieldAlert size={18}/><div><strong>Simulation-only feature · no external mining or cash payout</strong><span>No physical mining hardware, pool activity, guaranteed return, real-world settlement, or withdrawal is represented. {tokenName} ({tokenSymbol}) is an administrator-configured internal reference; simulated balances are not redeemable.</span></div></div>
 
     {message && <div className="cm-message" role="status"><Info size={15}/><span>{message}</span><button type="button" onClick={()=>setMessage("")} aria-label="Dismiss">×</button></div>}
     {dashboard.error && <div className="cm-error" role="alert">Mining service unavailable: {dashboard.error.message}</div>}
 
     <section className="cm-metrics" aria-label="Mining summary">
       <article className="cm-metric"><span><Cpu size={15}/> HASH POWER</span><strong>{fmt(data?.activeThs,4)} <small>TH/s</small></strong><div><i/>Base {fmt(data?.baseThs,4)} · Boost {fmt(data?.boostThs,4)}</div></article>
-      <article className="cm-metric"><span><Sparkles size={15}/> SIMULATED TOKEN BALANCE</span><strong>{fmt(data?.tokenBalance,8)} <small>TOKEN</small></strong><div>Earned today {fmt(data?.todayTokens,8)} TOKEN</div></article>
-      <article className="cm-metric"><span><Gauge size={15}/> DAILY REWARD ESTIMATE</span><strong>{fmt(data?.estimatedDailyTokens,8)} <small>TOKEN / day</small></strong><div>{data?.estimateAssumption || "Estimate only · not guaranteed"}</div></article>
+      <article className="cm-metric"><span><Sparkles size={15}/> SIMULATED {tokenSymbol} BALANCE</span><strong>{fmt(data?.tokenBalance,8)} <small>{tokenSymbol}</small></strong><div>Earned today {fmt(data?.todayTokens,8)} {tokenSymbol} · 1 {tokenSymbol} = ${fmt(data?.usdPerToken,4)} USD internal reference</div></article>
+      <article className="cm-metric"><span><Gauge size={15}/> DAILY REWARD ESTIMATE</span><strong>{fmt(data?.estimatedDailyTokens,8)} <small>{tokenSymbol} / day</small></strong><div>{data?.estimateAssumption || "Estimate only · not guaranteed"}</div></article>
       <article className="cm-metric"><span><LockKeyhole size={15}/> PAYOUT STATUS</span><strong className="cm-payout-disabled">Not available</strong><div>{data?.payoutStatus || "Simulated balances are not withdrawable"}</div></article>
     </section>
 
     <section className="cm-section-heading"><div><span className="cm-kicker">ACCOUNT POSITION</span><h2>Mining balances</h2></div><span className="cm-muted">Isolated from your regular wallet</span></section>
-    <div className="cm-balance-grid">{ASSETS.map(asset=><div className={`cm-balance ${asset==="TOKEN"?"is-token":""}`} key={asset}><span>{asset==="TOKEN"?<Sparkles size={15}/>:<WalletCards size={15}/>} {asset}</span><strong>{fmt(data?.balances?.[asset],asset==="USD"||asset==="EUR"||asset==="GBP"?2:8)}</strong><small>{asset==="TOKEN"?"Internal simulated unit":"Available simulated balance"}</small></div>)}</div>
+    <div className="cm-balance-grid">{ASSETS.map(asset=><div className={`cm-balance ${asset==="CKI"?"is-token":""}`} key={asset}><span>{asset==="CKI"?<Sparkles size={15}/>:<WalletCards size={15}/>} {asset==="CKI"?tokenSymbol:asset}</span><strong>{fmt(data?.balances?.[asset],asset==="USD"||asset==="EUR"||asset==="GBP"?2:8)}</strong><small>{asset==="CKI"?`${tokenName} internal simulated unit`:"Available simulated balance"}</small></div>)}</div>
 
     <section className="cm-section-heading"><div><span className="cm-kicker">CAPACITY CATALOGUE</span><h2>Mining packages</h2></div><button className="cm-icon-button" type="button" onClick={()=>{void packages.refetch();void dashboard.refetch()}} aria-label="Refresh packages"><RefreshCw size={15}/></button></section>
     <div className="cm-package-grid">
@@ -106,7 +108,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
         <div className="cm-package-top"><span className="cm-package-icon"><Cpu size={18}/></span><span className="cm-package-status">{item.status === "published" ? "AVAILABLE" : "PAUSED"}</span></div>
         <div className="cm-package-version">{item.code} · VERSION {item.version}</div><h3>{item.name}</h3>
         <div className="cm-package-price"><strong>{fmt(item.priceAmount,8)}</strong><span>{item.priceAsset}</span></div>
-        <div className="cm-package-stats"><div><span>Base hash power</span><strong>{fmt(item.baseThs,4)} TH/s</strong></div><div><span>Boost capacity</span><strong>{fmt(item.boostBonusThs,4)} TH/s</strong></div><div><span>Illustrative 24h reward</span><strong>{fmt(item.estimatedDailyTokens,8)} TOKEN</strong></div><div><span>Stacking</span><strong>{item.stackingPolicy === "replace" ? "Replaces active package" : "Stacks with active packages"}</strong></div></div>
+        <div className="cm-package-stats"><div><span>Base hash power</span><strong>{fmt(item.baseThs,4)} TH/s</strong></div><div><span>Boost capacity</span><strong>{fmt(item.boostBonusThs,4)} TH/s</strong></div><div><span>Illustrative 24h reward</span><strong>{fmt(item.estimatedDailyTokens,8)} {item.tokenSymbol||tokenSymbol}</strong></div><div><span>Stacking</span><strong>{item.stackingPolicy === "replace" ? "Replaces active package" : "Stacks with active packages"}</strong></div></div>
         <p className="cm-package-terms">{item.termsText}</p>
         <button type="button" className="cm-primary-button" disabled={!selectedCanPurchase && item.status !== "published"} onClick={()=>{setSelectedPackage(item);setPurchaseQuote(null);setAcknowledged(false)}}>Review package <ArrowRight size={15}/></button>
       </article>)}
@@ -120,17 +122,17 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
         <div className="cm-caveat">One explicit activation per server-anchored cycle. Unused boosts expire at the cycle boundary.</div>
       </article>
 
-      <article className="cm-panel cm-convert-panel"><div className="cm-panel-head"><div><span className="cm-kicker">TOKEN CONVERSION</span><h2>Convert simulated TOKEN</h2></div><ArrowDownUp size={18}/></div>
+      <article className="cm-panel cm-convert-panel"><div className="cm-panel-head"><div><span className="cm-kicker">{tokenSymbol} CONVERSION</span><h2>Convert simulated {tokenName} ({tokenSymbol})</h2></div><ArrowDownUp size={18}/></div>
         <p>Choose a target denomination. A fresh quote, fee, market source, timestamp, and confirmation are required before any ledger entry.</p>
-        <div className="cm-form-row"><label>Amount in TOKEN<input inputMode="decimal" value={swapAmount} onChange={e=>{setSwapAmount(e.target.value);setSwapQuote(null)}} placeholder="0.00000000"/></label><label>Target denomination<select value={swapTarget} onChange={e=>{setSwapTarget(e.target.value);setSwapQuote(null)}}>{TARGET_ASSETS.map(asset=><option key={asset}>{asset}</option>)}</select></label></div>
+        <div className="cm-form-row"><label>Amount in {tokenSymbol}<input inputMode="decimal" value={swapAmount} onChange={e=>{setSwapAmount(e.target.value);setSwapQuote(null)}} placeholder="0.00000000"/></label><label>Target denomination<select value={swapTarget} onChange={e=>{setSwapTarget(e.target.value);setSwapQuote(null)}}>{TARGET_ASSETS.map(asset=><option key={asset}>{asset}</option>)}</select></label></div>
         <button className="cm-secondary-button" type="button" disabled={swapQuoteMutation.isPending||!swapAmount} onClick={()=>swapQuoteMutation.mutate({tokenAmount:swapAmount,targetAsset:swapTarget})}>{swapQuoteMutation.isPending?"Quoting…":"Get fresh swap quote"}<ArrowRight size={14}/></button>
-        {swapQuote && <div className="cm-quote-card"><div className="cm-quote-title"><BadgeCheck size={15}/> QUOTE {swapQuote.quoteId} · EXPIRES {dateText(swapQuote.expiresAt)}</div><div className="cm-quote-grid"><span>Debit <b>{fmt(swapQuote.sourceAmount,8)} TOKEN</b></span><span>Gross <b>{fmt(swapQuote.grossAmount,8)} {swapQuote.targetAsset}</b></span><span>Fee <b>{fmt(swapQuote.fee,8)} {swapQuote.feeAsset}</b></span><span>Receive <b>{fmt(swapQuote.destinationAmount,8)} {swapQuote.targetAsset}</b></span></div><small>{swapQuote.provider} · observed {dateText(swapQuote.marketObservedAt)} · round-down precision</small><button type="button" className="cm-primary-button" disabled={swapExpired||swapMutation.isPending} onClick={()=>swapMutation.mutate({quoteId:swapQuote.quoteId,idempotencyKey:requestId()})}>{swapExpired?"Quote expired":swapMutation.isPending?"Posting…":"Confirm simulated conversion"}<ArrowRight size={15}/></button></div>}
+        {swapQuote && <div className="cm-quote-card"><div className="cm-quote-title"><BadgeCheck size={15}/> QUOTE {swapQuote.quoteId} · EXPIRES {dateText(swapQuote.expiresAt)}</div><div className="cm-quote-grid"><span>Debit <b>{fmt(swapQuote.sourceAmount,8)} {swapQuote.tokenSymbol||tokenSymbol}</b></span><span>Gross <b>{fmt(swapQuote.grossAmount,8)} {swapQuote.targetAsset}</b></span><span>Fee <b>{fmt(swapQuote.fee,8)} {swapQuote.feeAsset}</b></span><span>Receive <b>{fmt(swapQuote.destinationAmount,8)} {swapQuote.targetAsset}</b></span></div><small>{swapQuote.provider} · observed {dateText(swapQuote.marketObservedAt)} · round-down precision</small><button type="button" className="cm-primary-button" disabled={swapExpired||swapMutation.isPending} onClick={()=>swapMutation.mutate({quoteId:swapQuote.quoteId,idempotencyKey:requestId()})}>{swapExpired?"Quote expired":swapMutation.isPending?"Posting…":"Confirm simulated conversion"}<ArrowRight size={15}/></button></div>}
       </article>
     </section>
 
     <section className="cm-panel cm-autoconvert"><div className="cm-panel-head"><div><span className="cm-kicker">OPTIONAL · FUTURE REWARDS ONLY</span><h2>Automatic conversion preference</h2></div><span className="cm-preference-version">Version {data?.conversionPreference?.version||0}</span></div>
-      <p>When enabled, future reward events can enter a retryable conversion queue. Stale or out-of-bound rates pause conversion; tokens remain in the TOKEN balance. Existing balance is not converted by this setting.</p>
-      <div className="cm-auto-controls"><label className="cm-checkbox"><input type="checkbox" checked={prefEnabled} onChange={e=>setPrefEnabled(e.target.checked)}/><span>Automatically convert eligible future rewards</span></label><label>Destination<select value={prefTarget} onChange={e=>setPrefTarget(e.target.value)}>{TARGET_ASSETS.map(asset=><option key={asset}>{asset}</option>)}</select></label><label>Minimum TOKEN balance<input value={prefThreshold} onChange={e=>setPrefThreshold(e.target.value)} inputMode="decimal"/></label><button type="button" className="cm-secondary-button" disabled={preferenceMutation.isPending} onClick={()=>preferenceMutation.mutate({enabled:prefEnabled,targetDenomination:prefTarget,minimumThreshold:prefThreshold})}>{preferenceMutation.isPending?"Saving…":"Save preference"}</button></div>
+      <p>When enabled, future reward events can enter a retryable conversion queue. Stale or out-of-bound rates pause conversion; {tokenSymbol} remains in the {tokenSymbol} balance. Existing balance is not converted by this setting.</p>
+      <div className="cm-auto-controls"><label className="cm-checkbox"><input type="checkbox" checked={prefEnabled} onChange={e=>setPrefEnabled(e.target.checked)}/><span>Automatically convert eligible future rewards</span></label><label>Destination<select value={prefTarget} onChange={e=>setPrefTarget(e.target.value)}>{TARGET_ASSETS.map(asset=><option key={asset}>{asset}</option>)}</select></label><label>Minimum {tokenSymbol} balance<input value={prefThreshold} onChange={e=>setPrefThreshold(e.target.value)} inputMode="decimal"/></label><button type="button" className="cm-secondary-button" disabled={preferenceMutation.isPending} onClick={()=>preferenceMutation.mutate({enabled:prefEnabled,targetDenomination:prefTarget,minimumThreshold:prefThreshold})}>{preferenceMutation.isPending?"Saving…":"Save preference"}</button></div>
       <div className="cm-queue-note"><Clock3 size={14}/> Pending conversion jobs: <strong>{data?.pendingConversionJobs||0}</strong> · failures never debit the source balance.</div>
     </section>
 
