@@ -9,7 +9,7 @@ export class MiningError extends Error {
 
 export type MiningConfig = {
   id: number; version: number; effectiveAt: Date; globalEnabled: boolean; boostsEnabled: boolean;
-  tokenUnitsPerUsd: string; rewardTokensPerThsHour: string; swapFeeBps: number; purchaseFeeBps: number;
+  tokenName: string; tokenSymbol: string; tokenUnitsPerUsd: string; rewardTokensPerThsHour: string; swapFeeBps: number; purchaseFeeBps: number;
   minSwapTokens: string; maxSwapTokens: string; defaultAutoConversionThreshold: string;
   boostCycleSeconds: number; boostDurationSeconds: number; quoteTtlSeconds: number;
   fiatMaxAgeSeconds: number; cryptoMaxAgeSeconds: number; maxRateDeviationBps: number;
@@ -20,8 +20,9 @@ export type AssetRate = { asset: string; usdPerUnit: Decimal; scale: number; pro
 export type LedgerDelta = { userId: number; asset: string; amount: Decimal.Value; entryType: string; reversalOfId?: number | null };
 export type Db = PoolConnection;
 
-export const SUPPORTED_MINING_ASSETS = ["TOKEN", "USD", "EUR", "GBP", "BTC", "ETH", "USDT"] as const;
-const assetScales: Record<string, number> = { TOKEN: 8, USD: 2, EUR: 2, GBP: 2, BTC: 8, ETH: 8, USDT: 6 };
+export const MINING_TOKEN_ASSET = "CKI" as const;
+export const SUPPORTED_MINING_ASSETS = [MINING_TOKEN_ASSET, "USD", "EUR", "GBP", "BTC", "ETH", "USDT"] as const;
+const assetScales: Record<string, number> = { CKI: 8, USD: 2, EUR: 2, GBP: 2, BTC: 8, ETH: 8, USDT: 6 };
 
 export function decimal(value: unknown) {
   const result = new Decimal(String(value ?? "0"));
@@ -42,8 +43,9 @@ export function assetScale(asset: string) {
 }
 
 export function assertMiningAsset(asset: string, allowToken = true) {
-  const normalized = String(asset || "").trim().toUpperCase();
-  if (!SUPPORTED_MINING_ASSETS.includes(normalized as typeof SUPPORTED_MINING_ASSETS[number]) || (!allowToken && normalized === "TOKEN")) {
+  const requested = String(asset || "").trim().toUpperCase();
+  const normalized = requested === "TOKEN" ? MINING_TOKEN_ASSET : requested;
+  if (!SUPPORTED_MINING_ASSETS.includes(normalized as typeof SUPPORTED_MINING_ASSETS[number]) || (!allowToken && normalized === MINING_TOKEN_ASSET)) {
     throw new MiningError("Choose a supported Mining denomination");
   }
   return normalized;
@@ -92,6 +94,7 @@ export async function loadMiningConfig(conn: Db, at: Date = new Date()): Promise
   return {
     id: Number(row.id), version: Number(row.version), effectiveAt: new Date(row.effectiveAt),
     globalEnabled: Boolean(row.globalEnabled), boostsEnabled: Boolean(row.boostsEnabled),
+    tokenName: String(row.tokenName || "CoinKi"), tokenSymbol: String(row.tokenSymbol || "CKI"),
     tokenUnitsPerUsd: String(row.tokenUnitsPerUsd), rewardTokensPerThsHour: String(row.rewardTokensPerThsHour),
     swapFeeBps: Number(row.swapFeeBps), purchaseFeeBps: Number(row.purchaseFeeBps),
     minSwapTokens: String(row.minSwapTokens), maxSwapTokens: String(row.maxSwapTokens),
@@ -134,10 +137,10 @@ export async function getMiningAssetRate(conn: Db, assetInput: string, config: M
   const asset = assertMiningAsset(assetInput);
   const scale = assetScale(asset);
   if (asset === "USD") return { asset, usdPerUnit: new Decimal(1), scale, provider: "USD reference unit", observedAt: now };
-  if (asset === "TOKEN") {
+  if (asset === MINING_TOKEN_ASSET) {
     const tokenUnitsPerUsd = decimal(config.tokenUnitsPerUsd);
-    if (!tokenUnitsPerUsd.gt(0)) throw new MiningError("The platform token/USD reference is not configured");
-    return { asset, usdPerUnit: new Decimal(1).div(tokenUnitsPerUsd), scale, provider: "Admin-configured platform reference (not a market price)", observedAt: now };
+    if (!tokenUnitsPerUsd.gt(0)) throw new MiningError("The internal CoinKi/CKI conversion rate is not configured");
+    return { asset, usdPerUnit: new Decimal(1).div(tokenUnitsPerUsd), scale, provider: "Admin-configured internal CoinKi reference (not a market price)", observedAt: now };
   }
 
   const expectedProvider = asset === "EUR" || asset === "GBP" ? "frankfurter-ecb" : "coingecko";

@@ -91,7 +91,9 @@ export async function listCustomerMiningPackages() {
       const estimate = decimal(config.rewardTokensPerThsHour).times(decimal(row.baseThs)).times(24);
       return {
         packageId: Number(row.packageId), code: row.code, name: row.name, status: row.packageStatus,
-        versionId: Number(row.versionId), version: Number(row.version), priceAmount: String(row.priceAmount), priceAsset: row.priceAsset,
+        tokenName: config.tokenName, tokenSymbol: config.tokenSymbol,
+        usdPerToken: decimal(1).div(config.tokenUnitsPerUsd).toSignificantDigits(18).toString(),
+        versionId: Number(row.versionId), version: Number(row.version), priceAmount: String(row.priceAmount), priceAsset: assertMiningAsset(String(row.priceAsset)),
         baseThs: String(row.baseThs), boostBonusThs: String(row.boostBonusThs),
         boostDurationSeconds: Number(row.boostDurationSeconds || config.boostDurationSeconds),
         maxPerCustomer: Number(row.maxPerCustomer), stackingPolicy: row.stackingPolicy, expirySeconds: row.expirySeconds === null ? null : Number(row.expirySeconds),
@@ -182,7 +184,7 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
     const ledgerKey = key;
     const ledger = await createMiningLedgerTransaction(conn, {
       userId, actorUserId: userId, transactionType: "package_purchase", idempotencyKey: ledgerKey,
-      metadata: { quoteId: input.quoteId, packageId: Number(quote.packageId), packageVersionId: Number(quote.packageVersionId), paymentAsset, paymentAmount: quotedTotal.toString(), fee: String(quote.fee), simulationOnly: true },
+      metadata: { quoteId: input.quoteId, packageId: Number(quote.packageId), packageVersionId: Number(quote.packageVersionId), paymentAsset, tokenName: paymentAsset === "CKI" ? config.tokenName : undefined, tokenSymbol: paymentAsset === "CKI" ? config.tokenSymbol : undefined, tokenUnitsPerUsd: paymentAsset === "CKI" ? config.tokenUnitsPerUsd : undefined, paymentAmount: quotedTotal.toString(), fee: String(quote.fee), simulationOnly: true },
     });
     await postMiningLedgerEntries(conn, ledger, [
       { userId, asset: paymentAsset, amount: quotedTotal.negated(), entryType: "mining_purchase_debit" },
@@ -283,7 +285,7 @@ export async function getCustomerMiningDashboard(userId: number) {
     const activeBoost = boostRows[0];
     const boostThs = activeBoost ? decimal(activeBoost.bonusThs) : new Decimal(0);
     const balances: Record<string,string> = {};
-    for (const asset of ["TOKEN","USD","EUR","GBP","BTC","ETH","USDT"]) {
+    for (const asset of ["CKI","USD","EUR","GBP","BTC","ETH","USDT"]) {
       const balance = await readWallet(conn, userId, asset);
       balances[asset] = amountString(decimal(balance.available), asset);
     }
@@ -305,12 +307,14 @@ export async function getCustomerMiningDashboard(userId: number) {
     return {
       serverTime: now.toISOString(), miningStatus: status, simulationOnly: true, payoutStatus: "Disabled — simulated balances are not withdrawable",
       baseThs: baseThs.toString(), boostThs: boostThs.toString(), activeThs: baseThs.plus(boostThs).toString(),
-      tokenBalance: balances.TOKEN, balances, todayTokens: String(earnedRows[0]?.todayTokens || "0"),
+      tokenName: config.tokenName, tokenSymbol: config.tokenSymbol,
+      usdPerToken: decimal(1).div(config.tokenUnitsPerUsd).toSignificantDigits(18).toString(),
+      tokenBalance: balances.CKI, balances, todayTokens: String(earnedRows[0]?.todayTokens || "0"),
       rewardTokensPerThsHour: config.rewardTokensPerThsHour,
       estimatedDailyTokens: estimatedDailyTokens.toDecimalPlaces(tokenScale, Decimal.ROUND_DOWN).toFixed(tokenScale),
       estimateAssumption: "24-hour uptime at the current server-configured reward rate; estimate only, not a guaranteed return.",
       economicsVersion: config.version, tokenUnitsPerUsd: config.tokenUnitsPerUsd,
-      platformTokenReference: `1 USD = ${config.tokenUnitsPerUsd} TOKEN (admin-configured internal reference; not a market price or redemption promise)`,
+      tokenConversionReference: `1 ${config.tokenSymbol} = $${decimal(1).div(config.tokenUnitsPerUsd).toSignificantDigits(12).toString()} USD (admin-configured internal reference; not a market price or redemption promise)`,
       boost: { active: Boolean(activeBoost), startedAt: activeBoost ? new Date(activeBoost.startedAt).toISOString() : null, endsAt: activeBoost ? new Date(activeBoost.endsAt).toISOString() : null, bonusThs: boostThs.toString() },
       packages: packages.map(row => ({ purchaseId: Number(row.purchaseId), packageName: row.packageName, code: row.packageCode, packageVersion: Number(row.packageVersion), baseThs: String(row.baseThsSnapshot), boostBonusThs: String(row.boostBonusThsSnapshot), startsAt: new Date(row.startsAt).toISOString(), expiresAt: row.expiresAt ? new Date(row.expiresAt).toISOString() : null, status: row.status })),
       conversionPreference: pref, pendingConversionJobs: Number(pendingRows[0]?.total || 0), lastConversion: latestConversionRows[0] ? { id: Number(latestConversionRows[0].id), destinationAsset: latestConversionRows[0].destinationAsset, destinationAmount: latestConversionRows[0].destinationAmount, fee: latestConversionRows[0].fee, provider: latestConversionRows[0].provider, marketObservedAt: new Date(latestConversionRows[0].marketObservedAt).toISOString(), createdAt: new Date(latestConversionRows[0].createdAt).toISOString() } : null,
@@ -339,31 +343,31 @@ export async function updateCustomerMiningConversionPreference(userId: number, i
 
 export async function createCustomerMiningSwapQuote(userId: number, input: { tokenAmount: string; targetAsset: string }) {
   const targetAsset = assertMiningAsset(input.targetAsset, false);
-  const tokenAmount = ensureExactPrecision(input.tokenAmount, "TOKEN", "Token amount");
+  const tokenAmount = ensureExactPrecision(input.tokenAmount, "CKI", "Token amount");
   return withMiningConnection(async conn => inMiningTransaction(conn, async () => {
     await requireActiveMiningAccount(conn, userId);
     const config = await loadMiningConfig(conn);
     if (!config.globalEnabled) throw new MiningError("Mining swaps are paused while the simulated Mining service is paused");
-    if (tokenAmount.lt(config.minSwapTokens) || tokenAmount.gt(config.maxSwapTokens)) throw new MiningError(`Swap amount must be between ${config.minSwapTokens} and ${config.maxSwapTokens} TOKEN`);
-    const rates = await quoteRatesDetails(conn, "TOKEN", targetAsset, config);
+    if (tokenAmount.lt(config.minSwapTokens) || tokenAmount.gt(config.maxSwapTokens)) throw new MiningError(`Swap amount must be between ${config.minSwapTokens} and ${config.maxSwapTokens} CKI`);
+    const rates = await quoteRatesDetails(conn, "CKI", targetAsset, config);
     const converted = calculateMiningConversion({ tokenAmount: tokenAmount.toString(), tokenUnitsPerUsd: config.tokenUnitsPerUsd, usdPerTargetUnit: rates.targetUsdRate.toString(), feeBps: config.swapFeeBps, targetScale: assetScale(targetAsset) });
-    const balance = await readWallet(conn, userId, "TOKEN");
-    if (decimal(balance.available).lt(tokenAmount)) throw new MiningError("Insufficient simulated TOKEN balance");
+    const balance = await readWallet(conn, userId, "CKI");
+    if (decimal(balance.available).lt(tokenAmount)) throw new MiningError("Insufficient simulated CKI balance");
     const quote = await insertFxQuote(conn, {
-      userId, purpose: "manual_swap", sourceAsset: "TOKEN", targetAsset, sourceAmount: amountString(tokenAmount, "TOKEN"),
+      userId, purpose: "manual_swap", sourceAsset: "CKI", targetAsset, sourceAmount: amountString(tokenAmount, "CKI"),
       targetAmount: converted.netAmount, fee: converted.feeAmount, sourceUsdRate: rates.sourceUsdRate, targetUsdRate: rates.targetUsdRate,
       tokenUnitsPerUsd: config.tokenUnitsPerUsd, marketProvider: rates.marketProvider, marketObservedAt: rates.marketObservedAt,
       targetScale: assetScale(targetAsset), feeBps: config.swapFeeBps, quoteTtlSeconds: config.quoteTtlSeconds, configVersion: config.version,
       details: { grossAmount: converted.grossAmount, netAmount: converted.netAmount, feeAsset: targetAsset, rounding: "down" },
     });
-    return { ...quote, sourceAsset: "TOKEN", sourceAmount: amountString(tokenAmount, "TOKEN"), targetAsset, grossAmount: converted.grossAmount, fee: converted.feeAmount, feeAsset: targetAsset, destinationAmount: converted.netAmount, provider: rates.marketProvider, marketObservedAt: rates.marketObservedAt.toISOString(), expiresAt: quote.validUntil.toISOString(), rate: converted.rate, roundingMode: "down", configVersion: config.version, disclaimer: "Indicative internal simulation-ledger quote only; not an exchange execution or payout." };
+    return { ...quote, sourceAsset: "CKI", tokenName: config.tokenName, tokenSymbol: config.tokenSymbol, usdPerToken: decimal(1).div(config.tokenUnitsPerUsd).toSignificantDigits(18).toString(), sourceAmount: amountString(tokenAmount, "CKI"), targetAsset, grossAmount: converted.grossAmount, fee: converted.feeAmount, feeAsset: targetAsset, destinationAmount: converted.netAmount, provider: rates.marketProvider, marketObservedAt: rates.marketObservedAt.toISOString(), expiresAt: quote.validUntil.toISOString(), rate: converted.rate, roundingMode: "down", configVersion: config.version, disclaimer: "Indicative internal simulation-ledger quote only; not an exchange execution or payout." };
   }));
 }
 
 async function executeTokenConversion(conn: Db, userId: number, input: {
   sourceAmount: Decimal; targetAsset: string; grossAmount: string; netAmount: string; feeAmount: string; feeBps: number;
   quoteId: number; provider: string; marketObservedAt: Date; idempotencyKey: string; transactionType: "manual_swap" | "auto_conversion";
-  configVersion: number; preferenceVersion?: number;
+  configVersion: number; preferenceVersion?: number; tokenName: string; tokenSymbol: string; tokenUnitsPerUsd: string;
 }) {
   const targetAsset = assertMiningAsset(input.targetAsset, false);
   const sourceAmount = input.sourceAmount;
@@ -371,21 +375,21 @@ async function executeTokenConversion(conn: Db, userId: number, input: {
   if (!sourceAmount.gt(0) || !net.gt(0) || gross.minus(net).minus(fee).abs().gt("0.000000000000000001")) throw new MiningError("The conversion journal does not balance");
   const transaction = await createMiningLedgerTransaction(conn, {
     userId, actorUserId: userId, transactionType: input.transactionType, idempotencyKey: input.idempotencyKey,
-    metadata: { quoteId: input.quoteId, sourceAsset: "TOKEN", sourceAmount: sourceAmount.toString(), targetAsset, grossAmount: gross.toString(), destinationAmount: net.toString(), fee: fee.toString(), feeAsset: targetAsset, provider: input.provider, marketObservedAt: input.marketObservedAt.toISOString(), configVersion: input.configVersion, preferenceVersion: input.preferenceVersion, simulatedOnly: true },
+    metadata: { quoteId: input.quoteId, sourceAsset: "CKI", tokenName: input.tokenName, tokenSymbol: input.tokenSymbol, tokenUnitsPerUsd: input.tokenUnitsPerUsd, usdPerToken: decimal(1).div(input.tokenUnitsPerUsd).toSignificantDigits(18).toString(), sourceAmount: sourceAmount.toString(), targetAsset, grossAmount: gross.toString(), destinationAmount: net.toString(), fee: fee.toString(), feeAsset: targetAsset, provider: input.provider, marketObservedAt: input.marketObservedAt.toISOString(), configVersion: input.configVersion, preferenceVersion: input.preferenceVersion, simulatedOnly: true },
   });
   const entries = [
-    { userId, asset: "TOKEN", amount: sourceAmount.negated(), entryType: "mining_swap_token_debit" },
-    { userId: 0, asset: "TOKEN", amount: sourceAmount, entryType: "mining_swap_token_clearing" },
+    { userId, asset: "CKI", amount: sourceAmount.negated(), entryType: "mining_swap_token_debit" },
+    { userId: 0, asset: "CKI", amount: sourceAmount, entryType: "mining_swap_token_clearing" },
     { userId, asset: targetAsset, amount: net, entryType: "mining_swap_credit" },
     { userId: 0, asset: targetAsset, amount: gross.negated(), entryType: "mining_swap_clearing" },
   ];
   if (fee.gt(0)) entries.push({ userId: 0, asset: targetAsset, amount: fee, entryType: "mining_swap_fee" });
   await postMiningLedgerEntries(conn, transaction, entries);
-  const [plan] = await conn.execute<any>(`INSERT INTO v5_funding_plans (userId,destinationAsset,destinationAmount,sourcesJson,status) VALUES (?,?,?,?, 'EXECUTED')`, [userId, targetAsset, net.toString(), safeJson([{ asset: "TOKEN", amount: sourceAmount.toString() }])]);
+  const [plan] = await conn.execute<any>(`INSERT INTO v5_funding_plans (userId,destinationAsset,destinationAmount,sourcesJson,status) VALUES (?,?,?,?, 'EXECUTED')`, [userId, targetAsset, net.toString(), safeJson([{ asset: "CKI", amount: sourceAmount.toString() }])]);
   const [conversion] = await conn.execute<any>(`INSERT INTO v5_conversions (userId,quoteId,fundingPlanId,sourceAsset,destinationAsset,sourceAmount,destinationAmount,executionRate,fee,status)
-    VALUES (?,?,?,?,?,?,?,?,?,'COMPLETED')`, [userId, input.quoteId, Number(plan.insertId), "TOKEN", targetAsset, sourceAmount.toString(), net.toString(), net.div(sourceAmount).toSignificantDigits(24).toString(), fee.toString()]);
+    VALUES (?,?,?,?,?,?,?,?,?,'COMPLETED')`, [userId, input.quoteId, Number(plan.insertId), "CKI", targetAsset, sourceAmount.toString(), net.toString(), net.div(sourceAmount).toSignificantDigits(24).toString(), fee.toString()]);
   await conn.execute(`UPDATE v5_fx_quotes SET status='EXECUTED' WHERE id=?`, [input.quoteId]);
-  return { conversionId: Number(conversion.insertId), transactionId: transaction.id, receiptReference: transaction.referenceCode, sourceAsset: "TOKEN", sourceAmount: sourceAmount.toString(), destinationAsset: targetAsset, destinationAmount: net.toString(), fee: fee.toString(), feeAsset: targetAsset };
+  return { conversionId: Number(conversion.insertId), transactionId: transaction.id, receiptReference: transaction.referenceCode, sourceAsset: "CKI", sourceAmount: sourceAmount.toString(), destinationAsset: targetAsset, destinationAmount: net.toString(), fee: fee.toString(), feeAsset: targetAsset };
 }
 
 export async function confirmCustomerMiningSwap(userId: number, input: { quoteId: number; idempotencyKey: string }) {
@@ -404,24 +408,33 @@ export async function confirmCustomerMiningSwap(userId: number, input: { quoteId
     let details: any = {};
     try { details = JSON.parse(String(quote.detailsJson || "{}")); } catch { throw new MiningError("The stored quote details are invalid; request a fresh quote"); }
     if (Number(details.configVersion) !== config.version) throw new MiningError("Mining settings changed after this quote; request a fresh quote");
-    const sourceAmount = ensureExactPrecision(String(quote.sourceAmount), "TOKEN", "Token amount");
+    const sourceAmount = ensureExactPrecision(String(quote.sourceAmount), "CKI", "Token amount");
     const targetAsset = assertMiningAsset(String(quote.toAsset), false);
-    const latest = await quoteRatesDetails(conn, "TOKEN", targetAsset, config);
+    const latest = await quoteRatesDetails(conn, "CKI", targetAsset, config);
     const refreshed = calculateMiningConversion({ tokenAmount: sourceAmount.toString(), tokenUnitsPerUsd: config.tokenUnitsPerUsd, usdPerTargetUnit: latest.targetUsdRate.toString(), feeBps: Number(quote.feeBps), targetScale: assetScale(targetAsset) });
     const quotedAmount = decimal(String(quote.destinationAmount));
     const moveBps = decimal(refreshed.netAmount).minus(quotedAmount).abs().div(quotedAmount).times(10_000);
     if (moveBps.gt(config.maxRateDeviationBps)) throw new MiningError("The market quote moved outside the allowed tolerance; request a fresh quote");
-    const balance = await readWallet(conn, userId, "TOKEN");
-    if (decimal(balance.available).lt(sourceAmount)) throw new MiningError("Insufficient simulated TOKEN balance");
+    const balance = await readWallet(conn, userId, "CKI");
+    if (decimal(balance.available).lt(sourceAmount)) throw new MiningError("Insufficient simulated CKI balance");
     const result = await executeTokenConversion(conn, userId, {
       sourceAmount, targetAsset, grossAmount: String(details.grossAmount), netAmount: String(quote.destinationAmount), feeAmount: String(quote.fee),
       feeBps: Number(quote.feeBps), quoteId: input.quoteId, provider: String(quote.marketProvider), marketObservedAt: new Date(quote.marketObservedAt),
       idempotencyKey: key, transactionType: "manual_swap", configVersion: config.version,
+      tokenName: config.tokenName, tokenSymbol: config.tokenSymbol, tokenUnitsPerUsd: config.tokenUnitsPerUsd,
     });
     await finishMiningIdempotency(conn, key, result);
-    await createMiningNotification(conn, userId, "Mining swap completed", `${result.sourceAmount} TOKEN was converted to ${result.destinationAmount} simulated ${targetAsset}. Reference ${result.receiptReference}.`);
+    await createMiningNotification(conn, userId, "Mining swap completed", `${result.sourceAmount} CKI was converted to ${result.destinationAmount} simulated ${targetAsset}. Reference ${result.receiptReference}.`);
     return result;
   }));
+}
+
+function normalizeMiningHistoryDetails(value: any): any {
+  if (value === "TOKEN") return "CKI";
+  if (value === "NextGen Token") return "CoinKi";
+  if (Array.isArray(value)) return value.map(normalizeMiningHistoryDetails);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalizeMiningHistoryDetails(item)]));
+  return value;
 }
 
 export async function listCustomerMiningTransactions(userId: number) {
@@ -429,7 +442,7 @@ export async function listCustomerMiningTransactions(userId: number) {
     const [ledgerRows] = await conn.query<any[]>(`SELECT id,transactionType,status,referenceCode,reversalOfId,reason,metadataJson,createdAt FROM mining_ledger_transactions WHERE userId=? ORDER BY createdAt DESC LIMIT 100`, [userId]);
     const [boostRows] = await conn.query<any[]>(`SELECT id,bonusThs,startedAt,endsAt,status,cycleStart FROM mining_boost_activations WHERE userId=? ORDER BY createdAt DESC LIMIT 50`, [userId]);
     const events = [
-      ...ledgerRows.map(row => ({ id: `ledger-${row.id}`, type: row.transactionType, status: row.status, reference: row.referenceCode, reversalOfId: row.reversalOfId ? Number(row.reversalOfId) : null, reason: row.reason || null, details: (() => { try { return JSON.parse(String(row.metadataJson || "{}")); } catch { return {}; } })(), createdAt: new Date(row.createdAt).toISOString() })),
+      ...ledgerRows.map(row => ({ id: `ledger-${row.id}`, type: row.transactionType, status: row.status, reference: row.referenceCode, reversalOfId: row.reversalOfId ? Number(row.reversalOfId) : null, reason: row.reason || null, details: (() => { try { return normalizeMiningHistoryDetails(JSON.parse(String(row.metadataJson || "{}"))); } catch { return {}; } })(), createdAt: new Date(row.createdAt).toISOString() })),
       ...boostRows.map(row => ({ id: `boost-${row.id}`, type: "boost_activation", status: row.status, reference: `BOOST-${row.id}`, details: { bonusThs: String(row.bonusThs), startedAt: new Date(row.startedAt).toISOString(), endsAt: new Date(row.endsAt).toISOString(), cycleStart: new Date(row.cycleStart).toISOString() }, createdAt: new Date(row.startedAt).toISOString() })),
     ];
     return events.sort((a,b)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime()).slice(0,100);
@@ -507,23 +520,23 @@ async function accrueOneUser(conn: Db, userId: number, limit = 30) {
       if (end.getTime() <= start.getTime()) { await conn.commit(); break; }
       const result = await calculateInterval(conn,userId,start,end,accountActive);
       if (result.tokenAmount.gt(0)) {
+        const intervalConfig = await loadMiningConfig(conn,end);
         const rewardKey = requestKey("mining-reward",userId,`${start.toISOString()}:${end.toISOString()}`);
         const transaction = await createMiningLedgerTransaction(conn, {
           userId, actorUserId: null, transactionType: "reward", idempotencyKey: rewardKey,
-          metadata: { intervalStart:start.toISOString(),intervalEnd:end.toISOString(),baseThs:result.baseThs.toString(),boostThs:result.boostThs.toString(),rewardTokensPerThsHour:result.segments.map(x=>x.rate),configVersion:result.configVersion,segments:result.segments,tokenAmount:result.tokenAmount.toFixed(tokenScale),model:"simulated mining-style reward processing" },
+          metadata: { intervalStart:start.toISOString(),intervalEnd:end.toISOString(),baseThs:result.baseThs.toString(),boostThs:result.boostThs.toString(),rewardTokensPerThsHour:result.segments.map(x=>x.rate),configVersion:result.configVersion,tokenName:intervalConfig.tokenName,tokenSymbol:intervalConfig.tokenSymbol,tokenUnitsPerUsd:intervalConfig.tokenUnitsPerUsd,usdPerToken:decimal(1).div(intervalConfig.tokenUnitsPerUsd).toSignificantDigits(18).toString(),segments:result.segments,tokenAmount:result.tokenAmount.toFixed(tokenScale),model:"simulated mining-style reward processing" },
         });
         await postMiningLedgerEntries(conn,transaction,[
-          { userId,asset:"TOKEN",amount:result.tokenAmount,entryType:"mining_reward_credit" },
-          { userId:0,asset:"TOKEN",amount:result.tokenAmount.negated(),entryType:"mining_reward_issuance" },
+          { userId,asset:"CKI",amount:result.tokenAmount,entryType:"mining_reward_credit" },
+          { userId:0,asset:"CKI",amount:result.tokenAmount.negated(),entryType:"mining_reward_issuance" },
         ]);
         const [eventResult] = await conn.execute<any>(`INSERT INTO mining_reward_events
           (userId,intervalStart,intervalEnd,baseThs,boostThs,rewardTokensPerThsHour,tokenAmount,configVersion,packageSnapshotJson,idempotencyKey,ledgerTransactionId)
           VALUES (?,?,?,?,?,?,?,?,?,?,?)`, [userId,start,end,result.baseThs.toString(),result.boostThs.toString(),result.rewardRate.toSignificantDigits(24).toString(),result.tokenAmount.toFixed(tokenScale),result.configVersion,safeJson(result.segments),rewardKey,transaction.id]);
         const rewardEventId = Number(eventResult.insertId);
-        const intervalConfig = await loadMiningConfig(conn,end);
         const preference = await preferenceAt(conn,userId,end,intervalConfig.defaultAutoConversionThreshold);
         if (preference.enabled) {
-          const balanceAfterCredit = decimal((await readWallet(conn,userId,"TOKEN")).available);
+          const balanceAfterCredit = decimal((await readWallet(conn,userId,"CKI")).available);
           const effectiveThreshold = Decimal.max(decimal(preference.minimumThreshold),decimal(intervalConfig.minSwapTokens));
           const status = balanceAfterCredit.gte(effectiveThreshold) ? "queued" : "waiting";
           await conn.execute(`INSERT INTO mining_conversion_jobs (rewardEventId,userId,targetDenomination,tokenAmount,minimumThreshold,preferenceVersion,status,availableAt)
@@ -554,7 +567,7 @@ async function processConversionJob(conn: Db, jobId: number) {
       await conn.execute(`UPDATE mining_conversion_jobs SET status='retrying',attempts=attempts+1,lastError='Mining is paused',availableAt=DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 60 SECOND) WHERE id=?`,[jobId]);
       await conn.commit(); return "retrying";
     }
-    const balance = await readWallet(conn,userId,"TOKEN");
+    const balance = await readWallet(conn,userId,"CKI");
     const available = decimal(balance.available);
     const threshold = decimal(job.minimumThreshold);
     if (available.lt(threshold) || available.lt(config.minSwapTokens)) {
@@ -563,10 +576,10 @@ async function processConversionJob(conn: Db, jobId: number) {
     }
     const amount = Decimal.min(available,decimal(config.maxSwapTokens)).toDecimalPlaces(tokenScale,Decimal.ROUND_DOWN);
     const targetAsset = assertMiningAsset(String(job.targetDenomination),false);
-    const rates = await quoteRatesDetails(conn,"TOKEN",targetAsset,config);
+    const rates = await quoteRatesDetails(conn,"CKI",targetAsset,config);
     const converted = calculateMiningConversion({tokenAmount:amount.toString(),tokenUnitsPerUsd:config.tokenUnitsPerUsd,usdPerTargetUnit:rates.targetUsdRate.toString(),feeBps:config.swapFeeBps,targetScale:assetScale(targetAsset)});
     const quote = await insertFxQuote(conn,{
-      userId,purpose:"auto_conversion",sourceAsset:"TOKEN",targetAsset,sourceAmount:amountString(amount,"TOKEN"),targetAmount:converted.netAmount,
+      userId,purpose:"auto_conversion",sourceAsset:"CKI",targetAsset,sourceAmount:amountString(amount,"CKI"),targetAmount:converted.netAmount,
       fee:converted.feeAmount,sourceUsdRate:rates.sourceUsdRate,targetUsdRate:rates.targetUsdRate,tokenUnitsPerUsd:config.tokenUnitsPerUsd,
       marketProvider:rates.marketProvider,marketObservedAt:rates.marketObservedAt,targetScale:assetScale(targetAsset),feeBps:config.swapFeeBps,
       quoteTtlSeconds:config.quoteTtlSeconds,configVersion:config.version,details:{grossAmount:converted.grossAmount,netAmount:converted.netAmount,feeAsset:targetAsset,jobId,preferenceVersion:Number(job.preferenceVersion)},
@@ -575,13 +588,14 @@ async function processConversionJob(conn: Db, jobId: number) {
       sourceAmount:amount,targetAsset,grossAmount:converted.grossAmount,netAmount:converted.netAmount,feeAmount:converted.feeAmount,
       feeBps:config.swapFeeBps,quoteId:quote.quoteId,provider:rates.marketProvider,marketObservedAt:rates.marketObservedAt,
       idempotencyKey:requestKey("mining-auto-convert",userId,`reward-event-${job.rewardEventId}`),transactionType:"auto_conversion",configVersion:config.version,preferenceVersion:Number(job.preferenceVersion),
+      tokenName:config.tokenName,tokenSymbol:config.tokenSymbol,tokenUnitsPerUsd:config.tokenUnitsPerUsd,
     });
     await conn.execute(`UPDATE mining_conversion_jobs SET status='completed',conversionId=?,lastError=NULL,updatedAt=UTC_TIMESTAMP(3) WHERE id=?`,[conversion.conversionId,jobId]);
-    await createMiningNotification(conn,userId,"Automatic Mining conversion completed",`${conversion.sourceAmount} TOKEN was converted to ${conversion.destinationAmount} simulated ${targetAsset}. Reference ${conversion.receiptReference}.`);
+    await createMiningNotification(conn,userId,"Automatic Mining conversion completed",`${conversion.sourceAmount} CKI was converted to ${conversion.destinationAmount} simulated ${targetAsset}. Reference ${conversion.receiptReference}.`);
     await conn.commit(); return "completed";
   } catch (error) {
     await conn.rollback();
-    const message = error instanceof MiningError ? error.message : "Conversion could not be completed; the TOKEN balance was left unchanged";
+    const message = error instanceof MiningError ? error.message : "Conversion could not be completed; the CKI balance was left unchanged";
     await conn.beginTransaction();
     try {
       const [rows] = await conn.query<any[]>(`SELECT * FROM mining_conversion_jobs WHERE id=? AND status IN ('queued','retrying') FOR UPDATE`,[jobId]);
@@ -591,7 +605,7 @@ async function processConversionJob(conn: Db, jobId: number) {
         const terminal = attempts>=20;
         const notify = attempts>=5 && !job.lastNotifiedAt;
         await conn.execute(`UPDATE mining_conversion_jobs SET status=?,attempts=?,lastError=?,availableAt=DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 60 SECOND),lastNotifiedAt=IF(?,UTC_TIMESTAMP(3),lastNotifiedAt),updatedAt=UTC_TIMESTAMP(3) WHERE id=?`,[terminal?"failed":"retrying",attempts,message.slice(0,500),notify?1:0,jobId]);
-        if(notify) await createMiningNotification(conn,Number(job.userId),"Mining conversion pending",`An automatic conversion quote was unavailable. Your simulated TOKEN remains in the TOKEN balance and will be retried. ${message}`);
+        if(notify) await createMiningNotification(conn,Number(job.userId),"Mining conversion pending",`An automatic conversion quote was unavailable. Your simulated CKI remains in the CKI balance and will be retried. ${message}`);
       }
       await conn.commit();
     } catch (updateError) { await conn.rollback(); throw updateError; }
