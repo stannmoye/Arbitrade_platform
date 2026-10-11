@@ -20,6 +20,8 @@ import { runOpportunityRetention } from "../opportunityLifecycle";
 import { getLocalSessionFromRequest } from "./localAuth";
 import { confirmEmailVerification, requestEmailVerification, requestPasswordReset, resetPasswordWithCode } from "../emailAuth";
 import { startEmailWorkers } from "../emailQueue";
+import { refreshMiningPriceFeeds } from "../mining-admin";
+import { runMiningWorkerCycle } from "../mining";
 
 async function startServer() {
   const app = express();
@@ -145,6 +147,21 @@ async function startServer() {
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
   if (process.env.DATABASE_URL) {
     startEmailWorkers();
+    let miningCycleRunning = false;
+    const runMiningCycle = async () => {
+      if (miningCycleRunning) return;
+      miningCycleRunning = true;
+      try {
+        const result = await runMiningWorkerCycle();
+        if (result.intervalsProcessed || result.conversionJobs.completed || result.conversionJobs.retrying) console.log("[MiningWorker] cycle", result);
+      } catch (error) { console.error("[MiningWorker]", error instanceof Error ? error.message : error); }
+      finally { miningCycleRunning = false; }
+    };
+    const miningWorkerTimer = setInterval(() => { void runMiningCycle(); }, 30_000);
+    miningWorkerTimer.unref();
+    void runMiningCycle();
+    const miningFeedTimer = setInterval(() => { void refreshMiningPriceFeeds().then(result => console.log("[MiningFeeds] refreshed", result)).catch(error => console.error("[MiningFeeds]", error instanceof Error ? error.message : error)); }, 5 * 60_000);
+    miningFeedTimer.unref();
     const popupRetentionTimer = setInterval(() => { void runOpportunityRetention().then(result => { if (result.deletedEvents || result.deletedDeliveryRows) console.log("[PopupRetention] archived and removed", result); }).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error)); }, 60 * 60_000);
     popupRetentionTimer.unref();
     void runOpportunityRetention().catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error));

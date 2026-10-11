@@ -55,9 +55,10 @@ export async function fetchFiatRates(): Promise<{ base: string; quote: string; r
 }
 
 export async function fetchCryptoRates(): Promise<{ base: string; quote: string; rate: string; sourceDate: string | null; raw: unknown }[]> {
-  const payload = await json("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true&include_last_updated_at=true");
-  return (["bitcoin", "ethereum"] as const).map((id) => {
+  const payload = await json("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tether&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&include_24hr_change=true&include_last_updated_at=true");
+  return (["bitcoin", "ethereum", "tether"] as const).map((id) => {
     const row = payload?.[id] ?? {};
-    return { base: id === "bitcoin" ? "BTC" : "ETH", quote: "USD", rate: String(row.usd ?? "0"), sourceDate: row.last_updated_at ? new Date(Number(row.last_updated_at) * 1000).toISOString() : null, raw: row };
+    const base = id === "bitcoin" ? "BTC" : id === "ethereum" ? "ETH" : "USDT";
+    return { base, quote: "USD", rate: String(row.usd ?? "0"), sourceDate: row.last_updated_at ? new Date(Number(row.last_updated_at) * 1000).toISOString() : null, raw: row };
   }).filter(row => Number(row.rate) > 0);
 }
