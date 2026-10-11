@@ -51,7 +51,9 @@ async function startServer() {
     try {
       const { email, password } = req.body || {};
       const user = await getUserByEmail(String(email || ""));
-      if (!user || user.role !== "user" || !verifyPassword(String(password || ""), user.passwordHash)) return res.status(401).json({ error: "Invalid email or password" });
+      // Administrators may sign into their own customer workspace for customer-facing QA;
+      // their persisted admin role and the separate admin authorization checks are unchanged.
+      if (!user || (user.role !== "user" && user.role !== "admin") || !verifyPassword(String(password || ""), user.passwordHash)) return res.status(401).json({ error: "Invalid email or password" });
       setLocalSession(req, res, user);
       await openTransactionConsoleSession(req, res, user.id);
       const { passwordHash: _passwordHash, ...safeUser } = user;
