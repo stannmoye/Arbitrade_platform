@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { CoinKiFactoryCanvas } from "@/components/CoinKiFactoryCanvas";
 import {
   Activity, ArrowDownUp, ArrowRight, BadgeCheck, Bolt, CheckCircle2, Clock3, Cog,
   Cpu, Database, Gauge, Info, LockKeyhole, RefreshCw, ShieldAlert, ShieldCheck,
@@ -39,6 +40,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const [prefThreshold, setPrefThreshold] = useState("0");
   const [acknowledged, setAcknowledged] = useState(false);
   const [message, setMessage] = useState("");
+  const [factoryMotion, setFactoryMotion] = useState(() => typeof window === "undefined" || typeof window.matchMedia !== "function" || !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -120,6 +122,12 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const countdownTarget = activeBoostEnds || (boost?.nextEligibleAt ? new Date(boost.nextEligibleAt).getTime() : null);
   const boostCountdown = countdownTarget ? durationText(Math.max(0, Math.ceil((countdownTarget - now) / 1000))) : "--:--:--";
   const activeBase = Number(data?.baseThs || 0);
+  const intervalProgress = Math.min(99.9, Math.max(0, timeSinceSnapshot / 60 * 100));
+  const packageStart = active.reduce((earliest: number | null, item: any) => {
+    const startedAt = Date.parse(String(item.startsAt || ""));
+    return Number.isFinite(startedAt) ? Math.min(earliest ?? startedAt, startedAt) : earliest;
+  }, null);
+  const packageRuntime = packageStart === null ? "00:00:00" : durationText(Math.floor((now - packageStart) / 1000));
 
   const startFullBalanceSwap = () => {
     if (availableCki <= 0) return;
@@ -131,8 +139,8 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     <header className="cm-hero">
       <div className="cm-hero-copy">
         <div className="cm-kicker"><span className="cm-live-dot"/> SIMULATED HASH-POWER FACILITY · CKI</div>
-        <h1>Mining operations</h1>
-        <p>Watch the model run, follow CKI accrual, engage a timed hash-power boost, and manage your simulation packages.</p>
+        <h1>CoinKi Mining Factory</h1>
+        <p>Follow the live factory simulation, server-modeled CKI output, timed boost cycle, and your Mining package capacity.</p>
       </div>
       <div className="cm-hero-status"><span><Database size={14}/> SIMULATION LEDGER</span><strong className={isRunning ? "is-running" : ""}>{data?.miningStatus || "Connecting to Mining service"}</strong><small>{data?.serverTime ? `Server sync · ${dateText(data.serverTime)}` : "Connecting to Mining service"}</small></div>
     </header>
@@ -142,38 +150,42 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     {message && <div className="cm-message" role="status"><Info size={15}/><span>{message}</span><button type="button" onClick={()=>setMessage("")} aria-label="Dismiss">×</button></div>}
     {dashboard.error && <div className="cm-error" role="alert">Mining service unavailable: {dashboard.error.message}</div>}
 
-    <section className={`cm-engine-deck ${isRunning ? "is-running" : "is-idle"}`} aria-label="Simulated CoinKi mining engine">
-      <div className="cm-engine-main">
-        <div className="cm-engine-topline"><span className="cm-engine-chip"><Activity size={13}/> ENGINE TELEMETRY</span><span className="cm-engine-state"><i/>{isRunning ? "MODEL RUNNING" : "STANDBY"}</span></div>
-        <div className="cm-engine-content">
-          <div className="cm-machine-art" aria-hidden="true">
-            <div className="cm-machine-beam beam-a"/><div className="cm-machine-beam beam-b"/>
-            <div className="cm-machine-housing"><div className="cm-machine-rim"><div className="cm-machine-rotor"><Cog size={72} strokeWidth={1.15}/><span className="cm-rotor-core"/></div></div><div className="cm-machine-bolts"><i/><i/><i/><i/></div></div>
-            <div className="cm-machine-conveyor"><i/><i/><i/><i/><i/><i/><i/><i/></div>
-            <div className="cm-machine-output"><Sparkles size={15}/><b>CKI</b><span/></div>
-            <div className="cm-machine-led led-one"/><div className="cm-machine-led led-two"/>
-            <div className="cm-machine-label">SIM CORE · 01</div>
-          </div>
-          <div className="cm-engine-readout">
-            <div className="cm-kicker">SERVER-MODELED OUTPUT</div>
-            <div className="cm-engine-counter" aria-live="off">{fmt(liveOutputEstimate, 8)} <small>{tokenSymbol}</small></div>
-            <div className="cm-engine-subline"><span><i/> Accruing at modeled rate</span><span>{fmt(ratePerMinute, 8)} {tokenSymbol}/min</span></div>
-            <div className="cm-engine-progress"><span style={{width:`${Math.min(100, timeSinceSnapshot / 60 * 100)}%`}}/></div>
-            <div className="cm-engine-progress-meta"><span>Current ledger interval</span><b>Posts on server cycle</b></div>
-            <div className="cm-engine-foot"><span><Database size={13}/> Confirmed vault balance</span><strong>{fmt(data?.tokenBalance, 8)} {tokenSymbol}</strong><small>Live counter is an estimate within the current interval; only posted ledger entries are spendable.</small></div>
-          </div>
+    <section className={`cm-engine-deck ${isRunning ? "is-running" : "is-idle"}`} aria-label="CoinKi Mining Factory control room">
+      <article className="cm-factory-panel">
+        <div className="cm-factory-heading">
+          <div><span className="cm-engine-chip"><Activity size={13}/> INDUSTRIAL SIMULATION · CKI</span><h2>Mining Factory</h2><p>Live production line · animated machine simulation</p></div>
+          <span className={`cm-factory-state ${isRunning ? "is-online" : ""}`}><i/>{isRunning ? "RUNNING" : "STANDBY"}</span>
         </div>
-        <div className="cm-engine-bottomline"><span><span className="cm-led-pulse"/> {isRunning ? "Reward model synchronized" : "Waiting for an active hash-power package"}</span><span>Package-driven · server calculated · simulation only</span></div>
-      </div>
-
-      <article className={`cm-boost-machine ${boost?.active ? "boost-active" : ""}`}>
-        <div className="cm-boost-machine-head"><span className="cm-engine-chip"><Bolt size={13}/> HASH-POWER BOOST MODULE</span><span className={`cm-state ${boost?.active ? "active" : boost?.ready ? "ready" : ""}`}>{boost?.active ? "ENGAGED" : boost?.ready ? "READY" : "CHARGING"}</span></div>
-        <div className="cm-boost-instrument"><div className="cm-boost-cog"><Cog size={51}/><span/></div><div><small>{boost?.active ? "BOOST TIME REMAINING" : "NEXT BOOST AVAILABLE"}</small><strong>{boostCountdown}</strong><span>{boost?.active ? `+${fmt(boost.activeBoost?.bonusThs, 4)} TH/s added to the model` : `${fmt(boost?.bonusThsAvailable, 4)} TH/s boost capacity`}</span></div></div>
-        <div className="cm-boost-track"><span style={{width: boost?.active ? "100%" : boost?.ready ? "100%" : "12%"}}/></div>
-        <div className="cm-boost-machine-meta"><span><Clock3 size={13}/> Cycle ends {dateText(boost?.cycleExpiresAt)}</span><span>Duration {Math.max(1, Math.round(Number(boost?.durationSeconds || 0) / 60))} min</span></div>
-        <button className="cm-engine-action" type="button" disabled={!boost?.ready || boostMutation.isPending} onClick={()=>boostMutation.mutate({idempotencyKey:requestId()})}>{boostMutation.isPending ? "Engaging boost…" : boost?.active ? "Boost engaged" : boost?.ready ? "Engage hash-power boost" : boost?.reason || "Boost module charging"}<Zap size={15}/></button>
-        <small className="cm-boost-footnote">One server-anchored activation per cycle. Boost changes simulated output only.</small>
+        <div className="cm-factory-canvas-frame"><CoinKiFactoryCanvas running={isRunning} boostActive={Boolean(boost?.active)} motionEnabled={factoryMotion}/></div>
+        <div className="cm-factory-footer">
+          <span>Production line: Miner <b>→</b> Refinery <b>→</b> CKI Vault <b>→</b> Simulated Wallet</span>
+          <button type="button" className="cm-motion-toggle" aria-pressed={factoryMotion} aria-label={factoryMotion ? "Pause factory animation; reward simulation continues" : "Resume factory animation"} onClick={()=>setFactoryMotion(value=>!value)}><Activity size={13}/>{factoryMotion ? "Motion on" : "Motion off"}</button>
+        </div>
+        <div className="cm-factory-note"><Database size={12}/> Visual effects only · server-posted CKI remains authoritative</div>
       </article>
+
+      <div className="cm-engine-side">
+        <article className="cm-progress-card">
+          <div className="cm-progress-heading"><div><span className="cm-engine-chip"><Gauge size={13}/> LIVE MINING PROGRESS</span><p>Server-modeled output · live interval estimate</p></div><span className={`cm-factory-state ${isRunning ? "is-online" : ""}`}><i/>{isRunning ? "ONLINE" : "IDLE"}</span></div>
+          <div className="cm-progress-layout">
+            <div className="cm-progress-ring" style={{background:`conic-gradient(from -90deg,#12d9f6 0deg,#00e7a2 ${intervalProgress * 3.6}deg,#173149 ${intervalProgress * 3.6}deg 360deg)`}}><div><strong>{Math.floor(intervalProgress)}%</strong><small>SYNC CYCLE</small></div></div>
+            <div className="cm-progress-readout"><span>TOKENS GENERATED · LIVE ESTIMATE</span><strong>{fmt(liveOutputEstimate, 8)} <small>{tokenSymbol}</small></strong><div><i/> +{fmt(ratePerMinute, 8)} {tokenSymbol}/min modeled</div></div>
+          </div>
+          <div className="cm-progress-rail"><span style={{width:`${intervalProgress}%`}}/></div>
+          <div className="cm-progress-details"><div><span>ESTIMATED DAILY</span><strong>{fmt(data?.estimatedDailyTokens, 8)} {tokenSymbol}</strong></div><div><span>PACKAGE RUNTIME</span><strong>{packageRuntime}</strong></div></div>
+          <div className="cm-progress-ledger"><Database size={13}/><span>Confirmed CKI vault</span><strong>{fmt(data?.tokenBalance, 8)} {tokenSymbol}</strong></div>
+          <small className="cm-progress-footnote">Live output is an estimate between server cycles; only posted ledger entries are spendable.</small>
+        </article>
+
+        <article className={`cm-boost-machine ${boost?.active ? "boost-active" : ""}`}>
+          <div className="cm-boost-machine-head"><span className="cm-engine-chip"><Bolt size={13}/> BOOST ENGINE</span><span className={`cm-state ${boost?.active ? "active" : boost?.ready ? "ready" : ""}`}>{boost?.active ? "ENGAGED" : boost?.ready ? "READY" : "CHARGING"}</span></div>
+          <div className="cm-boost-instrument"><div className="cm-boost-cog"><Cog size={51}/><span/></div><div><small>{boost?.active ? "BOOST TIME REMAINING" : "NEXT BOOST AVAILABLE"}</small><strong>{boostCountdown}</strong><span>{boost?.active ? `+${fmt(boost.activeBoost?.bonusThs, 4)} TH/s added to the model` : `${fmt(boost?.bonusThsAvailable, 4)} TH/s boost capacity`}</span></div></div>
+          <div className="cm-boost-track"><span style={{width: boost?.active ? "100%" : boost?.ready ? "100%" : "12%"}}/></div>
+          <div className="cm-boost-machine-meta"><span><Clock3 size={13}/> Cycle ends {dateText(boost?.cycleExpiresAt)}</span><span>Duration {Math.max(1, Math.round(Number(boost?.durationSeconds || 0) / 60))} min</span></div>
+          <button className="cm-engine-action" type="button" disabled={!boost?.ready || boostMutation.isPending} onClick={()=>boostMutation.mutate({idempotencyKey:requestId()})}>{boostMutation.isPending ? "Engaging boost…" : boost?.active ? "Boost engaged" : boost?.ready ? "Engage hash-power boost" : boost?.reason || "Boost module charging"}<Zap size={15}/></button>
+          <small className="cm-boost-footnote">One server-anchored activation per cycle. Boost changes simulated output only.</small>
+        </article>
+      </div>
     </section>
 
     <section className="cm-console-metrics" aria-label="Mining and vault status">
@@ -192,7 +204,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
       </div>
     </section>
 
-    <section className="cm-section-heading cm-packages-heading"><div><span className="cm-kicker">CAPACITY CATALOGUE</span><h2>Packages · upgrades · plan changes</h2><p>Buy another package, upgrade to more modeled hash power, or switch to a smaller plan.</p></div><button className="cm-icon-button" type="button" onClick={()=>{void packages.refetch();void dashboard.refetch()}} aria-label="Refresh packages"><RefreshCw size={15}/></button></section>
+    <section className="cm-section-heading cm-packages-heading"><div><span className="cm-kicker">CAPACITY CATALOGUE</span><h2>Mining Packages</h2><p>Buy another package, upgrade to more modeled hash power, or switch to a smaller plan.</p></div><button className="cm-icon-button" type="button" onClick={()=>{void packages.refetch();void dashboard.refetch()}} aria-label="Refresh packages"><RefreshCw size={15}/></button></section>
     {active.length > 0 && <div className="cm-active-packages"><div><Cpu size={15}/><b>ACTIVE PACKAGE ENTITLEMENTS</b></div>{active.map((item:any)=><span key={`${item.purchaseId}:${item.code}`}>{item.packageName} · {fmt(item.baseThs, 4)} TH/s{item.expiresAt ? ` · until ${dateText(item.expiresAt)}` : " · no expiry"}</span>)}</div>}
     <div className="cm-package-grid">
       {packages.isLoading && <div className="cm-empty">Loading published packages…</div>}
