@@ -112,9 +112,12 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const availablePayment = useMemo(() => String(data?.balances?.[paymentAsset] || "0"), [data?.balances, paymentAsset]);
   const quoteExpired = purchaseQuote ? new Date(purchaseQuote.expiresAt).getTime() <= now : false;
   const swapExpired = swapQuote ? new Date(swapQuote.expiresAt).getTime() <= now : false;
-  // The server reward worker posts minute-aligned intervals. Use the current interval position
-  // so a five-second dashboard refresh does not reset the visual output counter.
-  const timeSinceSnapshot = data?.serverTime ? Math.max(0, Math.min(59.999, (now / 1000) % 60)) : 0;
+  // Keep the visual estimate aligned to the server clock. Query arrival age advances the server
+  // timestamp locally without trusting the browser's wall-clock minute or timezone.
+  const serverTimeMs = data?.serverTime ? Date.parse(data.serverTime) : Number.NaN;
+  const snapshotAgeSeconds = dashboard.dataUpdatedAt ? Math.max(0, (now - dashboard.dataUpdatedAt) / 1000) : 0;
+  const serverMinutePosition = Number.isFinite(serverTimeMs) ? ((serverTimeMs / 1000 % 60 + snapshotAgeSeconds) % 60 + 60) % 60 : 0;
+  const timeSinceSnapshot = Math.max(0, Math.min(59.999, serverMinutePosition));
   const simulatedOutputPerSecond = isRunning ? Number(data?.rewardTokensPerThsHour || 0) * Number(data?.activeThs || 0) / 3600 : 0;
   const liveOutputEstimate = Math.max(0, Number(data?.tokenBalance || 0) + simulatedOutputPerSecond * timeSinceSnapshot);
   const ratePerMinute = simulatedOutputPerSecond * 60;
