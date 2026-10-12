@@ -349,7 +349,6 @@ export function CoinKiFactoryCanvas({ running, boostActive, motionEnabled }: Coi
   return <canvas
     ref={canvasRef}
     className="cm-factory-canvas"
-    role="img"
-    aria-label="CoinKi mining factory simulation showing rotating fans, CKI coins contained on a conveyor, enclosed transfer conduits and simulated vaults."
+    aria-hidden="true"
   />;
 }
