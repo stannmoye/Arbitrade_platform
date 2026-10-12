@@ -109,6 +109,8 @@ const ROUTE_EDGES: ReadonlyArray<readonly [number, number]> = [
   [0, 1], [0, 2], [0, 3], [1, 0], [1, 2], [1, 3], [2, 0], [2, 1], [2, 3], [3, 0], [3, 1], [3, 2],
 ];
 const STREAM_ENDPOINTS = Array.from({ length: STREAM_COUNT }, (_, index) => ROUTE_EDGES[index % ROUTE_EDGES.length]);
+// Visible trace order in the canvas: A4A7, 12C2, 38D1, 71F9.
+const NODE_TRACE_STREAMS = [14, 16, 15, 17] as const;
 const logistic = (value: number, r: number) => r * value * (1 - value);
 
 /**
@@ -329,6 +331,20 @@ export class MiningMotionModel {
     this.nodes[destination].queue = clamp(this.nodes[destination].queue + this.rng.between(.06, .2));
     const edge = ROUTE_EDGES.findIndex(([from, to]) => from === index && to === destination);
     if (edge >= 0 && this.streams[edge]) this.streams[edge].pulse = 1;
+    this.launchNodeTrace(index, 1, this.rng.between(0, 110));
+    this.launchNodeTrace(destination, -1, this.rng.between(260, 920));
+  }
+
+  private launchNodeTrace(nodeIndex: number, direction: 1 | -1, holdMs: number) {
+    const stream = this.streams[NODE_TRACE_STREAMS[nodeIndex]];
+    if (!stream) return;
+    stream.pulse = Math.max(stream.pulse, .95 + this.rng.next() * .45);
+    const packet = stream.packets[0];
+    if (!packet) return;
+    packet.progress = direction > 0 ? this.rng.between(.035, .18) : this.rng.between(.82, .965);
+    packet.direction = direction;
+    packet.hold = holdMs;
+    packet.speed = this.rng.between(.18, .44);
   }
 
   private updateLanes(dt: number) {
@@ -365,17 +381,21 @@ export class MiningMotionModel {
   }
 
   private updateStreams(dt: number) {
-    this.streams.forEach(stream => {
-      const from = this.nodes[stream.from];
+    this.streams.forEach((stream, index) => {
+      const visualNodeIndex = index >= 14 && index <= 17 ? [0, 2, 1, 3][index - 14] : null;
+      const from = this.nodes[visualNodeIndex ?? stream.from];
       const to = this.nodes[stream.to];
       stream.pulse = Math.max(0, stream.pulse - dt * this.rng.between(.5, 1.7));
-      const targetIntensity = clamp(.12 + from.power * .64 + from.queue * .18 + stream.pulse * .42 - to.queue * .12);
+      const targetIntensity = index === 18
+        ? clamp(.12 + this.wind * .67 + stream.pulse * .42)
+        : clamp(.12 + from.power * .64 + from.queue * .18 + stream.pulse * .42 - to.queue * .12);
       stream.intensity = clamp(this.ou(stream.intensity, targetIntensity, dt, .36 + this.rng.next() * .85, .08));
       stream.packets.forEach(packet => {
         if (packet.hold > 0) packet.hold = Math.max(0, packet.hold - dt * 1_000);
         else {
-          const destinationBrake = to.mode === "HIBERNATING" ? .28 : to.mode === "COOLING" ? .68 : 1;
-          const targetSpeed = clamp((.07 + from.power * .42 + stream.pulse * .18 + from.chaos * .035) * destinationBrake, .018, .48);
+          const destinationBrake = index === 18 ? .92 : to.mode === "HIBERNATING" ? .28 : to.mode === "COOLING" ? .68 : 1;
+          const windDrive = index === 18 ? this.wind * .24 : 0;
+          const targetSpeed = clamp((.07 + from.power * .42 + stream.pulse * .18 + from.chaos * .035 + windDrive) * destinationBrake, .018, .48);
           packet.speed = clamp(this.ou(packet.speed, targetSpeed, dt, .28 + this.rng.next() * .7, .035), .012, .55);
           packet.progress += packet.direction * packet.speed * dt;
           if (packet.progress >= 1 || packet.progress <= 0) {

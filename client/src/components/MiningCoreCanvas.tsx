@@ -284,7 +284,7 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
         text(node.sub, node.x - 31, node.y + 7, 5.7, "#7c9aa7");
         const mode = !active ? "STANDBY" : nodeLabels[engineNode.mode];
         text(mode, node.x + 43, node.y - 5, 4.4, nodeColor, "right");
-        text(`Q${Math.round(engineNode.queue * 9)} · ${Math.round(engineNode.power * 100)}%`, node.x + 43, node.y + 7, 4.1, "#8fb4bd", "right");
+        text(`Q${Math.round(engineNode.queue * 9)} · P${Math.round(engineNode.power * 100)}% · H${Math.round(engineNode.heat * 100)}%`, node.x + 43, node.y + 7, 3.9, "#8fb4bd", "right");
         ctx.fillStyle = "#213945"; roundRect(node.x - 40, node.y + 14, 80, 2.5, 1); ctx.fill();
         const workProgress = active ? Math.max(.025, engineNode.progress) : .12;
         const nodeFill = isRecent ? "#52d8ad" : nodeColor;
@@ -329,7 +329,8 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
         ctx.globalAlpha = 1; ctx.fillStyle = "#dbf6f3"; ctx.beginPath(); ctx.arc(0, 0, 2.8, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = "#e1fdff"; ctx.lineWidth = .8; ctx.beginPath(); ctx.arc(0, 0, 4.1, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
       }
-      text("7× ACTIVE COOLING FAN ARRAY / THERMAL EXHAUST", 0, 165, 6.7, "#8fb8c4", "center");
+      const averageFanRpm = Math.round(motion.power.fanRpm.reduce((sum, rpm) => sum + rpm, 0) / motion.power.fanRpm.length);
+      text(`7× COOLING ROTORS · AVG ${averageFanRpm.toLocaleString()} RPM · THERMAL EXHAUST`, 0, 165, 6.1, "#8fb8c4", "center");
 
       // Prominent three-blade wind turbine: animated rotor feeds the simulated power bus.
       ctx.save(); ctx.translate(-300, 104);
@@ -353,6 +354,7 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       glow(0, -41 + turbinePhase * 34, 9, "rgb(81,235,202)", active ? .5 : .12);
       text("WIND TURBINE", 0, 18, 6.2, "#9debdc", "center");
       text("SIM POWER INPUT", 0, 27, 5.1, "#719caa", "center");
+      text(`${Math.round(motion.power.turbineRpm)} RPM · WIND ${Math.round(motion.power.wind * 100)}%`, 0, 35, 4.4, "#8cdccc", "center");
       ctx.restore();
       trace([[-300, 104], [-300, 145], [-80, 145], [-80, 163]], "rgb(74,227,190)");
 
@@ -423,7 +425,7 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       ctx.strokeStyle = "#5d5944"; roundRect(268, -148, 86, 116, 7); ctx.stroke();
       text("SETTLEMENT", 280, -133, 7.1, "#e8d095");
       text("SIMULATED STATE", 280, -121, 4.8, "#a39367");
-      const settlementRows = ["WORK ROUTED", "HASH VERIFIED", "CKI MINT QUEUE", "VAULT / LEDGER"];
+      const settlementRows = ["WORK ROUTED", "HASH VERIFY", "CKI MINT", "VAULT LEDGER"];
       for (let i = 0; i < 4; i++) {
         const y = -106 + i * 17;
         const stage = motion.settlement[i];
@@ -434,7 +436,8 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
         ctx.fillStyle = liveRow ? "#d8bd74" : "#367f8c"; roundRect(283, y + 3, 47 * rowProgress, 6, 2); ctx.fill();
         const packetX = 283 + 47 * rowProgress;
         glow(packetX, y + 6, 7, liveRow ? "rgb(241,199,108)" : "rgb(77,194,210)", stage.intensity * (liveRow ? .5 : .3));
-        text(settlementRows[i], 310, y + 8, 4.2, liveRow ? "#fff0bd" : "#a3c0c5");
+        text(settlementRows[i], 284, y + 8, 4, liveRow ? "#fff0bd" : "#a3c0c5");
+        text(stage.holding ? "HOLD" : `${Math.round(stage.progress * 100)}%`, 337, y + 8, 4, liveRow ? "#fff0bd" : "#85a7ac", "right");
       }
 
       // Three-stage power converter with repeated energy packets flowing turbine -> ASIC.
@@ -442,15 +445,16 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       ctx.strokeStyle = "#2b4855"; roundRect(-252, 158, 504, 30, 5); ctx.stroke();
       text("POWER DISTRIBUTION BUS · SIM", -239, 170, 6.1, "#a6d5dc");
       const railXs = [-80, 12, 104];
-      const railLabels = ["WIND INPUT", "DC REGULATOR", "ASIC LOAD"];
+      const railLabels = ["WIND IN", "DC REG", "ASIC LOAD"];
       const railColors = ["#59e0bd", "#57d7e9", "#e1c06e"];
+      const railLoads = active ? [motion.power.wind, motion.power.regulator, motion.power.asic] : [.08, .08, .08];
       railXs.forEach((railX, i) => {
         const color = railColors[i];
         ctx.fillStyle = "#152a35"; roundRect(railX, 163, 79, 17, 3); ctx.fill();
         ctx.strokeStyle = i === 0 ? "#4c827c" : "#345361"; roundRect(railX, 163, 79, 17, 3); ctx.stroke();
-        text(railLabels[i], railX + 39, 171, 5.2, i === 0 ? "#9debdc" : i === 2 ? "#ead48f" : "#91dce5", "center");
+        const load = railLoads[i];
+        text(`${railLabels[i]} ${Math.round(load * 100)}%`, railX + 39, 171, 4.7, i === 0 ? "#9debdc" : i === 2 ? "#ead48f" : "#91dce5", "center");
         ctx.fillStyle = "#203d49"; roundRect(railX + 7, 175, 65, 2, 1); ctx.fill();
-        const load = active ? [motion.power.wind, motion.power.regulator, motion.power.asic][i] : .08;
         ctx.save(); ctx.shadowColor = color; ctx.shadowBlur = 5; ctx.fillStyle = color; roundRect(railX + 7, 175, 65 * load, 2, 1); ctx.fill(); ctx.restore();
         if (i < 2) {
           line([[railX + 80, 171], [railX + 89, 171]], "#5b9ba3", 1.2, .95);

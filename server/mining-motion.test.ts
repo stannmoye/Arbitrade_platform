@@ -54,4 +54,19 @@ describe("mining visual motion model", () => {
       expect(frame.streams.every(stream => stream.packets.every(packet => packet.progress >= 0 && packet.progress <= 1))).toBe(true);
     }
   });
+
+  it("routes completed work onto the corresponding node trace during handoff", () => {
+    const model = new MiningMotionModel(0xA4A738D1);
+    const traceForNode = [14, 16, 15, 17];
+    let observedHandoffPacket = false;
+    for (let i = 0; i < 4_000 && !observedHandoffPacket; i++) {
+      const frame = model.advance(50, false, 1);
+      frame.nodes.forEach((node, nodeIndex) => {
+        if (node.mode !== "HANDOFF" || node.handoffPulse < .8) return;
+        const sourceTrace = frame.streams[traceForNode[nodeIndex]];
+        if (sourceTrace.packets.some(packet => packet.direction === 1 && packet.progress < .3)) observedHandoffPacket = true;
+      });
+    }
+    expect(observedHandoffPacket).toBe(true);
+  });
 });
