@@ -1,0 +1,186 @@
+/* Mining-only cyber-mechanical cockpit skin inspired by the supplied CoinKi factory reference.
+   Deliberately scoped to .customer-mining and .admin-mining so general portal pages are untouched. */
+.customer-mining,
+.admin-mining {
+  --cockpit-bg: #020a1a;
+  --cockpit-surface: rgba(5, 20, 38, .92);
+  --cockpit-line: rgba(41, 142, 202, .48);
+  --cockpit-cyan: #12d9f6;
+  --cockpit-teal: #00e7a2;
+  --cockpit-gold: #ffc94d;
+  --cockpit-text: #eef9ff;
+  --cockpit-muted: #86a7bc;
+  position: relative;
+  isolation: isolate;
+  background-color: var(--cockpit-bg) !important;
+  color: var(--cockpit-text) !important;
+}
+.customer-mining::before,
+.admin-mining::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: .26;
+  background-image: linear-gradient(rgba(18, 217, 246, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(18, 217, 246, .035) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, #000, transparent 88%);
+  z-index: -1;
+}
+
+@keyframes cockpit-scan {
+  0%, 100% { opacity: .2; transform: translateX(-22%); }
+  50% { opacity: .65; transform: translateX(22%); }
+}
+@keyframes cockpit-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(18, 217, 246, .12); }
+  50% { box-shadow: 0 0 22px rgba(18, 217, 246, .3); }
+}
+@keyframes cockpit-live {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 3px rgba(0, 231, 162, .12), 0 0 12px rgba(0, 231, 162, .8); }
+  50% { opacity: .55; box-shadow: 0 0 0 6px rgba(0, 231, 162, .04), 0 0 5px rgba(0, 231, 162, .35); }
+}
+
+/* Factory cockpit buttons: pill geometry, cyan energy, gold package/upgrade actions. */
+.customer-mining button,
+.admin-mining button {
+  transition: transform .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease;
+}
+.customer-mining .cm-primary-button,
+.customer-mining .cm-engine-action,
+.customer-mining .cm-swap-all-button,
+.admin-mining .am-button.primary,
+.admin-mining .cm-primary-button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  min-height: 38px;
+  border: 1px solid rgba(40, 244, 216, .72) !important;
+  border-radius: 999px !important;
+  background: linear-gradient(115deg, #00a9c9 0%, #087cff 52%, #00dcb3 100%) !important;
+  color: #efffff !important;
+  font-weight: 850 !important;
+  letter-spacing: .01em;
+  box-shadow: 0 0 0 1px rgba(0, 215, 255, .12), 0 0 18px rgba(0, 191, 255, .2), inset 0 1px rgba(255,255,255,.42) !important;
+}
+.customer-mining .cm-primary-button::before,
+.customer-mining .cm-engine-action::before,
+.customer-mining .cm-swap-all-button::before,
+.admin-mining .am-button.primary::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -38%;
+  width: 34%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.46), transparent);
+  transform: skewX(-20deg);
+  animation: cockpit-scan 3.8s ease-in-out infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+.customer-mining .cm-primary-button:hover:not(:disabled),
+.customer-mining .cm-engine-action:hover:not(:disabled),
+.customer-mining .cm-swap-all-button:hover:not(:disabled),
+.admin-mining .am-button.primary:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.015);
+  border-color: #8cfff0 !important;
+  box-shadow: 0 0 0 1px rgba(140,255,240,.22), 0 0 28px rgba(0, 214, 255, .42), inset 0 1px rgba(255,255,255,.58) !important;
+}
+.customer-mining .cm-secondary-button,
+.customer-mining .cm-motion-toggle,
+.admin-mining .am-button.secondary,
+.admin-mining .am-icon-button {
+  border: 1px solid rgba(35, 129, 186, .58) !important;
+  border-radius: 999px !important;
+  background: linear-gradient(145deg, rgba(11, 45, 75, .9), rgba(5, 23, 43, .94)) !important;
+  color: #b9eaff !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.07), 0 0 12px rgba(0, 131, 224, .08) !important;
+}
+.customer-mining .cm-secondary-button:hover:not(:disabled),
+.customer-mining .cm-motion-toggle:hover:not(:disabled),
+.admin-mining .am-button.secondary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--cockpit-cyan) !important;
+  color: #fff !important;
+  box-shadow: 0 0 18px rgba(18, 217, 246, .22) !important;
+}
+.customer-mining .cm-package-card .cm-primary-button,
+.customer-mining .cm-package-card .cm-secondary-button {
+  border-color: rgba(255, 224, 122, .88) !important;
+  background: linear-gradient(115deg, #8e5d10, #ffc94d 54%, #fff0a4) !important;
+  color: #271a05 !important;
+  box-shadow: 0 0 20px rgba(255, 201, 77, .24), inset 0 1px rgba(255,255,255,.66) !important;
+}
+.customer-mining .cm-package-card .cm-primary-button:hover:not(:disabled),
+.customer-mining .cm-package-card .cm-secondary-button:hover:not(:disabled) {
+  box-shadow: 0 0 30px rgba(255, 201, 77, .5), inset 0 1px rgba(255,255,255,.8) !important;
+}
+
+/* Panels and telemetry become dark holographic glass only inside mining workspaces. */
+.customer-mining .cm-panel,
+.customer-mining .cm-package-card,
+.customer-mining .cm-factory-panel,
+.customer-mining .cm-network-telemetry,
+.customer-mining .cm-hash-blueprint,
+.customer-mining .cm-boost-machine,
+.customer-mining .cm-console-stat,
+.customer-mining .cm-progress-card,
+.admin-mining .am-panel {
+  border-color: var(--cockpit-line) !important;
+  background: linear-gradient(145deg, rgba(7, 29, 52, .94), rgba(3, 15, 29, .96)) !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.045), 0 14px 34px rgba(0,0,0,.22), 0 0 18px rgba(0, 117, 184, .08) !important;
+}
+.customer-mining .cm-panel:hover,
+.customer-mining .cm-package-card:hover,
+.customer-mining .cm-network-telemetry:hover,
+.admin-mining .am-panel:hover {
+  border-color: rgba(18, 217, 246, .68) !important;
+}
+.customer-mining .cm-factory-panel,
+.customer-mining .cm-network-telemetry {
+  position: relative;
+  overflow: hidden;
+}
+.customer-mining .cm-factory-panel::after,
+.customer-mining .cm-network-telemetry::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 0 42%, rgba(18,217,246,.07) 50%, transparent 58%);
+  animation: cockpit-scan 7s ease-in-out infinite;
+}
+.customer-mining .cm-factory-canvas-frame {
+  border-color: rgba(18, 217, 246, .58) !important;
+  box-shadow: inset 0 0 40px rgba(0,0,0,.6), 0 0 28px rgba(18,217,246,.18) !important;
+  animation: cockpit-glow 4s ease-in-out infinite;
+}
+.customer-mining .cm-factory-state.is-online,
+.customer-mining .cm-engine-chip,
+.customer-mining .cm-live-dot {
+  border-color: rgba(0, 231, 162, .62) !important;
+  color: #99ffe0 !important;
+  background: rgba(0, 231, 162, .1) !important;
+}
+.customer-mining .cm-factory-state.is-online i,
+.customer-mining .cm-live-dot { animation: cockpit-live 1.8s ease-in-out infinite !important; }
+.customer-mining .cm-engine-action svg,
+.customer-mining .cm-swap-all-button svg,
+.admin-mining .am-button svg { filter: drop-shadow(0 0 4px currentColor); }
+
+@media (max-width: 720px) {
+  .customer-mining .cm-primary-button,
+  .customer-mining .cm-engine-action,
+  .admin-mining .am-button.primary { min-height: 42px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .customer-mining .cm-primary-button::before,
+  .customer-mining .cm-engine-action::before,
+  .customer-mining .cm-swap-all-button::before,
+  .admin-mining .am-button.primary::before,
+  .customer-mining .cm-factory-panel::after,
+  .customer-mining .cm-network-telemetry::after,
+  .customer-mining .cm-factory-canvas-frame,
+  .customer-mining .cm-factory-state.is-online i,
+  .customer-mining .cm-live-dot { animation: none !important; }
+}
