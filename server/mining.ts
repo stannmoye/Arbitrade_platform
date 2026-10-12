@@ -259,7 +259,7 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
 }
 
 async function activePackageRows(conn: Db, userId: number, at: Date) {
-  const [rows] = await conn.query<any[]>(`SELECT cp.id purchaseId,cp.packageId,cp.packageVersionId,cp.startsAt,cp.expiresAt,cp.endedAt,cp.status,
+  const [rows] = await conn.query<any[]>(`SELECT cp.id purchaseId,cp.packageId,cp.packageVersionId,cp.acquisitionType,cp.startsAt,cp.expiresAt,cp.endedAt,cp.status,
       cp.baseThsSnapshot,cp.boostBonusThsSnapshot,p.name packageName,p.code packageCode,v.version packageVersion,v.boostDurationSeconds
     FROM mining_customer_packages cp JOIN mining_packages p ON p.id=cp.packageId JOIN mining_package_versions v ON v.id=cp.packageVersionId
     WHERE cp.userId=? AND cp.status IN ('active','replaced') AND cp.startsAt<=?
@@ -340,14 +340,32 @@ export async function getCustomerMiningDashboard(userId: number) {
       balances[asset] = amountString(decimal(balance.available), asset);
     }
     const [earnedRows] = await conn.query<any[]>(`SELECT COALESCE(SUM(tokenAmount),0) todayTokens FROM mining_reward_events WHERE userId=? AND intervalStart>=UTC_DATE()`, [userId]);
+    const [accountRows] = await conn.query<any[]>(`SELECT accountStatus FROM customer_controls WHERE userId=? LIMIT 1`, [userId]);
+    const accountStatus = accountRows[0]?.accountStatus || "active";
+    const intervalStart = new Date(Math.floor(now.getTime() / 60_000) * 60_000);
+    const intervalSeconds = Math.max(0, Math.min(60, Math.floor((now.getTime() - intervalStart.getTime()) / 1000)));
+    const boostIntervalSeconds = activeBoost && intervalSeconds > 0
+      ? Math.max(0, Math.min(intervalSeconds, Math.floor((now.getTime() - Math.max(intervalStart.getTime(), new Date(activeBoost.startedAt).getTime())) / 1000), Math.floor((new Date(activeBoost.endsAt).getTime() - intervalStart.getTime()) / 1000)))
+      : 0;
+    let pendingTokens = new Decimal(0);
+    if (config.globalEnabled && accountStatus === "active" && packages.length && intervalSeconds > 0) {
+      pendingTokens = decimal(calculateMiningReward([
+        { baseThs: baseThs.toString(), boostThs: "0", rewardTokensPerThsHour: config.rewardTokensPerThsHour, elapsedSeconds: intervalSeconds },
+        { baseThs: "0", boostThs: boostThs.toString(), rewardTokensPerThsHour: config.rewardTokensPerThsHour, elapsedSeconds: boostIntervalSeconds },
+      ]));
+      const dailyCap = decimal(config.dailyRewardCapTokens);
+      if (dailyCap.gt(0)) {
+        const accruedToday = decimal(String(earnedRows[0]?.todayTokens || "0"));
+        pendingTokens = Decimal.min(pendingTokens, Decimal.max(dailyCap.minus(accruedToday), 0));
+      }
+    }
+    const nextRewardAt = new Date(intervalStart.getTime() + 60_000);
     const [preferenceRows] = await conn.query<any[]>(`SELECT enabled,targetDenomination,minimumThreshold,version,updatedAt FROM mining_conversion_preferences WHERE userId=? LIMIT 1`, [userId]);
     const [latestConversionRows] = await conn.query<any[]>(`SELECT c.id,c.destinationAsset,c.destinationAmount,c.fee,c.createdAt,q.provider,qs.marketObservedAt
       FROM v5_conversions c JOIN v5_fx_quotes q ON q.id=c.quoteId JOIN mining_quote_snapshots qs ON qs.quoteId=q.id
       WHERE c.userId=? AND qs.purpose IN ('manual_swap','auto_conversion') AND c.status='COMPLETED' ORDER BY c.createdAt DESC LIMIT 1`, [userId]);
     const [latestEventRows] = await conn.query<any[]>(`SELECT transactionType,referenceCode,createdAt FROM mining_ledger_transactions WHERE userId=? ORDER BY createdAt DESC LIMIT 6`, [userId]);
     const [pendingRows] = await conn.query<any[]>(`SELECT COUNT(*) total FROM mining_conversion_jobs WHERE userId=? AND status IN ('queued','waiting','retrying')`, [userId]);
-    const [accountRows] = await conn.query<any[]>(`SELECT accountStatus FROM customer_controls WHERE userId=? LIMIT 1`, [userId]);
-    const accountStatus = accountRows[0]?.accountStatus || "active";
     const estimatedDailyTokens = config.globalEnabled && accountStatus === "active" ? decimal(config.rewardTokensPerThsHour).times(baseThs).times(24) : new Decimal(0);
     const pref = preferenceRows[0] ? {
       enabled: Boolean(preferenceRows[0].enabled), targetDenomination: String(preferenceRows[0].targetDenomination),
@@ -360,13 +378,15 @@ export async function getCustomerMiningDashboard(userId: number) {
       tokenName: config.tokenName, tokenSymbol: config.tokenSymbol,
       usdPerToken: decimal(1).div(config.tokenUnitsPerUsd).toSignificantDigits(18).toString(),
       tokenBalance: balances.CKI, balances, todayTokens: String(earnedRows[0]?.todayTokens || "0"),
+      minSwapTokens: config.minSwapTokens, maxSwapTokens: config.maxSwapTokens,
+      pendingTokens: pendingTokens.toDecimalPlaces(tokenScale, Decimal.ROUND_DOWN).toFixed(tokenScale), nextRewardAt: nextRewardAt.toISOString(),
       rewardTokensPerThsHour: config.rewardTokensPerThsHour,
       estimatedDailyTokens: estimatedDailyTokens.toDecimalPlaces(tokenScale, Decimal.ROUND_DOWN).toFixed(tokenScale),
       estimateAssumption: "24-hour uptime at the current server-configured reward rate; estimate only, not a guaranteed return.",
       economicsVersion: config.version, tokenUnitsPerUsd: config.tokenUnitsPerUsd,
       tokenConversionReference: `1 ${config.tokenSymbol} = $${decimal(1).div(config.tokenUnitsPerUsd).toSignificantDigits(12).toString()} USD (admin-configured internal reference; not a market price or redemption promise)`,
       boost: { active: Boolean(activeBoost), startedAt: activeBoost ? new Date(activeBoost.startedAt).toISOString() : null, endsAt: activeBoost ? new Date(activeBoost.endsAt).toISOString() : null, bonusThs: boostThs.toString() },
-      packages: packages.map(row => ({ purchaseId: Number(row.purchaseId), packageName: row.packageName, code: row.packageCode, packageVersion: Number(row.packageVersion), baseThs: String(row.baseThsSnapshot), boostBonusThs: String(row.boostBonusThsSnapshot), startsAt: new Date(row.startsAt).toISOString(), expiresAt: row.expiresAt ? new Date(row.expiresAt).toISOString() : null, status: row.status })),
+      packages: packages.map(row => ({ purchaseId: Number(row.purchaseId), packageName: row.packageName, code: row.packageCode, packageVersion: Number(row.packageVersion), acquisitionType: String(row.acquisitionType || "purchase"), baseThs: String(row.baseThsSnapshot), boostBonusThs: String(row.boostBonusThsSnapshot), startsAt: new Date(row.startsAt).toISOString(), expiresAt: row.expiresAt ? new Date(row.expiresAt).toISOString() : null, status: row.status })),
       conversionPreference: pref, pendingConversionJobs: Number(pendingRows[0]?.total || 0), lastConversion: latestConversionRows[0] ? { id: Number(latestConversionRows[0].id), destinationAsset: latestConversionRows[0].destinationAsset, destinationAmount: latestConversionRows[0].destinationAmount, fee: latestConversionRows[0].fee, provider: latestConversionRows[0].provider, marketObservedAt: new Date(latestConversionRows[0].marketObservedAt).toISOString(), createdAt: new Date(latestConversionRows[0].createdAt).toISOString() } : null,
       recentEvents: latestEventRows.map(row => ({ type: row.transactionType, reference: row.referenceCode, createdAt: new Date(row.createdAt).toISOString() })),
     };
@@ -493,7 +513,7 @@ export async function listCustomerMiningTransactions(userId: number) {
     const [boostRows] = await conn.query<any[]>(`SELECT id,bonusThs,startedAt,endsAt,status,cycleStart FROM mining_boost_activations WHERE userId=? ORDER BY createdAt DESC LIMIT 50`, [userId]);
     const events = [
       ...ledgerRows.map(row => ({ id: `ledger-${row.id}`, type: row.transactionType, status: row.status, reference: row.referenceCode, reversalOfId: row.reversalOfId ? Number(row.reversalOfId) : null, reason: row.reason || null, details: (() => { try { return normalizeMiningHistoryDetails(JSON.parse(String(row.metadataJson || "{}"))); } catch { return {}; } })(), createdAt: new Date(row.createdAt).toISOString() })),
-      ...boostRows.map(row => ({ id: `boost-${row.id}`, type: "boost_activation", status: row.status, reference: `BOOST-${row.id}`, details: { bonusThs: String(row.bonusThs), startedAt: new Date(row.startedAt).toISOString(), endsAt: new Date(row.endsAt).toISOString(), cycleStart: new Date(row.cycleStart).toISOString() }, createdAt: new Date(row.startedAt).toISOString() })),
+      ...boostRows.map(row => ({ id: `boost-${row.id}`, type: "boost_activation", status: row.status === "active" && new Date(row.endsAt).getTime() <= Date.now() ? "expired" : row.status, reference: `BOOST-${row.id}`, details: { bonusThs: String(row.bonusThs), startedAt: new Date(row.startedAt).toISOString(), endsAt: new Date(row.endsAt).toISOString(), cycleStart: new Date(row.cycleStart).toISOString() }, createdAt: new Date(row.startedAt).toISOString() })),
     ];
     return events.sort((a,b)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime()).slice(0,100);
   });
@@ -524,7 +544,7 @@ async function calculateInterval(conn: Db, userId: number, start: Date, end: Dat
   let weightedBase = new Decimal(0); let weightedBoost = new Decimal(0); let weightedRate = new Decimal(0); let creditedSeconds = 0;
   for (let i=0;i<sorted.length-1;i++) {
     const from = new Date(sorted[i]); const to = new Date(sorted[i+1]);
-    const seconds = Math.max(0, Math.floor((to.getTime()-from.getTime())/1000));
+    const seconds = Math.max(0, (to.getTime()-from.getTime())/1000);
     if (!seconds) continue;
     const middle = new Date(from.getTime() + Math.floor((to.getTime()-from.getTime())/2));
     const config = await loadMiningConfig(conn, middle);
@@ -538,7 +558,7 @@ async function calculateInterval(conn: Db, userId: number, start: Date, end: Dat
     weightedBase = weightedBase.plus(base.times(seconds)); weightedBoost = weightedBoost.plus(boost.times(seconds)); creditedSeconds += seconds;
     weightedRate = weightedRate.plus(decimal(rate).times(seconds));
   }
-  let tokenAmount = new Decimal(calculateMiningReward(rewardSegments.map(segment=>({ baseThs:segment.baseThs.toString(),boostThs:segment.boostThs.toString(),rewardTokensPerThsHour:segment.rate,elapsedSeconds:Math.min(60,Math.max(0,Math.floor((segment.end.getTime()-segment.start.getTime())/1000))) }))));
+  let tokenAmount = new Decimal(calculateMiningReward(rewardSegments.map(segment=>({ baseThs:segment.baseThs.toString(),boostThs:segment.boostThs.toString(),rewardTokensPerThsHour:segment.rate,elapsedSeconds:Math.min(60,Math.max(0,(segment.end.getTime()-segment.start.getTime())/1000)) }))));
   const config = await loadMiningConfig(conn, end);
   if (accountActive && config.globalEnabled && decimal(config.dailyRewardCapTokens).gt(0)) {
     const [dailyRows] = await conn.query<any[]>(`SELECT COALESCE(SUM(tokenAmount),0) total FROM mining_reward_events WHERE userId=? AND intervalStart>=UTC_DATE()`, [userId]);

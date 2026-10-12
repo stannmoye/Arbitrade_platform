@@ -29,7 +29,7 @@ function positiveDecimal(value: string | number, label: string, allowZero = fals
 export function calculateMiningReward(segments: MiningRewardSegment[]) {
   if (!segments.length) return new Decimal(0).toFixed(TOKEN_SCALE);
   const total = segments.reduce((sum, segment) => {
-    if (!Number.isInteger(segment.elapsedSeconds) || segment.elapsedSeconds < 0 || segment.elapsedSeconds > 60) {
+    if (!Number.isFinite(segment.elapsedSeconds) || segment.elapsedSeconds < 0 || segment.elapsedSeconds > 60) {
       throw new Error("Mining segments must be between zero and sixty seconds");
     }
     const base = positiveDecimal(segment.baseThs, "Base hash power", true);
@@ -88,7 +88,7 @@ export function getAnchoredBoostCycle(now: Date, cycleSeconds: number) {
 export function overlapSeconds(start: Date, end: Date, activeStart?: Date | null, activeEnd?: Date | null) {
   const from = Math.max(start.getTime(), activeStart?.getTime() ?? start.getTime());
   const to = Math.min(end.getTime(), activeEnd?.getTime() ?? end.getTime());
-  return Math.max(0, Math.floor((to - from) / 1000));
+  return Math.max(0, (to - from) / 1000);
 }
 
 export function isQuoteFresh(observedAt: Date, now: Date, maxAgeSeconds: number) {
