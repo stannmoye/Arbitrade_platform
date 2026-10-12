@@ -1,14 +1,30 @@
 import Decimal from "decimal.js";
 import {
-  Db, MiningError, amountString, assertMiningAsset, assetScale, createMiningLedgerTransaction, createMiningNotification,
-  decimal, ensureMiningCheckpoint, getMiningAssetRate, inMiningTransaction, loadMiningConfig, postMiningLedgerEntries,
-  requestKey, writeMiningAudit, withMiningConnection,
+  Db, MiningError, amountString, assertMiningAsset, assetScale, beginMiningIdempotency, createMiningLedgerTransaction, createMiningNotification,
+  decimal, ensureMiningCheckpoint, finishMiningIdempotency, getMiningAssetRate, inMiningTransaction, loadMiningConfig, postMiningLedgerEntries,
+  requestKey, requireActiveMiningAccount, writeMiningAudit, withMiningConnection,
 } from "./mining-store";
 import { refreshMarketData } from "./marketSync";
 
 const DISCLOSURE_TERMS = (text: string) => /simulat|simulation/i.test(text) && /(not withdrawable|non[- ]withdrawable|no cash payout|not a cash payout|no real payout)/i.test(text);
 const byDate = (value: unknown) => value ? new Date(value as string | Date).toISOString() : null;
 const stringDecimal = (value: unknown) => decimal(value).toString();
+
+function assertSandboxMiningDatabase() {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) throw new MiningError("No-charge mining grants are restricted to the isolated sandbox database");
+  try {
+    const url = new URL(raw);
+    const database = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+    const loopback = ["127.0.0.1", "localhost", "::1"].includes(url.hostname.toLowerCase());
+    if (url.protocol !== "mysql:" || !loopback || database !== "arbitrade_sandbox") {
+      throw new MiningError("No-charge mining grants are restricted to the isolated sandbox database");
+    }
+  } catch (error) {
+    if (error instanceof MiningError) throw error;
+    throw new MiningError("No-charge mining grants are restricted to the isolated sandbox database");
+  }
+}
 
 function requiredReason(reason: string, label = "Reason") {
   const value = String(reason || "").trim();
@@ -137,6 +153,56 @@ export async function setMiningPackageStatus(adminId: number, input: {packageId:
     await conn.execute(`UPDATE mining_packages SET status=?,updatedAt=UTC_TIMESTAMP(3) WHERE id=?`,[input.status,input.packageId]);
     await writeMiningAudit(conn,{actorUserId:adminId,action:`mining.package.${input.status}`,entityType:"mining_package",entityId:String(input.packageId),reason,metadata:{code:rows[0].code,previousStatus:rows[0].status,status:input.status}});
     return {packageId:input.packageId,status:input.status};
+  }));
+}
+
+export async function grantSandboxMiningPackage(adminId:number,input:{userId:number;packageVersionId:number;reason:string;idempotencyKey:string}) {
+  assertSandboxMiningDatabase();
+  const reason=requiredReason(input.reason,"Grant reason");
+  const key=requestKey("mining-admin-package-grant",adminId,input.idempotencyKey);
+  return withMiningConnection(async conn=>inMiningTransaction(conn,async()=>{
+    const prior=await beginMiningIdempotency(conn,adminId,key,"mining.admin.package.grant");
+    if(prior)return prior;
+    const [actorRows]=await conn.query<any[]>(`SELECT role FROM users WHERE id=? LIMIT 1`,[adminId]);
+    if(actorRows[0]?.role!=="admin")throw new MiningError("Only an administrator can grant a sandbox Mining package");
+    const [targetRows]=await conn.query<any[]>(`SELECT id,email,role FROM users WHERE id=? FOR UPDATE`,[input.userId]);
+    const target=targetRows[0];
+    if(!target||target.role!=="admin")throw new MiningError("This sandbox grant is restricted to an administrator account");
+    await requireActiveMiningAccount(conn,input.userId);
+
+    const now=new Date();
+    const config=await loadMiningConfig(conn,now);
+    if(!config.globalEnabled||!decimal(config.rewardTokensPerThsHour).gt(0))throw new MiningError("Mining simulation must be enabled before granting the demo package");
+    const [packageRows]=await conn.query<any[]>(`SELECT p.id packageId,p.code,p.name,p.status packageStatus,p.currentVersionId,
+        v.id packageVersionId,v.version,v.versionStatus,v.priceAmount,v.priceAsset,v.baseThs,v.boostBonusThs,v.expirySeconds,v.termsText,v.effectiveAt,v.maxPerCustomer
+      FROM mining_packages p JOIN mining_package_versions v ON v.packageId=p.id WHERE v.id=? FOR UPDATE`,[input.packageVersionId]);
+    const product=packageRows[0];
+    if(!product||product.packageStatus!=="published"||product.versionStatus!=="published"||Number(product.currentVersionId)!==Number(product.packageVersionId)||!product.effectiveAt||new Date(product.effectiveAt).getTime()>now.getTime())throw new MiningError("The selected Mining package version is not currently published");
+    if(product.code!=="SANDBOX_STARTER_24H"||String(product.priceAsset)!=="USD"||!decimal(product.priceAmount).eq("50")||!decimal(product.baseThs).eq("1")||Number(product.expirySeconds)!==86_400||!DISCLOSURE_TERMS(String(product.termsText||"")))throw new MiningError("Only the published $50, 1 TH/s, 24-hour Starter Miner Sandbox Demo is eligible for this no-charge grant");
+
+    const [activeRows]=await conn.query<any[]>(`SELECT id FROM mining_customer_packages WHERE userId=? AND status IN ('active','replaced') AND startsAt<=?
+      AND (expiresAt IS NULL OR expiresAt>?) AND (endedAt IS NULL OR endedAt>?) LIMIT 1 FOR UPDATE`,[input.userId,now,now,now]);
+    if(activeRows.length)throw new MiningError("The admin account already has active Mining capacity; no additional package was granted");
+    if(Number(product.maxPerCustomer)>0){
+      const [countRows]=await conn.query<any[]>(`SELECT COUNT(*) total FROM mining_customer_packages WHERE userId=? AND packageId=? AND status<>'cancelled'`,[input.userId,product.packageId]);
+      if(Number(countRows[0]?.total||0)>=Number(product.maxPerCustomer))throw new MiningError("This package has reached its per-account grant limit");
+    }
+
+    await ensureMiningCheckpoint(conn,input.userId,now);
+    const expiresAt=new Date(now.getTime()+Number(product.expirySeconds)*1000);
+    const termsSnapshot=`${String(product.termsText)}\n\nSANDBOX GRANT: No wallet debit or payment was made. This entitlement is simulation-only and provides no cash payout.`;
+    const [inserted]=await conn.execute<any>(`INSERT INTO mining_customer_packages
+      (userId,packageId,packageVersionId,acquisitionType,status,purchasedAt,startsAt,expiresAt,baseThsSnapshot,boostBonusThsSnapshot,priceAmount,priceAsset,paymentAmount,paymentAsset,quoteId,ledgerTransactionId,idempotencyKey,termsSnapshot)
+      VALUES (?,?,?,'admin_grant','active',?,?,?,?,?,?,?,?,?,NULL,NULL,?,?)`,[
+      input.userId,Number(product.packageId),Number(product.packageVersionId),now,now,expiresAt,String(product.baseThs),String(product.boostBonusThs),String(product.priceAmount),String(product.priceAsset),"0","USD",key,termsSnapshot,
+    ]);
+    const entitlementId=Number(inserted.insertId);
+    const grantReference=`SBX-GRANT-${input.userId}-${entitlementId}`;
+    await writeMiningAudit(conn,{actorUserId:adminId,action:"mining.package.admin_granted",entityType:"mining_customer_package",entityId:String(entitlementId),reason,reference:grantReference,metadata:{userId:input.userId,email:String(target.email),packageId:Number(product.packageId),packageVersionId:Number(product.packageVersionId),packageCode:String(product.code),listedPrice:String(product.priceAmount),priceAsset:String(product.priceAsset),paymentAmount:"0",noCharge:true,simulationOnly:true,payoutsEnabled:false}});
+    await createMiningNotification(conn,input.userId,"Sandbox Mining package granted",`${String(product.name)} is active for 24 hours as a no-charge simulation grant. No wallet debit or payout was made.`);
+    const result={entitlementId,packageId:Number(product.packageId),packageVersionId:Number(product.packageVersionId),packageName:String(product.name),acquisitionType:"admin_grant",status:"active",paymentAmount:"0.00",paymentAsset:"USD",baseThs:String(product.baseThs),startsAt:now.toISOString(),expiresAt:expiresAt.toISOString(),grantReference,simulationOnly:true,noCharge:true,disclaimer:"Sandbox simulation only; no live mining, wallet debit, or cash payout."};
+    await finishMiningIdempotency(conn,key,result);
+    return result;
   }));
 }
 

@@ -19,6 +19,21 @@ describe("mining reward rules", () => {
     ])).toBe("12.50000000");
   });
 
+  it("preserves millisecond boost overlap across a full minute without losing fractional seconds", () => {
+    const intervalStart = new Date("2026-10-12T14:47:00.000Z");
+    const intervalEnd = new Date("2026-10-12T14:48:00.000Z");
+    const boostStart = new Date("2026-10-12T14:46:59.093Z");
+    const boostEnd = new Date("2026-10-12T14:47:19.093Z");
+    const boostedSeconds = overlapSeconds(intervalStart, intervalEnd, boostStart, boostEnd);
+    const baseSeconds = 60 - boostedSeconds;
+    expect(boostedSeconds).toBe(19.093);
+    expect(baseSeconds + boostedSeconds).toBe(60);
+    expect(calculateMiningReward([
+      { baseThs: "1", boostThs: "0", rewardTokensPerThsHour: "0.0390625", elapsedSeconds: baseSeconds },
+      { baseThs: "1", boostThs: "0.25", rewardTokensPerThsHour: "0.0390625", elapsedSeconds: boostedSeconds },
+    ])).toBe("0.00070283");
+  });
+
   it("rejects invalid and overlong segments instead of trusting unchecked rates", () => {
     expect(() => calculateMiningReward([{ baseThs: "-1", boostThs: "0", rewardTokensPerThsHour: "1", elapsedSeconds: 60 }])).toThrow(/non-negative/);
     expect(() => calculateMiningReward([{ baseThs: "1", boostThs: "0", rewardTokensPerThsHour: "1", elapsedSeconds: 61 }])).toThrow(/sixty seconds/);

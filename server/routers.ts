@@ -117,6 +117,7 @@ export const appRouter = router({
     refreshMiningPriceFeeds: adminProcedure.mutation(()=>miningAdmin.refreshMiningPriceFeeds()),
     miningCustomers: adminProcedure.input(z.object({query:z.string().max(120).optional(),limit:z.number().int().min(1).max(100).optional()}).optional()).query(({input})=>miningAdmin.listMiningAdminCustomers(input||{})),
     miningCustomerDetail: adminProcedure.input(z.object({userId:z.number().int().positive()})).query(({input})=>miningAdmin.getMiningAdminCustomerDetail(input.userId)),
+    grantSandboxMiningPackage: adminProcedure.input(z.object({userId:z.number().int().positive(),packageVersionId:z.number().int().positive(),reason:z.string().trim().min(10).max(2000),idempotencyKey:z.string().min(8).max(160)})).mutation(({ctx,input})=>miningAdmin.grantSandboxMiningPackage(ctx.user.id,input)),
     createMiningAdjustment: adminProcedure.input(z.object({userId:z.number().int().positive(),assetCode:z.string().min(2).max(12),amount:z.string().min(1).max(64),direction:z.enum(["credit","debit"]),reason:z.string().trim().min(10).max(2000),idempotencyKey:z.string().min(8).max(160)})).mutation(({ctx,input})=>miningAdmin.createMiningAdjustment(ctx.user.id,input)),
     miningAdjustmentQueue: adminProcedure.query(()=>miningAdmin.listMiningAdjustmentQueue()),
     resolveMiningAdjustment: adminProcedure.input(z.object({requestId:z.number().int().positive(),approve:z.boolean(),reason:z.string().trim().min(10).max(2000)})).mutation(({ctx,input})=>miningAdmin.resolveMiningAdjustment(ctx.user.id,input)),
