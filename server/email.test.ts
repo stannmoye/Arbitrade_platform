@@ -68,7 +68,9 @@ describe("email templates and encrypted outbox payloads", () => {
     expect(encrypted).not.toContain("01234567");
     expect(decryptEmailPayload(encrypted, "test-session-secret")).toEqual({ code: "01234567", body: "private" });
     const parts = encrypted.split(".");
-    parts[2] = `${parts[2]?.slice(0, -1)}A`;
+    const ciphertext = parts[2] || "";
+    const middle = Math.floor(ciphertext.length / 2);
+    parts[2] = `${ciphertext.slice(0, middle)}${ciphertext[middle] === "A" ? "B" : "A"}${ciphertext.slice(middle + 1)}`;
     expect(() => decryptEmailPayload(parts.join("."), "test-session-secret")).toThrow();
   });
 

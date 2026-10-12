@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import Decimal from "decimal.js";
-import { calculateMiningConversion, calculateMiningReward, getAnchoredBoostCycle } from "./mining-rules";
+import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, getAnchoredBoostCycle, SIMULATED_DIFFICULTY_BASELINE_THS } from "./mining-rules";
 import {
   Db, MiningError, amountString, assertMiningAsset, assetScale, beginMiningIdempotency, createMiningLedgerTransaction,
   createMiningNotification, decimal, ensureMiningCheckpoint, finishMiningIdempotency, inMiningTransaction,
@@ -13,6 +13,55 @@ const nowSql = () => new Date();
 const ceilAmount = (value: Decimal.Value, scale: number) => new Decimal(value).toDecimalPlaces(scale, Decimal.ROUND_UP);
 const floorAmount = (value: Decimal.Value, scale: number) => new Decimal(value).toDecimalPlaces(scale, Decimal.ROUND_DOWN);
 const safeJson = (value: unknown) => JSON.stringify(value, (_key, item) => item instanceof Decimal ? item.toString() : item);
+
+type MiningNetworkTelemetry = {
+  activeMiners: number;
+  hashPowerThs: string;
+  difficultyIndex: string;
+  difficultyBaselineThs: string;
+  observedAt: string;
+  simulationOnly: true;
+};
+
+const NETWORK_TELEMETRY_CACHE_MS = 15_000;
+let networkTelemetryCache: { expiresAt: number; value: MiningNetworkTelemetry } | null = null;
+
+async function getMiningNetworkTelemetry(conn: Db, at: Date): Promise<MiningNetworkTelemetry> {
+  if (networkTelemetryCache && networkTelemetryCache.expiresAt > Date.now()) return networkTelemetryCache.value;
+
+  const [rows] = await conn.query<any[]>(`SELECT COUNT(*) AS activeMiners,
+      COALESCE(SUM(activeUsers.baseThs),0) AS baseThs, COALESCE(SUM(activeUsers.boostThs),0) AS boostThs
+    FROM (
+      SELECT packageTotals.userId,packageTotals.baseThs,COALESCE(boostTotals.boostThs,0) AS boostThs
+      FROM (
+        SELECT cp.userId,SUM(cp.baseThsSnapshot) AS baseThs
+        FROM mining_customer_packages cp
+        LEFT JOIN customer_controls cc ON cc.userId=cp.userId
+        WHERE cp.status IN ('active','replaced') AND cp.startsAt<=?
+          AND (cp.expiresAt IS NULL OR cp.expiresAt>?) AND (cp.endedAt IS NULL OR cp.endedAt>?)
+          AND COALESCE(cc.accountStatus,'active')='active'
+        GROUP BY cp.userId
+      ) packageTotals
+      LEFT JOIN (
+        SELECT userId,SUM(bonusThs) AS boostThs FROM mining_boost_activations
+        WHERE status='active' AND startedAt<=? AND endsAt>?
+        GROUP BY userId
+      ) boostTotals ON boostTotals.userId=packageTotals.userId
+    ) activeUsers`, [at, at, at, at, at]);
+
+  const row = rows[0] || {};
+  const hashPower = decimal(row.baseThs || "0").plus(decimal(row.boostThs || "0"));
+  const value: MiningNetworkTelemetry = {
+    activeMiners: Number(row.activeMiners || 0),
+    hashPowerThs: hashPower.toSignificantDigits(18).toString(),
+    difficultyIndex: calculateMiningDifficultyIndex(hashPower.toString()),
+    difficultyBaselineThs: SIMULATED_DIFFICULTY_BASELINE_THS,
+    observedAt: at.toISOString(),
+    simulationOnly: true,
+  };
+  networkTelemetryCache = { expiresAt: Date.now() + NETWORK_TELEMETRY_CACHE_MS, value };
+  return value;
+}
 
 async function readWallet(conn: Db, userId: number, asset: string) {
   const [rows] = await conn.query<any[]>(`SELECT id,availableAmount,lockedAmount,pendingAmount FROM v5_wallets WHERE userId=? AND assetCode=? ORDER BY id LIMIT 2`, [userId, asset]);
@@ -280,6 +329,7 @@ export async function getCustomerMiningDashboard(userId: number) {
     const now = new Date();
     const config = await loadMiningConfig(conn, now);
     const packages = await activePackageRows(conn, userId, now);
+    const networkTelemetry = await getMiningNetworkTelemetry(conn, now);
     const baseThs = packages.reduce((sum, row) => sum.plus(decimal(row.baseThsSnapshot)), new Decimal(0));
     const [boostRows] = await conn.query<any[]>(`SELECT bonusThs,startedAt,endsAt FROM mining_boost_activations WHERE userId=? AND status='active' AND startedAt<=? AND endsAt>? ORDER BY startedAt DESC LIMIT 1`, [userId, now, now]);
     const activeBoost = boostRows[0];
@@ -305,7 +355,7 @@ export async function getCustomerMiningDashboard(userId: number) {
     } : { enabled: false, targetDenomination: "USD", minimumThreshold: config.defaultAutoConversionThreshold, version: 0, updatedAt: null };
     const status = accountStatus !== "active" ? "Account restricted" : !config.globalEnabled ? "Paused — administrator setup or maintenance" : packages.length ? "Simulated reward processing active" : "No active hash-power package";
     return {
-      serverTime: now.toISOString(), miningStatus: status, simulationOnly: true, payoutStatus: "Disabled — simulated balances are not withdrawable",
+      serverTime: now.toISOString(), miningStatus: status, simulationOnly: true, networkTelemetry, payoutStatus: "Disabled — simulated balances are not withdrawable",
       baseThs: baseThs.toString(), boostThs: boostThs.toString(), activeThs: baseThs.plus(boostThs).toString(),
       tokenName: config.tokenName, tokenSymbol: config.tokenSymbol,
       usdPerToken: decimal(1).div(config.tokenUnitsPerUsd).toSignificantDigits(18).toString(),

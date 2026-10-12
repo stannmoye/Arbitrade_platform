@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateMiningConversion, calculateMiningReward, getAnchoredBoostCycle, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
+import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, getAnchoredBoostCycle, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
 
 describe("mining reward rules", () => {
   it("uses the configured tokens per TH/s-hour formula with decimal precision", () => {
@@ -22,6 +22,19 @@ describe("mining reward rules", () => {
   it("rejects invalid and overlong segments instead of trusting unchecked rates", () => {
     expect(() => calculateMiningReward([{ baseThs: "-1", boostThs: "0", rewardTokensPerThsHour: "1", elapsedSeconds: 60 }])).toThrow(/non-negative/);
     expect(() => calculateMiningReward([{ baseThs: "1", boostThs: "0", rewardTokensPerThsHour: "1", elapsedSeconds: 61 }])).toThrow(/sixty seconds/);
+  });
+});
+
+describe("simulated network difficulty index", () => {
+  it("scales aggregate hash power against a 100 TH/s simulation reference", () => {
+    expect(calculateMiningDifficultyIndex("0")).toBe("1.00");
+    expect(calculateMiningDifficultyIndex("12.5")).toBe("1.13");
+    expect(calculateMiningDifficultyIndex("100")).toBe("2.00");
+  });
+
+  it("rejects negative hash power and a zero reference", () => {
+    expect(() => calculateMiningDifficultyIndex("-1")).toThrow(/non-negative/);
+    expect(() => calculateMiningDifficultyIndex("1", "0")).toThrow(/greater than zero/);
   });
 });
 
