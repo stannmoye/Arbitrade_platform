@@ -15,6 +15,7 @@ export type MiningConversion = {
 };
 
 const TOKEN_SCALE = 8;
+export const SIMULATED_DIFFICULTY_BASELINE_THS = "100";
 
 function positiveDecimal(value: string | number, label: string, allowZero = false) {
   const amount = new Decimal(value);
@@ -37,6 +38,16 @@ export function calculateMiningReward(segments: MiningRewardSegment[]) {
     return sum.plus(rate.times(base.plus(boost)).times(segment.elapsedSeconds).div(3600));
   }, new Decimal(0));
   return total.toDecimalPlaces(TOKEN_SCALE, Decimal.ROUND_DOWN).toFixed(TOKEN_SCALE);
+}
+
+/** A transparent simulation index: 1 + aggregate TH/s divided by a 100 TH/s reference. */
+export function calculateMiningDifficultyIndex(
+  networkHashPowerThs: string | number,
+  baselineThs: string | number = SIMULATED_DIFFICULTY_BASELINE_THS,
+) {
+  const hashPower = positiveDecimal(networkHashPowerThs, "Network hash power", true);
+  const baseline = positiveDecimal(baselineThs, "Difficulty reference");
+  return new Decimal(1).plus(hashPower.div(baseline)).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toFixed(2);
 }
 
 /** Convert a platform-token amount through its fixed internal USD reference to a quoted asset rate. */
