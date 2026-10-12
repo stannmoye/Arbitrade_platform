@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createMiningMotionSeed, MiningMotionModel, type MiningMotionSnapshot, type MotionStreamSnapshot } from "./mining-motion";
 
 type MiningCoreCanvasProps = {
   running: boolean;
@@ -8,7 +9,7 @@ type MiningCoreCanvasProps = {
   rewardPulseKey: number;
 };
 
-type MovingToken = { x0: number; y0: number; x1: number; y1: number; t: number; dur: number };
+type MovingToken = { x0: number; y0: number; x1: number; y1: number; t: number; dur: number; lift: number; sway: number };
 type CoreControls = { start: () => void; stop: () => void; draw: (now: number, animate: boolean) => void };
 
 /**
@@ -39,6 +40,8 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
     let sparks: Array<{ x: number; y: number; t: number; life: number }> = [];
     let tokens: MovingToken[] = [];
     const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const motionModel = new MiningMotionModel(createMiningMotionSeed());
+    let motionSnapshot: MiningMotionSnapshot = motionModel.snapshot();
 
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
     const roundRect = (x: number, y: number, w: number, h: number, r: number) => {
@@ -112,7 +115,7 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       ctx.globalAlpha = 1;
     };
 
-    const drawTrace = (points: number[][], time: number, phase = 0, packetColor = "rgb(80,205,224)") => {
+    const drawTrace = (points: number[][], stream: MotionStreamSnapshot | undefined, packetColor = "rgb(80,205,224)", active = true) => {
       line(points, "#274b5b", 1.15, .95);
       line(points, "#4ca8b3", .8, .55);
       const lengths: number[] = [];
@@ -122,43 +125,43 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
         lengths.push(distance);
         total += distance;
       }
-      if (!total) return;
-      const cycle = ((time * .00031 + phase) % 1 + 1) % 1;
-      for (let packet = 0; packet < 3; packet++) {
-        let distance = ((cycle + packet / 3) % 1) * total;
+      if (!total || !active || !stream || stream.intensity < .035) return;
+      const pointAt = (progress: number) => {
+        let distance = Math.max(0, Math.min(.999999, progress)) * total;
         for (let i = 0; i < lengths.length; i++) {
           if (distance <= lengths[i]) {
             const segmentProgress = distance / lengths[i];
-            const x = lerp(points[i][0], points[i + 1][0], segmentProgress);
-            const y = lerp(points[i][1], points[i + 1][1], segmentProgress);
-            const back = Math.max(0, segmentProgress - .12);
-            const tailX = lerp(points[i][0], points[i + 1][0], back);
-            const tailY = lerp(points[i][1], points[i + 1][1], back);
-            ctx.save();
-            ctx.strokeStyle = packetColor;
-            ctx.globalAlpha = .52;
-            ctx.lineWidth = 2.2;
-            ctx.beginPath(); ctx.moveTo(tailX, tailY); ctx.lineTo(x, y); ctx.stroke();
-            ctx.globalAlpha = 1;
-            ctx.shadowColor = packetColor;
-            ctx.shadowBlur = 11;
-            ctx.fillStyle = packetColor;
-            ctx.beginPath(); ctx.arc(x, y, 2.6, 0, Math.PI * 2); ctx.fill();
-            ctx.restore();
-            break;
+            return { x: lerp(points[i][0], points[i + 1][0], segmentProgress), y: lerp(points[i][1], points[i + 1][1], segmentProgress) };
           }
           distance -= lengths[i];
         }
-      }
+        return { x: points[points.length - 1][0], y: points[points.length - 1][1] };
+      };
+      stream.packets.forEach(packet => {
+        const head = pointAt(packet.progress);
+        const tail = pointAt(packet.progress - packet.direction * .075);
+        ctx.save();
+        ctx.strokeStyle = packetColor;
+        ctx.globalAlpha = .6 * packet.alpha * stream.intensity;
+        ctx.lineWidth = 1.4 + packet.size * .34;
+        ctx.beginPath(); ctx.moveTo(tail.x, tail.y); ctx.lineTo(head.x, head.y); ctx.stroke();
+        ctx.globalAlpha = packet.alpha * stream.intensity;
+        ctx.shadowColor = packetColor;
+        ctx.shadowBlur = 6 + packet.size * 2;
+        ctx.fillStyle = packetColor;
+        ctx.beginPath(); ctx.arc(head.x, head.y, packet.size, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      });
     };
 
 
-    const drawChip = (time: number) => {
+    const drawChip = (time: number, motion: MiningMotionSnapshot) => {
       const state = propsRef.current;
       const boosted = state.boosted;
       const active = state.running;
       const hashPower = Number.isFinite(state.hashPowerThs) ? Math.max(0, state.hashPowerThs) : 0;
-      const rewardCycle = Math.max(0, Math.floor((Number(state.rewardPulseKey) || 0) * 1_000_000));
+      let traceIndex = 0;
+      const trace = (points: number[][], color = "rgb(80,205,224)") => drawTrace(points, motion.streams[traceIndex++], color, active);
       const scale = Math.min(width / 730, height / 410, 1.3);
       const centerX = width * .5;
       const centerY = height * .49;
@@ -200,8 +203,8 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       }
       for (let i = 0; i < 7; i++) {
         const yy = y + 26 + i * 31;
-        drawTrace([[x - 4, yy], [x + 22, yy], [x + 22, yy + (i % 2 ? -9 : 9)], [x + 62, yy + (i % 2 ? -9 : 9)]], time, i * .12);
-        drawTrace([[x + chipWidth - 60, yy], [x + chipWidth - 22, yy], [x + chipWidth - 22, yy + (i % 2 ? 9 : -9)], [x + chipWidth + 4, yy + (i % 2 ? 9 : -9)]], time, i * .17 + .4);
+        trace([[x - 4, yy], [x + 22, yy], [x + 22, yy + (i % 2 ? -9 : 9)], [x + 62, yy + (i % 2 ? -9 : 9)]]);
+        trace([[x + chipWidth - 60, yy], [x + chipWidth - 22, yy], [x + chipWidth - 22, yy + (i % 2 ? 9 : -9)], [x + chipWidth + 4, yy + (i % 2 ? 9 : -9)]]);
       }
 
       // Central ASIC package and textured silicon die.
@@ -220,7 +223,7 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       ctx.restore();
       if (active && time > 0) {
         ctx.save(); roundRect(-78, -49, 156, 98, 4); ctx.clip();
-        const scanY = -49 + ((time * .055) % 98);
+        const scanY = -49 + motion.mix.scan * 98;
         const scan = ctx.createLinearGradient(0, scanY - 8, 0, scanY + 8);
         scan.addColorStop(0, "rgba(45,205,229,0)"); scan.addColorStop(.5, "rgba(71,229,243,.34)"); scan.addColorStop(1, "rgba(45,205,229,0)");
         ctx.fillStyle = scan; ctx.fillRect(-78, scanY - 8, 156, 16);
@@ -230,57 +233,65 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       text("CKI / SILICON ARRAY", 0, -24, 10, "#d5e1e5", "center", "600 10px ui-monospace, monospace");
       text("SHA-256 COMPUTE CORE", 0, -9, 7, "#8ca8b2", "center");
       for (let i = 0; i < 9; i++) {
-        const barWidth = 8 + Math.sin(time * .0014 + i * .8) * (boosted ? 3 : 1.5);
+        const barLevel = motion.mix.bars[i % motion.mix.bars.length];
+        const barWidth = 5 + barLevel * (boosted ? 13 : 10);
         ctx.fillStyle = active && i < 6 ? "#6fc8ce" : "#3e6672";
-        ctx.globalAlpha = .55 + Math.sin(time * .002 + i) * .18;
+        ctx.globalAlpha = .42 + barLevel * .5;
         roundRect(-43 + i * 10, -1, barWidth, 3, 1); ctx.fill();
       }
       ctx.globalAlpha = 1;
       text(boosted ? "BOOSTED SIMULATION" : active ? "WORK DISTRIBUTION ACTIVE" : "CORE STANDBY", 0, 24, 7, boosted ? "#d9bd7e" : active ? "#80b8c1" : "#7e8d95", "center");
-      const progress = active ? (time % 2800) / 2800 : 0;
+      const progress = active ? motion.mix.progress : 0;
       ctx.fillStyle = "#263c47"; roundRect(-53, 35, 106, 4, 2); ctx.fill();
       const mixGlow = ctx.createLinearGradient(-53, 0, 53, 0);
       mixGlow.addColorStop(0, boosted ? "#b98f43" : "#267c9c"); mixGlow.addColorStop(.65, boosted ? "#f5d384" : "#54e1ec"); mixGlow.addColorStop(1, "#bdfaff");
       ctx.save(); ctx.shadowColor = boosted ? "#e7bd62" : "#38d9ef"; ctx.shadowBlur = 8;
       ctx.fillStyle = mixGlow; roundRect(-53, 35, 106 * progress, 4, 2); ctx.fill(); ctx.restore();
-      const nonce = Math.floor(time / 80).toString(16).toUpperCase().padStart(6, "0").slice(-6);
+      const nonce = motion.mix.nonce.toString(16).toUpperCase().padStart(6, "0").slice(-6);
       text(`NONCE ${nonce}`, 0, 49, 5.5, "#84aebb", "center");
 
-      // Four visible work nodes cycle through intake, hashing, proof and settlement states.
-      const nodePhase = active ? Math.floor(time / 1050) % 4 : 0;
+      // Node regimes are independent semi-Markov processes coupled by workload and thermal feedback.
+      const nodeColors: Record<MiningMotionSnapshot["nodes"][number]["mode"], string> = {
+        SURGE: "#55e5f0", NOMINAL: "#71cbd3", THROTTLE: "#e3bf68", COOLING: "#57aeca", HIBERNATING: "#687a82", HANDOFF: "#57ddb4",
+      };
+      const nodeLabels: Record<MiningMotionSnapshot["nodes"][number]["mode"], string> = {
+        SURGE: "FULL POWER", NOMINAL: "NORMAL", THROTTLE: "LOW POWER", COOLING: "COOLING", HIBERNATING: "HIBERNATING", HANDOFF: "PASSING WORK",
+      };
       const nodes = [
-        { x: -210, y: -83, id: "NODE A4A7", sub: "WORK INTAKE" },
-        { x: 210, y: -83, id: "NODE 12C2", sub: "HASH MIX" },
-        { x: -210, y: 91, id: "NODE 38D1", sub: "PROOF VERIFY" },
-        { x: 210, y: 91, id: "NODE 71F9", sub: "VAULT LEDGER" },
+        { motionIndex: 0, x: -210, y: -83, id: "NODE A4A7", sub: "WORK INTAKE" },
+        { motionIndex: 2, x: 210, y: -83, id: "NODE 12C2", sub: "HASH MIX" },
+        { motionIndex: 1, x: -210, y: 91, id: "NODE 38D1", sub: "PROOF VERIFY" },
+        { motionIndex: 3, x: 210, y: 91, id: "NODE 71F9", sub: "VAULT LEDGER" },
       ];
-      nodes.forEach((node, i) => {
-        const isCurrent = active && i === nodePhase;
-        const isRecent = active && i === (nodePhase + 3) % 4;
-        const phaseProgress = (time * .00042 + i * .23) % 1;
+      nodes.forEach(node => {
+        const engineNode = motion.nodes[node.motionIndex];
+        const isCurrent = active && (engineNode.mode === "SURGE" || engineNode.mode === "HANDOFF");
+        const isRecent = active && engineNode.mode === "HANDOFF";
+        const nodeColor = active ? nodeColors[engineNode.mode] : "#526a75";
         ctx.save();
         ctx.fillStyle = "#0a1721"; roundRect(node.x - 52, node.y - 22, 104, 44, 6); ctx.fill();
-        ctx.shadowColor = isCurrent ? "#42d9f0" : "#000"; ctx.shadowBlur = isCurrent ? 12 : 0;
-        ctx.strokeStyle = isCurrent ? "#73eafa" : "#3c606c"; ctx.lineWidth = isCurrent ? 1.5 : .9;
+        ctx.shadowColor = isCurrent ? nodeColor : "#000"; ctx.shadowBlur = isCurrent ? 12 : 0;
+        ctx.strokeStyle = isCurrent ? nodeColor : "#3c606c"; ctx.lineWidth = isCurrent ? 1.5 : .9;
         roundRect(node.x - 52, node.y - 22, 104, 44, 6); ctx.stroke(); ctx.shadowBlur = 0;
         const ledX = node.x - 39, ledY = node.y - 8;
-        glow(ledX, ledY, isCurrent ? 14 : 8, isCurrent ? "rgb(69,222,242)" : "rgb(91,178,191)", isCurrent ? .32 : .1);
-        ctx.save(); ctx.translate(ledX, ledY); ctx.rotate(time * .0035 * (i % 2 ? -1 : 1));
+        glow(ledX, ledY, isCurrent ? 14 : 8, isCurrent ? "rgb(69,222,242)" : "rgb(91,178,191)", active ? .12 + engineNode.power * .3 : .06);
+        ctx.save(); ctx.translate(ledX, ledY); ctx.rotate(engineNode.angle);
         ctx.strokeStyle = isCurrent ? "rgba(108,233,246,.9)" : "rgba(81,153,169,.55)"; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.arc(0, 0, 5.3, -.7, 1.35); ctx.stroke();
-        ctx.fillStyle = isCurrent ? "#ffe08a" : isRecent ? "#3fe1b4" : active ? "#79cbd2" : "#526a75";
+        ctx.fillStyle = isCurrent ? "#ffe08a" : isRecent ? "#3fe1b4" : nodeColor;
         ctx.beginPath(); ctx.arc(0, 0, 2.7, 0, Math.PI * 2); ctx.fill(); ctx.restore();
         text(node.id, node.x - 31, node.y - 5, 7.5, isCurrent ? "#f2fdff" : "#d8e3e7");
         text(node.sub, node.x - 31, node.y + 7, 5.7, "#7c9aa7");
-        const mode = !active ? "STANDBY" : isCurrent ? ["ALLOCATING", "HASHING", "VERIFYING", "POSTING"][i] : isRecent ? "ACK / RETURN" : "QUEUED";
-        text(mode, node.x + 43, node.y - 5, 4.4, isCurrent ? "#9ff5fb" : isRecent ? "#78e7c2" : "#617f8d", "right");
+        const mode = !active ? "STANDBY" : nodeLabels[engineNode.mode];
+        text(mode, node.x + 43, node.y - 5, 4.4, nodeColor, "right");
+        text(`Q${Math.round(engineNode.queue * 9)} · ${Math.round(engineNode.power * 100)}%`, node.x + 43, node.y + 7, 4.1, "#8fb4bd", "right");
         ctx.fillStyle = "#213945"; roundRect(node.x - 40, node.y + 14, 80, 2.5, 1); ctx.fill();
-        const workProgress = !active ? .12 : isCurrent ? phaseProgress : isRecent ? 1 : .18 + (phaseProgress * .22);
-        const nodeFill = isCurrent ? "#7beaf0" : isRecent ? "#52d8ad" : "#5db9c2";
+        const workProgress = active ? Math.max(.025, engineNode.progress) : .12;
+        const nodeFill = isRecent ? "#52d8ad" : nodeColor;
         ctx.save(); ctx.shadowColor = nodeFill; ctx.shadowBlur = isCurrent ? 6 : 2;
         ctx.fillStyle = nodeFill; roundRect(node.x - 40, node.y + 14, 80 * workProgress, 2.5, 1); ctx.fill(); ctx.restore();
         if (active) {
-          const sweepX = node.x - 45 + ((time * .09 + i * 23) % 90);
+          const sweepX = node.x - 45 + engineNode.progress * 90;
           ctx.fillStyle = isCurrent ? "rgba(182,251,255,.85)" : "rgba(122,215,229,.55)";
           ctx.fillRect(sweepX, node.y - 14, 1.2, 27);
         }
@@ -290,7 +301,7 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
         [[-158, -83], [-128, -83], [-128, -42], [-83, -42]], [[158, -83], [128, -83], [128, -42], [83, -42]],
         [[-158, 91], [-128, 91], [-128, 42], [-83, 42]], [[158, 91], [128, 91], [128, 42], [83, 42]],
       ];
-      paths.forEach((path, i) => drawTrace(path, time, i * .23, i === 3 ? "rgb(240,195,105)" : "rgb(91,219,237)"));
+      paths.forEach((path, i) => trace(path, i === 3 ? "rgb(240,195,105)" : "rgb(91,219,237)"));
 
       // Seven high-visibility cooling rotors, with speed and glow tied to engine state.
       ctx.fillStyle = "#09151e"; roundRect(-164, 113, 328, 36, 6); ctx.fill();
@@ -298,21 +309,20 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       for (let i = 0; i < 7; i++) {
         const fanX = -132 + i * 44;
         const fanTint = i % 2 ? "rgb(52,189,219)" : "rgb(93,218,229)";
-        glow(fanX, 131, 20, fanTint, active ? .18 : .045);
+        glow(fanX, 131, 20, fanTint, active ? .08 + motion.power.fanRpm[i] / 20_000 : .045);
         ctx.strokeStyle = active ? "#4da9bc" : "#385a66"; ctx.lineWidth = 1.2;
         ctx.beginPath(); ctx.arc(fanX, 131, 15, 0, Math.PI * 2); ctx.stroke();
         ctx.strokeStyle = "rgba(119,231,240,.48)"; ctx.lineWidth = .8;
         ctx.beginPath(); ctx.arc(fanX, 131, 11.5, -1.5, .9); ctx.stroke();
         ctx.fillStyle = "#112934"; ctx.beginPath(); ctx.arc(fanX, 131, 10.5, 0, Math.PI * 2); ctx.fill();
         ctx.save(); ctx.translate(fanX, 131);
-        const spin = time * .027 * (i % 2 ? -1 : 1) * (boosted ? 1.22 : 1);
-        ctx.rotate(spin);
+        ctx.rotate(motion.power.fanAngles[i]);
         ctx.strokeStyle = "rgba(134,238,246,.42)"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, 0, 8.2, -.65, 1.1); ctx.stroke();
         for (let blade = 0; blade < 7; blade++) {
           ctx.save(); ctx.rotate(blade * Math.PI * 2 / 7);
           const bladeGrad = ctx.createLinearGradient(0, -2, 0, -12);
           bladeGrad.addColorStop(0, "#b1e7e7"); bladeGrad.addColorStop(.35, "#55afbd"); bladeGrad.addColorStop(1, "#176080");
-          ctx.fillStyle = bladeGrad; ctx.globalAlpha = active ? .95 : .64;
+          ctx.fillStyle = bladeGrad; ctx.globalAlpha = active ? .58 + .4 * Math.min(1, motion.power.fanRpm[i] / 3_850) : .64;
           ctx.beginPath(); ctx.moveTo(-1.3, -1); ctx.quadraticCurveTo(-5, -8, -1, -13); ctx.quadraticCurveTo(4, -10, 2, -2); ctx.closePath(); ctx.fill();
           ctx.restore();
         }
@@ -328,7 +338,7 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       glow(0, -48, 24, "rgb(79,220,195)", active ? .29 : .08);
       ctx.strokeStyle = "rgba(112,232,220,.68)"; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(0, -48, 35, 0, Math.PI * 2); ctx.stroke();
-      ctx.save(); ctx.translate(0, -48); ctx.rotate(time * .0025);
+      ctx.save(); ctx.translate(0, -48); ctx.rotate(motion.power.turbineAngle);
       for (let blade = 0; blade < 3; blade++) {
         ctx.save(); ctx.rotate(blade * Math.PI * 2 / 3);
         const bladeGrad = ctx.createLinearGradient(0, -2, 0, -34);
@@ -339,12 +349,12 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       }
       ctx.shadowBlur = 0; ctx.fillStyle = "#ecfff7"; ctx.beginPath(); ctx.arc(0, 0, 5.3, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = "#51cbbf"; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
-      const turbinePhase = (time * .0008) % 1;
+      const turbinePhase = motion.streams[traceIndex]?.packets[0]?.progress ?? .5;
       glow(0, -41 + turbinePhase * 34, 9, "rgb(81,235,202)", active ? .5 : .12);
       text("WIND TURBINE", 0, 18, 6.2, "#9debdc", "center");
       text("SIM POWER INPUT", 0, 27, 5.1, "#719caa", "center");
       ctx.restore();
-      drawTrace([[-300, 104], [-300, 145], [-80, 145], [-80, 163]], time, .17, "rgb(74,227,190)");
+      trace([[-300, 104], [-300, 145], [-80, 145], [-80, 163]], "rgb(74,227,190)");
 
       // Transient sparks and token particles emitted only by actual reward-total changes.
       // Transient sparks and token particles emitted only by actual reward-total changes.
@@ -359,8 +369,9 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       });
       tokens.forEach(token => {
         const progress = Math.min(1, token.t / token.dur);
-        const tokenX = lerp(token.x0, token.x1, progress);
-        const tokenY = lerp(token.y0, token.y1, progress) - Math.sin(progress * Math.PI) * 28;
+        const eased = progress * progress * (3 - 2 * progress);
+        const tokenX = lerp(token.x0, token.x1, eased) + Math.sin(progress * Math.PI) * token.sway;
+        const tokenY = lerp(token.y0, token.y1, eased) - Math.sin(progress * Math.PI) * token.lift;
         ctx.save(); ctx.globalAlpha = Math.sin(progress * Math.PI) * .95;
         ctx.strokeStyle = "rgba(238,198,111,.66)"; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(tokenX - 15, tokenY + 2); ctx.lineTo(tokenX - 4, tokenY); ctx.stroke();
         glow(tokenX, tokenY, 21, "rgb(236,192,93)", .34);
@@ -376,22 +387,26 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       text(`HASH ${hashPower.toFixed(2)} TH/s`, -175, -175, 7, "#83a8b4");
       text(active ? (boosted ? "BOOST ACTIVE" : "ENGINE ACTIVE") : "ENGINE STANDBY", -45, -175, 7, boosted ? "#d8b46b" : "#83a8b4");
       text("SIMULATION", 95, -175, 7, "#83a8b4");
-      for (let i = 0; i < 24; i++) { ctx.fillStyle = i < (active ? boosted ? 21 : 17 : 3) ? "#6ebfc3" : "#263f4b"; ctx.globalAlpha = .45 + .45 * Math.sin(time * .002 + i * .3); ctx.fillRect(225 + i * 4.1, -182, 2, 7); }
+      for (let i = 0; i < 24; i++) { const node = motion.nodes[i % motion.nodes.length]; const lit = active && (i / 24 < motion.power.asic || node.mode === "SURGE"); ctx.fillStyle = lit ? "#6ebfc3" : "#263f4b"; ctx.globalAlpha = lit ? .46 + node.chaos * .48 : .42; ctx.fillRect(225 + i * 4.1, -182, 2, 7); }
       ctx.globalAlpha = 1;
 
       // Work queue and settlement ledger: each lane scans, carries packets and changes phase.
       ctx.fillStyle = "#09151f"; roundRect(-354, -148, 86, 116, 7); ctx.fill();
       ctx.strokeStyle = "#3a6673"; roundRect(-354, -148, 86, 116, 7); ctx.stroke();
       text("WORK QUEUE", -342, -133, 7.2, "#a8e5eb");
-      text(active ? "6 TASKS · LIVE SIM" : "QUEUE · HOLD", -342, -121, 4.8, "#7192a0");
+      const queuedTasks = Math.round(motion.nodes.reduce((sum, node) => sum + node.queue, 0) * 8);
+      text(active ? `${queuedTasks} TASKS · LIVE SIM` : "QUEUE · HOLD", -342, -121, 4.8, "#7192a0");
       for (let i = 0; i < 6; i++) {
         const y = -108 + i * 12;
-        const lanePhase = active ? (time * .00058 + i * .19) % 1 : .12;
+        const lane = motion.queueLanes[i];
+        const laneNode = motion.nodes[i % motion.nodes.length];
+        const lanePhase = active ? lane.progress : .12;
+        const busy = active && (laneNode.mode === "SURGE" || laneNode.mode === "HANDOFF" || lane.fill > .65);
         ctx.fillStyle = "#1b303b"; roundRect(-342, y, 61, 3.8, 1.7); ctx.fill();
         const laneGrad = ctx.createLinearGradient(-342, 0, -281, 0);
-        laneGrad.addColorStop(0, i === nodePhase ? "#167d99" : "#245466"); laneGrad.addColorStop(1, i === nodePhase ? "#6ee9ef" : "#3d9aaa");
-        ctx.save(); ctx.shadowColor = i === nodePhase ? "#46ddef" : "#20758a"; ctx.shadowBlur = i === nodePhase ? 6 : 2;
-        ctx.fillStyle = laneGrad; roundRect(-342, y, 61 * (.3 + lanePhase * .68), 3.8, 1.7); ctx.fill(); ctx.restore();
+        laneGrad.addColorStop(0, busy ? "#167d99" : "#245466"); laneGrad.addColorStop(1, busy ? "#6ee9ef" : "#3d9aaa");
+        ctx.save(); ctx.shadowColor = busy ? "#46ddef" : "#20758a"; ctx.shadowBlur = busy ? 6 : 2;
+        ctx.fillStyle = laneGrad; roundRect(-342, y, 61 * lane.fill, 3.8, 1.7); ctx.fill(); ctx.restore();
         const packetX = -342 + 61 * lanePhase;
         for (let tail = 2; tail >= 0; tail--) {
           const tx = packetX - tail * 4.5;
@@ -402,7 +417,7 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
         }
         ctx.globalAlpha = 1; ctx.shadowBlur = 0;
       }
-      text(`MIX SEQ ${Math.floor(time / 120).toString(16).toUpperCase().padStart(4, "0").slice(-4)}`, -342, -36, 5.2, "#7ed9dd");
+      text(`MIX SEQ ${motion.mix.nonce.toString(16).toUpperCase().padStart(4, "0").slice(-4)}`, -342, -36, 5.2, "#7ed9dd");
 
       ctx.fillStyle = "#09151f"; roundRect(268, -148, 86, 116, 7); ctx.fill();
       ctx.strokeStyle = "#5d5944"; roundRect(268, -148, 86, 116, 7); ctx.stroke();
@@ -411,13 +426,14 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       const settlementRows = ["WORK ROUTED", "HASH VERIFIED", "CKI MINT QUEUE", "VAULT / LEDGER"];
       for (let i = 0; i < 4; i++) {
         const y = -106 + i * 17;
-        const liveRow = active && i === (nodePhase + 1) % 4;
+        const stage = motion.settlement[i];
+        const liveRow = active && (stage.progress > .7 || stage.holding);
         ctx.fillStyle = "#132833"; roundRect(280, y, 60, 12, 3); ctx.fill();
         ctx.strokeStyle = liveRow ? "#61d7dc" : "#294957"; ctx.lineWidth = liveRow ? .9 : .5; roundRect(280, y, 60, 12, 3); ctx.stroke();
-        const rowProgress = active ? (time * .00042 + i * .21) % 1 : .08;
+        const rowProgress = active ? stage.progress : .08;
         ctx.fillStyle = liveRow ? "#d8bd74" : "#367f8c"; roundRect(283, y + 3, 47 * rowProgress, 6, 2); ctx.fill();
-        const packetX = 283 + 47 * ((rowProgress + .22) % 1);
-        glow(packetX, y + 6, 7, liveRow ? "rgb(241,199,108)" : "rgb(77,194,210)", liveRow ? .32 : .16);
+        const packetX = 283 + 47 * rowProgress;
+        glow(packetX, y + 6, 7, liveRow ? "rgb(241,199,108)" : "rgb(77,194,210)", stage.intensity * (liveRow ? .5 : .3));
         text(settlementRows[i], 310, y + 8, 4.2, liveRow ? "#fff0bd" : "#a3c0c5");
       }
 
@@ -434,14 +450,13 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
         ctx.strokeStyle = i === 0 ? "#4c827c" : "#345361"; roundRect(railX, 163, 79, 17, 3); ctx.stroke();
         text(railLabels[i], railX + 39, 171, 5.2, i === 0 ? "#9debdc" : i === 2 ? "#ead48f" : "#91dce5", "center");
         ctx.fillStyle = "#203d49"; roundRect(railX + 7, 175, 65, 2, 1); ctx.fill();
-        const load = active ? .48 + .46 * ((Math.sin(time * .0013 + i * .9) + 1) / 2) : .08;
+        const load = active ? [motion.power.wind, motion.power.regulator, motion.power.asic][i] : .08;
         ctx.save(); ctx.shadowColor = color; ctx.shadowBlur = 5; ctx.fillStyle = color; roundRect(railX + 7, 175, 65 * load, 2, 1); ctx.fill(); ctx.restore();
         if (i < 2) {
           line([[railX + 80, 171], [railX + 89, 171]], "#5b9ba3", 1.2, .95);
-          for (let packet = 0; packet < 3; packet++) {
-            const q = (time * .00075 + packet / 3 + i * .37) % 1;
+          for (const q of motion.powerPackets[i]) {
             const px = railX + 80 + q * 9;
-            glow(px, 171, 7, `rgb(${i ? "100,224,244" : "83,235,197"})`, .4);
+            glow(px, 171, 7, `rgb(${i ? "100,224,244" : "83,235,197"})`, .16 + load * .42);
             ctx.fillStyle = i ? "#b6f8ff" : "#bdffdf"; ctx.beginPath(); ctx.arc(px, 171, 1.7, 0, Math.PI * 2); ctx.fill();
           }
         }
@@ -452,8 +467,8 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       ctx.strokeStyle = "#3d7380"; roundRect(-354, -20, 86, 52, 6); ctx.stroke();
       text("HASH MIX", -342, -7, 6.4, "#9bdce4");
       text(`${hashPower.toFixed(2)} TH/s`, -342, 7, 7.4, "#e9f8fb");
-      text(active ? `SIM / ${Math.floor(time / 90).toString(16).toUpperCase().slice(-4)}` : "NO PACKAGE", -342, 20, 4.8, "#78b8c2");
-      ctx.save(); ctx.translate(-283, 5); ctx.rotate(time * .0035);
+      text(active ? `SIM / ${motion.mix.nonce.toString(16).toUpperCase().slice(-4)}` : "NO PACKAGE", -342, 20, 4.8, "#78b8c2");
+      ctx.save(); ctx.translate(-283, 5); ctx.rotate(motion.mix.angle);
       ctx.strokeStyle = active ? "#5be2ec" : "#49616b"; ctx.lineWidth = 1.5; ctx.shadowColor = "#29d5ea"; ctx.shadowBlur = active ? 7 : 0;
       ctx.beginPath(); ctx.rect(-6, -6, 12, 12); ctx.stroke(); ctx.rotate(Math.PI / 4); ctx.strokeRect(-4.4, -4.4, 8.8, 8.8);
       ctx.fillStyle = "#dcfbff"; ctx.beginPath(); ctx.arc(0, 0, 1.8, 0, Math.PI * 2); ctx.fill(); ctx.restore();
@@ -463,12 +478,12 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       text("VAULT SYNC", 280, -7, 6.2, "#e9d394");
       text(active ? "SECURE / SIM" : "STANDBY", 280, 7, 6.2, "#f4e5b7");
       text("LEDGER ROUTE", 280, 20, 4.8, "#b5a67c");
-      ctx.save(); ctx.translate(339, 4); ctx.rotate(-time * .003);
+      ctx.save(); ctx.translate(339, 4); ctx.rotate(-motion.vaultAngle);
       ctx.strokeStyle = active ? "#e2c270" : "#6a6656"; ctx.lineWidth = 1.4; ctx.shadowColor = "#f1c85e"; ctx.shadowBlur = active ? 7 : 0;
       ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 1.65); ctx.stroke();
       ctx.fillStyle = "#f5e6b4"; ctx.beginPath(); ctx.arc(0, -7, 1.8, 0, Math.PI * 2); ctx.fill(); ctx.restore();
 
-      for (let i = 0; i < 4; i++) { const y = -8 + i * 8; drawTrace([[-268, y], [-258, y], [-258, y + (i % 2 ? 4 : -4)], [-244, y + (i % 2 ? 4 : -4)]], time, i * .21); drawTrace([[244, y], [258, y], [258, y + (i % 2 ? -4 : 4)], [268, y + (i % 2 ? -4 : 4)]], time, i * .24 + .4); }
+      for (let i = 0; i < 4; i++) { const y = -8 + i * 8; trace([[-268, y], [-258, y], [-258, y + (i % 2 ? 4 : -4)], [-244, y + (i % 2 ? 4 : -4)]]); trace([[244, y], [258, y], [258, y + (i % 2 ? -4 : 4)], [268, y + (i % 2 ? -4 : 4)]]); }
       ctx.restore();
       ctx.restore();
     };
@@ -477,17 +492,20 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
       const state = propsRef.current;
       const rewardKey = Math.max(0, Number(state.rewardPulseKey) || 0);
       if (rewardKey > lastRewardKey) {
-        tokens.push({ x0: width * .5, y0: height * .47, x1: width * .84, y1: height * .49, t: 0, dur: 1700 });
+        tokens.push({ x0: width * .5, y0: height * .47, x1: width * .84, y1: height * .49, t: 0, dur: motionModel.randomBetween(1_250, 2_250), lift: motionModel.randomBetween(18, 43), sway: motionModel.randomBetween(-10, 10) });
         lastRewardKey = rewardKey;
       }
-      if (animate && state.running && state.playing && !reduceMotion) {
-        const dt = lastFrame ? Math.min(50, now - lastFrame) : 16;
+      const shouldAnimate = animate && state.running && state.playing && !reduceMotion;
+      if (shouldAnimate) {
+        const dt = lastFrame ? Math.min(100, now - lastFrame) : 16;
+        motionSnapshot = motionModel.advance(dt, state.boosted, state.hashPowerThs);
         tokens.forEach(token => { token.t += dt; });
         tokens = tokens.filter(token => token.t < token.dur);
       }
       lastFrame = now;
-      drawBackground(animate && state.running && state.playing && !reduceMotion ? now : 0);
-      drawChip(animate && state.running && state.playing && !reduceMotion ? now : 0);
+      const drawTime = shouldAnimate ? now : 0;
+      drawBackground(drawTime);
+      drawChip(drawTime, motionSnapshot);
     };
 
     const resize = () => {
