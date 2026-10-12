@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Decimal from "decimal.js";
 import { trpc } from "@/lib/trpc";
-import { Activity, AlertTriangle, ArrowRight, BadgeCheck, BookOpenCheck, Check, CircleDollarSign, Clock3, Cpu, Database, FileClock, Gauge, LockKeyhole, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowRight, BadgeCheck, BookOpenCheck, Check, CircleDollarSign, Clock3, Cpu, Database, FileClock, Gauge, LockKeyhole, Pause, Play, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
+import { MiningCoreCanvas } from "./MiningCoreCanvas";
 
 const defaultTerms = "This is simulated mining-style activity for demonstration and product testing only. No physical mining hardware, pool, energy use, external hash power, investment, guaranteed return, custody, or cash payout is provided. Simulated CoinKi (CKI) balances are internal reference amounts, are not withdrawable, and cannot be redeemed. Rewards are generated only by the versioned server model and may be paused or changed prospectively by authorized administrators.";
 const defaultEconomics:any = {globalEnabled:false,boostsEnabled:true,tokenName:"CoinKi",tokenSymbol:"CKI",tokenUnitsPerUsd:"0.625",usdPerToken:"1.6",rewardTokensPerThsHour:"0",swapFeeBps:0,purchaseFeeBps:0,minSwapTokens:"1",maxSwapTokens:"1000000",defaultAutoConversionThreshold:"0",boostCycleSeconds:14400,boostDurationSeconds:300,quoteTtlSeconds:90,fiatMaxAgeSeconds:172800,cryptoMaxAgeSeconds:900,maxRateDeviationBps:5000,dailyRewardCapTokens:"0",dualApprovalThresholdUsd:"100"};
@@ -16,6 +17,8 @@ export function AdminMining(){
   const packages=trpc.adminOperations.miningPackages.useQuery(undefined,{refetchInterval:30000});
   const feeds=trpc.adminOperations.miningPriceFeeds.useQuery(undefined,{refetchInterval:30000});
   const approvals=trpc.adminOperations.miningAdjustmentQueue.useQuery(undefined,{refetchInterval:15000});
+  const personalMining=trpc.customer.mining.dashboard.useQuery(undefined,{refetchInterval:5000});
+  const [enginePlaying,setEnginePlaying]=useState(true);
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
   const [settings,setSettings]=useState<any>(defaultEconomics);
@@ -53,6 +56,11 @@ export function AdminMining(){
   const rows=packages.data||[];
   const tokenName=settings.tokenName||dashboard.data?.economics?.tokenName||"CoinKi";
   const tokenSymbol=settings.tokenSymbol||dashboard.data?.economics?.tokenSymbol||"CKI";
+  const ownMining=personalMining.data;
+  const ownActivePackage=ownMining?.packages?.find(pkg=>pkg.status==="active");
+  const ownHashPower=Number(ownMining?.activeThs||0);
+  const ownProcessing=ownMining?.miningStatus==="Simulated reward processing active"&&ownHashPower>0;
+  const ownRewardPulse=Number(ownMining?.todayTokens||0);
   const visibleCustomers=useMemo(()=>customerRows.data||[],[customerRows.data]);
   const updateSettings=(key:string,value:any)=>setSettings((old:any)=>({...old,[key]:value}));
   const setPackage=(key:string,value:any)=>setPackageForm((old:any)=>({...old,[key]:value}));
@@ -62,6 +70,28 @@ export function AdminMining(){
   return <div className="admin-mining">
     <header className="am-hero"><div><div className="am-kicker"><Cpu size={15}/> OPERATIONS CONTROL · SIMULATED MINING</div><h1>Mining operations</h1><p>Versioned economics, customer packages, price-feed readiness, approvals, and ledger controls. All Mining balances use the existing high-precision journal.</p></div><button type="button" className="am-button secondary" onClick={refreshAll}><RefreshCw size={15}/> Refresh control room</button></header>
     <div className="am-warning"><AlertTriangle size={18}/><span><strong>Simulation-only.</strong> Do not present this as physical mining, investment yield, external settlement, custody, or a withdrawable balance. Real-value launch requires independent legal/compliance and operational approval.</span></div>
+    <section className="am-panel am-personal-engine" aria-label="Administrator's simulated mining engine">
+      <div className="am-panel-heading"><div><span className="am-kicker">YOUR ADMIN ACCOUNT · LIVE SANDBOX ENTITLEMENT</span><h2>Personal mining engine</h2><p>Read-only preview of the hashpower assigned to this signed-in administrator account.</p></div><span className={`am-state ${ownActivePackage?"on":"off"}`}>{personalMining.isLoading?"LOADING":ownActivePackage?"HASHPOWER ACTIVE":"NO ACTIVE HASHPOWER"}</span></div>
+      {personalMining.error&&<div className="am-engine-error" role="alert">Personal mining status unavailable: {personalMining.error.message}</div>}
+      <div className="am-engine-preview-grid">
+        <div className="am-engine-visual" aria-label="Read-only animated mining engine preview">
+          <MiningCoreCanvas running={ownProcessing} playing={enginePlaying} boosted={Boolean(ownMining?.boost?.active)} hashPowerThs={ownHashPower} rewardPulseKey={ownRewardPulse}/>
+          <div className="am-engine-visual-overlay"><span>{ownActivePackage?.packageName||"No active package"}</span><span>{ownProcessing?"REWARD MODEL ONLINE":"SIMULATION PAUSED"}</span></div>
+        </div>
+        <aside className="am-engine-readout">
+          <div className="am-engine-power-label">YOUR ACCOUNT HASHPOWER</div>
+          <strong>{nfmt(ownHashPower,4)} <small>TH/s</small></strong>
+          <dl>
+            <div><dt>Package</dt><dd>{ownActivePackage?.packageName||(personalMining.isLoading?"Loading…":"None active")}</dd></div>
+            <div><dt>Assignment</dt><dd>{ownActivePackage?.acquisitionType==="admin_grant"?"No-charge sandbox grant":ownActivePackage?"Purchased entitlement":"—"}</dd></div>
+            <div><dt>Expires</dt><dd>{dt(ownActivePackage?.expiresAt)}</dd></div>
+            <div><dt>Reward rate</dt><dd>{ownProcessing?`${nfmt(ownMining?.rewardTokensPerThsHour,8)} CKI / TH/s / hour`:"Paused or unavailable"}</dd></div>
+          </dl>
+          <button type="button" className="am-button secondary" disabled={!ownProcessing||personalMining.isLoading} onClick={()=>setEnginePlaying(value=>!value)} aria-label={enginePlaying?"Pause engine animation":"Resume engine animation"}>{enginePlaying?<Pause size={14}/>:<Play size={14}/>} {enginePlaying?"Pause animation":"Resume animation"}</button>
+          <p>Animation control only; it does not pause server rewards or write to the ledger. CKI activity is sandbox simulation, not physical mining or a cash payout.</p>
+        </aside>
+      </div>
+    </section>
     {message&&<div className="am-message" role="status"><Check size={15}/><span>{message}</span><button onClick={()=>setMessage("")} aria-label="Dismiss">×</button></div>}{error&&<div className="am-error" role="alert"><AlertTriangle size={15}/>{error}<button onClick={()=>setError("")} aria-label="Dismiss">×</button></div>}
 
     <section className="am-kpis">{[

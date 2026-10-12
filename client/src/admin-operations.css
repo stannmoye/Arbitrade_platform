@@ -57,3 +57,26 @@
 .admin-ops-export-card small{color:#6f8b96;font-size:9px}
 @media(max-width:1120px){.admin-ops-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-ops-metrics.compact-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.admin-ops-page{padding:17px 12px}.admin-ops-head{flex-direction:column}.admin-ops-actions{width:100%}.admin-ops-metrics,.admin-ops-metrics.compact-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.admin-ops-metric{min-height:98px;padding:12px}.admin-ops-metric strong{font-size:20px}.admin-ops-panel{padding:13px}.admin-ops-meta-line{flex-direction:column}.admin-ops-export-card{grid-template-columns:38px minmax(0,1fr)}.admin-ops-export-card .admin-ops-button{grid-column:2;justify-self:start}.admin-ops-table{min-width:640px}}
+
+/* Read-only personal ASIC preview in the admin Mining control room. */
+.am-personal-engine{border-color:rgba(64,190,220,.22);background:radial-gradient(ellipse at 12% 0,rgba(0,174,232,.1),transparent 46%),linear-gradient(150deg,rgba(17,33,45,.96),rgba(6,18,29,.98))}
+.am-personal-engine .am-panel-heading{align-items:flex-start}
+.am-engine-preview-grid{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(245px,.78fr);align-items:stretch;gap:15px}
+.am-engine-visual{position:relative;min-width:0;min-height:320px;aspect-ratio:16/9;overflow:hidden;border:1px solid rgba(47,161,210,.32);border-radius:14px;background:radial-gradient(ellipse at 50% 46%,#142b3a 0,#0b1723 48%,#08111b 100%);box-shadow:inset 0 0 32px rgba(0,156,255,.08)}
+.am-engine-visual .cm-mining-core-canvas{position:absolute!important;inset:0!important;display:block;width:100%;height:100%}
+.am-engine-visual-overlay{position:absolute;z-index:2;top:11px;left:11px;right:11px;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none}
+.am-engine-visual-overlay span{max-width:70%;overflow:hidden;padding:7px 9px;border:1px solid rgba(45,166,225,.4);border-radius:9px;background:rgba(3,18,34,.88);color:#dff6ff;font-size:9px;font-weight:800;letter-spacing:.04em;text-overflow:ellipsis;white-space:nowrap}
+.am-engine-visual-overlay span+span{max-width:45%;color:#7ce7c2;text-align:right}
+.am-engine-readout{display:flex;min-width:0;flex-direction:column;align-items:flex-start;gap:12px;padding:16px;border:1px solid rgba(132,164,177,.14);border-radius:14px;background:linear-gradient(155deg,rgba(20,38,49,.74),rgba(8,20,30,.86))}
+.am-engine-power-label{color:#84a7b5;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.am-engine-readout>strong{color:#eff9ff;font-size:clamp(30px,3vw,42px);font-variant-numeric:tabular-nums;letter-spacing:-.045em;line-height:1}
+.am-engine-readout>strong small{color:#72d9f2;font-size:13px;letter-spacing:0}
+.am-engine-readout dl{display:grid;width:100%;gap:0;margin:0}
+.am-engine-readout dl div{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid rgba(132,164,177,.1)}
+.am-engine-readout dt{color:#809aa5;font-size:9px}
+.am-engine-readout dd{max-width:65%;margin:0;color:#dce9eb;font-size:9px;font-weight:700;text-align:right;overflow-wrap:anywhere}
+.am-engine-readout .am-button{min-height:34px}
+.am-engine-readout>p{margin:0;color:#78919b;font-size:9px;line-height:1.55}
+.am-engine-error{margin:0 0 12px;padding:10px 12px;border:1px solid rgba(245,126,126,.24);border-radius:10px;color:#ffaaa6;background:rgba(120,37,43,.12);font-size:10px}
+@media(max-width:860px){.am-engine-preview-grid{grid-template-columns:minmax(0,1fr)}.am-engine-visual{min-height:270px}}
+@media(max-width:520px){.am-personal-engine .am-panel-heading{flex-direction:column}.am-engine-visual{min-height:230px;aspect-ratio:1.2}.am-engine-readout{padding:13px}}
