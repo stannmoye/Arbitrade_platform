@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { MiningCoreCanvas } from "./MiningCoreCanvas";
 import { MiningSimulationFlow } from "./MiningSimulationFlow";
+import { CustomerSlideMenu } from "./CustomerSlideMenu";
 import {
   Activity, ArrowDownUp, ArrowRight, BadgeCheck, Bell,
   ChevronDown, Clock3, Cpu, Info,
@@ -157,6 +158,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   };
 
   return <div className="cm-dashboard-frame">
+    <CustomerSlideMenu section="crypto-mining" onNavigate={goTo} />
     <header className="cm-topbar">
       <a className="cm-brand" href="#mining-dashboard" onClick={e=>e.preventDefault()} aria-label="CoinKi mining dashboard home">
         <span className="cm-brand-mark">₵</span><span><strong>CoinKi</strong><small>Mine Today, Build Tomorrow</small></span>
