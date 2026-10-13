@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, getAnchoredBoostCycle, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
+import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, calculatePackageDailyReward, getBoostCooldownWindow, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
 
 describe("mining reward rules", () => {
   it("uses the configured tokens per TH/s-hour formula with decimal precision", () => {
@@ -40,15 +40,37 @@ describe("mining reward rules", () => {
   });
 });
 
+describe("package daily reward model", () => {
+  it("prorates a configured package estimate for six eligible hours", () => {
+    expect(calculatePackageDailyReward([{ expectedDailyRewardCki: "2", baseThs: "1", boostThs: "0", eligibleSeconds: 21_600 }])).toBe("0.500000000000000000");
+  });
+
+  it("sums purchased packages and proportionally attributes a boost", () => {
+    expect(calculatePackageDailyReward([
+      { expectedDailyRewardCki: "2", baseThs: "1", boostThs: "0.5", eligibleSeconds: 60 },
+      { expectedDailyRewardCki: "3", baseThs: "3", boostThs: "0", eligibleSeconds: 60 },
+    ])).toBe("0.004166666666666666");
+  });
+
+  it("does not invent rewards for a package with no configured daily estimate", () => {
+    expect(calculatePackageDailyReward([{ expectedDailyRewardCki: null, baseThs: "1", boostThs: "0", eligibleSeconds: 60 }])).toBe("0.000000000000000000");
+  });
+
+  it("rejects negative daily estimates and boosts without purchased base capacity", () => {
+    expect(() => calculatePackageDailyReward([{ expectedDailyRewardCki: "-1", baseThs: "1", boostThs: "0", eligibleSeconds: 60 }])).toThrow(/non-negative/);
+    expect(() => calculatePackageDailyReward([{ expectedDailyRewardCki: "1", baseThs: "0", boostThs: "1", eligibleSeconds: 60 }])).toThrow(/positive base/);
+  });
+});
+
 describe("simulated network difficulty index", () => {
   it("scales aggregate hash power against a 100 TH/s simulation reference", () => {
-    expect(calculateMiningDifficultyIndex("0")).toBe("1.00");
-    expect(calculateMiningDifficultyIndex("12.5")).toBe("1.13");
-    expect(calculateMiningDifficultyIndex("100")).toBe("2.00");
+    expect(calculateMiningDifficultyIndex("0", "100")).toBe("1.00");
+    expect(calculateMiningDifficultyIndex("12.5", "100")).toBe("1.13");
+    expect(calculateMiningDifficultyIndex("100", "100")).toBe("2.00");
   });
 
   it("rejects negative hash power and a zero reference", () => {
-    expect(() => calculateMiningDifficultyIndex("-1")).toThrow(/non-negative/);
+    expect(() => calculateMiningDifficultyIndex("-1", "100")).toThrow(/non-negative/);
     expect(() => calculateMiningDifficultyIndex("1", "0")).toThrow(/greater than zero/);
   });
 });
@@ -60,9 +82,9 @@ describe("mining conversion rules", () => {
     });
   });
 
-  it("converts 1 CKI to exactly $1.60 at the initial CoinKi reference rate", () => {
-    expect(calculateMiningConversion({ tokenAmount: "1", tokenUnitsPerUsd: "0.625", usdPerTargetUnit: "1", feeBps: 0, targetScale: 2 })).toEqual({
-      grossAmount: "1.60", feeAmount: "0.00", netAmount: "1.60", rate: "1.6",
+  it("converts 1 CKI to approximately $1.27 at the configured internal reference rate", () => {
+    expect(calculateMiningConversion({ tokenAmount: "1", tokenUnitsPerUsd: "0.787401574803149606", usdPerTargetUnit: "1", feeBps: 0, targetScale: 2 })).toEqual({
+      grossAmount: "1.27", feeAmount: "0.00", netAmount: "1.27", rate: "1.27",
     });
   });
 
@@ -77,10 +99,21 @@ describe("mining conversion rules", () => {
 });
 
 describe("mining time and quote guards", () => {
-  it("anchors boost eligibility to fixed UTC cycle boundaries", () => {
-    const cycle = getAnchoredBoostCycle(new Date("2026-10-11T14:05:00.000Z"), 4 * 60 * 60);
-    expect(cycle.start.toISOString()).toBe("2026-10-11T12:00:00.000Z");
-    expect(cycle.expiresAt.toISOString()).toBe("2026-10-11T16:00:00.000Z");
+  it("makes a first boost immediately available and starts its four-hour cooldown at activation", () => {
+    const now = new Date("2026-10-11T14:05:00.000Z");
+    const cycle = getBoostCooldownWindow(now, null, 4 * 60 * 60);
+    expect(cycle.ready).toBe(true);
+    expect(cycle.nextEligibleAt.toISOString()).toBe(now.toISOString());
+    expect(cycle.expiresAt.toISOString()).toBe("2026-10-11T18:05:00.000Z");
+  });
+
+  it("counts four hours from the customer's own previous activation, not a shared clock boundary", () => {
+    const now = new Date("2026-10-11T14:05:00.000Z");
+    const cycle = getBoostCooldownWindow(now, new Date("2026-10-11T12:10:00.000Z"), 4 * 60 * 60);
+    expect(cycle.ready).toBe(false);
+    expect(cycle.start.toISOString()).toBe("2026-10-11T12:10:00.000Z");
+    expect(cycle.nextEligibleAt.toISOString()).toBe("2026-10-11T16:10:00.000Z");
+    expect(getBoostCooldownWindow(new Date("2026-10-11T16:10:00.000Z"), new Date("2026-10-11T12:10:00.000Z"), 4 * 60 * 60).ready).toBe(true);
   });
 
   it("accepts only non-future quotes inside the freshness limit", () => {

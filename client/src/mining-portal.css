@@ -203,7 +203,7 @@
 .cm-flow-heading h2{margin:1px 0 0;color:#f3fbff;font-size:17px;letter-spacing:-.025em}
 .cm-flow-heading p{max-width:800px;margin:0;color:#8eafc1;font-size:10px;line-height:1.5}
 .cm-flow-header-actions{align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
-.cm-flow-demo-badge{padding:6px 8px;border:1px solid rgba(48,213,186,.32);border-radius:20px;background:rgba(18,165,143,.09);color:#6ce6c4;font-size:8px;font-weight:900;letter-spacing:.08em;white-space:nowrap}
+.cm-flow-status-badge{padding:6px 8px;border:1px solid rgba(48,213,186,.32);border-radius:20px;background:rgba(18,165,143,.09);color:#6ce6c4;font-size:8px;font-weight:900;letter-spacing:.08em;white-space:nowrap}
 .cm-flow-run-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:34px;padding:8px 12px;border:1px solid #28b8ea;border-radius:9px;background:linear-gradient(110deg,#0677ca,#08b7ea);color:#fff;font:inherit;font-size:10px;font-weight:900;box-shadow:0 0 18px rgba(0,171,232,.22);cursor:pointer;transition:filter .15s ease,transform .15s ease}
 .cm-flow-run-button:hover:not(:disabled){filter:brightness(1.12);transform:translateY(-1px)}
 .cm-flow-run-button:disabled{opacity:.6;cursor:progress}
@@ -266,10 +266,15 @@
 /* Mining portal continuation: the old persistent left rail is replaced by the right-side drawer. */
 .cm-dashboard-frame{grid-template-columns:minmax(0,1fr)!important}
 .cm-dashboard-frame .cm-dashboard-main{grid-column:1/-1!important}
-.cm-dashboard-frame .cm-video-controls{right:12px;bottom:12px;left:auto;display:flex;justify-content:flex-end;gap:0;width:42px;height:42px;padding:0;border:1px solid #59caff9c;border-radius:12px;background:#03162edd;box-shadow:0 4px 20px #0008,0 0 16px #078bff40}
+.cm-dashboard-frame .cm-video-controls{right:12px;bottom:12px;left:auto;display:flex;align-items:center;justify-content:flex-end;gap:6px;width:max-content;max-width:calc(100% - 24px);min-height:50px;height:auto;padding:4px 5px 4px 8px;border:1px solid #59caff9c;border-radius:13px;background:#03162edd;box-shadow:0 4px 20px #0008,0 0 16px #078bff40;backdrop-filter:blur(10px)}
+.cm-dashboard-frame .cm-engine-hash-readouts{display:flex;align-items:stretch;gap:5px;min-width:0}
+.cm-dashboard-frame .cm-engine-hash-stat{display:flex;flex:1 1 auto;flex-direction:column;justify-content:center;gap:4px;min-width:96px;padding:5px 8px;border:1px solid #1a5279;border-radius:9px;background:linear-gradient(145deg,#08213a,#041326);font-variant-numeric:tabular-nums}
+.cm-dashboard-frame .cm-engine-hash-stat>span{color:#86b1cd;font-size:7px;font-weight:900;letter-spacing:.075em;line-height:1;white-space:nowrap}
+.cm-dashboard-frame .cm-engine-hash-stat>strong{color:#f1f8ff;font-size:12px;font-weight:850;line-height:1.1;white-space:nowrap}
+.cm-dashboard-frame .cm-engine-hash-stat>strong small{color:#75dfff;font-size:8px;font-weight:800}
 .cm-dashboard-frame .cm-video-controls .cm-fullscreen-control{width:40px;height:40px;border-radius:11px;color:#ecf7ff;font-size:23px;line-height:1}
 .cm-dashboard-frame .cm-video-controls .cm-fullscreen-control:hover{background:#0a4976;color:#fff}
-@media(max-width:760px){.cm-dashboard-frame{grid-template-columns:minmax(0,1fr)!important}.cm-dashboard-frame .cm-dashboard-main{grid-column:1/-1!important}.cm-dashboard-frame .cm-video-controls{right:10px;bottom:10px}}
+@media(max-width:760px){.cm-dashboard-frame{grid-template-columns:minmax(0,1fr)!important}.cm-dashboard-frame .cm-dashboard-main{grid-column:1/-1!important}.cm-dashboard-frame .cm-video-controls{right:10px;bottom:10px;gap:4px;padding-left:5px}.cm-dashboard-frame .cm-engine-hash-readouts{gap:4px}.cm-dashboard-frame .cm-engine-hash-stat{min-width:0;padding:5px 6px}.cm-dashboard-frame .cm-engine-hash-stat>span{font-size:6px;letter-spacing:.045em}.cm-dashboard-frame .cm-engine-hash-stat>strong{font-size:10px}}
 
 
 /* Compact mining summary beside the CoinKi wordmark. */
@@ -288,3 +293,16 @@
 .cm-dashboard-frame .cm-page-indicator{min-width:62px;text-align:center;color:#b4c9dc;font-weight:800}
 @media(max-width:760px){.cm-dashboard-frame .cm-topbar{flex-wrap:wrap;row-gap:7px;padding:7px 10px}.cm-dashboard-frame .cm-header-summaries{order:3;flex:1 0 100%;max-width:none}.cm-dashboard-frame .cm-top-actions{margin-left:auto}.cm-dashboard-frame .cm-profile-chip>span:nth-child(2){display:none}}
 @media(max-width:560px){.cm-dashboard-frame .cm-header-summary{padding:5px 6px}.cm-dashboard-frame .cm-header-summary>span{font-size:6px;letter-spacing:.03em}.cm-dashboard-frame .cm-header-summary>strong{font-size:9px}.cm-dashboard-frame .cm-header-summary>small{font-size:6px}.cm-dashboard-frame .cm-history-pagination{align-items:flex-start;flex-direction:column}.cm-dashboard-frame .cm-history-pagination-controls{width:100%;justify-content:space-between}}
+
+
+/* Package-capacity readouts share the existing Mining Engine fullscreen control row. */
+.cm-dashboard-frame .cm-video-controls{right:10px;bottom:10px;left:auto;display:flex;align-items:center;gap:6px;width:max-content;max-width:calc(100% - 20px);height:auto;min-height:48px;padding:4px 5px 4px 6px;border:1px solid #1b5579;border-radius:11px;background:linear-gradient(145deg,#04182beF,#020a16f2);box-shadow:0 8px 24px #0008;color:#d8e8fb}
+.cm-dashboard-frame .cm-engine-hash-readouts{display:flex;align-items:center;gap:5px;min-width:0}
+.cm-dashboard-frame .cm-engine-hash-stat{display:flex;min-width:91px;flex-direction:column;gap:3px;padding:6px 8px;border:1px solid #1a4564;border-radius:8px;background:#06182beF}
+.cm-dashboard-frame .cm-engine-hash-stat>span{color:#8faec7;font-size:6px;font-weight:900;letter-spacing:.08em;line-height:1.2;white-space:nowrap}
+.cm-dashboard-frame .cm-engine-hash-stat>strong{color:#ecf8ff;font-size:12px;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1;white-space:nowrap}
+.cm-dashboard-frame .cm-engine-hash-stat>strong small{color:#69d8f4;font-size:7px;letter-spacing:0}
+.cm-dashboard-frame .cm-video-controls .cm-fullscreen-control{display:grid;place-items:center;width:40px;height:40px;border:1px solid #226187;border-radius:8px;background:linear-gradient(145deg,#0c2d4a,#07172a);color:#eaf7ff;font-size:20px}
+.cm-dashboard-frame .cm-video-controls .cm-fullscreen-control:hover{border-color:#35c9f5;background:#0a3151}
+.cm-dashboard-frame .cm-package-facts{line-height:1.35}
+@media(max-width:760px){.cm-dashboard-frame .cm-video-controls{right:8px;bottom:8px;gap:4px;padding:4px}.cm-dashboard-frame .cm-engine-hash-readouts{gap:4px}.cm-dashboard-frame .cm-engine-hash-stat{min-width:82px;padding:5px 6px}.cm-dashboard-frame .cm-engine-hash-stat>span{font-size:6px;letter-spacing:.055em}.cm-dashboard-frame .cm-engine-hash-stat>strong{font-size:10px}}

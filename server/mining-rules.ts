@@ -7,6 +7,13 @@ export type MiningRewardSegment = {
   elapsedSeconds: number;
 };
 
+export type MiningPackageRewardSegment = {
+  expectedDailyRewardCki: string | number | null | undefined;
+  baseThs: string | number;
+  boostThs: string | number;
+  eligibleSeconds: number;
+};
+
 export type MiningConversion = {
   grossAmount: string;
   feeAmount: string;
@@ -15,7 +22,7 @@ export type MiningConversion = {
 };
 
 const TOKEN_SCALE = 8;
-export const SIMULATED_DIFFICULTY_BASELINE_THS = "100";
+const PACKAGE_REWARD_SCALE = 18;
 
 function positiveDecimal(value: string | number, label: string, allowZero = false) {
   const amount = new Decimal(value);
@@ -25,7 +32,7 @@ function positiveDecimal(value: string | number, label: string, allowZero = fals
   return amount;
 }
 
-/** Reward formula: tokens/TH/s-hour × TH/s × elapsed seconds / 3,600. */
+/** Legacy helper retained for historical tests; package-daily processing uses calculatePackageDailyReward. */
 export function calculateMiningReward(segments: MiningRewardSegment[]) {
   if (!segments.length) return new Decimal(0).toFixed(TOKEN_SCALE);
   const total = segments.reduce((sum, segment) => {
@@ -40,10 +47,29 @@ export function calculateMiningReward(segments: MiningRewardSegment[]) {
   return total.toDecimalPlaces(TOKEN_SCALE, Decimal.ROUND_DOWN).toFixed(TOKEN_SCALE);
 }
 
-/** A transparent simulation index: 1 + aggregate TH/s divided by a 100 TH/s reference. */
+/** Package-based estimate: configured CKI per 24 hours × eligible seconds / 86,400. */
+export function calculatePackageDailyReward(segments: MiningPackageRewardSegment[]) {
+  const total = segments.reduce((sum, segment) => {
+    if (!Number.isFinite(segment.eligibleSeconds) || segment.eligibleSeconds < 0) {
+      throw new Error("Eligible reward time must be finite and non-negative");
+    }
+    const daily = segment.expectedDailyRewardCki == null
+      ? new Decimal(0)
+      : positiveDecimal(segment.expectedDailyRewardCki, "Expected daily package reward", true);
+    const base = positiveDecimal(segment.baseThs, "Base hash power", true);
+    const boost = positiveDecimal(segment.boostThs, "Boost hash power", true);
+    if (boost.gt(0) && !base.gt(0)) throw new Error("A package boost requires positive base hash power");
+    const baseReward = daily.times(segment.eligibleSeconds).div(86_400);
+    const boostMultiplier = base.gt(0) ? base.plus(boost).div(base) : new Decimal(1);
+    return sum.plus(baseReward.times(boostMultiplier));
+  }, new Decimal(0));
+  return total.toDecimalPlaces(PACKAGE_REWARD_SCALE, Decimal.ROUND_DOWN).toFixed(PACKAGE_REWARD_SCALE);
+}
+
+/** A transparent simulation index: 1 + aggregate TH/s divided by the effective database baseline. */
 export function calculateMiningDifficultyIndex(
   networkHashPowerThs: string | number,
-  baselineThs: string | number = SIMULATED_DIFFICULTY_BASELINE_THS,
+  baselineThs: string | number,
 ) {
   const hashPower = positiveDecimal(networkHashPowerThs, "Network hash power", true);
   const baseline = positiveDecimal(baselineThs, "Difficulty reference");
@@ -77,12 +103,16 @@ export function calculateMiningConversion(input: {
   };
 }
 
-/** Boost cycles are anchored to the Unix epoch; an unclaimed cycle expires at its next boundary. */
-export function getAnchoredBoostCycle(now: Date, cycleSeconds: number) {
-  if (!Number.isInteger(cycleSeconds) || cycleSeconds < 60 || cycleSeconds > 31_536_000) throw new Error("Boost cycle length is outside the supported range");
-  const cycleMs = cycleSeconds * 1000;
-  const startMs = Math.floor(now.getTime() / cycleMs) * cycleMs;
-  return { start: new Date(startMs), eligibleAt: new Date(startMs), expiresAt: new Date(startMs + cycleMs) };
+/** A customer's next boost time is measured from that customer's previous activation. */
+export function getBoostCooldownWindow(now: Date, lastActivationAt: Date | null | undefined, cooldownSeconds: number) {
+  if (!Number.isInteger(cooldownSeconds) || cooldownSeconds < 60 || cooldownSeconds > 31_536_000) throw new Error("Boost cooldown length is outside the supported range");
+  const cooldownMs = cooldownSeconds * 1000;
+  const last = lastActivationAt ? new Date(lastActivationAt) : null;
+  if (last && !Number.isFinite(last.getTime())) throw new Error("Last boost activation time is invalid");
+  const start = last ?? new Date(now);
+  const next = last ? new Date(last.getTime() + cooldownMs) : new Date(now);
+  const expiresAt = last ? next : new Date(now.getTime() + cooldownMs);
+  return { start, eligibleAt: next, expiresAt, nextEligibleAt: next, ready: now.getTime() >= next.getTime() };
 }
 
 export function overlapSeconds(start: Date, end: Date, activeStart?: Date | null, activeEnd?: Date | null) {

@@ -93,11 +93,15 @@ export async function migrateMiningTokenToCki(conn) {
     const [configs] = await conn.query("SELECT * FROM mining_economics_versions WHERE effectiveAt<=UTC_TIMESTAMP(3) ORDER BY version DESC LIMIT 1 FOR UPDATE");
     const previous = configs[0];
     if (!previous) throw new Error("Mining economics must be initialized before applying the CoinKi migration");
+    if (String(previous.tokenSymbol).toUpperCase() === "CKI") throw new Error("The active Mining token is already CKI; this legacy asset-reclassification script is not applicable and stopped without changing data");
+    const tokenUnitsPerUsd = unit(previous.tokenUnitsPerUsd);
+    if (!tokenUnitsPerUsd.gt(0)) throw new Error("The configured database CKI/USD valuation is invalid; migration stopped without changing data");
+    const usdPerToken = new Decimal(1).div(tokenUnitsPerUsd).toSignificantDigits(18).toString();
     const [admins] = await conn.query("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1");
     const adminId = admins[0] ? Number(admins[0].id) : null;
     const effectiveAt = new Date();
     const nextVersion = Number(previous.version) + 1;
-    const reason = "Apply the revised CoinKi token details: CoinKi (CKI), initial internal rate $1.60 USD per CKI. The rate is not a market price or redemption promise.";
+    const reason = `Apply CoinKi token identity while preserving the database-configured internal reference of $${usdPerToken} USD per CKI. The rate is not a market price or redemption promise.`;
     const [insertedConfig] = await conn.execute(
       `INSERT INTO mining_economics_versions
         (version,effectiveAt,globalEnabled,boostsEnabled,tokenName,tokenSymbol,tokenUnitsPerUsd,rewardTokensPerThsHour,
@@ -106,7 +110,7 @@ export async function migrateMiningTokenToCki(conn) {
          dailyRewardCapTokens,dualApprovalThresholdUsd,updatedBy,reason)
        VALUES (?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
-        nextVersion, effectiveAt, Number(previous.globalEnabled), Number(previous.boostsEnabled), "CoinKi", "CKI", "0.625000000000000000",
+        nextVersion, effectiveAt, Number(previous.globalEnabled), Number(previous.boostsEnabled), "CoinKi", "CKI", tokenUnitsPerUsd.toFixed(18, Decimal.ROUND_DOWN),
         String(previous.rewardTokensPerThsHour), Number(previous.swapFeeBps), Number(previous.purchaseFeeBps), String(previous.minSwapTokens),
         String(previous.maxSwapTokens), String(previous.defaultAutoConversionThreshold), Number(previous.boostCycleSeconds),
         Number(previous.boostDurationSeconds), Number(previous.quoteTtlSeconds), Number(previous.fiatMaxAgeSeconds),
@@ -119,7 +123,7 @@ export async function migrateMiningTokenToCki(conn) {
       `INSERT INTO v5_audit_events (actorUserId,action,entityType,entityId,reason,reference,metadataJson)
        VALUES (?,?,?,?,?,?,?)`,
       [adminId, "mining.token_configuration.updated", "mining_economics_version", String(versionId), reason, MIGRATION_KEY,
-        JSON.stringify({ previousVersion: Number(previous.version), version: nextVersion, tokenName: "CoinKi", tokenSymbol: "CKI", usdPerToken: "1.60", tokenUnitsPerUsd: "0.625", effectiveAt: effectiveAt.toISOString() })],
+        JSON.stringify({ previousVersion: Number(previous.version), version: nextVersion, tokenName: "CoinKi", tokenSymbol: "CKI", usdPerToken, tokenUnitsPerUsd: tokenUnitsPerUsd.toFixed(18, Decimal.ROUND_DOWN), effectiveAt: effectiveAt.toISOString() })],
     );
 
     const [legacyWallets] = await conn.query(
@@ -148,7 +152,7 @@ export async function migrateMiningTokenToCki(conn) {
     }
     await conn.execute("INSERT INTO mining_schema_migrations (migrationKey,detailsJson) VALUES (?,?)", [
       MIGRATION_KEY,
-      JSON.stringify({ version: nextVersion, tokenName: "CoinKi", tokenSymbol: "CKI", tokenUnitsPerUsd: "0.625", usdPerToken: "1.60", reclassifiedUserWallets: moved, reclassifiedAmount: total.toFixed(SCALE, Decimal.ROUND_DOWN), historicalLedgerPreserved: true }),
+      JSON.stringify({ version: nextVersion, tokenName: "CoinKi", tokenSymbol: "CKI", tokenUnitsPerUsd: tokenUnitsPerUsd.toFixed(18, Decimal.ROUND_DOWN), usdPerToken, reclassifiedUserWallets: moved, reclassifiedAmount: total.toFixed(SCALE, Decimal.ROUND_DOWN), historicalLedgerPreserved: true }),
     ]);
     await conn.execute(
       `INSERT INTO v5_audit_events (actorUserId,action,entityType,entityId,reason,reference,metadataJson)
