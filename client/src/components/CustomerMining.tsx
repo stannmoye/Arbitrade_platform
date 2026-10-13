@@ -3,8 +3,8 @@ import { trpc } from "@/lib/trpc";
 import { MiningCoreCanvas } from "./MiningCoreCanvas";
 import { MiningSimulationFlow } from "./MiningSimulationFlow";
 import {
-  Activity, ArrowDownUp, ArrowRight, BadgeCheck, Bell, Bitcoin, CheckCircle2,
-  ChevronDown, Clock3, Cpu, Database, Gauge, Home, Info, LockKeyhole,
+  Activity, ArrowDownUp, ArrowRight, BadgeCheck, Bell,
+  ChevronDown, Clock3, Cpu, Info,
   RefreshCw, ShieldCheck, Sparkles, WalletCards, Zap,
 } from "lucide-react";
 
@@ -25,16 +25,6 @@ const durationText = (seconds: number) => {
 };
 const palette = ["#12a8ff", "#f59a38", "#b4d7ff", "#f4c525", "#825fff", "#20c8d9", "#18d69a", "#ffbf36"];
 const currencyIcons: Record<string, string> = { BTC: "₿", USD: "$", EUR: "€", GBP: "£", ETH: "◆", USDT: "₮" };
-const navItems = [
-  { id: "dashboard", label: "Dashboard", icon: Home },
-  { id: "wallet", label: "Wallet", icon: WalletCards },
-  { id: "opportunities", label: "Opportunities", icon: ArrowDownUp },
-  { id: "activity", label: "Activity", icon: Activity },
-  { id: "crypto-mining", label: "Crypto Mining", icon: Cpu },
-  { id: "yield", label: "Yield Strategies", icon: Sparkles },
-  { id: "support", label: "Support", icon: ShieldCheck },
-  { id: "account", label: "Account Settings", icon: LockKeyhole },
-];
 
 export function CustomerMining({ push }: { push: (message: string) => void }) {
   const dashboard = trpc.customer.mining.dashboard.useQuery(undefined, { refetchInterval: 5000 });
@@ -54,7 +44,6 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const [prefThreshold, setPrefThreshold] = useState("0");
   const [acknowledged, setAcknowledged] = useState(false);
   const [message, setMessage] = useState("");
-  const [scenePlaying, setScenePlaying] = useState(true);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -176,24 +165,18 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
       <div className="cm-top-actions"><span className="cm-top-email">{data?.miningStatus || "Mining workspace"}</span><button type="button" className="cm-top-icon" onClick={()=>{void dashboard.refetch();void packages.refetch()}} aria-label="Refresh dashboard"><Bell size={19}/><i/></button><button type="button" className="cm-profile-chip" onClick={()=>goTo("account")}><span className="cm-profile-avatar">{tokenSymbol.slice(0,1)}</span><span><small>YOUR ACCOUNT</small><strong>Mining customer</strong></span><ChevronDown size={15}/></button></div>
     </header>
 
-    <aside className="cm-sidebar" aria-label="Customer dashboard navigation">
-      <nav>{navItems.map((item,index)=>{const Icon=item.icon;return <button type="button" key={`${item.id}-${item.label}`} className={item.id==="crypto-mining"?"active":""} aria-current={item.id==="crypto-mining"?"page":undefined} onClick={()=>goTo(item.id)}><Icon size={18}/><span>{item.label}</span></button>})}</nav>
-      <div className="cm-side-promo"><span>MORE HASH POWER<br/>MORE REWARDS</span><i>₵</i><p>The future of<br/>mining is here</p></div>
-      <div className="cm-sidebar-foot"><ShieldCheck size={13}/> Secure customer workspace</div>
-    </aside>
-
     <main className="cm-dashboard-main" id="mining-dashboard">
       {message && <div className="cm-message" role="status"><Info size={15}/><span>{message}</span><button type="button" onClick={()=>setMessage("")} aria-label="Dismiss">×</button></div>}
       {dashboard.error && <div className="cm-error" role="alert">Mining service unavailable: {dashboard.error.message}</div>}
 
       <section className="cm-top-grid" aria-label="Mining engine status and controls">
-        <article className={`cm-factory ${scenePlaying?"scene-playing":"scene-paused"}`}>
+        <article className="cm-factory scene-playing">
           <div className="cm-factory-scene cm-core-canvas-host" aria-hidden="true">
-            <MiningCoreCanvas running={engineIsRunning && hasActiveHashPowerPackage} playing={scenePlaying} boosted={Boolean(boost?.activeBoost)} hashPowerThs={activeHashPower} rewardPulseKey={Number(data?.todayTokens || 0)}/>
+            <MiningCoreCanvas running={engineIsRunning && hasActiveHashPowerPackage} playing={true} boosted={Boolean(boost?.activeBoost)} hashPowerThs={activeHashPower} rewardPulseKey={Number(data?.todayTokens || 0)}/>
           </div>
           <div className="cm-factory-shade"/>
           <div className="cm-factory-label"><span><Cpu size={16}/> MINING ENGINE</span><b className={hasActiveHashPowerPackage?"online":"offline"}><i/>{hasActiveHashPowerPackage?"HASH-POWER PACKAGE ACTIVE":"NO ACTIVE HASH-POWER PACKAGE"}</b></div>
-          <div className="cm-video-controls"><button type="button" aria-label={scenePlaying?"Pause scene animation":"Resume scene animation"} onClick={()=>setScenePlaying(v=>!v)}>{scenePlaying?"Ⅱ":"▶"}</button><span>{data?.simulationOnly?"SIMULATION FEED":"ENGINE FEED"}</span><div className="cm-video-track"><i/></div><span>LIVE</span><button type="button" onClick={toggleFullscreen} aria-label="Toggle mining scene fullscreen">⛶</button></div>
+          <div className="cm-video-controls"><button type="button" className="cm-fullscreen-control" onClick={toggleFullscreen} aria-label="Toggle mining engine fullscreen" title="Toggle mining engine fullscreen">⛶</button></div>
         </article>
 
         <div className="cm-side-stack">

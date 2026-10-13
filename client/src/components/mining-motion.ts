@@ -269,6 +269,7 @@ export class MiningMotionModel {
       node.dwell -= dt * 1_000;
       node.handoffPulse = Math.max(0, node.handoffPulse - dt);
       if (node.dwell <= 0) {
+        if (node.mode === "HANDOFF") node.progress = 0;
         node.mode = this.chooseMode(node, index, true);
         node.age = 0;
         node.dwell = this.sampleDwell(node.mode);
@@ -284,11 +285,19 @@ export class MiningMotionModel {
       node.heat = clamp(node.heat + (node.power * .58 - fanCooling - .018 + node.noise * .025) * dt, .06, .98);
       const oldProgress = node.progress;
       const serviceRate = MODE_WORK[node.mode] * (.34 + node.power * 1.65) * (.84 + node.chaos * .28);
-      if (node.mode !== "HANDOFF") node.progress += dt * serviceRate / node.workDuration;
+      if (node.mode !== "HANDOFF") {
+        node.progress = clamp(node.progress + dt * serviceRate / node.workDuration);
+        if (node.progress < 1) {
+          const setback = this.rng.next();
+          if (setback < dt * .14) node.progress = Math.max(0, node.progress - this.rng.between(.015, .07));
+          else if (setback < dt * (.14 + .045)) node.progress = Math.max(0, node.progress - this.rng.between(.08, .3));
+          else if (setback < dt * (.14 + .045 + .008)) node.progress = 0;
+        }
+      }
       node.queue = clamp(node.queue - Math.max(0, node.progress - oldProgress) * .42 + Math.max(0, node.noise) * dt * .012, 0, 1);
       const direction = (node.mode === "THROTTLE" || node.mode === "COOLING" ? -1 : 1) * (.38 + node.power * 2.4 + node.chaos * .08);
       node.angle = (node.angle + direction * dt) % (Math.PI * 2);
-      if (node.progress >= 1) this.completeWork(index, node);
+      if (node.progress >= 1 && node.mode !== "HANDOFF") this.completeWork(index, node);
     });
 
     this.asicLoad = clamp(this.nodes.reduce((sum, node) => sum + node.power, 0));
@@ -311,7 +320,7 @@ export class MiningMotionModel {
   }
 
   private completeWork(index: number, node: NodeState) {
-    node.progress = this.rng.between(.015, .12);
+    node.progress = 1;
     node.workDuration = this.rng.between(2.3, 8.8) * (.82 + this.rng.next() * .38);
     node.completed++;
     node.mode = "HANDOFF";

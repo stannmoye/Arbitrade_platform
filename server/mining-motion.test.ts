@@ -69,4 +69,32 @@ describe("mining visual motion model", () => {
     }
     expect(observedHandoffPacket).toBe(true);
   });
+
+  it("lets queue progress ebb, reset fully, and visibly complete before handoff", () => {
+    const model = new MiningMotionModel(0xF00D);
+    let previous = model.snapshot().nodes.map(node => node.progress);
+    let sawSmallRegression = false;
+    let sawLargeRegression = false;
+    let sawFullReset = false;
+    let sawCompletion = false;
+
+    for (let i = 0; i < 4_800; i++) {
+      const frame = model.advance(50, false, 1.6);
+      frame.nodes.forEach((node, index) => {
+        const drop = previous[index] - node.progress;
+        if (drop >= .015 && drop <= .09) sawSmallRegression = true;
+        if (drop > .1) sawLargeRegression = true;
+        if (node.progress === 0 && previous[index] > .08) sawFullReset = true;
+        if (node.mode === "HANDOFF" && node.progress === 1) sawCompletion = true;
+        expect(node.progress).toBeGreaterThanOrEqual(0);
+        expect(node.progress).toBeLessThanOrEqual(1);
+        previous[index] = node.progress;
+      });
+    }
+
+    expect(sawSmallRegression).toBe(true);
+    expect(sawLargeRegression).toBe(true);
+    expect(sawFullReset).toBe(true);
+    expect(sawCompletion).toBe(true);
+  });
 });
