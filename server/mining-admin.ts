@@ -56,7 +56,7 @@ function validatePackageInput(input: any) {
   if (baseThs.lte(0) || baseThs.gt("1000000000000") || !baseThs.toDecimalPlaces(12,Decimal.ROUND_DOWN).eq(baseThs)) throw new MiningError("Base hash power must be positive and support at most 12 decimal places");
   if (boostBonusThs.isNegative() || boostBonusThs.gt("1000000000000") || !boostBonusThs.toDecimalPlaces(12,Decimal.ROUND_DOWN).eq(boostBonusThs)) throw new MiningError("Boost hash power must be zero or positive and support at most 12 decimal places");
   if (!Number.isInteger(maxPerCustomer) || maxPerCustomer < 0 || maxPerCustomer > 100_000) throw new MiningError("Maximum purchases per customer must be between 0 and 100,000 (0 means unlimited)");
-  if (expirySeconds !== null && (!Number.isInteger(expirySeconds) || expirySeconds < 60 || expirySeconds > 31_536_000)) throw new MiningError("Package expiry must be between one minute and one year");
+  if (expirySeconds !== null && (!Number.isInteger(expirySeconds) || expirySeconds < 60 || expirySeconds > 63_072_000)) throw new MiningError("Package expiry must be between one minute and two years");
   if (boostDurationSeconds !== null && (!Number.isInteger(boostDurationSeconds) || boostDurationSeconds < 10 || boostDurationSeconds > 31_536_000)) throw new MiningError("Boost duration must be between 10 seconds and one year");
   if (!["stack","replace"].includes(stackingPolicy)) throw new MiningError("Choose whether package purchases stack or replace active packages");
   if (!DISCLOSURE_TERMS(termsText) || termsText.length < 80 || termsText.length > 12_000) throw new MiningError("Package terms must clearly state that this is simulated and that there is no withdrawal or cash payout; use 80–12,000 characters");
@@ -178,7 +178,7 @@ export async function grantSandboxMiningPackage(adminId:number,input:{userId:num
       FROM mining_packages p JOIN mining_package_versions v ON v.packageId=p.id WHERE v.id=? FOR UPDATE`,[input.packageVersionId]);
     const product=packageRows[0];
     if(!product||product.packageStatus!=="published"||product.versionStatus!=="published"||Number(product.currentVersionId)!==Number(product.packageVersionId)||!product.effectiveAt||new Date(product.effectiveAt).getTime()>now.getTime())throw new MiningError("The selected Mining package version is not currently published");
-    if(product.code!=="SANDBOX_STARTER_24H"||String(product.priceAsset)!=="USD"||!decimal(product.priceAmount).eq("50")||!decimal(product.baseThs).eq("1")||Number(product.expirySeconds)!==86_400||!DISCLOSURE_TERMS(String(product.termsText||"")))throw new MiningError("Only the published $50, 1 TH/s, 24-hour Starter Miner Sandbox Demo is eligible for this no-charge grant");
+    if(product.code!=="SANDBOX_STARTER_24M"||String(product.priceAsset)!=="USD"||!decimal(product.priceAmount).eq("50")||!decimal(product.baseThs).eq("1")||Number(product.expirySeconds)!==63_072_000||!DISCLOSURE_TERMS(String(product.termsText||"")))throw new MiningError("Only the published $50, 1 TH/s, 24-month Starter Miner Sandbox Demo is eligible for this no-charge grant");
 
     const [activeRows]=await conn.query<any[]>(`SELECT id FROM mining_customer_packages WHERE userId=? AND status IN ('active','replaced') AND startsAt<=?
       AND (expiresAt IS NULL OR expiresAt>?) AND (endedAt IS NULL OR endedAt>?) LIMIT 1 FOR UPDATE`,[input.userId,now,now,now]);
@@ -199,7 +199,7 @@ export async function grantSandboxMiningPackage(adminId:number,input:{userId:num
     const entitlementId=Number(inserted.insertId);
     const grantReference=`SBX-GRANT-${input.userId}-${entitlementId}`;
     await writeMiningAudit(conn,{actorUserId:adminId,action:"mining.package.admin_granted",entityType:"mining_customer_package",entityId:String(entitlementId),reason,reference:grantReference,metadata:{userId:input.userId,email:String(target.email),packageId:Number(product.packageId),packageVersionId:Number(product.packageVersionId),packageCode:String(product.code),listedPrice:String(product.priceAmount),priceAsset:String(product.priceAsset),paymentAmount:"0",noCharge:true,simulationOnly:true,payoutsEnabled:false}});
-    await createMiningNotification(conn,input.userId,"Sandbox Mining package granted",`${String(product.name)} is active for 24 hours as a no-charge simulation grant. No wallet debit or payout was made.`);
+    await createMiningNotification(conn,input.userId,"Sandbox Mining package granted",`${String(product.name)} is active for 24 months as a no-charge simulation grant. No wallet debit or payout was made.`);
     const result={entitlementId,packageId:Number(product.packageId),packageVersionId:Number(product.packageVersionId),packageName:String(product.name),acquisitionType:"admin_grant",status:"active",paymentAmount:"0.00",paymentAsset:"USD",baseThs:String(product.baseThs),startsAt:now.toISOString(),expiresAt:expiresAt.toISOString(),grantReference,simulationOnly:true,noCharge:true,disclaimer:"Sandbox simulation only; no live mining, wallet debit, or cash payout."};
     await finishMiningIdempotency(conn,key,result);
     return result;
