@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Activity, BarChart3, BookMarked, BookOpen, CircleHelp, Coins, FileText, Library, Map,
-  Lightbulb, Newspaper, Scale, Search, ShieldAlert, Sparkles, X, type LucideIcon,
+  Activity, ArrowDownUp, BarChart3, BookMarked, BookOpen, CircleHelp, Coins, Cpu, FileText,
+  Headphones, Home, Library, LockKeyhole, Map, Menu, Newspaper, Scale, Search, ShieldAlert,
+  ShieldCheck, Sparkles, WalletCards, X, type LucideIcon,
 } from "lucide-react";
 
 type CustomerSlideMenuProps = { section: string; onNavigate: (section: string) => void };
@@ -9,6 +10,20 @@ type CustomerDestination = { label: string; detail: string; target: string; icon
 type CustomerDestinationGroup = { label: string; detail: string; items: CustomerDestination[] };
 
 const destinationGroups: CustomerDestinationGroup[] = [
+  {
+    label: "Main navigation",
+    detail: "Primary customer pages",
+    items: [
+      { label: "Dashboard", detail: "Account overview and activity summary", target: "dashboard", icon: Home },
+      { label: "Wallet", detail: "Balances, funding, withdrawals and conversions", target: "wallet", icon: WalletCards },
+      { label: "Opportunities", detail: "Review current market opportunities", target: "opportunities", icon: ArrowDownUp },
+      { label: "Activity", detail: "Account and transaction history", target: "activity", icon: Activity },
+      { label: "Crypto Mining", detail: "Mining package and simulated engine", target: "crypto-mining", icon: Cpu },
+      { label: "Yield Strategies", detail: "Explore yield and staking products", target: "yield", icon: Sparkles },
+      { label: "Support", detail: "Help and customer support", target: "support", icon: Headphones },
+      { label: "Account Settings", detail: "Profile, security and preferences", target: "account", icon: LockKeyhole },
+    ],
+  },
   {
     label: "Core Workspace",
     detail: "Live account operating tools",
@@ -51,7 +66,9 @@ const destinationGroups: CustomerDestinationGroup[] = [
 
 const destinations = destinationGroups.flatMap((group) => group.items);
 const primaryLabels: Record<string, string> = {
-  dashboard: "Home dashboard", opportunities: "Trade & Earn", yield: "Stake & Earn", wallet: "Wallet settings",
+  dashboard: "Dashboard", opportunities: "Opportunities", yield: "Yield Strategies", wallet: "Wallet",
+  activity: "Activity", support: "Support", account: "Account Settings", security: "Security",
+  kyc: "Identity verification", notifications: "Notifications", console: "Customer console",
   "crypto-mining": "Crypto Mining", "token-launch": "Token Launch", "treasury-bond": "Treasury Bond", "cooperate-dept": "Cooperate Dept",
   "litigation-funds": "Litigation Funds", "ip-royalties": "IP Royalties", "music-royalties": "Music Royalties", "agro-investment": "Agro Investment",
   "carbon-credit": "Carbon Credit", "green-energy": "Green Energy",
@@ -90,21 +107,24 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
 
   const close = () => { setOpen(false); window.requestAnimationFrame(() => triggerRef.current?.focus()); };
   const navigate = (target: string) => { onNavigate(target); close(); };
-  const renderItem = (item: CustomerDestination) => { const Icon = item.icon; return <button key={item.target} type="button" className={`admin-slide-item${section === item.target ? " is-active" : ""}`} tabIndex={open ? 0 : -1} onClick={() => navigate(item.target)}><span className="admin-slide-item-icon"><Icon size={17} /></span><span className="admin-slide-item-copy"><strong>{item.label}{item.planned && <em className="customer-slide-planned">PLANNED</em>}</strong><small>{item.detail}</small></span><span className="admin-slide-item-arrow">→</span></button>; };
+  const renderItem = (item: CustomerDestination) => {
+    const Icon = item.icon;
+    return <button key={item.target} type="button" className={`admin-slide-item${section === item.target ? " is-active" : ""}`} tabIndex={open ? 0 : -1} aria-current={section === item.target ? "page" : undefined} onClick={() => navigate(item.target)}><span className="admin-slide-item-icon"><Icon size={17} /></span><span className="admin-slide-item-copy"><strong>{item.label}{item.planned && <em className="customer-slide-planned">PLANNED</em>}</strong><small>{item.detail}</small></span><span className="admin-slide-item-arrow">→</span></button>;
+  };
 
   return <div className={`admin-slide-layer customer-slide-layer${open ? " is-open" : ""}`}>
-    <button ref={triggerRef} className="admin-slide-trigger customer-slide-trigger customer-resource-peek-trigger" type="button" aria-label={open ? "Close Resources" : "Open Resources"} title={open ? "Close Resources" : "Open Resources"} aria-controls="customer-navigation-drawer" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setOpen(true)}><span className="customer-resource-bulb" aria-hidden="true"><Lightbulb size={27} strokeWidth={1.8} /></span><span className="customer-resource-bulb-label">Resources</span><span className="admin-slide-trigger-led" /></button>
-    <button className="admin-slide-backdrop" type="button" aria-label="Close customer menu" tabIndex={open ? 0 : -1} onClick={close} />
-    <aside id="customer-navigation-drawer" ref={menuRef} className="admin-slide-drawer customer-slide-drawer" aria-label="Customer resource menu" aria-hidden={!open} role="dialog" aria-modal={open}>
-      <div className="admin-slide-drawer-topline"><span><i /> CUSTOMER COMMAND PANEL</span><span className="admin-slide-count">ACCOUNT-LINKED</span></div>
-      <div className="admin-slide-heading"><div className="admin-slide-mark"><img src="/arbitrade-mark.svg" alt="" /></div><div className="admin-slide-title"><span>SECONDARY WORKSPACE</span><h2>Knowledge &amp; resources</h2></div><button className="admin-slide-close" type="button" onClick={close} aria-label="Close customer menu" tabIndex={open ? 0 : -1}><X size={17} /></button></div>
+    <button ref={triggerRef} className="admin-slide-trigger customer-slide-trigger customer-resource-peek-trigger" type="button" aria-label={open ? "Close customer navigation" : "Open customer navigation"} title={open ? "Close customer navigation" : "Open customer navigation"} aria-controls="customer-navigation-drawer" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setOpen(true)}><span className="customer-resource-bulb" aria-hidden="true"><Menu size={24} strokeWidth={1.9} /></span><span className="customer-resource-bulb-label">MENU</span><span className="admin-slide-trigger-led" /></button>
+    <button className="admin-slide-backdrop" type="button" aria-label="Close customer navigation" tabIndex={open ? 0 : -1} onClick={close} />
+    <aside id="customer-navigation-drawer" ref={menuRef} className="admin-slide-drawer customer-slide-drawer" aria-label="Customer navigation and resources" aria-hidden={!open} role="dialog" aria-modal={open}>
+      <div className="admin-slide-drawer-topline"><span><i /> CUSTOMER COMMAND PANEL</span><span className="admin-slide-count">MAIN MENU</span></div>
+      <div className="admin-slide-heading"><div className="admin-slide-mark"><img src="/arbitrade-mark.svg" alt="" /></div><div className="admin-slide-title"><span>CUSTOMER WORKSPACE</span><h2>Navigation &amp; resources</h2></div><button className="admin-slide-close" type="button" onClick={close} aria-label="Close customer navigation" tabIndex={open ? 0 : -1}><X size={17} /></button></div>
       <div className="admin-slide-current"><span className="admin-slide-current-icon"><Activity size={15} /></span><span><small>YOU ARE IN</small><strong>{activeLabel}</strong></span><span className="admin-slide-current-dot" /></div>
-      <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search resources and tools" aria-label="Search customer resources and tools" /></div>
-      <nav className="admin-slide-nav quick-actions-nav customer-resource-nav" aria-label="Customer resources and tools">
+      <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search pages and resources" aria-label="Search customer pages and resources" /></div>
+      <nav className="admin-slide-nav quick-actions-nav customer-resource-nav" aria-label="Customer pages and resources">
         {filteredGroups.map((group) => <section className="admin-slide-group customer-resource-group" key={group.label}><div className="admin-slide-group-title"><span>{group.label}</span><small>{group.detail}</small><i /></div><div className="admin-slide-items">{group.items.map(renderItem)}</div></section>)}
-        {!filteredGroups.length && <div className="customer-resource-empty">No resources match “{query}”.</div>}
+        {!filteredGroups.length && <div className="customer-resource-empty">No pages or resources match “{query}”.</div>}
       </nav>
-      <div className="admin-slide-footer"><div className="quick-actions-status"><span><span className="quick-actions-status-dot" /> Account status</span><strong>Connected</strong><small>Database-backed customer workspace</small></div><div className="admin-slide-footer-note">Account preferences stay in the primary left menu. Token-related items marked Planned are not live offerings.</div></div>
+      <div className="admin-slide-footer"><div className="quick-actions-status"><span><span className="quick-actions-status-dot" /> Customer workspace</span><strong>Connected</strong><small>Database-backed customer portal</small></div><div className="admin-slide-footer-note">Open a destination to switch customer pages. Items marked Planned are not live offerings.</div></div>
     </aside>
   </div>;
 }

@@ -262,3 +262,11 @@
 @media(max-width:900px){.cm-flow-header{align-items:flex-start;flex-direction:column}.cm-flow-header-actions{justify-content:flex-start}.cm-flow-sensors{grid-template-columns:1fr 1fr}.cm-flow-package-sensor{grid-column:1/-1}.cm-flow-ledger-row{grid-template-columns:1fr 1fr}.cm-flow-demo-card{grid-column:1/-1}}
 @media(max-width:560px){.cm-flow-panel{padding:14px 12px}.cm-flow-heading h2{font-size:15px}.cm-flow-header-actions{width:100%}.cm-flow-sensors,.cm-flow-ledger-row{grid-template-columns:1fr}.cm-flow-package-sensor,.cm-flow-demo-card{grid-column:auto}.cm-flow-sensor{min-height:56px}.cm-flow-footer{align-items:flex-start;flex-direction:column}}
 @media(prefers-reduced-motion:reduce){.cm-flow-fan span,.cm-flow-turbine-rotor,.cm-flow-token,.cm-flow-live-card.is-updating{animation:none!important;transition:none!important}}
+
+/* Mining portal continuation: the old persistent left rail is replaced by the right-side drawer. */
+.cm-dashboard-frame{grid-template-columns:minmax(0,1fr)!important}
+.cm-dashboard-frame .cm-dashboard-main{grid-column:1/-1!important}
+.cm-dashboard-frame .cm-video-controls{right:12px;bottom:12px;left:auto;display:flex;justify-content:flex-end;gap:0;width:42px;height:42px;padding:0;border:1px solid #59caff9c;border-radius:12px;background:#03162edd;box-shadow:0 4px 20px #0008,0 0 16px #078bff40}
+.cm-dashboard-frame .cm-video-controls .cm-fullscreen-control{width:40px;height:40px;border-radius:11px;color:#ecf7ff;font-size:23px;line-height:1}
+.cm-dashboard-frame .cm-video-controls .cm-fullscreen-control:hover{background:#0a4976;color:#fff}
+@media(max-width:760px){.cm-dashboard-frame{grid-template-columns:minmax(0,1fr)!important}.cm-dashboard-frame .cm-dashboard-main{grid-column:1/-1!important}.cm-dashboard-frame .cm-video-controls{right:10px;bottom:10px}}
