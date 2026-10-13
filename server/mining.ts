@@ -509,13 +509,13 @@ function normalizeMiningHistoryDetails(value: any): any {
 
 export async function listCustomerMiningTransactions(userId: number) {
   return withMiningConnection(async conn => {
-    const [ledgerRows] = await conn.query<any[]>(`SELECT id,transactionType,status,referenceCode,reversalOfId,reason,metadataJson,createdAt FROM mining_ledger_transactions WHERE userId=? ORDER BY createdAt DESC LIMIT 100`, [userId]);
-    const [boostRows] = await conn.query<any[]>(`SELECT id,bonusThs,startedAt,endsAt,status,cycleStart FROM mining_boost_activations WHERE userId=? ORDER BY createdAt DESC LIMIT 50`, [userId]);
+    const [ledgerRows] = await conn.query<any[]>(`SELECT id,transactionType,status,referenceCode,reversalOfId,reason,metadataJson,createdAt FROM mining_ledger_transactions WHERE userId=? ORDER BY createdAt DESC LIMIT 30`, [userId]);
+    const [boostRows] = await conn.query<any[]>(`SELECT id,bonusThs,startedAt,endsAt,status,cycleStart FROM mining_boost_activations WHERE userId=? ORDER BY createdAt DESC LIMIT 30`, [userId]);
     const events = [
       ...ledgerRows.map(row => ({ id: `ledger-${row.id}`, type: row.transactionType, status: row.status, reference: row.referenceCode, reversalOfId: row.reversalOfId ? Number(row.reversalOfId) : null, reason: row.reason || null, details: (() => { try { return normalizeMiningHistoryDetails(JSON.parse(String(row.metadataJson || "{}"))); } catch { return {}; } })(), createdAt: new Date(row.createdAt).toISOString() })),
       ...boostRows.map(row => ({ id: `boost-${row.id}`, type: "boost_activation", status: row.status === "active" && new Date(row.endsAt).getTime() <= Date.now() ? "expired" : row.status, reference: `BOOST-${row.id}`, details: { bonusThs: String(row.bonusThs), startedAt: new Date(row.startedAt).toISOString(), endsAt: new Date(row.endsAt).toISOString(), cycleStart: new Date(row.cycleStart).toISOString() }, createdAt: new Date(row.startedAt).toISOString() })),
     ];
-    return events.sort((a,b)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime()).slice(0,100);
+    return events.sort((a,b)=>new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime()).slice(0,30);
   });
 }
 

@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowDownUp, CheckCircle2, Cpu, Database, Sparkles, WalletCards, Wind } from "lucide-react";
+import { ArrowDownUp, Cpu, Database, Sparkles, WalletCards, Wind } from "lucide-react";
 
 type MiningSimulationFlowProps = {
   activePackageName: string;
   hashPowerThs: number;
   walletCki: number;
-  pendingCki: number;
-  usdPerToken: number;
   latestRewardReference?: string;
   latestRewardCreatedAt?: string;
 };
@@ -29,8 +27,6 @@ export function MiningSimulationFlow({
   activePackageName,
   hashPowerThs,
   walletCki,
-  pendingCki,
-  usdPerToken,
   latestRewardReference,
   latestRewardCreatedAt,
 }: MiningSimulationFlowProps) {
@@ -76,9 +72,6 @@ export function MiningSimulationFlow({
 
   const fanRpm = 2280 + Math.round(Math.sin(now / 950) * 46);
   const turbineRpm = 38 + Math.round(Math.sin(now / 1450) * 3);
-  const demoUsd = Number.isFinite(usdPerToken) && usdPerToken > 0
-    ? (DEMO_CKI * usdPerToken).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : "—";
   const isRunning = demoStage >= 0 && demoStage < FLOW_STEPS.length - 1;
   const isComplete = demoStage === FLOW_STEPS.length - 1;
   const progress = demoStage < 0 ? 0 : demoStage / (FLOW_STEPS.length - 1);
@@ -131,24 +124,6 @@ export function MiningSimulationFlow({
         {demoStage >= 0 && <span className="cm-flow-token" style={{ left: `${tokenLeft}%` }} aria-hidden="true">₵</span>}
       </div>
       <div className="cm-flow-stage-note" aria-live="polite"><span className={isComplete ? "is-done" : isRunning ? "is-active" : ""}/>{demoState}</div>
-    </div>
-
-    <div className="cm-flow-ledger-row">
-      <article className={`cm-flow-data-card cm-flow-live-card ${receiptPulse ? "is-updating" : ""}`}>
-        <span className="cm-flow-data-label"><CheckCircle2 size={13}/> LIVE SANDBOX CKI WALLET</span>
-        <strong>{fmt(walletCki)} <small>CKI</small></strong>
-        <span className="cm-flow-data-note">Server-posted balance · database-backed</span>
-      </article>
-      <article className="cm-flow-data-card">
-        <span className="cm-flow-data-label"><Sparkles size={13}/> ACCRUAL IN PROGRESS</span>
-        <strong>+{fmt(pendingCki)} <small>CKI</small></strong>
-        <span className="cm-flow-data-note">Estimate only · not yet in wallet</span>
-      </article>
-      <article className="cm-flow-data-card cm-flow-demo-card">
-        <span className="cm-flow-data-label"><ArrowDownUp size={13}/> DUMMY CONVERSION PREVIEW</span>
-        <strong>1.000000 CKI <i>→</i> ≈${demoUsd} <small>USD</small></strong>
-        <span className="cm-flow-data-note">Internal reference only · no quote or conversion executed</span>
-      </article>
     </div>
 
     <footer className="cm-flow-footer">
