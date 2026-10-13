@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { MiningCoreCanvas } from "./MiningCoreCanvas";
-import { MiningSimulationFlow } from "./MiningSimulationFlow";
+import { MiningOperationsFlow } from "./MiningOperationsFlow";
 import { CustomerSlideMenu } from "./CustomerSlideMenu";
 import {
   Activity, ArrowDownUp, ArrowRight, BadgeCheck, Bell,
@@ -9,8 +9,7 @@ import {
   RefreshCw, ShieldCheck, Sparkles, WalletCards, Zap,
 } from "lucide-react";
 
-const ASSETS = ["CKI", "USD", "EUR", "GBP", "BTC", "ETH", "USDT"];
-const TARGET_ASSETS = ASSETS.filter(asset => asset !== "CKI");
+const TARGET_ASSETS = ["USD", "EUR", "GBP", "BTC", "ETH", "USDT"];
 const requestId = () => globalThis.crypto?.randomUUID?.() || `mining-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const dateText = (value?: string | null) => value ? new Date(value).toLocaleString() : "—";
 const fmt = (value: unknown, max = 8) => {
@@ -32,13 +31,15 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const packages = trpc.customer.mining.packages.useQuery(undefined, { refetchInterval: 30000 });
   const boostStatus = trpc.customer.mining.boostStatus.useQuery(undefined, { refetchInterval: 5000 });
   const history = trpc.customer.mining.transactions.useQuery(undefined, { refetchInterval: 12000 });
+  const walletPreferences = trpc.customer.walletPreferences.useQuery(undefined, { refetchInterval: 30000 });
+  const mainWallet = trpc.customer.balances.useQuery(undefined, { refetchInterval: 10000 });
 
   const [now, setNow] = useState(Date.now());
-  const [paymentAsset, setPaymentAsset] = useState("USD");
+  const [paymentAsset, setPaymentAsset] = useState("");
   const [selectedPackage, setSelectedPackage] = useState<any | null>(null);
   const [purchaseQuote, setPurchaseQuote] = useState<any | null>(null);
   const [swapQuote, setSwapQuote] = useState<any | null>(null);
-  const [swapTarget, setSwapTarget] = useState("USD");
+  const [swapTarget, setSwapTarget] = useState("");
   const [packageTab, setPackageTab] = useState("all");
   const [historyPage, setHistoryPage] = useState(0);
   const [prefEnabled, setPrefEnabled] = useState(false);
@@ -61,6 +62,13 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     }
   }, [dashboard.data?.conversionPreference?.version]);
 
+  useEffect(() => {
+    const preferredPurchase = String(walletPreferences.data?.tradingCurrency || "").toUpperCase();
+    const preferredSwap = String(walletPreferences.data?.swapCurrency || "").toUpperCase();
+    if (TARGET_ASSETS.includes(preferredPurchase)) setPaymentAsset(preferredPurchase);
+    if (TARGET_ASSETS.includes(preferredSwap)) setSwapTarget(preferredSwap);
+  }, [walletPreferences.data?.tradingCurrency, walletPreferences.data?.swapCurrency]);
+
   const purchaseQuoteMutation = trpc.customer.mining.quotePurchase.useMutation({
     onSuccess: quote => { setPurchaseQuote(quote); setAcknowledged(false); setMessage(""); },
     onError: error => setMessage(error.message),
@@ -68,27 +76,31 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const purchaseMutation = trpc.customer.mining.confirmPurchase.useMutation({
     onSuccess: result => {
       setPurchaseQuote(null); setSelectedPackage(null); setAcknowledged(false);
-      void dashboard.refetch(); void history.refetch(); void packages.refetch();
-      push(`Simulated package activated · ${result.receiptReference}`);
-      setMessage("Package entitlement activated in the Mining simulation ledger. Package switches do not refund earlier purchases.");
+      void dashboard.refetch(); void mainWallet.refetch(); void history.refetch(); void packages.refetch();
+      push(`Package activated · ${result.receiptReference}`);
+      setMessage(`Package entitlement activated and ${result.paymentAmount} ${result.paymentAsset} was debited from your main wallet. CKI reward posting requires actual third-party settlement records; none are connected in this Sandbox yet.`);
     },
     onError: error => setMessage(error.message),
   });
   const boostMutation = trpc.customer.mining.activateBoost.useMutation({
-    onSuccess: result => { void dashboard.refetch(); void boostStatus.refetch(); void history.refetch(); push(`Simulated boost activated until ${dateText(result.endsAt)}`); setMessage("Boost module engaged in the simulation; its added TH/s affects the modeled reward rate until it expires."); },
+    onSuccess: result => { void dashboard.refetch(); void boostStatus.refetch(); void history.refetch(); push(`Boost activated until ${dateText(result.endsAt)}`); setMessage(`Package boost active until ${dateText(result.endsAt)}. It is next available after the customer-specific cooldown.`); },
     onError: error => setMessage(error.message),
   });
   const preferenceMutation = trpc.customer.mining.updateConversionPreference.useMutation({
     onSuccess: result => { void dashboard.refetch(); setMessage(`Conversion preference saved as version ${result.version}. It applies to future reward events.`); },
     onError: error => setMessage(error.message),
   });
+  const mainWalletPreferenceMutation = trpc.customer.updateWalletPreferences.useMutation({
+    onSuccess: () => { void walletPreferences.refetch(); },
+    onError: error => setMessage(error.message),
+  });
   const swapMutation = trpc.customer.mining.confirmSwap.useMutation({
     onSuccess: result => {
-      setSwapQuote(null); void dashboard.refetch(); void history.refetch();
-      push(`Simulated full-balance conversion · ${result.receiptReference}`);
-      setMessage(`${fmt(result.sourceAmount, 8)} CKI converted to ${fmt(result.destinationAmount, 8)} simulated ${result.destinationAsset}. This is an internal simulation-ledger conversion, not a cash payout.`);
+      setSwapQuote(null); void dashboard.refetch(); void mainWallet.refetch(); void history.refetch();
+      push(`CKI converted to ${result.destinationAsset} main wallet · ${result.receiptReference}`);
+      setMessage(`${fmt(result.sourceAmount, 8)} CKI converted to ${fmt(result.destinationAmount, 8)} ${result.destinationAsset} and credited to your main wallet. This does not initiate a payout; CKI itself is not a payout currency.`);
     },
-    onError: error => { setSwapQuote(null); void dashboard.refetch(); setMessage(error.message); },
+    onError: error => { setSwapQuote(null); void dashboard.refetch(); void mainWallet.refetch(); setMessage(error.message); },
   });
   const swapQuoteMutation = trpc.customer.mining.quoteSwap.useMutation({
     onSuccess: quote => {
@@ -99,8 +111,8 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   });
 
   const data = dashboard.data;
-  const tokenName = data?.tokenName || "CoinKi";
-  const tokenSymbol = data?.tokenSymbol || "CKI";
+  const tokenName = data?.tokenName ?? "";
+  const tokenSymbol = data?.tokenSymbol ?? "";
   const packageRows = packages.data || [];
   const boost = boostStatus.data;
   const active = data?.packages || [];
@@ -110,20 +122,24 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const pagedRecent = recent.slice(currentHistoryPage * 5, (currentHistoryPage + 1) * 5);
   const latestReward = recent.find((row: any) => row.type === "reward" && row.status === "posted");
   const availableCki = Number(data?.balances?.CKI || data?.tokenBalance || 0);
-  const minimumSwapTokens = Number(data?.minSwapTokens || 1);
-  const canSwapAll = minimumSwapTokens > 0 && availableCki >= minimumSwapTokens;
-  const availableUsd = Number(data?.balances?.USD || 0);
+  const canSwapAll = availableCki > 0 && Boolean(swapTarget);
+  const mainWalletAvailable = (asset: string) => {
+    const currency = mainWallet.data?.currencies?.find((item: any) => item.code === asset);
+    const balance = mainWallet.data?.balances?.find((item: any) => item.currency === asset);
+    const scale = Number(currency?.scale ?? 0);
+    return Number(balance?.availableMinor ?? 0) / (10 ** scale);
+  };
+  const mainWalletScale = (asset: string) => Number(mainWallet.data?.currencies?.find((item: any) => item.code === asset)?.scale ?? 0);
+  const availableUsd = mainWalletAvailable("USD");
   const dailyUsdReference = (Number(data?.estimatedDailyTokens || 0) * Number(data?.usdPerToken || 0)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const dummyUsdReference = Number(data?.usdPerToken || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const nextRewardAt = data?.nextRewardAt ? new Date(data.nextRewardAt).getTime() : null;
-  const nextRewardCountdown = nextRewardAt ? durationText(Math.max(0, Math.ceil((nextRewardAt - now) / 1000))) : "—:—:—";
-  const selectedCanPurchase = selectedPackage?.status === "published" && Boolean(data?.miningStatus && !String(data.miningStatus).startsWith("Paused"));
-  const availablePayment = useMemo(() => String(data?.balances?.[paymentAsset] || "0"), [data?.balances, paymentAsset]);
+  const configuredUsdReference = Number(data?.usdPerToken || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const selectedCanPurchase = selectedPackage?.purchaseAvailable === true && Boolean(data?.miningStatus && !String(data.miningStatus).startsWith("Paused"));
+  const availablePayment = useMemo(() => mainWalletAvailable(paymentAsset).toFixed(mainWalletScale(paymentAsset)), [mainWallet.data, paymentAsset]);
   const quoteExpired = purchaseQuote ? new Date(purchaseQuote.expiresAt).getTime() <= now : false;
   const swapExpired = swapQuote ? new Date(swapQuote.expiresAt).getTime() <= now : false;
   const activeBoostEnds = boost?.activeBoost?.endsAt ? new Date(boost.activeBoost.endsAt).getTime() : null;
   const cycleTarget = boost?.nextEligibleAt ? new Date(boost.nextEligibleAt).getTime() : null;
-  const cycleIsActionable = Boolean(boost?.ready || boost?.activeBoost || boost?.reason?.toLowerCase().includes("cycle"));
+  const cycleIsActionable = Boolean(boost?.ready || boost?.activeBoost || boost?.reason?.toLowerCase().includes("cool"));
   const countdownTarget = activeBoostEnds || (cycleIsActionable && cycleTarget && cycleTarget > now ? cycleTarget : null);
   const boostCountdown = activeBoostEnds || countdownTarget
     ? durationText(Math.max(0, Math.ceil(((activeBoostEnds || countdownTarget)! - now) / 1000)))
@@ -135,12 +151,20 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     ? Math.max(0, Math.min(100, Math.round((now - cycleStart) / (nextBoostTime - cycleStart) * 100))) : 0;
   const activeBase = Number(data?.baseThs || 0);
   const activeHashPower = activeBase + (Number(boost?.activeBoost?.bonusThs) || 0);
+  const availablePackageHashPower = packageRows
+    .filter((item: any) => item.purchaseAvailable === true)
+    .reduce((total: number, item: any) => {
+      const baseThs = Number(item.baseThs);
+      return total + (Number.isFinite(baseThs) && baseThs > 0 ? baseThs : 0);
+    }, 0);
+  const currentHashRateDisplay = dashboard.isLoading || dashboard.isError ? "—" : fmt(activeHashPower, 3);
+  const availableHashRateDisplay = packages.isLoading || packages.isError ? "—" : fmt(availablePackageHashPower, 3);
   const hasActiveHashPowerPackage = active.some((item: any) => item.status === "active");
   const activeBoostCapacity = active.reduce((sum: number, item: any) => sum + (Number.isFinite(Number(item.boostBonusThs)) ? Number(item.boostBonusThs) : 0), 0);
   const activePackageNames = active.length ? active.slice(0, 3).map((item: any) => item.packageName).join(" · ") + (active.length > 3 ? ` · +${active.length - 3} more` : "") : "No active package entitlement";
-  const engineIsRunning = Boolean(data?.miningStatus && !String(data.miningStatus).toLowerCase().includes("paused") && !String(data.miningStatus).toLowerCase().includes("disabled"));
+  const engineIsRunning = hasActiveHashPowerPackage;
   const filteredPackages = packageRows.filter((item: any) => {
-    if (packageTab === "mine") return active.some((current: any) => current.code === item.code);
+    if (packageTab === "mine") return Boolean(item.alreadyPurchased) || active.some((current: any) => current.code === item.code);
     if (packageTab === "upgrade") return Number(item.baseThs) > activeBase;
     if (packageTab === "downgrade") return Number(item.baseThs) < activeBase;
     return true;
@@ -149,7 +173,11 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const startFullBalanceSwap = () => {
     if (!canSwapAll) return;
     setSwapQuote(null);
-    swapQuoteMutation.mutate({ tokenAmount: String(data?.tokenBalance || data?.balances?.CKI || "0"), targetAsset: swapTarget });
+    swapQuoteMutation.mutate({ tokenAmount: String(data?.balances?.CKI ?? data?.tokenBalance ?? "0"), targetAsset: swapTarget });
+  };
+  const selectSwapTarget = (asset: string) => {
+    setSwapTarget(asset);
+    mainWalletPreferenceMutation.mutate({ swapCurrency: asset });
   };
   const activateBoost = () => boostMutation.mutate({ idempotencyKey: requestId() });
   const goTo = (section: string) => {
@@ -170,19 +198,19 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
       </a>
       <div className="cm-header-summaries" aria-label="Mining wallet summary">
         <div className="cm-header-summary">
-          <span>LIVE CKI WALLET BALANCE</span>
+          <span>AVAILABLE CKI BALANCE</span>
           <strong>{fmt(availableCki, 6)} CKI</strong>
           <small>Server-posted · database-backed</small>
         </div>
         <div className="cm-header-summary">
-          <span>ACCRUAL IN PROGRESS</span>
-          <strong>+{fmt(data?.pendingTokens, 6)} CKI</strong>
-          <small>Estimate only · not in wallet</small>
+          <span>CKI CREDITED TODAY</span>
+          <strong>+{fmt(data?.todayTokens, 6)} CKI</strong>
+          <small>Historic ledger total · settlement source not configured</small>
         </div>
         <div className="cm-header-summary">
-          <span>DUMMY CONVERSION PREVIEW</span>
-          <strong>1 CKI → ≈${dummyUsdReference}</strong>
-          <small>USD reference · not executed</small>
+          <span>CKI CONVERSION REFERENCE</span>
+          <strong>1 CKI → ≈${configuredUsdReference}</strong>
+          <small>Configured internal reference · not a market quote</small>
         </div>
       </div>
       <div className="cm-top-actions"><span className="cm-top-email">{data?.miningStatus || "Mining workspace"}</span><button type="button" className="cm-top-icon" onClick={()=>{void dashboard.refetch();void packages.refetch()}} aria-label="Refresh dashboard"><Bell size={19}/><i/></button><button type="button" className="cm-profile-chip" onClick={()=>goTo("account")}><span className="cm-profile-avatar">{tokenSymbol.slice(0,1)}</span><span><small>YOUR ACCOUNT</small><strong>Mining customer</strong></span><ChevronDown size={15}/></button></div>
@@ -199,41 +227,52 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
           </div>
           <div className="cm-factory-shade"/>
           <div className="cm-factory-label"><span><Cpu size={16}/> MINING ENGINE</span><b className={hasActiveHashPowerPackage?"online":"offline"}><i/>{hasActiveHashPowerPackage?"HASH-POWER PACKAGE ACTIVE":"NO ACTIVE HASH-POWER PACKAGE"}</b></div>
-          <div className="cm-video-controls"><button type="button" className="cm-fullscreen-control" onClick={toggleFullscreen} aria-label="Toggle mining engine fullscreen" title="Toggle mining engine fullscreen">⛶</button></div>
+          <div className="cm-video-controls" role="group" aria-label="Mining engine hash-rate readouts and fullscreen control">
+            <div className="cm-engine-hash-readouts">
+              <div className="cm-engine-hash-stat" title="Signed-in account's current hash rate, including any active boost.">
+                <span>CURRENT HASH RATE</span><strong>{currentHashRateDisplay} <small>TH/s</small></strong>
+              </div>
+              <div className="cm-engine-hash-stat" title="Aggregate base hash rate across packages currently purchasable in the saved catalog; this is not physical hashing capacity.">
+                <span>AVAILABLE HASH RATE</span><strong>{availableHashRateDisplay} <small>TH/s</small></strong>
+              </div>
+            </div>
+            <button type="button" className="cm-fullscreen-control" onClick={toggleFullscreen} aria-label="Toggle mining engine fullscreen" title="Toggle mining engine fullscreen">⛶</button>
+          </div>
         </article>
 
         <div className="cm-side-stack">
           <article className="cm-glass cm-progress-card">
             <div className="cm-progress-copy">
-              <div className="cm-progress-head"><span className="cm-eyebrow">MINING IN PROGRESS</span><strong className="cm-status-time">{engineIsRunning?nextRewardCountdown:"—:—:—"}</strong><small>Next reward in</small></div>
+              <div className="cm-progress-head"><span className="cm-eyebrow">HASH-POWER ENGINE</span><strong className="cm-status-time">{hasActiveHashPowerPackage?"ACTIVE":"IDLE"}</strong><small>{hasActiveHashPowerPackage?"Customer package is active":"No active package"}</small></div>
               <div className="cm-divider"/>
               <div className="cm-progress-metrics">
-                <div className="cm-progress-metric"><span className="cm-eyebrow">TOKENS GENERATED</span><strong className="cm-token-amount">{fmt(data?.todayTokens,4)} <small>{tokenSymbol}</small></strong><span className="cm-positive">↗ +{fmt(engineIsRunning?data?.pendingTokens:0,4)} {engineIsRunning?"(in progress)":"· cycle paused"}</span></div>
-                <div className="cm-progress-metric"><span className="cm-eyebrow">EST. DAILY EARNINGS</span><strong className="cm-daily-amount">{fmt(data?.estimatedDailyTokens,2)} <small>{tokenSymbol}</small></strong><small className="cm-simulation-note">≈ ${dailyUsdReference} USD</small></div>
+                <div className="cm-progress-metric"><span className="cm-eyebrow">CKI CREDITED TODAY</span><strong className="cm-token-amount">{fmt(data?.todayTokens,4)} <small>{tokenSymbol}</small></strong><span className="cm-positive">Historic ledger entries; not verified farm earnings</span></div>
+                <div className="cm-progress-metric"><span className="cm-eyebrow">VERIFIED FARM SETTLEMENT</span><strong className="cm-daily-amount">Not connected</strong><small className="cm-simulation-note">No third-party settlement record has been ingested yet.</small></div>
               </div>
               <div className="cm-coin-display"><span className="cm-coin-glow"/><b>₵</b><small>{tokenSymbol}</small></div>
               <div className="cm-mining-vault" aria-hidden="true"><span className="cm-vault-frame"/><span className="cm-vault-beam"/><span className="cm-vault-spark spark-a"/><span className="cm-vault-spark spark-b"/><span className="cm-vault-spark spark-c"/><div className="cm-vault-coin">₵</div><span className="cm-vault-platform"/><span className="cm-vault-orbit"/></div>
             </div>
           </article>
           <article className={`cm-glass cm-boost-card ${boost?.ready?"is-ready":"is-locked"}`}>
-            <div className="cm-boost-machine" role="img" aria-label="Animated Hash Power Engine simulation"><span className="cm-engine-aura"/><span className="cm-engine-pipe cm-engine-pipe-left"/><span className="cm-engine-pipe cm-engine-pipe-right"/><div className="cm-engine-shell"><span className="cm-engine-topcap"/><span className="cm-engine-front-glass"/><span className="cm-engine-rotor"><i/><i/><b/></span><span className="cm-engine-vents"/><span className="cm-engine-mark"/><span className="cm-engine-leds"><i/><i/><i/></span><span className="cm-engine-base"/></div></div>
-            <div className="cm-boost-copy"><div className="cm-boost-topline"><b>HASH POWER ENGINE</b><span className="cm-boost-readout"><small>{boostStatusLabel}</small><strong>{boostCountdown}</strong></span></div><div className="cm-boost-bottomline"><span className="cm-boost-charge" role="progressbar" aria-label="Boost charge" aria-valuenow={boostCycleCharge} aria-valuemin={0} aria-valuemax={100} title={boost?.reason || "One boost is available per server cycle."}><i style={{width:`${boostCycleCharge}%`}}/></span></div></div>
+            <div className="cm-boost-machine" role="img" aria-label="Package hash-power boost engine"><span className="cm-engine-aura"/><span className="cm-engine-pipe cm-engine-pipe-left"/><span className="cm-engine-pipe cm-engine-pipe-right"/><div className="cm-engine-shell"><span className="cm-engine-topcap"/><span className="cm-engine-front-glass"/><span className="cm-engine-rotor"><i/><i/><b/></span><span className="cm-engine-vents"/><span className="cm-engine-mark"/><span className="cm-engine-leds"><i/><i/><i/></span><span className="cm-engine-base"/></div></div>
+            <div className="cm-boost-copy"><div className="cm-boost-topline"><b>HASH POWER ENGINE</b><span className="cm-boost-readout"><small>{boostStatusLabel}</small><strong>{boostCountdown}</strong></span></div><div className="cm-boost-bottomline"><span className="cm-boost-charge" role="progressbar" aria-label="Boost charge" aria-valuenow={boostCycleCharge} aria-valuemin={0} aria-valuemax={100} title={boost?.reason || "2-minute activation with a customer-specific 4-hour cooldown."}><i style={{width:`${boostCycleCharge}%`}}/></span></div></div>
             <button type="button" className="cm-glow-button" title={boost?.reason || "Activate Hash Power Boost"} aria-label="Activate Hash Power Boost" disabled={boostMutation.isPending || !boost?.ready} onClick={activateBoost}><ArrowDownUp size={15}/>{boostMutation.isPending?"Activating…":"Activate Boost"}</button>
           </article>
         </div>
 
       </section>
 
-      <MiningSimulationFlow
-        activePackageName={activePackageNames}
-        hashPowerThs={activeHashPower}
-        walletCki={availableCki}
-        latestRewardReference={latestReward?.reference}
-        latestRewardCreatedAt={latestReward?.createdAt}
+	      <MiningOperationsFlow
+	        hasActivePackage={hasActiveHashPowerPackage}
+	        activePackageName={activePackageNames}
+	        hashPowerThs={activeHashPower}
+	        walletCki={availableCki}
+	        latestRewardReference={latestReward?.reference}
+	        latestRewardCreatedAt={latestReward?.createdAt}
       />
 
       <section className="cm-wallet-hash-grid" aria-label="Mining wallet and hash rate">
-        <article className="cm-glass cm-wallet-card"><div className="cm-wallet-total"><div className="cm-card-title"><span className="cm-icon-cyan"><WalletCards size={19}/></span><b>{tokenSymbol} WALLET BALANCE</b></div><div className="cm-wallet-value"><span className="cm-wallet-coin">₵</span><div><small>Total {tokenSymbol}</small><strong>{fmt(data?.balances?.CKI ?? data?.tokenBalance,6)} <small>{tokenSymbol}</small></strong><span className="cm-positive">{fmt(data?.todayTokens,6)} today · modeled</span></div></div></div><div className="cm-wallet-currencies"><div className="cm-currency-list">{TARGET_ASSETS.map(asset=><button type="button" key={asset} className={`cm-currency ${swapTarget===asset?"selected":""}`} onClick={()=>setSwapTarget(asset)} aria-pressed={swapTarget===asset}><i className={`currency-${asset.toLowerCase()}`}>{currencyIcons[asset]}</i><small>{asset}</small></button>)}</div><button type="button" className="cm-glow-button cm-swap-all" disabled={!canSwapAll || swapQuoteMutation.isPending || swapMutation.isPending} onClick={startFullBalanceSwap}><ArrowDownUp size={15}/>{swapMutation.isPending?"Posting conversion…":`Swap All to ${swapTarget}`}</button>{!canSwapAll&&<small className="cm-swap-note">Minimum {fmt(minimumSwapTokens,8)} {tokenSymbol} required to swap</small>}</div></article>
+        <article className="cm-glass cm-wallet-card"><div className="cm-wallet-total"><div className="cm-card-title"><span className="cm-icon-cyan"><WalletCards size={19}/></span><b>{tokenSymbol} WALLET BALANCE</b></div><div className="cm-wallet-value"><span className="cm-wallet-coin">₵</span><div><small>Total {tokenSymbol}</small><strong>{fmt(data?.balances?.CKI ?? data?.tokenBalance,6)} <small>{tokenSymbol}</small></strong><span className="cm-positive">Historical Mining ledger total</span></div></div></div><div className="cm-wallet-currencies"><div className="cm-currency-list">{TARGET_ASSETS.map(asset=><button type="button" key={asset} className={`cm-currency ${swapTarget===asset?"selected":""}`} onClick={()=>selectSwapTarget(asset)} aria-pressed={swapTarget===asset}><i className={`currency-${asset.toLowerCase()}`}>{currencyIcons[asset]}</i><small>{asset}</small></button>)}</div><small className="cm-swap-note">Selected main-wallet balance: {fmt(mainWalletAvailable(swapTarget),mainWalletScale(swapTarget))} {swapTarget||"—"}</small><button type="button" className="cm-glow-button cm-swap-all" disabled={!canSwapAll || swapQuoteMutation.isPending || swapMutation.isPending} onClick={startFullBalanceSwap}><ArrowDownUp size={15}/>{swapMutation.isPending?"Posting conversion…":`Swap All to ${swapTarget}`}</button>{!canSwapAll&&<small className="cm-swap-note">A positive available CKI balance and a selected main-wallet currency are required.</small>}</div></article>
         <article className="cm-glass cm-hash-card"><div className="cm-card-title"><span className="cm-icon-cyan"><Zap size={19}/></span><b>CURRENT HASH RATE</b></div><div className="cm-hash-content"><div><strong>{fmt(data?.activeThs,3)} <small>TH/s</small></strong><span className="cm-positive">Base {fmt(data?.baseThs,3)} · Boost {fmt(data?.boostThs,3)} TH/s</span></div><div className="cm-hash-details"><small>Total Power</small><b>{fmt(data?.activeThs,3)} TH/s</b><small>Package</small><b>{activePackageNames}</b></div><svg className="cm-sparkline" viewBox="0 0 170 70" preserveAspectRatio="none" aria-label="Illustrative hash rate trace"><defs><linearGradient id="cm-hash-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#10d9ff" stopOpacity=".35"/><stop offset="1" stopColor="#10d9ff" stopOpacity="0"/></linearGradient></defs><path d="M0 54 C12 47 12 24 25 32 S42 54 52 39 S66 11 78 28 S94 49 105 35 S124 52 135 25 S153 32 170 5 L170 70 L0 70Z" fill="url(#cm-hash-fill)"/><path d="M0 54 C12 47 12 24 25 32 S42 54 52 39 S66 11 78 28 S94 49 105 35 S124 52 135 25 S153 32 170 5" fill="none" stroke="#18dfff" strokeWidth="2"/></svg></div></article>
       </section>
 
@@ -248,25 +287,29 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
             const replaces=item.stackingPolicy==="replace"&&active.length>0;
             const intent=!replaces?"Choose package":Number(item.baseThs)>activeBase?"Upgrade plan":Number(item.baseThs)<activeBase?"Switch plan":"Change plan";
             const color=palette[index%palette.length];
+            const canPurchase=item.purchaseAvailable===true&&Boolean(data?.miningStatus&&!String(data.miningStatus).startsWith("Paused"));
+            const unavailableReason=String(item.purchaseUnavailableReason||"");
+            const statusLabel=activeSame?"ACTIVE":item.alreadyPurchased?"PURCHASED":canPurchase?"AVAILABLE":item.status!=="published"?"PAUSED":unavailableReason.toLowerCase().includes("settlement")?"SETTLEMENT SETUP":"ENGINE PAUSED";
+            const buttonLabel=item.alreadyPurchased?"Already purchased":canPurchase?intent:item.status!=="published"?"Paused":unavailableReason.toLowerCase().includes("settlement")?"Settlement setup pending":"Engine paused";
             return <article className={`cm-package-card ${activeSame?"is-current":""}`} key={item.versionId} style={{"--package-accent":color} as React.CSSProperties}>
               <div className="cm-package-art"><div className="cm-cube"><i/><i/><b>₵</b></div><span className="cm-package-glow"/></div>
-              <div className="cm-package-label"><h3>{item.name}</h3><span>{activeSame?"ACTIVE":item.status==="published"?"AVAILABLE":"PAUSED"}</span></div>
+              <div className="cm-package-label"><h3>{item.name}</h3><span>{statusLabel}</span></div>
               <div className="cm-package-price"><strong>{fmt(item.priceAmount,2)}</strong><small>{item.priceAsset}</small></div>
-              <div className="cm-package-facts"><b>{fmt(item.baseThs,3)} <small>TH/s</small></b><span>Boost +{fmt(item.boostBonusThs,3)} TH/s</span><span>Est. {fmt(item.estimatedDailyTokens,5)} {item.tokenSymbol||tokenSymbol}/day</span></div>
-              <button type="button" className="cm-package-buy" disabled={!selectedCanPurchase||item.status!=="published"} onClick={()=>{setSelectedPackage(item);setPurchaseQuote(null);setAcknowledged(false)}}>{selectedCanPurchase&&item.status==="published"?intent:"Unavailable"}<ArrowRight size={13}/></button>
+              <div className="cm-package-facts"><b>{fmt(item.baseThs,3)} <small>TH/s</small></b><span>Boost +{fmt(item.boostBonusThs,3)} TH/s</span><span>Term {item.durationMonths==null?"not set":`${item.durationMonths} months`}</span><span>Daily CKI allocation follows actual farm settlement records</span></div>
+              <button type="button" className="cm-package-buy" disabled={!canPurchase} title={canPurchase?intent:(unavailableReason||"Unavailable")} onClick={()=>{if(!canPurchase)return;setSelectedPackage(item);setPurchaseQuote(null);setAcknowledged(false)}}>{buttonLabel}<ArrowRight size={13}/></button>
             </article>;
           })}
         </div>
       </section>
 
-      <section className="cm-bottom-strip" aria-label="Mining platform features"><div><Cpu/><span><b>SIMULATED MINING</b><small>Server-posted records</small></span></div><div><Activity/><span><b>LIVE ACCOUNT DATA</b><small>Refreshes every few seconds</small></span></div><div><ArrowDownUp/><span><b>INTERNAL SWAPS</b><small>Quote and ledger guarded</small></span></div><div><Zap/><span><b>HASH POWER BOOST</b><small>{boost?.activeBoost?"Active now":"Time-limited simulation"}</small></span></div><div><ShieldCheck/><span><b>ACCOUNT SECURITY</b><small>Customer session protected</small></span></div></section>
+      <section className="cm-bottom-strip" aria-label="Mining platform features"><div><Cpu/><span><b>PACKAGE HASHPOWER</b><small>Active purchased capacity</small></span></div><div><Activity/><span><b>LIVE ACCOUNT DATA</b><small>Refreshes every few seconds</small></span></div><div><ArrowDownUp/><span><b>INTERNAL SWAPS</b><small>Quote and ledger guarded</small></span></div><div><Zap/><span><b>HASH POWER BOOST</b><small>{boost?.activeBoost?"Active now":"2-minute boost · 4-hour customer cooldown"}</small></span></div><div><ShieldCheck/><span><b>ACCOUNT SECURITY</b><small>Customer session protected</small></span></div></section>
 
       <details className="cm-advanced-conversion"><summary><span><Sparkles size={16}/><b>Automatic conversion preferences</b><small>Future rewards only · Version {data?.conversionPreference?.version||0}</small></span><ChevronDown size={16}/></summary><p>Optional background conversion for eligible future reward intervals. A failed or stale quote leaves CKI in your wallet. This preference does not convert your existing balance.</p><div className="cm-auto-controls"><label className="cm-checkbox"><input type="checkbox" checked={prefEnabled} onChange={e=>setPrefEnabled(e.target.checked)}/><span>Automatically convert eligible future rewards</span></label><label>Destination<select value={prefTarget} onChange={e=>setPrefTarget(e.target.value)}>{TARGET_ASSETS.map(asset=><option key={asset}>{asset}</option>)}</select></label><label>Minimum {tokenSymbol}<input value={prefThreshold} onChange={e=>setPrefThreshold(e.target.value)} inputMode="decimal"/></label><button type="button" className="cm-secondary-button" disabled={preferenceMutation.isPending} onClick={()=>preferenceMutation.mutate({enabled:prefEnabled,targetDenomination:prefTarget,minimumThreshold:prefThreshold})}>{preferenceMutation.isPending?"Saving…":"Save preference"}</button></div><div className="cm-queue-note"><Clock3 size={14}/> Pending conversion jobs: <strong>{data?.pendingConversionJobs||0}</strong></div></details>
 
       <section className="cm-glass cm-history">
         <div className="cm-history-heading">
           <div>
-            <span className="cm-eyebrow">IMMUTABLE SIMULATION RECEIPTS</span>
+            <span className="cm-eyebrow">MINING ACCOUNT LEDGER</span>
             <h2>Mining activity</h2>
             <small className="cm-history-count">Latest 30 entries · 5 per page</small>
           </div>
@@ -295,9 +338,9 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
         </>}
       </section>
 
-      <footer className="cm-disclaimer"><ShieldCheck size={15}/><span>Mining artwork and estimates are illustrative. CKI recorded by the server is part of an isolated simulation ledger; the internal USD reference is not an exchange execution, payout, guaranteed return, or withdrawal.</span><b>Economics v{data?.economicsVersion||"—"}</b></footer>
+      <footer className="cm-disclaimer"><ShieldCheck size={15}/><span>The Mining Engine reflects active purchased package capacity. This Sandbox has no verified third-party farm settlement input yet, so no real-farm reward is being credited. CKI swaps credit the selected main wallet. No payout ticket or external transfer is initiated here; CKI itself is not a payout asset.</span><b>Economics v{data?.economicsVersion||"—"}</b></footer>
     </main>
 
-    {selectedPackage&&<div className="cm-modal-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget){setSelectedPackage(null);setPurchaseQuote(null)}}}><div className="cm-modal" role="dialog" aria-modal="true" aria-labelledby="cm-buy-title"><button className="cm-modal-close" type="button" onClick={()=>{setSelectedPackage(null);setPurchaseQuote(null)}} aria-label="Close">×</button><span className="cm-eyebrow">PACKAGE REVIEW · VERSION {selectedPackage.version}</span><h2 id="cm-buy-title">{selectedPackage.name}</h2><p className="cm-modal-disclosure">Simulation-only package. No real mining, guaranteed reward, or cash payout.</p>{selectedPackage.stackingPolicy==="replace"&&active.length>0&&<p className="cm-switch-note">This package replaces active package entitlements when confirmed. Previous package purchases are not refunded or prorated.</p>}<div className="cm-form-row"><label>Pay with<select value={paymentAsset} onChange={e=>{setPaymentAsset(e.target.value);setPurchaseQuote(null)}}>{ASSETS.map(asset=><option key={asset}>{asset}</option>)}</select></label><div className="cm-available"><span>Available simulated balance</span><strong>{fmt(availablePayment,8)} {paymentAsset}</strong></div></div><button type="button" className="cm-secondary-button" disabled={purchaseQuoteMutation.isPending||!selectedCanPurchase} onClick={()=>purchaseQuoteMutation.mutate({packageVersionId:selectedPackage.versionId,paymentAsset})}>{purchaseQuoteMutation.isPending?"Preparing quote…":"Request fresh package quote"}<ArrowRight size={14}/></button>{purchaseQuote&&<div className="cm-quote-card"><div className="cm-quote-title"><BadgeCheck size={15}/> FRESH QUOTE · {purchaseQuote.quoteId}</div><div className="cm-quote-grid"><span>Package price <b>{fmt(purchaseQuote.packagePrice,8)} {purchaseQuote.packagePriceAsset}</b></span><span>Payment <b>{fmt(purchaseQuote.sourceAmount,8)} {purchaseQuote.sourceAsset}</b></span><span>Fee <b>{fmt(purchaseQuote.fee,8)} {purchaseQuote.feeAsset}</b></span><span>Balance check <b>{purchaseQuote.sufficientBalance?"Sufficient":"Insufficient"}</b></span></div><small>{purchaseQuote.provider} · observed {dateText(purchaseQuote.priceObservedAt)} · expires {dateText(purchaseQuote.expiresAt)}</small><label className="cm-checkbox cm-ack"><input type="checkbox" checked={acknowledged} onChange={e=>setAcknowledged(e.target.checked)}/><span>I understand this is simulated mining-style activity only; no real compute, guaranteed returns, or withdrawal is provided.</span></label><button type="button" className="cm-primary-button" disabled={!acknowledged||!purchaseQuote.sufficientBalance||quoteExpired||purchaseMutation.isPending} onClick={()=>purchaseMutation.mutate({quoteId:purchaseQuote.quoteId,idempotencyKey:requestId(),acknowledgedSimulation:acknowledged})}>{quoteExpired?"Quote expired":purchaseMutation.isPending?"Activating package…":"Confirm simulated package"}<ArrowRight size={15}/></button></div>}<div className="cm-modal-note"><Info size={14}/><span>Terms: {selectedPackage.termsText}</span></div></div></div>}
+    {selectedPackage&&<div className="cm-modal-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget){setSelectedPackage(null);setPurchaseQuote(null)}}}><div className="cm-modal" role="dialog" aria-modal="true" aria-labelledby="cm-buy-title"><button className="cm-modal-close" type="button" onClick={()=>{setSelectedPackage(null);setPurchaseQuote(null)}} aria-label="Close">×</button><span className="cm-eyebrow">PACKAGE REVIEW · VERSION {selectedPackage.version}</span><h2 id="cm-buy-title">{selectedPackage.name}</h2><p className="cm-modal-disclosure">Review package terms before purchase. No verified third-party settlement source is connected in this Sandbox; no CKI reward is currently quoted.</p>{selectedPackage.stackingPolicy==="replace"&&active.length>0&&<p className="cm-switch-note">This package replaces active package entitlements when confirmed. Previous package purchases are not refunded or prorated.</p>}<div className="cm-form-row"><label>Pay with<select value={paymentAsset} onChange={e=>{setPaymentAsset(e.target.value);setPurchaseQuote(null)}}>{TARGET_ASSETS.map(asset=><option key={asset}>{asset}</option>)}</select></label><div className="cm-available"><span>Available main-wallet balance</span><strong>{fmt(availablePayment,mainWalletScale(paymentAsset))} {paymentAsset||"—"}</strong></div></div><button type="button" className="cm-secondary-button" disabled={purchaseQuoteMutation.isPending||!selectedCanPurchase} onClick={()=>purchaseQuoteMutation.mutate({packageVersionId:selectedPackage.versionId,paymentAsset:paymentAsset||undefined})}>{purchaseQuoteMutation.isPending?"Preparing quote…":"Request fresh package quote"}<ArrowRight size={14}/></button>{purchaseQuote&&<div className="cm-quote-card"><div className="cm-quote-title"><BadgeCheck size={15}/> FRESH QUOTE · {purchaseQuote.quoteId}</div><div className="cm-quote-grid"><span>Package price <b>{fmt(purchaseQuote.packagePrice,8)} {purchaseQuote.packagePriceAsset}</b></span><span>Payment <b>{fmt(purchaseQuote.sourceAmount,8)} {purchaseQuote.sourceAsset}</b></span><span>Fee <b>{fmt(purchaseQuote.fee,8)} {purchaseQuote.feeAsset}</b></span><span>Balance check <b>{purchaseQuote.sufficientBalance?"Sufficient":"Insufficient"}</b></span></div><small>{purchaseQuote.provider} · observed {dateText(purchaseQuote.priceObservedAt)} · expires {dateText(purchaseQuote.expiresAt)}</small><label className="cm-checkbox cm-ack"><input type="checkbox" checked={acknowledged} onChange={e=>setAcknowledged(e.target.checked)}/><span>I understand this package can be purchased once, the payment is debited from my main wallet, and no verified farm settlement source is connected in this Sandbox.</span></label><button type="button" className="cm-primary-button" disabled={!acknowledged||!purchaseQuote.sufficientBalance||quoteExpired||purchaseMutation.isPending} onClick={()=>purchaseMutation.mutate({quoteId:purchaseQuote.quoteId,idempotencyKey:requestId(),acceptedTerms:acknowledged})}>{quoteExpired?"Quote expired":purchaseMutation.isPending?"Activating package…":"Confirm package purchase"}<ArrowRight size={15}/></button></div>}<div className="cm-modal-note"><Info size={14}/><span>Terms: {selectedPackage.termsText}</span></div></div></div>}
   </div>;
 }

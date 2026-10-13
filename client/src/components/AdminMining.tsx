@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Decimal from "decimal.js";
 import { trpc } from "@/lib/trpc";
-import { Activity, AlertTriangle, ArrowRight, BadgeCheck, BookOpenCheck, Check, CircleDollarSign, Clock3, Cpu, Database, FileClock, Gauge, LockKeyhole, Pause, Play, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowRight, BadgeCheck, BookOpenCheck, Check, CircleDollarSign, Clock3, Cpu, Database, FileClock, Gauge, LockKeyhole, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 import { MiningCoreCanvas } from "./MiningCoreCanvas";
 
-const defaultTerms = "This is simulated mining-style activity for demonstration and product testing only. No physical mining hardware, pool, energy use, external hash power, investment, guaranteed return, custody, or cash payout is provided. Simulated CoinKi (CKI) balances are internal reference amounts, are not withdrawable, and cannot be redeemed. Rewards are generated only by the versioned server model and may be paused or changed prospectively by authorized administrators.";
-const defaultEconomics:any = {globalEnabled:false,boostsEnabled:true,tokenName:"CoinKi",tokenSymbol:"CKI",tokenUnitsPerUsd:"0.625",usdPerToken:"1.6",rewardTokensPerThsHour:"0",swapFeeBps:0,purchaseFeeBps:0,minSwapTokens:"1",maxSwapTokens:"1000000",defaultAutoConversionThreshold:"0",boostCycleSeconds:14400,boostDurationSeconds:300,quoteTtlSeconds:90,fiatMaxAgeSeconds:172800,cryptoMaxAgeSeconds:900,maxRateDeviationBps:5000,dailyRewardCapTokens:"0",dualApprovalThresholdUsd:"100"};
-const blankPackage:any = {code:"MINING_STARTER",name:"Starter Mining",priceAmount:"10.00",priceAsset:"USD",baseThs:"10",boostBonusThs:"2",boostDurationSeconds:300,maxPerCustomer:0,stackingPolicy:"replace",expirySeconds:null,termsText:defaultTerms,simulationAcknowledgementRequired:true};
+const blankPackage:any = {code:"",name:"",displayOrder:"",durationMonths:"",expectedDailyRewardCki:"",priceAmount:"",priceAsset:"",baseThs:"",boostBonusThs:"",boostDurationSeconds:null,maxPerCustomer:1,stackingPolicy:"",termsText:"",simulationAcknowledgementRequired:true};
 const freshKey=()=>globalThis.crypto?.randomUUID?.()||`mining-admin-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const dt=(value?:string|null)=>value?new Date(value).toLocaleString():"—";
 const nfmt=(value:unknown,max=8)=>Number.isFinite(Number(value))?Number(value||0).toLocaleString(undefined,{maximumFractionDigits:max}):"—";
@@ -18,13 +16,12 @@ export function AdminMining(){
   const feeds=trpc.adminOperations.miningPriceFeeds.useQuery(undefined,{refetchInterval:30000});
   const approvals=trpc.adminOperations.miningAdjustmentQueue.useQuery(undefined,{refetchInterval:15000});
   const personalMining=trpc.customer.mining.dashboard.useQuery(undefined,{refetchInterval:5000});
-  const [enginePlaying,setEnginePlaying]=useState(true);
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
-  const [settings,setSettings]=useState<any>(defaultEconomics);
-  const [settingsReason,setSettingsReason]=useState("Versioned simulation-only economics reviewed by operations.");
+  const [settings,setSettings]=useState<any>({});
+  const [settingsReason,setSettingsReason]=useState("Versioned Mining settings reviewed by operations.");
   const [packageForm,setPackageForm]=useState<any>(blankPackage);
-  const [packageReason,setPackageReason]=useState("Create or revise a simulation-only Mining package version.");
+  const [packageReason,setPackageReason]=useState("Create or revise a Mining package version.");
   const [searchText,setSearchText]=useState("");
   const [customerSearch,setCustomerSearch]=useState("");
   const [selectedUserId,setSelectedUserId]=useState(0);
@@ -35,7 +32,7 @@ export function AdminMining(){
   const [reconcileReason,setReconcileReason]=useState("Rebuild verified Mining wallet snapshots from the immutable journal.");
   const [reconcileResult,setReconcileResult]=useState<any>(null);
 
-  useEffect(()=>{if(economics.data?.current)setSettings({...economics.data.current,usdPerToken:economics.data.current.usdPerToken||"1.6"});},[economics.data?.current?.version]);
+  useEffect(()=>{if(economics.data?.current)setSettings({...economics.data.current});},[economics.data?.current?.version]);
   const customerRows=trpc.adminOperations.miningCustomers.useQuery({query:customerSearch,limit:50},{refetchInterval:30000});
   const customerDetail=trpc.adminOperations.miningCustomerDetail.useQuery({userId:selectedUserId||1},{enabled:selectedUserId>0,refetchInterval:15000});
 
@@ -54,29 +51,31 @@ export function AdminMining(){
   const reconcile=trpc.adminOperations.reconcileMiningLedger.useMutation({onSuccess:r=>{setReconcileResult(r);report(r.repaired?`Journal reconciliation checked ${r.checked} wallet(s) and rebuilt ${r.repaired} snapshot(s).`:`Journal check completed: ${r.discrepancies} discrepancy(ies), ${r.skipped} wallet(s) skipped.`);void dashboard.refetch();void customerDetail.refetch();},onError:e=>fail(e.message)});
 
   const rows=packages.data||[];
-  const tokenName=settings.tokenName||dashboard.data?.economics?.tokenName||"CoinKi";
-  const tokenSymbol=settings.tokenSymbol||dashboard.data?.economics?.tokenSymbol||"CKI";
+  const tokenName=settings.tokenName||dashboard.data?.economics?.tokenName||"";
+  const tokenSymbol=settings.tokenSymbol||dashboard.data?.economics?.tokenSymbol||"";
   const ownMining=personalMining.data;
   const ownActivePackage=ownMining?.packages?.find(pkg=>pkg.status==="active");
   const ownHashPower=Number(ownMining?.activeThs||0);
-  const ownProcessing=ownMining?.miningStatus==="Simulated reward processing active"&&ownHashPower>0;
+  const ownProcessing=Boolean(ownActivePackage&&ownHashPower>0);
   const ownRewardPulse=Number(ownMining?.todayTokens||0);
   const visibleCustomers=useMemo(()=>customerRows.data||[],[customerRows.data]);
   const updateSettings=(key:string,value:any)=>setSettings((old:any)=>({...old,[key]:value}));
   const setPackage=(key:string,value:any)=>setPackageForm((old:any)=>({...old,[key]:value}));
-  const editDraft=(row:any)=>{if(row.versionStatus!=="draft")return;setPackageForm({packageId:row.packageId,versionId:row.versionId,code:row.code,name:row.name,priceAmount:row.priceAmount||"",priceAsset:row.priceAsset||"USD",baseThs:row.baseThs||"",boostBonusThs:row.boostBonusThs||"0",boostDurationSeconds:row.boostDurationSeconds,maxPerCustomer:row.maxPerCustomer||0,stackingPolicy:row.stackingPolicy||"replace",expirySeconds:row.expirySeconds,termsText:row.termsText||defaultTerms,simulationAcknowledgementRequired:true});setPackageReason("Update draft package terms and simulated capacity before publication.");};
-  const newVersion=(row:any)=>{setPackageForm({packageId:row.packageId,code:row.code,name:row.name,priceAmount:row.priceAmount||"",priceAsset:row.priceAsset||"USD",baseThs:row.baseThs||"",boostBonusThs:row.boostBonusThs||"0",boostDurationSeconds:row.boostDurationSeconds,maxPerCustomer:row.maxPerCustomer||0,stackingPolicy:row.stackingPolicy||"replace",expirySeconds:row.expirySeconds,termsText:row.termsText||defaultTerms,simulationAcknowledgementRequired:true});setPackageReason("Create a new version while the current published version remains available.");};
+  const nextDisplayOrder=()=>String(Math.max(0,...rows.map((row:any)=>Number(row.displayOrder)||0))+1);
+  const newPackageForm=()=>({...blankPackage,durationMonths:economics.data?.current?.defaultContractDurationMonths??"",displayOrder:nextDisplayOrder()});
+  const editDraft=(row:any)=>{if(row.versionStatus!=="draft")return;setPackageForm({packageId:row.packageId,versionId:row.versionId,code:row.code,name:row.name,displayOrder:row.displayOrder,durationMonths:row.durationMonths??"",expectedDailyRewardCki:row.expectedDailyRewardCki??"",priceAmount:row.priceAmount??"",priceAsset:row.priceAsset??"",baseThs:row.baseThs??"",boostBonusThs:row.boostBonusThs??"",boostDurationSeconds:row.boostDurationSeconds,maxPerCustomer:1,stackingPolicy:row.stackingPolicy??"",termsText:row.termsText??"",simulationAcknowledgementRequired:true});setPackageReason("Update draft package terms and capacity before publication.");};
+  const newVersion=(row:any)=>{setPackageForm({packageId:row.packageId,code:row.code,name:row.name,displayOrder:row.displayOrder,durationMonths:row.durationMonths??economics.data?.current?.defaultContractDurationMonths??"",expectedDailyRewardCki:row.expectedDailyRewardCki??"",priceAmount:row.priceAmount??"",priceAsset:row.priceAsset??"",baseThs:row.baseThs??"",boostBonusThs:row.boostBonusThs??"",boostDurationSeconds:row.boostDurationSeconds,maxPerCustomer:1,stackingPolicy:row.stackingPolicy??"",termsText:row.termsText??"",simulationAcknowledgementRequired:true});setPackageReason("Create a new version while the current published version remains available.");};
 
   return <div className="admin-mining">
-    <header className="am-hero"><div><div className="am-kicker"><Cpu size={15}/> OPERATIONS CONTROL · SIMULATED MINING</div><h1>Mining operations</h1><p>Versioned economics, customer packages, price-feed readiness, approvals, and ledger controls. All Mining balances use the existing high-precision journal.</p></div><button type="button" className="am-button secondary" onClick={refreshAll}><RefreshCw size={15}/> Refresh control room</button></header>
-    <div className="am-warning"><AlertTriangle size={18}/><span><strong>Simulation-only.</strong> Do not present this as physical mining, investment yield, external settlement, custody, or a withdrawable balance. Real-value launch requires independent legal/compliance and operational approval.</span></div>
-    <section className="am-panel am-personal-engine" aria-label="Administrator's simulated mining engine">
+    <header className="am-hero"><div><div className="am-kicker"><Cpu size={15}/> OPERATIONS CONTROL · FARM SETTLEMENTS</div><h1>Mining operations</h1><p>Versioned economics, customer packages, settlement readiness, approvals, and ledger controls. All Mining balances use the existing high-precision journal.</p></div><button type="button" className="am-button secondary" onClick={refreshAll}><RefreshCw size={15}/> Refresh control room</button></header>
+    <div className="am-warning"><AlertTriangle size={18}/><span><strong>Farm-settlement integration is not configured in this Sandbox.</strong> No customer CKI credits are currently posted from verified third-party earnings. Configure the settlement source and allocation policy before enabling reward posting or package purchases.</span></div>
+    <section className="am-panel am-personal-engine" aria-label="Administrator's Mining engine status">
       <div className="am-panel-heading"><div><span className="am-kicker">YOUR ADMIN ACCOUNT · LIVE SANDBOX ENTITLEMENT</span><h2>Personal mining engine</h2><p>Read-only preview of the hashpower assigned to this signed-in administrator account.</p></div><span className={`am-state ${ownActivePackage?"on":"off"}`}>{personalMining.isLoading?"LOADING":ownActivePackage?"HASHPOWER ACTIVE":"NO ACTIVE HASHPOWER"}</span></div>
       {personalMining.error&&<div className="am-engine-error" role="alert">Personal mining status unavailable: {personalMining.error.message}</div>}
       <div className="am-engine-preview-grid">
         <div className="am-engine-visual" aria-label="Read-only animated mining engine preview">
-          <MiningCoreCanvas running={ownProcessing} playing={enginePlaying} boosted={Boolean(ownMining?.boost?.active)} hashPowerThs={ownHashPower} rewardPulseKey={ownRewardPulse}/>
-          <div className="am-engine-visual-overlay"><span>{ownActivePackage?.packageName||"No active package"}</span><span>{ownProcessing?"REWARD MODEL ONLINE":"SIMULATION PAUSED"}</span></div>
+          <MiningCoreCanvas running={ownProcessing} playing={ownProcessing} boosted={Boolean(ownMining?.boost?.active)} hashPowerThs={ownHashPower} rewardPulseKey={ownRewardPulse}/>
+          <div className="am-engine-visual-overlay"><span>{ownActivePackage?.packageName||"No active package"}</span><span>{ownProcessing?"PURCHASED HASHPOWER ACTIVE":"NO ACTIVE PACKAGE"}</span></div>
         </div>
         <aside className="am-engine-readout">
           <div className="am-engine-power-label">YOUR ACCOUNT HASHPOWER</div>
@@ -85,10 +84,9 @@ export function AdminMining(){
             <div><dt>Package</dt><dd>{ownActivePackage?.packageName||(personalMining.isLoading?"Loading…":"None active")}</dd></div>
             <div><dt>Assignment</dt><dd>{ownActivePackage?.acquisitionType==="admin_grant"?"No-charge sandbox grant":ownActivePackage?"Purchased entitlement":"—"}</dd></div>
             <div><dt>Expires</dt><dd>{dt(ownActivePackage?.expiresAt)}</dd></div>
-            <div><dt>Reward rate</dt><dd>{ownProcessing?`${nfmt(ownMining?.rewardTokensPerThsHour,8)} CKI / TH/s / hour`:"Paused or unavailable"}</dd></div>
+            <div><dt>Farm settlement</dt><dd>{ownProcessing?"Awaiting verified third-party settlement":"No active package"}</dd></div>
           </dl>
-          <button type="button" className="am-button secondary" disabled={!ownProcessing||personalMining.isLoading} onClick={()=>setEnginePlaying(value=>!value)} aria-label={enginePlaying?"Pause engine animation":"Resume engine animation"}>{enginePlaying?<Pause size={14}/>:<Play size={14}/>} {enginePlaying?"Pause animation":"Resume animation"}</button>
-          <p>Animation control only; it does not pause server rewards or write to the ledger. CKI activity is sandbox simulation, not physical mining or a cash payout.</p>
+          <p>The status follows the active purchased package. CKI credits require a verified third-party settlement record and are not enabled in this Sandbox.</p>
         </aside>
       </div>
     </section>
@@ -97,7 +95,7 @@ export function AdminMining(){
     <section className="am-kpis">{[
       ["ACTIVE MINERS",dashboard.data?.metrics?.activeMiners||0,"Current entitled customers"],
       ["PUBLISHED PACKAGES",dashboard.data?.metrics?.publishedPackages||0,"Customer-available versions"],
-      [`SIMULATED ${tokenSymbol} CREDITED`,nfmt(dashboard.data?.metrics?.simulatedTokensCredited),"Internal model ledger only"],
+      [`LEGACY ${tokenSymbol} CREDIT LEDGER`,nfmt(dashboard.data?.metrics?.simulatedTokensCredited),"Historical entries; not verified settlement"],
       ["PENDING APPROVALS",dashboard.data?.metrics?.pendingAdjustmentApprovals||0,"Require second administrator"],
       ["CONVERSION QUEUE",dashboard.data?.metrics?.conversionQueue?.queued||0,`Waiting ${dashboard.data?.metrics?.conversionQueue?.waiting||0} · Failed ${dashboard.data?.metrics?.conversionQueue?.failed||0}`],
       ["LEDGER DISCREPANCIES",dashboard.data?.reconciliation?.discrepancies||0,"Journal check only; no auto-repair"],
@@ -108,42 +106,46 @@ export function AdminMining(){
       <div className="am-reference"><InfoIcon/> <span>{feeds.data?.tokenConversionReference||`${tokenName} (${tokenSymbol}) uses an administrator-configured internal conversion, not a market price.`}</span><span className="am-ref-version">Economics v{dashboard.data?.economics?.version||"—"} · {dashboard.data?.economics?.globalEnabled?"ENABLED":"PAUSED"}</span></div>
     </section>
 
-    <section className="am-panel"><div className="am-panel-heading"><div><span className="am-kicker">IMMUTABLE ECONOMICS VERSIONS</span><h2>Reward & conversion controls</h2><p>Every save creates a new effective-dated version; prior events retain their original model snapshot.</p></div><span className={`am-state ${settings.globalEnabled?"on":"off"}`}>{settings.globalEnabled?"MINING ENABLED":"MINING PAUSED"}</span></div>
+    <section className="am-panel"><div className="am-panel-heading"><div><span className="am-kicker">IMMUTABLE ECONOMICS VERSIONS</span><h2>Valuation, conversion & engine settings</h2><p>Every save creates a new effective-dated version; prior events retain their original model snapshot.</p></div><span className={`am-state ${settings.globalEnabled?"on":"off"}`}>{settings.globalEnabled?"CREDIT POSTING ENABLED":"CREDIT POSTING BLOCKED"}</span></div>
       <div className="am-form-grid">
-        <label className="am-toggle"><input type="checkbox" checked={!!settings.globalEnabled} onChange={e=>updateSettings("globalEnabled",e.target.checked)}/><span>Enable simulated reward processing</span></label>
+        <label className="am-toggle"><input type="checkbox" checked={!!settings.globalEnabled} disabled onChange={e=>updateSettings("globalEnabled",e.target.checked)}/><span>Enable customer CKI credits (blocked pending verified farm settlements)</span></label>
         <label className="am-toggle"><input type="checkbox" checked={!!settings.boostsEnabled} onChange={e=>updateSettings("boostsEnabled",e.target.checked)}/><span>Allow future boost activations</span></label>
-        <label>Token name<input value="CoinKi" readOnly aria-readonly="true"/></label>
-        <label>Token symbol<input value="CKI" readOnly aria-readonly="true"/></label>
-        <label>Internal USD per {tokenSymbol}<input inputMode="decimal" value={settings.usdPerToken||""} onChange={e=>updateSettings("usdPerToken",e.target.value)}/><small>Initial internal reference: 1 CKI = $1.60 USD. Not a market price.</small></label>
-        <label>Reward {tokenSymbol} / TH/s / hour<input value={settings.rewardTokensPerThsHour} onChange={e=>updateSettings("rewardTokensPerThsHour",e.target.value)}/></label>
-        <label>Swap fee (basis points)<input type="number" value={settings.swapFeeBps} onChange={e=>updateSettings("swapFeeBps",Number(e.target.value))}/></label>
-        <label>Package purchase fee (bps)<input type="number" value={settings.purchaseFeeBps} onChange={e=>updateSettings("purchaseFeeBps",Number(e.target.value))}/></label>
-        <label>Minimum swap ({tokenSymbol})<input value={settings.minSwapTokens} onChange={e=>updateSettings("minSwapTokens",e.target.value)}/></label>
-        <label>Maximum swap ({tokenSymbol})<input value={settings.maxSwapTokens} onChange={e=>updateSettings("maxSwapTokens",e.target.value)}/></label>
-        <label>Default auto-conversion threshold ({tokenSymbol})<input value={settings.defaultAutoConversionThreshold} onChange={e=>updateSettings("defaultAutoConversionThreshold",e.target.value)}/></label>
-        <label>Daily reward cap ({tokenSymbol}, 0 = unlimited)<input value={settings.dailyRewardCapTokens} onChange={e=>updateSettings("dailyRewardCapTokens",e.target.value)}/></label>
-        <label>Boost cycle (seconds)<input type="number" value={settings.boostCycleSeconds} onChange={e=>updateSettings("boostCycleSeconds",Number(e.target.value))}/></label>
-        <label>Boost duration (seconds)<input type="number" value={settings.boostDurationSeconds} onChange={e=>updateSettings("boostDurationSeconds",Number(e.target.value))}/></label>
-        <label>Quote lifetime (seconds)<input type="number" value={settings.quoteTtlSeconds} onChange={e=>updateSettings("quoteTtlSeconds",Number(e.target.value))}/></label>
-        <label>Fiat feed max age (seconds)<input type="number" value={settings.fiatMaxAgeSeconds} onChange={e=>updateSettings("fiatMaxAgeSeconds",Number(e.target.value))}/></label>
-        <label>Crypto feed max age (seconds)<input type="number" value={settings.cryptoMaxAgeSeconds} onChange={e=>updateSettings("cryptoMaxAgeSeconds",Number(e.target.value))}/></label>
-        <label>Max quote deviation (bps)<input type="number" value={settings.maxRateDeviationBps} onChange={e=>updateSettings("maxRateDeviationBps",Number(e.target.value))}/></label>
-        <label>Dual-approval threshold (USD)<input value={settings.dualApprovalThresholdUsd} onChange={e=>updateSettings("dualApprovalThresholdUsd",e.target.value)}/></label>
+        <label>Token name<input value={settings.tokenName??""} readOnly aria-readonly="true"/></label>
+        <label>Token symbol<input value={settings.tokenSymbol??""} readOnly aria-readonly="true"/></label>
+        <label>Internal USD per {tokenSymbol}<input inputMode="decimal" value={settings.usdPerToken??""} onChange={e=>updateSettings("usdPerToken",e.target.value)}/><small>Current database-backed internal reference: 1 {tokenSymbol||"token"} = ${settings.usdPerToken||"—"} USD. Not a market price.</small></label>
+        <label>Default contract duration (months)<input type="number" min="1" max="120" value={settings.defaultContractDurationMonths??""} onChange={e=>updateSettings("defaultContractDurationMonths",e.target.value?Number(e.target.value):"")}/></label>
+        <label>Difficulty baseline · TH/s<input inputMode="decimal" value={settings.difficultyBaselineThs??""} onChange={e=>updateSettings("difficultyBaselineThs",e.target.value)}/></label>
+        <label>Legacy global reward rate · not used for farm settlements<input value={settings.rewardTokensPerThsHour??""} readOnly aria-readonly="true"/><small>Retained for migration compatibility only; no customer credit is calculated from this rate.</small></label>
+        <label>Swap fee (basis points)<input type="number" value={settings.swapFeeBps??""} onChange={e=>updateSettings("swapFeeBps",Number(e.target.value))}/></label>
+        <label>Package purchase fee (bps)<input type="number" value={settings.purchaseFeeBps??""} onChange={e=>updateSettings("purchaseFeeBps",Number(e.target.value))}/></label>
+        <label>Minimum swap ({tokenSymbol})<input value={settings.minSwapTokens??""} onChange={e=>updateSettings("minSwapTokens",e.target.value)}/></label>
+        <label>Maximum swap ({tokenSymbol})<input value={settings.maxSwapTokens??""} onChange={e=>updateSettings("maxSwapTokens",e.target.value)}/></label>
+        <label>Default auto-conversion threshold ({tokenSymbol})<input value={settings.defaultAutoConversionThreshold??""} onChange={e=>updateSettings("defaultAutoConversionThreshold",e.target.value)}/></label>
+        <label>Daily reward cap ({tokenSymbol}, 0 = unlimited)<input value={settings.dailyRewardCapTokens??""} onChange={e=>updateSettings("dailyRewardCapTokens",e.target.value)}/></label>
+        <label>Boost cycle (seconds)<input type="number" value={settings.boostCycleSeconds??""} onChange={e=>updateSettings("boostCycleSeconds",Number(e.target.value))}/></label>
+        <label>Boost duration (seconds)<input type="number" value={settings.boostDurationSeconds??""} onChange={e=>updateSettings("boostDurationSeconds",Number(e.target.value))}/></label>
+        <label>Quote lifetime (seconds)<input type="number" value={settings.quoteTtlSeconds??""} onChange={e=>updateSettings("quoteTtlSeconds",Number(e.target.value))}/></label>
+        <label>Fiat feed max age (seconds)<input type="number" value={settings.fiatMaxAgeSeconds??""} onChange={e=>updateSettings("fiatMaxAgeSeconds",Number(e.target.value))}/></label>
+        <label>Crypto feed max age (seconds)<input type="number" value={settings.cryptoMaxAgeSeconds??""} onChange={e=>updateSettings("cryptoMaxAgeSeconds",Number(e.target.value))}/></label>
+        <label>Max quote deviation (bps)<input type="number" value={settings.maxRateDeviationBps??""} onChange={e=>updateSettings("maxRateDeviationBps",Number(e.target.value))}/></label>
+        <label>Dual-approval threshold (USD)<input value={settings.dualApprovalThresholdUsd??""} onChange={e=>updateSettings("dualApprovalThresholdUsd",e.target.value)}/></label>
       </div>
-      <div className="am-save-row"><label>Reason for version change<input value={settingsReason} onChange={e=>setSettingsReason(e.target.value)} maxLength={2000}/></label><button className="am-button primary" disabled={saveEconomics.isPending} onClick={saveEconomicsVersion}><SlidersHorizontal size={15}/>{saveEconomics.isPending?"Saving version…":"Save economics version"}</button></div>
-      <details className="am-history"><summary><FileClock size={14}/> Recent economics versions</summary><div className="am-version-list">{(economics.data?.versions||[]).map((v:any)=><div key={v.version}><strong>v{v.version}</strong><span>{v.globalEnabled?"enabled":"paused"} · {v.tokenName} ({v.tokenSymbol}) · {v.rewardTokensPerThsHour} {v.tokenSymbol}/TH/s/h · 1 {v.tokenSymbol} = ${v.usdPerToken} USD</span><small>{dt(v.effectiveAt)} · {v.reason}</small></div>)}</div></details>
+      <div className="am-save-row"><label>Reason for version change<input value={settingsReason} onChange={e=>setSettingsReason(e.target.value)} maxLength={2000}/></label><button className="am-button primary" disabled={saveEconomics.isPending||economics.isLoading||economics.isError} onClick={saveEconomicsVersion}><SlidersHorizontal size={15}/>{saveEconomics.isPending?"Saving version…":"Save economics version"}</button></div>
+      <details className="am-history"><summary><FileClock size={14}/> Recent economics versions</summary><div className="am-version-list">{(economics.data?.versions||[]).map((v:any)=><div key={v.version}><strong>v{v.version}</strong><span>{v.globalEnabled?"enabled":"paused"} · {v.calculationModel} · {v.defaultContractDurationMonths} months · baseline {v.difficultyBaselineThs} TH/s · 1 {v.tokenSymbol} = ${v.usdPerToken} USD</span><small>{dt(v.effectiveAt)} · {v.reason}</small></div>)}</div></details>
     </section>
 
-    <section className="am-panel"><div className="am-panel-heading"><div><span className="am-kicker">VERSIONED PRODUCT CATALOGUE</span><h2>Mining packages</h2><p>Draft edits never replace a live version until an administrator explicitly publishes.</p></div><button className="am-button secondary" onClick={()=>setPackageForm({...blankPackage})}><Plus size={14}/> New package</button></div>
+    <section className="am-panel"><div className="am-panel-heading"><div><span className="am-kicker">VERSIONED PRODUCT CATALOGUE</span><h2>Mining packages</h2><p>Draft edits never replace a live version until an administrator explicitly publishes.</p></div><button className="am-button secondary" onClick={()=>setPackageForm(newPackageForm())}><Plus size={14}/> New package</button></div>
       <div className="am-package-form"><div className="am-form-grid">
-        <label>Package code<input value={packageForm.code} disabled={Boolean(packageForm.packageId)} onChange={e=>setPackage("code",e.target.value.toUpperCase())}/></label><label>Customer-facing name<input value={packageForm.name} onChange={e=>setPackage("name",e.target.value)}/></label>
-        <label>Price amount<input value={packageForm.priceAmount} onChange={e=>setPackage("priceAmount",e.target.value)}/></label><label>Price denomination<select value={packageForm.priceAsset} onChange={e=>setPackage("priceAsset",e.target.value)}>{["CKI","USD","EUR","GBP","BTC","ETH","USDT"].map(x=><option key={x}>{x}</option>)}</select></label>
-        <label>Base hash power · TH/s<input value={packageForm.baseThs} onChange={e=>setPackage("baseThs",e.target.value)}/></label><label>Boost bonus · TH/s<input value={packageForm.boostBonusThs} onChange={e=>setPackage("boostBonusThs",e.target.value)}/></label>
-        <label>Boost duration · seconds<input type="number" value={packageForm.boostDurationSeconds??""} onChange={e=>setPackage("boostDurationSeconds",e.target.value?Number(e.target.value):null)}/></label><label>Maximum purchases/customer · 0 unlimited<input type="number" value={packageForm.maxPerCustomer} onChange={e=>setPackage("maxPerCustomer",Number(e.target.value))}/></label>
-        <label>Stacking policy<select value={packageForm.stackingPolicy} onChange={e=>setPackage("stackingPolicy",e.target.value)}><option value="replace">Replace active package</option><option value="stack">Stack package capacity</option></select></label><label>Expiry · seconds (blank = no expiry)<input type="number" value={packageForm.expirySeconds??""} onChange={e=>setPackage("expirySeconds",e.target.value?Number(e.target.value):null)}/></label>
-        <label className="am-terms">Simulation and payout disclosure<textarea rows={4} value={packageForm.termsText} onChange={e=>setPackage("termsText",e.target.value)}/></label>
-      </div><div className="am-save-row"><label>Reason for package version<input value={packageReason} onChange={e=>setPackageReason(e.target.value)}/></label><button className="am-button primary" disabled={savePackage.isPending} onClick={()=>savePackage.mutate({...packageForm,reason:packageReason})}>{savePackage.isPending?"Saving draft…":"Save draft version"}<ArrowRight size={14}/></button></div></div>
-      <div className="am-package-list">{rows.map((row:any)=><article className={`am-package-row ${row.isCurrentVersion?"is-current":""}`} key={`${row.packageId}-${row.versionId}`}><div className="am-package-title"><span className="am-package-mark"><Cpu size={16}/></span><div><strong>{row.name} <small>{row.code}</small></strong><span>Version {row.version} · {row.versionStatus||"no version"} · package {row.status}{row.isCurrentVersion?" · CURRENT":""}</span></div></div><div className="am-package-details"><span><b>{nfmt(row.priceAmount,8)} {row.priceAsset}</b> price</span><span><b>{nfmt(row.baseThs,4)} TH/s</b> base</span><span><b>{nfmt(row.boostBonusThs,4)} TH/s</b> boost</span><span>{row.stackingPolicy} · {row.maxPerCustomer?`limit ${row.maxPerCustomer}`:"unlimited"}</span></div><div className="am-row-actions">{row.versionStatus==="draft"&&<><button className="am-button compact secondary" onClick={()=>editDraft(row)}>Edit draft</button><button className="am-button compact primary" onClick={()=>publishPackage.mutate({packageId:row.packageId,versionId:row.versionId,reason:"Reviewed package terms, price and simulation disclosures for publication."})}>Publish version</button></>}{row.isCurrentVersion&&row.status==="published"&&<button className="am-button compact danger" onClick={()=>packageStatus.mutate({packageId:row.packageId,status:"paused",reason:"Pause customer purchases pending operations review."})}>Pause</button>}{row.isCurrentVersion&&row.versionStatus==="published"&&<button className="am-button compact secondary" onClick={()=>newVersion(row)}>New version</button>}</div></article>)}</div>
+        <label>Package code<input value={packageForm.code??""} disabled={Boolean(packageForm.packageId)} onChange={e=>setPackage("code",e.target.value.toUpperCase())}/></label><label>Customer-facing name<input value={packageForm.name??""} onChange={e=>setPackage("name",e.target.value)}/></label>
+        <label>Price amount<input value={packageForm.priceAmount??""} onChange={e=>setPackage("priceAmount",e.target.value)}/></label><label>Price denomination<select value={packageForm.priceAsset??""} onChange={e=>setPackage("priceAsset",e.target.value)}><option value="">Choose denomination</option>{["CKI","USD","EUR","GBP","BTC","ETH","USDT"].map(x=><option key={x}>{x}</option>)}</select></label>
+        <label>Base hash power · TH/s<input value={packageForm.baseThs??""} onChange={e=>setPackage("baseThs",e.target.value)}/></label><label>Boost bonus · TH/s<input value={packageForm.boostBonusThs??""} onChange={e=>setPackage("boostBonusThs",e.target.value)}/></label>
+        <label>Contract duration · months<input type="number" min="1" max="120" value={packageForm.durationMonths??""} onChange={e=>setPackage("durationMonths",e.target.value?Number(e.target.value):"")}/></label><label>Display order<input type="number" min="1" value={packageForm.displayOrder??""} onChange={e=>setPackage("displayOrder",e.target.value?Number(e.target.value):"")}/></label>
+        <label>Legacy package estimate · {tokenSymbol}<input inputMode="decimal" value={packageForm.expectedDailyRewardCki??""} disabled/><small>Compatibility field only. It is not a third-party settlement and cannot be used to issue customer credits.</small></label>
+        <label>Boost duration · seconds<input type="number" value={economics.data?.current?.boostDurationSeconds??""} readOnly aria-readonly="true"/></label><label>Lifetime purchases/customer<input type="number" value={1} readOnly aria-readonly="true"/></label>
+        <label>Stacking policy<select value={packageForm.stackingPolicy??""} onChange={e=>setPackage("stackingPolicy",e.target.value)}><option value="">Choose policy</option><option value="replace">Replace active package</option><option value="stack">Stack package capacity</option></select></label>
+        <label className="am-terms">Package and settlement terms<textarea rows={4} value={packageForm.termsText} onChange={e=>setPackage("termsText",e.target.value)}/></label>
+      </div><div className="am-save-row"><label>Reason for package version<input value={packageReason} onChange={e=>setPackageReason(e.target.value)}/></label><button className="am-button primary" disabled={savePackage.isPending||economics.isLoading||economics.isError} onClick={()=>savePackage.mutate({...packageForm,expectedDailyRewardCki:packageForm.expectedDailyRewardCki===""?null:packageForm.expectedDailyRewardCki,displayOrder:Number(packageForm.displayOrder),durationMonths:Number(packageForm.durationMonths),maxPerCustomer:packageForm.maxPerCustomer===""?Number.NaN:Number(packageForm.maxPerCustomer),reason:packageReason})}>{savePackage.isPending?"Saving draft…":"Save draft version"}<ArrowRight size={14}/></button></div></div>
+      <div className="am-package-list">{rows.map((row:any)=><article className={`am-package-row ${row.isCurrentVersion?"is-current":""}`} key={`${row.packageId}-${row.versionId}`}><div className="am-package-title"><span className="am-package-mark"><Cpu size={16}/></span><div><strong>{row.name} <small>{row.code}</small></strong><span>Version {row.version} · {row.versionStatus||"no version"} · package {row.status}{row.isCurrentVersion?" · CURRENT":""}</span></div></div><div className="am-package-details"><span><b>{nfmt(row.priceAmount,8)} {row.priceAsset}</b> price</span><span><b>{nfmt(row.baseThs,4)} TH/s</b> base</span><span><b>{row.durationMonths??"Legacy"} {row.durationMonths===1?"month":"months"}</b> term</span><span><b>{row.estimatedDailyTokens===null?"Pending setup":`${nfmt(row.estimatedDailyTokens,5)} ${tokenSymbol}/day`}</b> modeled</span><span><b>{row.estimatedHourlyTokens===null?"Pending setup":`${nfmt(row.estimatedHourlyTokens,6)} ${tokenSymbol}/hour`}</b> hourly</span><span><b>{row.estimatedDailyUsd===null?"Pending setup":`$${nfmt(row.estimatedDailyUsd,2)}`}</b> internal USD/day</span><span><b>{row.availableForPurchase?"PURCHASABLE":row.status==="published"?"SETUP PENDING":"NOT AVAILABLE"}</b> availability</span><span><b>{dt(row.lastConfigurationUpdatedAt)}</b> last updated</span>{row.isCurrentVersion&&<><span><b>{row.purchaseCount}</b> purchases</span><span><b>{row.activeHolders}</b> active holders</span><span><b>{nfmt(row.activeAllocatedThs,4)} TH/s</b> active allocation</span></>}</div><div className="am-row-actions">{row.versionStatus==="draft"&&<><button className="am-button compact secondary" onClick={()=>editDraft(row)}>Edit draft</button><button className="am-button compact primary" onClick={()=>publishPackage.mutate({packageId:row.packageId,versionId:row.versionId,reason:"Reviewed package terms, price and simulation disclosures for publication."})}>Publish version</button></>}{row.isCurrentVersion&&row.status==="published"&&<button className="am-button compact danger" onClick={()=>packageStatus.mutate({packageId:row.packageId,status:"paused",reason:"Pause customer purchases pending operations review."})}>Pause</button>}{row.isCurrentVersion&&row.status==="paused"&&<button className="am-button compact primary" onClick={()=>packageStatus.mutate({packageId:row.packageId,status:"published",reason:"Reactivate the saved package version for customer purchases."})}>Activate</button>}{row.isCurrentVersion&&row.versionStatus==="published"&&<button className="am-button compact secondary" onClick={()=>newVersion(row)}>New version</button>}</div></article>)}</div>
     </section>
 
     <section className="am-two-col">
