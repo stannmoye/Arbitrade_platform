@@ -5,7 +5,7 @@ import { MiningSimulationFlow } from "./MiningSimulationFlow";
 import { CustomerSlideMenu } from "./CustomerSlideMenu";
 import {
   Activity, ArrowDownUp, ArrowRight, BadgeCheck, Bell,
-  ChevronDown, Clock3, Cpu, Info,
+  ChevronDown, ChevronLeft, ChevronRight, Clock3, Cpu, Info,
   RefreshCw, ShieldCheck, Sparkles, WalletCards, Zap,
 } from "lucide-react";
 
@@ -40,6 +40,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const [swapQuote, setSwapQuote] = useState<any | null>(null);
   const [swapTarget, setSwapTarget] = useState("USD");
   const [packageTab, setPackageTab] = useState("all");
+  const [historyPage, setHistoryPage] = useState(0);
   const [prefEnabled, setPrefEnabled] = useState(false);
   const [prefTarget, setPrefTarget] = useState("USD");
   const [prefThreshold, setPrefThreshold] = useState("0");
@@ -103,13 +104,17 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const packageRows = packages.data || [];
   const boost = boostStatus.data;
   const active = data?.packages || [];
-  const recent = history.data || [];
+  const recent = (history.data || []).slice(0, 30);
+  const historyPageCount = Math.max(1, Math.ceil(recent.length / 5));
+  const currentHistoryPage = Math.min(historyPage, historyPageCount - 1);
+  const pagedRecent = recent.slice(currentHistoryPage * 5, (currentHistoryPage + 1) * 5);
   const latestReward = recent.find((row: any) => row.type === "reward" && row.status === "posted");
   const availableCki = Number(data?.balances?.CKI || data?.tokenBalance || 0);
   const minimumSwapTokens = Number(data?.minSwapTokens || 1);
   const canSwapAll = minimumSwapTokens > 0 && availableCki >= minimumSwapTokens;
   const availableUsd = Number(data?.balances?.USD || 0);
   const dailyUsdReference = (Number(data?.estimatedDailyTokens || 0) * Number(data?.usdPerToken || 0)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const dummyUsdReference = Number(data?.usdPerToken || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const nextRewardAt = data?.nextRewardAt ? new Date(data.nextRewardAt).getTime() : null;
   const nextRewardCountdown = nextRewardAt ? durationText(Math.max(0, Math.ceil((nextRewardAt - now) / 1000))) : "—:—:—";
   const selectedCanPurchase = selectedPackage?.status === "published" && Boolean(data?.miningStatus && !String(data.miningStatus).startsWith("Paused"));
@@ -163,7 +168,23 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
       <a className="cm-brand" href="#mining-dashboard" onClick={e=>e.preventDefault()} aria-label="CoinKi mining dashboard home">
         <span className="cm-brand-mark">₵</span><span><strong>CoinKi</strong><small>Mine Today, Build Tomorrow</small></span>
       </a>
-      <div className="cm-topbar-status"><span className="cm-live-dot"/> CUSTOMER MINING DASHBOARD <i/> SIMULATION MODE</div>
+      <div className="cm-header-summaries" aria-label="Mining wallet summary">
+        <div className="cm-header-summary">
+          <span>LIVE CKI WALLET BALANCE</span>
+          <strong>{fmt(availableCki, 6)} CKI</strong>
+          <small>Server-posted · database-backed</small>
+        </div>
+        <div className="cm-header-summary">
+          <span>ACCRUAL IN PROGRESS</span>
+          <strong>+{fmt(data?.pendingTokens, 6)} CKI</strong>
+          <small>Estimate only · not in wallet</small>
+        </div>
+        <div className="cm-header-summary">
+          <span>DUMMY CONVERSION PREVIEW</span>
+          <strong>1 CKI → ≈${dummyUsdReference}</strong>
+          <small>USD reference · not executed</small>
+        </div>
+      </div>
       <div className="cm-top-actions"><span className="cm-top-email">{data?.miningStatus || "Mining workspace"}</span><button type="button" className="cm-top-icon" onClick={()=>{void dashboard.refetch();void packages.refetch()}} aria-label="Refresh dashboard"><Bell size={19}/><i/></button><button type="button" className="cm-profile-chip" onClick={()=>goTo("account")}><span className="cm-profile-avatar">{tokenSymbol.slice(0,1)}</span><span><small>YOUR ACCOUNT</small><strong>Mining customer</strong></span><ChevronDown size={15}/></button></div>
     </header>
 
@@ -201,15 +222,12 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
           </article>
         </div>
 
-        <article className="cm-glass cm-control-card"><h2>Engine Controls</h2><div className={`cm-engine-state ${engineIsRunning?"running":"stopped"}`}><span className="cm-state-glyph">✥</span><strong>{engineIsRunning?"Running":"Paused"}</strong><i/></div><button type="button" className="cm-engine-action" disabled title="Mining run/pause is controlled by platform operations."><span>{engineIsRunning?"Ⅱ":"▶"}</span>{engineIsRunning?"Pause Mining":"Resume Mining"}</button><button type="button" className="cm-engine-action" disabled={availableCki<=0 || swapQuoteMutation.isPending || swapMutation.isPending} onClick={startFullBalanceSwap}><ArrowDownUp size={19}/><span>{swapQuoteMutation.isPending?"Getting quote…":swapMutation.isPending?"Posting…":`Swap to ${swapTarget}`}</span></button><button type="button" className="cm-boost-action" disabled={boostMutation.isPending || !boost?.ready} onClick={activateBoost}><Zap size={20}/><span>Boost</span></button></article>
       </section>
 
       <MiningSimulationFlow
         activePackageName={activePackageNames}
         hashPowerThs={activeHashPower}
         walletCki={availableCki}
-        pendingCki={Number(data?.pendingTokens || 0)}
-        usdPerToken={Number(data?.usdPerToken || 0)}
         latestRewardReference={latestReward?.reference}
         latestRewardCreatedAt={latestReward?.createdAt}
       />
@@ -245,7 +263,37 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
 
       <details className="cm-advanced-conversion"><summary><span><Sparkles size={16}/><b>Automatic conversion preferences</b><small>Future rewards only · Version {data?.conversionPreference?.version||0}</small></span><ChevronDown size={16}/></summary><p>Optional background conversion for eligible future reward intervals. A failed or stale quote leaves CKI in your wallet. This preference does not convert your existing balance.</p><div className="cm-auto-controls"><label className="cm-checkbox"><input type="checkbox" checked={prefEnabled} onChange={e=>setPrefEnabled(e.target.checked)}/><span>Automatically convert eligible future rewards</span></label><label>Destination<select value={prefTarget} onChange={e=>setPrefTarget(e.target.value)}>{TARGET_ASSETS.map(asset=><option key={asset}>{asset}</option>)}</select></label><label>Minimum {tokenSymbol}<input value={prefThreshold} onChange={e=>setPrefThreshold(e.target.value)} inputMode="decimal"/></label><button type="button" className="cm-secondary-button" disabled={preferenceMutation.isPending} onClick={()=>preferenceMutation.mutate({enabled:prefEnabled,targetDenomination:prefTarget,minimumThreshold:prefThreshold})}>{preferenceMutation.isPending?"Saving…":"Save preference"}</button></div><div className="cm-queue-note"><Clock3 size={14}/> Pending conversion jobs: <strong>{data?.pendingConversionJobs||0}</strong></div></details>
 
-      <section className="cm-glass cm-history"><div className="cm-history-heading"><div><span className="cm-eyebrow">IMMUTABLE SIMULATION RECEIPTS</span><h2>Mining activity</h2></div><button className="cm-refresh-button" type="button" onClick={()=>history.refetch()} aria-label="Refresh activity"><RefreshCw size={15}/></button></div>{history.isLoading?<div className="cm-empty">Loading ledger history…</div>:!recent.length?<div className="cm-empty">No Mining transactions have been recorded yet.</div>:<div className="cm-table-wrap"><table className="cm-table"><thead><tr><th>Event</th><th>Reference</th><th>Status</th><th>When</th></tr></thead><tbody>{recent.map((row:any)=><tr key={row.id}><td><strong>{String(row.type).replaceAll("_"," ")}</strong>{row.details?.destinationAmount&&<small>{fmt(row.details.destinationAmount,8)} {row.details.destinationAsset}</small>}</td><td>{row.reference}</td><td><span className="cm-history-status">{row.status}</span></td><td>{dateText(row.createdAt)}</td></tr>)}</tbody></table></div>}</section>
+      <section className="cm-glass cm-history">
+        <div className="cm-history-heading">
+          <div>
+            <span className="cm-eyebrow">IMMUTABLE SIMULATION RECEIPTS</span>
+            <h2>Mining activity</h2>
+            <small className="cm-history-count">Latest 30 entries · 5 per page</small>
+          </div>
+          <button className="cm-refresh-button" type="button" onClick={() => history.refetch()} aria-label="Refresh activity"><RefreshCw size={15}/></button>
+        </div>
+        {history.isLoading ? <div className="cm-empty">Loading ledger history…</div> : !recent.length ? <div className="cm-empty">No Mining transactions have been recorded yet.</div> : <>
+          <div className="cm-table-wrap">
+            <table className="cm-table">
+              <thead><tr><th>Event</th><th>Reference</th><th>Status</th><th>When</th></tr></thead>
+              <tbody>{pagedRecent.map((row: any) => <tr key={row.id}>
+                <td><strong>{String(row.type).replaceAll("_", " ")}</strong>{row.details?.destinationAmount && <small>{fmt(row.details.destinationAmount, 8)} {row.details.destinationAsset}</small>}</td>
+                <td>{row.reference}</td>
+                <td><span className="cm-history-status">{row.status}</span></td>
+                <td>{dateText(row.createdAt)}</td>
+              </tr>)}</tbody>
+            </table>
+          </div>
+          {recent.length > 5 && <nav className="cm-history-pagination" aria-label="Mining activity pages">
+            <span>Showing {currentHistoryPage * 5 + 1}–{Math.min((currentHistoryPage + 1) * 5, recent.length)} of {recent.length} latest</span>
+            <div className="cm-history-pagination-controls">
+              <button className="cm-history-page-btn" type="button" onClick={() => setHistoryPage(Math.max(0, currentHistoryPage - 1))} disabled={currentHistoryPage === 0} aria-label="Previous activity page"><ChevronLeft size={14}/><span>Previous</span></button>
+              <span className="cm-page-indicator">Page {currentHistoryPage + 1} of {historyPageCount}</span>
+              <button className="cm-history-page-btn" type="button" onClick={() => setHistoryPage(Math.min(historyPageCount - 1, currentHistoryPage + 1))} disabled={currentHistoryPage >= historyPageCount - 1} aria-label="Next activity page"><span>Next</span><ChevronRight size={14}/></button>
+            </div>
+          </nav>}
+        </>}
+      </section>
 
       <footer className="cm-disclaimer"><ShieldCheck size={15}/><span>Mining artwork and estimates are illustrative. CKI recorded by the server is part of an isolated simulation ledger; the internal USD reference is not an exchange execution, payout, guaranteed return, or withdrawal.</span><b>Economics v{data?.economicsVersion||"—"}</b></footer>
     </main>
