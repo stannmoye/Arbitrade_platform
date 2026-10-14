@@ -53,7 +53,7 @@ export function calculateMiningReward(segments: MiningRewardSegment[]) {
   return total.toDecimalPlaces(TOKEN_SCALE, Decimal.ROUND_DOWN).toFixed(TOKEN_SCALE);
 }
 
-/** Package-based estimate: configured CKI per 24 hours × eligible seconds / 86,400. */
+/** Package reward: the configured per-package 24-hour CKI limit × eligible seconds / 86,400. Boost TH/s does not increase this cap. */
 export function calculatePackageDailyReward(segments: MiningPackageRewardSegment[]) {
   const total = segments.reduce((sum, segment) => {
     if (!Number.isFinite(segment.eligibleSeconds) || segment.eligibleSeconds < 0) {
@@ -62,12 +62,7 @@ export function calculatePackageDailyReward(segments: MiningPackageRewardSegment
     const daily = segment.expectedDailyRewardCki == null
       ? new Decimal(0)
       : positiveDecimal(segment.expectedDailyRewardCki, "Expected daily package reward", true);
-    const base = positiveDecimal(segment.baseThs, "Base hash power", true);
-    const boost = positiveDecimal(segment.boostThs, "Boost hash power", true);
-    if (boost.gt(0) && !base.gt(0)) throw new Error("A package boost requires positive base hash power");
-    const baseReward = daily.times(segment.eligibleSeconds).div(86_400);
-    const boostMultiplier = base.gt(0) ? base.plus(boost).div(base) : new Decimal(1);
-    return sum.plus(baseReward.times(boostMultiplier));
+    return sum.plus(daily.times(segment.eligibleSeconds).div(86_400));
   }, new Decimal(0));
   return total.toDecimalPlaces(PACKAGE_REWARD_SCALE, Decimal.ROUND_DOWN).toFixed(PACKAGE_REWARD_SCALE);
 }
@@ -80,6 +75,13 @@ export function calculateMiningDifficultyIndex(
   const hashPower = positiveDecimal(networkHashPowerThs, "Network hash power", true);
   const baseline = positiveDecimal(baselineThs, "Difficulty reference");
   return new Decimal(1).plus(hashPower.div(baseline)).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toFixed(2);
+}
+
+/** Customer boost capacity is 20% of the active purchased TH/s, rounded down to 12 places. */
+export function calculateMiningBoostThs(activeBaseThs: string | number, percent = 20) {
+  const base = positiveDecimal(activeBaseThs, "Active base hash power", true);
+  if (!Number.isFinite(percent) || percent < 0 || percent > 100) throw new Error("Boost percentage must be between zero and one hundred");
+  return base.times(percent).div(100).toDecimalPlaces(12, Decimal.ROUND_DOWN).toFixed(12);
 }
 
 /** Convert a platform-token amount through its fixed internal USD reference to a quoted asset rate. */
@@ -109,15 +111,16 @@ export function calculateMiningConversion(input: {
   };
 }
 
-/** A customer's next boost time is measured from that customer's previous activation. */
-export function getBoostCooldownWindow(now: Date, lastActivationAt: Date | null | undefined, cooldownSeconds: number) {
+/** A customer's cooldown starts after the previous boost has ended. */
+export function getBoostCooldownWindow(now: Date, lastActivationEndsAt: Date | null | undefined, cooldownSeconds: number, durationSeconds = 0) {
   if (!Number.isInteger(cooldownSeconds) || cooldownSeconds < 60 || cooldownSeconds > 31_536_000) throw new Error("Boost cooldown length is outside the supported range");
+  if (!Number.isInteger(durationSeconds) || durationSeconds < 0 || durationSeconds > 31_536_000) throw new Error("Boost duration is outside the supported range");
   const cooldownMs = cooldownSeconds * 1000;
-  const last = lastActivationAt ? new Date(lastActivationAt) : null;
+  const last = lastActivationEndsAt ? new Date(lastActivationEndsAt) : null;
   if (last && !Number.isFinite(last.getTime())) throw new Error("Last boost activation time is invalid");
   const start = last ?? new Date(now);
   const next = last ? new Date(last.getTime() + cooldownMs) : new Date(now);
-  const expiresAt = last ? next : new Date(now.getTime() + cooldownMs);
+  const expiresAt = last ? next : new Date(now.getTime() + (durationSeconds + cooldownSeconds) * 1000);
   return { start, eligibleAt: next, expiresAt, nextEligibleAt: next, ready: now.getTime() >= next.getTime() };
 }
 

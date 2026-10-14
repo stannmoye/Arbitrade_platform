@@ -240,7 +240,7 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
         roundRect(-43 + i * 10, -1, barWidth, 3, 1); ctx.fill();
       }
       ctx.globalAlpha = 1;
-      text(boosted ? "BOOSTED SIMULATION" : active ? "WORK DISTRIBUTION ACTIVE" : "CORE STANDBY", 0, 24, 7, boosted ? "#d9bd7e" : active ? "#80b8c1" : "#7e8d95", "center");
+      text(boosted ? "BOOST ACTIVE" : active ? "WORK DISTRIBUTION ACTIVE" : "CORE STANDBY", 0, 24, 7, boosted ? "#d9bd7e" : active ? "#80b8c1" : "#7e8d95", "center");
       const progress = active ? motion.mix.progress : 0;
       ctx.fillStyle = "#263c47"; roundRect(-53, 35, 106, 4, 2); ctx.fill();
       const mixGlow = ctx.createLinearGradient(-53, 0, 53, 0);
@@ -554,5 +554,5 @@ export function MiningCoreCanvas(props: MiningCoreCanvasProps) {
     else controls.stop();
   }, [props.running, props.playing, props.boosted, props.hashPowerThs, props.rewardPulseKey]);
 
-  return <canvas ref={canvasRef} className="cm-mining-core-canvas" aria-label="Animated mining simulation with cooling fans, wind turbine, hash mixer, moving work queues, and four processing nodes" />;
+  return <canvas ref={canvasRef} className="cm-mining-core-canvas" aria-label="Decorative animated mining-equipment illustration with cooling fans, wind turbine, hash mixer, moving work queues, and four processing nodes" />;
 }

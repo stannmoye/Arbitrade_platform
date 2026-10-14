@@ -63,7 +63,7 @@ function validatePackageInput(input: any) {
   if (!Number.isInteger(maxPerCustomer) || maxPerCustomer < 0 || maxPerCustomer > 100_000) throw new MiningError("Maximum purchases per customer must be between 0 and 100,000 (0 means unlimited)");
   if (boostDurationSeconds !== null && (!Number.isInteger(boostDurationSeconds) || boostDurationSeconds < 10 || boostDurationSeconds > 31_536_000)) throw new MiningError("Boost duration must be between 10 seconds and one year");
   if (!["stack","replace"].includes(stackingPolicy)) throw new MiningError("Choose whether package purchases stack or replace active packages");
-  if (!DISCLOSURE_TERMS(termsText) || termsText.length < 80 || termsText.length > 12_000) throw new MiningError("Package terms must clearly state that this is simulated and that there is no withdrawal or cash payout; use 80–12,000 characters");
+  if (!DISCLOSURE_TERMS(termsText) || termsText.length < 80 || termsText.length > 12_000) throw new MiningError("Package terms must disclose formula-based simulated CKI, non-pool-verified output, and no direct CKI withdrawal or cash payout; use 80–12,000 characters");
   return { code,name,displayOrder,durationMonths,expectedDailyRewardCki:expectedDailyRewardCki?.toString()??null,priceAsset,priceAmount:price.toString(),baseThs:baseThs.toString(),boostBonusThs:boostBonusThs.toString(),maxPerCustomer,expirySeconds:null,boostDurationSeconds,stackingPolicy,termsText,simulationAcknowledgementRequired:input.simulationAcknowledgementRequired !== false };
 }
 
@@ -149,9 +149,9 @@ export async function publishMiningPackage(adminId: number, input: { packageId:n
     const row=rows[0];
     if(!row) throw new MiningError("Package version was not found");
     const config=await loadMiningConfig(conn);
-    if(config.globalEnabled&&(row.expectedDailyRewardCki===null||!decimal(row.expectedDailyRewardCki).gt(0))) throw new MiningError("Pause simulated reward processing or configure a positive package daily estimate before publishing this version");
+    if(config.globalEnabled&&(row.expectedDailyRewardCki===null||!decimal(row.expectedDailyRewardCki).gt(0))) throw new MiningError("Enter a positive package daily CKI limit before publishing while reward processing is enabled");
     if(row.versionStatus!=="draft"&&(row.versionStatus!=="published"||Number(row.currentVersionId)!==Number(input.versionId))) throw new MiningError("Only a draft or the current published version can be published");
-    if(!DISCLOSURE_TERMS(String(row.termsText||""))) throw new MiningError("Package terms need the simulation-only and no-payout disclosure");
+    if(!DISCLOSURE_TERMS(String(row.termsText||""))) throw new MiningError("Package terms need the formula-based simulation and no-cash-payout disclosure");
     const now=new Date();
     await conn.execute(`UPDATE mining_package_versions SET versionStatus='published',effectiveAt=? WHERE id=?`,[now,input.versionId]);
     await conn.execute(`UPDATE mining_packages SET name=?,status='published',currentVersionId=?,updatedAt=? WHERE id=?`,[String(row.displayName||row.name),input.versionId,now,input.packageId]);
@@ -169,7 +169,7 @@ export async function setMiningPackageStatus(adminId: number, input: {packageId:
       const [versions]=await conn.query<any[]>(`SELECT versionStatus,expectedDailyRewardCki FROM mining_package_versions WHERE id=? LIMIT 1 FOR UPDATE`,[rows[0].currentVersionId]);
       if(versions[0]?.versionStatus!=="published")throw new MiningError("Publish a valid package version before making it available to customers");
       const config=await loadMiningConfig(conn);
-      if(config.globalEnabled&&(versions[0].expectedDailyRewardCki===null||!decimal(versions[0].expectedDailyRewardCki).gt(0))) throw new MiningError("Pause simulated reward processing or configure a positive package daily estimate before reactivating this package");
+      if(config.globalEnabled&&(versions[0].expectedDailyRewardCki===null||!decimal(versions[0].expectedDailyRewardCki).gt(0))) throw new MiningError("Enter a positive package daily CKI limit before reactivating this package");
     }
     await conn.execute(`UPDATE mining_packages SET status=?,updatedAt=UTC_TIMESTAMP(3) WHERE id=?`,[input.status,input.packageId]);
     await writeMiningAudit(conn,{actorUserId:adminId,action:`mining.package.${input.status}`,entityType:"mining_package",entityId:String(input.packageId),reason,metadata:{code:rows[0].code,previousStatus:rows[0].status,status:input.status}});
@@ -257,7 +257,22 @@ export async function saveMiningEconomics(adminId:number,input:any) {
   if(!minSwap.toDecimalPlaces(8,Decimal.ROUND_DOWN).eq(minSwap)||!maxSwap.toDecimalPlaces(8,Decimal.ROUND_DOWN).eq(maxSwap)||!autoThreshold.toDecimalPlaces(8,Decimal.ROUND_DOWN).eq(autoThreshold)||!dailyCap.toDecimalPlaces(8,Decimal.ROUND_DOWN).eq(dailyCap)) throw new MiningError("Mining token thresholds support up to eight decimal places");
   return withMiningConnection(async conn=>inMiningTransaction(conn,async()=>{
     if(values.globalEnabled){
-      throw new MiningError("Reward posting cannot be enabled from package estimates. Configure and verify third-party farm settlements and the package-power allocation policy first.");
+      const [invalidPackages]=await conn.query<any[]>(`SELECT p.code FROM mining_packages p
+        LEFT JOIN mining_package_versions v ON v.id=p.currentVersionId
+        WHERE p.status='published' AND (v.id IS NULL OR v.versionStatus<>'published' OR v.expectedDailyRewardCki IS NULL OR v.expectedDailyRewardCki<=0)
+        ORDER BY p.displayOrder,p.id LIMIT 1`);
+      if(invalidPackages[0])throw new MiningError(`Published package ${invalidPackages[0].code} must have a positive daily CKI limit before reward processing can be enabled`);
+      const [publishedPackages]=await conn.query<any[]>(`SELECT COUNT(*) total FROM mining_packages p
+        JOIN mining_package_versions v ON v.id=p.currentVersionId
+        WHERE p.status='published' AND v.versionStatus='published' AND v.expectedDailyRewardCki>0`);
+      if(Number(publishedPackages[0]?.total||0)===0)throw new MiningError("Publish at least one package with a positive daily CKI limit before reward processing can be enabled");
+    } else {
+      const [activeEntitlements]=await conn.query<any[]>(`SELECT id FROM mining_customer_packages
+        WHERE status IN ('active','replaced') AND startsAt<=UTC_TIMESTAMP(3)
+          AND (expiresAt IS NULL OR expiresAt>UTC_TIMESTAMP(3))
+          AND (endedAt IS NULL OR endedAt>UTC_TIMESTAMP(3))
+        LIMIT 1`);
+      if(activeEntitlements[0])throw new MiningError("CKI reward processing cannot be disabled while a customer has an active package entitlement");
     }
     const [rows]=await conn.query<any[]>(`SELECT COALESCE(MAX(version),0) maxVersion FROM mining_economics_versions`);
     const version=Number(rows[0]?.maxVersion||0)+1;

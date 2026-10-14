@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
+import { calculateMiningBoostThs, calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
 
 describe("mining reward rules", () => {
   it("uses the configured tokens per TH/s-hour formula with decimal precision", () => {
@@ -41,24 +41,38 @@ describe("mining reward rules", () => {
 });
 
 describe("package daily reward model", () => {
-  it("prorates a configured package estimate for six eligible hours", () => {
+  it("prorates the configured package daily cap for six eligible hours", () => {
     expect(calculatePackageDailyReward([{ expectedDailyRewardCki: "2", baseThs: "1", boostThs: "0", eligibleSeconds: 21_600 }])).toBe("0.500000000000000000");
   });
 
-  it("sums purchased packages and proportionally attributes a boost", () => {
+  it("sums package reward limits without letting boosts exceed the configured limit", () => {
     expect(calculatePackageDailyReward([
       { expectedDailyRewardCki: "2", baseThs: "1", boostThs: "0.5", eligibleSeconds: 60 },
       { expectedDailyRewardCki: "3", baseThs: "3", boostThs: "0", eligibleSeconds: 60 },
-    ])).toBe("0.004166666666666666");
+    ])).toBe("0.003472222222222222");
+  });
+
+  it("credits no more than each package's daily maximum across a complete reward day", () => {
+    expect(calculatePackageDailyReward([
+      { expectedDailyRewardCki: "0.10", baseThs: "1", boostThs: "0.2", eligibleSeconds: 86_400 },
+      { expectedDailyRewardCki: "0.30", baseThs: "3", boostThs: "0.6", eligibleSeconds: 86_400 },
+      { expectedDailyRewardCki: "0.70", baseThs: "7", boostThs: "1.4", eligibleSeconds: 86_400 },
+      { expectedDailyRewardCki: "1.60", baseThs: "16", boostThs: "3.2", eligibleSeconds: 86_400 },
+      { expectedDailyRewardCki: "4.00", baseThs: "40", boostThs: "8", eligibleSeconds: 86_400 },
+      { expectedDailyRewardCki: "8.00", baseThs: "80", boostThs: "16", eligibleSeconds: 86_400 },
+    ])).toBe("14.700000000000000000");
+  });
+
+  it("retains high precision for short reward intervals so daily rounding loss is negligible", () => {
+    expect(calculatePackageDailyReward([{ expectedDailyRewardCki: "0.10", baseThs: "1", boostThs: "0", eligibleSeconds: 60 }])).toBe("0.000069444444444444");
   });
 
   it("does not invent rewards for a package with no configured daily estimate", () => {
     expect(calculatePackageDailyReward([{ expectedDailyRewardCki: null, baseThs: "1", boostThs: "0", eligibleSeconds: 60 }])).toBe("0.000000000000000000");
   });
 
-  it("rejects negative daily estimates and boosts without purchased base capacity", () => {
+  it("rejects negative daily limits", () => {
     expect(() => calculatePackageDailyReward([{ expectedDailyRewardCki: "-1", baseThs: "1", boostThs: "0", eligibleSeconds: 60 }])).toThrow(/non-negative/);
-    expect(() => calculatePackageDailyReward([{ expectedDailyRewardCki: "1", baseThs: "0", boostThs: "1", eligibleSeconds: 60 }])).toThrow(/positive base/);
   });
 });
 
@@ -87,6 +101,19 @@ describe("simulated network difficulty index", () => {
   });
 });
 
+describe("mining boost capacity", () => {
+  it("adds 20% of total active purchased TH/s with decimal-safe rounding", () => {
+    expect(calculateMiningBoostThs("20")).toBe("4.000000000000");
+    expect(calculateMiningBoostThs("0.1234567891239")).toBe("0.024691357824");
+    expect(calculateMiningBoostThs("1", 20)).toBe("0.200000000000");
+  });
+
+  it("rejects invalid boost percentages", () => {
+    expect(() => calculateMiningBoostThs("1", -1)).toThrow(/between zero and one hundred/);
+    expect(() => calculateMiningBoostThs("1", 101)).toThrow(/between zero and one hundred/);
+  });
+});
+
 describe("mining conversion rules", () => {
   it("uses the configured internal reference, rate direction, fee, and target precision", () => {
     expect(calculateMiningConversion({ tokenAmount: "1000", tokenUnitsPerUsd: "1000", usdPerTargetUnit: "1.25", feeBps: 100, targetScale: 2 })).toEqual({
@@ -111,21 +138,22 @@ describe("mining conversion rules", () => {
 });
 
 describe("mining time and quote guards", () => {
-  it("makes a first boost immediately available and starts its four-hour cooldown at activation", () => {
+  it("makes a first boost immediately available and displays a full boost-plus-cooldown cycle", () => {
     const now = new Date("2026-10-11T14:05:00.000Z");
-    const cycle = getBoostCooldownWindow(now, null, 4 * 60 * 60);
+    const cycle = getBoostCooldownWindow(now, null, 600, 120);
     expect(cycle.ready).toBe(true);
     expect(cycle.nextEligibleAt.toISOString()).toBe(now.toISOString());
-    expect(cycle.expiresAt.toISOString()).toBe("2026-10-11T18:05:00.000Z");
+    expect(cycle.expiresAt.toISOString()).toBe("2026-10-11T14:17:00.000Z");
   });
 
-  it("counts four hours from the customer's own previous activation, not a shared clock boundary", () => {
-    const now = new Date("2026-10-11T14:05:00.000Z");
-    const cycle = getBoostCooldownWindow(now, new Date("2026-10-11T12:10:00.000Z"), 4 * 60 * 60);
+  it("starts the ten-minute cooldown after the customer's two-minute boost ends", () => {
+    const now = new Date("2026-10-11T12:18:00.000Z");
+    const lastEndsAt = new Date("2026-10-11T12:12:00.000Z");
+    const cycle = getBoostCooldownWindow(now, lastEndsAt, 600, 120);
     expect(cycle.ready).toBe(false);
-    expect(cycle.start.toISOString()).toBe("2026-10-11T12:10:00.000Z");
-    expect(cycle.nextEligibleAt.toISOString()).toBe("2026-10-11T16:10:00.000Z");
-    expect(getBoostCooldownWindow(new Date("2026-10-11T16:10:00.000Z"), new Date("2026-10-11T12:10:00.000Z"), 4 * 60 * 60).ready).toBe(true);
+    expect(cycle.start.toISOString()).toBe("2026-10-11T12:12:00.000Z");
+    expect(cycle.nextEligibleAt.toISOString()).toBe("2026-10-11T12:22:00.000Z");
+    expect(getBoostCooldownWindow(new Date("2026-10-11T12:22:00.000Z"), lastEndsAt, 600, 120).ready).toBe(true);
   });
 
   it("accepts only non-future quotes inside the freshness limit", () => {
