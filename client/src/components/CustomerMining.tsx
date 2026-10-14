@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { MiningCoreCanvas } from "./MiningCoreCanvas";
 import { MiningOperationsFlow } from "./MiningOperationsFlow";
@@ -45,6 +45,14 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const [prefEnabled, setPrefEnabled] = useState(false);
   const [prefTarget, setPrefTarget] = useState("USD");
   const [prefThreshold, setPrefThreshold] = useState("0");
+  const [autoBoostEnabled, setAutoBoostEnabled] = useState(() => {
+    try {
+      return typeof window === "undefined" || window.localStorage.getItem("arbitrade:mining:auto-boost") !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const autoBoostAttempted = useRef(false);
   const [acknowledged, setAcknowledged] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -115,6 +123,22 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const tokenSymbol = data?.tokenSymbol ?? "";
   const packageRows = packages.data || [];
   const boost = boostStatus.data;
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("arbitrade:mining:auto-boost", String(autoBoostEnabled));
+    } catch {
+      // Keep the setting in page state when browser storage is unavailable.
+    }
+  }, [autoBoostEnabled]);
+  useEffect(() => {
+    if (!autoBoostEnabled || !boost?.ready) {
+      autoBoostAttempted.current = false;
+      return;
+    }
+    if (boostMutation.isPending || autoBoostAttempted.current) return;
+    autoBoostAttempted.current = true;
+    boostMutation.mutate({ idempotencyKey: requestId() });
+  }, [autoBoostEnabled, boost?.ready, boostMutation.isPending]);
   const active = data?.packages || [];
   const recent = (history.data || []).slice(0, 30);
   const historyPageCount = Math.max(1, Math.ceil(recent.length / 5));
@@ -257,6 +281,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
             <div className="cm-boost-machine" role="img" aria-label="Package hash-power boost engine"><span className="cm-engine-aura"/><span className="cm-engine-pipe cm-engine-pipe-left"/><span className="cm-engine-pipe cm-engine-pipe-right"/><div className="cm-engine-shell"><span className="cm-engine-topcap"/><span className="cm-engine-front-glass"/><span className="cm-engine-rotor"><i/><i/><b/></span><span className="cm-engine-vents"/><span className="cm-engine-mark"/><span className="cm-engine-leds"><i/><i/><i/></span><span className="cm-engine-base"/></div></div>
             <div className="cm-boost-copy"><div className="cm-boost-topline"><b>HASH POWER ENGINE</b><span className="cm-boost-readout"><small>{boostStatusLabel}</small><strong>{boostCountdown}</strong></span></div><div className="cm-boost-bottomline"><span className="cm-boost-charge" role="progressbar" aria-label="Boost charge" aria-valuenow={boostCycleCharge} aria-valuemin={0} aria-valuemax={100} title={boost?.reason || "2-minute activation with a customer-specific 4-hour cooldown."}><i style={{width:`${boostCycleCharge}%`}}/></span></div></div>
             <button type="button" className="cm-glow-button" title={boost?.reason || "Activate Hash Power Boost"} aria-label="Activate Hash Power Boost" disabled={boostMutation.isPending || !boost?.ready} onClick={activateBoost}><ArrowDownUp size={15}/>{boostMutation.isPending?"Activating…":"Activate Boost"}</button>
+            <label className="cm-boost-auto"><input type="checkbox" checked={autoBoostEnabled} onChange={event=>setAutoBoostEnabled(event.target.checked)}/><span>Auto-activate when ready</span></label>
           </article>
         </div>
 

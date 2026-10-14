@@ -34,6 +34,20 @@ describe("mining reward rules", () => {
     ])).toBe("0.00070283");
   });
 
+  it("stops adding boost reward after the boost expiry time", () => {
+    const intervalStart = new Date("2026-10-11T12:00:00.000Z");
+    const intervalEnd = new Date("2026-10-11T12:01:00.000Z");
+    const boostStart = new Date("2026-10-11T12:00:10.000Z");
+    const boostEnd = new Date("2026-10-11T12:00:30.000Z");
+    const boostedSeconds = overlapSeconds(intervalStart, intervalEnd, boostStart, boostEnd);
+    const baseOnlySeconds = 60 - boostedSeconds;
+    expect(boostedSeconds).toBe(20);
+    expect(calculatePackageDailyReward([
+      { expectedDailyRewardCki: "86400", baseThs: "1", boostThs: "0", eligibleSeconds: baseOnlySeconds },
+      { expectedDailyRewardCki: "86400", baseThs: "1", boostThs: "1", eligibleSeconds: boostedSeconds },
+    ])).toBe("80.000000000000000000");
+  });
+
   it("rejects invalid and overlong segments instead of trusting unchecked rates", () => {
     expect(() => calculateMiningReward([{ baseThs: "-1", boostThs: "0", rewardTokensPerThsHour: "1", elapsedSeconds: 60 }])).toThrow(/non-negative/);
     expect(() => calculateMiningReward([{ baseThs: "1", boostThs: "0", rewardTokensPerThsHour: "1", elapsedSeconds: 61 }])).toThrow(/sixty seconds/);
