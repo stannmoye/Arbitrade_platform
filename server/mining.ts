@@ -219,7 +219,7 @@ export async function listCustomerMiningPackages(userId: number) {
     return rows.map(row => {
       const estimate = row.expectedDailyRewardCki === null ? null : decimal(row.expectedDailyRewardCki);
       const alreadyPurchased = Boolean(row.alreadyPurchased);
-      const purchaseAvailable = row.packageStatus === "published" && config.globalEnabled && Boolean(estimate?.gt(0)) && !alreadyPurchased;
+      const purchaseAvailable = row.packageStatus === "published" && config.packagePurchasesEnabled && !alreadyPurchased;
       return {
         packageId: Number(row.packageId), code: row.code, name: row.displayName || row.name, displayOrder:Number(row.displayOrder), status: row.packageStatus,
         alreadyPurchased,
@@ -236,7 +236,7 @@ export async function listCustomerMiningPackages(userId: number) {
         termsText: row.termsText, simulationAcknowledgementRequired: Boolean(row.simulationAcknowledgementRequired),
         estimatedDailyTokens: estimate?.toDecimalPlaces(tokenScale, Decimal.ROUND_DOWN).toFixed(tokenScale) ?? null,
         miningEnabled: config.globalEnabled, purchaseAvailable,
-        purchaseUnavailableReason: purchaseAvailable ? null : alreadyPurchased ? "This package is limited to one purchase per customer" : !config.globalEnabled ? "Package purchases are awaiting farm-settlement configuration" : !estimate?.gt(0) ? "Actual farm-settlement allocation is not configured" : "This package is not currently published",
+        purchaseUnavailableReason: purchaseAvailable ? null : alreadyPurchased ? "This package is limited to one lifetime purchase per customer" : !config.packagePurchasesEnabled ? "Package purchases are paused by operations" : "This package is not currently published",
       };
     });
   });
@@ -246,13 +246,12 @@ export async function createCustomerMiningPurchaseQuote(userId: number, input: {
   return withMiningConnection(async conn => inMiningTransaction(conn, async () => {
     await requireActiveMiningAccount(conn, userId);
     const config = await loadMiningConfig(conn);
-    if (!config.globalEnabled) throw new MiningError("Mining is paused until an administrator completes setup");
+    if (!config.packagePurchasesEnabled) throw new MiningError("Package purchases are paused by operations");
     const preferredPaymentAsset = await getSavedPurchaseCurrency(conn, userId);
     const paymentAsset = input.paymentAsset ? assertMainWalletAsset(input.paymentAsset) : preferredPaymentAsset;
     const [claimRows] = await conn.query<any[]>("SELECT packageId FROM mining_package_purchase_claims WHERE userId=? AND packageId=(SELECT packageId FROM mining_package_versions WHERE id=?) LIMIT 1", [userId, input.packageVersionId]);
     if (claimRows.length) throw new MiningError("You can purchase each Mining package only once");
     const product = await getPublishedPackage(conn, input.packageVersionId);
-    if (product.expectedDailyRewardCki === null || !decimal(product.expectedDailyRewardCki).gt(0)) throw new MiningError("This package is not purchasable until an administrator configures a positive 24-hour CKI estimate");
     const priceAsset = assertMainWalletAsset(String(product.priceAsset));
     const priceScale = await getMainWalletScale(conn, priceAsset);
     const price = decimal(String(product.priceAmount));
@@ -269,7 +268,7 @@ export async function createCustomerMiningPurchaseQuote(userId: number, input: {
       sourceUsdRate: rates.sourceUsdRate, targetUsdRate: rates.targetUsdRate, tokenUnitsPerUsd: config.tokenUnitsPerUsd,
       marketProvider: rates.marketProvider, marketObservedAt: rates.marketObservedAt, targetScale: priceScale,
       feeBps: config.purchaseFeeBps, quoteTtlSeconds: config.quoteTtlSeconds, packageVersionId: input.packageVersionId,
-      configVersion: config.version, details: { packageId: Number(product.packageId), packageName:String(product.displayName||product.name), durationMonths:product.durationMonths===null?null:Number(product.durationMonths), expectedDailyRewardCki:String(product.expectedDailyRewardCki), priceAmount: price.toString(), priceAsset, paymentAsset, preferredPaymentAsset, mainWalletScale:wallet.scale, grossPayment: ceilAmount(payment.gross,wallet.scale).toFixed(wallet.scale), feeAsset: paymentAsset },
+      configVersion: config.version, details: { packageId: Number(product.packageId), packageName:String(product.displayName||product.name), durationMonths:product.durationMonths===null?null:Number(product.durationMonths), expectedDailyRewardCki:product.expectedDailyRewardCki===null?null:String(product.expectedDailyRewardCki), priceAmount: price.toString(), priceAsset, paymentAsset, preferredPaymentAsset, mainWalletScale:wallet.scale, grossPayment: ceilAmount(payment.gross,wallet.scale).toFixed(wallet.scale), feeAsset: paymentAsset },
     });
     const balance = wallet;
     return {
@@ -292,7 +291,7 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
     const checkpoint = await ensureMiningCheckpoint(conn, userId);
     await requireActiveMiningAccount(conn, userId);
     const config = await loadMiningConfig(conn);
-    if (!config.globalEnabled) throw new MiningError("Mining is paused; the package was not purchased");
+    if (!config.packagePurchasesEnabled) throw new MiningError("Package purchases are paused by operations; no debit was made");
     const [quotes] = await conn.query<any[]>(`SELECT q.*,s.*,p.id packageId,p.code,p.name,p.status packageStatus,p.currentVersionId,
         v.version,v.displayName,v.durationMonths,v.expectedDailyRewardCki,v.versionStatus,v.effectiveAt packageEffectiveAt,v.baseThs,v.boostBonusThs,v.boostDurationSeconds,v.maxPerCustomer,v.stackingPolicy,v.expirySeconds,v.termsText,v.simulationAcknowledgementRequired
       FROM v5_fx_quotes q JOIN mining_quote_snapshots s ON s.quoteId=q.id
@@ -301,7 +300,6 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
     const quote = quotes[0];
     if (!quote || quote.status !== "QUOTED" || new Date(quote.validUntil).getTime() <= Date.now()) throw new MiningError("This package quote has expired; request a fresh quote");
     if (quote.packageStatus !== "published" || quote.versionStatus !== "published" || Number(quote.currentVersionId) !== Number(quote.packageVersionId)) throw new MiningError("Package terms changed after this quote; review a fresh package quote");
-    if (quote.expectedDailyRewardCki === null || !decimal(quote.expectedDailyRewardCki).gt(0)) throw new MiningError("This package's daily CKI estimate is no longer configured; no purchase was made");
     if (!quote.packageEffectiveAt || new Date(quote.packageEffectiveAt).getTime() > Date.now()) throw new MiningError("This package version is not effective yet");
     if (Boolean(quote.simulationAcknowledgementRequired) && !input.acceptedTerms) throw new MiningError("Package terms acceptance is required");
     let details: any = {};
@@ -350,7 +348,7 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
     const [purchaseResult] = await conn.execute<any>(`INSERT INTO mining_customer_packages
       (userId,packageId,packageNameSnapshot,packageVersionId,status,durationMonthsSnapshot,expectedDailyRewardCkiSnapshot,purchasedAt,startsAt,expiresAt,baseThsSnapshot,boostBonusThsSnapshot,priceAmount,priceAsset,paymentAmount,paymentAsset,quoteId,ledgerTransactionId,idempotencyKey,termsSnapshot)
       VALUES (?,?,?,?,'active',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [
-      userId, Number(quote.packageId), packageNameSnapshot, Number(quote.packageVersionId), durationMonthsSnapshot, String(quote.expectedDailyRewardCki), now, now, expiresAt, String(quote.baseThs), String(quote.boostBonusThs),
+      userId, Number(quote.packageId), packageNameSnapshot, Number(quote.packageVersionId), durationMonthsSnapshot, quote.expectedDailyRewardCki === null ? null : String(quote.expectedDailyRewardCki), now, now, expiresAt, String(quote.baseThs), String(quote.boostBonusThs),
       String(quote.destinationAmount), priceAsset, quotedTotal.toString(), paymentAsset, input.quoteId, ledger.id, key, String(quote.termsText),
     ]);
     const purchaseId = Number(purchaseResult.insertId);
@@ -359,7 +357,7 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
     const alignedStart = new Date(Math.floor(starts.getTime() / 60_000) * 60_000);
     if (!checkpoint.lastAccruedAt) await conn.execute(`UPDATE mining_checkpoints SET lastAccruedAt=? WHERE userId=?`, [alignedStart, userId]);
     await conn.execute(`UPDATE v5_fx_quotes SET status='EXECUTED' WHERE id=?`, [input.quoteId]);
-    const result = { purchaseId, packageId: Number(quote.packageId), packageVersionId: Number(quote.packageVersionId), packageName: packageNameSnapshot, status: "active", paymentAsset, paymentAmount: quotedTotal.toString(), baseThs: String(quote.baseThs), expectedDailyRewardCki: String(quote.expectedDailyRewardCki), boostBonusThs: String(quote.boostBonusThs), receiptReference: ledger.referenceCode, mainWalletReference: canonicalReference, disclaimer: "Package purchase and terms are recorded. CKI credits depend on recorded third-party farm settlements." };
+    const result = { purchaseId, packageId: Number(quote.packageId), packageVersionId: Number(quote.packageVersionId), packageName: packageNameSnapshot, status: "active", paymentAsset, paymentAmount: quotedTotal.toString(), baseThs: String(quote.baseThs), expectedDailyRewardCki: quote.expectedDailyRewardCki === null ? null : String(quote.expectedDailyRewardCki), boostBonusThs: String(quote.boostBonusThs), receiptReference: ledger.referenceCode, mainWalletReference: canonicalReference, disclaimer: "Package purchase and terms are recorded. CKI credits depend on recorded third-party farm settlements." };
     await finishMiningIdempotency(conn, key, result);
     await createMiningNotification(conn, userId, "Mining package activated", `${quote.name} is active. The main-wallet charge and package entitlement were recorded. Receipt ${ledger.referenceCode}.`);
     return result;

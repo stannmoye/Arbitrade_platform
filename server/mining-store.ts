@@ -8,7 +8,7 @@ export class MiningError extends Error {
 }
 
 export type MiningConfig = {
-  id: number; version: number; effectiveAt: Date; globalEnabled: boolean; boostsEnabled: boolean;
+  id: number; version: number; effectiveAt: Date; globalEnabled: boolean; packagePurchasesEnabled: boolean; boostsEnabled: boolean;
   tokenName: string; tokenSymbol: string; tokenUnitsPerUsd: string; rewardTokensPerThsHour: string; defaultContractDurationMonths: number; calculationModel: string; difficultyBaselineThs: string; swapFeeBps: number; purchaseFeeBps: number;
   minSwapTokens: string; maxSwapTokens: string; defaultAutoConversionThreshold: string;
   boostCycleSeconds: number; boostDurationSeconds: number; quoteTtlSeconds: number;
@@ -93,7 +93,7 @@ export async function loadMiningConfig(conn: Db, at: Date = new Date()): Promise
   if (!row) throw new MiningError("Mining economics are not initialized; apply the mining database migration");
   return {
     id: Number(row.id), version: Number(row.version), effectiveAt: new Date(row.effectiveAt),
-    globalEnabled: Boolean(row.globalEnabled), boostsEnabled: Boolean(row.boostsEnabled),
+    globalEnabled: Boolean(row.globalEnabled), packagePurchasesEnabled: Boolean(row.packagePurchasesEnabled), boostsEnabled: Boolean(row.boostsEnabled),
     tokenName: String(row.tokenName), tokenSymbol: String(row.tokenSymbol),
     tokenUnitsPerUsd: String(row.tokenUnitsPerUsd), rewardTokensPerThsHour: String(row.rewardTokensPerThsHour),
     defaultContractDurationMonths: Number(row.defaultContractDurationMonths),
