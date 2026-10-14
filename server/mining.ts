@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import Decimal from "decimal.js";
-import { calculateMiningConversion, calculateMiningDifficultyIndex, calculatePackageDailyReward, getBoostCooldownWindow } from "./mining-rules";
+import { calculateMiningConversion, calculateMiningDifficultyIndex, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow } from "./mining-rules";
 import {
   Db, MiningError, addUtcMonths, amountString, assertMiningAsset, assetScale, beginMiningIdempotency, createMiningLedgerTransaction,
   createMiningNotification, decimal, ensureMiningCheckpoint, finishMiningIdempotency, inMiningTransaction,
@@ -32,7 +32,7 @@ async function getMainWalletScale(conn: Db, assetInput: string) {
 
 function walletMinor(value: Decimal.Value, scale: number) {
   const minor = decimal(value).times(new Decimal(10).pow(scale));
-  if (!minor.isInteger() || minor.abs().gt(2_147_483_647)) throw new MiningError("The amount exceeds the supported main-wallet precision or balance range");
+  if (!minor.isInteger() || minor.abs().gt(Number.MAX_SAFE_INTEGER)) throw new MiningError("The amount exceeds the supported main-wallet precision or JavaScript safe-integer range");
   return minor.toNumber();
 }
 
@@ -285,7 +285,7 @@ export async function createCustomerMiningPurchaseQuote(userId: number, input: {
 export async function confirmCustomerMiningPurchase(userId: number, input: { quoteId: number; idempotencyKey: string; acceptedTerms: boolean }) {
   if (!input.acceptedTerms) throw new MiningError("Accept the current package terms before purchasing");
   const key = requestKey("mining-purchase", userId, input.idempotencyKey);
-  return withMiningConnection(async conn => inMiningTransaction(conn, async () => {
+  const purchase = await withMiningConnection(async conn => inMiningTransaction(conn, async () => {
     const prior = await beginMiningIdempotency(conn, userId, key, "mining.package.purchase");
     if (prior) return prior;
     const checkpoint = await ensureMiningCheckpoint(conn, userId);
@@ -357,11 +357,29 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
     const alignedStart = new Date(Math.floor(starts.getTime() / 60_000) * 60_000);
     if (!checkpoint.lastAccruedAt) await conn.execute(`UPDATE mining_checkpoints SET lastAccruedAt=? WHERE userId=?`, [alignedStart, userId]);
     await conn.execute(`UPDATE v5_fx_quotes SET status='EXECUTED' WHERE id=?`, [input.quoteId]);
-    const result = { purchaseId, packageId: Number(quote.packageId), packageVersionId: Number(quote.packageVersionId), packageName: packageNameSnapshot, status: "active", paymentAsset, paymentAmount: quotedTotal.toString(), baseThs: String(quote.baseThs), expectedDailyRewardCki: quote.expectedDailyRewardCki === null ? null : String(quote.expectedDailyRewardCki), boostBonusThs: String(quote.boostBonusThs), receiptReference: ledger.referenceCode, mainWalletReference: canonicalReference, disclaimer: "Package purchase and terms are recorded. CKI credits depend on recorded third-party farm settlements." };
+    const expectedDailyRewardCki = quote.expectedDailyRewardCki === null ? null : String(quote.expectedDailyRewardCki);
+    const rewardPostingReady = canStartMiningAccrual({ globalEnabled: config.globalEnabled, expectedDailyRewardCki });
+    const result = { purchaseId, packageId: Number(quote.packageId), packageVersionId: Number(quote.packageVersionId), packageName: packageNameSnapshot, status: "active", entitlementStartedAt: now.toISOString(), rewardPostingEnabled: Boolean(config.globalEnabled), rewardPostingReady, paymentAsset, paymentAmount: quotedTotal.toString(), baseThs: String(quote.baseThs), expectedDailyRewardCki, boostBonusThs: String(quote.boostBonusThs), receiptReference: ledger.referenceCode, mainWalletReference: canonicalReference, disclaimer: "The package entitlement starts at purchase. CKI earnings remain blocked until verified farm settlements are configured; this Sandbox has no connected mining pool or cash payout." };
     await finishMiningIdempotency(conn, key, result);
-    await createMiningNotification(conn, userId, "Mining package activated", `${quote.name} is active. The main-wallet charge and package entitlement were recorded. Receipt ${ledger.referenceCode}.`);
+    await createMiningNotification(conn, userId, "Mining package entitlement activated", `${quote.name} is active from purchase time. The main-wallet charge and entitlement were recorded; CKI earnings remain subject to verified settlement readiness. Receipt ${ledger.referenceCode}.`);
     return result;
   }));
+  let initialAccrualIntervals = 0;
+  let immediateAccrualStatus: "triggered" | "worker_retry" | "blocked_pending_verified_settlement" | "estimate_not_configured";
+  if (!purchase.rewardPostingEnabled) {
+    immediateAccrualStatus = "blocked_pending_verified_settlement";
+  } else if (!purchase.rewardPostingReady) {
+    immediateAccrualStatus = "estimate_not_configured";
+  } else {
+    try {
+      initialAccrualIntervals = await runMiningAccrualForCustomer(userId);
+      immediateAccrualStatus = "triggered";
+    } catch (error) {
+      immediateAccrualStatus = "worker_retry";
+      console.warn(`[Mining] Immediate post-purchase accrual deferred for user ${userId}; the periodic worker will retry.`, error);
+    }
+  }
+  return { ...purchase, initialAccrualIntervals, immediateAccrualStatus };
 }
 
 async function activePackageRows(conn: Db, userId: number, at: Date) {

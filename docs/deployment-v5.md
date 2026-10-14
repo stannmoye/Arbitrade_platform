@@ -16,7 +16,7 @@ Required environment variables are documented in `.env.example`. `DATABASE_URL`,
 
 1. Create a dedicated database and least-privilege application user.
 2. Back up the database before applying migrations.
-3. Run `pnpm db:migrate`.
+3. Run the base migrations with `pnpm db:migrate`, then apply portal migrations with `pnpm db:portal-migrate` and the Mining migrations with `node scripts/apply-mining-migrations.mjs`.
 4. Provision an administrator using `pnpm admin:create` with `ADMIN_EMAIL` and `ADMIN_PASSWORD` supplied only in the private server shell.
 5. Verify `/api/health`, customer registration, customer login, administrator login, and role-protected procedures.
 
@@ -39,6 +39,12 @@ PHP-only hosting cannot run this Express application. A cPanel account must prov
 ## Financial safety boundary
 
 The application is production-deployable, but real-money execution and verified returns are **blocked** until a named, approved execution/settlement provider supplies verifiable results. Before that integration exists, opportunities must be classified as Practice, Simulation, or Research; no configured rate may be credited as real profit and no simulated balance may be presented as withdrawable funds.
+
+## Mining simulation and earnings persistence
+
+- Package checkout can be enabled separately from reward posting. A successful purchase creates an active entitlement with `startsAt` at purchase time; an immediate accrual is triggered only when verified reward posting is enabled and the package has a positive daily CKI estimate. Otherwise, the entitlement remains active but earnings are blocked, and the purchase response says why.
+- Every non-zero reward interval is written transactionally to the CKI wallet ledger, `mining_reward_events`, and `mining_reward_package_allocations`, with an idempotency key and advancing customer checkpoint. Re-running a worker interval must not duplicate a credit. The periodic worker requires the application process to stay running.
+- This Sandbox has no connected mining pool or verified settlement, and reward posting is blocked by design. Do not invent package earnings, represent estimates as verified returns, or present simulated balances as withdrawable; configure and disclose a verified settlement source before enabling real credits.
 
 ## Recovery
 

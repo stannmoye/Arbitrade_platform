@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, calculatePackageDailyReward, getBoostCooldownWindow, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
+import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
 
 describe("mining reward rules", () => {
   it("uses the configured tokens per TH/s-hour formula with decimal precision", () => {
@@ -59,6 +59,18 @@ describe("package daily reward model", () => {
   it("rejects negative daily estimates and boosts without purchased base capacity", () => {
     expect(() => calculatePackageDailyReward([{ expectedDailyRewardCki: "-1", baseThs: "1", boostThs: "0", eligibleSeconds: 60 }])).toThrow(/non-negative/);
     expect(() => calculatePackageDailyReward([{ expectedDailyRewardCki: "1", baseThs: "0", boostThs: "1", eligibleSeconds: 60 }])).toThrow(/positive base/);
+  });
+});
+
+describe("immediate mining accrual gate", () => {
+  it("does not run while verified reward posting is disabled", () => {
+    expect(canStartMiningAccrual({ globalEnabled: false, expectedDailyRewardCki: "1.25" })).toBe(false);
+  });
+
+  it("requires a positive configured daily estimate before immediate accrual", () => {
+    expect(canStartMiningAccrual({ globalEnabled: true, expectedDailyRewardCki: null })).toBe(false);
+    expect(canStartMiningAccrual({ globalEnabled: true, expectedDailyRewardCki: "0" })).toBe(false);
+    expect(canStartMiningAccrual({ globalEnabled: true, expectedDailyRewardCki: "0.0001" })).toBe(true);
   });
 });
 
