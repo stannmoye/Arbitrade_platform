@@ -16,6 +16,15 @@ pnpm db:portal-migrate
 
 `db:portal-migrate` applies the additive KYC v2 and admin-email SQL migrations (`0034_kyc_v2.sql`, then `0035_email_notifications.sql`). Those migrations are idempotent and do not replay the historical migration chain. Several older migration files use `ADD COLUMN IF NOT EXISTS`, which MySQL 8 rejects; do not use the full legacy chain as a substitute for a current-schema setup without first repairing it.
 
+## Restore an encrypted sandbox snapshot
+
+1. Provision a new, empty MySQL/MariaDB database and set its private `DATABASE_URL` in the sandbox environment. Do not restore over production or a database containing tables.
+2. Copy the encrypted `.sql.gz.gpg` snapshot and its passphrase file into private locations in the new sandbox. Keep both out of GitHub.
+3. From the repository root, load the private environment and run `scripts/restore-sandbox-db.sh <snapshot.sql.gz.gpg> <passphrase-file>`. The helper validates GPG/gzip integrity first and refuses a non-empty target; it streams the SQL into the database without writing a plaintext SQL dump to disk.
+4. Verify `/api/health`, customer/admin login, and account balances. The database snapshot does not include `.env`, application source, or the encryption passphrase; obtain those separately and securely.
+
+This is a manual recovery path, not live cross-sandbox synchronization. The currently running sandbox's local database does not automatically follow a newly created sandbox.
+
 ## Portal testing
 
 - Customer portal: `/customer` — includes KYC email and phone checks, address submission, document/liveness demo steps, and status tracking.
