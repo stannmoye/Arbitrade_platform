@@ -45,6 +45,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const [prefEnabled, setPrefEnabled] = useState(false);
   const [prefTarget, setPrefTarget] = useState("USD");
   const [prefThreshold, setPrefThreshold] = useState("0");
+  const [autoBoostEnabled, setAutoBoostEnabled] = useState(true);
   const [acknowledged, setAcknowledged] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -86,6 +87,10 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     onSuccess: result => { void dashboard.refetch(); void boostStatus.refetch(); void history.refetch(); push(`Boost activated until ${dateText(result.endsAt)}`); setMessage(`Package boost active until ${dateText(result.endsAt)}. It is next available after the customer-specific cooldown.`); },
     onError: error => setMessage(error.message),
   });
+  const boostPreferenceMutation = trpc.customer.mining.updateBoostAutoActivation.useMutation({
+    onSuccess: result => { setAutoBoostEnabled(result.autoActivateEnabled); void boostStatus.refetch(); setMessage(`Automatic boost activation ${result.autoActivateEnabled ? "enabled" : "disabled"}. This preference is saved to your account and is enforced by the server while you are logged out.`); },
+    onError: error => { setAutoBoostEnabled(Boolean(boostStatus.data?.autoActivateEnabled)); setMessage(error.message); },
+  });
   const preferenceMutation = trpc.customer.mining.updateConversionPreference.useMutation({
     onSuccess: result => { void dashboard.refetch(); setMessage(`Conversion preference saved as version ${result.version}. It applies to future reward events.`); },
     onError: error => setMessage(error.message),
@@ -115,6 +120,9 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const tokenSymbol = data?.tokenSymbol ?? "";
   const packageRows = packages.data || [];
   const boost = boostStatus.data;
+  useEffect(() => {
+    if (typeof boost?.autoActivateEnabled === "boolean") setAutoBoostEnabled(boost.autoActivateEnabled);
+  }, [boost?.autoActivateEnabled]);
   const active = data?.packages || [];
   const recent = (history.data || []).slice(0, 30);
   const historyPageCount = Math.max(1, Math.ceil(recent.length / 5));
@@ -257,6 +265,8 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
             <div className="cm-boost-machine" role="img" aria-label="Package hash-power boost engine"><span className="cm-engine-aura"/><span className="cm-engine-pipe cm-engine-pipe-left"/><span className="cm-engine-pipe cm-engine-pipe-right"/><div className="cm-engine-shell"><span className="cm-engine-topcap"/><span className="cm-engine-front-glass"/><span className="cm-engine-rotor"><i/><i/><b/></span><span className="cm-engine-vents"/><span className="cm-engine-mark"/><span className="cm-engine-leds"><i/><i/><i/></span><span className="cm-engine-base"/></div></div>
             <div className="cm-boost-copy"><div className="cm-boost-topline"><b>HASH POWER ENGINE</b><span className="cm-boost-readout"><small>{boostStatusLabel}</small><strong>{boostCountdown}</strong></span></div><div className="cm-boost-bottomline"><span className="cm-boost-charge" role="progressbar" aria-label="Boost charge" aria-valuenow={boostCycleCharge} aria-valuemin={0} aria-valuemax={100} title={boost?.reason || "2-minute activation with a customer-specific 4-hour cooldown."}><i style={{width:`${boostCycleCharge}%`}}/></span></div></div>
             <button type="button" className="cm-glow-button" title={boost?.reason || "Activate Hash Power Boost"} aria-label="Activate Hash Power Boost" disabled={boostMutation.isPending || !boost?.ready} onClick={activateBoost}><ArrowDownUp size={15}/>{boostMutation.isPending?"Activating…":"Activate Boost"}</button>
+            <label className="cm-boost-auto"><input type="checkbox" checked={autoBoostEnabled} disabled={boostPreferenceMutation.isPending} onChange={event=>{const enabled=event.target.checked;setAutoBoostEnabled(enabled);boostPreferenceMutation.mutate({enabled});}}/><span>Auto-activate when ready</span></label>
+            {Number(boost?.bonusThsAvailable)>0&&<small className="cm-boost-schedule">{boost?.ready?"Available now":"Next available"}: {dateText(boost?.nextEligibleAt)}</small>}
           </article>
         </div>
 

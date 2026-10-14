@@ -155,7 +155,7 @@ async function startServer() {
       miningCycleRunning = true;
       try {
         const result = await runMiningWorkerCycle();
-        if (result.intervalsProcessed || result.conversionJobs.completed || result.conversionJobs.retrying) console.log("[MiningWorker] cycle", result);
+        if (result.intervalsProcessed || result.boostsActivated || result.conversionJobs.completed || result.conversionJobs.retrying) console.log("[MiningWorker] cycle", result);
       } catch (error) { console.error("[MiningWorker]", error instanceof Error ? error.message : error); }
       finally { miningCycleRunning = false; }
     };

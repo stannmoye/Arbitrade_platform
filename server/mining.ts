@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import Decimal from "decimal.js";
-import { calculateMiningConversion, calculateMiningDifficultyIndex, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow } from "./mining-rules";
+import { calculateMiningConversion, calculateMiningDifficultyIndex, calculatePackageDailyReward, canStartMiningAccrual, getBoostScheduleWindow } from "./mining-rules";
 import {
   Db, MiningError, addUtcMonths, amountString, assertMiningAsset, assetScale, beginMiningIdempotency, createMiningLedgerTransaction,
   createMiningNotification, decimal, ensureMiningCheckpoint, finishMiningIdempotency, inMiningTransaction,
@@ -395,20 +395,26 @@ export async function getCustomerMiningBoostStatus(userId: number) {
   return withMiningConnection(async conn => {
     const now = new Date();
     const config = await loadMiningConfig(conn, now);
+    await conn.execute("INSERT IGNORE INTO mining_boost_preferences (userId) VALUES (?)", [userId]);
+    const [preferenceRows] = await conn.query<any[]>("SELECT autoActivateEnabled,nextEligibleAt,scheduleStatus,lastCheckedAt FROM mining_boost_preferences WHERE userId=? LIMIT 1", [userId]);
     const packages = await activePackageRows(conn, userId, now);
     const eligiblePackage = packages.filter(row => decimal(row.boostBonusThsSnapshot).gt(0)).sort((a,b)=>decimal(a.boostBonusThsSnapshot).cmp(decimal(b.boostBonusThsSnapshot))).at(-1);
     const [activeRows] = await conn.query<any[]>(`SELECT id,startedAt,endsAt,bonusThs,packageVersionId,customerPackageId FROM mining_boost_activations WHERE userId=? AND status='active' AND endsAt>? ORDER BY startedAt DESC LIMIT 1`, [userId, now]);
-    const [lastRows] = await conn.query<any[]>(`SELECT id,startedAt,endsAt,status FROM mining_boost_activations WHERE userId=? ORDER BY startedAt DESC,id DESC LIMIT 1`, [userId]);
+    const [lastRows] = await conn.query<any[]>(`SELECT id,startedAt,endsAt,cycleExpiresAt,status FROM mining_boost_activations WHERE userId=? ORDER BY startedAt DESC,id DESC LIMIT 1`, [userId]);
     const lastStartedAt = lastRows[0] ? new Date(lastRows[0].startedAt) : null;
-    const cycle = getBoostCooldownWindow(now, lastStartedAt, config.boostCycleSeconds);
+    const persistedNextEligibleAt = lastRows[0] ? new Date(lastRows[0].cycleExpiresAt) : preferenceRows[0]?.nextEligibleAt ? new Date(preferenceRows[0].nextEligibleAt) : null;
+    const cycle = getBoostScheduleWindow(now,lastStartedAt,persistedNextEligibleAt);
     const account = await conn.query<any[]>(`SELECT accountStatus FROM customer_controls WHERE userId=? LIMIT 1`, [userId]);
     const accountStatus = account[0][0]?.accountStatus || "active";
     const active = activeRows[0];
     const coolingDown = !cycle.ready;
     const ready = config.boostsEnabled && accountStatus === "active" && Boolean(eligiblePackage) && !active && !coolingDown;
+    const scheduleStatus = active ? "active" : eligiblePackage && coolingDown ? "cooldown" : !Boolean(preferenceRows[0]?.autoActivateEnabled) ? "disabled" : ready ? "ready" : "unavailable";
     return {
       serverTime: now.toISOString(), cycleStart: cycle.start.toISOString(), eligibleAt: cycle.eligibleAt.toISOString(),
       cycleExpiresAt: cycle.expiresAt.toISOString(), nextEligibleAt: cycle.nextEligibleAt.toISOString(),
+      autoActivateEnabled: Boolean(preferenceRows[0]?.autoActivateEnabled),
+      scheduleStatus, lastCheckedAt: preferenceRows[0]?.lastCheckedAt ? new Date(preferenceRows[0].lastCheckedAt).toISOString() : null,
       ready, active: Boolean(active), activeBoost: active ? { startedAt: new Date(active.startedAt).toISOString(), endsAt: new Date(active.endsAt).toISOString(), bonusThs: String(active.bonusThs), purchaseId: Number(active.customerPackageId) } : null,
       bonusThsAvailable: eligiblePackage ? String(eligiblePackage.boostBonusThsSnapshot) : "0", packageVersionId: eligiblePackage ? Number(eligiblePackage.packageVersionId) : null,
       durationSeconds: config.boostDurationSeconds,
@@ -419,12 +425,27 @@ export async function getCustomerMiningBoostStatus(userId: number) {
   });
 }
 
-export async function activateCustomerMiningBoost(userId: number, input: { idempotencyKey: string }) {
+export async function updateCustomerMiningBoostAutoActivation(userId: number, enabled: boolean) {
+  return withMiningConnection(async conn => inMiningTransaction(conn, async () => {
+    await conn.execute("INSERT IGNORE INTO mining_boost_preferences (userId) VALUES (?)", [userId]);
+    await conn.execute(`UPDATE mining_boost_preferences SET autoActivateEnabled=?,scheduleStatus=CASE
+      WHEN activeEndsAt>UTC_TIMESTAMP(3) THEN 'active'
+      WHEN ?=0 THEN 'disabled'
+      WHEN nextEligibleAt>UTC_TIMESTAMP(3) THEN 'cooldown'
+      ELSE 'ready' END,lastCheckedAt=UTC_TIMESTAMP(3) WHERE userId=?`, [enabled ? 1 : 0, enabled ? 1 : 0, userId]);
+    return { autoActivateEnabled: enabled };
+  }));
+}
+
+export async function activateCustomerMiningBoost(userId: number, input: { idempotencyKey: string; automatic?: boolean }) {
   const key = requestKey("mining-boost", userId, input.idempotencyKey);
   return withMiningConnection(async conn => inMiningTransaction(conn, async () => {
     const prior = await beginMiningIdempotency(conn, userId, key, "mining.boost.activate");
     if (prior) return prior;
     await ensureMiningCheckpoint(conn, userId);
+    await conn.execute("INSERT IGNORE INTO mining_boost_preferences (userId) VALUES (?)", [userId]);
+    const [preferenceRows] = await conn.query<any[]>("SELECT autoActivateEnabled FROM mining_boost_preferences WHERE userId=? FOR UPDATE", [userId]);
+    if (input.automatic && !Boolean(preferenceRows[0]?.autoActivateEnabled)) throw new MiningError("Automatic boost activation is disabled");
     await requireActiveMiningAccount(conn, userId);
     const now = new Date();
     const config = await loadMiningConfig(conn, now);
@@ -434,15 +455,16 @@ export async function activateCustomerMiningBoost(userId: number, input: { idemp
     if (!candidate) throw new MiningError("An active package with boost capacity is required");
     const [activeRows] = await conn.query<any[]>(`SELECT id FROM mining_boost_activations WHERE userId=? AND status='active' AND endsAt>? FOR UPDATE`, [userId, now]);
     if (activeRows.length) throw new MiningError("A boost is already active");
-    const [lastRows] = await conn.query<any[]>(`SELECT id,startedAt FROM mining_boost_activations WHERE userId=? ORDER BY startedAt DESC,id DESC LIMIT 1 FOR UPDATE`, [userId]);
-    const cycle = getBoostCooldownWindow(now, lastRows[0] ? new Date(lastRows[0].startedAt) : null, config.boostCycleSeconds);
-    if (!cycle.ready) throw new MiningError(`Boost is cooling down until ${cycle.nextEligibleAt.toISOString()}`);
+    const [lastRows] = await conn.query<any[]>(`SELECT id,startedAt,cycleExpiresAt FROM mining_boost_activations WHERE userId=? ORDER BY startedAt DESC,id DESC LIMIT 1 FOR UPDATE`, [userId]);
+    const previousEligibleAt = lastRows[0] ? new Date(lastRows[0].cycleExpiresAt) : null;
+    if (previousEligibleAt && now.getTime() < previousEligibleAt.getTime()) throw new MiningError(`Boost is cooling down until ${previousEligibleAt.toISOString()}`);
     const durationSeconds = config.boostDurationSeconds;
     const endsAt = new Date(now.getTime() + durationSeconds * 1000);
     const cooldownEndsAt = new Date(now.getTime() + config.boostCycleSeconds * 1000);
     const [result] = await conn.execute<any>(`INSERT INTO mining_boost_activations
       (userId,cycleStart,eligibleAt,cycleExpiresAt,startedAt,endsAt,bonusThs,packageVersionId,customerPackageId,status,idempotencyKey)
       VALUES (?,?,?,?,?,?,?,?,?,'active',?)`, [userId, now, now, cooldownEndsAt, now, endsAt, String(candidate.boostBonusThsSnapshot), Number(candidate.packageVersionId), Number(candidate.purchaseId), key]);
+    await conn.execute(`UPDATE mining_boost_preferences SET scheduleStatus='active',lastActivationId=?,lastActivationAt=?,activeEndsAt=?,nextEligibleAt=?,lastCheckedAt=? WHERE userId=?`, [Number(result.insertId), now, endsAt, cooldownEndsAt, now, userId]);
     const response = { activationId: Number(result.insertId), status: "active", bonusThs: String(candidate.boostBonusThsSnapshot), startedAt: now.toISOString(), endsAt: endsAt.toISOString(), cycleExpiresAt: cooldownEndsAt.toISOString(), nextEligibleAt: cooldownEndsAt.toISOString(), packageVersionId: Number(candidate.packageVersionId), policy: `The boost runs for ${durationSeconds} seconds; the four-hour customer cooldown starts at activation.` };
     await finishMiningIdempotency(conn, key, response);
     await createMiningNotification(conn, userId, "Mining boost activated", `A ${candidate.boostBonusThsSnapshot} TH/s package boost is active until ${endsAt.toISOString()}. Next availability: ${cooldownEndsAt.toISOString()}.`);
@@ -872,14 +894,33 @@ export async function runMiningWorkerCycle() {
     }
     if (users.length) miningWorkerUserCursor=Number(users[users.length-1].userId);
     let intervals = 0;
-    for (const row of users) intervals += await accrueOneUser(conn,Number(row.userId),30);
+    let boostsChecked = 0;
+    let boostsActivated = 0;
+    for (const row of users) {
+      const userId = Number(row.userId);
+      intervals += await accrueOneUser(conn,userId,30);
+      const now = new Date();
+      await conn.execute(`UPDATE mining_boost_activations SET status='expired' WHERE userId=? AND status='active' AND endsAt<=?`,[userId,now]);
+      const boostStatus = await getCustomerMiningBoostStatus(userId);
+      await conn.execute(`UPDATE mining_boost_preferences SET scheduleStatus=?,lastCheckedAt=?,nextEligibleAt=COALESCE(nextEligibleAt,?),activeEndsAt=IF(activeEndsAt<=?,NULL,activeEndsAt) WHERE userId=?`,[boostStatus.scheduleStatus,now,boostStatus.nextEligibleAt,now,userId]);
+      boostsChecked++;
+      if (boostStatus.autoActivateEnabled && boostStatus.ready) {
+        const idempotencyKey = `auto-boost:${userId}:${new Date(boostStatus.nextEligibleAt).getTime()}`;
+        try {
+          await activateCustomerMiningBoost(userId,{idempotencyKey,automatic:true});
+          boostsActivated++;
+        } catch (error) {
+          if (!(error instanceof MiningError && /already active|cooling down|automatic boost activation is disabled/i.test(error.message))) throw error;
+        }
+      }
+    }
     const [jobs] = await conn.query<any[]>(`SELECT id FROM mining_conversion_jobs WHERE status IN ('queued','retrying') AND availableAt<=UTC_TIMESTAMP(3) ORDER BY id LIMIT 50`);
     const outcomes = { completed:0, waiting:0, retrying:0, skipped:0 };
     for (const row of jobs) {
       const status = await processConversionJob(conn,Number(row.id));
       if (status in outcomes) outcomes[status as keyof typeof outcomes]++;
     }
-    return { usersProcessed:users.length, intervalsProcessed:intervals, conversionJobs:outcomes };
+    return { usersProcessed:users.length, intervalsProcessed:intervals, boostsChecked, boostsActivated, conversionJobs:outcomes };
   });
 }
 

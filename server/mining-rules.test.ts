@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
+import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, getBoostScheduleWindow, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
 
 describe("mining reward rules", () => {
   it("uses the configured tokens per TH/s-hour formula with decimal precision", () => {
@@ -32,6 +32,20 @@ describe("mining reward rules", () => {
       { baseThs: "1", boostThs: "0", rewardTokensPerThsHour: "0.0390625", elapsedSeconds: baseSeconds },
       { baseThs: "1", boostThs: "0.25", rewardTokensPerThsHour: "0.0390625", elapsedSeconds: boostedSeconds },
     ])).toBe("0.00070283");
+  });
+
+  it("stops adding boost reward after the boost expiry time", () => {
+    const intervalStart = new Date("2026-10-11T12:00:00.000Z");
+    const intervalEnd = new Date("2026-10-11T12:01:00.000Z");
+    const boostStart = new Date("2026-10-11T12:00:10.000Z");
+    const boostEnd = new Date("2026-10-11T12:00:30.000Z");
+    const boostedSeconds = overlapSeconds(intervalStart, intervalEnd, boostStart, boostEnd);
+    const baseOnlySeconds = 60 - boostedSeconds;
+    expect(boostedSeconds).toBe(20);
+    expect(calculatePackageDailyReward([
+      { expectedDailyRewardCki: "86400", baseThs: "1", boostThs: "0", eligibleSeconds: baseOnlySeconds },
+      { expectedDailyRewardCki: "86400", baseThs: "1", boostThs: "1", eligibleSeconds: boostedSeconds },
+    ])).toBe("80.000000000000000000");
   });
 
   it("rejects invalid and overlong segments instead of trusting unchecked rates", () => {
@@ -126,6 +140,16 @@ describe("mining time and quote guards", () => {
     expect(cycle.start.toISOString()).toBe("2026-10-11T12:10:00.000Z");
     expect(cycle.nextEligibleAt.toISOString()).toBe("2026-10-11T16:10:00.000Z");
     expect(getBoostCooldownWindow(new Date("2026-10-11T16:10:00.000Z"), new Date("2026-10-11T12:10:00.000Z"), 4 * 60 * 60).ready).toBe(true);
+  });
+
+  it("uses the persisted release timestamp for logged-out worker eligibility", () => {
+    const startedAt = new Date("2026-10-11T12:10:00.000Z");
+    const releaseAt = new Date("2026-10-11T16:10:00.000Z");
+    const cooling = getBoostScheduleWindow(new Date("2026-10-11T16:09:59.000Z"), startedAt, releaseAt);
+    const released = getBoostScheduleWindow(releaseAt, startedAt, releaseAt);
+    expect(cooling.ready).toBe(false);
+    expect(cooling.nextEligibleAt.toISOString()).toBe(releaseAt.toISOString());
+    expect(released.ready).toBe(true);
   });
 
   it("accepts only non-future quotes inside the freshness limit", () => {
