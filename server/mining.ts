@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import Decimal from "decimal.js";
-import { calculateMiningConversion, calculateMiningDifficultyIndex, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow } from "./mining-rules";
+import { calculateMiningBoostThs, calculateMiningConversion, calculateMiningDifficultyIndex, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow } from "./mining-rules";
 import {
   Db, MiningError, addUtcMonths, amountString, assertMiningAsset, assetScale, beginMiningIdempotency, createMiningLedgerTransaction,
   createMiningNotification, decimal, ensureMiningCheckpoint, finishMiningIdempotency, inMiningTransaction,
@@ -396,11 +396,13 @@ export async function getCustomerMiningBoostStatus(userId: number) {
     const now = new Date();
     const config = await loadMiningConfig(conn, now);
     const packages = await activePackageRows(conn, userId, now);
-    const eligiblePackage = packages.filter(row => decimal(row.boostBonusThsSnapshot).gt(0)).sort((a,b)=>decimal(a.boostBonusThsSnapshot).cmp(decimal(b.boostBonusThsSnapshot))).at(-1);
+    const eligiblePackage = packages.find(row => decimal(row.baseThsSnapshot).gt(0));
+    const availableBaseThs = packages.reduce((sum, row) => sum.plus(decimal(row.baseThsSnapshot)), new Decimal(0));
+    const bonusThsAvailable = decimal(calculateMiningBoostThs(availableBaseThs.toString()));
     const [activeRows] = await conn.query<any[]>(`SELECT id,startedAt,endsAt,bonusThs,packageVersionId,customerPackageId FROM mining_boost_activations WHERE userId=? AND status='active' AND endsAt>? ORDER BY startedAt DESC LIMIT 1`, [userId, now]);
     const [lastRows] = await conn.query<any[]>(`SELECT id,startedAt,endsAt,status FROM mining_boost_activations WHERE userId=? ORDER BY startedAt DESC,id DESC LIMIT 1`, [userId]);
-    const lastStartedAt = lastRows[0] ? new Date(lastRows[0].startedAt) : null;
-    const cycle = getBoostCooldownWindow(now, lastStartedAt, config.boostCycleSeconds);
+    const lastActivationEndsAt = lastRows[0] ? new Date(lastRows[0].endsAt) : null;
+    const cycle = getBoostCooldownWindow(now, lastActivationEndsAt, config.boostCycleSeconds, config.boostDurationSeconds);
     const account = await conn.query<any[]>(`SELECT accountStatus FROM customer_controls WHERE userId=? LIMIT 1`, [userId]);
     const accountStatus = account[0][0]?.accountStatus || "active";
     const active = activeRows[0];
@@ -410,11 +412,11 @@ export async function getCustomerMiningBoostStatus(userId: number) {
       serverTime: now.toISOString(), cycleStart: cycle.start.toISOString(), eligibleAt: cycle.eligibleAt.toISOString(),
       cycleExpiresAt: cycle.expiresAt.toISOString(), nextEligibleAt: cycle.nextEligibleAt.toISOString(),
       ready, active: Boolean(active), activeBoost: active ? { startedAt: new Date(active.startedAt).toISOString(), endsAt: new Date(active.endsAt).toISOString(), bonusThs: String(active.bonusThs), purchaseId: Number(active.customerPackageId) } : null,
-      bonusThsAvailable: eligiblePackage ? String(eligiblePackage.boostBonusThsSnapshot) : "0", packageVersionId: eligiblePackage ? Number(eligiblePackage.packageVersionId) : null,
+      bonusThsAvailable: eligiblePackage ? bonusThsAvailable.toString() : "0", boostPercent: 20, availableBaseThs: availableBaseThs.toString(), packageVersionId: eligiblePackage ? Number(eligiblePackage.packageVersionId) : null,
       durationSeconds: config.boostDurationSeconds,
       cooldownSeconds: config.boostCycleSeconds,
-      reason: !config.boostsEnabled ? "Boosts are paused by an administrator" : accountStatus !== "active" ? "Account is restricted" : !eligiblePackage ? "An active package with configured boost capacity is required" : active ? "A boost is currently active" : coolingDown ? `Boost recharges until ${cycle.nextEligibleAt.toISOString()}` : null,
-      policy: `A boost lasts ${config.boostDurationSeconds} seconds; each customer's cooldown begins at activation and lasts ${config.boostCycleSeconds} seconds.`,
+      reason: !config.boostsEnabled ? "Boosts are disabled by administrator settings" : accountStatus !== "active" ? "Account is restricted" : !eligiblePackage ? "An active hash-power package is required" : active ? "A boost is currently active" : coolingDown ? `Boost recharges until ${cycle.nextEligibleAt.toISOString()}` : null,
+      policy: `A boost adds 20% of active purchased hash power for ${config.boostDurationSeconds} seconds, followed by a ${config.boostCycleSeconds}-second cooldown.`,
     };
   });
 }
@@ -430,22 +432,25 @@ export async function activateCustomerMiningBoost(userId: number, input: { idemp
     const config = await loadMiningConfig(conn, now);
     if (!config.boostsEnabled) throw new MiningError("Boost activation is paused by an administrator");
     const packages = await activePackageRows(conn, userId, now);
-    const candidate = packages.filter(row => decimal(row.boostBonusThsSnapshot).gt(0)).sort((a,b)=>decimal(a.boostBonusThsSnapshot).cmp(decimal(b.boostBonusThsSnapshot))).at(-1);
+    const candidate = packages.find(row => decimal(row.baseThsSnapshot).gt(0));
     if (!candidate) throw new MiningError("An active package with boost capacity is required");
+    const availableBaseThs = packages.reduce((sum, row) => sum.plus(decimal(row.baseThsSnapshot)), new Decimal(0));
+    const bonusThs = decimal(calculateMiningBoostThs(availableBaseThs.toString()));
+    if (!bonusThs.gt(0)) throw new MiningError("Active packages do not have enough hash power for a boost");
     const [activeRows] = await conn.query<any[]>(`SELECT id FROM mining_boost_activations WHERE userId=? AND status='active' AND endsAt>? FOR UPDATE`, [userId, now]);
     if (activeRows.length) throw new MiningError("A boost is already active");
-    const [lastRows] = await conn.query<any[]>(`SELECT id,startedAt FROM mining_boost_activations WHERE userId=? ORDER BY startedAt DESC,id DESC LIMIT 1 FOR UPDATE`, [userId]);
-    const cycle = getBoostCooldownWindow(now, lastRows[0] ? new Date(lastRows[0].startedAt) : null, config.boostCycleSeconds);
+    const [lastRows] = await conn.query<any[]>(`SELECT id,endsAt FROM mining_boost_activations WHERE userId=? ORDER BY startedAt DESC,id DESC LIMIT 1 FOR UPDATE`, [userId]);
+    const cycle = getBoostCooldownWindow(now, lastRows[0] ? new Date(lastRows[0].endsAt) : null, config.boostCycleSeconds, config.boostDurationSeconds);
     if (!cycle.ready) throw new MiningError(`Boost is cooling down until ${cycle.nextEligibleAt.toISOString()}`);
     const durationSeconds = config.boostDurationSeconds;
     const endsAt = new Date(now.getTime() + durationSeconds * 1000);
-    const cooldownEndsAt = new Date(now.getTime() + config.boostCycleSeconds * 1000);
+    const cooldownEndsAt = new Date(endsAt.getTime() + config.boostCycleSeconds * 1000);
     const [result] = await conn.execute<any>(`INSERT INTO mining_boost_activations
       (userId,cycleStart,eligibleAt,cycleExpiresAt,startedAt,endsAt,bonusThs,packageVersionId,customerPackageId,status,idempotencyKey)
-      VALUES (?,?,?,?,?,?,?,?,?,'active',?)`, [userId, now, now, cooldownEndsAt, now, endsAt, String(candidate.boostBonusThsSnapshot), Number(candidate.packageVersionId), Number(candidate.purchaseId), key]);
-    const response = { activationId: Number(result.insertId), status: "active", bonusThs: String(candidate.boostBonusThsSnapshot), startedAt: now.toISOString(), endsAt: endsAt.toISOString(), cycleExpiresAt: cooldownEndsAt.toISOString(), nextEligibleAt: cooldownEndsAt.toISOString(), packageVersionId: Number(candidate.packageVersionId), policy: `The boost runs for ${durationSeconds} seconds; the four-hour customer cooldown starts at activation.` };
+      VALUES (?,?,?,?,?,?,?,?,?,'active',?)`, [userId, now, now, cooldownEndsAt, now, endsAt, bonusThs.toString(), Number(candidate.packageVersionId), Number(candidate.purchaseId), key]);
+    const response = { activationId: Number(result.insertId), status: "active", bonusThs: bonusThs.toString(), boostPercent: 20, availableBaseThs: availableBaseThs.toString(), startedAt: now.toISOString(), endsAt: endsAt.toISOString(), cycleExpiresAt: cooldownEndsAt.toISOString(), nextEligibleAt: cooldownEndsAt.toISOString(), packageVersionId: Number(candidate.packageVersionId), policy: `The boost adds 20% of active purchased hash power for ${durationSeconds} seconds, followed by a ${config.boostCycleSeconds}-second cooldown.` };
     await finishMiningIdempotency(conn, key, response);
-    await createMiningNotification(conn, userId, "Mining boost activated", `A ${candidate.boostBonusThsSnapshot} TH/s package boost is active until ${endsAt.toISOString()}. Next availability: ${cooldownEndsAt.toISOString()}.`);
+    await createMiningNotification(conn, userId, "Mining boost activated", `A ${bonusThs.toString()} TH/s boost (20% of ${availableBaseThs.toString()} TH/s active package capacity) is active until ${endsAt.toISOString()}. Next availability: ${cooldownEndsAt.toISOString()}.`);
     return response;
   }));
 }
@@ -476,11 +481,12 @@ export async function getCustomerMiningDashboard(userId: number) {
     let pendingTokens = new Decimal(0);
     if (config.globalEnabled && accountStatus === "active" && packages.length && intervalSeconds > 0) {
       const segments = packages.flatMap(row => {
-        const ownsActiveBoost = Boolean(activeBoost) && Number(activeBoost.customerPackageId) === Number(row.purchaseId);
-        const boostedSeconds = ownsActiveBoost ? boostIntervalSeconds : 0;
+        const boostedSeconds = activeBoost ? boostIntervalSeconds : 0;
+        const packageBase = decimal(row.baseThsSnapshot);
+        const packageBoost = activeBoost && baseThs.gt(0) ? decimal(activeBoost.bonusThs).times(packageBase).div(baseThs) : new Decimal(0);
         return [
           { expectedDailyRewardCki: row.expectedDailyRewardCkiSnapshot, baseThs: String(row.baseThsSnapshot), boostThs: "0", eligibleSeconds: intervalSeconds - boostedSeconds },
-          { expectedDailyRewardCki: row.expectedDailyRewardCkiSnapshot, baseThs: String(row.baseThsSnapshot), boostThs: ownsActiveBoost ? String(activeBoost.bonusThs) : "0", eligibleSeconds: boostedSeconds },
+          { expectedDailyRewardCki: row.expectedDailyRewardCkiSnapshot, baseThs: String(row.baseThsSnapshot), boostThs: packageBoost.toString(), eligibleSeconds: boostedSeconds },
         ];
       });
       pendingTokens = decimal(calculatePackageDailyReward(segments));
@@ -696,7 +702,7 @@ async function calculateInterval(conn: Db, userId: number, start: Date, end: Dat
     const boost = activeBoost ? decimal(activeBoost.bonusThs) : new Decimal(0);
     const packageRewards = activePackages.map(row=>{
       const packageBase=decimal(row.baseThsSnapshot);
-      const packageBoost=activeBoost&&Number(activeBoost.customerPackageId)===Number(row.id)?decimal(activeBoost.bonusThs):new Decimal(0);
+      const packageBoost=activeBoost&&base.gt(0)?decimal(activeBoost.bonusThs).times(packageBase).div(base):new Decimal(0);
       const daily=row.expectedDailyRewardCkiSnapshot===null?null:String(row.expectedDailyRewardCkiSnapshot);
       const amount=decimal(calculatePackageDailyReward([{expectedDailyRewardCki:daily,baseThs:packageBase.toString(),boostThs:packageBoost.toString(),eligibleSeconds:seconds}]));
       const effectiveDaily=daily===null?new Decimal(0):decimal(daily).times(packageBase.plus(packageBoost).div(packageBase));

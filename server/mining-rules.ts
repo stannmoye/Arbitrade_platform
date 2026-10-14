@@ -82,6 +82,13 @@ export function calculateMiningDifficultyIndex(
   return new Decimal(1).plus(hashPower.div(baseline)).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toFixed(2);
 }
 
+/** Customer boost capacity is 20% of the active purchased TH/s, rounded down to 12 places. */
+export function calculateMiningBoostThs(activeBaseThs: string | number, percent = 20) {
+  const base = positiveDecimal(activeBaseThs, "Active base hash power", true);
+  if (!Number.isFinite(percent) || percent < 0 || percent > 100) throw new Error("Boost percentage must be between zero and one hundred");
+  return base.times(percent).div(100).toDecimalPlaces(12, Decimal.ROUND_DOWN).toFixed(12);
+}
+
 /** Convert a platform-token amount through its fixed internal USD reference to a quoted asset rate. */
 export function calculateMiningConversion(input: {
   tokenAmount: string | number;
@@ -109,15 +116,16 @@ export function calculateMiningConversion(input: {
   };
 }
 
-/** A customer's next boost time is measured from that customer's previous activation. */
-export function getBoostCooldownWindow(now: Date, lastActivationAt: Date | null | undefined, cooldownSeconds: number) {
+/** A customer's cooldown starts after the previous boost has ended. */
+export function getBoostCooldownWindow(now: Date, lastActivationEndsAt: Date | null | undefined, cooldownSeconds: number, durationSeconds = 0) {
   if (!Number.isInteger(cooldownSeconds) || cooldownSeconds < 60 || cooldownSeconds > 31_536_000) throw new Error("Boost cooldown length is outside the supported range");
+  if (!Number.isInteger(durationSeconds) || durationSeconds < 0 || durationSeconds > 31_536_000) throw new Error("Boost duration is outside the supported range");
   const cooldownMs = cooldownSeconds * 1000;
-  const last = lastActivationAt ? new Date(lastActivationAt) : null;
+  const last = lastActivationEndsAt ? new Date(lastActivationEndsAt) : null;
   if (last && !Number.isFinite(last.getTime())) throw new Error("Last boost activation time is invalid");
   const start = last ?? new Date(now);
   const next = last ? new Date(last.getTime() + cooldownMs) : new Date(now);
-  const expiresAt = last ? next : new Date(now.getTime() + cooldownMs);
+  const expiresAt = last ? next : new Date(now.getTime() + (durationSeconds + cooldownSeconds) * 1000);
   return { start, eligibleAt: next, expiresAt, nextEligibleAt: next, ready: now.getTime() >= next.getTime() };
 }
 

@@ -160,7 +160,6 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const currentHashRateDisplay = dashboard.isLoading || dashboard.isError ? "—" : fmt(activeHashPower, 3);
   const availableHashRateDisplay = packages.isLoading || packages.isError ? "—" : fmt(availablePackageHashPower, 3);
   const hasActiveHashPowerPackage = active.some((item: any) => item.status === "active");
-  const activeBoostCapacity = active.reduce((sum: number, item: any) => sum + (Number.isFinite(Number(item.boostBonusThs)) ? Number(item.boostBonusThs) : 0), 0);
   const activePackageNames = active.length ? active.slice(0, 3).map((item: any) => item.packageName).join(" · ") + (active.length > 3 ? ` · +${active.length - 3} more` : "") : "No active package entitlement";
   const engineIsRunning = hasActiveHashPowerPackage;
   const filteredPackages = packageRows.filter((item: any) => {
@@ -255,7 +254,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
           </article>
           <article className={`cm-glass cm-boost-card ${boost?.ready?"is-ready":"is-locked"}`}>
             <div className="cm-boost-machine" role="img" aria-label="Package hash-power boost engine"><span className="cm-engine-aura"/><span className="cm-engine-pipe cm-engine-pipe-left"/><span className="cm-engine-pipe cm-engine-pipe-right"/><div className="cm-engine-shell"><span className="cm-engine-topcap"/><span className="cm-engine-front-glass"/><span className="cm-engine-rotor"><i/><i/><b/></span><span className="cm-engine-vents"/><span className="cm-engine-mark"/><span className="cm-engine-leds"><i/><i/><i/></span><span className="cm-engine-base"/></div></div>
-            <div className="cm-boost-copy"><div className="cm-boost-topline"><b>HASH POWER ENGINE</b><span className="cm-boost-readout"><small>{boostStatusLabel}</small><strong>{boostCountdown}</strong></span></div><div className="cm-boost-bottomline"><span className="cm-boost-charge" role="progressbar" aria-label="Boost charge" aria-valuenow={boostCycleCharge} aria-valuemin={0} aria-valuemax={100} title={boost?.reason || "2-minute activation with a customer-specific 4-hour cooldown."}><i style={{width:`${boostCycleCharge}%`}}/></span></div></div>
+            <div className="cm-boost-copy"><div className="cm-boost-topline"><b>HASH POWER ENGINE</b><span className="cm-boost-readout"><small>{boostStatusLabel}</small><strong>{boostCountdown}</strong></span></div><div className="cm-boost-bottomline"><span className="cm-boost-charge" role="progressbar" aria-label="Boost charge" aria-valuenow={boostCycleCharge} aria-valuemin={0} aria-valuemax={100} title={boost?.reason || "20% of active package hash power for 2 minutes, then a 10-minute cooldown."}><i style={{width:`${boostCycleCharge}%`}}/></span></div></div>
             <button type="button" className="cm-glow-button" title={boost?.reason || "Activate Hash Power Boost"} aria-label="Activate Hash Power Boost" disabled={boostMutation.isPending || !boost?.ready} onClick={activateBoost}><ArrowDownUp size={15}/>{boostMutation.isPending?"Activating…":"Activate Boost"}</button>
           </article>
         </div>
@@ -295,7 +294,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
               <div className="cm-package-art"><div className="cm-cube"><i/><i/><b>₵</b></div><span className="cm-package-glow"/></div>
               <div className="cm-package-label"><h3>{item.name}</h3><span>{statusLabel}</span></div>
               <div className="cm-package-price"><strong>{fmt(item.priceAmount,2)}</strong><small>{item.priceAsset}</small></div>
-              <div className="cm-package-facts"><b>{fmt(item.baseThs,3)} <small>TH/s</small></b><span>Boost +{fmt(item.boostBonusThs,3)} TH/s</span><span>Term {item.durationMonths==null?"not set":`${item.durationMonths} months`}</span><span>Daily CKI allocation follows actual farm settlement records</span></div>
+              <div className="cm-package-facts"><b>{fmt(item.baseThs,3)} <small>TH/s</small></b><span>Boost +20% of active purchased TH/s</span><span>Term {item.durationMonths==null?"not set":`${item.durationMonths} months`}</span><span>Boost: 2 minutes on, then 10 minutes cooldown</span></div>
               <button type="button" className="cm-package-buy" disabled={!canPurchase} title={canPurchase?intent:(unavailableReason||"Unavailable")} onClick={()=>{if(!canPurchase)return;setSelectedPackage(item);setPurchaseQuote(null);setAcknowledged(false)}}>{buttonLabel}<ArrowRight size={13}/></button>
             </article>;
           })}

@@ -123,8 +123,8 @@ export function AdminMining(){
         <label>Maximum swap ({tokenSymbol})<input value={settings.maxSwapTokens??""} onChange={e=>updateSettings("maxSwapTokens",e.target.value)}/></label>
         <label>Default auto-conversion threshold ({tokenSymbol})<input value={settings.defaultAutoConversionThreshold??""} onChange={e=>updateSettings("defaultAutoConversionThreshold",e.target.value)}/></label>
         <label>Daily reward cap ({tokenSymbol}, 0 = unlimited)<input value={settings.dailyRewardCapTokens??""} onChange={e=>updateSettings("dailyRewardCapTokens",e.target.value)}/></label>
-        <label>Boost cycle (seconds)<input type="number" value={settings.boostCycleSeconds??""} onChange={e=>updateSettings("boostCycleSeconds",Number(e.target.value))}/></label>
-        <label>Boost duration (seconds)<input type="number" value={settings.boostDurationSeconds??""} onChange={e=>updateSettings("boostDurationSeconds",Number(e.target.value))}/></label>
+        <label>Boost cooldown after expiry (seconds)<input type="number" value={settings.boostCycleSeconds??""} onChange={e=>updateSettings("boostCycleSeconds",Number(e.target.value))}/><small>Default: 600 seconds after each 120-second boost ends.</small></label>
+        <label>Boost duration (seconds)<input type="number" value={settings.boostDurationSeconds??""} onChange={e=>updateSettings("boostDurationSeconds",Number(e.target.value))}/><small>Default: 120 seconds.</small></label>
         <label>Quote lifetime (seconds)<input type="number" value={settings.quoteTtlSeconds??""} onChange={e=>updateSettings("quoteTtlSeconds",Number(e.target.value))}/></label>
         <label>Fiat feed max age (seconds)<input type="number" value={settings.fiatMaxAgeSeconds??""} onChange={e=>updateSettings("fiatMaxAgeSeconds",Number(e.target.value))}/></label>
         <label>Crypto feed max age (seconds)<input type="number" value={settings.cryptoMaxAgeSeconds??""} onChange={e=>updateSettings("cryptoMaxAgeSeconds",Number(e.target.value))}/></label>

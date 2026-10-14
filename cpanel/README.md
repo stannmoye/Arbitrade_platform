@@ -12,10 +12,13 @@ This repository is a production Node.js application. It requires cPanel **Setup 
 
 ## 2. Install and initialize
 
+For a **new, empty production database**, you can import [`deployment/cpanel_merged.sql`](../deployment/cpanel_merged.sql) once using phpMyAdmin's **Import** tab. It consolidates the numbered SQL migrations, including the current boost policy, in migration order. Back up first; do not import the full bundle over an existing database. Because direct import does not stamp Drizzle's migration journal, **skip `pnpm db:migrate` after importing the bundle**. For an existing installation, apply only pending forward migrations. The bundle creates schema and migration-defined defaults; it does not create admin credentials, import development/demo account data, or include private environment settings.
+
 From the Node application terminal:
 
 ```bash
 pnpm install --frozen-lockfile
+# Skip this command if you imported deployment/cpanel_merged.sql above.
 pnpm db:migrate
 pnpm build
 ADMIN_EMAIL=admin@your-domain.example ADMIN_PASSWORD='use-a-new-12-character-password' \
@@ -43,7 +46,7 @@ Use cPanel Cron Jobs with UTC schedules for the scheduled handlers documented in
 
 ## 5. Production boundary
 
-The product is production-deployable, but real-money execution and verified returns remain disabled until an actual execution/settlement provider is configured and approved. The application must not credit configured rates as real profit. Do not import development/demo seed data into production.
+The product is production-deployable, but this release has no third-party mining settlement source. Internal formula-based credits must not be described as measured farm output, guaranteed returns, or withdrawable funds. Do not import development/demo seed data into production.
 
 ## 6. Recovery
 
