@@ -255,6 +255,49 @@ try {
     await connection.rollback();
     throw error;
   }
+  const purchaseGateMigrationKey = "0042_mining_independent_package_purchases";
+  const purchaseGateSchema = await readFile(resolve("drizzle", "0042_mining_independent_package_purchases.sql"), "utf8");
+  await connection.query(purchaseGateSchema);
+  await connection.beginTransaction();
+  try {
+    const [markers] = await connection.query("SELECT migrationKey FROM mining_schema_migrations WHERE migrationKey=? FOR UPDATE", [purchaseGateMigrationKey]);
+    if (markers.length) {
+      await connection.commit();
+      console.log("Independent package-purchase gate migration already applied.");
+    } else {
+      const [currentRows] = await connection.query("SELECT * FROM mining_economics_versions WHERE effectiveAt<=UTC_TIMESTAMP(3) ORDER BY version DESC LIMIT 1 FOR UPDATE");
+      const previous = currentRows[0];
+      if (!previous) throw new Error("Mining economics must be initialized before enabling package purchases.");
+      const [maxRows] = await connection.query("SELECT COALESCE(MAX(version),0) maxVersion FROM mining_economics_versions");
+      const nextVersion = Number(maxRows[0].maxVersion) + 1;
+      const [admins] = await connection.query("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1");
+      const adminId = admins[0] ? Number(admins[0].id) : null;
+      const effectiveAt = new Date();
+      const reason = "Enable package checkout independently from reward posting. Package purchases debit the selected main wallet; CKI credits remain disabled pending verified farm settlements.";
+      const [configInsert] = await connection.execute(
+        `INSERT INTO mining_economics_versions
+          (version,effectiveAt,globalEnabled,packagePurchasesEnabled,boostsEnabled,tokenName,tokenSymbol,defaultContractDurationMonths,calculationModel,difficultyBaselineThs,tokenUnitsPerUsd,rewardTokensPerThsHour,
+           swapFeeBps,purchaseFeeBps,minSwapTokens,maxSwapTokens,defaultAutoConversionThreshold,boostCycleSeconds,boostDurationSeconds,
+           quoteTtlSeconds,fiatMaxAgeSeconds,cryptoMaxAgeSeconds,maxRateDeviationBps,dailyRewardCapTokens,dualApprovalThresholdUsd,updatedBy,reason)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [nextVersion,effectiveAt,0,1,Number(previous.boostsEnabled),String(previous.tokenName),String(previous.tokenSymbol),Number(previous.defaultContractDurationMonths),String(previous.calculationModel),String(previous.difficultyBaselineThs),String(previous.tokenUnitsPerUsd),String(previous.rewardTokensPerThsHour),
+          Number(previous.swapFeeBps),Number(previous.purchaseFeeBps),String(previous.minSwapTokens),String(previous.maxSwapTokens),String(previous.defaultAutoConversionThreshold),Number(previous.boostCycleSeconds),Number(previous.boostDurationSeconds),
+          Number(previous.quoteTtlSeconds),Number(previous.fiatMaxAgeSeconds),Number(previous.cryptoMaxAgeSeconds),Number(previous.maxRateDeviationBps),String(previous.dailyRewardCapTokens),String(previous.dualApprovalThresholdUsd),adminId,reason],
+      );
+      await connection.execute(
+        `INSERT INTO v5_audit_events (actorUserId,action,entityType,entityId,reason,reference,metadataJson)
+         VALUES (?,?,?,?,?,?,?)`,
+        [adminId,"mining.economics.version.created","mining_economics_version",String(configInsert.insertId),reason,purchaseGateMigrationKey,
+          JSON.stringify({version:nextVersion,packagePurchasesEnabled:true,globalEnabled:false,mainWalletDebit:true,verifiedFarmSettlementConnected:false})],
+      );
+      await connection.execute("INSERT INTO mining_schema_migrations (migrationKey,detailsJson) VALUES (?,?)", [purchaseGateMigrationKey,JSON.stringify({economicsVersion:nextVersion,packagePurchasesEnabled:true,globalEnabled:false})]);
+      await connection.commit();
+      console.log(JSON.stringify({migration:purchaseGateMigrationKey,economicsVersion:nextVersion,packagePurchasesEnabled:true,globalEnabled:false}));
+    }
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  }
 } finally {
   await connection.end();
 }

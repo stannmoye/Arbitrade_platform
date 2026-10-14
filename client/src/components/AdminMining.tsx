@@ -68,7 +68,7 @@ export function AdminMining(){
 
   return <div className="admin-mining">
     <header className="am-hero"><div><div className="am-kicker"><Cpu size={15}/> OPERATIONS CONTROL · FARM SETTLEMENTS</div><h1>Mining operations</h1><p>Versioned economics, customer packages, settlement readiness, approvals, and ledger controls. All Mining balances use the existing high-precision journal.</p></div><button type="button" className="am-button secondary" onClick={refreshAll}><RefreshCw size={15}/> Refresh control room</button></header>
-    <div className="am-warning"><AlertTriangle size={18}/><span><strong>Farm-settlement integration is not configured in this Sandbox.</strong> No customer CKI credits are currently posted from verified third-party earnings. Configure the settlement source and allocation policy before enabling reward posting or package purchases.</span></div>
+    <div className="am-warning"><AlertTriangle size={18}/><span><strong>Farm-settlement integration is not configured in this Sandbox.</strong> Customer CKI credits remain blocked. Package checkout can be enabled separately; if enabled, purchases debit the selected main-wallet asset and do not create a settlement reward.</span></div>
     <section className="am-panel am-personal-engine" aria-label="Administrator's Mining engine status">
       <div className="am-panel-heading"><div><span className="am-kicker">YOUR ADMIN ACCOUNT · LIVE SANDBOX ENTITLEMENT</span><h2>Personal mining engine</h2><p>Read-only preview of the hashpower assigned to this signed-in administrator account.</p></div><span className={`am-state ${ownActivePackage?"on":"off"}`}>{personalMining.isLoading?"LOADING":ownActivePackage?"HASHPOWER ACTIVE":"NO ACTIVE HASHPOWER"}</span></div>
       {personalMining.error&&<div className="am-engine-error" role="alert">Personal mining status unavailable: {personalMining.error.message}</div>}
@@ -109,6 +109,7 @@ export function AdminMining(){
     <section className="am-panel"><div className="am-panel-heading"><div><span className="am-kicker">IMMUTABLE ECONOMICS VERSIONS</span><h2>Valuation, conversion & engine settings</h2><p>Every save creates a new effective-dated version; prior events retain their original model snapshot.</p></div><span className={`am-state ${settings.globalEnabled?"on":"off"}`}>{settings.globalEnabled?"CREDIT POSTING ENABLED":"CREDIT POSTING BLOCKED"}</span></div>
       <div className="am-form-grid">
         <label className="am-toggle"><input type="checkbox" checked={!!settings.globalEnabled} disabled onChange={e=>updateSettings("globalEnabled",e.target.checked)}/><span>Enable customer CKI credits (blocked pending verified farm settlements)</span></label>
+        <label className="am-toggle"><input type="checkbox" checked={!!settings.packagePurchasesEnabled} onChange={e=>updateSettings("packagePurchasesEnabled",e.target.checked)}/><span>Enable package purchases (separate from reward posting)</span></label>
         <label className="am-toggle"><input type="checkbox" checked={!!settings.boostsEnabled} onChange={e=>updateSettings("boostsEnabled",e.target.checked)}/><span>Allow future boost activations</span></label>
         <label>Token name<input value={settings.tokenName??""} readOnly aria-readonly="true"/></label>
         <label>Token symbol<input value={settings.tokenSymbol??""} readOnly aria-readonly="true"/></label>

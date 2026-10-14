@@ -133,7 +133,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const availableUsd = mainWalletAvailable("USD");
   const dailyUsdReference = (Number(data?.estimatedDailyTokens || 0) * Number(data?.usdPerToken || 0)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const configuredUsdReference = Number(data?.usdPerToken || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const selectedCanPurchase = selectedPackage?.purchaseAvailable === true && Boolean(data?.miningStatus && !String(data.miningStatus).startsWith("Paused"));
+  const selectedCanPurchase = selectedPackage?.purchaseAvailable === true;
   const availablePayment = useMemo(() => mainWalletAvailable(paymentAsset).toFixed(mainWalletScale(paymentAsset)), [mainWallet.data, paymentAsset]);
   const quoteExpired = purchaseQuote ? new Date(purchaseQuote.expiresAt).getTime() <= now : false;
   const swapExpired = swapQuote ? new Date(swapQuote.expiresAt).getTime() <= now : false;
@@ -285,12 +285,12 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
           {filteredPackages.map((item:any,index:number)=>{
             const activeSame=active.some((current:any)=>current.code===item.code);
             const replaces=item.stackingPolicy==="replace"&&active.length>0;
-            const intent=!replaces?"Choose package":Number(item.baseThs)>activeBase?"Upgrade plan":Number(item.baseThs)<activeBase?"Switch plan":"Change plan";
+            const intent=!replaces?"Buy package":Number(item.baseThs)>activeBase?"Buy upgrade":Number(item.baseThs)<activeBase?"Buy package":"Buy package";
             const color=palette[index%palette.length];
-            const canPurchase=item.purchaseAvailable===true&&Boolean(data?.miningStatus&&!String(data.miningStatus).startsWith("Paused"));
+            const canPurchase=item.purchaseAvailable===true;
             const unavailableReason=String(item.purchaseUnavailableReason||"");
-            const statusLabel=activeSame?"ACTIVE":item.alreadyPurchased?"PURCHASED":canPurchase?"AVAILABLE":item.status!=="published"?"PAUSED":unavailableReason.toLowerCase().includes("settlement")?"SETTLEMENT SETUP":"ENGINE PAUSED";
-            const buttonLabel=item.alreadyPurchased?"Already purchased":canPurchase?intent:item.status!=="published"?"Paused":unavailableReason.toLowerCase().includes("settlement")?"Settlement setup pending":"Engine paused";
+            const statusLabel=activeSame?"ACTIVE":item.alreadyPurchased?"PURCHASED":canPurchase?"AVAILABLE":item.status!=="published"?"PAUSED":"PURCHASES PAUSED";
+            const buttonLabel=item.alreadyPurchased?"Already purchased":canPurchase?intent:item.status!=="published"?"Paused":"Purchases paused";
             return <article className={`cm-package-card ${activeSame?"is-current":""}`} key={item.versionId} style={{"--package-accent":color} as React.CSSProperties}>
               <div className="cm-package-art"><div className="cm-cube"><i/><i/><b>₵</b></div><span className="cm-package-glow"/></div>
               <div className="cm-package-label"><h3>{item.name}</h3><span>{statusLabel}</span></div>
