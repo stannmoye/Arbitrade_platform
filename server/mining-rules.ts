@@ -24,6 +24,12 @@ export type MiningConversion = {
 const TOKEN_SCALE = 8;
 const PACKAGE_REWARD_SCALE = 18;
 
+export function canStartMiningAccrual(input: { globalEnabled: boolean; expectedDailyRewardCki: string | number | null | undefined }) {
+  if (!input.globalEnabled || input.expectedDailyRewardCki == null) return false;
+  const estimate = new Decimal(input.expectedDailyRewardCki);
+  return estimate.isFinite() && estimate.gt(0);
+}
+
 function positiveDecimal(value: string | number, label: string, allowZero = false) {
   const amount = new Decimal(value);
   if (!amount.isFinite() || (allowZero ? amount.isNegative() : !amount.gt(0))) {
