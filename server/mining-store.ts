@@ -22,7 +22,7 @@ export type Db = PoolConnection;
 
 export const MINING_TOKEN_ASSET = "CKI" as const;
 export const SUPPORTED_MINING_ASSETS = [MINING_TOKEN_ASSET, "USD", "EUR", "GBP", "BTC", "ETH", "USDT"] as const;
-const assetScales: Record<string, number> = { CKI: 8, USD: 2, EUR: 2, GBP: 2, BTC: 8, ETH: 8, USDT: 6 };
+const assetScales: Record<string, number> = { CKI: 18, USD: 2, EUR: 2, GBP: 2, BTC: 8, ETH: 8, USDT: 6 };
 
 export function decimal(value: unknown) {
   const result = new Decimal(String(value ?? "0"));

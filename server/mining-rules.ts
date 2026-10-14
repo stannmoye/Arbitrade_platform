@@ -53,7 +53,7 @@ export function calculateMiningReward(segments: MiningRewardSegment[]) {
   return total.toDecimalPlaces(TOKEN_SCALE, Decimal.ROUND_DOWN).toFixed(TOKEN_SCALE);
 }
 
-/** Package-based estimate: configured CKI per 24 hours × eligible seconds / 86,400. */
+/** Package reward: the configured per-package 24-hour CKI limit × eligible seconds / 86,400. Boost TH/s does not increase this cap. */
 export function calculatePackageDailyReward(segments: MiningPackageRewardSegment[]) {
   const total = segments.reduce((sum, segment) => {
     if (!Number.isFinite(segment.eligibleSeconds) || segment.eligibleSeconds < 0) {
@@ -62,12 +62,7 @@ export function calculatePackageDailyReward(segments: MiningPackageRewardSegment
     const daily = segment.expectedDailyRewardCki == null
       ? new Decimal(0)
       : positiveDecimal(segment.expectedDailyRewardCki, "Expected daily package reward", true);
-    const base = positiveDecimal(segment.baseThs, "Base hash power", true);
-    const boost = positiveDecimal(segment.boostThs, "Boost hash power", true);
-    if (boost.gt(0) && !base.gt(0)) throw new Error("A package boost requires positive base hash power");
-    const baseReward = daily.times(segment.eligibleSeconds).div(86_400);
-    const boostMultiplier = base.gt(0) ? base.plus(boost).div(base) : new Decimal(1);
-    return sum.plus(baseReward.times(boostMultiplier));
+    return sum.plus(daily.times(segment.eligibleSeconds).div(86_400));
   }, new Decimal(0));
   return total.toDecimalPlaces(PACKAGE_REWARD_SCALE, Decimal.ROUND_DOWN).toFixed(PACKAGE_REWARD_SCALE);
 }

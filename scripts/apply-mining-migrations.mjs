@@ -298,6 +298,9 @@ try {
     await connection.rollback();
     throw error;
   }
+  const rewardActivationSchema = await readFile(resolve("drizzle", "0045_cki_reward_schedule_activation.sql"), "utf8");
+  await connection.query(rewardActivationSchema);
+  console.log("CKI package reward schedule migration 0045 applied or already present.");
 } finally {
   await connection.end();
 }
