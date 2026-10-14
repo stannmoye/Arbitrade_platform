@@ -121,6 +121,14 @@ export function getBoostCooldownWindow(now: Date, lastActivationAt: Date | null 
   return { start, eligibleAt: next, expiresAt, nextEligibleAt: next, ready: now.getTime() >= next.getTime() };
 }
 
+/** Uses the stored release timestamp so workers and dashboards share one authoritative cooldown. */
+export function getBoostScheduleWindow(now: Date, lastActivationAt: Date | null | undefined, persistedNextEligibleAt: Date | null | undefined) {
+  const start = lastActivationAt ? new Date(lastActivationAt) : persistedNextEligibleAt ? new Date(persistedNextEligibleAt) : new Date(now);
+  const next = persistedNextEligibleAt ? new Date(persistedNextEligibleAt) : new Date(now);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(next.getTime())) throw new Error("Persisted boost schedule timestamp is invalid");
+  return { start, eligibleAt: next, expiresAt: next, nextEligibleAt: next, ready: now.getTime() >= next.getTime() };
+}
+
 export function overlapSeconds(start: Date, end: Date, activeStart?: Date | null, activeEnd?: Date | null) {
   const from = Math.max(start.getTime(), activeStart?.getTime() ?? start.getTime());
   const to = Math.min(end.getTime(), activeEnd?.getTime() ?? end.getTime());

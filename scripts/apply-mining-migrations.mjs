@@ -298,6 +298,9 @@ try {
     await connection.rollback();
     throw error;
   }
+  const boostSchedulerSchema = await readFile(resolve("drizzle", "0044_mining_persistent_boost_scheduler.sql"), "utf8");
+  await connection.query(boostSchedulerSchema);
+  console.log("Applied 0044_mining_persistent_boost_scheduler.sql");
 } finally {
   await connection.end();
 }
