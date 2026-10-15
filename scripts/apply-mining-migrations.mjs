@@ -301,6 +301,9 @@ try {
   const boostSchedulerSchema = await readFile(resolve("drizzle", "0044_mining_persistent_boost_scheduler.sql"), "utf8");
   await connection.query(boostSchedulerSchema);
   console.log("Applied 0044_mining_persistent_boost_scheduler.sql");
+  const simulatedRewardsSchema = await readFile(resolve("drizzle", "0045_mining_simulated_package_rewards.sql"), "utf8");
+  await connection.query(simulatedRewardsSchema);
+  console.log("Applied 0045_mining_simulated_package_rewards.sql");
 } finally {
   await connection.end();
 }

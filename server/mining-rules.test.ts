@@ -77,14 +77,14 @@ describe("package daily reward model", () => {
 });
 
 describe("immediate mining accrual gate", () => {
-  it("does not run while verified reward posting is disabled", () => {
-    expect(canStartMiningAccrual({ globalEnabled: false, expectedDailyRewardCki: "1.25" })).toBe(false);
+  it("does not run while simulated package estimate posting is disabled", () => {
+    expect(canStartMiningAccrual({ simulatedRewardsEnabled: false, expectedDailyRewardCki: "1.25" })).toBe(false);
   });
 
   it("requires a positive configured daily estimate before immediate accrual", () => {
-    expect(canStartMiningAccrual({ globalEnabled: true, expectedDailyRewardCki: null })).toBe(false);
-    expect(canStartMiningAccrual({ globalEnabled: true, expectedDailyRewardCki: "0" })).toBe(false);
-    expect(canStartMiningAccrual({ globalEnabled: true, expectedDailyRewardCki: "0.0001" })).toBe(true);
+    expect(canStartMiningAccrual({ simulatedRewardsEnabled: true, expectedDailyRewardCki: null })).toBe(false);
+    expect(canStartMiningAccrual({ simulatedRewardsEnabled: true, expectedDailyRewardCki: "0" })).toBe(false);
+    expect(canStartMiningAccrual({ simulatedRewardsEnabled: true, expectedDailyRewardCki: "0.0001" })).toBe(true);
   });
 });
 

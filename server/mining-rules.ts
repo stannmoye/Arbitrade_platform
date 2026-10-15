@@ -24,8 +24,8 @@ export type MiningConversion = {
 const TOKEN_SCALE = 8;
 const PACKAGE_REWARD_SCALE = 18;
 
-export function canStartMiningAccrual(input: { globalEnabled: boolean; expectedDailyRewardCki: string | number | null | undefined }) {
-  if (!input.globalEnabled || input.expectedDailyRewardCki == null) return false;
+export function canStartMiningAccrual(input: { simulatedRewardsEnabled: boolean; expectedDailyRewardCki: string | number | null | undefined }) {
+  if (!input.simulatedRewardsEnabled || input.expectedDailyRewardCki == null) return false;
   const estimate = new Decimal(input.expectedDailyRewardCki);
   return estimate.isFinite() && estimate.gt(0);
 }
