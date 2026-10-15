@@ -1,0 +1,3 @@
+-- Extended Mining package catalog is applied by scripts/seed-extended-mining-packages.mjs.
+-- Package rows, versions, terms and audit ownership are persisted in the canonical database.sql snapshot.
+-- This marker documents the catalog addition without duplicating live inserts during restore.

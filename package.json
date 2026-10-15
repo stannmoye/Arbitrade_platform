@@ -16,6 +16,7 @@
     "db:mining-schema": "node scripts/ensure-mining-current-schema.mjs",
     "db:mining-rates": "node scripts/apply-mining-initial-reward-rates.mjs",
     "db:mining-enable-rewards": "node scripts/enable-mining-reward-processing.mjs",
+    "db:seed:extended-packages": "node scripts/seed-extended-mining-packages.mjs",
     "db:backup:github": "scripts/backup-to-github.sh",
     "db:restore:github": "scripts/restore-from-github.sh",
     "admin:create": "node installer/create-admin.mjs",
