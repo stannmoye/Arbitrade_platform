@@ -440,6 +440,7 @@ export async function getCustomerMiningBoostStatus(userId: number) {
       ready, active: Boolean(active), activeBoost: active ? { startedAt: new Date(active.startedAt).toISOString(), endsAt: new Date(active.endsAt).toISOString(), bonusThs: String(active.bonusThs), purchaseId: Number(active.customerPackageId) } : null,
       bonusThsAvailable: eligiblePackage ? String(eligiblePackage.boostBonusThsSnapshot) : "0", packageVersionId: eligiblePackage ? Number(eligiblePackage.packageVersionId) : null,
       durationSeconds: config.boostDurationSeconds,
+      boostRewardCkiPerDay: config.boostRewardCkiPerDay,
       cooldownSeconds: config.boostCycleSeconds,
       reason: !config.boostsEnabled ? "Boosts are paused by an administrator" : accountStatus !== "active" ? "Account is restricted" : !eligiblePackage ? "An active package with configured boost capacity is required" : active ? "A boost is currently active" : coolingDown ? `Boost recharges until ${cycle.nextEligibleAt.toISOString()}` : null,
       policy: `A boost lasts ${config.boostDurationSeconds} seconds; each customer's cooldown begins at activation and lasts ${config.boostCycleSeconds} seconds.`,
@@ -471,7 +472,16 @@ export async function activateCustomerMiningBoost(userId: number, input: { idemp
     const [result] = await conn.execute<any>(`INSERT INTO mining_boost_activations
       (userId,cycleStart,eligibleAt,cycleExpiresAt,startedAt,endsAt,bonusThs,packageVersionId,customerPackageId,status,idempotencyKey)
       VALUES (?,?,?,?,?,?,?,?,?,'active',?)`, [userId, now, now, cooldownEndsAt, now, endsAt, String(candidate.boostBonusThsSnapshot), Number(candidate.packageVersionId), Number(candidate.purchaseId), key]);
-    const response = { activationId: Number(result.insertId), status: "active", bonusThs: String(candidate.boostBonusThsSnapshot), startedAt: now.toISOString(), endsAt: endsAt.toISOString(), cycleExpiresAt: cooldownEndsAt.toISOString(), nextEligibleAt: cooldownEndsAt.toISOString(), packageVersionId: Number(candidate.packageVersionId), policy: `The boost runs for ${durationSeconds} seconds; the four-hour customer cooldown starts at activation.` };
+    const activationId = Number(result.insertId);
+    const clickBonus = decimal(config.boostActivationBonusCki);
+    if (clickBonus.gt(0)) {
+      const bonusTx = await createMiningLedgerTransaction(conn, { userId, actorUserId: null, transactionType: "boost_activation_bonus", idempotencyKey: requestKey("mining-boost-bonus", userId, input.idempotencyKey), reason: "Configured CKI boost activation bonus", metadata: { activationId, amountCki: clickBonus.toFixed(tokenScale), economicsVersion: config.version } });
+      await postMiningLedgerEntries(conn, bonusTx, [
+        { userId, asset: "CKI", amount: clickBonus, entryType: "boost_activation_bonus_credit" },
+        { userId: 0, asset: "CKI", amount: clickBonus.negated(), entryType: "boost_activation_bonus_issuance" },
+      ]);
+    }
+    const response = { activationId, status: "active", bonusThs: String(candidate.boostBonusThsSnapshot), boostActivationBonusCki: clickBonus.toFixed(tokenScale), startedAt: now.toISOString(), endsAt: endsAt.toISOString(), cycleExpiresAt: cooldownEndsAt.toISOString(), nextEligibleAt: cooldownEndsAt.toISOString(), packageVersionId: Number(candidate.packageVersionId), policy: `The boost runs for ${durationSeconds} seconds; the four-hour customer cooldown starts at activation.` };
     await finishMiningIdempotency(conn, key, response);
     await createMiningNotification(conn, userId, "Mining boost activated", `A ${candidate.boostBonusThsSnapshot} TH/s package boost is active until ${endsAt.toISOString()}. Next availability: ${cooldownEndsAt.toISOString()}.`);
     return response;
@@ -508,7 +518,7 @@ export async function getCustomerMiningDashboard(userId: number) {
         const boostedSeconds = ownsActiveBoost ? boostIntervalSeconds : 0;
         return [
           { expectedDailyRewardCki: row.expectedDailyRewardCkiSnapshot, baseThs: String(row.baseThsSnapshot), boostThs: "0", eligibleSeconds: intervalSeconds - boostedSeconds },
-          { expectedDailyRewardCki: row.expectedDailyRewardCkiSnapshot, baseThs: String(row.baseThsSnapshot), boostThs: ownsActiveBoost ? String(activeBoost.bonusThs) : "0", eligibleSeconds: boostedSeconds },
+          { expectedDailyRewardCki: row.expectedDailyRewardCkiSnapshot, baseThs: String(row.baseThsSnapshot), boostThs: ownsActiveBoost ? String(activeBoost.bonusThs) : "0", eligibleSeconds: boostedSeconds, boostRewardCkiPerDay: ownsActiveBoost ? config.boostRewardCkiPerDay : "0" },
         ];
       });
       pendingTokens = decimal(calculatePackageDailyReward(segments));
@@ -748,14 +758,14 @@ async function calculateInterval(conn: Db, userId: number, start: Date, end: Dat
       const daily=row.expectedDailyRewardCkiSnapshot===null?null:String(row.expectedDailyRewardCkiSnapshot);
       const calculationModelSnapshot=String(row.calculationModelSnapshot||"legacy_boost_daily");
       const applyBoostMultiplier=calculationModelSnapshot==="legacy_boost_daily";
-      const amount=decimal(calculatePackageDailyReward([{expectedDailyRewardCki:daily,baseThs:packageBase.toString(),boostThs:packageBoost.toString(),eligibleSeconds:seconds,applyBoostMultiplier}]));
-      const effectiveDaily=daily===null?new Decimal(0):decimal(daily).times(applyBoostMultiplier?packageBase.plus(packageBoost).div(packageBase):1);
+      const amount=decimal(calculatePackageDailyReward([{expectedDailyRewardCki:daily,baseThs:packageBase.toString(),boostThs:packageBoost.toString(),eligibleSeconds:seconds,applyBoostMultiplier,boostRewardCkiPerDay:packageBoost.gt(0)?config.boostRewardCkiPerDay:"0"}]));
+      const effectiveDaily=(daily===null?new Decimal(0):decimal(daily).times(applyBoostMultiplier?packageBase.plus(packageBoost).div(packageBase):1)).plus(packageBoost.gt(0)?decimal(config.boostRewardCkiPerDay):0);
       return {purchaseId:Number(row.id),packageId:Number(row.packageId),packageVersionId:Number(row.packageVersionId),packageVersion:Number(row.version),packageCode:String(row.code),packageName:String(row.packageNameSnapshot||row.code),priceAmount:String(row.priceAmount),priceAsset:String(row.priceAsset),durationMonthsSnapshot:row.durationMonthsSnapshot===null?null:Number(row.durationMonthsSnapshot),baseThs:packageBase.toString(),expectedDailyRewardCkiSnapshot:daily,calculationModelSnapshot,ckiPerThsPerDaySnapshot:row.ckiPerThsPerDaySnapshot===null?null:String(row.ckiPerThsPerDaySnapshot),boostThs:packageBoost.toString(),eligibleSeconds:seconds,estimatedRewardCki:amount.toString(),effectiveDailyRewardCki:effectiveDaily.toString()};
     });
     const segmentTokens=packageRewards.reduce((sum,row)=>sum.plus(decimal(row.estimatedRewardCki)),new Decimal(0));
     const segmentDaily=packageRewards.reduce((sum,row)=>sum.plus(decimal(row.effectiveDailyRewardCki)),new Decimal(0));
     const segmentUsd=segmentTokens.div(config.tokenUnitsPerUsd);
-    rewardSegments.push({start:from.toISOString(),end:to.toISOString(),configVersion:config.version,calculationModel:config.calculationModel,tokenUnitsPerUsd:config.tokenUnitsPerUsd,usdPerToken:decimal(1).div(config.tokenUnitsPerUsd).toSignificantDigits(18).toString(),baseThs:base.toString(),boostThs:boost.toString(),expectedDailyRewardCki:segmentDaily.toString(),tokenAmount:segmentTokens.toString(),rewardAmountUsd:segmentUsd.toString(),packages:packageRewards});
+    rewardSegments.push({start:from.toISOString(),end:to.toISOString(),configVersion:config.version,calculationModel:config.calculationModel,tokenUnitsPerUsd:config.tokenUnitsPerUsd,usdPerToken:decimal(1).div(config.tokenUnitsPerUsd).toSignificantDigits(18).toString(),baseThs:base.toString(),boostThs:boost.toString(),boostRewardCkiPerDay:activeBoost?config.boostRewardCkiPerDay:"0",expectedDailyRewardCki:segmentDaily.toString(),tokenAmount:segmentTokens.toString(),rewardAmountUsd:segmentUsd.toString(),packages:packageRewards});
     for(const item of packageRewards){
       const prior=allocationTotals.get(item.purchaseId)||{purchaseId:item.purchaseId,packageId:item.packageId,packageVersionId:item.packageVersionId,expectedDailyRewardCkiSnapshot:item.expectedDailyRewardCkiSnapshot,tokenAmount:new Decimal(0),usdAmount:new Decimal(0),segments:[]};
       prior.tokenAmount=prior.tokenAmount.plus(decimal(item.estimatedRewardCki));

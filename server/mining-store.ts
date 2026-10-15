@@ -11,7 +11,7 @@ export type MiningConfig = {
   id: number; version: number; effectiveAt: Date; globalEnabled: boolean; packagePurchasesEnabled: boolean; boostsEnabled: boolean;
   tokenName: string; tokenSymbol: string; tokenUnitsPerUsd: string; rewardTokensPerThsHour: string; defaultContractDurationMonths: number; calculationModel: "package_daily" | "hashrate_daily"; difficultyBaselineThs: string; ckiPerThsPerDay: string; swapFeeBps: number; purchaseFeeBps: number;
   minSwapTokens: string; maxSwapTokens: string; defaultAutoConversionThreshold: string;
-  boostCycleSeconds: number; boostDurationSeconds: number; quoteTtlSeconds: number;
+  boostCycleSeconds: number; boostDurationSeconds: number; boostRewardCkiPerDay: string; boostActivationBonusCki: string; quoteTtlSeconds: number;
   fiatMaxAgeSeconds: number; cryptoMaxAgeSeconds: number; maxRateDeviationBps: number;
   dailyRewardCapTokens: string; dualApprovalThresholdUsd: string;
 };
@@ -102,7 +102,7 @@ export async function loadMiningConfig(conn: Db, at: Date = new Date()): Promise
     swapFeeBps: Number(row.swapFeeBps), purchaseFeeBps: Number(row.purchaseFeeBps),
     minSwapTokens: String(row.minSwapTokens), maxSwapTokens: String(row.maxSwapTokens),
     defaultAutoConversionThreshold: String(row.defaultAutoConversionThreshold),
-    boostCycleSeconds: Number(row.boostCycleSeconds), boostDurationSeconds: Number(row.boostDurationSeconds),
+    boostCycleSeconds: Number(row.boostCycleSeconds), boostDurationSeconds: Number(row.boostDurationSeconds), boostRewardCkiPerDay: String(row.boostRewardCkiPerDay ?? "0"), boostActivationBonusCki: String(row.boostActivationBonusCki ?? "0"),
     quoteTtlSeconds: Number(row.quoteTtlSeconds), fiatMaxAgeSeconds: Number(row.fiatMaxAgeSeconds),
     cryptoMaxAgeSeconds: Number(row.cryptoMaxAgeSeconds), maxRateDeviationBps: Number(row.maxRateDeviationBps),
     dailyRewardCapTokens: String(row.dailyRewardCapTokens), dualApprovalThresholdUsd: String(row.dualApprovalThresholdUsd),

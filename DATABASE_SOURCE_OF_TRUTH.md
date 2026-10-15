@@ -43,3 +43,9 @@ All database-backed application state belongs in that file: users, accounts, wal
 6. Do not overwrite the canonical file with a newly empty schema. Merge or restore the existing database state first.
 
 `database.sql` is the persistent database handoff between sandboxes, servers, chats, and coding sessions. GitHub history may contain older commits, but only the current root `database.sql` is the active source of truth.
+
+## Mining controls
+
+The current schema stores the administrator-editable mining controls in `mining_economics_versions`, including boost cooldown, active duration, the one-time CKI activation bonus, and the prorated CKI-per-24-hours active boost reward. Package records store each package's name, price, duration, TH/s, boost capacity, and package daily CKI rate. Customer package rows snapshot those terms per customer, so package edits never change another customer's purchased capacity or rate.
+
+When upgrading an older database, `pnpm db:mining-schema` also assigns a configured current package rate to legacy active contracts whose old snapshot was null. This is a one-time schema alignment, not a cross-customer balance merge.

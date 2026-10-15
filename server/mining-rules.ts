@@ -13,6 +13,7 @@ export type MiningPackageRewardSegment = {
   boostThs: string | number;
   eligibleSeconds: number;
   applyBoostMultiplier?: boolean;
+  boostRewardCkiPerDay?: string | number | null;
 };
 
 export type MiningCalculationModel = "package_daily" | "hashrate_daily";
@@ -98,7 +99,9 @@ export function calculatePackageDailyReward(segments: MiningPackageRewardSegment
     // New fixed-rate contracts use the requested exact daily formula. The legacy
     // multiplier is retained only for contracts tagged before this change.
     const boostMultiplier = segment.applyBoostMultiplier && base.gt(0) ? base.plus(boost).div(base) : new MiningDecimal(1);
-    return sum.plus(daily.times(seconds).div(86_400).times(boostMultiplier));
+    const boostDaily = boost.gt(0) && segment.boostRewardCkiPerDay != null ? new MiningDecimal(segment.boostRewardCkiPerDay) : new MiningDecimal(0);
+    if (!boostDaily.isFinite() || boostDaily.isNegative()) throw new Error("Boost daily CKI reward must be non-negative");
+    return sum.plus(daily.times(seconds).div(86_400).times(boostMultiplier)).plus(boostDaily.times(seconds).div(86_400));
   }, new MiningDecimal(0));
   return total.toDecimalPlaces(PACKAGE_REWARD_SCALE, MiningDecimal.ROUND_DOWN).toFixed(PACKAGE_REWARD_SCALE);
 }

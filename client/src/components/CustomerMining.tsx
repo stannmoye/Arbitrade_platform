@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { MiningCoreCanvas } from "./MiningCoreCanvas";
 import { MiningOperationsFlow } from "./MiningOperationsFlow";
@@ -43,6 +43,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const [prefTarget, setPrefTarget] = useState("USD");
   const [prefThreshold, setPrefThreshold] = useState("0");
   const [message, setMessage] = useState("");
+  const boostAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -127,6 +128,23 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const cycleTarget = boost?.nextEligibleAt ? new Date(boost.nextEligibleAt).getTime() : null;
   const cycleIsActionable = Boolean(boost?.ready || boost?.activeBoost || boost?.reason?.toLowerCase().includes("cool"));
   const countdownTarget = activeBoostEnds || (cycleIsActionable && cycleTarget && cycleTarget > now ? cycleTarget : null);
+  useEffect(() => {
+    const shouldPlay = Boolean(boost?.activeBoost);
+    if (shouldPlay) {
+      const audio = boostAudioRef.current || new Audio("/audio/boost/mixkit-1093.mp3");
+      boostAudioRef.current = audio;
+      audio.loop = true;
+      audio.volume = 0.55;
+      void audio.play().catch(() => { /* browsers require a user gesture; activation click retries below */ });
+    } else if (boostAudioRef.current) {
+      boostAudioRef.current.pause();
+      boostAudioRef.current.currentTime = 0;
+    }
+    return () => {
+      if (boostAudioRef.current && !shouldPlay) { boostAudioRef.current.pause(); boostAudioRef.current.currentTime = 0; }
+    };
+  }, [boost?.activeBoost?.startedAt, boost?.activeBoost?.endsAt]);
+
   const boostCountdown = activeBoostEnds || countdownTarget
     ? durationText(Math.max(0, Math.ceil(((activeBoostEnds || countdownTarget)! - now) / 1000)))
     : boost?.ready ? "READY NOW" : "—";
@@ -165,7 +183,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     setSwapTarget(asset);
     mainWalletPreferenceMutation.mutate({ swapCurrency: asset });
   };
-  const activateBoost = () => boostMutation.mutate({ idempotencyKey: requestId() });
+  const activateBoost = () => { const audio = boostAudioRef.current || new Audio("/audio/boost/mixkit-1093.mp3"); boostAudioRef.current = audio; audio.loop = true; audio.volume = 0.55; void audio.play().catch(() => {}); boostMutation.mutate({ idempotencyKey: requestId() }); };
   const goTo = (section: string) => {
     if (section !== "crypto-mining") window.dispatchEvent(new CustomEvent("arbitrade:customer-navigate", { detail: section }));
   };
@@ -241,7 +259,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
           </article>
           <article className={`cm-glass cm-boost-card ${boost?.ready?"is-ready":"is-locked"}`}>
             <div className="cm-boost-machine" role="img" aria-label="Package hash-power boost engine"><span className="cm-engine-aura"/><span className="cm-engine-pipe cm-engine-pipe-left"/><span className="cm-engine-pipe cm-engine-pipe-right"/><div className="cm-engine-shell"><span className="cm-engine-topcap"/><span className="cm-engine-front-glass"/><span className="cm-engine-rotor"><i/><i/><b/></span><span className="cm-engine-vents"/><span className="cm-engine-mark"/><span className="cm-engine-leds"><i/><i/><i/></span><span className="cm-engine-base"/></div></div>
-            <div className="cm-boost-copy"><div className="cm-boost-topline"><b>HASH POWER ENGINE</b><span className="cm-boost-readout"><small>{boostStatusLabel}</small><strong>{boostCountdown}</strong></span></div><div className="cm-boost-bottomline"><span className="cm-boost-charge" role="progressbar" aria-label="Boost charge" aria-valuenow={boostCycleCharge} aria-valuemin={0} aria-valuemax={100} title={boost?.reason || "2-minute activation with a customer-specific 4-hour cooldown."}><i style={{width:`${boostCycleCharge}%`}}/></span></div></div>
+            <div className="cm-boost-copy"><div className="cm-boost-topline"><b>HASH POWER ENGINE</b><span className="cm-boost-readout"><small>{boostStatusLabel}</small><strong>{boostCountdown}</strong></span></div><div className="cm-boost-bottomline"><small className="cm-boost-reward-note">+{fmt(boost?.boostRewardCkiPerDay, 6)} CKI / 24h while active</small><span className="cm-boost-charge" role="progressbar" aria-label="Boost charge" aria-valuenow={boostCycleCharge} aria-valuemin={0} aria-valuemax={100} title={boost?.reason || "2-minute activation with a customer-specific 4-hour cooldown."}><i style={{width:`${boostCycleCharge}%`}}/></span></div></div>
             <button type="button" className="cm-glow-button" title={boost?.reason || "Activate Hash Power Boost"} aria-label="Activate Hash Power Boost" disabled={boostMutation.isPending || !boost?.ready} onClick={activateBoost}><ArrowDownUp size={15}/>{boostMutation.isPending?"Activating…":"Activate Boost"}</button>
           </article>
         </div>
