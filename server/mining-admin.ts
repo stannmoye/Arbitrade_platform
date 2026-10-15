@@ -256,9 +256,6 @@ export async function saveMiningEconomics(adminId:number,input:any) {
   if(values.boostDurationSeconds>values.boostCycleSeconds) throw new MiningError("Boost duration cannot exceed the boost cycle");
   if(!minSwap.toDecimalPlaces(8,Decimal.ROUND_DOWN).eq(minSwap)||!maxSwap.toDecimalPlaces(8,Decimal.ROUND_DOWN).eq(maxSwap)||!autoThreshold.toDecimalPlaces(8,Decimal.ROUND_DOWN).eq(autoThreshold)||!dailyCap.toDecimalPlaces(8,Decimal.ROUND_DOWN).eq(dailyCap)) throw new MiningError("Mining token thresholds support up to eight decimal places");
   return withMiningConnection(async conn=>inMiningTransaction(conn,async()=>{
-    if(values.globalEnabled){
-      throw new MiningError("Reward posting cannot be enabled from package estimates. Configure and verify third-party farm settlements and the package-power allocation policy first.");
-    }
     const [rows]=await conn.query<any[]>(`SELECT COALESCE(MAX(version),0) maxVersion FROM mining_economics_versions`);
     const version=Number(rows[0]?.maxVersion||0)+1;
     const now=new Date();

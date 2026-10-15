@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import Decimal from "decimal.js";
 import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
 
 describe("mining reward rules", () => {
@@ -41,6 +42,16 @@ describe("mining reward rules", () => {
 });
 
 describe("package daily reward model", () => {
+  it("prorates each requested initial package rate by eligible seconds", () => {
+    const rates = ["0.10", "0.30", "0.70", "1.60", "4.00"];
+    for (const dailyRate of rates) {
+      expect(calculatePackageDailyReward([{ expectedDailyRewardCki: dailyRate, baseThs: "1", boostThs: "0", eligibleSeconds: 86_400 }]))
+        .toBe(new Decimal(dailyRate).toFixed(18));
+      expect(calculatePackageDailyReward([{ expectedDailyRewardCki: dailyRate, baseThs: "1", boostThs: "0", eligibleSeconds: 43_200 }]))
+        .toBe(new Decimal(dailyRate).div(2).toFixed(18));
+    }
+  });
+
   it("prorates a configured package estimate for six eligible hours", () => {
     expect(calculatePackageDailyReward([{ expectedDailyRewardCki: "2", baseThs: "1", boostThs: "0", eligibleSeconds: 21_600 }])).toBe("0.500000000000000000");
   });
