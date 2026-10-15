@@ -399,6 +399,23 @@ function AdminApis(){ const items:Array<[string,string,string,boolean]>=[["Marke
 function AdminBranding(){ const q=trpc.adminOperations.settings.useQuery(undefined,{refetchInterval:15000}); const save=trpc.adminOperations.updateSettings.useMutation({onSuccess:()=>{q.refetch();setSaved(true);applyBranding(draft)},onError:e=>setMessage(e.message)}); const [draft,setDraft]=useState<Branding>(()=>getBranding()); const [saved,setSaved]=useState(false); const [message,setMessage]=useState(""); useEffect(()=>{if(q.data?.branding)setDraft({...draft,...q.data.branding} as Branding)},[q.data]); const update=(key:keyof Branding,value:string)=>{setSaved(false);setDraft({...draft,[key]:value});}; return <div className="portal-page"><div className="portal-page-top"><div><div className="eyebrow">Database identity registry</div><h1>Branding & identity</h1><p>Platform identity is stored centrally and applied to all portal sessions.</p></div><WiseBondButton variant="primary" status={save.isPending?"loading":saved?"success":"idle"} loadingLabel="Saving branding…" successLabel="Branding saved" onClick={()=>save.mutate({branding:draft as unknown as Record<string,string>})}><Check size={15}/> Save branding</WiseBondButton></div>{message&&<div className="auth-error">{message}</div>}<div className="branding-layout"><div className="admin-control-card branding-form"><label>Platform name<input value={draft.platformName} onChange={e=>update("platformName",e.target.value)}/></label><label>Brand tagline<input value={draft.tagline} onChange={e=>update("tagline",e.target.value)}/></label><label>Browser title<input value={draft.browserTitle} onChange={e=>update("browserTitle",e.target.value)}/></label><label>Accent color<input type="color" value={draft.accentColor} onChange={e=>update("accentColor",e.target.value)}/></label></div><div className="admin-control-card branding-assets"><h2>Visual assets</h2>{([['logoUrl','Logo'],['faviconUrl','Favicon'],['shareImageUrl','Share image']] as const).map(([key,label])=><label key={key}>{label}<input value={draft[key]} onChange={e=>update(key,e.target.value)} placeholder="https://… or /asset.svg"/></label>)}</div></div></div>; }
 function AdminAudit(){ const q=trpc.adminOperations.audit.useQuery(undefined,{refetchInterval:10000}); const rows=q.data||[]; return <div className="portal-page"><div className="portal-page-top"><div><div className="eyebrow">Immutable operations record</div><h1>Audit log</h1><p>Only persisted audit events are shown. Empty results mean no audit event has been recorded yet.</p></div><button className="portal-action" onClick={()=>q.refetch()}><RefreshCw size={15}/> Refresh audit</button></div><div className="admin-audit-list">{q.isLoading?<div className="empty-state">Loading persisted audit events…</div>:rows.map((x:any)=><div className="admin-audit-row" key={x.id}><div className="audit-time">{new Date(x.createdAt).toLocaleString()}</div><div className="audit-event"><ShieldCheck size={14}/><strong>{x.action}</strong><span>Actor {x.actorUserId??"system"} · {x.entityType} {x.entityId}{x.reason?` · ${x.reason}`:""}</span></div><span className="audit-verified">Persisted</span></div>)}{!q.isLoading&&!rows.length&&<div className="empty-state"><FileText size={20}/><strong>No audit events recorded.</strong><span>Changes will appear here when an auditable admin operation is committed.</span></div>}</div></div>; }
 function App() {
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target.closest<HTMLElement>("button,a,[role='button']") : null;
+      if (!target || target.hasAttribute("disabled") || target.getAttribute("aria-disabled") === "true") return;
+      target.classList.add("ui-pressing");
+      window.setTimeout(() => target.classList.remove("ui-pressing"), 260);
+      const rect = target.getBoundingClientRect();
+      const ripple = document.createElement("span");
+      ripple.className = "ui-ripple";
+      ripple.style.left = `${event.clientX - rect.left}px`;
+      ripple.style.top = `${event.clientY - rect.top}px`;
+      target.appendChild(ripple);
+      window.setTimeout(() => ripple.remove(), 700);
+    };
+    document.addEventListener("pointerdown", handlePointerDown, { passive: true });
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
   const pathname = typeof window !== "undefined" ? window.location.pathname : "/";
   if (pathname === "/") return <PortalGateway />;
   if (pathname.startsWith("/ops-console-7f3a")) return <AdminRoute />;
