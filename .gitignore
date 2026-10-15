@@ -100,3 +100,4 @@ client/public/__manus__/version.json
 # Installer-generated secrets/state
 installer/.installed
 .admin-bootstrap.json
+.sandbox-credentials
