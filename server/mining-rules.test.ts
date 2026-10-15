@@ -61,6 +61,11 @@ describe("package daily reward model", () => {
       .toBe("0.000046296296296296");
   });
 
+  it("credits a configured CKI boost reward even when the boost adds zero TH/s", () => {
+    expect(calculatePackageDailyReward([{ expectedDailyRewardCki:"1.6", baseThs:"16", boostThs:"0", eligibleSeconds:60, boostRewardCkiPerDay:"24" }]))
+      .toBe("0.017777777777777777");
+  });
+
   it("sums package rewards while a temporary hash boost does not multiply a fixed package rate", () => {
     expect(calculatePackageDailyReward([
       { expectedDailyRewardCki: "2", baseThs: "1", boostThs: "0.5", eligibleSeconds: 60 },

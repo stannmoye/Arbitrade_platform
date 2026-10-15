@@ -99,7 +99,7 @@ export function calculatePackageDailyReward(segments: MiningPackageRewardSegment
     // New fixed-rate contracts use the requested exact daily formula. The legacy
     // multiplier is retained only for contracts tagged before this change.
     const boostMultiplier = segment.applyBoostMultiplier && base.gt(0) ? base.plus(boost).div(base) : new MiningDecimal(1);
-    const boostDaily = boost.gt(0) && segment.boostRewardCkiPerDay != null ? new MiningDecimal(segment.boostRewardCkiPerDay) : new MiningDecimal(0);
+    const boostDaily = segment.boostRewardCkiPerDay != null ? new MiningDecimal(segment.boostRewardCkiPerDay) : new MiningDecimal(0);
     if (!boostDaily.isFinite() || boostDaily.isNegative()) throw new Error("Boost daily CKI reward must be non-negative");
     return sum.plus(daily.times(seconds).div(86_400).times(boostMultiplier)).plus(boostDaily.times(seconds).div(86_400));
   }, new MiningDecimal(0));
