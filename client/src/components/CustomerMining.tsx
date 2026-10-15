@@ -122,6 +122,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const mainWalletScale = (asset: string) => Number(mainWallet.data?.currencies?.find((item: any) => item.code === asset)?.scale ?? 0);
   const availableUsd = mainWalletAvailable("USD");
   const dailyUsdReference = (Number(data?.estimatedDailyTokens || 0) * Number(data?.usdPerToken || 0)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const configuredUsdReference = Number(data?.usdPerToken || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const swapExpired = swapQuote ? new Date(swapQuote.expiresAt).getTime() <= now : false;
   const activeBoostEnds = boost?.activeBoost?.endsAt ? new Date(boost.activeBoost.endsAt).getTime() : null;
   const cycleStart = boost?.cycleStart ? new Date(boost.cycleStart).getTime() : null;
@@ -198,12 +199,16 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
       </a>
       <div className="cm-header-summaries" aria-label="Mining wallet summary">
         <div className="cm-header-summary">
-          <span>AVAILABLE CKI BALANCE</span>
+          <span>CKI BALANCE</span>
           <strong>{fmt(availableCki, 6)} CKI</strong>
         </div>
         <div className="cm-header-summary">
-          <span>CKI CREDITED TODAY</span>
+          <span>MINED TODAY</span>
           <strong>+{fmt(data?.todayTokens, 6)} CKI</strong>
+        </div>
+        <div className="cm-header-summary">
+          <span>CKI RATE TO DOLLAR</span>
+          <strong>1 CKI → ≈${configuredUsdReference}</strong>
         </div>
       </div>
       <div className="cm-top-actions"><div className="cm-asset-strip" aria-label="Available wallet assets">{(mainWallet.data?.currencies || []).map((currency: any) => <span className="cm-asset-chip" key={currency.code} title={currency.name}><b>{currency.code}</b><small>{currency.symbol || ""}{fmt(mainWalletAvailable(currency.code), Number(currency.scale ?? 0))}</small></span>)}</div></div>
