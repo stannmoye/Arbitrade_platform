@@ -476,7 +476,6 @@ export async function activateCustomerMiningBoost(userId: number, input: { idemp
       VALUES (?,?,?,?,?,?,?,?,?,'active',?)`, [userId, now, now, cooldownEndsAt, now, endsAt, String(candidate.boostBonusThsSnapshot), Number(candidate.packageVersionId), Number(candidate.purchaseId), key]);
     const activationId = Number(result.insertId);
     const clickBonus = decimal(config.boostActivationBonusCki);
-    if (clickBonus.gt(0)) await conn.execute(`INSERT INTO mining_pending_boost_rewards (userId,rewardEventId,rewardDay,amountCki,status) VALUES (?,NULL,DATE(?),?,'pending')`, [userId, now, clickBonus.toFixed(tokenScale)]);
     const response = { activationId, status: "active", bonusThs: String(candidate.boostBonusThsSnapshot), boostActivationBonusCki: clickBonus.toFixed(tokenScale), startedAt: now.toISOString(), endsAt: endsAt.toISOString(), cycleExpiresAt: cooldownEndsAt.toISOString(), nextEligibleAt: cooldownEndsAt.toISOString(), packageVersionId: Number(candidate.packageVersionId), policy: `The boost runs for ${durationSeconds} seconds; the four-hour customer cooldown starts at activation.` };
     await finishMiningIdempotency(conn, key, response);
     await createMiningNotification(conn, userId, "Mining boost activated", `A ${candidate.boostBonusThsSnapshot} TH/s package boost is active until ${endsAt.toISOString()}. Next availability: ${cooldownEndsAt.toISOString()}.`);
@@ -514,7 +513,7 @@ export async function getCustomerMiningDashboard(userId: number) {
         const boostedSeconds = ownsActiveBoost ? boostIntervalSeconds : 0;
         return [
           { expectedDailyRewardCki: row.expectedDailyRewardCkiSnapshot, baseThs: String(row.baseThsSnapshot), boostThs: "0", eligibleSeconds: intervalSeconds - boostedSeconds },
-          { expectedDailyRewardCki: row.expectedDailyRewardCkiSnapshot, baseThs: String(row.baseThsSnapshot), boostThs: ownsActiveBoost ? String(activeBoost.bonusThs) : "0", eligibleSeconds: boostedSeconds, boostRewardCkiPerDay: ownsActiveBoost ? config.boostRewardCkiPerDay : "0" },
+          { expectedDailyRewardCki: row.expectedDailyRewardCkiSnapshot, baseThs: String(row.baseThsSnapshot), boostThs: ownsActiveBoost ? String(activeBoost.bonusThs) : "0", eligibleSeconds: boostedSeconds, boostRewardCkiPerDay: ownsActiveBoost ? decimal(config.boostRewardCkiPerDay).plus(decimal(config.boostActivationBonusCki).times(86400).div(config.boostDurationSeconds)).toString() : "0" },
         ];
       });
       pendingTokens = decimal(calculatePackageDailyReward(segments));
@@ -755,10 +754,11 @@ async function calculateInterval(conn: Db, userId: number, start: Date, end: Dat
       const calculationModelSnapshot=String(row.calculationModelSnapshot||"legacy_boost_daily");
       const applyBoostMultiplier=calculationModelSnapshot==="legacy_boost_daily";
       const ownsActiveBoost=Boolean(activeBoost) && Number(activeBoost.customerPackageId) === Number(row.id);
-      const amount=decimal(calculatePackageDailyReward([{expectedDailyRewardCki:daily,baseThs:packageBase.toString(),boostThs:packageBoost.toString(),eligibleSeconds:seconds,applyBoostMultiplier,boostRewardCkiPerDay:ownsActiveBoost?config.boostRewardCkiPerDay:"0"}]));
+      const activeBoostRewardPerDay=ownsActiveBoost ? decimal(config.boostRewardCkiPerDay).plus(decimal(config.boostActivationBonusCki).times(86400).div(config.boostDurationSeconds)).toString() : "0";
+      const amount=decimal(calculatePackageDailyReward([{expectedDailyRewardCki:daily,baseThs:packageBase.toString(),boostThs:packageBoost.toString(),eligibleSeconds:seconds,applyBoostMultiplier,boostRewardCkiPerDay:activeBoostRewardPerDay}]));
       const baseOnlyAmount=decimal(calculatePackageDailyReward([{expectedDailyRewardCki:daily,baseThs:packageBase.toString(),boostThs:"0",eligibleSeconds:seconds,applyBoostMultiplier:false,boostRewardCkiPerDay:"0"}]));
       const boostAmount=Decimal.max(amount.minus(baseOnlyAmount),new Decimal(0));
-      const effectiveDaily=(daily===null?new Decimal(0):decimal(daily).times(applyBoostMultiplier?packageBase.plus(packageBoost).div(packageBase):1)).plus(ownsActiveBoost?decimal(config.boostRewardCkiPerDay):0);
+      const effectiveDaily=(daily===null?new Decimal(0):decimal(daily).times(applyBoostMultiplier?packageBase.plus(packageBoost).div(packageBase):1)).plus(ownsActiveBoost?decimal(activeBoostRewardPerDay):0);
       return {purchaseId:Number(row.id),packageId:Number(row.packageId),packageVersionId:Number(row.packageVersionId),packageVersion:Number(row.version),packageCode:String(row.code),packageName:String(row.packageNameSnapshot||row.code),priceAmount:String(row.priceAmount),priceAsset:String(row.priceAsset),durationMonthsSnapshot:row.durationMonthsSnapshot===null?null:Number(row.durationMonthsSnapshot),baseThs:packageBase.toString(),expectedDailyRewardCkiSnapshot:daily,calculationModelSnapshot,ckiPerThsPerDaySnapshot:row.ckiPerThsPerDaySnapshot===null?null:String(row.ckiPerThsPerDaySnapshot),boostThs:packageBoost.toString(),boostRewardCki:boostAmount.toString(),eligibleSeconds:seconds,estimatedRewardCki:amount.toString(),effectiveDailyRewardCki:effectiveDaily.toString()};
     });
     const segmentTokens=packageRewards.reduce((sum,row)=>sum.plus(decimal(row.estimatedRewardCki)),new Decimal(0));
