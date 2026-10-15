@@ -359,9 +359,9 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
     await conn.execute(`UPDATE v5_fx_quotes SET status='EXECUTED' WHERE id=?`, [input.quoteId]);
     const expectedDailyRewardCki = quote.expectedDailyRewardCki === null ? null : String(quote.expectedDailyRewardCki);
     const rewardPostingReady = canStartMiningAccrual({ globalEnabled: config.globalEnabled, expectedDailyRewardCki });
-    const result = { purchaseId, packageId: Number(quote.packageId), packageVersionId: Number(quote.packageVersionId), packageName: packageNameSnapshot, status: "active", startsAt: now.toISOString(), entitlementStartedAt: now.toISOString(), expiresAt: expiresAt?.toISOString() || null, rewardPostingEnabled: Boolean(config.globalEnabled), rewardPostingReady, paymentAsset, paymentAmount: quotedTotal.toString(), baseThs: String(quote.baseThs), expectedDailyRewardCki, boostBonusThs: String(quote.boostBonusThs), receiptReference: ledger.referenceCode, mainWalletReference: canonicalReference, disclaimer: "The package entitlement starts at purchase. CKI earnings remain blocked until verified farm settlements are configured; this Sandbox has no connected settlement source." };
+    const result = { purchaseId, packageId: Number(quote.packageId), packageVersionId: Number(quote.packageVersionId), packageName: packageNameSnapshot, status: "active", startsAt: now.toISOString(), entitlementStartedAt: now.toISOString(), expiresAt: expiresAt?.toISOString() || null, rewardPostingEnabled: Boolean(config.globalEnabled), rewardPostingReady, paymentAsset, paymentAmount: quotedTotal.toString(), baseThs: String(quote.baseThs), expectedDailyRewardCki, boostBonusThs: String(quote.boostBonusThs), receiptReference: ledger.referenceCode, mainWalletReference: canonicalReference, disclaimer: "The package entitlement starts at purchase. Configured CKI rewards accrue automatically by eligible time when reward processing is enabled; rewards are internal estimates, not verified pool output or a cash payout." };
     await finishMiningIdempotency(conn, key, result);
-    await createMiningNotification(conn, userId, "Mining package entitlement activated", `${quote.name} is active from purchase time. The main-wallet charge and entitlement were recorded; CKI earnings remain subject to verified settlement readiness. Receipt ${ledger.referenceCode}.`);
+    await createMiningNotification(conn, userId, "Mining package entitlement activated", `${quote.name} is active from purchase time. The main-wallet charge and entitlement were recorded. Configured CKI rewards accrue automatically when operations has enabled reward processing. Receipt ${ledger.referenceCode}.`);
     return result;
   }));
   let initialAccrualIntervals = 0;
@@ -529,7 +529,7 @@ export async function getCustomerMiningDashboard(userId: number) {
     } : { enabled: false, targetDenomination: "USD", minimumThreshold: config.defaultAutoConversionThreshold, version: 0, updatedAt: null };
     const engineRunning = accountStatus === "active" && packages.length > 0;
     const status = accountStatus !== "active" ? "Account restricted" : engineRunning
-      ? !config.globalEnabled ? "Mining active — awaiting verified farm settlement" : estimatedDailyTokens ? "Mining active — reward processing enabled" : "Mining active — reward configuration pending"
+      ? !config.globalEnabled ? "Mining active — reward processing paused by operations" : estimatedDailyTokens ? "Mining active — reward processing enabled" : "Mining active — reward configuration pending"
       : "No active hash-power package";
     return {
       serverTime: now.toISOString(), miningStatus: status, simulationOnly: true, networkTelemetry, payoutStatus: "Disabled — simulated balances are not withdrawable",
