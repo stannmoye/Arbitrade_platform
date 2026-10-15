@@ -4,12 +4,16 @@ Arbitrade is a Node.js/Express and React customer-and-operations platform for da
 
 ## Production requirements
 
-- Node.js 20+ (22 recommended)
+- Node.js 20+ (Node.js 22 recommended)
 - pnpm 10.18
 - MySQL 8-compatible or MariaDB database
 - HTTPS
 - SMTP or an approved email provider
 - cPanel Setup Node.js App or a VPS
+
+## Database source of truth
+
+The repository-root `database.sql` is the single canonical database artifact for this application. It contains the database-backed application state, including accounts, wallets, balances, ledgers, mining packages, mining contracts, CKI economics, settings, and portal records. Before moving hosts or completing database changes, run `pnpm db:backup:github`; on a new empty database, run `pnpm db:restore:github`. See [`DATABASE_SOURCE_OF_TRUTH.md`](DATABASE_SOURCE_OF_TRUTH.md).
 
 The application does not ship default users, default passwords, demo seed data, or client-only authentication fallbacks.
 

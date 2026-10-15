@@ -6,6 +6,8 @@ This project uses one canonical database file in the private GitHub repository:
 database.sql
 ```
 
+The file is tracked with Git LFS when its complete application state exceeds GitHub's normal 100 MB file limit. It remains one file named `database.sql` and is materialized by normal Git LFS-enabled clones.
+
 It contains the application database state, including users, wallet balances, ledger history, mining packages, mining contracts, economics versions, admin settings, and other database-backed records.
 
 ## Save the current database to GitHub
@@ -42,6 +44,6 @@ The restore command always reads the repository's one `database.sql` file and re
 
 ## Operating model
 
-The SQL file is the source of truth in GitHub. A running application still needs MySQL/MariaDB to execute queries; each new host imports the same `database.sql` into its local database. When the live database changes, export it back into the same file and push it before moving hosts.
+The SQL file is the source of truth in GitHub. A running application still needs MySQL/MariaDB to execute queries; each new host imports the same `database.sql` into its local database. When the live database changes, export it back into the same file and push it before moving hosts. Do not create dated restore-point files or alternate active database dumps.
 
 Use the same `SESSION_SECRET` and `PASSWORD_PEPPER` when existing sessions, encrypted settings, or account behavior must remain compatible. Keep the repository private because `database.sql` contains application data and password hashes.
