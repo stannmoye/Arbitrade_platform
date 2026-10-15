@@ -67,7 +67,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     onSuccess: result => {
       void dashboard.refetch(); void mainWallet.refetch(); void history.refetch(); void packages.refetch();
       push(`${result.packageName} purchased · ${result.receiptReference}`);
-      setMessage(`${result.packageName} is active from ${dateText(result.startsAt)}. ${result.paymentAmount} ${result.paymentAsset} was immediately debited from your main wallet. Mining activity is being recorded in the database; CKI credits remain blocked until verified farm settlements are connected.`);
+      setMessage(`${result.packageName} is active from ${dateText(result.startsAt)}. ${result.paymentAmount} ${result.paymentAsset} was immediately debited from your main wallet. ${result.rewardPostingReady ? "Eligible CKI rewards are processed automatically." : "Reward processing is currently paused or this package has no configured daily CKI rate."}`);
     },
     onError: error => setMessage(error.message),
   });
@@ -232,8 +232,8 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
               <div className="cm-progress-head"><span className="cm-eyebrow">HASH-POWER ENGINE</span><strong className="cm-status-time">{hasActiveHashPowerPackage?"ACTIVE":"IDLE"}</strong><small>{hasActiveHashPowerPackage?"Customer package is active":"No active package"}</small></div>
               <div className="cm-divider"/>
               <div className="cm-progress-metrics">
-                <div className="cm-progress-metric"><span className="cm-eyebrow">CKI CREDITED TODAY</span><strong className="cm-token-amount">{fmt(data?.todayTokens,4)} <small>{tokenSymbol}</small></strong><span className="cm-positive">Historic ledger entries; not verified farm earnings</span></div>
-                <div className="cm-progress-metric"><span className="cm-eyebrow">VERIFIED FARM SETTLEMENT</span><strong className="cm-daily-amount">Not connected</strong><small className="cm-simulation-note">No third-party settlement record has been ingested yet.</small></div>
+                <div className="cm-progress-metric"><span className="cm-eyebrow">CKI REWARDS CREDITED TODAY</span><strong className="cm-token-amount">{fmt(data?.todayTokens,4)} <small>{tokenSymbol}</small></strong><span className="cm-positive">Automatically credited reward ledger total · simulation estimate</span></div>
+                <div className="cm-progress-metric"><span className="cm-eyebrow">REWARD PROCESSING</span><strong className="cm-daily-amount">{data?.rewardPostingEnabled ? "Enabled" : "Paused"}</strong><small className="cm-simulation-note">{data?.rewardPostingEnabled ? "Configured CKI rates accrue by eligible time." : "Reward processing is paused by operations."}</small></div>
               </div>
               <div className="cm-coin-display"><span className="cm-coin-glow"/><b>₵</b><small>{tokenSymbol}</small></div>
               <div className="cm-mining-vault" aria-hidden="true"><span className="cm-vault-frame"/><span className="cm-vault-beam"/><span className="cm-vault-spark spark-a"/><span className="cm-vault-spark spark-b"/><span className="cm-vault-spark spark-c"/><div className="cm-vault-coin">₵</div><span className="cm-vault-platform"/><span className="cm-vault-orbit"/></div>
@@ -265,7 +265,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
       </section>
 
       <section className="cm-glass cm-packages-panel">
-        <div className="cm-packages-header"><div><h2>Mining Packages</h2><p>Choose from packages currently published by operations</p><p className="cm-purchase-disclosure">Clicking Buy immediately purchases the displayed package and charges your saved {walletPreferences.data?.tradingCurrency ? `${String(walletPreferences.data.tradingCurrency).toUpperCase()} main wallet` : "main-wallet purchase currency"} using a fresh exchange quote. By clicking Buy, you accept the package terms shown on each card. Hash power activates right away; CKI credits require verified farm settlements.</p></div><div className="cm-package-tabs" role="tablist" aria-label="Filter packages">{[["all","All Packages"],["mine","My Packages"],["upgrade","Upgrade"],["downgrade","Downgrade"]].map(([id,label])=><button type="button" role="tab" aria-selected={packageTab===id} className={packageTab===id?"selected":""} key={id} onClick={()=>setPackageTab(id)}>{label}</button>)}</div><button className="cm-refresh-button" type="button" onClick={()=>{void packages.refetch();void dashboard.refetch()}} aria-label="Refresh packages"><RefreshCw size={15}/></button></div>
+        <div className="cm-packages-header"><div><h2>Mining Packages</h2><p>Choose from packages currently published by operations</p><p className="cm-purchase-disclosure">Clicking Buy immediately purchases the displayed package and charges your saved {walletPreferences.data?.tradingCurrency ? `${String(walletPreferences.data.tradingCurrency).toUpperCase()} main wallet` : "main-wallet purchase currency"} using a fresh exchange quote. By clicking Buy, you accept the package terms shown on each card. Package capacity activates immediately; configured CKI rewards accrue automatically while reward processing is enabled.</p></div><div className="cm-package-tabs" role="tablist" aria-label="Filter packages">{[["all","All Packages"],["mine","My Packages"],["upgrade","Upgrade"],["downgrade","Downgrade"]].map(([id,label])=><button type="button" role="tab" aria-selected={packageTab===id} className={packageTab===id?"selected":""} key={id} onClick={()=>setPackageTab(id)}>{label}</button>)}</div><button className="cm-refresh-button" type="button" onClick={()=>{void packages.refetch();void dashboard.refetch()}} aria-label="Refresh packages"><RefreshCw size={15}/></button></div>
         {active.length>0&&<div className="cm-active-note"><Cpu size={14}/><b>YOUR ACTIVE CAPACITY</b><span>{activePackageNames} · {fmt(activeBase,3)} TH/s</span></div>}
         <div className="cm-package-carousel">
           {packages.isLoading&&<div className="cm-empty">Loading published packages…</div>}
@@ -284,7 +284,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
               <div className="cm-package-art"><div className="cm-cube"><i/><i/><b>₵</b></div><span className="cm-package-glow"/></div>
               <div className="cm-package-label"><h3>{item.name}</h3><span>{statusLabel}</span></div>
               <div className="cm-package-price"><strong>{fmt(item.priceAmount,2)}</strong><small>{item.priceAsset}</small></div>
-              <div className="cm-package-facts"><b>{fmt(item.baseThs,3)} <small>TH/s</small></b><span>Boost +{fmt(item.boostBonusThs,3)} TH/s</span><span>Term {item.durationMonths==null?"not set":`${item.durationMonths} months`}</span><span>Daily CKI allocation follows actual farm settlement records</span></div>
+              <div className="cm-package-facts"><b>{fmt(item.baseThs,3)} <small>TH/s</small></b><span>Boost +{fmt(item.boostBonusThs,3)} TH/s</span><span>Term {item.durationMonths==null?"not set":`${item.durationMonths} months`}</span><span>{item.expectedDailyRewardCki==null?"Daily CKI rate not configured":`${fmt(item.expectedDailyRewardCki,8)} CKI/day · prorated by eligible seconds`}</span></div>
               {item.termsText&&<details className="cm-package-terms"><summary>Review package terms</summary><p>{item.termsText}</p></details>}
               <button type="button" className="cm-package-buy" disabled={!canPurchase||purchaseMutation.isPending} title={canPurchase?"Click to purchase now; the saved main wallet will be charged immediately.":(unavailableReason||"Unavailable")} aria-label={`Buy ${item.name} now; the saved main wallet will be charged immediately`} onClick={()=>{if(!canPurchase||purchaseMutation.isPending)return;setMessage("");purchaseMutation.mutate({packageVersionId:item.versionId,idempotencyKey:requestId()})}}>{buttonLabel}<ArrowRight size={13}/></button>
             </article>;
@@ -328,7 +328,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
         </>}
       </section>
 
-      <footer className="cm-disclaimer"><ShieldCheck size={15}/><span>The Mining Engine reflects active purchased package capacity. This Sandbox has no verified third-party farm settlement input yet, so no real-farm reward is being credited. CKI swaps credit the selected main wallet. No payout ticket or external transfer is initiated here; CKI itself is not a payout asset.</span><b>Economics v{data?.economicsVersion||"—"}</b></footer>
+      <footer className="cm-disclaimer"><ShieldCheck size={15}/><span>Configured package rewards are internal estimates, prorated by eligible contract time and recorded in the CKI ledger. They are not verified pool output, withdrawable funds, or a cash payout. CKI swaps credit the selected main wallet; no external transfer is initiated here.</span><b>Economics v{data?.economicsVersion||"—"}</b></footer>
     </main>
 
   </div>;
