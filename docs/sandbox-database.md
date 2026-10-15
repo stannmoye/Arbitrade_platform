@@ -23,7 +23,7 @@ pnpm db:portal-migrate
 3. From the repository root, load the private environment and run `scripts/restore-sandbox-db.sh <snapshot.sql.gz.gpg> <passphrase-file>`. The helper validates GPG/gzip integrity first and refuses a non-empty target; it streams the SQL into the database without writing a plaintext SQL dump to disk.
 4. Verify `/api/health`, customer/admin login, and account balances. The database snapshot does not include `.env`, application source, or the encryption passphrase; obtain those separately and securely.
 
-This is a manual recovery path, not live cross-sandbox synchronization. The currently running sandbox's local database does not automatically follow a newly created sandbox.
+This is a manual recovery path, not live cross-sandbox synchronization. The currently running sandbox's local database does not automatically follow a newly created sandbox. For safe host-to-host cutover and keeping admin settings and CKI package versions, follow [`host-migration-and-persistence.md`](host-migration-and-persistence.md).
 
 ## Portal testing
 

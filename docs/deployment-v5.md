@@ -16,7 +16,7 @@ Required environment variables are documented in `.env.example`. `DATABASE_URL`,
 
 1. Create a dedicated database and least-privilege application user.
 2. Back up the database before applying migrations.
-3. Run the base migrations with `pnpm db:migrate`, then apply portal migrations with `pnpm db:portal-migrate` and the Mining migrations with `node scripts/apply-mining-migrations.mjs`.
+3. Back up the target database, run the base migrations with `pnpm db:migrate`, then apply portal migrations with `pnpm db:portal-migrate` and Mining migrations with `node scripts/apply-mining-migrations.mjs`. Apply the initial versioned CKI package rates using `NODE_ENV=production pnpm db:mining-rates -- --confirm-host-migration --confirm-production` after reviewing the target.
 4. Provision an administrator using `pnpm admin:create` with `ADMIN_EMAIL` and `ADMIN_PASSWORD` supplied only in the private server shell.
 5. Verify `/api/health`, customer registration, customer login, administrator login, and role-protected procedures.
 
@@ -42,9 +42,13 @@ The application is production-deployable, but real-money execution and verified 
 
 ## Mining simulation and earnings persistence
 
-- Package checkout can be enabled separately from reward posting. A successful purchase creates an active entitlement with `startsAt` at purchase time; an immediate accrual is triggered only when verified reward posting is enabled and the package has a positive daily CKI estimate. Otherwise, the entitlement remains active but earnings are blocked, and the purchase response says why.
-- Every non-zero reward interval is written transactionally to the CKI wallet ledger, `mining_reward_events`, and `mining_reward_package_allocations`, with an idempotency key and advancing customer checkpoint. Re-running a worker interval must not duplicate a credit. The periodic worker requires the application process to stay running.
-- This Sandbox has no connected mining pool or verified settlement, and reward posting is blocked by design. Do not invent package earnings, represent estimates as verified returns, or present simulated balances as withdrawable; configure and disclose a verified settlement source before enabling real credits.
+- A successfully confirmed purchase creates an active entitlement at purchase time and snapshots that published package version's daily CKI rate. Administrators can edit rates and publish a new package version through the admin portal; that changes future purchases, not existing contract snapshots.
+- When the administrator enables reward processing, eligible package time is prorated using the snapshotted daily rate and the CKI/day ÷ 86,400-second formula. Non-zero rewards are transactionally recorded in the CKI wallet ledger, `mining_reward_events`, and package allocations, using idempotency keys and customer checkpoints. The periodic worker requires the application process to keep running.
+- CKI package amounts are **internal simulated estimates**, not verified pool output, guaranteed returns, withdrawable balances, or cash payouts. The reward switch and all economics/package versions are persisted in MySQL/MariaDB; preserve that database (or restore a current backup) to keep admin edits across host changes.
+
+## Host migration and persistence
+
+Follow [`host-migration-and-persistence.md`](host-migration-and-persistence.md) for a verified encrypted backup/restore procedure, safe database cutover, secret continuity, and cPanel/sandbox host considerations. GitHub stores source and migrations, not live customer rows or administrator setting values.
 
 ## Recovery
 
