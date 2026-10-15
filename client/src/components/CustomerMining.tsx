@@ -4,7 +4,7 @@ import { MiningCoreCanvas } from "./MiningCoreCanvas";
 import { MiningOperationsFlow } from "./MiningOperationsFlow";
 import { CustomerSlideMenu } from "./CustomerSlideMenu";
 import {
-  Activity, ArrowDownUp, ArrowRight, Bell,
+  Activity, ArrowDownUp, ArrowRight,
   ChevronDown, ChevronLeft, ChevronRight, Clock3, Cpu, Info,
   RefreshCw, ShieldCheck, Sparkles, WalletCards, Zap,
 } from "lucide-react";
@@ -214,7 +214,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
           <small>Configured internal reference · not a market quote</small>
         </div>
       </div>
-      <div className="cm-top-actions"><span className="cm-top-email">{data?.miningStatus || "Mining workspace"}</span><button type="button" className="cm-top-icon" onClick={()=>{void dashboard.refetch();void packages.refetch()}} aria-label="Refresh dashboard"><Bell size={19}/><i/></button><button type="button" className="cm-profile-chip" onClick={()=>goTo("account")}><span className="cm-profile-avatar">{tokenSymbol.slice(0,1)}</span><span><small>YOUR ACCOUNT</small><strong>Mining customer</strong></span><ChevronDown size={15}/></button></div>
+      <div className="cm-top-actions"><div className="cm-asset-strip" aria-label="Available wallet assets">{(mainWallet.data?.currencies || []).map((currency: any) => <span className="cm-asset-chip" key={currency.code} title={currency.name}><b>{currency.code}</b><small>{currency.symbol || ""}{fmt(mainWalletAvailable(currency.code), Number(currency.scale ?? 0))}</small></span>)}</div></div>
     </header>
 
     <main className="cm-dashboard-main" id="mining-dashboard">

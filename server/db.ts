@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { and, desc, eq, gt, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
+import { createPool } from "mysql2/promise";
 import { InsertUser, appSettings, customerBalances, currencyRegistry, customerControls, customerNotifications, customerSessions, customerWalletPreferences, customerOpportunityRules, opportunityDeliveryEvents, balanceLedger, tradePositions, users, missedOpportunities, v5AuditEvents } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { calculateTradeSettlement } from "./modules/trade-settlement";
@@ -8,13 +9,32 @@ import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportuni
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
 import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
-let _db: ReturnType<typeof drizzle> | null = null;
+let _db: MySql2Database<Record<string, unknown>> | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const connectionUrl = new URL(process.env.DATABASE_URL);
+      const sslParam = connectionUrl.searchParams.get("ssl");
+      let ssl: Record<string, unknown> | undefined;
+      if (sslParam) {
+        try {
+          const parsed = JSON.parse(sslParam);
+          ssl = parsed === true ? {} : parsed && typeof parsed === "object" ? parsed : undefined;
+        } catch {
+          ssl = undefined;
+        }
+      }
+      const pool = createPool({
+        host: connectionUrl.hostname,
+        port: Number(connectionUrl.port || 3306),
+        user: decodeURIComponent(connectionUrl.username),
+        password: decodeURIComponent(connectionUrl.password),
+        database: decodeURIComponent(connectionUrl.pathname.slice(1)),
+        ssl,
+      });
+      _db = drizzle(pool);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;

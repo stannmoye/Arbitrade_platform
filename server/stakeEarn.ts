@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import mysql from "mysql2/promise";
+import { mysqlConnectionOptions } from "./_core/mysql";
 
 type Db = mysql.PoolConnection;
 type StakeProduct = {
@@ -27,13 +28,8 @@ const productSeed = [
   ["Real-World Asset Yield", "RWA", "USD", 560, 90, 100000, 100000000, "MONTHLY", 30, "LOW", 0],
 ] as const;
 
-function connectionOptions() {
-  const url = new URL(process.env.DATABASE_URL || "");
-  return { host: url.hostname, port: Number(url.port || 3306), user: decodeURIComponent(url.username), password: decodeURIComponent(url.password), database: url.pathname.slice(1), ssl: url.searchParams.get("ssl") === "true" ? {} : undefined };
-}
-
 async function withConnection<T>(fn: (conn: Db) => Promise<T>) {
-  const pool = mysql.createPool({ ...connectionOptions(), connectionLimit: 2 });
+  const pool = mysql.createPool({ ...mysqlConnectionOptions(), connectionLimit: 2 });
   const conn = await pool.getConnection();
   try { return await fn(conn); } finally { conn.release(); await pool.end(); }
 }

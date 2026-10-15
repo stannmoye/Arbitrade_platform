@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import Decimal from "decimal.js";
 import mysql, { type PoolConnection } from "mysql2/promise";
 import { isQuoteFresh, isRateWithinDeviation } from "./mining-rules";
+import { mysqlConnectionOptions } from "./_core/mysql";
 
 export class MiningError extends Error {
   constructor(message: string) { super(message); this.name = "MiningError"; }
@@ -58,24 +59,8 @@ export function requestKey(prefix: string, userId: number, input: string) {
   return `${prefix}:${userId}:${digest}`;
 }
 
-function connectionOptions() {
-  const raw = process.env.DATABASE_URL;
-  if (!raw) throw new MiningError("Mining database is not configured");
-  const url = new URL(raw);
-  return {
-    host: url.hostname,
-    port: Number(url.port || 3306),
-    user: decodeURIComponent(url.username),
-    password: decodeURIComponent(url.password),
-    database: url.pathname.slice(1),
-    ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
-    timezone: "Z" as const,
-    connectionLimit: 2,
-  };
-}
-
 export async function withMiningConnection<T>(fn: (conn: Db) => Promise<T>): Promise<T> {
-  const pool = mysql.createPool(connectionOptions());
+  const pool = mysql.createPool({ ...mysqlConnectionOptions(), connectionLimit: 2 });
   const conn = await pool.getConnection();
   try { return await fn(conn); }
   finally { conn.release(); await pool.end(); }

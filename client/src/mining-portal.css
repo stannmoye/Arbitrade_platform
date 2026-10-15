@@ -352,3 +352,18 @@
 .cm-dashboard-frame .cm-boost-card.is-cooldown .cm-boost-charge{border-color:#168fff;box-shadow:0 0 10px #087eff55}
 @keyframes cmBoostTubeActive{to{background-position:-180% 0}}
 @keyframes cmBoostTubeCooldown{to{background-position:180% 0}}
+
+/* Database-backed asset names in the Crypto Mining header. */
+.cm-dashboard-frame .cm-asset-strip{display:flex;align-items:center;gap:5px;max-width:360px;overflow-x:auto;scrollbar-width:none}
+.cm-dashboard-frame .cm-asset-strip::-webkit-scrollbar{display:none}
+.cm-dashboard-frame .cm-asset-chip{display:inline-flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;min-width:78px;padding:6px 9px;border:1px solid #1b4770;border-radius:8px;background:#071a30;color:#d9efff;font-size:8px;font-weight:900;letter-spacing:.05em;white-space:nowrap}
+.cm-dashboard-frame .cm-asset-chip b{color:#d9efff;font-size:8px;line-height:1}
+.cm-dashboard-frame .cm-asset-chip small{display:block;max-width:100%;overflow:hidden;color:#7ce7c2;font-size:8px;font-variant-numeric:tabular-nums;line-height:1;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:760px){.cm-dashboard-frame .cm-asset-strip{max-width:220px}.cm-dashboard-frame .cm-asset-chip{min-width:68px;padding:5px 7px}.cm-dashboard-frame .cm-asset-chip b,.cm-dashboard-frame .cm-asset-chip small{font-size:7px}}
+
+/* Compact CoinKi brand to make room for balance chips. */
+.cm-dashboard-frame .cm-brand{min-width:150px;gap:7px}
+.cm-dashboard-frame .cm-brand-mark{width:34px;height:34px;border-width:2px;font-size:22px}
+.cm-dashboard-frame .cm-brand strong{font-size:18px}
+.cm-dashboard-frame .cm-brand small{font-size:8px}
+@media(max-width:760px){.cm-dashboard-frame .cm-brand{min-width:0;gap:6px}.cm-dashboard-frame .cm-brand-mark{width:30px;height:30px;font-size:19px}.cm-dashboard-frame .cm-brand strong{font-size:17px}.cm-dashboard-frame .cm-brand small{font-size:7px}}

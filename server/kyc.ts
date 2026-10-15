@@ -1,11 +1,12 @@
 import crypto from "node:crypto";
 import { sendRenderedEmail } from "./email";
 import mysql, { type Pool, type RowDataPacket, type ResultSetHeader } from "mysql2/promise";
+import { mysqlConnectionOptions } from "./_core/mysql";
 
 const STAGES = ["EMAIL", "PHONE", "ADDRESS", "IDENTITY_DOCUMENT", "FACE_LIVENESS"] as const;
 const stageNames: Record<string, string> = { EMAIL: "Email", PHONE: "Phone", ADDRESS: "Address", IDENTITY_DOCUMENT: "Identity document", FACE_LIVENESS: "Live face & liveness" };
 let pool: Pool | null = null;
-function db() { if (!pool) { if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not configured"); pool = mysql.createPool(process.env.DATABASE_URL); } return pool; }
+function db() { if (!pool) pool = mysql.createPool(mysqlConnectionOptions()); return pool; }
 async function rows<T extends RowDataPacket = RowDataPacket>(sql: string, params: unknown[] = []) { const [result] = await db().query<T[]>(sql, params); return result; }
 async function exec(sql: string, params: unknown[] = []) { const [result] = await db().execute<ResultSetHeader>(sql, params); return result; }
 function hmac(value: string) { return crypto.createHmac("sha256", process.env.PASSWORD_PEPPER || process.env.SESSION_SECRET || "development-only").update(value).digest("hex"); }

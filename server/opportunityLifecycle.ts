@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import mysql from "mysql2/promise";
+import { mysqlConnectionOptions } from "./_core/mysql";
 
 type PopupDelivery = {
   userId: number;
@@ -16,13 +17,8 @@ type PopupDelivery = {
   marketSnapshotJson?: string | null;
 };
 
-function connectionOptions() {
-  const url = new URL(process.env.DATABASE_URL || "");
-  return { host: url.hostname, port: Number(url.port || 3306), user: decodeURIComponent(url.username), password: decodeURIComponent(url.password), database: url.pathname.slice(1) };
-}
-
 async function withConnection<T>(fn: (connection: mysql.PoolConnection) => Promise<T>) {
-  const pool = mysql.createPool({ ...connectionOptions(), connectionLimit: 3 });
+  const pool = mysql.createPool({ ...mysqlConnectionOptions(), connectionLimit: 3 });
   const connection = await pool.getConnection();
   try { return await fn(connection); } finally { connection.release(); await pool.end(); }
 }
