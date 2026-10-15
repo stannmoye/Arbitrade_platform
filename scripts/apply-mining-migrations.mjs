@@ -298,6 +298,32 @@ try {
     await connection.rollback();
     throw error;
   }
+  const engineActivityMigrationKey = "0043_mining_engine_activity";
+  const engineActivitySchema = await readFile(resolve("drizzle", "0043_mining_engine_activity.sql"), "utf8");
+  await connection.query(engineActivitySchema);
+  await connection.beginTransaction();
+  try {
+    const [markers] = await connection.query("SELECT migrationKey FROM mining_schema_migrations WHERE migrationKey=? FOR UPDATE", [engineActivityMigrationKey]);
+    if (markers.length) {
+      await connection.commit();
+      console.log("Mining engine activity migration already applied.");
+    } else {
+      const [admins] = await connection.query("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1");
+      const adminId = admins[0] ? Number(admins[0].id) : null;
+      const reason = "Persist per-package eligible hash-time intervals independently from reward credits; pending third-party settlement.";
+      await connection.execute("INSERT INTO mining_schema_migrations (migrationKey,detailsJson) VALUES (?,?)", [engineActivityMigrationKey, JSON.stringify({perPackageIntervalActivity:true,financialCreditsPosted:false,settlementStatus:"awaiting_settlement"})]);
+      await connection.execute(
+        `INSERT INTO v5_audit_events (actorUserId,action,entityType,entityId,reason,reference,metadataJson)
+         VALUES (?,?,?,?,?,?,?)`,
+        [adminId,"mining.engine.activity.schema.applied","mining_engine_activity",engineActivityMigrationKey,reason,engineActivityMigrationKey,JSON.stringify({perPackageIntervalActivity:true,financialCreditsPosted:false})],
+      );
+      await connection.commit();
+      console.log(JSON.stringify({migration:engineActivityMigrationKey,perPackageIntervalActivity:true,financialCreditsPosted:false}));
+    }
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  }
 } finally {
   await connection.end();
 }
