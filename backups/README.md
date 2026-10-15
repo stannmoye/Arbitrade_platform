@@ -1,63 +1,42 @@
-# Sandbox backups
+# Database backup
 
-The private repository contains encrypted backups of the Sandbox's full MariaDB database and its runtime `.env` file. Both use GPG symmetric encryption (`AES256`); plaintext database rows and runtime secrets are not committed. The matching passphrase file is deliberately kept outside GitHub and must be stored separately.
+## Retained snapshot
 
-## Captured snapshots
+- File: `sandbox-db-20261015T055439Z.sql.gz.gpg`
+- Captured: 2026-10-15 05:54:39 UTC
+- Coverage: all application tables and their data at capture time (104 tables)
+- Encrypted size: 32,491,209 bytes
+- SHA-256: `27760496d521bbfaf2b634172b2fc258003d395d0f638542e45d5450b6dc6629`
+- Format: GPG symmetric encryption (AES256) of a gzip-compressed SQL dump
 
-- Current database archive: `sandbox-db-20261015T055439Z.sql.gz.gpg`
-- Current database captured: 2026-10-15 05:54:39 UTC
-- Previous database archive: `sandbox-db-20261015T055315Z.sql.gz.gpg` (retained as a historical snapshot)
-- Earlier database archive: `sandbox-db-20261014T055749Z.sql.gz.gpg` (retained as a historical snapshot)
-- Earlier database archive: `sandbox-db-20261014T050310Z.sql.gz.gpg` (retained as a historical snapshot)
-- Previous database archive: `sandbox-db-20261013T195950Z.sql.gz.gpg` (retained as a historical snapshot)
-- Runtime configuration archive: `sandbox-runtime-env-20261013T200228Z.env.gpg`
-- Runtime configuration captured: 2026-10-13 20:02:28 UTC
-- Database coverage: all application tables and their data at capture time
-- Current database archive size: 32,491,209 bytes
-- Current database archive SHA-256: `27760496d521bbfaf2b634172b2fc258003d395d0f638542e45d5450b6dc6629`
-- Verification: the current archive decrypts and passes gzip integrity. Its captured database includes migration `0043_mining_engine_activity`, the activity table, and its persisted activity rows, as well as all other database tables/data. The encrypted `.env` was previously verified against the source file without displaying values.
+This is a point-in-time **sandbox** backup, not a live or automatically refreshed production database. It contains account records, wallet/ledger data, mining records, and admin settings from the capture time. Do not import it into a database that contains tables: the dump drops and recreates its tables. It does not create or select a database; select the intended empty database first.
 
-**The decryption key is not stored in this repository.** Save the separately delivered key file outside GitHub (such as in a password manager). Without it, neither encrypted archive can be restored. Do not commit the key or decrypted `.env`.
+The application does not read this archive at runtime. It connects to the database named in its private `DATABASE_URL`. To move the app to cPanel, create the MySQL/MariaDB database and user, import the selected SQL snapshot into that database, then configure the Node.js app's environment and `DATABASE_URL` accordingly.
 
-The encrypted database archive captures customer records, CKI ledgers, mining contract snapshots, and database-backed admin settings only as of its stated capture time. It is a point-in-time backup, not live synchronization; create a fresh archive before any host cutover. For the full new-host procedure, see [`docs/host-migration-and-persistence.md`](../docs/host-migration-and-persistence.md).
+## Decrypt for cPanel import
 
-## Create later backups
+Keep the passphrase file outside GitHub and protect it. On a trusted private machine, decrypt and decompress the archive directly to a protected SQL file:
 
-Load the DB connection for the database backup, and reuse the separately stored key:
-
-```bash
-set -a
-. ./.env
-set +a
-scripts/backup-sandbox-db.sh backups/<snapshot>.sql.gz.gpg /path/to/secure-backup-key.txt
-scripts/backup-sandbox-runtime.sh .env backups/<runtime-env-snapshot>.env.gpg /path/to/secure-backup-key.txt
+```sh
+umask 077
+gpg --batch --pinentry-mode loopback --passphrase-file /path/to/secure-backup-key.txt \
+  --decrypt backups/sandbox-db-20261015T055439Z.sql.gz.gpg \
+  | gzip -dc > /path/to/private/arbitrade_snapshot.sql
+chmod 600 /path/to/private/arbitrade_snapshot.sql
 ```
 
-The database script streams the dump through gzip and GPG, avoiding a plaintext SQL dump on disk. The runtime script verifies the encrypted copy against the source without printing the file contents.
+The plain SQL dump contains the snapshot's captured data. Do not commit or place it in a public web root. Import it only after confirming the destination database is empty. For a large dump, use the cPanel terminal if available:
 
-## Restore
+```sh
+mysql -h localhost -u CPANEL_DB_USER -p CPANEL_DB_NAME < /path/to/private/arbitrade_snapshot.sql
+```
 
-1. Obtain the encrypted file(s) and their matching passphrase file.
-2. To restore runtime configuration into a new Sandbox, decrypt to `.env` **only in the intended private environment**, then restrict permissions:
+The program prompts for the database user's password; do not put the password in shell history. If importing through phpMyAdmin, its upload limit may be smaller than the uncompressed dump.
 
-   ```bash
-   gpg --batch --pinentry-mode loopback --passphrase-file /path/to/secure-backup-key.txt \
-     --decrypt --output .env backups/sandbox-runtime-env-20261013T200228Z.env.gpg
-   chmod 600 .env
-   ```
+## Runtime secrets and account continuity
 
-   Review and update any host-specific URLs or credentials before starting services.
-3. Validate the DB archive:
+The database dump does not contain `.env`. Configure `SESSION_SECRET`, `PASSWORD_PEPPER`, host URLs, and provider credentials separately in cPanel's private Node.js environment. Retain the original `SESSION_SECRET` when database-backed SMTP credentials or queued email payloads encrypted with it must remain readable. Do not commit runtime secrets, the decryption key, or a plaintext dump.
 
-   ```bash
-   gpg --batch --pinentry-mode loopback --passphrase-file /path/to/secure-backup-key.txt \
-     --decrypt backups/sandbox-db-20261015T055439Z.sql.gz.gpg | gzip -t
-   ```
-4. Restore the DB into the intended target using its connection settings. Review the destination first; importing into a non-empty database may replace objects or fail on existing tables:
+## Backup policy
 
-   ```bash
-   gpg --batch --pinentry-mode loopback --passphrase-file /path/to/secure-backup-key.txt \
-     --decrypt backups/sandbox-db-20261015T055439Z.sql.gz.gpg | gzip -dc | mariadb --defaults-extra-file=/path/to/target-client.cnf <target_database>
-   ```
-
-`target-client.cnf` must be protected (mode `0600`) and contain the target database connection. Never use the old Sandbox database URL when restoring into a different environment. `node_modules/` and `dist/` are excluded generated artifacts; they can be recreated from the committed manifests and source.
+Only the newest encrypted database snapshot is retained in the current repository tree. Historical encrypted snapshots and the encrypted runtime-environment archive were removed from the current tree by request; they may still exist in earlier Git commits and are not erased by removing their current file paths. Keep an independent, protected backup outside GitHub before any production cutover or data-changing migration. Test restores against an empty disposable database before relying on a backup.
