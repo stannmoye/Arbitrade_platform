@@ -14,6 +14,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:portal-migrate": "node scripts/apply-portal-migrations.mjs",
     "db:mining-rates": "node scripts/apply-mining-initial-reward-rates.mjs",
+    "db:mining-enable-rewards": "node scripts/enable-mining-reward-processing.mjs",
     "admin:create": "node installer/create-admin.mjs",
     "accounts:provision": "node installer/provision-accounts.mjs",
     "dev:static": "vite --host 0.0.0.0 --port ${PORT:-3000} --strictPort",
