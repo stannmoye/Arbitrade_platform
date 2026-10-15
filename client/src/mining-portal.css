@@ -306,3 +306,33 @@
 .cm-dashboard-frame .cm-video-controls .cm-fullscreen-control:hover{border-color:#35c9f5;background:#0a3151}
 .cm-dashboard-frame .cm-package-facts{line-height:1.35}
 @media(max-width:760px){.cm-dashboard-frame .cm-video-controls{right:8px;bottom:8px;gap:4px;padding:4px}.cm-dashboard-frame .cm-engine-hash-readouts{gap:4px}.cm-dashboard-frame .cm-engine-hash-stat{min-width:82px;padding:5px 6px}.cm-dashboard-frame .cm-engine-hash-stat>span{font-size:6px;letter-spacing:.055em}.cm-dashboard-frame .cm-engine-hash-stat>strong{font-size:10px}}
+
+/* One-click package purchase disclosure and terms. */
+.cm-dashboard-frame .cm-purchase-disclosure {
+  max-width: 760px;
+  margin: 6px 0 0;
+  color: #a8cfdd;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.cm-dashboard-frame .cm-package-terms {
+  margin: 0 0 10px;
+  padding: 7px 9px;
+  border: 1px solid rgba(73, 152, 181, .28);
+  border-radius: 8px;
+  background: rgba(7, 31, 51, .5);
+  color: #a8cfdd;
+  font-size: 10px;
+}
+.cm-dashboard-frame .cm-package-terms summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.cm-dashboard-frame .cm-package-terms p {
+  max-height: 120px;
+  overflow: auto;
+  margin: 7px 0 0;
+  color: #c2d8e0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}

@@ -6,6 +6,8 @@ type MiningOperationsFlowProps = {
   activePackageName: string;
   hashPowerThs: number;
   walletCki: number;
+  engineActivityIntervals: number;
+  engineActivitySeconds: number;
   latestRewardReference?: string;
   latestRewardCreatedAt?: string;
 };
@@ -27,6 +29,8 @@ export function MiningOperationsFlow({
   activePackageName,
   hashPowerThs,
   walletCki,
+  engineActivityIntervals,
+  engineActivitySeconds,
   latestRewardReference,
   latestRewardCreatedAt,
 }: MiningOperationsFlowProps) {
@@ -102,7 +106,7 @@ export function MiningOperationsFlow({
     </div>
 
     <footer className="cm-flow-footer">
-      <span><b>Latest database reward</b> {latestRewardReference ? <code>{latestRewardReference}</code> : "No reward receipt has been posted"}{latestRewardCreatedAt ? ` · ${new Date(latestRewardCreatedAt).toLocaleString()}` : ""}</span>
+        <span><b>Mining activity stored today</b> {engineActivityIntervals} intervals · {fmt(engineActivitySeconds, 3)} eligible seconds · <b>Latest database reward</b> {latestRewardReference ? <code>{latestRewardReference}</code> : "No reward receipt has been posted"}{latestRewardCreatedAt ? ` · ${new Date(latestRewardCreatedAt).toLocaleString()}` : ""}</span>
       <span className="cm-flow-projector-note">CKI wallet: {fmt(walletCki)} CKI · no demo amount or projected balance</span>
     </footer>
   </section>;
