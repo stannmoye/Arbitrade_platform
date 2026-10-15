@@ -476,13 +476,7 @@ export async function activateCustomerMiningBoost(userId: number, input: { idemp
       VALUES (?,?,?,?,?,?,?,?,?,'active',?)`, [userId, now, now, cooldownEndsAt, now, endsAt, String(candidate.boostBonusThsSnapshot), Number(candidate.packageVersionId), Number(candidate.purchaseId), key]);
     const activationId = Number(result.insertId);
     const clickBonus = decimal(config.boostActivationBonusCki);
-    if (clickBonus.gt(0)) {
-      const bonusTx = await createMiningLedgerTransaction(conn, { userId, actorUserId: null, transactionType: "boost_activation_bonus", idempotencyKey: requestKey("mining-boost-bonus", userId, input.idempotencyKey), reason: "Configured CKI boost activation bonus", metadata: { activationId, amountCki: clickBonus.toFixed(tokenScale), economicsVersion: config.version } });
-      await postMiningLedgerEntries(conn, bonusTx, [
-        { userId, asset: "CKI", amount: clickBonus, entryType: "boost_activation_bonus_credit" },
-        { userId: 0, asset: "CKI", amount: clickBonus.negated(), entryType: "boost_activation_bonus_issuance" },
-      ]);
-    }
+    if (clickBonus.gt(0)) await conn.execute(`INSERT INTO mining_pending_boost_rewards (userId,rewardEventId,rewardDay,amountCki,status) VALUES (?,NULL,DATE(?),?,'pending')`, [userId, now, clickBonus.toFixed(tokenScale)]);
     const response = { activationId, status: "active", bonusThs: String(candidate.boostBonusThsSnapshot), boostActivationBonusCki: clickBonus.toFixed(tokenScale), startedAt: now.toISOString(), endsAt: endsAt.toISOString(), cycleExpiresAt: cooldownEndsAt.toISOString(), nextEligibleAt: cooldownEndsAt.toISOString(), packageVersionId: Number(candidate.packageVersionId), policy: `The boost runs for ${durationSeconds} seconds; the four-hour customer cooldown starts at activation.` };
     await finishMiningIdempotency(conn, key, response);
     await createMiningNotification(conn, userId, "Mining boost activated", `A ${candidate.boostBonusThsSnapshot} TH/s package boost is active until ${endsAt.toISOString()}. Next availability: ${cooldownEndsAt.toISOString()}.`);
@@ -505,7 +499,7 @@ export async function getCustomerMiningDashboard(userId: number) {
       const balance = await readWallet(conn, userId, asset);
       balances[asset] = amountString(decimal(balance.available), asset);
     }
-    const [earnedRows] = await conn.query<any[]>(`SELECT COALESCE(SUM(tokenAmount),0) todayTokens FROM mining_reward_events WHERE userId=? AND intervalStart>=UTC_DATE()`, [userId]);
+    const [earnedRows] = await conn.query<any[]>(`SELECT COALESCE((SELECT SUM(tokenAmount) FROM mining_reward_events WHERE userId=? AND intervalStart>=UTC_DATE()),0)+COALESCE((SELECT SUM(amountCki) FROM mining_pending_boost_rewards WHERE userId=? AND rewardDay=UTC_DATE()),0) todayTokens`, [userId,userId]);
     const [accountRows] = await conn.query<any[]>(`SELECT accountStatus FROM customer_controls WHERE userId=? LIMIT 1`, [userId]);
     const accountStatus = accountRows[0]?.accountStatus || "active";
     const intervalStart = new Date(Math.floor(now.getTime() / 60_000) * 60_000);
@@ -760,10 +754,11 @@ async function calculateInterval(conn: Db, userId: number, start: Date, end: Dat
       const daily=row.expectedDailyRewardCkiSnapshot===null?null:String(row.expectedDailyRewardCkiSnapshot);
       const calculationModelSnapshot=String(row.calculationModelSnapshot||"legacy_boost_daily");
       const applyBoostMultiplier=calculationModelSnapshot==="legacy_boost_daily";
-      const amount=decimal(calculatePackageDailyReward([{expectedDailyRewardCki:daily,baseThs:packageBase.toString(),boostThs:packageBoost.toString(),eligibleSeconds:seconds,applyBoostMultiplier,boostRewardCkiPerDay:packageBoost.gt(0)?config.boostRewardCkiPerDay:"0"}]));
+      const ownsActiveBoost=Boolean(activeBoost) && Number(activeBoost.customerPackageId) === Number(row.id);
+      const amount=decimal(calculatePackageDailyReward([{expectedDailyRewardCki:daily,baseThs:packageBase.toString(),boostThs:packageBoost.toString(),eligibleSeconds:seconds,applyBoostMultiplier,boostRewardCkiPerDay:ownsActiveBoost?config.boostRewardCkiPerDay:"0"}]));
       const baseOnlyAmount=decimal(calculatePackageDailyReward([{expectedDailyRewardCki:daily,baseThs:packageBase.toString(),boostThs:"0",eligibleSeconds:seconds,applyBoostMultiplier:false,boostRewardCkiPerDay:"0"}]));
       const boostAmount=Decimal.max(amount.minus(baseOnlyAmount),new Decimal(0));
-      const effectiveDaily=(daily===null?new Decimal(0):decimal(daily).times(applyBoostMultiplier?packageBase.plus(packageBoost).div(packageBase):1)).plus(packageBoost.gt(0)?decimal(config.boostRewardCkiPerDay):0);
+      const effectiveDaily=(daily===null?new Decimal(0):decimal(daily).times(applyBoostMultiplier?packageBase.plus(packageBoost).div(packageBase):1)).plus(ownsActiveBoost?decimal(config.boostRewardCkiPerDay):0);
       return {purchaseId:Number(row.id),packageId:Number(row.packageId),packageVersionId:Number(row.packageVersionId),packageVersion:Number(row.version),packageCode:String(row.code),packageName:String(row.packageNameSnapshot||row.code),priceAmount:String(row.priceAmount),priceAsset:String(row.priceAsset),durationMonthsSnapshot:row.durationMonthsSnapshot===null?null:Number(row.durationMonthsSnapshot),baseThs:packageBase.toString(),expectedDailyRewardCkiSnapshot:daily,calculationModelSnapshot,ckiPerThsPerDaySnapshot:row.ckiPerThsPerDaySnapshot===null?null:String(row.ckiPerThsPerDaySnapshot),boostThs:packageBoost.toString(),boostRewardCki:boostAmount.toString(),eligibleSeconds:seconds,estimatedRewardCki:amount.toString(),effectiveDailyRewardCki:effectiveDaily.toString()};
     });
     const segmentTokens=packageRewards.reduce((sum,row)=>sum.plus(decimal(row.estimatedRewardCki)),new Decimal(0));
@@ -949,11 +944,11 @@ async function settleDuePendingBoostRewards(conn: Db) {
         continue;
       }
       const reference = `mining-boost-settlement:${row.id}`;
-      const minor = walletMinor(amount, assetScale("CKI"));
-      const [balances] = await conn.query<any[]>(`SELECT id FROM customer_balances WHERE userId=? AND currency='CKI' ORDER BY id LIMIT 1 FOR UPDATE`, [userId]);
-      if (balances[0]) await conn.execute(`UPDATE customer_balances SET availableMinor=availableMinor+?,earnedMinor=earnedMinor+?,updatedAt=UTC_TIMESTAMP(3) WHERE id=?`, [minor, minor, Number(balances[0].id)]);
-      else await conn.execute(`INSERT INTO customer_balances (userId,currency,availableMinor,lockedMinor,promotionalMinor,earnedMinor,updatedAt) VALUES (?, 'CKI', ?, 0, 0, ?, UTC_TIMESTAMP(3))`, [userId, minor, minor]);
-      await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable,createdAt) VALUES (?, 'CKI', ?, 'mining_boost_daily_settlement', ?, 0, UTC_TIMESTAMP(3))`, [userId, minor, reference]);
+      const settlementTx = await createMiningLedgerTransaction(conn, { userId, actorUserId: null, transactionType: "boost_daily_settlement", idempotencyKey: reference, reason: "Move prior-day boost CKI into the main CKI wallet", metadata: { pendingRewardId: Number(row.id), amountCki: amount.toFixed(tokenScale), rewardDay: row.rewardDay } });
+      await postMiningLedgerEntries(conn, settlementTx, [
+        { userId, asset: "CKI", amount, entryType: "mining_boost_daily_settlement" },
+        { userId: 0, asset: "CKI", amount: amount.negated(), entryType: "mining_boost_daily_issuance" },
+      ]);
       await conn.execute(`UPDATE mining_pending_boost_rewards SET status='settled',settledAt=UTC_TIMESTAMP(3),settlementReference=? WHERE id=? AND status='pending'`, [reference, Number(row.id)]);
       settled++;
     }

@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS mining_pending_boost_rewards (
   id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   userId INT NOT NULL,
-  rewardEventId INT NOT NULL,
+  rewardEventId INT NULL,
   rewardDay DATE NOT NULL,
   amountCki DECIMAL(36,18) NOT NULL,
   status VARCHAR(24) NOT NULL DEFAULT 'pending',

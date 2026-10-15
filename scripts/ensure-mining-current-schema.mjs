@@ -125,6 +125,7 @@ try {
     UNIQUE KEY uq_pending_boost_settlement_reference (settlementReference),
     INDEX idx_pending_boost_day_status (rewardDay,status,userId)
   ) ENGINE=InnoDB`);
+  await db.query(`ALTER TABLE mining_pending_boost_rewards MODIFY COLUMN rewardEventId INT NULL`);
 
   await db.query(`UPDATE mining_package_versions SET displayName=(SELECT name FROM mining_packages p WHERE p.id=mining_package_versions.packageId) WHERE displayName IS NULL`);
   await db.query(`UPDATE mining_customer_packages cp JOIN mining_packages p ON p.id=cp.packageId JOIN mining_package_versions v ON v.id=cp.packageVersionId SET cp.packageNameSnapshot=COALESCE(v.displayName,p.name) WHERE cp.packageNameSnapshot IS NULL`);
