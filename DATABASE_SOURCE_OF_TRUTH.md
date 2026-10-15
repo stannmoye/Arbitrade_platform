@@ -15,6 +15,8 @@ All database-backed application state belongs in that file: users, accounts, wal
 
    Then read and use the repository-root `database.sql` when preparing the host or sandbox.
 2. Do not create a second active database dump, dated restore point, or alternate database file.
+> The historical command name `db:backup:github` is retained for compatibility, but this workflow does not create a backup or snapshot: it overwrites the one canonical root `database.sql`, commits it, and pushes that same file to GitHub.
+
 3. Before moving hosts or finishing database changes, run:
 
    ```bash
