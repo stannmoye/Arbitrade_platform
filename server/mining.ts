@@ -224,7 +224,7 @@ export async function listCustomerMiningPackages(userId: number) {
       return {
         packageId: Number(row.packageId), code: row.code, name: row.displayName || row.name, displayOrder:Number(row.displayOrder), status: row.packageStatus,
         alreadyPurchased,
-        tokenName: config.tokenName, tokenSymbol: config.tokenSymbol,
+        tokenName: config.tokenName, tokenSymbol: config.tokenSymbol, globalHashPowerThs: config.globalHashPowerThs,
         usdPerToken: decimal(1).div(config.tokenUnitsPerUsd).toSignificantDigits(18).toString(),
         versionId: Number(row.versionId), version: Number(row.version), priceAmount: String(row.priceAmount), priceAsset: assertMiningAsset(String(row.priceAsset)),
         baseThs: String(row.baseThs), boostBonusThs: String(row.boostBonusThs),
@@ -553,7 +553,7 @@ export async function getCustomerMiningDashboard(userId: number) {
       engineActivity: { intervalCount: Number(activityRows[0]?.intervalCount || 0), eligibleSeconds: String(activityRows[0]?.eligibleSeconds || "0"), lastRecordedAt: activityRows[0]?.lastRecordedAt ? new Date(activityRows[0].lastRecordedAt).toISOString() : null },
       baseThs: baseThs.toString(), boostThs: boostThs.toString(), activeThs: baseThs.plus(boostThs).toString(),
       calculationModel: config.calculationModel,
-      tokenName: config.tokenName, tokenSymbol: config.tokenSymbol,
+      tokenName: config.tokenName, tokenSymbol: config.tokenSymbol, globalHashPowerThs: config.globalHashPowerThs,
       usdPerToken: decimal(1).div(config.tokenUnitsPerUsd).toSignificantDigits(18).toString(),
       tokenBalance: balances.CKI, balances, todayTokens: String(earnedRows[0]?.todayTokens || "0"),
       minSwapTokens: config.minSwapTokens, maxSwapTokens: config.maxSwapTokens,
@@ -608,7 +608,7 @@ export async function createCustomerMiningSwapQuote(userId: number, input: { tok
       targetScale, feeBps: config.swapFeeBps, quoteTtlSeconds: config.quoteTtlSeconds, configVersion: config.version,
       details: { grossAmount: converted.grossAmount, netAmount: converted.netAmount, feeAsset: targetAsset, rounding: "down" },
     });
-    return { ...quote, sourceAsset: "CKI", tokenName: config.tokenName, tokenSymbol: config.tokenSymbol, usdPerToken: decimal(1).div(config.tokenUnitsPerUsd).toSignificantDigits(18).toString(), sourceAmount: amountString(tokenAmount, "CKI"), targetAsset, grossAmount: converted.grossAmount, fee: converted.feeAmount, feeAsset: targetAsset, destinationAmount: converted.netAmount, provider: rates.marketProvider, marketObservedAt: rates.marketObservedAt.toISOString(), expiresAt: quote.validUntil.toISOString(), rate: converted.rate, roundingMode: "down", configVersion: config.version, disclaimer: "Indicative conversion quote. On confirmation, the net converted amount is credited to the selected main-wallet balance; external payouts remain manual." };
+    return { ...quote, sourceAsset: "CKI", tokenName: config.tokenName, tokenSymbol: config.tokenSymbol, globalHashPowerThs: config.globalHashPowerThs, usdPerToken: decimal(1).div(config.tokenUnitsPerUsd).toSignificantDigits(18).toString(), sourceAmount: amountString(tokenAmount, "CKI"), targetAsset, grossAmount: converted.grossAmount, fee: converted.feeAmount, feeAsset: targetAsset, destinationAmount: converted.netAmount, provider: rates.marketProvider, marketObservedAt: rates.marketObservedAt.toISOString(), expiresAt: quote.validUntil.toISOString(), rate: converted.rate, roundingMode: "down", configVersion: config.version, disclaimer: "Indicative conversion quote. On confirmation, the net converted amount is credited to the selected main-wallet balance; external payouts remain manual." };
   }));
 }
 

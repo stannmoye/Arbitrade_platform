@@ -39,6 +39,8 @@ try {
   await addColumn("mining_economics_versions", "packagePurchasesEnabled", "TINYINT(1) NOT NULL DEFAULT 0");
   await addColumn("mining_economics_versions", "boostRewardCkiPerDay", "DECIMAL(36,18) NOT NULL DEFAULT 0");
   await addColumn("mining_economics_versions", "boostActivationBonusCki", "DECIMAL(36,18) NOT NULL DEFAULT 0");
+  await addColumn("mining_economics_versions", "globalHashPowerThs", "DECIMAL(30,12) NOT NULL DEFAULT 0");
+  await db.query(`UPDATE mining_economics_versions SET globalHashPowerThs=67 WHERE globalHashPowerThs=0`);
 
   await addColumn("mining_packages", "displayOrder", "INT NOT NULL DEFAULT 0");
   await addColumn("mining_package_versions", "displayName", "VARCHAR(120) NULL");

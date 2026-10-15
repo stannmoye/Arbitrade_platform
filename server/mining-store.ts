@@ -13,7 +13,7 @@ export type MiningConfig = {
   minSwapTokens: string; maxSwapTokens: string; defaultAutoConversionThreshold: string;
   boostCycleSeconds: number; boostDurationSeconds: number; boostRewardCkiPerDay: string; boostActivationBonusCki: string; quoteTtlSeconds: number;
   fiatMaxAgeSeconds: number; cryptoMaxAgeSeconds: number; maxRateDeviationBps: number;
-  dailyRewardCapTokens: string; dualApprovalThresholdUsd: string;
+  dailyRewardCapTokens: string; dualApprovalThresholdUsd: string; globalHashPowerThs: string;
 };
 
 export type AssetRate = { asset: string; usdPerUnit: Decimal; scale: number; provider: string; observedAt: Date };
@@ -105,7 +105,7 @@ export async function loadMiningConfig(conn: Db, at: Date = new Date()): Promise
     boostCycleSeconds: Number(row.boostCycleSeconds), boostDurationSeconds: Number(row.boostDurationSeconds), boostRewardCkiPerDay: String(row.boostRewardCkiPerDay ?? "0"), boostActivationBonusCki: String(row.boostActivationBonusCki ?? "0"),
     quoteTtlSeconds: Number(row.quoteTtlSeconds), fiatMaxAgeSeconds: Number(row.fiatMaxAgeSeconds),
     cryptoMaxAgeSeconds: Number(row.cryptoMaxAgeSeconds), maxRateDeviationBps: Number(row.maxRateDeviationBps),
-    dailyRewardCapTokens: String(row.dailyRewardCapTokens), dualApprovalThresholdUsd: String(row.dualApprovalThresholdUsd),
+    dailyRewardCapTokens: String(row.dailyRewardCapTokens), dualApprovalThresholdUsd: String(row.dualApprovalThresholdUsd), globalHashPowerThs: String(row.globalHashPowerThs ?? "0"),
   };
 }
 

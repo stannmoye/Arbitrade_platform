@@ -155,14 +155,8 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     ? Math.max(0, Math.min(100, Math.round((now - cycleStart) / (nextBoostTime - cycleStart) * 100))) : 0;
   const activeBase = Number(data?.baseThs || 0);
   const activeHashPower = activeBase + (Number(boost?.activeBoost?.bonusThs) || 0);
-  const availablePackageHashPower = packageRows
-    .filter((item: any) => item.purchaseAvailable === true)
-    .reduce((total: number, item: any) => {
-      const baseThs = Number(item.baseThs);
-      return total + (Number.isFinite(baseThs) && baseThs > 0 ? baseThs : 0);
-    }, 0);
+  const globalHashPowerDisplay = dashboard.isLoading || dashboard.isError ? "—" : fmt(data?.globalHashPowerThs, 3);
   const currentHashRateDisplay = dashboard.isLoading || dashboard.isError ? "—" : fmt(activeHashPower, 3);
-  const availableHashRateDisplay = packages.isLoading || packages.isError ? "—" : fmt(availablePackageHashPower, 3);
   const hasActiveHashPowerPackage = active.some((item: any) => item.status === "active");
   const activeBoostCapacity = active.reduce((sum: number, item: any) => sum + (Number.isFinite(Number(item.boostBonusThs)) ? Number(item.boostBonusThs) : 0), 0);
   const activePackageNames = active.length ? active.slice(0, 3).map((item: any) => item.packageName).join(" · ") + (active.length > 3 ? ` · +${active.length - 3} more` : "") : "No active package entitlement";
@@ -230,14 +224,14 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
             <MiningCoreCanvas running={engineIsRunning && hasActiveHashPowerPackage} playing={true} boosted={Boolean(boost?.activeBoost)} hashPowerThs={activeHashPower} rewardPulseKey={Number(data?.todayTokens || 0)}/>
           </div>
           <div className="cm-factory-shade"/>
-          <div className="cm-factory-label"><span><Cpu size={16}/> MINING ENGINE</span><b className={hasActiveHashPowerPackage?"online":"offline"}><i/>{hasActiveHashPowerPackage?"HASH-POWER PACKAGE ACTIVE":"NO ACTIVE HASH-POWER PACKAGE"}</b></div>
+          <div className="cm-factory-label"><span><Cpu size={16}/> MINING ENGINE</span><b className={hasActiveHashPowerPackage?"online":"offline"}><i aria-hidden="true"/>{hasActiveHashPowerPackage?"MINING STATUS ACTIVE":"MINING STATUS INACTIVE"}</b></div>
           <div className="cm-video-controls" role="group" aria-label="Mining engine hash-rate readouts and fullscreen control">
             <div className="cm-engine-hash-readouts">
               <div className="cm-engine-hash-stat" title="Signed-in account's current hash rate, including any active boost.">
                 <span>CURRENT HASH RATE</span><strong>{currentHashRateDisplay} <small>TH/s</small></strong>
               </div>
-              <div className="cm-engine-hash-stat" title="Aggregate base hash rate across packages currently purchasable in the saved catalog; this is not physical hashing capacity.">
-                <span>AVAILABLE HASH RATE</span><strong>{availableHashRateDisplay} <small>TH/s</small></strong>
+              <div className="cm-engine-hash-stat" title="Global Hash Power configured by operations and shown consistently to every customer.">
+                <span>GLOBAL HASH POWER</span><strong>{globalHashPowerDisplay} <small>TH/s</small></strong>
               </div>
             </div>
             <button type="button" className="cm-fullscreen-control" onClick={toggleFullscreen} aria-label="Toggle mining engine fullscreen" title="Toggle mining engine fullscreen">⛶</button>
