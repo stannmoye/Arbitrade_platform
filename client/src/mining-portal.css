@@ -340,3 +340,15 @@
 .cm-dashboard-frame .cm-factory-label>b.online i{animation:cmAggressiveLive 560ms steps(2,end) infinite;box-shadow:0 0 5px #42edb8,0 0 15px #42edb8,0 0 27px #42edb8}
 @keyframes cmAggressiveLive{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.2;transform:scale(.72)} }
 .cm-dashboard-frame .cm-factory-label>b.offline i{animation:none;box-shadow:none}
+
+/* Boost timing tube: active time drains; cooldown refills toward ready. */
+.cm-dashboard-frame .cm-boost-card.is-active .cm-boost-readout strong{color:#62f7d0;text-shadow:0 0 12px #16e6bc}
+.cm-dashboard-frame .cm-boost-card.is-cooldown .cm-boost-readout strong{color:#62c9ff;text-shadow:0 0 12px #168fff}
+.cm-dashboard-frame .cm-boost-card.is-ready .cm-boost-readout strong{color:#8dffcf;text-shadow:0 0 12px #27f0aa}
+.cm-dashboard-frame .cm-boost-card.is-active .cm-boost-charge i{background:linear-gradient(90deg,#08a7ff,#35e5ff,#8df7ff);background-size:180% 100%;animation:cmBoostTubeActive 1.15s linear infinite}
+.cm-dashboard-frame .cm-boost-card.is-cooldown .cm-boost-charge i{background:linear-gradient(90deg,#087eff,#13cfff,#8df7ff);background-size:180% 100%;animation:cmBoostTubeCooldown 1.8s linear infinite}
+.cm-dashboard-frame .cm-boost-card.is-ready .cm-boost-charge i{background:linear-gradient(90deg,#00b8ff,#42f2c0);box-shadow:0 0 14px #25e8c0}
+.cm-dashboard-frame .cm-boost-card.is-active .cm-boost-charge{border-color:#20d8ff;box-shadow:0 0 12px #08baff66}
+.cm-dashboard-frame .cm-boost-card.is-cooldown .cm-boost-charge{border-color:#168fff;box-shadow:0 0 10px #087eff55}
+@keyframes cmBoostTubeActive{to{background-position:-180% 0}}
+@keyframes cmBoostTubeCooldown{to{background-position:180% 0}}

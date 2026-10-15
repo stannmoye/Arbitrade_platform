@@ -125,9 +125,11 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const configuredUsdReference = Number(data?.usdPerToken || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const swapExpired = swapQuote ? new Date(swapQuote.expiresAt).getTime() <= now : false;
   const activeBoostEnds = boost?.activeBoost?.endsAt ? new Date(boost.activeBoost.endsAt).getTime() : null;
-  const cycleTarget = boost?.nextEligibleAt ? new Date(boost.nextEligibleAt).getTime() : null;
-  const cycleIsActionable = Boolean(boost?.ready || boost?.activeBoost || boost?.reason?.toLowerCase().includes("cool"));
-  const countdownTarget = activeBoostEnds || (cycleIsActionable && cycleTarget && cycleTarget > now ? cycleTarget : null);
+  const cycleStart = boost?.cycleStart ? new Date(boost.cycleStart).getTime() : null;
+  const nextBoostTime = boost?.nextEligibleAt ? new Date(boost.nextEligibleAt).getTime() : null;
+  const isBoostActive = Boolean(boost?.activeBoost && activeBoostEnds && activeBoostEnds > now);
+  const isCoolingDown = Boolean(!boost?.ready && !isBoostActive && cycleStart && nextBoostTime && nextBoostTime > now);
+  const countdownTarget = activeBoostEnds || (isCoolingDown ? nextBoostTime : null);
   useEffect(() => {
     const shouldPlay = Boolean(boost?.activeBoost);
     if (shouldPlay) {
@@ -145,14 +147,15 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     };
   }, [boost?.activeBoost?.startedAt, boost?.activeBoost?.endsAt]);
 
-  const boostCountdown = activeBoostEnds || countdownTarget
+  const boostCountdown = countdownTarget
     ? durationText(Math.max(0, Math.ceil(((activeBoostEnds || countdownTarget)! - now) / 1000)))
     : boost?.ready ? "READY NOW" : "—";
-  const boostStatusLabel = boost?.activeBoost ? "BOOST ENDS IN" : boost?.ready ? "BOOST READY" : cycleIsActionable ? "BOOST READY IN" : "BOOST UNAVAILABLE";
-  const cycleStart = boost?.cycleStart ? new Date(boost.cycleStart).getTime() : null;
-  const nextBoostTime = boost?.nextEligibleAt ? new Date(boost.nextEligibleAt).getTime() : null;
-  const boostCycleCharge = boost?.ready || boost?.activeBoost ? 100 : cycleIsActionable && cycleStart && nextBoostTime && nextBoostTime > cycleStart
-    ? Math.max(0, Math.min(100, Math.round((now - cycleStart) / (nextBoostTime - cycleStart) * 100))) : 0;
+  const boostStatusLabel = isBoostActive ? "BOOST ACTIVE · ENDS IN" : boost?.ready ? "BOOST READY" : isCoolingDown ? "BOOST READY IN" : "BOOST UNAVAILABLE";
+  const boostCycleCharge = isBoostActive && boost?.activeBoost?.startedAt && activeBoostEnds
+    ? Math.max(0, Math.min(100, Math.round((activeBoostEnds - now) / (activeBoostEnds - new Date(boost.activeBoost.startedAt).getTime()) * 100)))
+    : boost?.ready ? 100 : isCoolingDown && cycleStart && nextBoostTime
+      ? Math.max(0, Math.min(100, Math.round((now - cycleStart) / (nextBoostTime - cycleStart) * 100))) : 0;
+  const boostPhase = isBoostActive ? "active" : isCoolingDown ? "cooldown" : boost?.ready ? "ready" : "unavailable";
   const activeBase = Number(data?.baseThs || 0);
   const activeHashPower = activeBase + (Number(boost?.activeBoost?.bonusThs) || 0);
   const globalHashPowerDisplay = dashboard.isLoading || dashboard.isError ? "—" : fmt(data?.globalHashPowerThs, 3);
@@ -251,9 +254,9 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
               <div className="cm-mining-vault" aria-hidden="true"><span className="cm-vault-frame"/><span className="cm-vault-beam"/><span className="cm-vault-spark spark-a"/><span className="cm-vault-spark spark-b"/><span className="cm-vault-spark spark-c"/><div className="cm-vault-coin">₵</div><span className="cm-vault-platform"/><span className="cm-vault-orbit"/></div>
             </div>
           </article>
-          <article className={`cm-glass cm-boost-card ${boost?.ready?"is-ready":"is-locked"}`}>
+          <article className={`cm-glass cm-boost-card is-${boostPhase}`}>
             <div className="cm-boost-machine" role="img" aria-label="Package hash-power boost engine"><span className="cm-engine-aura"/><span className="cm-engine-pipe cm-engine-pipe-left"/><span className="cm-engine-pipe cm-engine-pipe-right"/><div className="cm-engine-shell"><span className="cm-engine-topcap"/><span className="cm-engine-front-glass"/><span className="cm-engine-rotor"><i/><i/><b/></span><span className="cm-engine-vents"/><span className="cm-engine-mark"/><span className="cm-engine-leds"><i/><i/><i/></span><span className="cm-engine-base"/></div></div>
-            <div className="cm-boost-copy"><div className="cm-boost-topline"><b>HASH POWER ENGINE</b><span className="cm-boost-readout"><small>{boostStatusLabel}</small><strong>{boostCountdown}</strong></span></div><div className="cm-boost-bottomline"><small className="cm-boost-reward-note">+{fmt(boost?.boostRewardCkiPerDay, 6)} CKI / 24h while active</small><span className="cm-boost-charge" role="progressbar" aria-label="Boost charge" aria-valuenow={boostCycleCharge} aria-valuemin={0} aria-valuemax={100} title={boost?.reason || "2-minute activation with a customer-specific 4-hour cooldown."}><i style={{width:`${boostCycleCharge}%`}}/></span></div></div>
+            <div className="cm-boost-copy"><div className="cm-boost-topline"><b>HASH POWER ENGINE</b><span className="cm-boost-readout"><small>{boostStatusLabel}</small><strong>{boostCountdown}</strong></span></div><div className="cm-boost-bottomline"><small className="cm-boost-reward-note">+{fmt(boost?.boostRewardCkiPerDay, 6)} CKI / 24h while active</small><span className="cm-boost-charge" role="progressbar" aria-label={isBoostActive ? "Boost active time remaining" : isCoolingDown ? "Boost cooldown progress" : "Boost readiness"} aria-valuenow={boostCycleCharge} aria-valuemin={0} aria-valuemax={100} title={boost?.reason || (isBoostActive ? "The blue tube empties while the boost is active." : isCoolingDown ? "The blue tube refills until the boost is ready again." : "Boost is ready to activate.")}><i style={{width:`${boostCycleCharge}%`}}/></span></div></div>
             <button type="button" className="cm-glow-button" title={boost?.reason || "Activate Hash Power Boost"} aria-label="Activate Hash Power Boost" disabled={boostMutation.isPending || !boost?.ready} onClick={activateBoost}><ArrowDownUp size={15}/>{boostMutation.isPending?"Activating…":"Activate Boost"}</button>
           </article>
         </div>
