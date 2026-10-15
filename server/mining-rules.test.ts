@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import Decimal from "decimal.js";
-import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
+import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, calculatePackageDailyRate, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
 
 describe("mining reward rules", () => {
   it("uses the configured tokens per TH/s-hour formula with decimal precision", () => {
@@ -56,11 +56,35 @@ describe("package daily reward model", () => {
     expect(calculatePackageDailyReward([{ expectedDailyRewardCki: "2", baseThs: "1", boostThs: "0", eligibleSeconds: 21_600 }])).toBe("0.500000000000000000");
   });
 
-  it("sums purchased packages and proportionally attributes a boost", () => {
+  it("calculates a single eligible second with high-precision decimal arithmetic", () => {
+    expect(calculatePackageDailyReward([{ expectedDailyRewardCki:"4.00",baseThs:"1",boostThs:"0",eligibleSeconds:1 }]))
+      .toBe("0.000046296296296296");
+  });
+
+  it("sums package rewards while a temporary hash boost does not multiply a fixed package rate", () => {
     expect(calculatePackageDailyReward([
       { expectedDailyRewardCki: "2", baseThs: "1", boostThs: "0.5", eligibleSeconds: 60 },
       { expectedDailyRewardCki: "3", baseThs: "3", boostThs: "0", eligibleSeconds: 60 },
-    ])).toBe("0.004166666666666666");
+    ])).toBe("0.003472222222222222");
+  });
+
+  it("preserves the pre-existing boost multiplier only for contracts explicitly marked legacy", () => {
+    expect(calculatePackageDailyReward([{expectedDailyRewardCki:"2",baseThs:"1",boostThs:"0.5",eligibleSeconds:60,applyBoostMultiplier:true}]))
+      .toBe("0.002083333333333333");
+    expect(calculatePackageDailyReward([{expectedDailyRewardCki:"2",baseThs:"1",boostThs:"0.5",eligibleSeconds:60}]))
+      .toBe("0.001388888888888888");
+  });
+
+  it("uses either fixed package reward or TH/s production, never their sum", () => {
+    expect(calculatePackageDailyRate({calculationModel:"package_daily",expectedDailyRewardCki:"0.70",baseThs:"7",ckiPerThsPerDay:"0.5"}))
+      .toBe("0.700000000000000000");
+    expect(calculatePackageDailyRate({calculationModel:"hashrate_daily",expectedDailyRewardCki:"0.70",baseThs:"7",ckiPerThsPerDay:"0.5"}))
+      .toBe("3.500000000000000000");
+  });
+
+  it("rejects a zero or unsupported TH/s-derived production rate", () => {
+    expect(() => calculatePackageDailyRate({calculationModel:"hashrate_daily",expectedDailyRewardCki:null,baseThs:"7",ckiPerThsPerDay:"0"})).toThrow(/CKI production/);
+    expect(() => calculatePackageDailyRate({calculationModel:"other" as any,expectedDailyRewardCki:"1",baseThs:"1",ckiPerThsPerDay:"1"})).toThrow(/Unsupported/);
   });
 
   it("does not invent rewards for a package with no configured daily estimate", () => {

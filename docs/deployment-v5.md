@@ -16,7 +16,7 @@ Required environment variables are documented in `.env.example`. `DATABASE_URL`,
 
 1. Create a dedicated database and least-privilege application user.
 2. Back up the database before applying migrations.
-3. Back up the target database, run the base migrations with `pnpm db:migrate`, then apply portal migrations with `pnpm db:portal-migrate` and Mining migrations with `node scripts/apply-mining-migrations.mjs`. Apply the initial versioned CKI package rates using `NODE_ENV=production pnpm db:mining-rates -- --confirm-host-migration --confirm-production` after reviewing the target.
+3. Set `DATABASE_URL` to the existing application database (the mining wallet, ledger, contracts, and settings use this same MySQL/MariaDB database; no second database is created). Run base migrations with `pnpm db:migrate`, portal migrations with `pnpm db:portal-migrate`, then the Mining forward migrations with `NODE_ENV=production node scripts/apply-mining-migrations.mjs --confirm-host-migration --confirm-production`. After privately verifying the target, apply the initial versioned CKI package rates using `NODE_ENV=production pnpm db:mining-rates -- --confirm-host-migration --confirm-production`. The Mining runner includes migration 0045 for selectable reward methods and frozen contract snapshots; the separate 0044 rate migration publishes the requested defaults for future purchases only.
 4. Provision an administrator using `pnpm admin:create` with `ADMIN_EMAIL` and `ADMIN_PASSWORD` supplied only in the private server shell.
 5. Verify `/api/health`, customer registration, customer login, administrator login, and role-protected procedures.
 
@@ -42,8 +42,8 @@ The application is production-deployable, but real-money execution and verified 
 
 ## Mining simulation and earnings persistence
 
-- A successfully confirmed purchase creates an active entitlement at purchase time and snapshots that published package version's daily CKI rate. Administrators can edit rates and publish a new package version through the admin portal; that changes future purchases, not existing contract snapshots.
-- When the administrator enables reward processing, eligible package time is prorated using the snapshotted daily rate and the CKI/day ÷ 86,400-second formula. Non-zero rewards are transactionally recorded in the CKI wallet ledger, `mining_reward_events`, and package allocations, using idempotency keys and customer checkpoints. The periodic worker requires the application process to keep running.
+- A successfully confirmed purchase creates an active entitlement at purchase time and snapshots its method and derived daily CKI rate. Administrators can choose Method A (fixed CKI/day per package) or Method B (package base TH/s × CKI per TH/s/day), set an effective time, and edit package rates through the portal. These changes apply to future purchases; existing contract snapshots, balances, and ledger history are preserved. Effective times cannot be backdated.
+- When the administrator enables reward processing, eligible package time is prorated using `daily CKI rate × eligible seconds ÷ 86,400`. Non-zero rewards are transactionally recorded in the existing CKI wallet ledger, `mining_reward_events`, and package allocations, using idempotency keys and customer checkpoints. The periodic worker starts the entitlement automatically and requires the application process to keep running.
 - CKI package amounts are **internal simulated estimates**, not verified pool output, guaranteed returns, withdrawable balances, or cash payouts. The reward switch and all economics/package versions are persisted in MySQL/MariaDB; preserve that database (or restore a current backup) to keep admin edits across host changes.
 
 ## Host migration and persistence

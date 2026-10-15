@@ -12,7 +12,10 @@ export type MiningPackageRewardSegment = {
   baseThs: string | number;
   boostThs: string | number;
   eligibleSeconds: number;
+  applyBoostMultiplier?: boolean;
 };
+
+export type MiningCalculationModel = "package_daily" | "hashrate_daily";
 
 export type MiningConversion = {
   grossAmount: string;
@@ -23,6 +26,7 @@ export type MiningConversion = {
 
 const TOKEN_SCALE = 8;
 const PACKAGE_REWARD_SCALE = 18;
+const MiningDecimal = Decimal.clone({ precision: 60, rounding: Decimal.ROUND_DOWN });
 
 export function canStartMiningAccrual(input: { globalEnabled: boolean; expectedDailyRewardCki: string | number | null | undefined }) {
   if (!input.globalEnabled || input.expectedDailyRewardCki == null) return false;
@@ -36,6 +40,28 @@ function positiveDecimal(value: string | number, label: string, allowZero = fals
     throw new Error(`${label} must be ${allowZero ? "non-negative" : "greater than zero"}`);
   }
   return amount;
+}
+
+/** Derive the per-package daily CKI amount using exactly one admin-selected model. */
+export function calculatePackageDailyRate(input: {
+  calculationModel: MiningCalculationModel;
+  expectedDailyRewardCki: string | number | null | undefined;
+  baseThs: string | number;
+  ckiPerThsPerDay: string | number;
+}) {
+  if (input.calculationModel === "package_daily") {
+    const rate = input.expectedDailyRewardCki == null ? new MiningDecimal(0) : new MiningDecimal(input.expectedDailyRewardCki);
+    if (!rate.isFinite() || rate.isNegative()) throw new Error("Expected daily package reward must be non-negative");
+    return rate.toDecimalPlaces(PACKAGE_REWARD_SCALE, MiningDecimal.ROUND_DOWN).toFixed(PACKAGE_REWARD_SCALE);
+  }
+  if (input.calculationModel === "hashrate_daily") {
+    const hashrate = new MiningDecimal(input.baseThs);
+    const production = new MiningDecimal(input.ckiPerThsPerDay);
+    if (!hashrate.isFinite() || !hashrate.gt(0)) throw new Error("Package hash power must be greater than zero");
+    if (!production.isFinite() || !production.gt(0)) throw new Error("CKI production per TH/s per day must be greater than zero");
+    return hashrate.times(production).toDecimalPlaces(PACKAGE_REWARD_SCALE, MiningDecimal.ROUND_DOWN).toFixed(PACKAGE_REWARD_SCALE);
+  }
+  throw new Error("Unsupported Mining reward calculation model");
 }
 
 /** Legacy helper retained for historical tests; package-daily processing uses calculatePackageDailyReward. */
@@ -56,20 +82,25 @@ export function calculateMiningReward(segments: MiningRewardSegment[]) {
 /** Package-based estimate: configured CKI per 24 hours × eligible seconds / 86,400. */
 export function calculatePackageDailyReward(segments: MiningPackageRewardSegment[]) {
   const total = segments.reduce((sum, segment) => {
-    if (!Number.isFinite(segment.eligibleSeconds) || segment.eligibleSeconds < 0) {
+    const seconds = new MiningDecimal(String(segment.eligibleSeconds));
+    if (!seconds.isFinite() || seconds.isNegative()) {
       throw new Error("Eligible reward time must be finite and non-negative");
     }
     const daily = segment.expectedDailyRewardCki == null
-      ? new Decimal(0)
-      : positiveDecimal(segment.expectedDailyRewardCki, "Expected daily package reward", true);
-    const base = positiveDecimal(segment.baseThs, "Base hash power", true);
-    const boost = positiveDecimal(segment.boostThs, "Boost hash power", true);
+      ? new MiningDecimal(0)
+      : new MiningDecimal(segment.expectedDailyRewardCki);
+    const base = new MiningDecimal(segment.baseThs);
+    const boost = new MiningDecimal(segment.boostThs);
+    if (!daily.isFinite() || daily.isNegative()) throw new Error("Expected daily package reward must be non-negative");
+    if (!base.isFinite() || base.isNegative()) throw new Error("Base hash power must be non-negative");
+    if (!boost.isFinite() || boost.isNegative()) throw new Error("Boost hash power must be non-negative");
     if (boost.gt(0) && !base.gt(0)) throw new Error("A package boost requires positive base hash power");
-    const baseReward = daily.times(segment.eligibleSeconds).div(86_400);
-    const boostMultiplier = base.gt(0) ? base.plus(boost).div(base) : new Decimal(1);
-    return sum.plus(baseReward.times(boostMultiplier));
-  }, new Decimal(0));
-  return total.toDecimalPlaces(PACKAGE_REWARD_SCALE, Decimal.ROUND_DOWN).toFixed(PACKAGE_REWARD_SCALE);
+    // New fixed-rate contracts use the requested exact daily formula. The legacy
+    // multiplier is retained only for contracts tagged before this change.
+    const boostMultiplier = segment.applyBoostMultiplier && base.gt(0) ? base.plus(boost).div(base) : new MiningDecimal(1);
+    return sum.plus(daily.times(seconds).div(86_400).times(boostMultiplier));
+  }, new MiningDecimal(0));
+  return total.toDecimalPlaces(PACKAGE_REWARD_SCALE, MiningDecimal.ROUND_DOWN).toFixed(PACKAGE_REWARD_SCALE);
 }
 
 /** A transparent simulation index: 1 + aggregate TH/s divided by the effective database baseline. */
