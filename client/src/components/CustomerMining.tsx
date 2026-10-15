@@ -122,7 +122,6 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const mainWalletScale = (asset: string) => Number(mainWallet.data?.currencies?.find((item: any) => item.code === asset)?.scale ?? 0);
   const availableUsd = mainWalletAvailable("USD");
   const dailyUsdReference = (Number(data?.estimatedDailyTokens || 0) * Number(data?.usdPerToken || 0)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const configuredUsdReference = Number(data?.usdPerToken || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const swapExpired = swapQuote ? new Date(swapQuote.expiresAt).getTime() <= now : false;
   const activeBoostEnds = boost?.activeBoost?.endsAt ? new Date(boost.activeBoost.endsAt).getTime() : null;
   const cycleStart = boost?.cycleStart ? new Date(boost.cycleStart).getTime() : null;
@@ -201,17 +200,10 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
         <div className="cm-header-summary">
           <span>AVAILABLE CKI BALANCE</span>
           <strong>{fmt(availableCki, 6)} CKI</strong>
-          <small>Server-posted · database-backed</small>
         </div>
         <div className="cm-header-summary">
           <span>CKI CREDITED TODAY</span>
           <strong>+{fmt(data?.todayTokens, 6)} CKI</strong>
-          <small>Historic ledger total · settlement source not configured</small>
-        </div>
-        <div className="cm-header-summary">
-          <span>CKI CONVERSION REFERENCE</span>
-          <strong>1 CKI → ≈${configuredUsdReference}</strong>
-          <small>Configured internal reference · not a market quote</small>
         </div>
       </div>
       <div className="cm-top-actions"><div className="cm-asset-strip" aria-label="Available wallet assets">{(mainWallet.data?.currencies || []).map((currency: any) => <span className="cm-asset-chip" key={currency.code} title={currency.name}><b>{currency.code}</b><small>{currency.symbol || ""}{fmt(mainWalletAvailable(currency.code), Number(currency.scale ?? 0))}</small></span>)}</div></div>
@@ -247,7 +239,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
               <div className="cm-progress-head"><span className="cm-eyebrow">HASH-POWER ENGINE</span><strong className="cm-status-time">{hasActiveHashPowerPackage?"ACTIVE":"IDLE"}</strong><small>{hasActiveHashPowerPackage?"Customer package is active":"No active package"}</small></div>
               <div className="cm-divider"/>
               <div className="cm-progress-metrics">
-                <div className="cm-progress-metric"><span className="cm-eyebrow">CKI REWARDS CREDITED TODAY</span><strong className="cm-token-amount">{fmt(data?.todayTokens,4)} <small>{tokenSymbol}</small></strong><span className="cm-positive">Automatically credited reward ledger total · simulation estimate</span></div>
+                <div className="cm-progress-metric"><span className="cm-eyebrow">CKI REWARDS CREDITED TODAY</span><strong className="cm-token-amount">{fmt(data?.todayTokens,4)} <small>{tokenSymbol}</small></strong></div>
                 <div className="cm-progress-metric"><span className="cm-eyebrow">REWARD PROCESSING</span><strong className="cm-daily-amount">{data?.rewardPostingEnabled ? "Enabled" : "Paused"}</strong><small className="cm-simulation-note">{data?.rewardPostingEnabled ? "Configured CKI rates accrue by eligible time." : "Reward processing is paused by operations."}</small></div>
               </div>
               <div className="cm-coin-display"><span className="cm-coin-glow"/><b>₵</b><small>{tokenSymbol}</small></div>
