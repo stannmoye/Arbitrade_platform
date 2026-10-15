@@ -6,11 +6,11 @@ const migrationKey = "0039_mining_database_driven_packages";
 const rawDatabaseUrl = process.env.DATABASE_URL;
 if (!rawDatabaseUrl) throw new Error("DATABASE_URL is required; load the private application environment first.");
 const databaseUrl = new URL(rawDatabaseUrl);
-const hostname = databaseUrl.hostname.toLowerCase();
 const databaseName = decodeURIComponent(databaseUrl.pathname.replace(/^\/+/, ""));
-if (databaseUrl.protocol !== "mysql:" || !["127.0.0.1", "localhost", "::1"].includes(hostname) || databaseName !== "arbitrade_sandbox") {
-  throw new Error("This Mining seed is restricted to the isolated local arbitrade_sandbox database.");
-}
+if (!process.argv.includes("--confirm-host-migration")) throw new Error("Forward Mining migrations require --confirm-host-migration after verifying DATABASE_URL points to the existing application database.");
+if (process.env.NODE_ENV === "production" && !process.argv.includes("--confirm-production")) throw new Error("Production Mining migrations also require --confirm-production.");
+if (!["mysql:", "mariadb:"].includes(databaseUrl.protocol) || !databaseName) throw new Error("DATABASE_URL must identify the existing MySQL/MariaDB application database.");
+if (databaseUrl.protocol === "mariadb:") databaseUrl.protocol = "mysql:";
 databaseUrl.searchParams.set("multipleStatements", "true");
 databaseUrl.searchParams.set("timezone", "Z");
 const connection = await mysql.createConnection(databaseUrl.toString());
@@ -35,7 +35,7 @@ try {
       console.log("Mining database-driven package migration already applied.");
       process.exitCode = 0;
     } else {
-      const [currentRows] = await connection.query("SELECT * FROM mining_economics_versions WHERE effectiveAt<=UTC_TIMESTAMP(3) ORDER BY version DESC LIMIT 1 FOR UPDATE");
+      const [currentRows] = await connection.query("SELECT * FROM mining_economics_versions WHERE effectiveAt<=UTC_TIMESTAMP(3) ORDER BY effectiveAt DESC,version DESC LIMIT 1 FOR UPDATE");
       const previous = currentRows[0];
       if (!previous) throw new Error("Mining economics must already be initialized before seeding the package catalog.");
       const [maxRows] = await connection.query("SELECT COALESCE(MAX(version),0) maxVersion FROM mining_economics_versions");
@@ -111,7 +111,7 @@ try {
       await connection.commit();
       console.log("Mining package daily-reward migration already applied.");
     } else {
-      const [currentRows] = await connection.query("SELECT * FROM mining_economics_versions WHERE effectiveAt<=UTC_TIMESTAMP(3) ORDER BY version DESC LIMIT 1 FOR UPDATE");
+      const [currentRows] = await connection.query("SELECT * FROM mining_economics_versions WHERE effectiveAt<=UTC_TIMESTAMP(3) ORDER BY effectiveAt DESC,version DESC LIMIT 1 FOR UPDATE");
       const previous = currentRows[0];
       if (!previous) throw new Error("Mining economics must already be initialized before applying the package daily-reward model.");
       const [maxRows] = await connection.query("SELECT COALESCE(MAX(version),0) maxVersion FROM mining_economics_versions");
@@ -191,7 +191,7 @@ try {
       await connection.commit();
       console.log("Mining purchase-claim and boost-cooldown migration already applied.");
     } else {
-      const [currentRows] = await connection.query("SELECT * FROM mining_economics_versions WHERE effectiveAt<=UTC_TIMESTAMP(3) ORDER BY version DESC LIMIT 1 FOR UPDATE");
+      const [currentRows] = await connection.query("SELECT * FROM mining_economics_versions WHERE effectiveAt<=UTC_TIMESTAMP(3) ORDER BY effectiveAt DESC,version DESC LIMIT 1 FOR UPDATE");
       const previous = currentRows[0];
       if (!previous) throw new Error("Mining economics must be initialized before applying purchase and boost settings.");
       const [maxRows] = await connection.query("SELECT COALESCE(MAX(version),0) maxVersion FROM mining_economics_versions");
@@ -265,7 +265,7 @@ try {
       await connection.commit();
       console.log("Independent package-purchase gate migration already applied.");
     } else {
-      const [currentRows] = await connection.query("SELECT * FROM mining_economics_versions WHERE effectiveAt<=UTC_TIMESTAMP(3) ORDER BY version DESC LIMIT 1 FOR UPDATE");
+      const [currentRows] = await connection.query("SELECT * FROM mining_economics_versions WHERE effectiveAt<=UTC_TIMESTAMP(3) ORDER BY effectiveAt DESC,version DESC LIMIT 1 FOR UPDATE");
       const previous = currentRows[0];
       if (!previous) throw new Error("Mining economics must be initialized before enabling package purchases.");
       const [maxRows] = await connection.query("SELECT COALESCE(MAX(version),0) maxVersion FROM mining_economics_versions");
@@ -319,6 +319,33 @@ try {
       );
       await connection.commit();
       console.log(JSON.stringify({migration:engineActivityMigrationKey,perPackageIntervalActivity:true,financialCreditsPosted:false}));
+    }
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  }
+  const rewardMethodsMigrationKey = "0045_mining_reward_calculation_methods";
+  const rewardMethodsSchema = await readFile(resolve("drizzle", "0045_mining_reward_calculation_methods.sql"), "utf8");
+  await connection.query(rewardMethodsSchema);
+  await connection.beginTransaction();
+  try {
+    const [markers] = await connection.query("SELECT migrationKey FROM mining_schema_migrations WHERE migrationKey=? FOR UPDATE", [rewardMethodsMigrationKey]);
+    if (markers.length) {
+      await connection.commit();
+      console.log("Mining reward calculation method migration already applied.");
+    } else {
+      const [admins] = await connection.query("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1");
+      const adminId = admins[0] ? Number(admins[0].id) : null;
+      const reason = "Add fixed-package and TH/s-based daily CKI methods with future-contract snapshots; preserve existing customer terms and balances.";
+      const metadata = {methods:["package_daily","hashrate_daily"],contractRateSnapshots:true,existingContractsRewritten:false,balancesOrLedgersChanged:false};
+      await connection.execute("INSERT INTO mining_schema_migrations (migrationKey,detailsJson) VALUES (?,?)", [rewardMethodsMigrationKey, JSON.stringify(metadata)]);
+      await connection.execute(
+        `INSERT INTO v5_audit_events (actorUserId,action,entityType,entityId,reason,reference,metadataJson)
+         VALUES (?,?,?,?,?,?,?)`,
+        [adminId,"mining.reward.methods.schema.applied","mining_reward_calculation_methods",rewardMethodsMigrationKey,reason,rewardMethodsMigrationKey,JSON.stringify(metadata)],
+      );
+      await connection.commit();
+      console.log(JSON.stringify({migration:rewardMethodsMigrationKey,...metadata}));
     }
   } catch (error) {
     await connection.rollback();

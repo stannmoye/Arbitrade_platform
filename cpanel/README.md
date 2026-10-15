@@ -18,13 +18,15 @@ From the Node application terminal:
 pnpm install --frozen-lockfile
 pnpm db:migrate
 pnpm db:portal-migrate
-node scripts/apply-mining-migrations.mjs
+NODE_ENV=production node scripts/apply-mining-migrations.mjs --confirm-host-migration --confirm-production
 NODE_ENV=production pnpm db:mining-rates -- --confirm-host-migration --confirm-production
 pnpm build
 ADMIN_EMAIL=admin@your-domain.example ADMIN_PASSWORD='use-a-new-12-character-password' \
 CUSTOMER_EMAIL=customer@your-domain.example CUSTOMER_PASSWORD='use-a-different-12-character-password' \
 pnpm accounts:provision
 ```
+
+Set `DATABASE_URL` to the application's existing MySQL/MariaDB database; the migration and CKI wallet/ledger use that same database, and this process does not create a second database. Verify the target privately before supplying the confirmation flags. The mining schema migration is forward-only and preserves existing contract snapshots, balances, and ledger history; the CKI rate migration creates new package versions for future purchases only.
 
 Run the provisioning command only through the private cPanel terminal on a fresh installation. For an existing-data move, restore the existing database instead of creating/provisioning replacement accounts; see the data-preserving procedure below. Passwords are salted and hashed with scrypt and are never stored in the repository or `.env`.
 

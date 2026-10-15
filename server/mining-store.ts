@@ -9,7 +9,7 @@ export class MiningError extends Error {
 
 export type MiningConfig = {
   id: number; version: number; effectiveAt: Date; globalEnabled: boolean; packagePurchasesEnabled: boolean; boostsEnabled: boolean;
-  tokenName: string; tokenSymbol: string; tokenUnitsPerUsd: string; rewardTokensPerThsHour: string; defaultContractDurationMonths: number; calculationModel: string; difficultyBaselineThs: string; swapFeeBps: number; purchaseFeeBps: number;
+  tokenName: string; tokenSymbol: string; tokenUnitsPerUsd: string; rewardTokensPerThsHour: string; defaultContractDurationMonths: number; calculationModel: "package_daily" | "hashrate_daily"; difficultyBaselineThs: string; ckiPerThsPerDay: string; swapFeeBps: number; purchaseFeeBps: number;
   minSwapTokens: string; maxSwapTokens: string; defaultAutoConversionThreshold: string;
   boostCycleSeconds: number; boostDurationSeconds: number; quoteTtlSeconds: number;
   fiatMaxAgeSeconds: number; cryptoMaxAgeSeconds: number; maxRateDeviationBps: number;
@@ -88,7 +88,7 @@ export async function inMiningTransaction<T>(conn: Db, fn: () => Promise<T>) {
 }
 
 export async function loadMiningConfig(conn: Db, at: Date = new Date()): Promise<MiningConfig> {
-  const [rows] = await conn.query<any[]>(`SELECT * FROM mining_economics_versions WHERE effectiveAt<=? ORDER BY version DESC LIMIT 1`, [at]);
+  const [rows] = await conn.query<any[]>(`SELECT * FROM mining_economics_versions WHERE effectiveAt<=? ORDER BY effectiveAt DESC,version DESC LIMIT 1`, [at]);
   const row = rows[0];
   if (!row) throw new MiningError("Mining economics are not initialized; apply the mining database migration");
   return {
@@ -97,7 +97,8 @@ export async function loadMiningConfig(conn: Db, at: Date = new Date()): Promise
     tokenName: String(row.tokenName), tokenSymbol: String(row.tokenSymbol),
     tokenUnitsPerUsd: String(row.tokenUnitsPerUsd), rewardTokensPerThsHour: String(row.rewardTokensPerThsHour),
     defaultContractDurationMonths: Number(row.defaultContractDurationMonths),
-    calculationModel: String(row.calculationModel), difficultyBaselineThs: String(row.difficultyBaselineThs),
+    calculationModel: String(row.calculationModel) === "hashrate_daily" ? "hashrate_daily" : "package_daily",
+    difficultyBaselineThs: String(row.difficultyBaselineThs), ckiPerThsPerDay: String(row.ckiPerThsPerDay ?? "0"),
     swapFeeBps: Number(row.swapFeeBps), purchaseFeeBps: Number(row.purchaseFeeBps),
     minSwapTokens: String(row.minSwapTokens), maxSwapTokens: String(row.maxSwapTokens),
     defaultAutoConversionThreshold: String(row.defaultAutoConversionThreshold),
