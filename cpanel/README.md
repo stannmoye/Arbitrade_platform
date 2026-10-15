@@ -17,13 +17,16 @@ From the Node application terminal:
 ```bash
 pnpm install --frozen-lockfile
 pnpm db:migrate
+pnpm db:portal-migrate
+node scripts/apply-mining-migrations.mjs
+NODE_ENV=production pnpm db:mining-rates -- --confirm-host-migration --confirm-production
 pnpm build
 ADMIN_EMAIL=admin@your-domain.example ADMIN_PASSWORD='use-a-new-12-character-password' \
 CUSTOMER_EMAIL=customer@your-domain.example CUSTOMER_PASSWORD='use-a-different-12-character-password' \
 pnpm accounts:provision
 ```
 
-Run the provisioning command only through the private cPanel terminal. It creates or updates one administrator row and one customer row in `users`. Passwords are salted and hashed with scrypt and are never stored in the repository or `.env`.
+Run the provisioning command only through the private cPanel terminal on a fresh installation. For an existing-data move, restore the existing database instead of creating/provisioning replacement accounts; see the data-preserving procedure below. Passwords are salted and hashed with scrypt and are never stored in the repository or `.env`.
 
 The command prints the account email addresses only. Keep the two passwords in your private password manager and change them after the first login if they were used as temporary onboarding credentials.
 
@@ -48,3 +51,5 @@ The product is production-deployable, but real-money execution and verified retu
 ## 6. Recovery
 
 Back up MySQL before migrations. Restore the database first, run forward migrations, reconcile wallet balances against the immutable ledger, then restart the Node application. Keep `.env`, uploads, logs, and database backups outside the public web root.
+
+For host-to-host migration, encrypted backup/restore steps, and preservation of admin settings and CKI package versions, follow [`docs/host-migration-and-persistence.md`](../docs/host-migration-and-persistence.md). The application source on GitHub does not contain live database state; restore the database or point the app at the existing persistent database.
