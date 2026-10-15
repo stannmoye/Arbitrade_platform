@@ -383,3 +383,22 @@
 .cm-dashboard-frame .cm-asset-chip small{max-width:100%;padding-left:9px;color:var(--asset-accent);font-size:9px;font-weight:800;letter-spacing:-.02em;line-height:1.15;text-shadow:0 0 12px var(--asset-accent)}
 .cm-dashboard-frame .cm-asset-chip:nth-child(2){--asset-accent:#68b7ff}.cm-dashboard-frame .cm-asset-chip:nth-child(3){--asset-accent:#b58cff}.cm-dashboard-frame .cm-asset-chip:nth-child(4){--asset-accent:#ffc45f}.cm-dashboard-frame .cm-asset-chip:nth-child(5){--asset-accent:#ff7da8}.cm-dashboard-frame .cm-asset-chip:nth-child(6){--asset-accent:#55e3dc}.cm-dashboard-frame .cm-asset-chip:nth-child(7){--asset-accent:#9fa8ff}.cm-dashboard-frame .cm-asset-chip:nth-child(8){--asset-accent:#ff9e6d}
 @media(max-width:760px){.cm-dashboard-frame .cm-top-actions:before{display:none}.cm-dashboard-frame .cm-asset-strip{max-width:245px}.cm-dashboard-frame .cm-asset-chip{min-width:65px;padding-inline:8px}.cm-dashboard-frame .cm-asset-chip:before{left:8px}.cm-dashboard-frame .cm-asset-chip:after{right:7px;left:7px}.cm-dashboard-frame .cm-asset-chip b,.cm-dashboard-frame .cm-asset-chip small{font-size:7px}}
+
+
+/* Correct placement: premium treatment belongs on CKI Balance and Mined Today, not asset chips. */
+.cm-dashboard-frame .cm-top-actions:before{display:none}
+.cm-dashboard-frame .cm-asset-strip{gap:5px;max-width:360px;padding:0;mask-image:none}
+.cm-dashboard-frame .cm-asset-chip{--asset-accent:#7ce7c2;display:inline-flex;min-width:78px;padding:6px 9px;border:1px solid #1b4770;border-radius:8px;background:#071a30;color:#d9efff;transform:none;filter:none;box-shadow:none}
+.cm-dashboard-frame .cm-asset-chip:before,.cm-dashboard-frame .cm-asset-chip:after{display:none}
+.cm-dashboard-frame .cm-asset-chip b{padding-left:0;color:#d9efff;font-size:8px}
+.cm-dashboard-frame .cm-asset-chip small{padding-left:0;color:#7ce7c2;font-size:8px;text-shadow:none}
+.cm-dashboard-frame .cm-asset-chip:hover{border-color:#31c8e8;background:#0a2a45;transform:none;filter:none;box-shadow:0 0 12px rgba(49,200,232,.16)}
+.cm-dashboard-frame .cm-header-summary{--summary-accent:#7ce7c2;position:relative;overflow:hidden;padding:6px 9px 8px;border:0;border-radius:9px;background:linear-gradient(145deg,rgba(14,43,57,.92),rgba(5,22,38,.96));box-shadow:inset 0 1px rgba(255,255,255,.07),0 7px 18px rgba(0,0,0,.14)}
+.cm-dashboard-frame .cm-header-summary:after{content:"";position:absolute;right:8px;bottom:1px;left:8px;height:2px;border-radius:999px;background:linear-gradient(90deg,transparent,var(--summary-accent) 18%,var(--summary-accent) 82%,transparent);box-shadow:0 0 10px var(--summary-accent);opacity:.9;transition:transform .25s var(--ui-ease),box-shadow .25s ease}
+.cm-dashboard-frame .cm-header-summary:hover{background:linear-gradient(145deg,rgba(21,59,70,.98),rgba(7,27,43,.98));transform:translateY(-2px);box-shadow:inset 0 1px rgba(255,255,255,.1),0 12px 25px rgba(0,0,0,.2)}
+.cm-dashboard-frame .cm-header-summary:hover:after{transform:scaleX(1.08);box-shadow:0 0 16px var(--summary-accent)}
+.cm-dashboard-frame .cm-header-summary:nth-child(2){--summary-accent:#68b7ff}
+.cm-dashboard-frame .cm-header-summary:nth-child(3){--summary-accent:#b58cff}
+.cm-dashboard-frame .cm-header-summary:nth-child(1)>strong{color:#8dffcf;text-shadow:0 0 12px rgba(124,231,194,.2)}
+.cm-dashboard-frame .cm-header-summary:nth-child(2)>strong{color:#8ac8ff;text-shadow:0 0 12px rgba(104,183,255,.2)}
+.cm-dashboard-frame .cm-header-summary:nth-child(3)>strong{color:#c8b1ff;text-shadow:0 0 12px rgba(181,140,255,.2)}
