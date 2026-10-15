@@ -53,6 +53,7 @@ echo "Exporting database '$database' to $backup ..."
 "$dumper" \
   --defaults-extra-file="$cnf" \
   --single-transaction --quick --routines --triggers --events \
+  --no-tablespaces \
   --hex-blob --default-character-set=utf8mb4 --skip-comments \
   "$database" \
   | gzip -9 > "$tmp_backup"
