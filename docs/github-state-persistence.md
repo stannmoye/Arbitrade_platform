@@ -1,29 +1,29 @@
-# GitHub-backed sandbox state
+# Single canonical database file
 
-This project can persist the live application database in the private GitHub repository at:
+This project uses one canonical database file in the private GitHub repository:
 
 ```text
-backups/live/latest.sql.gz
+database.sql
 ```
 
-The snapshot contains the database records for users, wallet balances, ledger history, mining packages, mining contracts, economics versions, admin settings, and other application state.
+It contains the application database state, including users, wallet balances, ledger history, mining packages, mining contracts, economics versions, admin settings, and other database-backed records.
 
-## Save current state before changing or replacing a sandbox
+## Save the current database to GitHub
 
-From the repository root on the running sandbox:
+From the repository root on the running server or sandbox:
 
 ```bash
 set -a
 . ./.env
 set +a
-scripts/backup-to-github.sh
+pnpm db:backup:github
 ```
 
-The script creates a transaction-consistent compressed MySQL dump, commits it, and pushes it to the current GitHub branch. Each commit preserves the previous snapshot in Git history.
+The command exports the current MySQL/MariaDB database directly to `database.sql`, commits that same file, and pushes it to the current GitHub branch. It does not create dated snapshot files or a second database file.
 
-Run this after creating or editing mining packages, changing wallet balances, changing admin settings, provisioning accounts, or making other database changes.
+Run it after database changes such as creating mining packages, changing wallet balances, editing admin settings, provisioning accounts, or changing mining contracts. Before replacing a server or sandbox, run it and confirm that the push succeeds.
 
-## Restore into a new sandbox
+## Use the same database file on a new host
 
 Clone the repository, create an empty MySQL/MariaDB database, configure `.env` with its `DATABASE_URL`, and run:
 
@@ -31,17 +31,17 @@ Clone the repository, create an empty MySQL/MariaDB database, configure `.env` w
 set -a
 . ./.env
 set +a
-scripts/restore-from-github.sh
+pnpm db:restore:github
 pnpm db:migrate
 pnpm db:portal-migrate
 pnpm build
 pnpm start
 ```
 
-The restore script refuses to import into a non-empty database. Use the same application `SESSION_SECRET` and `PASSWORD_PEPPER` when the existing sessions, encrypted settings, or account behavior must remain compatible.
+The restore command always reads the repository's one `database.sql` file and refuses to import into a non-empty database.
 
-## Important operating rule
+## Operating model
 
-GitHub stores the snapshot, not a live SQL server. A database change is not in GitHub until `scripts/backup-to-github.sh` has been run and the push succeeds. Before replacing or deleting a sandbox, always run the backup command and confirm the commit appears on GitHub.
+The SQL file is the source of truth in GitHub. A running application still needs MySQL/MariaDB to execute queries; each new host imports the same `database.sql` into its local database. When the live database changes, export it back into the same file and push it before moving hosts.
 
-This workflow intentionally uses the private repository as the state store. Keep repository access restricted because the snapshot contains application data and password hashes. Do not commit a plaintext `.env` or database connection password; those are deployment connection settings, separate from the application records inside the snapshot.
+Use the same `SESSION_SECRET` and `PASSWORD_PEPPER` when existing sessions, encrypted settings, or account behavior must remain compatible. Keep the repository private because `database.sql` contains application data and password hashes.

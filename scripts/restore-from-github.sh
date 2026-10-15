@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Restore the database snapshot tracked in the private GitHub repository.
-# The target database must already exist and must be empty.
+# Restore the single canonical database.sql file tracked in the private GitHub
+# repository into an empty MySQL/MariaDB database.
 # Usage: set -a; . ./.env; set +a; scripts/restore-from-github.sh
 
 : "${DATABASE_URL:?Set DATABASE_URL to the empty target database before restoring}"
-command -v gzip >/dev/null || { echo "gzip is required." >&2; exit 2; }
 client=$(command -v mariadb || command -v mysql || true)
 [[ -n "$client" ]] || { echo "mariadb or mysql client is required." >&2; exit 2; }
 
 repo_root=$(git rev-parse --show-toplevel)
-backup="$repo_root/backups/live/latest.sql.gz"
-[[ -s "$backup" ]] || { echo "Tracked GitHub database snapshot is missing: $backup" >&2; exit 2; }
+database_file="$repo_root/database.sql"
+[[ -s "$database_file" ]] || { echo "Canonical database file is missing or empty: $database_file" >&2; exit 2; }
 
 umask 077
 workdir=$(mktemp -d "${TMPDIR:-/tmp}/arbitrade-db-restore.XXXXXX")
@@ -52,9 +51,8 @@ if (( table_count != 0 )); then
   exit 1
 fi
 
-echo "Restoring GitHub database snapshot into '$database' ..."
-gzip -t "$backup"
-gzip -dc "$backup" | "$client" --defaults-extra-file="$cnf" --default-character-set=utf8mb4 "$database"
+echo "Restoring canonical database.sql into '$database' ..."
+"$client" --defaults-extra-file="$cnf" --default-character-set=utf8mb4 "$database" < "$database_file"
 restored_tables=$("$client" --defaults-extra-file="$cnf" --batch --skip-column-names --database="$database" \
   -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()")
 printf 'Restore complete: %s tables/views are present.\n' "$restored_tables"
