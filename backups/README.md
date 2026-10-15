@@ -19,6 +19,8 @@ The private repository contains encrypted backups of the Sandbox's full MariaDB 
 
 **The decryption key is not stored in this repository.** Save the separately delivered key file outside GitHub (such as in a password manager). Without it, neither encrypted archive can be restored. Do not commit the key or decrypted `.env`.
 
+The encrypted database archive captures customer records, CKI ledgers, mining contract snapshots, and database-backed admin settings only as of its stated capture time. It is a point-in-time backup, not live synchronization; create a fresh archive before any host cutover. For the full new-host procedure, see [`docs/host-migration-and-persistence.md`](../docs/host-migration-and-persistence.md).
+
 ## Create later backups
 
 Load the DB connection for the database backup, and reuse the separately stored key:

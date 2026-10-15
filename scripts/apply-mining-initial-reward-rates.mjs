@@ -12,9 +12,13 @@ const rates = new Map([
 const rawDatabaseUrl = process.env.DATABASE_URL;
 if (!rawDatabaseUrl) throw new Error("DATABASE_URL is required; load the private application environment first.");
 const databaseUrl = new URL(rawDatabaseUrl);
-const databaseName = decodeURIComponent(databaseUrl.pathname.replace(/^\/+/, ""));
-if (databaseUrl.protocol !== "mysql:" || !["127.0.0.1", "localhost", "::1"].includes(databaseUrl.hostname.toLowerCase()) || databaseName !== "arbitrade_sandbox") {
-  throw new Error("This initial-rate migration is restricted to the isolated local arbitrade_sandbox database. Apply an equivalent reviewed migration through the production release process.");
+if (!["mysql:", "mariadb:"].includes(databaseUrl.protocol)) throw new Error("DATABASE_URL must use mysql:// or mariadb://");
+if (databaseUrl.protocol === "mariadb:") databaseUrl.protocol = "mysql:";
+if (!process.argv.includes("--confirm-host-migration")) {
+  throw new Error("Back up and review the destination first, then rerun with --confirm-host-migration.");
+}
+if (process.env.NODE_ENV === "production" && !process.argv.includes("--confirm-production")) {
+  throw new Error("Production mode detected. Rerun with --confirm-production as well as --confirm-host-migration.");
 }
 databaseUrl.searchParams.set("timezone", "Z");
 const connection = await mysql.createConnection(databaseUrl.toString());
