@@ -33,6 +33,12 @@ All database-backed application state belongs in that file: users, accounts, wal
    pnpm db:restore:github
    ```
 
+   If application code is upgraded against an older database, align the mining tables before starting the reward worker:
+
+   ```bash
+   pnpm db:mining-schema
+   ```
+
 5. The repository is private and `database.sql` is stored with Git LFS because the complete application state can exceed GitHub’s normal 100 MB file limit. A normal Git LFS-enabled clone materializes the same `database.sql` file.
 6. Do not overwrite the canonical file with a newly empty schema. Merge or restore the existing database state first.
 

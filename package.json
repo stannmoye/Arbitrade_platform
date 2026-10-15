@@ -13,6 +13,7 @@
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "db:migrate": "drizzle-kit migrate",
     "db:portal-migrate": "node scripts/apply-portal-migrations.mjs",
+    "db:mining-schema": "node scripts/ensure-mining-current-schema.mjs",
     "db:mining-rates": "node scripts/apply-mining-initial-reward-rates.mjs",
     "db:mining-enable-rewards": "node scripts/enable-mining-reward-processing.mjs",
     "db:backup:github": "scripts/backup-to-github.sh",
