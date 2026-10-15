@@ -729,7 +729,7 @@ async function calculateInterval(conn: Db, userId: number, start: Date, end: Dat
   const rewardSegments: any[] = [];
   const engineActivities: any[] = [];
   let weightedBase = new Decimal(0); let weightedBoost = new Decimal(0); let weightedDailyReward = new Decimal(0); let creditedSeconds = 0;
-  let rawTokenAmount = new Decimal(0); let rawUsdAmount = new Decimal(0);
+  let rawTokenAmount = new Decimal(0); let rawBoostTokenAmount = new Decimal(0); let rawUsdAmount = new Decimal(0);
   const allocationTotals = new Map<number,any>();
   for (let i=0;i<sorted.length-1;i++) {
     const from = new Date(sorted[i]); const to = new Date(sorted[i+1]);
@@ -761,8 +761,10 @@ async function calculateInterval(conn: Db, userId: number, start: Date, end: Dat
       const calculationModelSnapshot=String(row.calculationModelSnapshot||"legacy_boost_daily");
       const applyBoostMultiplier=calculationModelSnapshot==="legacy_boost_daily";
       const amount=decimal(calculatePackageDailyReward([{expectedDailyRewardCki:daily,baseThs:packageBase.toString(),boostThs:packageBoost.toString(),eligibleSeconds:seconds,applyBoostMultiplier,boostRewardCkiPerDay:packageBoost.gt(0)?config.boostRewardCkiPerDay:"0"}]));
+      const baseOnlyAmount=decimal(calculatePackageDailyReward([{expectedDailyRewardCki:daily,baseThs:packageBase.toString(),boostThs:"0",eligibleSeconds:seconds,applyBoostMultiplier:false,boostRewardCkiPerDay:"0"}]));
+      const boostAmount=Decimal.max(amount.minus(baseOnlyAmount),new Decimal(0));
       const effectiveDaily=(daily===null?new Decimal(0):decimal(daily).times(applyBoostMultiplier?packageBase.plus(packageBoost).div(packageBase):1)).plus(packageBoost.gt(0)?decimal(config.boostRewardCkiPerDay):0);
-      return {purchaseId:Number(row.id),packageId:Number(row.packageId),packageVersionId:Number(row.packageVersionId),packageVersion:Number(row.version),packageCode:String(row.code),packageName:String(row.packageNameSnapshot||row.code),priceAmount:String(row.priceAmount),priceAsset:String(row.priceAsset),durationMonthsSnapshot:row.durationMonthsSnapshot===null?null:Number(row.durationMonthsSnapshot),baseThs:packageBase.toString(),expectedDailyRewardCkiSnapshot:daily,calculationModelSnapshot,ckiPerThsPerDaySnapshot:row.ckiPerThsPerDaySnapshot===null?null:String(row.ckiPerThsPerDaySnapshot),boostThs:packageBoost.toString(),eligibleSeconds:seconds,estimatedRewardCki:amount.toString(),effectiveDailyRewardCki:effectiveDaily.toString()};
+      return {purchaseId:Number(row.id),packageId:Number(row.packageId),packageVersionId:Number(row.packageVersionId),packageVersion:Number(row.version),packageCode:String(row.code),packageName:String(row.packageNameSnapshot||row.code),priceAmount:String(row.priceAmount),priceAsset:String(row.priceAsset),durationMonthsSnapshot:row.durationMonthsSnapshot===null?null:Number(row.durationMonthsSnapshot),baseThs:packageBase.toString(),expectedDailyRewardCkiSnapshot:daily,calculationModelSnapshot,ckiPerThsPerDaySnapshot:row.ckiPerThsPerDaySnapshot===null?null:String(row.ckiPerThsPerDaySnapshot),boostThs:packageBoost.toString(),boostRewardCki:boostAmount.toString(),eligibleSeconds:seconds,estimatedRewardCki:amount.toString(),effectiveDailyRewardCki:effectiveDaily.toString()};
     });
     const segmentTokens=packageRewards.reduce((sum,row)=>sum.plus(decimal(row.estimatedRewardCki)),new Decimal(0));
     const segmentDaily=packageRewards.reduce((sum,row)=>sum.plus(decimal(row.effectiveDailyRewardCki)),new Decimal(0));
@@ -776,7 +778,7 @@ async function calculateInterval(conn: Db, userId: number, start: Date, end: Dat
       allocationTotals.set(item.purchaseId,prior);
     }
     weightedBase = weightedBase.plus(base.times(seconds)); weightedBoost = weightedBoost.plus(boost.times(seconds)); creditedSeconds += seconds;
-    weightedDailyReward = weightedDailyReward.plus(segmentDaily.times(seconds)); rawTokenAmount=rawTokenAmount.plus(segmentTokens); rawUsdAmount=rawUsdAmount.plus(segmentUsd);
+    weightedDailyReward = weightedDailyReward.plus(segmentDaily.times(seconds)); rawTokenAmount=rawTokenAmount.plus(segmentTokens); rawBoostTokenAmount=rawBoostTokenAmount.plus(packageRewards.reduce((sum,row)=>sum.plus(decimal(row.boostRewardCki)),new Decimal(0))); rawUsdAmount=rawUsdAmount.plus(segmentUsd);
   }
   let tokenAmount = rawTokenAmount;
   const config = await loadMiningConfig(conn, end);
@@ -787,6 +789,7 @@ async function calculateInterval(conn: Db, userId: number, start: Date, end: Dat
   }
   const postedTokenAmount=tokenAmount.toDecimalPlaces(tokenScale,Decimal.ROUND_DOWN);
   const rewardAmountUsd=rawTokenAmount.gt(0)?rawUsdAmount.times(postedTokenAmount.div(rawTokenAmount)).toDecimalPlaces(18,Decimal.ROUND_DOWN):new Decimal(0);
+  const postedBoostTokenAmount=rawTokenAmount.gt(0)?Decimal.min(rawBoostTokenAmount,rawBoostTokenAmount.times(postedTokenAmount).div(rawTokenAmount)).toDecimalPlaces(tokenScale,Decimal.ROUND_DOWN):new Decimal(0);
   let allocationRemaining=postedTokenAmount;
   const allocationRows=[...allocationTotals.values()].filter(row=>row.tokenAmount.gt(0)).sort((a,b)=>a.purchaseId-b.purchaseId);
   const allocations=allocationRows.map((row,index)=>{
@@ -797,6 +800,7 @@ async function calculateInterval(conn: Db, userId: number, start: Date, end: Dat
   });
   return {
     tokenAmount: postedTokenAmount,
+    boostTokenAmount: postedBoostTokenAmount,
     rewardAmountUsd,
     engineActivities,
     baseThs: creditedSeconds ? weightedBase.div(creditedSeconds) : new Decimal(0),
@@ -832,30 +836,34 @@ async function accrueOneUser(conn: Db, userId: number, limit = 30) {
       if (result.tokenAmount.gt(0)) {
         const intervalConfig = await loadMiningConfig(conn,end);
         const rewardKey = requestKey("mining-reward",userId,`${start.toISOString()}:${end.toISOString()}`);
-        const transaction = await createMiningLedgerTransaction(conn, {
+        const immediateTokenAmount=Decimal.max(result.tokenAmount.minus(result.boostTokenAmount),new Decimal(0)).toDecimalPlaces(tokenScale,Decimal.ROUND_DOWN);
+        const transaction = immediateTokenAmount.gt(0) ? await createMiningLedgerTransaction(conn, {
           userId, actorUserId: null, transactionType: "reward", idempotencyKey: rewardKey,
-          metadata: { intervalStart:start.toISOString(),intervalEnd:end.toISOString(),baseThs:result.baseThs.toString(),boostThs:result.boostThs.toString(),expectedDailyRewardCki:result.expectedDailyRewardCki.toString(),rewardAmountUsd:result.rewardAmountUsd.toFixed(18),legacyRewardTokensPerThsHour:intervalConfig.rewardTokensPerThsHour,calculationModel:result.calculationModel,configVersion:result.configVersion,tokenName:intervalConfig.tokenName,tokenSymbol:intervalConfig.tokenSymbol,tokenUnitsPerUsd:intervalConfig.tokenUnitsPerUsd,usdPerToken:decimal(1).div(intervalConfig.tokenUnitsPerUsd).toSignificantDigits(18).toString(),segments:result.segments,allocations:result.allocations,tokenAmount:result.tokenAmount.toFixed(tokenScale),model:"simulated package-daily reward estimate; no external pool" },
-        });
-        await postMiningLedgerEntries(conn,transaction,[
-          { userId,asset:"CKI",amount:result.tokenAmount,entryType:"mining_reward_credit" },
-          { userId:0,asset:"CKI",amount:result.tokenAmount.negated(),entryType:"mining_reward_issuance" },
+          metadata: { intervalStart:start.toISOString(),intervalEnd:end.toISOString(),baseThs:result.baseThs.toString(),boostThs:result.boostThs.toString(),expectedDailyRewardCki:result.expectedDailyRewardCki.toString(),rewardAmountUsd:result.rewardAmountUsd.toFixed(18),legacyRewardTokensPerThsHour:intervalConfig.rewardTokensPerThsHour,calculationModel:result.calculationModel,configVersion:result.configVersion,tokenName:intervalConfig.tokenName,tokenSymbol:intervalConfig.tokenSymbol,tokenUnitsPerUsd:intervalConfig.tokenUnitsPerUsd,usdPerToken:decimal(1).div(intervalConfig.tokenUnitsPerUsd).toSignificantDigits(18).toString(),segments:result.segments,allocations:result.allocations,tokenAmount:result.tokenAmount.toFixed(tokenScale),immediateTokenAmount:immediateTokenAmount.toFixed(tokenScale),pendingBoostTokenAmount:result.boostTokenAmount.toFixed(tokenScale),model:"simulated package-daily reward estimate; boost remains pending until UTC daily settlement" },
+        }) : null;
+        if (transaction) await postMiningLedgerEntries(conn,transaction,[
+          { userId,asset:"CKI",amount:immediateTokenAmount,entryType:"mining_reward_credit" },
+          { userId:0,asset:"CKI",amount:immediateTokenAmount.negated(),entryType:"mining_reward_issuance" },
         ]);
         const [eventResult] = await conn.execute<any>(`INSERT INTO mining_reward_events
           (userId,intervalStart,intervalEnd,baseThs,boostThs,rewardTokensPerThsHour,tokenAmount,rewardAmountUsd,expectedDailyRewardCki,configVersion,calculationModel,packageSnapshotJson,idempotencyKey,ledgerTransactionId)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [userId,start,end,result.baseThs.toString(),result.boostThs.toString(),intervalConfig.rewardTokensPerThsHour,result.tokenAmount.toFixed(tokenScale),result.rewardAmountUsd.toFixed(18),result.expectedDailyRewardCki.toDecimalPlaces(18,Decimal.ROUND_DOWN).toFixed(18),result.configVersion,result.calculationModel,safeJson(result.segments),rewardKey,transaction.id]);
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [userId,start,end,result.baseThs.toString(),result.boostThs.toString(),intervalConfig.rewardTokensPerThsHour,result.tokenAmount.toFixed(tokenScale),result.rewardAmountUsd.toFixed(18),result.expectedDailyRewardCki.toDecimalPlaces(18,Decimal.ROUND_DOWN).toFixed(18),result.configVersion,result.calculationModel,safeJson(result.segments),rewardKey,transaction?.id || null]);
         const rewardEventId = Number(eventResult.insertId);
         for(const allocation of result.allocations){
           await conn.execute(`INSERT INTO mining_reward_package_allocations
             (rewardEventId,userId,customerPackageId,packageId,packageVersionId,intervalStart,intervalEnd,expectedDailyRewardCkiSnapshot,rewardAmountCki,tokenUnitsPerUsdSnapshot,rewardAmountUsdSnapshot,calculationModel,calculationSegmentsJson)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,[rewardEventId,userId,allocation.purchaseId,allocation.packageId,allocation.packageVersionId,start,end,allocation.expectedDailyRewardCkiSnapshot,allocation.rewardAmountCki,allocation.tokenUnitsPerUsdSnapshot,allocation.rewardAmountUsdSnapshot,result.calculationModel,safeJson(allocation.calculationSegments)]);
         }
+        if (result.boostTokenAmount.gt(0)) {
+          await conn.execute(`INSERT INTO mining_pending_boost_rewards (userId,rewardEventId,rewardDay,amountCki,status) VALUES (?,?,DATE(?),?,'pending')`, [userId,rewardEventId,end,result.boostTokenAmount.toFixed(tokenScale)]);
+        }
         const preference = await preferenceAt(conn,userId,end,intervalConfig.defaultAutoConversionThreshold);
-        if (preference.enabled) {
+        if (preference.enabled && immediateTokenAmount.gt(0)) {
           const balanceAfterCredit = decimal((await readWallet(conn,userId,"CKI")).available);
           const effectiveThreshold = Decimal.max(decimal(preference.minimumThreshold),decimal(intervalConfig.minSwapTokens));
           const status = balanceAfterCredit.gte(effectiveThreshold) ? "queued" : "waiting";
           await conn.execute(`INSERT INTO mining_conversion_jobs (rewardEventId,userId,targetDenomination,tokenAmount,minimumThreshold,preferenceVersion,status,availableAt)
-            VALUES (?,?,?,?,?,?,?,UTC_TIMESTAMP(3))`, [rewardEventId,userId,preference.targetDenomination,result.tokenAmount.toFixed(tokenScale),preference.minimumThreshold,preference.version,status]);
+            VALUES (?,?,?,?,?,?,?,UTC_TIMESTAMP(3))`, [rewardEventId,userId,preference.targetDenomination,immediateTokenAmount.toFixed(tokenScale),preference.minimumThreshold,preference.version,status]);
           if (status === "queued") await conn.execute(`UPDATE mining_conversion_jobs SET status='queued',availableAt=UTC_TIMESTAMP(3) WHERE userId=? AND status='waiting'`, [userId]);
         }
       }
@@ -928,10 +936,40 @@ async function processConversionJob(conn: Db, jobId: number) {
   }
 }
 
+async function settleDuePendingBoostRewards(conn: Db) {
+  await conn.beginTransaction();
+  let settled = 0;
+  try {
+    const [rows] = await conn.query<any[]>(`SELECT * FROM mining_pending_boost_rewards WHERE status='pending' AND rewardDay<UTC_DATE() ORDER BY id LIMIT 500 FOR UPDATE`);
+    for (const row of rows) {
+      const userId = Number(row.userId);
+      const amount = decimal(row.amountCki).toDecimalPlaces(tokenScale, Decimal.ROUND_DOWN);
+      if (!amount.gt(0)) {
+        await conn.execute(`UPDATE mining_pending_boost_rewards SET status='settled',settledAt=UTC_TIMESTAMP(3),settlementReference=? WHERE id=?`, [`mining-boost-settlement:${row.id}`, Number(row.id)]);
+        continue;
+      }
+      const reference = `mining-boost-settlement:${row.id}`;
+      const minor = walletMinor(amount, assetScale("CKI"));
+      const [balances] = await conn.query<any[]>(`SELECT id FROM customer_balances WHERE userId=? AND currency='CKI' ORDER BY id LIMIT 1 FOR UPDATE`, [userId]);
+      if (balances[0]) await conn.execute(`UPDATE customer_balances SET availableMinor=availableMinor+?,earnedMinor=earnedMinor+?,updatedAt=UTC_TIMESTAMP(3) WHERE id=?`, [minor, minor, Number(balances[0].id)]);
+      else await conn.execute(`INSERT INTO customer_balances (userId,currency,availableMinor,lockedMinor,promotionalMinor,earnedMinor,updatedAt) VALUES (?, 'CKI', ?, 0, 0, ?, UTC_TIMESTAMP(3))`, [userId, minor, minor]);
+      await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable,createdAt) VALUES (?, 'CKI', ?, 'mining_boost_daily_settlement', ?, 0, UTC_TIMESTAMP(3))`, [userId, minor, reference]);
+      await conn.execute(`UPDATE mining_pending_boost_rewards SET status='settled',settledAt=UTC_TIMESTAMP(3),settlementReference=? WHERE id=? AND status='pending'`, [reference, Number(row.id)]);
+      settled++;
+    }
+    await conn.commit();
+    return settled;
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  }
+}
+
 let miningWorkerUserCursor = 0;
 
 export async function runMiningWorkerCycle() {
   return withMiningConnection(async conn => {
+    const settledBoostRewards = await settleDuePendingBoostRewards(conn);
     let [users] = await conn.query<any[]>(`SELECT DISTINCT cp.userId FROM mining_customer_packages cp
       WHERE cp.status='active' AND cp.startsAt<UTC_TIMESTAMP(3) AND (cp.expiresAt IS NULL OR cp.expiresAt>UTC_TIMESTAMP(3)) AND cp.userId>? ORDER BY cp.userId LIMIT 100`,[miningWorkerUserCursor]);
     if (!users.length && miningWorkerUserCursor) {
@@ -948,7 +986,7 @@ export async function runMiningWorkerCycle() {
       const status = await processConversionJob(conn,Number(row.id));
       if (status in outcomes) outcomes[status as keyof typeof outcomes]++;
     }
-    return { usersProcessed:users.length, intervalsProcessed:intervals, conversionJobs:outcomes };
+    return { usersProcessed:users.length, intervalsProcessed:intervals, settledBoostRewards, conversionJobs:outcomes };
   });
 }
 

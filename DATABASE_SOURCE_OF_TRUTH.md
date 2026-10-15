@@ -58,3 +58,10 @@ When upgrading an older database, `pnpm db:mining-schema` also assigns a configu
 - Customer-owned mining power remains account-specific and is calculated only from that customer's active purchased packages; a customer with no active package has Mining Status Inactive and earns no mining rewards.
 - Trading is fail-closed: customers with no positive available balance in any wallet receive no opportunities and cannot create trades.
 - The UI labels the engine state **Mining Status Active** or **Mining Status Inactive**. The bright green engine indicator flashes only while the customer has active mining power.
+
+## Daily CKI reward settlement
+
+- `mining_reward_events.tokenAmount` is the authoritative **CKI Credited Today** total and includes the prorated boost reward.
+- The boost portion is stored in `mining_pending_boost_rewards` during the UTC day; it is not added to the customer's spendable/main CKI wallet immediately.
+- The mining worker settles pending rows from prior UTC days exactly once into the customer's CKI wallet and writes a `mining_boost_daily_settlement` ledger entry.
+- Automatic CKI conversion only uses the immediately wallet-creditable amount; pending boost earnings cannot be converted before daily settlement.

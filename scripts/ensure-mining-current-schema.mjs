@@ -111,6 +111,21 @@ try {
     INDEX idx_mining_engine_activity_settlement (settlementStatus,intervalEnd)
   ) ENGINE=InnoDB`);
 
+  await db.query(`CREATE TABLE IF NOT EXISTS mining_pending_boost_rewards (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    userId INT NOT NULL,
+    rewardEventId INT NOT NULL,
+    rewardDay DATE NOT NULL,
+    amountCki DECIMAL(36,18) NOT NULL,
+    status VARCHAR(24) NOT NULL DEFAULT 'pending',
+    settledAt DATETIME(3) NULL,
+    settlementReference VARCHAR(120) NULL,
+    createdAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    UNIQUE KEY uq_pending_boost_reward_event (rewardEventId),
+    UNIQUE KEY uq_pending_boost_settlement_reference (settlementReference),
+    INDEX idx_pending_boost_day_status (rewardDay,status,userId)
+  ) ENGINE=InnoDB`);
+
   await db.query(`UPDATE mining_package_versions SET displayName=(SELECT name FROM mining_packages p WHERE p.id=mining_package_versions.packageId) WHERE displayName IS NULL`);
   await db.query(`UPDATE mining_customer_packages cp JOIN mining_packages p ON p.id=cp.packageId JOIN mining_package_versions v ON v.id=cp.packageVersionId SET cp.packageNameSnapshot=COALESCE(v.displayName,p.name) WHERE cp.packageNameSnapshot IS NULL`);
   await db.query(`UPDATE mining_customer_packages cp JOIN mining_package_versions v ON v.id=cp.packageVersionId SET cp.durationMonthsSnapshot=COALESCE(v.durationMonths,ROUND(v.expirySeconds/2629800)) WHERE cp.durationMonthsSnapshot IS NULL AND (v.durationMonths IS NOT NULL OR v.expirySeconds IS NOT NULL)`);
