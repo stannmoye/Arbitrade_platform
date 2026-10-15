@@ -335,9 +335,8 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
       if (error && typeof error === "object" && "code" in error && String((error as any).code) === "ER_DUP_ENTRY") throw new MiningError("You can purchase each Mining package only once");
       throw error;
     }
-    if (quote.stackingPolicy === "replace") {
-      await conn.execute(`UPDATE mining_customer_packages SET status='replaced',endedAt=? WHERE userId=? AND status='active' AND startsAt<=? AND (expiresAt IS NULL OR expiresAt>?)`, [now, userId, now, now]);
-    }
+    // Every successful purchase is additive. Existing customer entitlements remain active
+    // and their package-specific snapshots continue to accrue independently.
     const canonicalReference = `mining-purchase:${input.quoteId}`;
     const canonicalDebit = await debitMainWallet(conn, userId, paymentAsset, quotedTotal, canonicalReference, "mining_package_debit");
     const ledgerKey = key;
