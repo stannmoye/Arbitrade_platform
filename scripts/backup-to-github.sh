@@ -7,6 +7,7 @@ set -euo pipefail
 
 : "${DATABASE_URL:?Set DATABASE_URL before running the database export}"
 command -v git >/dev/null || { echo "git is required." >&2; exit 2; }
+git lfs version >/dev/null 2>&1 || { echo "git-lfs is required because database.sql is tracked with Git LFS." >&2; exit 2; }
 dumper=$(command -v mariadb-dump || command -v mysqldump || true)
 [[ -n "$dumper" ]] || { echo "mariadb-dump or mysqldump is required." >&2; exit 2; }
 

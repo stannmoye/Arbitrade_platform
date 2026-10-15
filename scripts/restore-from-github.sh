@@ -11,6 +11,10 @@ client=$(command -v mariadb || command -v mysql || true)
 
 repo_root=$(git rev-parse --show-toplevel)
 database_file="$repo_root/database.sql"
+if grep -q '^version https://git-lfs.github.com/spec/v1$' "$database_file" 2>/dev/null; then
+  git lfs version >/dev/null 2>&1 || { echo "git-lfs is required to download the canonical database.sql." >&2; exit 2; }
+  git lfs pull --include="database.sql"
+fi
 [[ -s "$database_file" ]] || { echo "Canonical database file is missing or empty: $database_file" >&2; exit 2; }
 
 umask 077

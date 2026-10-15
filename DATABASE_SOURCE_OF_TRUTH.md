@@ -6,7 +6,14 @@ All database-backed application state belongs in that file: users, accounts, wal
 
 ## Rules for every coding session
 
-1. Read and use the repository-root `database.sql` when preparing a new host or sandbox.
+1. After cloning on a new host, install Git LFS and materialize the file:
+
+   ```bash
+   git lfs install
+   git lfs pull --include="database.sql"
+   ```
+
+   Then read and use the repository-root `database.sql` when preparing the host or sandbox.
 2. Do not create a second active database dump, dated restore point, or alternate database file.
 3. Before moving hosts or finishing database changes, run:
 
