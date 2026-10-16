@@ -66,7 +66,7 @@ The V5 workflow safety layer blocks `LIVE` execution without a named provider, e
 
 ## Execution modes
 
-The current trade workflow records internal-ledger allocations and uses administrator-confirmed settlement; it does not submit orders to a broker or exchange or verify external execution results. Live execution requires a selected venue, a server-side integration, order and result-retrieval paths, risk controls, and settlement verification. Practice or simulated activity and configured reward estimates must not be represented as externally executed trades or withdrawable funds.
+Trades are simulation-only. Allocations, calculated rewards, settlement, and wallet updates use the application's internal wallet and ledger model; currency balances such as USD, EUR, GBP, BTC, ETH, and USDT are managed by the application. The platform does not submit orders through a broker, exchange, external trading API, or custody provider. Customer-facing progress, amounts, returns, and balances must reflect persisted backend ledger events; a popup or elapsed timer must never imply a trade, settlement, or reward that has not been recorded.
 
 ## OAuth and email
 
