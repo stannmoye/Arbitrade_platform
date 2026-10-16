@@ -64,9 +64,9 @@ Before production launch, configure HTTPS, SMTP, rate limiting, CSRF protections
 
 The V5 workflow safety layer blocks `LIVE` execution without a named provider, execution reference, and result-retrieval mechanism. Settlement calculations require a verified provider result reference; configured opportunity estimates are never sufficient.
 
-## Financial safety boundary
+## Execution modes
 
-The product is production-deployable, but real-money execution and verified returns are blocked until a named, approved execution/settlement mechanism is configured and independently verified. Until then, opportunities must be classified as Practice, Simulation, or Research. The application must not credit configured estimates as real profit or present simulated balances as withdrawable funds.
+The current trade workflow records internal-ledger allocations and uses administrator-confirmed settlement; it does not submit orders to a broker or exchange or verify external execution results. Live execution requires a selected venue, a server-side integration, order and result-retrieval paths, risk controls, and settlement verification. Practice or simulated activity and configured reward estimates must not be represented as externally executed trades or withdrawable funds.
 
 ## OAuth and email
 
