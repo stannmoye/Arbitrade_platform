@@ -60,6 +60,14 @@ export async function updatePopupLifecycleForOffer(userId: number, offerId: numb
   });
 }
 
+export async function updatePopupDeliveryStatus(userId: number, eventId: number, status: "received" | "rendered" | "failed", errorCode?: string) {
+  if (!process.env.DATABASE_URL) return;
+  const timestamp = status === "received" ? "receivedAt" : status === "rendered" ? "renderedAt" : "updatedAt";
+  await withConnection(async connection => {
+    await connection.execute(`UPDATE opportunity_popup_events SET deliveryStatus=?, ${timestamp}=CURRENT_TIMESTAMP, lastErrorCode=?, deliveryAttemptCount=deliveryAttemptCount+${status === "failed" ? 1 : 0}, updatedAt=CURRENT_TIMESTAMP WHERE id=? AND userId=?`, [status, errorCode || null, eventId, userId]);
+  });
+}
+
 export async function runOpportunityRetention() {
   if (!process.env.DATABASE_URL) return { deletedEvents: 0, deletedDeliveryRows: 0 };
   return withConnection(async connection => {
