@@ -324,7 +324,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
               <tbody>{pagedRecent.map((row: any) => <tr key={row.id}>
                 <td><strong>{String(row.type).replaceAll("_", " ")}</strong>{row.details?.destinationAmount && <small>{fmt(row.details.destinationAmount, 8)} {row.details.destinationAsset}</small>}</td>
                 <td>{row.reference}</td>
-                <td><span className="cm-history-status">{row.status}</span></td>
+                <td><span className="cm-history-status">{String(row.status).toLowerCase() === "posted" ? "Paid" : row.status}</span></td>
                 <td>{dateText(row.createdAt)}</td>
               </tr>)}</tbody>
             </table>
