@@ -372,6 +372,19 @@ export const tradePositions = mysqlTable("trade_positions", {
   policyVersion: int("policyVersion").default(1).notNull(),
 });
 
+export const tradeLifecycleEvents = mysqlTable("trade_lifecycle_events", {
+  id: int("id").autoincrement().primaryKey(),
+  eventKey: varchar("eventKey", { length: 100 }).notNull().unique(),
+  tradeId: int("tradeId").notNull(),
+  userId: int("userId").notNull(),
+  stage: varchar("stage", { length: 48 }).notNull(),
+  status: varchar("status", { length: 24 }).notNull(),
+  reference: varchar("reference", { length: 160 }),
+  policyVersion: int("policyVersion").default(1).notNull(),
+  detailJson: text("detailJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => ({ tradeEventIdx: index("trade_lifecycle_trade_idx").on(table.tradeId, table.createdAt), userEventIdx: index("trade_lifecycle_user_idx").on(table.userId, table.createdAt) }));
+
 export const assetPrecisions = mysqlTable("asset_precisions", {
   id: int("id").autoincrement().primaryKey(),
   code: varchar("code", { length: 32 }).notNull().unique(),
