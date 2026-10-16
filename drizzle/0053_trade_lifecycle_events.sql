@@ -22,3 +22,6 @@ CREATE TABLE IF NOT EXISTS `trade_lifecycle_events` (
 INSERT INTO `currency_registry` (`code`,`name`,`symbol`,`scale`,`assetType`,`usdRate`,`rateProvider`,`externalCode`,`enabled`)
 SELECT 'USDT','Tether USD','₮',6,'token','1','manual-reference','USDT',1
 WHERE NOT EXISTS (SELECT 1 FROM `currency_registry` WHERE `code`='USDT');
+
+ALTER TABLE `opportunity_package_policies`
+  ADD COLUMN IF NOT EXISTS `rewardCreditDelaySeconds` int NOT NULL DEFAULT 0;

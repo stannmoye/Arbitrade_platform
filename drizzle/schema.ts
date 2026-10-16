@@ -222,6 +222,7 @@ export const opportunityPackagePolicies = mysqlTable("opportunity_package_polici
   requirePreviousSettlement: boolean("requirePreviousSettlement").default(true).notNull(),
   minSettlementDelaySeconds: int("minSettlementDelaySeconds").default(900).notNull(),
   maxSettlementDelaySeconds: int("maxSettlementDelaySeconds").default(900).notNull(),
+  rewardCreditDelaySeconds: int("rewardCreditDelaySeconds").default(0).notNull(),
   minimumRewardBps: int("minimumRewardBps").default(0).notNull(),
   allowedOpportunityTypes: text("allowedOpportunityTypes"),
   maxDailyRewardMinor: bigint("maxDailyRewardMinor", { mode: "number" }).default(0).notNull(),

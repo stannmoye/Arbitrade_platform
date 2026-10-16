@@ -28,6 +28,7 @@ export type PackageAutomationPolicy = {
   rewardLimitCurrency?: string;
   dailyRewardWindow?: SchedulingPeriod;
   maxSettlementAttempts?: number;
+  rewardCreditDelaySeconds?: number;
 };
 
 export function validatePackageAutomationPolicy(policy: PackageAutomationPolicy) {
@@ -40,6 +41,7 @@ export function validatePackageAutomationPolicy(policy: PackageAutomationPolicy)
     ["completion display duration", policy.completionDisplaySeconds],
     ["post-completion interval", policy.postCompletionIntervalSeconds],
     ["maximum pending deliveries", policy.maxPendingDeliveries],
+    ["reward-credit delay", policy.rewardCreditDelaySeconds ?? 0],
     ["maximum delivery attempts", policy.maxDeliveryAttempts],
     ["maximum trade attempts", policy.maxTradeAttemptsPerDay],
     ["maximum successful trades", policy.maxSuccessfulTradesPerDay],
@@ -52,6 +54,7 @@ export function validatePackageAutomationPolicy(policy: PackageAutomationPolicy)
   if (policy.minIntervalSeconds > policy.maxIntervalSeconds) errors.push("minimum interval cannot exceed maximum interval");
   if (policy.dailyPopupTarget > 0 && policy.minIntervalSeconds === 0) errors.push("minimum interval must be positive when a daily popup target is configured");
   if (policy.minSettlementDelaySeconds < 0 || policy.maxSettlementDelaySeconds < policy.minSettlementDelaySeconds) errors.push("settlement delay range is invalid");
+  if (policy.maxSettlementDelaySeconds > 604800 || (policy.rewardCreditDelaySeconds ?? 0) > 604800) errors.push("settlement and reward-credit delays cannot exceed seven days");
   if (!Number.isInteger(policy.minSettlementDelaySeconds) || !Number.isInteger(policy.maxSettlementDelaySeconds)) errors.push("settlement delays must be whole seconds");
   if (policy.maxTradeAttemptsPerDay > 0 && policy.maxSuccessfulTradesPerDay > policy.maxTradeAttemptsPerDay) errors.push("successful trades cannot exceed trade attempts");
   if (policy.dailyPopupTarget > 0 && policy.maxPendingDeliveries === 0) errors.push("daily popup target requires at least one pending delivery slot");
