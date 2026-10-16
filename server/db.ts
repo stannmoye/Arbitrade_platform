@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { and, desc, eq, gt, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool } from "mysql2/promise";
-import { InsertUser, appSettings, customerBalances, currencyRegistry, customerControls, customerNotifications, customerSessions, customerWalletPreferences, customerOpportunityRules, opportunityDeliveryEvents, balanceLedger, tradePositions, users, missedOpportunities, v5AuditEvents } from "../drizzle/schema";
+import { InsertUser, appSettings, customerBalances, currencyRegistry, customerControls, customerNotifications, customerSessions, customerWalletPreferences, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, balanceLedger, tradePositions, users, missedOpportunities, v5AuditEvents } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
@@ -228,7 +228,7 @@ export async function updateCustomerOpportunityRules(userId:number,input:{enable
 export async function addTicketAttachment(userId:number,input:{ticketId:number;fileName:string;mimeType:string;sizeBytes:number;storageKey:string}) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const ticket=(await db.select().from(supportTickets).where(and(eq(supportTickets.id,input.ticketId),eq(supportTickets.customerId,userId))).limit(1))[0]; if(!ticket) throw new Error("Ticket not found"); await db.insert(supportAttachments).values({ticketId:input.ticketId,uploadedBy:userId,fileName:input.fileName,mimeType:input.mimeType,sizeBytes:input.sizeBytes,storageKey:input.storageKey}); return {success:true}; }
 
 // Controlled opportunity engine: this is an internal paper-ledger boundary. Real execution requires licensed providers/custody.
-import { opportunityOffers, opportunityPackagePolicies } from "../drizzle/schema";
+import { opportunityPackagePolicies } from "../drizzle/schema";
 
 const DEFAULT_OPPORTUNITY_PACKAGE_POLICIES = [
   { packageName: "Starter", maxPopupsPerDay: 50, maxVisibleOffers: 10, minimumTradeUnits: 1000, maximumTradeUnits: 500000, minHourlyTarget: 2, normalHourlyTarget: 2, marketInfluenceBps: 3000, burstEnabled: false, maxBurstSize: 0, enabled: true },
@@ -315,7 +315,47 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   return {tradeId:Number(result[0].insertId),rewardMinor:reward,rewardBps:terms.rewardBps,minimumMinor:terms.minimumMinor,calculationMethod:terms.method,settlesAt,creditAt,currency:offer.currency,amountMinor:input.amountMinor,rateUsd:nativeRate,rateUpdatedAt:currencyRow.updatedAt,amountUsd:nativeMinorToUsd(input.amountMinor,Number(currencyRow.scale),nativeRate)};
  });
 }
-export async function listTrades(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");await settleDueTrades(userId);return db.select().from(tradePositions).where(eq(tradePositions.userId,userId)).orderBy(tradePositions.confirmedAt);}
+export async function listTrades(userId:number){
+  const db=await getDb();
+  if(!db)throw new Error("Database is not available");
+  await settleDueTrades(userId);
+  const rows=await db.select({
+    id:tradePositions.id,
+    userId:tradePositions.userId,
+    offerId:tradePositions.offerId,
+    currency:tradePositions.currency,
+    principalMinor:tradePositions.principalMinor,
+    expectedRewardMinor:tradePositions.expectedRewardMinor,
+    status:tradePositions.status,
+    confirmedAt:tradePositions.confirmedAt,
+    settlesAt:tradePositions.settlesAt,
+    creditAt:tradePositions.creditAt,
+    settledAt:tradePositions.settledAt,
+    symbol:opportunityOffers.symbol,
+    venueFrom:opportunityOffers.venueFrom,
+    venueTo:opportunityOffers.venueTo,
+  }).from(tradePositions)
+    .leftJoin(opportunityOffers,eq(opportunityOffers.id,tradePositions.offerId))
+    .where(eq(tradePositions.userId,userId))
+    .orderBy(desc(tradePositions.confirmedAt));
+  return rows.map(row=>{
+    const settled=row.status==="settled";
+    const pending=row.status==="pending";
+    const stage=settled?"Trade Completed":pending?"Trade Allocated":new Date(row.settlesAt).getTime()<=Date.now()?"Settlement Processing":"Trade Executing";
+    return {
+      ...row,
+      tradeReference:`trade-${row.id}`,
+      opportunityReference:`opportunity-${row.offerId}`,
+      stage,
+      settlementStatus:settled?"completed":row.status,
+      rewardCredited:settled,
+      creditedRewardMinor:settled?Number(row.expectedRewardMinor):0,
+      walletUpdated:settled,
+      completionAt:settled?row.settledAt:null,
+      transactionReference:settled?`trade-settlement:${row.id}`:null,
+    };
+  });
+}
 export async function settleDueTrades(userId:number){
   const db=await getDb();if(!db)throw new Error("Database is not available");
   const settledRows=await db.transaction(async tx=>{
