@@ -402,3 +402,5 @@
 .cm-dashboard-frame .cm-header-summary:nth-child(1)>strong{color:#8dffcf;text-shadow:0 0 12px rgba(124,231,194,.2)}
 .cm-dashboard-frame .cm-header-summary:nth-child(2)>strong{color:#8ac8ff;text-shadow:0 0 12px rgba(104,183,255,.2)}
 .cm-dashboard-frame .cm-header-summary:nth-child(3)>strong{color:#c8b1ff;text-shadow:0 0 12px rgba(181,140,255,.2)}
+
+.cm-dashboard-frame .cm-mined-today-value{display:block!important;min-width:0;color:#8ac8ff!important;font-variant-numeric:tabular-nums;white-space:nowrap!important;opacity:1!important;visibility:visible!important}

@@ -103,6 +103,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const data = dashboard.data;
   const tokenName = data?.tokenName ?? "";
   const tokenSymbol = data?.tokenSymbol ?? "";
+  const minedTodayDisplay = data ? `+${fmt(data.todayTokens, 6)} ${tokenSymbol || "CKI"}` : dashboard.isLoading ? "Loading…" : "0 CKI";
   const packageRows = packages.data || [];
   const boost = boostStatus.data;
   const active = data?.packages || [];
@@ -204,7 +205,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
         </div>
         <div className="cm-header-summary">
           <span>MINED TODAY</span>
-          <strong>+{fmt(data?.todayTokens, 6)} CKI</strong>
+          <strong className="cm-mined-today-value" aria-live="polite">{minedTodayDisplay}</strong>
         </div>
         <div className="cm-header-summary">
           <span>CKI RATE TO DOLLAR</span>
