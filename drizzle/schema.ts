@@ -369,7 +369,32 @@ export const tradePositions = mysqlTable("trade_positions", {
   walletUpdatedAt: timestamp("walletUpdatedAt"),
   completionAt: timestamp("completionAt"),
   transactionReference: varchar("transactionReference", { length: 120 }),
+  settlementReference: varchar("settlementReference", { length: 160 }),
+  settlementConfirmedAt: timestamp("settlementConfirmedAt"),
+  settlementConfirmedBy: int("settlementConfirmedBy"),
+  settlementNotes: varchar("settlementNotes", { length: 2000 }),
   policyVersion: int("policyVersion").default(1).notNull(),
+});
+export const tradeLifecycleEvents = mysqlTable("trade_lifecycle_events", {
+  id: int("id").autoincrement().primaryKey(),
+  tradeId: int("tradeId").notNull(),
+  userId: int("userId").notNull(),
+  eventType: varchar("eventType", { length: 48 }).notNull(),
+  stage: varchar("stage", { length: 64 }).notNull(),
+  payloadJson: text("payloadJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export const tradeRewardReservations = mysqlTable("trade_reward_reservations", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  tradeId: int("tradeId").notNull().unique(),
+  packageName: varchar("packageName", { length: 40 }).notNull(),
+  windowKey: varchar("windowKey", { length: 40 }).notNull(),
+  currency: varchar("currency", { length: 12 }).notNull(),
+  reservedMinor: bigint("reservedMinor", { mode: "number" }).notNull(),
+  status: mysqlEnum("status", ["reserved", "credited", "released"]).default("reserved").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export const assetPrecisions = mysqlTable("asset_precisions", {

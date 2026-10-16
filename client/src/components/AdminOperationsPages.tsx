@@ -13,7 +13,7 @@ import {
   Users,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 type CustomerRecord = {
   id: number;
@@ -234,6 +234,9 @@ export function AdminRiskWatchlist() {
 
 export function AdminTransactionReview() {
   const ledgerQuery = trpc.adminOperations.ledgerActivity.useQuery(undefined, { refetchInterval: 10_000 });
+  const pendingQuery = trpc.adminOperations.pendingSettlements.useQuery(undefined, { refetchInterval: 5_000 });
+  const confirmSettlement = trpc.adminOperations.confirmManualSettlement.useMutation({ onSuccess: () => { pendingQuery.refetch(); ledgerQuery.refetch(); } });
+  const [drafts, setDrafts] = useState<Record<number, { rewardMinor: string; reference: string }>>({});
   const currencyQuery = trpc.adminOperations.currencies.useQuery(undefined, { staleTime: 60_000 });
   const rows = (ledgerQuery.data ?? []) as unknown as LedgerRecord[];
   const currencies = (currencyQuery.data ?? []) as unknown as Array<{ code: string; scale: number }>;
@@ -246,8 +249,15 @@ export function AdminTransactionReview() {
   };
 
   return (
-    <ToolPage eyebrow="Append-only balance ledger" title="Transaction review" description="Review the most recent recorded wallet ledger entries with native currency precision. This screen does not initiate or settle transactions." icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => ledgerQuery.refetch()} disabled={ledgerQuery.isFetching}><RefreshCw size={14} /> {ledgerQuery.isFetching ? "Refreshing…" : "Refresh"}</button>}>
+    <ToolPage eyebrow="Append-only balance ledger" title="Transaction review" description="Review wallet ledger entries and confirm manually settled trades. Elapsed time never credits a reward or releases principal." icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { ledgerQuery.refetch(); pendingQuery.refetch(); }} disabled={ledgerQuery.isFetching || pendingQuery.isFetching}><RefreshCw size={14} /> Refresh</button>}>
       {ledgerQuery.isLoading ? <LoadingState /> : ledgerQuery.isError ? <div className="admin-ops-empty error">The balance ledger could not be loaded.</div> : <>
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Manual settlement queue</span><h2>Trades awaiting administrator confirmation</h2></div><span className="admin-ops-subtle">{pendingQuery.data?.length ?? 0} pending</span></div>
+          {!pendingQuery.data?.length ? <div className="admin-ops-empty compact">No trades are awaiting manual settlement.</div> : <div className="admin-ops-table-wrap"><table className="admin-ops-table"><thead><tr><th>Trade / customer</th><th>Principal</th><th>Reserved reward</th><th>Settlement reference</th><th>Action</th></tr></thead><tbody>
+            {(pendingQuery.data as any[]).map((trade) => { const draft = drafts[trade.id] || { rewardMinor: String(trade.rewardReservedMinor ?? 0), reference: `manual-${trade.id}` }; return <tr key={trade.id}><td><strong>Trade {trade.id} · {trade.symbol || "Opportunity"}</strong><small>{trade.customerName || trade.customerEmail || `Account ${trade.userId}`} · {trade.currency}</small></td><td>{trade.principalMinor}</td><td>{trade.rewardReservedMinor}</td><td><input value={draft.reference} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, reference: event.target.value } }))} placeholder="External/manual reference" /><input value={draft.rewardMinor} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, rewardMinor: event.target.value } }))} inputMode="numeric" aria-label={`Reward minor units for trade ${trade.id}`} /></td><td><button className="admin-ops-button" type="button" disabled={confirmSettlement.isPending} onClick={() => confirmSettlement.mutate({ tradeId: trade.id, rewardMinor: Number(draft.rewardMinor), settlementReference: draft.reference })}><CheckCircle2 size={14} /> Confirm manual settlement</button></td></tr>; })}
+          </tbody></table></div>}
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span>The administrator enters the externally confirmed result and payment reference. This action atomically releases principal, credits the reward once, updates the wallet, and records lifecycle events.</span></div>
+        </section>
         <section className="admin-ops-metrics compact-metrics">
           <Metric label="Entries shown" value={rows.length} icon={FileText} />
           <Metric label="Positive entries" value={rows.filter((row) => Number(row.amountMinor) > 0).length} icon={CheckCircle2} />
