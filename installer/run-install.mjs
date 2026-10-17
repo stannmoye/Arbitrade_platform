@@ -146,5 +146,6 @@ try {
   fail("Installation lock was created, but the one-time bootstrap could not be removed. Restrict access and delete .installer-bootstrap.json manually: " + (error?.message || "unknown error"));
 }
 console.log("\n[installer] Installation steps completed.");
-console.log("[installer] Restart the Node.js application in cPanel and verify GET /api/health returns {\"status\":\"ok\"}.");
+console.log("[installer] Start/restart the Node.js application, then run: pnpm installer:verify");
+console.log("[installer] If SMTP is configured, test it with: pnpm installer:test-smtp --to=you@example.com");
 console.log("[installer] Remove or rename the public installer directory after confirming the application works.");
