@@ -1,4 +1,4 @@
-import "dotenv/config";
+import { config } from "dotenv";
 import mysql from "mysql2/promise";
 import { spawnSync } from "node:child_process";
 import { readFile, unlink, writeFile } from "node:fs/promises";
@@ -12,6 +12,7 @@ const existing = process.argv.includes("--existing-database");
 const mode = fresh === existing ? null : fresh ? "fresh" : "existing";
 const bootstrapPath = resolve(root, ".installer-bootstrap.json");
 const lockPath = resolve(root, "installer/.installed");
+config({ path: resolve(root, ".env"), override: false });
 
 function fail(message, code = 1) {
   console.error("[installer] ERROR: " + message);
