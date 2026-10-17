@@ -1,0 +1,6 @@
+# Prevent accidental exposure of installer-generated environment files if this
+# application directory is also served by Apache as a document root.
+Options -Indexes
+<FilesMatch "^\.?(env|installer-bootstrap|configured|installed)(\.|$)">
+    Require all denied
+</FilesMatch>
