@@ -34,6 +34,7 @@ fail(){ say "ERROR: $*"; exit 1; }
 [[ "${EUID}" -eq 0 ]] || fail "Run with sudo/root privileges."
 [[ -f "$ROOT/package.json" && -f "$ROOT/pnpm-lock.yaml" ]] || fail "Run this script from a complete Arbitrade repository checkout."
 [[ "$ROOT" != /root* && "$ROOT" != /home/* ]] || fail "Deploy the application under /var/www or another system path, not /root or /home; the systemd service uses ProtectHome=true."
+[[ "$ROOT" =~ ^/[A-Za-z0-9_./-]+$ ]] || fail "The deployment path must contain only letters, numbers, dots, underscores, slashes, or hyphens so it can be represented safely in the systemd unit. Move the checkout to a simple path such as /var/www/arbitrade-platform."
 [[ -f "$ROOT/.env" ]] || fail "Missing $ROOT/.env. Configure production secrets before provisioning."
 [[ -f "$ROOT/dist/index.js" ]] || fail "Missing dist/index.js. Build the app with pnpm build before provisioning."
 [[ "$DOMAIN" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$ ]] || fail "Provide a valid --domain=example.com."
