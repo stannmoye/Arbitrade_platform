@@ -118,12 +118,12 @@ jobs:
           echo "Production server did not become healthy within 60 seconds." >&2
           exit 1
 
-  installer-fresh-mysql:
+  installer-fresh-mariadb:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
       mysql:
-        image: mysql:8.0
+        image: mariadb:11.4
         env:
           MYSQL_ROOT_PASSWORD: ci-root-password
           MYSQL_DATABASE: arbitrade_ci
