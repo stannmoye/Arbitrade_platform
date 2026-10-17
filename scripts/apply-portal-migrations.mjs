@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyPortalMigrationRecord } from "./portal-migration-tracker.mjs";
+import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const databaseUrl = process.env.DATABASE_URL;
@@ -21,11 +22,11 @@ const migrationFiles = [
   "0043_wallet_minor_units_bigint.sql",
   "0051_advanced_auto_trading.sql",
   "0052_delivery_diagnostics.sql",
+  "0053_manual_settlement_lifecycle.sql",
 ];
 const targetTables = [
   "kyc_settings", "kyc_profiles", "password_reset_tokens", "admin_email_messages",
   "mining_economics_versions", "mining_packages", "mining_customer_packages",
-  "opportunity_popup_events", "opportunity_delivery_events",
 ];
 const baselineReviewed = process.argv.includes("--baseline-reviewed");
 let url;
@@ -62,6 +63,8 @@ try {
     password: databasePassword,
     database: databaseName,
     ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
+    // Migration files contain multiple trusted SQL statements; set the mysql2 option explicitly.
+    multipleStatements: true,
     connectTimeout: 10000,
   });
 } catch (error) {
@@ -164,7 +167,7 @@ try {
     );
 
     try {
-      await connection.query(sql);
+      await executeCompatibleMigrationSql(connection, sql);
       if (filename === "0037_coinki_token_configuration.sql") {
         const { migrateMiningTokenToCki } = await import("./migrate-mining-token-to-cki.mjs");
         await migrateMiningTokenToCki(connection);
