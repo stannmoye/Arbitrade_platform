@@ -28,23 +28,43 @@ const targetTables = [
   "opportunity_popup_events", "opportunity_delivery_events",
 ];
 const baselineReviewed = process.argv.includes("--baseline-reviewed");
-const url = new URL(databaseUrl);
-if (!["mysql:", "mariadb:"].includes(url.protocol) || !url.pathname.replace(/^\/+/, "")) {
-  throw new Error("DATABASE_URL must identify a MySQL/MariaDB database. No portal migrations were run.");
+let url;
+try {
+  url = new URL(databaseUrl);
+} catch {
+  console.error("DATABASE_URL is malformed. Check private configuration; its value is not displayed.");
+  process.exit(1);
+}
+if (!["mysql:", "mariadb:"].includes(url.protocol) || !url.pathname.replace(/^\\/+/, "")) {
+  console.error("DATABASE_URL must identify a MySQL/MariaDB database. No portal migrations were run.");
+  process.exit(1);
 }
 if (url.protocol === "mariadb:") url.protocol = "mysql:";
 url.searchParams.set("multipleStatements", "true");
 url.searchParams.set("timezone", "Z");
-const databaseName = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
-const connection = await mysql.createConnection({
-  host: url.hostname,
-  port: Number(url.port || 3306),
-  user: decodeURIComponent(url.username),
-  password: decodeURIComponent(url.password),
-  database: databaseName,
-  ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
-  connectTimeout: 10000,
-});
+let databaseName;
+try {
+  databaseName = decodeURIComponent(url.pathname.replace(/^\\/+/, ""));
+} catch {
+  console.error("DATABASE_URL contains malformed database-name encoding. The configured value is not displayed.");
+  process.exit(1);
+}
+let connection;
+try {
+  connection = await mysql.createConnection({
+    host: url.hostname,
+    port: Number(url.port || 3306),
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    database: databaseName,
+    ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
+    connectTimeout: 10000,
+  });
+} catch (error) {
+  const errorCode = String(error?.code || "UNAVAILABLE").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+  console.error(`Could not connect to the configured portal database (code: ${errorCode || "UNAVAILABLE"}). Check private connection settings; credentials are not displayed.`);
+  process.exit(1);
+}
 
 async function tableExists(tableName) {
   const [rows] = await connection.query(
