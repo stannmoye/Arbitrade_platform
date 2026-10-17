@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const installer = resolve(root, "run-install.mjs");
+const installer = resolve(root, "installer", "run-install.mjs");
 
 function runInstaller(args, overrides = {}) {
   const env = {
