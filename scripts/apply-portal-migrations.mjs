@@ -43,10 +43,14 @@ if (url.protocol === "mariadb:") url.protocol = "mysql:";
 url.searchParams.set("multipleStatements", "true");
 url.searchParams.set("timezone", "Z");
 let databaseName;
+let databaseUser;
+let databasePassword;
 try {
   databaseName = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+  databaseUser = decodeURIComponent(url.username);
+  databasePassword = decodeURIComponent(url.password);
 } catch {
-  console.error("DATABASE_URL contains malformed database-name encoding. The configured value is not displayed.");
+  console.error("DATABASE_URL contains malformed database-name or credential encoding. The configured value is not displayed.");
   process.exit(1);
 }
 let connection;
@@ -54,8 +58,8 @@ try {
   connection = await mysql.createConnection({
     host: url.hostname,
     port: Number(url.port || 3306),
-    user: decodeURIComponent(url.username),
-    password: decodeURIComponent(url.password),
+    user: databaseUser,
+    password: databasePassword,
     database: databaseName,
     ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
     connectTimeout: 10000,
