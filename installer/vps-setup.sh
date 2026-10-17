@@ -105,7 +105,7 @@ install -d -o root -g "$APP_USER" -m 0750 "$ENV_DIR"
 # an atomic hard-link operation. Unlike install/cp to ENV_FILE, ln refuses to
 # replace a destination that appeared after the preflight check.
 ENV_TMP="$(mktemp "$ENV_DIR/.arbitrade.env.XXXXXX")"
-trap 'rm -f -- "${ENV_TMP:-}"' EXIT
+trap 'rm -f -- "${ENV_TMP:-}" "${UNIT_TMP:-}" "${NGINX_TMP:-}"' EXIT
 install -o root -g "$APP_USER" -m 0640 "$ROOT/.env" "$ENV_TMP"
 if grep -q '^PORT=' "$ENV_TMP"; then
   sed -i 's/^PORT=.*/PORT=3000/' "$ENV_TMP"
@@ -118,9 +118,10 @@ if ! ln -- "$ENV_TMP" "$ENV_FILE"; then
   fail "$ENV_FILE appeared during provisioning. Existing environment secrets were not overwritten; inspect the path and rerun only after review."
 fi
 rm -f -- "$ENV_TMP"
-trap - EXIT
+ENV_TMP=""
 
-cat > "$UNIT" <<UNITFILE
+UNIT_TMP="$(mktemp /etc/systemd/system/.arbitrade.service.XXXXXX)"
+cat > "$UNIT_TMP" <<UNITFILE
 [Unit]
 Description=Arbitrade Node.js application
 After=network-online.target
@@ -145,9 +146,15 @@ UMask=0077
 [Install]
 WantedBy=multi-user.target
 UNITFILE
-chmod 0644 "$UNIT"
+chmod 0644 "$UNIT_TMP"
+if ! ln -- "$UNIT_TMP" "$UNIT"; then
+  fail "$UNIT appeared during provisioning. Existing service configuration was not overwritten; inspect the path and rerun only after review."
+fi
+rm -f -- "$UNIT_TMP"
+UNIT_TMP=""
 
-cat > "$NGINX" <<NGINXFILE
+NGINX_TMP="$(mktemp "/etc/nginx/sites-available/.arbitrade-$DOMAIN.XXXXXX")"
+cat > "$NGINX_TMP" <<NGINXFILE
 server {
     listen 80;
     listen [::]:80;
@@ -167,7 +174,16 @@ server {
     }
 }
 NGINXFILE
-ln -s "$NGINX" "$NGINX_ENABLED"
+chmod 0644 "$NGINX_TMP"
+if ! ln -- "$NGINX_TMP" "$NGINX"; then
+  fail "$NGINX appeared during provisioning. Existing nginx configuration was not overwritten; inspect the path and rerun only after review."
+fi
+rm -f -- "$NGINX_TMP"
+NGINX_TMP=""
+
+if ! ln -s "$NGINX" "$NGINX_ENABLED"; then
+  fail "$NGINX_ENABLED appeared during provisioning. Existing enabled-site configuration was not overwritten; inspect the path and rerun only after review."
+fi
 nginx -t
 systemctl daemon-reload
 systemctl enable --now arbitrade.service
