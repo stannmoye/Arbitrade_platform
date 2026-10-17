@@ -25,6 +25,16 @@ describe("installer credential and diagnostic privacy", () => {
     expect(source).toContain('const passwordHash = "scrypt$" + salt + "$" + digest;');
   });
 
+  it("handles database connection cleanup failures without exposing raw errors", async () => {
+    const adminSource = await readFile(adminPath, "utf8");
+    const verifierSource = await readFile(new URL("./verify-install.mjs", import.meta.url), "utf8");
+    expect(adminSource).toContain("Database connection cleanup failed (code: ");
+    expect(adminSource).toContain("await connection.end();");
+    expect(verifierSource).toContain('"Database connection cleanup"');
+    expect(verifierSource).toContain("Could not close the database connection cleanly (code: ");
+    expect(verifierSource).not.toContain("console.error(error)");
+  });
+
   it("sanitizes SMTP test provider error codes", async () => {
     const source = await readFile(smtpPath, "utf8");
     expect(source).toContain('String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40)');
