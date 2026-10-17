@@ -6,6 +6,7 @@ import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
+import { classifyMainMigrationPreflight } from "./main-migration-preflight.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fresh = process.argv.includes("--fresh-install");
@@ -169,6 +170,25 @@ try {
     fail("Existing-database mode requires the database to be imported first. The selected database is empty.");
   }
   if (mode === "existing") {
+    const [trackerTables] = await db.query(
+      "SELECT COUNT(*) AS tableCount FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = '__drizzle_migrations'",
+    );
+    const trackerExists = Number(trackerTables[0].tableCount) === 1;
+    let trackerCount = 0;
+    if (trackerExists) {
+      const [trackerRows] = await db.query("SELECT COUNT(*) AS migrationCount FROM __drizzle_migrations");
+      trackerCount = Number(trackerRows[0].migrationCount);
+    }
+    const migrationPreflight = classifyMainMigrationPreflight({
+      mode,
+      tableCount,
+      trackerExists,
+      trackerCount,
+    });
+    if (!migrationPreflight.allowed) {
+      fail(migrationPreflight.reason + " No migrations were run. Take a restorable backup and have an administrator review the schema and establish a verified migration baseline before retrying.");
+    }
+
     const [users] = await db.query(
       "SELECT COUNT(*) AS tableCount FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'users'",
     );
