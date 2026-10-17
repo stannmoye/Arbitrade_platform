@@ -129,18 +129,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             : $e->getMessage();
     }
 }
+$diskFree = @disk_free_space($root);
+$httpsDetected = $isHttps || (isset($_SERVER['REQUEST_SCHEME']) && strtolower((string)$_SERVER['REQUEST_SCHEME']) === 'https');
+$requiredExtensions = ['pdo_mysql', 'openssl', 'json', 'mbstring'];
+$extensionChecks = [];
+foreach ($requiredExtensions as $extension) $extensionChecks[$extension] = extension_loaded($extension);
+$nodeModulesReady = is_dir($root . '/node_modules');
+$buildReady = is_file($root . '/dist/index.js');
+$packageReady = is_file($root . '/package.json') && is_file($root . '/pnpm-lock.yaml');
+$installerLocked = file_exists($configuredLock) || file_exists($installedLock) || file_exists($envPath);
+$rootWritable = is_writable($root);
+$diskFreeLabel = $diskFree === false ? 'Unavailable on this host' : (string)round($diskFree / 1024 / 1024) . ' MB free';
 ?><!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arbitrade installation wizard</title>
 <style>
 :root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#07111f;color:#dbe9ef;font:14px/1.5 system-ui,-apple-system,sans-serif}.wrap{max-width:960px;margin:32px auto;padding:0 16px}.card{background:#102033;border:1px solid #29445a;border-radius:16px;padding:clamp(18px,4vw,32px);box-shadow:0 20px 70px #0005}.brand{font-size:22px;font-weight:750;letter-spacing:.02em;color:#eaf7f4}.kicker{color:#70e0c4;font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin:24px 0 8px}h1{margin:0 0 8px;font-size:clamp(25px,4vw,34px);line-height:1.15}h2{font-size:16px;border-top:1px solid #29445a;padding-top:22px;margin-top:28px}.sub{color:#91aab8;line-height:1.7}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}label{display:grid;gap:6px;color:#b4c8d2;font-size:12px}input,select{width:100%;min-width:0;background:#091624;border:1px solid #36546a;border-radius:8px;color:#eaf7f4;padding:11px;font:inherit}input:focus,select:focus{outline:2px solid #70e0c4;outline-offset:1px}.full{grid-column:1/-1}.notice{padding:13px 15px;border-radius:8px;background:#173246;color:#b7d5e0;margin:16px 0;overflow-wrap:anywhere}.success{background:#153a36;color:#a4f0d8}.error{background:#48252e;color:#ffc0c7}button{background:#70e0c4;color:#07111f;border:0;border-radius:8px;padding:13px 18px;font-weight:750;cursor:pointer}.actions{display:flex;justify-content:flex-end;margin-top:26px}.help{font-size:12px;color:#91aab8}.steps{display:flex;gap:8px;margin:22px 0}.step-dot{flex:1;padding:8px 4px;text-align:center;border:1px solid #36546a;border-radius:8px;color:#91aab8;font-size:11px}.step-dot.active{border-color:#70e0c4;color:#70e0c4;background:#153a36}.step-panel{min-width:0}.step-controls{display:flex;justify-content:space-between;gap:12px;margin-top:24px}.step-controls button.secondary{background:#29445a;color:#eaf7f4}.step-controls button:disabled{opacity:.45;cursor:not-allowed}.preflight{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.check{padding:10px;border:1px solid #29445a;border-radius:8px}.check strong{display:block;font-size:12px}.check small{color:#91aab8}.@media(max-width:650px){.preflight{grid-template-columns:1fr}.step-dot{font-size:10px}}@media(max-width:650px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.actions button{width:100%}}
 </style></head><body><main class="wrap"><section class="card"><div class="brand">ARBITRADE <span style="color:#70e0c4">/ INSTALLER</span></div><div class="kicker">Guided deployment</div><h1>Configure your installation</h1>
-<div class="preflight" aria-label="PHP installer preflight">
-<div class="check"><strong><?= PHP_VERSION_ID >= 80200 ? '✓' : '✕' ?> PHP <?=h(PHP_VERSION)?></strong><small><?= PHP_VERSION_ID >= 80200 ? 'PHP 8.2+ detected' : 'PHP 8.2 or newer is recommended' ?></small></div>
-<div class="check"><strong><?= extension_loaded('pdo_mysql') ? '✓' : '✕' ?> MySQL driver</strong><small><?= extension_loaded('pdo_mysql') ? 'PDO MySQL available' : 'Enable the pdo_mysql extension' ?></small></div>
-<div class="check"><strong><?= is_writable($root) ? '✓' : '✕' ?> Application directory</strong><small><?= is_writable($root) ? 'Configuration can be written' : 'Directory must be writable by PHP during setup' ?></small></div>
-<div class="check"><strong><?= is_dir($root . '/node_modules') ? '✓' : '!' ?> Dependencies</strong><small><?= is_dir($root . '/node_modules') ? 'node_modules exists; runtime still needs verification' : 'Node dependencies are not yet installed' ?></small></div>
+<div class="preflight" aria-label="Server and application preflight checks">
+<div class="check"><strong><?= PHP_VERSION_ID >= 80200 ? '✓' : '✕' ?> PHP <?=h(PHP_VERSION)?></strong><small><?= PHP_VERSION_ID >= 80200 ? 'PHP 8.2+ detected' : 'Action required: use PHP 8.2 or newer for the installer' ?></small></div>
+<?php foreach ($extensionChecks as $extension => $available): ?>
+<div class="check"><strong><?= $available ? '✓' : '✕' ?> <?=h($extension)?> extension</strong><small><?= $available ? 'Available' : 'Action required: enable ' . h($extension) . ' in cPanel PHP Extensions' ?></small></div>
+<?php endforeach; ?>
+<div class="check"><strong><?= $rootWritable ? '✓' : '✕' ?> Configuration directory</strong><small><?= $rootWritable ? 'Writable by PHP during setup' : 'Action required: allow PHP to write configuration during setup' ?></small></div>
+<div class="check"><strong><?= $packageReady ? '✓' : '✕' ?> Application package</strong><small><?= $packageReady ? 'package.json and pnpm-lock.yaml found' : 'Upload the complete application package, including the lockfile' ?></small></div>
+<div class="check"><strong><?= $nodeModulesReady ? '✓' : '!' ?> Dependencies</strong><small><?= $nodeModulesReady ? 'node_modules directory exists; package integrity is not yet verified' : 'Not installed yet; requires Node.js/pnpm terminal or supported host automation' ?></small></div>
+<div class="check"><strong><?= $buildReady ? '✓' : '!' ?> Production build</strong><small><?= $buildReady ? 'dist/index.js exists' : 'Not built yet; build after configuring the environment' ?></small></div>
+<div class="check"><strong><?= $httpsDetected ? '✓' : '!' ?> HTTPS</strong><small><?= $httpsDetected ? 'HTTPS detected for this request' : 'HTTPS not detected; enable SSL before production use' ?></small></div>
+<div class="check"><strong><?= $diskFree === false ? '!' : ($diskFree > 1024 * 1024 * 1024 ? '✓' : '!') ?> Available disk</strong><small><?=h($diskFreeLabel)?><?= $diskFree !== false && $diskFree <= 1024 * 1024 * 1024 ? '; verify sufficient space before dependency installation/build' : '' ?></small></div>
+<div class="check"><strong><?= $installerLocked ? '!' : '✓' ?> Installation state</strong><small><?= $installerLocked ? 'Existing configuration/lock detected; installer must not be reused' : 'No existing installation lock detected' ?></small></div>
+<div class="check"><strong>! Node.js runtime</strong><small>PHP cannot reliably detect the Node.js version on shared hosting. Verify Node.js 20+ in cPanel Setup Node.js App; the terminal installer performs its own version check.</small></div>
 </div>
-<p class="sub">This wizard verifies database connectivity and writes protected server configuration. The Node.js build and schema steps must then be run from the private cPanel terminal. Do not expose this wizard publicly after setup.</p>
+<p class="sub">This preflight checks what PHP can reliably observe. Node.js runtime/version and live dependency health are explicitly marked for verification in the hosting environment rather than guessed. Critical PHP extension and write-permission failures block configuration submission. Database credentials are checked privately when you submit the database step. Do not expose this wizard publicly after setup.</p>
 <?php if($message):?><div class="notice success"><?=h($message)?><p><strong>Next step:</strong> in the application root, run <code>node installer/run-install.mjs --<?=h(postval('install_mode') === 'existing' ? 'existing-database --confirm-existing-migrations' : 'fresh-install')?></code> from the private cPanel terminal.</p></div><?php endif;?>
 <?php if($error):?><div class="notice error"><?=h($error)?></div><?php endif;?>
 <?php if(!$message && !file_exists($configuredLock) && !file_exists($installedLock) && !file_exists($envPath)):?>
