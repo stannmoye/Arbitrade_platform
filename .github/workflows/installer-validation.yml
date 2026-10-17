@@ -197,6 +197,18 @@ jobs:
             }
             const [admins] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='admin' AND email='ci-admin@example.test'");
             if (Number(admins[0].count) !== 1) throw new Error("Expected exactly one CI administrator account.");
+             if (!tables.has("trade_lifecycle_events")) throw new Error("Manual settlement lifecycle migration did not create trade_lifecycle_events.");
+             const [settlementColumns] = await db.query(
+               "SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='trade_positions' AND column_name IN ('settlementReference','settlementConfirmedAt','settlementConfirmedBy','settlementNotes')"
+             );
+             if (settlementColumns.length !== 4) throw new Error("Manual settlement lifecycle migration did not create all settlement columns.");
+             const [settlementMigration] = await db.execute(
+               "SELECT status FROM portal_schema_migrations WHERE migrationName=?",
+               ["0053_manual_settlement_lifecycle.sql"]
+             );
+             if (settlementMigration.length !== 1 || settlementMigration[0].status !== "applied") {
+               throw new Error("Manual settlement lifecycle migration is not recorded as applied.");
+             }
             const [drizzle] = await db.query("SELECT COUNT(*) AS count FROM __drizzle_migrations");
             const [portal] = await db.query("SELECT COUNT(*) AS count FROM portal_schema_migrations");
             const [mining] = await db.query("SELECT COUNT(*) AS count FROM mining_schema_migrations");
@@ -301,6 +313,18 @@ jobs:
             }
             const [admins] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='admin' AND email='ci-admin@example.test'");
             if (Number(admins[0].count) !== 1) throw new Error("Expected exactly one CI administrator account.");
+             if (!tables.has("trade_lifecycle_events")) throw new Error("Manual settlement lifecycle migration did not create trade_lifecycle_events.");
+             const [settlementColumns] = await db.query(
+               "SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='trade_positions' AND column_name IN ('settlementReference','settlementConfirmedAt','settlementConfirmedBy','settlementNotes')"
+             );
+             if (settlementColumns.length !== 4) throw new Error("Manual settlement lifecycle migration did not create all settlement columns.");
+             const [settlementMigration] = await db.execute(
+               "SELECT status FROM portal_schema_migrations WHERE migrationName=?",
+               ["0053_manual_settlement_lifecycle.sql"]
+             );
+             if (settlementMigration.length !== 1 || settlementMigration[0].status !== "applied") {
+               throw new Error("Manual settlement lifecycle migration is not recorded as applied.");
+             }
             const [drizzle] = await db.query("SELECT COUNT(*) AS count FROM __drizzle_migrations");
             const [portal] = await db.query("SELECT COUNT(*) AS count FROM portal_schema_migrations");
             const [mining] = await db.query("SELECT COUNT(*) AS count FROM mining_schema_migrations");
