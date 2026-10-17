@@ -29,6 +29,8 @@ done
 
 say(){ printf '\n[arbitrade-vps] %s\n' "$*"; }
 fail(){ say "ERROR: $*"; exit 1; }
+# Share path-existence semantics with isolated regression tests.
+. "$ROOT/installer/vps-preflight.sh"
 [[ "${EUID}" -eq 0 ]] || fail "Run with sudo/root privileges."
 [[ -f "$ROOT/package.json" && -f "$ROOT/pnpm-lock.yaml" ]] || fail "Run this script from a complete Arbitrade repository checkout."
 [[ "$ROOT" != /root* && "$ROOT" != /home/* ]] || fail "Deploy the application under /var/www or another system path, not /root or /home; the systemd service uses ProtectHome=true."
@@ -51,9 +53,9 @@ case "${ID:-}" in ubuntu|debian) ;; *) fail "Only Debian/Ubuntu are supported by
 UNIT="/etc/systemd/system/arbitrade.service"
 NGINX="/etc/nginx/sites-available/arbitrade-$DOMAIN"
 NGINX_ENABLED="/etc/nginx/sites-enabled/arbitrade-$DOMAIN"
-[[ ! -e "$UNIT" && ! -L "$UNIT" ]] || fail "$UNIT already exists. Review it manually; this script will not overwrite it."
-[[ ! -e "$NGINX" && ! -L "$NGINX" ]] || fail "$NGINX already exists. Review it manually; this script will not overwrite it."
-[[ ! -e "$NGINX_ENABLED" && ! -L "$NGINX_ENABLED" ]] || fail "The nginx enabled-site path already exists. Review it manually; this script will not overwrite it."
+arbitrade_path_is_available "$UNIT" || fail "$UNIT already exists. Review it manually; this script will not overwrite it."
+arbitrade_path_is_available "$NGINX" || fail "$NGINX already exists. Review it manually; this script will not overwrite it."
+arbitrade_path_is_available "$NGINX_ENABLED" || fail "The nginx enabled-site path already exists. Review it manually; this script will not overwrite it."
 
 if [[ "$INSTALL_RUNTIME" == 1 ]]; then
   say "Installing OS prerequisites and Node.js 22"
