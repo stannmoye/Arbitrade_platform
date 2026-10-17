@@ -26,6 +26,12 @@ report(
     : `Node.js ${process.versions.node} is too old; use Node.js 20 or newer.`,
 );
 
+let packageJson = null;
+try {
+  packageJson = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
+} catch {
+  // The package check below will report missing or unreadable metadata.
+}
 const packageFiles = await Promise.all(
   ["package.json", "pnpm-lock.yaml"].map(async (file) => {
     try {
@@ -42,6 +48,17 @@ report(
   packageFiles.every(Boolean)
     ? "package.json and pnpm-lock.yaml are present."
     : "package.json or pnpm-lock.yaml is missing from the application root.",
+);
+
+const startCommand = String(packageJson?.scripts?.start || "");
+report(
+  "Production startup command",
+  startCommand.includes("NODE_ENV=production") && startCommand.includes("node dist/index.js"),
+  startCommand
+    ? startCommand.includes("NODE_ENV=production") && startCommand.includes("node dist/index.js")
+      ? "package.json start script launches dist/index.js in production mode."
+      : "The start script does not match the expected production entry point (NODE_ENV=production node dist/index.js)."
+    : "package.json has no start script.",
 );
 
 const pnpmResult = spawnSync("pnpm", ["--version"], {
@@ -154,15 +171,42 @@ try {
 }
 
 const appUrl = process.env.PUBLIC_APP_URL;
+let parsedAppUrl = null;
 if (!appUrl) {
-  report("Application health", false, "PUBLIC_APP_URL is not configured.");
+  report("Public application URL", false, "PUBLIC_APP_URL is not configured.");
+  report("Application health", false, "Cannot check health without PUBLIC_APP_URL.");
 } else {
   try {
-    const healthUrl = new URL("/api/health", appUrl);
+    parsedAppUrl = new URL(appUrl);
+    const valid = ["https:", "http:"].includes(parsedAppUrl.protocol) && Boolean(parsedAppUrl.hostname);
+    const secure = parsedAppUrl.protocol === "https:";
+    report(
+      "Public application URL",
+      valid && secure,
+      !valid
+        ? "PUBLIC_APP_URL must be a valid absolute HTTP(S) URL."
+        : secure
+          ? "PUBLIC_APP_URL is a valid HTTPS URL."
+          : "PUBLIC_APP_URL uses HTTP. Production deployments should use HTTPS.",
+    );
+  } catch {
+    report("Public application URL", false, "PUBLIC_APP_URL is not a valid absolute URL.");
+  }
+  try {
+    if (!parsedAppUrl || !["https:", "http:"].includes(parsedAppUrl.protocol)) throw new Error("PUBLIC_APP_URL is not a valid HTTP(S) URL.");
+    const healthUrl = new URL("/api/health", parsedAppUrl);
+    const startedAt = Date.now();
     const response = await fetch(healthUrl, { signal: AbortSignal.timeout(8000), redirect: "error" });
+    const elapsedMs = Date.now() - startedAt;
     const body = await response.json().catch(() => null);
     const ok = response.ok && body?.status === "ok";
-    report("Application health", ok, ok ? "GET /api/health returned status=ok." : `Health endpoint returned HTTP ${response.status}; inspect the application logs.`);
+    report(
+      "Application health",
+      ok,
+      ok
+        ? `GET /api/health returned status=ok in ${elapsedMs} ms.`
+        : `Health endpoint returned HTTP ${response.status} in ${elapsedMs} ms; inspect application logs and startup configuration.`,
+    );
   } catch (error) {
     report("Application health", false, error?.message || "Health endpoint could not be reached. Start/restart the application and rerun.");
   }
@@ -201,5 +245,8 @@ warn("OAuth", "Google/Microsoft credentials and provider-side callback registrat
 
 const failed = results.filter((item) => item.status === "FAIL");
 const warnings = results.filter((item) => item.status === "WARN");
-console.log(`\nInstaller verification: ${results.length - failed.length - warnings.length} passed, ${failed.length} failed, ${warnings.length} manual checks/warnings.`);
+const passed = results.length - failed.length - warnings.length;
+const readiness = failed.length ? "NOT READY" : warnings.length ? "READY WITH WARNINGS" : "READY";
+console.log(`\nInstaller verification: ${passed} passed, ${failed.length} failed, ${warnings.length} manual checks/warnings.`);
+console.log(`Deployment readiness: ${readiness}`);
 if (failed.length) process.exitCode = 1;
