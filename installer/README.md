@@ -48,6 +48,24 @@ pnpm installer:test-smtp --to=you@example.com
    This verifies SMTP connectivity/authentication and sends one test email. Provider error details are deliberately limited to avoid logging secrets.
 10. Remove or deny public access to /installer/ after verification. Keep .env, bootstrap state, SQL dumps, logs, and uploads private. The install lock is not a substitute for removing public access.
 
+## Deployment diagnostics
+
+Run this from the private application root after configuring the environment:
+
+~~~bash
+pnpm installer:diagnose
+~~~
+
+The read-only diagnostic checks the Node.js and pnpm versions, production start command, build artifact, required environment-variable presence, public URL/HTTPS, configured port, local TCP listener, `/api/health`, and a non-mutating MySQL `SELECT 1` connection check. When `MAIL_PROVIDER=smtp`, it also checks that required SMTP settings are present; it does not send a message or test the provider connection. Use `pnpm installer:test-smtp --to=you@example.com` for an explicit SMTP test.
+
+It never prints database URLs, passwords, tokens, or other environment values. Database failures report an error code and troubleshooting guidance, not connection credentials. A successful result is a deployment triage aid, not proof that every feature works or that the installation is secure.
+
+Common follow-up actions:
+- **Database connection fails:** confirm the database exists, the configured user has privileges, the host/port is correct for the hosting provider, and the private environment value is current.
+- **No local listener / health fails:** confirm the host's application port and startup-file settings, rebuild if needed, restart through cPanel Setup Node.js App or the configured VPS service, then inspect private logs.
+- **Required environment setting missing:** configure it in the private `.env` or hosting environment; never paste secret values into issue reports.
+- **HTTP public URL:** configure HTTPS and the correct `PUBLIC_APP_URL` before production traffic.
+
 ## Database safety
 
 - Fresh mode refuses to proceed if the database contains tables.
