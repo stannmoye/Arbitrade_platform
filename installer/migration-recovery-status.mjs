@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { config } from "dotenv";
 import mysql from "mysql2/promise";
 import { readFile } from "node:fs/promises";
@@ -138,7 +139,17 @@ try {
     const portalByName = new Map(portalRows.map((row) => [String(row.migrationName), row]));
     for (const name of portalMigrationFiles) {
       const row = portalByName.get(name);
-      console.log("- " + name + ": " + (row ? String(row.status) + (row.errorCode ? " (code: " + String(row.errorCode).replace(/[^A-Z0-9_]/gi, "").slice(0, 40) + ")" : "") : "not recorded"));
+      let checksumStatus = "";
+      if (row) {
+        try {
+          const sql = await readFile(resolve(root, "drizzle", name), "utf8");
+          const currentChecksum = createHash("sha256").update(sql).digest("hex");
+          checksumStatus = row.checksum === currentChecksum ? "; checksum matches checkout" : "; CHECKSUM MISMATCH";
+        } catch {
+          checksumStatus = "; migration file unavailable in checkout";
+        }
+      }
+      console.log("- " + name + ": " + (row ? String(row.status) + (row.errorCode ? " (code: " + String(row.errorCode).replace(/[^A-Z0-9_]/gi, "").slice(0, 40) + ")" : "") + checksumStatus : "not recorded"));
     }
     const appliedCount = portalMigrationFiles.filter((name) => ["applied", "baseline_confirmed"].includes(String(portalByName.get(name)?.status || ""))).length;
     console.log("Expected tracked portal migration files: " + portalMigrationFiles.length);
