@@ -102,7 +102,7 @@ console.log("No migrations are executed, no markers are cleared, and no schema/d
 console.log("Treat any incomplete/unknown result as a stop signal; take a restorable backup before recovery.\n");
 
 try {
-  const [drizzleExists, miningExists, portalSignals] = await Promise.all([
+  const [drizzleExists, miningExists, portalSignals, portalTrackerExists] = await Promise.all([
     tableExists("__drizzle_migrations"),
     tableExists("mining_schema_migrations"),
     Promise.all(["kyc_profiles", "email_notification_settings", "opportunity_popup_events", "opportunity_delivery_events"].map(tableExists)),
