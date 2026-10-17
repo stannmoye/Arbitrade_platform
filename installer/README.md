@@ -161,3 +161,17 @@ The report shows the last recorded stage, whether a failed command and exit stat
 - **Build fails:** inspect the private terminal output and cPanel Node.js version. Do not delete installation locks to retry blindly.
 - **Health check fails:** inspect the cPanel/VPS service logs and confirm PUBLIC_APP_URL, PORT, and DATABASE_URL.
 - **Interrupted installation:** preserve a database backup and the current .env/lock files, inspect `installer/.install-in-progress.json` for the last recorded stage, review private terminal output and actual migration state, and recover deliberately. The marker intentionally blocks reruns; remove it only after an administrator confirms the recovery plan. Do not re-run schema initialization against an existing database.
+
+
+## Controlled recovery decision procedure
+
+After an interrupted install, run the read-only reports from the private application root:
+
+~~~bash
+pnpm installer:recovery-report
+pnpm installer:migration-recovery
+~~~
+
+The recovery report does not inspect or change the database. The migration diagnostic connects read-only and reports tracker/schema signals; neither tool runs migrations or removes the interrupted-install marker. Treat a missing tracker as **unknown**, not proof that a migration never started. A tracker count that matches the journal is also not proof that the schema is correct.
+
+Before any retry, create and verify a restorable backup, inspect the exact failed stage, compare the migration SQL with the real schema/data, and document an administrator-approved recovery plan. If a migration partially applied, repair it deliberately; do not blindly rerun it. If the migration and schema are verified complete, do not rerun it. Even a verified not-started migration is only a candidate for an administrator-approved retry; no recovery helper automatically executes it or authorizes marker removal.
