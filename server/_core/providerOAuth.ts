@@ -5,7 +5,7 @@ import * as db from "../db";
 import { sdk } from "./sdk";
 import { getSessionCookieOptions } from "./cookies";
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
-import { createAuthRateLimiter } from "./authRateLimit";
+import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
 
 const STATE_COOKIE = "arbitrade_provider_oauth";
 type Provider = "google" | "microsoft";
@@ -37,8 +37,8 @@ function redirectUri(req: Request, provider: Provider) { return config(provider)
 function safeError(res: Response, status: number, message: string) { res.status(status).json({ error: message }); }
 
 export function registerProviderOAuthRoutes(app: Express) {
-  const startRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 20, message: "Too many OAuth sign-in attempts. Try again later." });
-  const callbackRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 60, message: "Too many OAuth callback attempts. Try again later." });
+  const startRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 20, message: "Too many OAuth sign-in attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "provider-oauth-start" });
+  const callbackRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 60, message: "Too many OAuth callback attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "provider-oauth-callback" });
   app.get("/api/oauth/:provider/start", startRateLimit, (req, res) => {
     const provider = providerFrom(req.params.provider);
     if (!provider) return safeError(res, 404, "Unsupported OAuth provider");
