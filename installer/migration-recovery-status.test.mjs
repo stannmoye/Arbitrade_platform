@@ -29,6 +29,14 @@ describe("migration recovery diagnostic connection safety", () => {
     expect(source).not.toContain("console.error(rawDatabaseUrl)");
   });
 
+  it("sanitizes database connection cleanup failures", async () => {
+    const source = await readFile(sourceUrl, "utf8");
+    expect(source).toContain("Could not close the diagnostic database connection cleanly.");
+    expect(source).toContain('String(error?.code || "unavailable").replace(/[^A-Z0-9_]/gi, "").slice(0, 40)');
+    expect(source).toContain("process.exitCode = 1;");
+    expect(source).not.toContain("finally {\n  await db.end();");
+  });
+
   it("reports connection failures with a sanitized error code instead of a stack trace", async () => {
     const source = await readFile(sourceUrl, "utf8");
     expect(source).toContain("Could not connect to the configured database. Check private connection settings and database availability; credentials are not displayed.");
