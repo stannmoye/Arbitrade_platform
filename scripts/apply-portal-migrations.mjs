@@ -64,6 +64,25 @@ function checksum(content) {
 
 try {
   const trackerExisted = await tableExists("portal_schema_migrations");
+  if (!trackerExisted) {
+    const [targetRows] = await connection.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN (" +
+        targetTables.map(() => "?").join(",") + ")",
+      targetTables,
+    );
+    if (baselineReviewed && targetRows.length === 0) {
+      throw new Error("--baseline-reviewed requires existing portal schema objects. For a fresh schema, omit this flag and let the tracked runner apply migrations.");
+    }
+    if (targetRows.length > 0 && !baselineReviewed) {
+      throw new Error(
+        "Existing portal schema objects were found but no per-file tracker exists. No migration SQL was run and no tracker table was created. " +
+        "Review each migration against the actual schema and data, take a restorable backup, then rerun with " +
+        "--baseline-reviewed only after confirming that every listed migration is already represented in this database. " +
+        "Detected: " + targetRows.map((row) => row.table_name).join(", "),
+      );
+    }
+  }
+
   await connection.query(`
     CREATE TABLE IF NOT EXISTS portal_schema_migrations (
       migrationName VARCHAR(160) NOT NULL PRIMARY KEY,
@@ -80,20 +99,6 @@ try {
   `);
 
   if (!trackerExisted) {
-    const [existingTargets] = await connection.query(
-      "SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN (" +
-        targetTables.map(() => "?").join(",") + ")",
-      targetTables,
-    );
-    if (existingTargets.length > 0 && !baselineReviewed) {
-      throw new Error(
-        "Existing portal schema objects were found but no per-file tracker exists. No migration SQL was run. " +
-        "Review each migration against the actual schema and data, take a restorable backup, then rerun with " +
-        "--baseline-reviewed only after confirming that every listed migration is already represented in this database. " +
-        "Detected: " + existingTargets.map((row) => row.table_name).join(", "),
-      );
-    }
-
     if (baselineReviewed) {
       for (const filename of migrationFiles) {
         const sql = await getMigrationSql(filename);
