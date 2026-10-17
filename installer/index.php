@@ -141,7 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="check"><strong><?= is_dir($root . '/node_modules') ? '✓' : '!' ?> Dependencies</strong><small><?= is_dir($root . '/node_modules') ? 'node_modules exists; runtime still needs verification' : 'Node dependencies are not yet installed' ?></small></div>
 </div>
 <p class="sub">This wizard verifies database connectivity and writes protected server configuration. The Node.js build and schema steps must then be run from the private cPanel terminal. Do not expose this wizard publicly after setup.</p>
-<?php if($message):?><div class="notice success"><?=h($message)?><p><strong>Next step:</strong> in the application root, run <code>node installer/run-install.mjs --<?=h(postval('install_mode') === 'existing' ? 'existing-database' : 'fresh-install')?></code> from the private cPanel terminal.</p></div><?php endif;?>
+<?php if($message):?><div class="notice success"><?=h($message)?><p><strong>Next step:</strong> in the application root, run <code>node installer/run-install.mjs --<?=h(postval('install_mode') === 'existing' ? 'existing-database --confirm-existing-migrations' : 'fresh-install')?></code> from the private cPanel terminal.</p></div><?php endif;?>
 <?php if($error):?><div class="notice error"><?=h($error)?></div><?php endif;?>
 <?php if(!$message && !file_exists($configuredLock) && !file_exists($installedLock) && !file_exists($envPath)):?>
 <form method="post" autocomplete="off"><input type="hidden" name="csrf" value="<?=h($csrf)?>">
