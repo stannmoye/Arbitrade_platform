@@ -98,28 +98,30 @@ async function main() {
         created_at BIGINT
       )
     `);
-    const [latestRows] = await connection.query(
-      "SELECT hash, created_at FROM __drizzle_migrations ORDER BY created_at DESC LIMIT 1",
-    );
-    let latestTimestamp = latestRows.length ? Number(latestRows[0].created_at) : -1;
+    const [appliedRows] = await connection.query("SELECT hash FROM __drizzle_migrations");
+    const appliedHashes = new Set(appliedRows.map(row => String(row.hash)));
     let appliedCount = 0;
 
+    // The journal contains historical timestamps that are not strictly increasing.
+    // Hash-based detection preserves Drizzle's recorded migration identities without
+    // silently skipping entries whose timestamps happen to precede a later entry.
     for (const entry of journal.entries) {
       const migrationTimestamp = Number(entry.when);
       if (!Number.isFinite(migrationTimestamp) || !entry.tag) {
         throw new Error("Drizzle migration journal contains an invalid entry.");
       }
-      if (migrationTimestamp <= latestTimestamp) continue;
 
       const migrationPath = resolve(root, "drizzle", entry.tag + ".sql");
       const sql = await readFile(migrationPath, "utf8");
       const hash = createHash("sha256").update(sql).digest("hex");
+      if (appliedHashes.has(hash)) continue;
+
       await executeCompatibleMigrationSql(connection, sql);
       await connection.execute(
         "INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)",
         [hash, migrationTimestamp],
       );
-      latestTimestamp = migrationTimestamp;
+      appliedHashes.add(hash);
       appliedCount++;
       console.log("[main-migrate] Applied " + entry.tag + ".sql");
     }
