@@ -58,12 +58,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $server->exec('CREATE DATABASE IF NOT EXISTS ' . $dbName . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
         }
         $pdo = new PDO('mysql:host=' . $dbHost . ';port=' . $dbPort . ';dbname=' . $dbName . ';charset=utf8mb4', $dbUser, $dbPass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 8]);
-        $tableCount = (int)$pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()')->fetchColumn();
+        $tableRows = $pdo->query('SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() ORDER BY table_name')->fetchAll(PDO::FETCH_COLUMN);
+        $tableNames = array_values(array_map('strval', $tableRows));
+        $tableCount = count($tableNames);
         if ($mode === 'fresh' && $tableCount !== 0) throw new RuntimeException("Fresh installation requires an empty database; this database contains {$tableCount} tables. No data was changed.");
+        $backupConfirmed = isset($_POST['backup_confirmed']) && $_POST['backup_confirmed'] === '1';
         if ($mode === 'existing') {
-            if ($tableCount === 0) throw new RuntimeException('Existing-database mode requires the database to be imported first. The selected database is empty.');
-            $usersTable = (int)$pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'users'")->fetchColumn();
-            if ($usersTable !== 1) throw new RuntimeException('The selected database does not contain the expected users table.');
+            if ($tableCount === 0) throw new RuntimeException('Existing-database mode requires a restored/imported database first. The selected database is empty.');
+            if (!$backupConfirmed) throw new RuntimeException('Before continuing with an existing database, confirm that a current, restorable backup exists and that the intended backup has been imported into this target database.');
+            $usersTable = in_array('users', $tableNames, true);
+            if (!$usersTable) throw new RuntimeException('The selected database does not contain the expected users table. Verify that the correct Arbitrade backup was imported.');
         }
 
         $adminEmail = strtolower(postval('admin_email'));
@@ -100,7 +104,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             envline('SMTP_FROM_EMAIL', postval('from_email')), envline('SMTP_FROM_NAME', postval('from_name') ?: 'Arbitrade'),
             envline('ADMIN_EMAIL', $adminEmail),
         ];
-        $bootstrap = json_encode(['mode' => $mode, 'adminEmail' => $adminEmail, 'adminPassword' => $adminPassword], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        $bootstrap = json_encode([
+            'mode' => $mode,
+            'adminEmail' => $adminEmail,
+            'adminPassword' => $adminPassword,
+            'databaseTableCount' => $tableCount,
+            'databaseTableNames' => $tableNames,
+            'backupConfirmed' => $mode === 'existing' && $backupConfirmed,
+            'databaseCheckedAt' => gmdate('c'),
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         $envTmp = $root . '/.env.installing.' . bin2hex(random_bytes(6));
         $bootstrapTmp = $root . '/.installer-bootstrap.tmp.' . bin2hex(random_bytes(6));
         if (file_put_contents($envTmp, implode("\n", $lines) . "\n", LOCK_EX) === false) throw new RuntimeException('Could not write environment configuration. Check application-directory permissions.');
@@ -125,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         chmod($configuredLock, 0600);
         session_regenerate_id(true);
-        $message = 'Configuration saved and database connection verified. No schema migrations have run yet. Continue from the private cPanel terminal using the command shown below.';
+        $message = 'Database connection verified; ' . $tableCount . ' table(s) detected and the table inventory saved for a second safety check. No schema migrations have run yet. Continue from the private cPanel terminal using the command shown below.';
     } catch (Throwable $e) {
         $error = $e instanceof PDOException
             ? 'Database connection failed. Verify the database host, name, username, password, and privileges. Configuration was not saved.'
@@ -167,8 +179,9 @@ $diskFreeLabel = $diskFree === false ? 'Unavailable on this host' : (string)roun
 <?php if($error):?><div class="notice error"><?=h($error)?></div><?php endif;?>
 <?php if(!$message && !file_exists($configuredLock) && !file_exists($installedLock) && !file_exists($envPath)):?>
 <form method="post" autocomplete="off"><input type="hidden" name="csrf" value="<?=h($csrf)?>">
-<h2>1. Installation mode</h2><div class="grid"><label class="full">Deployment type<select name="install_mode" id="install_mode" required><option value="fresh">Fresh installation — new empty database</option><option value="existing">Existing installation — database already imported</option></select></label></div>
-<div class="notice">For an existing installation, import the canonical database backup first. This wizard refuses to initialize a non-empty database in fresh-install mode and never replaces existing account credentials.</div>
+<h2>1. Installation mode</h2><div class="grid"><label class="full">Deployment type<select name="install_mode" id="install_mode" required><option value="fresh">Fresh installation — new empty database</option><option value="existing">Restore/migrate existing database — backup already imported</option></select></label>
+<label class="full" id="backup-confirmation" hidden><span><input type="checkbox" name="backup_confirmed" value="1" style="width:auto"> I confirm I have a current, restorable backup and have imported the intended Arbitrade backup into the target database. I understand the installer will run forward migrations and will not import or overwrite the database itself.</span></label></div>
+<div class="notice" id="database-mode-note">Fresh installation requires an empty database. For existing data, import the SQL backup using cPanel/phpMyAdmin or a trusted private terminal before continuing. Large SQL imports are intentionally not accepted over this public web form because host upload/time limits can truncate a restore. The installer records the database table inventory now and checks it again in the private terminal before migrations.</div>
 <h2>2. Application and database</h2><div class="grid">
 <label class="full">Public application URL<input name="app_url" placeholder="https://example.com" required></label><label>Node application port<input name="port" value="3000" inputmode="numeric" required></label>
 <label>Database host<input name="db_host" value="127.0.0.1" required></label><label>Database port<input name="db_port" value="3306" inputmode="numeric" required></label>
@@ -181,7 +194,7 @@ $diskFreeLabel = $diskFree === false ? 'Unavailable on this host' : (string)roun
 <div class="notice">OAuth and email credentials are stored server-side. Do not commit .env or the installer bootstrap file.</div><div class="step-controls"><button type="button" class="secondary" id="step-prev">Previous</button><span class="help" id="step-count" aria-live="polite"></span><button type="button" id="step-next">Next step</button><button type="submit" id="step-submit" hidden>Verify database &amp; save configuration</button></div></form>
 <script>
 const mode=document.getElementById('install_mode'),adminSection=document.getElementById('admin-section');
-function updateMode(){const fresh=mode.value==='fresh';adminSection.hidden=!fresh;adminSection.querySelector('[name="admin_email"]').required=fresh;adminSection.querySelector('[name="admin_password"]').required=fresh;}
+function updateMode(){const fresh=mode.value==='fresh';adminSection.hidden=!fresh;adminSection.querySelector('[name="admin_email"]').required=fresh;adminSection.querySelector('[name="admin_password"]').required=fresh;const backup=document.getElementById('backup-confirmation');backup.hidden=fresh;backup.querySelector('input').required=!fresh;document.getElementById('database-mode-note').textContent=fresh?'Fresh installation requires an empty database. The wizard checks this before saving configuration.':'Import the intended SQL backup using cPanel/phpMyAdmin or a trusted private terminal before continuing. Large SQL imports are intentionally not accepted over this public web form because host upload/time limits can truncate a restore. Confirm you have a current restorable backup. The wizard records the database table inventory and checks it again in the private terminal before migrations.';}
 mode.addEventListener('change',updateMode);updateMode();
 const form=document.querySelector('form'), headings=[...form.querySelectorAll(':scope > h2')], panels=[];
 for(const heading of headings){const panel=document.createElement('section');panel.className='step-panel';heading.parentNode.insertBefore(panel,heading);let node=heading;while(node){const following=node.nextSibling;if(node!==heading&&node.tagName==='H2')break;panel.appendChild(node);node=following;}panels.push(panel);}
