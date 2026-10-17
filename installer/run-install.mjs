@@ -73,6 +73,18 @@ try {
 if (bootstrap.mode !== mode) {
   fail("The selected CLI mode does not match the mode saved by the web wizard.");
 }
+if (!Array.isArray(bootstrap.databaseTableNames) || !Number.isInteger(bootstrap.databaseTableCount)) {
+  fail("The wizard did not save a database inventory. Re-open the browser wizard and verify the database again before running migrations.");
+}
+if (bootstrap.databaseTableCount !== bootstrap.databaseTableNames.length) {
+  fail("The saved database inventory is inconsistent. Do not continue; rerun the wizard's database verification.");
+}
+if (mode === "existing" && bootstrap.backupConfirmed !== true) {
+  fail("Existing-database migration requires backup confirmation in the browser wizard. Verify a current restorable backup and rerun the wizard.");
+}
+if (mode === "fresh" && bootstrap.databaseTableCount !== 0) {
+  fail("The browser wizard did not verify an empty database for fresh installation. No migrations were run.");
+}
 if (mode === "fresh") {
   const email = String(bootstrap.adminEmail || "").trim().toLowerCase();
   const password = String(bootstrap.adminPassword || "");
@@ -95,10 +107,15 @@ try {
     ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
     connectTimeout: 10000,
   });
-  const [rows] = await db.query(
-    "SELECT COUNT(*) AS tableCount FROM information_schema.tables WHERE table_schema = DATABASE()",
+  const [tableRows] = await db.query(
+    "SELECT table_name AS tableName FROM information_schema.tables WHERE table_schema = DATABASE() ORDER BY table_name",
   );
-  const tableCount = Number(rows[0].tableCount);
+  const currentTableNames = tableRows.map((row) => String(row.tableName)).sort();
+  const tableCount = currentTableNames.length;
+  const savedTableNames = [...bootstrap.databaseTableNames].map(String).sort();
+  if (tableCount !== bootstrap.databaseTableCount || JSON.stringify(currentTableNames) !== JSON.stringify(savedTableNames)) {
+    fail("The target database table inventory changed after the browser wizard verified it. Stop and review the selected DATABASE_URL; rerun the wizard's database check before any migration.");
+  }
   if (mode === "fresh" && tableCount !== 0) {
     fail("Fresh-install mode requires an EMPTY database. This database already contains " + tableCount + " tables. No migrations were run.");
   }
@@ -113,7 +130,7 @@ try {
       fail("The imported database does not contain the expected users table. Check that the correct Arbitrade database was imported.");
     }
   }
-  console.log("[installer] Database connection successful; " + tableCount + " table(s) detected.");
+  console.log("[installer] Database connection successful; " + tableCount + " table(s) detected. Inventory matches the browser wizard.");
 } catch (error) {
   if (error && typeof error.message === "string" && error.message.startsWith("[installer]")) throw error;
   fail("Could not connect to the selected database. Check DATABASE_URL and database privileges. " + (error?.code || error?.message || ""));
