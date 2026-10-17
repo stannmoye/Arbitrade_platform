@@ -109,6 +109,10 @@ jobs:
               exit 1
             fi
           done
+          if ! compgen -G "dist/public/assets/MiningCoreCanvas-*.css" >/dev/null; then
+            echo "Expected lazy-loaded mining cockpit stylesheet was not generated." >&2
+            exit 1
+          fi
 
           css_bundle="$(find dist/public/assets -maxdepth 1 -type f -name 'index-*.css' -print -quit)"
           if [[ -z "$css_bundle" ]]; then
