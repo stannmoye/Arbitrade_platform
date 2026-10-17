@@ -11,6 +11,9 @@ describe("migration recovery diagnostic connection safety", () => {
     expect(source).toContain("Expected tracked portal migration files:");
     expect(source).toContain("CHECKSUM MISMATCH");
     expect(source).toContain("createHash(\"sha256\").update(sql).digest(\"hex\")");
+    expect(source).toContain("const checksumsComplete = checksumMatchCount === portalMigrationFiles.length;");
+    expect(source).toContain("trackerComplete && checksumsComplete");
+    expect(source).toContain("Checksums matching checked-out SQL files:");
     expect(source).not.toContain("Per-file tracker: not implemented by the current portal migration runner.");
   });
 
