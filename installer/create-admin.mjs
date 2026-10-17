@@ -75,5 +75,11 @@ try {
   }
   process.exitCode = 1;
 } finally {
-  await connection.end();
+  try {
+    await connection.end();
+  } catch (error) {
+    const errorCode = String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+    console.error("Database connection cleanup failed (code: " + (errorCode || "unknown") + "). Database details are not displayed.");
+    process.exitCode = 1;
+  }
 }
