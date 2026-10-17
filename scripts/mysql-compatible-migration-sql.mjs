@@ -81,7 +81,7 @@ export async function executeCompatibleMigrationSql(connection, sql) {
       const clauses = splitTopLevelComma(alter[2]);
       const compatibleClauses = [];
       for (const clause of clauses) {
-        const addition = clause.match(/^ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+(\S+)([\s\S]*)$/i);
+        const addition = clause.trim().match(/^ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+(\S+)([\s\S]*)$/i);
         if (!addition) {
           compatibleClauses.push(clause);
           continue;
