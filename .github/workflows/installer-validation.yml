@@ -53,6 +53,7 @@ jobs:
           node --check installer/recovery-report.mjs
           node --check installer/test-smtp.mjs
           node --check scripts/apply-portal-migrations.mjs
+          node --check scripts/guarded-main-migrate.mjs
           node --check installer/migration-recovery-status.test.mjs
           node --check scripts/apply-portal-migrations-safety.test.mjs
           node --check scripts/mysql-compatible-migration-sql.mjs
