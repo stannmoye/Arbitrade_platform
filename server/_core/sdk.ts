@@ -30,10 +30,11 @@ const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserI
 
 class OAuthService {
   constructor(private client: ReturnType<typeof axios.create>) {
-    console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
+    console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl || "(not configured)");
     if (!ENV.oAuthServerUrl) {
-      console.error(
-        "[OAuth] ERROR: MANUS_OAUTH_API_URL is not configured! Set MANUS_OAUTH_API_URL environment variable."
+      // OAuth is optional for local health checks and can be configured later by the deployment owner.
+      console.warn(
+        "[OAuth] MANUS_OAUTH_API_URL is not configured; OAuth sign-in will be unavailable until it is set."
       );
     }
   }

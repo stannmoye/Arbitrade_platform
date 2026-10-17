@@ -1,20 +1,25 @@
 name: Installer validation
 
 on:
+  # Keep installer checks active on the production branch after changes land.
   push:
     branches:
+      - main
       - feat/complete-installation-wizard
+  # Validate proposed changes before they merge.
   pull_request:
     branches:
       - main
       - feat/stage-46-controlled-migration-recovery
+  # Allow a maintainer to run the same non-production checks on demand.
+  workflow_dispatch:
 
 jobs:
   syntax:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - uses: shivammathur/setup-php@v2
@@ -27,6 +32,8 @@ jobs:
       - name: Validate Node.js installer scripts
         run: |
           node --check installer/run-install.mjs
+          node --check installer/main-migration-preflight.mjs
+          node --check installer/main-migration-preflight.test.mjs
           node --check installer/run-install.test.mjs
           node --check installer/install-wrapper.test.mjs
           node --check installer/run-install-recovery-guard.test.mjs
@@ -46,6 +53,13 @@ jobs:
           node --check installer/recovery-report.mjs
           node --check installer/test-smtp.mjs
           node --check scripts/apply-portal-migrations.mjs
+          node --check scripts/guarded-main-migrate.mjs
+          node --check scripts/migrate-mining-token-to-cki.test.mjs
+          node --check installer/migration-recovery-status.test.mjs
+          node --check scripts/apply-portal-migrations-safety.test.mjs
+          node --check scripts/mysql-compatible-migration-sql.mjs
+          node --check scripts/mysql-compatible-migration-sql.test.mjs
+          node --check scripts/apply-mining-migrations.mjs
           node --check scripts/portal-migration-tracker.mjs
           node --check scripts/portal-migration-tracker.test.mjs
           node --check scripts/audit-portal-schema.mjs
@@ -75,3 +89,465 @@ jobs:
         run: pnpm test
       - name: Installer and migration safety test suite
         run: pnpm exec vitest run --config vitest.installer.config.ts
+      - name: Portal and main migration preflight regression tests
+        run: pnpm exec vitest run --config vitest.installer.config.ts installer/main-migration-preflight.test.mjs scripts/mysql-compatible-migration-sql.test.mjs scripts/apply-portal-migrations-safety.test.mjs scripts/migrate-mining-token-to-cki.test.mjs
+      - name: Build production application
+        run: pnpm build
+      - name: Enforce frontend bundle and runtime-config budgets
+        run: |
+          set -Eeuo pipefail
+          main_bundle="$(find dist/public/assets -maxdepth 1 -type f -name 'index-*.js' -print -quit)"
+          if [[ -z "$main_bundle" ]]; then
+            echo "Could not find the production entry JavaScript bundle." >&2
+            exit 1
+          fi
+          size_bytes="$(wc -c < "$main_bundle")"
+          limit_bytes=$((900 * 1024))
+          gzip_bytes="$(gzip -c "$main_bundle" | wc -c)"
+          gzip_limit_bytes=$((220 * 1024))
+          echo "Entry bundle: $main_bundle ($size_bytes bytes raw; $gzip_bytes bytes gzip; limits $limit_bytes raw / $gzip_limit_bytes gzip)"
+          if (( size_bytes > limit_bytes || gzip_bytes > gzip_limit_bytes )); then
+            echo "Entry bundle exceeds the 900 KiB raw or 220 KiB gzip regression budget." >&2
+            exit 1
+          fi
+          for pattern in 'AdminMining-*.js' 'CustomerMining-*.js' 'AdminOperationsPages-*.js' 'MiningCoreCanvas-*.js'; do
+            if ! compgen -G "dist/public/assets/$pattern" >/dev/null; then
+              echo "Expected lazy-loaded chunk was not generated: $pattern" >&2
+              exit 1
+            fi
+          done
+
+          css_bundle="$(find dist/public/assets -maxdepth 1 -type f -name 'index-*.css' -print -quit)"
+          if [[ -z "$css_bundle" ]]; then
+            echo "Could not find the production entry CSS bundle." >&2
+            exit 1
+          fi
+          css_bytes="$(wc -c < "$css_bundle")"
+          css_gzip_bytes="$(gzip -c "$css_bundle" | wc -c)"
+          css_limit_bytes=$((600 * 1024))
+          css_gzip_limit_bytes=$((110 * 1024))
+          echo "Entry CSS: $css_bundle ($css_bytes bytes; gzip $css_gzip_bytes bytes)"
+          if (( css_bytes > css_limit_bytes || css_gzip_bytes > css_gzip_limit_bytes )); then
+            echo "Entry CSS exceeds the 600 KiB raw or 110 KiB gzip regression budget." >&2
+            exit 1
+          fi
+
+          if [[ ! -s dist/public/api/platform/config.js ]] ||
+             ! grep -q 'window.__MANUS_CONFIG__=' dist/public/api/platform/config.js; then
+            echo "Expected public runtime configuration asset was not emitted." >&2
+            exit 1
+          fi
+          if ! grep -q '/api/platform/config.js' dist/public/index.html; then
+            echo "Production HTML no longer loads the public runtime configuration script." >&2
+            exit 1
+          fi
+          echo "Frontend JS/CSS budgets, lazy chunks, and runtime-config asset checks passed."
+      - name: Smoke-test production server without a database
+        env:
+          NODE_ENV: production
+          PORT: 3187
+          DATABASE_URL: ""
+          SESSION_SECRET: "ci-only-session-secret-not-for-production-000000"
+          PASSWORD_PEPPER: "ci-only-password-pepper-not-for-production-000000"
+          PUBLIC_APP_URL: "http://127.0.0.1:3187"
+        run: |
+          set -Eeuo pipefail
+          log_file="$(mktemp)"
+          node dist/index.js >"$log_file" 2>&1 &
+          server_pid=$!
+          cleanup() {
+            kill "$server_pid" 2>/dev/null || true
+            wait "$server_pid" 2>/dev/null || true
+            if [[ -f "$log_file" ]]; then
+              cat "$log_file"
+              rm -f "$log_file"
+            fi
+          }
+          trap cleanup EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3187/api/health | grep -q '"status":"ok"'; then
+              echo "Production server health endpoint returned status=ok."
+              if grep -Fq '[OAuth] ERROR: MANUS_OAUTH_API_URL' "$log_file"; then
+                echo "Missing optional OAuth configuration is still logged as an error." >&2
+                exit 1
+              fi
+              if ! grep -Fq '[OAuth] MANUS_OAUTH_API_URL is not configured; OAuth sign-in will be unavailable until it is set.' "$log_file"; then
+                echo "Expected actionable OAuth configuration warning was not logged." >&2
+                exit 1
+              fi
+              echo "OAuth startup diagnostic correctly distinguishes missing configuration from a startup failure."
+              exit 0
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              echo "Production server exited before becoming healthy." >&2
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "Production server did not become healthy within 60 seconds." >&2
+          exit 1
+
+  installer-fresh-mariadb:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mariadb:11.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root-password
+          MYSQL_DATABASE: arbitrade_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Enable the pinned pnpm version
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.18.0 --activate
+      - name: Install locked dependencies for installer preflight
+        run: pnpm install --frozen-lockfile
+      - name: Create isolated fresh-install bootstrap fixture
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+        run: |
+          node --input-type=module <<'NODE'
+          import mysql from "mysql2/promise";
+          import { writeFile } from "node:fs/promises";
+          const db = await mysql.createConnection(process.env.DATABASE_URL);
+          const [rows] = await db.query(
+            "SELECT table_name AS tableName FROM information_schema.tables WHERE table_schema=DATABASE() ORDER BY table_name"
+          );
+          await db.end();
+          if (rows.length !== 0) {
+            throw new Error("CI fresh-install database must start empty; found " + rows.length + " tables.");
+          }
+          await writeFile(".installer-bootstrap.json", JSON.stringify({
+            mode: "fresh",
+            databaseTableNames: [],
+            databaseTableCount: 0,
+            adminEmail: "ci-admin@example.test",
+            adminPassword: "ci-only-admin-password-12345"
+          }, null, 2) + "\n", { mode: 0o600, flag: "wx" });
+          console.log("Disposable MariaDB database is empty and bootstrap fixture is ready.");
+          NODE
+      - name: Run the canonical fresh installer against disposable MariaDB
+        env:
+          NODE_ENV: production
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+          SESSION_SECRET: "ci-only-session-secret-not-for-production-000000"
+          PASSWORD_PEPPER: "ci-only-password-pepper-not-for-production-000000"
+          PUBLIC_APP_URL: "http://127.0.0.1:3000"
+        run: node installer/run-install.mjs --fresh-install
+      - name: Verify fresh install, admin, migration trackers, and cleanup
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+        run: |
+          node --input-type=module <<'NODE'
+          import mysql from "mysql2/promise";
+          import { access, readFile } from "node:fs/promises";
+          const db = await mysql.createConnection(process.env.DATABASE_URL);
+          try {
+            const [rows] = await db.query(
+              "SELECT table_name AS tableName FROM information_schema.tables WHERE table_schema=DATABASE()"
+            );
+            const tables = new Set(rows.map(row => String(row.tableName)));
+            for (const table of ["users", "__drizzle_migrations", "portal_schema_migrations", "mining_schema_migrations"]) {
+              if (!tables.has(table)) throw new Error("Expected migration table missing after install: " + table);
+            }
+            const [admins] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='admin' AND email='ci-admin@example.test'");
+            if (Number(admins[0].count) !== 1) throw new Error("Expected exactly one CI administrator account.");
+             if (!tables.has("trade_lifecycle_events")) throw new Error("Manual settlement lifecycle migration did not create trade_lifecycle_events.");
+             const [settlementColumns] = await db.query(
+               "SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='trade_positions' AND column_name IN ('settlementReference','settlementConfirmedAt','settlementConfirmedBy','settlementNotes')"
+             );
+             if (settlementColumns.length !== 4) throw new Error("Manual settlement lifecycle migration did not create all settlement columns.");
+             const [settlementMigration] = await db.execute(
+               "SELECT status FROM portal_schema_migrations WHERE migrationName=?",
+               ["0053_manual_settlement_lifecycle.sql"]
+             );
+             if (settlementMigration.length !== 1 || settlementMigration[0].status !== "applied") {
+               throw new Error("Manual settlement lifecycle migration is not recorded as applied.");
+             }
+            const [drizzle] = await db.query("SELECT COUNT(*) AS count FROM __drizzle_migrations");
+            const journal = JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8"));
+            if (Number(drizzle[0].count) !== journal.entries.length) throw new Error("Drizzle migration tracker count does not match the complete journal.");
+            const [portal] = await db.query("SELECT COUNT(*) AS count FROM portal_schema_migrations");
+            const [mining] = await db.query("SELECT COUNT(*) AS count FROM mining_schema_migrations");
+            if (Number(drizzle[0].count) < 1 || Number(portal[0].count) < 1 || Number(mining[0].count) < 1) {
+              throw new Error("One or more migration trackers contain no records.");
+            }
+            console.log(JSON.stringify({
+              status: "PASS",
+              tableCount: tables.size,
+              administratorCreated: true,
+              migrationRecords: {
+                drizzle: Number(drizzle[0].count),
+                portal: Number(portal[0].count),
+                mining: Number(mining[0].count)
+              }
+            }, null, 2));
+          } finally {
+            await db.end();
+          }
+          for (const path of ["installer/.installed"]) await access(path);
+          for (const path of [".installer-bootstrap.json", "installer/.install-in-progress.json"]) {
+            try { await access(path); throw new Error("Installer should have cleaned up " + path); }
+            catch (error) { if (error?.code !== "ENOENT") throw error; }
+          }
+          console.log("Installation lock exists and temporary bootstrap/progress files were cleaned up.");
+          NODE
+
+  installer-mysql8-compatibility-and-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root-password
+          MYSQL_DATABASE: arbitrade_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-root-password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Enable the pinned pnpm version
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.18.0 --activate
+      - name: Install locked dependencies for installer preflight
+        run: pnpm install --frozen-lockfile
+      - name: Create isolated fresh-install bootstrap fixture
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+        run: |
+          node --input-type=module <<'NODE'
+          import mysql from "mysql2/promise";
+          import { writeFile } from "node:fs/promises";
+          const db = await mysql.createConnection(process.env.DATABASE_URL);
+          const [rows] = await db.query(
+            "SELECT table_name AS tableName FROM information_schema.tables WHERE table_schema=DATABASE() ORDER BY table_name"
+          );
+          await db.end();
+          if (rows.length !== 0) {
+            throw new Error("CI fresh-install database must start empty; found " + rows.length + " tables.");
+          }
+          await writeFile(".installer-bootstrap.json", JSON.stringify({
+            mode: "fresh",
+            databaseTableNames: [],
+            databaseTableCount: 0,
+            adminEmail: "ci-admin@example.test",
+            adminPassword: "ci-only-admin-password-12345"
+          }, null, 2) + "\n", { mode: 0o600, flag: "wx" });
+          console.log("Disposable MySQL 8 database is empty and bootstrap fixture is ready.");
+          NODE
+      - name: Run the canonical fresh installer against disposable MySQL 8
+        env:
+          NODE_ENV: production
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+          SESSION_SECRET: "ci-only-session-secret-not-for-production-000000"
+          PASSWORD_PEPPER: "ci-only-password-pepper-not-for-production-000000"
+          PUBLIC_APP_URL: "http://127.0.0.1:3000"
+        run: node installer/run-install.mjs --fresh-install
+      - name: Verify fresh install, admin, migration trackers, and cleanup
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+        run: |
+          node --input-type=module <<'NODE'
+          import mysql from "mysql2/promise";
+          import { access, readFile } from "node:fs/promises";
+          const db = await mysql.createConnection(process.env.DATABASE_URL);
+          try {
+            const [rows] = await db.query(
+              "SELECT table_name AS tableName FROM information_schema.tables WHERE table_schema=DATABASE()"
+            );
+            const tables = new Set(rows.map(row => String(row.tableName)));
+            for (const table of ["users", "__drizzle_migrations", "portal_schema_migrations", "mining_schema_migrations"]) {
+              if (!tables.has(table)) throw new Error("Expected migration table missing after install: " + table);
+            }
+            const [admins] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='admin' AND email='ci-admin@example.test'");
+            if (Number(admins[0].count) !== 1) throw new Error("Expected exactly one CI administrator account.");
+             if (!tables.has("trade_lifecycle_events")) throw new Error("Manual settlement lifecycle migration did not create trade_lifecycle_events.");
+             const [settlementColumns] = await db.query(
+               "SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='trade_positions' AND column_name IN ('settlementReference','settlementConfirmedAt','settlementConfirmedBy','settlementNotes')"
+             );
+             if (settlementColumns.length !== 4) throw new Error("Manual settlement lifecycle migration did not create all settlement columns.");
+             const [settlementMigration] = await db.execute(
+               "SELECT status FROM portal_schema_migrations WHERE migrationName=?",
+               ["0053_manual_settlement_lifecycle.sql"]
+             );
+             if (settlementMigration.length !== 1 || settlementMigration[0].status !== "applied") {
+               throw new Error("Manual settlement lifecycle migration is not recorded as applied.");
+             }
+            const [drizzle] = await db.query("SELECT COUNT(*) AS count FROM __drizzle_migrations");
+            const journal = JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8"));
+            if (Number(drizzle[0].count) !== journal.entries.length) throw new Error("Drizzle migration tracker count does not match the complete journal.");
+            const [portal] = await db.query("SELECT COUNT(*) AS count FROM portal_schema_migrations");
+            const [mining] = await db.query("SELECT COUNT(*) AS count FROM mining_schema_migrations");
+            if (Number(drizzle[0].count) < 1 || Number(portal[0].count) < 1 || Number(mining[0].count) < 1) {
+              throw new Error("One or more migration trackers contain no records.");
+            }
+            console.log(JSON.stringify({
+              status: "PASS",
+              tableCount: tables.size,
+              administratorCreated: true,
+              migrationRecords: {
+                drizzle: Number(drizzle[0].count),
+                portal: Number(portal[0].count),
+                mining: Number(mining[0].count)
+              }
+            }, null, 2));
+          } finally {
+            await db.end();
+          }
+          for (const path of ["installer/.installed"]) await access(path);
+          for (const path of [".installer-bootstrap.json", "installer/.install-in-progress.json"]) {
+            try { await access(path); throw new Error("Installer should have cleaned up " + path); }
+            catch (error) { if (error?.code !== "ENOENT") throw error; }
+          }
+          console.log("Installation lock exists and temporary bootstrap/progress files were cleaned up.");
+          NODE
+      - name: Verify main migration guard refuses blind retry
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+        run: |
+          set -Eeuo pipefail
+          node --input-type=module <<'NODE'
+          import mysql from "mysql2/promise";
+          const admin = await mysql.createConnection(process.env.DATABASE_URL);
+          await admin.query("CREATE DATABASE arbitrade_main_failed");
+          const failed = await mysql.createConnection({
+            host: "127.0.0.1", port: 3306, user: "root", password: "ci-root-password",
+            database: "arbitrade_main_failed",
+          });
+          await failed.query("CREATE TABLE __drizzle_migrations (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, hash VARCHAR(255) NOT NULL, created_at BIGINT NOT NULL)");
+          await failed.execute("INSERT INTO __drizzle_migrations (hash,created_at) VALUES (?,?)", ["fixture-applied-migration", 1760000000000]);
+          await failed.query("CREATE TABLE main_migration_run_guard (id TINYINT NOT NULL PRIMARY KEY, status VARCHAR(16) NOT NULL, startedAt TIMESTAMP NULL, finishedAt TIMESTAMP NULL, failureCode VARCHAR(80) NULL, updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB");
+          await failed.execute("INSERT INTO main_migration_run_guard (id,status) VALUES (1,'failed')");
+          await failed.end();
+          await admin.end();
+          console.log("Disposable failed-main-migration fixture created.");
+          NODE
+          if DATABASE_URL=mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_main_failed node scripts/guarded-main-migrate.mjs > /tmp/main-migration-guard.log 2>&1; then
+            cat /tmp/main-migration-guard.log
+            echo "Expected the main migration guard to refuse retry." >&2
+            exit 1
+          fi
+          grep -q "Automatic retry is blocked" /tmp/main-migration-guard.log
+          cat /tmp/main-migration-guard.log
+          DATABASE_URL=mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_main_failed node --input-type=module <<'NODE'
+          import mysql from "mysql2/promise";
+          const db = await mysql.createConnection(process.env.DATABASE_URL);
+          const [tables] = await db.query("SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema=DATABASE()");
+          const [guard] = await db.query("SELECT status FROM main_migration_run_guard WHERE id=1");
+          const [migrations] = await db.query("SELECT COUNT(*) AS count FROM __drizzle_migrations");
+          await db.end();
+          if (Number(tables[0].count) !== 2 || guard[0]?.status !== "failed" || Number(migrations[0].count) !== 1) {
+            throw new Error("Main migration guard changed the fixture or migration tracker while refusing retry.");
+          }
+          console.log("PASS: failed main migration remains blocked; schema and tracker are unchanged.");
+          NODE
+
+      - name: Verify existing-database migration recovery guards
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+        run: |
+          set -Eeuo pipefail
+          node --input-type=module <<'NODE'
+          import mysql from "mysql2/promise";
+          import { createHash } from "node:crypto";
+          import { readFile } from "node:fs/promises";
+          const admin = await mysql.createConnection(process.env.DATABASE_URL);
+          await admin.query("CREATE DATABASE arbitrade_existing");
+          await admin.query("CREATE DATABASE arbitrade_failed");
+          await admin.query("CREATE TABLE arbitrade_existing.kyc_settings (id INT NOT NULL PRIMARY KEY)");
+          await admin.end();
+
+          const sql = await readFile("drizzle/0033_kyc_v2.sql", "utf8");
+          const checksum = createHash("sha256").update(sql).digest("hex");
+          const failed = await mysql.createConnection({
+            host: "127.0.0.1", port: 3306, user: "root", password: "ci-root-password",
+            database: "arbitrade_failed",
+          });
+          await failed.query(`
+            CREATE TABLE portal_schema_migrations (
+              migrationName VARCHAR(160) NOT NULL PRIMARY KEY,
+              checksum CHAR(64) NOT NULL,
+              status VARCHAR(32) NOT NULL,
+              startedAt TIMESTAMP NULL,
+              appliedAt TIMESTAMP NULL,
+              errorCode VARCHAR(80) NULL,
+              detailsJson JSON NULL,
+              createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              INDEX portal_schema_migrations_status_idx (status, updatedAt)
+            ) ENGINE=InnoDB
+          `);
+          await failed.execute(
+            "INSERT INTO portal_schema_migrations (migrationName,checksum,status,errorCode) VALUES (?,?,?,?)",
+            ["0033_kyc_v2.sql", checksum, "failed", "CI_SIMULATED_INTERRUPTION"],
+          );
+          await failed.end();
+          console.log("Prepared isolated legacy-schema and interrupted-migration fixtures.");
+          NODE
+
+          set +e
+          DATABASE_URL=mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_existing node scripts/apply-portal-migrations.mjs >existing-schema.log 2>&1
+          existing_status=$?
+          set -e
+          if [[ "$existing_status" -eq 0 ]] || ! grep -q "Existing portal schema objects were found but no per-file tracker exists" existing-schema.log; then
+            cat existing-schema.log
+            echo "Existing-schema guard did not reject an untracked existing database." >&2
+            exit 1
+          fi
+          node --input-type=module <<'NODE'
+          import mysql from "mysql2/promise";
+          const db = await mysql.createConnection({
+            host: "127.0.0.1", port: 3306, user: "root", password: "ci-root-password",
+            database: "arbitrade_existing",
+          });
+          const [tracker] = await db.query("SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='portal_schema_migrations'");
+          const [schema] = await db.query("SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='kyc_settings'");
+          await db.end();
+          if (tracker.length !== 0 || schema.length !== 1) throw new Error("Existing-schema guard changed the database unexpectedly.");
+          console.log("PASS: existing untracked schema was preserved and no tracker was fabricated.");
+          NODE
+
+          set +e
+          DATABASE_URL=mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_failed node scripts/apply-portal-migrations.mjs >failed-migration.log 2>&1
+          failed_status=$?
+          set -e
+          if [[ "$failed_status" -eq 0 ]] || ! grep -q "automatic retry is blocked" failed-migration.log; then
+            cat failed-migration.log
+            echo "Interrupted migration guard did not block an automatic retry." >&2
+            exit 1
+          fi
+          node --input-type=module <<'NODE'
+          import mysql from "mysql2/promise";
+          const db = await mysql.createConnection({
+            host: "127.0.0.1", port: 3306, user: "root", password: "ci-root-password",
+            database: "arbitrade_failed",
+          });
+          const [rows] = await db.query("SELECT status FROM portal_schema_migrations WHERE migrationName='0033_kyc_v2.sql'");
+          const [schema] = await db.query("SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='kyc_settings'");
+          await db.end();
+          if (rows.length !== 1 || rows[0].status !== "failed" || schema.length !== 0) {
+            throw new Error("Interrupted migration state changed or migration SQL was executed.");
+          }
+          console.log("PASS: interrupted migration remained failed and no migration SQL was rerun.");
+          NODE
