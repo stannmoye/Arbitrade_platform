@@ -134,12 +134,14 @@ async function main() {
       "trade_positions.id", "trade_positions.userId", "trade_positions.currency",
       "trade_positions.status", "trade_positions.settlementStatus", "trade_positions.principalMinor",
       "trade_positions.rewardCreditedMinor", "trade_positions.settlementReference", "trade_positions.walletUpdatedAt",
-      "customer_balances.userId", "customer_balances.currency", "customer_balances.availableMinor",
-      "customer_balances.lockedMinor", "customer_balances.promotionalMinor", "customer_balances.earnedMinor",
+      "customer_balances.id", "customer_balances.userId", "customer_balances.currency", "customer_balances.availableMinor",
+      "customer_balances.lockedMinor", "customer_balances.promotionalMinor", "customer_balances.earnedMinor", "customer_balances.updatedAt",
       "balance_ledger.id", "balance_ledger.userId", "balance_ledger.currency", "balance_ledger.amountMinor",
-      "balance_ledger.entryType", "balance_ledger.reference",
-      "trade_reward_reservations.tradeId", "trade_reward_reservations.status",
-      "trade_lifecycle_events.tradeId", "trade_lifecycle_events.id",
+      "balance_ledger.entryType", "balance_ledger.reference", "balance_ledger.createdAt",
+      "trade_reward_reservations.id", "trade_reward_reservations.tradeId", "trade_reward_reservations.status",
+      "trade_reward_reservations.reservedMinor", "trade_reward_reservations.currency", "trade_reward_reservations.updatedAt",
+      "trade_lifecycle_events.tradeId", "trade_lifecycle_events.id", "trade_lifecycle_events.eventType",
+      "trade_lifecycle_events.stage", "trade_lifecycle_events.createdAt",
     ];
     const missingColumns = requiredColumns.filter((name) => !columns.has(name));
     if (missingTables.length || missingColumns.length) {
