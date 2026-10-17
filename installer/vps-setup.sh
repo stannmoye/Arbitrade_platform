@@ -100,13 +100,25 @@ fi
 runuser -u "$APP_USER" -- test -r "$ROOT/dist/index.js" || fail "The arbitrade service user cannot read dist/index.js. Use a readable deployment path and grant directory traversal/read access."
 
 say "Preparing protected runtime environment"
-install -d -o root -g "$APP_USER" -m 0750 /etc/arbitrade
-install -o root -g "$APP_USER" -m 0640 "$ROOT/.env" "$ENV_FILE"
-if grep -q '^PORT=' "$ENV_FILE"; then
-  sed -i 's/^PORT=.*/PORT=3000/' "$ENV_FILE"
+install -d -o root -g "$APP_USER" -m 0750 "$ENV_DIR"
+# Build the secret file privately in the same directory, then publish it with
+# an atomic hard-link operation. Unlike install/cp to ENV_FILE, ln refuses to
+# replace a destination that appeared after the preflight check.
+ENV_TMP="$(mktemp "$ENV_DIR/.arbitrade.env.XXXXXX")"
+trap 'rm -f -- "${ENV_TMP:-}"' EXIT
+install -o root -g "$APP_USER" -m 0640 "$ROOT/.env" "$ENV_TMP"
+if grep -q '^PORT=' "$ENV_TMP"; then
+  sed -i 's/^PORT=.*/PORT=3000/' "$ENV_TMP"
 else
-  printf '\nPORT=3000\n' >> "$ENV_FILE"
+  printf '\nPORT=3000\n' >> "$ENV_TMP"
 fi
+chown root:"$APP_USER" "$ENV_TMP"
+chmod 0640 "$ENV_TMP"
+if ! ln -- "$ENV_TMP" "$ENV_FILE"; then
+  fail "$ENV_FILE appeared during provisioning. Existing environment secrets were not overwritten; inspect the path and rerun only after review."
+fi
+rm -f -- "$ENV_TMP"
+trap - EXIT
 
 cat > "$UNIT" <<UNITFILE
 [Unit]
