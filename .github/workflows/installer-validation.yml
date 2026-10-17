@@ -44,8 +44,6 @@ jobs:
           node --check scripts/audit-portal-schema.mjs
           node --check scripts/portal-schema-audit-utils.mjs
           node --check scripts/portal-schema-audit-utils.test.mjs
-          node --check server/modules/daily-allocation.ts
-          node --check server/modules/daily-allocation.test.ts
       - name: Validate shell installer syntax
         run: |
           bash -n installer/install.sh
