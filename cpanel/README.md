@@ -54,7 +54,7 @@ Start/restart the cPanel Node application, then verify:
 
 ## 4. Cron
 
-Use cPanel Cron Jobs with UTC schedules for the scheduled handlers documented in `docs/deployment-v5.md`. Use the application's signed scheduler secret or protected server route; never expose a cron endpoint without authentication.
+Use cPanel Cron Jobs with UTC schedules for the scheduled handlers documented in `docs/deployment-v5.md`. Use the application's signed scheduler secret or protected server route; never expose a cron endpoint without authentication. The installer cannot create or verify cPanel cron entries unless your hosting account exposes an authorized cPanel API; verify each entry in cPanel after configuring it.
 
 ## 5. Production boundary
 
