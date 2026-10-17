@@ -49,7 +49,9 @@ jobs:
       - name: Validate shell installer syntax and CLI help
         run: |
           bash -n installer/install.sh
+          bash -n installer/install.test.sh
           bash -n installer/vps-setup.sh
+          bash installer/install.test.sh
           bash installer/install.sh --help
           if bash installer/install.sh >/dev/null 2>&1; then
             echo 'Installer unexpectedly accepted a missing install mode.' >&2
