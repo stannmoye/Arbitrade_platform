@@ -53,9 +53,11 @@ case "${ID:-}" in ubuntu|debian) ;; *) fail "Only Debian/Ubuntu are supported by
 UNIT="/etc/systemd/system/arbitrade.service"
 NGINX="/etc/nginx/sites-available/arbitrade-$DOMAIN"
 NGINX_ENABLED="/etc/nginx/sites-enabled/arbitrade-$DOMAIN"
+ENV_FILE="/etc/arbitrade/arbitrade.env"
 arbitrade_path_is_available "$UNIT" || fail "$UNIT already exists. Review it manually; this script will not overwrite it."
 arbitrade_path_is_available "$NGINX" || fail "$NGINX already exists. Review it manually; this script will not overwrite it."
 arbitrade_path_is_available "$NGINX_ENABLED" || fail "The nginx enabled-site path already exists. Review it manually; this script will not overwrite it."
+arbitrade_path_is_available "$ENV_FILE" || fail "$ENV_FILE already exists. Review it manually; this script will not overwrite existing environment secrets."
 
 if [[ "$INSTALL_RUNTIME" == 1 ]]; then
   say "Installing OS prerequisites and Node.js 22"
@@ -92,11 +94,11 @@ runuser -u "$APP_USER" -- test -r "$ROOT/dist/index.js" || fail "The arbitrade s
 
 say "Preparing protected runtime environment"
 install -d -o root -g "$APP_USER" -m 0750 /etc/arbitrade
-install -o root -g "$APP_USER" -m 0640 "$ROOT/.env" /etc/arbitrade/arbitrade.env
-if grep -q '^PORT=' /etc/arbitrade/arbitrade.env; then
-  sed -i 's/^PORT=.*/PORT=3000/' /etc/arbitrade/arbitrade.env
+install -o root -g "$APP_USER" -m 0640 "$ROOT/.env" "$ENV_FILE"
+if grep -q '^PORT=' "$ENV_FILE"; then
+  sed -i 's/^PORT=.*/PORT=3000/' "$ENV_FILE"
 else
-  printf '\nPORT=3000\n' >> /etc/arbitrade/arbitrade.env
+  printf '\nPORT=3000\n' >> "$ENV_FILE"
 fi
 
 cat > "$UNIT" <<UNITFILE
