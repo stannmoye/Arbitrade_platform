@@ -126,7 +126,7 @@ try {
   console.log("Evidence status: " + drizzleStatus.status);
   console.log(drizzleStatus.explanation);
 
-  console.log("\\nPORTAL SQL MIGRATIONS");
+  console.log("\nPORTAL SQL MIGRATIONS");
   if (!portalTrackerExists) {
     console.log("Per-file tracker: missing");
     console.log("Evidence status: cannot_verify_per_migration");
