@@ -35,6 +35,9 @@ const emailVerificationConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 *
 
 async function startServer() {
   const app = express();
+  if (process.env.NODE_ENV === "production" && !configuredAuthRateLimitStore) {
+    console.warn("[AuthRateLimit] Using process-local counters. Configure AUTH_RATE_LIMIT_REDIS_REST_URL and AUTH_RATE_LIMIT_REDIS_REST_TOKEN for multi-instance deployments.");
+  }
   // Do not trust X-Forwarded-For unless the actual reverse-proxy hop count is configured.
   app.set("trust proxy", resolveTrustedProxyHops(process.env.TRUST_PROXY_HOPS));
   const server = createServer(app);
