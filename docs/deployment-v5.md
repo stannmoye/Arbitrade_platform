@@ -12,6 +12,8 @@
 
 Required environment variables are documented in `.env.example`. `DATABASE_URL`, `SESSION_SECRET`, and `PASSWORD_PEPPER` are mandatory for production.
 
+For authentication rate limiting, `TRUST_PROXY_HOPS` defaults to `0` (Express does not trust forwarded client-IP headers). If the app sits behind a reverse proxy, set it to the exact number of trusted proxy hops in that deployment and verify the topology first. Do not use a blanket `true` setting or guess: an incorrect trust setting can let clients spoof the IP used for login and password-reset rate limits. The built-in limiter is process-local, so multi-worker/multi-replica deployments still need a shared edge/store limiter.
+
 ## Database setup
 
 1. Create a dedicated database and least-privilege application user.
