@@ -29,7 +29,8 @@
     "installer:diagnose": "node installer/diagnose-deployment.mjs",
     "installer:recovery-report": "node installer/recovery-report.mjs",
     "installer:migration-recovery": "node installer/migration-recovery-status.mjs",
-    "db:audit-portal-schema": "node scripts/audit-portal-schema.mjs"
+    "db:audit-portal-schema": "node scripts/audit-portal-schema.mjs",
+    "db:audit-trade-lifecycle": "node scripts/audit-trade-lifecycle.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
