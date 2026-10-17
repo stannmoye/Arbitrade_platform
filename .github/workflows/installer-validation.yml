@@ -1,13 +1,18 @@
 name: Installer validation
 
 on:
+  # Keep installer checks active on the production branch after changes land.
   push:
     branches:
+      - main
       - feat/complete-installation-wizard
+  # Validate proposed changes before they merge.
   pull_request:
     branches:
       - main
       - feat/stage-46-controlled-migration-recovery
+  # Allow a maintainer to run the same non-production checks on demand.
+  workflow_dispatch:
 
 jobs:
   syntax:
