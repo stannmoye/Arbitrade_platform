@@ -2,6 +2,7 @@ import { access, readFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { safeDisplayText, safeFailureDetail } from "./recovery-utils.mjs";
+import { planMigrationRecovery } from "./migration-recovery-plan.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const progressPath = resolve(root, "installer/.install-in-progress.json");
@@ -78,6 +79,10 @@ if (marker && typeof marker === "object" && !Array.isArray(marker)) {
   }
   console.log("\nStage-specific guidance:");
   console.log(stageGuidance[marker.stage] || "Inspect private terminal output, database migration tracking, application artifacts, and backup state to determine what completed.");
+  const plan = planMigrationRecovery({ stage: marker.stage });
+  console.log("\nConservative recovery decision: " + plan.decision);
+  console.log(plan.nextStep);
+  console.log("Automatic retry allowed: no");
 }
 
 console.log("\nRequired safe recovery sequence:");
