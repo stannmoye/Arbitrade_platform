@@ -99,5 +99,9 @@ client/public/__manus__/version.json
 
 # Installer-generated secrets/state
 installer/.installed
+.configured
+.installer-bootstrap.json
+.installer-bootstrap.tmp.*
+.env.installing.*
 .admin-bootstrap.json
 .sandbox-credentials
