@@ -59,7 +59,15 @@ pnpm installer:test-smtp --to=you@example.com
 
 ## SMTP and OAuth
 
-The wizard stores SMTP credentials server-side. It does not claim SMTP works until the explicit test-email command succeeds. Configure SPF, DKIM, DMARC, and your provider's sender authorization separately.
+The browser wizard includes a **Test SMTP settings** action on the email step. Enter a recipient inbox you control; the test submits the SMTP values only to the server-side `installer/smtp-test.php` endpoint, which invokes the existing Nodemailer test script with a restricted child-process argument list and environment. It does not save `.env`, echo credentials, or log SMTP passwords. The web test requires Node.js to be visible in the PHP process PATH, installed `node_modules/nodemailer` and `node_modules/dotenv`, and PHP process execution support. Some cPanel hosts hide Node.js from PHP-FPM or disable `proc_open`; in that case, finish configuration and use the private terminal fallback below. A successful test means the SMTP server accepted the test message, not that it reached the recipient's inbox.
+
+After installation, the private terminal fallback remains available:
+
+~~~bash
+pnpm installer:test-smtp --to=you@example.com
+~~~
+
+Configure SPF, DKIM, DMARC, and your provider's sender authorization separately.
 
 Google and Microsoft OAuth callback URLs are generated from the application URL. Register the exact callback URLs in the provider consoles and test sign-in; credentials alone do not prove provider-side approval or callback configuration.
 
