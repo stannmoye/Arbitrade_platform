@@ -48,7 +48,7 @@ describe("executeCompatibleMigrationSql", () => {
     const connection = createConnection();
     await executeCompatibleMigrationSql(
       connection,
-      "ALTER TABLE mining_economics_versions\\n  ADD COLUMN IF NOT EXISTS defaultContractDurationMonths INT NOT NULL DEFAULT 24 AFTER tokenSymbol;",
+      "ALTER TABLE mining_economics_versions\n  ADD COLUMN IF NOT EXISTS defaultContractDurationMonths INT NOT NULL DEFAULT 24 AFTER tokenSymbol;",
     );
     expect(connection.queries).toEqual([
       "ALTER TABLE mining_economics_versions ADD COLUMN defaultContractDurationMonths INT NOT NULL DEFAULT 24 AFTER tokenSymbol",
