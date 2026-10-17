@@ -62,6 +62,11 @@ else
   command -v pnpm >/dev/null 2>&1 || command -v corepack >/dev/null 2>&1 || fail "pnpm/Corepack is missing. Install pnpm 10.18.0."
 fi
 node -e 'if(Number(process.versions.node.split(".")[0])<20) process.exit(1)' || fail "Node.js 20+ is required."
+if ! command -v nginx >/dev/null 2>&1; then
+  say "Installing nginx reverse proxy prerequisite"
+  apt-get update
+  apt-get install -y nginx
+fi
 PNPM="$(command -v pnpm || true)"
 if [[ -z "$PNPM" ]]; then PNPM="$(command -v corepack)"; PNPM_ARGS=(pnpm); else PNPM_ARGS=(); fi
 "$PNPM" "${PNPM_ARGS[@]}" --version | grep -q '^10\.18\.' || fail "pnpm 10.18.x is required."
