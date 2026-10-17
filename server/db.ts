@@ -10,6 +10,7 @@ import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./module
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
 import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
+import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
 
@@ -311,6 +312,10 @@ export async function setCustomerPackage(email:string, packageName:string) { con
 export async function createTrade(userId:number,input:{offerId:number;amountMinor:number}){
  const db=await getDb();if(!db)throw new Error("Database is not available");
  return db.transaction(async tx=>{
+  // Serialize allocations for one customer. This makes daily caps and active-trade
+  // checks safe when multiple workers attempt automatic trades concurrently.
+  const userLock=await tx.execute(sql`SELECT id FROM users WHERE id=${userId} FOR UPDATE`) as any;
+  if(!userLock?.[0]?.length) throw new Error("Customer account not found");
   const settlementPolicy=await getTradeSettlementPolicy();
 
   const totalWalletFunds=(await tx.select({availableMinor:sql`COALESCE(SUM(${customerBalances.availableMinor}),0)`}).from(customerBalances).where(eq(customerBalances.userId,userId)))[0]; if(Number(totalWalletFunds?.availableMinor||0)<=0) throw new Error("Trading is unavailable until at least one wallet has available funds");
@@ -327,8 +332,16 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   if (Number(successfulRows?.[0]?.[0]?.count||0) >= Number(packagePolicy.maxSuccessfulTradesPerDay||0) && Number(packagePolicy.maxSuccessfulTradesPerDay||0)>0) throw new Error("Package daily successful-trade limit reached"); const currencyRow=(await tx.select({scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,updatedAt:currencyRegistry.updatedAt}).from(currencyRegistry).where(eq(currencyRegistry.code,offer.currency)).limit(1))[0]; if(!currencyRow) throw new Error(`Currency ${offer.currency} is not configured`); const nativeFactor=Math.pow(10,Number(currencyRow.scale)); const nativeRate=Number(currencyRow.usdRate); if(!Number.isFinite(nativeRate)||nativeRate<=0) throw new Error(`Currency ${offer.currency} has no valid conversion rate`); const packageMinimumNative=usdUnitsToNativeMinor(Number(packagePolicy.minimumTradeUnits),Number(currencyRow.scale),nativeRate); const packageMaximumNative=Math.max(packageMinimumNative,usdUnitsToNativeMinor(Number(packagePolicy.maximumTradeUnits),Number(currencyRow.scale),nativeRate)); const terms=calculateTradeTerms(userId,offer,input.amountMinor); assertTradeAmountWithinBounds(input.amountMinor,{minimumTradeMinor:Math.max(packageMinimumNative,Number(terms.minimumMinor)),maximumTradeMinor:packageMaximumNative},Number(offer.minimumMinor));
   const already=await tx.select({id:tradePositions.id}).from(tradePositions).where(and(eq(tradePositions.userId,userId),eq(tradePositions.offerId,input.offerId))).limit(1);
   if(already[0]) throw new Error("This opportunity has already been allocated");
+  // Lock the relevant wallet row as a second line of defence against concurrent
+  // debits, including writers that do not participate in the user-level lock.
+  const walletLock=await tx.execute(sql`SELECT id FROM customer_balances WHERE userId=${userId} AND currency=${offer.currency} FOR UPDATE`) as any;
   const bal=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,userId),eq(customerBalances.currency,offer.currency))).limit(1))[0];
-  if(!bal || bal.availableMinor<input.amountMinor) throw new Error("Insufficient available balance");
+  if(!walletLock?.[0]?.length || !bal || bal.availableMinor<input.amountMinor) throw new Error("Insufficient available balance");
+  const customerRules=(await tx.select({maxDailyAllocationMinor:customerOpportunityRules.maxDailyAllocationMinor}).from(customerOpportunityRules).where(eq(customerOpportunityRules.userId,userId)).limit(1))[0];
+  const dailyAllocationLimit=Number(customerRules?.maxDailyAllocationMinor ?? 100000);
+  const dailyAllocationRows=await tx.execute(sql`SELECT COALESCE(SUM(principalMinor),0) AS allocatedMinor FROM trade_positions WHERE userId=${userId} AND currency=${offer.currency} AND DATE(confirmedAt)=${today} AND status <> 'cancelled'`) as any;
+  const alreadyAllocatedMinor=Number(dailyAllocationRows?.[0]?.[0]?.allocatedMinor||0);
+  if(!isWithinDailyAllocationLimit({limitMinor:dailyAllocationLimit,alreadyAllocatedMinor,requestedMinor:input.amountMinor})) throw new Error("Customer daily allocation limit reached for this currency");
   const uncappedReward=Math.floor(input.amountMinor*terms.rewardBps/10000);
   const reward=Number(packagePolicy.maxRewardPerTradeMinor||0)>0?Math.min(uncappedReward,Number(packagePolicy.maxRewardPerTradeMinor)):uncappedReward;
   if (Number(packagePolicy.minimumRewardBps||0)>terms.rewardBps) throw new Error("Opportunity reward rate is below the package minimum");
