@@ -87,6 +87,24 @@ done
 assert_file_contains "$INSTALLER" 'if [[ "$INSTALL_MISSING" == 1 && "${EUID}" == 0' "Shell installer only provisions runtime when explicitly requested by root"
 assert_file_contains "$VPS_SETUP" 'if [[ "$INSTALL_RUNTIME" == 1 ]]; then' "VPS runtime provisioning requires the explicit --install-runtime option"
 assert_file_contains "$VPS_SETUP" '[[ ! -e "$UNIT" ]] || fail' "VPS setup refuses to overwrite an existing systemd service"
-assert_file_contains "$VPS_SETUP" '[[ ! -e "$NGINX" ]] || fail' "VPS setup refuses to overwrite an existing nginx site"
+assert_file_contains "$VPS_SETUP" '[[ ! -e "$NGINX" && ! -L "$NGINX" ]] || fail' "VPS setup refuses to overwrite an existing nginx site or dangling symlink"
+assert_file_contains "$VPS_SETUP" '[[ ! -e "$NGINX_ENABLED" && ! -L "$NGINX_ENABLED" ]] || fail' "VPS setup refuses to overwrite an enabled-site path or dangling symlink"
+
+# Ensure all destination guards run before package installation, user creation,
+# or writing the protected environment, so a rejected rerun cannot half-configure a host.
+line_of() { grep -nF -- "$1" "$VPS_SETUP" | head -n 1 | cut -d: -f1; }
+runtime_line="$(line_of 'if [[ "$INSTALL_RUNTIME" == 1 ]]; then')"
+user_line="$(line_of 'useradd --system')"
+env_write_line="$(line_of 'install -d -o root -g "$APP_USER" -m 0750 /etc/arbitrade')"
+unit_guard_line="$(line_of '[[ ! -e "$UNIT" && ! -L "$UNIT" ]] || fail')"
+nginx_guard_line="$(line_of '[[ ! -e "$NGINX" && ! -L "$NGINX" ]] || fail')"
+enabled_guard_line="$(line_of '[[ ! -e "$NGINX_ENABLED" && ! -L "$NGINX_ENABLED" ]] || fail')"
+for guard_line in "$unit_guard_line" "$nginx_guard_line" "$enabled_guard_line"; do
+  [[ -n "$guard_line" && "$guard_line" -lt "$runtime_line" && "$guard_line" -lt "$user_line" && "$guard_line" -lt "$env_write_line" ]] || {
+    printf '[FAIL] VPS destination guards must run before package installation, user creation, and secret/config writes.\n' >&2
+    exit 1
+  }
+done
+pass "VPS destination collisions are checked before system-changing operations"
 
 printf '\nInstaller CLI and runtime-provisioning regression checks passed. No database connection, package installation, or migration was attempted.\n'
