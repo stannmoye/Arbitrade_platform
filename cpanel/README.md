@@ -2,6 +2,15 @@
 
 This repository is a production Node.js application. It requires cPanel **Setup Node.js App** (Node 20+), MySQL/MariaDB, HTTPS, and cron. PHP-only hosting cannot run the Express server.
 
+## Browser-assisted installer
+
+For the guided configuration wizard, follow [installer/README.md](../installer/README.md). The wizard checks the database and writes protected configuration; because PHP cannot run this Node.js app's migrations, finish from the private cPanel terminal with one of:
+
+- New empty database: `node installer/run-install.mjs --fresh-install`
+- Existing database already imported: `node installer/run-install.mjs --existing-database`
+
+Do not choose fresh-install mode for a database containing existing customer or wallet records. The installer intentionally does not replace existing accounts or import a database dump over HTTP.
+
 ## 1. Create the cPanel resources
 
 1. Create a MySQL database and a dedicated database user.

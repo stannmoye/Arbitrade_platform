@@ -1,30 +1,154 @@
 <?php
-/*
- * Arbitrade visual installer. Run from a temporary protected installer directory.
- * Remove or rename this file after installation. It writes .env atomically with 0600.
- */
-session_start();
-if (empty($_SESSION['installer_csrf'])) $_SESSION['installer_csrf'] = bin2hex(random_bytes(24));
-$csrf = $_SESSION['installer_csrf']; $message = ''; $error = '';
-function val($key){ return trim((string)($_POST[$key] ?? '')); }
-function envline($key,$value){ return $key.'='.str_replace(["\r","\n"], '', $value); }
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  if (!hash_equals($csrf, val('csrf'))) $error = 'Installer session expired. Refresh and try again.';
-  $app = rtrim(val('app_url'), '/');
-  if (!$error && !filter_var($app, FILTER_VALIDATE_URL)) $error = 'Enter a valid public HTTPS application URL.';
-  if (!$error && !str_starts_with($app, 'https://') && val('allow_http') !== '1') $error = 'Use HTTPS for OAuth and cookies, or explicitly enable HTTP for local testing only.';
-  if (!$error) {
-    $dbHost=val('db_host') ?: '127.0.0.1'; $dbPort=val('db_port') ?: '3306'; $dbName=val('db_name'); $dbUser=val('db_user'); $dbPass=val('db_pass');
-    if ($dbName === '' || !preg_match('/^[A-Za-z0-9_]+$/', $dbName)) $error = 'Database name is required and may contain only letters, numbers and underscores.';
-    if (!$error && val('create_db') === '1') {
-      try { $pdo = new PDO('mysql:host='.$dbHost.';port='.$dbPort, $dbUser, $dbPass, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); $pdo->exec('CREATE DATABASE IF NOT EXISTS `'.$dbName.'` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'); } catch (Throwable $e) { $error = 'Database connection/create failed. Verify host, port, user privileges and password.'; }
-    }
-    if (!$error) {
-      $databaseUrl='mysql://'.rawurlencode($dbUser).':'.rawurlencode($dbPass).'@'.rawurlencode($dbHost).':'.rawurlencode($dbPort).'/'.$dbName;
-      $lines=['NODE_ENV=production', 'PORT='.($port=val('port') ?: '3000'), envline('PUBLIC_APP_URL',$app), envline('DATABASE_URL',$databaseUrl), envline('SESSION_SECRET',bin2hex(random_bytes(32))), envline('GOOGLE_CLIENT_ID',val('google_id')), envline('GOOGLE_CLIENT_SECRET',val('google_secret')), envline('GOOGLE_REDIRECT_URI',$app.'/api/oauth/google/callback'), envline('MICROSOFT_CLIENT_ID',val('microsoft_id')), envline('MICROSOFT_CLIENT_SECRET',val('microsoft_secret')), envline('MICROSOFT_REDIRECT_URI',$app.'/api/oauth/microsoft/callback'), envline('MAIL_PROVIDER',val('mail_provider') ?: 'smtp'), envline('SENDGRID_API_KEY',val('sendgrid_key')), envline('SMTP_HOST',val('smtp_host')), envline('SMTP_PORT',val('smtp_port') ?: '587'), envline('SMTP_USER',val('smtp_user')), envline('SMTP_PASSWORD',val('smtp_pass')), envline('SMTP_FROM_EMAIL',val('from_email')), envline('SMTP_FROM_NAME',val('from_name') ?: 'Arbitrade'), 'TWO_FACTOR_ENABLED='.(val('twofa') === '0' ? 'false' : 'true'), envline('TWO_FACTOR_ISSUER',val('twofa_issuer') ?: 'Arbitrade'), envline('ADMIN_EMAIL',val('admin_email'))];
-      $root=dirname(__DIR__); $tmp=$root.'/.env.installing'; if (file_put_contents($tmp, implode("\n",$lines)."\n", LOCK_EX) === false) $error='Could not write the environment file. Check filesystem permissions.'; else { chmod($tmp,0600); rename($tmp,$root.'/.env'); file_put_contents($root.'/installer/.installed', date('c')); chmod($root.'/installer/.installed',0600); $message='Configuration saved securely. Next run: ADMIN_EMAIL=... ADMIN_PASSWORD=... pnpm admin:create, then remove or rename the installer directory.'; }
-    }
-  }
+declare(strict_types=1);
+$root = dirname(__DIR__);
+$configuredLock = $root . '/.configured';
+$installedLock = __DIR__ . '/.installed';
+$envPath = $root . '/.env';
+$bootstrapPath = $root . '/.installer-bootstrap.json';
+
+if (file_exists($configuredLock) || file_exists($installedLock) || file_exists($envPath)) {
+    http_response_code(403);
+    exit('The installer is locked because configuration already exists. Do not delete lock files to reinstall over an existing site.');
 }
-function h($v){ return htmlspecialchars($v ?? '', ENT_QUOTES, 'UTF-8'); }
-?><!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arbitrade installer</title><style>body{margin:0;background:#07111f;color:#dbe9ef;font:14px system-ui,sans-serif}.wrap{max-width:920px;margin:36px auto;padding:0 18px}.card{background:#102033;border:1px solid #29445a;border-radius:16px;padding:28px;box-shadow:0 20px 70px #0005}.brand{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:700}.brand img{width:30px}.kicker{color:#70e0c4;font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin:26px 0 8px}h1{margin:0 0 8px;font-size:30px}h2{font-size:16px;border-top:1px solid #29445a;padding-top:22px;margin-top:26px}.sub{color:#91aab8;line-height:1.6}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}label{display:grid;gap:6px;color:#9fb6c2;font-size:12px}input,select{background:#091624;border:1px solid #36546a;border-radius:7px;color:#eaf7f4;padding:11px}input:focus,select:focus{outline:2px solid #70e0c4}.full{grid-column:1/-1}.notice{padding:12px;border-radius:8px;background:#173246;color:#a9c7d2;margin:16px 0}.success{background:#153a36;color:#8de5cb}.error{background:#48252e;color:#ffb2bb}.actions{display:flex;justify-content:flex-end;margin-top:26px}button{background:#70e0c4;color:#07111f;border:0;border-radius:7px;padding:12px 18px;font-weight:700;cursor:pointer}@media(max-width:650px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}</style></head><body><main class="wrap"><section class="card"><div class="brand"><img src="../client/public/arbitrade-mark.svg" alt=""> arbitrade installer</div><div class="kicker">Guided deployment</div><h1>Configure your installation</h1><p class="sub">This wizard writes server-only configuration. It does not display saved secrets again. Use HTTPS, a dedicated database user, and remove this installer after completion.</p><?php if($message):?><div class="notice success"><?=h($message)?></div><?php endif;?><?php if($error):?><div class="notice error"><?=h($error)?></div><?php endif;?><form method="post"><input type="hidden" name="csrf" value="<?=h($csrf)?>"><h2>1. Application and database</h2><div class="grid"><label class="full">Public HTTPS URL<input name="app_url" placeholder="https://example.com" required></label><label>Port<input name="port" value="3000"></label><label>Database host<input name="db_host" value="127.0.0.1"></label><label>Database port<input name="db_port" value="3306"></label><label>Database name<input name="db_name" placeholder="arbitrade"></label><label>Database user<input name="db_user"></label><label>Database password<input type="password" name="db_pass"></label><label><span>Create database if permitted</span><select name="create_db"><option value="1">Yes</option><option value="0">No</option></select></label></div><h2>2. Google and Microsoft sign-in</h2><p class="sub">Create OAuth apps in each provider console and register the callback URLs shown after installation. Keep client secrets server-side.</p><div class="grid"><label>Google client ID<input name="google_id"></label><label>Google client secret<input type="password" name="google_secret"></label><label>Microsoft application/client ID<input name="microsoft_id"></label><label>Microsoft client secret<input type="password" name="microsoft_secret"></label></div><div class="notice">Google callback: <strong>/api/oauth/google/callback</strong><br>Microsoft callback: <strong>/api/oauth/microsoft/callback</strong></div><h2>3. Email and two-factor authentication</h2><div class="grid"><label>Mail provider<select name="mail_provider"><option value="smtp">External SMTP</option><option value="sendgrid">SendGrid</option></select></label><label>SendGrid API key<input type="password" name="sendgrid_key"></label><label>SMTP host<input name="smtp_host"></label><label>SMTP port<input name="smtp_port" value="587"></label><label>SMTP username<input name="smtp_user"></label><label>SMTP password<input type="password" name="smtp_pass"></label><label>From email<input name="from_email"></label><label>From name<input name="from_name" value="Arbitrade"></label><label>2FA issuer<input name="twofa_issuer" value="Arbitrade"></label><label>Enable 2FA<select name="twofa"><option value="1">Enabled</option><option value="0">Disabled (not recommended for production)</option></select></label></div><h2>4. Initial admin</h2><div class="grid"><label>Admin email<input type="email" name="admin_email" value="" required></label><label>Admin password<input type="password" name="admin_password" required></label></div><div class="notice">The initial admin password is not written into the generated environment in this scaffold. Wire it to the server-side bootstrap command before production use; never hard-code it in source control.</div><div class="actions"><button type="submit">Save secure configuration</button></div></form></section></main></body></html>
+$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+session_set_cookie_params(['httponly' => true, 'secure' => $isHttps, 'samesite' => 'Strict']);
+session_start();
+if (empty($_SESSION['installer_csrf'])) $_SESSION['installer_csrf'] = bin2hex(random_bytes(32));
+$csrf = $_SESSION['installer_csrf'];
+$message = '';
+$error = '';
+
+function postval(string $key): string { return trim((string)($_POST[$key] ?? '')); }
+function envline(string $key, string $value): string {
+    $value = str_replace(["\\", "\"", "\r", "\n"], ["\\\\", "\\\"", '', ''], $value);
+    return $key . '="' . $value . '"';
+}
+function h(?string $value): string { return htmlspecialchars($value ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
+function validPort(string $value, int $default): int {
+    if ($value === '') return $default;
+    if (!ctype_digit($value) || (int)$value < 1 || (int)$value > 65535) throw new RuntimeException('Port numbers must be between 1 and 65535.');
+    return (int)$value;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        if (!hash_equals($csrf, postval('csrf'))) throw new RuntimeException('Your installer session expired. Refresh and try again.');
+        $mode = postval('install_mode');
+        if (!in_array($mode, ['fresh', 'existing'], true)) throw new RuntimeException('Choose a fresh installation or an existing-database deployment.');
+        $appUrl = rtrim(postval('app_url'), '/');
+        if (!filter_var($appUrl, FILTER_VALIDATE_URL) || !in_array(strtolower((string)parse_url($appUrl, PHP_URL_SCHEME)), ['https', 'http'], true)) throw new RuntimeException('Enter a valid application URL.');
+        if (!str_starts_with(strtolower($appUrl), 'https://') && postval('allow_http') !== '1') throw new RuntimeException('Use HTTPS for production, or explicitly enable HTTP for local testing only.');
+
+        $dbHost = postval('db_host') ?: '127.0.0.1';
+        if (preg_match('/[\r\n;]/', $dbHost)) throw new RuntimeException('Database host contains invalid characters.');
+        $dbPort = validPort(postval('db_port'), 3306);
+        $dbName = postval('db_name');
+        $dbUser = postval('db_user');
+        $dbPass = (string)($_POST['db_pass'] ?? '');
+        if ($dbName === '' || !preg_match('/^[A-Za-z0-9_]+$/', $dbName)) throw new RuntimeException('Database name may contain only letters, numbers, and underscores.');
+        if ($dbUser === '') throw new RuntimeException('Database username is required.');
+
+        if (postval('create_db') === '1') {
+            $server = new PDO('mysql:host=' . $dbHost . ';port=' . $dbPort . ';charset=utf8mb4', $dbUser, $dbPass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 8]);
+            $server->exec('CREATE DATABASE IF NOT EXISTS ' . $dbName . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+        }
+        $pdo = new PDO('mysql:host=' . $dbHost . ';port=' . $dbPort . ';dbname=' . $dbName . ';charset=utf8mb4', $dbUser, $dbPass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT => 8]);
+        $tableCount = (int)$pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()')->fetchColumn();
+        if ($mode === 'fresh' && $tableCount !== 0) throw new RuntimeException("Fresh installation requires an empty database; this database contains {$tableCount} tables. No data was changed.");
+        if ($mode === 'existing') {
+            if ($tableCount === 0) throw new RuntimeException('Existing-database mode requires the database to be imported first. The selected database is empty.');
+            $usersTable = (int)$pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'users'")->fetchColumn();
+            if ($usersTable !== 1) throw new RuntimeException('The selected database does not contain the expected users table.');
+        }
+
+        $adminEmail = strtolower(postval('admin_email'));
+        $adminPassword = (string)($_POST['admin_password'] ?? '');
+        if ($mode === 'fresh') {
+            if (!filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) throw new RuntimeException('Enter a valid administrator email for a fresh installation.');
+            if (strlen($adminPassword) < 12) throw new RuntimeException('Administrator password must be at least 12 characters.');
+        } else {
+            $adminEmail = '';
+            $adminPassword = '';
+        }
+        $appPort = validPort(postval('port'), 3000);
+        $smtpPort = validPort(postval('smtp_port'), 587);
+        $mailProvider = postval('mail_provider') ?: 'disabled';
+        if (!in_array($mailProvider, ['disabled', 'smtp', 'sendgrid'], true)) throw new RuntimeException('Choose a supported email provider.');
+        $databaseUrl = 'mysql://' . rawurlencode($dbUser) . ':' . rawurlencode($dbPass) . '@' . (str_contains($dbHost, ':') && !str_starts_with($dbHost, '[') ? '[' . $dbHost . ']' : $dbHost) . ':' . $dbPort . '/' . $dbName;
+
+        $lines = [
+            'NODE_ENV="production"', 'PORT="' . $appPort . '"',
+            envline('PUBLIC_APP_URL', $appUrl), envline('DATABASE_URL', $databaseUrl),
+            envline('SESSION_SECRET', bin2hex(random_bytes(32))), envline('PASSWORD_PEPPER', bin2hex(random_bytes(32))),
+            envline('GOOGLE_CLIENT_ID', postval('google_id')), envline('GOOGLE_CLIENT_SECRET', postval('google_secret')),
+            envline('GOOGLE_REDIRECT_URI', $appUrl . '/api/oauth/google/callback'),
+            envline('MICROSOFT_CLIENT_ID', postval('microsoft_id')), envline('MICROSOFT_CLIENT_SECRET', postval('microsoft_secret')),
+            envline('MICROSOFT_REDIRECT_URI', $appUrl . '/api/oauth/microsoft/callback'),
+            envline('MAIL_PROVIDER', $mailProvider), envline('SENDGRID_API_KEY', postval('sendgrid_key')),
+            envline('SMTP_HOST', postval('smtp_host')), 'SMTP_PORT="' . $smtpPort . '"',
+            'SMTP_SECURE="' . (postval('smtp_secure') === '1' ? 'true' : 'false') . '"',
+            envline('SMTP_USER', postval('smtp_user')), envline('SMTP_PASSWORD', (string)($_POST['smtp_pass'] ?? '')),
+            envline('SMTP_FROM_EMAIL', postval('from_email')), envline('SMTP_FROM_NAME', postval('from_name') ?: 'Arbitrade'),
+            envline('ADMIN_EMAIL', $adminEmail),
+        ];
+        $bootstrap = json_encode(['mode' => $mode, 'adminEmail' => $adminEmail, 'adminPassword' => $adminPassword], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        $envTmp = $root . '/.env.installing.' . bin2hex(random_bytes(6));
+        $bootstrapTmp = $root . '/.installer-bootstrap.tmp.' . bin2hex(random_bytes(6));
+        if (file_put_contents($envTmp, implode("\n", $lines) . "\n", LOCK_EX) === false) throw new RuntimeException('Could not write environment configuration. Check application-directory permissions.');
+        chmod($envTmp, 0600);
+        if (file_put_contents($bootstrapTmp, $bootstrap, LOCK_EX) === false) { @unlink($envTmp); throw new RuntimeException('Could not write the one-time administrator bootstrap.'); }
+        chmod($bootstrapTmp, 0600);
+        if (file_exists($envPath) || file_exists($bootstrapPath) || file_exists($configuredLock)) {
+            @unlink($envTmp); @unlink($bootstrapTmp);
+            throw new RuntimeException('Configuration appeared while this wizard was running. Refresh and contact your administrator before retrying.');
+        }
+        if (!rename($envTmp, $envPath)) {
+            @unlink($envTmp); @unlink($bootstrapTmp);
+            throw new RuntimeException('Could not save environment configuration. Check filesystem permissions.');
+        }
+        if (!rename($bootstrapTmp, $bootstrapPath)) {
+            @unlink($envPath); @unlink($bootstrapTmp);
+            throw new RuntimeException('Could not save the one-time bootstrap file. No configuration was retained.');
+        }
+        if (file_put_contents($configuredLock, gmdate('c') . "\n", LOCK_EX) === false) {
+            @unlink($bootstrapPath); @unlink($envPath);
+            throw new RuntimeException('Could not write the installer lock. Configuration files were removed; check filesystem permissions.');
+        }
+        chmod($configuredLock, 0600);
+        session_regenerate_id(true);
+        $message = 'Configuration saved and database connection verified. No schema migrations have run yet. Continue from the private cPanel terminal using the command shown below.';
+    } catch (Throwable $e) {
+        $error = $e instanceof PDOException
+            ? 'Database connection failed. Verify the database host, name, username, password, and privileges. Configuration was not saved.'
+            : $e->getMessage();
+    }
+}
+?><!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arbitrade installation wizard</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#07111f;color:#dbe9ef;font:14px/1.5 system-ui,-apple-system,sans-serif}.wrap{max-width:960px;margin:32px auto;padding:0 16px}.card{background:#102033;border:1px solid #29445a;border-radius:16px;padding:clamp(18px,4vw,32px);box-shadow:0 20px 70px #0005}.brand{font-size:22px;font-weight:750;letter-spacing:.02em;color:#eaf7f4}.kicker{color:#70e0c4;font-size:11px;letter-spacing:.16em;text-transform:uppercase;margin:24px 0 8px}h1{margin:0 0 8px;font-size:clamp(25px,4vw,34px);line-height:1.15}h2{font-size:16px;border-top:1px solid #29445a;padding-top:22px;margin-top:28px}.sub{color:#91aab8;line-height:1.7}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}label{display:grid;gap:6px;color:#b4c8d2;font-size:12px}input,select{width:100%;min-width:0;background:#091624;border:1px solid #36546a;border-radius:8px;color:#eaf7f4;padding:11px;font:inherit}input:focus,select:focus{outline:2px solid #70e0c4;outline-offset:1px}.full{grid-column:1/-1}.notice{padding:13px 15px;border-radius:8px;background:#173246;color:#b7d5e0;margin:16px 0;overflow-wrap:anywhere}.success{background:#153a36;color:#a4f0d8}.error{background:#48252e;color:#ffc0c7}button{background:#70e0c4;color:#07111f;border:0;border-radius:8px;padding:13px 18px;font-weight:750;cursor:pointer}.actions{display:flex;justify-content:flex-end;margin-top:26px}.help{font-size:12px;color:#91aab8}@media(max-width:650px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.actions button{width:100%}}
+</style></head><body><main class="wrap"><section class="card"><div class="brand">ARBITRADE <span style="color:#70e0c4">/ INSTALLER</span></div><div class="kicker">Guided deployment</div><h1>Configure your installation</h1>
+<p class="sub">This wizard verifies database connectivity and writes protected server configuration. The Node.js build and schema steps must then be run from the private cPanel terminal. Do not expose this wizard publicly after setup.</p>
+<?php if($message):?><div class="notice success"><?=h($message)?><p><strong>Next step:</strong> in the application root, run <code>node installer/run-install.mjs --<?=h(postval('install_mode') === 'existing' ? 'existing-database' : 'fresh-install')?></code> from the private cPanel terminal.</p></div><?php endif;?>
+<?php if($error):?><div class="notice error"><?=h($error)?></div><?php endif;?>
+<?php if(!$message && !file_exists($configuredLock) && !file_exists($installedLock) && !file_exists($envPath)):?>
+<form method="post" autocomplete="off"><input type="hidden" name="csrf" value="<?=h($csrf)?>">
+<h2>1. Installation mode</h2><div class="grid"><label class="full">Deployment type<select name="install_mode" id="install_mode" required><option value="fresh">Fresh installation — new empty database</option><option value="existing">Existing installation — database already imported</option></select></label></div>
+<div class="notice">For an existing installation, import the canonical database backup first. This wizard refuses to initialize a non-empty database in fresh-install mode and never replaces existing account credentials.</div>
+<h2>2. Application and database</h2><div class="grid">
+<label class="full">Public application URL<input name="app_url" placeholder="https://example.com" required></label><label>Node application port<input name="port" value="3000" inputmode="numeric" required></label>
+<label>Database host<input name="db_host" value="127.0.0.1" required></label><label>Database port<input name="db_port" value="3306" inputmode="numeric" required></label>
+<label>Database name<input name="db_name" placeholder="arbitrade" required></label><label>Database username<input name="db_user" required></label>
+<label>Database password<input name="db_pass" type="password" autocomplete="new-password"></label><label>Create database if permitted<select name="create_db"><option value="0">No — I created it in cPanel</option><option value="1">Yes — attempt CREATE DATABASE</option></select></label>
+<label class="full"><span><input type="checkbox" name="allow_http" value="1" style="width:auto"> Allow HTTP for local testing only (not production)</span></label></div>
+<div id="admin-section"><h2>3. Initial administrator (fresh install only)</h2><div class="grid"><label>Administrator email<input name="admin_email" type="email" autocomplete="off"></label><label>Administrator password<input name="admin_password" type="password" minlength="12" autocomplete="new-password"><span class="help">At least 12 characters. Held in a protected one-time file and deleted after successful account creation.</span></label></div></div>
+<h2>4. Optional OAuth sign-in</h2><div class="grid"><label>Google client ID<input name="google_id"></label><label>Google client secret<input name="google_secret" type="password" autocomplete="new-password"></label><label>Microsoft client ID<input name="microsoft_id"></label><label>Microsoft client secret<input name="microsoft_secret" type="password" autocomplete="new-password"></label></div>
+<h2>5. Email delivery</h2><div class="grid"><label>Mail provider<select name="mail_provider"><option value="disabled">Disabled — configure later</option><option value="smtp">SMTP</option><option value="sendgrid">SendGrid</option></select></label><label>SendGrid API key<input name="sendgrid_key" type="password" autocomplete="new-password"></label><label>SMTP host<input name="smtp_host"></label><label>SMTP port<input name="smtp_port" value="587" inputmode="numeric"></label><label>SMTP username<input name="smtp_user"></label><label>SMTP password<input name="smtp_pass" type="password" autocomplete="new-password"></label><label>From email<input name="from_email" type="email"></label><label>From name<input name="from_name" value="Arbitrade"></label><label>SMTP transport security<select name="smtp_secure"><option value="0">STARTTLS (usually port 587)</option><option value="1">Implicit TLS (usually port 465)</option></select></label></div>
+<div class="notice">OAuth and email credentials are stored server-side. Do not commit .env or the installer bootstrap file.</div><div class="actions"><button type="submit">Verify database &amp; save configuration</button></div></form>
+<script>
+const mode=document.getElementById('install_mode'),adminSection=document.getElementById('admin-section');
+function updateMode(){const fresh=mode.value==='fresh';adminSection.hidden=!fresh;adminSection.querySelector('[name="admin_email"]').required=fresh;adminSection.querySelector('[name="admin_password"]').required=fresh;}
+mode.addEventListener('change',updateMode);updateMode();
+</script>
+<?php elseif(!$message):?><div class="notice error">This installer is locked. Configuration or an installation lock already exists.</div><?php endif;?>
+</section></main></body></html>

@@ -1,0 +1,30 @@
+name: Installer validation
+
+on:
+  push:
+    branches:
+      - fix/auto-installer-wizard
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - name: Validate PHP installer syntax
+        run: php -l installer/index.php
+      - name: Validate Node installer syntax
+        run: |
+          node --check installer/run-install.mjs
+          node --check installer/create-admin.mjs
+          node --check installer/provision-accounts.mjs
+      - name: Validate shell installer syntax
+        run: bash -n installer/install.sh

@@ -1,36 +1,38 @@
 # Arbitrade production installer
 
-## Supported deployment targets
+## Supported hosting
 
-- **cPanel Node.js application:** supported when the host provides Node.js 20+, MySQL/MariaDB, HTTPS, cron, and an application runner.
-- **VPS / Node-compatible host:** supported with Node.js 20+, pnpm 10.18, MySQL/MariaDB, HTTPS, cron, and SMTP/API access.
-- **PHP-only hosting:** not supported for the Express application. Use cPanel Setup Node.js App or a VPS.
+- **cPanel with Setup Node.js App:** Node.js 20+, pnpm 10.18, MySQL/MariaDB, HTTPS, and a private terminal are required.
+- **VPS / Node-compatible host:** Node.js 20+, pnpm 10.18, MySQL/MariaDB, HTTPS, and shell access are required.
+- **PHP-only hosting:** unsupported for the application runtime. The PHP page is only a configuration wizard; it cannot run the Node.js app or its migrations by itself.
 
-## Production installation
+## Browser-assisted installation
 
-1. Create a dedicated MySQL database and database user.
-2. Copy `.env.example` to `.env` and set `DATABASE_URL`, `SESSION_SECRET`, `PASSWORD_PEPPER`, `PUBLIC_APP_URL`, and email/provider settings.
-3. Protect `.env` (`chmod 600 .env`) and keep it outside the public web root.
-4. Run `./installer/install.sh` or the commands in `cpanel/README.md`.
-5. Provision the administrator and customer accounts privately:
+1. Upload/deploy the application into its private application root. Set up the Node.js app in cPanel and create a database plus a dedicated database user. Grant that user privileges on the application database.
+2. For a **fresh installation**, select a new, empty database. For an **existing installation**, restore/import the application's database first. Do not use fresh-install mode with an existing database.
+3. Temporarily open /installer/ over HTTPS and complete index.php. It verifies database connectivity and checks whether the database matches the selected mode. It writes .env with mode 0600, a one-time .installer-bootstrap.json with mode 0600, and a .configured lock. It does not run migrations from PHP.
+4. In the **private cPanel terminal**, change to the application root and run exactly one matching command.
 
-```bash
-ADMIN_EMAIL=admin@your-domain.example ADMIN_PASSWORD='use-a-new-12-character-password' \
-CUSTOMER_EMAIL=customer@your-domain.example CUSTOMER_PASSWORD='use-a-different-12-character-password' \
-pnpm accounts:provision
-```
+   Fresh database:
 
-The command creates both accounts in the MySQL `users` table and stores only salted scrypt password hashes. It does not write plaintext credentials to the repository or environment files.
+       node installer/run-install.mjs --fresh-install
 
-6. Remove or protect `installer/index.php` after configuration. Never expose the installer publicly.
-7. Start the application with `pnpm start` through the cPanel Node application runner or a reverse proxy.
+   Existing database already imported:
 
-The installer does not provide default credentials. Account emails and passwords must be chosen privately by the deployment owner and supplied only when provisioning the database.
+       node installer/run-install.mjs --existing-database
 
-## OAuth and email
+5. The script verifies Node.js version, required secrets, database connectivity, database state, and the saved install mode before doing work. It installs locked dependencies and builds the app. Fresh mode applies the documented initial schema and creates the administrator from the one-time bootstrap; existing mode runs pending Drizzle migrations and does not replace accounts or credentials. The one-time bootstrap is deleted after successful completion and .installed is written as a lock.
+6. Configure cPanel's Node.js startup file as dist/index.js, restart the app, and check https://YOUR_DOMAIN/api/health returns {"status":"ok"}. Test administrator login, customer login, email delivery if configured, and access controls.
+7. Remove or deny public access to the installer directory after verification. Keep .env, the bootstrap file, database dumps, uploads, and logs outside the public document root whenever possible. The repository's .htaccess also denies HTTP access to installer secrets on Apache, but do not rely on that as the only protection.
 
-OAuth callback URLs are `/api/oauth/google/callback` and `/api/oauth/microsoft/callback`. Store all client secrets and SMTP credentials in `.env` or the cPanel environment settings. Configure SPF, DKIM, and DMARC for the production sender.
+## Existing-database moves
 
-## Financial safety boundary
+The installer intentionally does **not** import a database dump in the browser and does not overwrite a non-empty database. Restore the canonical database backup using the protected cPanel terminal procedure in ../cpanel/README.md and ../docs/host-migration-and-persistence.md before choosing existing-database mode. Verify the target database carefully; wallet, ledger, customer, admin, package, and settings data must remain together.
 
-The application is production-deployable, but real-money execution and verified returns require a real, approved execution and settlement integration. Until that provider is configured, opportunities must remain clearly classified as Practice, Simulation, or Research and must not be presented as live execution or withdrawable returns.
+## Recovery and safety
+
+- Do not delete .configured or .installed to reinstall over a live site.
+- If a run fails before completion, inspect the terminal error and correct the cause before rerunning the same command. The one-time bootstrap remains available until the account-creation step succeeds; it contains a plaintext password and must be protected.
+- Back up MySQL before applying migrations. Existing-mode migrations are forward migrations, not a database restore.
+- Do not automatically enable reward processing or live financial execution as part of installation. Any provider-dependent execution must be configured and independently verified separately.
+- Configure SMTP, OAuth callback URLs, SPF, DKIM, DMARC, rate limits, CSRF protections appropriate to the deployment, administrator 2FA, backups, and monitoring before production launch.
