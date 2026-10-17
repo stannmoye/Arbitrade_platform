@@ -21,7 +21,7 @@ function parseDatabaseUrl(value) {
   } catch {
     throw new Error("DATABASE_URL is malformed; its value is not displayed.");
   }
-  if (!["mysql:", "mariadb:"].includes(url.protocol) || !url.pathname.replace(/^\\/+/, "")) {
+  if (!["mysql:", "mariadb:"].includes(url.protocol) || !url.pathname.replace(/^\/+/, "")) {
     throw new Error("DATABASE_URL must identify a MySQL/MariaDB database.");
   }
   return {
@@ -29,7 +29,7 @@ function parseDatabaseUrl(value) {
     port: Number(url.port || 3306),
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
-    database: decodeURIComponent(url.pathname.replace(/^\\/+/, "")),
+    database: decodeURIComponent(url.pathname.replace(/^\/+/, "")),
     ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
     connectTimeout: 10000,
     multipleStatements: true,
