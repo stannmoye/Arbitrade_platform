@@ -134,6 +134,15 @@ The runtime helper verifies process availability and the health endpoint; it doe
 
 ## Troubleshooting and recovery
 
+Run the read-only recovery report from the private application terminal before deciding how to resume an interrupted install:
+
+~~~bash
+pnpm installer:recovery-report
+~~~
+
+The report shows the last recorded stage, whether a failed command and exit status were recorded, and the state of the private progress marker, bootstrap file, and install lock. It never prints `.env` values, database credentials, administrator credentials, or command arguments. It does not connect to or change the database, remove markers, rerun migrations, or unlock the installer. Use it alongside private terminal logs and a verified backup; it is a diagnostic aid, not proof that a migration completed or rolled back.
+
+
 - **Database connection failure:** verify host, database name, username, password, port, TLS settings, and grants. Credentials are not included in the error message.
 - **Fresh mode reports tables:** stop. Select a new empty database or restore data and use existing mode.
 - **Build fails:** inspect the private terminal output and cPanel Node.js version. Do not delete installation locks to retry blindly.
