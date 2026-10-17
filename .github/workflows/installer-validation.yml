@@ -54,6 +54,7 @@ jobs:
           node --check installer/test-smtp.mjs
           node --check scripts/apply-portal-migrations.mjs
           node --check scripts/guarded-main-migrate.mjs
+          node --check scripts/migrate-mining-token-to-cki.test.mjs
           node --check installer/migration-recovery-status.test.mjs
           node --check scripts/apply-portal-migrations-safety.test.mjs
           node --check scripts/mysql-compatible-migration-sql.mjs
@@ -89,7 +90,7 @@ jobs:
       - name: Installer and migration safety test suite
         run: pnpm exec vitest run --config vitest.installer.config.ts
       - name: Portal and main migration preflight regression tests
-        run: pnpm exec vitest run installer/main-migration-preflight.test.mjs scripts/mysql-compatible-migration-sql.test.mjs scripts/apply-portal-migrations-safety.test.mjs
+        run: pnpm exec vitest run installer/main-migration-preflight.test.mjs scripts/mysql-compatible-migration-sql.test.mjs scripts/apply-portal-migrations-safety.test.mjs scripts/migrate-mining-token-to-cki.test.mjs
       - name: Build production application
         run: pnpm build
       - name: Enforce frontend bundle and runtime-config budgets
@@ -253,7 +254,7 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import mysql from "mysql2/promise";
-          import { access } from "node:fs/promises";
+          import { access, readFile } from "node:fs/promises";
           const db = await mysql.createConnection(process.env.DATABASE_URL);
           try {
             const [rows] = await db.query(
@@ -278,6 +279,8 @@ jobs:
                throw new Error("Manual settlement lifecycle migration is not recorded as applied.");
              }
             const [drizzle] = await db.query("SELECT COUNT(*) AS count FROM __drizzle_migrations");
+            const journal = JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8"));
+            if (Number(drizzle[0].count) !== journal.entries.length) throw new Error("Drizzle migration tracker count does not match the complete journal.");
             const [portal] = await db.query("SELECT COUNT(*) AS count FROM portal_schema_migrations");
             const [mining] = await db.query("SELECT COUNT(*) AS count FROM mining_schema_migrations");
             if (Number(drizzle[0].count) < 1 || Number(portal[0].count) < 1 || Number(mining[0].count) < 1) {
@@ -369,7 +372,7 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import mysql from "mysql2/promise";
-          import { access } from "node:fs/promises";
+          import { access, readFile } from "node:fs/promises";
           const db = await mysql.createConnection(process.env.DATABASE_URL);
           try {
             const [rows] = await db.query(
@@ -394,6 +397,8 @@ jobs:
                throw new Error("Manual settlement lifecycle migration is not recorded as applied.");
              }
             const [drizzle] = await db.query("SELECT COUNT(*) AS count FROM __drizzle_migrations");
+            const journal = JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8"));
+            if (Number(drizzle[0].count) !== journal.entries.length) throw new Error("Drizzle migration tracker count does not match the complete journal.");
             const [portal] = await db.query("SELECT COUNT(*) AS count FROM portal_schema_migrations");
             const [mining] = await db.query("SELECT COUNT(*) AS count FROM mining_schema_migrations");
             if (Number(drizzle[0].count) < 1 || Number(portal[0].count) < 1 || Number(mining[0].count) < 1) {
