@@ -58,7 +58,6 @@ jobs:
           node --check scripts/mysql-compatible-migration-sql.mjs
           node --check scripts/mysql-compatible-migration-sql.test.mjs
           node --check scripts/apply-mining-migrations.mjs
-          node --check scripts/guarded-main-migrate.mjs
           node --check scripts/portal-migration-tracker.mjs
           node --check scripts/portal-migration-tracker.test.mjs
           node --check scripts/audit-portal-schema.mjs
