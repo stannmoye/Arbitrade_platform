@@ -167,9 +167,9 @@ jobs:
             adminEmail: "ci-admin@example.test",
             adminPassword: "ci-only-admin-password-12345"
           }, null, 2) + "\n", { mode: 0o600, flag: "wx" });
-          console.log("Disposable MySQL database is empty and bootstrap fixture is ready.");
+          console.log("Disposable MariaDB database is empty and bootstrap fixture is ready.");
           NODE
-      - name: Run the canonical fresh installer against disposable MySQL
+      - name: Run the canonical fresh installer against disposable MariaDB
         env:
           NODE_ENV: production
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
