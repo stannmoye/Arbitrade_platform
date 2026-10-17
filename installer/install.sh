@@ -16,13 +16,13 @@ Options:
   --fresh-install                  Install into a database verified empty by the protected wizard.
   --existing-database              Apply forward migrations to an imported existing database.
   --confirm-existing-migrations    Explicit confirmation for existing-database migrations.
-  --install-missing                Install supported OS prerequisites when running as root on Debian/Ubuntu.
+  --install-missing                Install Node.js 22 and pnpm 10.18.x on Debian/Ubuntu as root.
   --help, -h                       Show this help.
 
 Run the protected installer wizard first. The canonical Node installer verifies the
 saved database inventory, environment, lock state, migrations, build, and (for a
 fresh install) administrator creation. Existing-database mode requires a restorable
-backup and explicit confirmation.
+backup and explicit confirmation. Do not use --install-missing on cPanel/shared hosting.
 HELP
 }
 
@@ -62,9 +62,16 @@ if (("${#missing[@]}")); then
   if [[ "$INSTALL_MISSING" == 1 && "${EUID}" == 0 && -x "$(command -v apt-get || true)" ]]; then
     . /etc/os-release
     case "${ID:-}" in ubuntu|debian) ;; *) fail "--install-missing supports Debian/Ubuntu only." ;; esac
+    say "Installing Node.js 22 from the NodeSource APT repository"
     apt-get update
-    apt-get install -y ca-certificates curl nodejs npm
-    corepack enable || true
+    apt-get install -y ca-certificates curl gnupg
+    install -d -m 0755 /etc/apt/keyrings
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor --yes -o /etc/apt/keyrings/nodesource.gpg
+    chmod 0644 /etc/apt/keyrings/nodesource.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
+    apt-get update
+    apt-get install -y nodejs
+    corepack enable
     corepack prepare pnpm@10.18.0 --activate || npm install --global pnpm@10.18.0
   else
     fail "Install Node.js 20+ and pnpm 10.18.x, or use --install-missing on a supported Debian/Ubuntu root shell."
