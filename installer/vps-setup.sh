@@ -116,7 +116,9 @@ SERVICE_ATTEMPTED=0
 HTTPS_ATTEMPTED=0
 cleanup_vps_setup() {
   local status=$?
-  rm -f -- "${ENV_TMP:-}" "${UNIT_TMP:-}" "${NGINX_TMP:-}"
+  [[ -z "${ENV_TMP:-}" ]] || rm -f -- "$ENV_TMP"
+  [[ -z "${UNIT_TMP:-}" ]] || rm -f -- "$UNIT_TMP"
+  [[ -z "${NGINX_TMP:-}" ]] || rm -f -- "$NGINX_TMP"
   if [[ "$status" -ne 0 && "$HTTPS_ATTEMPTED" == 0 ]]; then
     if [[ "$SERVICE_ATTEMPTED" == 1 ]]; then
       systemctl disable --now arbitrade.service >/dev/null 2>&1 || true
