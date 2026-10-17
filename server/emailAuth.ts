@@ -93,9 +93,9 @@ export async function resetPasswordWithCode(email: string, code: string, newPass
   if (!user?.passwordHash || !["password", "email"].includes(user.loginMethod || "")) throw new Error("The reset code is invalid or expired");
   const row = (await db.select().from(authEmailTokens).where(and(eq(authEmailTokens.userId, user.id), eq(authEmailTokens.purpose, "PASSWORD_RESET"))).limit(1))[0];
   const now = new Date();
-  if (!row || row.consumedAt || row.expiresAt <= now || row.attempts >= MAX_ATTEMPTS) throw new Error("The reset code is invalid or expired");
+  if (!row || row.consumedAt || row.expiresAt <= now || !canAttemptOneTimeCode(row.attempts)) throw new Error("The reset code is invalid or expired");
   if (!codeMatches(code, row.tokenSalt, row.tokenHash)) {
-    await db.update(authEmailTokens).set({ attempts: row.attempts + 1 }).where(eq(authEmailTokens.id, row.id));
+    await db.update(authEmailTokens).set({ attempts: sql`${authEmailTokens.attempts} + 1` }).where(and(eq(authEmailTokens.id, row.id), isNull(authEmailTokens.consumedAt), gt(authEmailTokens.expiresAt, now), lt(authEmailTokens.attempts, MAX_ATTEMPTS)));
     throw new Error("The reset code is invalid or expired");
   }
   const nextHash = passwordHash(newPassword);
