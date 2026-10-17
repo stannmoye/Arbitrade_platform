@@ -28,11 +28,14 @@ describe("installer credential and diagnostic privacy", () => {
   it("handles database connection cleanup failures without exposing raw errors", async () => {
     const adminSource = await readFile(adminPath, "utf8");
     const verifierSource = await readFile(new URL("./verify-install.mjs", import.meta.url), "utf8");
+    const runnerSource = await readFile(new URL("./run-install.mjs", import.meta.url), "utf8");
     expect(adminSource).toContain("Database connection cleanup failed (code: ");
     expect(adminSource).toContain("await connection.end();");
     expect(verifierSource).toContain('"Database connection cleanup"');
     expect(verifierSource).toContain("Could not close the database connection cleanly (code: ");
     expect(verifierSource).not.toContain("console.error(error)");
+    expect(runnerSource).toContain("Could not close the selected database connection safely. Database error code: ");
+    expect(runnerSource).toContain("await db.end();");
   });
 
   it("sanitizes SMTP test provider error codes", async () => {
