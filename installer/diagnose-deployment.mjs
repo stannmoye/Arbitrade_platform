@@ -124,7 +124,8 @@ if (!secretPresent("DATABASE_URL")) {
       throw Object.assign(new Error("Invalid database URL"), { code: "INVALID_DATABASE_URL" });
     }
     if (dbUrl.protocol === "mariadb:") dbUrl.protocol = "mysql:";
-    connection = await mysql.createConnection({ uri: dbUrl.toString(), connectTimeout: 5000 });
+    dbUrl.searchParams.set("connectTimeout", "5000");
+    connection = await mysql.createConnection(dbUrl.toString());
     await connection.query("SELECT 1");
     report("Database connectivity", true, "Connection and SELECT 1 succeeded. Credentials and host are not displayed.");
   } catch (error) {
