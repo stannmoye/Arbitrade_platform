@@ -47,7 +47,7 @@ Migration `0006_v5_reporting_jobs.sql` adds customer reporting-timezone history,
 
 ## cPanel deployment
 
-Follow [`cpanel/README.md`](cpanel/README.md). Configure the Node application startup file as `dist/index.js`, keep `.env` outside the public document root, and use cPanel Cron for authenticated scheduled work. PHP-only hosting cannot run this Express application.
+Follow [`cpanel/README.md`](cpanel/README.md). The browser-assisted setup wizard is documented in [`installer/README.md`](installer/README.md): it validates database access and writes protected configuration, then the private cPanel terminal runs `node installer/run-install.mjs --fresh-install` for a new empty database or `node installer/run-install.mjs --existing-database` after an existing database has been imported. It never replaces existing account credentials. Configure the Node application startup file as `dist/index.js`, keep `.env` outside the public document root, and use cPanel Cron for authenticated scheduled work. PHP-only hosting cannot run the Express application.
 
 ## Main routes
 
