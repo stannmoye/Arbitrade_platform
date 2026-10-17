@@ -5,6 +5,7 @@ import * as db from "../db";
 import { sdk } from "./sdk";
 import { getSessionCookieOptions } from "./cookies";
 import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { createAuthRateLimiter } from "./authRateLimit";
 
 const STATE_COOKIE = "arbitrade_provider_oauth";
 type Provider = "google" | "microsoft";
@@ -36,7 +37,9 @@ function redirectUri(req: Request, provider: Provider) { return config(provider)
 function safeError(res: Response, status: number, message: string) { res.status(status).json({ error: message }); }
 
 export function registerProviderOAuthRoutes(app: Express) {
-  app.get("/api/oauth/:provider/start", (req, res) => {
+  const startRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 20, message: "Too many OAuth sign-in attempts. Try again later." });
+  const callbackRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 60, message: "Too many OAuth callback attempts. Try again later." });
+  app.get("/api/oauth/:provider/start", startRateLimit, (req, res) => {
     const provider = providerFrom(req.params.provider);
     if (!provider) return safeError(res, 404, "Unsupported OAuth provider");
     const c = config(provider);
@@ -49,7 +52,7 @@ export function registerProviderOAuthRoutes(app: Express) {
     return res.redirect(302, `${c.authorize}?${params.toString()}`);
   });
 
-  app.get("/api/oauth/:provider/callback", async (req, res) => {
+  app.get("/api/oauth/:provider/callback", callbackRateLimit, async (req, res) => {
     const provider = providerFrom(req.params.provider); const code = typeof req.query.code === "string" ? req.query.code : undefined; const state = typeof req.query.state === "string" ? req.query.state : undefined;
     if (!provider || !code || !state) return safeError(res, 400, "OAuth callback is missing required parameters");
     const cookies = parseCookieHeader(req.headers.cookie ?? ""); let saved: { state?: string; verifier?: string; provider?: Provider } = {};
