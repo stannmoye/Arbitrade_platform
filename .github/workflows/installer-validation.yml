@@ -39,3 +39,5 @@ jobs:
           pnpm install --frozen-lockfile
       - name: TypeScript validation
         run: pnpm check
+      - name: Automated test suite
+        run: pnpm test
