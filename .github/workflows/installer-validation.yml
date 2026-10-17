@@ -88,7 +88,7 @@ jobs:
         run: pnpm exec vitest run --config vitest.installer.config.ts
       - name: Build production application
         run: pnpm build
-      - name: Enforce frontend bundle-splitting budget
+      - name: Enforce frontend bundle and runtime-config budgets
         run: |
           set -Eeuo pipefail
           main_bundle="$(find dist/public/assets -maxdepth 1 -type f -name 'index-*.js' -print -quit)"
@@ -109,7 +109,32 @@ jobs:
               exit 1
             fi
           done
-          echo "Frontend bundle budget and lazy-chunk checks passed."
+
+          css_bundle="$(find dist/public/assets -maxdepth 1 -type f -name 'index-*.css' -print -quit)"
+          if [[ -z "$css_bundle" ]]; then
+            echo "Could not find the production entry CSS bundle." >&2
+            exit 1
+          fi
+          css_bytes="$(wc -c < "$css_bundle")"
+          css_gzip_bytes="$(gzip -c "$css_bundle" | wc -c)"
+          css_limit_bytes=$((600 * 1024))
+          css_gzip_limit_bytes=$((110 * 1024))
+          echo "Entry CSS: $css_bundle ($css_bytes bytes; gzip $css_gzip_bytes bytes)"
+          if (( css_bytes > css_limit_bytes || css_gzip_bytes > css_gzip_limit_bytes )); then
+            echo "Entry CSS exceeds the 600 KiB raw or 110 KiB gzip regression budget." >&2
+            exit 1
+          fi
+
+          if [[ ! -s dist/public/api/platform/config.js ]] ||
+             ! grep -q 'window.__MANUS_CONFIG__=' dist/public/api/platform/config.js; then
+            echo "Expected public runtime configuration asset was not emitted." >&2
+            exit 1
+          fi
+          if ! grep -q '/api/platform/config.js' dist/public/index.html; then
+            echo "Production HTML no longer loads the public runtime configuration script." >&2
+            exit 1
+          fi
+          echo "Frontend JS/CSS budgets, lazy chunks, and runtime-config asset checks passed."
       - name: Smoke-test production server without a database
         env:
           NODE_ENV: production
