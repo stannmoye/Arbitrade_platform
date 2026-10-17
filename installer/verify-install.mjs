@@ -122,7 +122,18 @@ if (!url) {
       `Connection failed (code: ${errorCode || "unavailable"}). Check private DATABASE_URL configuration and database availability; details are not displayed.`,
     );
   } finally {
-    if (db) await db.end();
+    if (db) {
+      try {
+        await db.end();
+      } catch (error) {
+        const errorCode = String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+        report(
+          "Database connection cleanup",
+          false,
+          "Could not close the database connection cleanly (code: " + (errorCode || "unknown") + "). Database details are not displayed.",
+        );
+      }
+    }
   }
 }
 
