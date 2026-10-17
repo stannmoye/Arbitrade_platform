@@ -86,7 +86,7 @@ if (!url) {
   let db;
   try {
     const parsed = new URL(url);
-    if (!["mysql:", "mariadb:"].includes(parsed.protocol)) throw new Error("DATABASE_URL must use mysql:// or mariadb://.");
+    if (!["mysql:", "mariadb:"].includes(parsed.protocol)) throw new Error("Unsupported database protocol.");
     if (parsed.protocol === "mariadb:") parsed.protocol = "mysql:";
     parsed.searchParams.set("timezone", "Z");
     db = await mysql.createConnection(parsed.toString());
@@ -115,7 +115,12 @@ if (!url) {
       report("Mining migration tracking", false, "The mining_schema_migrations table is missing; review the mining migration workflow.");
     }
   } catch (error) {
-    report("Database connection", false, error?.code || error?.message || "Connection failed.");
+    const errorCode = String(error?.code || "unavailable").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+    report(
+      "Database connection",
+      false,
+      `Connection failed (code: ${errorCode || "unavailable"}). Check private DATABASE_URL configuration and database availability; details are not displayed.`,
+    );
   } finally {
     if (db) await db.end();
   }
