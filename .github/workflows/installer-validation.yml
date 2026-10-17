@@ -88,6 +88,28 @@ jobs:
         run: pnpm exec vitest run --config vitest.installer.config.ts
       - name: Build production application
         run: pnpm build
+      - name: Enforce frontend bundle-splitting budget
+        run: |
+          set -Eeuo pipefail
+          main_bundle="$(find dist/public/assets -maxdepth 1 -type f -name 'index-*.js' -print -quit)"
+          if [[ -z "$main_bundle" ]]; then
+            echo "Could not find the production entry JavaScript bundle." >&2
+            exit 1
+          fi
+          size_bytes="$(wc -c < "$main_bundle")"
+          limit_bytes=$((400 * 1024))
+          echo "Entry bundle: $main_bundle ($size_bytes bytes; limit $limit_bytes bytes)"
+          if (( size_bytes > limit_bytes )); then
+            echo "Entry bundle exceeds the 400 KiB regression budget." >&2
+            exit 1
+          fi
+          for pattern in 'AdminMining-*.js' 'CustomerMining-*.js' 'AdminOperationsPages-*.js'; do
+            if ! compgen -G "dist/public/assets/$pattern" >/dev/null; then
+              echo "Expected lazy-loaded chunk was not generated: $pattern" >&2
+              exit 1
+            fi
+          done
+          echo "Frontend bundle budget and lazy-chunk checks passed."
       - name: Smoke-test production server without a database
         env:
           NODE_ENV: production
