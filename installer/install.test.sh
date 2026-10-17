@@ -101,6 +101,8 @@ assert_file_contains "$VPS_SETUP" 'if ! ln -T -- "$NGINX_TMP" "$NGINX"; then' "V
 assert_file_contains "$VPS_SETUP" 'if ! ln -s "$NGINX" "$NGINX_ENABLED"; then' "VPS setup refuses to overwrite an enabled-site path that appears during provisioning"
 assert_file_contains "$VPS_SETUP" 'trap cleanup_vps_setup EXIT' "VPS setup registers failure cleanup"
 assert_file_contains "$VPS_SETUP" 'if [[ "$status" -ne 0 && "$HTTPS_ATTEMPTED" == 0 ]]; then' "VPS setup rolls back its own partial files on pre-HTTPS failures"
+assert_file_contains "$VPS_SETUP" 'elif [[ "$status" -ne 0 && "$HTTPS_ATTEMPTED" == 1 ]]; then' "VPS setup reports manual recovery steps when HTTPS provisioning fails after Certbot may have changed nginx configuration"
+assert_file_contains "$VPS_SETUP" 'inspect systemctl status arbitrade.service, nginx -t, and Certbot output before retrying.' "VPS setup provides safe diagnostics without deleting potentially Certbot-modified configuration"
 assert_file_contains "$VPS_SETUP" '[[ "$ENV_PUBLISHED" == 1 ]] && rm -f -- "$ENV_FILE"' "VPS setup rolls back only an environment file published by this attempt"
 assert_file_contains "$VPS_SETUP" '[[ "$UNIT_PUBLISHED" == 1 ]] && rm -f -- "$UNIT"' "VPS setup rolls back only a systemd unit published by this attempt"
 assert_file_contains "$VPS_SETUP" '[[ "$NGINX_PUBLISHED" == 1 ]] && rm -f -- "$NGINX"' "VPS setup rolls back only an nginx site published by this attempt"
