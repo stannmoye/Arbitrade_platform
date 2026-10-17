@@ -71,7 +71,7 @@ describe("current platform integration", () => {
       .mockResolvedValueOnce(new Response(""));
     vi.stubGlobal("fetch", request);
     const image = await generateImage({ prompt: "test", originalImages: [] });
-    expect(image.url).toMatch(/^\\/manus-storage\\/generated\\//);
+    expect(image.url).toMatch(/^\/manus-storage\/generated\//);
     expect(request).toHaveBeenCalledTimes(4);
     expect(JSON.parse(request.mock.calls[0][1].body)).toHaveProperty("originalImages");
   });
