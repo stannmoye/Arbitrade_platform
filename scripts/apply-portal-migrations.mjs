@@ -68,6 +68,73 @@ function checksum(content) {
   return createHash("sha256").update(content).digest("hex");
 }
 
+// MySQL 8.0 does not support MariaDB's "ADD COLUMN IF NOT EXISTS" syntax.
+ // Keep the historical SQL file and its checksum unchanged, but make these
+ // idempotent column additions portable by checking information_schema first.
+function splitTopLevelComma(input) {
+  const parts = [];
+  let start = 0;
+  let depth = 0;
+  let quote = null;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    if (quote) {
+      if (ch === "\\\\" && quote !== "`") { i++; continue; }
+      if (ch === quote) {
+        if (input[i + 1] === quote && quote !== "`") { i++; continue; }
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === "`") { quote = ch; continue; }
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    else if (ch === "," && depth === 0) {
+      parts.push(input.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  parts.push(input.slice(start).trim());
+  return parts.filter(Boolean);
+}
+
+async function executeMigrationSql(sql) {
+  // These checked-in migration files use semicolon-delimited statements. Their
+  // SQL is trusted repository content; never interpolate user-provided SQL here.
+  for (const rawStatement of sql.split(";")) {
+    let statement = rawStatement.trim();
+    if (!statement) continue;
+    const alter = statement.match(/^ALTER\\s+TABLE\\s+(`?[a-zA-Z0-9_]+`?)\\s+([\\s\\S]+)$/i);
+    if (alter) {
+      const tableName = alter[1].replace(/`/g, "");
+      const clauses = splitTopLevelComma(alter[2]);
+      const compatibleClauses = [];
+      for (const clause of clauses) {
+        const addition = clause.match(/^ADD\\s+COLUMN\\s+IF\\s+NOT\\s+EXISTS\\s+(`?[a-zA-Z0-9_]+`?)([\\s\\S]*)$/i);
+        if (!addition) {
+          compatibleClauses.push(clause);
+          continue;
+        }
+        const columnName = addition[1].replace(/`/g, "");
+        const [existing] = await connection.execute(
+          "SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1",
+          [tableName, columnName],
+        );
+        if (existing.length) {
+          console.log(`Skipping existing column ${tableName}.${columnName}`);
+        } else {
+          compatibleClauses.push(`ADD COLUMN ${addition[1]}${addition[2]}`);
+        }
+      }
+      if (compatibleClauses.length) {
+        await connection.query(`ALTER TABLE ${alter[1]} ${compatibleClauses.join(", ")}`);
+      }
+      continue;
+    }
+    await connection.query(statement);
+  }
+}
+
 try {
   const trackerExisted = await tableExists("portal_schema_migrations");
   if (!trackerExisted) {
@@ -146,7 +213,7 @@ try {
     );
 
     try {
-      await connection.query(sql);
+      await executeMigrationSql(sql);
       if (filename === "0037_coinki_token_configuration.sql") {
         const { migrateMiningTokenToCki } = await import("./migrate-mining-token-to-cki.mjs");
         await migrateMiningTokenToCki(connection);
