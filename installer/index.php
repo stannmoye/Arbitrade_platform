@@ -33,7 +33,10 @@ function validPort(string $value, int $default): int {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if (!hash_equals($csrf, postval('csrf'))) throw new RuntimeException('Your installer session expired. Refresh and try again.');
-        if (!extension_loaded('pdo_mysql')) throw new RuntimeException('The pdo_mysql PHP extension is required. Enable it in cPanel PHP Extensions and reload this page.');
+        if (PHP_VERSION_ID < 80200) throw new RuntimeException('PHP 8.2 or newer is required for the installer. Select a supported PHP version in cPanel and reload this page.');
+        $missingExtensions = array_values(array_filter(['pdo_mysql', 'openssl', 'json', 'mbstring'], static fn(string $extension): bool => !extension_loaded($extension)));
+        if ($missingExtensions !== []) throw new RuntimeException('Enable these required PHP extensions in cPanel before continuing: ' . implode(', ', $missingExtensions) . '.');
+        if (!is_file($root . '/package.json') || !is_file($root . '/pnpm-lock.yaml')) throw new RuntimeException('The application package is incomplete. Upload the complete Arbitrade ZIP, including package.json and pnpm-lock.yaml.');
         if (!is_writable($root)) throw new RuntimeException('The application root is not writable by PHP. Adjust deployment permissions, save configuration, then remove write access after installation.');
         $mode = postval('install_mode');
         if (!in_array($mode, ['fresh', 'existing'], true)) throw new RuntimeException('Choose a fresh installation or an existing-database deployment.');
