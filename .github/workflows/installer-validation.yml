@@ -48,6 +48,8 @@ jobs:
           node --check installer/test-smtp.mjs
           node --check scripts/apply-portal-migrations.mjs
           node --check scripts/apply-portal-migrations-safety.test.mjs
+          node --check scripts/mysql-compatible-migration-sql.mjs
+          node --check scripts/mysql-compatible-migration-sql.test.mjs
           node --check scripts/portal-migration-tracker.mjs
           node --check scripts/portal-migration-tracker.test.mjs
           node --check scripts/audit-portal-schema.mjs
@@ -77,3 +79,5 @@ jobs:
         run: pnpm test
       - name: Installer and migration safety test suite
         run: pnpm exec vitest run --config vitest.installer.config.ts
+      - name: Portal migration compatibility and diagnostic regression tests
+        run: pnpm exec vitest run scripts/mysql-compatible-migration-sql.test.mjs scripts/apply-portal-migrations-safety.test.mjs
