@@ -11,6 +11,8 @@
 1. Upload/extract the repository into a private application root. Create a MySQL database and dedicated user in cPanel and grant that user privileges on the database.
 2. Create the Node.js app in cPanel if you use cPanel. Use the repository as application root and dist/index.js as the startup file.
 3. Open /installer/ over HTTPS and follow the staged wizard. It displays PHP/MySQL prerequisites and validates the supplied database connection. Use a new, empty database for fresh installation.
+
+   The first-screen preflight also checks PHP 8.2+, required PHP extensions (`pdo_mysql`, `openssl`, `json`, `mbstring`), configuration-directory write access, package/lockfile presence, dependency and build artifacts, HTTPS detection, measurable free disk space, and existing install-lock state. Critical PHP/version/extension/package/permission failures are blocked on submission. Node.js version is deliberately not guessed by PHP: verify Node.js 20+ in cPanel Setup Node.js App; the private Node installer checks the actual runtime.
 4. For existing data, restore a verified backup to the target database before opening the wizard and select **Existing installation**. The wizard does not upload or import large SQL dumps through HTTP.
 5. The wizard writes a protected .env, a one-time .installer-bootstrap.json, and .configured. Keep them outside the public document root where possible. Do not commit or share them.
 6. From the private application terminal, run exactly one matching command:
