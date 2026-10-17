@@ -114,7 +114,7 @@ else
 fi
 chown root:"$APP_USER" "$ENV_TMP"
 chmod 0640 "$ENV_TMP"
-if ! ln -- "$ENV_TMP" "$ENV_FILE"; then
+if ! ln -T -- "$ENV_TMP" "$ENV_FILE"; then
   fail "$ENV_FILE appeared during provisioning. Existing environment secrets were not overwritten; inspect the path and rerun only after review."
 fi
 rm -f -- "$ENV_TMP"
@@ -147,7 +147,7 @@ UMask=0077
 WantedBy=multi-user.target
 UNITFILE
 chmod 0644 "$UNIT_TMP"
-if ! ln -- "$UNIT_TMP" "$UNIT"; then
+if ! ln -T -- "$UNIT_TMP" "$UNIT"; then
   fail "$UNIT appeared during provisioning. Existing service configuration was not overwritten; inspect the path and rerun only after review."
 fi
 rm -f -- "$UNIT_TMP"
@@ -175,7 +175,7 @@ server {
 }
 NGINXFILE
 chmod 0644 "$NGINX_TMP"
-if ! ln -- "$NGINX_TMP" "$NGINX"; then
+if ! ln -T -- "$NGINX_TMP" "$NGINX"; then
   fail "$NGINX appeared during provisioning. Existing nginx configuration was not overwritten; inspect the path and rerun only after review."
 fi
 rm -f -- "$NGINX_TMP"
