@@ -142,7 +142,7 @@ pass "Directory preflight rejects a symlinked directory"
 line_of() { grep -nF -- "$1" "$VPS_SETUP" | head -n 1 | cut -d: -f1; }
 runtime_line="$(line_of 'if [[ "$INSTALL_RUNTIME" == 1 ]]; then')"
 user_line="$(line_of 'useradd --system')"
-env_write_line="$(line_of 'install -d -o root -g "$APP_USER" -m 0750 /etc/arbitrade')"
+env_write_line="$(line_of 'install -d -o root -g "$APP_USER" -m 0750 "$ENV_DIR"')"
 unit_guard_line="$(line_of 'arbitrade_path_is_available "$UNIT" || fail')"
 nginx_guard_line="$(line_of 'arbitrade_path_is_available "$NGINX" || fail')"
 enabled_guard_line="$(line_of 'arbitrade_path_is_available "$NGINX_ENABLED" || fail')"
