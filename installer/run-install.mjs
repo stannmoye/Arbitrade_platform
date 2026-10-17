@@ -136,8 +136,8 @@ if (mode === "fresh") {
   await unlink(bootstrapPath);
 } else {
   console.log("\n[installer] Existing-database mode: preserving all current account credentials and application records.");
-  run("pnpm", ["db:migrate"]);
-  run("pnpm", ["build"]);
+  runPnpm(["db:migrate"]);
+  runPnpm(["build"]);
   await unlink(bootstrapPath);
 }
 
