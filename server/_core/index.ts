@@ -12,6 +12,7 @@ import { countOutstandingTrades, createLocalCustomer, getAppSetting, getUserByEm
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { createAuthRateLimiter } from "./authRateLimit";
+import { resolveTrustedProxyHops } from "./trustedProxy";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
 import { getTicketUploadPolicy } from "../db";
 import { ensureMarketDrivenOpportunities, refreshMarketData } from "../marketSync";
@@ -32,6 +33,8 @@ const passwordResetConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_
 
 async function startServer() {
   const app = express();
+  // Do not trust X-Forwarded-For unless the actual reverse-proxy hop count is configured.
+  app.set("trust proxy", resolveTrustedProxyHops(process.env.TRUST_PROXY_HOPS));
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
