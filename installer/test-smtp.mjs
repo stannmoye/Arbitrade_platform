@@ -51,7 +51,8 @@ try {
   console.log("Test email accepted by SMTP server. Message ID: " + String(result.messageId || "(not supplied)"));
 } catch (error) {
   console.error("SMTP test failed. Check hostname, port, TLS mode, credentials, sender authorization, and hosting-provider outbound SMTP restrictions.");
-  console.error("Provider error code: " + String(error?.code || "unknown"));
+  const errorCode = String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+  console.error("Provider error code: " + (errorCode || "unknown"));
   process.exitCode = 1;
 } finally {
   transporter.close();
