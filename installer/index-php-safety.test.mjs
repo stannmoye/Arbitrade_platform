@@ -20,4 +20,11 @@ describe("PHP installer state-marker safety", () => {
     const source = await readFile(wizardPath, "utf8");
     expect(source).toContain("if (installerPathExists($envPath) || installerPathExists($bootstrapPath) || installerPathExists($configuredLock) || installerPathExists($installedLock))");
   });
+
+  it("rejects credentials embedded in the public application URL", async () => {
+    const source = await readFile(wizardPath, "utf8");
+    expect(source).toContain("$parsedAppUrl = parse_url($appUrl);");
+    expect(source).toContain("isset($parsedAppUrl['user']) || isset($parsedAppUrl['pass'])");
+    expect(source).toContain("The application URL must not contain a username or password.");
+  });
 });
