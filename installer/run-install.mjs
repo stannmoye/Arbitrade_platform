@@ -47,6 +47,9 @@ function detectPnpm() {
 }
 
 if (!mode) fail("Choose exactly one mode: --fresh-install or --existing-database.", 2);
+if (mode === "existing" && !process.argv.includes("--confirm-existing-migrations")) {
+  fail("Existing-database mode applies forward database migrations. Verify a current restorable backup exists, inspect DATABASE_URL, then rerun with --existing-database --confirm-existing-migrations.");
+}
 if (process.env.NODE_ENV !== "production") fail("NODE_ENV must be production; load the installer-generated .env first.");
 if (Number(process.versions.node.split(".")[0]) < 20) {
   fail("Node.js 20 or newer is required. Detected " + process.versions.node + ".");
