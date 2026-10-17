@@ -1,6 +1,7 @@
 import { access, readFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { safeDisplayText, safeFailureDetail } from "./recovery-utils.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const progressPath = resolve(root, "installer/.install-in-progress.json");
@@ -53,26 +54,27 @@ if (!markerPresent) {
 let marker;
 try {
   marker = JSON.parse(await readFile(progressPath, "utf8"));
+  if (!marker || typeof marker !== "object" || Array.isArray(marker)) {
+    throw new Error("Invalid progress marker structure");
+  }
 } catch {
   console.error("\nERROR: The progress marker is unreadable or invalid JSON.");
   console.error("Preserve it, restrict file access, inspect private logs and database state, and involve an administrator. Do not delete it just to bypass the installer guard.");
   process.exitCode = 1;
 }
 
-if (marker) {
-  const safe = (value, fallback = "unknown") => typeof value === "string" && value.length <= 80 ? value : fallback;
+if (marker && typeof marker === "object" && !Array.isArray(marker)) {
   console.log("\nRecorded progress:");
-  console.log(`Mode: ${safe(marker.mode)}`);
-  console.log(`Status: ${safe(marker.status, "legacy marker; status not recorded")}`);
-  console.log(`Stage: ${safe(marker.stage)}`);
-  console.log(`Started: ${safe(marker.startedAt)}`);
-  console.log(`Stage started: ${safe(marker.stageStartedAt)}`);
-  console.log(`Last updated: ${safe(marker.updatedAt)}`);
-  if (marker.failedAt) console.log(`Failure recorded at: ${safe(marker.failedAt)}`);
-  if (marker.failure && typeof marker.failure === "object") {
-    console.log(`Failed command: ${safe(marker.failure.command)}`);
-    const detail = safe(marker.failure.detail, "See private terminal output.");
-    console.log(`Failure detail: ${/^[A-Z0-9_ -]{1,80}$/i.test(detail) ? detail : "See private terminal output."}`);
+  console.log(`Mode: ${safeDisplayText(marker.mode)}`);
+  console.log(`Status: ${safeDisplayText(marker.status, "legacy marker; status not recorded")}`);
+  console.log(`Stage: ${safeDisplayText(marker.stage)}`);
+  console.log(`Started: ${safeDisplayText(marker.startedAt)}`);
+  console.log(`Stage started: ${safeDisplayText(marker.stageStartedAt)}`);
+  console.log(`Last updated: ${safeDisplayText(marker.updatedAt)}`);
+  if (marker.failedAt) console.log(`Failure recorded at: ${safeDisplayText(marker.failedAt)}`);
+  if (marker.failure && typeof marker.failure === "object" && !Array.isArray(marker.failure)) {
+    console.log(`Failed command: ${safeDisplayText(marker.failure.command)}`);
+    console.log(`Failure detail: ${safeFailureDetail(marker.failure.detail)}`);
   }
   console.log("\nStage-specific guidance:");
   console.log(stageGuidance[marker.stage] || "Inspect private terminal output, database migration tracking, application artifacts, and backup state to determine what completed.");
