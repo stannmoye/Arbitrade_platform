@@ -137,6 +137,7 @@ try {
       portalMigrationFiles,
     );
     const portalByName = new Map(portalRows.map((row) => [String(row.migrationName), row]));
+    let checksumMatchCount = 0;
     for (const name of portalMigrationFiles) {
       const row = portalByName.get(name);
       let checksumStatus = "";
@@ -144,7 +145,12 @@ try {
         try {
           const sql = await readFile(resolve(root, "drizzle", name), "utf8");
           const currentChecksum = createHash("sha256").update(sql).digest("hex");
-          checksumStatus = row.checksum === currentChecksum ? "; checksum matches checkout" : "; CHECKSUM MISMATCH";
+          if (row.checksum === currentChecksum) {
+            checksumStatus = "; checksum matches checkout";
+            checksumMatchCount += 1;
+          } else {
+            checksumStatus = "; CHECKSUM MISMATCH";
+          }
         } catch {
           checksumStatus = "; migration file unavailable in checkout";
         }
@@ -152,10 +158,13 @@ try {
       console.log("- " + name + ": " + (row ? String(row.status) + (row.errorCode ? " (code: " + String(row.errorCode).replace(/[^A-Z0-9_]/gi, "").slice(0, 40) + ")" : "") + checksumStatus : "not recorded"));
     }
     const appliedCount = portalMigrationFiles.filter((name) => ["applied", "baseline_confirmed"].includes(String(portalByName.get(name)?.status || ""))).length;
+    const trackerComplete = appliedCount === portalMigrationFiles.length;
+    const checksumsComplete = checksumMatchCount === portalMigrationFiles.length;
     console.log("Expected tracked portal migration files: " + portalMigrationFiles.length);
     console.log("Recorded as applied/baseline-confirmed: " + appliedCount);
-    console.log("Evidence status: " + (appliedCount === portalMigrationFiles.length ? "tracker_complete_schema_unverified" : "incomplete_or_partial"));
-    console.log("Tracker statuses do not prove schema integrity; compare migration checksums and actual schema before retrying.");
+    console.log("Checksums matching checked-out SQL files: " + checksumMatchCount);
+    console.log("Evidence status: " + (trackerComplete && checksumsComplete ? "tracker_complete_schema_unverified" : "incomplete_or_partial_or_checksum_mismatch"));
+    console.log("Tracker statuses and matching files do not prove schema integrity; compare actual schema before retrying.");
   }
   console.log("Read-only schema signals:");
   ["kyc_profiles", "email_notification_settings", "opportunity_popup_events", "opportunity_delivery_events"].forEach((name, index) => {
