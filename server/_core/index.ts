@@ -30,6 +30,8 @@ const customerLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, ma
 const adminLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 8, message: "Too many administrator login attempts. Try again later." });
 const passwordResetRequestRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 5, message: "Too many password-reset requests. Try again later." });
 const passwordResetConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many password-reset attempts. Try again later." });
+const emailVerificationRequestRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 5, message: "Too many email-verification requests. Try again later." });
+const emailVerificationConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many email-verification attempts. Try again later." });
 
 async function startServer() {
   const app = express();
@@ -97,7 +99,7 @@ async function startServer() {
       return res.json({ success: true });
     } catch (error) { return res.status(400).json({ error: error instanceof Error ? error.message : "The reset code is invalid or expired" }); }
   });
-  app.post("/api/customer/email-verification/request", async (req, res) => {
+  app.post("/api/customer/email-verification/request", emailVerificationRequestRateLimit, async (req, res) => {
     const session = getLocalSessionFromRequest(req);
     if (!session) return res.status(401).json({ error: "Authentication required" });
     const user = await getUserById(session.userId);
@@ -105,7 +107,7 @@ async function startServer() {
     await requestEmailVerification(session.userId);
     return res.status(202).json({ message: "If email delivery is configured, a verification code will be sent." });
   });
-  app.post("/api/customer/email-verification/confirm", async (req, res) => {
+  app.post("/api/customer/email-verification/confirm", emailVerificationConfirmRateLimit, async (req, res) => {
     const session = getLocalSessionFromRequest(req);
     if (!session) return res.status(401).json({ error: "Authentication required" });
     try {
