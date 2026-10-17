@@ -2,6 +2,7 @@ import { config } from "dotenv";
 import mysql from "mysql2/promise";
 import { spawnSync } from "node:child_process";
 import { readFile, unlink, writeFile } from "node:fs/promises";
+import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
@@ -20,6 +21,21 @@ function fail(message, code = 1) {
   process.exit(code);
 }
 
+function recordCommandFailure(command, detail) {
+  try {
+    // Persist only non-secret diagnostic metadata; never save command arguments or environment values.
+    const failed = {
+      ...progress,
+      status: "failed",
+      failedAt: new Date().toISOString(),
+      failure: { command, detail: String(detail).slice(0, 240) },
+    };
+    writeFileSync(progressPath, JSON.stringify(failed, null, 2) + "\n", { mode: 0o600 });
+  } catch {
+    // Preserve the original error if the private progress marker cannot be updated.
+  }
+}
+
 function run(command, args, extraEnv = {}) {
   console.log("\n[installer] $ " + command + " " + args.join(" "));
   const result = spawnSync(command, args, {
@@ -28,8 +44,14 @@ function run(command, args, extraEnv = {}) {
     stdio: "inherit",
     shell: false,
   });
-  if (result.error) fail("Could not start " + command + ": " + result.error.message);
-  if (result.status !== 0) fail(command + " exited with status " + String(result.status));
+  if (result.error) {
+    recordCommandFailure(command, result.error.code || "spawn failed");
+    fail("Could not start " + command + ": " + result.error.message);
+  }
+  if (result.status !== 0) {
+    recordCommandFailure(command, "exit status " + String(result.status));
+    fail(command + " exited with status " + String(result.status));
+  }
 }
 
 function detectPnpm() {
@@ -145,10 +167,14 @@ try {
 
 const pnpm = detectPnpm();
 const runPnpm = (args) => run(pnpm.command, [...pnpm.prefix, ...args]);
-const progress = { mode, startedAt: new Date().toISOString(), stage: "preparing-dependencies" };
+const progress = { mode, status: "running", startedAt: new Date().toISOString(), stage: "preparing-dependencies" };
 async function setStage(stage) {
+  progress.status = "running";
+  delete progress.failure;
+  delete progress.failedAt;
   progress.stage = stage;
-  progress.updatedAt = new Date().toISOString();
+  progress.stageStartedAt = new Date().toISOString();
+  progress.updatedAt = progress.stageStartedAt;
   await writeFile(progressPath, JSON.stringify(progress, null, 2) + "\n", { mode: 0o600 });
   console.log("\n[installer] Stage: " + stage);
 }
