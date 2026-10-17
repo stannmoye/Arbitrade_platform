@@ -20,7 +20,9 @@ jobs:
         with:
           php-version: '8.2'
       - name: Validate PHP installer syntax
-        run: php -l installer/index.php
+        run: |
+          php -l installer/index.php
+          php -l installer/smtp-test.php
       - name: Validate Node.js installer scripts
         run: |
           node --check installer/run-install.mjs

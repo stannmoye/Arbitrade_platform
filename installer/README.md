@@ -38,7 +38,7 @@ node installer/run-install.mjs --existing-database --confirm-existing-migrations
 pnpm installer:verify
 ~~~
 
-   The verifier checks database connectivity, the users table, administrator presence, the build artifact, and GET /api/health. A health check cannot pass until the Node.js application has been started.
+   The verifier loads `.env` relative to the application root (rather than assuming the terminal's current directory), checks the Node.js 20+ runtime and pnpm 10.18.x version, confirms the package and lockfile exist, then checks database connectivity, required tables, administrator presence, migration trackers, the build artifact, installer locks, bootstrap cleanup, `.env` permissions, SMTP connectivity when enabled, and GET `/api/health`. A health check cannot pass until the Node.js application has been started. The install and SMTP CLI scripts also load `.env` from the application root.
 9. If SMTP is configured, send an explicit test message to an address you control:
 
 ~~~bash

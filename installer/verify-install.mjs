@@ -1,10 +1,13 @@
-import "dotenv/config";
+import { config } from "dotenv";
 import mysql from "mysql2/promise";
 import nodemailer from "nodemailer";
 import { access, stat } from "node:fs/promises";
-import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = process.cwd();
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+config({ path: resolve(root, ".env"), override: false });
 const results = [];
 const report = (name, ok, detail) => {
   results.push({ name, status: ok ? "PASS" : "FAIL", detail });
@@ -14,6 +17,49 @@ const warn = (name, detail) => {
   results.push({ name, status: "WARN", detail });
   console.log(`[WARN] ${name}: ${detail}`);
 };
+
+report(
+  "Node.js runtime",
+  Number(process.versions.node.split(".")[0]) >= 20,
+  Number(process.versions.node.split(".")[0]) >= 20
+    ? `Node.js ${process.versions.node} meets the minimum version 20.`
+    : `Node.js ${process.versions.node} is too old; use Node.js 20 or newer.`,
+);
+
+const packageFiles = await Promise.all(
+  ["package.json", "pnpm-lock.yaml"].map(async (file) => {
+    try {
+      await access(resolve(root, file));
+      return true;
+    } catch {
+      return false;
+    }
+  }),
+);
+report(
+  "Application package",
+  packageFiles.every(Boolean),
+  packageFiles.every(Boolean)
+    ? "package.json and pnpm-lock.yaml are present."
+    : "package.json or pnpm-lock.yaml is missing from the application root.",
+);
+
+const pnpmResult = spawnSync("pnpm", ["--version"], {
+  cwd: root,
+  encoding: "utf8",
+  shell: false,
+});
+const pnpmVersion =
+  !pnpmResult.error && pnpmResult.status === 0 ? pnpmResult.stdout.trim() : "";
+report(
+  "pnpm package manager",
+  /^10\.18\./.test(pnpmVersion),
+  pnpmVersion
+    ? /^10\.18\./.test(pnpmVersion)
+      ? `pnpm ${pnpmVersion} is compatible with this repository.`
+      : `pnpm ${pnpmVersion} detected; this repository requires pnpm 10.18.x.`
+    : "pnpm is not available in this process PATH. Use the configured Node.js app environment and enable pnpm 10.18.x.",
+);
 
 const url = process.env.DATABASE_URL;
 if (!url) {
