@@ -11,6 +11,7 @@ import { sdk } from "./sdk";
 import { countOutstandingTrades, createLocalCustomer, getAppSetting, getUserByEmail, getUserById, runAutoTradeCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
+import { createAuthRateLimiter } from "./authRateLimit";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
 import { getTicketUploadPolicy } from "../db";
 import { ensureMarketDrivenOpportunities, refreshMarketData } from "../marketSync";
@@ -23,6 +24,12 @@ import { startEmailWorkers } from "../emailQueue";
 import { refreshMiningPriceFeeds } from "../mining-admin";
 import { runMiningWorkerCycle } from "../mining";
 
+const registrationRateLimit = createAuthRateLimiter({ windowMs: 60 * 60_000, max: 5, message: "Too many registration attempts. Try again later." });
+const customerLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many login attempts. Try again later." });
+const adminLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 8, message: "Too many administrator login attempts. Try again later." });
+const passwordResetRequestRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 5, message: "Too many password-reset requests. Try again later." });
+const passwordResetConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many password-reset attempts. Try again later." });
+
 async function startServer() {
   const app = express();
   const server = createServer(app);
@@ -33,7 +40,7 @@ async function startServer() {
   const setLocalSession = (req: express.Request, res: express.Response, user: { id: number; authVersion?: number }) => {
     res.cookie(COOKIE_NAME, createLocalSession(user.id, user.authVersion || 0), { ...getSessionCookieOptions(req), maxAge: 30 * 24 * 60 * 60 * 1000 });
   };
-  app.post("/api/customer/register", async (req, res) => {
+  app.post("/api/customer/register", registrationRateLimit, async (req, res) => {
     try {
       const { email, password, firstName, lastName } = req.body || {};
       if (typeof email !== "string" || typeof password !== "string" || password.length < 12) return res.status(400).json({ error: "Use an email and a password of at least 12 characters" });
@@ -47,7 +54,7 @@ async function startServer() {
       return res.status(400).json({ error: error instanceof Error ? error.message : "Unable to register" });
     }
   });
-  app.post("/api/customer/login", async (req, res) => {
+  app.post("/api/customer/login", customerLoginRateLimit, async (req, res) => {
     try {
       const { email, password } = req.body || {};
       const user = await getUserByEmail(String(email || ""));
@@ -61,7 +68,7 @@ async function startServer() {
       return res.status(503).json({ error: "Authentication service is not configured. Configure DATABASE_URL and run the migrations." });
     }
   });
-  app.post("/api/admin/login", async (req, res) => {
+  app.post("/api/admin/login", adminLoginRateLimit, async (req, res) => {
     try {
       const { email, password } = req.body || {};
       const user = await getUserByEmail(String(email || ""));
@@ -74,12 +81,12 @@ async function startServer() {
       return res.status(503).json({ error: "Authentication service is not configured. Configure DATABASE_URL and run the migrations." });
     }
   });
-  app.post("/api/customer/password-reset/request", async (req, res) => {
+  app.post("/api/customer/password-reset/request", passwordResetRequestRateLimit, async (req, res) => {
     const email = typeof req.body?.email === "string" ? req.body.email : "";
     await requestPasswordReset(email);
     return res.status(202).json({ message: "If the account exists and email delivery is configured, a reset code will be sent." });
   });
-  app.post("/api/customer/password-reset/confirm", async (req, res) => {
+  app.post("/api/customer/password-reset/confirm", passwordResetConfirmRateLimit, async (req, res) => {
     try {
       const { email, code, password } = req.body || {};
       if (typeof email !== "string" || typeof code !== "string" || typeof password !== "string") return res.status(400).json({ error: "Email, reset code and new password are required" });
