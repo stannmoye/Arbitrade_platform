@@ -33,7 +33,20 @@ if (![ "mysql:", "mariadb:" ].includes(url.protocol) || !url.pathname.replace(/^
 }
 if (url.protocol === "mariadb:") url.protocol = "mysql:";
 url.searchParams.set("timezone", "Z");
-const db = await mysql.createConnection({ ...url, connectTimeout: 10000 });
+const databaseName = decodeURIComponent(url.pathname.replace(/^\\/+/, ""));
+if (!databaseName) {
+  console.error("DATABASE_URL must include a database name. No database changes were made.");
+  process.exit(2);
+}
+const db = await mysql.createConnection({
+  host: url.hostname,
+  port: Number(url.port || 3306),
+  user: decodeURIComponent(url.username),
+  password: decodeURIComponent(url.password),
+  database: databaseName,
+  ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
+  connectTimeout: 10000,
+});
 const miningMarkers = [
   "0039_mining_database_driven_packages",
   "0040_mining_package_daily_rewards",
