@@ -33,7 +33,7 @@ try {
   console.error("DATABASE_URL is malformed. Check the private configuration; the value is not displayed.");
   process.exit(2);
 }
-if (![ "mysql:", "mariadb:" ].includes(url.protocol) || !url.pathname.replace(/^\\/+/, "")) {
+if (![ "mysql:", "mariadb:" ].includes(url.protocol) || !url.pathname.replace(/^\/+/, "")) {
   console.error("DATABASE_URL must identify a MySQL/MariaDB database. No database changes were made.");
   process.exit(2);
 }
