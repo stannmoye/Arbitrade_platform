@@ -45,6 +45,10 @@ const connection = await mysql.createConnection({
   password: decodeURIComponent(url.password),
   database: databaseName,
   ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
+  // Portal migration files contain multiple trusted SQL statements. Enable the
+  // mysql2 option explicitly; adding it only to the URL is not reliably applied
+  // when this code builds the connection options object manually.
+  multipleStatements: true,
   connectTimeout: 10000,
 });
 
