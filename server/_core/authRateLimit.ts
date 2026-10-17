@@ -50,7 +50,7 @@ export function createUpstashAuthRateLimitStore(options: UpstashStoreOptions): A
   return {
     async consume(key, windowMs) {
       const redisKey = `arbitrade:auth-rate-limit:${crypto.createHash("sha256").update(key).digest("hex")}`;
-      let response: Response;
+      let response: globalThis.Response;
       try {
         response = await fetchImpl(endpoint.toString(), {
           method: "POST",
