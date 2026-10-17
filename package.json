@@ -25,7 +25,8 @@
     "build:static": "vite build",
     "installer:verify": "node installer/verify-install.mjs",
     "installer:test-smtp": "node installer/test-smtp.mjs",
-    "installer:runtime": "node installer/runtime-status.mjs"
+    "installer:runtime": "node installer/runtime-status.mjs",
+    "installer:diagnose": "node installer/diagnose-deployment.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
