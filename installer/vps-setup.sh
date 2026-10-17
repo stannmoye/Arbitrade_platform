@@ -31,6 +31,7 @@ say(){ printf '\n[arbitrade-vps] %s\n' "$*"; }
 fail(){ say "ERROR: $*"; exit 1; }
 [[ "${EUID}" -eq 0 ]] || fail "Run with sudo/root privileges."
 [[ -f "$ROOT/package.json" && -f "$ROOT/pnpm-lock.yaml" ]] || fail "Run this script from a complete Arbitrade repository checkout."
+[[ "$ROOT" != /root* && "$ROOT" != /home/* ]] || fail "Deploy the application under /var/www or another system path, not /root or /home; the systemd service uses ProtectHome=true."
 [[ -f "$ROOT/.env" ]] || fail "Missing $ROOT/.env. Configure production secrets before provisioning."
 [[ -f "$ROOT/dist/index.js" ]] || fail "Missing dist/index.js. Build the app with pnpm build before provisioning."
 [[ "$DOMAIN" =~ ^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$ ]] || fail "Provide a valid --domain=example.com."
@@ -71,7 +72,6 @@ if ! id "$APP_USER" >/dev/null 2>&1; then
 fi
 # Ensure the service user can read the application without taking ownership of source files.
 runuser -u "$APP_USER" -- test -r "$ROOT/dist/index.js" || fail "The arbitrade service user cannot read dist/index.js. Use a readable deployment path and grant directory traversal/read access."
-runuser -u "$APP_USER" -- test -r "$ROOT/.env" || true
 
 say "Preparing protected runtime environment"
 install -d -o root -g "$APP_USER" -m 0750 /etc/arbitrade
@@ -113,6 +113,7 @@ chmod 0644 "$UNIT"
 
 NGINX="/etc/nginx/sites-available/arbitrade-$DOMAIN"
 [[ ! -e "$NGINX" ]] || fail "$NGINX already exists. Review it manually; this script will not overwrite it."
+[[ ! -e "/etc/nginx/sites-enabled/arbitrade-$DOMAIN" ]] || fail "The nginx enabled-site path already exists. Review it manually; this script will not overwrite it."
 cat > "$NGINX" <<NGINXFILE
 server {
     listen 80;
