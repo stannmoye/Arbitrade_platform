@@ -160,7 +160,8 @@ try {
   console.log("[installer] Database connection successful; " + tableCount + " table(s) detected. Inventory matches the browser wizard.");
 } catch (error) {
   if (error && typeof error.message === "string" && error.message.startsWith("[installer]")) throw error;
-  fail("Could not connect to the selected database. Check DATABASE_URL and database privileges. " + (error?.code || error?.message || ""));
+  const errorCode = String(error?.code || "unavailable").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+  fail("Could not connect to the selected database. Check DATABASE_URL and database privileges. Database error code: " + (errorCode || "unavailable"));
 } finally {
   if (db) await db.end();
 }
