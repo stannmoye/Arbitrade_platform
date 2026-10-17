@@ -160,7 +160,7 @@ const mode=document.getElementById('install_mode'),adminSection=document.getElem
 function updateMode(){const fresh=mode.value==='fresh';adminSection.hidden=!fresh;adminSection.querySelector('[name="admin_email"]').required=fresh;adminSection.querySelector('[name="admin_password"]').required=fresh;}
 mode.addEventListener('change',updateMode);updateMode();
 const form=document.querySelector('form'), headings=[...form.querySelectorAll(':scope > h2')], panels=[];
-for(const heading of headings){const panel=document.createElement('section');panel.className='step-panel';heading.parentNode.insertBefore(panel,heading);let node=heading;while(node&&node!==panel.nextSibling){const next=node.nextSibling;panel.appendChild(node);if(!next||next.tagName==='H2')break;node=next;}panels.push(panel);}
+for(const heading of headings){const panel=document.createElement('section');panel.className='step-panel';heading.parentNode.insertBefore(panel,heading);let node=heading;while(node){const following=node.nextSibling;if(node!==heading&&node.tagName==='H2')break;panel.appendChild(node);node=following;}panels.push(panel);}
 const nav=document.createElement('div');nav.className='steps';nav.setAttribute('aria-label','Installation progress');
 panels.forEach((panel,i)=>{const dot=document.createElement('div');dot.className='step-dot';dot.textContent=(i+1)+' / '+panels.length;nav.appendChild(dot);});
 form.insertBefore(nav,panels[0]);
