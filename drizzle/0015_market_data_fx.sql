@@ -1,12 +1,12 @@
 ALTER TABLE `opportunity_offers`
-  ADD COLUMN IF NOT EXISTS `instrumentId` int NULL,
-  ADD COLUMN IF NOT EXISTS `marketSnapshotId` int NULL,
-  ADD COLUMN IF NOT EXISTS `marketValueUsd` varchar(64) NULL,
-  ADD COLUMN IF NOT EXISTS `sector` varchar(120) NULL,
-  ADD COLUMN IF NOT EXISTS `industry` varchar(160) NULL,
-  ADD COLUMN IF NOT EXISTS `listingStatus` varchar(40) NULL,
-  ADD COLUMN IF NOT EXISTS `marketObservedAt` timestamp NULL,
-  ADD COLUMN IF NOT EXISTS `simulationSeed` varchar(128) NULL;
+  ADD COLUMN `instrumentId` int NULL,
+  ADD COLUMN `marketSnapshotId` int NULL,
+  ADD COLUMN `marketValueUsd` varchar(64) NULL,
+  ADD COLUMN `sector` varchar(120) NULL,
+  ADD COLUMN `industry` varchar(160) NULL,
+  ADD COLUMN `listingStatus` varchar(40) NULL,
+  ADD COLUMN `marketObservedAt` timestamp NULL,
+  ADD COLUMN `simulationSeed` varchar(128) NULL;
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS `market_instruments` (
   `id` int AUTO_INCREMENT NOT NULL,
