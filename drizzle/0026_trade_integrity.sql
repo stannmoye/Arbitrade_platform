@@ -1,5 +1,5 @@
-CREATE UNIQUE INDEX IF NOT EXISTS `trade_positions_user_offer_unique` ON `trade_positions` (`userId`, `offerId`);
+CREATE UNIQUE INDEX `trade_positions_user_offer_unique` ON `trade_positions` (`userId`, `offerId`);
 --> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS `opportunity_delivery_user_offer_day_unique` ON `opportunity_delivery_events` (`userId`, `offerId`, `quotaDay`);
+CREATE UNIQUE INDEX `opportunity_delivery_user_offer_day_unique` ON `opportunity_delivery_events` (`userId`, `offerId`, `quotaDay`);
 --> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS `balance_ledger_reference_unique` ON `balance_ledger` (`reference`);
+CREATE UNIQUE INDEX `balance_ledger_reference_unique` ON `balance_ledger` (`reference`);
