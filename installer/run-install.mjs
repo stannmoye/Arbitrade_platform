@@ -91,6 +91,15 @@ if (Number(process.versions.node.split(".")[0]) < 20) {
 if (!process.env.DATABASE_URL || !process.env.SESSION_SECRET || !process.env.PASSWORD_PEPPER || !process.env.PUBLIC_APP_URL) {
   fail("DATABASE_URL, SESSION_SECRET, PASSWORD_PEPPER, and PUBLIC_APP_URL must be set in .env.");
 }
+let publicAppUrl;
+try {
+  publicAppUrl = new URL(process.env.PUBLIC_APP_URL);
+} catch {
+  fail("PUBLIC_APP_URL must be a valid public HTTP(S) URL; the configured value is not displayed.");
+}
+if (!["http:", "https:"].includes(publicAppUrl.protocol) || publicAppUrl.username || publicAppUrl.password) {
+  fail("PUBLIC_APP_URL must use HTTP(S) and must not contain a username or password.");
+}
 if (process.env.SESSION_SECRET.length < 32 || process.env.PASSWORD_PEPPER.length < 32) {
   fail("SESSION_SECRET and PASSWORD_PEPPER must each contain at least 32 characters.");
 }
