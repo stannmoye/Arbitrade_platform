@@ -36,6 +36,7 @@ jobs:
           node --check installer/migration-recovery-status.mjs
           node --check installer/migration-recovery-utils.test.mjs
           node --check installer/recovery-report.test.mjs
+          node --check installer/recovery-utils.test.mjs
           node --check installer/recovery-report.mjs
           node --check installer/test-smtp.mjs
           node --check scripts/apply-portal-migrations.mjs
@@ -62,5 +63,7 @@ jobs:
           pnpm install --frozen-lockfile
       - name: TypeScript validation
         run: pnpm check
-      - name: Automated test suite
+      - name: Application test suite
         run: pnpm test
+      - name: Installer and migration safety test suite
+        run: pnpm exec vitest run --config vitest.installer.config.ts
