@@ -238,7 +238,8 @@ if (process.env.MAIL_PROVIDER === "smtp") {
       await transporter.verify();
       report("SMTP connection/authentication", true, "SMTP transport verified. Run pnpm installer:test-smtp --to=you@example.com to send a test message.");
     } catch (error) {
-      report("SMTP connection/authentication", false, "SMTP verification failed (" + String(error?.code || "unknown") + "). Check host, port, TLS, credentials, and outbound SMTP restrictions.");
+      const errorCode = String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+      report("SMTP connection/authentication", false, "SMTP verification failed (code: " + (errorCode || "unknown") + "). Check host, port, TLS, credentials, and outbound SMTP restrictions; raw error details are not displayed.");
     } finally {
       transporter.close();
     }
