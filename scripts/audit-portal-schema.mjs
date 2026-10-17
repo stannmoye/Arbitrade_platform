@@ -42,6 +42,10 @@ const migrations = [
     data: [{table:"app_settings",column:"settingKey",value:"advancedAutoTrading.migration",label:"Advanced auto-trading migration setting"}] },
   { file: "0052_delivery_diagnostics.sql", tables: [],
     columns: [["opportunity_popup_events","deliveryStatus","enum"],["opportunity_popup_events","deliveryAttemptCount","int"],["opportunity_popup_events","receivedAt","timestamp"],["opportunity_popup_events","renderedAt","timestamp"],["opportunity_popup_events","tradeId","int"],["opportunity_delivery_events","status","enum"],["opportunity_delivery_events","attemptCount","int"],["opportunity_delivery_events","lastErrorCode","varchar"],["opportunity_delivery_events","expiresAt","timestamp"]] },
+  { file: "0053_manual_settlement_lifecycle.sql",
+    tables: ["trade_positions","trade_lifecycle_events"],
+    columns: [["trade_positions","settlementReference","varchar"],["trade_positions","settlementConfirmedAt","timestamp"],["trade_positions","settlementConfirmedBy","int"],["trade_positions","settlementNotes","varchar"],["trade_lifecycle_events","id","int"],["trade_lifecycle_events","tradeId","int"],["trade_lifecycle_events","userId","int"],["trade_lifecycle_events","eventType","varchar"],["trade_lifecycle_events","stage","varchar"],["trade_lifecycle_events","payloadJson","text"]],
+    data: [{table:"app_settings",column:"settingKey",value:"advancedAutoTrading.settlementMode",label:"Manual settlement mode setting"}] },
 ];
 
 const url = new URL(rawDatabaseUrl);

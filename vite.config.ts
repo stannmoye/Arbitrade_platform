@@ -70,7 +70,7 @@ function writeToLogFile(source: LogSource, entries: unknown[]) {
 
 /**
  * Vite plugin to collect browser debug logs
- * - POST /__manus__/logs: Browser sends logs, written directly to files
+ * - POST /__manus__/logs: Browser sends logs, written to files
  * - Files: browserConsole.log, networkRequests.log, sessionReplay.log
  * - Auto-trimmed when exceeding 1MB (keeps newest entries)
  */
@@ -185,6 +185,31 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // Keep large optional libraries in separate cacheable files rather than
+        // shipping every vendor dependency in the initial application bundle.
+        manualChunks(id) {
+          if (!id.includes("/node_modules/")) return undefined;
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
+            return "vendor-react";
+          }
+          if (/[\\/]node_modules[\\/](recharts|d3-[^\\/]+|victory-vendor)[\\/]/.test(id)) {
+            return "vendor-charts";
+          }
+          if (/[\\/]node_modules[\\/](framer-motion|motion-[^\\/]+)[\\/]/.test(id)) {
+            return "vendor-motion";
+          }
+          if (/[\\/]node_modules[\\/]lucide-react[\\/]/.test(id)) {
+            return "vendor-icons";
+          }
+          if (/[\\/]node_modules[\\/](@tanstack|@trpc|superjson)[\\/]/.test(id)) {
+            return "vendor-api";
+          }
+          return undefined;
+        },
+      },
+    },
   },
   server: {
     host: true,

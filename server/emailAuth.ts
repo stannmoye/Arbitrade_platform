@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { getDb } from "./db";
 import { passwordHash } from "./_core/localAuth";
 import { authEmailTokens, customerControls, users } from "../drizzle/schema";
@@ -18,6 +18,9 @@ export function hashOneTimeCode(code: string, salt: string) {
 }
 export function isWithinResendCooldown(lastRequestedAt: Date, now = new Date()) {
   return now.getTime() - lastRequestedAt.getTime() < RESEND_COOLDOWN_MS;
+}
+export function canAttemptOneTimeCode(attempts: number) {
+  return Number.isInteger(attempts) && attempts >= 0 && attempts < MAX_ATTEMPTS;
 }
 function codeMatches(code: string, salt: string, expected: string) {
   const actual = Buffer.from(hashOneTimeCode(code, salt), "hex");
@@ -55,13 +58,13 @@ export async function confirmEmailVerification(userId: number, code: string) {
   if (!db) throw new Error("Database is not available");
   const row = (await db.select().from(authEmailTokens).where(and(eq(authEmailTokens.userId, userId), eq(authEmailTokens.purpose, "EMAIL_VERIFY"))).limit(1))[0];
   const now = new Date();
-  if (!row || row.consumedAt || row.expiresAt <= now || row.attempts >= MAX_ATTEMPTS) throw new Error("The verification code is invalid or expired");
+  if (!row || row.consumedAt || row.expiresAt <= now || !canAttemptOneTimeCode(row.attempts)) throw new Error("The verification code is invalid or expired");
   if (!codeMatches(code, row.tokenSalt, row.tokenHash)) {
-    await db.update(authEmailTokens).set({ attempts: row.attempts + 1 }).where(eq(authEmailTokens.id, row.id));
+    await db.update(authEmailTokens).set({ attempts: sql`${authEmailTokens.attempts} + 1` }).where(and(eq(authEmailTokens.id, row.id), isNull(authEmailTokens.consumedAt), gt(authEmailTokens.expiresAt, now), lt(authEmailTokens.attempts, MAX_ATTEMPTS)));
     throw new Error("The verification code is invalid or expired");
   }
   await db.transaction(async tx => {
-    const consumed = await tx.update(authEmailTokens).set({ consumedAt: now }).where(and(eq(authEmailTokens.id, row.id), isNull(authEmailTokens.consumedAt), gt(authEmailTokens.expiresAt, now)));
+    const consumed = await tx.update(authEmailTokens).set({ consumedAt: now }).where(and(eq(authEmailTokens.id, row.id), isNull(authEmailTokens.consumedAt), gt(authEmailTokens.expiresAt, now), lt(authEmailTokens.attempts, MAX_ATTEMPTS)));
     if (Number((consumed as any)?.[0]?.affectedRows ?? (consumed as any)?.affectedRows ?? 0) !== 1) throw new Error("The verification code is invalid or expired");
     const control = (await tx.select({ userId: customerControls.userId }).from(customerControls).where(eq(customerControls.userId, userId)).limit(1))[0];
     if (control) await tx.update(customerControls).set({ emailVerified: true }).where(eq(customerControls.userId, userId));
@@ -90,14 +93,14 @@ export async function resetPasswordWithCode(email: string, code: string, newPass
   if (!user?.passwordHash || !["password", "email"].includes(user.loginMethod || "")) throw new Error("The reset code is invalid or expired");
   const row = (await db.select().from(authEmailTokens).where(and(eq(authEmailTokens.userId, user.id), eq(authEmailTokens.purpose, "PASSWORD_RESET"))).limit(1))[0];
   const now = new Date();
-  if (!row || row.consumedAt || row.expiresAt <= now || row.attempts >= MAX_ATTEMPTS) throw new Error("The reset code is invalid or expired");
+  if (!row || row.consumedAt || row.expiresAt <= now || !canAttemptOneTimeCode(row.attempts)) throw new Error("The reset code is invalid or expired");
   if (!codeMatches(code, row.tokenSalt, row.tokenHash)) {
-    await db.update(authEmailTokens).set({ attempts: row.attempts + 1 }).where(eq(authEmailTokens.id, row.id));
+    await db.update(authEmailTokens).set({ attempts: sql`${authEmailTokens.attempts} + 1` }).where(and(eq(authEmailTokens.id, row.id), isNull(authEmailTokens.consumedAt), gt(authEmailTokens.expiresAt, now), lt(authEmailTokens.attempts, MAX_ATTEMPTS)));
     throw new Error("The reset code is invalid or expired");
   }
   const nextHash = passwordHash(newPassword);
   await db.transaction(async tx => {
-    const consumed = await tx.update(authEmailTokens).set({ consumedAt: now }).where(and(eq(authEmailTokens.id, row.id), isNull(authEmailTokens.consumedAt), gt(authEmailTokens.expiresAt, now)));
+    const consumed = await tx.update(authEmailTokens).set({ consumedAt: now }).where(and(eq(authEmailTokens.id, row.id), isNull(authEmailTokens.consumedAt), gt(authEmailTokens.expiresAt, now), lt(authEmailTokens.attempts, MAX_ATTEMPTS)));
     if (Number((consumed as any)?.[0]?.affectedRows ?? (consumed as any)?.affectedRows ?? 0) !== 1) throw new Error("The reset code is invalid or expired");
     await tx.update(users).set({ passwordHash: nextHash, authVersion: sql`${users.authVersion} + 1`, updatedAt: now }).where(eq(users.id, user.id));
     await tx.update(authEmailTokens).set({ consumedAt: now }).where(and(eq(authEmailTokens.userId, user.id), eq(authEmailTokens.purpose, "EMAIL_VERIFY")));

@@ -1,10 +1,10 @@
-ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `authVersion` int NOT NULL DEFAULT 0;
+ALTER TABLE `users` ADD COLUMN `authVersion` int NOT NULL DEFAULT 0;
 --> statement-breakpoint
-ALTER TABLE `customer_email_preferences` ADD COLUMN IF NOT EXISTS `systemAlerts` tinyint(1) NOT NULL DEFAULT 1;
+ALTER TABLE `customer_email_preferences` ADD COLUMN `systemAlerts` tinyint(1) NOT NULL DEFAULT 1;
 --> statement-breakpoint
-ALTER TABLE `customer_email_preferences` ADD COLUMN IF NOT EXISTS `transactionAlerts` tinyint(1) NOT NULL DEFAULT 1;
+ALTER TABLE `customer_email_preferences` ADD COLUMN `transactionAlerts` tinyint(1) NOT NULL DEFAULT 1;
 --> statement-breakpoint
-ALTER TABLE `customer_email_preferences` ADD COLUMN IF NOT EXISTS `adminMessages` tinyint(1) NOT NULL DEFAULT 1;
+ALTER TABLE `customer_email_preferences` ADD COLUMN `adminMessages` tinyint(1) NOT NULL DEFAULT 1;
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS `email_outbox` (
   `id` int NOT NULL AUTO_INCREMENT,

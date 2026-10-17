@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateOneTimeCode, hashOneTimeCode, isWithinResendCooldown } from "./emailAuth";
+import { canAttemptOneTimeCode, generateOneTimeCode, hashOneTimeCode, isWithinResendCooldown } from "./emailAuth";
 
 describe("email auth codes", () => {
   it("generates eight-digit numeric one-time codes", () => {
@@ -14,6 +14,15 @@ describe("email auth codes", () => {
     expect(a).not.toBe(code);
     expect(a).not.toBe(b);
     expect(hashOneTimeCode(code, "salt-a")).toBe(a);
+  });
+
+  it("allows only the configured number of one-time-code attempts", () => {
+    expect(canAttemptOneTimeCode(0)).toBe(true);
+    expect(canAttemptOneTimeCode(4)).toBe(true);
+    expect(canAttemptOneTimeCode(5)).toBe(false);
+    expect(canAttemptOneTimeCode(6)).toBe(false);
+    expect(canAttemptOneTimeCode(-1)).toBe(false);
+    expect(canAttemptOneTimeCode(1.5)).toBe(false);
   });
 
   it("enforces a one-minute resend cooldown", () => {
