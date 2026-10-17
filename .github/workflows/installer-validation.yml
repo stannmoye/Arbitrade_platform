@@ -164,6 +164,15 @@ jobs:
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:3187/api/health | grep -q '"status":"ok"'; then
               echo "Production server health endpoint returned status=ok."
+              if grep -Fq '[OAuth] ERROR: MANUS_OAUTH_API_URL' "$log_file"; then
+                echo "Missing optional OAuth configuration is still logged as an error." >&2
+                exit 1
+              fi
+              if ! grep -Fq '[OAuth] MANUS_OAUTH_API_URL is not configured; OAuth sign-in will be unavailable until it is set.' "$log_file"; then
+                echo "Expected actionable OAuth configuration warning was not logged." >&2
+                exit 1
+              fi
+              echo "OAuth startup diagnostic correctly distinguishes missing configuration from a startup failure."
               exit 0
             fi
             if ! kill -0 "$server_pid" 2>/dev/null; then
