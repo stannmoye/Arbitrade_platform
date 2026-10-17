@@ -101,7 +101,7 @@ function splitTopLevelComma(input) {
 async function executeMigrationSql(sql) {
   // The checked-in migration files are semicolon-delimited trusted SQL.
   for (const rawStatement of sql.split(";")) {
-    const statement = rawStatement.replace(/^(?:\\s*--[^\\r\\n]*(?:\\r?\\n|$))+/, "").trim();
+    const statement = rawStatement.replace(/^(?:\s*--[^\r\n]*(?:\r?\n|$))+/, "").trim();
     if (!statement) continue;
     const alter = statement.match(/^ALTER\s+TABLE\s+(\S+)\s+([\s\S]+)$/i);
     if (alter) {
