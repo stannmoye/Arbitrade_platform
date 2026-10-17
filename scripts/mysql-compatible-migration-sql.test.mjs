@@ -44,6 +44,17 @@ describe("executeCompatibleMigrationSql", () => {
     ]);
   });
 
+  it("normalizes indentation in multiline ALTER statements for MySQL 8", async () => {
+    const connection = createConnection();
+    await executeCompatibleMigrationSql(
+      connection,
+      "ALTER TABLE mining_economics_versions\\n  ADD COLUMN IF NOT EXISTS defaultContractDurationMonths INT NOT NULL DEFAULT 24 AFTER tokenSymbol;",
+    );
+    expect(connection.queries).toEqual([
+      "ALTER TABLE mining_economics_versions ADD COLUMN defaultContractDurationMonths INT NOT NULL DEFAULT 24 AFTER tokenSymbol",
+    ]);
+  });
+
   it("creates a missing unique index and skips an existing index", async () => {
     const connection = createConnection({ indexes: ["idx_existing"] });
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
