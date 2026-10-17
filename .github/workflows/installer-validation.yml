@@ -51,6 +51,8 @@ jobs:
           node --check installer/recovery-report.mjs
           node --check installer/test-smtp.mjs
           node --check scripts/apply-portal-migrations.mjs
+          node --check scripts/mysql-compatible-migration-sql.mjs
+          node --check scripts/apply-mining-migrations.mjs
           node --check scripts/portal-migration-tracker.mjs
           node --check scripts/portal-migration-tracker.test.mjs
           node --check scripts/audit-portal-schema.mjs
