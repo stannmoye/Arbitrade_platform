@@ -26,8 +26,14 @@ if (!Array.isArray(journal.entries) || journal.entries.length === 0) {
   process.exit(2);
 }
 
-const url = new URL(rawDatabaseUrl);
-if (![ "mysql:", "mariadb:" ].includes(url.protocol) || !url.pathname.replace(/^\/+/, "")) {
+let url;
+try {
+  url = new URL(rawDatabaseUrl);
+} catch {
+  console.error("DATABASE_URL is malformed. Check the private configuration; the value is not displayed.");
+  process.exit(2);
+}
+if (![ "mysql:", "mariadb:" ].includes(url.protocol) || !url.pathname.replace(/^\\/+/, "")) {
   console.error("DATABASE_URL must identify a MySQL/MariaDB database. No database changes were made.");
   process.exit(2);
 }
@@ -38,15 +44,23 @@ if (!databaseName) {
   console.error("DATABASE_URL must include a database name. No database changes were made.");
   process.exit(2);
 }
-const db = await mysql.createConnection({
-  host: url.hostname,
-  port: Number(url.port || 3306),
-  user: decodeURIComponent(url.username),
-  password: decodeURIComponent(url.password),
-  database: databaseName,
-  ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
-  connectTimeout: 10000,
-});
+let db;
+try {
+  db = await mysql.createConnection({
+    host: url.hostname,
+    port: Number(url.port || 3306),
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    database: databaseName,
+    ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
+    connectTimeout: 10000,
+  });
+} catch (error) {
+  console.error("Could not connect to the configured database. Check private connection settings and database availability; credentials are not displayed.");
+  console.error("Database error code: " + String(error?.code || "unavailable").replace(/[^A-Z0-9_]/gi, "").slice(0, 40));
+  process.exit(2);
+}
+
 const miningMarkers = [
   "0039_mining_database_driven_packages",
   "0040_mining_package_daily_rewards",
