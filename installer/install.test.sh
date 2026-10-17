@@ -89,6 +89,7 @@ assert_file_contains "$VPS_SETUP" 'if [[ "$INSTALL_RUNTIME" == 1 ]]; then' "VPS 
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$UNIT" || fail' "VPS setup refuses to overwrite an existing systemd service or dangling symlink"
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$NGINX" || fail' "VPS setup refuses to overwrite an existing nginx site or dangling symlink"
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$NGINX_ENABLED" || fail' "VPS setup refuses to overwrite an enabled-site path or dangling symlink"
+assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$ENV_FILE" || fail' "VPS setup refuses to overwrite existing protected environment secrets"
 
 # Exercise the same path predicate used by VPS provisioning using temporary
 # filesystem entries. These tests need neither root nor host configuration.
@@ -123,7 +124,8 @@ env_write_line="$(line_of 'install -d -o root -g "$APP_USER" -m 0750 /etc/arbitr
 unit_guard_line="$(line_of 'arbitrade_path_is_available "$UNIT" || fail')"
 nginx_guard_line="$(line_of 'arbitrade_path_is_available "$NGINX" || fail')"
 enabled_guard_line="$(line_of 'arbitrade_path_is_available "$NGINX_ENABLED" || fail')"
-for guard_line in "$unit_guard_line" "$nginx_guard_line" "$enabled_guard_line"; do
+env_guard_line="$(line_of 'arbitrade_path_is_available "$ENV_FILE" || fail')"
+for guard_line in "$unit_guard_line" "$nginx_guard_line" "$enabled_guard_line" "$env_guard_line"; do
   [[ -n "$guard_line" && "$guard_line" -lt "$runtime_line" && "$guard_line" -lt "$user_line" && "$guard_line" -lt "$env_write_line" ]] || {
     printf '[FAIL] VPS destination guards must run before package installation, user creation, and secret/config writes.\n' >&2
     exit 1
