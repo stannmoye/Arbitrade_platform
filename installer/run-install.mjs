@@ -231,7 +231,7 @@ runPnpm(["install", "--frozen-lockfile"]);
 if (mode === "fresh") {
   console.log("\n[installer] Initializing a fresh database. Reward processing remains disabled unless separately enabled by an administrator.");
   await setStage("main-database-migrations");
-  runPnpm(["db:migrate"]);
+  run("node", ["scripts/guarded-main-migrate.mjs"]);
   await setStage("portal-database-migrations");
   runPnpm(["db:portal-migrate"]);
   await setStage("mining-database-migrations");
@@ -249,7 +249,7 @@ if (mode === "fresh") {
   console.log("\n[installer] Existing-database mode: applying forward migrations while preserving account credentials and financial records.");
   console.log("[installer] Confirm a current database backup exists before continuing.");
   await setStage("main-database-migrations");
-  runPnpm(["db:migrate"]);
+  run("node", ["scripts/guarded-main-migrate.mjs"]);
   await setStage("portal-database-migrations");
   runPnpm(["db:portal-migrate"]);
   await setStage("mining-database-migrations");
