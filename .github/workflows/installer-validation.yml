@@ -80,3 +80,40 @@ jobs:
         run: pnpm test
       - name: Installer and migration safety test suite
         run: pnpm exec vitest run --config vitest.installer.config.ts
+      - name: Build production application
+        run: pnpm build
+      - name: Smoke-test production server without a database
+        env:
+          NODE_ENV: production
+          PORT: 3187
+          DATABASE_URL: ""
+          SESSION_SECRET: "ci-only-session-secret-not-for-production-000000"
+          PASSWORD_PEPPER: "ci-only-password-pepper-not-for-production-000000"
+          PUBLIC_APP_URL: "http://127.0.0.1:3187"
+        run: |
+          set -Eeuo pipefail
+          log_file="$(mktemp)"
+          node dist/index.js >"$log_file" 2>&1 &
+          server_pid=$!
+          cleanup() {
+            kill "$server_pid" 2>/dev/null || true
+            wait "$server_pid" 2>/dev/null || true
+            if [[ -f "$log_file" ]]; then
+              cat "$log_file"
+              rm -f "$log_file"
+            fi
+          }
+          trap cleanup EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3187/api/health | grep -q '"status":"ok"'; then
+              echo "Production server health endpoint returned status=ok."
+              exit 0
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              echo "Production server exited before becoming healthy." >&2
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "Production server did not become healthy within 60 seconds." >&2
+          exit 1
