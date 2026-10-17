@@ -110,16 +110,12 @@ jobs:
             echo "Entry bundle exceeds the 900 KiB raw or 220 KiB gzip regression budget." >&2
             exit 1
           fi
-          for pattern in 'AdminMining-*.js' 'CustomerMining-*.js' 'AdminOperationsPages-*.js'; do
+          for pattern in 'AdminMining-*.js' 'CustomerMining-*.js' 'AdminOperationsPages-*.js' 'MiningCoreCanvas-*.js'; do
             if ! compgen -G "dist/public/assets/$pattern" >/dev/null; then
               echo "Expected lazy-loaded chunk was not generated: $pattern" >&2
               exit 1
             fi
           done
-          if ! compgen -G "dist/public/assets/MiningCoreCanvas-*.css" >/dev/null; then
-            echo "Expected lazy-loaded mining cockpit stylesheet was not generated." >&2
-            exit 1
-          fi
 
           css_bundle="$(find dist/public/assets -maxdepth 1 -type f -name 'index-*.css' -print -quit)"
           if [[ -z "$css_bundle" ]]; then
