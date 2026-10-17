@@ -102,11 +102,41 @@ runuser -u "$APP_USER" -- test -r "$ROOT/dist/index.js" || fail "The arbitrade s
 
 say "Preparing protected runtime environment"
 install -d -o root -g "$APP_USER" -m 0750 "$ENV_DIR"
+# Track only destinations created by this invocation so a failed
+# provisioning attempt can remove its own partial files without touching
+# pre-existing host configuration.
+ENV_TMP=""
+UNIT_TMP=""
+NGINX_TMP=""
+ENV_PUBLISHED=0
+UNIT_PUBLISHED=0
+NGINX_PUBLISHED=0
+NGINX_ENABLED_PUBLISHED=0
+SERVICE_ATTEMPTED=0
+HTTPS_ATTEMPTED=0
+cleanup_vps_setup() {
+  local status=$?
+  rm -f -- "${ENV_TMP:-}" "${UNIT_TMP:-}" "${NGINX_TMP:-}"
+  if [[ "$status" -ne 0 && "$HTTPS_ATTEMPTED" == 0 ]]; then
+    if [[ "$SERVICE_ATTEMPTED" == 1 ]]; then
+      systemctl disable --now arbitrade.service >/dev/null 2>&1 || true
+      systemctl daemon-reload >/dev/null 2>&1 || true
+    fi
+    [[ "$NGINX_ENABLED_PUBLISHED" == 1 ]] && rm -f -- "$NGINX_ENABLED"
+    [[ "$NGINX_PUBLISHED" == 1 ]] && rm -f -- "$NGINX"
+    [[ "$UNIT_PUBLISHED" == 1 ]] && rm -f -- "$UNIT"
+    [[ "$ENV_PUBLISHED" == 1 ]] && rm -f -- "$ENV_FILE"
+    if [[ "$ENV_PUBLISHED" == 1 || "$UNIT_PUBLISHED" == 1 || "$NGINX_PUBLISHED" == 1 || "$NGINX_ENABLED_PUBLISHED" == 1 ]]; then
+      say "Provisioning failed; files created by this attempt were rolled back. Review the error above before retrying."
+    fi
+  fi
+}
+trap cleanup_vps_setup EXIT
+
 # Build the secret file privately in the same directory, then publish it with
 # an atomic hard-link operation. Unlike install/cp to ENV_FILE, ln refuses to
 # replace a destination that appeared after the preflight check.
 ENV_TMP="$(mktemp "$ENV_DIR/.arbitrade.env.XXXXXX")"
-trap 'rm -f -- "${ENV_TMP:-}" "${UNIT_TMP:-}" "${NGINX_TMP:-}"' EXIT
 install -o root -g "$APP_USER" -m 0640 "$ROOT/.env" "$ENV_TMP"
 if grep -q '^PORT=' "$ENV_TMP"; then
   sed -i 's/^PORT=.*/PORT=3000/' "$ENV_TMP"
@@ -118,6 +148,7 @@ chmod 0640 "$ENV_TMP"
 if ! ln -T -- "$ENV_TMP" "$ENV_FILE"; then
   fail "$ENV_FILE appeared during provisioning. Existing environment secrets were not overwritten; inspect the path and rerun only after review."
 fi
+ENV_PUBLISHED=1
 rm -f -- "$ENV_TMP"
 ENV_TMP=""
 
@@ -151,6 +182,7 @@ chmod 0644 "$UNIT_TMP"
 if ! ln -T -- "$UNIT_TMP" "$UNIT"; then
   fail "$UNIT appeared during provisioning. Existing service configuration was not overwritten; inspect the path and rerun only after review."
 fi
+UNIT_PUBLISHED=1
 rm -f -- "$UNIT_TMP"
 UNIT_TMP=""
 
@@ -179,18 +211,22 @@ chmod 0644 "$NGINX_TMP"
 if ! ln -T -- "$NGINX_TMP" "$NGINX"; then
   fail "$NGINX appeared during provisioning. Existing nginx configuration was not overwritten; inspect the path and rerun only after review."
 fi
+NGINX_PUBLISHED=1
 rm -f -- "$NGINX_TMP"
 NGINX_TMP=""
 
 if ! ln -s "$NGINX" "$NGINX_ENABLED"; then
   fail "$NGINX_ENABLED appeared during provisioning. Existing enabled-site configuration was not overwritten; inspect the path and rerun only after review."
 fi
+NGINX_ENABLED_PUBLISHED=1
 nginx -t
 systemctl daemon-reload
+SERVICE_ATTEMPTED=1
 systemctl enable --now arbitrade.service
 systemctl reload nginx
 
 if [[ "$ENABLE_HTTPS" == 1 ]]; then
+  HTTPS_ATTEMPTED=1
   apt-get install -y certbot python3-certbot-nginx
   certbot --nginx --non-interactive --agree-tos --email "$EMAIL" -d "$DOMAIN" --redirect
 fi
