@@ -1,5 +1,6 @@
 import "dotenv/config";
 import mysql from "mysql2/promise";
+import nodemailer from "nodemailer";
 import { access, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -8,6 +9,10 @@ const results = [];
 const report = (name, ok, detail) => {
   results.push({ name, status: ok ? "PASS" : "FAIL", detail });
   console.log(`[${ok ? "PASS" : "FAIL"}] ${name}: ${detail}`);
+};
+const warn = (name, detail) => {
+  results.push({ name, status: "WARN", detail });
+  console.log(`[WARN] ${name}: ${detail}`);
 };
 
 const url = process.env.DATABASE_URL;
@@ -18,17 +23,33 @@ if (!url) {
   try {
     const parsed = new URL(url);
     if (!["mysql:", "mariadb:"].includes(parsed.protocol)) throw new Error("DATABASE_URL must use mysql:// or mariadb://.");
+    if (parsed.protocol === "mariadb:") parsed.protocol = "mysql:";
     parsed.searchParams.set("timezone", "Z");
     db = await mysql.createConnection(parsed.toString());
     const [tables] = await db.query("SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE()");
     const names = new Set(tables.map((row) => String(row.TABLE_NAME ?? row.table_name)));
     report("Database connection", true, `Connected; ${names.size} table(s) found.`);
-    report("Users table", names.has("users"), names.has("users") ? "users table exists." : "Expected users table is missing.");
+    for (const required of ["users", "app_settings", "mining_packages"]) {
+      report("Required table: " + required, names.has(required), names.has(required) ? "Table exists." : "Expected table is missing; review migrations.");
+    }
     if (names.has("users")) {
       const [admins] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='admin'");
       report("Administrator", Number(admins[0].count) > 0, `${Number(admins[0].count)} administrator account(s) found.`);
     }
     report("Database schema", names.size > 0, names.size ? "Database is not empty." : "Database contains no tables.");
+
+    if (names.has("__drizzle_migrations")) {
+      const [migrations] = await db.query("SELECT COUNT(*) AS count FROM __drizzle_migrations");
+      report("Drizzle migration tracking", Number(migrations[0].count) > 0, `${Number(migrations[0].count)} migration record(s) found.`);
+    } else {
+      report("Drizzle migration tracking", false, "The __drizzle_migrations table is missing; run the documented migration workflow.");
+    }
+    if (names.has("mining_schema_migrations")) {
+      const [markers] = await db.query("SELECT COUNT(*) AS count FROM mining_schema_migrations");
+      report("Mining migration tracking", Number(markers[0].count) > 0, `${Number(markers[0].count)} mining migration marker(s) found.`);
+    } else {
+      report("Mining migration tracking", false, "The mining_schema_migrations table is missing; review the mining migration workflow.");
+    }
   } catch (error) {
     report("Database connection", false, error?.code || error?.message || "Connection failed.");
   } finally {
@@ -45,6 +66,31 @@ try {
   report("Production build", false, "dist/index.js is missing; run pnpm build.");
 }
 
+try {
+  await access(resolve(root, ".configured"));
+  report("Configuration lock", true, ".configured exists.");
+} catch {
+  report("Configuration lock", false, ".configured is missing.");
+}
+try {
+  await access(resolve(root, "installer/.installed"));
+  report("Installation lock", true, "installer/.installed exists.");
+} catch {
+  report("Installation lock", false, "installer/.installed is missing; the install script may not have completed.");
+}
+try {
+  await access(resolve(root, ".installer-bootstrap.json"));
+  report("Bootstrap cleanup", false, "A one-time bootstrap file remains. Restrict access and remove it after confirming installation.");
+} catch {
+  report("Bootstrap cleanup", true, "No one-time administrator bootstrap file remains.");
+}
+try {
+  const envInfo = await stat(resolve(root, ".env"));
+  report("Environment file permissions", (envInfo.mode & 0o077) === 0, (envInfo.mode & 0o077) === 0 ? ".env is not group/world accessible." : ".env permissions are too broad; run chmod 600 .env.");
+} catch {
+  report("Environment file permissions", false, ".env is missing or unreadable.");
+}
+
 const appUrl = process.env.PUBLIC_APP_URL;
 if (!appUrl) {
   report("Application health", false, "PUBLIC_APP_URL is not configured.");
@@ -54,12 +100,44 @@ if (!appUrl) {
     const response = await fetch(healthUrl, { signal: AbortSignal.timeout(8000), redirect: "error" });
     const body = await response.json().catch(() => null);
     const ok = response.ok && body?.status === "ok";
-    report("Application health", ok, ok ? "GET /api/health returned status=ok." : `Health endpoint returned HTTP ${response.status}; inspect the cPanel/VPS application logs.`);
+    report("Application health", ok, ok ? "GET /api/health returned status=ok." : `Health endpoint returned HTTP ${response.status}; inspect the application logs.`);
   } catch (error) {
     report("Application health", false, error?.message || "Health endpoint could not be reached. Start/restart the application and rerun.");
   }
 }
 
+if (process.env.MAIL_PROVIDER === "smtp") {
+  const required = ["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM_EMAIL"];
+  const missing = required.filter((key) => !process.env[key]);
+  if (missing.length) {
+    report("SMTP configuration", false, "Missing: " + missing.join(", "));
+  } else {
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: String(process.env.SMTP_SECURE || "false").toLowerCase() === "true",
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+    });
+    try {
+      await transporter.verify();
+      report("SMTP connection/authentication", true, "SMTP transport verified. Run pnpm installer:test-smtp --to=you@example.com to send a test message.");
+    } catch (error) {
+      report("SMTP connection/authentication", false, "SMTP verification failed (" + String(error?.code || "unknown") + "). Check host, port, TLS, credentials, and outbound SMTP restrictions.");
+    } finally {
+      transporter.close();
+    }
+  }
+} else {
+  warn("SMTP", "Email delivery is disabled. Configure SMTP if the application needs outbound email.");
+}
+
+warn("Cron jobs", "Cannot inspect cPanel/VPS scheduler entries without an authorized hosting API. Verify required authenticated jobs manually using docs/deployment-v5.md.");
+warn("OAuth", "Google/Microsoft credentials and provider-side callback registrations require a sign-in test; review the configured redirect URLs.");
+
 const failed = results.filter((item) => item.status === "FAIL");
-console.log(`\nInstaller verification: ${results.length - failed.length}/${results.length} checks passed.`);
+const warnings = results.filter((item) => item.status === "WARN");
+console.log(`\nInstaller verification: ${results.length - failed.length - warnings.length} passed, ${failed.length} failed, ${warnings.length} manual checks/warnings.`);
 if (failed.length) process.exitCode = 1;
