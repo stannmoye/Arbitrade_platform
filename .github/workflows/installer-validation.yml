@@ -46,10 +46,15 @@ jobs:
           node --check scripts/portal-schema-audit-utils.test.mjs
           node --check scripts/audit-trade-lifecycle.mjs
           node --check scripts/collect-trade-recovery-evidence.mjs
-      - name: Validate shell installer syntax
+      - name: Validate shell installer syntax and CLI help
         run: |
           bash -n installer/install.sh
           bash -n installer/vps-setup.sh
+          bash installer/install.sh --help
+          if bash installer/install.sh >/dev/null 2>&1; then
+            echo 'Installer unexpectedly accepted a missing install mode.' >&2
+            exit 1
+          fi
       - name: Install locked dependencies
         run: |
           corepack enable
