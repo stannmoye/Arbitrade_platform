@@ -12,6 +12,7 @@ describe("PHP installer state-marker safety", () => {
     expect(source).toContain("installerPathExists($installedLock)");
     expect(source).toContain("installerPathExists($envPath)");
     expect(source).toContain("installerPathExists($bootstrapPath)");
+    expect(source).toContain("!installerPathExists($configuredLock) && !installerPathExists($installedLock) && !installerPathExists($envPath) && !installerPathExists($bootstrapPath)");
     expect(source).not.toContain("if (file_exists($configuredLock) || file_exists($installedLock) || file_exists($envPath))");
   });
 
