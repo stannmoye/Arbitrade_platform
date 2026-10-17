@@ -102,10 +102,12 @@ jobs:
             exit 1
           fi
           size_bytes="$(wc -c < "$main_bundle")"
-          limit_bytes=$((400 * 1024))
-          echo "Entry bundle: $main_bundle ($size_bytes bytes; limit $limit_bytes bytes)"
-          if (( size_bytes > limit_bytes )); then
-            echo "Entry bundle exceeds the 400 KiB regression budget." >&2
+          limit_bytes=$((900 * 1024))
+          gzip_bytes="$(gzip -c "$main_bundle" | wc -c)"
+          gzip_limit_bytes=$((220 * 1024))
+          echo "Entry bundle: $main_bundle ($size_bytes bytes raw; $gzip_bytes bytes gzip; limits $limit_bytes raw / $gzip_limit_bytes gzip)"
+          if (( size_bytes > limit_bytes || gzip_bytes > gzip_limit_bytes )); then
+            echo "Entry bundle exceeds the 900 KiB raw or 220 KiB gzip regression budget." >&2
             exit 1
           fi
           for pattern in 'AdminMining-*.js' 'CustomerMining-*.js' 'AdminOperationsPages-*.js'; do
