@@ -93,7 +93,29 @@ export async function migrateMiningTokenToCki(conn) {
     const [configs] = await conn.query("SELECT * FROM mining_economics_versions WHERE effectiveAt<=UTC_TIMESTAMP(3) ORDER BY version DESC LIMIT 1 FOR UPDATE");
     const previous = configs[0];
     if (!previous) throw new Error("Mining economics must be initialized before applying the CoinKi migration");
-    if (String(previous.tokenSymbol).toUpperCase() === "CKI") throw new Error("The active Mining token is already CKI; this legacy asset-reclassification script is not applicable and stopped without changing data");
+    if (String(previous.tokenSymbol).toUpperCase() === "CKI") {
+      const [legacyBalances] = await conn.query(
+        "SELECT id FROM v5_wallets WHERE assetCode='TOKEN' AND (availableAmount<>0 OR lockedAmount<>0 OR pendingAmount<>0) LIMIT 1 FOR UPDATE",
+      );
+      if (legacyBalances.length) {
+        throw new Error("The active Mining token is already CKI but non-zero legacy TOKEN wallet balances remain; manual reconciliation is required");
+      }
+      await conn.execute("INSERT INTO mining_schema_migrations (migrationKey,detailsJson) VALUES (?,?)", [
+        MIGRATION_KEY,
+        JSON.stringify({
+          version: Number(previous.version),
+          tokenName: "CoinKi",
+          tokenSymbol: "CKI",
+          reclassifiedUserWallets: 0,
+          reclassifiedAmount: ZERO,
+          historicalLedgerPreserved: true,
+          noOpReason: "CKI was already active and no non-zero legacy TOKEN wallet balances remained.",
+        }),
+      ]);
+      await conn.commit();
+      console.log("CoinKi/CKI migration recorded as a safe no-op: CKI is already active and no non-zero legacy TOKEN wallet balances remain.");
+      return;
+    }
     const tokenUnitsPerUsd = unit(previous.tokenUnitsPerUsd);
     if (!tokenUnitsPerUsd.gt(0)) throw new Error("The configured database CKI/USD valuation is invalid; migration stopped without changing data");
     const usdPerToken = new Decimal(1).div(tokenUnitsPerUsd).toSignificantDigits(18).toString();
