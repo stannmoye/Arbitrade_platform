@@ -86,9 +86,33 @@ done
 
 assert_file_contains "$INSTALLER" 'if [[ "$INSTALL_MISSING" == 1 && "${EUID}" == 0' "Shell installer only provisions runtime when explicitly requested by root"
 assert_file_contains "$VPS_SETUP" 'if [[ "$INSTALL_RUNTIME" == 1 ]]; then' "VPS runtime provisioning requires the explicit --install-runtime option"
-assert_file_contains "$VPS_SETUP" '[[ ! -e "$UNIT" && ! -L "$UNIT" ]] || fail' "VPS setup refuses to overwrite an existing systemd service or dangling symlink"
-assert_file_contains "$VPS_SETUP" '[[ ! -e "$NGINX" && ! -L "$NGINX" ]] || fail' "VPS setup refuses to overwrite an existing nginx site or dangling symlink"
-assert_file_contains "$VPS_SETUP" '[[ ! -e "$NGINX_ENABLED" && ! -L "$NGINX_ENABLED" ]] || fail' "VPS setup refuses to overwrite an enabled-site path or dangling symlink"
+assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$UNIT" || fail' "VPS setup refuses to overwrite an existing systemd service or dangling symlink"
+assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$NGINX" || fail' "VPS setup refuses to overwrite an existing nginx site or dangling symlink"
+assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$NGINX_ENABLED" || fail' "VPS setup refuses to overwrite an enabled-site path or dangling symlink"
+
+# Exercise the same path predicate used by VPS provisioning using temporary
+# filesystem entries. These tests need neither root nor host configuration.
+source "$ROOT/installer/vps-preflight.sh"
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
+arbitrade_path_is_available "$tmpdir/absent" || { printf '[FAIL] Missing path should be available.\\n' >&2; exit 1; }
+pass "Preflight permits a nonexistent destination"
+touch "$tmpdir/regular-file"
+if arbitrade_path_is_available "$tmpdir/regular-file"; then
+  printf '[FAIL] Existing file should be a collision.\\n' >&2; exit 1
+fi
+pass "Preflight rejects an existing regular file"
+mkdir "$tmpdir/directory"
+if arbitrade_path_is_available "$tmpdir/directory"; then
+  printf '[FAIL] Existing directory should be a collision.\\n' >&2; exit 1
+fi
+pass "Preflight rejects an existing directory"
+ln -s "$tmpdir/missing-target" "$tmpdir/dangling-link"
+[[ ! -e "$tmpdir/dangling-link" && -L "$tmpdir/dangling-link" ]] || { printf '[FAIL] Test setup failed to create dangling symlink.\\n' >&2; exit 1; }
+if arbitrade_path_is_available "$tmpdir/dangling-link"; then
+  printf '[FAIL] Dangling symlink should be a collision.\\n' >&2; exit 1
+fi
+pass "Preflight rejects a dangling symbolic link"
 
 # Ensure all destination guards run before package installation, user creation,
 # or writing the protected environment, so a rejected rerun cannot half-configure a host.
@@ -96,9 +120,9 @@ line_of() { grep -nF -- "$1" "$VPS_SETUP" | head -n 1 | cut -d: -f1; }
 runtime_line="$(line_of 'if [[ "$INSTALL_RUNTIME" == 1 ]]; then')"
 user_line="$(line_of 'useradd --system')"
 env_write_line="$(line_of 'install -d -o root -g "$APP_USER" -m 0750 /etc/arbitrade')"
-unit_guard_line="$(line_of '[[ ! -e "$UNIT" && ! -L "$UNIT" ]] || fail')"
-nginx_guard_line="$(line_of '[[ ! -e "$NGINX" && ! -L "$NGINX" ]] || fail')"
-enabled_guard_line="$(line_of '[[ ! -e "$NGINX_ENABLED" && ! -L "$NGINX_ENABLED" ]] || fail')"
+unit_guard_line="$(line_of 'arbitrade_path_is_available "$UNIT" || fail')"
+nginx_guard_line="$(line_of 'arbitrade_path_is_available "$NGINX" || fail')"
+enabled_guard_line="$(line_of 'arbitrade_path_is_available "$NGINX_ENABLED" || fail')"
 for guard_line in "$unit_guard_line" "$nginx_guard_line" "$enabled_guard_line"; do
   [[ -n "$guard_line" && "$guard_line" -lt "$runtime_line" && "$guard_line" -lt "$user_line" && "$guard_line" -lt "$env_write_line" ]] || {
     printf '[FAIL] VPS destination guards must run before package installation, user creation, and secret/config writes.\n' >&2
