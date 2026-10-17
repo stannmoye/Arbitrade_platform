@@ -47,6 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!in_array($mode, ['fresh', 'existing'], true)) throw new RuntimeException('Choose a fresh installation or an existing-database deployment.');
         $appUrl = rtrim(postval('app_url'), '/');
         if (!filter_var($appUrl, FILTER_VALIDATE_URL) || !in_array(strtolower((string)parse_url($appUrl, PHP_URL_SCHEME)), ['https', 'http'], true)) throw new RuntimeException('Enter a valid application URL.');
+        $parsedAppUrl = parse_url($appUrl);
+        if (is_array($parsedAppUrl) && (isset($parsedAppUrl['user']) || isset($parsedAppUrl['pass']))) throw new RuntimeException('The application URL must not contain a username or password. Enter the public URL only.');
         if (!str_starts_with(strtolower($appUrl), 'https://') && postval('allow_http') !== '1') throw new RuntimeException('Use HTTPS for production, or explicitly enable HTTP for local testing only.');
 
         $dbHost = postval('db_host') ?: '127.0.0.1';
