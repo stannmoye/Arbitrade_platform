@@ -32,7 +32,18 @@ describe("authentication endpoint rate limiter", () => {
     expect(afterWindow.next).toHaveBeenCalledOnce();
   });
 
-  it("keeps limits isolated by resolved client IP and ignores the raw forwarded header", () => {
+  it("keys limits by Express's resolved client IP, not the raw forwarded header", () => {
+    const limit = createAuthRateLimiter({ windowMs: 60_000, max: 1, message: "Limited", now: () => 1_000 });
+    const first = harness("203.0.113.1"); limit(first.req as never, first.res as never, first.next);
+    const second = harness("203.0.113.1");
+    second.req.headers["x-forwarded-for"] = "198.51.100.123";
+    limit(second.req as never, second.res as never, second.next);
+    expect(first.next).toHaveBeenCalledOnce();
+    expect(second.next).not.toHaveBeenCalled();
+    expect(second.payload.status).toBe(429);
+  });
+
+  it("keeps limits isolated between distinct resolved client IPs", () => {
     const limit = createAuthRateLimiter({ windowMs: 60_000, max: 1, message: "Limited", now: () => 1_000 });
     const first = harness("203.0.113.1"); limit(first.req as never, first.res as never, first.next);
     const second = harness("203.0.113.2"); limit(second.req as never, second.res as never, second.next);
