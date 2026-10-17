@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const wrapper = resolve(root, "install.sh");
+const wrapper = resolve(root, "installer/install.sh");
 
 function runWrapper(args) {
   const result = spawnSync("bash", [wrapper, ...args], {
