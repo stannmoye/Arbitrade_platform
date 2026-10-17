@@ -203,5 +203,11 @@ try {
   console.error("Database error code: " + String(error?.code || "unavailable").replace(/[^A-Z0-9_]/gi, "").slice(0, 40));
   process.exitCode = 1;
 } finally {
-  await db.end();
+  try {
+    await db.end();
+  } catch (error) {
+    console.error("Could not close the diagnostic database connection cleanly.");
+    console.error("Database error code: " + String(error?.code || "unavailable").replace(/[^A-Z0-9_]/gi, "").slice(0, 40));
+    process.exitCode = 1;
+  }
 }
