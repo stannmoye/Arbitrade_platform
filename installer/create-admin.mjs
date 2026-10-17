@@ -32,7 +32,7 @@ try {
 }
 const salt = crypto.randomBytes(16).toString("hex");
 const digest = crypto.scryptSync(password, salt, 32).toString("hex");
-const passwordHash = `scrypt${salt}${digest}`;
+const passwordHash = "scrypt$" + salt + "$" + digest;
 const openId = `local:admin:${email}`;
 let connection;
 try {
