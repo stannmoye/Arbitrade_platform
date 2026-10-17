@@ -90,6 +90,7 @@ assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$UNIT" || fail' 
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$NGINX" || fail' "VPS setup refuses to overwrite an existing nginx site or dangling symlink"
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$NGINX_ENABLED" || fail' "VPS setup refuses to overwrite an enabled-site path or dangling symlink"
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$ENV_FILE" || fail' "VPS setup refuses to overwrite existing protected environment secrets"
+assert_file_contains "$VPS_SETUP" 'arbitrade_directory_is_safe "$ENV_DIR" || fail' "VPS setup refuses symlinked or non-directory environment parent paths"
 
 # Exercise the same path predicate used by VPS provisioning using temporary
 # filesystem entries. These tests need neither root nor host configuration.
@@ -115,6 +116,21 @@ if arbitrade_path_is_available "$tmpdir/dangling-link"; then
 fi
 pass "Preflight rejects a dangling symbolic link"
 
+arbitrade_directory_is_safe "$tmpdir/new-directory" || { printf '[FAIL] Missing environment directory should be safe.\\n' >&2; exit 1; }
+pass "Directory preflight permits a nonexistent directory"
+mkdir "$tmpdir/real-directory"
+arbitrade_directory_is_safe "$tmpdir/real-directory" || { printf '[FAIL] Existing real directory should be safe.\\n' >&2; exit 1; }
+pass "Directory preflight permits an existing real directory"
+if arbitrade_directory_is_safe "$tmpdir/regular-file"; then
+  printf '[FAIL] File used as directory should be rejected.\\n' >&2; exit 1
+fi
+pass "Directory preflight rejects a regular file"
+ln -s "$tmpdir/real-directory" "$tmpdir/directory-link"
+if arbitrade_directory_is_safe "$tmpdir/directory-link"; then
+  printf '[FAIL] Symlinked environment directory should be rejected.\\n' >&2; exit 1
+fi
+pass "Directory preflight rejects a symlinked directory"
+
 # Ensure all destination guards run before package installation, user creation,
 # or writing the protected environment, so a rejected rerun cannot half-configure a host.
 line_of() { grep -nF -- "$1" "$VPS_SETUP" | head -n 1 | cut -d: -f1; }
@@ -124,8 +140,9 @@ env_write_line="$(line_of 'install -d -o root -g "$APP_USER" -m 0750 /etc/arbitr
 unit_guard_line="$(line_of 'arbitrade_path_is_available "$UNIT" || fail')"
 nginx_guard_line="$(line_of 'arbitrade_path_is_available "$NGINX" || fail')"
 enabled_guard_line="$(line_of 'arbitrade_path_is_available "$NGINX_ENABLED" || fail')"
+env_dir_guard_line="$(line_of 'arbitrade_directory_is_safe "$ENV_DIR" || fail')"
 env_guard_line="$(line_of 'arbitrade_path_is_available "$ENV_FILE" || fail')"
-for guard_line in "$unit_guard_line" "$nginx_guard_line" "$enabled_guard_line" "$env_guard_line"; do
+for guard_line in "$unit_guard_line" "$nginx_guard_line" "$enabled_guard_line" "$env_dir_guard_line" "$env_guard_line"; do
   [[ -n "$guard_line" && "$guard_line" -lt "$runtime_line" && "$guard_line" -lt "$user_line" && "$guard_line" -lt "$env_write_line" ]] || {
     printf '[FAIL] VPS destination guards must run before package installation, user creation, and secret/config writes.\n' >&2
     exit 1
