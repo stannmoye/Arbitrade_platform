@@ -23,6 +23,13 @@ describe("installer verifier recovery-marker output safety", () => {
     expect(source).not.toContain('report("Database connection", false, error?.code || error?.message');
   });
 
+  it("rejects credential-bearing public URLs and does not print raw health-fetch errors", async () => {
+    const source = await readFile(verifierPath, "utf8");
+    expect(source).toContain("!parsedAppUrl.username && !parsedAppUrl.password");
+    expect(source).toContain("connection details are not displayed.");
+    expect(source).not.toContain('report("Application health", false, error?.message');
+  });
+
   it("removes control and ANSI escape sequences from displayed marker values", () => {
     expect(safeDisplayText("stage\u001b[31m\u001b[2J\nforged output")).toBe("stageforged output");
   });
