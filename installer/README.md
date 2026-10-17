@@ -13,8 +13,8 @@
 3. Open /installer/ over HTTPS and follow the staged wizard. It displays PHP/MySQL prerequisites and validates the supplied database connection. Use a new, empty database for fresh installation.
 
    The first-screen preflight also checks PHP 8.2+, required PHP extensions (`pdo_mysql`, `openssl`, `json`, `mbstring`), configuration-directory write access, package/lockfile presence, dependency and build artifacts, HTTPS detection, measurable free disk space, and existing install-lock state. Critical PHP/version/extension/package/permission failures are blocked on submission. Node.js version is deliberately not guessed by PHP: verify Node.js 20+ in cPanel Setup Node.js App; the private Node installer checks the actual runtime.
-4. For existing data, restore a verified backup to the target database before opening the wizard and select **Existing installation**. The wizard does not upload or import large SQL dumps through HTTP.
-5. The wizard writes a protected .env, a one-time .installer-bootstrap.json, and .configured. Keep them outside the public document root where possible. Do not commit or share them.
+4. For existing data, first take and verify a current restorable backup, then import the intended SQL backup into the target database using cPanel/phpMyAdmin or a trusted private terminal. Select **Restore/migrate existing database** in the wizard and confirm both the backup and import. The public web wizard intentionally does not upload or execute SQL dumps; large imports can exceed cPanel upload/execution limits and make recovery unreliable.
+5. The wizard tests the database connection, refuses a non-empty database in fresh mode, requires the `users` table in existing mode, and records the sorted database table inventory in the protected one-time bootstrap. Keep `.env`, `.installer-bootstrap.json`, and `.configured` private; do not commit or share them.
 6. From the private application terminal, run exactly one matching command:
 
 ~~~bash
@@ -29,7 +29,7 @@ node installer/run-install.mjs --existing-database --confirm-existing-migrations
 
    Existing database already restored.
 
-   The script validates Node.js, pnpm, configuration, database connectivity, and database state before installing locked dependencies and building. Fresh mode applies the initial schema and creates the administrator. Existing mode requires the explicit confirmation flag because it applies forward migrations. It runs the main Drizzle migrations, portal migrations, and idempotent mining migrations/package-rate migration; it does not import a dump or create a replacement administrator. Back up the database and verify DATABASE_URL before confirming. Reward processing is not automatically enabled.
+   The script validates Node.js, pnpm, configuration, database connectivity, and database state before installing locked dependencies and building. It re-reads the current database table inventory and compares it with the inventory captured by the browser wizard; if the target database has changed, it stops before migrations and asks you to verify the target and rerun the wizard. Fresh mode requires the captured and current database to be empty, applies the initial schema, and creates the administrator. Existing mode requires explicit browser backup/import confirmation and the CLI confirmation flag because it applies forward migrations. It runs the main Drizzle migrations, portal migrations, and idempotent mining migrations/package-rate migration; it does not import a dump or create a replacement administrator. Reward processing is not automatically enabled.
 
 7. Set/restart the cPanel Node.js application with startup file dist/index.js.
 8. After the app is running, run the post-install checks from the private terminal:
