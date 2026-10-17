@@ -88,8 +88,13 @@ if [[ -z "$PNPM" ]]; then PNPM="$(command -v corepack)"; PNPM_ARGS=(pnpm); else 
 "$PNPM" "${PNPM_ARGS[@]}" --version | grep -q '^10\.18\.' || fail "pnpm 10.18.x is required."
 
 APP_USER="arbitrade"
+# The systemd unit explicitly uses Group=arbitrade. Ensure that group exists
+# even on hosts with a pre-existing service account created without a matching group.
+if ! getent group "$APP_USER" >/dev/null 2>&1; then
+  groupadd --system "$APP_USER"
+fi
 if ! id "$APP_USER" >/dev/null 2>&1; then
-  useradd --system --home-dir "$ROOT" --no-create-home --shell /usr/sbin/nologin "$APP_USER"
+  useradd --system --gid "$APP_USER" --home-dir "$ROOT" --no-create-home --shell /usr/sbin/nologin "$APP_USER"
 fi
 # Ensure the service user can read the application without taking ownership of source files.
 runuser -u "$APP_USER" -- test -r "$ROOT/dist/index.js" || fail "The arbitrade service user cannot read dist/index.js. Use a readable deployment path and grant directory traversal/read access."
