@@ -5,6 +5,7 @@ import { access, readFile, stat } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { safeDisplayText } from "./recovery-utils.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 config({ path: resolve(root, ".env"), override: false });
@@ -153,7 +154,7 @@ try {
   report(
     "Interrupted installation",
     false,
-    `An incomplete installation marker remains (stage: ${String(progress.stage || "unknown")}, started: ${String(progress.startedAt || "unknown")}). Review private logs, backup/migration state, and recover deliberately before removing the marker.`,
+    `An incomplete installation marker remains (stage: ${safeDisplayText(progress.stage)}, started: ${safeDisplayText(progress.startedAt)}). Review private logs, backup/migration state, and recover deliberately before removing the marker.`,
   );
 } catch (error) {
   if (error?.code === "ENOENT") {
