@@ -53,9 +53,9 @@ const pnpmVersion =
   !pnpmResult.error && pnpmResult.status === 0 ? pnpmResult.stdout.trim() : "";
 report(
   "pnpm package manager",
-  /^10\\.18\\./.test(pnpmVersion),
+  /^10\.18\./.test(pnpmVersion),
   pnpmVersion
-    ? /^10\\.18\\./.test(pnpmVersion)
+    ? /^10\.18\./.test(pnpmVersion)
       ? `pnpm ${pnpmVersion} is compatible with this repository.`
       : `pnpm ${pnpmVersion} detected; this repository requires pnpm 10.18.x.`
     : "pnpm is not available in this process PATH. Use the configured Node.js app environment and enable pnpm 10.18.x.",
