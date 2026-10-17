@@ -122,13 +122,15 @@ cleanup_vps_setup() {
       systemctl disable --now arbitrade.service >/dev/null 2>&1 || true
       systemctl daemon-reload >/dev/null 2>&1 || true
     fi
-    [[ "$NGINX_ENABLED_PUBLISHED" == 1 ]] && rm -f -- "$NGINX_ENABLED"
-    [[ "$NGINX_PUBLISHED" == 1 ]] && rm -f -- "$NGINX"
-    [[ "$UNIT_PUBLISHED" == 1 ]] && rm -f -- "$UNIT"
-    [[ "$ENV_PUBLISHED" == 1 ]] && rm -f -- "$ENV_FILE"
+    if [[ "$NGINX_ENABLED_PUBLISHED" == 1 ]]; then rm -f -- "$NGINX_ENABLED"; fi
+    if [[ "$NGINX_PUBLISHED" == 1 ]]; then rm -f -- "$NGINX"; fi
+    if [[ "$UNIT_PUBLISHED" == 1 ]]; then rm -f -- "$UNIT"; fi
+    if [[ "$ENV_PUBLISHED" == 1 ]]; then rm -f -- "$ENV_FILE"; fi
     if [[ "$ENV_PUBLISHED" == 1 || "$UNIT_PUBLISHED" == 1 || "$NGINX_PUBLISHED" == 1 || "$NGINX_ENABLED_PUBLISHED" == 1 ]]; then
       say "Provisioning failed; files created by this attempt were rolled back. Review the error above before retrying."
     fi
+  elif [[ "$status" -ne 0 && "$HTTPS_ATTEMPTED" == 1 ]]; then
+    say "HTTPS provisioning failed after Certbot may have changed nginx configuration. Existing service and nginx files were preserved; inspect systemctl status arbitrade.service, nginx -t, and Certbot output before retrying."
   fi
 }
 trap cleanup_vps_setup EXIT
