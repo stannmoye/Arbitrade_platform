@@ -30,6 +30,13 @@ describe("installer verifier recovery-marker output safety", () => {
     expect(source).not.toContain('report("Application health", false, error?.message');
   });
 
+  it("sanitizes SMTP error codes and does not print raw SMTP error details", async () => {
+    const source = await readFile(verifierPath, "utf8");
+    expect(source).toContain('String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40)');
+    expect(source).toContain("raw error details are not displayed.");
+    expect(source).not.toContain('String(error?.code || "unknown") + "). Check host, port, TLS, credentials');
+  });
+
   it("removes control and ANSI escape sequences from displayed marker values", () => {
     expect(safeDisplayText("stage\u001b[31m\u001b[2J\nforged output")).toBe("stageforged output");
   });
