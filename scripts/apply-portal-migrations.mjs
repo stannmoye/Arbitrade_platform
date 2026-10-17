@@ -69,8 +69,8 @@ function checksum(content) {
 }
 
 // MySQL 8.0 does not support MariaDB's "ADD COLUMN IF NOT EXISTS" syntax.
- // Keep the historical SQL file and its checksum unchanged, but make these
- // idempotent column additions portable by checking information_schema first.
+// Keep historical SQL files and their checksums unchanged, but make idempotent
+// column additions portable by checking information_schema first.
 function splitTopLevelComma(input) {
   const parts = [];
   let start = 0;
@@ -79,14 +79,14 @@ function splitTopLevelComma(input) {
   for (let i = 0; i < input.length; i++) {
     const ch = input[i];
     if (quote) {
-      if (ch === "\\\\" && quote !== "`") { i++; continue; }
+      if (ch === "\\" && quote !== String.fromCharCode(96)) { i++; continue; }
       if (ch === quote) {
-        if (input[i + 1] === quote && quote !== "`") { i++; continue; }
+        if (input[i + 1] === quote && quote !== String.fromCharCode(96)) { i++; continue; }
         quote = null;
       }
       continue;
     }
-    if (ch === "'" || ch === '"' || ch === "`") { quote = ch; continue; }
+    if (ch === "'" || ch === '"' || ch === String.fromCharCode(96)) { quote = ch; continue; }
     if (ch === "(") depth++;
     else if (ch === ")") depth--;
     else if (ch === "," && depth === 0) {
@@ -99,35 +99,34 @@ function splitTopLevelComma(input) {
 }
 
 async function executeMigrationSql(sql) {
-  // These checked-in migration files use semicolon-delimited statements. Their
-  // SQL is trusted repository content; never interpolate user-provided SQL here.
+  // The checked-in migration files are semicolon-delimited trusted SQL.
   for (const rawStatement of sql.split(";")) {
-    let statement = rawStatement.trim();
+    const statement = rawStatement.trim();
     if (!statement) continue;
-    const alter = statement.match(/^ALTER\\s+TABLE\\s+(`?[a-zA-Z0-9_]+`?)\\s+([\\s\\S]+)$/i);
+    const alter = statement.match(/^ALTER\s+TABLE\s+(\S+)\s+([\s\S]+)$/i);
     if (alter) {
-      const tableName = alter[1].replace(/`/g, "");
+      const tableName = alter[1].replace(new RegExp(String.fromCharCode(96), "g"), "");
       const clauses = splitTopLevelComma(alter[2]);
       const compatibleClauses = [];
       for (const clause of clauses) {
-        const addition = clause.match(/^ADD\\s+COLUMN\\s+IF\\s+NOT\\s+EXISTS\\s+(`?[a-zA-Z0-9_]+`?)([\\s\\S]*)$/i);
+        const addition = clause.match(/^ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+(\S+)([\s\S]*)$/i);
         if (!addition) {
           compatibleClauses.push(clause);
           continue;
         }
-        const columnName = addition[1].replace(/`/g, "");
+        const columnName = addition[1].replace(new RegExp(String.fromCharCode(96), "g"), "");
         const [existing] = await connection.execute(
           "SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1",
           [tableName, columnName],
         );
         if (existing.length) {
-          console.log(`Skipping existing column ${tableName}.${columnName}`);
+          console.log("Skipping existing column " + tableName + "." + columnName);
         } else {
-          compatibleClauses.push(`ADD COLUMN ${addition[1]}${addition[2]}`);
+          compatibleClauses.push("ADD COLUMN " + addition[1] + addition[2]);
         }
       }
       if (compatibleClauses.length) {
-        await connection.query(`ALTER TABLE ${alter[1]} ${compatibleClauses.join(", ")}`);
+        await connection.query("ALTER TABLE " + alter[1] + " " + compatibleClauses.join(", "));
       }
       continue;
     }
