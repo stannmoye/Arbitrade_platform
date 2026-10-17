@@ -1,25 +1,28 @@
 import "dotenv/config";
 import mysql from "mysql2/promise";
 import { spawnSync } from "node:child_process";
+import { readFile, unlink, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import process from "node:process";
 
-const root = process.cwd();
-const mode = process.argv.includes("--existing-database")
-  ? "existing"
-  : process.argv.includes("--fresh-install")
-    ? "fresh"
-    : null;
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const fresh = process.argv.includes("--fresh-install");
+const existing = process.argv.includes("--existing-database");
+const mode = fresh === existing ? null : fresh ? "fresh" : "existing";
+const bootstrapPath = resolve(root, ".installer-bootstrap.json");
+const lockPath = resolve(root, "installer/.installed");
 
 function fail(message, code = 1) {
   console.error("[installer] ERROR: " + message);
   process.exit(code);
 }
 
-function run(command, args) {
+function run(command, args, extraEnv = {}) {
   console.log("\n[installer] $ " + command + " " + args.join(" "));
   const result = spawnSync(command, args, {
     cwd: root,
-    env: process.env,
+    env: { ...process.env, ...extraEnv },
     stdio: "inherit",
     shell: false,
   });
@@ -28,6 +31,7 @@ function run(command, args) {
 }
 
 if (!mode) fail("Choose exactly one mode: --fresh-install or --existing-database.", 2);
+if (process.env.NODE_ENV !== "production") fail("NODE_ENV must be production; load the installer-generated .env first.");
 if (Number(process.versions.node.split(".")[0]) < 20) {
   fail("Node.js 20 or newer is required. Detected " + process.versions.node + ".");
 }
@@ -37,11 +41,24 @@ if (!process.env.DATABASE_URL || !process.env.SESSION_SECRET || !process.env.PAS
 if (process.env.SESSION_SECRET.length < 32 || process.env.PASSWORD_PEPPER.length < 32) {
   fail("SESSION_SECRET and PASSWORD_PEPPER must each contain at least 32 characters.");
 }
+if (await (async () => { try { await readFile(lockPath); return true; } catch { return false; } })()) {
+  fail("An installation lock already exists. Refusing to rerun the installer.");
+}
+
+let bootstrap;
+try {
+  bootstrap = JSON.parse(await readFile(bootstrapPath, "utf8"));
+} catch {
+  fail("Missing or unreadable .installer-bootstrap.json. Open the protected installer wizard again or restore the private bootstrap file.");
+}
+if (bootstrap.mode !== mode) {
+  fail("The selected CLI mode does not match the mode saved by the web wizard.");
+}
 if (mode === "fresh") {
-  const email = String(process.env.ADMIN_EMAIL || "").trim().toLowerCase();
-  const password = String(process.env.ADMIN_PASSWORD || "");
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail("A valid ADMIN_EMAIL is required for a fresh installation.");
-  if (password.length < 12) fail("ADMIN_PASSWORD must contain at least 12 characters for a fresh installation.");
+  const email = String(bootstrap.adminEmail || "").trim().toLowerCase();
+  const password = String(bootstrap.adminPassword || "");
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail("A valid administrator email is required for a fresh installation.");
+  if (password.length < 12) fail("The administrator password must contain at least 12 characters.");
 }
 
 let db;
@@ -64,10 +81,10 @@ try {
   );
   const tableCount = Number(rows[0].tableCount);
   if (mode === "fresh" && tableCount !== 0) {
-    fail("Fresh-install mode requires an EMPTY database. This database already contains " + tableCount + " tables. Choose existing-database mode or create a separate empty database.");
+    fail("Fresh-install mode requires an EMPTY database. This database already contains " + tableCount + " tables. No migrations were run.");
   }
   if (mode === "existing" && tableCount === 0) {
-    fail("Existing-database mode requires the database dump to be imported first. The selected database is empty.");
+    fail("Existing-database mode requires the database to be imported first. The selected database is empty.");
   }
   if (mode === "existing") {
     const [users] = await db.query(
@@ -77,10 +94,10 @@ try {
       fail("The imported database does not contain the expected users table. Check that the correct Arbitrade database was imported.");
     }
   }
-  console.log("[installer] Database connection successful; " + tableCount + " existing table(s) detected.");
+  console.log("[installer] Database connection successful; " + tableCount + " table(s) detected.");
 } catch (error) {
   if (error && typeof error.message === "string" && error.message.startsWith("[installer]")) throw error;
-  fail("Could not connect to the selected database. Check DATABASE_URL, database privileges, and host settings. " + (error?.code || error?.message || ""));
+  fail("Could not connect to the selected database. Check DATABASE_URL and database privileges. " + (error?.code || error?.message || ""));
 } finally {
   if (db) await db.end();
 }
@@ -88,19 +105,25 @@ try {
 run("pnpm", ["install", "--frozen-lockfile"]);
 
 if (mode === "fresh") {
-  console.log("\n[installer] Initializing a fresh database. Reward processing will remain disabled by default.");
+  console.log("\n[installer] Initializing a fresh database. Reward processing remains disabled unless separately enabled by an administrator.");
   run("pnpm", ["db:migrate"]);
   run("pnpm", ["db:portal-migrate"]);
   run("node", ["scripts/apply-mining-migrations.mjs", "--confirm-host-migration", "--confirm-production"]);
   run("node", ["scripts/apply-mining-initial-reward-rates.mjs", "--confirm-host-migration", "--confirm-production"]);
   run("pnpm", ["build"]);
-  run("node", ["installer/create-admin.mjs"]);
-  console.log("\n[installer] Fresh installation completed. The initial administrator was created.");
+  run("node", ["installer/create-admin.mjs"], {
+    ADMIN_EMAIL: String(bootstrap.adminEmail).trim().toLowerCase(),
+    ADMIN_PASSWORD: String(bootstrap.adminPassword),
+  });
+  await unlink(bootstrapPath);
 } else {
-  console.log("\n[installer] Existing-database mode: preserving all existing account credentials and application records.");
+  console.log("\n[installer] Existing-database mode: preserving all current account credentials and application records.");
   run("pnpm", ["db:migrate"]);
   run("pnpm", ["build"]);
-  console.log("\n[installer] Application dependencies/build completed. Existing accounts were not created, reset, or replaced.");
+  await unlink(bootstrapPath);
 }
 
-console.log("[installer] IMPORTANT: configure/restart the Node.js application in cPanel, verify /api/health, and remove the public installer directory.");
+await writeFile(lockPath, new Date().toISOString() + "\n", { mode: 0o600, flag: "wx" });
+console.log("\n[installer] Installation steps completed.");
+console.log("[installer] Restart the Node.js application in cPanel and verify GET /api/health returns {\"status\":\"ok\"}.");
+console.log("[installer] Remove or rename the public installer directory after confirming the application works.");
