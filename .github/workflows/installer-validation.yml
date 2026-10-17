@@ -54,10 +54,12 @@ jobs:
           node --check scripts/portal-schema-audit-utils.test.mjs
           node --check scripts/audit-trade-lifecycle.mjs
           node --check scripts/collect-trade-recovery-evidence.mjs
-      - name: Validate shell installer syntax and CLI help
+      - name: Validate shell installer syntax and CLI safety
         run: |
           bash -n installer/install.sh
+          bash -n installer/install.test.sh
           bash -n installer/vps-setup.sh
+          bash installer/install.test.sh
           bash installer/install.sh --help
           if bash installer/install.sh >/dev/null 2>&1; then
             echo 'Installer unexpectedly accepted a missing install mode.' >&2
@@ -70,5 +72,5 @@ jobs:
           pnpm install --frozen-lockfile
       - name: TypeScript validation
         run: pnpm check
-      - name: Automated test suite
+      - name: Automated test suite (server + installer + migration utilities)
         run: pnpm test
