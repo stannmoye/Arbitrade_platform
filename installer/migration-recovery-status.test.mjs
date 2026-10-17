@@ -4,6 +4,19 @@ import { describe, expect, it } from "vitest";
 const sourceUrl = new URL("./migration-recovery-status.mjs", import.meta.url);
 
 describe("migration recovery diagnostic connection safety", () => {
+  it("reports the portal per-file migration tracker instead of claiming it is unimplemented", async () => {
+    const source = await readFile(sourceUrl, "utf8");
+    expect(source).toContain('tableExists("portal_schema_migrations")');
+    expect(source).toContain("SELECT migrationName,status,checksum,errorCode FROM portal_schema_migrations");
+    expect(source).toContain("Expected tracked portal migration files:");
+    expect(source).not.toContain("Per-file tracker: not implemented by the current portal migration runner.");
+  });
+
+  it("handles malformed URL component encoding without exposing the configured URL", async () => {
+    const source = await readFile(sourceUrl, "utf8");
+    expect(source).toContain("DATABASE_URL contains malformed encoding. The configured value is not displayed; no database changes were made.");
+  });
+
   it("handles malformed database URLs without echoing their configured value", async () => {
     const source = await readFile(sourceUrl, "utf8");
     expect(source).toContain("url = new URL(rawDatabaseUrl);");
