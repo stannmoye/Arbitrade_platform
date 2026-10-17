@@ -47,6 +47,9 @@ function detectPnpm() {
 }
 
 if (!mode) fail("Choose exactly one mode: --fresh-install or --existing-database.", 2);
+if (mode === "existing" && !process.argv.includes("--confirm-existing-migrations")) {
+  fail("Existing-database mode applies forward database migrations. Verify a current restorable backup exists, inspect DATABASE_URL, then rerun with --existing-database --confirm-existing-migrations.");
+}
 if (process.env.NODE_ENV !== "production") fail("NODE_ENV must be production; load the installer-generated .env first.");
 if (Number(process.versions.node.split(".")[0]) < 20) {
   fail("Node.js 20 or newer is required. Detected " + process.versions.node + ".");
@@ -133,15 +136,23 @@ if (mode === "fresh") {
     ADMIN_EMAIL: String(bootstrap.adminEmail).trim().toLowerCase(),
     ADMIN_PASSWORD: String(bootstrap.adminPassword),
   });
-  await unlink(bootstrapPath);
 } else {
-  console.log("\n[installer] Existing-database mode: preserving all current account credentials and application records.");
+  console.log("\n[installer] Existing-database mode: applying forward migrations while preserving account credentials and financial records.");
+  console.log("[installer] Confirm a current database backup exists before continuing.");
   runPnpm(["db:migrate"]);
+  runPnpm(["db:portal-migrate"]);
+  run("node", ["scripts/apply-mining-migrations.mjs", "--confirm-host-migration", "--confirm-production"]);
+  run("node", ["scripts/apply-mining-initial-reward-rates.mjs", "--confirm-host-migration", "--confirm-production"]);
   runPnpm(["build"]);
-  await unlink(bootstrapPath);
 }
 
 await writeFile(lockPath, new Date().toISOString() + "\n", { mode: 0o600, flag: "wx" });
+try {
+  await unlink(bootstrapPath);
+} catch (error) {
+  fail("Installation lock was created, but the one-time bootstrap could not be removed. Restrict access and delete .installer-bootstrap.json manually: " + (error?.message || "unknown error"));
+}
 console.log("\n[installer] Installation steps completed.");
-console.log("[installer] Restart the Node.js application in cPanel and verify GET /api/health returns {\"status\":\"ok\"}.");
+console.log("[installer] Start/restart the Node.js application, then run: pnpm installer:verify");
+console.log("[installer] If SMTP is configured, test it with: pnpm installer:test-smtp --to=you@example.com");
 console.log("[installer] Remove or rename the public installer directory after confirming the application works.");

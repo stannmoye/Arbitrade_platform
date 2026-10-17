@@ -1,38 +1,96 @@
-# Arbitrade production installer
+# Arbitrade installation and deployment
 
-## Supported hosting
+## Supported environments
 
-- **cPanel with Setup Node.js App:** Node.js 20+, pnpm 10.18, MySQL/MariaDB, HTTPS, and a private terminal are required.
-- **VPS / Node-compatible host:** Node.js 20+, pnpm 10.18, MySQL/MariaDB, HTTPS, and shell access are required.
-- **PHP-only hosting:** unsupported for the application runtime. The PHP page is only a configuration wizard; it cannot run the Node.js app or its migrations by itself.
+- **cPanel:** cPanel Setup Node.js App, Node.js 20+ (Node 22 recommended), pnpm 10.18.x, MySQL/MariaDB, HTTPS, and private terminal access.
+- **VPS:** Debian/Ubuntu, Node.js 20+, pnpm 10.18.x, MySQL/MariaDB, and root/sudo access for server provisioning.
+- **PHP-only hosting is not sufficient.** The PHP wizard configures this Node.js application; it cannot itself keep the Express server running or safely execute privileged commands.
 
-## Browser-assisted installation
+## Browser wizard
 
-1. Upload/deploy the application into its private application root. Set up the Node.js app in cPanel and create a database plus a dedicated database user. Grant that user privileges on the application database.
-2. For a **fresh installation**, select a new, empty database. For an **existing installation**, restore/import the application's database first. Do not use fresh-install mode with an existing database.
-3. Temporarily open /installer/ over HTTPS and complete index.php. It verifies database connectivity and checks whether the database matches the selected mode. It writes .env with mode 0600, a one-time .installer-bootstrap.json with mode 0600, and a .configured lock. It does not run migrations from PHP.
-4. In the **private cPanel terminal**, change to the application root and run exactly one matching command.
+1. Upload/extract the repository into a private application root. Create a MySQL database and dedicated user in cPanel and grant that user privileges on the database.
+2. Create the Node.js app in cPanel if you use cPanel. Use the repository as application root and dist/index.js as the startup file.
+3. Open /installer/ over HTTPS and follow the staged wizard. It displays PHP/MySQL prerequisites and validates the supplied database connection. Use a new, empty database for fresh installation.
+4. For existing data, restore a verified backup to the target database before opening the wizard and select **Existing installation**. The wizard does not upload or import large SQL dumps through HTTP.
+5. The wizard writes a protected .env, a one-time .installer-bootstrap.json, and .configured. Keep them outside the public document root where possible. Do not commit or share them.
+6. From the private application terminal, run exactly one matching command:
 
-   Fresh database:
+~~~bash
+node installer/run-install.mjs --fresh-install
+~~~
 
-       node installer/run-install.mjs --fresh-install
+   Fresh database.
 
-   Existing database already imported:
+~~~bash
+node installer/run-install.mjs --existing-database --confirm-existing-migrations
+~~~
 
-       node installer/run-install.mjs --existing-database
+   Existing database already restored.
 
-5. The script verifies Node.js version, required secrets, database connectivity, database state, and the saved install mode before doing work. It installs locked dependencies and builds the app. Fresh mode applies the documented initial schema and creates the administrator from the one-time bootstrap; existing mode runs pending Drizzle migrations and does not replace accounts or credentials. The one-time bootstrap is deleted after successful completion and .installed is written as a lock.
-6. Configure cPanel's Node.js startup file as dist/index.js, restart the app, and check https://YOUR_DOMAIN/api/health returns {"status":"ok"}. Test administrator login, customer login, email delivery if configured, and access controls.
-7. Remove or deny public access to the installer directory after verification. Keep .env, the bootstrap file, database dumps, uploads, and logs outside the public document root whenever possible. The repository's .htaccess also denies HTTP access to installer secrets on Apache, but do not rely on that as the only protection.
+   The script validates Node.js, pnpm, configuration, database connectivity, and database state before installing locked dependencies and building. Fresh mode applies the initial schema and creates the administrator. Existing mode requires the explicit confirmation flag because it applies forward migrations. It runs the main Drizzle migrations, portal migrations, and idempotent mining migrations/package-rate migration; it does not import a dump or create a replacement administrator. Back up the database and verify DATABASE_URL before confirming. Reward processing is not automatically enabled.
 
-## Existing-database moves
+7. Set/restart the cPanel Node.js application with startup file dist/index.js.
+8. After the app is running, run the post-install checks from the private terminal:
 
-The installer intentionally does **not** import a database dump in the browser and does not overwrite a non-empty database. Restore the canonical database backup using the protected cPanel terminal procedure in ../cpanel/README.md and ../docs/host-migration-and-persistence.md before choosing existing-database mode. Verify the target database carefully; wallet, ledger, customer, admin, package, and settings data must remain together.
+~~~bash
+pnpm installer:verify
+~~~
 
-## Recovery and safety
+   The verifier checks database connectivity, the users table, administrator presence, the build artifact, and GET /api/health. A health check cannot pass until the Node.js application has been started.
+9. If SMTP is configured, send an explicit test message to an address you control:
 
-- Do not delete .configured or .installed to reinstall over a live site.
-- If a run fails before completion, inspect the terminal error and correct the cause before rerunning the same command. The one-time bootstrap remains available until the account-creation step succeeds; it contains a plaintext password and must be protected.
-- Back up MySQL before applying migrations. Existing-mode migrations are forward migrations, not a database restore.
-- Do not automatically enable reward processing or live financial execution as part of installation. Any provider-dependent execution must be configured and independently verified separately.
-- Configure SMTP, OAuth callback URLs, SPF, DKIM, DMARC, rate limits, CSRF protections appropriate to the deployment, administrator 2FA, backups, and monitoring before production launch.
+~~~bash
+pnpm installer:test-smtp --to=you@example.com
+~~~
+
+   This verifies SMTP connectivity/authentication and sends one test email. Provider error details are deliberately limited to avoid logging secrets.
+10. Remove or deny public access to /installer/ after verification. Keep .env, bootstrap state, SQL dumps, logs, and uploads private. The install lock is not a substitute for removing public access.
+
+## Database safety
+
+- Fresh mode refuses to proceed if the database contains tables.
+- Existing mode requires an already imported database and never replaces existing account credentials.
+- Back up MySQL before migrations. For host migration, follow the host migration and persistence guide in ../docs/host-migration-and-persistence.md.
+- Do not run fresh mode against a restored or production database.
+- Do not delete .configured or installer/.installed to force a reinstall over existing data.
+- The wizard does not provide a browser-based SQL dump importer because large imports can exceed cPanel limits and make recovery unreliable.
+
+## SMTP and OAuth
+
+The wizard stores SMTP credentials server-side. It does not claim SMTP works until the explicit test-email command succeeds. Configure SPF, DKIM, DMARC, and your provider's sender authorization separately.
+
+Google and Microsoft OAuth callback URLs are generated from the application URL. Register the exact callback URLs in the provider consoles and test sign-in; credentials alone do not prove provider-side approval or callback configuration.
+
+## Cron jobs
+
+cPanel and VPS hosts expose different scheduler APIs. The installer does not pretend it can create cron jobs without an authorized host API. Review the deployment schedule documentation in ../docs/deployment-v5.md, configure only the jobs required by the installed version, use the documented authentication secrets, and verify each job in the hosting control panel. Never expose an unauthenticated cron endpoint.
+
+## VPS provisioning
+
+For an existing, built checkout on a supported Debian/Ubuntu VPS:
+
+~~~bash
+sudo bash installer/vps-setup.sh --domain=example.com
+~~~
+
+To install Node.js 22 and pnpm 10.18.x as well:
+
+~~~bash
+sudo bash installer/vps-setup.sh --domain=example.com --install-runtime
+~~~
+
+To request HTTPS after DNS points to the VPS and ports 80/443 are reachable:
+
+~~~bash
+sudo bash installer/vps-setup.sh --domain=example.com --email=admin@example.com --install-runtime --enable-https
+~~~
+
+The script requires a configured .env and built dist/index.js. It creates a dedicated service user, protected systemd environment file, systemd service, and nginx reverse-proxy configuration. It refuses to overwrite an existing service or nginx configuration. Inspect the script before running it as root. Cron tasks and application-specific secrets still require explicit configuration.
+
+## Troubleshooting and recovery
+
+- **Database connection failure:** verify host, database name, username, password, port, TLS settings, and grants. Credentials are not included in the error message.
+- **Fresh mode reports tables:** stop. Select a new empty database or restore data and use existing mode.
+- **Build fails:** inspect the private terminal output and cPanel Node.js version. Do not delete installation locks to retry blindly.
+- **Health check fails:** inspect the cPanel/VPS service logs and confirm PUBLIC_APP_URL, PORT, and DATABASE_URL.
+- **Interrupted installation:** preserve a database backup and the current .env/lock files, review the exact failure, and recover deliberately. Do not re-run schema initialization against an existing database.
