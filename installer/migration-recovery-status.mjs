@@ -14,6 +14,17 @@ if (!rawDatabaseUrl) {
 }
 
 const journalPath = resolve(root, "drizzle/meta/_journal.json");
+const portalMigrationFiles = [
+  "0033_kyc_v2.sql",
+  "0034_email_notifications.sql",
+  "0035_default_portal_accounts.sql",
+  "0036_crypto_mining_portal.sql",
+  "0037_coinki_token_configuration.sql",
+  "0038_mining_admin_package_grants.sql",
+  "0043_wallet_minor_units_bigint.sql",
+  "0051_advanced_auto_trading.sql",
+  "0052_delivery_diagnostics.sql",
+];
 let journal;
 try {
   journal = JSON.parse(await readFile(journalPath, "utf8"));
@@ -39,7 +50,15 @@ if (![ "mysql:", "mariadb:" ].includes(url.protocol) || !url.pathname.replace(/^
 }
 if (url.protocol === "mariadb:") url.protocol = "mysql:";
 url.searchParams.set("timezone", "Z");
-const databaseName = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+let databaseName;
+try {
+  databaseName = decodeURIComponent(url.pathname.replace(/^\\/+/, ""));
+  decodeURIComponent(url.username);
+  decodeURIComponent(url.password);
+} catch {
+  console.error("DATABASE_URL contains malformed encoding. The configured value is not displayed; no database changes were made.");
+  process.exit(2);
+}
 if (!databaseName) {
   console.error("DATABASE_URL must include a database name. No database changes were made.");
   process.exit(2);
@@ -87,6 +106,7 @@ try {
     tableExists("__drizzle_migrations"),
     tableExists("mining_schema_migrations"),
     Promise.all(["kyc_profiles", "email_notification_settings", "opportunity_popup_events", "opportunity_delivery_events"].map(tableExists)),
+    tableExists("portal_schema_migrations"),
   ]);
 
   let drizzleCount = 0;
@@ -105,14 +125,32 @@ try {
   console.log("Evidence status: " + drizzleStatus.status);
   console.log(drizzleStatus.explanation);
 
-  console.log("\nPORTAL SQL MIGRATIONS");
-  console.log("Per-file tracker: not implemented by the current portal migration runner.");
+  console.log("\\nPORTAL SQL MIGRATIONS");
+  if (!portalTrackerExists) {
+    console.log("Per-file tracker: missing");
+    console.log("Evidence status: cannot_verify_per_migration");
+  } else {
+    const [portalRows] = await db.query(
+      "SELECT migrationName,status,checksum,errorCode FROM portal_schema_migrations WHERE migrationName IN (" +
+        portalMigrationFiles.map(() => "?").join(",") + ")",
+      portalMigrationFiles,
+    );
+    const portalByName = new Map(portalRows.map((row) => [String(row.migrationName), row]));
+    for (const name of portalMigrationFiles) {
+      const row = portalByName.get(name);
+      console.log("- " + name + ": " + (row ? String(row.status) + (row.errorCode ? " (code: " + String(row.errorCode).replace(/[^A-Z0-9_]/gi, "").slice(0, 40) + ")" : "") : "not recorded"));
+    }
+    const appliedCount = portalMigrationFiles.filter((name) => ["applied", "baseline_confirmed"].includes(String(portalByName.get(name)?.status || ""))).length;
+    console.log("Expected tracked portal migration files: " + portalMigrationFiles.length);
+    console.log("Recorded as applied/baseline-confirmed: " + appliedCount);
+    console.log("Evidence status: " + (appliedCount === portalMigrationFiles.length ? "tracker_complete_schema_unverified" : "incomplete_or_partial"));
+    console.log("Tracker statuses do not prove schema integrity; compare migration checksums and actual schema before retrying.");
+  }
   console.log("Read-only schema signals:");
   ["kyc_profiles", "email_notification_settings", "opportunity_popup_events", "opportunity_delivery_events"].forEach((name, index) => {
     console.log("- " + name + ": " + (portalSignals[index] ? "present" : "missing"));
   });
-  console.log("Evidence status: cannot_verify_per_migration");
-  console.log("These signals are not proof that every portal migration completed; inspect each SQL migration and schema before retrying.");
+  console.log("Do not rerun SQL based solely on missing tracker rows; inspect actual schema and migration history first.");
 
   console.log("\nMINING SQL MIGRATIONS");
   if (!miningExists) {
