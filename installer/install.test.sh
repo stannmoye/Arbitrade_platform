@@ -101,6 +101,7 @@ assert_file_contains "$VPS_SETUP" 'if ! ln -T -- "$NGINX_TMP" "$NGINX"; then' "V
 assert_file_contains "$VPS_SETUP" 'if ! ln -s "$NGINX" "$NGINX_ENABLED"; then' "VPS setup refuses to overwrite an enabled-site path that appears during provisioning"
 assert_file_contains "$VPS_SETUP" 'trap '\''rm -f -- "${ENV_TMP:-}" "${UNIT_TMP:-}" "${NGINX_TMP:-}"'\'' EXIT' "VPS setup cleans up temporary secret and configuration files on failure"
 assert_file_contains "$VPS_SETUP" 'arbitrade_directory_is_safe "$ENV_DIR" || fail' "VPS setup refuses symlinked or non-directory environment parent paths"
+assert_file_contains "$VPS_SETUP" '[[ "$ROOT" =~ ^/[A-Za-z0-9_./-]+$ ]] || fail' "VPS setup rejects paths that cannot be represented safely in systemd configuration"
 assert_file_contains "$VPS_SETUP" 'getent group "$APP_USER"' "VPS setup verifies the service group exists before writing the systemd unit"
 assert_file_contains "$VPS_SETUP" 'useradd --system --gid "$APP_USER"' "VPS setup creates the service user with its explicit matching group"
 
