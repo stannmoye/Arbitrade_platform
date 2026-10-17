@@ -30,6 +30,22 @@ function run(command, args, extraEnv = {}) {
   if (result.status !== 0) fail(command + " exited with status " + String(result.status));
 }
 
+function detectPnpm() {
+  const direct = spawnSync("pnpm", ["--version"], { cwd: root, encoding: "utf8", shell: false });
+  if (!direct.error && direct.status === 0) {
+    const version = direct.stdout.trim();
+    if (!/^10\.18\./.test(version)) fail("pnpm 10.18.x is required by this repository. Detected " + version + ".");
+    return { command: "pnpm", prefix: [] };
+  }
+  const corepack = spawnSync("corepack", ["pnpm", "--version"], { cwd: root, encoding: "utf8", shell: false });
+  if (!corepack.error && corepack.status === 0) {
+    const version = corepack.stdout.trim();
+    if (!/^10\.18\./.test(version)) fail("pnpm 10.18.x is required by this repository. Detected " + version + ".");
+    return { command: "corepack", prefix: ["pnpm"] };
+  }
+  fail("pnpm 10.18.x is unavailable. Enable Corepack or install pnpm 10.18.x in the private cPanel terminal, then rerun.");
+}
+
 if (!mode) fail("Choose exactly one mode: --fresh-install or --existing-database.", 2);
 if (process.env.NODE_ENV !== "production") fail("NODE_ENV must be production; load the installer-generated .env first.");
 if (Number(process.versions.node.split(".")[0]) < 20) {
@@ -102,15 +118,17 @@ try {
   if (db) await db.end();
 }
 
-run("pnpm", ["install", "--frozen-lockfile"]);
+const pnpm = detectPnpm();
+const runPnpm = (args) => run(pnpm.command, [...pnpm.prefix, ...args]);
+runPnpm(["install", "--frozen-lockfile"]);
 
 if (mode === "fresh") {
   console.log("\n[installer] Initializing a fresh database. Reward processing remains disabled unless separately enabled by an administrator.");
-  run("pnpm", ["db:migrate"]);
-  run("pnpm", ["db:portal-migrate"]);
+  runPnpm(["db:migrate"]);
+  runPnpm(["db:portal-migrate"]);
   run("node", ["scripts/apply-mining-migrations.mjs", "--confirm-host-migration", "--confirm-production"]);
   run("node", ["scripts/apply-mining-initial-reward-rates.mjs", "--confirm-host-migration", "--confirm-production"]);
-  run("pnpm", ["build"]);
+  runPnpm(["build"]);
   run("node", ["installer/create-admin.mjs"], {
     ADMIN_EMAIL: String(bootstrap.adminEmail).trim().toLowerCase(),
     ADMIN_PASSWORD: String(bootstrap.adminPassword),
