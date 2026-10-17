@@ -184,7 +184,8 @@ if (!appUrl) {
 } else {
   try {
     parsedAppUrl = new URL(appUrl);
-    const valid = ["https:", "http:"].includes(parsedAppUrl.protocol) && Boolean(parsedAppUrl.hostname);
+    const valid = ["https:", "http:"].includes(parsedAppUrl.protocol) && Boolean(parsedAppUrl.hostname) &&
+      !parsedAppUrl.username && !parsedAppUrl.password;
     const secure = parsedAppUrl.protocol === "https:";
     report(
       "Public application URL",
@@ -213,8 +214,8 @@ if (!appUrl) {
         ? `GET /api/health returned status=ok in ${elapsedMs} ms.`
         : `Health endpoint returned HTTP ${response.status} in ${elapsedMs} ms; inspect application logs and startup configuration.`,
     );
-  } catch (error) {
-    report("Application health", false, error?.message || "Health endpoint could not be reached. Start/restart the application and rerun.");
+  } catch {
+    report("Application health", false, "Health endpoint could not be reached within the allowed time or rejected the request. Check the configured public URL and application logs; connection details are not displayed.");
   }
 }
 
