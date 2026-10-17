@@ -60,6 +60,15 @@ afterEach(async () => {
 });
 
 describe("canonical installer recovery guards", () => {
+  it("validates PUBLIC_APP_URL and rejects embedded credentials before connecting to the database", async () => {
+    const source = await readFile(installerSource, "utf8");
+    expect(source).toContain("publicAppUrl = new URL(process.env.PUBLIC_APP_URL);");
+    expect(source).toContain('["http:", "https:"].includes(publicAppUrl.protocol)');
+    expect(source).toContain("publicAppUrl.username || publicAppUrl.password");
+    expect(source).toContain("PUBLIC_APP_URL must use HTTP(S) and must not contain a username or password.");
+    expect(source.indexOf("publicAppUrl = new URL(process.env.PUBLIC_APP_URL);")).toBeLessThan(source.indexOf("mysql.createConnection"));
+  });
+
   it("refuses to rerun when an installation lock exists, before database access", async () => {
     const root = await makeFixture("installed");
     const result = runInstaller(root);
