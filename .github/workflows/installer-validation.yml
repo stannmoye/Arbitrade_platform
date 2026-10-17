@@ -27,6 +27,8 @@ jobs:
       - name: Validate Node.js installer scripts
         run: |
           node --check installer/run-install.mjs
+          node --check installer/main-migration-preflight.mjs
+          node --check installer/main-migration-preflight.test.mjs
           node --check installer/run-install.test.mjs
           node --check installer/install-wrapper.test.mjs
           node --check installer/run-install-recovery-guard.test.mjs
@@ -48,6 +50,8 @@ jobs:
           node --check installer/test-smtp.mjs
           node --check scripts/apply-portal-migrations.mjs
           node --check scripts/apply-portal-migrations-safety.test.mjs
+          node --check scripts/mysql-compatible-migration-sql.mjs
+          node --check scripts/mysql-compatible-migration-sql.test.mjs
           node --check scripts/mysql-compatible-migration-sql.mjs
           node --check scripts/mysql-compatible-migration-sql.test.mjs
           node --check scripts/portal-migration-tracker.mjs
@@ -79,5 +83,7 @@ jobs:
         run: pnpm test
       - name: Installer and migration safety test suite
         run: pnpm exec vitest run --config vitest.installer.config.ts
+      - name: Portal and main migration preflight regression tests
+        run: pnpm exec vitest run installer/main-migration-preflight.test.mjs scripts/mysql-compatible-migration-sql.test.mjs scripts/apply-portal-migrations-safety.test.mjs
       - name: Portal migration compatibility and diagnostic regression tests
         run: pnpm exec vitest run scripts/mysql-compatible-migration-sql.test.mjs scripts/apply-portal-migrations-safety.test.mjs
