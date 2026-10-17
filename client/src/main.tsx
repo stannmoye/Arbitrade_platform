@@ -9,7 +9,6 @@ import App from "./App";
 import { startLogin } from "./const";
 import "./index.css";
 import "./customer-reference.css";
-import "./factory-cockpit.css";
 
 const queryClient = new QueryClient();
 
