@@ -64,9 +64,9 @@ Before production launch, configure HTTPS, SMTP, rate limiting, CSRF protections
 
 The V5 workflow safety layer blocks `LIVE` execution without a named provider, execution reference, and result-retrieval mechanism. Settlement calculations require a verified provider result reference; configured opportunity estimates are never sufficient.
 
-## Financial safety boundary
+## Execution modes
 
-The product is production-deployable, but real-money execution and verified returns are blocked until a named, approved execution/settlement mechanism is configured and independently verified. Until then, opportunities must be classified as Practice, Simulation, or Research. The application must not credit configured estimates as real profit or present simulated balances as withdrawable funds.
+Trades are simulation-only. Allocations, calculated rewards, settlement, and wallet updates use the application's internal wallet and ledger model; currency balances such as USD, EUR, GBP, BTC, ETH, and USDT are managed by the application. The platform does not submit orders through a broker, exchange, external trading API, or custody provider. Customer-facing progress, amounts, returns, and balances must reflect persisted backend ledger events; a popup or elapsed timer must never imply a trade, settlement, or reward that has not been recorded.
 
 ## OAuth and email
 
