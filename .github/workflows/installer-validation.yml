@@ -31,6 +31,7 @@ jobs:
           node --check installer/verify-install.mjs
           node --check installer/runtime-status.mjs
           node --check installer/diagnose-deployment.mjs
+          node --check installer/recovery-report.mjs
           node --check installer/test-smtp.mjs
       - name: Validate shell installer syntax
         run: |
