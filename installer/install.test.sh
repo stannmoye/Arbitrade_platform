@@ -86,7 +86,7 @@ done
 
 assert_file_contains "$INSTALLER" 'if [[ "$INSTALL_MISSING" == 1 && "${EUID}" == 0' "Shell installer only provisions runtime when explicitly requested by root"
 assert_file_contains "$VPS_SETUP" 'if [[ "$INSTALL_RUNTIME" == 1 ]]; then' "VPS runtime provisioning requires the explicit --install-runtime option"
-assert_file_contains "$VPS_SETUP" '[[ ! -e "$UNIT" ]] || fail' "VPS setup refuses to overwrite an existing systemd service"
+assert_file_contains "$VPS_SETUP" '[[ ! -e "$UNIT" && ! -L "$UNIT" ]] || fail' "VPS setup refuses to overwrite an existing systemd service or dangling symlink"
 assert_file_contains "$VPS_SETUP" '[[ ! -e "$NGINX" && ! -L "$NGINX" ]] || fail' "VPS setup refuses to overwrite an existing nginx site or dangling symlink"
 assert_file_contains "$VPS_SETUP" '[[ ! -e "$NGINX_ENABLED" && ! -L "$NGINX_ENABLED" ]] || fail' "VPS setup refuses to overwrite an enabled-site path or dangling symlink"
 
