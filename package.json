@@ -31,7 +31,8 @@
     "installer:migration-recovery": "node installer/migration-recovery-status.mjs",
     "db:audit-portal-schema": "node scripts/audit-portal-schema.mjs",
     "db:audit-trade-lifecycle": "node scripts/audit-trade-lifecycle.mjs",
-    "db:plan-trade-recovery": "tsx scripts/plan-trade-recovery.ts"
+    "db:plan-trade-recovery": "tsx scripts/plan-trade-recovery.ts",
+    "db:collect-trade-recovery-evidence": "node scripts/collect-trade-recovery-evidence.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
