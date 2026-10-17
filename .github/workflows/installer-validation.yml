@@ -55,6 +55,7 @@ jobs:
           node --check scripts/apply-portal-migrations.mjs
           node --check scripts/mysql-compatible-migration-sql.mjs
           node --check scripts/apply-mining-migrations.mjs
+          node --check scripts/guarded-main-migrate.mjs
           node --check scripts/portal-migration-tracker.mjs
           node --check scripts/portal-migration-tracker.test.mjs
           node --check scripts/audit-portal-schema.mjs
@@ -353,6 +354,47 @@ jobs:
           }
           console.log("Installation lock exists and temporary bootstrap/progress files were cleaned up.");
           NODE
+      - name: Verify main migration guard refuses blind retry
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+        run: |
+          set -Eeuo pipefail
+          node --input-type=module <<'NODE'
+          import mysql from "mysql2/promise";
+          const admin = await mysql.createConnection(process.env.DATABASE_URL);
+          await admin.query("CREATE DATABASE arbitrade_main_failed");
+          const failed = await mysql.createConnection({
+            host: "127.0.0.1", port: 3306, user: "root", password: "ci-root-password",
+            database: "arbitrade_main_failed",
+          });
+          await failed.query("CREATE TABLE __drizzle_migrations (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, hash VARCHAR(255) NOT NULL, created_at BIGINT NOT NULL)");
+          await failed.execute("INSERT INTO __drizzle_migrations (hash,created_at) VALUES (?,?)", ["fixture-applied-migration", 1760000000000]);
+          await failed.query("CREATE TABLE main_migration_run_guard (id TINYINT NOT NULL PRIMARY KEY, status VARCHAR(16) NOT NULL, startedAt TIMESTAMP NULL, finishedAt TIMESTAMP NULL, failureCode VARCHAR(80) NULL, updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB");
+          await failed.execute("INSERT INTO main_migration_run_guard (id,status) VALUES (1,'failed')");
+          await failed.end();
+          await admin.end();
+          console.log("Disposable failed-main-migration fixture created.");
+          NODE
+          if DATABASE_URL=mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_main_failed node scripts/guarded-main-migrate.mjs > /tmp/main-migration-guard.log 2>&1; then
+            cat /tmp/main-migration-guard.log
+            echo "Expected the main migration guard to refuse retry." >&2
+            exit 1
+          fi
+          grep -q "Automatic retry is blocked" /tmp/main-migration-guard.log
+          cat /tmp/main-migration-guard.log
+          DATABASE_URL=mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_main_failed node --input-type=module <<'NODE'
+          import mysql from "mysql2/promise";
+          const db = await mysql.createConnection(process.env.DATABASE_URL);
+          const [tables] = await db.query("SELECT COUNT(*) AS count FROM information_schema.tables WHERE table_schema=DATABASE()");
+          const [guard] = await db.query("SELECT status FROM main_migration_run_guard WHERE id=1");
+          const [migrations] = await db.query("SELECT COUNT(*) AS count FROM __drizzle_migrations");
+          await db.end();
+          if (Number(tables[0].count) !== 2 || guard[0]?.status !== "failed" || Number(migrations[0].count) !== 1) {
+            throw new Error("Main migration guard changed the fixture or migration tracker while refusing retry.");
+          }
+          console.log("PASS: failed main migration remains blocked; schema and tracker are unchanged.");
+          NODE
+
       - name: Verify existing-database migration recovery guards
         env:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
