@@ -28,6 +28,7 @@ jobs:
         run: |
           node --check installer/run-install.mjs
           node --check installer/run-install.test.mjs
+          node --check installer/install-wrapper.test.mjs
           node --check installer/create-admin.mjs
           node --check installer/provision-accounts.mjs
           node --check installer/verify-install.mjs
