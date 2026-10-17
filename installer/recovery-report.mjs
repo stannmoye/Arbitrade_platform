@@ -2,6 +2,7 @@ import { access, readFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { safeDisplayText, safeFailureDetail } from "./recovery-utils.mjs";
+import { planMigrationRecovery } from "./migration-recovery-plan.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const progressPath = resolve(root, "installer/.install-in-progress.json");
