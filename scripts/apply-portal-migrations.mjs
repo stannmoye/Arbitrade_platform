@@ -35,7 +35,7 @@ try {
   console.error("DATABASE_URL is malformed. Check private configuration; its value is not displayed.");
   process.exit(1);
 }
-if (!["mysql:", "mariadb:"].includes(url.protocol) || !url.pathname.replace(/^\\/+/, "")) {
+if (!["mysql:", "mariadb:"].includes(url.protocol) || !url.pathname.replace(/^\/+/, "")) {
   console.error("DATABASE_URL must identify a MySQL/MariaDB database. No portal migrations were run.");
   process.exit(1);
 }
@@ -44,7 +44,7 @@ url.searchParams.set("multipleStatements", "true");
 url.searchParams.set("timezone", "Z");
 let databaseName;
 try {
-  databaseName = decodeURIComponent(url.pathname.replace(/^\\/+/, ""));
+  databaseName = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
 } catch {
   console.error("DATABASE_URL contains malformed database-name encoding. The configured value is not displayed.");
   process.exit(1);
