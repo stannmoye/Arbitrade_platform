@@ -97,6 +97,23 @@ sudo bash installer/vps-setup.sh --domain=example.com --email=admin@example.com 
 
 The script requires a configured .env and built dist/index.js. It creates a dedicated service user, protected systemd environment file, systemd service, and nginx reverse-proxy configuration. It refuses to overwrite an existing service or nginx configuration. Inspect the script before running it as root. Cron tasks and application-specific secrets still require explicit configuration.
 
+## Starting, restarting, and diagnosing the application
+
+After building and configuring the application, use the runtime helper from the private application terminal:
+
+~~~bash
+pnpm installer:runtime
+~~~
+
+It checks the production start command, confirms `dist/index.js` exists, reads the configured `PORT` (default 3000), and requests the local `/api/health` endpoint. It does not print environment values or secrets. If health fails, it reports the next diagnostic steps.
+
+- **cPanel:** open **Setup Node.js App**, verify Node.js 20+ and the application root, confirm the startup file is `dist/index.js`, then use the control panel's **Restart** action. Run `pnpm installer:runtime` again after restarting. The helper cannot call cPanel's process manager.
+- **VPS configured by this repository's setup script:** run `sudo node installer/runtime-status.mjs --restart-vps`. This only restarts an already-active `arbitrade.service` through systemd and waits up to 30 seconds for local health. It will not create a missing service or overwrite configuration.
+- **VPS diagnostics:** `sudo systemctl status arbitrade.service --no-pager` and `sudo journalctl -u arbitrade.service -n 100 --no-pager`.
+- **Health fails after restart:** confirm `PORT` matches the service configuration, rebuild with `pnpm build` if `dist/index.js` is missing, and inspect private service logs. Do not paste `.env` or passwords into support requests.
+
+The runtime helper verifies process availability and the health endpoint; it does not prove that every application feature, scheduled task, OAuth provider, or SMTP delivery path is working.
+
 ## Troubleshooting and recovery
 
 - **Database connection failure:** verify host, database name, username, password, port, TLS settings, and grants. Credentials are not included in the error message.
