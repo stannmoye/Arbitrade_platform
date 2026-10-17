@@ -32,6 +32,8 @@ jobs:
       - name: Validate Node.js installer scripts
         run: |
           node --check installer/run-install.mjs
+          node --check installer/main-migration-preflight.mjs
+          node --check installer/main-migration-preflight.test.mjs
           node --check installer/run-install.test.mjs
           node --check installer/install-wrapper.test.mjs
           node --check installer/run-install-recovery-guard.test.mjs
