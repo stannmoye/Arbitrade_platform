@@ -27,7 +27,7 @@ For an already-imported database, use:
 bash installer/install.sh --existing-database --confirm-existing-migrations
 ```
 
-The wrapper checks Node.js 20+, pnpm 10.18.x, the private `.env`, and the wizard bootstrap, then delegates to `installer/run-install.mjs`. It does not bypass the staged installer's database inventory, lock, migration, or backup-confirmation safeguards. On supported Debian/Ubuntu hosts, `--install-missing` can install missing OS prerequisites when run as root; do not use that option on cPanel/shared hosting.
+The wrapper checks Node.js 20+, pnpm 10.18.x, the private `.env`, and the wizard bootstrap, then delegates to `installer/run-install.mjs`. It does not bypass the staged installer's database inventory, lock, migration, or backup-confirmation safeguards. On supported Debian/Ubuntu hosts, `--install-missing` configures the NodeSource Node.js 22 repository and installs pnpm 10.18.x when run as root. This changes APT repository configuration and installs system packages, so use it only on a VPS you administer; do not use it on cPanel/shared hosting.
 
 
 ~~~bash
