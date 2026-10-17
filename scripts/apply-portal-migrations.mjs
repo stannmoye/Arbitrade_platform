@@ -22,10 +22,12 @@ const migrationFiles = [
   "0051_advanced_auto_trading.sql",
   "0052_delivery_diagnostics.sql",
 ];
+// These tables are also created by the main Drizzle migration chain before this
+// portal-specific runner starts. Their presence alone therefore cannot prove that
+// portal migrations were partially applied without a tracker.
 const targetTables = [
   "kyc_settings", "kyc_profiles", "password_reset_tokens", "admin_email_messages",
   "mining_economics_versions", "mining_packages", "mining_customer_packages",
-  "opportunity_popup_events", "opportunity_delivery_events",
 ];
 const baselineReviewed = process.argv.includes("--baseline-reviewed");
 const url = new URL(databaseUrl);
