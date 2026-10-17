@@ -30,6 +30,10 @@ async function makeFixture(marker) {
       status: "failed",
       stage: "main-database-migrations",
     }));
+  } else if (marker === "dangling-lock") {
+    await symlink(join(root, "missing-lock-target"), join(root, "installer", ".installed"), "file");
+  } else if (marker === "dangling-progress") {
+    await symlink(join(root, "missing-progress-target"), join(root, "installer", ".install-in-progress.json"), "file");
   }
   return root;
 }
@@ -78,6 +82,22 @@ describe("canonical installer recovery guards", () => {
     expect(result.signal).toBeNull();
     expect(result.status).not.toBe(0);
     expect(output).toContain("A previous installation attempt left installer/.install-in-progress.json.");
+    expect(output).not.toContain("Database connection successful");
+    expect(output).not.toContain("pnpm install");
+  });
+
+  it.each([
+    ["dangling-lock", "An installation lock already exists."],
+    ["dangling-progress", "A previous installation attempt left installer/.install-in-progress.json."],
+  ])("fails closed for a dangling %s marker", async (marker, message) => {
+    const root = await makeFixture(marker);
+    const result = runInstaller(root);
+    const output = String(result.stdout || "") + String(result.stderr || "");
+
+    expect(result.error).toBeUndefined();
+    expect(result.signal).toBeNull();
+    expect(result.status).not.toBe(0);
+    expect(output).toContain(message);
     expect(output).not.toContain("Database connection successful");
     expect(output).not.toContain("pnpm install");
   });
