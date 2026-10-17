@@ -45,6 +45,16 @@ fi
 . /etc/os-release
 case "${ID:-}" in ubuntu|debian) ;; *) fail "Only Debian/Ubuntu are supported by this script; detected ${ID:-unknown}." ;; esac
 
+# Check every destination collision before installing packages, creating users,
+# copying secrets, or writing any service/proxy configuration. This keeps a
+# rerun from leaving a half-provisioned host when a later path already exists.
+UNIT="/etc/systemd/system/arbitrade.service"
+NGINX="/etc/nginx/sites-available/arbitrade-$DOMAIN"
+NGINX_ENABLED="/etc/nginx/sites-enabled/arbitrade-$DOMAIN"
+[[ ! -e "$UNIT" && ! -L "$UNIT" ]] || fail "$UNIT already exists. Review it manually; this script will not overwrite it."
+[[ ! -e "$NGINX" && ! -L "$NGINX" ]] || fail "$NGINX already exists. Review it manually; this script will not overwrite it."
+[[ ! -e "$NGINX_ENABLED" && ! -L "$NGINX_ENABLED" ]] || fail "The nginx enabled-site path already exists. Review it manually; this script will not overwrite it."
+
 if [[ "$INSTALL_RUNTIME" == 1 ]]; then
   say "Installing OS prerequisites and Node.js 22"
   apt-get update
@@ -87,8 +97,6 @@ else
   printf '\nPORT=3000\n' >> /etc/arbitrade/arbitrade.env
 fi
 
-UNIT="/etc/systemd/system/arbitrade.service"
-[[ ! -e "$UNIT" ]] || fail "$UNIT already exists. Review it manually; this script will not overwrite it."
 cat > "$UNIT" <<UNITFILE
 [Unit]
 Description=Arbitrade Node.js application
@@ -116,9 +124,6 @@ WantedBy=multi-user.target
 UNITFILE
 chmod 0644 "$UNIT"
 
-NGINX="/etc/nginx/sites-available/arbitrade-$DOMAIN"
-[[ ! -e "$NGINX" ]] || fail "$NGINX already exists. Review it manually; this script will not overwrite it."
-[[ ! -e "/etc/nginx/sites-enabled/arbitrade-$DOMAIN" ]] || fail "The nginx enabled-site path already exists. Review it manually; this script will not overwrite it."
 cat > "$NGINX" <<NGINXFILE
 server {
     listen 80;
@@ -139,7 +144,7 @@ server {
     }
 }
 NGINXFILE
-ln -s "$NGINX" "/etc/nginx/sites-enabled/arbitrade-$DOMAIN"
+ln -s "$NGINX" "$NGINX_ENABLED"
 nginx -t
 systemctl daemon-reload
 systemctl enable --now arbitrade.service
