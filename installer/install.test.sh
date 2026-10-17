@@ -91,13 +91,13 @@ assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$NGINX" || fail'
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$NGINX_ENABLED" || fail' "VPS setup refuses to overwrite an enabled-site path or dangling symlink"
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$ENV_FILE" || fail' "VPS setup refuses to overwrite existing protected environment secrets"
 assert_file_contains "$VPS_SETUP" 'ENV_TMP="$(mktemp "$ENV_DIR/.arbitrade.env.XXXXXX")"' "VPS setup prepares a private temporary environment file"
-assert_file_contains "$VPS_SETUP" 'if ! ln -- "$ENV_TMP" "$ENV_FILE"; then' "VPS setup publishes the environment file without replacing a raced destination"
+assert_file_contains "$VPS_SETUP" 'if ! ln -T -- "$ENV_TMP" "$ENV_FILE"; then' "VPS setup publishes the environment file without replacing a raced destination or writing into a raced directory"
 assert_file_contains "$VPS_SETUP" 'Existing environment secrets were not overwritten' "VPS setup gives a safe diagnostic when the environment destination appears during provisioning"
 assert_file_contains "$VPS_SETUP" 'chmod 0640 "$ENV_TMP"' "VPS setup keeps temporary environment secrets owner-only/service-group readable"
 assert_file_contains "$VPS_SETUP" 'UNIT_TMP="$(mktemp /etc/systemd/system/.arbitrade.service.XXXXXX)"' "VPS setup builds the systemd unit in a temporary file"
-assert_file_contains "$VPS_SETUP" 'if ! ln -- "$UNIT_TMP" "$UNIT"; then' "VPS setup refuses to overwrite a service unit that appears during provisioning"
+assert_file_contains "$VPS_SETUP" 'if ! ln -T -- "$UNIT_TMP" "$UNIT"; then' "VPS setup refuses to overwrite a service unit that appears during provisioning or write inside a raced directory"
 assert_file_contains "$VPS_SETUP" 'NGINX_TMP="$(mktemp "/etc/nginx/sites-available/.arbitrade-$DOMAIN.XXXXXX")"' "VPS setup builds nginx configuration in a temporary file"
-assert_file_contains "$VPS_SETUP" 'if ! ln -- "$NGINX_TMP" "$NGINX"; then' "VPS setup refuses to overwrite nginx configuration that appears during provisioning"
+assert_file_contains "$VPS_SETUP" 'if ! ln -T -- "$NGINX_TMP" "$NGINX"; then' "VPS setup refuses to overwrite nginx configuration that appears during provisioning or write inside a raced directory"
 assert_file_contains "$VPS_SETUP" 'if ! ln -s "$NGINX" "$NGINX_ENABLED"; then' "VPS setup refuses to overwrite an enabled-site path that appears during provisioning"
 assert_file_contains "$VPS_SETUP" 'trap '\''rm -f -- "${ENV_TMP:-}" "${UNIT_TMP:-}" "${NGINX_TMP:-}"'\'' EXIT' "VPS setup cleans up temporary secret and configuration files on failure"
 assert_file_contains "$VPS_SETUP" 'arbitrade_directory_is_safe "$ENV_DIR" || fail' "VPS setup refuses symlinked or non-directory environment parent paths"
@@ -121,6 +121,13 @@ if arbitrade_path_is_available "$tmpdir/directory"; then
   printf '[FAIL] Existing directory should be a collision.\\n' >&2; exit 1
 fi
 pass "Preflight rejects an existing directory"
+printf 'safe payload\\n' > "$tmpdir/payload"
+if ln -T -- "$tmpdir/payload" "$tmpdir/directory" 2>/dev/null; then
+  printf '[FAIL] Atomic publication must reject a destination that is a directory.\\n' >&2
+  exit 1
+fi
+[[ -z "$(find "$tmpdir/directory" -mindepth 1 -maxdepth 1 -print -quit)" ]] || { printf '[FAIL] Publication unexpectedly wrote inside the destination directory.\\n' >&2; exit 1; }
+pass "Atomic no-clobber publication refuses directories instead of writing inside them"
 ln -s "$tmpdir/missing-target" "$tmpdir/dangling-link"
 [[ ! -e "$tmpdir/dangling-link" && -L "$tmpdir/dangling-link" ]] || { printf '[FAIL] Test setup failed to create dangling symlink.\\n' >&2; exit 1; }
 if arbitrade_path_is_available "$tmpdir/dangling-link"; then
