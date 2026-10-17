@@ -134,8 +134,12 @@ if (mode === "fresh") {
     ADMIN_PASSWORD: String(bootstrap.adminPassword),
   });
 } else {
-  console.log("\n[installer] Existing-database mode: preserving all current account credentials and application records.");
+  console.log("\n[installer] Existing-database mode: applying forward migrations while preserving account credentials and financial records.");
+  console.log("[installer] Confirm a current database backup exists before continuing.");
   runPnpm(["db:migrate"]);
+  runPnpm(["db:portal-migrate"]);
+  run("node", ["scripts/apply-mining-migrations.mjs", "--confirm-host-migration", "--confirm-production"]);
+  run("node", ["scripts/apply-mining-initial-reward-rates.mjs", "--confirm-host-migration", "--confirm-production"]);
   runPnpm(["build"]);
 }
 
