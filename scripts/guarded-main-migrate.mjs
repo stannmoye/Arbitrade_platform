@@ -98,13 +98,18 @@ async function main() {
         created_at BIGINT
       )
     `);
-    const [appliedRows] = await connection.query("SELECT hash FROM __drizzle_migrations");
+    const [appliedRows] = await connection.query("SELECT hash, created_at FROM __drizzle_migrations");
     const appliedHashes = new Set(appliedRows.map(row => String(row.hash)));
+    const hasExistingHistory = appliedRows.length > 0;
+    const latestRecordedTimestamp = hasExistingHistory
+      ? Math.max(...appliedRows.map(row => Number(row.created_at) || 0))
+      : -1;
     let appliedCount = 0;
 
     // The journal contains historical timestamps that are not strictly increasing.
-    // Hash-based detection preserves Drizzle's recorded migration identities without
-    // silently skipping entries whose timestamps happen to precede a later entry.
+    // On a fresh database, apply every journal entry in file order. For a database
+    // with existing history, refuse to backfill an older missing migration after a
+    // newer one has been recorded; that recovery requires an explicit schema review.
     for (const entry of journal.entries) {
       const migrationTimestamp = Number(entry.when);
       if (!Number.isFinite(migrationTimestamp) || !entry.tag) {
@@ -115,6 +120,9 @@ async function main() {
       const sql = await readFile(migrationPath, "utf8");
       const hash = createHash("sha256").update(sql).digest("hex");
       if (appliedHashes.has(hash)) continue;
+      if (hasExistingHistory && migrationTimestamp <= latestRecordedTimestamp) {
+        throw new Error("An unrecorded migration predates the latest recorded Drizzle history; automatic out-of-order recovery is blocked.");
+      }
 
       await executeCompatibleMigrationSql(connection, sql);
       await connection.execute(
