@@ -22,12 +22,12 @@ node installer/run-install.mjs --fresh-install
    Fresh database.
 
 ~~~bash
-node installer/run-install.mjs --existing-database
+node installer/run-install.mjs --existing-database --confirm-existing-migrations
 ~~~
 
    Existing database already restored.
 
-   The script validates Node.js, pnpm, configuration, database connectivity, and database state before installing locked dependencies and building. Fresh mode applies the initial schema and creates the administrator. Existing mode preserves existing accounts and data and applies the main Drizzle migrations; it does not import a dump or create a replacement administrator. Review the migration and host-migration instructions before production use.
+   The script validates Node.js, pnpm, configuration, database connectivity, and database state before installing locked dependencies and building. Fresh mode applies the initial schema and creates the administrator. Existing mode requires the explicit confirmation flag because it applies forward migrations. It runs the main Drizzle migrations, portal migrations, and idempotent mining migrations/package-rate migration; it does not import a dump or create a replacement administrator. Back up the database and verify DATABASE_URL before confirming. Reward processing is not automatically enabled.
 
 7. Set/restart the cPanel Node.js application with startup file dist/index.js.
 8. After the app is running, run the post-install checks from the private terminal:
