@@ -27,13 +27,13 @@ if (!Array.isArray(journal.entries) || journal.entries.length === 0) {
 }
 
 const url = new URL(rawDatabaseUrl);
-if (![ "mysql:", "mariadb:" ].includes(url.protocol) || !url.pathname.replace(/^\\/+/, "")) {
+if (![ "mysql:", "mariadb:" ].includes(url.protocol) || !url.pathname.replace(/^\/+/, "")) {
   console.error("DATABASE_URL must identify a MySQL/MariaDB database. No database changes were made.");
   process.exit(2);
 }
 if (url.protocol === "mariadb:") url.protocol = "mysql:";
 url.searchParams.set("timezone", "Z");
-const databaseName = decodeURIComponent(url.pathname.replace(/^\\/+/, ""));
+const databaseName = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
 if (!databaseName) {
   console.error("DATABASE_URL must include a database name. No database changes were made.");
   process.exit(2);
