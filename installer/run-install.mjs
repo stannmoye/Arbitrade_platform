@@ -110,7 +110,7 @@ try {
   const [tableRows] = await db.query(
     "SELECT table_name AS tableName FROM information_schema.tables WHERE table_schema = DATABASE() ORDER BY table_name",
   );
-  const currentTableNames = tableRows.map((row) => String(row.tableName));
+  const currentTableNames = tableRows.map((row) => String(row.tableName)).sort();
   const tableCount = currentTableNames.length;
   const savedTableNames = [...bootstrap.databaseTableNames].map(String).sort();
   if (tableCount !== bootstrap.databaseTableCount || JSON.stringify(currentTableNames) !== JSON.stringify(savedTableNames)) {
