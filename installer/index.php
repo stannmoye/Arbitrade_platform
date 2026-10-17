@@ -6,7 +6,12 @@ $installedLock = __DIR__ . '/.installed';
 $envPath = $root . '/.env';
 $bootstrapPath = $root . '/.installer-bootstrap.json';
 
-if (file_exists($configuredLock) || file_exists($installedLock) || file_exists($envPath)) {
+/** Treat dangling symlinks as existing protected state; file_exists() alone misses them. */
+function installerPathExists(string $path): bool {
+    return file_exists($path) || is_link($path);
+}
+
+if (installerPathExists($configuredLock) || installerPathExists($installedLock) || installerPathExists($envPath) || installerPathExists($bootstrapPath)) {
     http_response_code(403);
     exit('The installer is locked because configuration already exists. Do not delete lock files to reinstall over an existing site.');
 }
@@ -119,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         chmod($envTmp, 0600);
         if (file_put_contents($bootstrapTmp, $bootstrap, LOCK_EX) === false) { @unlink($envTmp); throw new RuntimeException('Could not write the one-time administrator bootstrap.'); }
         chmod($bootstrapTmp, 0600);
-        if (file_exists($envPath) || file_exists($bootstrapPath) || file_exists($configuredLock)) {
+        if (installerPathExists($envPath) || installerPathExists($bootstrapPath) || installerPathExists($configuredLock) || installerPathExists($installedLock)) {
             @unlink($envTmp); @unlink($bootstrapTmp);
             throw new RuntimeException('Configuration appeared while this wizard was running. Refresh and contact your administrator before retrying.');
         }
@@ -152,7 +157,7 @@ foreach ($requiredExtensions as $extension) $extensionChecks[$extension] = exten
 $nodeModulesReady = is_dir($root . '/node_modules');
 $buildReady = is_file($root . '/dist/index.js');
 $packageReady = is_file($root . '/package.json') && is_file($root . '/pnpm-lock.yaml');
-$installerLocked = file_exists($configuredLock) || file_exists($installedLock) || file_exists($envPath);
+$installerLocked = installerPathExists($configuredLock) || installerPathExists($installedLock) || installerPathExists($envPath) || installerPathExists($bootstrapPath);
 $rootWritable = is_writable($root);
 $diskFreeLabel = $diskFree === false ? 'Unavailable on this host' : (string)round($diskFree / 1024 / 1024) . ' MB free';
 ?><!doctype html>
