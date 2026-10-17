@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyPortalMigrationRecord } from "./portal-migration-tracker.mjs";
+import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const databaseUrl = process.env.DATABASE_URL;
@@ -66,72 +67,6 @@ async function getMigrationSql(filename) {
 
 function checksum(content) {
   return createHash("sha256").update(content).digest("hex");
-}
-
-// MySQL 8.0 does not support MariaDB's "ADD COLUMN IF NOT EXISTS" syntax.
-// Keep historical SQL files and their checksums unchanged, but make idempotent
-// column additions portable by checking information_schema first.
-function splitTopLevelComma(input) {
-  const parts = [];
-  let start = 0;
-  let depth = 0;
-  let quote = null;
-  for (let i = 0; i < input.length; i++) {
-    const ch = input[i];
-    if (quote) {
-      if (ch === "\\" && quote !== String.fromCharCode(96)) { i++; continue; }
-      if (ch === quote) {
-        if (input[i + 1] === quote && quote !== String.fromCharCode(96)) { i++; continue; }
-        quote = null;
-      }
-      continue;
-    }
-    if (ch === "'" || ch === '"' || ch === String.fromCharCode(96)) { quote = ch; continue; }
-    if (ch === "(") depth++;
-    else if (ch === ")") depth--;
-    else if (ch === "," && depth === 0) {
-      parts.push(input.slice(start, i).trim());
-      start = i + 1;
-    }
-  }
-  parts.push(input.slice(start).trim());
-  return parts.filter(Boolean);
-}
-
-async function executeMigrationSql(sql) {
-  // The checked-in migration files are semicolon-delimited trusted SQL.
-  for (const rawStatement of sql.split(";")) {
-    const statement = rawStatement.replace(/^(?:\s*--[^\r\n]*(?:\r?\n|$))+/, "").trim();
-    if (!statement) continue;
-    const alter = statement.match(/^ALTER\s+TABLE\s+(\S+)\s+([\s\S]+)$/i);
-    if (alter) {
-      const tableName = alter[1].replace(new RegExp(String.fromCharCode(96), "g"), "");
-      const clauses = splitTopLevelComma(alter[2]);
-      const compatibleClauses = [];
-      for (const clause of clauses) {
-        const addition = clause.match(/^ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+(\S+)([\s\S]*)$/i);
-        if (!addition) {
-          compatibleClauses.push(clause);
-          continue;
-        }
-        const columnName = addition[1].replace(new RegExp(String.fromCharCode(96), "g"), "");
-        const [existing] = await connection.execute(
-          "SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1",
-          [tableName, columnName],
-        );
-        if (existing.length) {
-          console.log("Skipping existing column " + tableName + "." + columnName);
-        } else {
-          compatibleClauses.push("ADD COLUMN " + addition[1] + addition[2]);
-        }
-      }
-      if (compatibleClauses.length) {
-        await connection.query("ALTER TABLE " + alter[1] + " " + compatibleClauses.join(", "));
-      }
-      continue;
-    }
-    await connection.query(statement);
-  }
 }
 
 try {
@@ -212,7 +147,7 @@ try {
     );
 
     try {
-      await executeMigrationSql(sql);
+      await executeCompatibleMigrationSql(connection, sql);
       if (filename === "0037_coinki_token_configuration.sql") {
         const { migrateMiningTokenToCki } = await import("./migrate-mining-token-to-cki.mjs");
         await migrateMiningTokenToCki(connection);
