@@ -100,7 +100,7 @@ export async function resetPasswordWithCode(email: string, code: string, newPass
   }
   const nextHash = passwordHash(newPassword);
   await db.transaction(async tx => {
-    const consumed = await tx.update(authEmailTokens).set({ consumedAt: now }).where(and(eq(authEmailTokens.id, row.id), isNull(authEmailTokens.consumedAt), gt(authEmailTokens.expiresAt, now)));
+    const consumed = await tx.update(authEmailTokens).set({ consumedAt: now }).where(and(eq(authEmailTokens.id, row.id), isNull(authEmailTokens.consumedAt), gt(authEmailTokens.expiresAt, now), lt(authEmailTokens.attempts, MAX_ATTEMPTS)));
     if (Number((consumed as any)?.[0]?.affectedRows ?? (consumed as any)?.affectedRows ?? 0) !== 1) throw new Error("The reset code is invalid or expired");
     await tx.update(users).set({ passwordHash: nextHash, authVersion: sql`${users.authVersion} + 1`, updatedAt: now }).where(eq(users.id, user.id));
     await tx.update(authEmailTokens).set({ consumedAt: now }).where(and(eq(authEmailTokens.userId, user.id), eq(authEmailTokens.purpose, "EMAIL_VERIFY")));
