@@ -10,6 +10,9 @@ describe("portal migration diagnostic privacy", () => {
     expect(source).toContain('throw new Error("Portal migration failed; use the sanitized migration code above and complete manual recovery review before retrying.")');
     expect(source).not.toContain("      throw error;\n    }\n  }\n} catch (error) {");
     expect(source).toContain("DATABASE_URL is malformed. Check private configuration; its value is not displayed.");
+    expect(source).toContain("DATABASE_URL contains malformed database-name or credential encoding. The configured value is not displayed.");
+    expect(source).toContain("databaseUser = decodeURIComponent(url.username);");
+    expect(source).toContain("databasePassword = decodeURIComponent(url.password);");
     expect(source).toContain("Could not connect to the configured portal database (code:");
     expect(source).not.toContain("console.error(error.message)");
   });
