@@ -102,13 +102,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             @unlink($envTmp); @unlink($bootstrapTmp);
             throw new RuntimeException('Configuration appeared while this wizard was running. Refresh and contact your administrator before retrying.');
         }
-        if (!rename($envTmp, $envPath) || !rename($bootstrapTmp, $bootstrapPath)) {
+        if (!rename($envTmp, $envPath)) {
             @unlink($envTmp); @unlink($bootstrapTmp);
-            throw new RuntimeException('Could not atomically save configuration. Check filesystem permissions.');
+            throw new RuntimeException('Could not save environment configuration. Check filesystem permissions.');
+        }
+        if (!rename($bootstrapTmp, $bootstrapPath)) {
+            @unlink($envPath); @unlink($bootstrapTmp);
+            throw new RuntimeException('Could not save the one-time bootstrap file. No configuration was retained.');
         }
         if (file_put_contents($configuredLock, gmdate('c') . "\n", LOCK_EX) === false) {
-            @unlink($bootstrapPath);
-            throw new RuntimeException('Configuration was saved but the installer lock could not be written. Protect this directory and contact your administrator.');
+            @unlink($bootstrapPath); @unlink($envPath);
+            throw new RuntimeException('Could not write the installer lock. Configuration files were removed; check filesystem permissions.');
         }
         chmod($configuredLock, 0600);
         session_regenerate_id(true);
