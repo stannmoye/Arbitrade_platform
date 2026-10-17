@@ -15,7 +15,20 @@
    The first-screen preflight also checks PHP 8.2+, required PHP extensions (`pdo_mysql`, `openssl`, `json`, `mbstring`), configuration-directory write access, package/lockfile presence, dependency and build artifacts, HTTPS detection, measurable free disk space, and existing install-lock state. Critical PHP/version/extension/package/permission failures are blocked on submission. Node.js version is deliberately not guessed by PHP: verify Node.js 20+ in cPanel Setup Node.js App; the private Node installer checks the actual runtime.
 4. For existing data, first take and verify a current restorable backup, then import the intended SQL backup into the target database using cPanel/phpMyAdmin or a trusted private terminal. Select **Restore/migrate existing database** in the wizard and confirm both the backup and import. The public web wizard intentionally does not upload or execute SQL dumps; large imports can exceed cPanel upload/execution limits and make recovery unreliable.
 5. The wizard tests the database connection, refuses a non-empty database in fresh mode, requires the `users` table in existing mode, and records the sorted database table inventory in the protected one-time bootstrap. Keep `.env`, `.installer-bootstrap.json`, and `.configured` private; do not commit or share them.
-6. From the private application terminal, run exactly one matching command:
+6. From the private application terminal, run exactly one matching command. You may call the canonical Node installer directly as shown below, or use the shell wrapper with the same explicit mode flags:
+
+```bash
+bash installer/install.sh --fresh-install
+```
+
+For an already-imported database, use:
+
+```bash
+bash installer/install.sh --existing-database --confirm-existing-migrations
+```
+
+The wrapper checks Node.js 20+, pnpm 10.18.x, the private `.env`, and the wizard bootstrap, then delegates to `installer/run-install.mjs`. It does not bypass the staged installer's database inventory, lock, migration, or backup-confirmation safeguards. On supported Debian/Ubuntu hosts, `--install-missing` can install missing OS prerequisites when run as root; do not use that option on cPanel/shared hosting.
+
 
 ~~~bash
 node installer/run-install.mjs --fresh-install
