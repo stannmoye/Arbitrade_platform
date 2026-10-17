@@ -52,7 +52,7 @@ if (url.protocol === "mariadb:") url.protocol = "mysql:";
 url.searchParams.set("timezone", "Z");
 let databaseName;
 try {
-  databaseName = decodeURIComponent(url.pathname.replace(/^\\/+/, ""));
+  databaseName = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
   decodeURIComponent(url.username);
   decodeURIComponent(url.password);
 } catch {
