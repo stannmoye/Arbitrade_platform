@@ -32,6 +32,9 @@ jobs:
           node --check installer/runtime-status.mjs
           node --check installer/diagnose-deployment.mjs
           node --check installer/recovery-utils.mjs
+          node --check installer/migration-recovery-utils.mjs
+          node --check installer/migration-recovery-status.mjs
+          node --check installer/migration-recovery-utils.test.mjs
           node --check installer/recovery-report.test.mjs
           node --check installer/recovery-report.mjs
           node --check installer/test-smtp.mjs
