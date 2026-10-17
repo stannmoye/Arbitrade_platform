@@ -173,7 +173,14 @@ try {
   const errorCode = String(error?.code || "unavailable").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
   fail("Could not connect to the selected database. Check DATABASE_URL and database privileges. Database error code: " + (errorCode || "unavailable"));
 } finally {
-  if (db) await db.end();
+  if (db) {
+    try {
+      await db.end();
+    } catch (error) {
+      const errorCode = String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+      fail("Could not close the selected database connection safely. Database error code: " + (errorCode || "unknown"));
+    }
+  }
 }
 
 const pnpm = detectPnpm();
