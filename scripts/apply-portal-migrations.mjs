@@ -158,7 +158,7 @@ try {
       ).catch(() => {});
       console.error(`Migration ${filename} failed (code: ${errorCode || "UNKNOWN"}).`);
       console.error("MySQL may have committed some DDL before the failure. This migration is marked failed and will not be automatically rerun.");
-      throw error;
+      throw new Error("Portal migration failed; use the sanitized migration code above and complete manual recovery review before retrying.");
     }
   }
 } catch (error) {
