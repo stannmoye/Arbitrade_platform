@@ -15,6 +15,7 @@ async function createFixture({ marker, lock = false, bootstrap = false, env = fa
   await mkdir(installerDir, { recursive: true });
   await cp(resolve(sourceDir, "recovery-report.mjs"), resolve(installerDir, "recovery-report.mjs"));
   await cp(resolve(sourceDir, "recovery-utils.mjs"), resolve(installerDir, "recovery-utils.mjs"));
+  await cp(resolve(sourceDir, "migration-recovery-plan.mjs"), resolve(installerDir, "migration-recovery-plan.mjs"));
   if (marker !== undefined) {
     await writeFile(resolve(installerDir, ".install-in-progress.json"), typeof marker === "string" ? marker : JSON.stringify(marker));
   }
