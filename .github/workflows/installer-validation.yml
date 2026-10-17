@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+      - feat/stage-46-controlled-migration-recovery
 
 jobs:
   syntax:
@@ -26,6 +27,7 @@ jobs:
       - name: Validate Node.js installer scripts
         run: |
           node --check installer/run-install.mjs
+          node --check installer/run-install.test.mjs
           node --check installer/create-admin.mjs
           node --check installer/provision-accounts.mjs
           node --check installer/verify-install.mjs
