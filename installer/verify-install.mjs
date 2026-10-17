@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 import mysql from "mysql2/promise";
 import nodemailer from "nodemailer";
-import { access, stat } from "node:fs/promises";
+import { access, readFile, stat } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -130,6 +130,22 @@ try {
 } catch {
   report("Bootstrap cleanup", true, "No one-time administrator bootstrap file remains.");
 }
+try {
+  const progressPath = resolve(root, "installer/.install-in-progress.json");
+  const progress = JSON.parse(await readFile(progressPath, "utf8"));
+  report(
+    "Interrupted installation",
+    false,
+    `An incomplete installation marker remains (stage: ${String(progress.stage || "unknown")}, started: ${String(progress.startedAt || "unknown")}). Review private logs, backup/migration state, and recover deliberately before removing the marker.`,
+  );
+} catch (error) {
+  if (error?.code === "ENOENT") {
+    report("Interrupted installation", true, "No incomplete installation marker remains.");
+  } else {
+    report("Interrupted installation", false, "The installation progress marker exists but could not be read as valid JSON. Restrict access and inspect it before recovery.");
+  }
+}
+
 try {
   const envInfo = await stat(resolve(root, ".env"));
   report("Environment file permissions", (envInfo.mode & 0o077) === 0, (envInfo.mode & 0o077) === 0 ? ".env is not group/world accessible." : ".env permissions are too broad; run chmod 600 .env.");

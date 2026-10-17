@@ -12,6 +12,7 @@ const existing = process.argv.includes("--existing-database");
 const mode = fresh === existing ? null : fresh ? "fresh" : "existing";
 const bootstrapPath = resolve(root, ".installer-bootstrap.json");
 const lockPath = resolve(root, "installer/.installed");
+const progressPath = resolve(root, "installer/.install-in-progress.json");
 config({ path: resolve(root, ".env"), override: false });
 
 function fail(message, code = 1) {
@@ -63,6 +64,9 @@ if (process.env.SESSION_SECRET.length < 32 || process.env.PASSWORD_PEPPER.length
 }
 if (await (async () => { try { await readFile(lockPath); return true; } catch { return false; } })()) {
   fail("An installation lock already exists. Refusing to rerun the installer.");
+}
+if (await (async () => { try { await readFile(progressPath); return true; } catch { return false; } })()) {
+  fail("A previous installation attempt left installer/.install-in-progress.json. Do not rerun migrations blindly. Inspect the saved stage and private logs, verify the database backup and migration state, then remove this marker only after an administrator has approved recovery.");
 }
 
 let bootstrap;
@@ -141,15 +145,29 @@ try {
 
 const pnpm = detectPnpm();
 const runPnpm = (args) => run(pnpm.command, [...pnpm.prefix, ...args]);
+const progress = { mode, startedAt: new Date().toISOString(), stage: "preparing-dependencies" };
+async function setStage(stage) {
+  progress.stage = stage;
+  progress.updatedAt = new Date().toISOString();
+  await writeFile(progressPath, JSON.stringify(progress, null, 2) + "\n", { mode: 0o600 });
+  console.log("\n[installer] Stage: " + stage);
+}
+await writeFile(progressPath, JSON.stringify(progress, null, 2) + "\n", { mode: 0o600, flag: "wx" });
 runPnpm(["install", "--frozen-lockfile"]);
 
 if (mode === "fresh") {
   console.log("\n[installer] Initializing a fresh database. Reward processing remains disabled unless separately enabled by an administrator.");
+  await setStage("main-database-migrations");
   runPnpm(["db:migrate"]);
+  await setStage("portal-database-migrations");
   runPnpm(["db:portal-migrate"]);
+  await setStage("mining-database-migrations");
   run("node", ["scripts/apply-mining-migrations.mjs", "--confirm-host-migration", "--confirm-production"]);
+  await setStage("initial-reward-rate-migration");
   run("node", ["scripts/apply-mining-initial-reward-rates.mjs", "--confirm-host-migration", "--confirm-production"]);
+  await setStage("production-build");
   runPnpm(["build"]);
+  await setStage("administrator-creation");
   run("node", ["installer/create-admin.mjs"], {
     ADMIN_EMAIL: String(bootstrap.adminEmail).trim().toLowerCase(),
     ADMIN_PASSWORD: String(bootstrap.adminPassword),
@@ -157,19 +175,26 @@ if (mode === "fresh") {
 } else {
   console.log("\n[installer] Existing-database mode: applying forward migrations while preserving account credentials and financial records.");
   console.log("[installer] Confirm a current database backup exists before continuing.");
+  await setStage("main-database-migrations");
   runPnpm(["db:migrate"]);
+  await setStage("portal-database-migrations");
   runPnpm(["db:portal-migrate"]);
+  await setStage("mining-database-migrations");
   run("node", ["scripts/apply-mining-migrations.mjs", "--confirm-host-migration", "--confirm-production"]);
+  await setStage("initial-reward-rate-migration");
   run("node", ["scripts/apply-mining-initial-reward-rates.mjs", "--confirm-host-migration", "--confirm-production"]);
+  await setStage("production-build");
   runPnpm(["build"]);
 }
 
+await setStage("finalizing-installation");
 await writeFile(lockPath, new Date().toISOString() + "\n", { mode: 0o600, flag: "wx" });
 try {
   await unlink(bootstrapPath);
 } catch (error) {
   fail("Installation lock was created, but the one-time bootstrap could not be removed. Restrict access and delete .installer-bootstrap.json manually: " + (error?.message || "unknown error"));
 }
+await unlink(progressPath);
 console.log("\n[installer] Installation steps completed.");
 console.log("[installer] Start/restart the Node.js application, then run: pnpm installer:verify");
 console.log("[installer] If SMTP is configured, test it with: pnpm installer:test-smtp --to=you@example.com");
