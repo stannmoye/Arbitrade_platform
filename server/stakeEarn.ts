@@ -200,9 +200,15 @@ export async function allocateStake(userId: number, input: { productId: number; 
       if (!balance || Number(balance.availableMinor) < input.amountMinor) throw new Error("Insufficient available wallet balance");
       const now = new Date(); const maturity = new Date(now.getTime() + product.durationDays * 86400000); const positionCode = `STK-${crypto.randomBytes(4).toString("hex").toUpperCase()}`; const reference = `stake-allocation:${positionCode}`;
       await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId, product.asset, -input.amountMinor, "stake_allocation", reference]);
-      await conn.execute(`UPDATE customer_balances SET availableMinor=availableMinor-?, lockedMinor=lockedMinor+?, updatedAt=NOW() WHERE id=?`, [input.amountMinor, input.amountMinor, balance.id]);
+      const [walletUpdate] = await conn.execute<any>(`UPDATE customer_balances SET availableMinor=availableMinor-?, lockedMinor=lockedMinor+?, updatedAt=NOW() WHERE id=? AND userId=? AND currency=? AND availableMinor>=?`, [input.amountMinor, input.amountMinor, balance.id, userId, product.asset, input.amountMinor]);
+      if (Number(walletUpdate.affectedRows) !== 1) {
+        throw new Error(`Stake allocation ${reference} must reserve funds from exactly one wallet row with sufficient available balance; updated ${Number(walletUpdate.affectedRows) || 0}.`);
+      }
       const [positionResult] = await conn.execute<any>(`INSERT INTO stake_positions (positionCode,userId,productId,asset,principalMinor,rewardMinor,status,openedAt,updatedAt,maturityAt,nextRewardAt,originalLedgerReference) VALUES (?,?,?,?,?,0,'ACTIVE',NOW(),NOW(),?,?,?)`, [positionCode, userId, product.id, product.asset, input.amountMinor, maturity, nextRewardAt(now, product.rewardFrequency), reference]);
       const positionId = Number(positionResult.insertId);
+      if (!Number.isInteger(positionId) || positionId <= 0) {
+        throw new Error(`Stake allocation ${reference} did not create a valid position record.`);
+      }
       await conn.execute(`INSERT INTO stake_transactions (transactionCode,userId,positionId,type,amountMinor,asset,status,ledgerReference,idempotencyKey) VALUES (?,?,?,?,?,?, 'COMPLETED', ?, ?)`, [`TX-${crypto.randomBytes(5).toString("hex").toUpperCase()}`, userId, positionId, "STAKE_ALLOCATION", input.amountMinor, product.asset, reference, key]);
       await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, positionId, "position.created", "PENDING", "ACTIVE", input.amountMinor, product.asset, JSON.stringify({ ledgerReference: reference, productId: product.id })]);
       await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, "Allocation confirmed", `Your ${product.name} allocation is active. Funds were reserved through the wallet ledger.`]);
