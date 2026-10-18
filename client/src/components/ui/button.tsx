@@ -53,6 +53,7 @@ function Button({
       data-slot="button"
       data-wb-button="true"
       data-wb-state={props["aria-busy"] ? "loading" : "idle"}
+      aria-disabled={props["aria-busy"] ? true : props["aria-disabled"]}
       className={cn("wb-button", buttonVariants({ variant, size, className }))}
       {...props}
     />
