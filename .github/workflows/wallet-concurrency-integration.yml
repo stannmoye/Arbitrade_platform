@@ -51,7 +51,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Create the application schema in the disposable database
         run: pnpm exec drizzle-kit push --force
-      - name: Run disposable MySQL concurrency and reconciliation tests
+      - name: Run database concurrency and reconciliation tests
         run: pnpm exec vitest run server/wallet-adjustment-concurrency.integration.test.ts
-      - name: Run wallet uniqueness migration preflight against disposable MySQL
+      - name: Run wallet uniqueness migration preflight against disposable database
         run: pnpm exec vitest run --config vitest.installer.config.ts scripts/wallet-unique-index-migration.test.mjs
