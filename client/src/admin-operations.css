@@ -417,3 +417,40 @@
 :root[data-arb-theme] .admin-ops-page :where(input[type="checkbox"], input[type="radio"]) {
   accent-color: var(--arb-color-accent);
 }
+
+
+/* Stage 2: keep operational forms legible and predictable at narrow widths. */
+:root[data-arb-theme] .admin-ops-page :where(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+:root[data-arb-theme] .admin-ops-page :where(label, .admin-ops-help, .admin-ops-error) {
+  overflow-wrap: anywhere;
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-error {
+  color: var(--arb-color-danger);
+}
+:root[data-arb-theme] .admin-ops-page :where(input, select, textarea)[aria-invalid="true"]:focus-visible {
+  outline: 2px solid var(--arb-color-danger);
+  outline-offset: 2px;
+}
+:root[data-arb-theme] .admin-ops-page :where(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+}
+@media (max-width: 640px) {
+  :root[data-arb-theme] .admin-ops-page :where(input, select, textarea) {
+    font-size: max(16px, 1em);
+  }
+  :root[data-arb-theme] .admin-ops-page .admin-ops-table {
+    max-width: 100%;
+  }
+}
+@media (forced-colors: active) {
+  :root[data-arb-theme] .admin-ops-page :where(input, select, textarea)[aria-invalid="true"] {
+    border-color: Mark;
+  }
+  :root[data-arb-theme] .admin-ops-page .admin-ops-error {
+    color: Mark;
+    font-weight: 700;
+  }
+}
