@@ -343,3 +343,48 @@
 :is(.arb-page, .customer-portal, .admin-portal) :where(.settings-card, .customer-panel, .advanced-feature-card) > :first-child {
   min-width: 0;
 }
+
+
+/* Stage 2: override the reference skin's fixed colors with active theme tokens.
+   The reference stylesheet uses !important, so these scoped integration rules do too. */
+:root[data-arb-theme] .customer-portal {
+  background: var(--arb-color-canvas) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-header,
+:root[data-arb-theme] .customer-portal .customer-primary-rail {
+  background: var(--arb-color-surface) !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main {
+  background: var(--arb-color-canvas) !important;
+}
+:root[data-arb-theme] .customer-portal :where(
+  .customer-balance-ribbon, .customer-balance-card, .customer-workspace-card,
+  .customer-ledger-panel, .customer-market-hero, .customer-hero-opportunity,
+  .customer-quick-actions button, .customer-workspace-categories button
+) {
+  background-color: var(--arb-color-surface) !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal :where(
+  .portal-header-context, .portal-session, .customer-balance-name,
+  .customer-workspace-heading h2, .customer-workspace-categories button
+) {
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme="clean-light"] .customer-portal :where(
+  .customer-market-hero, .customer-hero-opportunity, .customer-quick-actions button,
+  .customer-workspace-card, .customer-ledger-panel
+) {
+  box-shadow: 0 4px 16px rgba(20, 42, 72, .08) !important;
+}
+:root[data-arb-theme] .customer-portal :where(
+  .customer-hero-copy p, .customer-hero-opportunity small,
+  .customer-workspace-heading .eyebrow, .customer-workspace-online,
+  .customer-quick-feature small
+) {
+  color: var(--arb-color-text-soft) !important;
+}
