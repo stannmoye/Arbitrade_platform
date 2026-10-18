@@ -7,12 +7,18 @@ trap 'rm -rf -- "$TMP_ROOT"' EXIT
 MOCK_BIN="$TMP_ROOT/bin"
 mkdir -p "$MOCK_BIN"
 SYSTEMCTL_LOG="$TMP_ROOT/systemctl.log"
-export SYSTEMCTL_LOG
+NGINX_LOG="$TMP_ROOT/nginx.log"
+export SYSTEMCTL_LOG NGINX_LOG
 cat > "$MOCK_BIN/systemctl" <<'MOCK'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$SYSTEMCTL_LOG"
 MOCK
 chmod +x "$MOCK_BIN/systemctl"
+cat > "$MOCK_BIN/nginx" <<'MOCK'
+#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "$NGINX_LOG"
+MOCK
+chmod +x "$MOCK_BIN/nginx"
 PATH="$MOCK_BIN:$PATH"
 export PATH
 
@@ -47,8 +53,10 @@ new_case() {
   NGINX_PUBLISHED_ID="$(stat -c '%d:%i' -- "$NGINX")"
   NGINX_ENABLED_PUBLISHED_ID="$(stat -c '%d:%i' -- "$NGINX_ENABLED")"
   SERVICE_ATTEMPTED=1
+  NGINX_RELOAD_ATTEMPTED=0
   HTTPS_ATTEMPTED=0
   : > "$SYSTEMCTL_LOG"
+  : > "$NGINX_LOG"
 }
 
 new_case
@@ -56,6 +64,16 @@ false || cleanup_vps_setup 1
 [[ ! -e "$ENV_FILE" && ! -e "$UNIT" && ! -e "$NGINX" && ! -L "$NGINX_ENABLED" ]] || fail "owned files were not rolled back"
 grep -Fq 'disable --now arbitrade.service' "$SYSTEMCTL_LOG" || fail "service rollback was not attempted for the original unit"
 pass "pre-HTTPS failure rolls back owned files and service state"
+
+# If nginx was already reloaded before a later setup step fails, rollback must
+# reload the restored disk config so the removed site does not remain active.
+new_case
+NGINX_RELOAD_ATTEMPTED=1
+false || cleanup_vps_setup 1
+[[ ! -e "$NGINX" && ! -L "$NGINX_ENABLED" ]] || fail "nginx files were not rolled back"
+grep -Fq 'reload nginx' "$SYSTEMCTL_LOG" || fail "nginx was not reloaded after removing the failed site"
+grep -Fxq '-t' "$NGINX_LOG" || fail "nginx config was not validated before rollback reload"
+pass "post-reload failure restores and reloads nginx configuration"
 
 new_case
 printf 'replacement unit\n' > "$CASE_DIR/replacement"
