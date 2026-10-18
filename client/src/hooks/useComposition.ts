@@ -43,11 +43,11 @@ export function useComposition<
   }, []);
 
   const onCompositionStart = usePersistFn((e: React.CompositionEvent<T>) => {
-    if (timer.current) {
+    if (timer.current !== null) {
       clearTimeout(timer.current);
       timer.current = null;
     }
-    if (timer2.current) {
+    if (timer2.current !== null) {
       clearTimeout(timer2.current);
       timer2.current = null;
     }
