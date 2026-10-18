@@ -209,3 +209,7 @@ These are source-based risk findings for test planning, not proof of a productio
 3. Inspect console-event schema/indexes for deduplication and session-retention semantics; add targeted race/replay tests before proposing financial code changes.
 4. Perform browser viewport, keyboard, reduced-motion and sound-permission checks when an available browser test environment can be used. No browser acceptance run is claimed here.
 5. Stage 1 remains **in progress**. This source audit did not change financial logic or customer balances.
+
+
+### Mining purchase flow follow-up
+Source review of `client/src/components/CustomerMining.tsx`, `server/routers.ts`, and `server/mining.ts` found that the customer purchase button calls the convenience purchase endpoint without a separate terms-acceptance field. That endpoint calls the quote-confirmation service with `acceptedTerms: true`. Review whether this satisfies the product's intended consent requirement; if explicit acknowledgement is required, add a focused UI and server-side regression test while preserving quote validation, idempotency, and ledger safeguards. This is a source-level finding, not a confirmed production incident.
