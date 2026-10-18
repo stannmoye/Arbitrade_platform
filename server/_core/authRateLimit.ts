@@ -143,11 +143,17 @@ export function createAuthRateLimiter(options: AuthRateLimitOptions) {
 
   const buckets = new Map<string, Bucket>();
   const now = options.now ?? Date.now;
+  let cleanupCounter = 0;
   return function localAuthRateLimit(req: Request, res: Response, next: NextFunction) {
     const current = now();
-    // Bound memory usage and remove expired entries opportunistically.
-    for (const [key, bucket] of buckets) {
-      if (bucket.resetAt <= current) buckets.delete(key);
+    // Amortize expiry scans instead of walking up to 10,000 keys on every request.
+    // The size cap below still bounds memory between cleanup passes.
+    cleanupCounter += 1;
+    if (cleanupCounter >= 100) {
+      cleanupCounter = 0;
+      for (const [key, bucket] of buckets) {
+        if (bucket.resetAt <= current) buckets.delete(key);
+      }
     }
     const ip = req.ip || req.socket?.remoteAddress || "unknown";
     let bucket = buckets.get(ip);
