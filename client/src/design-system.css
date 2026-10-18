@@ -386,3 +386,61 @@
     transform: none;
   }
 }
+
+/* Stage 2: make the shared primitives resilient in Windows high-contrast modes. */
+@media (forced-colors: active) {
+  .arb-card,
+  .arb-field input,
+  .arb-field select,
+  .arb-field textarea,
+  .arb-button,
+  .arb-status {
+    border: 1px solid CanvasText;
+  }
+
+  .arb-button-primary,
+  .arb-button-danger {
+    border: 1px solid ButtonText;
+    background: ButtonFace;
+    color: ButtonText;
+  }
+
+  .arb-button:disabled,
+  .arb-field :is(input, select, textarea):disabled {
+    border-color: GrayText;
+    color: GrayText;
+  }
+
+  :where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid Highlight;
+  }
+}
+
+/* Touch targets stay comfortable without forcing desktop layouts to expand. */
+@media (max-width: 600px) {
+  .arb-button {
+    min-height: 44px;
+  }
+
+  .arb-field :is(input, select, textarea) {
+    min-height: 44px;
+  }
+
+  .arb-cluster > .arb-button {
+    flex: 1 1 auto;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .arb-card,
+  .arb-field :is(input, select, textarea),
+  .arb-button,
+  .arb-status {
+    border-width: 2px;
+  }
+
+  .arb-muted,
+  .arb-field-hint {
+    color: var(--arb-color-text-soft);
+  }
+}
