@@ -695,3 +695,19 @@
   border-color: var(--arb-color-border);
   transition: background-color 9999s ease-out 0s;
 }
+
+/* Stage 2: retain visible focus when users navigate themed surfaces by keyboard. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  a, button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+@media (prefers-contrast: more) {
+  :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+    a, button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])
+  ):focus-visible {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
+}
