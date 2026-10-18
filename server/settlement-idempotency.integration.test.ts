@@ -299,4 +299,49 @@ settlementDescribe("manual settlement idempotency and rollback (disposable MySQL
     expect(state.trade.settlementStatus).toBe("pending");
     expect(state.reservation.status).toBe("reserved");
   }, 30_000);
+
+  it("allows only one trade to claim a settlement reference under concurrent requests", async () => {
+    const first = await createFixture();
+    const second = await createFixture();
+    const sharedReference = `settle-${randomUUID().replace(/-/g, "").slice(0, 28)}`;
+
+    const outcomes = await Promise.allSettled([
+      manuallySettleTrade(first.tradeId, first.adminId, {
+        rewardMinor: 25,
+        settlementReference: sharedReference,
+      }),
+      manuallySettleTrade(second.tradeId, second.adminId, {
+        rewardMinor: 25,
+        settlementReference: sharedReference,
+      }),
+    ]);
+
+    expect(outcomes.filter(outcome => outcome.status === "fulfilled")).toHaveLength(1);
+    expect(outcomes.filter(outcome => outcome.status === "rejected")).toHaveLength(1);
+
+    const states = await Promise.all([readFixture(first), readFixture(second)]);
+    const winners = states.filter(state => state.trade.status === "settled");
+    const untouched = states.filter(state => state.trade.status === "confirmed");
+    expect(winners).toHaveLength(1);
+    expect(untouched).toHaveLength(1);
+    expect(winners[0].trade.settlementReference).toBe(sharedReference);
+    expect(winners[0].balance).toEqual({
+      availableMinor: 125,
+      lockedMinor: 0,
+      promotionalMinor: 0,
+      earnedMinor: 25,
+    });
+    expect(winners[0].ledger).toEqual({ entryCount: 2, ledgerTotal: 125 });
+    expect(winners[0].reservation.status).toBe("credited");
+    expect(winners[0].eventCount).toBe(2);
+    expect(untouched[0].balance).toEqual({
+      availableMinor: 0,
+      lockedMinor: 100,
+      promotionalMinor: 0,
+      earnedMinor: 0,
+    });
+    expect(untouched[0].ledger).toEqual({ entryCount: 0, ledgerTotal: 0 });
+    expect(untouched[0].reservation.status).toBe("reserved");
+    expect(untouched[0].eventCount).toBe(0);
+  }, 30_000);
 });
