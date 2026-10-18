@@ -188,14 +188,17 @@ try {
       ).catch(() => {});
       console.error(`Migration ${filename} failed (code: ${errorCode || "UNKNOWN"}).`);
       console.error("MySQL may have committed some DDL before the failure. This migration is marked failed and will not be automatically rerun.");
-      throw error;
+      throw new Error("Portal migration failed; use the sanitized migration code above and complete manual recovery review before retrying.");
     }
   }
 } catch (error) {
   if (error?.baselineRecorded) {
     // Expected control flow after writing the explicit baseline.
   } else {
-    console.error(error?.message || "Portal migration runner stopped.");
+    const safeMessage = error && typeof error.message === "string" && !error.code
+      ? error.message
+      : "Portal migration runner stopped after an unexpected database or file error. Review the sanitized diagnostics above and complete manual recovery before retrying.";
+    console.error(safeMessage);
     process.exitCode = 1;
   }
 } finally {
