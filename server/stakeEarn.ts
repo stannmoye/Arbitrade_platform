@@ -151,8 +151,8 @@ export async function settleDuePositions(conn: Db, userId: number) {
       throw new Error("Stake settlement invariant violation for " + reference + ": principal-release ledger already exists while position is not completed.");
     }
     await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId, p.asset, p.principalMinor, "stake_principal_release", reference]);
-    const [walletUpdate] = await conn.execute<any>(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=GREATEST(lockedMinor-?,0), updatedAt=NOW() WHERE userId=? AND currency=?`, [p.principalMinor, p.principalMinor, userId, p.asset]);
-    if (Number(walletUpdate.affectedRows) !== 1) throw new Error("Stake settlement " + reference + " must update exactly one wallet row; received " + (Number(walletUpdate.affectedRows) || 0) + ".");
+    const [walletUpdate] = await conn.execute<any>(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=lockedMinor-?, updatedAt=NOW() WHERE userId=? AND currency=? AND lockedMinor>=?`, [p.principalMinor, p.principalMinor, userId, p.asset, p.principalMinor]);
+    if (Number(walletUpdate.affectedRows) !== 1) throw new Error("Stake settlement " + reference + " requires exactly one wallet row with sufficient locked funds; updated " + (Number(walletUpdate.affectedRows) || 0) + ".");
     const [positionUpdate] = await conn.execute<any>(`UPDATE stake_positions SET status='COMPLETED', completedAt=NOW(), updatedAt=NOW() WHERE id=? AND status IN ('ACTIVE','REWARD_ACCRUING','SETTLING')`, [p.id]);
     if (Number(positionUpdate.affectedRows) !== 1) throw new Error("Stake settlement " + reference + " must complete exactly one eligible position; received " + (Number(positionUpdate.affectedRows) || 0) + ".");
     await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, p.id, "position.completed", p.status, "COMPLETED", p.principalMinor, p.asset, JSON.stringify({ ledgerReference: reference })]);
@@ -218,9 +218,14 @@ export async function cancelStake(userId: number, positionId: number, requestKey
       const [rows] = await conn.query<any[]>(`SELECT * FROM stake_positions WHERE id=? AND userId=? FOR UPDATE`, [positionId, userId]); const p=rows[0];
       if (!p || !["ACTIVE","REWARD_ACCRUING"].includes(p.status)) throw new Error("This position cannot be cancelled");
       if (new Date(p.maturityAt).getTime() - Date.now() < 0) throw new Error("Matured positions must be settled");
-      const reference=`stake-cancellation:${p.id}`; await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId,p.asset,p.principalMinor,"stake_cancellation_release",reference]);
-      await conn.execute(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=GREATEST(lockedMinor-?,0), updatedAt=NOW() WHERE userId=? AND currency=?`, [p.principalMinor,p.principalMinor,userId,p.asset]);
-      await conn.execute(`UPDATE stake_positions SET status='CANCELLED', completedAt=NOW(), updatedAt=NOW() WHERE id=?`, [p.id]);
+      const reference=`stake-cancellation:${p.id}`;
+      const [existing] = await conn.query<any[]>(`SELECT id FROM balance_ledger WHERE reference=? LIMIT 1`, [reference]);
+      if (existing.length) throw new Error(`Stake cancellation invariant violation for ${reference}: ledger entry already exists before position cancellation.`);
+      await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId,p.asset,p.principalMinor,"stake_cancellation_release",reference]);
+      const [walletUpdate] = await conn.execute<any>(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=lockedMinor-?, updatedAt=NOW() WHERE userId=? AND currency=? AND lockedMinor>=?`, [p.principalMinor,p.principalMinor,userId,p.asset,p.principalMinor]);
+      if (Number(walletUpdate.affectedRows) !== 1) throw new Error(`Stake cancellation ${reference} requires exactly one wallet row with sufficient locked funds; updated ${Number(walletUpdate.affectedRows) || 0}.`);
+      const [positionUpdate] = await conn.execute<any>(`UPDATE stake_positions SET status='CANCELLED', completedAt=NOW(), updatedAt=NOW() WHERE id=? AND userId=? AND status IN ('ACTIVE','REWARD_ACCRUING')`, [p.id,userId]);
+      if (Number(positionUpdate.affectedRows) !== 1) throw new Error(`Stake cancellation ${reference} must cancel exactly one eligible position; updated ${Number(positionUpdate.affectedRows) || 0}.`);
       await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId,p.id,"position.cancelled",p.status,"CANCELLED",p.principalMinor,p.asset,JSON.stringify({ledgerReference:reference})]);
       const result={positionId:p.id,status:"CANCELLED",ledgerReference:reference}; await conn.execute(`INSERT INTO v5_idempotency_keys (userId,keyValue,command,resultJson) VALUES (?,?,?,?)`,[userId,key,"stake.cancel",JSON.stringify(result)]); await conn.commit(); return result;
     } catch(e){await conn.rollback();throw e;}
