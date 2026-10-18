@@ -96,6 +96,8 @@ assert_file_contains "$VPS_SETUP" 'ln -T -- "$NODE_KEY_TMP" /etc/apt/keyrings/no
 assert_file_contains "$VPS_SETUP" 'ln -T -- "$NODE_SOURCE_TMP" /etc/apt/sources.list.d/nodesource.list' "VPS runtime publishes its apt source without replacing a raced destination"
 assert_file_contains "$VPS_SETUP" "stat -c '%d:%i' -- /etc/apt/keyrings/nodesource.gpg" "VPS runtime checks the published key inode before rollback so it does not delete a raced replacement"
 assert_file_contains "$VPS_SETUP" 'rollback_nodesource_config()' "VPS runtime defines ownership-aware cleanup for its NodeSource files"
+assert_file_contains "$VPS_SETUP" 'trap cleanup_nodesource_runtime EXIT' "VPS runtime installs early cleanup for NodeSource temporary files and partial publication"
+assert_file_contains "$VPS_SETUP" 'NODE_RUNTIME_COMMITTED=1' "VPS runtime preserves its repository files only after runtime provisioning succeeds"
 assert_file_contains "$VPS_SETUP" 'APT update failed after adding the NodeSource repository' "VPS runtime rolls back its NodeSource files when repository setup fails"
 assert_file_contains "$VPS_SETUP" 'Node.js installation failed; this attempt' "VPS runtime rolls back its NodeSource files when Node.js installation fails"
 assert_file_contains "$VPS_SETUP" 'Stage both files before publishing either' "VPS runtime stages both NodeSource files before publishing configuration"
