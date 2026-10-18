@@ -53,3 +53,10 @@ A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the fu
 ## Working rule
 
 Do not mark Stage 2 complete based solely on source changes or CI. Record actual test results and viewport/browser evidence before closing the stage. Keep Stage 3 theme-policy acceptance distinct from Stage 2 completion.
+
+## Continuation review — 2026-10-19
+
+- Rechecked the open Stage 2 pull request at head `301cdaba2fb60ceaeb61a04018957ab0866d4a6d`.
+- Reviewed the appearance-settings normalization and tests, customer/admin theme policy flow, admin theme-management UI, application stylesheet imports, accessible table scroll region, shared UI controls, workflow definition, and the Stage 2 acceptance contract.
+- The latest head currently reports no commit status checks through the connected GitHub status endpoint, and the workflow-run lookup returned no pull-request-triggered runs for this head. Earlier successful CI belongs to an older commit and is not treated as evidence for the latest changes.
+- No browser/viewport evidence is available yet. Keep the five-theme viewport checks, horizontal-overflow inspection, and rendered contrast verification open; do not mark Stage 2 complete until those are recorded.
