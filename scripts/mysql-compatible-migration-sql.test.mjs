@@ -44,6 +44,17 @@ describe("executeCompatibleMigrationSql", () => {
     ]);
   });
 
+  it("normalizes whitespace before parsing idempotent ALTER clauses", async () => {
+    const connection = createConnection();
+    await executeCompatibleMigrationSql(
+      connection,
+      "ALTER TABLE `example_table` ADD COLUMN IF NOT EXISTS `new_column` INT",
+    );
+    expect(connection.queries).toEqual([
+      "ALTER TABLE `example_table` ADD COLUMN `new_column` INT",
+    ]);
+  });
+
   it("creates a missing unique index and skips an existing index", async () => {
     const connection = createConnection({ indexes: ["idx_existing"] });
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
