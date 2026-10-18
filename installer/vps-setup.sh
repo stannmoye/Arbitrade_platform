@@ -101,7 +101,11 @@ fi
 runuser -u "$APP_USER" -- test -r "$ROOT/dist/index.js" || fail "The arbitrade service user cannot read dist/index.js. Use a readable deployment path and grant directory traversal/read access."
 
 say "Preparing protected runtime environment"
-install -d -o root -g "$APP_USER" -m 0750 "$ENV_DIR"
+# Do not change ownership or permissions on a pre-existing protected directory.
+# Only create it with the intended owner/mode when this installer owns its creation.
+if [[ ! -e "$ENV_DIR" ]]; then
+  install -d -o root -g "$APP_USER" -m 0750 "$ENV_DIR"
+fi
 # Track only destinations created by this invocation so a failed
 # provisioning attempt can remove its own partial files without touching
 # pre-existing host configuration.
