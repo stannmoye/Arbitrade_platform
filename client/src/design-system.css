@@ -530,3 +530,47 @@
     accent-color: auto;
   }
 }
+
+/* Stage 2: give shared data tables a consistent, readable baseline. */
+.arb-overflow-x > table {
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--arb-color-text);
+}
+.arb-overflow-x > table :where(th, td) {
+  padding: var(--arb-space-3) var(--arb-space-4);
+  border-bottom: 1px solid var(--arb-color-border);
+  text-align: start;
+  vertical-align: middle;
+}
+.arb-overflow-x > table th {
+  color: var(--arb-color-text-soft);
+  background: var(--arb-color-surface-raised);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+.arb-overflow-x > table caption {
+  padding: var(--arb-space-2) var(--arb-space-4);
+  color: var(--arb-color-text-soft);
+  text-align: start;
+  caption-side: bottom;
+}
+.arb-overflow-x > table tbody tr:hover {
+  background: color-mix(in srgb, var(--arb-color-accent) 5%, var(--arb-color-surface));
+}
+.arb-overflow-x > table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+@media (max-width: 600px) {
+  .arb-overflow-x > table :where(th, td) {
+    padding: var(--arb-space-2) var(--arb-space-3);
+  }
+}
+@media (forced-colors: active) {
+  .arb-overflow-x > table :where(th, td) {
+    border-bottom-color: CanvasText;
+  }
+  .arb-overflow-x > table tbody tr:hover {
+    outline: 1px solid Highlight;
+  }
+}
