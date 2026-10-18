@@ -150,7 +150,8 @@
   background: var(--arb-color-surface);
   color: var(--arb-color-text);
 }
-.arb-theme-selector label { display: grid; gap: 2px; min-width: 0; }
+.arb-theme-selector-copy { display: grid; gap: 2px; min-width: 0; }
+.arb-theme-selector-copy > label { cursor: pointer; }
 .arb-theme-selector-title { font-size: 13px; font-weight: 650; }
 .arb-theme-selector-description { color: var(--arb-color-text-muted); font-size: 12px; }
 .arb-theme-selector select {
@@ -165,7 +166,7 @@
   font: inherit;
 }
 .arb-theme-selector-compact { justify-content: flex-end; padding: 7px 16px; }
-.arb-theme-selector-compact label { margin-right: auto; }
+.arb-theme-selector-compact .arb-theme-selector-copy { margin-right: auto; }
 .arb-theme-selector-compact select { min-width: min(230px, 52vw); }
 @media (max-width: 480px) {
   .arb-theme-selector { align-items: flex-start; }
