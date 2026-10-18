@@ -46,7 +46,7 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
       <label htmlFor={canChoose ? selectId : undefined}>
         <span className="arb-theme-selector-title">{canChoose ? "Appearance" : "Workspace appearance"}</span>
         {!compact && <span className="arb-theme-selector-description">{!policyReady ? "Loading workspace appearance…" : policyFailed ? "Appearance settings could not be loaded; using the default theme." : canChoose ? "Choose your workspace theme" : "Theme selected by workspace settings"}</span>}
-      {(!policyReady || policyFailed) && <span className="arb-theme-selector-status" role={policyFailed ? "alert" : "status"} aria-live="polite">{policyFailed ? "Appearance settings could not be loaded; using the default theme." : "Loading workspace appearance…"}</span>}
+      {(!policyReady || policyFailed) && <span className="arb-theme-selector-status" role={policyFailed ? "alert" : "status"} aria-live={policyFailed ? "assertive" : "polite"}>{policyFailed ? "Appearance settings could not be loaded; using the default theme." : "Loading workspace appearance…"}</span>}
       </label>
       {canChoose ? (
         <select
