@@ -16,7 +16,7 @@ MOCK
 chmod +x "$MOCK_BIN/systemctl"
 cat > "$MOCK_BIN/nginx" <<'MOCK'
 #!/usr/bin/env bash
-printf '%s\\n' "$*" >> "$NGINX_LOG"
+printf '%s\n' "$*" >> "$NGINX_LOG"
 MOCK
 chmod +x "$MOCK_BIN/nginx"
 PATH="$MOCK_BIN:$PATH"
