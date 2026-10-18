@@ -32,7 +32,7 @@ This queue is the source of truth for bounded development tasks. A task is compl
 **Current evidence:** PR [#62](https://github.com/stannmoye/Arbitrade_platform/pull/62), head commit `1e674f431282b3d08e0e386d86b59bd24aaa0718`; cross-database wallet integration [run #27](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39155238918) passed on MySQL 8.0 and MariaDB 11.4; full installer validation [run #497](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39155238949) passed. Do not call this task fully complete until reviewer decision/merge is recorded.
 
 ### S1-B — Settlement single-winner, idempotency, and rollback
-**Priority:** P0 · **Status:** NOT STARTED
+**Priority:** P0 · **Status:** PARTIAL — daily Mining boost settlement guard and cross-database integration coverage validated; broader settlement paths still need review
 
 **Scope**
 - Audit settlement paths for duplicate delivery, simultaneous claims, retry behavior, and partial failure.
@@ -43,6 +43,8 @@ This queue is the source of truth for bounded development tasks. A task is compl
 - Competing settlement workers produce one accepted result.
 - Failures leave either a fully committed auditable transaction or no partial financial mutation.
 - Tests run against the supported disposable database matrix.
+
+**Current evidence:** Draft PR [#66](https://github.com/stannmoye/Arbitrade_platform/pull/66) adds an exact-one-row settlement transition guard and database-backed competing-worker, retry/reconciliation, and rollback tests. Installer validation [run #505](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39156091708) passed all jobs; settlement integration [run #1](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39156044176) passed on MySQL 8.0 and MariaDB 11.4. This evidence covers daily mining boost settlement only; general trade/stake settlement paths remain to be audited. Review/merge is pending.
 
 ### S1-C — Mining settlement allocation readiness
 **Priority:** P0 · **Status:** BLOCKED ON PRODUCT/PROVIDER INPUTS
