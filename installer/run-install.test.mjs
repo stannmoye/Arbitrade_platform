@@ -131,6 +131,8 @@ describe("installer cleanup error privacy", () => {
   it("sanitizes database connection cleanup failures", async () => {
     const source = await readFile(installer, "utf8");
     expect(source).toContain("Could not close the selected database connection safely. Database error code:");
-    expect(source).not.toContain("await db.end();");
+    expect(source).toContain("try {\n      await db.end();\n    } catch (error) {");
+    expect(source).toContain('String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40)');
+    expect(source).not.toContain("console.error(error.message)");
   });
 });
