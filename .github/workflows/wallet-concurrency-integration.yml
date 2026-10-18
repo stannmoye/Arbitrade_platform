@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: wallet-concurrency-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   wallet-concurrency:
     name: wallet concurrency (${{ matrix.database }})
