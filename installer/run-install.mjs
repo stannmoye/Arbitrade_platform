@@ -181,7 +181,8 @@ try {
   console.log("[installer] Database connection successful; " + tableCount + " table(s) detected. Inventory matches the browser wizard.");
 } catch (error) {
   if (error && typeof error.message === "string" && error.message.startsWith("[installer]")) throw error;
-  fail("Could not connect to the selected database. Check DATABASE_URL and database privileges. " + (error?.code || error?.message || ""));
+  const errorCode = String(error?.code || "unavailable").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+  fail("Could not connect to the selected database. Check DATABASE_URL and database privileges. Database error code: " + (errorCode || "unavailable"));
 } finally {
   if (db) await db.end();
 }
@@ -205,7 +206,7 @@ runPnpm(["install", "--frozen-lockfile"]);
 if (mode === "fresh") {
   console.log("\n[installer] Initializing a fresh database. Reward processing remains disabled unless separately enabled by an administrator.");
   await setStage("main-database-migrations");
-  runPnpm(["db:migrate"]);
+  run("node", ["scripts/guarded-main-migrate.mjs"]);
   await setStage("portal-database-migrations");
   runPnpm(["db:portal-migrate"]);
   await setStage("mining-database-migrations");
@@ -223,7 +224,7 @@ if (mode === "fresh") {
   console.log("\n[installer] Existing-database mode: applying forward migrations while preserving account credentials and financial records.");
   console.log("[installer] Confirm a current database backup exists before continuing.");
   await setStage("main-database-migrations");
-  runPnpm(["db:migrate"]);
+  run("node", ["scripts/guarded-main-migrate.mjs"]);
   await setStage("portal-database-migrations");
   runPnpm(["db:portal-migrate"]);
   await setStage("mining-database-migrations");
@@ -239,7 +240,8 @@ await writeFile(lockPath, new Date().toISOString() + "\n", { mode: 0o600, flag: 
 try {
   await unlink(bootstrapPath);
 } catch (error) {
-  fail("Installation lock was created, but the one-time bootstrap could not be removed. Restrict access and delete .installer-bootstrap.json manually: " + (error?.message || "unknown error"));
+  const errorCode = String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+  fail("Installation lock was created, but the one-time bootstrap could not be removed. Restrict access and delete .installer-bootstrap.json manually. Error code: " + (errorCode || "unknown"));
 }
 await unlink(progressPath);
 console.log("\n[installer] Installation steps completed.");
