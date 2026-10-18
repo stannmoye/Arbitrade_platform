@@ -59,3 +59,13 @@ No production database, production VPS, customer financial data, or live transac
 - **One recovery-fixture mismatch:** The MySQL 8 job's "failed main migration remains blocked" check used a fabricated migration hash. The new preflight correctly rejected that unrecognized history before reaching the existing failed-run guard, so the fixture was testing the wrong condition. No application migration ran in that failed-state fixture.
 - **Follow-up fix:** The fixture now derives a real hash and timestamp from the first entry in the checked-out Drizzle journal. That lets the test reach the failed-run guard and verify the existing safety behavior rather than bypassing the new preflight.
 - **Verification pending:** The next installer validation run must pass all three jobs, including both database engines, before the migration hardening is considered verified. Stage 1 remains open.
+
+
+## Continuation checkpoint — 18 October 2026 (14:39 UTC+1)
+
+- **Current integration PR head:** `6c335b39c2a155cb8ab7f71387a28f3f5e78b00d`. PR #58 remains open, draft, and unmerged.
+- **Latest confirmed installer-validation evidence located:** run #378 passed on earlier commit `8f0623bf74167fee6dff14bbdd12cede393529a2`. It is not evidence for the current PR head. A PR-triggered workflow-run lookup for the current head returned no runs, so current-head CI status remains **unverified**.
+- **Packaging scope review:** the current workflow assembles a single `arbitrade-universal-installer.zip` containing both the cPanel/browser installer and the fresh-VPS provisioning tools. The README also documents the existing panel-managed VPS path, which must not run the host provisioner. This matches the checked-in workflow/README, but the universal archive's broad provisioning capability remains a review risk for existing hosts; use the documented application-only path for an already-managed host and do not treat the ZIP as deployed or approved.
+- **Parallel release blockers remain:** disposable-host end-to-end failure injection for APT/service/Nginx/Certbot rollback; reconciliation of overlapping PRs #54–#57; exact-head CI and artifact validation; final human review; and an operator-approved, verified backup/recovery plan.
+- **Financial and access-control gates remain open:** database-backed quote ownership/expiry and competing confirmations, concurrent spending and rollback, wallet/ledger/fee reconciliation, endpoint-level cross-customer authorization, notification replay/ownership, and measured browser/responsive acceptance.
+- **Safety:** no production VPS or database was accessed; no deployment, migration, or merge was performed. Stage 1 remains in progress and production approval is not granted.
