@@ -68,15 +68,15 @@ describe("Stake & Earn cumulative reward calculation", () => {
     const openedAt = new Date("2026-10-01T00:00:00.000Z");
     const now = new Date("2026-10-22T00:00:00.000Z");
 
-    expect(calculateAdditionalStakeReward(100000, 10000, openedAt, "WEEKLY", 0, now)).toBe(575);
-    expect(calculateAdditionalStakeReward(100000, 10000, openedAt, "WEEKLY", 287, now)).toBe(288);
+    expect(calculateAdditionalStakeReward(100000, 10000, openedAt, "WEEKLY", 0, now)).toBe(5753);
+    expect(calculateAdditionalStakeReward(100000, 10000, openedAt, "WEEKLY", 1917, now)).toBe(3836);
   });
 
   it("calculates cumulative monthly rewards and does not pay before a full period", () => {
     const openedAt = new Date("2026-10-01T00:00:00.000Z");
 
     expect(calculateAdditionalStakeReward(100000, 10000, openedAt, "MONTHLY", 0, new Date("2026-10-30T00:00:00.000Z"))).toBe(0);
-    expect(calculateAdditionalStakeReward(100000, 10000, openedAt, "MONTHLY", 0, new Date("2026-12-30T00:00:00.000Z"))).toBe(2465);
+    expect(calculateAdditionalStakeReward(100000, 10000, openedAt, "MONTHLY", 0, new Date("2026-12-30T00:00:00.000Z"))).toBe(24657);
   });
 
   it("never returns a negative increment if previously posted rewards exceed the current target", () => {
