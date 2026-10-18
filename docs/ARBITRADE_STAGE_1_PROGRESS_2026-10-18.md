@@ -91,3 +91,12 @@ No production database, production VPS, customer financial data, or live transac
 - **CI evidence:** Installer validation run [#39144256786](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39144256786) completed successfully on code head `e096b8fc5da8323e71692f954d77da1688d07936`. Syntax, TypeScript, application tests (including the new guard tests), installer/migration regression tests, disposable MariaDB, disposable MySQL 8 recovery, production build/bundle/server smoke checks, deployment-package validation, and the progress dashboard all passed.
 - **Remaining verification:** This guard does not replace a true competing-settlement integration test against a disposable database, nor does it resolve settlement-reference uniqueness across different trades or the separate administrator wallet-adjustment concurrency concern. Stage 1 percentage remains **40%** pending broader acceptance evidence.
 - No merge, deployment, production DB/VPS changes, or live financial mutations were performed.
+
+
+## Automation activation checkpoint — 18 October 2026
+
+- PR #60 (validation dispatch) merged into `main` as commit `3f571f5585fcd4fa34cba625ec1f323f662c8978`. The default-branch validation workflow now declares `workflow_dispatch` and includes push validation for `integration/auth-installer-vps-safety`.
+- PR #59 (bounded autonomous coding worker) merged into `main` as commit `4809f480024e024451a4f96970807018ebda915f`. The worker is restricted to the integration branch, proposes one task per run, validates patch paths and branch revision in a separate publisher job, explicitly dispatches validation, and caps the automatic chain at five tasks. It does not merge PRs or deploy.
+- Initial activation trigger: this progress-file checkpoint is being committed to the integration branch to start the normal installer-validation workflow. The worker should start only after that validation completes successfully and only if the repository Actions secret `OPENAI_API_KEY` is available.
+- Verification still required: confirm the initial validation run, confirm the worker actually consumes the configured secret without exposing it, inspect the patch and resulting validation run, and confirm subsequent task chaining. A successful workflow merge is not evidence that the worker ran.
+- Safety remains unchanged: no PR #58 merge, no production deployment, no production database/VPS access, and no live financial mutation. Stage 1 stays at 40% until substantive acceptance criteria are demonstrated.
