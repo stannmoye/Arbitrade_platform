@@ -4,6 +4,7 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALLER="$ROOT/installer/install.sh"
 VPS_SETUP="$ROOT/installer/vps-setup.sh"
+VPS_ROLLBACK="$ROOT/installer/vps-rollback.sh"
 
 pass() {
   printf '[PASS] %s\n' "$1"
@@ -122,20 +123,20 @@ assert_file_contains "$VPS_SETUP" 'NGINX_TMP="$(mktemp "/etc/nginx/sites-availab
 assert_file_contains "$VPS_SETUP" 'if ! ln -T -- "$NGINX_TMP" "$NGINX"; then' "VPS setup refuses to overwrite nginx configuration that appears during provisioning or write inside a raced directory"
 assert_file_contains "$VPS_SETUP" 'if ! ln -s "$NGINX" "$NGINX_ENABLED"; then' "VPS setup refuses to overwrite an enabled-site path that appears during provisioning"
 assert_file_contains "$VPS_SETUP" 'trap cleanup_vps_setup EXIT' "VPS setup registers failure cleanup"
-assert_file_contains "$VPS_SETUP" '[[ -z "${ENV_TMP:-}" ]] || rm -f -- "$ENV_TMP"' "VPS cleanup safely skips an unset environment temporary path"
-assert_file_contains "$VPS_SETUP" '[[ -z "${UNIT_TMP:-}" ]] || rm -f -- "$UNIT_TMP"' "VPS cleanup safely skips an unset systemd temporary path"
-assert_file_contains "$VPS_SETUP" '[[ -z "${NGINX_TMP:-}" ]] || rm -f -- "$NGINX_TMP"' "VPS cleanup safely skips an unset nginx temporary path"
-assert_file_contains "$VPS_SETUP" 'if [[ "$status" -ne 0 && "$HTTPS_ATTEMPTED" == 0 ]]; then' "VPS setup rolls back its own partial files on pre-HTTPS failures"
-assert_file_contains "$VPS_SETUP" 'elif [[ "$status" -ne 0 && "$HTTPS_ATTEMPTED" == 1 ]]; then' "VPS setup reports manual recovery steps when HTTPS provisioning fails after Certbot may have changed nginx configuration"
-assert_file_contains "$VPS_SETUP" 'inspect systemctl status arbitrade.service, nginx -t, and Certbot output before retrying.' "VPS setup provides safe diagnostics without deleting potentially Certbot-modified configuration"
-assert_file_contains "$VPS_SETUP" '[[ "$ENV_PUBLISHED" == 1 && -n "$ENV_PUBLISHED_ID" && ! -L "$ENV_FILE" && -e "$ENV_FILE"' "VPS setup checks environment file identity before rollback"
-assert_file_contains "$VPS_SETUP" '[[ "$UNIT_PUBLISHED" == 1 && -n "$UNIT_PUBLISHED_ID" && ! -L "$UNIT" && -e "$UNIT"' "VPS setup checks systemd unit identity before rollback"
-assert_file_contains "$VPS_SETUP" '[[ "$NGINX_PUBLISHED" == 1 && -n "$NGINX_PUBLISHED_ID" && ! -L "$NGINX" && -e "$NGINX"' "VPS setup checks nginx config identity before rollback"
+assert_file_contains "$VPS_ROLLBACK" '[[ -z "${ENV_TMP:-}" ]] || rm -f -- "$ENV_TMP"' "VPS cleanup safely skips an unset environment temporary path"
+assert_file_contains "$VPS_ROLLBACK" '[[ -z "${UNIT_TMP:-}" ]] || rm -f -- "$UNIT_TMP"' "VPS cleanup safely skips an unset systemd temporary path"
+assert_file_contains "$VPS_ROLLBACK" '[[ -z "${NGINX_TMP:-}" ]] || rm -f -- "$NGINX_TMP"' "VPS cleanup safely skips an unset nginx temporary path"
+assert_file_contains "$VPS_ROLLBACK" 'if [[ "$status" -ne 0 && "$HTTPS_ATTEMPTED" == 0 ]]; then' "VPS setup rolls back its own partial files on pre-HTTPS failures"
+assert_file_contains "$VPS_ROLLBACK" 'elif [[ "$status" -ne 0 && "$HTTPS_ATTEMPTED" == 1 ]]; then' "VPS setup reports manual recovery steps when HTTPS provisioning fails after Certbot may have changed nginx configuration"
+assert_file_contains "$VPS_ROLLBACK" 'inspect systemctl status arbitrade.service, nginx -t, and Certbot output before retrying.' "VPS setup provides safe diagnostics without deleting potentially Certbot-modified configuration"
+assert_file_contains "$VPS_ROLLBACK" '[[ "$ENV_PUBLISHED" == 1 && -n "$ENV_PUBLISHED_ID" && ! -L "$ENV_FILE" && -e "$ENV_FILE"' "VPS setup checks environment file identity before rollback"
+assert_file_contains "$VPS_ROLLBACK" '[[ "$UNIT_PUBLISHED" == 1 && -n "$UNIT_PUBLISHED_ID" && ! -L "$UNIT" && -e "$UNIT"' "VPS setup checks systemd unit identity before rollback"
+assert_file_contains "$VPS_ROLLBACK" '[[ "$NGINX_PUBLISHED" == 1 && -n "$NGINX_PUBLISHED_ID" && ! -L "$NGINX" && -e "$NGINX"' "VPS setup checks nginx config identity before rollback"
 assert_file_contains "$VPS_SETUP" 'NGINX_ENABLED_PUBLISHED_ID="$(stat -c' "VPS setup records the enabled-site link inode before rollback"
 assert_file_contains "$VPS_SETUP" 'ENV_PUBLISHED_ID="$(stat -c' "VPS setup records the environment file inode before rollback"
 assert_file_contains "$VPS_SETUP" 'UNIT_PUBLISHED_ID="$(stat -c' "VPS setup records the systemd unit inode before rollback"
 assert_file_contains "$VPS_SETUP" 'NGINX_PUBLISHED_ID="$(stat -c' "VPS setup records the nginx config inode before rollback"
-assert_file_contains "$VPS_SETUP" 'Roll back only the exact inodes published by this attempt' "VPS cleanup avoids deleting files replaced after publication"
+assert_file_contains "$VPS_ROLLBACK" 'Roll back only the exact inodes published by this attempt' "VPS cleanup avoids deleting files replaced after publication"
 assert_file_contains "$VPS_SETUP" 'SERVICE_ATTEMPTED=1' "VPS setup tracks whether service activation needs cleanup after failure"
 assert_file_contains "$VPS_SETUP" 'HTTPS_ATTEMPTED=1' "VPS setup avoids deleting nginx configuration after certbot may have modified it"
 assert_file_contains "$VPS_SETUP" 'arbitrade_directory_is_safe "$ENV_DIR" || fail' "VPS setup refuses symlinked or non-directory environment parent paths"
@@ -241,10 +242,10 @@ printf '\nInstaller CLI and runtime-provisioning regression checks passed. No da
 
 # Regression guard: failed VPS provisioning must not disable a systemd service
 # after another actor replaces the unit published by this installation attempt.
-assert_file_contains "$VPS_SETUP" 'arbitrade_published_file_identity_matches "$UNIT" "$UNIT_PUBLISHED_ID"' "VPS rollback verifies that this attempt published the service unit"
+assert_file_contains "$VPS_ROLLBACK" 'arbitrade_published_file_identity_matches "$UNIT" "$UNIT_PUBLISHED_ID"' "VPS rollback verifies that this attempt published the service unit"
 assert_file_contains "$ROOT/installer/vps-preflight.sh" 'stat -c '\''%d:%i'\'' -- "$path"' "VPS identity predicate compares the published file device/inode"
-assert_file_contains "$VPS_SETUP" 'Service rollback skipped because the published unit identity could not be verified' "VPS rollback warns when service identity cannot be verified"
-assert_file_contains "$VPS_SETUP" 'if [[ "$SERVICE_ATTEMPTED" == 1 ]]; then' "VPS rollback only reports service-state rollback when service activation was attempted"
+assert_file_contains "$VPS_ROLLBACK" 'Service rollback skipped because the published unit identity could not be verified' "VPS rollback warns when service identity cannot be verified"
+assert_file_contains "$VPS_ROLLBACK" 'if [[ "$SERVICE_ATTEMPTED" == 1 ]]; then' "VPS rollback only reports service-state rollback when service activation was attempted"
 pass "VPS service rollback identity regression checks"
 
 # Exercise the published-file identity predicate with real temporary files.
