@@ -27,6 +27,7 @@ jobs:
           --health-timeout=5s
           --health-retries=10
     env:
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_test
       WALLET_TEST_DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_test
     steps:
       - name: Check out proposed changes
@@ -41,5 +42,7 @@ jobs:
           corepack prepare pnpm@10.18.0 --activate
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
+      - name: Create the application schema in the disposable database
+        run: pnpm exec drizzle-kit push --force
       - name: Run disposable MySQL concurrency and reconciliation tests
         run: pnpm exec vitest run server/wallet-adjustment-concurrency.integration.test.ts
