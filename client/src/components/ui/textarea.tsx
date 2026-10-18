@@ -12,6 +12,11 @@ function Textarea({
 }: React.ComponentProps<"textarea">) {
   // Get dialog composition context if available (will be no-op if not inside Dialog)
   const dialogComposition = useDialogComposition();
+  const compositionEndTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => () => {
+    if (compositionEndTimer.current !== null) clearTimeout(compositionEndTimer.current);
+  }, []);
 
   // Add composition event handlers to support input method editor (IME) for CJK languages.
   const {
@@ -42,7 +47,9 @@ function Textarea({
       dialogComposition.markCompositionEnd();
       // Delay setting composing to false to handle Safari's event order
       // In Safari, compositionEnd fires before the ESC keydown event
-      setTimeout(() => {
+      if (compositionEndTimer.current !== null) clearTimeout(compositionEndTimer.current);
+      compositionEndTimer.current = setTimeout(() => {
+        compositionEndTimer.current = null;
         dialogComposition.setComposing(false);
       }, 100);
       onCompositionEnd?.(e);
