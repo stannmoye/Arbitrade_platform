@@ -114,6 +114,7 @@ assert_file_contains "$VPS_SETUP" 'SERVICE_ATTEMPTED=1' "VPS setup tracks whethe
 assert_file_contains "$VPS_SETUP" 'HTTPS_ATTEMPTED=1' "VPS setup avoids deleting nginx configuration after certbot may have modified it"
 assert_file_contains "$VPS_SETUP" 'arbitrade_directory_is_safe "$ENV_DIR" || fail' "VPS setup refuses symlinked or non-directory environment parent paths"
 assert_file_contains "$VPS_SETUP" '[[ "$ROOT" =~ ^/[A-Za-z0-9_./-]+$ ]] || fail' "VPS setup rejects paths that cannot be represented safely in systemd configuration"
+assert_file_contains "$VPS_SETUP" '[[ "$ROOT" != "/root" && "$ROOT" != /root/* && "$ROOT" != /home/* ]] || fail' "VPS setup rejects root and home directories without overmatching similarly named paths"
 assert_file_contains "$VPS_SETUP" 'getent group "$APP_USER"' "VPS setup verifies the service group exists before writing the systemd unit"
 assert_file_contains "$VPS_SETUP" 'useradd --system --gid "$APP_USER"' "VPS setup creates the service user with its explicit matching group"
 
