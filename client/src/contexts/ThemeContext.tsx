@@ -64,12 +64,17 @@ export function ThemeProvider({
   const policyDefault = isTheme(policy?.defaultTheme) ? policy.defaultTheme : defaultTheme;
   const enabledThemes = policy?.enabledThemes?.filter(isTheme) ?? [...ARBITRADE_THEMES];
   const customerCanSelect = policy?.customerCanSelect === true;
-  const [theme, setThemeState] = useState<ArbitradeTheme>(() =>
-    typeof window === "undefined" ? defaultTheme : readStoredTheme(defaultTheme)
-  );
+  // Start from the published-safe default. Customer preferences are read only after policy loads,
+  // preventing a previously stored but now-disabled theme from flashing during initial render.
+  const [theme, setThemeState] = useState<ArbitradeTheme>(defaultTheme);
 
   useEffect(() => {
-    if (isAdmin || !policy) return;
+    if (isAdmin) {
+      // Administrators may keep a local preview independent of the published customer policy.
+      setThemeState(readStoredTheme(defaultTheme));
+      return;
+    }
+    if (!policy) return;
     let selected: ArbitradeTheme = policyDefault;
     if (customerCanSelect) {
       try {
