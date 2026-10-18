@@ -110,7 +110,7 @@ describe("canonical installer diagnostic privacy", () => {
 describe("main migration preflight integration", () => {
   it("checks existing-schema history before creating the persistent migration guard", async () => {
     const source = await readFile(new URL("../scripts/guarded-main-migrate.mjs", import.meta.url), "utf8");
-    expect(source).toContain('import { classifyMainMigrationPreflight } from "../installer/main-migration-preflight.mjs";');
+    expect(source).toContain('import { classifyMainMigrationPreflight, loadExpectedMainMigrationHistory, validateMainMigrationHistory } from "../installer/main-migration-preflight.mjs";');
     expect(source).toContain("FROM information_schema.tables WHERE table_schema=DATABASE()");
     expect(source).toContain("FROM __drizzle_migrations");
     expect(source).toContain("if (!preflight.allowed)");

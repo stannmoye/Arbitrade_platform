@@ -26,17 +26,24 @@ export async function loadExpectedMainMigrationHistory(root) {
 export function validateMainMigrationHistory(trackerRows, expectedMigrations) {
   if (!Array.isArray(trackerRows) || trackerRows.length === 0) return { allowed: false, reason: "The Drizzle migration tracker is empty or unreadable." };
   if (!Array.isArray(expectedMigrations) || expectedMigrations.length === 0) return { allowed: false, reason: "The repository migration journal could not be verified." };
-  const expectedByHash = new Map(expectedMigrations.map(migration => [migration.hash, migration.createdAt]));
+  const expectedByHash = new Map(expectedMigrations.map((migration, index) => [migration.hash, { createdAt: migration.createdAt, index }]));
   const seen = new Set();
+  const seenIndexes = new Set();
   for (const row of trackerRows) {
     const hash = String(row?.hash ?? "");
     const createdAt = Number(row?.created_at);
-    if (!/^[a-f0-9]{64}$/i.test(hash) || !expectedByHash.has(hash)) return { allowed: false, reason: "The Drizzle tracker contains a migration hash that does not match the repository journal." };
+    const expected = expectedByHash.get(hash);
+    if (!/^[a-f0-9]{64}$/i.test(hash) || !expected) return { allowed: false, reason: "The Drizzle tracker contains a migration hash that does not match the repository journal." };
     if (seen.has(hash)) return { allowed: false, reason: "The Drizzle tracker contains duplicate migration hashes." };
-    if (!Number.isSafeInteger(createdAt) || createdAt !== expectedByHash.get(hash)) return { allowed: false, reason: "A recorded Drizzle migration timestamp does not match its repository journal entry." };
+    if (!Number.isSafeInteger(createdAt) || createdAt !== expected.createdAt) return { allowed: false, reason: "A recorded Drizzle migration timestamp does not match its repository journal entry." };
     seen.add(hash);
+    seenIndexes.add(expected.index);
   }
-  return { allowed: true, reason: "All recorded Drizzle migration hashes and timestamps match the repository journal." };
+  const appliedIndexes = [...seenIndexes].sort((left, right) => left - right);
+  if (appliedIndexes.some((index, position) => index !== position)) {
+    return { allowed: false, reason: "The Drizzle tracker has a gap in the ordered migration journal; automatic migration is unsafe." };
+  }
+  return { allowed: true, reason: "Recorded Drizzle migrations form a contiguous prefix matching the repository journal." };
 }
 
 export function classifyMainMigrationPreflight({ mode, tableCount, trackerExists, trackerCount, trackerHistoryValid }) {

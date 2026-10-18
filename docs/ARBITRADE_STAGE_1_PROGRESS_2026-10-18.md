@@ -44,3 +44,10 @@ No production database, production VPS, customer financial data, or live transac
 - **CI evidence:** Mining regression workflow [run #39131976052](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39131976052) passed on the implementation commit. It covers Mining/transaction-console regression tests and TypeScript validation; it does **not** run the installer migration suite.
 - **Installer CI coverage:** The installer validation workflow now also triggers on pushes to `integration/auth-installer-vps-safety`, so the next commit should run the migration preflight tests and full installer validation against this branch.
 - **Still open:** Disposable-database migration/concurrency verification, wallet-ledger reconciliation, full endpoint authorization, and measured browser/responsive acceptance. Stage 1 remains open; no production database or VPS was touched and no deployment or merge was performed.
+
+
+## CI feedback and follow-up — 18 October 2026
+
+- **Installer validation run #39132072640:** The shell syntax, PHP/Node syntax, TypeScript validation, and application test suite passed. The installer/migration test suite reported **101 passed and 1 failed** because an existing source-assertion test still expected the pre-refactor import line in `scripts/guarded-main-migrate.mjs`; the implementation had correctly expanded that import to include the new history validator. The disposable MariaDB job passed; the overall workflow did not pass.
+- **Follow-up fix:** Updated the source assertion to match the new import and strengthened history validation to reject gaps in the ordered migration journal, not just unknown/duplicate hashes or timestamp mismatches. This is safer because a non-empty tracker with a missing earlier migration must not be accepted as a valid baseline.
+- **Next verification:** Re-run installer/migration tests, the disposable MySQL 8 and MariaDB jobs, and the Mining regression workflow on the new commit. Do not treat the installer validation as passing until all required jobs complete successfully.

@@ -53,6 +53,7 @@ describe("main migration preflight", () => {
     expect(validateMainMigrationHistory([{ hash: "c".repeat(64), created_at: 1000 }], expected).allowed).toBe(false);
     expect(validateMainMigrationHistory([{ hash: "a".repeat(64), created_at: 999 }], expected).allowed).toBe(false);
     expect(validateMainMigrationHistory([{ hash: "a".repeat(64), created_at: 1000 }, { hash: "a".repeat(64), created_at: 1000 }], expected).allowed).toBe(false);
+    expect(validateMainMigrationHistory([{ hash: "b".repeat(64), created_at: 2000 }], expected).allowed).toBe(false);
   });
 
   it("fails closed when database inventory counts are malformed", () => {
