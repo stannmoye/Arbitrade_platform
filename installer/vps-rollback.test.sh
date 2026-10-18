@@ -72,7 +72,7 @@ NGINX_RELOAD_ATTEMPTED=1
 false || cleanup_vps_setup 1
 [[ ! -e "$NGINX" && ! -L "$NGINX_ENABLED" ]] || fail "nginx files were not rolled back"
 grep -Fq 'reload nginx' "$SYSTEMCTL_LOG" || fail "nginx was not reloaded after removing the failed site"
-grep -Fxq '-t' "$NGINX_LOG" || fail "nginx config was not validated before rollback reload"
+grep -Fxq -- '-t' "$NGINX_LOG" || fail "nginx config was not validated before rollback reload"
 pass "post-reload failure restores and reloads nginx configuration"
 
 new_case
