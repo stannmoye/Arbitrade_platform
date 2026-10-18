@@ -89,10 +89,13 @@ export function calculateAdditionalStakeReward(
   frequency: string,
   rewardMinor: number,
   now = new Date(),
+  maturityAt?: Date,
 ) {
   const intervalMs = rewardIntervalMs(frequency);
   const periodDays = intervalMs / 86400000;
-  const elapsedPeriods = Math.max(0, Math.floor((now.getTime() - openedAt.getTime()) / intervalMs));
+  // Rewards stop accruing at maturity, even if the dashboard is first opened later.
+  const asOf = maturityAt ? new Date(Math.min(now.getTime(), maturityAt.getTime())) : now;
+  const elapsedPeriods = Math.max(0, Math.floor((asOf.getTime() - openedAt.getTime()) / intervalMs));
   const cumulativeTarget = Math.floor(principalMinor * annualRateBps * elapsedPeriods * periodDays / (10000 * 365));
   return Math.max(0, cumulativeTarget - rewardMinor);
 }
@@ -109,6 +112,8 @@ async function postDueRewards(conn: Db, userId: number) {
       new Date(position.openedAt),
       position.rewardFrequency,
       Number(position.rewardMinor),
+      new Date(),
+      new Date(position.maturityAt),
     );
     if (!reward) {
       // Advance the schedule even when rounding produces no payable minor unit;
