@@ -65,6 +65,7 @@ if (("${#missing[@]}")); then
     # Refuse to replace host-managed APT configuration, including dangling symlinks.
     . "$ROOT/installer/vps-preflight.sh"
     arbitrade_directory_is_safe "/etc/apt/keyrings" || fail "/etc/apt/keyrings must be a real directory, not a symlink or non-directory path."
+    arbitrade_directory_is_safe "/etc/apt/sources.list.d" || fail "/etc/apt/sources.list.d must be a real directory, not a symlink or non-directory path."
     arbitrade_path_is_available "/etc/apt/keyrings/nodesource.gpg" || fail "NodeSource signing key already exists; refusing to overwrite it."
     arbitrade_path_is_available "/etc/apt/sources.list.d/nodesource.list" || fail "NodeSource apt source already exists; refusing to overwrite it."
 
