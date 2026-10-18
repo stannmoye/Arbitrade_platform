@@ -248,7 +248,12 @@ walletDescribe("wallet SQL concurrency integration (disposable MySQL-compatible 
         userId, currency, amountMinor: 10, mode: "debit", reason: "wallet concurrency integration test",
       })),
     );
-    expect(outcomes.filter(outcome => outcome.status === "fulfilled")).toHaveLength(10);
+    expect(
+      outcomes.filter(outcome => outcome.status === "fulfilled"),
+      outcomes.filter(outcome => outcome.status === "rejected")
+        .map(outcome => outcome.status === "rejected" ? String(outcome.reason) : "")
+        .join("\\n"),
+    ).toHaveLength(10);
 
     const verify = await pool!.getConnection();
     try {
