@@ -303,3 +303,15 @@ A focused read of `confirmCustomerMiningSwap`, `executeTokenConversion`, and the
 - **Boundary to preserve:** Mining's `v5_wallets` journal and the canonical `customer_balances` main wallet are separate stores. Confirm that product labels, displayed balances, and history make this cross-store conversion clear and that a failure in either ledger path rolls the complete database transaction back.
 
 **Source-review result:** the inspected implementation contains quote ownership, lifecycle, idempotency, tolerance, and ledger non-negative/balancing guards. This is not test evidence. Still required: wrong-owner/expired/executed quote tests; same-key and different-key concurrency tests; assertions that the CKI debit, clearing entries, target-wallet credit, canonical main-wallet credit, fee and conversion receipt all agree; notification replay/rollback tests; and an integration test proving atomic rollback across both wallet stores. No tests were run and no runtime or financial data was changed during this review.
+
+## 17. Mining idempotency unit-test addition (2026-10-18)
+
+Added `server/mining-store.test.ts` with unit coverage for the pure `requestKey` helper:
+
+- The same normalized client key, operation namespace, and customer produce the same opaque digest.
+- The same client-supplied key is isolated across different customer IDs.
+- The same client-supplied key is isolated across different operation namespaces.
+- Surrounding whitespace is normalized before hashing.
+- Empty, too-short, too-long, whitespace-containing, and unsupported-character keys are rejected.
+
+**Verification status:** the test file was committed to the working branch, but this environment has not executed the Vitest suite or type-check. These are test definitions, not passing test evidence. The unit tests do not replace database-backed tests for quote ownership/expiry, same-key replay, simultaneous different-key confirmations, ledger correspondence, atomic rollback, or notification replay/ownership. Those remain required before Stage 1 can be approved.
