@@ -658,3 +658,13 @@
     outline-offset: 3px;
   }
 }
+
+
+/* Keep status attributes visually consistent even when markup uses no named class. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  [data-status="success"], [data-status="warning"], [data-status="info"], [data-status="error"]
+) {
+  border-style: solid;
+  border-width: 1px;
+  border-radius: var(--arb-radius-sm);
+}
