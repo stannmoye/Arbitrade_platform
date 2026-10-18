@@ -24,7 +24,7 @@ jobs:
        github.ref_name == 'integration/auth-installer-vps-safety') ||
       (github.event_name == 'workflow_run' &&
        (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure') &&
-       github.event.workflow_run.event == 'push' &&
+       (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') &&
        github.event.workflow_run.head_branch == 'integration/auth-installer-vps-safety' &&
        vars.ARBITRADE_AUTONOMOUS_WORKER_ENABLED == 'true')
     runs-on: ubuntu-latest
@@ -213,6 +213,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+      actions: write
     steps:
       - name: Check out the current work branch
         uses: actions/checkout@v7
@@ -281,3 +282,12 @@ jobs:
             git commit -m "[ARBITRADE-AUTO-STEP-$TASK_NUMBER] automated Stage 1 task"
           fi
           git push origin "HEAD:${{ needs.code-one-task.outputs.target_branch }}"
+
+      - name: Dispatch validation for the exact published branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: ${{ needs.code-one-task.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          gh workflow run installer-validation.yml --ref "$TARGET_BRANCH"
+          echo "Dispatched Installer validation on $TARGET_BRANCH. Follow-on coding is eligible only after this run completes and the worker variable is enabled."
