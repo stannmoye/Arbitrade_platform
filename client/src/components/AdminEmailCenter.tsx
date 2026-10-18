@@ -11,7 +11,7 @@ export function AdminEmailCenter() {
   const send = trpc.adminOperations.sendCustomerEmail.useMutation({ onSuccess: () => { setMessage("Message queued. It will send only after SMTP is configured and the customer inbox is verified."); setSubject(""); setBody(""); }, onError: e => setMessage(e.message) });
   const test = trpc.adminOperations.sendTestEmail.useMutation({ onSuccess: () => setMessage("Test message queued for delivery. Check the recipient inbox after SMTP processes the outbox."), onError: e => setMessage(e.message) });
   const selected = (customers.data || []).find((c: any) => c.id === userId);
-  return <div className="portal-page">
+  return <div className="portal-page arb-page">
     <div className="portal-page-top"><div><div className="eyebrow">Outbound communication</div><h1>Email center</h1><p>One-to-one messages only. Bulk sending is not enabled.</p></div></div>
     <div className="settings-card"><div className="customer-panel-head"><div><div className="eyebrow">Transport status</div><h2>{status.data?.smtpConfigured ? "SMTP configured" : "SMTP not configured"}</h2></div><span className={status.data?.smtpConfigured ? "admin-live-chip" : "status-pill warning"}>{status.data?.smtpConfigured ? "Ready" : "Disabled"}</span></div>
       <p className="settings-copy">SMTP credentials are server-only environment secrets; they are never stored in admin settings or returned to the browser. No email is sent while the transport is disabled.</p>
