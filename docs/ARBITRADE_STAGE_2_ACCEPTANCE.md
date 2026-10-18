@@ -28,12 +28,14 @@ Do not mark these as passed until CI or a local run reports success.
 
 ## Automated CI coverage
 
-A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the full test suite, TypeScript validation, and production build as three parallel jobs on pushes to the Stage 2 branch. The same workflow is configured for pull requests targeting `integration/auth-installer-vps-safety` and for manual dispatch. A configured workflow is not evidence of a passing run; record the actual run result before marking checks complete.\n\n## Latest confirmed automated validation evidence (historical)
+A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the full test suite, TypeScript validation, and production build as three parallel jobs on pushes to the Stage 2 branch. The same workflow is configured for pull requests targeting `integration/auth-installer-vps-safety` and for manual dispatch. A configured workflow is not evidence of a passing run; record the actual run result before marking checks complete.
 
-- GitHub Actions run: [39174934891](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39174934891).
-- All three parallel jobs passed for code commit `1bf20c1a3e0792616a8877f2c2282da13e35486f`.
-- Application tests: 28 test files, 199 tests passed; `pnpm check` and `pnpm build` passed.
-- This is historical evidence for that commit, not a passing result for the current pull-request head. Later appearance-policy regression tests and documentation changes require fresh verification.
+## Latest confirmed automated validation evidence
+
+- GitHub Actions run: [39175490040](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39175490040), for commit `cc6b2c5c73bf940729c42089fb4bf19f40e829ab`.
+- All three parallel jobs completed successfully: application tests, TypeScript validation, and production build.
+- Application tests: 28 test files and 203 tests passed; `pnpm check` and `pnpm build` passed.
+- This passing run predates the newest exhaustive theme-policy normalization test and server-validation contract test. A fresh run for the current pull-request head is required before claiming those additions passed.
 - No real-browser viewport evidence has been captured; Stage 2 remains in progress. The acceptance matrix uses the ten viewport widths specified in the master roadmap.
 
 ## Acceptance still required
