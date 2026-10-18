@@ -81,3 +81,13 @@ No production database, production VPS, customer financial data, or live transac
 - **Progress estimate:** remains **40%**. The passing CI run is meaningful validation progress but does not close database-backed wallet/settlement concurrency, cross-account API tests, browser/accessibility acceptance, or host failure-injection gaps.
 - **Orchestration limitation:** CI automatically validates repository events, but the available connected tools do not provide a persistent AI coding-agent runner or automatic task handoff after every execution window. Do not claim continuous autonomous code authoring until that worker is configured and verified.
 - **Safety:** no merge, deployment, production database/VPS change, or live financial mutation performed.
+
+
+## Manual settlement concurrency guard — 2026-10-18 16:18 UTC
+
+- Added `server/db-mutation-guards.ts` with a fail-closed assertion that accepts the MySQL2/Drizzle result tuple only when exactly one row was affected.
+- Added `server/db-mutation-guards.test.ts` covering a one-row update, zero rows, multiple rows, missing driver metadata, and a missing result.
+- Updated `manuallySettleTrade` in `server/db.ts` to assert that the wallet update and the conditional pending-to-settled trade transition each affect exactly one row. If the trade-state transition loses a concurrent race, the assertion throws inside the database transaction so preceding wallet/ledger changes should roll back with the transaction.
+- **CI evidence:** Installer validation run [#39144256786](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39144256786) completed successfully on code head `e096b8fc5da8323e71692f954d77da1688d07936`. Syntax, TypeScript, application tests (including the new guard tests), installer/migration regression tests, disposable MariaDB, disposable MySQL 8 recovery, production build/bundle/server smoke checks, deployment-package validation, and the progress dashboard all passed.
+- **Remaining verification:** This guard does not replace a true competing-settlement integration test against a disposable database, nor does it resolve settlement-reference uniqueness across different trades or the separate administrator wallet-adjustment concurrency concern. Stage 1 percentage remains **40%** pending broader acceptance evidence.
+- No merge, deployment, production DB/VPS changes, or live financial mutations were performed.
