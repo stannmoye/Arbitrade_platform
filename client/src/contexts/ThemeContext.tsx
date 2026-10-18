@@ -44,7 +44,9 @@ function isTheme(value: unknown): value is ArbitradeTheme {
 }
 
 function readEnabledThemes(value: unknown): ArbitradeTheme[] {
-  return Array.isArray(value) ? value.filter(isTheme) : [];
+  if (!Array.isArray(value)) return [];
+  // Ignore malformed entries and duplicates while preserving the published order.
+  return Array.from(new Set(value.filter(isTheme)));
 }
 
 function readStoredTheme(defaultTheme: ArbitradeTheme): ArbitradeTheme {
