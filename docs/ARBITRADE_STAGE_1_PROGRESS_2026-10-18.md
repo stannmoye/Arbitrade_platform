@@ -41,6 +41,7 @@ The agreed Option B is **ChatGPT-led development using the connected GitHub tool
 1. **No always-on no-API coding daemon exists in this setup.** The agreed approach avoids the separate API quota, but ChatGPT-led code changes happen during an active session; GitHub Actions alone cannot author or repair code.
 2. **PR #65 is still a draft.** Its current head's installer validation and autonomy dashboard both passed; review the control-plane documentation/dashboard before any merge.
 3. **S1-A implementation and configured CI acceptance criteria are validated and ready for review.** On PR #62 head `1e674f431282b3d08e0e386d86b59bd24aaa0718`, cross-database wallet integration [run #27](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39155238918) and full installer validation [run #497](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39155238949) passed. Reviewer decision/merge is pending. Broader upgrade testing against representative database snapshots/schema drift remains a release-readiness follow-up; this does not certify production readiness.
+4. **S1-B is partially implemented and cross-database tested.** Draft PR [#66](https://github.com/stannmoye/Arbitrade_platform/pull/66) adds a fail-closed row-transition guard for daily Mining boost settlement plus database-backed competing-worker, retry/reconciliation, and rollback tests. Installer validation [run #505](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39156091708) and settlement integration [run #1](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39156044176) passed on the tested revisions; both MySQL 8.0 and MariaDB 11.4 passed the settlement matrix. This does not yet cover every trade/stake settlement path, and review/merge remains pending.
 4. **Production readiness remains open.** Staging acceptance, backup/restore evidence, security review, monitoring, and production target/configuration are separate gates.
 5. **Mining settlement and payout workflows have unresolved product/provider decisions** recorded in `TODO.md` and the master plan.
 
@@ -54,6 +55,6 @@ Do not mark the platform production-ready until the full release matrix, staging
 
 1. Keep PR #65 reviewable, with the agreed no-separate-API method and the legacy API worker manual-only; verify the fresh progress-report revision's checks.
 2. Inspect the latest validation result against the exact PR head.
-3. Keep S1-A reviewable and preserve human approval for merge. Then proceed to S1-B settlement idempotency/rollback on a separate, reviewable change set; do not touch production.
+3. Keep S1-A reviewable and preserve human approval for merge. Continue the broader S1-B audit beyond the daily Mining boost path, using separate reviewable changes; do not touch production.
 4. Track each actual code change and test result; do not claim background execution between sessions.
 5. Preserve human approval for merge/release and all production financial operations.
