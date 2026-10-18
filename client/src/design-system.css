@@ -1097,3 +1097,43 @@
 .arb-page :where(pre, code) {
   overflow-wrap: anywhere;
 }
+
+
+/* Stage 2 responsive safeguards: prevent adopted layouts and data grids from widening the viewport. */
+.arb-page {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.arb-page :where(main, section, article, aside, header, footer, form, fieldset, .grid, [class*="grid-cols-"]) {
+  min-width: 0;
+}
+
+.arb-page :where(p, li, dd, dt, th, td, label, a, button) {
+  overflow-wrap: anywhere;
+}
+
+.arb-page :where(img, video, iframe, canvas) {
+  height: auto;
+}
+
+.arb-page :where(input, select, textarea, button) {
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .arb-page :where(table) {
+    font-size: 0.875rem;
+  }
+
+  .arb-page :where(pre) {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .arb-page :where(.arb-overflow-x) {
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+}
