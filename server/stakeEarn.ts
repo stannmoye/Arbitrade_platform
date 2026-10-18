@@ -82,7 +82,12 @@ async function postDueRewards(conn: Db, userId: number) {
     const schedule = calculateDueRewardSchedule(new Date(position.nextRewardAt), position.rewardFrequency);
     const periods = schedule.periodsDue;
     const reward = Math.max(0, Math.floor(Number(position.principalMinor) * Number(position.annualRateBps) * ((position.rewardFrequency === "DAILY" ? periods : periods * (position.rewardFrequency === "WEEKLY" ? 7 : 30))) / (10000 * 365)) - Number(position.rewardMinor));
-    if (!reward) continue;
+    if (!reward) {
+      // Advance the schedule even when rounding produces no payable minor unit;
+      // otherwise the same overdue position is selected on every dashboard read.
+      await conn.execute(`UPDATE stake_positions SET nextRewardAt=?, updatedAt=NOW() WHERE id=?`, [schedule.nextRewardAt, position.id]);
+      continue;
+    }
     const reference = `stake-reward:${position.id}:${position.rewardCount + 1}`;
     const [existing] = await conn.query<any[]>(`SELECT id FROM balance_ledger WHERE reference=? LIMIT 1`, [reference]);
     if (!existing.length) {
