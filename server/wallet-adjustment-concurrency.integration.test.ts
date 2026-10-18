@@ -10,7 +10,7 @@ const balancesTable = `wallet_concurrency_balances_${suffix}`;
 const ledgerTable = `wallet_concurrency_ledger_${suffix}`;
 let pool: mysql.Pool | undefined;
 
-walletDescribe("wallet SQL concurrency integration (disposable MySQL)", () => {
+walletDescribe("wallet SQL concurrency integration (disposable MySQL-compatible database)", () => {
   beforeAll(async () => {
     pool = mysql.createPool(databaseUrl!);
     const connection = await pool.getConnection();
