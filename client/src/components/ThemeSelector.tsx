@@ -26,10 +26,10 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
   const customerCanSelect = policy?.customerCanSelect === true;
   const policyReady = !auth.isLoading && !appearance.isLoading;
   const canChoose = policyReady && (isAdmin || (!readOnly && customerCanSelect));
-  const effectiveDefault = customerThemes.includes(defaultTheme) ? defaultTheme : customerThemes[0];
   // A malformed or temporarily empty published allow-list must never produce an
   // empty select. Fall back to the published default until the policy is corrected.
   const customerThemes = enabledThemes.length > 0 ? enabledThemes : [defaultTheme];
+  const effectiveDefault = customerThemes.includes(defaultTheme) ? defaultTheme : customerThemes[0];
   const availableThemes: ArbitradeTheme[] = isAdmin
     ? [...ARBITRADE_THEMES]
     : customerCanSelect
@@ -42,10 +42,10 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
   if (!switchable) return null;
 
   return (
-    <section className={`arb-theme-selector${compact ? " arb-theme-selector-compact" : ""}`} aria-label="Appearance settings">
+    <section className={`arb-theme-selector${compact ? " arb-theme-selector-compact" : ""}`} aria-label="Appearance settings" aria-busy={!policyReady}>
       <label htmlFor={canChoose ? selectId : undefined}>
         <span className="arb-theme-selector-title">{canChoose ? "Appearance" : "Workspace appearance"}</span>
-        {!compact && <span className="arb-theme-selector-description">{!policyReady ? "Loading workspace appearance…" : canChoose ? "Choose your workspace theme" : "Theme selected by workspace settings"}</span>}
+        {!compact && <span className="arb-theme-selector-description" role={!policyReady ? "status" : undefined} aria-live={!policyReady ? "polite" : undefined}>{!policyReady ? "Loading workspace appearance…" : canChoose ? "Choose your workspace theme" : "Theme selected by workspace settings"}</span>}
       </label>
       {canChoose ? (
         <select
