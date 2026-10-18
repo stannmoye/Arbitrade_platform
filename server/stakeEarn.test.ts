@@ -35,6 +35,16 @@ describe("Stake & Earn idempotency replay guards", () => {
   it("returns the stored result for a matching operation and position", () => {
     expect(__testParseIdempotencyReplay(prior, "stake.cancel", 12)).toEqual({ positionId: 12, status: "CANCELLED" });
   });
+  it("fails closed when a stored replay result is malformed JSON", () => {
+    expect(() => __testParseIdempotencyReplay({ command: "stake.cancel", resultJson: "{" }, "stake.cancel"))
+      .toThrow("Stored Stake & Earn idempotency result is invalid");
+  });
+
+  it("fails closed when a stored replay result has no valid position ID", () => {
+    expect(() => __testParseIdempotencyReplay({ command: "stake.allocate", resultJson: JSON.stringify({ status: "ACTIVE" }) }, "stake.allocate"))
+      .toThrow("no valid position");
+  });
+
 });
 
 
