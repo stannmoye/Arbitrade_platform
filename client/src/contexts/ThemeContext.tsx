@@ -75,13 +75,13 @@ export function ThemeProvider({
   const [theme, setThemeState] = useState<ArbitradeTheme>(defaultTheme);
 
   useEffect(() => {
-    if (auth.isLoading || !isAdmin) return;
+    if (auth.isLoading || auth.isError || !isAdmin) return;
     // Administrators may keep a local preview independent of the published customer policy.
     setThemeState(readStoredTheme(defaultTheme));
   }, [auth.isLoading, isAdmin, defaultTheme]);
 
   useEffect(() => {
-    if (auth.isLoading || isAdmin || !policy) return;
+    if (auth.isLoading || auth.isError || isAdmin || !policy) return;
     let selected: ArbitradeTheme = policyDefault;
     if (customerCanSelect) {
       try {
@@ -119,7 +119,7 @@ export function ThemeProvider({
   }, [switchable, auth.isLoading, isAdmin, defaultTheme, policy, customerCanSelect, policyDefault, enabledThemes.join("|")]);
 
   const setTheme = (nextTheme: ArbitradeTheme) => {
-    if (!isTheme(nextTheme) || auth.isLoading) return;
+    if (!isTheme(nextTheme) || auth.isLoading || auth.isError) return;
     if (isAdmin) {
       setThemeState(nextTheme);
       return;
@@ -132,14 +132,16 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = document.documentElement;
-    const effectiveTheme = !auth.isLoading && !isAdmin && policy
-      ? (customerCanSelect && enabledThemes.includes(theme) ? theme : policyDefault)
-      : theme;
+    const effectiveTheme = auth.isError
+      ? policyDefault
+      : !auth.isLoading && !isAdmin && policy
+        ? (customerCanSelect && enabledThemes.includes(theme) ? theme : policyDefault)
+        : theme;
     root.dataset.arbTheme = effectiveTheme;
     root.classList.toggle("dark", effectiveTheme !== "clean-light");
     root.style.colorScheme = effectiveTheme === "clean-light" ? "light" : "dark";
 
-    if (!auth.isLoading && switchable && (isAdmin || (policy && customerCanSelect && enabledThemes.includes(effectiveTheme)))) {
+    if (!auth.isLoading && !auth.isError && switchable && (isAdmin || (policy && customerCanSelect && enabledThemes.includes(effectiveTheme)))) {
       try {
         window.localStorage.setItem(THEME_STORAGE_KEY, effectiveTheme);
       } catch {
