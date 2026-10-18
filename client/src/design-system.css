@@ -574,3 +574,78 @@
     outline: 1px solid Highlight;
   }
 }
+
+
+/* Stage 2 integration: apply the foundation to the shared UI primitives too. */
+[data-slot="button"],
+[data-wb-button="true"] {
+  -webkit-tap-highlight-color: transparent;
+}
+[data-slot="input"],
+[data-slot="textarea"],
+[data-slot="select-trigger"] {
+  max-width: 100%;
+  min-width: 0;
+}
+[data-slot="input"][aria-invalid="true"],
+[data-slot="textarea"][aria-invalid="true"],
+[data-slot="select-trigger"][aria-invalid="true"] {
+  border-width: 2px;
+  border-color: var(--arb-color-danger, #ff7777);
+}
+[data-slot="input"]:read-only,
+[data-slot="textarea"]:read-only {
+  border-style: dashed;
+}
+[data-slot="button"]:focus-visible,
+[data-slot="input"]:focus-visible,
+[data-slot="textarea"]:focus-visible,
+[data-slot="select-trigger"]:focus-visible {
+  outline: 2px solid var(--arb-focus-ring, #8eafff);
+  outline-offset: 2px;
+}
+@media (max-width: 600px) {
+  [data-slot="button"]:not([data-size="sm"]):not([data-size="icon-sm"]),
+  [data-slot="input"],
+  [data-slot="textarea"],
+  [data-slot="select-trigger"] {
+    min-height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="button"],
+  [data-slot="input"],
+  [data-slot="textarea"],
+  [data-slot="select-trigger"] {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+@media (forced-colors: active) {
+  [data-slot="button"],
+  [data-slot="input"],
+  [data-slot="textarea"],
+  [data-slot="select-trigger"] {
+    border-color: ButtonText;
+    forced-color-adjust: auto;
+  }
+  [data-slot="input"][aria-invalid="true"],
+  [data-slot="textarea"][aria-invalid="true"],
+  [data-slot="select-trigger"][aria-invalid="true"] {
+    border: 2px solid Mark;
+  }
+  [data-slot="button"]:focus-visible,
+  [data-slot="input"]:focus-visible,
+  [data-slot="textarea"]:focus-visible,
+  [data-slot="select-trigger"]:focus-visible {
+    outline: 2px solid Highlight;
+  }
+  [data-slot="button"]:disabled,
+  [data-slot="input"]:disabled,
+  [data-slot="textarea"]:disabled {
+    border-color: GrayText;
+    color: GrayText;
+  }
+}
