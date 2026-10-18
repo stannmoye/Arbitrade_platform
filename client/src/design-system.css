@@ -880,10 +880,10 @@
 /* Keep all common controls comfortable to use on touch-first devices,
    including controls supplied by the existing component library. */
 @media (pointer: coarse) {
-  :where(
+  :is(
     button,
     [role="button"],
-    input:not([type="hidden"]),
+    input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
     select,
     textarea,
     summary,
