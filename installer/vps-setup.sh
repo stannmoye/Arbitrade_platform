@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 # Safe VPS bootstrap for an already checked-out Arbitrade repository.
 # This script never overwrites existing nginx or systemd configuration.
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 DOMAIN=""
 EMAIL=""
 INSTALL_RUNTIME=0
