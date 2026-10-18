@@ -731,3 +731,26 @@
     outline-offset: 3px;
   }
 }
+
+/* Stage 2: preserve meaningful controls and focus indicators in forced-colors mode. */
+@media (forced-colors: active) {
+  :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+    [data-status="success"], [data-status="warning"], [data-status="info"], [data-status="error"]
+  ) {
+    border: 1px solid CanvasText;
+    color: CanvasText;
+    background: Canvas;
+  }
+
+  :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+    a, button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])
+  ):focus-visible {
+    outline-color: Highlight;
+  }
+
+  :root[data-arb-theme] .arb-theme-selector select {
+    border: 1px solid ButtonText;
+    color: ButtonText;
+    background: ButtonFace;
+  }
+}
