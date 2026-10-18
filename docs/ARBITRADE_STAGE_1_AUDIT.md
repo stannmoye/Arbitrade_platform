@@ -78,8 +78,10 @@ These observations are from code/document inspection only. They do not establish
 - Current admin sound controls observed cover opportunity, credit and debit categories, not the complete event catalogue in the roadmap. Event mapping, deduplication, preferences, quiet mode, volume and confirmed backend event semantics need an explicit gap review.
 - Verify whether sound playback is triggered by confirmed persisted events or by local UI callbacks; avoid celebratory sound on a request alone.
 
-### P1 — Route/documentation consistency
-- `route-manifest.md` describes some entry points as simulated workspaces, while the current README and inspected main application describe database-backed customer/admin sessions. Reconcile this documentation against the running application and tests before using the manifest as the definitive route inventory.
+### P1 — Route/documentation consistency and unreachable legacy code
+- Source inspection of `App.tsx` confirms `/` renders `PortalGateway`, paths beginning `/ops-console-7f3a` render `AdminRoute`, and other paths (including `/customer`) render `CustomerPortal`, which calls the database-backed `trpc.auth.me` query. This contradicts the old route-manifest wording that described a simulated customer workspace; the manifest has now been corrected to match source-level routing.
+- The active `App()` implementation returns for the root/admin/customer routing cases at lines around 441–443. A second, older UI implementation begins immediately after the unconditional customer return and is unreachable. This legacy block contains hard-coded demo balances/content and simulated interactions. Do not treat it as the active portal; review its safe removal separately after checking whether any imports/constants are shared.
+- These conclusions are from source inspection. HTTP routing, deep-link fallback and session behaviour still need runtime/browser confirmation.
 
 ### P2 — Responsive baseline is present but not measured
 - Existing mobile media queries and reduced-motion styles are positive starting points.
