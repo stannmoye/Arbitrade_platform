@@ -774,3 +774,20 @@
     width: 100%;
   }
 }
+
+/* Stage 2: align native form widgets with the active theme without hiding browser affordances. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input[type="checkbox"], input[type="radio"], input[type="range"], progress
+) {
+  accent-color: var(--arb-color-accent);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input[type="file"], input[type="date"], input[type="time"], input[type="datetime-local"], input[type="month"], input[type="week"]
+) {
+  color-scheme: inherit;
+  max-width: 100%;
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) ::selection {
+  color: var(--arb-color-canvas);
+  background: var(--arb-color-accent);
+}
