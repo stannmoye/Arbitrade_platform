@@ -2,7 +2,7 @@
 
 **Repository:** `stannmoye/Arbitrade_platform`  
 **Working branch:** `integration/auth-installer-vps-safety`  
-**Roadmap version:** 1.0  
+**Roadmap version:** 2.0  
 **Purpose:** The durable source of truth for the customer experience, themes, notifications, sounds, responsive layouts, administrator portal, quality assurance, and deployment-verification work.
 
 > **Working rule:** Complete and verify one stage at a time. Update this document as work progresses so the team can always identify what is complete, what is in progress, what failed, and what comes next. Do not claim a task or test is complete unless it has actually been implemented or run.
@@ -72,7 +72,41 @@ Provide an administrator section such as **Admin Portal → Appearance → Custo
 
 Implement themes through shared design tokens and reusable components. Do not duplicate the whole portal five times.
 
-## The 16-stage implementation roadmap
+## The 30-stage implementation roadmap
+
+## Stage index — all 30 stages
+
+1. Complete Application Audit and Development Baseline
+2. Shared Design System and Responsive Foundation
+3. Five-Theme Architecture and Administrator Theme Controls
+4. Customer Navigation and Dashboard Redesign
+5. Wallet, Deposit, Withdrawal and Transaction History
+6. Trading, Mining and Swap Experience
+7. Button Feedback, Animations and Interaction Quality
+8. Centralized Notification Infrastructure
+9. Notification Sound Library and Playback Engine
+10. Administrator Notification and Sound Management
+11. Customer Notification Centre and Preferences
+12. Customer Account, Security and Support Experience
+13. Administrator Portal Redesign
+14. Performance, Accessibility and Error Recovery
+15. Customer Onboarding, Guided Tours and Contextual Help
+16. Search, Filtering, Sorting and Data Exploration
+17. Receipts, Transaction Details and Exportable Records
+18. Customer Personalization and Preferences
+19. Localization, Timezones, Number and Currency Formatting
+20. Progressive Web App and Installability Assessment
+21. Real-Time Updates and Connection Resilience
+22. Security Hardening and Privacy Review
+23. Abuse Prevention, Operational Limits and Risk Signals
+24. Audit Trails, Administrative Accountability and Configuration History
+25. Operational Monitoring, Diagnostics and Supportability
+26. Email, In-App Message and Communication Templates
+27. Feature Flags, Maintenance Mode and Safe Rollout Controls
+28. Backup, Recovery, Data Integrity and Release Management
+29. Comprehensive Testing and Regression Verification
+30. Sandbox, cPanel and Fresh VPS Production Verification
+
 
 ### Stage 1 — Complete Application Audit and Development Baseline
 **Objective:** Understand the current system before changing it.
@@ -317,7 +351,246 @@ Deliverable: performance/accessibility findings and verified improvements.
 
 Exit criteria: no unacceptable regression; important accessibility and recovery paths are checked.
 
-### Stage 15 — Comprehensive Testing and Regression Verification
+### Stage 15 — Customer Onboarding, Guided Tours and Contextual Help
+**Objective:** Help new and returning customers understand the portal without overwhelming them.
+
+Tasks:
+- Review the first-login experience and remove unnecessary friction.
+- Add a concise, dismissible dashboard walkthrough where it helps.
+- Add contextual explanations for wallet statuses, transaction states, fees and available actions.
+- Add searchable help articles and links to relevant support topics.
+- Add confirmation summaries before consequential actions.
+- Allow users to dismiss noncritical tips and revisit help later.
+- Ensure onboarding never promises earnings or presents speculative outcomes as guaranteed.
+- Make all help content responsive, accessible and translatable in future.
+
+Deliverable: clear, optional onboarding and contextual help.
+
+Exit criteria: customers can find explanations for important workflows without obstructing normal use.
+
+### Stage 16 — Search, Filtering, Sorting and Data Exploration
+**Objective:** Make large histories and portal records easier to navigate.
+
+Tasks:
+- Standardize search, filtering, sorting and pagination patterns.
+- Add transaction filters for date range, type, status and asset where supported.
+- Preserve filters during navigation where appropriate.
+- Add clear filter chips, reset controls and empty-result explanations.
+- Debounce search and avoid excessive API calls.
+- Ensure filtering and authorization are enforced server-side where necessary.
+- Keep data tables usable on narrow screens with mobile cards or deliberate horizontal scrolling.
+- Ensure totals and pagination reflect the filtered dataset accurately.
+
+Deliverable: consistent, efficient search and data exploration.
+
+Exit criteria: filters produce correct results and do not expose records outside the user's permissions.
+
+### Stage 17 — Receipts, Transaction Details and Exportable Records
+**Objective:** Make financial records easier to understand and retain.
+
+Tasks:
+- Improve transaction detail pages with reference IDs, timestamps, status history and asset/amount information where available.
+- Provide printable receipts or downloadable records only from authoritative transaction data.
+- Add CSV export for permitted customer records where appropriate.
+- Consider PDF statements if the current architecture supports secure generation.
+- Include timezone and currency/asset labels clearly.
+- Validate export permissions and prevent cross-account data leakage.
+- Avoid placing secrets or unnecessary personal data in exports.
+- Add clear handling for pending, failed, reversed and completed transactions.
+
+Deliverable: trustworthy transaction details and useful records.
+
+Exit criteria: exports and receipts match the authoritative records and enforce account-level authorization.
+
+### Stage 18 — Customer Personalization and Preferences
+**Objective:** Let customers configure useful aspects of their experience without weakening administrator controls.
+
+Tasks:
+- Centralize customer preferences for theme (when allowed), sound, volume, quiet hours and notification categories.
+- Consider compact/dense layout preference where appropriate.
+- Respect system reduced-motion preferences.
+- Define sensible defaults and a reset-to-default option.
+- Synchronize account-level preferences across devices when supported.
+- Handle logged-out and first-visit preferences safely.
+- Ensure preferences never override administrator-enforced policy or security requirements.
+
+Deliverable: a coherent customer preference centre.
+
+Exit criteria: settings persist as designed and remain subordinate to administrator policy.
+
+### Stage 19 — Localization, Timezones, Number and Currency Formatting
+**Objective:** Prepare the interface for customers using different regional conventions.
+
+Tasks:
+- Audit hard-coded user-facing strings.
+- Prepare a translation-ready message catalogue if justified by the current stack.
+- Format dates and times consistently, with clear timezone handling.
+- Format decimal precision and separators correctly for each supported asset.
+- Distinguish fiat currencies from crypto assets and avoid ambiguous symbols.
+- Never convert or relabel a financial amount without an explicit, correct conversion rule.
+- Ensure long translated labels fit responsive layouts.
+- Record locale and timezone preferences only as needed.
+
+Deliverable: consistent, localization-ready formatting.
+
+Exit criteria: dates, amounts, assets and statuses remain unambiguous across supported formats.
+
+### Stage 20 — Progressive Web App and Installability Assessment
+**Objective:** Evaluate whether an installable web-app experience adds value.
+
+Tasks:
+- Inspect current app architecture and hosting constraints before committing to PWA work.
+- If suitable, add a valid web app manifest and appropriate icons.
+- Assess service-worker caching carefully.
+- Do not cache private financial data or authenticated API responses in a way that risks account exposure.
+- Provide clear online/offline and reconnecting states.
+- Ensure stale cached pages cannot imply that a financial action succeeded.
+- Assess install prompts and mobile browser behaviour.
+- Test upgrades and cache invalidation.
+
+Deliverable: a documented PWA decision and, if appropriate, a safely installable experience.
+
+Exit criteria: installability does not compromise session security, financial correctness or update reliability.
+
+### Stage 21 — Real-Time Updates and Connection Resilience
+**Objective:** Keep balances, statuses and notifications current without excessive polling or misleading displays.
+
+Tasks:
+- Choose polling, server-sent events, WebSockets or another mechanism based on the existing architecture and hosting constraints.
+- Define reconnection, backoff and duplicate-event handling.
+- Show connection state when it materially affects freshness.
+- Refresh authoritative records after reconnecting.
+- Handle events that arrive out of order.
+- Avoid duplicate ledger effects or notifications.
+- Keep cPanel compatibility in view when selecting persistent connection technology.
+- Provide a safe fallback when real-time delivery is unavailable.
+
+Deliverable: resilient update delivery appropriate to the deployment architecture.
+
+Exit criteria: reconnects and repeated events do not create incorrect balances or duplicate user-visible events.
+
+### Stage 22 — Security Hardening and Privacy Review
+**Objective:** Review customer and administrator safety before release.
+
+Tasks:
+- Audit authentication, authorization and server-side ownership checks.
+- Review CSRF protections, input validation, output escaping and rate limiting as applicable.
+- Review session expiry, cookie settings, password-reset flows and sensitive account actions.
+- Check secrets and environment files are not committed or exposed in client bundles.
+- Validate file upload paths, content types, sizes and storage permissions.
+- Review dependency vulnerabilities using available project tooling.
+- Check logs and exports for unnecessary sensitive information.
+- Review security headers and transport requirements for production.
+- Document findings and prioritize by severity.
+
+Deliverable: security findings, fixes and verification evidence.
+
+Exit criteria: critical and high-severity findings are resolved or explicitly blocked with a documented mitigation plan before release.
+
+### Stage 23 — Abuse Prevention, Operational Limits and Risk Signals
+**Objective:** Improve resilience against accidental misuse and suspicious patterns without inventing financial rules.
+
+Tasks:
+- Inspect existing controls for repeated login attempts, duplicate requests and excessive API use.
+- Apply rate limits and cooldowns where justified.
+- Add clear warnings for consequential or unusual actions where supported by backend rules.
+- Ensure risk signals are advisory unless a documented backend policy authorizes an action.
+- Never silently alter balances, trading outcomes or withdrawal status from frontend logic.
+- Add auditability for privileged overrides and sensitive administrative actions.
+- Avoid exposing internal risk heuristics to unauthorized users.
+- Test false positives and safe recovery paths.
+
+Deliverable: documented abuse-prevention controls and user-safe handling.
+
+Exit criteria: controls are enforced on the server and do not invent or silently change financial outcomes.
+
+### Stage 24 — Audit Trails, Administrative Accountability and Configuration History
+**Objective:** Make sensitive changes traceable.
+
+Tasks:
+- Identify existing audit logging and reuse it where possible.
+- Record consequential admin actions with actor, timestamp, target and outcome.
+- Track changes to theme defaults, enabled themes, sound mappings and notification settings.
+- Track financial administrative actions according to existing policy and legal requirements.
+- Restrict audit-log access to authorized roles.
+- Prevent ordinary users from modifying or deleting audit evidence.
+- Avoid logging passwords, tokens or unnecessary sensitive payloads.
+- Add filters and pagination for authorized audit review.
+
+Deliverable: consistent, permission-protected audit trails.
+
+Exit criteria: critical configuration and administrative actions are traceable without leaking secrets.
+
+### Stage 25 — Operational Monitoring, Diagnostics and Supportability
+**Objective:** Make production issues easier to detect and investigate.
+
+Tasks:
+- Review existing logging and error-reporting facilities.
+- Standardize useful error identifiers and correlation/request IDs where feasible.
+- Record application health and background-job failures where applicable.
+- Add actionable but non-sensitive error messages for users.
+- Provide authorized administrators with safe operational status views where appropriate.
+- Define log rotation, retention and access controls for supported environments.
+- Avoid recording credentials, payment secrets or unnecessary personal data.
+- Document how to diagnose common installer, database, queue and notification failures.
+
+Deliverable: practical operational diagnostics and support documentation.
+
+Exit criteria: common failures can be investigated from documented evidence without exposing secrets.
+
+### Stage 26 — Email, In-App Message and Communication Templates
+**Objective:** Make important customer communications consistent and maintainable.
+
+Tasks:
+- Inventory existing email and message delivery.
+- Standardize templates for supported events such as deposits, withdrawals, security alerts and support replies.
+- Clearly distinguish requested, pending, completed, failed and reversed states.
+- Use consistent branding while respecting the selected theme only where suitable for email rendering.
+- Add template preview and test delivery that cannot create fake financial activity.
+- Validate links and avoid exposing sensitive transaction data unnecessarily.
+- Handle delivery failures and retries without duplicate messages.
+- Review opt-in, preference and legal requirements applicable to each communication type.
+
+Deliverable: reusable, testable communication templates.
+
+Exit criteria: messages accurately reflect authoritative event states and delivery retries are controlled.
+
+### Stage 27 — Feature Flags, Maintenance Mode and Safe Rollout Controls
+**Objective:** Reduce release risk when introducing new interface capabilities.
+
+Tasks:
+- Assess whether the existing configuration architecture supports feature flags.
+- Allow selected nonfinancial UI features to be enabled gradually where useful.
+- Provide a clearly communicated maintenance mode if operationally appropriate.
+- Protect feature settings with administrator authorization.
+- Define safe defaults and rollback behaviour.
+- Ensure flags cannot bypass authentication, permissions, ledger controls or compliance checks.
+- Record changes to sensitive rollout settings.
+- Document which settings require restart or cache invalidation.
+
+Deliverable: safe configuration and rollout controls where justified.
+
+Exit criteria: new UI features can be rolled back without corrupting data or bypassing security.
+
+### Stage 28 — Backup, Recovery, Data Integrity and Release Management
+**Objective:** Prepare for recovery from failed deployments and protect release consistency.
+
+Tasks:
+- Review database backup and restoration procedures.
+- Document which files and uploaded assets require backup.
+- Define pre-deployment backup and rollback steps appropriate to the environment.
+- Verify migrations are repeatable and have documented recovery considerations.
+- Check release packages for unnecessary files, development secrets and stale build output.
+- Record source commit, build result and package version for each release.
+- Define how configuration and user uploads are preserved across upgrades.
+- Test restoration in a safe nonproduction environment where available.
+- Keep release artifacts reproducible and avoid deleting files until dependencies and rollback needs are understood.
+
+Deliverable: documented recovery and release-management procedure.
+
+Exit criteria: recovery steps are documented and tested where the available environment permits; package contents are reviewed.
+
+### Stage 29 — Comprehensive Testing and Regression Verification
 **Objective:** Verify the integrated application.
 
 Tasks:
@@ -326,7 +599,9 @@ Tasks:
 - Test all five themes, theme persistence and administrator policy.
 - Test notification history, event mapping, sound assignment, preferences and deduplication.
 - Test financial status and ledger behaviour.
-- Test authentication, permissions and upload validation.
+- Test authentication, permissions, security controls and upload validation.
+- Test search, filtering, receipts and exports.
+- Test onboarding, localization/formatting, PWA behaviour if implemented, and real-time reconnection.
 - Test loading, empty, failure and uncertain-outcome states.
 - Test responsive layouts at representative widths: 320, 360, 390, 430, 480, 768, 1024, 1280, 1440 and 1920 pixels, including orientation where relevant.
 - Record failures, fix critical regressions and document remaining limitations.
@@ -335,20 +610,21 @@ Deliverable: evidence-based regression report and release-candidate assessment.
 
 Exit criteria: critical regressions are resolved and test evidence is recorded.
 
-### Stage 16 — Sandbox, cPanel and Fresh VPS Production Verification
+### Stage 30 — Sandbox, cPanel and Fresh VPS Production Verification
 **Objective:** Validate each supported deployment path independently.
 
 Tasks:
 - Verify clean sandbox installation and startup.
 - Verify database setup, migrations and permissions.
 - Verify production build assets, environment configuration and session persistence.
-- Verify customer and admin authentication and core workflows.
+- Verify customer and administrator authentication and core workflows.
 - Verify theme and sound configuration persistence.
 - Test cPanel's supported Node.js/runtime, application startup, database privileges, paths, scheduled jobs and process behaviour as applicable.
 - Test fresh VPS service startup/restart, reverse proxy, HTTPS, permissions, background processing and logs as applicable.
 - Test recovery and backup/restore procedures.
 - Package only the validated release artifacts.
 - Document exact deployment steps and environment-specific limitations.
+- Produce a final release checklist and production-readiness report.
 
 Deliverable: validated deployment packages and production-readiness report.
 
