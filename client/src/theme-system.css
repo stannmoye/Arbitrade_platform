@@ -884,3 +884,55 @@
     outline-color: Highlight;
   }
 }
+
+
+/* Theme preview cards remain distinguishable and keyboard-operable in every mode. */
+.arb-theme-preview-option {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  transition: border-color 140ms ease, background-color 140ms ease, outline-color 140ms ease;
+}
+.arb-theme-preview-option:hover {
+  border-color: var(--arb-color-accent);
+}
+.arb-theme-preview-option:focus-visible {
+  outline: 2px solid var(--arb-focus-ring, var(--arb-color-accent));
+  outline-offset: 3px;
+}
+.arb-theme-preview-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.arb-theme-swatch-original {
+  background: #0b1422;
+  border-color: #22344a;
+}
+.arb-theme-swatch-original i:nth-child(1) { background: #7ce7c2; }
+.arb-theme-swatch-original i:nth-child(2) { background: #8eb7ff; }
+.arb-theme-swatch-original i:nth-child(3) { background: #c7a6ff; }
+@media (max-width: 420px) {
+  .arb-theme-preview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .arb-appearance-admin .settings-card {
+    padding: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arb-theme-preview-option {
+    transition: none;
+  }
+}
+@media (forced-colors: active) {
+  .arb-theme-preview-option {
+    border: 1px solid ButtonText;
+  }
+  .arb-theme-preview-option:focus-visible,
+  .arb-theme-preview-option.is-active {
+    outline: 2px solid Highlight;
+  }
+  .arb-theme-swatch,
+  .arb-theme-swatch i {
+    border: 1px solid CanvasText;
+  }
+}
