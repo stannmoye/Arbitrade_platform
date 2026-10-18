@@ -30,7 +30,12 @@ export function WiseBondButton({
   const isLoading = status === "loading";
   const label = status === "loading" ? loadingLabel : status === "success" ? successLabel : status === "error" ? errorLabel : undefined;
   const content = label ?? children;
-  const hasAccessibleName = Boolean(props["aria-label"] || props["aria-labelledby"] || (typeof content === "string" && content.trim()));
+  const hasAccessibleName = Boolean(
+    props["aria-label"] ||
+    props["aria-labelledby"] ||
+    props.title ||
+    ((typeof content === "string" || typeof content === "number") && String(content).trim())
+  );
 
   return (
     <>
