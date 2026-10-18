@@ -720,3 +720,12 @@ When continuing this project:
 - Added a focused regression test covering simultaneous operation and rollback failures.
 - Implementation commit: `c88b62a1d20e5471ba66c4ea9aa1a44dc3474411`; test commit: `d11c7abd59865a3be76403e9481d19096d0c1b28`.
 - **Tests not yet run.** Next execute `pnpm test -- server/mining-store.test.ts`, `pnpm check`, and the full test/build baseline. Database-backed swap concurrency, ledger reconciliation and atomic rollback remain outstanding. Stage 1 stays open.
+
+
+## Latest continuation — Mining regression CI established (2026-10-18)
+
+- Added `.github/workflows/mining-regression.yml` to automatically run the Mining store regression tests and TypeScript check on relevant pushes and pull requests.
+- Corrected the workflow setup order after the first run exposed that pnpm must be installed before `actions/setup-node` configures pnpm caching.
+- Successful verification: [Mining regression checks](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39126931162) at commit `1756134739c4aa7408a032b2afbdf12403b55a3b`. `pnpm test -- server/mining-store.test.ts` and `pnpm check` both passed.
+- This closes the previously outstanding execution check for the focused Mining store unit tests and TypeScript baseline. It does not close database-backed swap, concurrent replay, wallet/ledger reconciliation, atomic rollback, notification, or browser acceptance requirements.
+- Stage 1 remains **in progress**; do not start Stage 2 until the remaining exit criteria are evidenced.
