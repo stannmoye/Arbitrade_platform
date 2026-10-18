@@ -934,3 +934,27 @@
     border-color: CanvasText;
   }
 }
+
+
+/* Improve option selection on touch devices while preserving compact desktop menus. */
+[data-slot="select-item"] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  [data-slot="select-item"] {
+    min-height: 2.75rem;
+    white-space: normal;
+  }
+  [data-slot="select-trigger"] {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+  }
+}
+@media (forced-colors: active) {
+  [data-slot="select-item"][data-highlighted] {
+    outline: 1px solid Highlight;
+    outline-offset: -1px;
+  }
+}
