@@ -125,6 +125,7 @@ arbitrade_root_path_is_allowed "/var/www/arbitrade" || { printf '[FAIL] Standard
 arbitrade_root_path_is_allowed "/rooted/arbitrade" || { printf '[FAIL] Similar prefix /rooted should not be rejected.\\n' >&2; exit 1; }
 if arbitrade_root_path_is_allowed "/root"; then printf '[FAIL] /root must be rejected.\\n' >&2; exit 1; fi
 if arbitrade_root_path_is_allowed "/root/arbitrade"; then printf '[FAIL] Paths under /root must be rejected.\\n' >&2; exit 1; fi
+if arbitrade_root_path_is_allowed "/home"; then printf '[FAIL] /home itself must be rejected.\\n' >&2; exit 1; fi
 if arbitrade_root_path_is_allowed "/home/deploy/arbitrade"; then printf '[FAIL] Paths under /home must be rejected.\\n' >&2; exit 1; fi
 pass "Deployment root path guard rejects protected homes without overmatching similar prefixes"
 tmpdir="$(mktemp -d)"
