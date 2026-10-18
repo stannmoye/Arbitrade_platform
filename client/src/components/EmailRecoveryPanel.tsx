@@ -33,7 +33,7 @@ export function EmailRecoveryPanel({ defaultEmail = "", onClose }: Props) {
     finally { setBusy(false); }
   }
 
-  return <section className="settings-card email-recovery-panel">
+  return <section className="settings-card email-recovery-panel arb-page">
     <div className="eyebrow">Account recovery</div><h2>Reset password</h2>
     {stage === "request" ? <form onSubmit={requestCode}>
       <label>Email address<input type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} /></label>
