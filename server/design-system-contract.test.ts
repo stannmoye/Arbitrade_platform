@@ -58,4 +58,40 @@ describe("ARBITRADE shared design-system contract", () => {
       expect(designSystem, `missing shared primitive ${selector}`).toContain(selector);
     }
   });
+
+  it("defines semantic colour and focus tokens inside every theme block", () => {
+    const themeSelectors = [
+      ':root,\\n:root[data-arb-theme="original"]',
+      ':root[data-arb-theme="midnight-premium"]',
+      ':root[data-arb-theme="clean-light"]',
+      ':root[data-arb-theme="emerald-finance"]',
+      ':root[data-arb-theme="aurora-modern"]',
+    ];
+    for (const selector of themeSelectors) {
+      const start = themes.indexOf(selector);
+      expect(start, `missing theme token block ${selector}`).toBeGreaterThanOrEqual(0);
+      const block = themes.slice(start, start + 1000);
+      expect(block).toContain("--arb-color-canvas");
+      expect(block).toContain("--arb-color-text");
+      expect(block).toContain("--arb-color-accent");
+      expect(block).toContain("--arb-color-danger");
+      expect(block).toContain("--arb-focus-ring");
+    }
+  });
+
+  it("keeps mobile data tables scrollable instead of forcing page-wide overflow", () => {
+    expect(designSystem).toContain(".arb-overflow-x");
+    expect(designSystem).toContain("overflow-x: auto");
+    expect(designSystem).toContain("overscroll-behavior-inline: contain");
+    expect(designSystem).toContain("-webkit-overflow-scrolling: touch");
+  });
+
+  it("preserves accessible feedback for disabled and invalid form controls", () => {
+    expect(designSystem).toContain('[aria-invalid="true"]');
+    expect(designSystem).toContain(":disabled");
+    expect(designSystem).toContain(".arb-field-error");
+    expect(designSystem).toContain(".arb-status-warning");
+    expect(designSystem).toContain(".arb-status-danger");
+  });
+
 });
