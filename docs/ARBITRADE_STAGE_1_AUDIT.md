@@ -102,9 +102,27 @@ pnpm build
 
 Installer-specific tests/configuration also exist, including `vitest.installer.config.ts`, shell/Node safety tests and the `installer-validation.yml` workflow.
 
-**Execution status on audit date:** The commands were not run directly from this audit session. A GitHub Actions **Installer validation** run was found and is currently in progress: [run 39121401277](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39121401277). Its syntax job had passed PHP/Node/shell syntax checks and dependency installation, while TypeScript validation was still running at the time inspected; the full test suite, installer/recovery tests and production build were still pending. This is an interim status, not a final pass/fail result. Recheck the run and record its final conclusion before marking Stage 1 complete. Do not run database-mutating scripts as part of the baseline.
+**Execution status:** GitHub Actions **Installer validation** run [39121401277](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39121401277) completed with overall conclusion **success**. The syntax job passed TypeScript validation, the application test suite, installer/migration safety tests, migration preflight/recovery regression tests, production build, frontend bundle/runtime-config budget checks, and the production-server smoke test without a database. The disposable fresh-MariaDB job passed its fresh-install, admin, migration-tracker and cleanup checks. The disposable MySQL 8 job passed the same fresh-install checks plus migration retry/recovery guards. The deployment-packages job assembled and validated one universal deployment ZIP and uploaded it as a workflow artifact. These are CI results on the workflow's tested commit; they do not prove that cPanel or a fresh VPS has been installed and exercised, and the ZIP artifact still needs environment-specific installation verification. No database-mutating commands were run against production as part of this audit.
 
-## 6. Initial priority queue
+## 6. Inventory findings added after CI and navigation review
+
+### Customer navigation inventory
+The customer navigation registry in `client/src/components/CustomerSlideMenu.tsx` has 5 groups and 22 listed destinations: Main navigation (8), Core Workspace (2), Project & Investment (5), Knowledge & Support (4), and Transparency & Updates (3). Three of the listed destinations are explicitly marked planned/review-only (`Token Launch`, `Tokenomics`, and other planned offerings as surfaced by the menu); menu presence must not be interpreted as a live financial product. The destination registry is a useful inventory, but each target still needs to be traced through `CustomerWorkspace` rendering and the corresponding API/access policy.
+
+### Administrator navigation inventory
+`client/src/admin-navigation.ts` defines 9 groups and 33 navigation entries spanning overview, customers, finance, opportunities, verification/risk, communications, platform configuration, integrations, and governance/reports. Multiple entries intentionally share a canonical target (for example, related KYC/risk entries and opportunity subitems). Stage 1 must verify each distinct target is actually rendered and permission-guarded; a menu entry alone does not prove a functioning screen.
+
+### Existing sound/event wiring (source inspection)
+- `client/src/App.tsx` defines 30 generated tone presets and a sound settings shape with three configurable categories: `opportunity`, `credit`, and `debit`, plus global enable and opportunity-loop flags.
+- The customer workspace fetches `trpc.customer.soundSettings` and polls every 15 seconds. Sound effects are also gated by the local-storage preference `wisebond-sound-effects`.
+- Opportunity sound is called when a current offer popup is shown, subject to customer and administrator sound settings.
+- The investment mutation invokes debit-style feedback in its success callback and failure-style feedback in its error callback; the source still needs semantic verification against backend responses and UI wording.
+- The transaction-process view tracks seen event IDs and invokes debit/credit sound when new `DEBIT`/`CREDIT` events arrive, which is a useful deduplication baseline. It intentionally marks the initial fetched events as already seen, so opening the view does not replay historical sounds.
+- Admin sound settings are persisted through `trpc.adminOperations.updateSettings`. The current source does not yet demonstrate a complete event-specific catalogue for deposit arrival, withdrawal requested/processed, trade settlement, mining reward, swap, or support events. Do not add celebratory feedback for an unconfirmed request.
+
+These are source-level observations, not end-to-end proof of event timing or financial semantics.
+
+## 7. Initial priority queue
 
 1. Obtain baseline type-check, test, and production-build results without touching production data.
 2. Build a complete inventory of customer/admin destinations and map each to the actual component/API and access policy.
@@ -115,16 +133,16 @@ Installer-specific tests/configuration also exist, including `vitest.installer.c
 7. Capture repeatable screenshots/manual observations at the target viewport widths before visual changes.
 8. Only after the baseline is understood, proceed to Stage 2 (shared design system and responsive foundation), preserving working behaviour.
 
-## 7. Audit checkpoint
+## 8. Audit checkpoint
 
 - [x] Read the 30-stage roadmap and confirm Stage 1 is first.
 - [x] Inspect repository structure and declared stack/scripts.
 - [x] Inspect main app entry, styles, navigation, theme context, sound settings, notification view, server entry/router and installer documentation.
 - [x] Record initial findings and priorities in this report.
-- [ ] Run type-check, tests and production build; record actual results.
-- [ ] Complete systematic customer/admin page and API inventory.
+- [x] Retrieve CI evidence for type-check, application tests, installer/recovery tests and production build (workflow run 39121401277: success).
+- [ ] Complete route-to-component/API/access-policy mapping for all customer/admin destinations; initial menu registry counts recorded above.
 - [ ] Complete measured responsive/browser baseline.
-- [ ] Verify current theme and notification event wiring.
+- [ ] Complete theme/provider usage mapping and verify sound events against authoritative backend event semantics; initial source call sites recorded above.
 - [ ] Update this report with evidence and mark Stage 1 complete only when exit criteria are satisfied.
 
-**Next action:** Execute non-destructive baseline checks in a real project environment or retrieve current GitHub Actions evidence; then continue the missing route/theme/sound mapping. Do not begin a broad UI rewrite yet.
+**Next action:** Complete route-target and access-policy tracing, inspect ThemeContext/provider usage across app entry points, reconcile `route-manifest.md`, and continue responsive/browser baseline checks. Do not begin a broad UI rewrite yet.
