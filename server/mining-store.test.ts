@@ -115,6 +115,23 @@ describe("Mining idempotency result persistence", () => {
     await expect(finishMiningIdempotency(conn, "mining-swap:42:missing", { conversionId: 123 }))
       .rejects.toThrow(/unable to persist the Mining idempotency result/i);
   });
+
+  it("rolls back the transaction when idempotency result persistence fails", async () => {
+    const calls: string[] = [];
+    const conn = {
+      beginTransaction: async () => { calls.push("begin"); },
+      execute: async () => [{ affectedRows: 0 }, []],
+      commit: async () => { calls.push("commit"); },
+      rollback: async () => { calls.push("rollback"); },
+    } as unknown as Db;
+
+    await expect(inMiningTransaction(conn, async () => {
+      calls.push("work");
+      await finishMiningIdempotency(conn, "mining-swap:42:missing", { conversionId: 123 });
+    })).rejects.toThrow(/unable to persist the Mining idempotency result/i);
+
+    expect(calls).toEqual(["begin", "work", "rollback"]);
+  });
 });
 
 describe("Mining ledger entry safeguards", () => {
