@@ -26,12 +26,23 @@ Run these checks from the repository root:
 
 Do not mark these as passed until CI or a local run reports success.
 
-## Automated CI coverage\n\nA dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the full test suite, TypeScript validation, and production build as three parallel jobs on pushes to the Stage 2 branch. The same workflow is configured for pull requests targeting `integration/auth-installer-vps-safety` and for manual dispatch. A configured workflow is not evidence of a passing run; record the actual run result before marking checks complete.\n\n## Acceptance still required
+## Automated CI coverage\n\nA dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the full test suite, TypeScript validation, and production build as three parallel jobs on pushes to the Stage 2 branch. The same workflow is configured for pull requests targeting `integration/auth-installer-vps-safety` and for manual dispatch. A configured workflow is not evidence of a passing run; record the actual run result before marking checks complete.\n\n## Latest automated validation evidence
 
-- [ ] Run the new contract test and the complete application test suite on the current branch.
-- [ ] Run TypeScript validation and production build on the current branch.
+- GitHub Actions run: https://github.com/stannmoye/Arbitrade_platform/actions/runs/39174320260
+- Result: all three parallel jobs passed.
+- Application tests: 28 test files, 199 tests passed.
+- TypeScript: `pnpm check` passed.
+- Production build: `pnpm build` passed.
+- Commit validated: `9c6aeb2a303806c9f7bf80f7f40dc059276b49a9`.
+- Remaining limitation: no real-browser viewport evidence has been captured yet; Stage 2 remains in progress.
+
+## Acceptance still required
+
+- [x] Run the new contract test and the complete application test suite on the current branch (CI: 28 test files, 199 tests passed).
+- [x] Run TypeScript validation and production build on the current branch (both CI jobs passed).
 - [ ] Verify representative customer and administrator routes at 320, 375, 768, 1024, and desktop viewport widths in a real browser.
-- [x] Add an accessible name and region semantics to keyboard-focusable shared table overflow containers; source contract added.\n- [ ] Confirm there is no unintended horizontal page overflow; horizontally scrollable financial tables must remain keyboard accessible in a real browser.
+- [x] Add an accessible name and region semantics to keyboard-focusable shared table overflow containers; source contract added.
+- [ ] Confirm there is no unintended horizontal page overflow; horizontally scrollable financial tables must remain keyboard accessible in a real browser.
 - [ ] Inspect form errors, disabled/busy controls, dialogs, dropdowns, and focus visibility under all five themes.
 - [ ] Confirm actual contrast ratios for text, controls, status states, and focus indicators; CSS presence alone does not prove WCAG conformance.
 - [ ] Continue shared-component adoption where it can be done without changing business behaviour or existing route layouts.

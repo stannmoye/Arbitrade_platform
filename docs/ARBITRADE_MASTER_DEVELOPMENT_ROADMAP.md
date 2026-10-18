@@ -9,6 +9,9 @@
 
 ## Current project checkpoint
 
+- **Stage 2 automated validation passed (2026-10-18):** GitHub Actions run [39174320260](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39174320260) passed all three parallel jobs: full application tests (28 files, 199 tests), TypeScript validation, and production build. Keyboard-scrollable shared table containers now have accessible region semantics/name with a source regression test. Real-browser viewport and rendered accessibility acceptance are still outstanding; Stage 2 remains in progress.
+
+
 - **Stage 2 parallel validation and table accessibility (2026-10-18):** Added a dedicated GitHub Actions workflow with parallel full-test, TypeScript, and production-build jobs; configured push validation for the Stage 2 branch, pull-request validation for the integration base, and manual dispatch. Added accessible region semantics and a name to the keyboard-focusable shared table overflow container, plus a source regression test. CI execution and browser viewport acceptance remain outstanding; Stage 2 remains in progress.
 
 
