@@ -8,16 +8,16 @@ Automate routine development, testing, bounded repair attempts, progress reporti
 
 | Layer | Required capability | Current evidence | Status |
 |---|---|---|---|
-| 1. Repository/task source | Versioned code, prioritized task queue, documented acceptance criteria | Stage 1 queue and evidence rules added in this PR | IMPLEMENTED IN PR |
-| 2. Workstream separation | Independent, bounded tasks; avoid overlapping edits to shared files | Queue tasks are scoped; parallel execution is not yet verified | PARTIAL |
-| 3. CI validation | Tests, type checks, build/install/migration checks on relevant changes | Installer validation workflow exists; current PR validation is running | PRESENT; coverage still incomplete |
-| 4. Coding agent | Agent reads repo, edits source/tests, returns a reviewable patch | Codex Actions worker exists; previous attempt hit API quota exhaustion | BLOCKED ON API QUOTA |
-| 5. Orchestration | Select next eligible task only after prior validation passes | PR proposes push-validation-triggered follow-on guarded by `ARBITRADE_AUTONOMOUS_WORKER_ENABLED`, with a five-task cap | WIRED IN PR; NOT ACTIVE |
-| 6. Failure recovery | Diagnose failed checks and bounded retries, then stop/escalate | Worker proposes repair-only follow-ups (maximum two) for failed task validation, and stops on repeated failure, empty patch, stale revision, disallowed paths, or five-task cap; end-to-end behavior not yet verified | PARTIAL |
-| 7. Progress dashboard | Report task, commit, CI run, blockers, and next task from evidence | `.github/workflows/autonomy-progress.yml` completed successfully on PR head during run #4 | IMPLEMENTED IN PR; VERIFIED ON THAT REVISION |
-| 8. Independent quality gates | Scope validation, review, security and financial acceptance | Worker patch allowlist and stale-head guard exist; full release/security gates remain incomplete | PARTIAL |
-| 9. Staging acceptance | Isolated browser/API/database testing, backup/restore, migration validation | Some disposable DB validation exists; full end-to-end acceptance not verified | PARTIAL |
-| 10. Protected production release | Separate human authorization for production changes | No production deployment performed; must remain a human gate | REQUIRED SAFETY GATE |
+| 1. Repository/task source | Versioned code, prioritized task queue, documented acceptance criteria | Stage 1 queue and evidence rules are present on draft PR #65 | IMPLEMENTED IN DRAFT PR; NOT MERGED |
+| 2. Workstream separation | Independent, bounded tasks; avoid overlapping edits to shared files | Queue tasks are scoped; parallel execution and conflict handling are not verified | PARTIAL |
+| 3. CI validation | Tests, type checks, build/install/migration checks on relevant changes | Installer validation run #456 passed on PR #65 head; coverage still needs database-backed wallet concurrency and full staging acceptance | PRESENT; COVERAGE INCOMPLETE |
+| 4. Coding agent | Agent reads repo, edits source/tests, returns a reviewable patch | Existing worker run [39147213345](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39147213345) failed with an explicit API quota-exceeded error; no patch was published | BLOCKED ON API QUOTA |
+| 5. Orchestration | Select next eligible task only after prior validation passes | PR #65 proposes a guarded `workflow_run` chain with a five-task cap; PR remains draft and chain is not active | WIRED IN DRAFT PR; NOT ACTIVE |
+| 6. Failure recovery | Diagnose failed checks and bounded retries, then stop/escalate | Repair-only follow-ups are capped at two; repeated failure, empty patch, stale revision, disallowed paths, and chain limit stop work. End-to-end repair behavior is unverified | PARTIAL |
+| 7. Progress dashboard | Report task, commit, CI run, blockers, and next task from evidence | Dashboard run [#26](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39152520796) passed on PR #65 head | IMPLEMENTED IN DRAFT PR; VERIFIED ON THAT REVISION |
+| 8. Independent quality gates | Scope validation, review, security and financial acceptance | Patch path allowlist and stale-head guard exist; full security and financial acceptance gates remain incomplete | PARTIAL |
+| 9. Staging acceptance | Isolated browser/API/database testing, backup/restore, migration validation | Some disposable database validation exists; complete end-to-end acceptance is not verified | PARTIAL |
+| 10. Protected production release | Separate human authorization for production changes | No production deployment performed; this must remain a human gate | REQUIRED SAFETY GATE |
 
 ## Safe development loop
 
@@ -34,10 +34,10 @@ Automate routine development, testing, bounded repair attempts, progress reporti
 
 ## Activation blockers and operator actions
 
-- **API quota:** The current coding worker uses `OPENAI_API_KEY`. The prior worker attempt failed with a quota-exceeded error. An authorized repository owner must restore API quota/billing and verify limits before unattended coding can run. Do not paste the key into chat, commits, issues, or logs.
-- **Merge and controlled first run:** Review and merge the workflow wiring, then run one small test-only task manually on `integration/auth-installer-vps-safety` with the automatic-worker variable disabled. Inspect the patch and logs and confirm validation on the exact resulting commit.
-- **Enable chaining only after proof:** Set repository variable `ARBITRADE_AUTONOMOUS_WORKER_ENABLED` to `true` only after the supervised run succeeds. Automatic chaining is bounded to five consecutive automatic commits and only follows successful push-triggered Installer validation.
-- **Progress reporting:** The dashboard job summary is implemented in this PR. The workflow must be merged to the default branch for its `workflow_run` trigger to report subsequent validation completions.
+- **API quota:** The worker run linked above failed with “Quota exceeded. Check your plan and billing details.” An authorized repository owner must restore API quota/billing and verify limits before unattended coding can run. The GitHub connector cannot change provider billing or inspect the secret value. Do not paste the API key into chat.
+- **Review and controlled first run:** PR #65 remains a draft and is not merged. Review the workflow wiring; after quota is restored, run one small test-only task on `integration/auth-installer-vps-safety` with automatic chaining disabled. Inspect the patch/logs and confirm validation on the exact resulting commit.
+- **Enable chaining only after proof:** Set repository variable `ARBITRADE_AUTONOMOUS_WORKER_ENABLED` to `true` only after the supervised run succeeds and the reviewed workflow is merged. The proposed chain is capped at five consecutive tasks and allows at most two repair-only attempts.
+- **Progress reporting:** Dashboard run #26 passed on the draft PR revision. The workflow must be merged to the default branch for its `workflow_run` trigger to report subsequent validation completions.
 - **Production inputs:** The production host/database and several real financial product/provider decisions are still unresolved in `TODO.md` and `plan.md`. Production deployment cannot be reduced to a safe “push” until those gates are satisfied.
 
 ## Definition of “ready for production approval”
