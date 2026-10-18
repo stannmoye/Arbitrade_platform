@@ -1,13 +1,5 @@
 import { useId } from "react";
 import { ARBITRADE_THEME_LABELS, ARBITRADE_THEMES, type ArbitradeTheme, useTheme } from "@/contexts/ThemeContext";
-import { trpc } from "@/lib/trpc";
-
-function readEnabledThemes(value: unknown): ArbitradeTheme[] {
-  return Array.isArray(value)
-    ? value.filter((option): option is ArbitradeTheme =>
-        typeof option === "string" && ARBITRADE_THEMES.includes(option as ArbitradeTheme))
-    : [];
-}
 
 type ThemeSelectorProps = {
   compact?: boolean;
@@ -15,35 +7,30 @@ type ThemeSelectorProps = {
 };
 
 export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelectorProps) {
-  const { theme, setTheme, switchable } = useTheme();
+  const {
+    theme,
+    setTheme,
+    switchable,
+    isAdmin,
+    policyDefault,
+    enabledThemes,
+    customerCanSelect,
+    policyReady,
+    policyFailed,
+  } = useTheme();
   const selectorId = useId();
   const selectId = `arb-theme-select-${compact ? "compact-" : ""}${selectorId}`;
-  const appearance = trpc.appearanceConfig.useQuery(undefined, { staleTime: 30_000 });
-  const auth = trpc.auth.me.useQuery(undefined, { retry: false, refetchOnWindowFocus: false });
-  const isAdmin = auth.data?.role === "admin";
-  const policy = appearance.data;
-  const configuredThemes = readEnabledThemes(policy?.enabledThemes);
-  const requestedDefault: ArbitradeTheme = policy && ARBITRADE_THEMES.includes(policy.defaultTheme as ArbitradeTheme)
-    ? policy.defaultTheme as ArbitradeTheme
-    : "original";
-  // Keep selector fallback behavior identical to ThemeProvider: if the published
-  // default is not allowed, use the first enabled theme instead.
-  const customerThemes = configuredThemes.length > 0 ? configuredThemes : [requestedDefault];
-  const effectiveDefault = customerThemes.includes(requestedDefault) ? requestedDefault : customerThemes[0];
-  const customerCanSelect = policy?.customerCanSelect === true;
-  const policyReady = !auth.isLoading && !appearance.isLoading;
-  const policyFailed = auth.isError || appearance.isError;
   const canChoose = policyReady && !policyFailed && !readOnly && (isAdmin || customerCanSelect);
   const availableThemes: ArbitradeTheme[] = policyFailed
-    ? [effectiveDefault]
+    ? [policyDefault]
     : isAdmin
       ? [...ARBITRADE_THEMES]
       : customerCanSelect
-        ? customerThemes
-        : [effectiveDefault];
+        ? enabledThemes
+        : [policyDefault];
   const selectedTheme = availableThemes.includes(theme as ArbitradeTheme)
     ? theme as ArbitradeTheme
-    : availableThemes[0] ?? effectiveDefault;
+    : availableThemes[0] ?? policyDefault;
 
   if (!switchable) return null;
 
