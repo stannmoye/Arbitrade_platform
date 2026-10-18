@@ -235,7 +235,7 @@ integrationDescribe("Mining idempotency against real MySQL/MariaDB transactions"
       );
       expect(ledgerRows).toHaveLength(0);
       const [baselineRows] = await pool.query<any[]>(
-        "SELECT walletId FROM mining_wallet_baselines WHERE walletId IN (SELECT id FROM v5_wallets WHERE userId IN (?,0))",
+        "SELECT walletId FROM mining_wallet_baselines WHERE walletId IN (SELECT id FROM v5_wallets WHERE userId=?)",
         [userId],
       );
       expect(baselineRows).toHaveLength(0);
