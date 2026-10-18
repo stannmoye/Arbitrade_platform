@@ -50,7 +50,7 @@ export function WiseBondButton({
           {isLoading ? <LoaderCircle className="wb-button-spinner" size={16} /> : status === "success" ? <Check size={16} /> : status === "error" ? <CircleAlert size={16} /> : null}
         </span>
         <span className="wb-button-label">{content}</span>
-        {!hasAccessibleName && <span className="sr-only">Action</span>}
+        {!hasAccessibleName && iconOnly && <span className="sr-only">Action</span>}
       </button>
       {label && <span className="wb-live-region" role="status" aria-live="polite">{label}</span>}
     </>
