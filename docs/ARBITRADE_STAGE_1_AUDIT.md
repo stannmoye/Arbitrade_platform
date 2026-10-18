@@ -345,3 +345,12 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 - Implementation commit: `c88b62a1d20e5471ba66c4ea9aa1a44dc3474411`.
 - Test commit: `d11c7abd59865a3be76403e9481d19096d0c1b28`.
 - **Verification status: pending.** The updated Vitest file and TypeScript checks have not been executed in this continuation. This hardens error reporting but does not prove database rollback succeeded after a real database failure. Stage 1 remains in progress.
+
+
+## 20. Automated Mining regression CI added and executed (2026-10-18)
+
+- Added `.github/workflows/mining-regression.yml` to run `pnpm test -- server/mining-store.test.ts` and `pnpm check` for pull requests targeting `main`, pushes to `main` and the active integration branch, and manual dispatch.
+- The first workflow attempt failed during Node setup because pnpm was not installed before the Node action attempted to initialize pnpm caching. The workflow step order was corrected so pnpm is configured before Node caching.
+- Successful workflow run: [Mining regression checks](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39126931162), commit `1756134739c4aa7408a032b2afbdf12403b55a3b`. Dependency installation, the targeted Mining store Vitest file, and the TypeScript check all completed successfully.
+- This is passing unit-test/type-check evidence for the current Mining store unit suite, not proof of database-backed financial integrity. Still required: isolated MariaDB/MySQL swap ownership/expiry/replay/concurrency tests, ledger-to-main-wallet reconciliation, injected-failure rollback coverage across participating stores, notification replay/ownership tests, and remaining API/accessibility/theme/sound/responsive browser checks.
+- Stage 1 remains **in progress**. No production database, customer data, or live financial balances were accessed or changed during this validation.
