@@ -135,7 +135,7 @@ export function createAuthRateLimiter(options: AuthRateLimitOptions) {
       }).catch((error: unknown) => {
         // Fail closed: if a configured shared store is unavailable, do not silently
         // fall back to per-process counters that can be bypassed across replicas.
-        console.error("[AuthRateLimit] Shared store unavailable; rejecting authentication request", error instanceof Error ? error.message : "UnknownError");
+        console.error("[AuthRateLimit] Shared store unavailable; rejecting authentication request", error instanceof Error ? error.name : "UnknownError");
         return res.status(503).json({ error: "Authentication protection is temporarily unavailable. Try again shortly." });
       });
     };
