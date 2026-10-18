@@ -86,6 +86,7 @@ const miningMarkers = [
   "0039_mining_database_driven_packages",
   "0040_mining_package_daily_rewards",
   "0041_mining_purchase_claims_and_boost_cooldown",
+  "0042_mining_independent_package_purchases",
   "0043_mining_engine_activity",
   "0044_mining_initial_cki_package_rewards",
   "0045_mining_reward_calculation_methods",
