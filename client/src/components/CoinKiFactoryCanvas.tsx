@@ -318,13 +318,15 @@ export function CoinKiFactoryCanvas({ running, boostActive, motionEnabled }: Coi
     if (!canvas || !ctx) return;
 
     let frame = 0;
+    const systemPrefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const shouldAnimate = motionEnabled && !systemPrefersReducedMotion;
     let startTime: number | null = null;
     const resize = () => {
       const ratio = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(SCENE_WIDTH * ratio);
       canvas.height = Math.round(SCENE_HEIGHT * ratio);
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-      drawScene(ctx, 0, running, boostActive, motionEnabled);
+      drawScene(ctx, 0, running, boostActive, shouldAnimate);
     };
 
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null;
@@ -334,8 +336,8 @@ export function CoinKiFactoryCanvas({ running, boostActive, motionEnabled }: Coi
 
     const render = (timestamp: number) => {
       if (startTime === null) startTime = timestamp;
-      drawScene(ctx, (timestamp - startTime) / 1000, running, boostActive, motionEnabled);
-      if (motionEnabled) frame = window.requestAnimationFrame(render);
+      drawScene(ctx, (timestamp - startTime) / 1000, running, boostActive, shouldAnimate);
+      if (shouldAnimate) frame = window.requestAnimationFrame(render);
     };
     if (motionEnabled) frame = window.requestAnimationFrame(render);
 
