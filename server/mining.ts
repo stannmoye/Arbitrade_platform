@@ -42,7 +42,7 @@ export function parseMainWalletMinor(value: unknown): number {
     minor = value;
   } else if (typeof value === "number" && Number.isSafeInteger(value)) {
     minor = BigInt(value);
-  } else if (typeof value === "string" && /^-?\\d+$/.test(value)) {
+  } else if (typeof value === "string" && /^-?\d+$/.test(value)) {
     minor = BigInt(value);
   } else {
     throw new MiningError("The stored main-wallet balance is invalid or exceeds the supported precision");
