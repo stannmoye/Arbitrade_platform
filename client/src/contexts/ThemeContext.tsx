@@ -117,7 +117,7 @@ export function ThemeProvider({
         return;
       }
 
-      if (!policy) return;
+      if (!policy || appearance.isError) return;
       const nextTheme = customerCanSelect && isTheme(event.newValue) && enabledThemes.includes(event.newValue)
         ? event.newValue
         : policyDefault;
@@ -136,7 +136,7 @@ export function ThemeProvider({
     }
     // Do not accept customer theme changes until authentication and the server policy
     // have both resolved; this prevents role/policy transitions from applying stale choices.
-    if (!policy) return;
+    if (!policy || appearance.isError) return;
     if (customerCanSelect && enabledThemes.includes(nextTheme)) setThemeState(nextTheme);
   };
 
@@ -144,7 +144,7 @@ export function ThemeProvider({
     const root = document.documentElement;
     // Apply the published default as soon as policy is available, even while
     // authentication is resolving; this prevents a stale initial theme flash.
-    const effectiveTheme = auth.isError || (auth.isLoading && policy)
+    const effectiveTheme = auth.isError || (auth.isLoading && policy) || (!isAdmin && appearance.isError)
       ? policyDefault
       : !auth.isLoading && !isAdmin && policy
         ? (customerCanSelect && enabledThemes.includes(theme) ? theme : policyDefault)
@@ -167,7 +167,7 @@ export function ThemeProvider({
     : policy && customerCanSelect
       ? enabledThemes
       : [];
-  const canToggleTheme = switchable && !auth.isLoading && !auth.isError && selectableThemes.length > 1 && (isAdmin || Boolean(policy && customerCanSelect));
+  const canToggleTheme = switchable && !auth.isLoading && !auth.isError && selectableThemes.length > 1 && (isAdmin || Boolean(policy && !appearance.isError && customerCanSelect));
   const toggleTheme = canToggleTheme
     ? () => {
         const alternateTheme = theme === "clean-light"
