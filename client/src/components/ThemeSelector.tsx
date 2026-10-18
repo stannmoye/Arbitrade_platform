@@ -1,4 +1,5 @@
-import { ARBITRADE_THEME_LABELS, ARBITRADE_THEMES, useTheme } from "@/contexts/ThemeContext";
+import { ARBITRADE_THEME_LABELS, ARBITRADE_THEMES, type ArbitradeTheme, useTheme } from "@/contexts/ThemeContext";
+import { trpc } from "@/lib/trpc";
 
 type ThemeSelectorProps = {
   compact?: boolean;
@@ -7,33 +8,39 @@ type ThemeSelectorProps = {
 
 export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelectorProps) {
   const { theme, setTheme, switchable } = useTheme();
-  const selectedTheme = ARBITRADE_THEMES.includes(theme as (typeof ARBITRADE_THEMES)[number])
-    ? theme as (typeof ARBITRADE_THEMES)[number]
-    : "original";
+  const appearance = trpc.appearanceConfig.useQuery(undefined, { staleTime: 30_000 });
+  const availableThemes = readOnly && appearance.data
+    ? appearance.data.enabledThemes.filter((option: string): option is ArbitradeTheme =>
+        ARBITRADE_THEMES.includes(option as ArbitradeTheme))
+    : [...ARBITRADE_THEMES];
+  const canChoose = !readOnly || appearance.data?.customerCanSelect === true;
+  const selectedTheme = availableThemes.includes(theme as ArbitradeTheme)
+    ? theme as ArbitradeTheme
+    : (appearance.data?.defaultTheme as ArbitradeTheme) || "original";
 
   if (!switchable) return null;
 
   return (
     <section className={`arb-theme-selector${compact ? " arb-theme-selector-compact" : ""}`} aria-label="Appearance settings">
-      <label htmlFor={readOnly ? undefined : compact ? "arb-theme-select-compact" : "arb-theme-select"}>
-        <span className="arb-theme-selector-title">{readOnly ? "Workspace appearance" : "Appearance"}</span>
-        {!compact && <span className="arb-theme-selector-description">{readOnly ? "Theme selected by workspace settings" : "Choose your workspace theme"}</span>}
+      <label htmlFor={canChoose ? compact ? "arb-theme-select-compact" : "arb-theme-select" : undefined}>
+        <span className="arb-theme-selector-title">{canChoose ? "Appearance" : "Workspace appearance"}</span>
+        {!compact && <span className="arb-theme-selector-description">{canChoose ? "Choose your workspace theme" : "Theme selected by workspace settings"}</span>}
       </label>
-      {readOnly ? (
-        <span className="arb-theme-selector-current" aria-label={`Current theme: ${ARBITRADE_THEME_LABELS[selectedTheme]}`}>
-          {ARBITRADE_THEME_LABELS[selectedTheme]}
-        </span>
-      ) : (
+      {canChoose ? (
         <select
           id={compact ? "arb-theme-select-compact" : "arb-theme-select"}
           value={selectedTheme}
-          onChange={(event) => setTheme(event.target.value as (typeof ARBITRADE_THEMES)[number])}
+          onChange={(event) => setTheme(event.target.value as ArbitradeTheme)}
           aria-label="Workspace theme"
         >
-          {ARBITRADE_THEMES.map((option) => (
+          {availableThemes.map((option) => (
             <option key={option} value={option}>{ARBITRADE_THEME_LABELS[option]}</option>
           ))}
         </select>
+      ) : (
+        <span className="arb-theme-selector-current" aria-label={`Current theme: ${ARBITRADE_THEME_LABELS[selectedTheme]}`}>
+          {ARBITRADE_THEME_LABELS[selectedTheme]}
+        </span>
       )}
     </section>
   );
