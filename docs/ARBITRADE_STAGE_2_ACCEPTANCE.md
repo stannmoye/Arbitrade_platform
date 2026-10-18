@@ -30,13 +30,12 @@ Do not mark these as passed until CI or a local run reports success.
 
 A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the full test suite, TypeScript validation, and production build as three parallel jobs on pushes to the Stage 2 branch. The same workflow is configured for pull requests targeting `integration/auth-installer-vps-safety` and for manual dispatch. A configured workflow is not evidence of a passing run; record the actual run result before marking checks complete.\n\n## Latest automated validation evidence
 
-- GitHub Actions run: https://github.com/stannmoye/Arbitrade_platform/actions/runs/39174320260
-- Result: all three parallel jobs passed.
+- GitHub Actions run: [39174934891](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39174934891).
+- Result: all three parallel jobs passed for code commit `1bf20c1a3e0792616a8877f2c2282da13e35486f`.
 - Application tests: 28 test files, 199 tests passed.
 - TypeScript: `pnpm check` passed.
 - Production build: `pnpm build` passed.
-- Commit validated: `9c6aeb2a303806c9f7bf80f7f40dc059276b49a9`.
-- Latest source update: configurable accessible names for shared table scroll regions, a contextual showcase example, and regression coverage were committed after the run above; a fresh workflow run is required for those commits.
+- The run includes the latest appearance-admin state-update fix. A documentation-only follow-up will trigger the same workflow again.
 - Remaining limitation: no real-browser viewport evidence has been captured yet; Stage 2 remains in progress.
 
 ## Acceptance still required
@@ -56,7 +55,7 @@ Do not mark Stage 2 complete based solely on source changes or CI. Record actual
 
 ## Continuation review — 2026-10-19
 
-- Reviewed the application code at head `301cdaba2fb60ceaeb61a04018957ab0866d4a6d`, then recorded this review in documentation-only commit `47cb6888f621e15a3a74d0aef4034d336b25814e`.
-- Review coverage: appearance-settings normalization and tests, customer/admin theme policy flow, admin theme-management UI, application stylesheet imports, accessible table scroll region, shared UI controls, workflow definition, and the Stage 2 acceptance contract.
-- The documentation-only head `47cb6888f621e15a3a74d0aef4034d336b25814e` currently reports no commit status checks through the connected GitHub status endpoint, and the workflow-run lookup returned no pull-request-triggered runs for that head. Earlier successful CI belongs to an older commit and is not treated as evidence for the latest changes.
-- No browser/viewport evidence is available yet. Keep the five-theme viewport checks, horizontal-overflow inspection, and rendered contrast verification open; do not mark Stage 2 complete until those are recorded.
+- Reviewed the current Stage 2 implementation in parallel across the theme context, appearance settings normalization and tests, admin theme-management UI, application stylesheet imports, shared UI controls, navigation, workflow, and acceptance contract.
+- Fixed an impure React state updater in `client/src/components/AdminAppearance.tsx`: removing the currently published default theme no longer triggers another state setter from inside a functional state updater. The saved policy normalization also keeps the default inside the enabled-theme allow-list.
+- Validation for code commit `1bf20c1a3e0792616a8877f2c2282da13e35486f`: [GitHub Actions run 39174934891](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39174934891) passed all three jobs—28 test files / 199 tests, TypeScript, and production build.
+- No real-browser viewport evidence is available yet. Keep the five-theme viewport checks, horizontal-overflow inspection, and rendered contrast verification open; do not mark Stage 2 complete until those are recorded.
