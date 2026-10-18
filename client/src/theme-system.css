@@ -172,3 +172,16 @@
   .arb-theme-selector-compact { gap: 8px; padding: 8px 10px; }
   .arb-theme-selector-compact select { min-width: 0; width: 56%; }
 }
+
+.arb-theme-selector-current {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  max-width: 56vw;
+  padding: 6px 10px;
+  border: 1px solid var(--arb-color-border);
+  border-radius: var(--arb-radius-sm);
+  background: var(--arb-color-surface-raised);
+  color: var(--arb-color-text-soft);
+  font-size: 13px;
+}
