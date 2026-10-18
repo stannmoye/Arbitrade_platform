@@ -182,7 +182,8 @@ describe("ARBITRADE shared design-system contract", () => {
   it("gives keyboard-scrollable data tables an accessible region name", () => {
     expect(table).toContain('data-slot="table-container"');
     expect(table).toContain('role="region"');
-    expect(table).toContain('aria-label="Scrollable table"');
+    expect(table).toContain('containerAriaLabel = "Scrollable table"');
+    expect(table).toContain("aria-label={containerAriaLabel}");
     expect(table).toContain("tabIndex={0}");
     expect(table).toContain("overflow-x-auto");
   });
