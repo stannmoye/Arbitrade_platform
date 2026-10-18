@@ -255,16 +255,25 @@
 .arb-status-success {
   border-color: color-mix(in srgb, var(--arb-color-accent) 55%, var(--arb-color-border));
   color: var(--arb-color-accent);
+  background-color: color-mix(in srgb, var(--arb-color-accent) 8%, var(--arb-color-surface));
+}
+
+.arb-status-info {
+  border-color: color-mix(in srgb, var(--arb-color-info) 55%, var(--arb-color-border));
+  color: var(--arb-color-info);
+  background-color: color-mix(in srgb, var(--arb-color-info) 8%, var(--arb-color-surface));
 }
 
 .arb-status-warning {
   border-color: color-mix(in srgb, var(--arb-color-warning) 55%, var(--arb-color-border));
   color: var(--arb-color-warning);
+  background-color: color-mix(in srgb, var(--arb-color-warning) 8%, var(--arb-color-surface));
 }
 
 .arb-status-danger {
   border-color: color-mix(in srgb, var(--arb-color-danger) 55%, var(--arb-color-border));
   color: var(--arb-color-danger);
+  background-color: color-mix(in srgb, var(--arb-color-danger) 8%, var(--arb-color-surface));
 }
 
 /* Avoid narrow-screen overflow in data-heavy portal sections. */
