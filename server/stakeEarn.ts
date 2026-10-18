@@ -57,8 +57,12 @@ function nextRewardAt(from: Date, frequency: string) {
   return new Date(from.getTime() + days * 86400000);
 }
 
-const rewardIntervalMs = (frequency: string) =>
-  frequency === "DAILY" ? 86400000 : frequency === "WEEKLY" ? 604800000 : 2592000000;
+const rewardIntervalMs = (frequency: string) => {
+  if (frequency === "DAILY") return 86400000;
+  if (frequency === "WEEKLY") return 604800000;
+  if (frequency === "MONTHLY") return 2592000000;
+  throw new Error(`Unsupported Stake & Earn reward frequency: ${frequency}`);
+};
 
 /**
  * Calculate the number of reward periods due and the first scheduled period
@@ -88,7 +92,7 @@ export function calculateAdditionalStakeReward(
   now = new Date(),
 ) {
   const intervalMs = rewardIntervalMs(frequency);
-  const periodDays = frequency === "DAILY" ? 1 : frequency === "WEEKLY" ? 7 : 30;
+  const periodDays = intervalMs / 86400000;
   const elapsedPeriods = Math.max(0, Math.floor((now.getTime() - openedAt.getTime()) / intervalMs));
   const cumulativeTarget = Math.floor(principalMinor * annualRateBps * elapsedPeriods * periodDays / (10000 * 365));
   return Math.max(0, cumulativeTarget - rewardMinor);
