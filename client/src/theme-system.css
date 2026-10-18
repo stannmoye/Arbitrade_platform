@@ -609,3 +609,20 @@
   border-width: 1px;
   border-radius: var(--arb-radius-sm);
 }
+
+
+/* Stage 2: distinguish error feedback surfaces while preserving inline field errors. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-error, .auth-error, .error-notice, [data-status="error"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-danger) 42%, var(--arb-color-border));
+  background-color: color-mix(in srgb, var(--arb-color-danger) 7%, var(--arb-color-surface));
+  color: var(--arb-color-danger);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-error, .auth-error, .error-notice
+) {
+  border-style: solid;
+  border-width: 1px;
+  border-radius: var(--arb-radius-sm);
+}
