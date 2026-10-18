@@ -981,3 +981,55 @@
     color: Mark;
   }
 }
+
+
+/* Stage 2: resilient theme preview cards across touch, keyboard, and narrow layouts. */
+.arb-theme-preview-option {
+  min-width: 0;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+  transition: border-color 140ms ease, background-color 140ms ease, outline-color 140ms ease;
+}
+.arb-theme-preview-option:hover:not(:disabled) {
+  border-color: var(--arb-color-accent);
+  background: var(--arb-color-surface-raised);
+}
+.arb-theme-preview-option:focus-visible {
+  outline: 2px solid var(--arb-focus-ring, var(--arb-color-accent));
+  outline-offset: 3px;
+}
+.arb-theme-preview-option :where(strong, span) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.arb-theme-preview-option.is-active {
+  border-color: var(--arb-color-accent);
+  background: var(--arb-color-surface-raised);
+}
+.arb-theme-swatch {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+@media (max-width: 360px) {
+  .arb-theme-preview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .arb-theme-preview-option {
+    padding: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arb-theme-preview-option {
+    transition: none !important;
+  }
+}
+@media (forced-colors: active) {
+  .arb-theme-preview-option.is-active {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    border-color: Highlight;
+  }
+  .arb-theme-preview-option:focus-visible {
+    outline-color: Highlight;
+  }
+}
