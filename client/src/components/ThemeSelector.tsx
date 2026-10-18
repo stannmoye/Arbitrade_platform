@@ -2,6 +2,13 @@ import { useId } from "react";
 import { ARBITRADE_THEME_LABELS, ARBITRADE_THEMES, type ArbitradeTheme, useTheme } from "@/contexts/ThemeContext";
 import { trpc } from "@/lib/trpc";
 
+function readEnabledThemes(value: unknown): ArbitradeTheme[] {
+  return Array.isArray(value)
+    ? value.filter((option): option is ArbitradeTheme =>
+        typeof option === "string" && ARBITRADE_THEMES.includes(option as ArbitradeTheme))
+    : [];
+}
+
 type ThemeSelectorProps = {
   compact?: boolean;
   readOnly?: boolean;
@@ -15,10 +22,7 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
   const auth = trpc.auth.me.useQuery(undefined, { retry: false, refetchOnWindowFocus: false });
   const isAdmin = auth.data?.role === "admin";
   const policy = appearance.data;
-  const configuredThemes: ArbitradeTheme[] = policy?.enabledThemes
-    ? policy.enabledThemes.filter((option: string): option is ArbitradeTheme =>
-        ARBITRADE_THEMES.includes(option as ArbitradeTheme))
-    : [];
+  const configuredThemes = readEnabledThemes(policy?.enabledThemes);
   const requestedDefault: ArbitradeTheme = policy && ARBITRADE_THEMES.includes(policy.defaultTheme as ArbitradeTheme)
     ? policy.defaultTheme as ArbitradeTheme
     : "original";
