@@ -214,7 +214,7 @@ cleanup_vps_setup() {
     # Do not disable a service if an administrator or another process replaced
     # the unit after this attempt published it. Roll back service state only
     # while the unit path still points to our exact published inode.
-    if [[ "$SERVICE_ATTEMPTED" == 1 && "$UNIT_PUBLISHED" == 1 && -n "$UNIT_PUBLISHED_ID" && ! -L "$UNIT" && -e "$UNIT" && "$(stat -c '%d:%i' -- "$UNIT" 2>/dev/null || true)" == "$UNIT_PUBLISHED_ID" ]]; then
+    if [[ "$SERVICE_ATTEMPTED" == 1 && "$UNIT_PUBLISHED" == 1 ]] && arbitrade_published_file_identity_matches "$UNIT" "$UNIT_PUBLISHED_ID"; then
       systemctl disable --now arbitrade.service >/dev/null 2>&1 || true
       systemctl daemon-reload >/dev/null 2>&1 || true
     else
