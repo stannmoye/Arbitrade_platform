@@ -89,6 +89,43 @@ describe("authentication endpoint rate limiter", () => {
 });
 
 describe("shared Redis REST rate-limit store", () => {
+
+  it("rejects non-success HTTP responses without exposing response bodies", async () => {
+    const fetchImpl = vi.fn(async () => new Response("sensitive proxy response body", { status: 502 }));
+    const store = createUpstashAuthRateLimitStore({ url: "https://redis.example.com", token: "test-token", fetchImpl });
+    await expect(store.consume("customer-login:203.0.113.1", 60_000))
+      .rejects.toThrow("Shared authentication rate-limit store returned HTTP 502");
+  });
+
+  it("rejects malformed JSON and invalid counter results", async () => {
+    const malformedJson = createUpstashAuthRateLimitStore({
+      url: "https://redis.example.com",
+      token: "test-token",
+      fetchImpl: vi.fn(async () => new Response("not-json", { status: 200 })),
+    });
+    await expect(malformedJson.consume("customer-login:203.0.113.1", 60_000))
+      .rejects.toThrow("Shared authentication rate-limit store returned invalid JSON");
+
+    const invalidCounter = createUpstashAuthRateLimitStore({
+      url: "https://redis.example.com",
+      token: "test-token",
+      fetchImpl: vi.fn(async () => new Response(JSON.stringify({ result: [0, -1] }), { status: 200 })),
+    });
+    await expect(invalidCounter.consume("customer-login:203.0.113.1", 60_000))
+      .rejects.toThrow("Shared authentication rate-limit store returned invalid counter values");
+  });
+
+  it("rejects an invalid response shape instead of silently allowing authentication", async () => {
+    const store = createUpstashAuthRateLimitStore({
+      url: "https://redis.example.com",
+      token: "test-token",
+      fetchImpl: vi.fn(async () => new Response(JSON.stringify({ result: "unlimited" }), { status: 200 })),
+    });
+    await expect(store.consume("customer-login:203.0.113.1", 60_000))
+      .rejects.toThrow("Shared authentication rate-limit store returned an invalid counter result");
+  });
+
+
   it("requires an HTTPS endpoint and a token", () => {
     expect(() => createUpstashAuthRateLimitStore({ url: "http://redis.example.com", token: "secret" })).toThrow(/HTTPS/i);
     expect(() => createUpstashAuthRateLimitStore({ url: "https://redis.example.com", token: " " })).toThrow(/token/i);
