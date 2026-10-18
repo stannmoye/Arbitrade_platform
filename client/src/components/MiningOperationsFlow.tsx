@@ -40,6 +40,10 @@ export function MiningOperationsFlow({
   // A deliberately slow, continuous visualization of the operational path. It
   // never creates a token, receipt, hash-rate sample, or wallet transaction.
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setStage(0);
+      return;
+    }
     if (!hasActivePackage) {
       setStage(0);
       return;
@@ -65,7 +69,7 @@ export function MiningOperationsFlow({
       ? `Active · latest posted reward ${latestRewardReference}`
       : "Active · waiting for a recorded third-party settlement";
 
-  return <section className={`cm-flow-panel ${receiptPulse ? "has-live-receipt" : ""}`} aria-label="Mining package and settlement status">
+  return <section className={`cm-flow-panel arb-page ${receiptPulse ? "has-live-receipt" : ""}`} aria-label="Mining package and settlement status">
     <header className="cm-flow-header">
       <div className="cm-flow-heading">
         <span className="cm-flow-kicker"><span className="cm-flow-live-led"/> MINING OPERATIONS · DATABASE STATUS</span>
