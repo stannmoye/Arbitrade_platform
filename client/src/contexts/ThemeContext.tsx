@@ -124,8 +124,23 @@ export function ThemeProvider({
     }
   }, [theme, switchable, auth.isLoading, isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
 
-  const toggleTheme = switchable
-    ? () => setTheme(theme === "clean-light" ? "original" : "clean-light")
+  const selectableThemes: ArbitradeTheme[] = isAdmin
+    ? [...ARBITRADE_THEMES]
+    : policy && customerCanSelect
+      ? enabledThemes
+      : [];
+  const canToggleTheme = switchable && selectableThemes.length > 1;
+  const toggleTheme = canToggleTheme
+    ? () => {
+        const alternateTheme = theme === "clean-light"
+          ? (selectableThemes.includes(policyDefault) && policyDefault !== "clean-light"
+              ? policyDefault
+              : selectableThemes.find(option => option !== theme))
+          : selectableThemes.includes("clean-light")
+            ? "clean-light"
+            : selectableThemes.find(option => option !== theme);
+        if (alternateTheme) setTheme(alternateTheme);
+      }
     : undefined;
 
   return (
