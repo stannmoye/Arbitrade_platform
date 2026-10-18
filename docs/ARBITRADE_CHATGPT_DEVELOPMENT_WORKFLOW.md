@@ -1,6 +1,6 @@
 # ARBITRADE development workflow: ChatGPT authors, GitHub validates
 
-**Status:** adopted workflow proposal; use this process while the separate OpenAI API-key quota is unavailable.
+**Status:** proposed; pending review and merge. The process below is the intended operating model while the separate OpenAI API-key quota is unavailable.
 
 ## Responsibilities
 
