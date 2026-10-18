@@ -105,7 +105,18 @@ export async function migrateMiningTokenToCki(conn) {
       }
       await conn.execute("INSERT INTO mining_schema_migrations (migrationKey,detailsJson) VALUES (?,?)", [
         MIGRATION_KEY,
-        JSON.stringify({ tokenName: "CoinKi", tokenSymbol: "CKI", status: "already_configured", legacyTokenBalances: "zero_or_absent", reclassificationPerformed: false }),
+        JSON.stringify({
+          version: Number(previous.version),
+          tokenName: "CoinKi",
+          tokenSymbol: "CKI",
+          status: "already_configured",
+          legacyTokenBalances: "zero_or_absent",
+          reclassificationPerformed: false,
+          reclassifiedUserWallets: 0,
+          reclassifiedAmount: ZERO,
+          historicalLedgerPreserved: true,
+          noOpReason: "CKI was already active and no non-zero legacy TOKEN wallet balances remained.",
+        }),
       ]);
       await conn.commit();
       console.log("Skipped legacy TOKEN reclassification: CKI is already active and no non-zero TOKEN wallet balances exist.");
