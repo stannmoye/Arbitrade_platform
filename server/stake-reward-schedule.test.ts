@@ -83,6 +83,22 @@ describe("Stake & Earn cumulative reward calculation", () => {
     expect(calculateAdditionalStakeReward(100000, 10000, openedAt, "MONTHLY", 0, new Date("2026-12-30T00:00:00.000Z"))).toBe(24657);
   });
 
+  it("caps cumulative reward accrual at maturity when processed late", () => {
+    const openedAt = new Date("2026-10-01T00:00:00.000Z");
+    const maturityAt = new Date("2026-10-03T00:00:00.000Z");
+    const processedAt = new Date("2026-10-10T00:00:00.000Z");
+
+    expect(calculateAdditionalStakeReward(10000, 10000, openedAt, "DAILY", 0, processedAt, maturityAt)).toBe(54);
+  });
+
+  it("does not accrue a reward period that starts after maturity", () => {
+    const openedAt = new Date("2026-10-01T00:00:00.000Z");
+    const maturityAt = new Date("2026-10-01T12:00:00.000Z");
+    const processedAt = new Date("2026-10-10T00:00:00.000Z");
+
+    expect(calculateAdditionalStakeReward(10000, 10000, openedAt, "DAILY", 0, processedAt, maturityAt)).toBe(0);
+  });
+
   it("never returns a negative increment if previously posted rewards exceed the current target", () => {
     const openedAt = new Date("2026-10-01T00:00:00.000Z");
     const now = new Date("2026-10-02T00:00:00.000Z");
