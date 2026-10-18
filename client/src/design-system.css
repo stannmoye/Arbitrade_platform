@@ -902,3 +902,35 @@
     scroll-behavior: auto;
   }
 }
+
+
+/* Keyboard users can reach and identify horizontally scrollable data tables. */
+[data-slot="table-container"]:focus {
+  outline: none;
+}
+[data-slot="table-container"]:focus-visible {
+  outline: 2px solid var(--arb-color-accent, currentColor);
+  outline-offset: 2px;
+}
+[data-slot="table"] {
+  max-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+[data-slot="table-head"],
+[data-slot="table-cell"] {
+  overflow-wrap: anywhere;
+}
+[data-slot="table-caption"] {
+  max-width: 70ch;
+  overflow-wrap: anywhere;
+}
+@media (forced-colors: active) {
+  [data-slot="table-container"]:focus-visible {
+    outline-color: Highlight;
+  }
+  [data-slot="table-head"],
+  [data-slot="table-cell"] {
+    border-color: CanvasText;
+  }
+}
