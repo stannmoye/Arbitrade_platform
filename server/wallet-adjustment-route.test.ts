@@ -44,7 +44,7 @@ describe("admin wallet adjustment route telemetry failures", () => {
       res: {} as never,
     } as never);
 
-    const result = await caller.admin.adjustCustomerBalance({
+    const result = await caller.adminOperations.adjustCustomerBalance({
       userId: 2,
       currency: "USD",
       amountMinor: 25,
