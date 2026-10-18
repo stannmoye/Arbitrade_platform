@@ -36,7 +36,7 @@ A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the fu
 - TypeScript: `pnpm check` passed.
 - Production build: `pnpm build` passed.
 - Commit validated: `9c6aeb2a303806c9f7bf80f7f40dc059276b49a9`.
-- Latest source update: configurable accessible names for shared table scroll regions and regression coverage were committed after the run above; a fresh workflow run is required for those commits.
+- Latest source update: configurable accessible names for shared table scroll regions, a contextual showcase example, and regression coverage were committed after the run above; a fresh workflow run is required for those commits.
 - Remaining limitation: no real-browser viewport evidence has been captured yet; Stage 2 remains in progress.
 
 ## Acceptance still required
@@ -44,7 +44,7 @@ A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the fu
 - [x] Run the new contract test and the complete application test suite on the current branch (CI: 28 test files, 199 tests passed).
 - [x] Run TypeScript validation and production build on the current branch (both CI jobs passed).
 - [ ] Verify representative customer and administrator routes at 320, 375, 768, 1024, and desktop viewport widths in a real browser.
-- [x] Add an accessible name and region semantics to keyboard-focusable shared table overflow containers; source contract added.
+- [x] Add an accessible name and region semantics to keyboard-focusable shared table overflow containers; callers can provide contextual names, and the component showcase demonstrates the prop.
 - [ ] Confirm there is no unintended horizontal page overflow; horizontally scrollable financial tables must remain keyboard accessible in a real browser.
 - [ ] Inspect form errors, disabled/busy controls, dialogs, dropdowns, and focus visibility under all five themes.
 - [ ] Confirm actual contrast ratios for text, controls, status states, and focus indicators; CSS presence alone does not prove WCAG conformance.
