@@ -28,7 +28,8 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
   const effectiveDefault = customerThemes.includes(requestedDefault) ? requestedDefault : customerThemes[0];
   const customerCanSelect = policy?.customerCanSelect === true;
   const policyReady = !auth.isLoading && !appearance.isLoading;
-  const canChoose = policyReady && !readOnly && (isAdmin || customerCanSelect);
+  const policyFailed = auth.isError || appearance.isError;
+  const canChoose = policyReady && !policyFailed && !readOnly && (isAdmin || customerCanSelect);
   const availableThemes: ArbitradeTheme[] = isAdmin
     ? [...ARBITRADE_THEMES]
     : customerCanSelect
@@ -44,8 +45,8 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
     <section className={`arb-theme-selector${compact ? " arb-theme-selector-compact" : ""}`} aria-label="Appearance settings" aria-busy={!policyReady}>
       <label htmlFor={canChoose ? selectId : undefined}>
         <span className="arb-theme-selector-title">{canChoose ? "Appearance" : "Workspace appearance"}</span>
-        {!compact && <span className="arb-theme-selector-description">{!policyReady ? "Loading workspace appearance…" : canChoose ? "Choose your workspace theme" : "Theme selected by workspace settings"}</span>}
-      {!policyReady && <span className="arb-theme-selector-status" role="status" aria-live="polite">Loading workspace appearance…</span>}
+        {!compact && <span className="arb-theme-selector-description">{!policyReady ? "Loading workspace appearance…" : policyFailed ? "Appearance settings could not be loaded; using the default theme." : canChoose ? "Choose your workspace theme" : "Theme selected by workspace settings"}</span>}
+      {(!policyReady || policyFailed) && <span className="arb-theme-selector-status" role={policyFailed ? "alert" : "status"} aria-live="polite">{policyFailed ? "Appearance settings could not be loaded; using the default theme." : "Loading workspace appearance…"}</span>}
       </label>
       {canChoose ? (
         <select
