@@ -102,7 +102,7 @@ pnpm build
 
 Installer-specific tests/configuration also exist, including `vitest.installer.config.ts`, shell/Node safety tests and the `installer-validation.yml` workflow.
 
-**Execution status on audit date:** Not run from this audit session. The GitHub repository connector allowed source inspection but did not provide a checked-out execution environment in this step. No pass/fail result is claimed. Before marking Stage 1 complete, obtain real CI/workflow results or run the commands in the project environment, record failures, and establish a known baseline. Do not run database-mutating scripts as part of this baseline.
+**Execution status on audit date:** The commands were not run directly from this audit session. A GitHub Actions **Installer validation** run was found and is currently in progress: [run 39121401277](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39121401277). Its syntax job had passed PHP/Node/shell syntax checks and dependency installation, while TypeScript validation was still running at the time inspected; the full test suite, installer/recovery tests and production build were still pending. This is an interim status, not a final pass/fail result. Recheck the run and record its final conclusion before marking Stage 1 complete. Do not run database-mutating scripts as part of the baseline.
 
 ## 6. Initial priority queue
 
