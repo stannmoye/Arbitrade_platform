@@ -78,15 +78,17 @@ async function postDueRewards(conn: Db, userId: number) {
   }
 }
 
-async function settleDuePositions(conn: Db, userId: number) {
+export async function settleDuePositions(conn: Db, userId: number) {
   const [positions] = await conn.query<any[]>(`SELECT * FROM stake_positions WHERE userId=? AND status IN ('ACTIVE','REWARD_ACCRUING','SETTLING') AND maturityAt<=NOW() FOR UPDATE`, [userId]);
   for (const p of positions) {
     const reference = `stake-settlement:${p.id}`;
     const [existing] = await conn.query<any[]>(`SELECT id FROM balance_ledger WHERE reference=? LIMIT 1`, [reference]);
     if (existing.length) continue;
     await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId, p.asset, p.principalMinor, "stake_principal_release", reference]);
-    await conn.execute(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=GREATEST(lockedMinor-?,0), updatedAt=NOW() WHERE userId=? AND currency=?`, [p.principalMinor, p.principalMinor, userId, p.asset]);
-    await conn.execute(`UPDATE stake_positions SET status='COMPLETED', completedAt=NOW(), updatedAt=NOW() WHERE id=?`, [p.id]);
+    const [walletUpdate] = await conn.execute<any>(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=GREATEST(lockedMinor-?,0), updatedAt=NOW() WHERE userId=? AND currency=?`, [p.principalMinor, p.principalMinor, userId, p.asset]);
+    if (Number(walletUpdate.affectedRows) !== 1) throw new Error("Stake settlement " + reference + " must update exactly one wallet row; received " + (Number(walletUpdate.affectedRows) || 0) + ".");
+    const [positionUpdate] = await conn.execute<any>(`UPDATE stake_positions SET status='COMPLETED', completedAt=NOW(), updatedAt=NOW() WHERE id=? AND status IN ('ACTIVE','REWARD_ACCRUING','SETTLING')`, [p.id]);
+    if (Number(positionUpdate.affectedRows) !== 1) throw new Error("Stake settlement " + reference + " must complete exactly one eligible position; received " + (Number(positionUpdate.affectedRows) || 0) + ".");
     await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, p.id, "position.completed", p.status, "COMPLETED", p.principalMinor, p.asset, JSON.stringify({ ledgerReference: reference })]);
     await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, "Funds released", `Your Stake & Earn position ${p.positionCode} matured and principal was released to your wallet.`]);
   }
