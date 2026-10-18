@@ -61,3 +61,11 @@ Do not mark Stage 2 complete based solely on source changes or CI. Record actual
 - Validation for code commit `1bf20c1a3e0792616a8877f2c2282da13e35486`: [GitHub Actions run 39174934891](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39174934891) passed all three jobs—28 test files / 199 tests, TypeScript, and production build. This result predates the latest regression-test additions.
 - Added an additional source-level contract for administrator appearance-policy controls and last-enabled-theme protection; it still requires execution in CI.
 - No real-browser viewport evidence is available yet. Keep the five-theme viewport checks, horizontal-overflow inspection, and rendered contrast verification open; do not mark Stage 2 complete until those are recorded.
+
+## Continuation progress — 2026-10-19 (current batch)
+
+- Extended additive `.arb-page` adoption across legacy portal page roots, customer/admin navigation drawers, account/settings surfaces, mining operations status, the shared AI chat panel, the responsive dialog, and the error fallback. Existing business logic and route layouts were retained.
+- Added shared reduced-motion handling for adopted pages, responsive bounds for embedded media and native form controls, and safe wrapping for long code/reference strings. The Mining operations visualization now stays static when the operating system requests reduced motion.
+- Latest implementation commit at this checkpoint: `dbf8140e75a567e01f36df04f99a80076797383b`.
+- No tests or browser checks have been run for this latest batch. Do not report CI as green for the current head; verify only the required checks and viewport acceptance before closing Stage 2.
+- Still open: ten-width real-browser checks, page-overflow inspection, all-theme interaction/contrast inspection, and confirming the latest head's automated CI result.
