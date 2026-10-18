@@ -16,7 +16,7 @@ The GitHub Actions installer-validation workflow runs independent validation lan
 | ID | Priority | Workstream | Acceptance evidence | Status |
 |---|---|---|---|---|
 | S1-A | P0 | Wallet adjustment concurrency | Disposable MySQL/MariaDB competing credit/debit tests; no lost update; ledger totals reconcile | Partial mitigation in PR #62; DB acceptance open |
-| S1-B | P0 | Manual trade settlement | Competing settlement test, duplicate-reference test, affected-row/single-winner assertion, rollback verification | Open |
+| S1-B | P0 | Manual trade settlement | Competing settlement test, duplicate-reference test, affected-row/single-winner assertion, rollback verification | Source review confirms conditional single-winner transition; unique reference constraint and DB-backed race/rollback tests still open |
 | S1-C | P0 | Mining purchase/swap | Disposable DB tests for quote owner/status/expiry, replay, competing confirmations, concurrent spending, rollback, and per-asset ledger reconciliation | Open |
 | S1-D | P1 | API ownership/security | Endpoint-level cross-customer authorization, notification ownership, and replay/deduplication tests | Open |
 | S1-E | P1 | Schema/migration parity | Fresh and upgrade paths on disposable MariaDB and MySQL 8; verify constraints/types/tracker history | In progress |
