@@ -25,7 +25,7 @@ describe("migration recovery diagnostic connection safety", () => {
     const runnerList = runnerSource.match(/const migrationFiles = \[([\s\S]*?)\];/);
     expect(diagnosticList).not.toBeNull();
     expect(runnerList).not.toBeNull();
-    const filenames = (list: string) => [...list.matchAll(/"([^"]+\.sql)"/g)].map((match) => match[1]);
+    const filenames = (list) => [...list.matchAll(/"([^"]+\.sql)"/g)].map((match) => match[1]);
     expect(filenames(diagnosticList![1])).toEqual(filenames(runnerList![1]));
   });
 
