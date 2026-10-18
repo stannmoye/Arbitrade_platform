@@ -33,23 +33,25 @@ jobs:
       patch_present: ${{ steps.patch.outputs.present }}
       task_number: ${{ steps.task_number.outputs.number }}
       target_branch: ${{ steps.context.outputs.target_branch }}
-      expected_sha: ${{ steps.context.outputs.expected_sha }}
+      expected_sha: ${{ steps.current_revision.outputs.expected_sha }}
     steps:
-      - name: Resolve the exact candidate revision and bounded chain counter
+      - name: Resolve the target branch
         id: context
         env:
           TARGET_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
-          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha || '' }}
         run: |
           set -euo pipefail
           echo "target_branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
-          echo "expected_sha=$EXPECTED_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Check out the revision that passed validation
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
           fetch-depth: 0
+
+      - name: Record the exact checked-out revision
+        id: current_revision
+        run: echo "expected_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Resolve bounded task number
         id: task_number
@@ -183,7 +185,13 @@ jobs:
           fi
           while IFS= read -r path; do
             case "$path" in
-              server/*|client/*|shared/*|tests/*|*.test.*|*.spec.*|docs/ARBITRADE_STAGE1_AUTOMATION_QUEUE.md|docs/ARBITRADE_STAGE_1_PROGRESS_2026-10-18.md)
+              server/*|client/*|shared/*|tests/*|docs/ARBITRADE_STAGE1_AUTOMATION_QUEUE.md|docs/ARBITRADE_STAGE_1_PROGRESS_2026-10-18.md)
+                ;;
+              *.test.*|*.spec.*)
+                if [[ "$path" == */* ]]; then
+                  echo "::error::Root-level test allowlist does not permit nested path: $path"
+                  exit 1
+                fi
                 ;;
               *)
                 echo "::error::Blocked change outside the allowed code/test/progress paths: $path"
@@ -196,7 +204,9 @@ jobs:
             exit 1
           fi
           git diff --check
-          git add -- $changed_files
+          while IFS= read -r path; do
+            git add -- "$path"
+          done <<< "$changed_files"
           git diff --cached --check
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
