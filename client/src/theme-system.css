@@ -626,3 +626,35 @@
   border-width: 1px;
   border-radius: var(--arb-radius-sm);
 }
+
+
+/* Stage 2: make the appearance selector independently keyboard-accessible. */
+:root[data-arb-theme] .arb-theme-selector select:focus-visible {
+  border-color: var(--arb-color-accent);
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 2px;
+}
+:root[data-arb-theme] .arb-theme-selector select:disabled {
+  color: var(--arb-color-text-muted);
+  background: var(--arb-color-surface);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+:root[data-arb-theme] .arb-theme-selector-status {
+  color: var(--arb-color-text-muted);
+}
+:root[data-arb-theme] .arb-theme-selector-status[role="alert"] {
+  color: var(--arb-color-danger);
+}
+:root[data-arb-theme] .arb-theme-selector :where(select, .arb-theme-selector-current) {
+  overflow-wrap: anywhere;
+}
+:root[data-arb-theme] .arb-theme-selector :where(select, .arb-theme-selector-current):focus-visible {
+  outline-color: var(--arb-focus-ring);
+}
+@media (prefers-contrast: more) {
+  :root[data-arb-theme] .arb-theme-selector select:focus-visible {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
+}
