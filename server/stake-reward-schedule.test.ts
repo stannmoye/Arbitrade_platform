@@ -47,6 +47,10 @@ describe("Stake & Earn reward catch-up schedule", () => {
   });
 });
 
+  it("rejects an unsupported reward frequency instead of treating it as monthly", () => {
+    expect(() => calculateDueRewardSchedule(new Date("2026-10-01T00:00:00.000Z"), "FORTNIGHTLY")).toThrow(/Unsupported Stake & Earn reward frequency/);
+  });
+
 describe("Stake & Earn cumulative reward calculation", () => {
   it("calculates the first daily reward from the full elapsed schedule", () => {
     const openedAt = new Date("2026-10-01T00:00:00.000Z");
