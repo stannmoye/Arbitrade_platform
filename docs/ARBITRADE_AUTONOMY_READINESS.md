@@ -13,7 +13,7 @@ Automate routine development, testing, bounded repair attempts, progress reporti
 | 3. CI validation | Tests, type checks, build/install/migration checks on relevant changes | Installer validation workflow exists; current PR validation is running | PRESENT; coverage still incomplete |
 | 4. Coding agent | Agent reads repo, edits source/tests, returns a reviewable patch | Codex Actions worker exists; previous attempt hit API quota exhaustion | BLOCKED ON API QUOTA |
 | 5. Orchestration | Select next eligible task only after prior validation passes | PR proposes push-validation-triggered follow-on guarded by `ARBITRADE_AUTONOMOUS_WORKER_ENABLED`, with a five-task cap | WIRED IN PR; NOT ACTIVE |
-| 6. Failure recovery | Diagnose failed checks and bounded retries, then stop/escalate | Worker stops on failed validation, empty patch, stale revision, disallowed paths, and five-task cap; end-to-end behavior not yet verified | PARTIAL |
+| 6. Failure recovery | Diagnose failed checks and bounded retries, then stop/escalate | Worker proposes repair-only follow-ups (maximum two) for failed task validation, and stops on repeated failure, empty patch, stale revision, disallowed paths, or five-task cap; end-to-end behavior not yet verified | PARTIAL |
 | 7. Progress dashboard | Report task, commit, CI run, blockers, and next task from evidence | `.github/workflows/autonomy-progress.yml` completed successfully on PR head during run #4 | IMPLEMENTED IN PR; VERIFIED ON THAT REVISION |
 | 8. Independent quality gates | Scope validation, review, security and financial acceptance | Worker patch allowlist and stale-head guard exist; full release/security gates remain incomplete | PARTIAL |
 | 9. Staging acceptance | Isolated browser/API/database testing, backup/restore, migration validation | Some disposable DB validation exists; full end-to-end acceptance not verified | PARTIAL |
@@ -27,7 +27,7 @@ Automate routine development, testing, bounded repair attempts, progress reporti
 4. Run the coding agent in an isolated workspace with least-privilege permissions.
 5. Accept only allowed source/test/documentation paths; reject deletions and stale patches by default.
 6. Run focused tests, then full CI on the exact candidate commit.
-7. If validation fails, stop and report; do not launch another coding task. Repair must be an explicit, bounded follow-up.
+7. If validation fails after an automatic task commit, run a repair-only task with captured failure logs; allow at most two repair attempts, then stop and report. Never launch a new feature task on a failed candidate.
 8. After success, update the progress report with exact commit and workflow evidence.
 9. Start another task only when the previous task's required checks have succeeded.
 10. Never auto-merge, deploy, access production, or mutate real customer financial data.
@@ -36,7 +36,7 @@ Automate routine development, testing, bounded repair attempts, progress reporti
 
 - **API quota:** The current coding worker uses `OPENAI_API_KEY`. The prior worker attempt failed with a quota-exceeded error. An authorized repository owner must restore API quota/billing and verify limits before unattended coding can run. Do not paste the key into chat, commits, issues, or logs.
 - **Merge and controlled first run:** Review and merge the workflow wiring, then run one small test-only task manually on `integration/auth-installer-vps-safety` with the automatic-worker variable disabled. Inspect the patch and logs and confirm validation on the exact resulting commit.
-- **Enable chaining only after proof:** Set repository variable `ARBITRADE_AUTONOMOUS_WORKER_ENABLED` to `true) only after the supervised run succeeds. Automatic chaining is bounded to five consecutive automatic commits and only follows successful push-triggered Installer validation.
+- **Enable chaining only after proof:** Set repository variable `ARBITRADE_AUTONOMOUS_WORKER_ENABLED` to `true` only after the supervised run succeeds. Automatic chaining is bounded to five consecutive automatic commits and only follows successful push-triggered Installer validation.
 - **Progress reporting:** The dashboard job summary is implemented in this PR. The workflow must be merged to the default branch for its `workflow_run` trigger to report subsequent validation completions.
 - **Production inputs:** The production host/database and several real financial product/provider decisions are still unresolved in `TODO.md` and `plan.md`. Production deployment cannot be reduced to a safe “push” until those gates are satisfied.
 
