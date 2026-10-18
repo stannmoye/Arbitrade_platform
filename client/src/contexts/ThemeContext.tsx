@@ -94,10 +94,9 @@ export function ThemeProvider({
       setThemeState(nextTheme);
       return;
     }
-    if (!policy) {
-      setThemeState(nextTheme);
-      return;
-    }
+    // Do not accept customer theme changes until the server policy has loaded.
+    // This prevents a disabled theme from being applied during the initial query window.
+    if (!policy) return;
     if (customerCanSelect && enabledThemes.includes(nextTheme)) setThemeState(nextTheme);
   };
 
