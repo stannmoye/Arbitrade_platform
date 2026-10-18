@@ -85,11 +85,19 @@ export function ThemeProvider({
   // Start from the published-safe default. Customer preferences are read only after policy loads,
   // preventing a previously stored but now-disabled theme from flashing during initial render.
   const [theme, setThemeState] = useState<ArbitradeTheme>(defaultTheme);
+  // Avoid writing the initial fallback over an administrator's saved preview before
+  // the authenticated role has been resolved and the stored theme has been restored.
+  const [adminThemeReady, setAdminThemeReady] = useState(false);
 
   useEffect(() => {
-    if (auth.isLoading || auth.isError || !isAdmin) return;
+    if (auth.isLoading) return;
+    if (auth.isError || !isAdmin) {
+      setAdminThemeReady(true);
+      return;
+    }
     // Administrators may keep a local preview independent of the published customer policy.
     setThemeState(readStoredTheme(defaultTheme));
+    setAdminThemeReady(true);
   }, [auth.isLoading, auth.isError, isAdmin, defaultTheme]);
 
   useEffect(() => {
@@ -155,14 +163,14 @@ export function ThemeProvider({
     root.classList.toggle("dark", effectiveTheme !== "clean-light");
     root.style.colorScheme = effectiveTheme === "clean-light" ? "light" : "dark";
 
-    if (!auth.isLoading && !auth.isError && switchable && (isAdmin || (policy && customerCanSelect && enabledThemes.includes(effectiveTheme)))) {
+    if (!auth.isLoading && !auth.isError && (!isAdmin || adminThemeReady) && switchable && (isAdmin || (policy && customerCanSelect && enabledThemes.includes(effectiveTheme)))) {
       try {
         window.localStorage.setItem(THEME_STORAGE_KEY, effectiveTheme);
       } catch {
         // Keep the selected theme active for this session when storage is unavailable.
       }
     }
-  }, [theme, switchable, auth.isLoading, auth.isError, appearance.isError, isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
+  }, [theme, switchable, auth.isLoading, auth.isError, appearance.isError, isAdmin, adminThemeReady, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
 
   const selectableThemes: ArbitradeTheme[] = isAdmin
     ? [...ARBITRADE_THEMES]
