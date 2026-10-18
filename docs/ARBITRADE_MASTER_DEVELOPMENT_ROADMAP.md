@@ -11,8 +11,10 @@
 
 - **Roadmap:** Recorded in this document.
 - **Current stage:** Stage 1 — Complete Application Audit and Development Baseline.
-- **Stage 1 status:** Not started.
-- **Next action:** Inspect the actual repository and record the existing pages, components, backend events, tests, responsive behaviour, and deployment constraints before making major interface changes.
+- **Stage 1 status:** In progress — initial source inspection and audit report committed; executable baseline checks and systematic route/theme/sound mapping remain outstanding.
+- **Stage 1 audit report:** `docs/ARBITRADE_STAGE_1_AUDIT.md`.
+- **Latest Stage 1 action:** Inspected repository structure, app entry, large stylesheet, customer/admin navigation, theme context, sound settings, notification view, server entry/router, package scripts, database/migration layout and installer documentation.
+- **Next action:** Run `pnpm check`, `pnpm test`, and `pnpm build` in a real project environment or retrieve verified CI results; record actual outcomes before marking Stage 1 complete.
 - **Release status:** No implementation or production readiness is implied by the existence of this roadmap.
 - **Default theme decision:** Preserve the current/original Arbitrade theme as Theme 1 and keep it as the initial default.
 - **Theme count:** Five total themes: the original theme plus four new themes.
@@ -123,7 +125,7 @@ Tasks:
 - Review installer scripts and documented sandbox, cPanel and VPS requirements.
 - Record a baseline and prioritized issue list.
 
-Deliverables: audit report, page inventory, dependency/workflow map, baseline checks and prioritized findings.
+Deliverables: audit report, page inventory, dependency/workflow map, baseline checks and prioritized findings. Initial source-inspection findings are recorded in `docs/ARBITRADE_STAGE_1_AUDIT.md`; Stage 1 remains in progress until executable baseline checks and the remaining inventory/verification tasks are complete.
 
 Exit criteria: enough verified knowledge of the actual implementation to plan changes safely. No major redesign begins before the audit findings are recorded.
 
