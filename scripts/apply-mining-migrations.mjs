@@ -356,8 +356,8 @@ try {
 } finally {
   await connection.end();
 }
+}
 
- 
 main().catch((error) => {
   if (error?.code) {
     const code = String(error.code).replace(/[^A-Z0-9_]/gi, "").slice(0, 40) || "UNKNOWN";
