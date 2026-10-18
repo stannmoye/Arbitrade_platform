@@ -67,7 +67,7 @@ function ToolPage({
   children: ReactNode;
 }) {
   return (
-    <div className="admin-ops-page">
+    <div className="admin-ops-page arb-page">
       <header className="admin-ops-head">
         <div className="admin-ops-heading">
           <span className="admin-ops-kicker"><Icon size={14} /> {eyebrow}</span>
