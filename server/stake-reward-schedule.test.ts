@@ -63,6 +63,29 @@ describe("Stake & Earn cumulative reward calculation", () => {
     expect(calculateAdditionalStakeReward(10000, 10000, openedAt, "DAILY", 27, new Date("2026-10-03T00:00:00.000Z"))).toBe(27);
   });
 
+
+  it("calculates cumulative weekly rewards after missed weekly periods", () => {
+    const openedAt = new Date("2026-10-01T00:00:00.000Z");
+    const now = new Date("2026-10-22T00:00:00.000Z");
+
+    expect(calculateAdditionalStakeReward(100000, 10000, openedAt, "WEEKLY", 0, now)).toBe(575);
+    expect(calculateAdditionalStakeReward(100000, 10000, openedAt, "WEEKLY", 287, now)).toBe(288);
+  });
+
+  it("calculates cumulative monthly rewards and does not pay before a full period", () => {
+    const openedAt = new Date("2026-10-01T00:00:00.000Z");
+
+    expect(calculateAdditionalStakeReward(100000, 10000, openedAt, "MONTHLY", 0, new Date("2026-10-30T00:00:00.000Z"))).toBe(0);
+    expect(calculateAdditionalStakeReward(100000, 10000, openedAt, "MONTHLY", 0, new Date("2026-12-30T00:00:00.000Z"))).toBe(1643);
+  });
+
+  it("never returns a negative increment if previously posted rewards exceed the current target", () => {
+    const openedAt = new Date("2026-10-01T00:00:00.000Z");
+    const now = new Date("2026-10-02T00:00:00.000Z");
+
+    expect(calculateAdditionalStakeReward(10000, 10000, openedAt, "DAILY", 1000, now)).toBe(0);
+  });
+
   it("catches up missed periods while subtracting previously posted cumulative rewards", () => {
     const openedAt = new Date("2026-10-01T00:00:00.000Z");
     const now = new Date("2026-10-04T00:00:00.000Z");
