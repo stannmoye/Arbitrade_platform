@@ -258,3 +258,7 @@ Source review of `client/src/components/CustomerMining.tsx`, `server/routers.ts`
 3. Decide whether transaction-console history is intentionally deleted on new session, then document retention policy.
 4. Complete browser/responsive and event-to-sound checks; none are claimed as run in this source-only pass.
 5. Stage 1 remains **in progress**. No financial code, database schema, or customer data was changed by this audit update.
+
+### Follow-up schema-width check
+- The initial transaction-console table migration declares `amountMinor` as `INT`, while the current Drizzle schema uses a bigint representation. Follow-up search found `drizzle/0043_wallet_minor_units_bigint.sql` explicitly alters `transaction_console_events.amountMinor` to `BIGINT NULL`, and the schema-audit script expects the live column type to be bigint. This resolves the apparent migration-history discrepancy for deployments that have applied migration 0043; still verify the installed migration ledger and live schema on each target environment.
+- This follow-up is a source/migration inspection only. No database connection or live schema was inspected, and no migration was run.
