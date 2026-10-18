@@ -867,3 +867,26 @@
     scrollbar-color: CanvasText Canvas;
   }
 }
+
+
+/* Stage 2: maintain comfortable dialog controls without enlarging their icons. */
+[data-slot="dialog-close"] {
+  display: inline-grid;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  place-items: center;
+}
+[data-slot="dialog-close"]:focus-visible {
+  outline: 2px solid var(--arb-color-accent, currentColor);
+  outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  [data-slot="dialog-footer"] > :where(button, [role="button"]) {
+    min-height: 2.75rem;
+  }
+}
+@media (forced-colors: active) {
+  [data-slot="dialog-close"]:focus-visible {
+    outline-color: Highlight;
+  }
+}
