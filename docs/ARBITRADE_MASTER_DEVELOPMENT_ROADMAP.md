@@ -9,7 +9,7 @@
 
 ## Current project checkpoint
 
-- **Stage 2 table accessibility follow-up (2026-10-18):** Shared table scroll regions now accept an optional `containerAriaLabel` prop, retaining a backward-compatible default while allowing callers to supply a contextual accessible name. Added a source contract for the configurable label. Fresh CI and real-browser acceptance are still required; Stage 2 remains in progress.
+- **Stage 2 table accessibility follow-up (2026-10-18):** Shared table scroll regions now accept an optional `containerAriaLabel` prop, retaining a backward-compatible default while allowing callers to supply a contextual accessible name. Updated the component showcase to demonstrate a contextual label and added regression contracts for both the prop and example. Fresh CI and real-browser acceptance are still required; Stage 2 remains in progress.
 
 - **Stage 2 automated validation passed (2026-10-18):** GitHub Actions run [39174320260](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39174320260) passed all three parallel jobs: full application tests (28 files, 199 tests), TypeScript validation, and production build. Keyboard-scrollable shared table containers now have accessible region semantics/name with a source regression test. Real-browser viewport and rendered accessibility acceptance are still outstanding; Stage 2 remains in progress.
 
