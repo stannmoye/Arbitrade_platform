@@ -227,7 +227,7 @@ export async function cancelStake(userId: number, positionId: number, requestKey
       if (prior.length) { await conn.commit(); return JSON.parse(prior[0].resultJson); }
       const [rows] = await conn.query<any[]>(`SELECT * FROM stake_positions WHERE id=? AND userId=? FOR UPDATE`, [positionId, userId]); const p=rows[0];
       if (!p || !["ACTIVE","REWARD_ACCRUING"].includes(p.status)) throw new Error("This position cannot be cancelled");
-      if (new Date(p.maturityAt).getTime() - Date.now() < 0) throw new Error("Matured positions must be settled");
+      if (new Date(p.maturityAt).getTime() <= Date.now()) throw new Error("Matured positions must be settled");
       const reference=`stake-cancellation:${p.id}`;
       const [existing] = await conn.query<any[]>(`SELECT id FROM balance_ledger WHERE reference=? LIMIT 1`, [reference]);
       if (existing.length) throw new Error(`Stake cancellation invariant violation for ${reference}: ledger entry already exists before position cancellation.`);
