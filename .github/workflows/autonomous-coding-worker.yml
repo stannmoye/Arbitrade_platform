@@ -1,13 +1,8 @@
 name: ARBITRADE autonomous coding worker
 
 on:
-  # Continue only after the normal validation workflow succeeds on the protected work branch.
-  workflow_run:
-    workflows: ["Installer validation"]
-    types: [completed]
-    branches:
-      - integration/auth-installer-vps-safety
-  # Allow an authorized maintainer to start a bounded chain manually.
+  # Legacy API-key coding worker is manual-only. Normal development uses ChatGPT
+  # with the GitHub connector; GitHub Actions remains responsible for CI validation.
   workflow_dispatch:
 
 permissions:
@@ -20,13 +15,7 @@ concurrency:
 
 jobs:
   code-one-task:
-    if: >-
-      (github.event_name == 'workflow_dispatch' &&
-       github.ref_name == 'integration/auth-installer-vps-safety') ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'integration/auth-installer-vps-safety' &&
-       !contains(github.event.workflow_run.head_commit.message, '[ARBITRADE-AUTO-STEP-5]'))
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'integration/auth-installer-vps-safety'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     outputs:
@@ -38,7 +27,7 @@ jobs:
       - name: Resolve the target branch
         id: context
         env:
-          TARGET_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+          TARGET_BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           echo "target_branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
@@ -46,7 +35,7 @@ jobs:
       - name: Check out the revision that passed validation
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+          ref: ${{ github.ref }}
           fetch-depth: 0
 
       - name: Record the exact checked-out revision
