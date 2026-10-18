@@ -18,7 +18,7 @@ export function EmailSecurityControls() {
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not request a code."); }
   };
   const toggle = (key: "systemAlerts" | "transactionAlerts" | "dailyTradingReports" | "adminMessages", value: boolean) => update.mutate({ [key]: value });
-  return <div className="settings-card email-security-controls">
+  return <div className="settings-card email-security-controls arb-page">
     <div className="eyebrow">Email delivery</div><h2>Verify your inbox</h2>
     <p className="settings-copy">{verified ? "This inbox is verified." : "Inbox verification is required for account alerts and daily summaries."} Email verification is separate from KYC and does not establish identity.</p>
     {!verified && <button type="button" className="secondary-button" disabled={request.isPending} onClick={() => void requestCode()}>{request.isPending ? "Requesting…" : "Send verification code"}</button>}
