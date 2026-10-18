@@ -238,3 +238,11 @@ group_line="$(line_of 'groupadd --system "$APP_USER"')"
 pass "VPS domain and HTTPS contact inputs are validated before system-changing operations"
 
 printf '\nInstaller CLI and runtime-provisioning regression checks passed. No database connection, package installation, or migration was attempted.\n'
+
+# Regression guard: failed VPS provisioning must not disable a systemd service
+# after another actor replaces the unit published by this installation attempt.
+assert_file_contains "$VPS_SETUP" 'if [[ "$SERVICE_ATTEMPTED" == 1 && "$UNIT_PUBLISHED" == 1 && -n "$UNIT_PUBLISHED_ID"' "VPS rollback verifies that this attempt published the service unit"
+assert_file_contains "$VPS_SETUP" 'stat -c '\''%d:%i'\'' -- "$UNIT"' "VPS rollback compares the published unit device/inode identity"
+assert_file_contains "$VPS_SETUP" 'Service rollback skipped because the published unit identity could not be verified' "VPS rollback warns when service identity cannot be verified"
+assert_file_not_contains "$VPS_SETUP" 'if [[ "$SERVICE_ATTEMPTED" == 1 ]]; then' "VPS rollback never uses the former unconditional service-disable guard"
+pass "VPS service rollback identity regression checks"
