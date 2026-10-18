@@ -40,7 +40,7 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
         <span className="arb-theme-selector-title">{canChoose ? "Appearance" : "Workspace appearance"}</span>
         {!compact && (
           <span id={`arb-theme-description-${selectorId}`} className="arb-theme-selector-description">
-            {!policyReady ? "Loading workspace appearance…" : policyFailed ? "Appearance settings could not be loaded; using the default theme." : canChoose ? "Choose your workspace theme" : "Theme selected by workspace settings"}
+            {!policyReady || policyFailed ? "Workspace appearance settings" : canChoose ? "Choose your workspace theme" : "Theme selected by workspace settings"}
           </span>
         )}
       </label>
