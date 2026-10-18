@@ -8,18 +8,18 @@ Automate routine development, testing, bounded repair attempts, progress reporti
 
 | Layer | Required capability | Current evidence | Status |
 |---|---|---|---|
-| 1. Repository/task source | Versioned code, prioritized task queue, documented acceptance criteria | Repository and this Stage 1 queue exist | PARTIAL |
+| 1. Repository/task source | Versioned code, prioritized task queue, documented acceptance criteria | Stage 1 queue and evidence rules added in this PR | IMPLEMENTED IN PR |
 | 2. Workstream separation | Independent, bounded tasks; avoid overlapping edits to shared files | Queue tasks are scoped; parallel execution is not yet verified | PARTIAL |
-| 3. CI validation | Tests, type checks, build/install/migration checks on relevant changes | Installer validation workflow exists | PRESENT; coverage still incomplete |
-| 4. Coding agent | Agent reads repo, edits source/tests, returns a reviewable patch | Codex Actions workflow exists and needs API quota | BLOCKED |
-| 5. Orchestration | Select next eligible task only after prior validation passes | Current workflow on `main` is manual-only; no verified continuous loop | BLOCKED |
-| 6. Failure recovery | Diagnose failed checks and bounded retries, then stop/escalate | No end-to-end recovery chain verified | PARTIAL/BLOCKED |
-| 7. Progress dashboard | Report task, commit, CI run, blockers, and next task from evidence | Queue/progress documents provide a manual evidence record; automated dashboard not yet verified | PARTIAL |
-| 8. Independent quality gates | Scope validation, review, security and financial acceptance | Worker allowlist exists; full release/security gates remain incomplete | PARTIAL |
+| 3. CI validation | Tests, type checks, build/install/migration checks on relevant changes | Installer validation workflow exists; current PR validation is running | PRESENT; coverage still incomplete |
+| 4. Coding agent | Agent reads repo, edits source/tests, returns a reviewable patch | Codex Actions worker exists; previous attempt hit API quota exhaustion | BLOCKED ON API QUOTA |
+| 5. Orchestration | Select next eligible task only after prior validation passes | PR proposes push-validation-triggered follow-on guarded by `ARBITRADE_AUTONOMOUS_WORKER_ENABLED`, with a five-task cap | WIRED IN PR; NOT ACTIVE |
+| 6. Failure recovery | Diagnose failed checks and bounded retries, then stop/escalate | Worker stops on failed validation, empty patch, stale revision, disallowed paths, and five-task cap; end-to-end behavior not yet verified | PARTIAL |
+| 7. Progress dashboard | Report task, commit, CI run, blockers, and next task from evidence | `.github/workflows/autonomy-progress.yml` completed successfully on PR head during run #4 | IMPLEMENTED IN PR; VERIFIED ON THAT REVISION |
+| 8. Independent quality gates | Scope validation, review, security and financial acceptance | Worker patch allowlist and stale-head guard exist; full release/security gates remain incomplete | PARTIAL |
 | 9. Staging acceptance | Isolated browser/API/database testing, backup/restore, migration validation | Some disposable DB validation exists; full end-to-end acceptance not verified | PARTIAL |
 | 10. Protected production release | Separate human authorization for production changes | No production deployment performed; must remain a human gate | REQUIRED SAFETY GATE |
 
-## Safe development loop to implement
+## Safe development loop
 
 1. Read the queue and current progress report.
 2. Verify branch head and required checks.
@@ -27,7 +27,7 @@ Automate routine development, testing, bounded repair attempts, progress reporti
 4. Run the coding agent in an isolated workspace with least-privilege permissions.
 5. Accept only allowed source/test/documentation paths; reject deletions and stale patches by default.
 6. Run focused tests, then full CI on the exact candidate commit.
-7. On failure, allow only a small, bounded number of repair attempts; then stop and report the failure.
+7. If validation fails, stop and report; do not launch another coding task. Repair must be an explicit, bounded follow-up.
 8. After success, update the progress report with exact commit and workflow evidence.
 9. Start another task only when the previous task's required checks have succeeded.
 10. Never auto-merge, deploy, access production, or mutate real customer financial data.
@@ -35,9 +35,9 @@ Automate routine development, testing, bounded repair attempts, progress reporti
 ## Activation blockers and operator actions
 
 - **API quota:** The current coding worker uses `OPENAI_API_KEY`. The prior worker attempt failed with a quota-exceeded error. An authorized repository owner must restore API quota/billing and verify limits before unattended coding can run. Do not paste the key into chat, commits, issues, or logs.
-- **Controlled first run:** After quota is restored, run one small test-only task on `integration/auth-installer-vps-safety`, inspect the patch and logs, and confirm that validation runs against the resulting exact commit.
-- **Chaining:** Do not enable automatic CI-triggered coding runs until the controlled run and failure-stop behavior have been verified. Otherwise a quota or CI problem can repeatedly consume Actions minutes without progress.
-- **Progress reporting:** The queue and dated progress file are evidence records, not a live dashboard. An automated dashboard must be added and verified separately.
+- **Merge and controlled first run:** Review and merge the workflow wiring, then run one small test-only task manually on `integration/auth-installer-vps-safety` with the automatic-worker variable disabled. Inspect the patch and logs and confirm validation on the exact resulting commit.
+- **Enable chaining only after proof:** Set repository variable `ARBITRADE_AUTONOMOUS_WORKER_ENABLED` to `true) only after the supervised run succeeds. Automatic chaining is bounded to five consecutive automatic commits and only follows successful push-triggered Installer validation.
+- **Progress reporting:** The dashboard job summary is implemented in this PR. The workflow must be merged to the default branch for its `workflow_run` trigger to report subsequent validation completions.
 - **Production inputs:** The production host/database and several real financial product/provider decisions are still unresolved in `TODO.md` and `plan.md`. Production deployment cannot be reduced to a safe “push” until those gates are satisfied.
 
 ## Definition of “ready for production approval”
