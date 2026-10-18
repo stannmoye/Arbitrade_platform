@@ -92,13 +92,13 @@ export function ThemeProvider({
   }, [auth.isLoading, isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
 
   const setTheme = (nextTheme: ArbitradeTheme) => {
-    if (!isTheme(nextTheme)) return;
+    if (!isTheme(nextTheme) || auth.isLoading) return;
     if (isAdmin) {
       setThemeState(nextTheme);
       return;
     }
-    // Do not accept customer theme changes until the server policy has loaded.
-    // This prevents a disabled theme from being applied during the initial query window.
+    // Do not accept customer theme changes until authentication and the server policy
+    // have both resolved; this prevents role/policy transitions from applying stale choices.
     if (!policy) return;
     if (customerCanSelect && enabledThemes.includes(nextTheme)) setThemeState(nextTheme);
   };
