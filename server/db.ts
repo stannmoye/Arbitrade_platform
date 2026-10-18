@@ -297,7 +297,9 @@ export async function adjustCustomerBalance(adminId:number,input:{userId:number;
       const mutation=await tx.update(customerBalances)
         .set({
           availableMinor:sql`${customerBalances.availableMinor}+${delta}`,
-          promotionalMinor:input.mode==="credit"?sql`${customerBalances.promotionalMinor}+${input.amountMinor}`:customerBalances.promotionalMinor,
+          ...(input.mode==="credit"
+            ? {promotionalMinor:sql`${customerBalances.promotionalMinor}+${input.amountMinor}`}
+            : {}),
           updatedAt:new Date(),
         })
         .where(and(
