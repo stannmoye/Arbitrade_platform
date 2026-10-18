@@ -29,6 +29,17 @@ describe("migration recovery diagnostic connection safety", () => {
     expect(filenames(diagnosticList[1])).toEqual(filenames(runnerList[1]));
   });
 
+  it("includes all migration keys declared by the mining migration runner", async () => {
+    const source = await readFile(sourceUrl, "utf8");
+    const runnerSource = await readFile(new URL("../scripts/apply-mining-migrations.mjs", import.meta.url), "utf8");
+    const diagnosticList = source.match(/const miningMarkers = \[([\s\S]*?)\];/);
+    expect(diagnosticList).not.toBeNull();
+    const markers = [...diagnosticList[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+    const runnerKeys = [...runnerSource.matchAll(/(?:const|let) \w*[Mm]igration[Kk]ey\s*=\s*"([^"]+)"/g)].map((match) => match[1]);
+    expect(runnerKeys.length).toBeGreaterThan(0);
+    expect(markers).toEqual(expect.arrayContaining(runnerKeys));
+  });
+
   it("handles malformed URL component encoding without exposing the configured URL", async () => {
     const source = await readFile(sourceUrl, "utf8");
     expect(source).toContain("DATABASE_URL contains malformed encoding. The configured value is not displayed; no database changes were made.");
