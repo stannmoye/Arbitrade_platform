@@ -75,8 +75,11 @@ jobs:
           bash -n installer/vps-setup.sh
           bash -n installer/vps-rollback.sh
           bash -n installer/vps-rollback.test.sh
+          bash -n installer/vps-nodesource-rollback.sh
+          bash -n installer/vps-nodesource-rollback.test.sh
           bash installer/install.test.sh
           bash installer/vps-rollback.test.sh
+          bash installer/vps-nodesource-rollback.test.sh
           bash installer/install.sh --help
           if bash installer/install.sh >/dev/null 2>&1; then
             echo 'Installer unexpectedly accepted a missing install mode.' >&2
