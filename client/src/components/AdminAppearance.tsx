@@ -20,22 +20,25 @@ export function AdminAppearance() {
     const validEnabled = appearance.enabledThemes.filter((value: string): value is ArbitradeTheme =>
       ARBITRADE_THEMES.includes(value as ArbitradeTheme)
     );
-    setEnabledThemes(validEnabled.length ? validEnabled : ["original"]);
-    setDefaultTheme(ARBITRADE_THEMES.includes(appearance.defaultTheme as ArbitradeTheme)
-      ? appearance.defaultTheme as ArbitradeTheme : "original");
+    const nextEnabled = validEnabled.length ? validEnabled : ["original" as ArbitradeTheme];
+    const requestedDefault = ARBITRADE_THEMES.includes(appearance.defaultTheme as ArbitradeTheme)
+      ? appearance.defaultTheme as ArbitradeTheme : "original";
+    setEnabledThemes(nextEnabled);
+    setDefaultTheme(nextEnabled.includes(requestedDefault) ? requestedDefault : nextEnabled[0]);
     setCustomerCanSelect(Boolean(appearance.customerCanSelect));
   }, [settings.data]);
 
+  // Keep state updaters pure: React may invoke updater functions more than once in
+  // development Strict Mode. Derive the next allow-list before updating either state.
   const toggleEnabled = (candidate: ArbitradeTheme) => {
-    setEnabledThemes(current => {
-      if (current.includes(candidate)) {
-        if (current.length === 1) return current;
-        const next = current.filter(value => value !== candidate);
-        if (candidate === defaultTheme) setDefaultTheme(next[0]);
-        return next;
-      }
-      return ARBITRADE_THEMES.filter(value => value === candidate || current.includes(value));
-    });
+    if (enabledThemes.includes(candidate)) {
+      if (enabledThemes.length === 1) return;
+      const next = enabledThemes.filter(value => value !== candidate);
+      if (candidate === defaultTheme) setDefaultTheme(next[0]);
+      setEnabledThemes(next);
+      return;
+    }
+    setEnabledThemes(ARBITRADE_THEMES.filter(value => value === candidate || enabledThemes.includes(value)));
   };
 
   const persist = async () => {
