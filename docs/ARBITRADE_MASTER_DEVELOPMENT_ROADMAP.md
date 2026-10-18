@@ -10,7 +10,7 @@
 ## Current project checkpoint
 
 - **Latest Stage 1 action:** Traced Mining purchase and swap flows and recorded a purchase-terms acknowledgement review item, alongside manual settlement and administrator balance-adjustment concurrency tests. Findings are source-based; no financial data was changed.
-- **Latest audit continuation (2026-10-18):** Traced transaction-console session/event behavior and mining API boundaries. Simulated `SYSTEM_ACTIVITY` rows and mining network telemetry marked `simulationOnly: true` are not ledger evidence. Flagged console event retention on session open and SELECT-then-INSERT deduplication for schema/concurrency verification. Added these findings and remaining swap/history/browser checks to `docs/ARBITRADE_STAGE_1_AUDIT.md`; Stage 1 remains open.
+- **Latest audit continuation (2026-10-18):** Traced manual mining-swap confirmation through quote ownership/locking, expiry and configuration checks, rate-deviation validation, idempotency, wallet-ledger posting and notification creation. Confirmed customer notification read/mark helpers scope operations to `ctx.user.id`. Found no unique index declared in the Drizzle transaction-console event table for the SELECT-then-INSERT deduplication key; installer/migration parity and race tests remain required. Audit report updated; Stage 1 remains open.
 
 
 - **Roadmap:** Recorded in this document.
