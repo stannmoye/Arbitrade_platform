@@ -85,6 +85,13 @@ for file in "$INSTALLER" "$VPS_SETUP"; do
 done
 
 assert_file_contains "$INSTALLER" 'if [[ "$INSTALL_MISSING" == 1 && "${EUID}" == 0' "Shell installer only provisions runtime when explicitly requested by root"
+assert_file_contains "$INSTALLER" 'arbitrade_path_is_available "/etc/apt/keyrings/nodesource.gpg" || fail' "Shell installer refuses to overwrite an existing NodeSource signing key"
+assert_file_contains "$INSTALLER" 'arbitrade_path_is_available "/etc/apt/sources.list.d/nodesource.list" || fail' "Shell installer refuses to overwrite an existing NodeSource apt source"
+assert_file_contains "$INSTALLER" 'ln -T -- "$NODE_KEY_TMP" /etc/apt/keyrings/nodesource.gpg' "Shell installer publishes the NodeSource signing key without clobbering a raced destination"
+assert_file_contains "$INSTALLER" 'ln -T -- "$NODE_SOURCE_TMP" /etc/apt/sources.list.d/nodesource.list' "Shell installer publishes the NodeSource apt source without clobbering a raced destination"
+assert_file_contains "$INSTALLER" 'trap cleanup_nodesource_runtime EXIT' "Shell installer cleans up its own NodeSource files after a failed runtime setup"
+assert_file_not_contains "$INSTALLER" 'gpg --dearmor --yes -o /etc/apt/keyrings/nodesource.gpg' "Shell installer never force-overwrites the NodeSource signing key"
+assert_file_not_contains "$INSTALLER" '> /etc/apt/sources.list.d/nodesource.list' "Shell installer never redirects over the NodeSource apt source"
 assert_file_contains "$VPS_SETUP" 'if [[ "$INSTALL_RUNTIME" == 1 ]]; then' "VPS runtime provisioning requires the explicit --install-runtime option"
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$UNIT" || fail' "VPS setup refuses to overwrite an existing systemd service or dangling symlink"
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$NGINX" || fail' "VPS setup refuses to overwrite an existing nginx site or dangling symlink"
