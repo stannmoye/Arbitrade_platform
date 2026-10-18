@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 
 const designSystem = readFileSync(new URL("../client/src/design-system.css", import.meta.url), "utf8");
 const themes = readFileSync(new URL("../client/src/theme-system.css", import.meta.url), "utf8");
+const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+const adminAppearance = readFileSync(new URL("../client/src/components/AdminAppearance.tsx", import.meta.url), "utf8");
+const themeSelector = readFileSync(new URL("../client/src/components/ThemeSelector.tsx", import.meta.url), "utf8");
 
 describe("ARBITRADE shared design-system contract", () => {
   it("defines the semantic tokens used by shared components", () => {
@@ -95,35 +98,82 @@ describe("ARBITRADE shared design-system contract", () => {
   });
 
 
-  it("keeps new-theme text tokens at WCAG AA contrast against canvas and surfaces", () => {
-    const themesToCheck = ["midnight-premium", "clean-light", "emerald-finance", "aurora-modern"];
-    const readHexToken = (block: string, token: string) => {
-      const match = block.match(new RegExp(`${token}:\\s*(#[0-9a-fA-F]{6})`));
-      expect(match, `missing literal token ${token}`).not.toBeNull();
-      return match![1];
-    };
-    const luminance = (hex: string) => {
-      const channels = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255);
-      const linear = channels.map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
-      return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
-    };
-    const contrast = (first: string, second: string) => {
-      const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
-      return (values[0] + 0.05) / (values[1] + 0.05);
-    };
+  const themeNames = ["original", "midnight-premium", "clean-light", "emerald-finance", "aurora-modern"];
+  const themeBlock = (theme: string) => {
+    const selector = theme === "original"
+      ? /:root,\s*:root\[data-arb-theme="original"\]\s*\{([^}]+)\}/
+      : new RegExp(`:root\\[data-arb-theme="${theme}"\\]\\s*\\{([^}]+)\\}`);
+    const match = themes.match(selector);
+    expect(match, `missing theme token block ${theme}`).not.toBeNull();
+    return match![1];
+  };
 
-    for (const theme of themesToCheck) {
-      const match = themes.match(new RegExp(`:root\\[data-arb-theme="${theme}"\\]\\s*\\{([^}]+)\\}`));
-      expect(match, `missing literal theme block ${theme}`).not.toBeNull();
-      const block = match![1];
-      const canvas = readHexToken(block, "--arb-color-canvas");
-      const surface = readHexToken(block, "--arb-color-surface");
+  const resolveHexToken = (block: string, token: string, visited = new Set<string>()): string => {
+    expect(visited.has(token), `cyclic token reference for ${token}`).toBe(false);
+    visited.add(token);
+    const declaration = block.match(new RegExp(`${token}:\\s*([^;]+);`));
+    expect(declaration, `missing theme token ${token}`).not.toBeNull();
+    const value = declaration![1];
+    const hexValues = [...value.matchAll(/#[0-9a-fA-F]{6}/g)].map(match => match[0]);
+    if (hexValues.length) return hexValues[hexValues.length - 1];
+    const reference = value.match(/var\((--arb-[a-z-]+)/);
+    expect(reference, `could not resolve literal colour for ${token}`).not.toBeNull();
+    return resolveHexToken(block, reference![1], visited);
+  };
+
+  const luminance = (hex: string) => {
+    const channels = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255);
+    const linear = channels.map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  };
+  const contrast = (first: string, second: string) => {
+    const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
+    return (values[0] + 0.05) / (values[1] + 0.05);
+  };
+
+  it("keeps text tokens at WCAG AA contrast against canvas and surfaces in all five themes", () => {
+    for (const theme of themeNames) {
+      const block = themeBlock(theme);
+      const canvas = resolveHexToken(block, "--arb-color-canvas");
+      const surface = resolveHexToken(block, "--arb-color-surface");
       for (const token of ["--arb-color-text", "--arb-color-text-soft", "--arb-color-text-muted"]) {
-        const foreground = readHexToken(block, token);
+        const foreground = resolveHexToken(block, token);
         expect(contrast(foreground, canvas), `${theme} ${token} on canvas`).toBeGreaterThanOrEqual(4.5);
         expect(contrast(foreground, surface), `${theme} ${token} on surface`).toBeGreaterThanOrEqual(4.5);
       }
     }
+  });
+
+  it("keeps focus indicators at a minimum 3:1 contrast against canvas and surfaces in all five themes", () => {
+    for (const theme of themeNames) {
+      const block = themeBlock(theme);
+      const focus = resolveHexToken(block, "--arb-focus-ring");
+      expect(contrast(focus, resolveHexToken(block, "--arb-color-canvas")), `${theme} focus ring on canvas`).toBeGreaterThanOrEqual(3);
+      expect(contrast(focus, resolveHexToken(block, "--arb-color-surface")), `${theme} focus ring on surface`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("keeps the shared page foundation on active customer and administrator portal roots", () => {
+    expect(app).toContain('className="arb-page separate-portal customer-portal"');
+    expect(app).toContain('className={`arb-page separate-portal admin-portal');
+    expect(adminAppearance).toContain('className="portal-page arb-page arb-stack arb-appearance-admin"');
+  });
+
+  it("keeps theme selection accessible and touch-friendly on small screens", () => {
+    expect(themeSelector).toContain('aria-label="Appearance settings"');
+    expect(themeSelector).toContain('aria-busy={!policyReady}');
+    expect(themeSelector).toContain('role={policyFailed ? "alert" : "status"}');
+    expect(themeSelector).toContain('aria-describedby=');
+    expect(themes).toMatch(/\.arb-theme-preview-option[\s\S]*?min-height:\s*44px;/);
+    expect(themes).toMatch(/@media\s*\(max-width:\s*600px\)[\s\S]*?\.arb-theme-selector select\s*\{[^}]*min-height:\s*44px;/);
+  });
+
+  it("keeps dialog content scrollable and action rows adaptable at short/mobile viewports", () => {
+    expect(designSystem).toContain('[data-slot="dialog-content"]');
+    expect(designSystem).toContain('max-height: calc(100dvh - 2rem)');
+    expect(designSystem).toContain('overflow-y: auto');
+    expect(designSystem).toContain('[data-slot="dialog-footer"]');
+    expect(designSystem).toContain('flex-wrap: wrap');
   });
 
 });
