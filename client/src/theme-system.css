@@ -754,3 +754,23 @@
     background: ButtonFace;
   }
 }
+
+/* Stage 2: ensure selector controls remain usable on touch screens and zoomed layouts. */
+:root[data-arb-theme] .arb-theme-selector {
+  min-width: 0;
+  max-width: 100%;
+}
+:root[data-arb-theme] .arb-theme-selector select {
+  max-width: 100%;
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  :root[data-arb-theme] .arb-theme-selector {
+    align-items: stretch;
+    gap: var(--arb-space-2);
+  }
+  :root[data-arb-theme] .arb-theme-selector select {
+    min-height: 44px;
+    width: 100%;
+  }
+}
