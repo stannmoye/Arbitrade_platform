@@ -14,7 +14,7 @@ This queue is the source of truth for bounded development tasks. A task is compl
 ## Prioritized backlog
 
 ### S1-A — Wallet mutation concurrency and ledger reconciliation
-**Priority:** P0 · **Status:** IN PROGRESS · **Owner:** coding agent + reviewer
+**Priority:** P0 · **Status:** READY FOR REVIEW — implementation and CI validated; reviewer decision/merge pending · **Owner:** coding agent + reviewer
 
 **Scope**
 - Add database-backed concurrent credit/debit tests against disposable MariaDB and MySQL 8-compatible environments.
@@ -28,6 +28,8 @@ This queue is the source of truth for bounded development tasks. A task is compl
 - Duplicate-wallet preflight fails closed with actionable diagnostics; it never silently deletes or merges financial rows.
 - Migration/install tests cover fresh install and upgrade paths supported by the project.
 - Evidence names the exact commit and successful CI run(s).
+
+**Current evidence:** PR [#62](https://github.com/stannmoye/Arbitrade_platform/pull/62), head commit `1e674f431282b3d08e0e386d86b59bd24aaa0718`; cross-database wallet integration [run #27](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39155238918) passed on MySQL 8.0 and MariaDB 11.4; full installer validation [run #497](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39155238949) passed. Do not call this task fully complete until reviewer decision/merge is recorded.
 
 ### S1-B — Settlement single-winner, idempotency, and rollback
 **Priority:** P0 · **Status:** NOT STARTED
