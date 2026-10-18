@@ -44,6 +44,7 @@ jobs:
     env:
       DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_test
       WALLET_TEST_DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_test
+      MIGRATION_SQL_TEST_DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_test
     steps:
       - name: Check out proposed changes
         uses: actions/checkout@v4
@@ -63,3 +64,5 @@ jobs:
         run: pnpm exec vitest run server/wallet-adjustment-concurrency.integration.test.ts
       - name: Run wallet uniqueness migration preflight against disposable database
         run: pnpm exec vitest run --config vitest.installer.config.ts scripts/wallet-unique-index-migration.test.mjs
+      - name: Run MySQL-compatible migration adapter replay test
+        run: pnpm exec vitest run --config vitest.installer.config.ts scripts/mysql-compatible-migration-sql.integration.test.mjs
