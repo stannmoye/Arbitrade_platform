@@ -376,7 +376,9 @@ export const tradePositions = mysqlTable("trade_positions", {
   settlementConfirmedBy: int("settlementConfirmedBy"),
   settlementNotes: varchar("settlementNotes", { length: 2000 }),
   policyVersion: int("policyVersion").default(1).notNull(),
-});
+}, table => ({
+  settlementReferenceUnique: uniqueIndex("uq_trade_settlement_reference").on(table.settlementReference),
+}));
 export const tradeLifecycleEvents = mysqlTable("trade_lifecycle_events", {
   id: int("id").autoincrement().primaryKey(),
   tradeId: int("tradeId").notNull(),
