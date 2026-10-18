@@ -11,11 +11,12 @@
 
 - **Roadmap:** Recorded in this document.
 - **Current stage:** Stage 1 — Complete Application Audit and Development Baseline.
-- **Stage 1 status:** In progress — initial source inspection and audit report committed; executable baseline checks and systematic route/theme/sound mapping remain outstanding.
+- **Stage 1 status:** In progress — initial audit is committed and GitHub Actions baseline run 39121401277 passed type-check, app/installer/recovery tests, build/bundle checks, no-database server smoke test, fresh MariaDB and MySQL 8 installer checks, and universal ZIP assembly. Route/API/access mapping, theme/event verification and measured browser checks remain outstanding.
 - **Stage 1 audit report:** `docs/ARBITRADE_STAGE_1_AUDIT.md`.
-- **Latest Stage 1 action:** Inspected repository structure, app entry, large stylesheet, customer/admin navigation, theme context, sound settings, notification view, server entry/router, package scripts, database/migration layout and installer documentation.
-- **CI in progress:** GitHub Actions Installer validation run [39121401277](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39121401277); no final conclusion recorded yet.
-- **Next action:** Recheck the CI run for final type-check/test/build and installer-safety results, then record evidence and continue the remaining route/theme/sound inventory before marking Stage 1 complete.
+- **Latest Stage 1 action:** Rechecked CI run 39121401277: overall success; all four jobs completed successfully. Counted 22 customer navigation destinations across five groups and 33 administrator navigation entries across nine groups. Recorded existing three-category sound setup and initial event call sites in the audit report.
+- **CI result:** GitHub Actions Installer validation run [39121401277](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39121401277) completed successfully. TypeScript, application tests, installer/migration safety tests, migration recovery regression tests, production build, bundle/runtime-config budgets, no-database production-server smoke test, disposable fresh MariaDB, disposable MySQL 8 recovery guards, and universal deployment ZIP assembly/validation all passed.
+- **Important limitation:** CI success does not constitute a cPanel install, fresh-VPS install, or manual browser/responsive acceptance test. The ZIP must still be tested in each supported deployment environment.
+- **Next action:** Finish route-to-component/API/access-policy tracing, theme/provider mapping, sound-event semantics and route-manifest reconciliation; then perform measured responsive/browser checks before considering Stage 1 complete.
 - **Release status:** No implementation or production readiness is implied by the existence of this roadmap.
 - **Default theme decision:** Preserve the current/original Arbitrade theme as Theme 1 and keep it as the initial default.
 - **Theme count:** Five total themes: the original theme plus four new themes.
@@ -126,7 +127,7 @@ Tasks:
 - Review installer scripts and documented sandbox, cPanel and VPS requirements.
 - Record a baseline and prioritized issue list.
 
-Deliverables: audit report, page inventory, dependency/workflow map, baseline checks and prioritized findings. Initial source-inspection findings are recorded in `docs/ARBITRADE_STAGE_1_AUDIT.md`; Stage 1 remains in progress until executable baseline checks and the remaining inventory/verification tasks are complete.
+Deliverables: audit report, page inventory, dependency/workflow map, baseline checks and prioritized findings. Initial source-inspection findings are recorded in `docs/ARBITRADE_STAGE_1_AUDIT.md`; Stage 1 remains in progress until the remaining route/API/access inventory, theme/event verification and measured browser/viewport checks are complete.
 
 Exit criteria: enough verified knowledge of the actual implementation to plan changes safely. No major redesign begins before the audit findings are recorded.
 
