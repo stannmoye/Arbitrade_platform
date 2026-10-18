@@ -26,7 +26,7 @@ describe("migration recovery diagnostic connection safety", () => {
     expect(diagnosticList).not.toBeNull();
     expect(runnerList).not.toBeNull();
     const filenames = (list) => [...list.matchAll(/"([^"]+\.sql)"/g)].map((match) => match[1]);
-    expect(filenames(diagnosticList![1])).toEqual(filenames(runnerList![1]));
+    expect(filenames(diagnosticList[1])).toEqual(filenames(runnerList[1]));
   });
 
   it("handles malformed URL component encoding without exposing the configured URL", async () => {
