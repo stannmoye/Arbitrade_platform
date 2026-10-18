@@ -1,13 +1,8 @@
 name: ARBITRADE autonomous coding worker
 
 on:
-  # Continue only after the normal validation workflow succeeds on the protected work branch.
-  workflow_run:
-    workflows: ["Installer validation"]
-    types: [completed]
-    branches:
-      - integration/auth-installer-vps-safety
-  # Allow an authorized maintainer to start a bounded chain manually.
+  # Legacy API-key coding worker is manual-only. Normal development uses ChatGPT
+  # with the GitHub connector; GitHub Actions remains responsible for CI validation.
   workflow_dispatch:
 
 permissions:
@@ -15,18 +10,12 @@ permissions:
   actions: read
 
 concurrency:
-  group: arbitrade-autonomous-worker-${{ github.event.workflow_run.head_branch || github.ref_name }}
+  group: arbitrade-autonomous-worker-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   code-one-task:
-    if: >-
-      (github.event_name == 'workflow_dispatch' &&
-       github.ref_name == 'integration/auth-installer-vps-safety') ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'integration/auth-installer-vps-safety' &&
-       !contains(github.event.workflow_run.head_commit.message, '[ARBITRADE-AUTO-STEP-5]'))
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'integration/auth-installer-vps-safety'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     outputs:
@@ -38,7 +27,7 @@ jobs:
       - name: Resolve the target branch
         id: context
         env:
-          TARGET_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+          TARGET_BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           echo "target_branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
@@ -46,7 +35,7 @@ jobs:
       - name: Check out the revision that passed validation
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+          ref: ${{ github.ref }}
           fetch-depth: 0
 
       - name: Record the exact checked-out revision
@@ -55,23 +44,10 @@ jobs:
 
       - name: Resolve bounded task number
         id: task_number
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PREVIOUS_COMMIT_MESSAGE: ${{ github.event.workflow_run.head_commit.message || '' }}
         run: |
           set -euo pipefail
-          current=0
-          if [[ "$EVENT_NAME" == "workflow_run" ]] &&
-             [[ "$PREVIOUS_COMMIT_MESSAGE" =~ \[ARBITRADE-AUTO-STEP-([1-5])\] ]]; then
-            current="${BASH_REMATCH[1]}"
-          fi
-          next=$((current + 1))
-          if (( next > 5 )); then
-            echo "The five-task automatic chain limit has been reached."
-            exit 1
-          fi
-          echo "number=$next" >> "$GITHUB_OUTPUT"
-          echo "This is bounded automatic task $next of 5."
+          echo "number=1" >> "$GITHUB_OUTPUT"
+          echo "Manual API-worker run: task 1 of 5. No automatic follow-on is configured."
 
       - name: Require the model API credential
         env:
