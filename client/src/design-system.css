@@ -187,3 +187,101 @@
     transition: none;
   }
 }
+
+
+/* Consistent feedback states for forms introduced during progressive adoption. */
+.arb-field [aria-invalid="true"],
+.arb-field input[aria-invalid="true"],
+.arb-field select[aria-invalid="true"],
+.arb-field textarea[aria-invalid="true"] {
+  border-color: var(--arb-color-danger);
+}
+
+.arb-field [aria-invalid="true"]:focus-visible,
+.arb-field input[aria-invalid="true"]:focus-visible,
+.arb-field select[aria-invalid="true"]:focus-visible,
+.arb-field textarea[aria-invalid="true"]:focus-visible {
+  outline-color: var(--arb-color-danger);
+}
+
+.arb-field-hint {
+  margin: 0;
+  color: var(--arb-color-text-muted);
+  font-size: 0.875em;
+}
+
+.arb-field-error {
+  margin: 0;
+  color: var(--arb-color-danger);
+  font-size: 0.875em;
+}
+
+.arb-field input:disabled,
+.arb-field select:disabled,
+.arb-field textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.arb-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.arb-button-secondary {
+  background: transparent;
+}
+
+.arb-button-danger {
+  border-color: transparent;
+  background: var(--arb-color-danger);
+  color: var(--arb-color-canvas);
+}
+
+.arb-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--arb-space-1);
+  max-width: 100%;
+  padding: 2px var(--arb-space-2);
+  border: 1px solid var(--arb-color-border);
+  border-radius: 999px;
+  color: var(--arb-color-text-soft);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.arb-status-success {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 55%, var(--arb-color-border));
+  color: var(--arb-color-accent);
+}
+
+.arb-status-warning {
+  border-color: color-mix(in srgb, var(--arb-color-warning) 55%, var(--arb-color-border));
+  color: var(--arb-color-warning);
+}
+
+.arb-status-danger {
+  border-color: color-mix(in srgb, var(--arb-color-danger) 55%, var(--arb-color-border));
+  color: var(--arb-color-danger);
+}
+
+/* Avoid narrow-screen overflow in data-heavy portal sections. */
+.arb-overflow-x {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+
+.arb-overflow-x > table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arb-button:active:not(:disabled) {
+    transform: none;
+  }
+}
