@@ -3,7 +3,7 @@
 **Audit date:** 2026-10-18  
 **Roadmap:** `docs/ARBITRADE_MASTER_DEVELOPMENT_ROADMAP.md` (version 2.0; 30 stages)  
 **Audited branch:** `integration/auth-installer-vps-safety`  
-**Audit status:** In progress — repository/source inspection started; executable baseline checks are not yet run in this environment.  
+**Audit status:** In progress — source inventory and CI baseline are recorded. GitHub Actions run 39121401277 passed, but route/API/access mapping and measured browser/viewport acceptance remain outstanding.  
 **Rule:** This is a source inspection, not a claim that the application has been built, tested, or production-validated.
 
 ## 1. Repository and stack observed
@@ -49,7 +49,7 @@ Source inspection indicates the project already contains substantial functionali
 - The admin portal includes a **Sound settings** screen. It currently exposes three sound categories in the inspected component: opportunity pop-up, wallet credited and wallet debited. It uses 30 generated tone presets and stores global settings through the admin settings API. Sound playback also depends on browser audio support and a customer-side local preference.
 - A branding screen exists for platform name, tagline, browser title, accent colour, logo, favicon and share-image URL. This is not the same as a complete five-theme system.
 - The main application includes pointer-based button-press/ripple feedback.
-- Responsive CSS exists, including narrow-phone rules around 420 px and mobile rules around 720–760 px in inspected stylesheets; reduced-motion rules also exist in some styles.
+- Responsive CSS exists, with a global 320 px minimum body width, several mobile layouts at approximately 760 px, some 900 px rules, and repeated `prefers-reduced-motion` overrides. These are source-level observations only: they do not prove there is no overflow, clipped content, keyboard trap, or unusable touch target at real viewport sizes.
 - Customer wallet preferences are stored through the server API and include trading currency, swap currency, auto-top-up and withdrawal-whitelist preferences.
 - The repository contains numerous unit/integration-style test files, including authentication, admin authorization, mining rules/motion, money handling, opportunity eligibility/lifecycle, trade settlement and installer safety/recovery tests.
 
@@ -70,8 +70,9 @@ These observations are from code/document inspection only. They do not establish
 
 ### P1 — Theme architecture needs a careful reconciliation
 - The standalone `ThemeContext.tsx` supports only `light` and `dark` and persists a simple localStorage value when switchable.
-- The main portal also has a database-backed branding configuration and custom CSS variables. We have not yet verified whether the standalone theme context is used by all current portal routes.
-- The five-theme implementation should use one consistent theme policy and shared design tokens. Preserve the current visual appearance as Theme 1; do not assume that the existing branding accent control equals complete theme support.
+- Source search found no `ThemeProvider` or `useTheme` usage in `client/src/App.tsx`, and `client/src/main.tsx` does not wrap the application in `ThemeProvider`. The existing context therefore appears unused by the active application entry point; confirm with a repository-wide search before changing it.
+- The active portal instead relies on its existing dark-oriented global CSS and database-backed branding configuration/custom CSS variables. Branding accent settings are not a complete theme system.
+- Stage 3 should establish one consistent theme policy and shared design tokens, preserving the current rendered appearance as Theme 1. Avoid introducing theme-provider behaviour during the baseline audit.
 
 ### P1 — Notification/sound scope is narrower than the new roadmap
 - A notification centre and sound settings already exist, so the new work should extend and test them rather than create a duplicate system.
@@ -109,7 +110,7 @@ Installer-specific tests/configuration also exist, including `vitest.installer.c
 ## 6. Inventory findings added after CI and navigation review
 
 ### Customer navigation inventory
-The customer navigation registry in `client/src/components/CustomerSlideMenu.tsx` has 5 groups and 22 listed destinations: Main navigation (8), Core Workspace (2), Project & Investment (5), Knowledge & Support (4), and Transparency & Updates (3). Three of the listed destinations are explicitly marked planned/review-only (`Token Launch`, `Tokenomics`, and other planned offerings as surfaced by the menu); menu presence must not be interpreted as a live financial product. The destination registry is a useful inventory, but each target still needs to be traced through `CustomerWorkspace` rendering and the corresponding API/access policy.
+The customer navigation registry in `client/src/components/CustomerSlideMenu.tsx` has 5 groups and 22 listed destinations: Main navigation (8), Core Workspace (2), Project & Investment (5), Knowledge & Support (4), and Transparency & Updates (3). `Token Launch` and `Tokenomics` are explicitly marked planned/review-only; menu presence must not be interpreted as a live financial product. `CustomerWorkspace` renders several destinations through explicit section checks and the remaining resource/preference panels through registries. Customer sections are primarily in-app state, not independent URL routes. The mapping from each target to its component is partly established, but backend/API/access-policy verification remains outstanding.
 
 ### Administrator navigation inventory
 `client/src/admin-navigation.ts` defines 9 groups and 33 navigation entries spanning overview, customers, finance, opportunities, verification/risk, communications, platform configuration, integrations, and governance/reports. Multiple entries intentionally share a canonical target (for example, related KYC/risk entries and opportunity subitems). Stage 1 must verify each distinct target is actually rendered and permission-guarded; a menu entry alone does not prove a functioning screen.
