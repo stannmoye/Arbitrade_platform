@@ -7,6 +7,7 @@ const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf
 const adminAppearance = readFileSync(new URL("../client/src/components/AdminAppearance.tsx", import.meta.url), "utf8");
 const themeSelector = readFileSync(new URL("../client/src/components/ThemeSelector.tsx", import.meta.url), "utf8");
 const table = readFileSync(new URL("../client/src/components/ui/table.tsx", import.meta.url), "utf8");
+const componentShowcase = readFileSync(new URL("../client/src/pages/ComponentShowcase.tsx", import.meta.url), "utf8");
 
 describe("ARBITRADE shared design-system contract", () => {
   it("defines the semantic tokens used by shared components", () => {
@@ -186,6 +187,7 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(table).toContain("aria-label={containerAriaLabel}");
     expect(table).toContain("tabIndex={0}");
     expect(table).toContain("overflow-x-auto");
+    expect(componentShowcase).toContain('containerAriaLabel="Recent invoice examples"');
   });
 
   it("keeps dialog content scrollable and action rows adaptable at short/mobile viewports", () => {
