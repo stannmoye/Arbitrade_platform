@@ -301,7 +301,12 @@ export async function adjustCustomerBalance(adminId:number,input:{userId:number;
         })
         .where(and(
           eq(customerBalances.id,balance.id),
-          ...(input.mode==="debit"?[gte(customerBalances.availableMinor,input.amountMinor)]:[]),
+          ...(input.mode==="debit"
+            ? [gte(customerBalances.availableMinor,input.amountMinor)]
+            : [
+                lte(customerBalances.availableMinor,Number.MAX_SAFE_INTEGER-input.amountMinor),
+                lte(customerBalances.promotionalMinor,Number.MAX_SAFE_INTEGER-input.amountMinor),
+              ]),
         ));
       // Use an atomic SQL delta, not a stale read/absolute write. A concurrent
       // debit that no longer fits must fail and roll back its ledger insert.
