@@ -425,3 +425,49 @@
 ):focus-visible {
   outline-color: var(--arb-color-danger);
 }
+
+
+/* Stage 2: finish shared interaction states for links, choice controls, and status chips. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) a:not(.primary-button):not(.portal-action) {
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) a:not(.primary-button):not(.portal-action):hover {
+  color: var(--arb-color-info);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input[type="checkbox"], input[type="radio"], input[type="range"], progress
+) {
+  accent-color: var(--arb-color-accent);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .arb-status, .status-badge, [data-status]
+) {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .arb-status-success, .status-badge.success, [data-status="success"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 50%, var(--arb-color-border));
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .arb-status-warning, .status-badge.warning, [data-status="warning"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-warning) 50%, var(--arb-color-border));
+  color: var(--arb-color-warning);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .arb-status-danger, .status-badge.danger, [data-status="danger"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-danger) 50%, var(--arb-color-border));
+  color: var(--arb-color-danger);
+}
+@media (prefers-reduced-motion: no-preference) {
+  :is(.arb-page, .customer-portal, .admin-portal) :where(a, button, [role="button"]) {
+    transition-property: color, background-color, border-color, box-shadow;
+    transition-duration: 140ms;
+    transition-timing-function: ease;
+  }
+}
