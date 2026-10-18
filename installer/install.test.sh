@@ -115,6 +115,8 @@ assert_file_contains "$VPS_SETUP" 'HTTPS_ATTEMPTED=1' "VPS setup avoids deleting
 assert_file_contains "$VPS_SETUP" 'arbitrade_directory_is_safe "$ENV_DIR" || fail' "VPS setup refuses symlinked or non-directory environment parent paths"
 assert_file_contains "$VPS_SETUP" '[[ "$ROOT" =~ ^/[A-Za-z0-9_./-]+$ ]] || fail' "VPS setup rejects paths that cannot be represented safely in systemd configuration"
 assert_file_contains "$VPS_SETUP" 'arbitrade_root_path_is_allowed "$ROOT" || fail' "VPS setup uses the tested deployment root path predicate"
+assert_file_contains "$VPS_SETUP" '&& pwd -P)' "VPS setup resolves symlinked checkout paths before applying ProtectHome path restrictions"
+assert_file_contains "$INSTALLER" '&& pwd -P)' "Shell installer resolves symlinked checkout paths before applying filesystem guards"
 assert_file_contains "$VPS_SETUP" 'getent group "$APP_USER"' "VPS setup verifies the service group exists before writing the systemd unit"
 assert_file_contains "$VPS_SETUP" 'useradd --system --gid "$APP_USER"' "VPS setup creates the service user with its explicit matching group"
 
