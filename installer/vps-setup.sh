@@ -93,7 +93,6 @@ PNPM="$(command -v pnpm || true)"
 if [[ -z "$PNPM" ]]; then PNPM="$(command -v corepack)"; PNPM_ARGS=(pnpm); else PNPM_ARGS=(); fi
 "$PNPM" "${PNPM_ARGS[@]}" --version | grep -q '^10\.18\.' || fail "pnpm 10.18.x is required."
 
-APP_USER="arbitrade"
 # The systemd unit explicitly uses Group=arbitrade. Ensure that group exists
 # even on hosts with a pre-existing service account created without a matching group.
 if ! getent group "$APP_USER" >/dev/null 2>&1; then
@@ -111,6 +110,11 @@ say "Preparing protected runtime environment"
 if [[ ! -e "$ENV_DIR" ]]; then
   install -d -o root -g "$APP_USER" -m 0750 "$ENV_DIR"
 fi
+# Revalidate immediately before creating secrets in case the path changed
+# after the initial host preflight.
+arbitrade_directory_is_safe "$ENV_DIR" || fail "$ENV_DIR changed during provisioning; refusing to write secrets."
+env_dir_metadata="$(stat -c '%U:%G:%a' -- "$ENV_DIR")"
+[[ "$env_dir_metadata" == "root:$APP_USER:750" ]] || fail "$ENV_DIR changed during provisioning or has unexpected ownership/permissions ($env_dir_metadata); refusing to write secrets."
 # Track only destinations created by this invocation so a failed
 # provisioning attempt can remove its own partial files without touching
 # pre-existing host configuration.
