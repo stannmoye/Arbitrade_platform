@@ -105,3 +105,23 @@ describe("canonical installer diagnostic privacy", () => {
     expect(source).not.toContain('runPnpm(["db:migrate"]);');
   });
 });
+
+
+describe("main migration preflight integration", () => {
+  it("checks existing-schema history before creating the persistent migration guard", async () => {
+    const source = await readFile(new URL("../scripts/guarded-main-migrate.mjs", import.meta.url), "utf8");
+    expect(source).toContain('import { classifyMainMigrationPreflight } from "../installer/main-migration-preflight.mjs";');
+    expect(source).toContain("FROM information_schema.tables WHERE table_schema=DATABASE()");
+    expect(source).toContain("FROM __drizzle_migrations");
+    expect(source).toContain("if (!preflight.allowed)");
+    expect(source).toContain("No migrations were run.");
+    expect(source.indexOf("if (!preflight.allowed)")).toBeLessThan(source.indexOf("CREATE TABLE IF NOT EXISTS"));
+  });
+
+  it("keeps failed or interrupted main migration runs blocked from blind retry", async () => {
+    const source = await readFile(new URL("../scripts/guarded-main-migrate.mjs", import.meta.url), "utf8");
+    expect(source).toContain('previousStatus === "failed" || previousStatus === "running"');
+    expect(source).toContain("automatic retry is blocked");
+    expect(source).toContain('SET status=\'failed\'');
+  });
+});
