@@ -85,6 +85,7 @@ for file in "$INSTALLER" "$VPS_SETUP"; do
 done
 
 assert_file_contains "$INSTALLER" 'if [[ "$INSTALL_MISSING" == 1 && "${EUID}" == 0' "Shell installer only provisions runtime when explicitly requested by root"
+assert_file_contains "$INSTALLER" 'arbitrade_directory_is_safe "/etc/apt/sources.list.d" || fail' "Shell installer rejects a symlinked APT sources directory"
 assert_file_contains "$INSTALLER" 'arbitrade_path_is_available "/etc/apt/keyrings/nodesource.gpg" || fail' "Shell installer refuses to overwrite an existing NodeSource signing key"
 assert_file_contains "$INSTALLER" 'arbitrade_path_is_available "/etc/apt/sources.list.d/nodesource.list" || fail' "Shell installer refuses to overwrite an existing NodeSource apt source"
 assert_file_contains "$INSTALLER" 'ln -T -- "$NODE_KEY_TMP" /etc/apt/keyrings/nodesource.gpg' "Shell installer publishes the NodeSource signing key without clobbering a raced destination"
