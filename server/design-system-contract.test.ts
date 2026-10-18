@@ -210,4 +210,16 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(designSystem).toContain('flex-wrap: wrap');
   });
 
+
+  it("keeps semantic status and link colours readable on theme surfaces", () => {
+    for (const theme of themeNames) {
+      const block = themeBlock(theme);
+      const surface = resolveHexToken(block, "--arb-color-surface");
+      for (const token of ["--arb-color-accent", "--arb-color-warning", "--arb-color-danger", "--arb-color-info"]) {
+        const foreground = resolveHexToken(block, token);
+        expect(contrast(foreground, surface), `${theme} ${token} on surface`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
 });
