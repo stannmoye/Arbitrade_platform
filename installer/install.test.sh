@@ -242,7 +242,38 @@ printf '\nInstaller CLI and runtime-provisioning regression checks passed. No da
 # Regression guard: failed VPS provisioning must not disable a systemd service
 # after another actor replaces the unit published by this installation attempt.
 assert_file_contains "$VPS_SETUP" 'if [[ "$SERVICE_ATTEMPTED" == 1 && "$UNIT_PUBLISHED" == 1 && -n "$UNIT_PUBLISHED_ID"' "VPS rollback verifies that this attempt published the service unit"
-assert_file_contains "$VPS_SETUP" 'stat -c '\''%d:%i'\'' -- "$UNIT"' "VPS rollback compares the published unit device/inode identity"
+assert_file_contains "$ROOT/installer/vps-preflight.sh" 'stat -c '\''%d:%i'\'' -- "$path"' "VPS identity predicate compares the published file device/inode"
 assert_file_contains "$VPS_SETUP" 'Service rollback skipped because the published unit identity could not be verified' "VPS rollback warns when service identity cannot be verified"
 assert_file_not_contains "$VPS_SETUP" 'if [[ "$SERVICE_ATTEMPTED" == 1 ]]; then' "VPS rollback never uses the former unconditional service-disable guard"
 pass "VPS service rollback identity regression checks"
+
+# Exercise the published-file identity predicate with real temporary files.
+# This is isolated from systemd and never touches host service configuration.
+identity_test_dir="$(mktemp -d)"
+trap 'rm -rf -- "$identity_test_dir"' EXIT
+. "$ROOT/installer/vps-preflight.sh"
+printf 'original unit\n' > "$identity_test_dir/unit"
+original_unit_id="$(stat -c '%d:%i' -- "$identity_test_dir/unit")"
+arbitrade_published_file_identity_matches "$identity_test_dir/unit" "$original_unit_id" || {
+  printf '[FAIL] Identity predicate should accept the original published file.\n' >&2
+  exit 1
+}
+pass "VPS identity predicate accepts the original published file"
+printf 'replacement unit\n' > "$identity_test_dir/replacement"
+mv "$identity_test_dir/replacement" "$identity_test_dir/unit"
+if arbitrade_published_file_identity_matches "$identity_test_dir/unit" "$original_unit_id"; then
+  printf '[FAIL] Identity predicate must reject a replaced published file.\n' >&2
+  exit 1
+fi
+pass "VPS identity predicate rejects a replaced published file"
+ln -s "$identity_test_dir/unit" "$identity_test_dir/unit-link"
+if arbitrade_published_file_identity_matches "$identity_test_dir/unit-link" "$(stat -c '%d:%i' -- "$identity_test_dir/unit")"; then
+  printf '[FAIL] Identity predicate must reject a symlinked unit path.\n' >&2
+  exit 1
+fi
+pass "VPS identity predicate rejects a symlinked path"
+if arbitrade_published_file_identity_matches "$identity_test_dir/missing" "$original_unit_id"; then
+  printf '[FAIL] Identity predicate must reject a missing path.\n' >&2
+  exit 1
+fi
+pass "VPS identity predicate rejects a missing path"
