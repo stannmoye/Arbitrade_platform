@@ -141,12 +141,18 @@ export async function requireActiveMiningAccount(conn: Db, userId: number) {
 }
 
 export async function beginMiningIdempotency(conn: Db, userId: number, key: string, command: string) {
-  await conn.execute(`INSERT IGNORE INTO v5_idempotency_keys (userId,keyValue,command,resultJson) VALUES (?,?,?,NULL)`, [userId, key, command]);
+  const [insertResult] = await conn.execute<any>(
+    `INSERT IGNORE INTO v5_idempotency_keys (userId,keyValue,command,resultJson) VALUES (?,?,?,NULL)`,
+    [userId, key, command],
+  );
+  const inserted = Number(insertResult.affectedRows) > 0;
   const [rows] = await conn.query<any[]>(`SELECT command,resultJson FROM v5_idempotency_keys WHERE keyValue=? FOR UPDATE`, [key]);
   const row = rows[0];
   if (!row) throw new MiningError("Unable to reserve this operation; please retry once");
   if (row.command !== command) throw new MiningError("This idempotency key was already used for a different Mining action");
-  return row.resultJson ? JSON.parse(String(row.resultJson)) : null;
+  if (row.resultJson) return JSON.parse(String(row.resultJson));
+  if (!inserted) throw new MiningError("This operation is already in progress; retry shortly");
+  return null;
 }
 
 export async function finishMiningIdempotency(conn: Db, key: string, result: unknown) {
