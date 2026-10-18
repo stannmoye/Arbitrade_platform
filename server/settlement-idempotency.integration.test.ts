@@ -178,7 +178,7 @@ settlementDescribe("manual settlement idempotency and rollback (disposable MySQL
     expect(Number(state.trade.rewardCreditedMinor)).toBe(25);
     expect(state.reservation.status).toBe("credited");
     expect(state.eventCount).toBe(2);
-    expect(100 + state.ledger.ledgerTotal - 100).toBe(state.balance.availableMinor);
+    expect(state.ledger.ledgerTotal).toBe(state.balance.availableMinor);
   }, 30_000);
 
   it("rolls back ledger and wallet writes when the reward ledger insert fails", async () => {
