@@ -125,3 +125,12 @@ describe("main migration preflight integration", () => {
     expect(source).toContain('SET status=\'failed\'');
   });
 });
+
+
+describe("installer cleanup error privacy", () => {
+  it("sanitizes database connection cleanup failures", async () => {
+    const source = await readFile(installer, "utf8");
+    expect(source).toContain("Could not close the selected database connection safely. Database error code:");
+    expect(source).not.toContain("await db.end();");
+  });
+});
