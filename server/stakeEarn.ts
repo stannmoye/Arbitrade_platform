@@ -57,12 +57,30 @@ function nextRewardAt(from: Date, frequency: string) {
   return new Date(from.getTime() + days * 86400000);
 }
 
+const rewardIntervalMs = (frequency: string) =>
+  frequency === "DAILY" ? 86400000 : frequency === "WEEKLY" ? 604800000 : 2592000000;
+
+/**
+ * Calculate the number of reward periods due and the first scheduled period
+ * after `now`. Keeping these together prevents catch-up payouts from leaving
+ * nextRewardAt behind the current time after a multi-period reward is posted.
+ */
+export function calculateDueRewardSchedule(nextAt: Date, frequency: string, now = new Date()) {
+  const intervalMs = rewardIntervalMs(frequency);
+  const periodsDue = Math.max(1, Math.floor((now.getTime() - nextAt.getTime()) / intervalMs) + 1);
+  return {
+    periodsDue,
+    nextRewardAt: new Date(nextAt.getTime() + periodsDue * intervalMs),
+  };
+}
+
 async function postDueRewards(conn: Db, userId: number) {
   const [positions] = await conn.query<any[]>(`SELECT p.*, sp.annualRateBps, sp.rewardFrequency, sp.name AS productName
     FROM stake_positions p JOIN stake_products sp ON sp.id=p.productId
     WHERE p.userId=? AND p.status IN ('ACTIVE','REWARD_ACCRUING') AND p.nextRewardAt IS NOT NULL AND p.nextRewardAt<=NOW() FOR UPDATE`, [userId]);
   for (const position of positions) {
-    const periods = Math.max(1, Math.floor((Date.now() - new Date(position.nextRewardAt).getTime()) / (position.rewardFrequency === "DAILY" ? 86400000 : position.rewardFrequency === "WEEKLY" ? 604800000 : 2592000000)) + 1);
+    const schedule = calculateDueRewardSchedule(new Date(position.nextRewardAt), position.rewardFrequency);
+    const periods = schedule.periodsDue;
     const reward = Math.max(0, Math.floor(Number(position.principalMinor) * Number(position.annualRateBps) * ((position.rewardFrequency === "DAILY" ? periods : periods * (position.rewardFrequency === "WEEKLY" ? 7 : 30))) / (10000 * 365)) - Number(position.rewardMinor));
     if (!reward) continue;
     const reference = `stake-reward:${position.id}:${position.rewardCount + 1}`;
@@ -74,7 +92,7 @@ async function postDueRewards(conn: Db, userId: number) {
       await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, position.id, "reward.posted", "REWARD_ACCRUING", "REWARD_ACCRUING", reward, position.asset, JSON.stringify({ ledgerReference: reference })]);
       await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, "Reward credited", `A ${reward} minor-unit reward was posted to your ${position.asset} wallet.`]);
     }
-    await conn.execute(`UPDATE stake_positions SET rewardMinor=rewardMinor+?, rewardCount=rewardCount+1, status='REWARD_ACCRUING', nextRewardAt=?, updatedAt=NOW() WHERE id=?`, [reward, nextRewardAt(new Date(position.nextRewardAt), position.rewardFrequency), position.id]);
+    await conn.execute(`UPDATE stake_positions SET rewardMinor=rewardMinor+?, rewardCount=rewardCount+1, status='REWARD_ACCRUING', nextRewardAt=?, updatedAt=NOW() WHERE id=?`, [reward, schedule.nextRewardAt, position.id]);
   }
 }
 
