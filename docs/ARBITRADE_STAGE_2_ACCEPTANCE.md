@@ -34,13 +34,13 @@ A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the fu
 - All three parallel jobs passed for code commit `1bf20c1a3e0792616a8877f2c2282da13e35486f`.
 - Application tests: 28 test files, 199 tests passed; `pnpm check` and `pnpm build` passed.
 - This is historical evidence for that commit, not a passing result for the current pull-request head. Later appearance-policy regression tests and documentation changes require fresh verification.
-- No real-browser viewport evidence has been captured; Stage 2 remains in progress.
+- No real-browser viewport evidence has been captured; Stage 2 remains in progress. The acceptance matrix uses the ten viewport widths specified in the master roadmap.
 
 ## Acceptance still required
 
 - [ ] Re-run the contract tests and complete application test suite against the latest pull-request head. Historical passing evidence is recorded above.
 - [ ] Re-run TypeScript validation and production build against the latest pull-request head.
-- [ ] Verify representative customer and administrator routes at 320, 375, 768, 1024, and desktop viewport widths in a real browser.
+- [ ] Verify representative customer and administrator routes at the roadmap viewport widths: 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 pixels in a real browser.
 - [x] Add an accessible name and region semantics to keyboard-focusable shared table overflow containers; callers can provide contextual names, and the component showcase demonstrates the prop.
 - [ ] Confirm there is no unintended horizontal page overflow; horizontally scrollable financial tables must remain keyboard accessible in a real browser.
 - [ ] Inspect form errors, disabled/busy controls, dialogs, dropdowns, and focus visibility under all five themes.
