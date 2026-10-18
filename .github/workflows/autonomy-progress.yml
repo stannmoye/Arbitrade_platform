@@ -71,9 +71,9 @@ jobs:
             echo
             echo "## Automation status"
             echo
-            echo "- This workflow reports repository evidence; it does not itself write application code."
+            echo "- This workflow reports repository evidence; it does not itself write application code or repair failures."
             echo "- A green report job is not a production approval."
-            echo "- Autonomous coding remains blocked until the API quota issue is resolved and a controlled worker run is verified."
+            echo "- Agreed development path: ChatGPT-led edits through connected GitHub tools during active sessions; GitHub Actions validates changes. This path does not require a separate OpenAI API key."
             echo "- Production merge/deploy and live financial operations remain human-authorized."
             echo
             if [[ -f "$progress" ]]; then
