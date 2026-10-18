@@ -91,7 +91,7 @@ if [[ "$INSTALL_RUNTIME" == 1 ]]; then
     fail "Could not download or decode the NodeSource signing key."
   fi
   chmod 0644 "$NODE_KEY_TMP"
-  printf '%s\\n' "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > "$NODE_SOURCE_TMP"
+  printf '%s\n' "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > "$NODE_SOURCE_TMP"
   chmod 0644 "$NODE_SOURCE_TMP"
 
   # Stage both files before publishing either, then roll back the key if the
