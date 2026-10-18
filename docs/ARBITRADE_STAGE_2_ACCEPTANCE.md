@@ -2,7 +2,7 @@
 
 **Status:** In progress  
 **Working branch:** `feat/stage-2-design-system-foundation`  
-**Last updated:** 2026-10-18
+**Last updated:** 2026-10-19
 
 ## Implemented foundation
 
@@ -28,20 +28,18 @@ Do not mark these as passed until CI or a local run reports success.
 
 ## Automated CI coverage
 
-A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the full test suite, TypeScript validation, and production build as three parallel jobs on pushes to the Stage 2 branch. The same workflow is configured for pull requests targeting `integration/auth-installer-vps-safety` and for manual dispatch. A configured workflow is not evidence of a passing run; record the actual run result before marking checks complete.\n\n## Latest automated validation evidence
+A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the full test suite, TypeScript validation, and production build as three parallel jobs on pushes to the Stage 2 branch. The same workflow is configured for pull requests targeting `integration/auth-installer-vps-safety` and for manual dispatch. A configured workflow is not evidence of a passing run; record the actual run result before marking checks complete.\n\n## Latest confirmed automated validation evidence (historical)
 
 - GitHub Actions run: [39174934891](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39174934891).
-- Result: all three parallel jobs passed for code commit `1bf20c1a3e0792616a8877f2c2282da13e35486f`.
-- Application tests: 28 test files, 199 tests passed.
-- TypeScript: `pnpm check` passed.
-- Production build: `pnpm build` passed.
-- The run includes the latest appearance-admin state-update fix. A documentation-only follow-up will trigger the same workflow again.
-- Remaining limitation: no real-browser viewport evidence has been captured yet; Stage 2 remains in progress.
+- All three parallel jobs passed for code commit `1bf20c1a3e0792616a8877f2c2282da13e35486f`.
+- Application tests: 28 test files, 199 tests passed; `pnpm check` and `pnpm build` passed.
+- This is historical evidence for that commit, not a passing result for the current pull-request head. Later appearance-policy regression tests and documentation changes require fresh verification.
+- No real-browser viewport evidence has been captured; Stage 2 remains in progress.
 
 ## Acceptance still required
 
-- [x] Run the new contract test and the complete application test suite on the current branch (CI: 28 test files, 199 tests passed).
-- [x] Run TypeScript validation and production build on the current branch (both CI jobs passed).
+- [ ] Re-run the contract tests and complete application test suite against the latest pull-request head. Historical passing evidence is recorded above.
+- [ ] Re-run TypeScript validation and production build against the latest pull-request head.
 - [ ] Verify representative customer and administrator routes at 320, 375, 768, 1024, and desktop viewport widths in a real browser.
 - [x] Add an accessible name and region semantics to keyboard-focusable shared table overflow containers; callers can provide contextual names, and the component showcase demonstrates the prop.
 - [ ] Confirm there is no unintended horizontal page overflow; horizontally scrollable financial tables must remain keyboard accessible in a real browser.
@@ -57,5 +55,6 @@ Do not mark Stage 2 complete based solely on source changes or CI. Record actual
 
 - Reviewed the current Stage 2 implementation in parallel across the theme context, appearance settings normalization and tests, admin theme-management UI, application stylesheet imports, shared UI controls, navigation, workflow, and acceptance contract.
 - Fixed an impure React state updater in `client/src/components/AdminAppearance.tsx`: removing the currently published default theme no longer triggers another state setter from inside a functional state updater. The saved policy normalization also keeps the default inside the enabled-theme allow-list.
-- Validation for code commit `1bf20c1a3e0792616a8877f2c2282da13e35486f`: [GitHub Actions run 39174934891](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39174934891) passed all three jobs—28 test files / 199 tests, TypeScript, and production build.
+- Validation for code commit `1bf20c1a3e0792616a8877f2c2282da13e35486`: [GitHub Actions run 39174934891](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39174934891) passed all three jobs—28 test files / 199 tests, TypeScript, and production build. This result predates the latest regression-test additions.
+- Added an additional source-level contract for administrator appearance-policy controls and last-enabled-theme protection; it still requires execution in CI.
 - No real-browser viewport evidence is available yet. Keep the five-theme viewport checks, horizontal-overflow inspection, and rendered contrast verification open; do not mark Stage 2 complete until those are recorded.
