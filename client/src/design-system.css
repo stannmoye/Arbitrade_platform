@@ -814,3 +814,56 @@
     border-color: CanvasText;
   }
 }
+
+
+/* Stage 2: keep dialogs usable on short screens, zoom and mobile keyboards. */
+[data-slot="dialog-content"] {
+  box-sizing: border-box;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+[data-slot="dialog-content"] :where(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+[data-slot="dialog-title"],
+[data-slot="dialog-description"] {
+  overflow-wrap: anywhere;
+}
+[data-slot="dialog-footer"] > :where(button, [role="button"]) {
+  min-width: 0;
+}
+[data-slot="table-container"] {
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+[data-slot="table-container"]:focus-visible {
+  outline: 2px solid var(--arb-color-accent, currentColor);
+  outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  [data-slot="dialog-content"] {
+    padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+      max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  }
+  [data-slot="dialog-footer"] {
+    flex-wrap: wrap;
+  }
+  [data-slot="dialog-footer"] > :where(button, [role="button"]) {
+    max-width: 100%;
+  }
+}
+@media (forced-colors: active) {
+  [data-slot="table-container"]:focus-visible {
+    outline-color: Highlight;
+  }
+  [data-slot="dialog-content"] {
+    border-color: CanvasText;
+    scrollbar-color: CanvasText Canvas;
+  }
+}
