@@ -78,7 +78,7 @@ export function ThemeProvider({
     if (auth.isLoading || auth.isError || !isAdmin) return;
     // Administrators may keep a local preview independent of the published customer policy.
     setThemeState(readStoredTheme(defaultTheme));
-  }, [auth.isLoading, isAdmin, defaultTheme]);
+  }, [auth.isLoading, auth.isError, isAdmin, defaultTheme]);
 
   useEffect(() => {
     if (auth.isLoading || auth.isError || isAdmin || !policy) return;
@@ -92,7 +92,7 @@ export function ThemeProvider({
       }
     }
     setThemeState(selected);
-  }, [auth.isLoading, isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
+  }, [auth.isLoading, auth.isError, isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
 
   // Keep theme previews in sync across tabs while revalidating customer choices
   // against the latest published policy instead of blindly trusting storage events.
@@ -116,7 +116,7 @@ export function ThemeProvider({
 
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, [switchable, auth.isLoading, isAdmin, defaultTheme, policy, customerCanSelect, policyDefault, enabledThemes.join("|")]);
+  }, [switchable, auth.isLoading, auth.isError, isAdmin, defaultTheme, policy, customerCanSelect, policyDefault, enabledThemes.join("|")]);
 
   const setTheme = (nextTheme: ArbitradeTheme) => {
     if (!isTheme(nextTheme) || auth.isLoading || auth.isError) return;
@@ -148,7 +148,7 @@ export function ThemeProvider({
         // Keep the selected theme active for this session when storage is unavailable.
       }
     }
-  }, [theme, switchable, auth.isLoading, isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
+  }, [theme, switchable, auth.isLoading, auth.isError, isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
 
   const selectableThemes: ArbitradeTheme[] = isAdmin
     ? [...ARBITRADE_THEMES]
