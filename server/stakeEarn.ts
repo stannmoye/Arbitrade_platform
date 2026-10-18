@@ -53,8 +53,7 @@ function rewardFor(principal: number, annualRateBps: number, durationDays: numbe
 }
 
 function nextRewardAt(from: Date, frequency: string) {
-  const days = frequency === "DAILY" ? 1 : frequency === "WEEKLY" ? 7 : 30;
-  return new Date(from.getTime() + days * 86400000);
+  return new Date(from.getTime() + rewardIntervalMs(frequency));
 }
 
 const rewardIntervalMs = (frequency: string) => {
