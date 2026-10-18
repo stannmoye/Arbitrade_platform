@@ -125,6 +125,12 @@ The customer navigation registry in `client/src/components/CustomerSlideMenu.tsx
 
 These are source-level observations, not end-to-end proof of event timing or financial semantics.
 
+### Route-to-renderer source trace (additional pass)
+- All 25 distinct administrator navigation targets in `client/src/admin-navigation.ts` have a corresponding section-render condition in `AdminPortal`. Multiple labels intentionally converge on the same canonical target. This verifies menu-to-renderer mapping only; each panel's mutation/query permissions and side effects still require procedure-level tracing and tests.
+- The customer menu's core destinations (dashboard, wallet, opportunities, activity, mining, yield, support, account, advanced tools, and intelligence) are handled through dedicated section branches or the shared investment-category registry. The 12 resource destinations are backed by `customerResourceNavigation` and rendered through `customerResourceIds`; planned token-related entries must remain clearly marked as planned. Several customer preference destinations use a separate preference registry. These panels do not have individual URL paths.
+- A source-text search found no direct `ThemeProvider` or `useTheme` usage in the active app entry or `App.tsx`; the current theme context appears unused. Repository-wide runtime confirmation is not available in this audit pass.
+- The global stylesheet has a 320 px minimum body width, mobile breakpoints near 760 px and some 900 px layouts, plus reduced-motion overrides. No measured viewport screenshots, browser interaction checks, or keyboard/screen-reader acceptance results have been collected yet. This remains a Stage 1 exit blocker.
+
 ## 7. Initial priority queue
 
 1. Obtain baseline type-check, test, and production-build results without touching production data.
