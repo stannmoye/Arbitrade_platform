@@ -61,11 +61,14 @@ export function ThemeProvider({
   const auth = trpc.auth.me.useQuery(undefined, { retry: false, refetchOnWindowFocus: false });
   const isAdmin = auth.data?.role === "admin";
   const policy = appearance.data;
-  const policyDefault = isTheme(policy?.defaultTheme) ? policy.defaultTheme : defaultTheme;
-  // Match the selector's safe fallback: an absent, malformed, or empty published
-  // allow-list permits only the policy default for customers, never every theme.
+  const requestedPolicyDefault = isTheme(policy?.defaultTheme) ? policy.defaultTheme : defaultTheme;
+  // A published default must also be in the allow-list. If configuration is malformed
+  // or omits that default, consistently fall back to the first permitted theme.
   const configuredThemes = policy?.enabledThemes?.filter(isTheme) ?? [];
-  const enabledThemes = configuredThemes.length > 0 ? configuredThemes : [policyDefault];
+  const enabledThemes = configuredThemes.length > 0 ? configuredThemes : [requestedPolicyDefault];
+  const policyDefault = enabledThemes.includes(requestedPolicyDefault)
+    ? requestedPolicyDefault
+    : enabledThemes[0];
   const customerCanSelect = policy?.customerCanSelect === true;
   // Start from the published-safe default. Customer preferences are read only after policy loads,
   // preventing a previously stored but now-disabled theme from flashing during initial render.
