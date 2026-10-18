@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { __testParseIdempotencyReplay, __testRewardFor, projectStake } from "./stakeEarn";
+import { __testAllocationCommand, __testParseIdempotencyReplay, __testRewardFor, projectStake } from "./stakeEarn";
 
 describe("Stake & Earn accounting helpers", () => {
   it("calculates configured simple rewards without random results", () => {
@@ -34,5 +34,22 @@ describe("Stake & Earn idempotency replay guards", () => {
 
   it("returns the stored result for a matching operation and position", () => {
     expect(__testParseIdempotencyReplay(prior, "stake.cancel", 12)).toEqual({ positionId: 12, status: "CANCELLED" });
+  });
+});
+
+
+describe("Stake & Earn allocation idempotency payload", () => {
+  it("uses the same fingerprint for an identical allocation request", () => {
+    expect(__testAllocationCommand(3, 25000)).toBe(__testAllocationCommand(3, 25000));
+  });
+
+  it("uses a different fingerprint when product or amount changes", () => {
+    expect(__testAllocationCommand(3, 25000)).not.toBe(__testAllocationCommand(4, 25000));
+    expect(__testAllocationCommand(3, 25000)).not.toBe(__testAllocationCommand(3, 26000));
+  });
+
+  it("rejects replay when the same key is bound to a different allocation payload", () => {
+    const prior = { command: __testAllocationCommand(3, 25000), resultJson: JSON.stringify({ positionId: 7 }) };
+    expect(() => __testParseIdempotencyReplay(prior, __testAllocationCommand(3, 26000))).toThrow("different Stake & Earn operation");
   });
 });
