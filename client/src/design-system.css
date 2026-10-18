@@ -1014,14 +1014,24 @@
 
 /* Stage 2: maintain usable touch targets for shared controls on narrow screens. */
 @media (max-width: 640px) {
-  :is([data-slot="button"], [data-slot="select-trigger"], [data-slot="input"], [data-slot="textarea"]) {
+  :is(
+    [data-slot="button"],
+    [data-slot="select-trigger"],
+    [data-slot="input"],
+    [data-slot="textarea"],
+    .arb-button,
+    .arb-field input,
+    .arb-field select,
+    .arb-field textarea
+  ) {
     min-height: 44px;
     max-width: 100%;
   }
 
   [data-slot="button"].size-8,
   [data-slot="button"].size-9,
-  [data-slot="button"].size-10 {
+  [data-slot="button"].size-10,
+  .arb-button {
     min-width: 44px;
   }
 }
