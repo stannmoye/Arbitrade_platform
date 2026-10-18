@@ -165,7 +165,7 @@ integrationDescribe("Mining idempotency against real MySQL/MariaDB transactions"
         [userId, "CKI", "5.00000000", "0", "0"],
       );
       await conn.execute(
-        "INSERT INTO v5_wallets (userId,assetCode,availableAmount,lockedAmount,pendingAmount) VALUES (?,?,?,?,?)",
+        "INSERT INTO v5_wallets (userId,assetCode,availableAmount,lockedAmount,pendingAmount) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE availableAmount=VALUES(availableAmount),lockedAmount=VALUES(lockedAmount),pendingAmount=VALUES(pendingAmount)",
         [0, "CKI", "0.00000000", "0", "0"],
       );
 
@@ -209,7 +209,7 @@ integrationDescribe("Mining idempotency against real MySQL/MariaDB transactions"
         [userId, "CKI", "5.00000000", "0", "0"],
       );
       await conn.execute(
-        "INSERT INTO v5_wallets (userId,assetCode,availableAmount,lockedAmount,pendingAmount) VALUES (?,?,?,?,?)",
+        "INSERT INTO v5_wallets (userId,assetCode,availableAmount,lockedAmount,pendingAmount) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE availableAmount=VALUES(availableAmount),lockedAmount=VALUES(lockedAmount),pendingAmount=VALUES(pendingAmount)",
         [0, "CKI", "0.00000000", "0", "0"],
       );
 
