@@ -30,6 +30,8 @@
 - **Theme count:** Five total themes: the original theme plus four new themes.
 - **Deployment principle:** Sandbox success does not prove cPanel or fresh-VPS compatibility. Each supported deployment path must be tested independently.
 
+- **Migration-history preflight hardening (2026-10-18):** Commit `efe9f74f35141ac92038c36ca40898d834395ce4` changes existing-database preflight from a tracker row-count check to validation of every recorded Drizzle hash/timestamp against the repository journal, with a second check after the main-migration lock is acquired. Focused tests cover unknown hashes, timestamp mismatches, duplicate hashes, and fail-closed preflight behavior. Mining regression run [39131976052](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39131976052) passed, but it does not cover installer/migration tests. Installer validation is being enabled on the integration branch so that suite can run on the next push. Database-backed migration and financial concurrency checks remain outstanding.
+  
 ## Product vision and non-negotiable principles
 
 Arbitrade should provide a polished, consistent, responsive and accessible experience across Android phones, iPhones, tablets, laptops and desktop computers. The customer and administrator portals should share a coherent design system while retaining layouts suited to their different tasks.

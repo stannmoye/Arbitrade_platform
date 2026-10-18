@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - feat/complete-installation-wizard
+      - integration/auth-installer-vps-safety
   # Validate proposed changes before they merge.
   pull_request:
     branches:

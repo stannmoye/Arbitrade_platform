@@ -34,3 +34,13 @@
 ## Safety and scope
 
 No production database, production VPS, customer financial data, or live transaction was accessed or changed during this checkpoint. No deployment or merge was performed. Stage 1 remains open; passing focused unit tests does not prove database isolation, cross-ledger atomicity, full API authorization, or browser acceptance.
+
+
+## Latest continuation — 18 October 2026
+
+- **Migration-history preflight hardened:** Existing-database installation and guarded main migrations now validate every recorded `__drizzle_migrations` hash and timestamp against the checked-out Drizzle journal. Unknown hashes, duplicate records, and timestamp mismatches fail closed before migration DDL. The guarded runner repeats validation after acquiring its migration lock. This closes a gap where a merely non-empty tracker was treated as sufficient evidence of usable history.
+- **Regression coverage added:** Pure tests cover a valid history, an unknown hash, a mismatched timestamp, duplicate hashes, and a positive row count without successful history validation.
+- **Implementation commit:** [`efe9f74f35141ac92038c36ca40898d834395ce4`](https://github.com/stannmoye/Arbitrade_platform/commit/efe9f74f35141ac92038c36ca40898d834395ce4).
+- **CI evidence:** Mining regression workflow [run #39131976052](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39131976052) passed on the implementation commit. It covers Mining/transaction-console regression tests and TypeScript validation; it does **not** run the installer migration suite.
+- **Installer CI coverage:** The installer validation workflow now also triggers on pushes to `integration/auth-installer-vps-safety`, so the next commit should run the migration preflight tests and full installer validation against this branch.
+- **Still open:** Disposable-database migration/concurrency verification, wallet-ledger reconciliation, full endpoint authorization, and measured browser/responsive acceptance. Stage 1 remains open; no production database or VPS was touched and no deployment or merge was performed.
