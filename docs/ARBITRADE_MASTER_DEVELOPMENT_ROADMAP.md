@@ -712,3 +712,11 @@ When continuing this project:
 - These changes are committed to `integration/auth-installer-vps-safety`; **test execution remains pending**. No claim is made that the new tests or type-check passed.
 - Next: run the targeted Vitest file and `pnpm check`, fix any failures, then add database-backed swap replay/concurrency/ledger/rollback coverage. Stage 1 remains open until the outstanding route/API/access, theme/sound, and measured responsive-browser checks are completed.
 
+
+
+## Latest continuation — preserve transaction errors when rollback fails (2026-10-18)
+
+- Hardened `inMiningTransaction` so a rollback error cannot mask the original operation or commit failure; when possible, the rollback error is attached as diagnostic metadata.
+- Added a focused regression test covering simultaneous operation and rollback failures.
+- Implementation commit: `c88b62a1d20e5471ba66c4ea9aa1a44dc3474411`; test commit: `d11c7abd59865a3be76403e9481d19096d0c1b28`.
+- **Tests not yet run.** Next execute `pnpm test -- server/mining-store.test.ts`, `pnpm check`, and the full test/build baseline. Database-backed swap concurrency, ledger reconciliation and atomic rollback remain outstanding. Stage 1 stays open.
