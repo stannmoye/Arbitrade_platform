@@ -56,4 +56,26 @@ describe("admin wallet adjustment route telemetry failures", () => {
     expect(mocks.recordTransactionConsoleEvent).toHaveBeenCalledTimes(1);
     expect(result).toEqual(committedResult);
   });
+
+  it("does not attempt post-commit telemetry when the wallet mutation fails", async () => {
+    mocks.adjustCustomerBalance.mockRejectedValue(new Error("wallet transaction rolled back"));
+
+    const caller = appRouter.createCaller({
+      user: { id: 1, role: "admin" },
+      req: {} as never,
+      res: {} as never,
+    } as never);
+
+    await expect(caller.adminOperations.adjustCustomerBalance({
+      userId: 2,
+      currency: "USD",
+      amountMinor: 25,
+      mode: "credit",
+      reason: "verified admin adjustment",
+    })).rejects.toThrow("wallet transaction rolled back");
+
+    expect(mocks.adjustCustomerBalance).toHaveBeenCalledTimes(1);
+    expect(mocks.recordTransactionConsoleEvent).not.toHaveBeenCalled();
+  });
+
 });
