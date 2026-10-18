@@ -2,12 +2,12 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({ className, containerAriaLabel = "Scrollable table", ...props }: React.ComponentProps<"table"> & { containerAriaLabel?: string }) {
   return (
     <div
       data-slot="table-container"
       role="region"
-      aria-label="Scrollable table"
+      aria-label={containerAriaLabel}
       tabIndex={0}
       className="relative w-full min-w-0 overflow-x-auto"
     >
