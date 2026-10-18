@@ -1,0 +1,90 @@
+/*
+ * ARBITRADE five-theme architecture.
+ * "original" is the default and deliberately preserves the current palette.
+ * Themes override semantic design-system tokens, not individual components.
+ */
+:root,
+:root[data-arb-theme="original"] {
+  color-scheme: dark;
+  --arb-color-canvas: var(--ux-ink, var(--bg, #0b1422));
+  --arb-color-surface: var(--ux-surface, var(--panel, #101d2d));
+  --arb-color-surface-raised: var(--ux-surface-2, var(--panel2, #142338));
+  --arb-color-border: var(--ux-line, var(--line, #22344a));
+  --arb-color-text: var(--ux-text, #e9f0f7);
+  --arb-color-text-soft: var(--ux-text-soft, var(--soft, #b7c4d1));
+  --arb-color-text-muted: var(--ux-muted, var(--muted, #8295aa));
+  --arb-color-accent: var(--ux-accent, var(--brand-accent, var(--mint, #7ce7c2)));
+  --arb-color-info: var(--ux-accent-2, var(--blue, #8eb7ff));
+  --arb-color-warning: var(--ux-warning, var(--amber, #f5c56b));
+  --arb-color-danger: var(--ux-negative, var(--coral, #fa8c87));
+  --arb-color-decorative: var(--ux-info, var(--violet, #c7a6ff));
+  --arb-focus-ring: var(--arb-color-accent);
+}
+
+:root[data-arb-theme="midnight-premium"] {
+  color-scheme: dark;
+  --arb-color-canvas: #070b18;
+  --arb-color-surface: #10172b;
+  --arb-color-surface-raised: #18223b;
+  --arb-color-border: #303d5c;
+  --arb-color-text: #f2f5ff;
+  --arb-color-text-soft: #c1cbe2;
+  --arb-color-text-muted: #8997b8;
+  --arb-color-accent: #b8a4ff;
+  --arb-color-info: #83b8ff;
+  --arb-color-warning: #ffd27a;
+  --arb-color-danger: #ff8eaa;
+  --arb-color-decorative: #d4b8ff;
+  --arb-focus-ring: #c7b7ff;
+}
+
+:root[data-arb-theme="clean-light"] {
+  color-scheme: light;
+  --arb-color-canvas: #f4f7fb;
+  --arb-color-surface: #ffffff;
+  --arb-color-surface-raised: #edf2f8;
+  --arb-color-border: #d5deea;
+  --arb-color-text: #172438;
+  --arb-color-text-soft: #35465d;
+  --arb-color-text-muted: #5f7087;
+  --arb-color-accent: #176bdb;
+  --arb-color-info: #2463d4;
+  --arb-color-warning: #8a5600;
+  --arb-color-danger: #b42335;
+  --arb-color-decorative: #7048c8;
+  --arb-focus-ring: #145fc4;
+}
+
+:root[data-arb-theme="emerald-finance"] {
+  color-scheme: dark;
+  --arb-color-canvas: #061711;
+  --arb-color-surface: #0c241b;
+  --arb-color-surface-raised: #123428;
+  --arb-color-border: #245542;
+  --arb-color-text: #effff7;
+  --arb-color-text-soft: #c3e5d3;
+  --arb-color-text-muted: #8ab8a1;
+  --arb-color-accent: #48e0a1;
+  --arb-color-info: #82d8e8;
+  --arb-color-warning: #f2cf77;
+  --arb-color-danger: #ff9288;
+  --arb-color-decorative: #9be7cf;
+  --arb-focus-ring: #65f0b5;
+}
+
+:root[data-arb-theme="aurora-modern"] {
+  color-scheme: dark;
+  --arb-color-canvas: #0b1025;
+  --arb-color-surface: #141b36;
+  --arb-color-surface-raised: #202747;
+  --arb-color-border: #3b4774;
+  --arb-color-text: #f5f5ff;
+  --arb-color-text-soft: #d1d3f0;
+  --arb-color-text-muted: #a0a5d0;
+  --arb-color-accent: #67e8f9;
+  --arb-color-info: #a5b4fc;
+  --arb-color-warning: #fcd68b;
+  --arb-color-danger: #fb9ab8;
+  --arb-color-decorative: #d8a7ff;
+  --arb-focus-ring: #8ff0ff;
+}
