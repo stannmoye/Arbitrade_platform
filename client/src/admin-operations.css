@@ -243,3 +243,55 @@
 ) :where(h2, h3, strong, label) {
   color: var(--arb-color-text);
 }
+
+/* Stage 2: complete theme-token coverage for operations controls and data states. */
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-kicker, .admin-ops-metric-icon) {
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-button {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 34%, var(--arb-color-border));
+  color: var(--arb-color-text);
+  background: color-mix(in srgb, var(--arb-color-accent) 9%, var(--arb-color-surface));
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-button:hover:not(:disabled) {
+  border-color: var(--arb-color-accent);
+  background: color-mix(in srgb, var(--arb-color-accent) 15%, var(--arb-color-surface));
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-button:focus-visible,
+:root[data-arb-theme] .admin-ops-page .admin-ops-table :where(a, button, [tabindex]):focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table tbody tr:focus-within td {
+  background: color-mix(in srgb, var(--arb-color-accent) 10%, var(--arb-color-surface));
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-bar-column i {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 48%, var(--arb-color-border));
+  background: linear-gradient(180deg, var(--arb-color-accent), color-mix(in srgb, var(--arb-color-accent) 28%, var(--arb-color-surface)));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--arb-color-accent) 12%, transparent);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table :where(.amount-positive, .amount-negative) {
+  font-variant-numeric: tabular-nums;
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table .amount-positive {
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table .amount-negative,
+:root[data-arb-theme] .admin-ops-page .admin-ops-empty.error {
+  color: var(--arb-color-danger);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-status.good {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 38%, var(--arb-color-border));
+  color: var(--arb-color-accent);
+  background: color-mix(in srgb, var(--arb-color-accent) 8%, var(--arb-color-surface));
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-status.watch {
+  border-color: color-mix(in srgb, var(--arb-color-warning) 38%, var(--arb-color-border));
+  color: var(--arb-color-warning);
+  background: color-mix(in srgb, var(--arb-color-warning) 8%, var(--arb-color-surface));
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-status.high {
+  border-color: color-mix(in srgb, var(--arb-color-danger) 38%, var(--arb-color-border));
+  color: var(--arb-color-danger);
+  background: color-mix(in srgb, var(--arb-color-danger) 8%, var(--arb-color-surface));
+}
