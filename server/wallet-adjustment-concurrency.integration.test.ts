@@ -179,12 +179,19 @@ walletDescribe("wallet SQL concurrency integration (disposable MySQL-compatible 
       await connection.execute(
         `UPDATE ${balancesTable} SET availableMinor = availableMinor - 10 WHERE id = 1 AND availableMinor >= 10`,
       );
-      await expect(
-        connection.execute(
+      let ledgerError: unknown;
+      try {
+        await connection.execute(
           `INSERT INTO ${ledgerTable} (userId, currency, amountMinor) VALUES (7001, 'USD', 0)`,
-        ),
-      ).rejects.toMatchObject({ code: "ER_CHECK_CONSTRAINT_VIOLATED" });
+        );
+      } catch (error) {
+        ledgerError = error;
+      }
+      // Roll back before assertions so a dialect-specific error code cannot
+      // leave a transaction open and poison later concurrency tests.
       await connection.rollback();
+      expect(ledgerError).toBeInstanceOf(Error);
+      expect((ledgerError as Error).message).toMatch(/chk_wallet_ledger_nonzero/i);
     } finally {
       connection.release();
     }
