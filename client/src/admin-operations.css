@@ -156,3 +156,60 @@
 :root[data-arb-theme] .admin-ops-page :where(.admin-ops-table tbody tr:hover td) {
   background: color-mix(in srgb, var(--arb-color-accent) 5%, var(--arb-color-surface));
 }
+
+
+/* Stage 2 responsive and keyboard-accessibility pass for operations workspace. */
+.admin-ops-page,
+.admin-ops-page * {
+  min-width: 0;
+}
+.admin-ops-page .admin-ops-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.admin-ops-page .admin-ops-table {
+  min-width: 620px;
+}
+.admin-ops-page :where(a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+.admin-ops-page .admin-ops-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.admin-ops-page :where(.admin-ops-button, .admin-ops-export-card) {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .admin-ops-page .admin-ops-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .admin-ops-page .admin-ops-actions {
+    width: 100%;
+  }
+  .admin-ops-page .admin-ops-actions > * {
+    max-width: 100%;
+  }
+  .admin-ops-page .admin-ops-metrics,
+  .admin-ops-page .admin-ops-export-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-ops-page .admin-ops-panel {
+    padding-inline: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-ops-page *,
+  .admin-ops-page *::before,
+  .admin-ops-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
