@@ -7,7 +7,7 @@ This queue is the source of truth for bounded development tasks. A task is compl
 - Work one coherent task at a time unless tasks are demonstrably independent and touch disjoint files.
 - Prefer P0 financial correctness and security over cosmetic work.
 - Each task must include focused regression tests and record the exact commit and CI run.
-- Stop on unclear requirements, missing provider/business decisions, unavailable API quota, failing safety checks, or any need to touch production.
+- Stop on unclear requirements, missing provider/business decisions, failing safety checks, or any need to touch production. The agreed ChatGPT-led path does not require separate API quota; the legacy API worker remains disabled/manual-only.
 - Never merge, deploy, access production systems, or mutate real financial data automatically.
 - An agent may not mark a task complete solely by editing this queue or the progress report.
 
@@ -91,7 +91,7 @@ This queue is the source of truth for bounded development tasks. A task is compl
 
 ## Autonomous worker operating limits
 
-- The existing GitHub Actions worker uses a separate OpenAI API credential and quota.
-- Do not enable scheduled or CI-triggered coding runs until API quota is confirmed available and a controlled run succeeds.
-- The current worker workflow on `main` is manual-only; a green CI run does not mean the worker ran.
-- Automatic retries must be bounded. Stop after an unsuccessful validation, invalid patch, branch movement, empty patch, quota error, or exhausted retry budget.
+- The legacy GitHub Actions coding worker uses a separate OpenAI API credential and quota; it is not part of the agreed Option B path.
+- Keep that legacy worker manual-only. Do not enable scheduled or CI-triggered API-backed coding runs for this project workflow.
+- The agreed path is ChatGPT-led development during active sessions plus GitHub Actions validation. A green CI run proves only the configured checks passed; it does not mean an agent wrote or repaired code.
+- When using any separately authorized worker in the future, retries must be bounded and stop after validation failure, invalid patch, branch movement, empty patch, quota error, or exhausted retry budget.
