@@ -21,14 +21,17 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
     : "original";
   const customerCanSelect = policy?.customerCanSelect === true;
   const canChoose = isAdmin || (!readOnly && customerCanSelect);
+  // A malformed or temporarily empty published allow-list must never produce an
+  // empty select. Fall back to the published default until the policy is corrected.
+  const customerThemes = enabledThemes.length > 0 ? enabledThemes : [defaultTheme];
   const availableThemes: ArbitradeTheme[] = isAdmin
     ? [...ARBITRADE_THEMES]
     : customerCanSelect
-      ? enabledThemes
+      ? customerThemes
       : [defaultTheme];
   const selectedTheme = availableThemes.includes(theme as ArbitradeTheme)
     ? theme as ArbitradeTheme
-    : defaultTheme;
+    : availableThemes[0] ?? defaultTheme;
 
   if (!switchable) return null;
 
