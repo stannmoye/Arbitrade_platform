@@ -20,6 +20,18 @@ describe("wallet adjustment safety guards", () => {
       .toThrow(/safe integer range/);
   });
 
+  it.each([
+    [-1, 0],
+    [0, -1],
+  ])("rejects negative stored wallet balances (%s available, %s promotional)", (available, promotional) => {
+    expect(() => assertWalletBalanceSnapshot(available, promotional, 1, "credit"))
+      .toThrow(/Wallet balance cannot be negative/);
+  });
+
+  it("allows a debit equal to the full available balance", () => {
+    expect(() => assertWalletBalanceSnapshot(10, 0, 10, "debit")).not.toThrow();
+  });
+
   it("rejects debits beyond the available balance", () => {
     expect(() => assertWalletBalanceSnapshot(10, 0, 11, "debit"))
       .toThrow(/Debit exceeds available wallet balance/);
@@ -30,5 +42,10 @@ describe("wallet adjustment safety guards", () => {
       .toThrow(/credit would exceed/);
     expect(() => assertWalletBalanceSnapshot(0, Number.MAX_SAFE_INTEGER, 1, "credit"))
       .toThrow(/credit would exceed/);
+  });
+
+  it("allows a credit that lands exactly on the safe integer boundary", () => {
+    expect(() => assertWalletBalanceSnapshot(Number.MAX_SAFE_INTEGER - 1, 0, 1, "credit"))
+      .not.toThrow();
   });
 });
