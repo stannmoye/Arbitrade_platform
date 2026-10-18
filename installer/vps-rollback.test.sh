@@ -66,6 +66,15 @@ if grep -Fq 'disable --now arbitrade.service' "$SYSTEMCTL_LOG"; then fail "servi
 [[ ! -e "$ENV_FILE" && ! -e "$NGINX" && ! -L "$NGINX_ENABLED" ]] || fail "other owned files were not rolled back"
 pass "unit replacement is preserved and service state is not changed"
 
+# A failure before service activation (for example, nginx -t) must clean up
+# this attempt's published files without emitting service rollback operations.
+new_case
+SERVICE_ATTEMPTED=0
+false || cleanup_vps_setup 1
+[[ ! -e "$ENV_FILE" && ! -e "$UNIT" && ! -e "$NGINX" && ! -L "$NGINX_ENABLED" ]] || fail "pre-activation failure left owned files behind"
+[[ ! -s "$SYSTEMCTL_LOG" ]] || fail "service state was changed although activation was never attempted"
+pass "pre-activation failure rolls back owned files without touching service state"
+
 new_case
 HTTPS_ATTEMPTED=1
 false || cleanup_vps_setup 1
