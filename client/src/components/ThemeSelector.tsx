@@ -30,11 +30,13 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
   const policyReady = !auth.isLoading && !appearance.isLoading;
   const policyFailed = auth.isError || appearance.isError;
   const canChoose = policyReady && !policyFailed && !readOnly && (isAdmin || customerCanSelect);
-  const availableThemes: ArbitradeTheme[] = isAdmin
-    ? [...ARBITRADE_THEMES]
-    : customerCanSelect
-      ? customerThemes
-      : [effectiveDefault];
+  const availableThemes: ArbitradeTheme[] = policyFailed
+    ? [effectiveDefault]
+    : isAdmin
+      ? [...ARBITRADE_THEMES]
+      : customerCanSelect
+        ? customerThemes
+        : [effectiveDefault];
   const selectedTheme = availableThemes.includes(theme as ArbitradeTheme)
     ? theme as ArbitradeTheme
     : availableThemes[0] ?? effectiveDefault;
