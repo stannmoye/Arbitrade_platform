@@ -12,6 +12,7 @@ export SYSTEMCTL_LOG NGINX_LOG
 cat > "$MOCK_BIN/systemctl" <<'MOCK'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$SYSTEMCTL_LOG"
+[[ "${SYSTEMCTL_FAIL_RELOAD:-0}" != 1 || "$*" != "reload nginx" ]] || exit 1
 MOCK
 chmod +x "$MOCK_BIN/systemctl"
 cat > "$MOCK_BIN/nginx" <<'MOCK'
@@ -87,6 +88,17 @@ unset NGINX_FAIL
 [[ "$rollback_output" == *"WARNING: nginx could not be reloaded after rollback"* ]] || fail "nginx rollback failure did not emit a manual-recovery warning"
 [[ ! -e "$NGINX" && ! -L "$NGINX_ENABLED" ]] || fail "nginx files were not removed before the failed validation warning"
 pass "nginx rollback validation failure emits a manual-recovery warning"
+
+# Separately cover a successful nginx -t followed by a failed systemctl reload.
+new_case
+NGINX_RELOAD_ATTEMPTED=1
+SYSTEMCTL_FAIL_RELOAD=1
+export SYSTEMCTL_FAIL_RELOAD
+rollback_output="$(false || cleanup_vps_setup 1)"
+unset SYSTEMCTL_FAIL_RELOAD
+[[ "$rollback_output" == *"WARNING: nginx could not be reloaded after rollback"* ]] || fail "nginx reload failure did not emit a manual-recovery warning"
+grep -Fxq -- '-t' "$NGINX_LOG" || fail "nginx config validation was not attempted before failed reload"
+pass "nginx reload failure emits a manual-recovery warning"
 
 new_case
 printf 'replacement unit\n' > "$CASE_DIR/replacement"
