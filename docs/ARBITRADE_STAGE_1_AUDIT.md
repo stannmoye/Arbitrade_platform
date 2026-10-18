@@ -422,3 +422,15 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 - The current draft integration pull request is [#58](https://github.com/stannmoye/Arbitrade_platform/pull/58); it remains open and unmerged. A passing focused regression workflow does not imply that every required pull-request check or production acceptance gate has passed.
 - Remaining Stage 1 blockers: isolated MySQL/MariaDB concurrency and rollback tests, ledger reconciliation, notification replay/ownership checks, full API/access-control verification, and measured browser/viewport acceptance. Production remains unapproved.
 - No production database, customer balances, or live financial transactions were accessed or changed.
+
+
+## 28. Run #28 confirmation and parallel Stage 1 workstreams (2026-10-18)
+
+- Confirmed GitHub Actions [Mining regression checks — Run #28](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39129998734) completed with conclusion **success** on commit `c31fc8f0b78f71491f4c78242af79b7b875a4a78`.
+- The workflow's single job, `Mining unit tests and TypeScript check`, completed successfully. This confirms the focused unit-test and type-check baseline after the audit-documentation update.
+- Parallel source review reconfirmed the transaction-console schema history: migration `drizzle/0043_wallet_minor_units_bigint.sql` widens `transaction_console_events.amountMinor` to BIGINT, but actual deployment parity still requires migration-ledger/schema verification on disposable supported databases.
+- The application-level SELECT-then-INSERT guard for transaction-console event duplicates remains a concurrency risk unless a verified database uniqueness constraint exists. Do not add a unique constraint before a duplicate-data preflight and review of null/legacy transaction codes.
+- The sound audit remains source-based: administrator navigation exposes Sound & Notifications, but requested per-event sound controls and browser interaction acceptance are not yet verified as complete.
+- Work is split into independent tracks to reduce idle time: (1) migration/deduplication preflight and disposable database tests, (2) swap/idempotency/ledger rollback integration tests, and (3) API authorization plus sound/responsive-browser acceptance. Changes affecting the same schema or transaction paths must be serialized after shared prerequisites are verified.
+- No database-backed integration test, browser acceptance run, production deployment, or financial-data mutation occurred in this checkpoint.
+- Stage 1 remains **in progress**. Run #28 does not close the database, authorization, notification, or browser acceptance gates.
