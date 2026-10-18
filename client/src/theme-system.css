@@ -471,3 +471,36 @@
     transition-timing-function: ease;
   }
 }
+
+
+/* Stage 2: align form controls and disabled states with the active theme. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select, textarea
+) {
+  background-color: var(--arb-color-surface);
+  border-color: var(--arb-color-border);
+  color: var(--arb-color-text);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input, select, textarea
+)::placeholder {
+  color: var(--arb-color-text-soft);
+  opacity: 1;
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input, select, textarea
+):focus-visible {
+  border-color: var(--arb-color-accent);
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 2px;
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input, select, textarea, button
+):disabled,
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  [aria-disabled="true"]
+) {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
