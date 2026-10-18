@@ -86,6 +86,17 @@ jobs:
             echo 'Installer unexpectedly accepted a missing install mode.' >&2
             exit 1
           fi
+
+
+  typecheck:
+    name: TypeScript validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
       - name: Install locked dependencies
         run: |
           corepack enable
@@ -93,8 +104,40 @@ jobs:
           pnpm install --frozen-lockfile
       - name: TypeScript validation
         run: pnpm check
+
+
+  application-tests:
+    name: Application unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install locked dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.18.0 --activate
+          pnpm install --frozen-lockfile
       - name: Application test suite
         run: pnpm test
+
+
+  installer-safety:
+    name: Installer and migration regression tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install locked dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.18.0 --activate
+          pnpm install --frozen-lockfile
       - name: Installer and migration safety test suite
         run: pnpm exec vitest run --config vitest.installer.config.ts
       - name: Explicit migration preflight and recovery regression tests
@@ -105,6 +148,22 @@ jobs:
           scripts/mysql-compatible-migration-sql.test.mjs
           scripts/apply-portal-migrations-safety.test.mjs
           scripts/migrate-mining-token-to-cki.test.mjs
+
+
+  production-build:
+    name: Production build, bundle budgets, and server smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install locked dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.18.0 --activate
+          pnpm install --frozen-lockfile
       - name: Build production application
         run: pnpm build
       - name: Enforce frontend bundle and runtime-config budgets
@@ -579,6 +638,10 @@ jobs:
   deployment-packages:
     needs:
       - syntax
+      - typecheck
+      - application-tests
+      - installer-safety
+      - production-build
       - installer-fresh-mariadb
       - installer-mysql8-compatibility-and-recovery
     runs-on: ubuntu-latest
@@ -743,3 +806,52 @@ jobs:
           path: ${{ runner.temp }}/deployment-artifacts/arbitrade-universal-installer.zip
           if-no-files-found: error
           retention-days: 14
+
+
+  stage1-progress:
+    name: Stage 1 validation dashboard
+    if: always()
+    needs:
+      - syntax
+      - typecheck
+      - application-tests
+      - installer-safety
+      - production-build
+      - installer-fresh-mariadb
+      - installer-mysql8-compatibility-and-recovery
+      - deployment-packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish verified run status and remaining acceptance gaps
+        env:
+          SYNTAX_RESULT: ${{ needs.syntax.result }}
+          TYPECHECK_RESULT: ${{ needs.typecheck.result }}
+          APPLICATION_TESTS_RESULT: ${{ needs.application-tests.result }}
+          INSTALLER_SAFETY_RESULT: ${{ needs.installer-safety.result }}
+          PRODUCTION_BUILD_RESULT: ${{ needs.production-build.result }}
+          MARIADB_RESULT: ${{ needs.installer-fresh-mariadb.result }}
+          MYSQL8_RESULT: ${{ needs.installer-mysql8-compatibility-and-recovery.result }}
+          PACKAGE_RESULT: ${{ needs.deployment-packages.result }}
+        run: |
+          {
+            echo "# ARBITRADE Stage 1 — CI progress dashboard"
+            echo
+            echo "| Validation lane | Result |"
+            echo "|---|---|"
+            echo "| Syntax and installer CLI safety | ${SYNTAX_RESULT} |"
+            echo "| TypeScript | ${TYPECHECK_RESULT} |"
+            echo "| Application tests | ${APPLICATION_TESTS_RESULT} |"
+            echo "| Installer/migration regression tests | ${INSTALLER_SAFETY_RESULT} |"
+            echo "| Production build, bundle budgets, server smoke test | ${PRODUCTION_BUILD_RESULT} |"
+            echo "| Disposable MariaDB fresh install | ${MARIADB_RESULT} |"
+            echo "| Disposable MySQL 8 compatibility/recovery | ${MYSQL8_RESULT} |"
+            echo "| Deployment package validation | ${PACKAGE_RESULT} |"
+            echo
+            echo "## Acceptance gaps not proven by CI alone"
+            echo "- Database-backed wallet/settlement concurrency, rollback, and ledger reconciliation."
+            echo "- Cross-account API authorization and notification ownership/replay tests."
+            echo "- Browser interaction, accessibility, and measured responsive viewport acceptance."
+            echo "- Disposable-host installer failure injection for service activation, Nginx reload, and Certbot paths."
+            echo
+            echo "This dashboard reports this run's actual job outcomes. It does not automatically increase the Stage 1 completion percentage or authorize production deployment."
+          } >> "$GITHUB_STEP_SUMMARY"
