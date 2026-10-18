@@ -18,7 +18,8 @@ The agreed Option B is **ChatGPT-led development using the connected GitHub tool
 - Autonomy control-plane PR: [#65](https://github.com/stannmoye/Arbitrade_platform/pull/65), still a draft and not merged.
 - Installer validation run [#456](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39152520771): **passed** for the revision it tested.
 - Autonomy dashboard run [#26](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39152520796): **passed** for the revision it tested.
-- Installer validation for the later documentation revision [#457](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39152831368) was still in progress at the last check; do not treat it as passed until GitHub reports success.
+- Installer validation run [#463](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39153548639): **passed** on current control-plane commit `88c9b431ee0c`.
+- Autonomy dashboard run [#41](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39153548461): **passed** on the same control-plane commit `88c9b431ee0c`.
 - Legacy API-worker run [39147213345](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39147213345) failed with “Quota exceeded. Check your plan and billing details.” This affects only the optional API-key worker, not normal ChatGPT-led development or ordinary CI. No code patch was published by that run.
 
 ## Verified repository facts
@@ -27,7 +28,8 @@ The agreed Option B is **ChatGPT-led development using the connected GitHub tool
 - PR #61 (“Use ChatGPT-led development with GitHub CI; park API worker automation”) is merged. It made the legacy API-key worker manual-only and documented the no-separate-API development loop.
 - PR #65 adds a task queue, readiness matrix, and progress dashboard. Its worker file is being aligned back to the manual-only configuration from `main`; do not enable the API worker or set an automatic-worker variable as part of the agreed Option B.
 - Installer validation includes PHP/Node syntax checks, installer safety tests, dependency installation, TypeScript validation, application tests, and installer/migration tests. A passing run only proves the checks configured for that exact commit.
-- Open PR #62, “Make existing-wallet admin adjustments atomic,” covers atomic wallet deltas, conditional debit floor, amount validation, unique wallet index, UUID ledger references, and best-effort post-commit telemetry. Database-backed concurrency/reconciliation and full migration-path tests remain acceptance gaps.
+- Open PR #62, “Make existing-wallet admin adjustments atomic,” covers atomic wallet deltas, conditional debit floor, amount validation, unique wallet index, UUID ledger references, and best-effort post-commit telemetry.
+- Added a disposable MySQL 8 integration test and dedicated GitHub Actions workflow on PR #62's branch. It exercises competing debit/credit SQL transactions, balance-to-ledger reconciliation, and database-level duplicate-wallet rejection. Its latest run [#1](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39153630941) was queued at the time of this update; this is not yet a passing test result. The test validates the database primitives in isolation and does not yet invoke the full application router/function.
 
 ## Immediate blockers and remaining work
 
@@ -47,6 +49,6 @@ Do not mark the platform production-ready until the full release matrix, staging
 
 1. Finish aligning PR #65 with the agreed no-separate-API method; keep the legacy API worker manual-only.
 2. Inspect the latest validation result against the exact PR head.
-3. Continue the highest-priority P0 task, S1-A wallet concurrency and ledger reconciliation, using ChatGPT-led GitHub edits and GitHub Actions validation.
+3. Finish S1-A by reviewing the disposable MySQL run, then add route/function-level and migration-path coverage; keep the task IN PROGRESS until all acceptance criteria have evidence.
 4. Track each actual code change and test result; do not claim background execution between sessions.
 5. Preserve human approval for merge/release and all production financial operations.
