@@ -24,7 +24,7 @@ The GitHub Actions installer-validation workflow runs independent validation lan
 | S1-G | P1 | Installer rollback/failure injection | Disposable host or command-mocked failures for APT publication/update, service activation, Nginx reload, and Certbot; preserve pre-existing files/services | Open |
 | S1-H | P2 | Browser/accessibility acceptance | Automated browser interaction and keyboard checks; viewport evidence at 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px | Open |
 | S1-I | P2 | Event/sound acceptance | Verify confirmed-event semantics, replay behavior, browser audio opt-in, enable/mute transitions, and event-specific sound coverage | Open |
-| S1-J | P0 | Exact-head CI and review | All required checks pass on the exact reviewed PR head; human review; keep PR draft until gates are satisfied | In progress |
+| S1-J | P0 | Exact-head CI and review | CI passed on exact head `7922f2832534af383fd84813121b008335aee32b` (run #39143923462); human review and non-CI acceptance gaps remain; keep PR draft | CI green; review/gaps open |
 
 ## Execution rules
 
