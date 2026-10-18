@@ -508,7 +508,9 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,tradeId)).limit(1).for("update"))[0];
     if(!trade) throw new Error("Trade not found");
     if(trade.status!=="confirmed"||trade.settlementStatus!=="pending") throw new Error("Trade is not pending manual settlement");
-    if(input.rewardMinor>Number(trade.rewardReservedMinor||0)) throw new Error("Manual reward exceeds the reserved package reward");
+    const reservedReward=Number(trade.rewardReservedMinor||0);
+    if(!Number.isSafeInteger(reservedReward)||reservedReward<0) throw new Error("Reserved trade reward is not a safe non-negative integer");
+    if(input.rewardMinor>reservedReward) throw new Error("Manual reward exceeds the reserved package reward");
     const reference=input.settlementReference.trim();
     const duplicate=(await tx.select({id:tradePositions.id}).from(tradePositions).where(eq(tradePositions.settlementReference,reference)).limit(1))[0];
     if(duplicate) throw new Error("Settlement reference has already been used");
@@ -535,7 +537,8 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     // If another settlement won the race, throw inside the transaction so the
     // preceding wallet and ledger mutations are rolled back together.
     assertExactlyOneAffectedRow(settlementUpdate,"Manual trade settlement state transition");
-    await tx.update(tradeRewardReservations).set({status:"credited",updatedAt:new Date()}).where(and(eq(tradeRewardReservations.tradeId,tradeId),eq(tradeRewardReservations.status,"reserved")));
+    const reservationUpdate=await tx.update(tradeRewardReservations).set({status:"credited",updatedAt:new Date()}).where(and(eq(tradeRewardReservations.tradeId,tradeId),eq(tradeRewardReservations.status,"reserved")));
+    assertExactlyOneAffectedRow(reservationUpdate,"Manual settlement reward reservation update");
     await tx.insert(tradeLifecycleEvents).values({tradeId,userId:trade.userId,eventType:"manual_settlement_confirmed",stage:"Wallet Updated",payloadJson:JSON.stringify({principalMinor:principal,rewardMinor:input.rewardMinor,reference,adminId})});
     await tx.insert(tradeLifecycleEvents).values({tradeId,userId:trade.userId,eventType:"trade_completed",stage:"Trade Completed",payloadJson:JSON.stringify({reference})});
     return {tradeId, userId:trade.userId, offerId:trade.offerId, currency:trade.currency, principalMinor:principal, rewardMinor:input.rewardMinor, totalMinor:total, reference};
