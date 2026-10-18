@@ -98,8 +98,9 @@ describe("canonical installer recovery guards", () => {
       expect(result.error).toBeUndefined();
       expect(result.signal).toBeNull();
       expect(result.status).not.toBe(0);
-      expect(output).toContain("An installation lock already exists. Refusing to rerun the installer.");
-      if (marker === "in-progress-dangling-symlink") {
+      if (marker === "installed-dangling-symlink") {
+        expect(output).toContain("An installation lock already exists. Refusing to rerun the installer.");
+      } else {
         expect(output).toContain("A previous installation attempt left installer/.install-in-progress.json.");
       }
       expect(output).not.toContain("Database connection successful");
