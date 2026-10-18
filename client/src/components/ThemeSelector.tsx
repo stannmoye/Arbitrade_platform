@@ -9,14 +9,26 @@ type ThemeSelectorProps = {
 export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelectorProps) {
   const { theme, setTheme, switchable } = useTheme();
   const appearance = trpc.appearanceConfig.useQuery(undefined, { staleTime: 30_000 });
-  const availableThemes: ArbitradeTheme[] = readOnly && appearance.data
-    ? (appearance.data.enabledThemes as string[]).filter((option: string): option is ArbitradeTheme =>
+  const auth = trpc.auth.me.useQuery(undefined, { retry: false, refetchOnWindowFocus: false });
+  const isAdmin = auth.data?.role === "admin";
+  const policy = appearance.data;
+  const enabledThemes: ArbitradeTheme[] = policy?.enabledThemes
+    ? policy.enabledThemes.filter((option: string): option is ArbitradeTheme =>
         ARBITRADE_THEMES.includes(option as ArbitradeTheme))
-    : [...ARBITRADE_THEMES];
-  const canChoose = !readOnly || appearance.data?.customerCanSelect === true;
+    : [];
+  const defaultTheme: ArbitradeTheme = policy && ARBITRADE_THEMES.includes(policy.defaultTheme as ArbitradeTheme)
+    ? policy.defaultTheme as ArbitradeTheme
+    : "original";
+  const customerCanSelect = policy?.customerCanSelect === true;
+  const canChoose = isAdmin || (!readOnly && customerCanSelect);
+  const availableThemes: ArbitradeTheme[] = isAdmin
+    ? [...ARBITRADE_THEMES]
+    : customerCanSelect
+      ? enabledThemes
+      : [defaultTheme];
   const selectedTheme = availableThemes.includes(theme as ArbitradeTheme)
     ? theme as ArbitradeTheme
-    : (appearance.data?.defaultTheme as ArbitradeTheme) || "original";
+    : defaultTheme;
 
   if (!switchable) return null;
 
