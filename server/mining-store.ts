@@ -156,7 +156,13 @@ export async function beginMiningIdempotency(conn: Db, userId: number, key: stri
 }
 
 export async function finishMiningIdempotency(conn: Db, key: string, result: unknown) {
-  await conn.execute(`UPDATE v5_idempotency_keys SET resultJson=? WHERE keyValue=?`, [JSON.stringify(result), key]);
+  const [updateResult] = await conn.execute<any>(
+    `UPDATE v5_idempotency_keys SET resultJson=? WHERE keyValue=? AND resultJson IS NULL`,
+    [JSON.stringify(result), key],
+  );
+  if (Number(updateResult.affectedRows) !== 1) {
+    throw new MiningError("Unable to persist the Mining idempotency result; the transaction must be retried");
+  }
 }
 
 export async function getMiningAssetRate(conn: Db, assetInput: string, config: MiningConfig, now = new Date()): Promise<AssetRate> {
