@@ -374,3 +374,29 @@
     outline-offset: 3px;
   }
 }
+
+/* Stage 2: preserve table and action affordances in system high-contrast themes. */
+@media (forced-colors: active) {
+  :root[data-arb-theme] .admin-ops-page :where(.admin-ops-panel, .admin-ops-metric, .admin-ops-export-card, .admin-ops-status) {
+    border-color: CanvasText;
+  }
+
+  :root[data-arb-theme] .admin-ops-page .admin-ops-table :where(th, td) {
+    border-color: CanvasText;
+  }
+
+  :root[data-arb-theme] .admin-ops-page .admin-ops-button {
+    border: 1px solid ButtonText;
+    background: ButtonFace;
+    color: ButtonText;
+  }
+
+  :root[data-arb-theme] .admin-ops-page .admin-ops-table tbody tr:hover td,
+  :root[data-arb-theme] .admin-ops-page .admin-ops-table tbody tr:focus-within td {
+    outline: 1px solid Highlight;
+  }
+
+  :root[data-arb-theme] .admin-ops-page :where(a, button, input, select, textarea, summary):focus-visible {
+    outline-color: Highlight;
+  }
+}
