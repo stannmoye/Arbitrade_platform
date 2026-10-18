@@ -328,3 +328,11 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 **Verification status:** Test definitions are committed in `13b2ea81f0885a06848cecbea4c2a2bf64c0853a`. This environment has not executed these newly added cases against the current commit. The most recently inspected successful CI run checks an earlier workflow commit and is not evidence that these new cases passed. Database-backed swap quote lifecycle, concurrent replay, ledger correspondence, cross-store rollback, and notification deduplication/ownership tests remain outstanding.
 
 **Next action:** Run `pnpm test -- server/mining-store.test.ts` and `pnpm check` on the current branch, then implement integration tests using an isolated disposable MySQL/MariaDB database. Do not use production data or mark Stage 1 complete until the new tests and remaining route/API/access and browser checks have passed.
+
+## 17. Transaction wrapper regression coverage
+
+- Added unit coverage in `server/mining-store.test.ts` for a transaction callback succeeding, callback failure causing rollback and preserving the original callback error, commit failure causing a rollback attempt while preserving the commit error, and begin-transaction failure preventing callback execution.
+- Test changes committed on `integration/auth-installer-vps-safety`: `2b77a8472125671381013c4b5a4781c13576ac71`.
+- **Execution status: pending.** These are test definitions only; they have not been run in this environment. The commit/rollback cases use a mocked `PoolConnection` and do not prove database-backed swap atomicity.
+- Still required: execute `pnpm test -- server/mining-store.test.ts` and `pnpm check`; then add isolated database-backed tests for quote ownership/status/expiry, same-key replay, concurrent confirmations with distinct keys, ledger/main-wallet correspondence, and rollback after injected conversion failures. Do not use production credentials or change production financial data for these tests.
+
