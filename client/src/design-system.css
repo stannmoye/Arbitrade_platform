@@ -1019,6 +1019,7 @@
     [data-slot="select-trigger"],
     [data-slot="input"],
     [data-slot="textarea"],
+    [data-wb-button="true"],
     .arb-button,
     .arb-field input,
     .arb-field select,
@@ -1031,6 +1032,7 @@
   [data-slot="button"].size-8,
   [data-slot="button"].size-9,
   [data-slot="button"].size-10,
+  [data-wb-button="true"][data-wb-icon-only="true"],
   .arb-button {
     min-width: 44px;
   }
