@@ -196,6 +196,10 @@ ENV_PUBLISHED=0
 UNIT_PUBLISHED=0
 NGINX_PUBLISHED=0
 NGINX_ENABLED_PUBLISHED=0
+ENV_PUBLISHED_ID=""
+UNIT_PUBLISHED_ID=""
+NGINX_PUBLISHED_ID=""
+NGINX_ENABLED_PUBLISHED_ID=""
 SERVICE_ATTEMPTED=0
 HTTPS_ATTEMPTED=0
 cleanup_vps_setup() {
@@ -203,15 +207,17 @@ cleanup_vps_setup() {
   [[ -z "${ENV_TMP:-}" ]] || rm -f -- "$ENV_TMP"
   [[ -z "${UNIT_TMP:-}" ]] || rm -f -- "$UNIT_TMP"
   [[ -z "${NGINX_TMP:-}" ]] || rm -f -- "$NGINX_TMP"
+  # Roll back only the exact inodes published by this attempt. A path may
+  # have been replaced by an administrator or another process after publish.
   if [[ "$status" -ne 0 && "$HTTPS_ATTEMPTED" == 0 ]]; then
     if [[ "$SERVICE_ATTEMPTED" == 1 ]]; then
       systemctl disable --now arbitrade.service >/dev/null 2>&1 || true
       systemctl daemon-reload >/dev/null 2>&1 || true
     fi
-    if [[ "$NGINX_ENABLED_PUBLISHED" == 1 ]]; then rm -f -- "$NGINX_ENABLED"; fi
-    if [[ "$NGINX_PUBLISHED" == 1 ]]; then rm -f -- "$NGINX"; fi
-    if [[ "$UNIT_PUBLISHED" == 1 ]]; then rm -f -- "$UNIT"; fi
-    if [[ "$ENV_PUBLISHED" == 1 ]]; then rm -f -- "$ENV_FILE"; fi
+    if [[ "$NGINX_ENABLED_PUBLISHED" == 1 && -n "$NGINX_ENABLED_PUBLISHED_ID" && -L "$NGINX_ENABLED" && "$(stat -c '%d:%i' -- "$NGINX_ENABLED" 2>/dev/null || true)" == "$NGINX_ENABLED_PUBLISHED_ID" ]]; then rm -f -- "$NGINX_ENABLED"; fi
+    if [[ "$NGINX_PUBLISHED" == 1 && -n "$NGINX_PUBLISHED_ID" && ! -L "$NGINX" && -e "$NGINX" && "$(stat -c '%d:%i' -- "$NGINX" 2>/dev/null || true)" == "$NGINX_PUBLISHED_ID" ]]; then rm -f -- "$NGINX"; fi
+    if [[ "$UNIT_PUBLISHED" == 1 && -n "$UNIT_PUBLISHED_ID" && ! -L "$UNIT" && -e "$UNIT" && "$(stat -c '%d:%i' -- "$UNIT" 2>/dev/null || true)" == "$UNIT_PUBLISHED_ID" ]]; then rm -f -- "$UNIT"; fi
+    if [[ "$ENV_PUBLISHED" == 1 && -n "$ENV_PUBLISHED_ID" && ! -L "$ENV_FILE" && -e "$ENV_FILE" && "$(stat -c '%d:%i' -- "$ENV_FILE" 2>/dev/null || true)" == "$ENV_PUBLISHED_ID" ]]; then rm -f -- "$ENV_FILE"; fi
     if [[ "$ENV_PUBLISHED" == 1 || "$UNIT_PUBLISHED" == 1 || "$NGINX_PUBLISHED" == 1 || "$NGINX_ENABLED_PUBLISHED" == 1 ]]; then
       say "Provisioning failed; files created by this attempt were rolled back. Review the error above before retrying."
     fi
@@ -226,6 +232,7 @@ trap cleanup_vps_setup EXIT
 # replace a destination that appeared after the preflight check.
 ENV_TMP="$(mktemp "$ENV_DIR/.arbitrade.env.XXXXXX")"
 install -o root -g "$APP_USER" -m 0640 "$ROOT/.env" "$ENV_TMP"
+ENV_PUBLISHED_ID="$(stat -c '%d:%i' -- "$ENV_TMP")"
 if grep -q '^PORT=' "$ENV_TMP"; then
   sed -i 's/^PORT=.*/PORT=3000/' "$ENV_TMP"
 else
@@ -241,6 +248,7 @@ rm -f -- "$ENV_TMP"
 ENV_TMP=""
 
 UNIT_TMP="$(mktemp /etc/systemd/system/.arbitrade.service.XXXXXX)"
+UNIT_PUBLISHED_ID="$(stat -c '%d:%i' -- "$UNIT_TMP")"
 cat > "$UNIT_TMP" <<UNITFILE
 [Unit]
 Description=Arbitrade Node.js application
@@ -275,6 +283,7 @@ rm -f -- "$UNIT_TMP"
 UNIT_TMP=""
 
 NGINX_TMP="$(mktemp "/etc/nginx/sites-available/.arbitrade-$DOMAIN.XXXXXX")"
+NGINX_PUBLISHED_ID="$(stat -c '%d:%i' -- "$NGINX_TMP")"
 cat > "$NGINX_TMP" <<NGINXFILE
 server {
     listen 80;
@@ -307,6 +316,7 @@ if ! ln -s "$NGINX" "$NGINX_ENABLED"; then
   fail "$NGINX_ENABLED appeared during provisioning. Existing enabled-site configuration was not overwritten; inspect the path and rerun only after review."
 fi
 NGINX_ENABLED_PUBLISHED=1
+NGINX_ENABLED_PUBLISHED_ID="$(stat -c '%d:%i' -- "$NGINX_ENABLED")"
 nginx -t
 systemctl daemon-reload
 SERVICE_ATTEMPTED=1
