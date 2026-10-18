@@ -213,3 +213,28 @@ These are source-based risk findings for test planning, not proof of a productio
 
 ### Mining purchase flow follow-up
 Source review of `client/src/components/CustomerMining.tsx`, `server/routers.ts`, and `server/mining.ts` found that the customer purchase button calls the convenience purchase endpoint without a separate terms-acceptance field. That endpoint calls the quote-confirmation service with `acceptedTerms: true`. Review whether this satisfies the product's intended consent requirement; if explicit acknowledgement is required, add a focused UI and server-side regression test while preserving quote validation, idempotency, and ledger safeguards. This is a source-level finding, not a confirmed production incident.
+
+## 11. Swap idempotency, notification ownership, and ledger path (2026-10-18)
+
+### Manual mining swap — source path traced
+- `confirmCustomerMiningSwap` derives a request key using the operation prefix and customer ID, starts an explicit database transaction, reserves/loads an idempotency record, verifies the account is active, and selects the swap quote joined to its snapshot with both quote ID and snapshot owner ID constrained to the authenticated customer. The selected quote row is locked with `FOR UPDATE`.
+- Confirmation rejects a missing/non-`QUOTED`/expired quote, invalid stored quote details, changed economics configuration version, insufficient CKI available balance, and market movement beyond the configured deviation threshold. It refreshes the relevant rate before executing.
+- The conversion path credits the target main-wallet balance, writes a mining transaction and balanced per-asset ledger entries, creates a funding-plan and conversion record, changes the FX quote status to `EXECUTED`, stores the idempotent result and creates a customer notification within the transaction callback. The outer transaction commits only if the callback completes; errors roll back.
+- The idempotency key is normalized and hashed with the operation prefix and customer ID; the idempotency table has a unique key on `keyValue`. The implementation locks the idempotency row and rejects command mismatch. A repeated successful key returns the stored result. Concurrent confirmation and rollback/retry behavior should still be proven by tests on the supported MySQL/MariaDB versions.
+- The token source balance is read before `postMiningLedgerEntries`; the posting helper locks the affected mining-wallet rows in sorted ID order and checks resulting user balances are not negative before writing entries/updating wallet balances. This is a protective ledger path, but targeted concurrent-spend tests remain necessary to verify transaction isolation and row-lock behavior end-to-end.
+- This source trace is stronger evidence than the earlier initial review, but it is not a substitute for executing race/replay tests against a disposable database. No real customer balances were changed.
+
+### Customer notifications — ownership confirmed at helper boundary
+- `listNotifications(userId)` filters `customerNotifications.userId = userId`.
+- `markCustomerNotificationsRead(userId, notificationId)` constrains both notification ID and user ID; marking all unread notifications also includes the same user-ID condition. The helper returns that same user's filtered list after update.
+- The router exposes these through `protectedProcedure` and passes `ctx.user.id`, rather than accepting a customer ID from the request. This is positive source-level ownership evidence for the notification path; authorization integration tests remain useful.
+
+### Transaction-console deduplication — schema observation
+- The Drizzle `transactionConsoleEvents` definition does not declare a unique index for `(userId, sessionKey, transactionCode)`. The source-level SELECT-then-INSERT duplicate guard can therefore race unless an equivalent constraint exists in an installer-created schema or external migration. Inspect all SQL migration/installer definitions before deciding on a schema change; do not modify production data or migrations as part of this audit note.
+- Session open currently deletes all transaction-console events for the user, not only the current session. Confirm expected retention and customer-facing copy before changing it.
+
+### Still outstanding
+1. Run targeted swap replay/concurrent-confirmation and concurrent-spend tests against disposable MariaDB and MySQL 8 databases.
+2. Inspect all installer and migration SQL for transaction-console indexes and confirm deployed schema parity.
+3. Complete browser-based responsive/accessibility checks and event-to-sound acceptance tests in a real browser environment.
+4. Keep Stage 1 open until remaining acceptance evidence is recorded.
