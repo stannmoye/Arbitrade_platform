@@ -63,7 +63,7 @@ describe("authentication endpoint rate limiter", () => {
   });
 
   it("fails closed with 503 when the configured shared store is unavailable", async () => {
-    const store = { consume: vi.fn(async () => { throw new Error("backend unavailable"); }) };
+    const store = { consume: vi.fn(async () => { throw new Error("backend unavailable; credential=private-test-value"); }) };
     const limit = createAuthRateLimiter({ windowMs: 60_000, max: 5, message: "Limited", store, scope: "customer-login" });
     const call = harness("203.0.113.1");
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -71,6 +71,11 @@ describe("authentication endpoint rate limiter", () => {
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(call.payload.status).toBe(503);
     expect(call.next).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[AuthRateLimit] Shared store unavailable; rejecting authentication request",
+      "Error",
+    );
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("private-test-value");
     errorSpy.mockRestore();
   });
 
