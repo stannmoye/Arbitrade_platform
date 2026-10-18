@@ -729,3 +729,6 @@ When continuing this project:
 - Successful verification: [Mining regression checks](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39126931162) at commit `1756134739c4aa7408a032b2afbdf12403b55a3b`. `pnpm test -- server/mining-store.test.ts` and `pnpm check` both passed.
 - This closes the previously outstanding execution check for the focused Mining store unit tests and TypeScript baseline. It does not close database-backed swap, concurrent replay, wallet/ledger reconciliation, atomic rollback, notification, or browser acceptance requirements.
 - Stage 1 remains **in progress**; do not start Stage 2 until the remaining exit criteria are evidenced.
+
+
+- **Parallel continuation checkpoint (2026-10-18):** Mining regression workflow [Run #28](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39129998734) completed successfully on `c31fc8f0b78f71491f4c78242af79b7b875a4a78`; the focused Mining unit tests and TypeScript check are green. Stage 1 is being advanced through independent workstreams: migration/deduplication preflight, isolated financial concurrency/rollback tests, and API plus browser/sound acceptance. Schema changes remain blocked until duplicate-data and deployment-parity preflight is evidenced. No production data was changed; Stage 1 and production approval remain open.
