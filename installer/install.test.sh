@@ -121,10 +121,12 @@ assert_file_contains "$VPS_SETUP" 'useradd --system --gid "$APP_USER"' "VPS setu
 # Exercise the same path predicate used by VPS provisioning using temporary
 # filesystem entries. These tests need neither root nor host configuration.
 source "$ROOT/installer/vps-preflight.sh"
+# ProtectHome=true makes both /root and /home roots unsuitable for the service.
 arbitrade_root_path_is_allowed "/var/www/arbitrade" || { printf '[FAIL] Standard deployment path should be allowed.\\n' >&2; exit 1; }
 arbitrade_root_path_is_allowed "/rooted/arbitrade" || { printf '[FAIL] Similar prefix /rooted should not be rejected.\\n' >&2; exit 1; }
 if arbitrade_root_path_is_allowed "/root"; then printf '[FAIL] /root must be rejected.\\n' >&2; exit 1; fi
 if arbitrade_root_path_is_allowed "/root/arbitrade"; then printf '[FAIL] Paths under /root must be rejected.\\n' >&2; exit 1; fi
+if arbitrade_root_path_is_allowed "/home"; then printf '[FAIL] /home itself must be rejected.\\n' >&2; exit 1; fi
 if arbitrade_root_path_is_allowed "/home/deploy/arbitrade"; then printf '[FAIL] Paths under /home must be rejected.\\n' >&2; exit 1; fi
 pass "Deployment root path guard rejects protected homes without overmatching similar prefixes"
 tmpdir="$(mktemp -d)"
