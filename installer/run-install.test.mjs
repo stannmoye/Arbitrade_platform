@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -86,5 +87,52 @@ describe("canonical installer preflight acceptance", () => {
     expect(result.status).not.toBe(0);
     expect(result.output).toContain("must each contain at least 32 characters");
     expect(result.output).not.toContain("Database connection successful");
+  });
+});
+
+
+describe("canonical installer diagnostic privacy", () => {
+  it("does not print raw database error messages that may include connection identifiers", async () => {
+    const source = await readFile(installer, "utf8");
+    expect(source).toContain('String(error?.code || "unavailable").replace(/[^A-Z0-9_]/gi, "").slice(0, 40)');
+    expect(source).toContain("Database error code:");
+    expect(source).not.toContain('(error?.code || error?.message || "")');
+  });
+
+  it("routes main migrations through the persistent guard", async () => {
+    const source = await readFile(installer, "utf8");
+    expect(source).toContain('run("node", ["scripts/guarded-main-migrate.mjs"]);');
+    expect(source).not.toContain('runPnpm(["db:migrate"]);');
+  });
+});
+
+
+describe("main migration preflight integration", () => {
+  it("checks existing-schema history before creating the persistent migration guard", async () => {
+    const source = await readFile(new URL("../scripts/guarded-main-migrate.mjs", import.meta.url), "utf8");
+    expect(source).toContain('import { classifyMainMigrationPreflight } from "../installer/main-migration-preflight.mjs";');
+    expect(source).toContain("FROM information_schema.tables WHERE table_schema=DATABASE()");
+    expect(source).toContain("FROM __drizzle_migrations");
+    expect(source).toContain("if (!preflight.allowed)");
+    expect(source).toContain("No migrations were run.");
+    expect(source.indexOf("if (!preflight.allowed)")).toBeLessThan(source.indexOf("CREATE TABLE IF NOT EXISTS"));
+  });
+
+  it("keeps failed or interrupted main migration runs blocked from blind retry", async () => {
+    const source = await readFile(new URL("../scripts/guarded-main-migrate.mjs", import.meta.url), "utf8");
+    expect(source).toContain('previousStatus === "failed" || previousStatus === "running"');
+    expect(source).toContain("automatic retry is blocked");
+    expect(source).toContain('SET status=\'failed\'');
+  });
+});
+
+
+describe("installer cleanup error privacy", () => {
+  it("sanitizes database connection cleanup failures", async () => {
+    const source = await readFile(installer, "utf8");
+    expect(source).toContain("Could not close the selected database connection safely. Database error code:");
+    expect(source).toContain("try {\n      await db.end();\n    } catch (error) {");
+    expect(source).toContain('String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40)');
+    expect(source).not.toContain("console.error(error.message)");
   });
 });

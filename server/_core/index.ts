@@ -11,6 +11,9 @@ import { sdk } from "./sdk";
 import { countOutstandingTrades, createLocalCustomer, getAppSetting, getUserByEmail, getUserById, runAutoTradeCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
+import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
+import { resolveTrustedProxyHops } from "./trustedProxy";
+import { isAllowedAttachmentRequest } from "./attachmentPolicy";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
 import { getTicketUploadPolicy } from "../db";
 import { ensureMarketDrivenOpportunities, refreshMarketData } from "../marketSync";
@@ -23,8 +26,21 @@ import { startEmailWorkers } from "../emailQueue";
 import { refreshMiningPriceFeeds } from "../mining-admin";
 import { runMiningWorkerCycle } from "../mining";
 
+const registrationRateLimit = createAuthRateLimiter({ windowMs: 60 * 60_000, max: 5, message: "Too many registration attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-register" });
+const customerLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many login attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-login" });
+const adminLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 8, message: "Too many administrator login attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "admin-login" });
+const passwordResetRequestRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 5, message: "Too many password-reset requests. Try again later.", store: configuredAuthRateLimitStore, scope: "password-reset-request" });
+const passwordResetConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many password-reset attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "password-reset-confirm" });
+const emailVerificationRequestRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 5, message: "Too many email-verification requests. Try again later.", store: configuredAuthRateLimitStore, scope: "email-verification-request" });
+const emailVerificationConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many email-verification attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "email-verification-confirm" });
+
 async function startServer() {
   const app = express();
+  if (process.env.NODE_ENV === "production" && !configuredAuthRateLimitStore) {
+    console.warn("[AuthRateLimit] Using process-local counters. Configure AUTH_RATE_LIMIT_REDIS_REST_URL and AUTH_RATE_LIMIT_REDIS_REST_TOKEN for multi-instance deployments.");
+  }
+  // Do not trust X-Forwarded-For unless the actual reverse-proxy hop count is configured.
+  app.set("trust proxy", resolveTrustedProxyHops(process.env.TRUST_PROXY_HOPS));
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
@@ -33,7 +49,7 @@ async function startServer() {
   const setLocalSession = (req: express.Request, res: express.Response, user: { id: number; authVersion?: number }) => {
     res.cookie(COOKIE_NAME, createLocalSession(user.id, user.authVersion || 0), { ...getSessionCookieOptions(req), maxAge: 30 * 24 * 60 * 60 * 1000 });
   };
-  app.post("/api/customer/register", async (req, res) => {
+  app.post("/api/customer/register", registrationRateLimit, async (req, res) => {
     try {
       const { email, password, firstName, lastName } = req.body || {};
       if (typeof email !== "string" || typeof password !== "string" || password.length < 12) return res.status(400).json({ error: "Use an email and a password of at least 12 characters" });
@@ -47,7 +63,7 @@ async function startServer() {
       return res.status(400).json({ error: error instanceof Error ? error.message : "Unable to register" });
     }
   });
-  app.post("/api/customer/login", async (req, res) => {
+  app.post("/api/customer/login", customerLoginRateLimit, async (req, res) => {
     try {
       const { email, password } = req.body || {};
       const user = await getUserByEmail(String(email || ""));
@@ -61,7 +77,7 @@ async function startServer() {
       return res.status(503).json({ error: "Authentication service is not configured. Configure DATABASE_URL and run the migrations." });
     }
   });
-  app.post("/api/admin/login", async (req, res) => {
+  app.post("/api/admin/login", adminLoginRateLimit, async (req, res) => {
     try {
       const { email, password } = req.body || {};
       const user = await getUserByEmail(String(email || ""));
@@ -74,12 +90,12 @@ async function startServer() {
       return res.status(503).json({ error: "Authentication service is not configured. Configure DATABASE_URL and run the migrations." });
     }
   });
-  app.post("/api/customer/password-reset/request", async (req, res) => {
+  app.post("/api/customer/password-reset/request", passwordResetRequestRateLimit, async (req, res) => {
     const email = typeof req.body?.email === "string" ? req.body.email : "";
     await requestPasswordReset(email);
     return res.status(202).json({ message: "If the account exists and email delivery is configured, a reset code will be sent." });
   });
-  app.post("/api/customer/password-reset/confirm", async (req, res) => {
+  app.post("/api/customer/password-reset/confirm", passwordResetConfirmRateLimit, async (req, res) => {
     try {
       const { email, code, password } = req.body || {};
       if (typeof email !== "string" || typeof code !== "string" || typeof password !== "string") return res.status(400).json({ error: "Email, reset code and new password are required" });
@@ -87,7 +103,7 @@ async function startServer() {
       return res.json({ success: true });
     } catch (error) { return res.status(400).json({ error: error instanceof Error ? error.message : "The reset code is invalid or expired" }); }
   });
-  app.post("/api/customer/email-verification/request", async (req, res) => {
+  app.post("/api/customer/email-verification/request", emailVerificationRequestRateLimit, async (req, res) => {
     const session = getLocalSessionFromRequest(req);
     if (!session) return res.status(401).json({ error: "Authentication required" });
     const user = await getUserById(session.userId);
@@ -95,7 +111,7 @@ async function startServer() {
     await requestEmailVerification(session.userId);
     return res.status(202).json({ message: "If email delivery is configured, a verification code will be sent." });
   });
-  app.post("/api/customer/email-verification/confirm", async (req, res) => {
+  app.post("/api/customer/email-verification/confirm", emailVerificationConfirmRateLimit, async (req, res) => {
     const session = getLocalSessionFromRequest(req);
     if (!session) return res.status(401).json({ error: "Authentication required" });
     try {
@@ -114,8 +130,10 @@ async function startServer() {
       await sdk.authenticateRequest(req);
       const { fileName, mimeType, sizeBytes } = req.body ?? {};
       const policy = await getTicketUploadPolicy();
-      const mimeAllowed = policy.allowedMimeTypes.some(rule => rule === mimeType || (rule.endsWith("/*") && mimeType.startsWith(rule.slice(0, -1))) || (rule.startsWith(".") && fileName.toLowerCase().endsWith(rule.toLowerCase())));
-      if (typeof fileName !== "string" || typeof mimeType !== "string" || !Number.isInteger(sizeBytes) || sizeBytes < 1 || sizeBytes > policy.maxAttachmentMb * 1_000_000 || !mimeAllowed) return res.status(400).json({ error: `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}` });
+      const rejectionMessage = `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}`;
+      if (!isAllowedAttachmentRequest({ fileName, mimeType, sizeBytes }, policy)) {
+        return res.status(400).json({ error: rejectionMessage });
+      }
       const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
       const key = `support/${Date.now()}-${Math.random().toString(36).slice(2,10)}-${safeName}`;
       const base = process.env.MANUS_API_URL;

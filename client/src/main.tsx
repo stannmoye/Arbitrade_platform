@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { Suspense } from "react";
 import { COOKIE_NAME, UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink, TRPCClientError } from "@trpc/client";
@@ -8,7 +9,6 @@ import App from "./App";
 import { startLogin } from "./const";
 import "./index.css";
 import "./customer-reference.css";
-import "./factory-cockpit.css";
 
 const queryClient = new QueryClient();
 
@@ -77,7 +77,9 @@ const trpcClient = trpc.createClient({
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <Suspense fallback={<div role="status" aria-live="polite">Loading Arbitrade workspace…</div>}>
+        <App />
+      </Suspense>
     </QueryClientProvider>
   </trpc.Provider>
 );

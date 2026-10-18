@@ -1,0 +1,38 @@
+export type AttachmentRequest = {
+  fileName: unknown;
+  mimeType: unknown;
+  sizeBytes: unknown;
+};
+
+export type AttachmentPolicy = {
+  maxAttachmentMb: number;
+  allowedMimeTypes: string[];
+};
+
+/**
+ * Validate presigned-upload metadata before using values in MIME/extension
+ * checks. Malformed input is rejected without throwing from string methods.
+ */
+export function isAllowedAttachmentRequest(
+  request: AttachmentRequest,
+  policy: AttachmentPolicy,
+): boolean {
+  const { fileName, mimeType, sizeBytes } = request;
+  if (
+    typeof fileName !== "string" ||
+    typeof mimeType !== "string" ||
+    typeof sizeBytes !== "number" ||
+    !Number.isSafeInteger(sizeBytes) ||
+    sizeBytes < 1 ||
+    sizeBytes > policy.maxAttachmentMb * 1_000_000
+  ) {
+    return false;
+  }
+
+  return policy.allowedMimeTypes.some(
+    rule =>
+      rule === mimeType ||
+      (rule.endsWith("/*") && mimeType.startsWith(rule.slice(0, -1))) ||
+      (rule.startsWith(".") && fileName.toLowerCase().endsWith(rule.toLowerCase())),
+  );
+}

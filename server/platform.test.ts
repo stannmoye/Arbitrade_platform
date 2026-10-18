@@ -9,10 +9,35 @@ import { COOKIE_NAME } from "../shared/const";
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 describe("current platform integration", () => {
   it("exposes only named public runtime configuration", () => {
-    const env = { MANUS_PROJECT_ID: "project-test", MANUS_API_KEY: "server-only-test", MANUS_JWT_SECRET: "signing-only-test", DATABASE_URL: "db-only-test", MANUS_API_BROWSER_KEY: "public-browser-test", MANUS_ANALYTICS_ENDPOINT: "https://analytics.example", MANUS_ANALYTICS_WEBSITE_ID: "site-test" };
-    expect(publicPlatformConfig(env)).toMatchObject({ projectId: "project-test", apiBrowserKey: "public-browser-test" });
+    const env = {
+      MANUS_PROJECT_ID: "project-test",
+      MANUS_OAUTH_PORTAL_URL: "https://login.example",
+      MANUS_API_URL: "https://api.example",
+      MANUS_API_BROWSER_KEY: "public-browser-test",
+      MANUS_API_KEY: "server-only-test",
+      MANUS_JWT_SECRET: "signing-only-test",
+      DATABASE_URL: "db-only-test",
+      SESSION_SECRET: "session-only-test",
+      PASSWORD_PEPPER: "pepper-only-test",
+      MANUS_ANALYTICS_ENDPOINT: "https://analytics.example",
+      MANUS_ANALYTICS_WEBSITE_ID: "site-test",
+    };
+    expect(publicPlatformConfig(env)).toEqual({
+      projectId: "project-test",
+      oauthPortalUrl: "https://login.example",
+      apiUrl: "https://api.example",
+      apiBrowserKey: "public-browser-test",
+    });
     const script = publicPlatformScript(env);
-    for (const value of [env.MANUS_API_KEY, env.MANUS_JWT_SECRET, env.DATABASE_URL]) expect(script).not.toContain(value);
+    for (const value of [
+      env.MANUS_API_KEY,
+      env.MANUS_JWT_SECRET,
+      env.DATABASE_URL,
+      env.SESSION_SECRET,
+      env.PASSWORD_PEPPER,
+      env.MANUS_ANALYTICS_ENDPOINT,
+      env.MANUS_ANALYTICS_WEBSITE_ID,
+    ]) expect(script).not.toContain(value);
     const appended: unknown[] = [];
     const fakeDocument = { createElement: () => ({ setAttribute() {} }), head: { appendChild: (node: unknown) => appended.push(node) } };
     new Function("window", "document", script)({}, fakeDocument);
@@ -20,6 +45,17 @@ describe("current platform integration", () => {
     new Function("window", "document", publicPlatformScript({}))({}, fakeDocument);
     expect(appended).toHaveLength(0);
   });
+
+  it("escapes HTML-sensitive public values before emitting executable runtime configuration", () => {
+    const payload = "</script><script>window.pwned=true</script>";
+    const script = publicPlatformScript({ MANUS_PROJECT_ID: payload });
+    expect(script).not.toContain("<");
+    expect(script).toContain("\\u003c/script>");
+    const fakeWindow: { __MANUS_CONFIG__?: Record<string, string> } = {};
+    new Function("window", script)(fakeWindow);
+    expect(fakeWindow.__MANUS_CONFIG__?.projectId).toBe(payload);
+  });
+
   it("does not guess a production API when the project environment is absent", async () => {
     vi.stubEnv("MANUS_API_URL", ""); vi.stubEnv("MANUS_API_KEY", "test-only");
     const request = vi.fn(); vi.stubGlobal("fetch", request);

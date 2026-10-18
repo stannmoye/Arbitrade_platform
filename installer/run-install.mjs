@@ -1,11 +1,12 @@
 import { config } from "dotenv";
 import mysql from "mysql2/promise";
 import { spawnSync } from "node:child_process";
-import { readFile, unlink, writeFile } from "node:fs/promises";
+import { lstat, readFile, unlink, writeFile } from "node:fs/promises";
 import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
+import { classifyMainMigrationPreflight } from "./main-migration-preflight.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fresh = process.argv.includes("--fresh-install");
@@ -19,6 +20,16 @@ config({ path: resolve(root, ".env"), override: false });
 function fail(message, code = 1) {
   console.error("[installer] ERROR: " + message);
   process.exit(code);
+}
+
+async function stateMarkerExists(path) {
+  try {
+    await lstat(path);
+    return true;
+  } catch (error) {
+    if (error?.code === "ENOENT") return false;
+    fail("Cannot safely inspect installer state markers. Check filesystem permissions and directory structure before retrying.");
+  }
 }
 
 function recordCommandFailure(command, detail) {
@@ -81,13 +92,22 @@ if (Number(process.versions.node.split(".")[0]) < 20) {
 if (!process.env.DATABASE_URL || !process.env.SESSION_SECRET || !process.env.PASSWORD_PEPPER || !process.env.PUBLIC_APP_URL) {
   fail("DATABASE_URL, SESSION_SECRET, PASSWORD_PEPPER, and PUBLIC_APP_URL must be set in .env.");
 }
+let publicAppUrl;
+try {
+  publicAppUrl = new URL(process.env.PUBLIC_APP_URL);
+} catch {
+  fail("PUBLIC_APP_URL must be a valid public HTTP(S) URL; the configured value is not displayed.");
+}
+if (!["http:", "https:"].includes(publicAppUrl.protocol) || publicAppUrl.username || publicAppUrl.password) {
+  fail("PUBLIC_APP_URL must use HTTP(S) and must not contain a username or password.");
+}
 if (process.env.SESSION_SECRET.length < 32 || process.env.PASSWORD_PEPPER.length < 32) {
   fail("SESSION_SECRET and PASSWORD_PEPPER must each contain at least 32 characters.");
 }
-if (await (async () => { try { await readFile(lockPath); return true; } catch { return false; } })()) {
+if (await stateMarkerExists(lockPath)) {
   fail("An installation lock already exists. Refusing to rerun the installer.");
 }
-if (await (async () => { try { await readFile(progressPath); return true; } catch { return false; } })()) {
+if (await stateMarkerExists(progressPath)) {
   fail("A previous installation attempt left installer/.install-in-progress.json. Do not rerun migrations blindly. Inspect the saved stage and private logs, verify the database backup and migration state, then remove this marker only after an administrator has approved recovery.");
 }
 
@@ -150,6 +170,25 @@ try {
     fail("Existing-database mode requires the database to be imported first. The selected database is empty.");
   }
   if (mode === "existing") {
+    const [trackerTables] = await db.query(
+      "SELECT COUNT(*) AS tableCount FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = '__drizzle_migrations'",
+    );
+    const trackerExists = Number(trackerTables[0].tableCount) === 1;
+    let trackerCount = 0;
+    if (trackerExists) {
+      const [trackerRows] = await db.query("SELECT COUNT(*) AS migrationCount FROM __drizzle_migrations");
+      trackerCount = Number(trackerRows[0].migrationCount);
+    }
+    const migrationPreflight = classifyMainMigrationPreflight({
+      mode,
+      tableCount,
+      trackerExists,
+      trackerCount,
+    });
+    if (!migrationPreflight.allowed) {
+      fail(migrationPreflight.reason + " No migrations were run. Take a restorable backup and have an administrator review the schema and establish a verified migration baseline before retrying.");
+    }
+
     const [users] = await db.query(
       "SELECT COUNT(*) AS tableCount FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'users'",
     );
@@ -157,12 +196,21 @@ try {
       fail("The imported database does not contain the expected users table. Check that the correct Arbitrade database was imported.");
     }
   }
+
   console.log("[installer] Database connection successful; " + tableCount + " table(s) detected. Inventory matches the browser wizard.");
 } catch (error) {
   if (error && typeof error.message === "string" && error.message.startsWith("[installer]")) throw error;
-  fail("Could not connect to the selected database. Check DATABASE_URL and database privileges. " + (error?.code || error?.message || ""));
+  const errorCode = String(error?.code || "unavailable").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+  fail("Could not connect to the selected database. Check DATABASE_URL and database privileges. Database error code: " + (errorCode || "unavailable"));
 } finally {
-  if (db) await db.end();
+  if (db) {
+    try {
+      await db.end();
+    } catch (error) {
+      const errorCode = String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+      fail("Could not close the selected database connection safely. Database error code: " + (errorCode || "unknown"));
+    }
+  }
 }
 
 const pnpm = detectPnpm();
@@ -184,7 +232,7 @@ runPnpm(["install", "--frozen-lockfile"]);
 if (mode === "fresh") {
   console.log("\n[installer] Initializing a fresh database. Reward processing remains disabled unless separately enabled by an administrator.");
   await setStage("main-database-migrations");
-  runPnpm(["db:migrate"]);
+  run("node", ["scripts/guarded-main-migrate.mjs"]);
   await setStage("portal-database-migrations");
   runPnpm(["db:portal-migrate"]);
   await setStage("mining-database-migrations");
@@ -202,7 +250,7 @@ if (mode === "fresh") {
   console.log("\n[installer] Existing-database mode: applying forward migrations while preserving account credentials and financial records.");
   console.log("[installer] Confirm a current database backup exists before continuing.");
   await setStage("main-database-migrations");
-  runPnpm(["db:migrate"]);
+  run("node", ["scripts/guarded-main-migrate.mjs"]);
   await setStage("portal-database-migrations");
   runPnpm(["db:portal-migrate"]);
   await setStage("mining-database-migrations");
@@ -218,7 +266,8 @@ await writeFile(lockPath, new Date().toISOString() + "\n", { mode: 0o600, flag: 
 try {
   await unlink(bootstrapPath);
 } catch (error) {
-  fail("Installation lock was created, but the one-time bootstrap could not be removed. Restrict access and delete .installer-bootstrap.json manually: " + (error?.message || "unknown error"));
+  const errorCode = String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+  fail("Installation lock was created, but the one-time bootstrap could not be removed. Restrict access and delete .installer-bootstrap.json manually. Error code: " + (errorCode || "unknown"));
 }
 await unlink(progressPath);
 console.log("\n[installer] Installation steps completed.");

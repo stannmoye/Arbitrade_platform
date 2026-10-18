@@ -11,6 +11,7 @@ import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marke
 import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
+import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
 
@@ -106,9 +107,13 @@ export async function setTradeSettlementPolicy(input:{delaySeconds:number;credit
 }
 export async function countOutstandingTrades(userId?: number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const rows=await db.select({id:tradePositions.id}).from(tradePositions).where(userId===undefined?eq(tradePositions.status,"confirmed"):and(eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed"))); return rows.length; }
 export async function getTicketUploadPolicy() {
-  const max = Number(await getAppSetting("ticket.maxAttachmentMb"));
-  const types = (await getAppSetting("ticket.allowedMimeTypes"))!.split(",").map(v => v.trim()).filter(Boolean);
-  return { maxAttachmentMb: Number.isFinite(max) && max > 0 ? Math.min(max, 100) : 25, allowedMimeTypes: types };
+  return normalizeTicketUploadPolicy(
+    await getAppSetting("ticket.maxAttachmentMb", "25"),
+    await getAppSetting(
+      "ticket.allowedMimeTypes",
+      "image/*,application/pdf,text/plain,.doc,.docx,.xls,.xlsx",
+    ),
+  );
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
