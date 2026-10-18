@@ -8,6 +8,10 @@ on:
       - feat/arbitrade-autonomy-control-plane
       - integration/auth-installer-vps-safety
   workflow_dispatch:
+  # Once this workflow is merged to main, report every completed validation run.
+  workflow_run:
+    workflows: ["Installer validation"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -24,7 +28,7 @@ jobs:
       - name: Check out the exact revision
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Publish evidence-based progress summary
         shell: bash
@@ -41,6 +45,13 @@ jobs:
             echo "- **Ref:** \`${GITHUB_REF}\`"
             echo "- **Commit:** [\`${GITHUB_SHA:0:12}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA})"
             echo "- **Run:** [View this run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+            if [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
+              validation_conclusion="$(jq -r '.workflow_run.conclusion // "unknown"' "$GITHUB_EVENT_PATH")"
+              validation_url="$(jq -r '.workflow_run.html_url // empty' "$GITHUB_EVENT_PATH")"
+              validation_sha="$(jq -r '.workflow_run.head_sha // empty' "$GITHUB_EVENT_PATH")"
+              echo "- **Completed validation:** [${validation_conclusion}](${validation_url})"
+              echo "- **Validated commit:** \`${validation_sha}\`"
+            fi
             echo
             echo "## Task queue"
             echo
