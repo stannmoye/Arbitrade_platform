@@ -1070,3 +1070,28 @@
     outline-offset: 2px;
   }
 }
+
+
+/* Stage 2: preserve readable theme colors for browser-autofilled form fields. */
+:root[data-arb-theme] :where(input, textarea, select):-webkit-autofill,
+:root[data-arb-theme] :where(input, textarea, select):-webkit-autofill:hover,
+:root[data-arb-theme] :where(input, textarea, select):-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--arb-color-text);
+  caret-color: var(--arb-color-text);
+  box-shadow: 0 0 0 1000px var(--arb-color-surface-raised) inset;
+  border-color: var(--arb-color-border);
+}
+:root[data-arb-theme] ::selection {
+  background: var(--arb-color-selection, var(--arb-color-accent));
+  color: var(--arb-color-selection-text, var(--arb-color-canvas));
+}
+@media (forced-colors: active) {
+  :root[data-arb-theme] :where(input, textarea, select):-webkit-autofill {
+    -webkit-text-fill-color: FieldText;
+    box-shadow: none;
+  }
+  :root[data-arb-theme] ::selection {
+    background: Highlight;
+    color: HighlightText;
+  }
+}
