@@ -270,7 +270,8 @@
   background-color: color-mix(in srgb, var(--arb-color-warning) 8%, var(--arb-color-surface));
 }
 
-.arb-status-danger {
+.arb-status-danger,
+.arb-status-error {
   border-color: color-mix(in srgb, var(--arb-color-danger) 55%, var(--arb-color-border));
   color: var(--arb-color-danger);
   background-color: color-mix(in srgb, var(--arb-color-danger) 8%, var(--arb-color-surface));
@@ -442,5 +443,28 @@
   .arb-muted,
   .arb-field-hint {
     color: var(--arb-color-text-soft);
+  }
+}
+
+/* Invalid controls expose a clear state without relying on color alone. */
+.arb-field :is(input, select, textarea)[aria-invalid="true"] {
+  border-width: 2px;
+}
+.arb-field :is(input, select, textarea)[aria-invalid="true"]:focus-visible {
+  outline-color: var(--arb-color-danger);
+}
+.arb-field :is(input, select, textarea)[aria-invalid="true"]:disabled {
+  border-color: var(--arb-color-danger);
+  opacity: 0.72;
+}
+
+/* Keep the scrollable table region discoverable to keyboard users. */
+.arb-overflow-x:focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+@media (prefers-contrast: more) {
+  .arb-field :is(input, select, textarea)[aria-invalid="true"] {
+    border-width: 3px;
   }
 }
