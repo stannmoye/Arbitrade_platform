@@ -169,6 +169,14 @@
 .arb-theme-selector-compact select { min-width: min(230px, 52vw); }
 @media (max-width: 480px) {
   .arb-theme-selector { align-items: flex-start; }
+  .arb-theme-selector:not(.arb-theme-selector-compact) { flex-wrap: wrap; }
+  .arb-theme-selector:not(.arb-theme-selector-compact) select,
+  .arb-theme-selector:not(.arb-theme-selector-compact) .arb-theme-selector-current {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
   .arb-theme-selector-compact { gap: 8px; padding: 8px 10px; }
   .arb-theme-selector-compact select { min-width: 0; width: 56%; }
 }
