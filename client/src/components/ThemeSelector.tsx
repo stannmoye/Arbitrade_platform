@@ -35,7 +35,7 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
   if (!switchable) return null;
 
   return (
-    <section className={`arb-theme-selector${compact ? " arb-theme-selector-compact" : ""}`} aria-label="Appearance settings" aria-busy={!policyReady}>
+    <section className={`arb-theme-selector arb-page${compact ? " arb-theme-selector-compact" : ""}`} aria-label="Appearance settings" aria-busy={!policyReady}>
       <div className="arb-theme-selector-copy">
         {canChoose ? (
           <label className="arb-theme-selector-title" htmlFor={selectId}>Appearance</label>
