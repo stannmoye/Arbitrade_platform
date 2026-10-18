@@ -43,9 +43,9 @@ describe("migrateMiningTokenToCki fresh CKI handling", () => {
     expect(JSON.parse(marker[2][1])).toMatchObject({
       tokenName: "CoinKi",
       tokenSymbol: "CKI",
-      reclassifiedUserWallets: 0,
-      reclassifiedAmount: "0.00000000",
-      historicalLedgerPreserved: true,
+      status: "already_configured",
+      legacyTokenBalances: "zero_or_absent",
+      reclassificationPerformed: false,
     });
   });
 
