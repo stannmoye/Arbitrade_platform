@@ -408,5 +408,17 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 - Source review found that Mining's `walletMinor` rejects debit/credit amounts outside JavaScript's safe-integer range, but `readMainWalletBalance` converts the database's `customer_balances.availableMinor` value to `Number` without applying the same `Number.isSafeInteger` guard.
 - The column is a signed MySQL `BIGINT` (see migration `0043_wallet_minor_units_bigint.sql`). Values above JavaScript's safe-integer limit cannot be represented exactly as a `number`; an imprecise balance can affect displayed available balance and comparisons before the conditional SQL debit update. The SQL predicate `availableMinor>=?` is an additional safeguard, but does not replace exact read/compare semantics.
 - Recommended before production: fail closed when a loaded minor-unit balance is not a safe integer, or adopt exact bigint/string arithmetic end-to-end with driver configuration and tests. Add tests for the largest supported value, one above the safe-integer boundary, and conditional debit behavior.
-- Status: **new audit finding; no code change made for this finding yet**. Do not interpret existing passing unit tests as covering this database-value boundary.
-- Stage 1 remains **in progress**. This was static source/schema review only; no database was queried and no financial records were changed.
+- Resolution: `parseMainWalletMinor` now accepts only non-negative integer values from `0` through `Number.MAX_SAFE_INTEGER`, handling decimal strings through `BigInt` before conversion. Malformed strings, negative values, unsafe numeric values, and values above the safe-integer boundary fail closed. Regression tests cover the maximum safe integer and invalid/over-boundary inputs.
+- Implementation commit: `00490e28ca885c1536899bbc2a26ee78ff41b974`; regression-test commit: `3c1380c86693c6f614e3c7c93228c7ed154b17c7`.
+- Status: **unit-level safeguard implemented and CI-verified; database-backed debit/credit concurrency and cross-ledger atomicity remain unverified**. The guard intentionally fails closed rather than attempting exact `BIGINT` arithmetic above JavaScript's supported range.
+- Stage 1 remains **in progress**. No production database was queried and no financial records were changed.
+
+
+## 27. Main-wallet precision fix — CI verification (2026-10-18)
+
+- Corrected the integer-string validation expression in `server/mining.ts` so valid decimal integer strings are accepted and malformed strings are rejected.
+- GitHub Actions [Mining regression checks — Run #27](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39129770879) completed with conclusion **success** on commit `00490e28ca885c1536899bbc2a26ee78ff41b974`.
+- The job's dependency installation, Mining store regression tests, and TypeScript check all completed successfully.
+- The current draft integration pull request is [#58](https://github.com/stannmoye/Arbitrade_platform/pull/58); it remains open and unmerged. A passing focused regression workflow does not imply that every required pull-request check or production acceptance gate has passed.
+- Remaining Stage 1 blockers: isolated MySQL/MariaDB concurrency and rollback tests, ledger reconciliation, notification replay/ownership checks, full API/access-control verification, and measured browser/viewport acceptance. Production remains unapproved.
+- No production database, customer balances, or live financial transactions were accessed or changed.
