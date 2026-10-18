@@ -48,6 +48,17 @@ function idempotencyKey(input: string | undefined, userId: number) {
   return `stake:${userId}:${crypto.createHash("sha256").update(value).digest("hex")}`;
 }
 
+function parseIdempotencyReplay(prior: { command: string; resultJson: string }, expectedCommand: string, expectedPositionId?: number) {
+  if (prior.command !== expectedCommand) {
+    throw new Error("This idempotency key was already used for a different Stake & Earn operation");
+  }
+  const result = JSON.parse(prior.resultJson);
+  if (expectedPositionId !== undefined && Number(result.positionId) !== expectedPositionId) {
+    throw new Error("This idempotency key was already used for a different stake position");
+  }
+  return result;
+}
+
 function rewardFor(principal: number, annualRateBps: number, durationDays: number) {
   return Math.floor(principal * annualRateBps * durationDays / (10000 * 365));
 }
@@ -189,8 +200,8 @@ export async function allocateStake(userId: number, input: { productId: number; 
     const key = idempotencyKey(input.idempotencyKey, userId);
     await conn.beginTransaction();
     try {
-      const [prior] = await conn.query<any[]>(`SELECT resultJson FROM v5_idempotency_keys WHERE userId=? AND keyValue=? LIMIT 1 FOR UPDATE`, [userId, key]);
-      if (prior.length) { await conn.commit(); return JSON.parse(prior[0].resultJson); }
+      const [prior] = await conn.query<any[]>(`SELECT command, resultJson FROM v5_idempotency_keys WHERE userId=? AND keyValue=? LIMIT 1 FOR UPDATE`, [userId, key]);
+      if (prior.length) { const result = parseIdempotencyReplay(prior[0], "stake.allocate"); await conn.commit(); return result; }
       const [productRows] = await conn.query<any[]>(`SELECT * FROM stake_products WHERE id=? AND status='AVAILABLE' FOR UPDATE`, [input.productId]);
       const product = productRows[0] as StakeProduct | undefined;
       if (!product) throw new Error("Stake product is not available");
@@ -223,8 +234,8 @@ export async function cancelStake(userId: number, positionId: number, requestKey
   return withConnection(async conn => {
     const key = idempotencyKey(requestKey, userId); await conn.beginTransaction();
     try {
-      const [prior] = await conn.query<any[]>(`SELECT resultJson FROM v5_idempotency_keys WHERE userId=? AND keyValue=? LIMIT 1 FOR UPDATE`, [userId, key]);
-      if (prior.length) { await conn.commit(); return JSON.parse(prior[0].resultJson); }
+      const [prior] = await conn.query<any[]>(`SELECT command, resultJson FROM v5_idempotency_keys WHERE userId=? AND keyValue=? LIMIT 1 FOR UPDATE`, [userId, key]);
+      if (prior.length) { const result = parseIdempotencyReplay(prior[0], "stake.cancel", positionId); await conn.commit(); return result; }
       const [rows] = await conn.query<any[]>(`SELECT * FROM stake_positions WHERE id=? AND userId=? FOR UPDATE`, [positionId, userId]); const p=rows[0];
       if (!p || !["ACTIVE","REWARD_ACCRUING"].includes(p.status)) throw new Error("This position cannot be cancelled");
       if (new Date(p.maturityAt).getTime() <= Date.now()) throw new Error("Matured positions must be settled");
@@ -249,3 +260,6 @@ export function projectStake(input: { amountMinor: number; annualRateBps: number
 }
 
 export function __testRewardFor(principal: number, rateBps: number, days: number) { return rewardFor(principal, rateBps, days); }
+export function __testParseIdempotencyReplay(prior: { command: string; resultJson: string }, expectedCommand: string, expectedPositionId?: number) {
+  return parseIdempotencyReplay(prior, expectedCommand, expectedPositionId);
+}
