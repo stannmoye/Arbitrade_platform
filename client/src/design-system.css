@@ -683,9 +683,16 @@
     min-height: 1.25rem;
   }
   [data-slot="switch"] {
-    min-height: 44px;
-    min-width: 44px;
+    position: relative;
+    min-height: 1.25rem;
+    min-width: 2.25rem;
     justify-content: flex-start;
+  }
+  [data-slot="switch"]::before {
+    content: "";
+    position: absolute;
+    inset: -10px;
+    background: transparent;
   }
 }
 @media (prefers-reduced-motion: reduce) {
