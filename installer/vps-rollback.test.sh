@@ -78,8 +78,6 @@ grep -Fq 'reload nginx' "$SYSTEMCTL_LOG" || fail "nginx was not reloaded after r
 grep -Fxq -- '-t' "$NGINX_LOG" || fail "nginx config was not validated before rollback reload"
 pass "post-reload failure restores and reloads nginx configuration"
 
-# If nginx validation/reload itself fails during rollback, surface a clear
-# manual-recovery warning rather than silently claiming the config is restored.
 # Simulate systemd rejecting service activation. The EXIT cleanup path must
 # disable/reload systemd only for this attempt's published unit and remove the
 # attempt's files even though activation itself failed.
@@ -98,6 +96,8 @@ grep -Fq 'disable --now arbitrade.service' "$SYSTEMCTL_LOG" || fail "service rol
 grep -Fq 'daemon-reload' "$SYSTEMCTL_LOG" || fail "systemd daemon-reload was not attempted after activation failure"
 pass "service activation failure rolls back owned files and refreshes systemd"
 
+# If nginx validation/reload itself fails during rollback, surface a clear
+# manual-recovery warning rather than silently claiming the config is restored.
 new_case
 NGINX_RELOAD_ATTEMPTED=1
 NGINX_FAIL=1
