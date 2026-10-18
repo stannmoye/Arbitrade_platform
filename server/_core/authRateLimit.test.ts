@@ -67,16 +67,19 @@ describe("authentication endpoint rate limiter", () => {
     const limit = createAuthRateLimiter({ windowMs: 60_000, max: 5, message: "Limited", store, scope: "customer-login" });
     const call = harness("203.0.113.1");
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    limit(call.req as never, call.res as never, call.next);
-    await new Promise(resolve => setTimeout(resolve, 0));
-    expect(call.payload.status).toBe(503);
-    expect(call.next).not.toHaveBeenCalled();
-    expect(errorSpy).toHaveBeenCalledWith(
-      "[AuthRateLimit] Shared store unavailable; rejecting authentication request",
-      "Error",
-    );
-    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("private-test-value");
-    errorSpy.mockRestore();
+    try {
+      limit(call.req as never, call.res as never, call.next);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(call.payload.status).toBe(503);
+      expect(call.next).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[AuthRateLimit] Shared store unavailable; rejecting authentication request",
+        "Error",
+      );
+      expect(JSON.stringify(errorSpy.mock.calls)).not.toContain("private-test-value");
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it("returns shared-store 429 responses with rate-limit headers", async () => {
