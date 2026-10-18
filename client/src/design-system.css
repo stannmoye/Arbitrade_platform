@@ -1074,6 +1074,7 @@
 
 /* Stage 2 accessibility: honor reduced-motion preferences throughout adopted pages. */
 @media (prefers-reduced-motion: reduce) {
+  .arb-page,
   .arb-page *,
   .arb-page *::before,
   .arb-page *::after {
