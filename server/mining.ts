@@ -36,11 +36,29 @@ function walletMinor(value: Decimal.Value, scale: number) {
   return minor.toNumber();
 }
 
+export function parseMainWalletMinor(value: unknown): number {
+  let minor: bigint;
+  if (typeof value === "bigint") {
+    minor = value;
+  } else if (typeof value === "number" && Number.isSafeInteger(value)) {
+    minor = BigInt(value);
+  } else if (typeof value === "string" && /^-?\\d+$/.test(value)) {
+    minor = BigInt(value);
+  } else {
+    throw new MiningError("The stored main-wallet balance is invalid or exceeds the supported precision");
+  }
+
+  if (minor < 0n || minor > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new MiningError("The stored main-wallet balance is invalid or exceeds the supported precision");
+  }
+  return Number(minor);
+}
+
 async function readMainWalletBalance(conn: Db, userId: number, assetInput: string, lock = false) {
   const asset = assertMainWalletAsset(assetInput);
   const scale = await getMainWalletScale(conn, asset);
   const [rows] = await conn.query<any[]>(`SELECT id,availableMinor FROM customer_balances WHERE userId=? AND currency=? ORDER BY id LIMIT 1${lock ? " FOR UPDATE" : ""}`, [userId, asset]);
-  const availableMinor = Number(rows[0]?.availableMinor || 0);
+  const availableMinor = parseMainWalletMinor(rows[0]?.availableMinor ?? 0);
   const available = new Decimal(availableMinor).div(new Decimal(10).pow(scale));
   return { asset, scale, rowId: rows[0] ? Number(rows[0].id) : null, availableMinor, available: available.toFixed(scale) };
 }
