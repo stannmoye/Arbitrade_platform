@@ -401,3 +401,12 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 - This is source/schema review, not a real database execution. Outstanding risks still require isolated MySQL/MariaDB tests: unique-key contention under simultaneous requests; quote confirmation racing with another confirmation; rollback across both main-wallet and Mining ledger writes; and notification delivery/replay behavior.
 - Latest observed CI status: workflow run [39128928653](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39128928653) completed successfully after the audit record update; the code-and-test run [39128826878](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39128826878) also passed Mining store regression tests and TypeScript checking.
 - Stage 1 remains **in progress**. No production database, customer data, or live financial balances were accessed or changed.
+
+
+## 26. Main-wallet BIGINT precision boundary review (2026-10-18)
+
+- Source review found that Mining's `walletMinor` rejects debit/credit amounts outside JavaScript's safe-integer range, but `readMainWalletBalance` converts the database's `customer_balances.availableMinor` value to `Number` without applying the same `Number.isSafeInteger` guard.
+- The column is a signed MySQL `BIGINT` (see migration `0043_wallet_minor_units_bigint.sql`). Values above JavaScript's safe-integer limit cannot be represented exactly as a `number`; an imprecise balance can affect displayed available balance and comparisons before the conditional SQL debit update. The SQL predicate `availableMinor>=?` is an additional safeguard, but does not replace exact read/compare semantics.
+- Recommended before production: fail closed when a loaded minor-unit balance is not a safe integer, or adopt exact bigint/string arithmetic end-to-end with driver configuration and tests. Add tests for the largest supported value, one above the safe-integer boundary, and conditional debit behavior.
+- Status: **new audit finding; no code change made for this finding yet**. Do not interpret existing passing unit tests as covering this database-value boundary.
+- Stage 1 remains **in progress**. This was static source/schema review only; no database was queried and no financial records were changed.
