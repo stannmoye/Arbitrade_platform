@@ -10,6 +10,7 @@ on:
     branches:
       - main
       - feat/stage-46-controlled-migration-recovery
+      - integration/auth-installer-vps-safety
   # The bounded worker explicitly dispatches this workflow after publishing a patch.
   workflow_dispatch:
 
