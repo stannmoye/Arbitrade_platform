@@ -400,3 +400,20 @@
     outline-color: Highlight;
   }
 }
+
+/* Stage 2: clarify non-editable values and validation feedback in operations forms. */
+:root[data-arb-theme] .admin-ops-page :where(input, select, textarea)[aria-invalid="true"] {
+  border-width: 2px;
+  border-color: var(--arb-color-danger);
+}
+:root[data-arb-theme] .admin-ops-page :where(input, select, textarea):read-only {
+  border-style: dashed;
+  background: var(--arb-color-surface);
+}
+:root[data-arb-theme] .admin-ops-page :where(input, select, textarea):disabled {
+  cursor: not-allowed;
+  color: var(--arb-color-text-muted);
+}
+:root[data-arb-theme] .admin-ops-page :where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--arb-color-accent);
+}
