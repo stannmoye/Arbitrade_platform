@@ -89,7 +89,7 @@ if [[ "$INSTALL_RUNTIME" == 1 ]]; then
   fi
   rm -f -- "$NODE_KEY_TMP"
   NODE_SOURCE_TMP="$(mktemp /etc/apt/sources.list.d/.nodesource.list.XXXXXX)"
-  printf '%s\\n' "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > "$NODE_SOURCE_TMP"
+  printf '%s\n' "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > "$NODE_SOURCE_TMP"
   chmod 0644 "$NODE_SOURCE_TMP"
   if ! ln -T -- "$NODE_SOURCE_TMP" /etc/apt/sources.list.d/nodesource.list; then
     rm -f -- "$NODE_SOURCE_TMP"
