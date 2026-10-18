@@ -32,14 +32,15 @@ The agreed Option B is **ChatGPT-led development using the connected GitHub tool
 - PR #65 adds a task queue, readiness matrix, and progress dashboard. The legacy API-key worker is restored to manual-only, and the dashboard no longer falsely treats API quota as a blocker for Option B; do not enable the legacy worker or set an automatic-worker variable as part of the agreed method.
 - Installer validation includes PHP/Node syntax checks, installer safety tests, dependency installation, TypeScript validation, application tests, and installer/migration tests. A passing run only proves the checks configured for that exact commit.
 - Open PR #62, “Make existing-wallet admin adjustments atomic,” covers atomic wallet deltas, conditional debit floor, amount validation, unique wallet index, UUID ledger references, and best-effort post-commit telemetry.
-- Cross-database wallet integration run [#23](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39154899898) **passed** on commit `894e1af257da` against MySQL 8.0 and MariaDB 11.4. Each database passed 5 tests for actual concurrent `adjustCustomerBalance` debit/credit calls, ledger/balance reconciliation, rollback, and uniqueness, plus 4 migration-preflight tests. Installer validation [#489](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39154733347) passed on commit `819972677564`; validation [#491](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39154899847) **passed** for PR #62 head `894e1af257da473114cdbab7ab6d22c6939a1aae`.
-- Best-effort post-commit telemetry is factored into a tested helper used by the admin wallet route. A full tRPC-route integration test with an injected console/telemetry outage remains open.
+- Cross-database wallet integration run [#39155238918](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39155238918) **passed** on PR #62 head `1e674f431282b3d08e0e386d86b59bd24aaa0718` against MySQL 8.0 and MariaDB 11.4. Both database jobs passed concurrent credit/debit, balance/ledger reconciliation, rollback, wallet uniqueness, and migration-preflight checks. Earlier run [#39154899898](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39154899898) also passed on the prior revision.
+- Installer validation [#39155238949](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39155238949) **passed all jobs** on PR #62 head `1e674f431282b3d08e0e386d86b59bd24aaa0718`, including TypeScript, application tests, installer/migration tests, production build/smoke test, fresh MariaDB install, MySQL 8 compatibility/recovery, deployment packages, and Stage 1 dashboard.
+- Application suite on the latest PR #62 head: **200 passed, 5 skipped**. The actual admin tRPC wallet route test now verifies that a transaction-console outage does not turn a committed adjustment into a failed response and that telemetry is not attempted when the wallet mutation fails.
 
 ## Immediate blockers and remaining work
 
 1. **No always-on no-API coding daemon exists in this setup.** The agreed approach avoids the separate API quota, but ChatGPT-led code changes happen during an active session; GitHub Actions alone cannot author or repair code.
 2. **PR #65 is still a draft.** Its current head's installer validation and autonomy dashboard both passed; review the control-plane documentation/dashboard before any merge.
-3. **S1-A remains in progress.** The core concurrent wallet and migration-preflight tests now pass on MySQL 8 and MariaDB 11.4. Remaining gaps are full tRPC-route telemetry-outage coverage and end-to-end upgrade testing against representative existing database snapshots/schema drift.
+3. **S1-A remains in progress.** Database-backed concurrency/reconciliation, migration preflight, and the actual admin tRPC route telemetry-outage test now pass on the latest validated PR #62 head. The remaining gap is end-to-end upgrade/install testing against representative existing database snapshots and schema drift.
 4. **Production readiness remains open.** Staging acceptance, backup/restore evidence, security review, monitoring, and production target/configuration are separate gates.
 5. **Mining settlement and payout workflows have unresolved product/provider decisions** recorded in `TODO.md` and the master plan.
 
@@ -53,6 +54,6 @@ Do not mark the platform production-ready until the full release matrix, staging
 
 1. Keep PR #65 reviewable, with the agreed no-separate-API method and the legacy API worker manual-only; verify the fresh progress-report revision's checks.
 2. Inspect the latest validation result against the exact PR head.
-3. Finish S1-A with full tRPC-route telemetry-outage coverage and end-to-end upgrade-path tests against representative existing databases; keep the task IN PROGRESS until all acceptance criteria have evidence.
+3. Finish S1-A with end-to-end upgrade-path tests against representative existing databases/schema drift; keep the task IN PROGRESS until all acceptance criteria have evidence.
 4. Track each actual code change and test result; do not claim background execution between sessions.
 5. Preserve human approval for merge/release and all production financial operations.
