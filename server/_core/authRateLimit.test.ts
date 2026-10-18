@@ -126,8 +126,11 @@ describe("shared Redis REST rate-limit store", () => {
   });
 
 
-  it("requires an HTTPS endpoint and a token", () => {
+  it("requires a clean HTTPS endpoint and a non-empty token", () => {
     expect(() => createUpstashAuthRateLimitStore({ url: "http://redis.example.com", token: "secret" })).toThrow(/HTTPS/i);
+    expect(() => createUpstashAuthRateLimitStore({ url: "https://user:pass@redis.example.com", token: "secret" })).toThrow(/without credentials/i);
+    expect(() => createUpstashAuthRateLimitStore({ url: "https://redis.example.com?token=leak", token: "secret" })).toThrow(/query/i);
+    expect(() => createUpstashAuthRateLimitStore({ url: "https://redis.example.com/#fragment", token: "secret" })).toThrow(/fragment/i);
     expect(() => createUpstashAuthRateLimitStore({ url: "https://redis.example.com", token: " " })).toThrow(/token/i);
   });
 
