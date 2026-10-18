@@ -168,6 +168,16 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themes).toMatch(/@media\s*\(max-width:\s*600px\)[\s\S]*?\.arb-theme-selector select\s*\{[^}]*min-height:\s*44px;/);
   });
 
+  it("keeps shared buttons and form controls at touch-friendly sizes on mobile", () => {
+    expect(designSystem).toContain("@media (max-width: 640px)");
+    expect(designSystem).toContain('[data-slot="select-trigger"]');
+    expect(designSystem).toContain('[data-slot="input"]');
+    expect(designSystem).toContain('[data-slot="textarea"]');
+    expect(designSystem).toContain("min-height: 44px");
+    expect(designSystem).toContain('[data-slot="button"].size-9');
+    expect(designSystem).toContain("min-width: 44px");
+  });
+
   it("keeps dialog content scrollable and action rows adaptable at short/mobile viewports", () => {
     expect(designSystem).toContain('[data-slot="dialog-content"]');
     expect(designSystem).toContain('max-height: calc(100dvh - 2rem)');
