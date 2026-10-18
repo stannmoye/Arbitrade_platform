@@ -32,6 +32,10 @@ export function DashboardLayoutSkeleton() {
 
       {/* Main content skeleton */}
       <div className="min-w-0 flex-1 p-4 space-y-4">
+        {
+          /* Mobile header placeholder replaces the hidden desktop sidebar. */
+        }
+        <div className="mb-4 flex min-w-0 items-center gap-3 md:hidden"><Skeleton className="h-10 w-10 shrink-0 rounded-lg" /><div className="min-w-0 flex-1 space-y-2"><Skeleton className="h-4 w-28 max-w-full" /><Skeleton className="h-3 w-20 max-w-full" /></div></div>
         {/* Content blocks */}
         <Skeleton className="h-12 w-48 rounded-lg" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
