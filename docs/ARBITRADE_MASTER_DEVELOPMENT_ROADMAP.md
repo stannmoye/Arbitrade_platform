@@ -704,3 +704,11 @@ When continuing this project:
 7. Do not silently skip stages or mark unverified work complete.
 
 - **Transaction wrapper test coverage (2026-10-18):** Added unit tests for `inMiningTransaction` success/commit and failure/rollback/rethrow paths in commit `13b2ea81f0885a06848cecbea4c2a2bf64c0853a`. These use a mock connection; current-commit execution is pending and they are not database-backed swap tests. Stage 1 remains in progress.
+
+## Latest continuation — transaction wrapper regression cases
+
+- Added two focused tests to `server/mining-store.test.ts`: commit failure triggers a rollback attempt and preserves the commit error; begin-transaction failure prevents the callback from running.
+- Test commit: `2b77a8472125671381013c4b5a4781c13576ac71`. Audit documentation commit: `c818e93a2664067fe26c473adf47b573b2e86326`.
+- These changes are committed to `integration/auth-installer-vps-safety`; **test execution remains pending**. No claim is made that the new tests or type-check passed.
+- Next: run the targeted Vitest file and `pnpm check`, fix any failures, then add database-backed swap replay/concurrency/ledger/rollback coverage. Stage 1 remains open until the outstanding route/API/access, theme/sound, and measured responsive-browser checks are completed.
+
