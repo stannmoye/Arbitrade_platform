@@ -26,17 +26,23 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # Do not enable setup-node's pnpm cache here: setup-node tries to
+      # resolve pnpm before it exists on PATH, causing the workflow to fail.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10.18.0
           run_install: false
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+      - name: Verify toolchain
+        run: |
+          node --version
+          pnpm --version
 
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
