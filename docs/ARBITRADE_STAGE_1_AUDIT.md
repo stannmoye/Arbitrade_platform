@@ -389,5 +389,6 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 - Added regression tests for successful conditional persistence and the missing/already-filled reservation failure case.
 - Implementation commit: `3cc362ed6dc89a18080c71921c41abe17a4a414f`.
 - Test commit: `78881b72531e6ed104f60e4d0b60e7ee7e70be16`.
-- **Verification status:** The latest workflow must pass before this new guard is marked CI-verified. Tests currently use mocked connections; database-backed concurrency and rollback remain outstanding.
+- **Verification status:** GitHub Actions run [39128826878](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39128826878) completed successfully, including Mining store regression tests and the TypeScript check. This run includes the result-persistence failure rollback test added in commit `ea640b462452583a5884b7db1a6b7e3fcb93c70f`.
+- Tests still use mocked connections; database-backed concurrency, cross-ledger atomicity, and rollback under real database failures remain outstanding.
 - Stage 1 remains **in progress**. No production database or customer financial data was accessed or changed.
