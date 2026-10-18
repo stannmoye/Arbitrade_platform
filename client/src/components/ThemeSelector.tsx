@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { ARBITRADE_THEME_LABELS, ARBITRADE_THEMES, type ArbitradeTheme, useTheme } from "@/contexts/ThemeContext";
 import { trpc } from "@/lib/trpc";
 
@@ -8,6 +9,8 @@ type ThemeSelectorProps = {
 
 export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelectorProps) {
   const { theme, setTheme, switchable } = useTheme();
+  const selectorId = useId();
+  const selectId = `arb-theme-select-${compact ? "compact-" : ""}${selectorId}`;
   const appearance = trpc.appearanceConfig.useQuery(undefined, { staleTime: 30_000 });
   const auth = trpc.auth.me.useQuery(undefined, { retry: false, refetchOnWindowFocus: false });
   const isAdmin = auth.data?.role === "admin";
@@ -21,7 +24,8 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
     ? policy.defaultTheme as ArbitradeTheme
     : "original";
   const customerCanSelect = policy?.customerCanSelect === true;
-  const canChoose = isAdmin || (!readOnly && customerCanSelect);
+  const policyReady = !auth.isLoading && !appearance.isLoading;
+  const canChoose = policyReady && (isAdmin || (!readOnly && customerCanSelect));
   // A malformed or temporarily empty published allow-list must never produce an
   // empty select. Fall back to the published default until the policy is corrected.
   const customerThemes = enabledThemes.length > 0 ? enabledThemes : [defaultTheme];
@@ -38,13 +42,13 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
 
   return (
     <section className={`arb-theme-selector${compact ? " arb-theme-selector-compact" : ""}`} aria-label="Appearance settings">
-      <label htmlFor={canChoose ? compact ? "arb-theme-select-compact" : "arb-theme-select" : undefined}>
+      <label htmlFor={canChoose ? selectId : undefined}>
         <span className="arb-theme-selector-title">{canChoose ? "Appearance" : "Workspace appearance"}</span>
-        {!compact && <span className="arb-theme-selector-description">{canChoose ? "Choose your workspace theme" : "Theme selected by workspace settings"}</span>}
+        {!compact && <span className="arb-theme-selector-description">{!policyReady ? "Loading workspace appearance…" : canChoose ? "Choose your workspace theme" : "Theme selected by workspace settings"}</span>}
       </label>
       {canChoose ? (
         <select
-          id={compact ? "arb-theme-select-compact" : "arb-theme-select"}
+          id={selectId}
           value={selectedTheme}
           onChange={(event) => setTheme(event.target.value as ArbitradeTheme)}
           aria-label="Workspace theme"
