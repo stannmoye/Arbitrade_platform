@@ -256,6 +256,44 @@ walletDescribe("wallet SQL concurrency integration (disposable MySQL)", () => {
       verify.release();
     }
 
+    const reset = await pool!.getConnection();
+    try {
+      await reset.execute(`DELETE FROM balance_ledger WHERE userId = ? AND currency = ?`, [userId, currency]);
+      await reset.execute(
+        `UPDATE customer_balances SET availableMinor = 0, promotionalMinor = 0 WHERE userId = ? AND currency = ?`,
+        [userId, currency],
+      );
+    } finally {
+      reset.release();
+    }
+
+    const creditOutcomes = await Promise.allSettled(
+      Array.from({ length: 20 }, () => adjustCustomerBalance(adminId, {
+        userId, currency, amountMinor: 10, mode: "credit", reason: "wallet concurrency integration test",
+      })),
+    );
+    expect(creditOutcomes.every(outcome => outcome.status === "fulfilled")).toBe(true);
+
+    const verifyCredits = await pool!.getConnection();
+    try {
+      const [balances] = await verifyCredits.execute<mysql.RowDataPacket[]>(
+        `SELECT availableMinor, promotionalMinor FROM customer_balances WHERE userId = ? AND currency = ?`,
+        [userId, currency],
+      );
+      const [ledger] = await verifyCredits.execute<mysql.RowDataPacket[]>(
+        `SELECT COUNT(*) AS entryCount, COALESCE(SUM(amountMinor), 0) AS ledgerTotal
+         FROM balance_ledger WHERE userId = ? AND currency = ? AND entryType = 'admin_credit'`,
+        [userId, currency],
+      );
+      expect(Number(balances[0].availableMinor)).toBe(200);
+      expect(Number(balances[0].promotionalMinor)).toBe(200);
+      expect(Number(ledger[0].entryCount)).toBe(20);
+      expect(Number(ledger[0].ledgerTotal)).toBe(200);
+      expect(Number(ledger[0].ledgerTotal)).toBe(Number(balances[0].availableMinor));
+    } finally {
+      verifyCredits.release();
+    }
+
     const cleanup = await pool!.getConnection();
     try {
       await cleanup.execute(`DELETE FROM balance_ledger WHERE userId = ? AND currency = ?`, [userId, currency]);
