@@ -876,6 +876,29 @@
 }
 
 
+
+/* Keep all common controls comfortable to use on touch-first devices,
+   including controls supplied by the existing component library. */
+@media (pointer: coarse) {
+  :where(
+    button,
+    [role="button"],
+    input:not([type="hidden"]),
+    select,
+    textarea,
+    summary,
+    [data-slot="select-trigger"],
+    [data-slot="dropdown-menu-trigger"]
+  ) {
+    min-height: 44px;
+  }
+
+  :where(input[type="checkbox"], input[type="radio"]) {
+    min-width: 20px;
+    min-height: 20px;
+  }
+}
+
 /* Stage 2: maintain comfortable dialog controls without enlarging their icons. */
 [data-slot="dialog-close"] {
   display: inline-grid;
