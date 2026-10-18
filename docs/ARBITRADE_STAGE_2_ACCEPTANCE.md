@@ -26,7 +26,9 @@ Run these checks from the repository root:
 
 Do not mark these as passed until CI or a local run reports success.
 
-## Automated CI coverage\n\nA dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the full test suite, TypeScript validation, and production build as three parallel jobs on pushes to the Stage 2 branch. The same workflow is configured for pull requests targeting `integration/auth-installer-vps-safety` and for manual dispatch. A configured workflow is not evidence of a passing run; record the actual run result before marking checks complete.\n\n## Latest automated validation evidence
+## Automated CI coverage
+
+A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the full test suite, TypeScript validation, and production build as three parallel jobs on pushes to the Stage 2 branch. The same workflow is configured for pull requests targeting `integration/auth-installer-vps-safety` and for manual dispatch. A configured workflow is not evidence of a passing run; record the actual run result before marking checks complete.\n\n## Latest automated validation evidence
 
 - GitHub Actions run: https://github.com/stannmoye/Arbitrade_platform/actions/runs/39174320260
 - Result: all three parallel jobs passed.
@@ -34,6 +36,7 @@ Do not mark these as passed until CI or a local run reports success.
 - TypeScript: `pnpm check` passed.
 - Production build: `pnpm build` passed.
 - Commit validated: `9c6aeb2a303806c9f7bf80f7f40dc059276b49a9`.
+- Latest source update: configurable accessible names for shared table scroll regions and regression coverage were committed after the run above; a fresh workflow run is required for those commits.
 - Remaining limitation: no real-browser viewport evidence has been captured yet; Stage 2 remains in progress.
 
 ## Acceptance still required
