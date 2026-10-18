@@ -346,3 +346,18 @@
     min-height: 44px;
   }
 }
+
+/* Stage 2: respect reduced-motion preferences in the standalone operations workspace. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-arb-theme] .admin-ops-page *,
+  :root[data-arb-theme] .admin-ops-page *::before,
+  :root[data-arb-theme] .admin-ops-page *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+  :root[data-arb-theme] .admin-ops-page .admin-ops-button:hover:not(:disabled) {
+    transform: none;
+  }
+}
