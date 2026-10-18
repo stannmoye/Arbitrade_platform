@@ -249,7 +249,7 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import mysql from "mysql2/promise";
-          import { access } from "node:fs/promises";
+          import { access, readFile } from "node:fs/promises";
           const db = await mysql.createConnection(process.env.DATABASE_URL);
           try {
             const [rows] = await db.query(
@@ -274,6 +274,8 @@ jobs:
                throw new Error("Manual settlement lifecycle migration is not recorded as applied.");
              }
             const [drizzle] = await db.query("SELECT COUNT(*) AS count FROM __drizzle_migrations");
+            const journal = JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8"));
+            if (Number(drizzle[0].count) !== journal.entries.length) throw new Error("Drizzle migration tracker count does not match the complete journal.");
             const [portal] = await db.query("SELECT COUNT(*) AS count FROM portal_schema_migrations");
             const [mining] = await db.query("SELECT COUNT(*) AS count FROM mining_schema_migrations");
             if (Number(drizzle[0].count) < 1 || Number(portal[0].count) < 1 || Number(mining[0].count) < 1) {
@@ -365,7 +367,7 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import mysql from "mysql2/promise";
-          import { access } from "node:fs/promises";
+          import { access, readFile } from "node:fs/promises";
           const db = await mysql.createConnection(process.env.DATABASE_URL);
           try {
             const [rows] = await db.query(
@@ -390,6 +392,8 @@ jobs:
                throw new Error("Manual settlement lifecycle migration is not recorded as applied.");
              }
             const [drizzle] = await db.query("SELECT COUNT(*) AS count FROM __drizzle_migrations");
+            const journal = JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8"));
+            if (Number(drizzle[0].count) !== journal.entries.length) throw new Error("Drizzle migration tracker count does not match the complete journal.");
             const [portal] = await db.query("SELECT COUNT(*) AS count FROM portal_schema_migrations");
             const [mining] = await db.query("SELECT COUNT(*) AS count FROM mining_schema_migrations");
             if (Number(drizzle[0].count) < 1 || Number(portal[0].count) < 1 || Number(mining[0].count) < 1) {
