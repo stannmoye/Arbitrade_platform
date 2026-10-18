@@ -361,3 +361,16 @@
     transform: none;
   }
 }
+
+/* Stage 2: keep keyboard focus visible on data-table actions as well as panel controls. */
+:root[data-arb-theme] .admin-ops-page .admin-ops-table :where(a, button, input, select):focus-visible,
+:root[data-arb-theme] .admin-ops-page :where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+@media (prefers-contrast: more) {
+  :root[data-arb-theme] .admin-ops-page :where(a, button, input, select, textarea, summary):focus-visible {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
+}
