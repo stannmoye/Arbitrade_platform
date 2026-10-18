@@ -669,7 +669,7 @@ jobs:
           (cd "$cpanel" && zip -qr "$RUNNER_TEMP/deployment-artifacts/arbitrade-cpanel-fresh-db.zip" .)
           (cd "$vps" && zip -qr "$RUNNER_TEMP/deployment-artifacts/arbitrade-existing-vps-panel.zip" .)
           unzip -t "$RUNNER_TEMP/deployment-artifacts/arbitrade-cpanel-fresh-db.zip"
-          unzip -t "$RUNNER_TEMP/deployment-artifacts/arbitrade-fresh-vps.zip"
+          unzip -t "$RUNNER_TEMP/deployment-artifacts/arbitrade-existing-vps-panel.zip"
           printf 'Created separate cPanel fresh-database and existing-VPS panel packages.\n'
       - name: Upload cPanel package
         uses: actions/upload-artifact@v4
@@ -682,6 +682,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: arbitrade-existing-vps-panel
-          path: ${{ runner.temp }}/deployment-artifacts/arbitrade-fresh-vps.zip
+          path: ${{ runner.temp }}/deployment-artifacts/arbitrade-existing-vps-panel.zip
           if-no-files-found: error
           retention-days: 14
