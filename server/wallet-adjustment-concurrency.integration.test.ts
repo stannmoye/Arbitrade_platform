@@ -29,7 +29,8 @@ walletDescribe("wallet SQL concurrency integration (disposable MySQL)", () => {
           id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
           userId BIGINT UNSIGNED NOT NULL,
           currency VARCHAR(12) NOT NULL,
-          amountMinor BIGINT NOT NULL
+          amountMinor BIGINT NOT NULL,
+          CONSTRAINT chk_wallet_ledger_nonzero CHECK (amountMinor <> 0)
         ) ENGINE=InnoDB
       `);
     } finally {
@@ -162,6 +163,31 @@ walletDescribe("wallet SQL concurrency integration (disposable MySQL)", () => {
     expect(state.entryCount).toBe(20);
     expect(state.ledgerTotal).toBe(200);
     expect(state.ledgerTotal).toBe(state.availableMinor);
+  }, 30_000);
+
+
+  it("rolls back a balance change when the ledger write fails", async () => {
+    await resetBalance(50);
+    const connection = await pool!.getConnection();
+    try {
+      await connection.beginTransaction();
+      await connection.execute(
+        `UPDATE ${balancesTable} SET availableMinor = availableMinor - 10 WHERE id = 1 AND availableMinor >= 10`,
+      );
+      await expect(
+        connection.execute(
+          `INSERT INTO ${ledgerTable} (userId, currency, amountMinor) VALUES (7001, 'USD', 0)`,
+        ),
+      ).rejects.toMatchObject({ code: "ER_CHECK_CONSTRAINT_VIOLATED" });
+      await connection.rollback();
+    } finally {
+      connection.release();
+    }
+
+    const state = await snapshot();
+    expect(state.availableMinor).toBe(50);
+    expect(state.entryCount).toBe(0);
+    expect(state.ledgerTotal).toBe(0);
   }, 30_000);
 
   it("enforces one wallet per user and currency at the database layer", async () => {
