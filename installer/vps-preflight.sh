@@ -12,3 +12,9 @@ arbitrade_directory_is_safe() {
   local destination="${1:?destination path is required}"
   [[ ! -L "$destination" && ( ! -e "$destination" || -d "$destination" ) ]]
 }
+# The service uses ProtectHome=true, so deployments under /root or /home are
+# unsuitable. Match path components rather than the broader "/root*" prefix.
+arbitrade_root_path_is_allowed() {
+  local root="${1:?deployment root is required}"
+  [[ "$root" != "/root" && "$root" != /root/* && "$root" != /home/* ]]
+}
