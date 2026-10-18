@@ -43,7 +43,7 @@ export function AdminSlideMenu({ section, onNavigate }: AdminSlideMenuProps) {
   const close = () => { setOpen(false); window.requestAnimationFrame(() => triggerRef.current?.focus()); };
   const navigate = (target: string) => { onNavigate(target); close(); };
 
-  return <div className={`admin-slide-layer${open ? " is-open" : ""}`}>
+  return <div className={`admin-slide-layer arb-page${open ? " is-open" : ""}`}>
     <button ref={triggerRef} className="admin-slide-trigger" type="button" aria-label={open ? "Close Quick Actions" : "Open Quick Actions"} aria-controls="admin-navigation-drawer" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setOpen(true)}>
       <span className="admin-slide-trigger-icon"><Menu size={18} /></span><span className="admin-slide-trigger-copy">QUICK ACTIONS</span><span className="admin-slide-trigger-led" />
     </button>
