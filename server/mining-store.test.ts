@@ -88,6 +88,26 @@ describe("Mining transaction wrapper", () => {
     expect(calls).toEqual(["begin", "work", "commit", "rollback"]);
   });
 
+  it("preserves the original failure and attaches rollback failure diagnostics", async () => {
+    const calls: string[] = [];
+    const operationFailure = new Error("simulated conversion failure");
+    const rollbackFailure = new Error("simulated rollback failure");
+    const conn = {
+      beginTransaction: async () => { calls.push("begin"); },
+      commit: async () => { calls.push("commit"); },
+      rollback: async () => { calls.push("rollback"); throw rollbackFailure; },
+    } as unknown as Db;
+
+    await expect(inMiningTransaction(conn, async () => {
+      calls.push("work");
+      throw operationFailure;
+    })).rejects.toBe(operationFailure);
+
+    expect(calls).toEqual(["begin", "work", "rollback"]);
+    expect((operationFailure as Error & { rollbackError?: unknown }).rollbackError)
+      .toBe(rollbackFailure);
+  });
+
   it("does not execute transaction work when beginTransaction fails", async () => {
     const calls: string[] = [];
     const beginFailure = new Error("simulated begin failure");
