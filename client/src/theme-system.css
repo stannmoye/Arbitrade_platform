@@ -792,3 +792,64 @@
   color: var(--arb-color-canvas);
   background: var(--arb-color-accent);
 }
+
+
+/* Stage 2: keep appearance controls robust in narrow portal headers. */
+.arb-theme-selector > select {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--arb-color-text);
+  background-color: var(--arb-color-surface);
+  border-color: var(--arb-color-border);
+}
+.arb-theme-selector > select option {
+  color: var(--arb-color-text);
+  background-color: var(--arb-color-surface);
+}
+.arb-theme-selector-copy {
+  flex: 1 1 auto;
+}
+.arb-theme-selector-description,
+.arb-theme-selector-status {
+  overflow-wrap: anywhere;
+}
+.arb-theme-selector-current {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: end;
+}
+.arb-theme-selector select:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+@media (max-width: 600px) {
+  .arb-theme-selector:not(.arb-theme-selector-compact) {
+    align-items: stretch;
+  }
+  .arb-theme-selector:not(.arb-theme-selector-compact) > select,
+  .arb-theme-selector:not(.arb-theme-selector-compact) .arb-theme-selector-current {
+    flex: 0 1 100%;
+    text-align: start;
+  }
+  .arb-theme-selector-compact > select {
+    width: auto;
+    min-width: 0;
+    max-width: 56%;
+  }
+  .arb-theme-selector-status {
+    flex: 1 0 100%;
+  }
+}
+@media (forced-colors: active) {
+  .arb-theme-selector > select,
+  .arb-theme-selector-current {
+    border: 1px solid CanvasText;
+    color: CanvasText;
+  }
+  .arb-theme-selector > select:focus-visible {
+    outline: 2px solid Highlight;
+  }
+  .arb-theme-selector-status[role="alert"] {
+    border-inline-start: 3px solid Mark;
+  }
+}
