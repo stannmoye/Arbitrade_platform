@@ -242,4 +242,15 @@ describe("ARBITRADE shared design-system contract", () => {
     );
   });
 
+
+  it("keeps adopted pages and nested data content within responsive viewport bounds", () => {
+    expect(designSystem).toContain(".arb-page {");
+    expect(designSystem).toContain("box-sizing: border-box;");
+    expect(designSystem).toContain("min-width: 0;");
+    expect(designSystem).toContain("max-width: 100%;");
+    expect(designSystem).toContain("overflow-wrap: anywhere;");
+    expect(designSystem).toContain("@media (max-width: 640px)");
+    expect(designSystem).toContain("-webkit-overflow-scrolling: touch;");
+  });
+
 });
