@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
 
+async function main() {
 const migrationKey = "0039_mining_database_driven_packages";
 const rawDatabaseUrl = process.env.DATABASE_URL;
 if (!rawDatabaseUrl) throw new Error("DATABASE_URL is required; load the private application environment first.");
@@ -355,3 +356,14 @@ try {
 } finally {
   await connection.end();
 }
+
+ 
+main().catch((error) => {
+  if (error?.code) {
+    const code = String(error.code).replace(/[^A-Z0-9_]/gi, "").slice(0, 40) || "UNKNOWN";
+    console.error("[mining-migrate] ERROR: Migration stopped (code: " + code + "). Raw database diagnostics are suppressed; inspect the sanitized migration state before recovery.");
+  } else {
+    console.error("[mining-migrate] ERROR: " + String(error?.message || "Mining migration failed.").slice(0, 240));
+  }
+  process.exitCode = 1;
+});
