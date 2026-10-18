@@ -10,7 +10,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: arbitrade-autonomous-worker-${{ github.event.workflow_run.head_branch || github.ref_name }}
+  group: arbitrade-autonomous-worker-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -44,23 +44,10 @@ jobs:
 
       - name: Resolve bounded task number
         id: task_number
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PREVIOUS_COMMIT_MESSAGE: ${{ github.event.workflow_run.head_commit.message || '' }}
         run: |
           set -euo pipefail
-          current=0
-          if [[ "$EVENT_NAME" == "workflow_run" ]] &&
-             [[ "$PREVIOUS_COMMIT_MESSAGE" =~ \[ARBITRADE-AUTO-STEP-([1-5])\] ]]; then
-            current="${BASH_REMATCH[1]}"
-          fi
-          next=$((current + 1))
-          if (( next > 5 )); then
-            echo "The five-task automatic chain limit has been reached."
-            exit 1
-          fi
-          echo "number=$next" >> "$GITHUB_OUTPUT"
-          echo "This is bounded automatic task $next of 5."
+          echo "number=1" >> "$GITHUB_OUTPUT"
+          echo "Manual API-worker run: task 1 of 5. No automatic follow-on is configured."
 
       - name: Require the model API credential
         env:
