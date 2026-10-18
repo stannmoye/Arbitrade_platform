@@ -16,40 +16,7 @@ import { adminAuditEvents, adminCustomerDirectory, adminDashboard, adminDecision
 import { isEmailAdminConfigured, listEmailRecipients, publicEmailConfig, runDailyEmailReports, saveEmailConfig, sendAdminComposedEmail, testEmailConnection } from "./emailAdmin";
 import * as mining from "./mining";
 import * as miningAdmin from "./mining-admin";
-
-const APPEARANCE_THEMES = ["original", "midnight-premium", "clean-light", "emerald-finance", "aurora-modern"] as const;
-type AppearanceTheme = (typeof APPEARANCE_THEMES)[number];
-
-function normalizeAppearanceSettings(raw: string | null | undefined) {
-  let saved: Record<string, unknown> = {};
-  try {
-    const parsed: unknown = JSON.parse(raw || "{}");
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      saved = parsed as Record<string, unknown>;
-    }
-  } catch {
-    // Invalid legacy settings fall back to the original theme and safe defaults.
-  }
-
-  const requestedDefault = typeof saved.defaultTheme === "string" &&
-    APPEARANCE_THEMES.includes(saved.defaultTheme as AppearanceTheme)
-    ? saved.defaultTheme as AppearanceTheme
-    : "original";
-  const requestedEnabled = Array.isArray(saved.enabledThemes)
-    ? saved.enabledThemes.filter((theme: unknown): theme is AppearanceTheme =>
-        typeof theme === "string" && APPEARANCE_THEMES.includes(theme as AppearanceTheme))
-    : [...APPEARANCE_THEMES];
-  const uniqueEnabled = [...new Set(requestedEnabled)];
-  const enabledThemes: AppearanceTheme[] = uniqueEnabled.length ? uniqueEnabled : [requestedDefault];
-  // Keep the published default selectable even if an old or manually edited setting is inconsistent.
-  const defaultTheme = enabledThemes.includes(requestedDefault) ? requestedDefault : (enabledThemes[0] ?? requestedDefault);
-
-  return {
-    defaultTheme,
-    enabledThemes,
-    customerCanSelect: saved.customerCanSelect === true,
-  };
-}
+import { normalizeAppearanceSettings } from "./appearance-settings";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
