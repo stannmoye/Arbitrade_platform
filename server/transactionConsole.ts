@@ -10,6 +10,23 @@ const MAX_CONSOLE_EVENTS = 25;
 
 type ProcessingOutcome = "COMPLETED" | "FAILED" | "STALLED" | "PROCESSING" | "DELAYED";
 
+/** Present generated telemetry as simulation, never as a ledger-confirmed transaction. */
+export function presentSimulatedActivity(outcome: ProcessingOutcome, messageBase: string) {
+  const prefixes: Record<ProcessingOutcome, string> = {
+    COMPLETED: "Simulated route check completed · ",
+    FAILED: "Simulated control check returned an exception · ",
+    STALLED: "Simulated processing is awaiting a checkpoint · ",
+    PROCESSING: "Simulated allocation activity is advancing · ",
+    DELAYED: "Simulated timing variance detected · ",
+  };
+  return {
+    status: "SIMULATED" as const,
+    title: "Simulated system activity",
+    message: `SIMULATION ONLY — no wallet movement was performed. ${prefixes[outcome]}${messageBase}`,
+    simulatedOutcome: outcome,
+  };
+}
+
 function outcomeFor(userId: number, sessionKey: string, sequence: number, previous: string | undefined, context: { offers: number; investors: number; rate: number }): { status: ProcessingOutcome; probabilities: Record<string, number>; method: string } {
   const digest = crypto.createHash("sha256").update(`${userId}:${sessionKey}:${sequence}:${context.offers}:${context.investors}:${context.rate}`).digest();
   const bounds = { FAILED: [1, 8], STALLED: [1, 12], COMPLETED: [1, 65], PROCESSING: [1, 10], DELAYED: [1, 10] } as const;
@@ -116,7 +133,7 @@ export async function recordTransactionConsoleEvent(userId: number, req: Request
 
 /**
  * Writes one database-backed system-activity line when no real transaction is active.
- * These rows are deliberately marked SIMULATED and never represent a wallet mutation.
+ * These rows are explicitly labeled SIMULATED and never represent a wallet mutation.
  * The recent-real-event gate prevents telemetry from masking a debit, credit, investment,
  * settlement, or fee event while that event is being displayed.
  */
@@ -136,18 +153,10 @@ export async function recordTransactionConsolePulse(userId: number, req: Request
     const [previousRows] = await connection.query<any[]>("SELECT status FROM transaction_console_events WHERE userId=? AND sessionKey=? AND eventType='SYSTEM_ACTIVITY' ORDER BY id DESC LIMIT 1", [userId, sessionKey]);
     const outcome = outcomeFor(userId, sessionKey, context.sequence, previousRows[0]?.status, { offers: Number(context.offers), investors: Number(context.investors), rate: Number(context.rate) });
     const messageBase = String(phrases[0].phraseTemplate).replace(/{{(\w+)}}/g, (_match, key) => String((context as Record<string, unknown>)[key] ?? "the current ledger context"));
-    const outcomeCopy: Record<ProcessingOutcome, { title: string; prefix: string }> = {
-      COMPLETED: { title: "Transaction route confirmed", prefix: "Route check completed · " },
-      FAILED: { title: "Transaction route interrupted", prefix: "Control check returned an exception · " },
-      STALLED: { title: "Transaction route awaiting clearance", prefix: "Processing is holding for a required checkpoint · " },
-      PROCESSING: { title: "Transaction route processing", prefix: "Allocation engine is advancing · " },
-      DELAYED: { title: "Transaction route delayed", prefix: "Timing variance detected · " },
-    };
-    const selected = outcomeCopy[outcome.status];
-    const message = selected.prefix + messageBase;
-    await connection.execute("INSERT INTO transaction_console_events (sessionKey,userId,eventType,status,title,message,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)", [sessionKey, userId, "SYSTEM_ACTIVITY", outcome.status, selected.title, message, context.asset, JSON.stringify({ phraseId: phrases[0].id, category: phrases[0].category, generatedAt: new Date().toISOString(), sequence: context.sequence, source: "database_phrase_catalog", probabilityBands: outcome.probabilities, calculationMethod: outcome.method, calculationInputs: { offers: context.offers, investors: context.investors, rate: context.rate, previousStatus: previousRows[0]?.status || null } })]);
+    const presentation = presentSimulatedActivity(outcome.status, messageBase);
+    await connection.execute("INSERT INTO transaction_console_events (sessionKey,userId,eventType,status,title,message,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)", [sessionKey, userId, "SYSTEM_ACTIVITY", presentation.status, presentation.title, presentation.message, context.asset, JSON.stringify({ simulationOnly: true, simulatedOutcome: presentation.simulatedOutcome, phraseId: phrases[0].id, category: phrases[0].category, generatedAt: new Date().toISOString(), sequence: context.sequence, source: "database_phrase_catalog", probabilityBands: outcome.probabilities, calculationMethod: outcome.method, calculationInputs: { offers: context.offers, investors: context.investors, rate: context.rate, previousStatus: previousRows[0]?.status || null } })]);
     await pruneConsoleEvents(connection, userId, sessionKey);
-    return { inserted: true, paused: false, eventType: "SYSTEM_ACTIVITY", status: outcome.status, probabilities: outcome.probabilities };
+    return { inserted: true, paused: false, eventType: "SYSTEM_ACTIVITY", status: presentation.status, simulatedOutcome: presentation.simulatedOutcome, probabilities: outcome.probabilities };
   });
 }
 
