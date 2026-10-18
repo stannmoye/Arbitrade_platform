@@ -68,8 +68,29 @@ export async function withMiningConnection<T>(fn: (conn: Db) => Promise<T>): Pro
 
 export async function inMiningTransaction<T>(conn: Db, fn: () => Promise<T>) {
   await conn.beginTransaction();
-  try { const result = await fn(); await conn.commit(); return result; }
-  catch (error) { await conn.rollback(); throw error; }
+  try {
+    const result = await fn();
+    await conn.commit();
+    return result;
+  } catch (error) {
+    try {
+      await conn.rollback();
+    } catch (rollbackError) {
+      // Preserve the original operation/commit failure while retaining rollback
+      // diagnostics when the thrown value allows metadata to be attached.
+      if (error instanceof Error) {
+        try {
+          Object.defineProperty(error, "rollbackError", {
+            value: rollbackError,
+            configurable: true,
+          });
+        } catch {
+          // A frozen error must not cause the original failure to be replaced.
+        }
+      }
+    }
+    throw error;
+  }
 }
 
 export async function loadMiningConfig(conn: Db, at: Date = new Date()): Promise<MiningConfig> {
