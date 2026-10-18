@@ -285,3 +285,95 @@
     transform: none;
   }
 }
+
+
+/* Stage 2 component primitives: consistent interaction and feedback states. */
+.arb-field [aria-invalid="true"] {
+  border-color: var(--arb-color-danger);
+}
+
+.arb-field [aria-invalid="true"]:focus-visible {
+  outline-color: var(--arb-color-danger);
+}
+
+.arb-field-hint,
+.arb-field-error {
+  margin: 0;
+  font-size: 0.875em;
+}
+
+.arb-field-hint {
+  color: var(--arb-color-text-muted);
+}
+
+.arb-field-error {
+  color: var(--arb-color-danger);
+}
+
+.arb-field :is(input, select, textarea):disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.arb-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.arb-button-secondary {
+  background: transparent;
+}
+
+.arb-button-danger {
+  border-color: transparent;
+  background: var(--arb-color-danger);
+  color: var(--arb-color-canvas);
+}
+
+.arb-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--arb-space-1);
+  max-width: 100%;
+  padding: 2px var(--arb-space-2);
+  border: 1px solid var(--arb-color-border);
+  border-radius: 999px;
+  color: var(--arb-color-text-soft);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.arb-status-success {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 55%, var(--arb-color-border));
+  color: var(--arb-color-accent);
+}
+
+.arb-status-warning {
+  border-color: color-mix(in srgb, var(--arb-color-warning) 55%, var(--arb-color-border));
+  color: var(--arb-color-warning);
+}
+
+.arb-status-danger {
+  border-color: color-mix(in srgb, var(--arb-color-danger) 55%, var(--arb-color-border));
+  color: var(--arb-color-danger);
+}
+
+/* Keep wide financial tables usable on phones without breaking page layout. */
+.arb-overflow-x {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+
+.arb-overflow-x > table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arb-button:active:not(:disabled) {
+    transform: none;
+  }
+}
