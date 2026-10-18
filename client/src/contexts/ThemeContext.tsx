@@ -167,7 +167,7 @@ export function ThemeProvider({
     : policy && customerCanSelect
       ? enabledThemes
       : [];
-  const canToggleTheme = switchable && selectableThemes.length > 1;
+  const canToggleTheme = switchable && !auth.isLoading && !auth.isError && selectableThemes.length > 1 && (isAdmin || Boolean(policy && customerCanSelect));
   const toggleTheme = canToggleTheme
     ? () => {
         const alternateTheme = theme === "clean-light"
