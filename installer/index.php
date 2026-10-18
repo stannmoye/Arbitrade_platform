@@ -6,7 +6,12 @@ $installedLock = __DIR__ . '/.installed';
 $envPath = $root . '/.env';
 $bootstrapPath = $root . '/.installer-bootstrap.json';
 
-if (file_exists($configuredLock) || file_exists($installedLock) || file_exists($envPath)) {
+/** Treat dangling symlinks as existing protected state; file_exists() alone misses them. */
+function installerPathExists(string $path): bool {
+    return file_exists($path) || is_link($path);
+}
+
+if (installerPathExists($configuredLock) || installerPathExists($installedLock) || installerPathExists($envPath) || installerPathExists($bootstrapPath)) {
     http_response_code(403);
     exit('The installer is locked because configuration already exists. Do not delete lock files to reinstall over an existing site.');
 }
@@ -42,6 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!in_array($mode, ['fresh', 'existing'], true)) throw new RuntimeException('Choose a fresh installation or an existing-database deployment.');
         $appUrl = rtrim(postval('app_url'), '/');
         if (!filter_var($appUrl, FILTER_VALIDATE_URL) || !in_array(strtolower((string)parse_url($appUrl, PHP_URL_SCHEME)), ['https', 'http'], true)) throw new RuntimeException('Enter a valid application URL.');
+        $parsedAppUrl = parse_url($appUrl);
+        if (is_array($parsedAppUrl) && (isset($parsedAppUrl['user']) || isset($parsedAppUrl['pass']))) throw new RuntimeException('The application URL must not contain a username or password. Enter the public URL only.');
         if (!str_starts_with(strtolower($appUrl), 'https://') && postval('allow_http') !== '1') throw new RuntimeException('Use HTTPS for production, or explicitly enable HTTP for local testing only.');
 
         $dbHost = postval('db_host') ?: '127.0.0.1';
@@ -119,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         chmod($envTmp, 0600);
         if (file_put_contents($bootstrapTmp, $bootstrap, LOCK_EX) === false) { @unlink($envTmp); throw new RuntimeException('Could not write the one-time administrator bootstrap.'); }
         chmod($bootstrapTmp, 0600);
-        if (file_exists($envPath) || file_exists($bootstrapPath) || file_exists($configuredLock)) {
+        if (installerPathExists($envPath) || installerPathExists($bootstrapPath) || installerPathExists($configuredLock) || installerPathExists($installedLock)) {
             @unlink($envTmp); @unlink($bootstrapTmp);
             throw new RuntimeException('Configuration appeared while this wizard was running. Refresh and contact your administrator before retrying.');
         }
@@ -152,7 +159,7 @@ foreach ($requiredExtensions as $extension) $extensionChecks[$extension] = exten
 $nodeModulesReady = is_dir($root . '/node_modules');
 $buildReady = is_file($root . '/dist/index.js');
 $packageReady = is_file($root . '/package.json') && is_file($root . '/pnpm-lock.yaml');
-$installerLocked = file_exists($configuredLock) || file_exists($installedLock) || file_exists($envPath);
+$installerLocked = installerPathExists($configuredLock) || installerPathExists($installedLock) || installerPathExists($envPath) || installerPathExists($bootstrapPath);
 $rootWritable = is_writable($root);
 $diskFreeLabel = $diskFree === false ? 'Unavailable on this host' : (string)round($diskFree / 1024 / 1024) . ' MB free';
 ?><!doctype html>
@@ -177,7 +184,7 @@ $diskFreeLabel = $diskFree === false ? 'Unavailable on this host' : (string)roun
 <p class="sub">This preflight checks what PHP can reliably observe. Node.js runtime/version and live dependency health are explicitly marked for verification in the hosting environment rather than guessed. Critical PHP extension and write-permission failures block configuration submission. Database credentials are checked privately when you submit the database step. Do not expose this wizard publicly after setup.</p>
 <?php if($message):?><div class="notice success"><?=h($message)?><p><strong>Next step:</strong> in the application root, run <code>node installer/run-install.mjs --<?=h(postval('install_mode') === 'existing' ? 'existing-database --confirm-existing-migrations' : 'fresh-install')?></code> from the private cPanel terminal.</p></div><?php endif;?>
 <?php if($error):?><div class="notice error"><?=h($error)?></div><?php endif;?>
-<?php if(!$message && !file_exists($configuredLock) && !file_exists($installedLock) && !file_exists($envPath)):?>
+<?php if(!$message && !installerPathExists($configuredLock) && !installerPathExists($installedLock) && !installerPathExists($envPath) && !installerPathExists($bootstrapPath)):?>
 <form method="post" autocomplete="off"><input type="hidden" name="csrf" value="<?=h($csrf)?>">
 <h2>1. Installation mode</h2><div class="grid"><label class="full">Deployment type<select name="install_mode" id="install_mode" required><option value="fresh">Fresh installation — new empty database</option><option value="existing">Restore/migrate existing database — backup already imported</option></select></label>
 <label class="full" id="backup-confirmation" hidden><span><input type="checkbox" name="backup_confirmed" value="1" style="width:auto"> I confirm I have a current, restorable backup and have imported the intended Arbitrade backup into the target database. I understand the installer will run forward migrations and will not import or overwrite the database itself.</span></label></div>
