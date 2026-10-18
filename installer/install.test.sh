@@ -94,7 +94,7 @@ assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "/etc/apt/keyring
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "/etc/apt/sources.list.d/nodesource.list" || fail' "VPS runtime preflight refuses to overwrite an existing NodeSource apt source"
 assert_file_contains "$VPS_SETUP" 'ln -T -- "$NODE_KEY_TMP" /etc/apt/keyrings/nodesource.gpg' "VPS runtime publishes the NodeSource signing key without replacing a raced destination"
 assert_file_contains "$VPS_SETUP" 'ln -T -- "$NODE_SOURCE_TMP" /etc/apt/sources.list.d/nodesource.list' "VPS runtime publishes its apt source without replacing a raced destination"
-assert_file_contains "$VPS_SETUP" 'stat -c \'%d:%i\' -- /etc/apt/keyrings/nodesource.gpg' "VPS runtime checks the published key inode before rollback so it does not delete a raced replacement"
+assert_file_contains "$VPS_SETUP" "stat -c '%d:%i' -- /etc/apt/keyrings/nodesource.gpg" "VPS runtime checks the published key inode before rollback so it does not delete a raced replacement"
 assert_file_contains "$VPS_SETUP" 'Stage both files before publishing either' "VPS runtime stages both NodeSource files before publishing configuration"
 assert_file_contains "$VPS_SETUP" 'if [[ ! -e "$ENV_DIR" ]]; then' "VPS setup creates the protected environment directory only when absent"
 assert_file_contains "$VPS_SETUP" 'ENV_TMP="$(mktemp "$ENV_DIR/.arbitrade.env.XXXXXX")"' "VPS setup prepares a private temporary environment file"
