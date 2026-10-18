@@ -225,6 +225,13 @@ walletDescribe("wallet SQL concurrency integration (disposable MySQL)", () => {
          VALUES (?, ?, 100, 0, 0)`,
         [userId, currency],
       );
+      await expect(
+        connection.execute(
+          `INSERT INTO customer_balances (userId, currency, availableMinor, promotionalMinor, earnedMinor)
+           VALUES (?, ?, 5, 5, 0)`,
+          [userId, currency],
+        ),
+      ).rejects.toMatchObject({ code: "ER_DUP_ENTRY" });
     } finally {
       connection.release();
     }
