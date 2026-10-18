@@ -276,4 +276,19 @@ if arbitrade_published_file_identity_matches "$identity_test_dir/missing" "$orig
   printf '[FAIL] Identity predicate must reject a missing path.\n' >&2
   exit 1
 fi
+
 pass "VPS identity predicate rejects a missing path"
+
+# A Certbot package-install failure happens before Certbot can rewrite nginx,
+# so the ordinary provisioning rollback must remain enabled until the command
+# that may mutate nginx is about to run.
+certbot_install_line="$(line_of 'apt-get install -y certbot python3-certbot-nginx')"
+https_attempt_line="$(line_of 'HTTPS_ATTEMPTED=1')"
+certbot_exec_line="$(line_of 'certbot --nginx --non-interactive')"
+[[ -n "$certbot_install_line" && -n "$https_attempt_line" && -n "$certbot_exec_line" &&
+   "$certbot_install_line" -lt "$https_attempt_line" &&
+   "$https_attempt_line" -lt "$certbot_exec_line" ]] || {
+  printf '[FAIL] HTTPS rollback suppression must begin only immediately before Certbot can mutate nginx.\\n' >&2
+  exit 1
+}
+pass "VPS setup retains ordinary rollback when Certbot package installation fails"
