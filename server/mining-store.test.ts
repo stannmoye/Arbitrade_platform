@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { requestKey } from "./mining-store";
+import { inMiningTransaction, requestKey, type Db } from "./mining-store";
 
 describe("Mining idempotency request keys", () => {
   it("produces a stable opaque digest for the same operation and customer", () => {
@@ -34,5 +34,40 @@ describe("Mining idempotency request keys", () => {
     "x".repeat(161),
   ])("rejects malformed idempotency keys: %j", (key) => {
     expect(() => requestKey("mining-swap", 42, key)).toThrow(/valid idempotency key/i);
+  });
+});
+
+describe("Mining transaction wrapper", () => {
+  it("commits and returns the callback result on success", async () => {
+    const calls: string[] = [];
+    const conn = {
+      beginTransaction: async () => { calls.push("begin"); },
+      commit: async () => { calls.push("commit"); },
+      rollback: async () => { calls.push("rollback"); },
+    } as unknown as Db;
+
+    await expect(inMiningTransaction(conn, async () => {
+      calls.push("work");
+      return { conversionId: 123 };
+    })).resolves.toEqual({ conversionId: 123 });
+
+    expect(calls).toEqual(["begin", "work", "commit"]);
+  });
+
+  it("rolls back and rethrows the original error when work fails", async () => {
+    const calls: string[] = [];
+    const conn = {
+      beginTransaction: async () => { calls.push("begin"); },
+      commit: async () => { calls.push("commit"); },
+      rollback: async () => { calls.push("rollback"); },
+    } as unknown as Db;
+    const failure = new Error("simulated conversion failure");
+
+    await expect(inMiningTransaction(conn, async () => {
+      calls.push("work");
+      throw failure;
+    })).rejects.toBe(failure);
+
+    expect(calls).toEqual(["begin", "work", "rollback"]);
   });
 });
