@@ -118,7 +118,7 @@ assert_file_contains "$VPS_SETUP" '[[ -z "${NGINX_TMP:-}" ]] || rm -f -- "$NGINX
 assert_file_contains "$VPS_SETUP" 'if [[ "$status" -ne 0 && "$HTTPS_ATTEMPTED" == 0 ]]; then' "VPS setup rolls back its own partial files on pre-HTTPS failures"
 assert_file_contains "$VPS_SETUP" 'elif [[ "$status" -ne 0 && "$HTTPS_ATTEMPTED" == 1 ]]; then' "VPS setup reports manual recovery steps when HTTPS provisioning fails after Certbot may have changed nginx configuration"
 assert_file_contains "$VPS_SETUP" 'inspect systemctl status arbitrade.service, nginx -t, and Certbot output before retrying.' "VPS setup provides safe diagnostics without deleting potentially Certbot-modified configuration"
-assert_file_contains "$VPS_SETUP" 'if [[ "$ENV_PUBLISHED" == 1 ]]; then rm -f -- "$ENV_FILE"; fi' "VPS setup rolls back only an environment file published by this attempt"
+assert_file_contains "$VPS_SETUP" '[[ "$ENV_PUBLISHED" == 1 && -n "$ENV_PUBLISHED_ID" && ! -L "$ENV_FILE" && -e "$ENV_FILE"' "VPS setup checks environment file identity before rollback"
 assert_file_contains "$VPS_SETUP" '[[ "$UNIT_PUBLISHED" == 1 && -n "$UNIT_PUBLISHED_ID" && ! -L "$UNIT" && -e "$UNIT"' "VPS setup checks systemd unit identity before rollback"
 assert_file_contains "$VPS_SETUP" '[[ "$NGINX_PUBLISHED" == 1 && -n "$NGINX_PUBLISHED_ID" && ! -L "$NGINX" && -e "$NGINX"' "VPS setup checks nginx config identity before rollback"
 assert_file_contains "$VPS_SETUP" 'NGINX_ENABLED_PUBLISHED_ID="$(stat -c' "VPS setup records the enabled-site link inode before rollback"
