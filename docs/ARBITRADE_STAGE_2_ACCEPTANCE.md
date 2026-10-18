@@ -14,6 +14,18 @@
 - [x] Additive adoption of the shared page foundation without replacing established page layouts.
 - [x] Automated CSS contract tests added in `server/design-system-contract.test.ts`.
 
+## Automated contract coverage added in the current working branch
+
+The contract suite checks semantic text contrast (4.5:1) and focus-indicator contrast (3:1) across all five themes, including Original Arbitrade fallback values. It also checks customer/admin root adoption, theme-selector status and description semantics, touch-target sizing, and responsive dialog affordances. These are source-level regression checks; they do not replace browser testing or a full rendered contrast audit.
+
+Run these checks from the repository root:
+
+- `npm test -- server/design-system-contract.test.ts`
+- `npm run check`
+- `npm run build`
+
+Do not mark these as passed until CI or a local run reports success.
+
 ## Acceptance still required
 
 - [ ] Run the new contract test and the complete application test suite on the current branch.
