@@ -941,7 +941,9 @@ export async function settleDuePendingBoostRewards(conn: Db) {
       const userId = Number(row.userId);
       const amount = decimal(row.amountCki).toDecimalPlaces(tokenScale, Decimal.ROUND_DOWN);
       if (!amount.gt(0)) {
-        await conn.execute(`UPDATE mining_pending_boost_rewards SET status='settled',settledAt=UTC_TIMESTAMP(3),settlementReference=? WHERE id=?`, [`mining-boost-settlement:${row.id}`, Number(row.id)]);
+        const reference = `mining-boost-settlement:${row.id}`;
+        const [claimed] = await conn.execute<any>(`UPDATE mining_pending_boost_rewards SET status='settled',settledAt=UTC_TIMESTAMP(3),settlementReference=? WHERE id=? AND status='pending'`, [reference, Number(row.id)]);
+        assertExactlyOneSettlementClaim(claimed.affectedRows, reference);
         continue;
       }
       const reference = `mining-boost-settlement:${row.id}`;
