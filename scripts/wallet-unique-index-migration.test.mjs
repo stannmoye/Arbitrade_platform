@@ -64,7 +64,7 @@ describe("ensureCustomerBalanceUniqueIndex", () => {
 const walletDatabaseUrl = process.env.WALLET_TEST_DATABASE_URL;
 const databaseDescribe = walletDatabaseUrl ? describe : describe.skip;
 
-databaseDescribe("wallet unique-index migration against disposable MySQL", () => {
+databaseDescribe("wallet unique-index migration against disposable MySQL-compatible database", () => {
   it("refuses duplicate rows without deleting them, then creates the index after reconciliation", async () => {
     const connection = await mysql.createConnection(walletDatabaseUrl);
     const testUserId = 1900000000;
