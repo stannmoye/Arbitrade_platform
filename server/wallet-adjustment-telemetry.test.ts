@@ -42,6 +42,21 @@ describe("commitThenRecordWalletTelemetry", () => {
     expect(failures[0]).toMatchObject({ message: "console database unavailable" });
   });
 
+  it("still returns the committed result if the telemetry failure reporter also throws", async () => {
+    const result = { success: true, newAvailableMinor: 125 };
+    await expect(
+      commitThenRecordWalletTelemetry(
+        async () => result,
+        async () => {
+          throw new Error("telemetry unavailable");
+        },
+        () => {
+          throw new Error("logger unavailable");
+        },
+      ),
+    ).resolves.toBe(result);
+  });
+
   it("does not attempt telemetry when the wallet commit itself fails", async () => {
     const telemetry = vi.fn(async () => undefined);
     await expect(
