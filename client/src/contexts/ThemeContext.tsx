@@ -109,7 +109,7 @@ export function ThemeProvider({
   useEffect(() => {
     const root = document.documentElement;
     const effectiveTheme = !auth.isLoading && !isAdmin && policy
-      ? (enabledThemes.includes(theme) ? theme : policyDefault)
+      ? (customerCanSelect && enabledThemes.includes(theme) ? theme : policyDefault)
       : theme;
     root.dataset.arbTheme = effectiveTheme;
     root.classList.toggle("dark", effectiveTheme !== "clean-light");
