@@ -982,3 +982,31 @@
     border-style: dashed;
   }
 }
+
+
+/* Stage 2: keep select popups and long option labels within the viewport. */
+[data-slot="select-content"] {
+  max-width: calc(100vw - 1rem);
+  overscroll-behavior: contain;
+}
+[data-slot="select-viewport"] {
+  min-width: 0;
+  max-width: 100%;
+}
+[data-slot="select-item"] {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+[data-slot="select-item"]:focus-visible {
+  outline: 2px solid var(--arb-focus-ring, #8eafff);
+  outline-offset: -2px;
+}
+[data-slot="select-item"][data-disabled] {
+  cursor: not-allowed;
+}
+@media (forced-colors: active) {
+  [data-slot="select-item"]:focus-visible {
+    outline-color: Highlight;
+  }
+}
