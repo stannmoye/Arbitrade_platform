@@ -371,3 +371,13 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 - **CI verified:** [Mining regression checks](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39128083628) completed successfully for this commit. Dependency installation, the Mining store regression test file, and `pnpm check` all passed.
 - These are mock-connection unit tests. They do not prove real database locking, simultaneous same-key/different-key behavior, transaction isolation, or cross-wallet atomic rollback. Isolated MySQL/MariaDB integration tests remain required.
 - Stage 1 remains **in progress**; no production database or customer financial data was accessed or changed.
+
+## 23. Unfinished idempotency reservation guard (2026-10-18)
+
+- Source review found that `beginMiningIdempotency` returned `null` both when it had just inserted a new reservation and when an existing reservation had no stored result. Callers interpret `null` as permission to proceed, so a pre-existing unfinished reservation could be treated like a fresh request.
+- Updated the helper to inspect the `INSERT IGNORE` result: a newly inserted row may proceed; a duplicate row with a stored result returns that result; a duplicate row with no result now fails with an explicit in-progress error instead of rerunning the operation.
+- Added/adjusted mock tests for a newly inserted reservation, an existing unfinished reservation, and a completed retry modeled as an ignored duplicate insert.
+- Implementation commit: `59e683fec930da4d56e5b66d06ee92a7978e8d25`.
+- Regression-test commits: `5e5de580151cc9aa47da00a25517ef405bbf475f` and `19ec6fac9c16940881fa8d91c31415009730c604`.
+- **Verification status:** GitHub Actions was triggered for the updated code. The latest run must complete successfully before these newly added tests are marked CI-verified. This is still mock-connection coverage; real database concurrency/replay and transaction rollback tests remain required.
+- Stage 1 remains **in progress**. No production database or customer financial data was accessed or changed.
