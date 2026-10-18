@@ -25,7 +25,7 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
     : "original";
   const customerCanSelect = policy?.customerCanSelect === true;
   const policyReady = !auth.isLoading && !appearance.isLoading;
-  const canChoose = policyReady && (isAdmin || (!readOnly && customerCanSelect));
+  const canChoose = policyReady && !readOnly && (isAdmin || customerCanSelect);
   // A malformed or temporarily empty published allow-list must never produce an
   // empty select. Fall back to the published default until the policy is corrected.
   const customerThemes = enabledThemes.length > 0 ? enabledThemes : [defaultTheme];
