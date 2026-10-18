@@ -151,6 +151,17 @@ These findings are source inspection only; they do not replace authorization tes
 7. Capture repeatable screenshots/manual observations at the target viewport widths before visual changes.
 8. Only after the baseline is understood, proceed to Stage 2 (shared design system and responsive foundation), preserving working behaviour.
 
+
+
+### Financial service and administrator-action trace (additional pass)
+- `createTrade` performs its allocation in a database transaction. The source locks the customer row and the relevant wallet row, validates offer/package/limits and available balance, updates available and locked wallet amounts, inserts a ledger reservation, creates the trade position/lifecycle record, and links the opportunity delivery event. The delivery-event path supports replaying an already-created trade instead of allocating a second time. Preserve these atomicity and idempotency controls in later UI work.
+- `manuallySettleTrade` performs wallet, ledger, trade-state, reward-reservation and lifecycle updates inside a database transaction. It rejects non-pending trades, negative/non-integer rewards, rewards above the reserved amount, missing wallets, and settlement references already found in the trade table. However, source inspection shows the initial trade read is not explicitly row-locked and the final conditional trade update's affected-row count is not checked. The reference check also needs a concurrency/unique-constraint review. Record these as high-priority verification items; do not attempt to settle or repair any real records during this audit.
+- `adjustCustomerBalance` uses a transaction and validates administrator/customer targeting, enabled currency, positive amount, and insufficient-balance debits. It writes a ledger entry and customer notification with the wallet adjustment. The existing-balance read/update path does not visibly lock the balance row, and the update writes a calculated absolute balance. Concurrent adjustments therefore need a targeted concurrency test and review of affected-row/ledger atomicity before this pathway is treated as fully verified. No balance was changed during this inspection.
+- The manual-settlement UI refreshes the pending-settlement and ledger queries after a successful response. This is useful feedback, but the UI refresh is not itself proof of ledger correctness; acceptance checks must compare trade status, ledger entries, available/locked balances, reward reservation and lifecycle evidence after the transaction.
+- Repository search located trade-recovery classification/planner/context tests and a read-only evidence-collection workflow. These support careful recovery analysis but do not by themselves prove concurrent settlement or concurrent balance-adjustment safety. Add explicit service-level and disposable-database regression coverage for those cases before making claims of complete financial verification.
+
+**Scope boundary:** this pass was read-only source inspection. No financial services, balances, ledger records, migrations, installer behaviour or customer-facing screens were changed.
+
 ## 8. Audit checkpoint
 
 - [x] Read the 30-stage roadmap and confirm Stage 1 is first.
