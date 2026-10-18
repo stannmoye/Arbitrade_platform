@@ -9,6 +9,9 @@
 
 ## Current project checkpoint
 
+- **Latest Stage 1 action:** Traced Mining package purchase and swap confirmation paths, including transactional quote validation and idempotency. Recorded test requirements for manual settlement concurrency/conditional updates and administrator balance-adjustment locking/reference uniqueness. These are source-based risks, not confirmed incidents; no financial data was changed.
+
+
 - **Roadmap:** Recorded in this document.
 - **Current stage:** Stage 1 — Complete Application Audit and Development Baseline.
 - **Stage 1 status:** In progress — initial audit is committed and GitHub Actions baseline run 39121401277 passed type-check, app/installer/recovery tests, build/bundle checks, no-database server smoke test, fresh MariaDB and MySQL 8 installer checks, and universal ZIP assembly. Route/API/access mapping, theme/event verification and measured browser checks remain outstanding.
