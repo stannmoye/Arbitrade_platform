@@ -1,9 +1,9 @@
 ALTER TABLE `opportunity_package_policies`
-  ADD COLUMN `minHourlyTarget` int NOT NULL DEFAULT 0,
-  ADD COLUMN `normalHourlyTarget` int NOT NULL DEFAULT 0,
-  ADD COLUMN `marketInfluenceBps` int NOT NULL DEFAULT 5000,
-  ADD COLUMN `burstEnabled` boolean NOT NULL DEFAULT false,
-  ADD COLUMN `maxBurstSize` int NOT NULL DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS `minHourlyTarget` int NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `normalHourlyTarget` int NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `marketInfluenceBps` int NOT NULL DEFAULT 5000,
+  ADD COLUMN IF NOT EXISTS `burstEnabled` boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS `maxBurstSize` int NOT NULL DEFAULT 0;
 --> statement-breakpoint
 
 UPDATE `opportunity_package_policies`
