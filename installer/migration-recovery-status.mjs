@@ -25,6 +25,7 @@ const portalMigrationFiles = [
   "0043_wallet_minor_units_bigint.sql",
   "0051_advanced_auto_trading.sql",
   "0052_delivery_diagnostics.sql",
+  "0053_manual_settlement_lifecycle.sql",
 ];
 let journal;
 try {
