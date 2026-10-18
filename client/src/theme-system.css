@@ -156,7 +156,7 @@
 .arb-theme-selector select {
   min-width: min(220px, 48vw);
   max-width: 100%;
-  min-height: 36px;
+  min-height: 44px;
   padding: 6px 30px 6px 10px;
   border: 1px solid var(--arb-color-border);
   border-radius: var(--arb-radius-sm);
@@ -184,7 +184,7 @@
 .arb-theme-selector-current {
   display: inline-flex;
   align-items: center;
-  min-height: 34px;
+  min-height: 44px;
   max-width: 56vw;
   padding: 6px 10px;
   border: 1px solid var(--arb-color-border);
