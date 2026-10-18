@@ -202,12 +202,14 @@ settlementDescribe("manual settlement idempotency and rollback (disposable MySQL
     }
 
     try {
+      // Drizzle wraps driver/trigger errors with the failed SQL statement, so assert
+      // the rejected ledger insert here and prove atomic rollback from persisted state below.
       await expect(
         manuallySettleTrade(fixture.tradeId, fixture.adminId, {
           rewardMinor: 25,
           settlementReference: `settle-${randomUUID().slice(0, 18)}-rollback`,
         }),
-      ).rejects.toThrow(/forced settlement ledger failure/i);
+      ).rejects.toThrow(/Failed query: insert into `balance_ledger`/i);
       const state = await readFixture(fixture);
       expect(state.balance).toEqual({
         availableMinor: 0,
