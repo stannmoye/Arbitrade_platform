@@ -50,7 +50,7 @@ export function AdminAppearance() {
   };
 
   return (
-    <div className="portal-page arb-appearance-admin">
+    <div className="portal-page arb-page arb-stack arb-appearance-admin">
       <div className="portal-page-top">
         <div>
           <div className="eyebrow">Platform configuration · Appearance</div>
