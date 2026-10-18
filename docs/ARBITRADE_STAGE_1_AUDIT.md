@@ -455,3 +455,12 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 - Added unit coverage for lock-name scope/opacity, acquire-work-release ordering, timeout fail-closed behavior, and lock release when work throws.
 - This mitigates the application-level SELECT-then-INSERT race among requests using this code path without requiring a uniqueness migration against legacy installations. Database-backed concurrency verification is still required; the test suite does not prove behavior on every supported MySQL/MariaDB version.
 - No production database or production data was accessed or changed. Stage 1 remains **in progress** pending CI, database integration, API, and browser acceptance.
+
+
+## 30. Transaction-console deduplication CI confirmation (2026-10-18)
+
+- GitHub Actions [Mining regression checks — Run #36](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39131148414) passed on branch `integration/auth-installer-vps-safety`, head commit `a5ecb72743f63f211fbd257d88011b271500d5a8`.
+- The workflow job completed successfully for the targeted Mining-store and transaction-console regression tests plus `pnpm check`. The current transaction-console unit tests cover opaque lock-name scoping, acquire/work/release ordering, fail-closed lock timeout, and release when the callback throws.
+- This closes the CI-execution checkpoint for those focused unit tests. It does **not** establish true concurrent insert behavior or migration compatibility on disposable MariaDB/MySQL 8 instances; no such database-backed concurrency run is evidenced here.
+- Stage 1 remains **in progress**. Remaining exit blockers include disposable-database swap replay/concurrent confirmation and concurrent-spend tests, migration/schema and duplicate-data preflight, ledger/fee reconciliation and rollback fault injection, full API/object-ownership audit, sound/browser interaction checks, and measured responsive acceptance at the roadmap viewport widths.
+- No production database, production VPS, customer data, or live financial state was accessed or changed. No deployment or merge was performed.
