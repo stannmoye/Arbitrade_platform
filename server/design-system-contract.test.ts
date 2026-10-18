@@ -6,6 +6,7 @@ const themes = readFileSync(new URL("../client/src/theme-system.css", import.met
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const adminAppearance = readFileSync(new URL("../client/src/components/AdminAppearance.tsx", import.meta.url), "utf8");
 const themeSelector = readFileSync(new URL("../client/src/components/ThemeSelector.tsx", import.meta.url), "utf8");
+const themeContext = readFileSync(new URL("../client/src/contexts/ThemeContext.tsx", import.meta.url), "utf8");
 const table = readFileSync(new URL("../client/src/components/ui/table.tsx", import.meta.url), "utf8");
 const componentShowcase = readFileSync(new URL("../client/src/pages/ComponentShowcase.tsx", import.meta.url), "utf8");
 
@@ -188,6 +189,17 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(table).toContain("tabIndex={0}");
     expect(table).toContain("overflow-x-auto");
     expect(componentShowcase).toContain('containerAriaLabel="Recent invoice examples"');
+  });
+
+
+  it("keeps administrator previews persistent while enforcing customer theme policy", () => {
+    expect(themeContext).toContain('const THEME_STORAGE_KEY = "arbitrade-theme"');
+    expect(themeContext).toContain("setThemeState(readStoredTheme(defaultTheme))");
+    expect(themeContext).toContain("if (isAdmin) {\n      setThemeState(nextTheme);\n      return;\n    }");
+    expect(themeContext).toContain("if (!policy || appearance.isError) return;");
+    expect(themeContext).toContain("if (customerCanSelect && enabledThemes.includes(nextTheme)) setThemeState(nextTheme)");
+    expect(themeContext).toContain("const nextTheme = customerCanSelect && isTheme(event.newValue) && enabledThemes.includes(event.newValue)");
+    expect(themeContext).toContain("window.localStorage.setItem(THEME_STORAGE_KEY, effectiveTheme)");
   });
 
   it("keeps dialog content scrollable and action rows adaptable at short/mobile viewports", () => {
