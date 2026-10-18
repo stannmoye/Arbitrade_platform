@@ -87,4 +87,35 @@ describe("appearance settings normalization", () => {
     }
   });
 
+
+  it("preserves the enabled-default invariant for every theme subset and requested default", () => {
+    const themes = [
+      "original",
+      "midnight-premium",
+      "clean-light",
+      "emerald-finance",
+      "aurora-modern",
+    ] as const;
+
+    // Exhaustively cover all 32 allow-list masks, including an empty or malformed
+    // persisted list, against each of the five possible requested defaults.
+    for (let mask = 0; mask < (1 << themes.length); mask += 1) {
+      const subset = themes.filter((_, index) => (mask & (1 << index)) !== 0);
+
+      for (const requestedDefault of themes) {
+        const raw = JSON.stringify({
+          defaultTheme: requestedDefault,
+          enabledThemes: subset.length ? [...subset, ...subset, "unknown"] : ["unknown"],
+          customerCanSelect: true,
+        });
+        const normalized = normalizeAppearanceSettings(raw);
+
+        expect(normalized.enabledThemes, `mask=${mask}, default=${requestedDefault}`).toContain(normalized.defaultTheme);
+        expect(new Set(normalized.enabledThemes).size).toBe(normalized.enabledThemes.length);
+        expect(normalized.enabledThemes.every(theme => themes.includes(theme))).toBe(true);
+        expect(normalized.customerCanSelect).toBe(true);
+      }
+    }
+  });
+
 });
