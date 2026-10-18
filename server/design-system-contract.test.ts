@@ -6,6 +6,7 @@ const themes = readFileSync(new URL("../client/src/theme-system.css", import.met
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const adminAppearance = readFileSync(new URL("../client/src/components/AdminAppearance.tsx", import.meta.url), "utf8");
 const themeSelector = readFileSync(new URL("../client/src/components/ThemeSelector.tsx", import.meta.url), "utf8");
+const table = readFileSync(new URL("../client/src/components/ui/table.tsx", import.meta.url), "utf8");
 
 describe("ARBITRADE shared design-system contract", () => {
   it("defines the semantic tokens used by shared components", () => {
@@ -176,6 +177,14 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(designSystem).toContain("min-height: 44px");
     expect(designSystem).toContain('[data-slot="button"].size-9');
     expect(designSystem).toContain("min-width: 44px");
+  });
+
+  it("gives keyboard-scrollable data tables an accessible region name", () => {
+    expect(table).toContain('data-slot="table-container"');
+    expect(table).toContain('role="region"');
+    expect(table).toContain('aria-label="Scrollable table"');
+    expect(table).toContain("tabIndex={0}");
+    expect(table).toContain("overflow-x-auto");
   });
 
   it("keeps dialog content scrollable and action rows adaptable at short/mobile viewports", () => {
