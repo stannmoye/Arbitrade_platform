@@ -83,10 +83,12 @@ async function settleDuePositions(conn: Db, userId: number) {
   for (const p of positions) {
     const reference = `stake-settlement:${p.id}`;
     const [existing] = await conn.query<any[]>(`SELECT id FROM balance_ledger WHERE reference=? LIMIT 1`, [reference]);
-    if (existing.length) continue;
+    assertNoPriorStakeSettlementLedger(existing.length, Number(p.id));
     await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId, p.asset, p.principalMinor, "stake_principal_release", reference]);
-    await conn.execute(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=GREATEST(lockedMinor-?,0), updatedAt=NOW() WHERE userId=? AND currency=?`, [p.principalMinor, p.principalMinor, userId, p.asset]);
-    await conn.execute(`UPDATE stake_positions SET status='COMPLETED', completedAt=NOW(), updatedAt=NOW() WHERE id=?`, [p.id]);
+    const [balanceUpdate] = await conn.execute<any>(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=GREATEST(lockedMinor-?,0), updatedAt=NOW() WHERE userId=? AND currency=?`, [p.principalMinor, p.principalMinor, userId, p.asset]);
+    assertExactlyOneStakeSettlementUpdate(balanceUpdate.affectedRows, Number(p.id), "customer balance");
+    const [positionUpdate] = await conn.execute<any>(`UPDATE stake_positions SET status='COMPLETED', completedAt=NOW(), updatedAt=NOW() WHERE id=? AND userId=? AND status IN ('ACTIVE','REWARD_ACCRUING','SETTLING') AND maturityAt<=NOW()`, [p.id, userId]);
+    assertExactlyOneStakeSettlementUpdate(positionUpdate.affectedRows, Number(p.id), "position status");
     await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, p.id, "position.completed", p.status, "COMPLETED", p.principalMinor, p.asset, JSON.stringify({ ledgerReference: reference })]);
     await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, "Funds released", `Your Stake & Earn position ${p.positionCode} matured and principal was released to your wallet.`]);
   }
@@ -157,6 +159,20 @@ export async function cancelStake(userId: number, positionId: number, requestKey
       const result={positionId:p.id,status:"CANCELLED",ledgerReference:reference}; await conn.execute(`INSERT INTO v5_idempotency_keys (userId,keyValue,command,resultJson) VALUES (?,?,?,?)`,[userId,key,"stake.cancel",JSON.stringify(result)]); await conn.commit(); return result;
     } catch(e){await conn.rollback();throw e;}
   });
+}
+
+export function assertNoPriorStakeSettlementLedger(existingLedgerCount: number, positionId: number): void {
+  if (existingLedgerCount !== 0) {
+    throw new Error(`Stake settlement invariant violation for position ${positionId}: a principal-release ledger entry already exists while the position is still eligible for settlement.`);
+  }
+}
+
+export function assertExactlyOneStakeSettlementUpdate(affectedRows: unknown, positionId: number, target: string): void {
+  const count = Number(affectedRows);
+  if (count !== 1) {
+    const observed = Number.isFinite(count) ? String(count) : "unknown";
+    throw new Error(`Stake settlement invariant violation for position ${positionId}: expected exactly one ${target} update, received ${observed}.`);
+  }
 }
 
 export function projectStake(input: { amountMinor: number; annualRateBps: number; durationDays: number; compounding?: boolean }) {
