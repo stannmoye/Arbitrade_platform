@@ -74,14 +74,39 @@ export function calculateDueRewardSchedule(nextAt: Date, frequency: string, now 
   };
 }
 
+/**
+ * Calculate the additional reward owed across the position's full elapsed
+ * schedule, less rewards already posted. rewardMinor is cumulative, so the
+ * target must also be cumulative rather than based only on this catch-up batch.
+ */
+export function calculateAdditionalStakeReward(
+  principalMinor: number,
+  annualRateBps: number,
+  openedAt: Date,
+  frequency: string,
+  rewardMinor: number,
+  now = new Date(),
+) {
+  const intervalMs = rewardIntervalMs(frequency);
+  const periodDays = frequency === "DAILY" ? 1 : frequency === "WEEKLY" ? 7 : 30;
+  const elapsedPeriods = Math.max(0, Math.floor((now.getTime() - openedAt.getTime()) / intervalMs));
+  const cumulativeTarget = Math.floor(principalMinor * annualRateBps * elapsedPeriods * periodDays / (10000 * 365));
+  return Math.max(0, cumulativeTarget - rewardMinor);
+}
+
 async function postDueRewards(conn: Db, userId: number) {
   const [positions] = await conn.query<any[]>(`SELECT p.*, sp.annualRateBps, sp.rewardFrequency, sp.name AS productName
     FROM stake_positions p JOIN stake_products sp ON sp.id=p.productId
     WHERE p.userId=? AND p.status IN ('ACTIVE','REWARD_ACCRUING') AND p.nextRewardAt IS NOT NULL AND p.nextRewardAt<=NOW() FOR UPDATE`, [userId]);
   for (const position of positions) {
     const schedule = calculateDueRewardSchedule(new Date(position.nextRewardAt), position.rewardFrequency);
-    const periods = schedule.periodsDue;
-    const reward = Math.max(0, Math.floor(Number(position.principalMinor) * Number(position.annualRateBps) * ((position.rewardFrequency === "DAILY" ? periods : periods * (position.rewardFrequency === "WEEKLY" ? 7 : 30))) / (10000 * 365)) - Number(position.rewardMinor));
+    const reward = calculateAdditionalStakeReward(
+      Number(position.principalMinor),
+      Number(position.annualRateBps),
+      new Date(position.openedAt),
+      position.rewardFrequency,
+      Number(position.rewardMinor),
+    );
     if (!reward) {
       // Advance the schedule even when rounding produces no payable minor unit;
       // otherwise the same overdue position is selected on every dashboard read.
