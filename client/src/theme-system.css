@@ -668,6 +668,26 @@
   border-width: 1px;
   border-radius: var(--arb-radius-sm);
 }
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) [data-status="success"] {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 52%, var(--arb-color-border));
+  color: var(--arb-color-accent);
+  background-color: color-mix(in srgb, var(--arb-color-accent) 8%, var(--arb-color-surface));
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) [data-status="warning"] {
+  border-color: color-mix(in srgb, var(--arb-color-warning) 52%, var(--arb-color-border));
+  color: var(--arb-color-warning);
+  background-color: color-mix(in srgb, var(--arb-color-warning) 8%, var(--arb-color-surface));
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) [data-status="info"] {
+  border-color: color-mix(in srgb, var(--arb-color-info) 52%, var(--arb-color-border));
+  color: var(--arb-color-info);
+  background-color: color-mix(in srgb, var(--arb-color-info) 8%, var(--arb-color-surface));
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) [data-status="error"] {
+  border-color: color-mix(in srgb, var(--arb-color-danger) 52%, var(--arb-color-border));
+  color: var(--arb-color-danger);
+  background-color: color-mix(in srgb, var(--arb-color-danger) 8%, var(--arb-color-surface));
+}
 
 /* Stage 2: keep text selection and browser autofill aligned with the active theme. */
 :root[data-arb-theme] ::selection {
