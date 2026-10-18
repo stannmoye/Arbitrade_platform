@@ -362,3 +362,12 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 - Test commit: `990f0cea7816660ba03c54e947e8d3f4c1c12443`.
 - **CI verified:** [Mining regression checks](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39127597399) completed successfully for that commit. Dependency installation, `pnpm test -- server/mining-store.test.ts`, and `pnpm check` all passed.
 - These are unit-level safeguards only. They do not establish that live MySQL transactions balance and reconcile across the Mining ledger and main-wallet ledger, nor prove quote ownership/expiry, concurrent confirmation behavior, injected-failure rollback, or notification deduplication. Those database-backed checks remain outstanding; Stage 1 is still in progress.
+
+
+## 22. Mining idempotency reservation regression tests (2026-10-18)
+
+- Added four unit tests around `beginMiningIdempotency`: completed retry returns the stored JSON result; reusing a key for a different command is rejected; a missing reservation row is rejected; and an in-progress reservation with no stored result returns `null`.
+- Test commit: `ba5d7ab739d84c35c13c379987139aa0c18eff34`.
+- **CI verified:** [Mining regression checks](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39128083628) completed successfully for this commit. Dependency installation, the Mining store regression test file, and `pnpm check` all passed.
+- These are mock-connection unit tests. They do not prove real database locking, simultaneous same-key/different-key behavior, transaction isolation, or cross-wallet atomic rollback. Isolated MySQL/MariaDB integration tests remain required.
+- Stage 1 remains **in progress**; no production database or customer financial data was accessed or changed.
