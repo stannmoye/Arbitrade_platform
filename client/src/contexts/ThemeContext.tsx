@@ -94,6 +94,30 @@ export function ThemeProvider({
     setThemeState(selected);
   }, [auth.isLoading, isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
 
+  // Keep theme previews in sync across tabs while revalidating customer choices
+  // against the latest published policy instead of blindly trusting storage events.
+  useEffect(() => {
+    if (!switchable || auth.isLoading) return;
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== THEME_STORAGE_KEY && event.key !== null) return;
+
+      if (isAdmin) {
+        setThemeState(isTheme(event.newValue) ? event.newValue : defaultTheme);
+        return;
+      }
+
+      if (!policy) return;
+      const nextTheme = customerCanSelect && isTheme(event.newValue) && enabledThemes.includes(event.newValue)
+        ? event.newValue
+        : policyDefault;
+      setThemeState(nextTheme);
+    };
+
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [switchable, auth.isLoading, isAdmin, defaultTheme, policy, customerCanSelect, policyDefault, enabledThemes.join("|")]);
+
   const setTheme = (nextTheme: ArbitradeTheme) => {
     if (!isTheme(nextTheme) || auth.isLoading) return;
     if (isAdmin) {
