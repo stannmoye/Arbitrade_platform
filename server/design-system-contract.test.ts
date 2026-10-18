@@ -98,7 +98,7 @@ describe("ARBITRADE shared design-system contract", () => {
   it("keeps new-theme text tokens at WCAG AA contrast against canvas and surfaces", () => {
     const themesToCheck = ["midnight-premium", "clean-light", "emerald-finance", "aurora-modern"];
     const readHexToken = (block: string, token: string) => {
-      const match = block.match(new RegExp(`\\\\${token}:\\\\s*(#[0-9a-fA-F]{6})`));
+      const match = block.match(new RegExp(`${token}:\\s*(#[0-9a-fA-F]{6})`));
       expect(match, `missing literal token ${token}`).not.toBeNull();
       return match![1];
     };
@@ -113,7 +113,7 @@ describe("ARBITRADE shared design-system contract", () => {
     };
 
     for (const theme of themesToCheck) {
-      const match = themes.match(new RegExp(`:root\\\\[data-arb-theme="\\\\${theme}"\\\\]\\\\s*\\\\{([^}]+)\\\\}`));
+      const match = themes.match(new RegExp(`:root\\[data-arb-theme="${theme}"\\]\\s*\\{([^}]+)\\}`));
       expect(match, `missing literal theme block ${theme}`).not.toBeNull();
       const block = match![1];
       const canvas = readHexToken(block, "--arb-color-canvas");
