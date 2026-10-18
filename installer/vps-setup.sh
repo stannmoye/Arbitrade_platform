@@ -54,6 +54,7 @@ case "${ID:-}" in ubuntu|debian) ;; *) fail "Only Debian/Ubuntu are supported by
 UNIT="/etc/systemd/system/arbitrade.service"
 NGINX="/etc/nginx/sites-available/arbitrade-$DOMAIN"
 NGINX_ENABLED="/etc/nginx/sites-enabled/arbitrade-$DOMAIN"
+APP_USER="arbitrade"
 ENV_DIR="/etc/arbitrade"
 ENV_FILE="$ENV_DIR/arbitrade.env"
 arbitrade_directory_is_safe "$ENV_DIR" || fail "$ENV_DIR must be a real directory, not a symlink or non-directory path."
