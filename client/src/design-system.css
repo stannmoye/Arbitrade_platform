@@ -1,0 +1,93 @@
+/*
+ * ARBITRADE shared design-system foundation.
+ *
+ * Theme 1 deliberately maps to the current portal palette so this layer can
+ * be adopted incrementally without redesigning existing screens.
+ * Future themes should override these semantic tokens rather than duplicate
+ * component styles.
+ */
+:root {
+  color-scheme: dark;
+  --arb-color-canvas: var(--bg, #0b1422);
+  --arb-color-surface: var(--panel, #101d2d);
+  --arb-color-surface-raised: var(--panel2, #142338);
+  --arb-color-border: var(--line, #22344a);
+  --arb-color-text: #e9f0f7;
+  --arb-color-text-soft: var(--soft, #b7c4d1);
+  --arb-color-text-muted: var(--muted, #8295aa);
+  --arb-color-accent: var(--brand-accent, var(--mint, #7ce7c2));
+  --arb-color-info: var(--blue, #8eb7ff);
+  --arb-color-warning: var(--amber, #f5c56b);
+  --arb-color-danger: var(--coral, #fa8c87);
+  --arb-color-decorative: var(--violet, #c7a6ff);
+  --arb-focus-ring: var(--arb-color-accent);
+  --arb-content-max: 1480px;
+  --arb-space-1: 4px;
+  --arb-space-2: 8px;
+  --arb-space-3: 12px;
+  --arb-space-4: 16px;
+  --arb-space-5: 24px;
+  --arb-space-6: 32px;
+  --arb-radius-sm: 6px;
+  --arb-radius-md: 10px;
+  --arb-radius-lg: 14px;
+  --arb-shadow-card: 0 13px 36px rgb(0 0 0 / 11%);
+}
+
+/* Shared primitives for new and refactored screens; existing screens remain unchanged. */
+.arb-container {
+  width: min(100% - 2 * var(--arb-space-4), var(--arb-content-max));
+  margin-inline: auto;
+}
+
+.arb-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--arb-space-3);
+}
+
+.arb-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--arb-space-2);
+}
+
+.arb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: var(--arb-space-3);
+}
+
+.arb-card {
+  min-width: 0;
+  border: 1px solid var(--arb-color-border);
+  border-radius: var(--arb-radius-md);
+  background: var(--arb-color-surface);
+  box-shadow: var(--arb-shadow-card);
+}
+
+.arb-muted {
+  color: var(--arb-color-text-muted);
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .arb-container {
+    width: min(100% - 2 * var(--arb-space-3), var(--arb-content-max));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arb-reduce-motion,
+  .arb-reduce-motion * {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
