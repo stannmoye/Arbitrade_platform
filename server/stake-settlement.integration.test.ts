@@ -167,6 +167,41 @@ databaseDescribe("Stake & Earn maturity settlement database integration", () => 
     }
   }, 30_000);
 
+  it("rolls back settlement when locked wallet funds are below the position principal", async () => {
+    const setup = await mysql.createConnection(databaseUrl!);
+    const fixture: Fixture = {};
+    activeFixture = fixture;
+    try {
+      await ensureTables(setup);
+      await insertMaturePosition(setup, fixture, true);
+      await setup.execute(
+        "UPDATE customer_balances SET lockedMinor=0 WHERE userId=? AND currency='USD'",
+        [TEST_USER_ID],
+      );
+
+      await expect(inTransaction(setup, TEST_USER_ID)).rejects.toThrow(/sufficient locked funds/i);
+
+      const [ledger] = await setup.execute<any[]>(
+        "SELECT id FROM balance_ledger WHERE reference=?",
+        [fixture.reference],
+      );
+      expect(ledger).toHaveLength(0);
+      const [positions] = await setup.execute<any[]>(
+        "SELECT status FROM stake_positions WHERE id=?",
+        [fixture.positionId],
+      );
+      expect(positions[0]?.status).toBe("ACTIVE");
+      const [balances] = await setup.execute<any[]>(
+        "SELECT availableMinor,lockedMinor FROM customer_balances WHERE userId=? AND currency='USD'",
+        [TEST_USER_ID],
+      );
+      expect(Number(balances[0].availableMinor)).toBe(500);
+      expect(Number(balances[0].lockedMinor)).toBe(0);
+    } finally {
+      await setup.end();
+    }
+  }, 30_000);
+
   it("fails closed if a principal-release ledger already exists for an active position", async () => {
     const setup = await mysql.createConnection(databaseUrl!);
     const fixture: Fixture = {};
