@@ -1,12 +1,8 @@
 name: ARBITRADE autonomous coding worker
 
 on:
-  # Automatic coding is dormant until an owner explicitly enables the repository variable.
-  workflow_run:
-    workflows: ["Installer validation"]
-    types: [completed]
-    branches:
-      - integration/auth-installer-vps-safety
+  # Legacy API-key coding worker is manual-only. Normal development uses ChatGPT
+  # with the GitHub connector; GitHub Actions remains responsible for CI validation.
   workflow_dispatch:
 
 permissions:
@@ -14,41 +10,32 @@ permissions:
   actions: read
 
 concurrency:
-  group: arbitrade-autonomous-worker-${{ github.event.workflow_run.head_branch || github.ref_name }}
+  group: arbitrade-autonomous-worker-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   code-one-task:
-    if: >-
-      (github.event_name == 'workflow_dispatch' &&
-       github.ref_name == 'integration/auth-installer-vps-safety') ||
-      (github.event_name == 'workflow_run' &&
-       (github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure') &&
-       (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') &&
-       github.event.workflow_run.head_branch == 'integration/auth-installer-vps-safety' &&
-       vars.ARBITRADE_AUTONOMOUS_WORKER_ENABLED == 'true')
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'integration/auth-installer-vps-safety'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     outputs:
       patch_present: ${{ steps.patch.outputs.present }}
       task_number: ${{ steps.task_number.outputs.number }}
-      task_mode: ${{ steps.task_number.outputs.mode }}
-      repair_attempt: ${{ steps.task_number.outputs.repair_attempt }}
       target_branch: ${{ steps.context.outputs.target_branch }}
       expected_sha: ${{ steps.current_revision.outputs.expected_sha }}
     steps:
       - name: Resolve the target branch
         id: context
         env:
-          TARGET_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+          TARGET_BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           echo "target_branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
 
-      - name: Check out the exact revision that passed validation
+      - name: Check out the revision that passed validation
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+          ref: ${{ github.ref }}
           fetch-depth: 0
 
       - name: Record the exact checked-out revision
@@ -57,94 +44,28 @@ jobs:
 
       - name: Resolve bounded task number
         id: task_number
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion || '' }}
         run: |
           set -euo pipefail
-          mode=task
-          if [[ "$EVENT_NAME" == "workflow_run" && "$RUN_CONCLUSION" == "failure" ]]; then
-            mode=repair
-          fi
-          echo "mode=$mode" >> "$GITHUB_OUTPUT"
-
-          latest_subject="$(git log -1 --format=%s)"
-          last_step=0
-          if [[ "$latest_subject" =~ ^\[ARBITRADE-AUTO-STEP-([1-5])\] ]]; then
-            last_step="${BASH_REMATCH[1]}"
-          fi
-
-          if [[ "$mode" == "repair" ]]; then
-            # Only repair a failure caused by an automatic task commit. Never
-            # spend API calls trying to repair an unrelated baseline failure.
-            if (( last_step == 0 )); then
-              echo "number=0" >> "$GITHUB_OUTPUT"
-              echo "repair_attempt=0" >> "$GITHUB_OUTPUT"
-              echo "::notice::Failed validation did not come from an automatic task commit; stopping for human review."
-              exit 0
-            fi
-            repairs=0
-            while IFS= read -r subject; do
-              if [[ "$subject" =~ ^\[ARBITRADE-AUTO-STEP-${last_step}\]\[REPAIR-[1-2]\] ]]; then
-                ((repairs += 1))
-              else
-                break
-              fi
-            done < <(git log -n 8 --format=%s)
-            if (( repairs >= 2 )); then
-              echo "number=0" >> "$GITHUB_OUTPUT"
-              echo "repair_attempt=0" >> "$GITHUB_OUTPUT"
-              echo "::notice::Two repair attempts have failed validation; stopping for human review."
-              exit 0
-            fi
-            echo "number=$last_step" >> "$GITHUB_OUTPUT"
-            echo "repair_attempt=$((repairs + 1))" >> "$GITHUB_OUTPUT"
-            echo "::notice::Starting bounded repair attempt $((repairs + 1)) for task $last_step."
-          else
-            if (( last_step >= 5 )); then
-              echo "number=0" >> "$GITHUB_OUTPUT"
-              echo "repair_attempt=0" >> "$GITHUB_OUTPUT"
-              echo "::notice::The five-task chain limit has been reached. Stopping without another API call."
-              exit 0
-            fi
-            echo "number=$((last_step + 1))" >> "$GITHUB_OUTPUT"
-            echo "repair_attempt=0" >> "$GITHUB_OUTPUT"
-            echo "Eligible bounded chain task $((last_step + 1)) of 5."
-          fi
-
-      - name: Collect failed validation logs for repair
-        if: steps.task_number.outputs.mode == 'repair' && steps.task_number.outputs.number != '0'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
-        run: |
-          set -euo pipefail
-          gh run view "$RUN_ID" --log-failed > .arbitrade-ci-failure.txt
-          # Bound context size before the agent sees it.
-          tail -n 1200 .arbitrade-ci-failure.txt > .arbitrade-ci-failure.txt.tmp
-          mv .arbitrade-ci-failure.txt.tmp .arbitrade-ci-failure.txt
+          echo "number=1" >> "$GITHUB_OUTPUT"
+          echo "Manual API-worker run: task 1 of 5. No automatic follow-on is configured."
 
       - name: Require the model API credential
-        if: steps.task_number.outputs.number != '0'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           if [[ -z "${OPENAI_API_KEY:-}" ]]; then
-            echo "::error::Add OPENAI_API_KEY under repository Settings → Secrets and variables → Actions before running the coding worker."
+            echo "::error::Add OPENAI_API_KEY under repository Settings → Secrets and variables → Actions before enabling the coding worker."
             exit 1
           fi
 
       # Install dependencies before exposing the API key to the coding action.
       - name: Install locked dependencies
-        if: steps.task_number.outputs.number != '0'
         run: |
           corepack enable
           corepack prepare pnpm@10.18.0 --activate
           pnpm install --frozen-lockfile
 
       - name: Run Codex on one prioritized Stage 1 task
-        if: steps.task_number.outputs.number != '0'
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -153,20 +74,17 @@ jobs:
           output-file: /tmp/arbitrade-codex-summary.md
           prompt: |
             You are the bounded ARBITRADE Stage 1 coding worker for repository ${{ github.repository }}.
-            Work on the checked-out revision only. Mode: ${{ steps.task_number.outputs.mode }}. Task ${{ steps.task_number.outputs.number }} of a maximum chain of five.
-            If mode is repair, inspect .arbitrade-ci-failure.txt first and fix only the cause of the failed validation for this task.
-            Do not start a new task in repair mode, weaken/remove tests, or bypass a safety gate. Repair attempts are capped at two.
+            Work on the checked-out revision only. This run is task ${{ steps.task_number.outputs.number }} of a maximum chain of five.
 
-            First inspect the current branch, recent commits, package scripts, relevant code/tests, and
+            First inspect the current branch, recent commits, package scripts, relevant code/tests, and, if present,
             docs/ARBITRADE_STAGE1_AUTOMATION_QUEUE.md and docs/ARBITRADE_STAGE_1_PROGRESS_2026-10-18.md.
-            In task mode, choose the highest-priority unblocked task supported by repository evidence. Prefer a small,
+            Choose the highest-priority unblocked task supported by the repository evidence. Prefer a small,
             test-backed P0 financial-correctness task (wallet concurrency, settlement single-winner/rollback,
-            mining idempotency/reconciliation). In repair mode, fix only the failed task and use the captured CI logs.
-            Do not merely rewrite documentation or claim completion without evidence.
+            mining idempotency/reconciliation). Do not merely rewrite documentation or claim completion without evidence.
 
             Implement at most one coherent task in this run. Add or update focused regression tests, run the relevant
             tests available locally, and update the queue/progress docs only when the evidence justifies it.
-            The publisher accepts changes only under server/, client/, shared/, tests/, root-level *.test.* or
+            The publisher will accept changes only under server/, client/, shared/, tests/, root-level *.test.* or
             *.spec.* files, and the two named Stage 1 progress/queue documents.
 
             Do not modify .github/, workflow files, package manifests/lockfiles, dependency configuration, deployment
@@ -175,17 +93,12 @@ jobs:
             weaken tests, permissions, safety checks, or CI gates. Use only disposable/local test resources.
             Do not attempt git commit/push. Do not print credentials, environment variables, or secret values.
             If blocked or unable to make a safe tested change, leave the workspace unchanged and explain the blocker.
-            Be precise in your final summary: files changed, commands/tests run and actual results, limitations,
-            and the next best task. A later task starts only after validation of the prior pushed change succeeds.
-
-      - name: Remove temporary CI failure context
-        if: steps.task_number.outputs.number != '0'
-        run: rm -f .arbitrade-ci-failure.txt
+            Be precise in your final summary: files changed, commands/tests run and their actual results, limitations,
+            and the next best task. A later run starts only after the pushed change passes the normal validation workflow.
 
       # Capture only a patch. A separate fresh job validates its paths and publishes it.
       - name: Capture the proposed patch
         id: patch
-        if: steps.task_number.outputs.number != '0'
         run: |
           set -euo pipefail
           git add -N -- . 2>/dev/null || true
@@ -231,8 +144,6 @@ jobs:
         env:
           EXPECTED_SHA: ${{ needs.code-one-task.outputs.expected_sha }}
           TASK_NUMBER: ${{ needs.code-one-task.outputs.task_number }}
-          TASK_MODE: ${{ needs.code-one-task.outputs.task_mode }}
-          REPAIR_ATTEMPT: ${{ needs.code-one-task.outputs.repair_attempt }}
         run: |
           set -euo pipefail
           patch_file=/tmp/arbitrade-agent-patch/arbitrade-agent.patch
@@ -276,18 +187,14 @@ jobs:
           git diff --cached --check
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [[ "$TASK_MODE" == "repair" ]]; then
-            git commit -m "[ARBITRADE-AUTO-STEP-$TASK_NUMBER][REPAIR-$REPAIR_ATTEMPT] repair failed Stage 1 validation"
-          else
-            git commit -m "[ARBITRADE-AUTO-STEP-$TASK_NUMBER] automated Stage 1 task"
-          fi
+          git commit -m "[ARBITRADE-AUTO-STEP-$TASK_NUMBER] automated Stage 1 task"
           git push origin "HEAD:${{ needs.code-one-task.outputs.target_branch }}"
 
-      - name: Dispatch validation for the exact published branch
+      - name: Explicitly dispatch validation for the published commit
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_BRANCH: ${{ needs.code-one-task.outputs.target_branch }}
         run: |
           set -euo pipefail
           gh workflow run installer-validation.yml --ref "$TARGET_BRANCH"
-          echo "Dispatched Installer validation on $TARGET_BRANCH. Follow-on coding is eligible only after this run completes and the worker variable is enabled."
+          echo "Dispatched Installer validation on $TARGET_BRANCH. The next coding task may start only after that run succeeds."
