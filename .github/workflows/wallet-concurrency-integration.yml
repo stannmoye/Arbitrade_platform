@@ -10,15 +10,22 @@ permissions:
   contents: read
 
 jobs:
-  mysql-wallet-concurrency:
+  wallet-concurrency:
+    name: wallet concurrency (${{ matrix.database }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [mysql:8.0, mariadb:11.4]
     services:
       mysql:
-        image: mysql:8.0
+        image: ${{ matrix.database }}
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: arbitrade_test
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: arbitrade_test
         ports:
           - 3306:3306
         options: >-
