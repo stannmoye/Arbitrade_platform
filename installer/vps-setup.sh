@@ -57,6 +57,10 @@ NGINX_ENABLED="/etc/nginx/sites-enabled/arbitrade-$DOMAIN"
 ENV_DIR="/etc/arbitrade"
 ENV_FILE="$ENV_DIR/arbitrade.env"
 arbitrade_directory_is_safe "$ENV_DIR" || fail "$ENV_DIR must be a real directory, not a symlink or non-directory path."
+if [[ -e "$ENV_DIR" ]]; then
+  env_dir_metadata="$(stat -c '%U:%G:%a' -- "$ENV_DIR")"
+  [[ "$env_dir_metadata" == "root:$APP_USER:750" ]] || fail "$ENV_DIR already exists with unexpected ownership or permissions ($env_dir_metadata). Expected root:$APP_USER:750; review it manually instead of changing existing directory metadata."
+fi
 arbitrade_path_is_available "$UNIT" || fail "$UNIT already exists. Review it manually; this script will not overwrite it."
 arbitrade_path_is_available "$NGINX" || fail "$NGINX already exists. Review it manually; this script will not overwrite it."
 arbitrade_path_is_available "$NGINX_ENABLED" || fail "The nginx enabled-site path already exists. Review it manually; this script will not overwrite it."
