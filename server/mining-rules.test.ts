@@ -171,7 +171,16 @@ describe("mining time and quote guards", () => {
   it("accepts only non-future quotes inside the freshness limit", () => {
     const now = new Date("2026-10-11T14:00:00.000Z");
     expect(isQuoteFresh(new Date("2026-10-11T13:59:00.000Z"), now, 120)).toBe(true);
+    expect(isQuoteFresh(new Date("2026-10-11T13:58:00.000Z"), now, 120)).toBe(true);
+    expect(isQuoteFresh(new Date("2026-10-11T13:57:59.999Z"), now, 120)).toBe(false);
     expect(isQuoteFresh(new Date("2026-10-11T13:50:00.000Z"), now, 120)).toBe(false);
     expect(isQuoteFresh(new Date("2026-10-11T14:01:00.000Z"), now, 120)).toBe(false);
+  });
+
+  it("rejects invalid quote timestamps and invalid freshness windows", () => {
+    const now = new Date("2026-10-11T14:00:00.000Z");
+    expect(isQuoteFresh(new Date("invalid"), now, 120)).toBe(false);
+    expect(isQuoteFresh(new Date("2026-10-11T13:59:00.000Z"), now, 0)).toBe(false);
+    expect(isQuoteFresh(new Date("2026-10-11T13:59:00.000Z"), now, 1.5)).toBe(false);
   });
 });
