@@ -231,3 +231,88 @@
   .arb-theme-enabled-list { grid-template-columns: 1fr; }
   .arb-appearance-actions { align-items: stretch; flex-direction: column; }
 }
+
+
+/* Stage 2 adoption: apply semantic tokens to the shared portal building blocks.
+   These scoped rules let existing screens inherit the selected theme without
+   requiring each feature page to be rewritten individually. */
+.arb-page {
+  color: var(--arb-color-text);
+  background-color: transparent;
+}
+.arb-page :where(h1, h2, h3, h4, strong) {
+  color: var(--arb-color-text);
+}
+.arb-page :where(p, .settings-copy, .empty-state, .form-hint) {
+  color: var(--arb-color-text-soft);
+}
+.arb-page :where(.settings-card, .customer-panel, .intelligence-panel,
+  .advanced-feature-card, .customer-table, .customer-table-wrap,
+  .admin-table-wrap, .data-table-wrap, .smart-rules-panel) {
+  min-width: 0;
+  border-color: var(--arb-color-border);
+}
+.arb-page :where(.settings-card, .customer-panel, .intelligence-panel,
+  .advanced-feature-card, .smart-rules-panel) {
+  color: var(--arb-color-text);
+}
+.arb-page :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select, textarea) {
+  accent-color: var(--arb-color-accent);
+}
+.arb-page :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select, textarea):focus-visible {
+  outline-color: var(--arb-focus-ring);
+  outline-offset: 2px;
+}
+.arb-page :where(button, [role="button"]) {
+  -webkit-tap-highlight-color: transparent;
+}
+.arb-page :where(button:disabled, input:disabled, select:disabled, textarea:disabled) {
+  cursor: not-allowed;
+}
+.arb-page :where(table) {
+  width: 100%;
+  border-collapse: collapse;
+}
+.arb-page :where(th, td) {
+  border-color: var(--arb-color-border);
+}
+.arb-page :where(.customer-table-row, .intelligence-signal, .session-list > div) {
+  min-width: 0;
+  border-color: var(--arb-color-border);
+}
+.arb-page :where(.customer-table-row small, .session-list em, .empty-records) {
+  color: var(--arb-color-text-muted);
+}
+.arb-page :where(.test-notice, .auth-error, [role="status"]) {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 720px) {
+  .arb-page {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .arb-page :where(table) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .arb-page :where(.portal-page-top, .customer-panel-head) {
+    gap: 12px;
+  }
+  .arb-page :where(.portal-page-top) {
+    flex-wrap: wrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arb-page *,
+  .arb-page *::before,
+  .arb-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
