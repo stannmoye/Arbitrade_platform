@@ -9,8 +9,8 @@ type ThemeSelectorProps = {
 export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelectorProps) {
   const { theme, setTheme, switchable } = useTheme();
   const appearance = trpc.appearanceConfig.useQuery(undefined, { staleTime: 30_000 });
-  const availableThemes = readOnly && appearance.data
-    ? appearance.data.enabledThemes.filter((option: string): option is ArbitradeTheme =>
+  const availableThemes: ArbitradeTheme[] = readOnly && appearance.data
+    ? (appearance.data.enabledThemes as string[]).filter((option: string): option is ArbitradeTheme =>
         ARBITRADE_THEMES.includes(option as ArbitradeTheme))
     : [...ARBITRADE_THEMES];
   const canChoose = !readOnly || appearance.data?.customerCanSelect === true;
