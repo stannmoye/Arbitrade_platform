@@ -102,8 +102,11 @@ if [[ "$INSTALL_RUNTIME" == 1 ]]; then
     fail "The NodeSource signing key destination appeared during provisioning; existing files were not overwritten."
   fi
   if ! ln -T -- "$NODE_SOURCE_TMP" /etc/apt/sources.list.d/nodesource.list; then
-    rm -f -- /etc/apt/keyrings/nodesource.gpg "$NODE_KEY_TMP" "$NODE_SOURCE_TMP"
-    fail "The NodeSource apt source destination appeared during provisioning; the signing key created by this attempt was rolled back."
+    if [[ -e /etc/apt/keyrings/nodesource.gpg && ! -L /etc/apt/keyrings/nodesource.gpg && "$(stat -c '%d:%i' -- /etc/apt/keyrings/nodesource.gpg)" == "$(stat -c '%d:%i' -- "$NODE_KEY_TMP")" ]]; then
+      rm -f -- /etc/apt/keyrings/nodesource.gpg
+    fi
+    rm -f -- "$NODE_KEY_TMP" "$NODE_SOURCE_TMP"
+    fail "The NodeSource apt source destination appeared during provisioning; the signing key created by this attempt was rolled back when still owned by this attempt."
   fi
   rm -f -- "$NODE_KEY_TMP" "$NODE_SOURCE_TMP"
   apt-get update
