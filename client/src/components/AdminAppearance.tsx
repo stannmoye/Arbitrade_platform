@@ -61,7 +61,15 @@ export function AdminAppearance() {
       </div>
 
       {settings.isLoading && <div className="settings-card" role="status">Loading saved appearance policy…</div>}
-      {settings.isError && <div className="settings-card" role="alert">Appearance settings could not be loaded. Retry before publishing a change.</div>}
+      {settings.isError && (
+        <div className="settings-card" role="alert">
+          <p>Appearance settings could not be loaded. Retry before publishing a change.</p>
+          <button type="button" className="primary-button" disabled={settings.isFetching}
+            onClick={() => void settings.refetch()}>
+            {settings.isFetching ? "Retrying…" : "Retry loading settings"}
+          </button>
+        </div>
+      )}
 
       <section className="settings-card">
         <div className="eyebrow">Preview</div>
