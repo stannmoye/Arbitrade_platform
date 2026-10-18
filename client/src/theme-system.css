@@ -541,3 +541,26 @@
 ) {
   color: var(--arb-color-text-muted);
 }
+
+
+/* Stage 2: honor operating-system requests for stronger visual contrast. */
+@media (prefers-contrast: more) {
+  :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+    input, select, textarea, button, [role="button"], a
+  ):focus-visible {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
+  :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+    input, select, textarea, .arb-theme-selector-current, .arb-status, .status-badge
+  ) {
+    border-width: 2px;
+  }
+  :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+    .field-error, .form-error, .auth-error, [data-status="error"],
+    .form-success, .success-notice, [data-status="success"],
+    .form-warning, .warning-notice, [data-status="warning"]
+  ) {
+    font-weight: 650;
+  }
+}
