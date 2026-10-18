@@ -14,7 +14,8 @@
 - **Stage 1 status:** In progress — initial source inspection and audit report committed; executable baseline checks and systematic route/theme/sound mapping remain outstanding.
 - **Stage 1 audit report:** `docs/ARBITRADE_STAGE_1_AUDIT.md`.
 - **Latest Stage 1 action:** Inspected repository structure, app entry, large stylesheet, customer/admin navigation, theme context, sound settings, notification view, server entry/router, package scripts, database/migration layout and installer documentation.
-- **Next action:** Run `pnpm check`, `pnpm test`, and `pnpm build` in a real project environment or retrieve verified CI results; record actual outcomes before marking Stage 1 complete.
+- **CI in progress:** GitHub Actions Installer validation run [39121401277](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39121401277); no final conclusion recorded yet.
+- **Next action:** Recheck the CI run for final type-check/test/build and installer-safety results, then record evidence and continue the remaining route/theme/sound inventory before marking Stage 1 complete.
 - **Release status:** No implementation or production readiness is implied by the existence of this roadmap.
 - **Default theme decision:** Preserve the current/original Arbitrade theme as Theme 1 and keep it as the initial default.
 - **Theme count:** Five total themes: the original theme plus four new themes.
