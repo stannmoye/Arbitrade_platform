@@ -503,7 +503,9 @@ export async function listPendingSettlements(){
 export async function manuallySettleTrade(tradeId:number, adminId:number, input:{rewardMinor:number; settlementReference:string; notes?:string}){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   if(!Number.isSafeInteger(input.rewardMinor)||input.rewardMinor<0) throw new Error("Manual reward must be a non-negative integer");
-  if(!input.settlementReference.trim()) throw new Error("A manual settlement reference is required");
+  const normalizedReference=input.settlementReference.trim();
+  // Ledger reference columns are 80 characters and append ":principal" / ":reward".
+  if(!normalizedReference||normalizedReference.length>70) throw new Error("Manual settlement reference must be between 1 and 70 characters");
   const result=await db.transaction(async tx=>{
     const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,tradeId)).limit(1).for("update"))[0];
     if(!trade) throw new Error("Trade not found");
@@ -511,7 +513,7 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     const reservedReward=Number(trade.rewardReservedMinor||0);
     if(!Number.isSafeInteger(reservedReward)||reservedReward<0) throw new Error("Reserved trade reward is not a safe non-negative integer");
     if(input.rewardMinor>reservedReward) throw new Error("Manual reward exceeds the reserved package reward");
-    const reference=input.settlementReference.trim();
+    const reference=normalizedReference;
     const duplicate=(await tx.select({id:tradePositions.id}).from(tradePositions).where(eq(tradePositions.settlementReference,reference)).limit(1))[0];
     if(duplicate) throw new Error("Settlement reference has already been used");
     const wallet=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,trade.userId),eq(customerBalances.currency,trade.currency))).limit(1).for("update"))[0];
