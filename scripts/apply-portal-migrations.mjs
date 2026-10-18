@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyPortalMigrationRecord } from "./portal-migration-tracker.mjs";
+import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const databaseUrl = process.env.DATABASE_URL;
@@ -21,11 +22,14 @@ const migrationFiles = [
   "0043_wallet_minor_units_bigint.sql",
   "0051_advanced_auto_trading.sql",
   "0052_delivery_diagnostics.sql",
+  "0053_manual_settlement_lifecycle.sql",
 ];
+// These tables are also created by the main Drizzle migration chain before this
+// portal-specific runner starts. Their presence alone therefore cannot prove that
+// portal migrations were partially applied without a tracker.
 const targetTables = [
   "kyc_settings", "kyc_profiles", "password_reset_tokens", "admin_email_messages",
   "mining_economics_versions", "mining_packages", "mining_customer_packages",
-  "opportunity_popup_events", "opportunity_delivery_events",
 ];
 const baselineReviewed = process.argv.includes("--baseline-reviewed");
 const url = new URL(databaseUrl);
@@ -43,6 +47,10 @@ const connection = await mysql.createConnection({
   password: decodeURIComponent(url.password),
   database: databaseName,
   ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
+  // Portal migration files contain multiple trusted SQL statements. Enable the
+  // mysql2 option explicitly; adding it only to the URL is not reliably applied
+  // when this code builds the connection options object manually.
+  multipleStatements: true,
   connectTimeout: 10000,
 });
 
@@ -140,7 +148,7 @@ try {
     );
 
     try {
-      await connection.query(sql);
+      await executeCompatibleMigrationSql(connection, sql);
       if (filename === "0037_coinki_token_configuration.sql") {
         const { migrateMiningTokenToCki } = await import("./migrate-mining-token-to-cki.mjs");
         await migrateMiningTokenToCki(connection);

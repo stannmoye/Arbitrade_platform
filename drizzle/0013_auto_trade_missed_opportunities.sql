@@ -1,8 +1,8 @@
 ALTER TABLE `customer_controls`
-  ADD COLUMN IF NOT EXISTS `autoTradeEnabled` boolean NOT NULL DEFAULT TRUE,
-  ADD COLUMN IF NOT EXISTS `autoTradeAmountMinor` int NOT NULL DEFAULT 10000,
-  ADD COLUMN IF NOT EXISTS `autoTradeMinRewardBps` int NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS `autoTradeDailyLimit` int NOT NULL DEFAULT 5;
+  ADD COLUMN `autoTradeEnabled` boolean NOT NULL DEFAULT TRUE,
+  ADD COLUMN `autoTradeAmountMinor` int NOT NULL DEFAULT 10000,
+  ADD COLUMN `autoTradeMinRewardBps` int NOT NULL DEFAULT 0,
+  ADD COLUMN `autoTradeDailyLimit` int NOT NULL DEFAULT 5;
 --> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `missed_opportunities` (

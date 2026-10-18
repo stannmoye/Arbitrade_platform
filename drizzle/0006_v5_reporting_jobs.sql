@@ -1,4 +1,4 @@
-ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `reportingTimezone` varchar(80) NULL;
+ALTER TABLE `users` ADD COLUMN `reportingTimezone` varchar(80) NULL;
 --> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `customer_timezone_history` (

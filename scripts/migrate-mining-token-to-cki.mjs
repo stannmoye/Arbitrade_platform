@@ -93,7 +93,24 @@ export async function migrateMiningTokenToCki(conn) {
     const [configs] = await conn.query("SELECT * FROM mining_economics_versions WHERE effectiveAt<=UTC_TIMESTAMP(3) ORDER BY version DESC LIMIT 1 FOR UPDATE");
     const previous = configs[0];
     if (!previous) throw new Error("Mining economics must be initialized before applying the CoinKi migration");
-    if (String(previous.tokenSymbol).toUpperCase() === "CKI") throw new Error("The active Mining token is already CKI; this legacy asset-reclassification script is not applicable and stopped without changing data");
+    if (String(previous.tokenSymbol).toUpperCase() === "CKI") {
+      // Fresh installs already start with CKI configured by the schema migrations.
+      // Treat that as a safe no-op only when no legacy TOKEN wallet has any value;
+      // otherwise stop for manual reconciliation rather than risk losing balances.
+      const [legacyWallets] = await conn.query(
+        "SELECT id FROM v5_wallets WHERE assetCode='TOKEN' AND (CAST(availableAmount AS DECIMAL(36,8)) <> 0 OR CAST(lockedAmount AS DECIMAL(36,8)) <> 0 OR CAST(pendingAmount AS DECIMAL(36,8)) <> 0) LIMIT 1 FOR UPDATE",
+      );
+      if (legacyWallets.length) {
+        throw new Error("The active Mining token is already CKI but non-zero legacy TOKEN wallet balances remain; manual reconciliation is required");
+      }
+      await conn.execute("INSERT INTO mining_schema_migrations (migrationKey,detailsJson) VALUES (?,?)", [
+        MIGRATION_KEY,
+        JSON.stringify({ tokenName: "CoinKi", tokenSymbol: "CKI", status: "already_configured", legacyTokenBalances: "zero_or_absent", reclassificationPerformed: false }),
+      ]);
+      await conn.commit();
+      console.log("Skipped legacy TOKEN reclassification: CKI is already active and no non-zero TOKEN wallet balances exist.");
+      return;
+    }
     const tokenUnitsPerUsd = unit(previous.tokenUnitsPerUsd);
     if (!tokenUnitsPerUsd.gt(0)) throw new Error("The configured database CKI/USD valuation is invalid; migration stopped without changing data");
     const usdPerToken = new Decimal(1).div(tokenUnitsPerUsd).toSignificantDigits(18).toString();

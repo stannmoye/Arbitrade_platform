@@ -1,2 +1,2 @@
 ALTER TABLE `customer_controls`
-  ADD COLUMN IF NOT EXISTS `opportunitiesEnabled` tinyint(1) NOT NULL DEFAULT 1 AFTER `tradingEnabled`;
+  ADD COLUMN `opportunitiesEnabled` tinyint(1) NOT NULL DEFAULT 1 AFTER `tradingEnabled`;

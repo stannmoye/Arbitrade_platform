@@ -1,16 +1,31 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { AdminSlideMenu } from "@/components/AdminSlideMenu";
+const AdminSlideMenu = lazy(() => import("@/components/AdminSlideMenu").then((module) => ({ default: module.AdminSlideMenu })));
+const CustomerSlideMenu = lazy(() => import("@/components/CustomerSlideMenu").then((module) => ({ default: module.CustomerSlideMenu })));
+const CustomerMining = lazy(() => import("@/components/CustomerMining").then((module) => ({ default: module.CustomerMining })));
+const AdminMining = lazy(() => import("@/components/AdminMining").then((module) => ({ default: module.AdminMining })));
+const AdminEmailCenter = lazy(() => import("@/components/AdminEmailCenter").then((module) => ({ default: module.AdminEmailCenter })));
+const AdminSmtpEmailCenter = lazy(() => import("@/components/AdminSmtpEmailCenter").then((module) => ({ default: module.AdminSmtpEmailCenter })));
+const AdminKycControlCenter = lazy(() => import("@/components/AdminKycControlCenter").then((module) => ({ default: module.AdminKycControlCenter })));
+const CustomerKycCenter = lazy(() => import("@/components/KycCenter").then((module) => ({ default: module.CustomerKycCenter })));
+const EmailRecoveryPanel = lazy(() => import("@/components/EmailRecoveryPanel").then((module) => ({ default: module.EmailRecoveryPanel })));
+const EmailSecurityControls = lazy(() => import("@/components/EmailSecurityControls").then((module) => ({ default: module.EmailSecurityControls })));
+const AdminOpportunityDelivery = lazy(() => import("@/components/AdminOperationsPages").then((module) => ({ default: module.AdminOpportunityDelivery })));
+const AdminReportsExports = lazy(() => import("@/components/AdminOperationsPages").then((module) => ({ default: module.AdminReportsExports })));
+const AdminRiskWatchlist = lazy(() => import("@/components/AdminOperationsPages").then((module) => ({ default: module.AdminRiskWatchlist })));
+const AdminTransactionReview = lazy(() => import("@/components/AdminOperationsPages").then((module) => ({ default: module.AdminTransactionReview })));
+const AdminVerificationOversight = lazy(() => import("@/components/AdminOperationsPages").then((module) => ({ default: module.AdminVerificationOversight })));
+
 import { WiseBondButton } from "@/components/WiseBondButton";
-import { CustomerSlideMenu } from "@/components/CustomerSlideMenu";
-import { CustomerMining } from "@/components/CustomerMining";
-import { AdminMining } from "@/components/AdminMining";
+
+
+
 import "./mining-portal.css";
 import { adminNavigationGroups } from "./admin-navigation";
-import { AdminEmailCenter } from "@/components/AdminEmailCenter"; import { AdminSmtpEmailCenter } from "@/components/AdminSmtpEmailCenter"; import { AdminKycControlCenter } from "@/components/AdminKycControlCenter"; import { CustomerKycCenter } from "@/components/KycCenter";
-import { EmailRecoveryPanel } from "@/components/EmailRecoveryPanel";
-import { EmailSecurityControls } from "@/components/EmailSecurityControls";
-import { AdminOpportunityDelivery, AdminReportsExports, AdminRiskWatchlist, AdminTransactionReview, AdminVerificationOversight } from "@/components/AdminOperationsPages";
+
+
+
+
 import "./admin-operations.css";
 import { nativeMinorToUsd } from "../../shared/money";
 import {

@@ -1,6 +1,6 @@
 ALTER TABLE `opportunity_package_policies`
-  ADD COLUMN IF NOT EXISTS `minimumTradeMinor` int NOT NULL DEFAULT 1000,
-  ADD COLUMN IF NOT EXISTS `maximumTradeMinor` int NOT NULL DEFAULT 100000;
+  ADD COLUMN `minimumTradeMinor` int NOT NULL DEFAULT 1000,
+  ADD COLUMN `maximumTradeMinor` int NOT NULL DEFAULT 100000;
 --> statement-breakpoint
 UPDATE `opportunity_package_policies`
 SET

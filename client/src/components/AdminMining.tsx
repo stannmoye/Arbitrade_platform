@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Decimal from "decimal.js";
 import { trpc } from "@/lib/trpc";
+import "../factory-cockpit.css";
 import { Activity, AlertTriangle, ArrowRight, BadgeCheck, BookOpenCheck, Check, CircleDollarSign, Clock3, Cpu, Database, FileClock, Gauge, LockKeyhole, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 import { MiningCoreCanvas } from "./MiningCoreCanvas";
 
