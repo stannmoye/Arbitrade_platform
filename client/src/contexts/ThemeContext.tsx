@@ -1,5 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 
+// Legacy values remain in the context type for compatibility with the component
+// showcase and any existing light/dark-only consumers.
+export type Theme = "light" | "dark";
+
 export const ARBITRADE_THEMES = [
   "original",
   "midnight-premium",
@@ -8,9 +12,9 @@ export const ARBITRADE_THEMES = [
   "aurora-modern",
 ] as const;
 
-export type Theme = (typeof ARBITRADE_THEMES)[number];
+export type ArbitradeTheme = (typeof ARBITRADE_THEMES)[number];
 
-export const ARBITRADE_THEME_LABELS: Record<Theme, string> = {
+export const ARBITRADE_THEME_LABELS: Record<ArbitradeTheme, string> = {
   original: "Original Arbitrade",
   "midnight-premium": "Midnight Premium",
   "clean-light": "Clean Light",
@@ -19,8 +23,8 @@ export const ARBITRADE_THEME_LABELS: Record<Theme, string> = {
 };
 
 interface ThemeContextType {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
+  theme: Theme | ArbitradeTheme;
+  setTheme: (theme: ArbitradeTheme) => void;
   toggleTheme?: () => void;
   switchable: boolean;
 }
@@ -28,11 +32,11 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 const THEME_STORAGE_KEY = "arbitrade-theme";
 
-function isTheme(value: unknown): value is Theme {
+function isTheme(value: unknown): value is ArbitradeTheme {
   return typeof value === "string" && ARBITRADE_THEMES.some(theme => theme === value);
 }
 
-function readStoredTheme(defaultTheme: Theme): Theme {
+function readStoredTheme(defaultTheme: ArbitradeTheme): ArbitradeTheme {
   try {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
     return isTheme(stored) ? stored : defaultTheme;
@@ -43,7 +47,7 @@ function readStoredTheme(defaultTheme: Theme): Theme {
 
 interface ThemeProviderProps {
   children: React.ReactNode;
-  defaultTheme?: Theme;
+  defaultTheme?: ArbitradeTheme;
   switchable?: boolean;
 }
 
@@ -52,11 +56,11 @@ export function ThemeProvider({
   defaultTheme = "original",
   switchable = true,
 }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>(() =>
+  const [theme, setThemeState] = useState<ArbitradeTheme>(() =>
     typeof window === "undefined" ? defaultTheme : readStoredTheme(defaultTheme)
   );
 
-  const setTheme = (nextTheme: Theme) => {
+  const setTheme = (nextTheme: ArbitradeTheme) => {
     if (isTheme(nextTheme)) setThemeState(nextTheme);
   };
 
