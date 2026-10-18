@@ -32,16 +32,17 @@ A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the fu
 
 ## Latest confirmed automated validation evidence
 
-- GitHub Actions run: [39175490040](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39175490040), for commit `cc6b2c5c73bf940729c42089fb4bf19f40e829ab`.
-- All three parallel jobs completed successfully: application tests, TypeScript validation, and production build.
-- Application tests: 28 test files and 203 tests passed; `pnpm check` and `pnpm build` passed.
-- This passing run predates the newest exhaustive theme-policy normalization test and server-validation contract test. A fresh run for the current pull-request head is required before claiming those additions passed.
+- GitHub Actions run: [39175814611](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39175814611), for commit `d491810fd42665c190c1e62bd2238c1768b37603`.
+- All three parallel jobs passed: application tests, TypeScript validation, and production build.
+- Application tests: 28 test files and 205 tests passed; `pnpm check` and `pnpm build` passed.
+- The 205-test run includes the exhaustive 160-combination theme-policy normalization test and the server-side appearance-validation contract.
+- This run validates the code and documentation at the recorded commit. Any later commit requires checking its own CI result before reporting the latest head as green.
 - No real-browser viewport evidence has been captured; Stage 2 remains in progress. The acceptance matrix uses the ten viewport widths specified in the master roadmap.
 
 ## Acceptance still required
 
-- [ ] Re-run the contract tests and complete application test suite against the latest pull-request head. Historical passing evidence is recorded above.
-- [ ] Re-run TypeScript validation and production build against the latest pull-request head.
+- [x] Re-run the contract tests and complete application test suite; run 39175814611 passed 28 test files / 205 tests for commit `d491810fd42665c190c1e62bd2238c1768b37603`.
+- [x] Re-run TypeScript validation and production build; both passed in run 39175814611 for commit `d491810fd42665c190c1e62bd2238c1768b37603`.
 - [ ] Verify representative customer and administrator routes at the roadmap viewport widths: 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 pixels in a real browser.
 - [x] Add an accessible name and region semantics to keyboard-focusable shared table overflow containers; callers can provide contextual names, and the component showcase demonstrates the prop.
 - [ ] Confirm there is no unintended horizontal page overflow; horizontally scrollable financial tables must remain keyboard accessible in a real browser.
