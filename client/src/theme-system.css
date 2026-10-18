@@ -388,3 +388,40 @@
 ) {
   color: var(--arb-color-text-soft) !important;
 }
+
+
+/* Stage 2: consistent semantic feedback treatments across adopted portal screens. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .auth-error, .form-error, .field-error, [role="alert"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-danger) 42%, var(--arb-color-border));
+  color: var(--arb-color-danger);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-success, .success-notice, [data-status="success"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 42%, var(--arb-color-border));
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-warning, .warning-notice, [data-status="warning"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-warning) 42%, var(--arb-color-border));
+  color: var(--arb-color-warning);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .auth-error, .form-error, .field-error, .form-success, .success-notice,
+  .form-warning, .warning-notice, [role="alert"], [role="status"]
+) {
+  overflow-wrap: anywhere;
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"]
+) {
+  border-color: var(--arb-color-danger);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"]
+):focus-visible {
+  outline-color: var(--arb-color-danger);
+}
