@@ -232,7 +232,6 @@ trap cleanup_vps_setup EXIT
 # replace a destination that appeared after the preflight check.
 ENV_TMP="$(mktemp "$ENV_DIR/.arbitrade.env.XXXXXX")"
 install -o root -g "$APP_USER" -m 0640 "$ROOT/.env" "$ENV_TMP"
-ENV_PUBLISHED_ID="$(stat -c '%d:%i' -- "$ENV_TMP")"
 if grep -q '^PORT=' "$ENV_TMP"; then
   sed -i 's/^PORT=.*/PORT=3000/' "$ENV_TMP"
 else
@@ -240,6 +239,8 @@ else
 fi
 chown root:"$APP_USER" "$ENV_TMP"
 chmod 0640 "$ENV_TMP"
+# Capture the final inode after sed -i and all other staging mutations.
+ENV_PUBLISHED_ID="$(stat -c '%d:%i' -- "$ENV_TMP")"
 if ! ln -T -- "$ENV_TMP" "$ENV_FILE"; then
   fail "$ENV_FILE appeared during provisioning. Existing environment secrets were not overwritten; inspect the path and rerun only after review."
 fi
