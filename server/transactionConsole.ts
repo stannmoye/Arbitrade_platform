@@ -118,16 +118,60 @@ export async function closeTransactionConsoleSession(req: Request, res: Response
   res.clearCookie(TRANSACTION_CONSOLE_COOKIE, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 0 });
 }
 
+/** Build a MySQL advisory-lock name without exposing customer/session/transaction identifiers. */
+export function transactionConsoleEventLockName(userId: number, sessionKey: string, transactionCode: string) {
+  const digest = crypto.createHash("sha256")
+    .update(JSON.stringify([userId, sessionKey, transactionCode]))
+    .digest("hex")
+    .slice(0, 56);
+  // MySQL lock names are limited to 64 characters: 8-character prefix + 56 hex characters.
+  return `arb_evt:${digest}`;
+}
+
+/** Fail closed when a deduplication lock cannot be acquired; always release after the work. */
+export async function withTransactionConsoleEventLock<T>(
+  connection: mysql.PoolConnection,
+  lockName: string,
+  work: () => Promise<T>,
+): Promise<T> {
+  const [lockRows] = await connection.query<any[]>("SELECT GET_LOCK(?, 5) AS acquired", [lockName]);
+  if (Number(lockRows[0]?.acquired) !== 1) {
+    throw new Error("Unable to acquire transaction-console event deduplication lock.");
+  }
+  try {
+    return await work();
+  } finally {
+    await connection.query<any[]>("SELECT RELEASE_LOCK(?) AS released", [lockName]);
+  }
+}
+
+async function insertTransactionConsoleEvent(
+  connection: mysql.PoolConnection,
+  userId: number,
+  sessionKey: string,
+  input: ConsoleEventInput,
+) {
+  await connection.execute("INSERT INTO transaction_console_events (sessionKey,userId,eventType,status,title,message,transactionCode,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?,?,?)", [sessionKey, userId, input.eventType, input.status || "COMPLETED", input.title, input.message, input.transactionCode || null, input.amountMinor ?? null, input.asset || null, JSON.stringify(input.metadata || {})]);
+  await pruneConsoleEvents(connection, userId, sessionKey);
+}
+
 export async function recordTransactionConsoleEvent(userId: number, req: Request, input: ConsoleEventInput) {
   const sessionKey = readCookie(req);
   if (!sessionKey) return;
   await withConnection(async connection => {
-    if (input.transactionCode) {
+    if (!input.transactionCode) {
+      await insertTransactionConsoleEvent(connection, userId, sessionKey, input);
+      return;
+    }
+
+    // The lock makes the existence check + insert atomic across concurrent application requests,
+    // without requiring a schema migration against installations that may contain legacy duplicates.
+    const lockName = transactionConsoleEventLockName(userId, sessionKey, input.transactionCode);
+    await withTransactionConsoleEventLock(connection, lockName, async () => {
       const [existing] = await connection.query<any[]>("SELECT id FROM transaction_console_events WHERE userId=? AND sessionKey=? AND transactionCode=? LIMIT 1", [userId, sessionKey, input.transactionCode]);
       if (existing.length) return;
-    }
-    await connection.execute("INSERT INTO transaction_console_events (sessionKey,userId,eventType,status,title,message,transactionCode,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?,?,?)", [sessionKey, userId, input.eventType, input.status || "COMPLETED", input.title, input.message, input.transactionCode || null, input.amountMinor ?? null, input.asset || null, JSON.stringify(input.metadata || {})]);
-    await pruneConsoleEvents(connection, userId, sessionKey);
+      await insertTransactionConsoleEvent(connection, userId, sessionKey, input);
+    });
   });
 }
 

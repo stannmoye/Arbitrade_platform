@@ -446,3 +446,12 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 - Parallel source review: swap confirmation uses a customer-scoped quote/snapshot join with `FOR UPDATE`; idempotency keys are unique and operation-scoped; notification reads/updates constrain customer ownership. These are source-level findings, not substitutes for database-backed concurrency or authorization tests.
 - Still open: transaction-console SELECT-then-INSERT deduplication race, migration/schema parity on disposable MySQL/MariaDB databases, full sound/notification behavior, and measured responsive-browser acceptance. No production database or production deployment was accessed.
 - Stage 1 remains **in progress**; production readiness remains blocked.
+
+
+## 29. Transaction-console duplicate race remediation (2026-10-18)
+
+- Implemented MySQL advisory-lock serialization around the transaction-console event existence check and insert, keyed by a SHA-256 digest of customer ID, session key, and transaction code. Lock names are fixed at 64 characters and do not expose those identifiers.
+- The event insertion path now fails closed if the lock cannot be acquired and releases the lock in a `finally` block after both successful and unsuccessful callbacks.
+- Added unit coverage for lock-name scope/opacity, acquire-work-release ordering, timeout fail-closed behavior, and lock release when work throws.
+- This mitigates the application-level SELECT-then-INSERT race among requests using this code path without requiring a uniqueness migration against legacy installations. Database-backed concurrency verification is still required; the test suite does not prove behavior on every supported MySQL/MariaDB version.
+- No production database or production data was accessed or changed. Stage 1 remains **in progress** pending CI, database integration, API, and browser acceptance.
