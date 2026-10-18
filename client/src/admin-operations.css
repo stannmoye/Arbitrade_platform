@@ -295,3 +295,27 @@
   color: var(--arb-color-danger);
   background: color-mix(in srgb, var(--arb-color-danger) 8%, var(--arb-color-surface));
 }
+
+
+/* Stage 2: consistent keyboard and disabled states across the operations workspace. */
+:root[data-arb-theme] .admin-ops-page .admin-ops-button:focus-visible,
+:root[data-arb-theme] .admin-ops-page .admin-ops-actions :where(a, button, input, select):focus-visible,
+:root[data-arb-theme] .admin-ops-page .admin-ops-export-card :where(a, button):focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-button:disabled,
+:root[data-arb-theme] .admin-ops-page .admin-ops-actions [aria-disabled="true"] {
+  transform: none;
+  border-color: var(--arb-color-border);
+  background: var(--arb-color-surface);
+  color: var(--arb-color-text-muted);
+  box-shadow: none;
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+@media (prefers-contrast: more) {
+  :root[data-arb-theme] .admin-ops-page :where(.admin-ops-button, .admin-ops-status, .admin-ops-metric, .admin-ops-panel) {
+    border-width: 2px;
+  }
+}
