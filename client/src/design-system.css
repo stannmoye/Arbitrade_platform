@@ -1010,3 +1010,18 @@
     outline-color: Highlight;
   }
 }
+
+
+/* Stage 2: maintain usable touch targets for shared controls on narrow screens. */
+@media (max-width: 640px) {
+  :is([data-slot="button"], [data-slot="select-trigger"], [data-slot="input"], [data-slot="textarea"]) {
+    min-height: 44px;
+    max-width: 100%;
+  }
+
+  [data-slot="button"].size-8,
+  [data-slot="button"].size-9,
+  [data-slot="button"].size-10 {
+    min-width: 44px;
+  }
+}
