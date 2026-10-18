@@ -21,11 +21,11 @@ describe("migration recovery diagnostic connection safety", () => {
   it("keeps recovery diagnostics aligned with the portal migration runner", async () => {
     const source = await readFile(sourceUrl, "utf8");
     const runnerSource = await readFile(new URL("../scripts/apply-portal-migrations.mjs", import.meta.url), "utf8");
-    const diagnosticList = source.match(/const portalMigrationFiles = \[([\\s\\S]*?)\];/);
-    const runnerList = runnerSource.match(/const migrationFiles = \[([\\s\\S]*?)\];/);
+    const diagnosticList = source.match(/const portalMigrationFiles = \[([\s\S]*?)\];/);
+    const runnerList = runnerSource.match(/const migrationFiles = \[([\s\S]*?)\];/);
     expect(diagnosticList).not.toBeNull();
     expect(runnerList).not.toBeNull();
-    const filenames = (list: string) => [...list.matchAll(/"([^"]+\\.sql)"/g)].map((match) => match[1]);
+    const filenames = (list: string) => [...list.matchAll(/"([^"]+\.sql)"/g)].map((match) => match[1]);
     expect(filenames(diagnosticList![1])).toEqual(filenames(runnerList![1]));
   });
 
