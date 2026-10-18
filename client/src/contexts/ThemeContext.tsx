@@ -69,12 +69,13 @@ export function ThemeProvider({
   const [theme, setThemeState] = useState<ArbitradeTheme>(defaultTheme);
 
   useEffect(() => {
-    if (isAdmin) {
-      // Administrators may keep a local preview independent of the published customer policy.
-      setThemeState(readStoredTheme(defaultTheme));
-      return;
-    }
-    if (!policy) return;
+    if (!isAdmin) return;
+    // Administrators may keep a local preview independent of the published customer policy.
+    setThemeState(readStoredTheme(defaultTheme));
+  }, [isAdmin, defaultTheme]);
+
+  useEffect(() => {
+    if (isAdmin || !policy) return;
     let selected: ArbitradeTheme = policyDefault;
     if (customerCanSelect) {
       try {
