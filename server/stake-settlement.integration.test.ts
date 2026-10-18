@@ -167,6 +167,46 @@ databaseDescribe("Stake & Earn maturity settlement database integration", () => 
     }
   }, 30_000);
 
+  it("fails closed if a principal-release ledger already exists for an active position", async () => {
+    const setup = await mysql.createConnection(databaseUrl!);
+    const fixture: Fixture = {};
+    activeFixture = fixture;
+    try {
+      await ensureTables(setup);
+      await insertMaturePosition(setup, fixture, true);
+      await setup.execute(
+        "INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,'USD',500,'stake_principal_release',?,false)",
+        [TEST_USER_ID, fixture.reference],
+      );
+
+      await expect(inTransaction(setup, TEST_USER_ID)).rejects.toThrow(/principal-release ledger already exists/i);
+
+      const [ledger] = await setup.execute<any[]>(
+        "SELECT id FROM balance_ledger WHERE reference=?",
+        [fixture.reference],
+      );
+      expect(ledger).toHaveLength(1);
+      const [positions] = await setup.execute<any[]>(
+        "SELECT status FROM stake_positions WHERE id=?",
+        [fixture.positionId],
+      );
+      expect(positions[0]?.status).toBe("ACTIVE");
+      const [balances] = await setup.execute<any[]>(
+        "SELECT availableMinor,lockedMinor FROM customer_balances WHERE userId=? AND currency='USD'",
+        [TEST_USER_ID],
+      );
+      expect(Number(balances[0].availableMinor)).toBe(500);
+      expect(Number(balances[0].lockedMinor)).toBe(500);
+      const [events] = await setup.execute<any[]>(
+        "SELECT id FROM stake_events WHERE positionId=? AND eventType='position.completed'",
+        [fixture.positionId],
+      );
+      expect(events).toHaveLength(0);
+    } finally {
+      await setup.end();
+    }
+  }, 30_000);
+
   it("rolls back the principal-release ledger entry if the wallet row is missing", async () => {
     const setup = await mysql.createConnection(databaseUrl!);
     const fixture: Fixture = {};
