@@ -42,6 +42,28 @@ describe("main migration preflight", () => {
     }).allowed).toBe(true);
   });
 
+  it("fails closed when database inventory counts are malformed", () => {
+    for (const tableCount of [Number.NaN, 1.5, -1]) {
+      expect(classifyMainMigrationPreflight({
+        mode: "existing",
+        tableCount,
+        trackerExists: true,
+        trackerCount: 34,
+      }).allowed).toBe(false);
+    }
+  });
+
+  it("fails closed when migration tracker counts are malformed", () => {
+    for (const trackerCount of [Number.NaN, 1.5, -1]) {
+      expect(classifyMainMigrationPreflight({
+        mode: "existing",
+        tableCount: 109,
+        trackerExists: true,
+        trackerCount,
+      }).allowed).toBe(false);
+    }
+  });
+
   it("blocks an empty database selected for existing-database mode", () => {
     expect(classifyMainMigrationPreflight({
       mode: "existing",
