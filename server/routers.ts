@@ -42,7 +42,7 @@ function normalizeAppearanceSettings(raw: string | null | undefined) {
   const uniqueEnabled = [...new Set(requestedEnabled)];
   const enabledThemes: AppearanceTheme[] = uniqueEnabled.length ? uniqueEnabled : [requestedDefault];
   // Keep the published default selectable even if an old or manually edited setting is inconsistent.
-  const defaultTheme = enabledThemes.includes(requestedDefault) ? requestedDefault : enabledThemes[0];
+  const defaultTheme = enabledThemes.includes(requestedDefault) ? requestedDefault : (enabledThemes[0] ?? requestedDefault);
 
   return {
     defaultTheme,
