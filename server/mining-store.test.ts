@@ -4,6 +4,7 @@ import {
   amountString,
   assertMiningAsset,
   beginMiningIdempotency,
+  finishMiningIdempotency,
   decimal,
   inMiningTransaction,
   postMiningLedgerEntries,
@@ -89,6 +90,32 @@ describe("Mining idempotency request keys", () => {
   });
 });
 
+
+describe("Mining idempotency result persistence", () => {
+  it("stores a result only while the reservation result is still empty", async () => {
+    let captured: { sql: string; values: unknown[] } | undefined;
+    const conn = {
+      execute: async (sql: string, values: unknown[] = []) => {
+        captured = { sql, values };
+        return [{ affectedRows: 1 }, []];
+      },
+    } as unknown as Db;
+
+    await expect(finishMiningIdempotency(conn, "mining-swap:42:digest", { conversionId: 123 }))
+      .resolves.toBeUndefined();
+    expect(captured?.sql).toContain("resultJson IS NULL");
+    expect(captured?.values).toEqual(['{"conversionId":123}', "mining-swap:42:digest"]);
+  });
+
+  it("fails if the idempotency result could not be persisted", async () => {
+    const conn = {
+      execute: async () => [{ affectedRows: 0 }, []],
+    } as unknown as Db;
+
+    await expect(finishMiningIdempotency(conn, "mining-swap:42:missing", { conversionId: 123 }))
+      .rejects.toThrow(/unable to persist the Mining idempotency result/i);
+  });
+});
 
 describe("Mining ledger entry safeguards", () => {
   const transaction = { id: 7, referenceCode: "MIN-TEST" };
