@@ -17,6 +17,7 @@ chmod +x "$MOCK_BIN/systemctl"
 cat > "$MOCK_BIN/nginx" <<'MOCK'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$NGINX_LOG"
+[[ "${NGINX_FAIL:-0}" != 1 ]] || exit 1
 MOCK
 chmod +x "$MOCK_BIN/nginx"
 PATH="$MOCK_BIN:$PATH"
@@ -74,6 +75,18 @@ false || cleanup_vps_setup 1
 grep -Fq 'reload nginx' "$SYSTEMCTL_LOG" || fail "nginx was not reloaded after removing the failed site"
 grep -Fxq -- '-t' "$NGINX_LOG" || fail "nginx config was not validated before rollback reload"
 pass "post-reload failure restores and reloads nginx configuration"
+
+# If nginx validation/reload itself fails during rollback, surface a clear
+# manual-recovery warning rather than silently claiming the config is restored.
+new_case
+NGINX_RELOAD_ATTEMPTED=1
+NGINX_FAIL=1
+export NGINX_FAIL
+rollback_output="$(false || cleanup_vps_setup 1)"
+unset NGINX_FAIL
+[[ "$rollback_output" == *"WARNING: nginx could not be reloaded after rollback"* ]] || fail "nginx rollback failure did not emit a manual-recovery warning"
+[[ ! -e "$NGINX" && ! -L "$NGINX_ENABLED" ]] || fail "nginx files were not removed before the failed validation warning"
+pass "nginx rollback validation failure emits a manual-recovery warning"
 
 new_case
 printf 'replacement unit\n' > "$CASE_DIR/replacement"
