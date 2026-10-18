@@ -3,6 +3,7 @@ import {
   addUtcMonths,
   amountString,
   assertMiningAsset,
+  beginMiningIdempotency,
   decimal,
   inMiningTransaction,
   postMiningLedgerEntries,
@@ -206,5 +207,66 @@ describe("Mining transaction wrapper", () => {
     })).rejects.toBe(beginFailure);
 
     expect(calls).toEqual(["begin"]);
+  });
+});
+
+
+describe("Mining idempotency reservation", () => {
+  function mockConnection(row: { command: string; resultJson: string | null } | undefined) {
+    const calls: Array<{ kind: string; sql: string; values: unknown[] }> = [];
+    const conn = {
+      execute: async (sql: string, values: unknown[] = []) => {
+        calls.push({ kind: "execute", sql, values });
+        return [{ affectedRows: 1 }, []];
+      },
+      query: async (sql: string, values: unknown[] = []) => {
+        calls.push({ kind: "query", sql, values });
+        return [[...(row ? [row] : [])], []];
+      },
+    } as unknown as Db;
+    return { conn, calls };
+  }
+
+  it("returns the stored result for a completed retry using the same key", async () => {
+    const stored = { conversionId: 123, status: "EXECUTED" };
+    const { conn, calls } = mockConnection({
+      command: "mining.swap.confirm",
+      resultJson: JSON.stringify(stored),
+    });
+
+    await expect(beginMiningIdempotency(conn, 42, "mining-swap:42:digest", "mining.swap.confirm"))
+      .resolves.toEqual(stored);
+    expect(calls).toHaveLength(2);
+    expect(calls[0].kind).toBe("execute");
+    expect(calls[0].sql).toContain("INSERT IGNORE INTO v5_idempotency_keys");
+    expect(calls[1].kind).toBe("query");
+    expect(calls[1].sql).toContain("FOR UPDATE");
+  });
+
+  it("rejects reusing an idempotency key for a different command", async () => {
+    const { conn } = mockConnection({
+      command: "mining.purchase.confirm",
+      resultJson: JSON.stringify({ purchaseId: 77 }),
+    });
+
+    await expect(beginMiningIdempotency(conn, 42, "mining-swap:42:digest", "mining.swap.confirm"))
+      .rejects.toThrow(/different Mining action/i);
+  });
+
+  it("rejects when the reservation cannot be found after insert-or-reuse", async () => {
+    const { conn } = mockConnection(undefined);
+
+    await expect(beginMiningIdempotency(conn, 42, "mining-swap:42:digest", "mining.swap.confirm"))
+      .rejects.toThrow(/unable to reserve this operation/i);
+  });
+
+  it("returns null for a reserved operation that has not stored a result yet", async () => {
+    const { conn } = mockConnection({
+      command: "mining.swap.confirm",
+      resultJson: null,
+    });
+
+    await expect(beginMiningIdempotency(conn, 42, "mining-swap:42:digest", "mining.swap.confirm"))
+      .resolves.toBeNull();
   });
 });
