@@ -53,15 +53,30 @@ function allocationCommand(productId: number, amountMinor: number) {
   return `stake.allocate:${crypto.createHash("sha256").update(payload).digest("hex")}`;
 }
 
-function parseIdempotencyReplay(prior: { command: string; resultJson: string }, expectedCommand: string, expectedPositionId?: number) {
+function parseIdempotencyReplay(prior: { command: string; resultJson: string | null }, expectedCommand: string, expectedPositionId?: number) {
   if (prior.command !== expectedCommand) {
     throw new Error("This idempotency key was already used for a different Stake & Earn operation");
   }
-  const result = JSON.parse(prior.resultJson);
-  if (expectedPositionId !== undefined && Number(result.positionId) !== expectedPositionId) {
+
+  let result: unknown;
+  try {
+    result = JSON.parse(prior.resultJson ?? "");
+  } catch {
+    throw new Error("Stored Stake & Earn idempotency result is invalid; refusing replay");
+  }
+
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    throw new Error("Stored Stake & Earn idempotency result is invalid; refusing replay");
+  }
+  const replay = result as Record<string, unknown>;
+  const replayPositionId = Number(replay.positionId);
+  if (!Number.isInteger(replayPositionId) || replayPositionId <= 0) {
+    throw new Error("Stored Stake & Earn idempotency result has no valid position; refusing replay");
+  }
+  if (expectedPositionId !== undefined && replayPositionId !== expectedPositionId) {
     throw new Error("This idempotency key was already used for a different stake position");
   }
-  return result;
+  return replay;
 }
 
 function rewardFor(principal: number, annualRateBps: number, durationDays: number) {
