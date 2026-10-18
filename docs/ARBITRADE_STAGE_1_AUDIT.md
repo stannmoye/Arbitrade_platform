@@ -184,3 +184,28 @@ These are source-based risk findings for test planning, not proof of a productio
 - [ ] Update this report with evidence and mark Stage 1 complete only when exit criteria are satisfied.
 
 **Next action:** Complete route-target and access-policy tracing, inspect ThemeContext/provider usage across app entry points, reconcile `route-manifest.md`, and continue responsive/browser baseline checks. Do not begin a broad UI rewrite yet.
+
+## 10. Transaction-console, mining/swap, and event-truth follow-up (2026-10-18)
+
+### Transaction-console event semantics
+- `server/transactionConsole.ts` stores session-scoped console rows. `openTransactionConsoleSession` generates a random cookie-backed session and deletes existing console-event rows for that user before inserting a `SESSION_OPENED` entry. Confirm this retention behavior is intentional before treating the console as a durable audit history.
+- `recordTransactionConsoleEvent` skips insertion when the transaction-console cookie is absent. Its duplicate check is a SELECT followed by INSERT scoped to user, session and transaction code. Unless a matching database uniqueness constraint exists, concurrent requests may race and insert duplicates; schema/index and concurrency tests remain required.
+- `recordTransactionConsolePulse` explicitly describes its rows as simulated and non-wallet-mutating. It creates `SYSTEM_ACTIVITY` entries using configurable phrase templates. These rows are not ledger evidence and must not trigger financial-success sounds.
+- Simulated status/copy can resemble real transaction lifecycle language. Customer-facing labels and sound routing must preserve the distinction between simulated telemetry and ledger-backed transactions.
+
+### Mining and swap API
+- Mining endpoints use `protectedProcedure` and pass `ctx.user.id` into service functions. Swap quote accepts token amount and target asset; confirmation accepts quote ID and an idempotency key; mining transaction history is authenticated.
+- `server/mining.ts` uses Decimal arithmetic, validates supported main-wallet assets/precision, locks wallet rows before debits, checks available balance, conditionally debits, and inserts ledger entries. Credit paths lock existing wallet rows and write ledger entries. These are source-level controls, not proof of every transaction path or database constraint.
+- Swap confirmation begins an idempotency flow inside a mining DB transaction. End-to-end verification must still cover quote ownership, expiry/status, one-time consumption, source-token debit/reservation, target-wallet credit, fees, ledger correspondence and replay under concurrent confirmations.
+- Mining network telemetry includes an explicit `simulationOnly: true` marker. Keep this separate from real earnings, wallet balances, ledger history and success notifications.
+
+### Notification and customer-history boundary
+- The source exposes DB helpers including `listNotifications` and `markCustomerNotificationsRead`; mining history reads mining-ledger transactions and mining boost activations. Exact router filters and all customer history data sources still need end-to-end tracing before every displayed history view can be called authoritative.
+- An API response or optimistic refresh alone does not prove a financial transaction posted. Sound/notification acceptance must require authoritative persisted state and matching ledger evidence; pending quotes, simulated console activity, errors and failed/retried requests must not announce financial success.
+
+### Outstanding Stage 1 checks
+1. Inspect swap confirmation end-to-end, including idempotency implementation and schema uniqueness/locking.
+2. Trace customer notification/history procedures to storage queries and confirm per-user scoping.
+3. Inspect console-event schema/indexes for deduplication and session-retention semantics; add targeted race/replay tests before proposing financial code changes.
+4. Perform browser viewport, keyboard, reduced-motion and sound-permission checks when an available browser test environment can be used. No browser acceptance run is claimed here.
+5. Stage 1 remains **in progress**. This source audit did not change financial logic or customer balances.
