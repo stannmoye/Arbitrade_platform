@@ -247,7 +247,7 @@ describe("Mining idempotency reservation", () => {
     const { conn } = mockConnection({
       command: "mining.purchase.confirm",
       resultJson: JSON.stringify({ purchaseId: 77 }),
-    });
+    }, 0);
 
     await expect(beginMiningIdempotency(conn, 42, "mining-swap:42:digest", "mining.swap.confirm"))
       .rejects.toThrow(/different Mining action/i);
