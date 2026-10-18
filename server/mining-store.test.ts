@@ -5,6 +5,7 @@ import {
   assertMiningAsset,
   decimal,
   inMiningTransaction,
+  postMiningLedgerEntries,
   requestKey,
   type Db,
 } from "./mining-store";
@@ -84,6 +85,38 @@ describe("Mining idempotency request keys", () => {
     "x".repeat(161),
   ])("rejects malformed idempotency keys: %j", (key) => {
     expect(() => requestKey("mining-swap", 42, key)).toThrow(/valid idempotency key/i);
+  });
+});
+
+
+describe("Mining ledger entry safeguards", () => {
+  const transaction = { id: 7, referenceCode: "MIN-TEST" };
+
+  it("rejects an unbalanced asset journal before touching the database", async () => {
+    const conn = {} as Db;
+
+    await expect(postMiningLedgerEntries(conn, transaction, [
+      { userId: 42, asset: "USD", amount: "-10.00", entryType: "customer_debit" },
+      { userId: 0, asset: "USD", amount: "9.99", entryType: "platform_credit" },
+    ])).rejects.toThrow(/USD journal entries do not balance/i);
+  });
+
+  it("balances each asset independently instead of netting unlike denominations", async () => {
+    const conn = {} as Db;
+
+    await expect(postMiningLedgerEntries(conn, transaction, [
+      { userId: 42, asset: "USD", amount: "1.00", entryType: "usd_debit" },
+      { userId: 42, asset: "EUR", amount: "-1.00", entryType: "eur_credit" },
+    ])).rejects.toThrow(/USD journal entries do not balance/i);
+  });
+
+  it("rejects ledger amounts that exceed the asset's supported precision", async () => {
+    const conn = {} as Db;
+
+    await expect(postMiningLedgerEntries(conn, transaction, [
+      { userId: 42, asset: "CKI", amount: "-0.000000001", entryType: "customer_debit" },
+      { userId: 0, asset: "CKI", amount: "0.000000001", entryType: "platform_credit" },
+    ])).rejects.toThrow(/exceeds its supported precision/i);
   });
 });
 
