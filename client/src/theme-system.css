@@ -392,7 +392,7 @@
 
 /* Stage 2: consistent semantic feedback treatments across adopted portal screens. */
 :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
-  .auth-error, .form-error, .field-error, [role="alert"]
+  .auth-error, .form-error, .field-error, [data-status="error"]
 ) {
   border-color: color-mix(in srgb, var(--arb-color-danger) 42%, var(--arb-color-border));
   color: var(--arb-color-danger);
