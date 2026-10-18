@@ -245,6 +245,7 @@ assert_file_contains "$VPS_SETUP" 'arbitrade_published_file_identity_matches "$U
 assert_file_contains "$ROOT/installer/vps-preflight.sh" 'stat -c '\''%d:%i'\'' -- "$path"' "VPS identity predicate compares the published file device/inode"
 assert_file_contains "$VPS_SETUP" 'Service rollback skipped because the published unit identity could not be verified' "VPS rollback warns when service identity cannot be verified"
 assert_file_not_contains "$VPS_SETUP" 'if [[ "$SERVICE_ATTEMPTED" == 1 ]]; then' "VPS rollback never uses the former unconditional service-disable guard"
+assert_file_contains "$VPS_SETUP" 'if [[ "$SERVICE_ATTEMPTED" == 1 ]]; then' "VPS rollback only reports service-state rollback when service activation was attempted"
 pass "VPS service rollback identity regression checks"
 
 # Exercise the published-file identity predicate with real temporary files.
