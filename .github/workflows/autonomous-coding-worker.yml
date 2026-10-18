@@ -32,6 +32,8 @@ jobs:
     outputs:
       patch_present: ${{ steps.patch.outputs.present }}
       task_number: ${{ steps.task_number.outputs.number }}
+      task_mode: ${{ steps.task_number.outputs.mode }}
+      repair_attempt: ${{ steps.task_number.outputs.repair_attempt }}
       target_branch: ${{ steps.context.outputs.target_branch }}
       expected_sha: ${{ steps.current_revision.outputs.expected_sha }}
     steps:
@@ -56,26 +58,72 @@ jobs:
       - name: Resolve bounded task number
         id: task_number
         shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion || '' }}
         run: |
           set -euo pipefail
-          # Count only the consecutive automatic commits at the branch tip.
-          # A normal human-authored commit starts a new bounded chain.
-          count=0
-          while IFS= read -r subject; do
-            if [[ "$subject" =~ ^\[ARBITRADE-AUTO-STEP-([1-5])\] ]]; then
-              count=$((count + 1))
-            else
-              break
-            fi
-          done < <(git log -n 8 --format=%s)
-          number=$((count + 1))
-          if (( number > 5 )); then
-            echo "number=0" >> "$GITHUB_OUTPUT"
-            echo "::notice::The five-task chain limit has been reached. Stopping without another API call."
-          else
-            echo "number=$number" >> "$GITHUB_OUTPUT"
-            echo "Eligible bounded chain task $number of 5."
+          mode=task
+          if [[ "$EVENT_NAME" == "workflow_run" && "$RUN_CONCLUSION" == "failure" ]]; then
+            mode=repair
           fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
+          latest_subject="$(git log -1 --format=%s)"
+          last_step=0
+          if [[ "$latest_subject" =~ ^\[ARBITRADE-AUTO-STEP-([1-5])\] ]]; then
+            last_step="${BASH_REMATCH[1]}"
+          fi
+
+          if [[ "$mode" == "repair" ]]; then
+            # Only repair a failure caused by an automatic task commit. Never
+            # spend API calls trying to repair an unrelated baseline failure.
+            if (( last_step == 0 )); then
+              echo "number=0" >> "$GITHUB_OUTPUT"
+              echo "repair_attempt=0" >> "$GITHUB_OUTPUT"
+              echo "::notice::Failed validation did not come from an automatic task commit; stopping for human review."
+              exit 0
+            fi
+            repairs=0
+            while IFS= read -r subject; do
+              if [[ "$subject" =~ ^\[ARBITRADE-AUTO-STEP-${last_step}\]\[REPAIR-([1-2])\] ]]; then
+                repairs="${BASH_REMATCH[1]}"
+              else
+                break
+              fi
+            done < <(git log -n 8 --format=%s)
+            if (( repairs >= 2 )); then
+              echo "number=0" >> "$GITHUB_OUTPUT"
+              echo "repair_attempt=0" >> "$GITHUB_OUTPUT"
+              echo "::notice::Two repair attempts have failed validation; stopping for human review."
+              exit 0
+            fi
+            echo "number=$last_step" >> "$GITHUB_OUTPUT"
+            echo "repair_attempt=$((repairs + 1))" >> "$GITHUB_OUTPUT"
+            echo "::notice::Starting bounded repair attempt $((repairs + 1)) for task $last_step."
+          else
+            if (( last_step >= 5 )); then
+              echo "number=0" >> "$GITHUB_OUTPUT"
+              echo "repair_attempt=0" >> "$GITHUB_OUTPUT"
+              echo "::notice::The five-task chain limit has been reached. Stopping without another API call."
+              exit 0
+            fi
+            echo "number=$((last_step + 1))" >> "$GITHUB_OUTPUT"
+            echo "repair_attempt=0" >> "$GITHUB_OUTPUT"
+            echo "Eligible bounded chain task $((last_step + 1)) of 5."
+          fi
+
+      - name: Collect failed validation logs for repair
+        if: steps.task_number.outputs.mode == 'repair' && steps.task_number.outputs.number != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          gh run view "$RUN_ID" --log-failed > .arbitrade-ci-failure.txt
+          # Bound context size before the agent sees it.
+          tail -n 1200 .arbitrade-ci-failure.txt > .arbitrade-ci-failure.txt.tmp
+          mv .arbitrade-ci-failure.txt.tmp .arbitrade-ci-failure.txt
 
       - name: Require the model API credential
         if: steps.task_number.outputs.number != '0'
@@ -105,13 +153,16 @@ jobs:
           output-file: /tmp/arbitrade-codex-summary.md
           prompt: |
             You are the bounded ARBITRADE Stage 1 coding worker for repository ${{ github.repository }}.
-            Work on the checked-out revision only. This run is task ${{ steps.task_number.outputs.number }} of a maximum chain of five.
+            Work on the checked-out revision only. Mode: ${{ steps.task_number.outputs.mode }}. Task ${{ steps.task_number.outputs.number }} of a maximum chain of five.
+            If mode is repair, inspect .arbitrade-ci-failure.txt first and fix only the cause of the failed validation for this task.
+            Do not start a new task in repair mode, weaken/remove tests, or bypass a safety gate. Repair attempts are capped at two.
 
             First inspect the current branch, recent commits, package scripts, relevant code/tests, and
             docs/ARBITRADE_STAGE1_AUTOMATION_QUEUE.md and docs/ARBITRADE_STAGE_1_PROGRESS_2026-10-18.md.
-            Choose the highest-priority unblocked task supported by repository evidence. Prefer a small,
+            In task mode, choose the highest-priority unblocked task supported by repository evidence. Prefer a small,
             test-backed P0 financial-correctness task (wallet concurrency, settlement single-winner/rollback,
-            mining idempotency/reconciliation). Do not merely rewrite documentation or claim completion without evidence.
+            mining idempotency/reconciliation). In repair mode, fix only the failed task and use the captured CI logs.
+            Do not merely rewrite documentation or claim completion without evidence.
 
             Implement at most one coherent task in this run. Add or update focused regression tests, run the relevant
             tests available locally, and update the queue/progress docs only when the evidence justifies it.
@@ -126,6 +177,10 @@ jobs:
             If blocked or unable to make a safe tested change, leave the workspace unchanged and explain the blocker.
             Be precise in your final summary: files changed, commands/tests run and actual results, limitations,
             and the next best task. A later task starts only after validation of the prior pushed change succeeds.
+
+      - name: Remove temporary CI failure context
+        if: steps.task_number.outputs.number != '0'
+        run: rm -f .arbitrade-ci-failure.txt
 
       # Capture only a patch. A separate fresh job validates its paths and publishes it.
       - name: Capture the proposed patch
@@ -175,6 +230,8 @@ jobs:
         env:
           EXPECTED_SHA: ${{ needs.code-one-task.outputs.expected_sha }}
           TASK_NUMBER: ${{ needs.code-one-task.outputs.task_number }}
+          TASK_MODE: ${{ needs.code-one-task.outputs.task_mode }}
+          REPAIR_ATTEMPT: ${{ needs.code-one-task.outputs.repair_attempt }}
         run: |
           set -euo pipefail
           patch_file=/tmp/arbitrade-agent-patch/arbitrade-agent.patch
@@ -218,5 +275,9 @@ jobs:
           git diff --cached --check
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "[ARBITRADE-AUTO-STEP-$TASK_NUMBER] automated Stage 1 task"
+          if [[ "$TASK_MODE" == "repair" ]]; then
+            git commit -m "[ARBITRADE-AUTO-STEP-$TASK_NUMBER][REPAIR-$REPAIR_ATTEMPT] repair failed Stage 1 validation"
+          else
+            git commit -m "[ARBITRADE-AUTO-STEP-$TASK_NUMBER] automated Stage 1 task"
+          fi
           git push origin "HEAD:${{ needs.code-one-task.outputs.target_branch }}"
