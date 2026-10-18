@@ -68,6 +68,8 @@ jobs:
         run: pnpm build
       - name: Create the application schema in the disposable database
         run: pnpm exec drizzle-kit push --force
+      - name: Run current mining schema upgrader twice
+        run: pnpm run db:mining-schema && pnpm run db:mining-schema
       - name: Test wallet concurrency and ledger reconciliation
         run: pnpm exec vitest run server/wallet-adjustment-concurrency.integration.test.ts
       - name: Test wallet unique-index migration preflight
