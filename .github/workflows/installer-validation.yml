@@ -570,7 +570,7 @@ jobs:
           NODE
 
   deployment-packages:
-    name: Package cPanel and existing-VPS panel releases
+    name: Package cPanel and fresh-VPS releases
     runs-on: ubuntu-latest
     needs:
       - syntax
@@ -597,7 +597,7 @@ jobs:
           set -Eeuo pipefail
           root="$RUNNER_TEMP/arbitrade-release"
           cpanel="$root/cpanel"
-          vps="$root/existing-vps-panel"
+          vps="$root/fresh-vps"
           mkdir -p "$cpanel" "$vps"
           git archive HEAD | tar -x -C "$cpanel"
           git archive HEAD | tar -x -C "$vps"
@@ -632,45 +632,45 @@ jobs:
           EOF
 
           cat > "$vps/DEPLOYMENT-README.txt" <<'EOF'
-          Arbitrade — existing VPS / hosting-panel package
-          ================================================
-          Target: an existing VPS whose domain, HTTPS, reverse proxy, and process
-          manager are already configured by its hosting panel.
+          Arbitrade — fresh VPS package
+          ==========================
+          Target: a newly provisioned Debian 12 or Ubuntu 22.04/24.04 VPS.
+          This package includes VPS provisioning and rollback scripts.
 
-          1. Extract into the panel-managed private application root. Do not replace
-             the panel configuration or put .env under the public document root.
-          2. Preserve the existing DATABASE_URL and server-side secrets. Confirm the
-             current database target before running any database command. This
-             package is for an existing host and does not assume an empty database.
-          3. In the panel, select Node.js 20+ and startup file dist/index.js.
-             Preserve the existing domain, TLS certificate, proxy, service user,
-             process manager, and application port settings.
-          4. From the private application terminal, install and build:
-               pnpm install --frozen-lockfile
-               pnpm build
-          5. Restart the application using the existing hosting panel. Then run:
-               pnpm installer:diagnose
-             Confirm GET /api/health returns {"status":"ok"} and review private logs.
-          6. Do not run fresh-install mode or database migrations as part of this
-             application-only update. Schema changes require a separately reviewed
-             migration plan and a verified restorable backup.
+          1. Provision a clean supported VPS and connect over SSH as a sudo-capable
+             administrator. Point the intended domain to the server before enabling
+             HTTPS. Do not use this fresh-server flow on a host with existing apps.
+          2. Extract the package into a private directory, enter that directory, and
+             review installer/README.md and installer/vps-setup.sh before execution.
+          3. Run the preflight checks first:
+               sudo bash installer/vps-preflight.sh
+          4. Configure the domain, application user, database credentials, and all
+             required secrets in the documented environment file. Keep secrets out
+             of the public web root and shell history.
+          5. Run the provisioning script using its documented options:
+               sudo bash installer/vps-setup.sh --help
+             Then run the reviewed command for this server. Do not guess options.
+          6. Complete application installation against the intended NEW database
+             only after verifying the database name and that it is empty. Never use
+             fresh-install mode against an existing database.
+          7. Verify the application health endpoint and private service logs before
+             pointing live traffic at the server. Keep the rollback scripts available.
 
-          This package intentionally excludes VPS host-provisioning scripts. Do not
-          create or replace systemd/Nginx/Certbot configuration for this deployment.
-          See installer/README.md for the complete existing-host procedure.
+          Provisioning changes system packages, web-server/TLS and service settings.
+          Review the script and confirm the target is a disposable/new VPS first.
+          See installer/README.md for prerequisites, options, and recovery steps.
           EOF
 
-          for package in "$cpanel" "$vps"; do
-            rm -f "$package/installer/vps-setup.sh" "$package/installer/vps-rollback.sh" \
-              "$package/installer/vps-preflight.sh" "$package/installer/vps-nodesource-rollback.sh" \
-              "$package/installer/vps-rollback.test.sh" "$package/installer/vps-nodesource-rollback.test.sh"
-          done
+          # Keep host-provisioning scripts out of the cPanel package only.
+          rm -f "$cpanel/installer/vps-setup.sh" "$cpanel/installer/vps-rollback.sh" \
+            "$cpanel/installer/vps-preflight.sh" "$cpanel/installer/vps-nodesource-rollback.sh" \
+            "$cpanel/installer/vps-rollback.test.sh" "$cpanel/installer/vps-nodesource-rollback.test.sh"
           mkdir -p "$RUNNER_TEMP/deployment-artifacts"
           (cd "$cpanel" && zip -qr "$RUNNER_TEMP/deployment-artifacts/arbitrade-cpanel-fresh-db.zip" .)
-          (cd "$vps" && zip -qr "$RUNNER_TEMP/deployment-artifacts/arbitrade-existing-vps-panel.zip" .)
+          (cd "$vps" && zip -qr "$RUNNER_TEMP/deployment-artifacts/arbitrade-fresh-vps.zip" .)
           unzip -t "$RUNNER_TEMP/deployment-artifacts/arbitrade-cpanel-fresh-db.zip"
-          unzip -t "$RUNNER_TEMP/deployment-artifacts/arbitrade-existing-vps-panel.zip"
-          printf 'Created separate cPanel fresh-database and existing-VPS panel packages.\n'
+          unzip -t "$RUNNER_TEMP/deployment-artifacts/arbitrade-fresh-vps.zip"
+          printf 'Created separate cPanel fresh-database and fresh-VPS packages.\n'
       - name: Upload cPanel package
         uses: actions/upload-artifact@v4
         with:
@@ -681,7 +681,7 @@ jobs:
       - name: Upload fresh-VPS package
         uses: actions/upload-artifact@v4
         with:
-          name: arbitrade-existing-vps-panel
-          path: ${{ runner.temp }}/deployment-artifacts/arbitrade-existing-vps-panel.zip
+          name: arbitrade-fresh-vps
+          path: ${{ runner.temp }}/deployment-artifacts/arbitrade-fresh-vps.zip
           if-no-files-found: error
           retention-days: 14
