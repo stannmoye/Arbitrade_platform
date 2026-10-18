@@ -336,3 +336,12 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 - **Execution status: pending.** These are test definitions only; they have not been run in this environment. The commit/rollback cases use a mocked `PoolConnection` and do not prove database-backed swap atomicity.
 - Still required: execute `pnpm test -- server/mining-store.test.ts` and `pnpm check`; then add isolated database-backed tests for quote ownership/status/expiry, same-key replay, concurrent confirmations with distinct keys, ledger/main-wallet correspondence, and rollback after injected conversion failures. Do not use production credentials or change production financial data for these tests.
 
+
+
+## 19. Rollback-failure diagnostics hardening (2026-10-18)
+
+- Updated `inMiningTransaction` to preserve the original operation/commit error if the rollback attempt also fails. When possible, the rollback error is attached to the original error as `rollbackError` for diagnostics; attaching metadata to a frozen error is safely ignored so it cannot replace the original failure.
+- Added a unit test that simulates both an operation failure and a rollback failure, asserting that the original error is still thrown and the rollback error remains available as diagnostic metadata.
+- Implementation commit: `c88b62a1d20e5471ba66c4ea9aa1a44dc3474411`.
+- Test commit: `d11c7abd59865a3be76403e9481d19096d0c1b28`.
+- **Verification status: pending.** The updated Vitest file and TypeScript checks have not been executed in this continuation. This hardens error reporting but does not prove database rollback succeeded after a real database failure. Stage 1 remains in progress.
