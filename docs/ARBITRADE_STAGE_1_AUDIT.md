@@ -354,3 +354,11 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 - Successful workflow run: [Mining regression checks](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39126931162), commit `1756134739c4aa7408a032b2afbdf12403b55a3b`. Dependency installation, the targeted Mining store Vitest file, and the TypeScript check all completed successfully.
 - This is passing unit-test/type-check evidence for the current Mining store unit suite, not proof of database-backed financial integrity. Still required: isolated MariaDB/MySQL swap ownership/expiry/replay/concurrency tests, ledger-to-main-wallet reconciliation, injected-failure rollback coverage across participating stores, notification replay/ownership tests, and remaining API/accessibility/theme/sound/responsive browser checks.
 - Stage 1 remains **in progress**. No production database, customer data, or live financial balances were accessed or changed during this validation.
+
+
+## 21. Per-asset ledger safeguards and current CI evidence (2026-10-18)
+
+- Added unit tests for three pre-write ledger invariants: each asset's journal entries must net to zero independently; different assets cannot cancel one another; and amounts exceeding the asset's supported precision are rejected before database operations.
+- Test commit: `990f0cea7816660ba03c54e947e8d3f4c1c12443`.
+- **CI verified:** [Mining regression checks](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39127597399) completed successfully for that commit. Dependency installation, `pnpm test -- server/mining-store.test.ts`, and `pnpm check` all passed.
+- These are unit-level safeguards only. They do not establish that live MySQL transactions balance and reconcile across the Mining ledger and main-wallet ledger, nor prove quote ownership/expiry, concurrent confirmation behavior, injected-failure rollback, or notification deduplication. Those database-backed checks remain outstanding; Stage 1 is still in progress.
