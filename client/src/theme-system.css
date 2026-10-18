@@ -936,3 +936,48 @@
     border: 1px solid CanvasText;
   }
 }
+
+
+/* Keep appearance controls readable during loading, errors, and narrow layouts. */
+.arb-theme-selector :where(.arb-theme-selector-description, .arb-theme-selector-status) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.arb-theme-selector-status[role="alert"] {
+  color: var(--arb-color-danger);
+  font-weight: 600;
+}
+.arb-theme-selector :where(select, .arb-theme-selector-current):focus-visible {
+  outline: 2px solid var(--arb-focus-ring, var(--arb-color-accent));
+  outline-offset: 2px;
+}
+.arb-theme-selector select:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+@media (max-width: 480px) {
+  .arb-theme-selector-compact .arb-theme-selector-copy {
+    flex: 1 1 100%;
+    margin-right: 0;
+  }
+  .arb-theme-selector-compact select {
+    width: 100%;
+    min-width: 0;
+  }
+  .arb-theme-selector-compact .arb-theme-selector-current {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
+@media (forced-colors: active) {
+  .arb-theme-selector :where(select, .arb-theme-selector-current) {
+    border-color: ButtonText;
+  }
+  .arb-theme-selector :where(select, .arb-theme-selector-current):focus-visible {
+    outline-color: Highlight;
+  }
+  .arb-theme-selector-status[role="alert"] {
+    color: Mark;
+  }
+}
