@@ -61,7 +61,7 @@ describe("ARBITRADE shared design-system contract", () => {
 
   it("defines semantic colour and focus tokens inside every theme block", () => {
     const themeSelectors = [
-      ':root,\\n:root[data-arb-theme="original"]',
+      ':root,\n:root[data-arb-theme="original"]',
       ':root[data-arb-theme="midnight-premium"]',
       ':root[data-arb-theme="clean-light"]',
       ':root[data-arb-theme="emerald-finance"]',
