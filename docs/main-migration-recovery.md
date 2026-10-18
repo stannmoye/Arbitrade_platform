@@ -4,7 +4,9 @@
 
 The main MySQL migration chain contains historical DDL that is not universally idempotent. MySQL can commit DDL before a migration fails, while Drizzle records a migration only after its SQL finishes. Retrying a failed migration blindly can therefore fail again or leave the schema inconsistent.
 
-The guarded runner (`pnpm db:migrate` and the migration step used by the installer) records a persistent status in `main_migration_run_guard`. If a run is left `started` or marked `failed`, the runner refuses another automatic attempt. This is an intentional safety stop, not automatic recovery.
+The guarded runner (`pnpm db:migrate` and the migration step used by the installer) records a persistent status in `main_migration_run_guard`. If a run is left `running` (for example, after an interruption) or marked `failed`, the runner refuses another automatic attempt. This is an intentional safety stop, not automatic recovery.
+
+Before creating the persistent guard table, the runner also checks the database inventory and Drizzle tracker. A non-empty existing database with a missing or empty `__drizzle_migrations` tracker is rejected before migration SQL runs. This is a safety preflight, not proof that a populated tracker matches the live schema.
 
 ## Required recovery procedure
 
