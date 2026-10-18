@@ -32,27 +32,49 @@ const targetTables = [
   "mining_economics_versions", "mining_packages", "mining_customer_packages",
 ];
 const baselineReviewed = process.argv.includes("--baseline-reviewed");
-const url = new URL(databaseUrl);
+let url;
+try {
+  url = new URL(databaseUrl);
+} catch {
+  console.error("DATABASE_URL is malformed. Check private configuration; its value is not displayed.");
+  process.exit(1);
+}
 if (!["mysql:", "mariadb:"].includes(url.protocol) || !url.pathname.replace(/^\/+/, "")) {
-  throw new Error("DATABASE_URL must identify a MySQL/MariaDB database. No portal migrations were run.");
+  console.error("DATABASE_URL must identify a MySQL/MariaDB database. No portal migrations were run.");
+  process.exit(1);
 }
 if (url.protocol === "mariadb:") url.protocol = "mysql:";
 url.searchParams.set("multipleStatements", "true");
 url.searchParams.set("timezone", "Z");
-const databaseName = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
-const connection = await mysql.createConnection({
-  host: url.hostname,
-  port: Number(url.port || 3306),
-  user: decodeURIComponent(url.username),
-  password: decodeURIComponent(url.password),
-  database: databaseName,
-  ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
-  // Portal migration files contain multiple trusted SQL statements. Enable the
-  // mysql2 option explicitly; adding it only to the URL is not reliably applied
-  // when this code builds the connection options object manually.
-  multipleStatements: true,
-  connectTimeout: 10000,
-});
+let databaseName;
+let databaseUser;
+let databasePassword;
+try {
+  databaseName = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+  databaseUser = decodeURIComponent(url.username);
+  databasePassword = decodeURIComponent(url.password);
+} catch {
+  console.error("DATABASE_URL contains malformed database-name or credential encoding. The configured value is not displayed.");
+  process.exit(1);
+}
+let connection;
+try {
+  connection = await mysql.createConnection({
+    host: url.hostname,
+    port: Number(url.port || 3306),
+    user: databaseUser,
+    password: databasePassword,
+    database: databaseName,
+    ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
+    // Portal migration files contain multiple trusted SQL statements; set the mysql2 option explicitly.
+    multipleStatements: true,
+    connectTimeout: 10000,
+  });
+} catch (error) {
+  const errorCode = String(error?.code || "UNAVAILABLE").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+  console.error(`Could not connect to the configured portal database (code: ${errorCode || "UNAVAILABLE"}). Check private connection settings; credentials are not displayed.`);
+  process.exit(1);
+}
 
 async function tableExists(tableName) {
   const [rows] = await connection.query(
