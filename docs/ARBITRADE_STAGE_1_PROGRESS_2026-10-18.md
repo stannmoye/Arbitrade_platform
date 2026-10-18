@@ -8,7 +8,7 @@
 
 - Repository: `stannmoye/Arbitrade_platform`; default branch: `main`.
 - The autonomous coding workflow exists at `.github/workflows/autonomous-coding-worker.yml`.
-- The workflow on `main` is `workflow_dispatch` only and restricts runs to `integration/auth-installer-vps-safety`.
+- The workflow on `main` is currently `workflow_dispatch` only and restricts runs to `integration/auth-installer-vps-safety`. PR #65 proposes a dormant-by-default `workflow_run` chain, guarded by the repository variable `ARBITRADE_AUTONOMOUS_WORKER_ENABLED`, with a five-task cap and up to two repair-only attempts after a failed automated task validation.
 - The workflow requires the repository secret `OPENAI_API_KEY` and calls `openai/codex-action@v1`.
 - The workflow comments and the development-workflow document state that the API-key worker is kept manual-only because API quota was previously exhausted. Do not dispatch it until quota is restored and a deliberate run is approved.
 - The Installer validation workflow includes PHP/Node syntax checks, installer safety tests, locked dependency installation, TypeScript validation, application tests, and installer/migration tests.
@@ -39,5 +39,5 @@ Do not mark the whole platform “production-ready” until the full release mat
 
 1. Complete S1-A wallet concurrency/reconciliation tests from `ARBITRADE_STAGE1_AUTOMATION_QUEUE.md`.
 2. Verify latest PR #62 checks against its exact head SHA.
-3. Resolve API quota, then conduct one supervised worker run on a disposable/test-only task.
-4. Only after the supervised run passes, consider enabling bounded event-driven chaining; retain human approval for merge and production.
+3. Resolve API quota, merge the reviewed workflow wiring, then conduct one supervised worker run on a disposable/test-only task while automatic chaining is disabled.
+4. Only after that run passes, set `ARBITRADE_AUTONOMOUS_WORKER_ENABLED=true` to enable bounded chaining; retain human approval for merge and production.
