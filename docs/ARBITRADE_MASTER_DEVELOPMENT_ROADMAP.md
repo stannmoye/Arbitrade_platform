@@ -9,6 +9,9 @@
 
 ## Current project checkpoint
 
+- **Stage 2 parallel validation and table accessibility (2026-10-18):** Added a dedicated GitHub Actions workflow with parallel full-test, TypeScript, and production-build jobs; configured push validation for the Stage 2 branch, pull-request validation for the integration base, and manual dispatch. Added accessible region semantics and a name to the keyboard-focusable shared table overflow container, plus a source regression test. CI execution and browser viewport acceptance remain outstanding; Stage 2 remains in progress.
+
+
 - **Stage 2 parallel acceptance pass (2026-10-18):** Expanded the design-system contract suite to check WCAG AA text contrast and 3:1 focus-indicator contrast for all five themes, including Original theme legacy-variable fallbacks; added source contracts for customer/admin root adoption, theme-selector accessibility, 44px mobile touch targets for shared controls, and responsive dialog affordances. The Stage 2 acceptance checklist now lists exact verification commands. CI for these latest changes remains pending; rendered browser/viewport acceptance remains required. Stage 2 remains in progress.
 
 - **Stage 2 contract-test expansion (2026-10-18):** Expanded `server/design-system-contract.test.ts` with explicit checks for semantic colour/focus tokens in each of the five theme blocks, mobile table overflow containment, invalid/disabled control feedback, and WCAG AA (4.5:1) contrast for text tokens against canvas and surface colours in the four new literal themes. Commits `2b5baa6f1f24ee25be7cafb8f51fbe41dc1ebf5e`, `d3689082f54ff7fa8ccb72ebde40b01961510a11`, `9d60a53aeefb837856436b54aabd5ff516568bda`, and `201287bb793da1b1f6f4d850ab8347da907b30f7`. These are source-level regression assertions only; execution against the latest head and browser/viewport acceptance remain outstanding. Stage 2 remains in progress.
