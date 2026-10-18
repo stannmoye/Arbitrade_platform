@@ -18,8 +18,8 @@ The agreed Option B is **ChatGPT-led development using the connected GitHub tool
 - Autonomy control-plane PR: [#65](https://github.com/stannmoye/Arbitrade_platform/pull/65), still a draft and not merged.
 - Installer validation run [#456](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39152520771): **passed** for the revision it tested.
 - Autonomy dashboard run [#26](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39152520796): **passed** for the revision it tested.
-- Installer validation run [#466](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39153659113): **passed** on control-plane commit `dfd3bfb4f8f4`.
-- Autonomy dashboard run [#43](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39153659099): **passed** on the same control-plane commit `dfd3bfb4f8f4`.
+- Installer validation run [#469](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39153856708): **passed** on control-plane commit `3a2162cf5840`.
+- Autonomy dashboard run [#45](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39153856693): **passed** on the same control-plane commit `3a2162cf5840`.
 - Legacy API-worker run [39147213345](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39147213345) failed with “Quota exceeded. Check your plan and billing details.” This affects only the optional API-key worker, not normal ChatGPT-led development or ordinary CI. No code patch was published by that run.
 
 ## Verified repository facts
@@ -47,8 +47,8 @@ Do not mark the platform production-ready until the full release matrix, staging
 
 ## Next actions
 
-1. Finish aligning PR #65 with the agreed no-separate-API method; keep the legacy API worker manual-only.
+1. Keep PR #65 reviewable, with the agreed no-separate-API method and the legacy API worker manual-only; verify the fresh progress-report revision's checks.
 2. Inspect the latest validation result against the exact PR head.
-3. Continue S1-A by adding route/function-level and fresh-install/upgrade migration-path coverage; keep the task IN PROGRESS until all acceptance criteria have evidence.
+3. Continue S1-A by adding full tRPC-route outage coverage and running the wallet concurrency suite on MariaDB; keep the task IN PROGRESS until all acceptance criteria have evidence.
 4. Track each actual code change and test result; do not claim background execution between sessions.
 5. Preserve human approval for merge/release and all production financial operations.
