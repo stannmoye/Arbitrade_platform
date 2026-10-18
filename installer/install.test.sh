@@ -114,6 +114,8 @@ assert_file_contains "$VPS_SETUP" 'if [[ "$NGINX_ENABLED_PUBLISHED" == 1 ]]; the
 assert_file_contains "$VPS_SETUP" 'SERVICE_ATTEMPTED=1' "VPS setup tracks whether service activation needs cleanup after failure"
 assert_file_contains "$VPS_SETUP" 'HTTPS_ATTEMPTED=1' "VPS setup avoids deleting nginx configuration after certbot may have modified it"
 assert_file_contains "$VPS_SETUP" 'arbitrade_directory_is_safe "$ENV_DIR" || fail' "VPS setup refuses symlinked or non-directory environment parent paths"
+assert_file_contains "$VPS_SETUP" 'env_dir_metadata="$(stat -c' "VPS setup inspects existing protected environment directory metadata before provisioning"
+assert_file_contains "$VPS_SETUP" 'Expected root:$APP_USER:750' "VPS setup rejects incompatible existing environment directory permissions without changing them"
 assert_file_contains "$VPS_SETUP" '[[ "$ROOT" =~ ^/[A-Za-z0-9_./-]+$ ]] || fail' "VPS setup rejects paths that cannot be represented safely in systemd configuration"
 assert_file_contains "$VPS_SETUP" 'arbitrade_root_path_is_allowed "$ROOT" || fail' "VPS setup uses the tested deployment root path predicate"
 assert_file_contains "$VPS_SETUP" '&& pwd -P)' "VPS setup resolves symlinked checkout paths before applying ProtectHome path restrictions"
