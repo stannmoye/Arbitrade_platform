@@ -468,3 +468,65 @@
     border-width: 3px;
   }
 }
+
+/* Stage 2: normalize native choice controls and file inputs within shared fields. */
+.arb-field :is(input[type="checkbox"], input[type="radio"]) {
+  width: 1.125rem;
+  min-width: 1.125rem;
+  min-height: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--arb-color-accent);
+  vertical-align: middle;
+}
+.arb-field input[type="file"] {
+  height: auto;
+  min-height: 44px;
+  padding: var(--arb-space-2);
+  background: var(--arb-color-surface);
+}
+.arb-field :is(input, select, textarea):read-only {
+  background: var(--arb-color-surface);
+  border-style: dashed;
+}
+.arb-field :is(input, select, textarea):disabled {
+  cursor: not-allowed;
+  border-color: var(--arb-color-border);
+  color: var(--arb-color-text-muted);
+  opacity: 0.72;
+}
+.arb-field :is(input, select, textarea):focus-visible,
+.arb-button:focus-visible,
+.arb-overflow-x:focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 2px;
+}
+.arb-field :is(input, select, textarea):disabled:focus-visible {
+  outline-color: var(--arb-color-text-muted);
+}
+.arb-field-hint {
+  color: var(--arb-color-text-soft);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+.arb-field-error {
+  color: var(--arb-color-danger);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.arb-card :where(h1, h2, h3, h4, p):first-child {
+  margin-top: 0;
+}
+.arb-card :where(h1, h2, h3, h4, p):last-child {
+  margin-bottom: 0;
+}
+.arb-overflow-x table :where(th, td) {
+  overflow-wrap: anywhere;
+}
+@media (forced-colors: active) {
+  .arb-field :is(input[type="checkbox"], input[type="radio"]) {
+    accent-color: auto;
+  }
+}
