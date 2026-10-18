@@ -13,6 +13,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
 import { resolveTrustedProxyHops } from "./trustedProxy";
+import { isAllowedAttachmentRequest } from "./attachmentPolicy";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
 import { getTicketUploadPolicy } from "../db";
 import { ensureMarketDrivenOpportunities, refreshMarketData } from "../marketSync";
@@ -130,13 +131,9 @@ async function startServer() {
       const { fileName, mimeType, sizeBytes } = req.body ?? {};
       const policy = await getTicketUploadPolicy();
       const rejectionMessage = `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}`;
-      // Validate the input types before evaluating extension rules, which call
-      // fileName.toLowerCase(); malformed requests should return 400, not throw.
-      if (typeof fileName !== "string" || typeof mimeType !== "string" || !Number.isInteger(sizeBytes) || sizeBytes < 1 || sizeBytes > policy.maxAttachmentMb * 1_000_000) {
+      if (!isAllowedAttachmentRequest({ fileName, mimeType, sizeBytes }, policy)) {
         return res.status(400).json({ error: rejectionMessage });
       }
-      const mimeAllowed = policy.allowedMimeTypes.some(rule => rule === mimeType || (rule.endsWith("/*") && mimeType.startsWith(rule.slice(0, -1))) || (rule.startsWith(".") && fileName.toLowerCase().endsWith(rule.toLowerCase())));
-      if (!mimeAllowed) return res.status(400).json({ error: rejectionMessage });
       const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
       const key = `support/${Date.now()}-${Math.random().toString(36).slice(2,10)}-${safeName}`;
       const base = process.env.MANUS_API_URL;
