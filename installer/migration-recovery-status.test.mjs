@@ -18,6 +18,17 @@ describe("migration recovery diagnostic connection safety", () => {
     expect(source).not.toContain("Per-file tracker: not implemented by the current portal migration runner.");
   });
 
+  it("keeps recovery diagnostics aligned with the portal migration runner", async () => {
+    const source = await readFile(sourceUrl, "utf8");
+    const runnerSource = await readFile(new URL("../scripts/apply-portal-migrations.mjs", import.meta.url), "utf8");
+    const diagnosticList = source.match(/const portalMigrationFiles = \[([\\s\\S]*?)\];/);
+    const runnerList = runnerSource.match(/const migrationFiles = \[([\\s\\S]*?)\];/);
+    expect(diagnosticList).not.toBeNull();
+    expect(runnerList).not.toBeNull();
+    const filenames = (list: string) => [...list.matchAll(/"([^"]+\\.sql)"/g)].map((match) => match[1]);
+    expect(filenames(diagnosticList![1])).toEqual(filenames(runnerList![1]));
+  });
+
   it("handles malformed URL component encoding without exposing the configured URL", async () => {
     const source = await readFile(sourceUrl, "utf8");
     expect(source).toContain("DATABASE_URL contains malformed encoding. The configured value is not displayed; no database changes were made.");
