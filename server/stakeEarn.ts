@@ -83,7 +83,12 @@ export async function settleDuePositions(conn: Db, userId: number) {
   for (const p of positions) {
     const reference = `stake-settlement:${p.id}`;
     const [existing] = await conn.query<any[]>(`SELECT id FROM balance_ledger WHERE reference=? LIMIT 1`, [reference]);
-    if (existing.length) continue;
+    if (existing.length) {
+      // A pending/matured position with a prior principal-release ledger entry
+      // is an inconsistent historical state. Never silently leave it active or
+      // credit the wallet again; roll back and require reconciliation.
+      throw new Error("Stake settlement invariant violation for " + reference + ": principal-release ledger already exists while position is not completed.");
+    }
     await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId, p.asset, p.principalMinor, "stake_principal_release", reference]);
     const [walletUpdate] = await conn.execute<any>(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=GREATEST(lockedMinor-?,0), updatedAt=NOW() WHERE userId=? AND currency=?`, [p.principalMinor, p.principalMinor, userId, p.asset]);
     if (Number(walletUpdate.affectedRows) !== 1) throw new Error("Stake settlement " + reference + " must update exactly one wallet row; received " + (Number(walletUpdate.affectedRows) || 0) + ".");
