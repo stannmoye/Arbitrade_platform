@@ -13,10 +13,10 @@ The workflow in `.github/workflows/autonomous-coding-worker.yml` is a bounded, e
 ## Execution model
 
 - An authorized manual dispatch can run on `integration/auth-installer-vps-safety` while the automatic-worker variable is disabled, allowing a supervised first run.
-- When the variable is exactly `true`, the worker can start after a successful **push-triggered Installer validation** run on the named work branch.
+- When the variable is exactly `true`, the worker can start after a completed **push- or worker-dispatched Installer validation** run on the named work branch. The publishing job explicitly dispatches validation using `GITHUB_TOKEN` with narrowly scoped `actions: write`; the listener accepts only `push` or `workflow_dispatch` validation events on the designated branch.
 - Each run asks Codex to select and implement at most one prioritized, test-backed Stage 1 task.
 - The agent works in a sandboxed workspace. A separate fresh job validates the patch's allowed paths, rejects deletions and stale revisions, then pushes the accepted-scope patch to the work branch.
-- That push starts the existing Installer validation workflow. Another task becomes eligible only after that validation succeeds.
+- The publishing job explicitly dispatches the existing Installer validation workflow after pushing the accepted patch. Another task becomes eligible only after that validation completes; a failure routes to the bounded repair path, while a success permits the next task only if the owner-enabled repository variable is `true`.
 - Consecutive automatic commit markers cap a chain at five tasks. A normal human-authored commit starts a new chain. If no patch is produced, the branch moves, or the patch is outside the allowlist, the chain stops. A failed Installer validation may trigger at most two repair attempts for that task; if validation still fails, the chain stops for human review.
 - The progress dashboard writes an evidence summary to GitHub Actions job summaries. It reports progress; it does not author code or certify production readiness.
 - Changes remain on the feature branch; the worker never merges a PR or deploys to production.
