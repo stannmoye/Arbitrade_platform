@@ -9,6 +9,7 @@ describe("migration recovery diagnostic connection safety", () => {
     expect(source).toContain('tableExists("portal_schema_migrations")');
     expect(source).toContain("SELECT migrationName,status,checksum,errorCode FROM portal_schema_migrations");
     expect(source).toContain("Expected tracked portal migration files:");
+    expect(source).toContain('"0053_manual_settlement_lifecycle.sql"');
     expect(source).toContain("CHECKSUM MISMATCH");
     expect(source).toContain("createHash(\"sha256\").update(sql).digest(\"hex\")");
     expect(source).toContain("const checksumsComplete = checksumMatchCount === portalMigrationFiles.length;");
