@@ -19,22 +19,21 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
     ? policy.enabledThemes.filter((option: string): option is ArbitradeTheme =>
         ARBITRADE_THEMES.includes(option as ArbitradeTheme))
     : [];
-  const enabledThemes = configuredThemes;
-  const defaultTheme: ArbitradeTheme = policy && ARBITRADE_THEMES.includes(policy.defaultTheme as ArbitradeTheme)
+  const requestedDefault: ArbitradeTheme = policy && ARBITRADE_THEMES.includes(policy.defaultTheme as ArbitradeTheme)
     ? policy.defaultTheme as ArbitradeTheme
     : "original";
+  // Keep selector fallback behavior identical to ThemeProvider: if the published
+  // default is not allowed, use the first enabled theme instead.
+  const customerThemes = configuredThemes.length > 0 ? configuredThemes : [requestedDefault];
+  const effectiveDefault = customerThemes.includes(requestedDefault) ? requestedDefault : customerThemes[0];
   const customerCanSelect = policy?.customerCanSelect === true;
   const policyReady = !auth.isLoading && !appearance.isLoading;
   const canChoose = policyReady && !readOnly && (isAdmin || customerCanSelect);
-  // A malformed or temporarily empty published allow-list must never produce an
-  // empty select. Fall back to the published default until the policy is corrected.
-  const customerThemes = enabledThemes.length > 0 ? enabledThemes : [defaultTheme];
-  const effectiveDefault = customerThemes.includes(defaultTheme) ? defaultTheme : customerThemes[0];
   const availableThemes: ArbitradeTheme[] = isAdmin
     ? [...ARBITRADE_THEMES]
     : customerCanSelect
       ? customerThemes
-      : [defaultTheme];
+      : [effectiveDefault];
   const selectedTheme = availableThemes.includes(theme as ArbitradeTheme)
     ? theme as ArbitradeTheme
     : availableThemes[0] ?? effectiveDefault;
