@@ -175,3 +175,23 @@ pnpm installer:migration-recovery
 The recovery report does not inspect or change the database. The migration diagnostic connects read-only and reports tracker/schema signals; neither tool runs migrations or removes the interrupted-install marker. Treat a missing tracker as **unknown**, not proof that a migration never started. A tracker count that matches the journal is also not proof that the schema is correct.
 
 Before any retry, create and verify a restorable backup, inspect the exact failed stage, compare the migration SQL with the real schema/data, and document an administrator-approved recovery plan. If a migration partially applied, repair it deliberately; do not blindly rerun it. If the migration and schema are verified complete, do not rerun it. Even a verified not-started migration is only a candidate for an administrator-approved retry; no recovery helper automatically executes it or authorizes marker removal.
+
+
+## Existing VPS or hosting-panel deployment (no host provisioning)
+
+Use this path when the VPS already has its domain, HTTPS certificate, reverse proxy, and process manager configured. **Do not run `installer/vps-setup.sh` for a panel-managed deployment**: that script creates its own systemd service and Nginx site. No Certbot, DNS, Nginx, or systemd changes are needed for an application-only update.
+
+From the application's private root in the hosting panel's terminal:
+
+1. Confirm the panel's Node.js runtime is 20+ and pnpm is 10.18.x. Keep `.env` or the panel environment variables private; preserve the existing database URL and secrets.
+2. Install the locked dependencies and build the app:
+
+   ```bash
+   pnpm install --frozen-lockfile
+   pnpm build
+   ```
+
+3. In the existing hosting panel, keep its current domain, SSL, proxy, and process configuration. Confirm the startup file is `dist/index.js` and the configured application port matches `PORT`, then restart the application using the panel.
+4. After restart, run `pnpm installer:diagnose` from the private application root and verify `GET /api/health` returns `{"status":"ok"}`. Check the panel's private logs if either check fails.
+
+This procedure does **not** run database migrations, replace account credentials, provision a new service, or alter SSL/proxy configuration. If this release requires schema changes, first verify a restorable database backup and the exact target database, then follow the documented migration/recovery procedure separately. Do not use fresh-install mode on an existing database.
