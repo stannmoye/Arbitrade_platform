@@ -78,7 +78,7 @@ if [[ "$INSTALL_RUNTIME" == 1 ]]; then
   apt-get install -y ca-certificates curl gnupg nginx
   if [[ ! -e /etc/apt/keyrings ]]; then install -d -m 0755 /etc/apt/keyrings; fi
   NODE_KEY_TMP="$(mktemp /etc/apt/keyrings/.nodesource.gpg.XXXXXX)"
-  if ! curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o "$NODE_KEY_TMP"; then
+  if ! curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor > "$NODE_KEY_TMP"; then
     rm -f -- "$NODE_KEY_TMP"
     fail "Could not download or decode the NodeSource signing key."
   fi
