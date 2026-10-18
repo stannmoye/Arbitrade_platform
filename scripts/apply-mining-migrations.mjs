@@ -2,6 +2,7 @@ import mysql from "mysql2/promise";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
+import { ensureCustomerBalanceUniqueIndex } from "./wallet-unique-index-migration.mjs";
 
 async function main() {
 const migrationKey = "0039_mining_database_driven_packages";
@@ -180,12 +181,7 @@ try {
   const purchaseBoostMigrationKey = "0041_mining_purchase_claims_and_boost_cooldown";
   const purchaseBoostSchema = await readFile(resolve("drizzle", "0041_mining_purchase_claims_and_boost_cooldown.sql"), "utf8");
   await executeCompatibleMigrationSql(connection, purchaseBoostSchema);
-  const [walletIndexes] = await connection.query("SHOW INDEX FROM customer_balances WHERE Key_name='uq_customer_balance_user_currency'");
-  if (!walletIndexes.length) {
-    const [duplicates] = await connection.query("SELECT userId,currency FROM customer_balances GROUP BY userId,currency HAVING COUNT(*)>1 LIMIT 1");
-    if (duplicates.length) throw new Error("Cannot create one-row-per-currency wallet protection: duplicate customer wallet rows require manual reconciliation first.");
-    await connection.query("ALTER TABLE customer_balances ADD UNIQUE INDEX uq_customer_balance_user_currency (userId,currency)");
-  }
+  await ensureCustomerBalanceUniqueIndex(connection);
   await connection.beginTransaction();
   try {
     const [markers] = await connection.query("SELECT migrationKey FROM mining_schema_migrations WHERE migrationKey=? FOR UPDATE", [purchaseBoostMigrationKey]);
