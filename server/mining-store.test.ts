@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseMainWalletMinor } from "./mining";
 import {
   addUtcMonths,
   amountString,
@@ -11,6 +12,27 @@ import {
   requestKey,
   type Db,
 } from "./mining-store";
+
+
+describe("Main-wallet minor-unit precision", () => {
+  it("accepts exact non-negative values within JavaScript's safe-integer range", () => {
+    expect(parseMainWalletMinor(0)).toBe(0);
+    expect(parseMainWalletMinor("12345")).toBe(12345);
+    expect(parseMainWalletMinor(BigInt(Number.MAX_SAFE_INTEGER))).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
+  it("fails closed when a database BIGINT cannot be represented exactly", () => {
+    expect(() => parseMainWalletMinor("9007199254740992")).toThrow(/stored main-wallet balance/i);
+    expect(() => parseMainWalletMinor(9007199254740992)).toThrow(/stored main-wallet balance/i);
+  });
+
+  it("rejects negative and malformed stored balances", () => {
+    expect(() => parseMainWalletMinor("-1")).toThrow(/stored main-wallet balance/i);
+    expect(() => parseMainWalletMinor("1.5")).toThrow(/stored main-wallet balance/i);
+    expect(() => parseMainWalletMinor("")).toThrow(/stored main-wallet balance/i);
+    expect(() => parseMainWalletMinor(Number.NaN)).toThrow(/stored main-wallet balance/i);
+  });
+});
 
 describe("Mining amount and asset normalization", () => {
   it("rounds display/storage amounts down to the denomination precision", () => {
