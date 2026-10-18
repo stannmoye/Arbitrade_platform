@@ -48,6 +48,11 @@ function idempotencyKey(input: string | undefined, userId: number) {
   return `stake:${userId}:${crypto.createHash("sha256").update(value).digest("hex")}`;
 }
 
+function allocationCommand(productId: number, amountMinor: number) {
+  const payload = JSON.stringify({ productId, amountMinor });
+  return `stake.allocate:${crypto.createHash("sha256").update(payload).digest("hex")}`;
+}
+
 function parseIdempotencyReplay(prior: { command: string; resultJson: string }, expectedCommand: string, expectedPositionId?: number) {
   if (prior.command !== expectedCommand) {
     throw new Error("This idempotency key was already used for a different Stake & Earn operation");
@@ -198,10 +203,11 @@ export async function getStakeDashboard(userId: number) {
 export async function allocateStake(userId: number, input: { productId: number; amountMinor: number; idempotencyKey: string }) {
   return withConnection(async conn => {
     const key = idempotencyKey(input.idempotencyKey, userId);
+    const command = allocationCommand(input.productId, input.amountMinor);
     await conn.beginTransaction();
     try {
       const [prior] = await conn.query<any[]>(`SELECT command, resultJson FROM v5_idempotency_keys WHERE userId=? AND keyValue=? LIMIT 1 FOR UPDATE`, [userId, key]);
-      if (prior.length) { const result = parseIdempotencyReplay(prior[0], "stake.allocate"); await conn.commit(); return result; }
+      if (prior.length) { const result = parseIdempotencyReplay(prior[0], command); await conn.commit(); return result; }
       const [productRows] = await conn.query<any[]>(`SELECT * FROM stake_products WHERE id=? AND status='AVAILABLE' FOR UPDATE`, [input.productId]);
       const product = productRows[0] as StakeProduct | undefined;
       if (!product) throw new Error("Stake product is not available");
@@ -224,7 +230,7 @@ export async function allocateStake(userId: number, input: { productId: number; 
       await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, positionId, "position.created", "PENDING", "ACTIVE", input.amountMinor, product.asset, JSON.stringify({ ledgerReference: reference, productId: product.id })]);
       await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, "Allocation confirmed", `Your ${product.name} allocation is active. Funds were reserved through the wallet ledger.`]);
       const result = { positionId, positionCode, status: "ACTIVE", asset: product.asset, principalMinor: input.amountMinor, maturityAt: maturity.toISOString(), ledgerReference: reference };
-      await conn.execute(`INSERT INTO v5_idempotency_keys (userId,keyValue,command,resultJson) VALUES (?,?,?,?)`, [userId, key, "stake.allocate", JSON.stringify(result)]);
+      await conn.execute(`INSERT INTO v5_idempotency_keys (userId,keyValue,command,resultJson) VALUES (?,?,?,?)`, [userId, key, command, JSON.stringify(result)]);
       await conn.commit(); return result;
     } catch (e) { await conn.rollback(); throw e; }
   });
@@ -260,6 +266,7 @@ export function projectStake(input: { amountMinor: number; annualRateBps: number
 }
 
 export function __testRewardFor(principal: number, rateBps: number, days: number) { return rewardFor(principal, rateBps, days); }
+export function __testAllocationCommand(productId: number, amountMinor: number) { return allocationCommand(productId, amountMinor); }
 export function __testParseIdempotencyReplay(prior: { command: string; resultJson: string }, expectedCommand: string, expectedPositionId?: number) {
   return parseIdempotencyReplay(prior, expectedCommand, expectedPositionId);
 }
