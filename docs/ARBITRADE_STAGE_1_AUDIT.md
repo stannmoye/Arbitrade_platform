@@ -392,3 +392,12 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 - **Verification status:** GitHub Actions run [39128826878](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39128826878) completed successfully, including Mining store regression tests and the TypeScript check. This run includes the result-persistence failure rollback test added in commit `ea640b462452583a5884b7db1a6b7e3fcb93c70f`.
 - Tests still use mocked connections; database-backed concurrency, cross-ledger atomicity, and rollback under real database failures remain outstanding.
 - Stage 1 remains **in progress**. No production database or customer financial data was accessed or changed.
+
+
+## 25. Idempotency schema and quote-confirmation review (2026-10-18)
+
+- Verified the Drizzle schema and foundation migration both define `v5_idempotency_keys.keyValue` as NOT NULL with a UNIQUE constraint. Mining request keys are namespaced by operation and user ID before hashing the caller-supplied key, so different Mining commands/users do not intentionally share the same stored key.
+- Reviewed the package-confirmation path: it locks the user-owned quote row, requires `QUOTED` status and a future expiry, verifies the published package version and pricing configuration snapshot, rechecks rate deviation and available main-wallet funds, and records the purchase, ledgers, quote status, notification, and idempotency result inside the transaction wrapper.
+- This is source/schema review, not a real database execution. Outstanding risks still require isolated MySQL/MariaDB tests: unique-key contention under simultaneous requests; quote confirmation racing with another confirmation; rollback across both main-wallet and Mining ledger writes; and notification delivery/replay behavior.
+- Latest observed CI status: workflow run [39128928653](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39128928653) completed successfully after the audit record update; the code-and-test run [39128826878](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39128826878) also passed Mining store regression tests and TypeScript checking.
+- Stage 1 remains **in progress**. No production database, customer data, or live financial balances were accessed or changed.
