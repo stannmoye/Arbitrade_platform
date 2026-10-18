@@ -76,7 +76,7 @@ function parseIdempotencyReplay(prior: { command: string; resultJson: string | n
   if (expectedPositionId !== undefined && replayPositionId !== expectedPositionId) {
     throw new Error("This idempotency key was already used for a different stake position");
   }
-  return replay;
+  return replay as any;
 }
 
 function rewardFor(principal: number, annualRateBps: number, durationDays: number) {
