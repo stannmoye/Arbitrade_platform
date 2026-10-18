@@ -123,7 +123,5 @@ jobs:
           corepack prepare pnpm@10.18.0 --activate
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
-      - name: Validate migration integration test syntax
-        run: node --check scripts/mysql-compatible-migration-sql.integration.test.mjs
       - name: Run idempotent MySQL-compatible migration SQL test
-        run: pnpm exec vitest run scripts/mysql-compatible-migration-sql.integration.test.mjs
+        run: pnpm exec vitest run server/mysql-compatible-migration-sql.integration.test.ts
