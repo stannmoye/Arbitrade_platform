@@ -36,14 +36,18 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
 
   return (
     <section className={`arb-theme-selector${compact ? " arb-theme-selector-compact" : ""}`} aria-label="Appearance settings" aria-busy={!policyReady}>
-      <label htmlFor={canChoose ? selectId : undefined}>
-        <span className="arb-theme-selector-title">{canChoose ? "Appearance" : "Workspace appearance"}</span>
+      <div className="arb-theme-selector-copy">
+        {canChoose ? (
+          <label className="arb-theme-selector-title" htmlFor={selectId}>Appearance</label>
+        ) : (
+          <span className="arb-theme-selector-title">Workspace appearance</span>
+        )}
         {!compact && (
           <span id={`arb-theme-description-${selectorId}`} className="arb-theme-selector-description">
             {!policyReady || policyFailed ? "Workspace appearance settings" : canChoose ? "Choose your workspace theme" : "Theme selected by workspace settings"}
           </span>
         )}
-      </label>
+      </div>
       {(!policyReady || policyFailed) && (
         <span className="arb-theme-selector-status" role={policyFailed ? "alert" : "status"} aria-live={policyFailed ? "assertive" : "polite"}>
           {policyFailed ? "Appearance settings could not be loaded; using the default theme." : "Loading workspace appearance…"}
