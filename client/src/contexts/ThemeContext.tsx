@@ -28,6 +28,12 @@ interface ThemeContextType {
   setTheme: (theme: ArbitradeTheme) => void;
   toggleTheme?: () => void;
   switchable: boolean;
+  isAdmin: boolean;
+  policyDefault: ArbitradeTheme;
+  enabledThemes: ArbitradeTheme[];
+  customerCanSelect: boolean;
+  policyReady: boolean;
+  policyFailed: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -136,7 +142,9 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = document.documentElement;
-    const effectiveTheme = auth.isError
+    // Apply the published default as soon as policy is available, even while
+    // authentication is resolving; this prevents a stale initial theme flash.
+    const effectiveTheme = auth.isError || (auth.isLoading && policy)
       ? policyDefault
       : !auth.isLoading && !isAdmin && policy
         ? (customerCanSelect && enabledThemes.includes(theme) ? theme : policyDefault)
@@ -174,7 +182,18 @@ export function ThemeProvider({
     : undefined;
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, switchable }}>
+    <ThemeContext.Provider value={{
+      theme,
+      setTheme,
+      toggleTheme,
+      switchable,
+      isAdmin,
+      policyDefault,
+      enabledThemes,
+      customerCanSelect,
+      policyReady: !auth.isLoading && !appearance.isLoading,
+      policyFailed: auth.isError || appearance.isError,
+    }}>
       {children}
     </ThemeContext.Provider>
   );
