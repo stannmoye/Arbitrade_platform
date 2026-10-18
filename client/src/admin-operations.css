@@ -343,6 +343,6 @@
 @media (max-width: 640px) {
   :root[data-arb-theme] .admin-ops-page .admin-ops-actions .admin-ops-button,
   :root[data-arb-theme] .admin-ops-page .admin-ops-export-card .admin-ops-button {
-    min-height: 42px;
+    min-height: 44px;
   }
 }
