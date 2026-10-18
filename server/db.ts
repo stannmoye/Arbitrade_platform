@@ -503,33 +503,55 @@ export async function listPendingSettlements(){
 export async function manuallySettleTrade(tradeId:number, adminId:number, input:{rewardMinor:number; settlementReference:string; notes?:string}){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   if(!Number.isSafeInteger(input.rewardMinor)||input.rewardMinor<0) throw new Error("Manual reward must be a non-negative integer");
-  if(!input.settlementReference.trim()) throw new Error("A manual settlement reference is required");
+  const normalizedReference=input.settlementReference.trim();
+  // Ledger reference columns are 80 characters and append ":principal" / ":reward".
+  if(!normalizedReference||normalizedReference.length>70) throw new Error("Manual settlement reference must be between 1 and 70 characters");
   const result=await db.transaction(async tx=>{
-    const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,tradeId)).limit(1))[0];
+    const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,tradeId)).limit(1).for("update"))[0];
     if(!trade) throw new Error("Trade not found");
     if(trade.status!=="confirmed"||trade.settlementStatus!=="pending") throw new Error("Trade is not pending manual settlement");
-    if(input.rewardMinor>Number(trade.rewardReservedMinor||0)) throw new Error("Manual reward exceeds the reserved package reward");
-    const reference=input.settlementReference.trim();
+    const reservedReward=Number(trade.rewardReservedMinor||0);
+    if(!Number.isSafeInteger(reservedReward)||reservedReward<0) throw new Error("Reserved trade reward is not a safe non-negative integer");
+    if(input.rewardMinor>reservedReward) throw new Error("Manual reward exceeds the reserved package reward");
+    const reference=normalizedReference;
     const duplicate=(await tx.select({id:tradePositions.id}).from(tradePositions).where(eq(tradePositions.settlementReference,reference)).limit(1))[0];
     if(duplicate) throw new Error("Settlement reference has already been used");
-    const wallet=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,trade.userId),eq(customerBalances.currency,trade.currency))).limit(1))[0];
+    const wallet=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,trade.userId),eq(customerBalances.currency,trade.currency))).limit(1).for("update"))[0];
     if(!wallet) throw new Error("Customer settlement wallet is not configured");
     const principal=Number(trade.principalMinor);
+    const availableMinor=Number(wallet.availableMinor);
+    const lockedMinor=Number(wallet.lockedMinor);
+    const earnedMinor=Number(wallet.earnedMinor);
     const total=principal+input.rewardMinor;
+    if(!Number.isSafeInteger(principal)||principal<=0) throw new Error("Trade principal is not a safe positive integer");
+    if(!Number.isSafeInteger(total)) throw new Error("Manual settlement total exceeds the safe integer range");
+    if(!Number.isSafeInteger(availableMinor)||availableMinor<0||!Number.isSafeInteger(lockedMinor)||lockedMinor<principal||!Number.isSafeInteger(earnedMinor)||earnedMinor<0) {
+      throw new Error("Customer settlement wallet does not contain a safe reserved principal balance");
+    }
+    if(availableMinor>Number.MAX_SAFE_INTEGER-total||earnedMinor>Number.MAX_SAFE_INTEGER-input.rewardMinor) {
+      throw new Error("Manual settlement would exceed the safe wallet balance range");
+    }
     await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:principal,entryType:"trade_principal_release",reference:`${reference}:principal`,withdrawable:false});
     if(input.rewardMinor>0) await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:input.rewardMinor,entryType:"trade_reward",reference:`${reference}:reward`,withdrawable:false});
-    const walletUpdate=await tx.update(customerBalances).set({availableMinor:sql`${customerBalances.availableMinor}+${total}`,lockedMinor:sql`GREATEST(${customerBalances.lockedMinor}-${principal},0)`,earnedMinor:sql`${customerBalances.earnedMinor}+${input.rewardMinor}`,updatedAt:new Date()}).where(eq(customerBalances.id,wallet.id));
+    const walletUpdate=await tx.update(customerBalances).set({availableMinor:sql`${customerBalances.availableMinor}+${total}`,lockedMinor:sql`${customerBalances.lockedMinor}-${principal}`,earnedMinor:sql`${customerBalances.earnedMinor}+${input.rewardMinor}`,updatedAt:new Date()}).where(and(eq(customerBalances.id,wallet.id),gte(customerBalances.lockedMinor,principal),lte(customerBalances.availableMinor,Number.MAX_SAFE_INTEGER-total),lte(customerBalances.earnedMinor,Number.MAX_SAFE_INTEGER-input.rewardMinor)));
     assertExactlyOneAffectedRow(walletUpdate,"Manual settlement wallet update");
     const settlementUpdate=await tx.update(tradePositions).set({status:"settled",settledAt:new Date(),lifecycleStage:"Trade Completed",settlementStatus:"completed",rewardCreditedMinor:input.rewardMinor,rewardReservedMinor:0,walletUpdatedAt:new Date(),completionAt:new Date(),transactionReference:reference,settlementReference:reference,settlementConfirmedAt:new Date(),settlementConfirmedBy:adminId,settlementNotes:input.notes?.trim()||null}).where(and(eq(tradePositions.id,tradeId),eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending")));
     // If another settlement won the race, throw inside the transaction so the
     // preceding wallet and ledger mutations are rolled back together.
     assertExactlyOneAffectedRow(settlementUpdate,"Manual trade settlement state transition");
-    await tx.update(tradeRewardReservations).set({status:"credited",updatedAt:new Date()}).where(and(eq(tradeRewardReservations.tradeId,tradeId),eq(tradeRewardReservations.status,"reserved")));
+    const reservationUpdate=await tx.update(tradeRewardReservations).set({status:"credited",updatedAt:new Date()}).where(and(eq(tradeRewardReservations.tradeId,tradeId),eq(tradeRewardReservations.status,"reserved")));
+    assertExactlyOneAffectedRow(reservationUpdate,"Manual settlement reward reservation update");
     await tx.insert(tradeLifecycleEvents).values({tradeId,userId:trade.userId,eventType:"manual_settlement_confirmed",stage:"Wallet Updated",payloadJson:JSON.stringify({principalMinor:principal,rewardMinor:input.rewardMinor,reference,adminId})});
     await tx.insert(tradeLifecycleEvents).values({tradeId,userId:trade.userId,eventType:"trade_completed",stage:"Trade Completed",payloadJson:JSON.stringify({reference})});
     return {tradeId, userId:trade.userId, offerId:trade.offerId, currency:trade.currency, principalMinor:principal, rewardMinor:input.rewardMinor, totalMinor:total, reference};
   });
-  await updatePopupLifecycleForOffer(result.userId,result.offerId,"settled");
+  try {
+    await updatePopupLifecycleForOffer(result.userId,result.offerId,"settled");
+  } catch (error) {
+    // This work is post-commit and non-financial. Do not report the already
+    // committed settlement as failed, which could encourage a duplicate retry.
+    console.error("[TradeSettlement] Settlement committed, but popup lifecycle update failed:", error instanceof Error ? error.name : "UnknownError");
+  }
   return result;
 }
 export async function createOpportunityOffer(input:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number}){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();const closesAt=new Date(now.getTime()+input.durationSeconds*1000);const result=await db.insert(opportunityOffers).values({...input,opensAt:now,closesAt,rewardAt:closesAt,status:"open"});return {id:Number(result[0].insertId),...input,opensAt:now,closesAt,rewardAt:closesAt};}

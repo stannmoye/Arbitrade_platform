@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
 import { ensureCustomerBalanceUniqueIndex } from "./wallet-unique-index-migration.mjs";
+import { ensureTradeSettlementReferenceUniqueIndex } from "./trade-settlement-reference-index.mjs";
 
 async function main() {
 const migrationKey = "0039_mining_database_driven_packages";
@@ -182,6 +183,7 @@ try {
   const purchaseBoostSchema = await readFile(resolve("drizzle", "0041_mining_purchase_claims_and_boost_cooldown.sql"), "utf8");
   await executeCompatibleMigrationSql(connection, purchaseBoostSchema);
   await ensureCustomerBalanceUniqueIndex(connection);
+  await ensureTradeSettlementReferenceUniqueIndex(connection);
   await connection.beginTransaction();
   try {
     const [markers] = await connection.query("SELECT migrationKey FROM mining_schema_migrations WHERE migrationKey=? FOR UPDATE", [purchaseBoostMigrationKey]);

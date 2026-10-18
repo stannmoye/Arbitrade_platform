@@ -1,0 +1,94 @@
+name: Settlement idempotency integration
+
+on:
+  pull_request:
+    branches:
+      - fix/atomic-admin-wallet-adjustments
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: settlement-idempotency-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  settlement-integration:
+    name: settlement integration (${{ matrix.database.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        database:
+          - image: mysql:8.0
+            health: mysqladmin ping -h 127.0.0.1 -uroot -proot
+          - image: mariadb:11.4
+            health: healthcheck.sh --connect --innodb_initialized
+    services:
+      mysql:
+        image: ${{ matrix.database.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: arbitrade_test
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: arbitrade_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="${{ matrix.database.health }}"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_test
+      WALLET_TEST_DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_test
+    steps:
+      - name: Check out proposed changes
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.18.0 --activate
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: TypeScript validation
+        run: pnpm check
+      - name: Full unit suite (database integration tests skipped)
+        env:
+          DATABASE_URL: ""
+          WALLET_TEST_DATABASE_URL: ""
+        run: pnpm test
+      - name: Production build
+        run: pnpm build
+      - name: Create the application schema in the disposable database
+        run: pnpm exec drizzle-kit push --force
+      - name: Apply Mining base schema to disposable database
+        run: |
+          node --input-type=module -e '
+            import mysql from "mysql2/promise";
+            import { readFile } from "node:fs/promises";
+            const url = new URL(process.env.DATABASE_URL);
+            url.searchParams.set("multipleStatements", "true");
+            const db = await mysql.createConnection(url.toString());
+            try {
+              await db.query(await readFile("drizzle/0036_crypto_mining_portal.sql", "utf8"));
+            } finally {
+              await db.end();
+            }
+          '
+      - name: Run current mining schema upgrader twice
+        run: pnpm run db:mining-schema && pnpm run db:mining-schema
+      - name: Test wallet concurrency and ledger reconciliation
+        run: pnpm exec vitest run server/wallet-adjustment-concurrency.integration.test.ts
+      - name: Test wallet unique-index migration preflight
+        run: pnpm exec vitest run --config vitest.installer.config.ts scripts/wallet-unique-index-migration.test.mjs
+      - name: Test manual settlement concurrency and rollback
+        run: pnpm exec vitest run server/settlement-idempotency.integration.test.ts
+      - name: Test settlement reference migration preflight
+        run: pnpm exec vitest run --config vitest.installer.config.ts scripts/trade-settlement-reference-index.test.mjs

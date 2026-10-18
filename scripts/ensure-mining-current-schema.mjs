@@ -1,4 +1,6 @@
 import mysql from "mysql2/promise";
+import { ensureCustomerBalanceUniqueIndex } from "./wallet-unique-index-migration.mjs";
+import { ensureTradeSettlementReferenceUniqueIndex } from "./trade-settlement-reference-index.mjs";
 
 const raw = process.env.DATABASE_URL;
 if (!raw) throw new Error("DATABASE_URL is required");
@@ -135,6 +137,9 @@ try {
   await db.query(`UPDATE mining_economics_versions SET tokenName='CoinKi' WHERE tokenName IS NULL OR tokenName=''`);
   await db.query(`UPDATE mining_economics_versions SET tokenSymbol='CKI' WHERE tokenSymbol IS NULL OR tokenSymbol=''`);
   await db.query(`UPDATE mining_customer_packages cp JOIN mining_packages p ON p.id=cp.packageId JOIN mining_package_versions v ON v.id=p.currentVersionId SET cp.expectedDailyRewardCkiSnapshot=v.expectedDailyRewardCki, cp.calculationModelSnapshot='package_daily' WHERE cp.expectedDailyRewardCkiSnapshot IS NULL AND v.expectedDailyRewardCki IS NOT NULL`);
+
+  await ensureCustomerBalanceUniqueIndex(db);
+  await ensureTradeSettlementReferenceUniqueIndex(db);
 
   console.log(JSON.stringify({ status: "ok", message: "Current mining schema is ready" }));
 } finally {
