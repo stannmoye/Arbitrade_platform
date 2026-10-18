@@ -34,6 +34,8 @@
   
 - **CI feedback and correction (2026-10-18):** Installer validation run [39132072640](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39132072640) surfaced one stale source-assertion test after migration-preflight imports changed (101 tests passed, one failed); the syntax checks, TypeScript validation, application tests, and disposable MariaDB job passed. The source assertion has been updated, and migration-history validation now also rejects gaps in the ordered journal. The complete installer workflow must pass on the follow-up commit before this hardening is considered verified.
   
+- **MySQL 8 guard-test fixture correction (2026-10-18):** Installer validation run [39132189348](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39132189348) passed the syntax/test/build/smoke job and fresh MariaDB job, and completed the fresh MySQL 8 install, but the failed-run guard fixture was blocked earlier because it used an invented Drizzle hash. The fixture now derives the first migration's real hash/timestamp from the repository journal so it tests the persistent failed-run guard. Follow-up CI remains required.
+  
 ## Product vision and non-negotiable principles
 
 Arbitrade should provide a polished, consistent, responsive and accessible experience across Android phones, iPhones, tablets, laptops and desktop computers. The customer and administrator portals should share a coherent design system while retaining layouts suited to their different tasks.

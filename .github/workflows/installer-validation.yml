@@ -447,6 +447,8 @@ jobs:
           set -Eeuo pipefail
           node --input-type=module <<'NODE'
           import mysql from "mysql2/promise";
+          import { createHash } from "node:crypto";
+          import { readFile } from "node:fs/promises";
           const admin = await mysql.createConnection(process.env.DATABASE_URL);
           await admin.query("CREATE DATABASE arbitrade_main_failed");
           const failed = await mysql.createConnection({
@@ -454,7 +456,11 @@ jobs:
             database: "arbitrade_main_failed",
           });
           await failed.query("CREATE TABLE __drizzle_migrations (id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, hash VARCHAR(255) NOT NULL, created_at BIGINT NOT NULL)");
-          await failed.execute("INSERT INTO __drizzle_migrations (hash,created_at) VALUES (?,?)", ["fixture-applied-migration", 1760000000000]);
+          const journal = JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8"));
+          const firstMigration = journal.entries[0];
+          const firstSql = await readFile("drizzle/" + firstMigration.tag + ".sql", "utf8");
+          const firstHash = createHash("sha256").update(firstSql).digest("hex");
+          await failed.execute("INSERT INTO __drizzle_migrations (hash,created_at) VALUES (?,?)", [firstHash, firstMigration.when]);
           await failed.query("CREATE TABLE main_migration_run_guard (id TINYINT NOT NULL PRIMARY KEY, status VARCHAR(16) NOT NULL, startedAt TIMESTAMP NULL, finishedAt TIMESTAMP NULL, failureCode VARCHAR(80) NULL, updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB");
           await failed.execute("INSERT INTO main_migration_run_guard (id,status) VALUES (1,'failed')");
           await failed.end();
