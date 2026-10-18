@@ -668,3 +668,30 @@
   border-width: 1px;
   border-radius: var(--arb-radius-sm);
 }
+
+/* Stage 2: keep text selection and browser autofill aligned with the active theme. */
+:root[data-arb-theme] ::selection {
+  color: var(--arb-color-text);
+  background: color-mix(in srgb, var(--arb-color-accent) 34%, var(--arb-color-surface));
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input, select, textarea
+) {
+  caret-color: var(--arb-color-accent);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input, textarea
+):-webkit-autofill,
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input, textarea
+):-webkit-autofill:hover,
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input, textarea
+):-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--arb-color-text);
+  caret-color: var(--arb-color-accent);
+  -webkit-box-shadow: 0 0 0 1000px var(--arb-color-surface) inset;
+  box-shadow: 0 0 0 1000px var(--arb-color-surface) inset;
+  border-color: var(--arb-color-border);
+  transition: background-color 9999s ease-out 0s;
+}
