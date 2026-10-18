@@ -10,6 +10,7 @@
 ## Current project checkpoint
 
 - **Latest Stage 1 action:** Traced Mining package purchase and swap confirmation paths, including transactional quote validation and idempotency. Recorded test requirements for manual settlement concurrency/conditional updates and administrator balance-adjustment locking/reference uniqueness. These are source-based risks, not confirmed incidents; no financial data was changed.
+- **Latest audit continuation (2026-10-18):** Traced transaction-console session/event behavior and mining API boundaries. Simulated `SYSTEM_ACTIVITY` rows and mining network telemetry marked `simulationOnly: true` are not ledger evidence. Flagged console event retention on session open and SELECT-then-INSERT deduplication for schema/concurrency verification. Added these findings and remaining swap/history/browser checks to `docs/ARBITRADE_STAGE_1_AUDIT.md`; Stage 1 remains open.
 
 
 - **Roadmap:** Recorded in this document.
