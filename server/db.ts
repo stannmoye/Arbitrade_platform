@@ -13,6 +13,7 @@ import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./mod
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
+import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
@@ -460,8 +461,12 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     const total=principal+input.rewardMinor;
     await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:principal,entryType:"trade_principal_release",reference:`${reference}:principal`,withdrawable:false});
     if(input.rewardMinor>0) await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:input.rewardMinor,entryType:"trade_reward",reference:`${reference}:reward`,withdrawable:false});
-    await tx.update(customerBalances).set({availableMinor:sql`${customerBalances.availableMinor}+${total}`,lockedMinor:sql`GREATEST(${customerBalances.lockedMinor}-${principal},0)`,earnedMinor:sql`${customerBalances.earnedMinor}+${input.rewardMinor}`,updatedAt:new Date()}).where(eq(customerBalances.id,wallet.id));
-    await tx.update(tradePositions).set({status:"settled",settledAt:new Date(),lifecycleStage:"Trade Completed",settlementStatus:"completed",rewardCreditedMinor:input.rewardMinor,rewardReservedMinor:0,walletUpdatedAt:new Date(),completionAt:new Date(),transactionReference:reference,settlementReference:reference,settlementConfirmedAt:new Date(),settlementConfirmedBy:adminId,settlementNotes:input.notes?.trim()||null}).where(and(eq(tradePositions.id,tradeId),eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending")));
+    const walletUpdate=await tx.update(customerBalances).set({availableMinor:sql`${customerBalances.availableMinor}+${total}`,lockedMinor:sql`GREATEST(${customerBalances.lockedMinor}-${principal},0)`,earnedMinor:sql`${customerBalances.earnedMinor}+${input.rewardMinor}`,updatedAt:new Date()}).where(eq(customerBalances.id,wallet.id));
+    assertExactlyOneAffectedRow(walletUpdate,"Manual settlement wallet update");
+    const settlementUpdate=await tx.update(tradePositions).set({status:"settled",settledAt:new Date(),lifecycleStage:"Trade Completed",settlementStatus:"completed",rewardCreditedMinor:input.rewardMinor,rewardReservedMinor:0,walletUpdatedAt:new Date(),completionAt:new Date(),transactionReference:reference,settlementReference:reference,settlementConfirmedAt:new Date(),settlementConfirmedBy:adminId,settlementNotes:input.notes?.trim()||null}).where(and(eq(tradePositions.id,tradeId),eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending")));
+    // If another settlement won the race, throw inside the transaction so the
+    // preceding wallet and ledger mutations are rolled back together.
+    assertExactlyOneAffectedRow(settlementUpdate,"Manual trade settlement state transition");
     await tx.update(tradeRewardReservations).set({status:"credited",updatedAt:new Date()}).where(and(eq(tradeRewardReservations.tradeId,tradeId),eq(tradeRewardReservations.status,"reserved")));
     await tx.insert(tradeLifecycleEvents).values({tradeId,userId:trade.userId,eventType:"manual_settlement_confirmed",stage:"Wallet Updated",payloadJson:JSON.stringify({principalMinor:principal,rewardMinor:input.rewardMinor,reference,adminId})});
     await tx.insert(tradeLifecycleEvents).values({tradeId,userId:trade.userId,eventType:"trade_completed",stage:"Trade Completed",payloadJson:JSON.stringify({reference})});
