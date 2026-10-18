@@ -12,10 +12,11 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
   const auth = trpc.auth.me.useQuery(undefined, { retry: false, refetchOnWindowFocus: false });
   const isAdmin = auth.data?.role === "admin";
   const policy = appearance.data;
-  const enabledThemes: ArbitradeTheme[] = policy?.enabledThemes
+  const configuredThemes: ArbitradeTheme[] = policy?.enabledThemes
     ? policy.enabledThemes.filter((option: string): option is ArbitradeTheme =>
         ARBITRADE_THEMES.includes(option as ArbitradeTheme))
     : [];
+  const enabledThemes = configuredThemes;
   const defaultTheme: ArbitradeTheme = policy && ARBITRADE_THEMES.includes(policy.defaultTheme as ArbitradeTheme)
     ? policy.defaultTheme as ArbitradeTheme
     : "original";
