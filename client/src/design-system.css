@@ -965,3 +965,20 @@
     outline-offset: -1px;
   }
 }
+
+
+/* Stage 2: clarify busy and unavailable states in shared buttons. */
+[data-slot="button"][aria-busy="true"],
+[data-wb-button="true"][aria-busy="true"] {
+  cursor: progress;
+}
+[data-slot="button"][aria-disabled="true"]:not(:disabled),
+[data-wb-button="true"][aria-disabled="true"]:not(:disabled) {
+  cursor: not-allowed;
+}
+@media (forced-colors: active) {
+  [data-slot="button"][aria-busy="true"],
+  [data-wb-button="true"][aria-busy="true"] {
+    border-style: dashed;
+  }
+}
