@@ -454,3 +454,36 @@
     font-weight: 700;
   }
 }
+
+
+/* Stage 2: prevent long operational identifiers from forcing page-wide overflow. */
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-panel,
+  .admin-ops-metric,
+  .admin-ops-export-card,
+  .admin-ops-status,
+  .admin-ops-table,
+  .admin-ops-table th,
+  .admin-ops-table td
+) {
+  min-width: 0;
+}
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-metric,
+  .admin-ops-status,
+  .admin-ops-table th,
+  .admin-ops-table td,
+  .admin-ops-export-card
+) {
+  overflow-wrap: anywhere;
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-button, button) {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 420px) {
+  :root[data-arb-theme] .admin-ops-page :where(.admin-ops-panel, .admin-ops-export-card) {
+    padding-inline: 12px;
+  }
+}
