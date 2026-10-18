@@ -238,3 +238,23 @@ Source review of `client/src/components/CustomerMining.tsx`, `server/routers.ts`
 2. Inspect all installer and migration SQL for transaction-console indexes and confirm deployed schema parity.
 3. Complete browser-based responsive/accessibility checks and event-to-sound acceptance tests in a real browser environment.
 4. Keep Stage 1 open until remaining acceptance evidence is recorded.
+
+## 12. Installer-schema parity and final swap trace (2026-10-18)
+
+### Transaction-console schema parity confirmed
+- Inspected both `drizzle/schema.ts` and `drizzle/0012_transaction_console.sql`. Neither declares a unique constraint on `(userId, sessionKey, transactionCode)`; the migration only adds a non-unique session lookup index on `(userId, sessionKey, id)`. This confirms the deduplication race concern exists in the checked-in Drizzle schema and this migration, rather than merely being an uncertainty about those two definitions. Before adding a unique index, check deployed-schema drift and existing duplicate rows, and plan a guarded/backward-compatible migration with explicit duplicate handling.
+- `openTransactionConsoleSession` deletes every console event for the user, not just events for the current session. `closeTransactionConsoleSession` deletes only rows belonging to the current user and cookie session. This asymmetry is confirmed in source; whether to retain older sessions is a product/data-retention decision and should not be changed without deciding the intended history semantics.
+- Console rows are therefore a transient UI feed, not a durable audit trail. Use the authoritative transaction/ledger tables for financial records.
+
+### Manual swap confirmation trace — remaining nuance
+- Confirmed the full `confirmCustomerMiningSwap` source path: customer-scoped quote/snapshot join with `FOR UPDATE`; quote status and expiry checks; stored details parsing; economics-version check; refreshed rate/deviation check; available CKI balance check; conversion execution; idempotency result storage; and notification creation within the database transaction.
+- `beginMiningIdempotency` inserts-or-reuses a unique `keyValue`, locks the row, rejects command mismatch and returns a stored result when present. The schema declares `keyValue` unique. The confirmation flow is transaction-wrapped, but actual same-key and different-key concurrency behaviour, transaction isolation, and cross-database compatibility remain unproven until regression tests run.
+- `executeTokenConversion` validates that the per-asset ledger balances and credits the destination main wallet through the canonical `mining-conversion:<quoteId>` reference before recording mining-ledger entries and the conversion/plan records. The surrounding transaction should make these writes atomic on transactional tables; test failures injected between steps and replay/concurrency cases before claiming verified behaviour.
+- `listCustomerMiningTransactions(userId)` filters mining ledger transactions and boost activations by the supplied user ID and combines them into a recent history view. Its router must continue supplying the authenticated `ctx.user.id`; this view is not a substitute for reconciling the separate main-wallet and mining ledgers.
+
+### Required next verification
+1. Review database engine/table definitions and migration tooling to confirm all participating tables are transactional and migration rollout is safe.
+2. Add/run duplicate-event migration preflight and idempotency/replay/concurrency regression tests in disposable MariaDB and MySQL 8.
+3. Decide whether transaction-console history is intentionally deleted on new session, then document retention policy.
+4. Complete browser/responsive and event-to-sound checks; none are claimed as run in this source-only pass.
+5. Stage 1 remains **in progress**. No financial code, database schema, or customer data was changed by this audit update.
