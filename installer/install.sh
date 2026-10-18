@@ -72,8 +72,8 @@ if (("${#missing[@]}")); then
     apt-get update
     apt-get install -y ca-certificates curl gnupg
     if [[ ! -e /etc/apt/keyrings ]]; then install -d -m 0755 /etc/apt/keyrings; fi
-    NODE_KEY_TMP="$(mktemp /etc/apt/keyrings/.nodesource.gpg.XXXXXX)"
-    NODE_SOURCE_TMP="$(mktemp /etc/apt/sources.list.d/.nodesource.list.XXXXXX)"
+    NODE_KEY_TMP=""
+    NODE_SOURCE_TMP=""
     NODE_KEY_ID=""
     NODE_SOURCE_ID=""
     NODE_RUNTIME_COMMITTED=0
@@ -90,11 +90,13 @@ if (("${#missing[@]}")); then
       fi
     }
     trap cleanup_nodesource_runtime EXIT
+    NODE_KEY_TMP="$(mktemp /etc/apt/keyrings/.nodesource.gpg.XXXXXX)"
+    NODE_SOURCE_TMP="$(mktemp /etc/apt/sources.list.d/.nodesource.list.XXXXXX)"
     if ! curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor > "$NODE_KEY_TMP"; then
       fail "Could not download or decode the NodeSource signing key."
     fi
     chmod 0644 "$NODE_KEY_TMP"
-    printf '%s\\n' "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > "$NODE_SOURCE_TMP"
+    printf '%s\n' "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > "$NODE_SOURCE_TMP"
     chmod 0644 "$NODE_SOURCE_TMP"
     NODE_KEY_ID="$(stat -c '%d:%i' -- "$NODE_KEY_TMP")"
     NODE_SOURCE_ID="$(stat -c '%d:%i' -- "$NODE_SOURCE_TMP")"
