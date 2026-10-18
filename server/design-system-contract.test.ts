@@ -94,4 +94,36 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(designSystem).toContain(".arb-status-danger");
   });
 
+
+  it("keeps new-theme text tokens at WCAG AA contrast against canvas and surfaces", () => {
+    const themesToCheck = ["midnight-premium", "clean-light", "emerald-finance", "aurora-modern"];
+    const readHexToken = (block: string, token: string) => {
+      const match = block.match(new RegExp(`\\\\${token}:\\\\s*(#[0-9a-fA-F]{6})`));
+      expect(match, `missing literal token ${token}`).not.toBeNull();
+      return match![1];
+    };
+    const luminance = (hex: string) => {
+      const channels = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255);
+      const linear = channels.map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+      return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+    };
+    const contrast = (first: string, second: string) => {
+      const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
+      return (values[0] + 0.05) / (values[1] + 0.05);
+    };
+
+    for (const theme of themesToCheck) {
+      const match = themes.match(new RegExp(`:root\\\\[data-arb-theme="\\\\${theme}"\\\\]\\\\s*\\\\{([^}]+)\\\\}`));
+      expect(match, `missing literal theme block ${theme}`).not.toBeNull();
+      const block = match![1];
+      const canvas = readHexToken(block, "--arb-color-canvas");
+      const surface = readHexToken(block, "--arb-color-surface");
+      for (const token of ["--arb-color-text", "--arb-color-text-soft", "--arb-color-text-muted"]) {
+        const foreground = readHexToken(block, token);
+        expect(contrast(foreground, canvas), `${theme} ${token} on canvas`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(foreground, surface), `${theme} ${token} on surface`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
 });
