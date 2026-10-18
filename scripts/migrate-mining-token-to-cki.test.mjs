@@ -41,6 +41,8 @@ describe("migrateMiningTokenToCki fresh CKI handling", () => {
     const marker = connection.calls.find(([kind, sql]) => kind === "execute" && sql.includes("INSERT INTO mining_schema_migrations"));
     expect(marker).toBeTruthy();
     expect(JSON.parse(marker[2][1])).toMatchObject({
+      version: 1,
+      reclassifiedAmount: "0.00000000",
       tokenName: "CoinKi",
       tokenSymbol: "CKI",
       status: "already_configured",
