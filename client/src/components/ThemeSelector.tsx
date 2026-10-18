@@ -58,7 +58,6 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
           id={selectId}
           value={selectedTheme}
           onChange={(event) => setTheme(event.target.value as ArbitradeTheme)}
-          aria-label="Workspace theme"
           aria-describedby={!compact ? `arb-theme-description-${selectorId}` : undefined}
         >
           {availableThemes.map((option) => (
