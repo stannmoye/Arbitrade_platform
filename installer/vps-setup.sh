@@ -202,6 +202,7 @@ UNIT_PUBLISHED_ID=""
 NGINX_PUBLISHED_ID=""
 NGINX_ENABLED_PUBLISHED_ID=""
 SERVICE_ATTEMPTED=0
+NGINX_RELOAD_ATTEMPTED=0
 HTTPS_ATTEMPTED=0
 . "$ROOT/installer/vps-rollback.sh"
 trap cleanup_vps_setup EXIT
@@ -301,6 +302,9 @@ nginx -t
 systemctl daemon-reload
 SERVICE_ATTEMPTED=1
 systemctl enable --now arbitrade.service
+# Mark before invoking reload so rollback also covers a command that partially
+# applies the new config and then returns an error.
+NGINX_RELOAD_ATTEMPTED=1
 systemctl reload nginx
 
 if [[ "$ENABLE_HTTPS" == 1 ]]; then
