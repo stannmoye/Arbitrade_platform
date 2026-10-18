@@ -319,3 +319,30 @@
     border-width: 2px;
   }
 }
+
+
+/* Stage 2: finish semantic text and interactive states for themed operations panels. */
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-heading p, .admin-ops-meta-line, .admin-ops-metric-label,
+  .admin-ops-panel-head p, .admin-ops-empty, .admin-ops-table td
+) {
+  color: var(--arb-color-text-soft);
+}
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-panel-head, .admin-ops-meta-line, .admin-ops-table th, .admin-ops-table td
+) {
+  border-color: var(--arb-color-border);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table :where(a, button) {
+  color: var(--arb-color-info);
+  text-underline-offset: 3px;
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table :where(a, button):hover {
+  color: var(--arb-color-accent);
+}
+@media (max-width: 640px) {
+  :root[data-arb-theme] .admin-ops-page .admin-ops-actions .admin-ops-button,
+  :root[data-arb-theme] .admin-ops-page .admin-ops-export-card .admin-ops-button {
+    min-height: 42px;
+  }
+}
