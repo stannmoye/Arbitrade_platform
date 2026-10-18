@@ -776,3 +776,41 @@
     outline-color: Mark;
   }
 }
+
+
+/* Shared interaction states for asynchronous actions and dense data tables. */
+[data-wb-button="true"][data-wb-state="loading"] {
+  cursor: progress;
+}
+[data-wb-button="true"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+.arb-overflow-x {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+.arb-overflow-x :where(table, pre) {
+  max-width: 100%;
+}
+.arb-overflow-x :where(th, td) {
+  overflow-wrap: anywhere;
+}
+.arb-overflow-x :where(code, pre) {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-wb-button="true"][data-wb-state="loading"] {
+    scroll-behavior: auto;
+  }
+}
+@media (forced-colors: active) {
+  [data-wb-button="true"][data-wb-state="loading"],
+  [data-wb-button="true"][aria-disabled="true"] {
+    border: 1px solid GrayText;
+  }
+  .arb-overflow-x :where(th, td) {
+    border-color: CanvasText;
+  }
+}
