@@ -1071,3 +1071,15 @@
   max-width: 100%;
   min-height: 44px;
 }
+
+/* Stage 2 accessibility: honor reduced-motion preferences throughout adopted pages. */
+@media (prefers-reduced-motion: reduce) {
+  .arb-page *,
+  .arb-page *::before,
+  .arb-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
