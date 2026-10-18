@@ -434,3 +434,15 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 - Work is split into independent tracks to reduce idle time: (1) migration/deduplication preflight and disposable database tests, (2) swap/idempotency/ledger rollback integration tests, and (3) API authorization plus sound/responsive-browser acceptance. Changes affecting the same schema or transaction paths must be serialized after shared prerequisites are verified.
 - No database-backed integration test, browser acceptance run, production deployment, or financial-data mutation occurred in this checkpoint.
 - Stage 1 remains **in progress**. Run #28 does not close the database, authorization, notification, or browser acceptance gates.
+
+
+## 29. Simulated transaction-console activity labeling fix (2026-10-18)
+
+- Fixed a presentation-integrity issue in `server/transactionConsole.ts`: generated `SYSTEM_ACTIVITY` rows previously used transaction-like titles/statuses such as “Transaction route confirmed” and stored the generated outcome as if it were the event status, despite the code comment describing these rows as simulated.
+- Added `presentSimulatedActivity`, which now returns status `SIMULATED`, title `Simulated system activity`, an explicit “SIMULATION ONLY — no wallet movement was performed” message prefix, and the generated outcome separately as `simulatedOutcome`.
+- Persisted `simulationOnly: true` and `simulatedOutcome` in event metadata so downstream UI and audit code can distinguish generated telemetry from ledger-backed transactions.
+- Added `server/transactionConsole.test.ts` coverage for all five generated outcome categories and expanded `.github/workflows/mining-regression.yml` to run it alongside the Mining regression suite.
+- Verification: GitHub Actions [Mining regression checks — Run #33](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39130570653) completed successfully, including the combined regression tests and TypeScript check, on commit `14603d98f81638ad9c4e47ab913fee81d980a72d`.
+- Parallel source review: swap confirmation uses a customer-scoped quote/snapshot join with `FOR UPDATE`; idempotency keys are unique and operation-scoped; notification reads/updates constrain customer ownership. These are source-level findings, not substitutes for database-backed concurrency or authorization tests.
+- Still open: transaction-console SELECT-then-INSERT deduplication race, migration/schema parity on disposable MySQL/MariaDB databases, full sound/notification behavior, and measured responsive-browser acceptance. No production database or production deployment was accessed.
+- Stage 1 remains **in progress**; production readiness remains blocked.
