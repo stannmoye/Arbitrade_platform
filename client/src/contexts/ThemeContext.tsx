@@ -37,6 +37,10 @@ function isTheme(value: unknown): value is ArbitradeTheme {
   return typeof value === "string" && ARBITRADE_THEMES.some(theme => theme === value);
 }
 
+function readEnabledThemes(value: unknown): ArbitradeTheme[] {
+  return Array.isArray(value) ? value.filter(isTheme) : [];
+}
+
 function readStoredTheme(defaultTheme: ArbitradeTheme): ArbitradeTheme {
   try {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -64,7 +68,7 @@ export function ThemeProvider({
   const requestedPolicyDefault = isTheme(policy?.defaultTheme) ? policy.defaultTheme : defaultTheme;
   // A published default must also be in the allow-list. If configuration is malformed
   // or omits that default, consistently fall back to the first permitted theme.
-  const configuredThemes = policy?.enabledThemes?.filter(isTheme) ?? [];
+  const configuredThemes = readEnabledThemes(policy?.enabledThemes);
   const enabledThemes = configuredThemes.length > 0 ? configuredThemes : [requestedPolicyDefault];
   const policyDefault = enabledThemes.includes(requestedPolicyDefault)
     ? requestedPolicyDefault
