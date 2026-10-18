@@ -16,5 +16,5 @@ arbitrade_directory_is_safe() {
 # unsuitable. Match path components rather than the broader "/root*" prefix.
 arbitrade_root_path_is_allowed() {
   local root="${1:?deployment root is required}"
-  [[ "$root" != "/root" && "$root" != /root/* && "$root" != /home/* ]]
+  [[ "$root" != "/root" && "$root" != /root/* && "$root" != "/home" && "$root" != /home/* ]]
 }
