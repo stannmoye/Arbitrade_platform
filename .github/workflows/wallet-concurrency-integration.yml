@@ -15,16 +15,20 @@ concurrency:
 
 jobs:
   wallet-concurrency:
-    name: wallet concurrency (${{ matrix.database }})
+    name: wallet concurrency (${{ matrix.database.image }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        database: [mysql:8.0, mariadb:11.4]
+        database:
+          - image: mysql:8.0
+            health: mysqladmin ping -h 127.0.0.1 -uroot -proot
+          - image: mariadb:11.4
+            health: healthcheck.sh --connect --innodb_initialized
     services:
       mysql:
-        image: ${{ matrix.database }}
+        image: ${{ matrix.database.image }}
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: arbitrade_test
@@ -33,7 +37,7 @@ jobs:
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-cmd="${{ matrix.database.health }}"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
