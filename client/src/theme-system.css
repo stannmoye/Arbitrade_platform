@@ -316,3 +316,30 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* Theme-aware defaults for the most widely reused portal surfaces and actions. */
+.arb-page :where(.settings-card, .customer-panel, .intelligence-panel,
+  .advanced-feature-card, .smart-rules-panel) {
+  background-color: var(--arb-color-surface);
+  border: 1px solid var(--arb-color-border);
+}
+.arb-page :where(.primary-button, .portal-action) {
+  border-color: var(--arb-color-accent);
+  background-color: var(--arb-color-accent);
+  color: var(--arb-color-canvas);
+}
+.arb-page :where(.secondary-button, .text-button) {
+  border-color: var(--arb-color-border);
+}
+.arb-page :where(.secondary-button) {
+  background-color: var(--arb-color-surface-raised);
+  color: var(--arb-color-text);
+}
+.arb-page :where(.primary-button, .portal-action, .secondary-button, .text-button):focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+.arb-page :where(.settings-card, .customer-panel, .advanced-feature-card) > :first-child {
+  min-width: 0;
+}
