@@ -6,6 +6,31 @@
 - **VPS:** Debian/Ubuntu, Node.js 20+, pnpm 10.18.x, MySQL/MariaDB, and root/sudo access for server provisioning.
 - **PHP-only hosting is not sufficient.** The PHP wizard configures this Node.js application; it cannot itself keep the Express server running or safely execute privileged commands.
 
+## One universal deployment ZIP
+
+The release artifact is `arbitrade-universal-installer.zip`. It contains the browser-based installer and the console-based VPS setup/rollback tools. Choose the path that matches the server; do not run both setup paths on the same host.
+
+### A. Domain already hosted in cPanel
+
+1. Back up the target database and keep the backup outside the web root.
+2. Upload and extract the ZIP into the application's private root. A private directory outside `public_html` is preferred. If the hosting provider requires extraction under `public_html`, configure Apache/cPanel access controls before opening the site so source code, package files, environment files, logs, SQL dumps and installer state cannot be downloaded. The wizard must be reachable at `/installer/`, but private application files must not be publicly readable.
+3. Configure the cPanel Node.js application (Node.js 20+; Node 22 recommended) with startup file `dist/index.js`. Use the private terminal for locked dependency installation/build and any OS-level commands the hosting panel cannot perform.
+4. Create the database and dedicated user in cPanel. Open `https://YOUR-DOMAIN/installer/` and follow the staged browser wizard. Database connection, fresh-install administrator creation, and optional mail/OAuth settings are configured through the guided stages.
+5. For a new database, ensure it is empty and use `node installer/run-install.mjs --fresh-install`. For an already imported database, first verify a restorable backup and use `node installer/run-install.mjs --existing-database --confirm-existing-migrations`. Never use fresh-install mode against existing data.
+6. Restart through cPanel Setup Node.js App and run `pnpm installer:verify` and `pnpm installer:diagnose` from the private application root. Remove/deny public access to `/installer/` after verification.
+
+The browser wizard cannot run privileged operating-system commands or safely install system packages. Run those manually over SSH as the VPS administrator. Do not run `installer/vps-setup.sh` on a panel-managed host unless you deliberately want its separate systemd/Nginx provisioning and have reviewed the consequences.
+
+### B. Fresh VPS without cPanel or a hosted domain
+
+1. Upload the ZIP to a clean supported Debian/Ubuntu VPS and extract it into a private directory. Connect as a sudo-capable administrator.
+2. Review and run `sudo bash installer/vps-preflight.sh`, then inspect `sudo bash installer/vps-setup.sh --help`.
+3. Run the documented VPS setup command from the console using only reviewed options. This path may install system packages and Node.js/pnpm, create a service user, configure systemd and Nginx, and optionally configure TLS. Point DNS to the VPS and open the required ports before requesting TLS.
+4. Configure the private environment and database. Once the domain/web endpoint is available, use `https://YOUR-DOMAIN/installer/` for the guided browser stages, including database connection and initial administrator creation. Run the corresponding fresh or existing database CLI command shown by the wizard from the private application root.
+5. Verify with `pnpm installer:verify`, `pnpm installer:diagnose`, and the HTTPS `/api/health` endpoint. Keep rollback scripts and a verified database backup available.
+
+Do not run the fresh-VPS provisioning flow on a server with existing applications unless every proposed host change has been reviewed and an operator-approved recovery plan exists. The universal ZIP contains no database snapshot or deployment secrets.
+
 ## Browser wizard
 
 1. Upload/extract the repository into a private application root. Create a MySQL database and dedicated user in cPanel and grant that user privileges on the database.
