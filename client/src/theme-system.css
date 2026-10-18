@@ -1033,3 +1033,40 @@
     outline-color: Highlight;
   }
 }
+
+
+/* Stage 2: keep appearance controls from widening navigation and settings rows. */
+.arb-theme-selector,
+.arb-theme-selector-copy,
+.arb-theme-selector :where(select, .arb-theme-selector-current, .arb-theme-selector-status) {
+  min-width: 0;
+  max-width: 100%;
+}
+.arb-theme-selector select,
+.arb-theme-selector-current {
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+.arb-theme-selector-status,
+.arb-theme-selector-description,
+.arb-theme-selector-current {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .arb-theme-selector-compact select,
+  .arb-theme-selector-compact .arb-theme-selector-current {
+    flex: 0 1 56%;
+    width: 56%;
+  }
+}
+@media (forced-colors: active) {
+  .arb-theme-selector select,
+  .arb-theme-selector-current {
+    border-color: ButtonText;
+  }
+  .arb-theme-selector select:focus-visible,
+  .arb-theme-selector-current:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
