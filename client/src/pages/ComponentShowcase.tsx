@@ -778,7 +778,7 @@ export default function ComponentsShowcase() {
                 <Separator />
                 <div className="space-y-2">
                   <Label>Table</Label>
-                  <Table>
+                  <Table containerAriaLabel="Recent invoice examples">
                     <TableCaption>A list of your recent invoices.</TableCaption>
                     <TableHeader>
                       <TableRow>
