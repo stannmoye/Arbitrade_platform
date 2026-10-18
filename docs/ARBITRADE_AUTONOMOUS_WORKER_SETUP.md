@@ -17,7 +17,7 @@ The workflow in `.github/workflows/autonomous-coding-worker.yml` is a bounded, e
 - Each run asks Codex to select and implement at most one prioritized, test-backed Stage 1 task.
 - The agent works in a sandboxed workspace. A separate fresh job validates the patch's allowed paths, rejects deletions and stale revisions, then pushes the accepted-scope patch to the work branch.
 - That push starts the existing Installer validation workflow. Another task becomes eligible only after that validation succeeds.
-- Consecutive automatic commit markers cap a chain at five tasks. A normal human-authored commit starts a new chain. If no patch is produced, validation fails, the branch moves, or the patch is outside the allowlist, the chain stops.
+- Consecutive automatic commit markers cap a chain at five tasks. A normal human-authored commit starts a new chain. If no patch is produced, the branch moves, or the patch is outside the allowlist, the chain stops. A failed Installer validation may trigger at most two repair attempts for that task; if validation still fails, the chain stops for human review.
 - The progress dashboard writes an evidence summary to GitHub Actions job summaries. It reports progress; it does not author code or certify production readiness.
 - Changes remain on the feature branch; the worker never merges a PR or deploys to production.
 
