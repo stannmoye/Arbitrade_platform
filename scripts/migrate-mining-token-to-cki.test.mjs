@@ -46,7 +46,14 @@ describe("migrateMiningTokenToCki fresh CKI handling", () => {
       status: "already_configured",
       legacyTokenBalances: "zero_or_absent",
       reclassificationPerformed: false,
+      reclassifiedUserWallets: 0,
+      historicalLedgerPreserved: true,
+      noOpReason: expect.stringContaining("no non-zero legacy TOKEN wallet balances"),
     });
+    const legacyBalanceQuery = connection.calls.find(([kind, sql]) => kind === "query" && sql.includes("SELECT id FROM v5_wallets WHERE assetCode='TOKEN'"));
+    expect(legacyBalanceQuery[1]).toContain("CAST(availableAmount AS DECIMAL(36,8))");
+    expect(legacyBalanceQuery[1]).toContain("CAST(lockedAmount AS DECIMAL(36,8))");
+    expect(legacyBalanceQuery[1]).toContain("CAST(pendingAmount AS DECIMAL(36,8))");
   });
 
   it("refuses to no-op when non-zero legacy TOKEN wallet balances remain", async () => {
