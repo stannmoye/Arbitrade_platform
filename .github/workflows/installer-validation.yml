@@ -80,3 +80,50 @@ jobs:
         run: pnpm test
       - name: Installer and migration safety test suite
         run: pnpm exec vitest run --config vitest.installer.config.ts
+
+  migration-adapter:
+    name: migration SQL adapter integration (${{ matrix.database.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        database:
+          - image: mysql:8.0
+            health: mysqladmin ping -h 127.0.0.1 -uroot -proot
+          - image: mariadb:11.4
+            health: healthcheck.sh --connect --innodb_initialized
+    services:
+      database:
+        image: ${{ matrix.database.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: arbitrade_migration_adapter_test
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: arbitrade_migration_adapter_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="${{ matrix.database.health }}"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      MIGRATION_SQL_TEST_DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_migration_adapter_test
+    steps:
+      - name: Check out proposed changes
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.18.0 --activate
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Validate migration integration test syntax
+        run: node --check scripts/mysql-compatible-migration-sql.integration.test.mjs
+      - name: Run idempotent MySQL-compatible migration SQL test
+        run: pnpm exec vitest run scripts/mysql-compatible-migration-sql.integration.test.mjs
