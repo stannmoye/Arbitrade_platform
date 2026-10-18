@@ -10,7 +10,7 @@
 ## Current project checkpoint
 
 - **Latest Stage 1 action:** Traced Mining purchase and swap flows and recorded a purchase-terms acknowledgement review item, alongside manual settlement and administrator balance-adjustment concurrency tests. Findings are source-based; no financial data was changed.
-- **Latest audit continuation (2026-10-18):** Traced manual mining-swap confirmation through quote ownership/locking, expiry and configuration checks, rate-deviation validation, idempotency, wallet-ledger posting and notification creation. Confirmed customer notification read/mark helpers scope operations to `ctx.user.id`. Found no unique index declared in the Drizzle transaction-console event table for the SELECT-then-INSERT deduplication key; installer/migration parity and race tests remain required. Audit report updated; Stage 1 remains open.
+- **Latest audit continuation (2026-10-18):** Confirmed both `drizzle/schema.ts` and `drizzle/0012_transaction_console.sql` omit a unique constraint for transaction-console event deduplication; the migration only has a non-unique session index. Confirmed new console sessions delete all prior console rows for the user, so the console is transient rather than durable audit history. Completed source trace of swap quote validation, transactional writes, idempotency and notification path. Migration preflight, concurrency/replay tests, retention decision and browser checks remain outstanding; Stage 1 stays open.
 
 
 - **Roadmap:** Recorded in this document.
