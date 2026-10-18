@@ -880,16 +880,14 @@
 /* Keep all common controls comfortable to use on touch-first devices,
    including controls supplied by the existing component library. */
 @media (pointer: coarse) {
-  :is(
-    button,
-    [role="button"],
-    input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
-    select,
-    textarea,
-    summary,
-    [data-slot="select-trigger"],
-    [data-slot="dropdown-menu-trigger"]
-  ) {
+  button:not([hidden]):not([data-touch-size="compact"]),
+  [role="button"]:not([hidden]):not([data-touch-size="compact"]),
+  input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+  select:not([hidden]):not([multiple]),
+  textarea:not([hidden]):not([data-touch-size="compact"]),
+  summary:not([hidden]):not([data-touch-size="compact"]),
+  [data-slot="select-trigger"]:not([hidden]),
+  [data-slot="dropdown-menu-trigger"]:not([hidden]) {
     min-height: 44px;
   }
 
