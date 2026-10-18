@@ -99,6 +99,7 @@ assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$NGINX" || fail'
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$NGINX_ENABLED" || fail' "VPS setup refuses to overwrite an enabled-site path or dangling symlink"
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$ENV_FILE" || fail' "VPS setup refuses to overwrite existing protected environment secrets"
 assert_file_contains "$VPS_SETUP" '[[ ! -L "$ROOT/.env" && -f "$ROOT/.env" ]]' "VPS setup rejects a symlinked source environment file before provisioning"
+assert_file_contains "$VPS_SETUP" 'arbitrade_directory_is_safe "/etc/apt/sources.list.d" || fail' "VPS setup rejects a symlinked APT sources directory"
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "/etc/apt/keyrings/nodesource.gpg" || fail' "VPS runtime preflight refuses to overwrite an existing NodeSource signing key"
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "/etc/apt/sources.list.d/nodesource.list" || fail' "VPS runtime preflight refuses to overwrite an existing NodeSource apt source"
 assert_file_contains "$VPS_SETUP" 'ln -T -- "$NODE_KEY_TMP" /etc/apt/keyrings/nodesource.gpg' "VPS runtime publishes the NodeSource signing key without replacing a raced destination"
