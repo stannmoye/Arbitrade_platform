@@ -890,3 +890,15 @@
     outline-color: Highlight;
   }
 }
+
+
+/* Respect reduced-motion preferences for shared Radix dialog and select surfaces. */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"],
+  [data-slot="select-content"] {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto;
+  }
+}
