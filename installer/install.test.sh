@@ -114,13 +114,19 @@ assert_file_contains "$VPS_SETUP" 'SERVICE_ATTEMPTED=1' "VPS setup tracks whethe
 assert_file_contains "$VPS_SETUP" 'HTTPS_ATTEMPTED=1' "VPS setup avoids deleting nginx configuration after certbot may have modified it"
 assert_file_contains "$VPS_SETUP" 'arbitrade_directory_is_safe "$ENV_DIR" || fail' "VPS setup refuses symlinked or non-directory environment parent paths"
 assert_file_contains "$VPS_SETUP" '[[ "$ROOT" =~ ^/[A-Za-z0-9_./-]+$ ]] || fail' "VPS setup rejects paths that cannot be represented safely in systemd configuration"
-assert_file_contains "$VPS_SETUP" '[[ "$ROOT" != "/root" && "$ROOT" != /root/* && "$ROOT" != /home/* ]] || fail' "VPS setup rejects root and home directories without overmatching similarly named paths"
+assert_file_contains "$VPS_SETUP" 'arbitrade_root_path_is_allowed "$ROOT" || fail' "VPS setup uses the tested deployment root path predicate"
 assert_file_contains "$VPS_SETUP" 'getent group "$APP_USER"' "VPS setup verifies the service group exists before writing the systemd unit"
 assert_file_contains "$VPS_SETUP" 'useradd --system --gid "$APP_USER"' "VPS setup creates the service user with its explicit matching group"
 
 # Exercise the same path predicate used by VPS provisioning using temporary
 # filesystem entries. These tests need neither root nor host configuration.
 source "$ROOT/installer/vps-preflight.sh"
+arbitrade_root_path_is_allowed "/var/www/arbitrade" || { printf '[FAIL] Standard deployment path should be allowed.\\n' >&2; exit 1; }
+arbitrade_root_path_is_allowed "/rooted/arbitrade" || { printf '[FAIL] Similar prefix /rooted should not be rejected.\\n' >&2; exit 1; }
+if arbitrade_root_path_is_allowed "/root"; then printf '[FAIL] /root must be rejected.\\n' >&2; exit 1; fi
+if arbitrade_root_path_is_allowed "/root/arbitrade"; then printf '[FAIL] Paths under /root must be rejected.\\n' >&2; exit 1; fi
+if arbitrade_root_path_is_allowed "/home/deploy/arbitrade"; then printf '[FAIL] Paths under /home must be rejected.\\n' >&2; exit 1; fi
+pass "Deployment root path guard rejects protected homes without overmatching similar prefixes"
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 arbitrade_path_is_available "$tmpdir/absent" || { printf '[FAIL] Missing path should be available.\\n' >&2; exit 1; }
