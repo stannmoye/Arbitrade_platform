@@ -1,6 +1,7 @@
 cleanup_vps_setup() {
   local status=$?
   local requested_status="${1:-}"
+  local nginx_config_removed=0
   [[ -z "$requested_status" ]] || status="$requested_status"
   [[ -z "${ENV_TMP:-}" ]] || rm -f -- "$ENV_TMP"
   [[ -z "${UNIT_TMP:-}" ]] || rm -f -- "$UNIT_TMP"
@@ -19,8 +20,19 @@ cleanup_vps_setup() {
         say "Service rollback skipped because the published unit identity could not be verified; inspect arbitrade.service manually."
       fi
     fi
-    if [[ "$NGINX_ENABLED_PUBLISHED" == 1 && -n "$NGINX_ENABLED_PUBLISHED_ID" && -L "$NGINX_ENABLED" && "$(stat -c '%d:%i' -- "$NGINX_ENABLED" 2>/dev/null || true)" == "$NGINX_ENABLED_PUBLISHED_ID" ]]; then rm -f -- "$NGINX_ENABLED"; fi
-    if [[ "$NGINX_PUBLISHED" == 1 && -n "$NGINX_PUBLISHED_ID" && ! -L "$NGINX" && -e "$NGINX" && "$(stat -c '%d:%i' -- "$NGINX" 2>/dev/null || true)" == "$NGINX_PUBLISHED_ID" ]]; then rm -f -- "$NGINX"; fi
+    if [[ "$NGINX_ENABLED_PUBLISHED" == 1 && -n "$NGINX_ENABLED_PUBLISHED_ID" && -L "$NGINX_ENABLED" && "$(stat -c '%d:%i' -- "$NGINX_ENABLED" 2>/dev/null || true)" == "$NGINX_ENABLED_PUBLISHED_ID" ]]; then rm -f -- "$NGINX_ENABLED"; nginx_config_removed=1; fi
+    if [[ "$NGINX_PUBLISHED" == 1 && -n "$NGINX_PUBLISHED_ID" && ! -L "$NGINX" && -e "$NGINX" && "$(stat -c '%d:%i' -- "$NGINX" 2>/dev/null || true)" == "$NGINX_PUBLISHED_ID" ]]; then rm -f -- "$NGINX"; nginx_config_removed=1; fi
+    # If this attempt already asked nginx to reload, its in-memory config may
+    # still reference the site files just removed above. Validate and reload
+    # the restored on-disk configuration so a later failure does not leave
+    # the abandoned site active.
+    if [[ "$nginx_config_removed" == 1 && "${NGINX_RELOAD_ATTEMPTED:-0}" == 1 ]]; then
+      if command -v nginx >/dev/null 2>&1 && nginx -t && systemctl reload nginx; then
+        say "nginx reloaded with the restored configuration after rollback."
+      else
+        say "WARNING: nginx could not be reloaded after rollback; inspect nginx -t and the active site configuration manually."
+      fi
+    fi
     if [[ "$UNIT_PUBLISHED" == 1 && -n "$UNIT_PUBLISHED_ID" && ! -L "$UNIT" && -e "$UNIT" && "$(stat -c '%d:%i' -- "$UNIT" 2>/dev/null || true)" == "$UNIT_PUBLISHED_ID" ]]; then rm -f -- "$UNIT"; fi
     if [[ "$ENV_PUBLISHED" == 1 && -n "$ENV_PUBLISHED_ID" && ! -L "$ENV_FILE" && -e "$ENV_FILE" && "$(stat -c '%d:%i' -- "$ENV_FILE" 2>/dev/null || true)" == "$ENV_PUBLISHED_ID" ]]; then rm -f -- "$ENV_FILE"; fi
     if [[ "$ENV_PUBLISHED" == 1 || "$UNIT_PUBLISHED" == 1 || "$NGINX_PUBLISHED" == 1 || "$NGINX_ENABLED_PUBLISHED" == 1 ]]; then
