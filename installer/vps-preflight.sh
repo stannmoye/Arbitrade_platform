@@ -18,3 +18,12 @@ arbitrade_root_path_is_allowed() {
   local root="${1:?deployment root is required}"
   [[ "$root" != "/root" && "$root" != /root/* && "$root" != "/home" && "$root" != /home/* ]]
 }
+
+# Match a file only when it is still the same regular filesystem object
+# recorded by the publishing process. Refuse symlinks and missing paths.
+arbitrade_published_file_identity_matches() {
+  local path="${1:?published path is required}"
+  local expected_identity="${2:?published identity is required}"
+  [[ -n "$expected_identity" && ! -L "$path" && -f "$path" ]] || return 1
+  [[ "$(stat -c '%d:%i' -- "$path" 2>/dev/null || true)" == "$expected_identity" ]]
+}
