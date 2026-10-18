@@ -932,7 +932,7 @@ async function processConversionJob(conn: Db, jobId: number) {
   }
 }
 
-async function settleDuePendingBoostRewards(conn: Db) {
+export async function settleDuePendingBoostRewards(conn: Db) {
   await conn.beginTransaction();
   let settled = 0;
   try {
