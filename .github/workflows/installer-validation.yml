@@ -1,13 +1,17 @@
 name: Installer validation
 
 on:
+  # Keep the existing installer branch validation.
   push:
     branches:
       - feat/complete-installation-wizard
+      - integration/auth-installer-vps-safety
   pull_request:
     branches:
       - main
       - feat/stage-46-controlled-migration-recovery
+  # The bounded worker explicitly dispatches this workflow after publishing a patch.
+  workflow_dispatch:
 
 jobs:
   syntax:
