@@ -77,25 +77,35 @@ if [[ "$INSTALL_RUNTIME" == 1 ]]; then
   apt-get update
   apt-get install -y ca-certificates curl gnupg nginx
   if [[ ! -e /etc/apt/keyrings ]]; then install -d -m 0755 /etc/apt/keyrings; fi
-  NODE_KEY_TMP="$(mktemp /etc/apt/keyrings/.nodesource.gpg.XXXXXX)"
-  if ! curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor > "$NODE_KEY_TMP"; then
+  NODE_KEY_TMP=""
+  NODE_SOURCE_TMP=""
+  if ! NODE_KEY_TMP="$(mktemp /etc/apt/keyrings/.nodesource.gpg.XXXXXX)"; then
+    fail "Could not create a temporary NodeSource signing-key file."
+  fi
+  if ! NODE_SOURCE_TMP="$(mktemp /etc/apt/sources.list.d/.nodesource.list.XXXXXX)"; then
     rm -f -- "$NODE_KEY_TMP"
+    fail "Could not create a temporary NodeSource apt-source file."
+  fi
+  if ! curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor > "$NODE_KEY_TMP"; then
+    rm -f -- "$NODE_KEY_TMP" "$NODE_SOURCE_TMP"
     fail "Could not download or decode the NodeSource signing key."
   fi
   chmod 0644 "$NODE_KEY_TMP"
+  printf '%s\\n' "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > "$NODE_SOURCE_TMP"
+  chmod 0644 "$NODE_SOURCE_TMP"
+
+  # Stage both files before publishing either, then roll back the key if the
+  # second no-clobber publication fails. This avoids leaving a partial repo
+  # configuration that would block a safe retry.
   if ! ln -T -- "$NODE_KEY_TMP" /etc/apt/keyrings/nodesource.gpg; then
-    rm -f -- "$NODE_KEY_TMP"
+    rm -f -- "$NODE_KEY_TMP" "$NODE_SOURCE_TMP"
     fail "The NodeSource signing key destination appeared during provisioning; existing files were not overwritten."
   fi
-  rm -f -- "$NODE_KEY_TMP"
-  NODE_SOURCE_TMP="$(mktemp /etc/apt/sources.list.d/.nodesource.list.XXXXXX)"
-  printf '%s\n' "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > "$NODE_SOURCE_TMP"
-  chmod 0644 "$NODE_SOURCE_TMP"
   if ! ln -T -- "$NODE_SOURCE_TMP" /etc/apt/sources.list.d/nodesource.list; then
-    rm -f -- "$NODE_SOURCE_TMP"
-    fail "The NodeSource apt source destination appeared during provisioning; existing files were not overwritten."
+    rm -f -- /etc/apt/keyrings/nodesource.gpg "$NODE_KEY_TMP" "$NODE_SOURCE_TMP"
+    fail "The NodeSource apt source destination appeared during provisioning; the signing key created by this attempt was rolled back."
   fi
-  rm -f -- "$NODE_SOURCE_TMP"
+  rm -f -- "$NODE_KEY_TMP" "$NODE_SOURCE_TMP"
   apt-get update
   apt-get install -y nodejs
   corepack enable
