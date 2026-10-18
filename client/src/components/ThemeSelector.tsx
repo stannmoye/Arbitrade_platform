@@ -26,6 +26,7 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
   const customerCanSelect = policy?.customerCanSelect === true;
   const policyReady = !auth.isLoading && !appearance.isLoading;
   const canChoose = policyReady && (isAdmin || (!readOnly && customerCanSelect));
+  const effectiveDefault = customerThemes.includes(defaultTheme) ? defaultTheme : customerThemes[0];
   // A malformed or temporarily empty published allow-list must never produce an
   // empty select. Fall back to the published default until the policy is corrected.
   const customerThemes = enabledThemes.length > 0 ? enabledThemes : [defaultTheme];
@@ -36,7 +37,7 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
       : [defaultTheme];
   const selectedTheme = availableThemes.includes(theme as ArbitradeTheme)
     ? theme as ArbitradeTheme
-    : availableThemes[0] ?? defaultTheme;
+    : availableThemes[0] ?? effectiveDefault;
 
   if (!switchable) return null;
 
