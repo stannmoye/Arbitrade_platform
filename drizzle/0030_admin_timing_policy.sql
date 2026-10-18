@@ -1,5 +1,5 @@
 ALTER TABLE `trade_positions`
-  ADD COLUMN `creditAt` timestamp NULL;
+  ADD COLUMN IF NOT EXISTS `creditAt` timestamp NULL;
 --> statement-breakpoint
 INSERT INTO `app_settings` (`settingKey`, `settingValue`)
 VALUES
