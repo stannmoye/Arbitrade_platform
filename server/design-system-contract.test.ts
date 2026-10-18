@@ -9,6 +9,7 @@ const themeSelector = readFileSync(new URL("../client/src/components/ThemeSelect
 const themeContext = readFileSync(new URL("../client/src/contexts/ThemeContext.tsx", import.meta.url), "utf8");
 const table = readFileSync(new URL("../client/src/components/ui/table.tsx", import.meta.url), "utf8");
 const componentShowcase = readFileSync(new URL("../client/src/pages/ComponentShowcase.tsx", import.meta.url), "utf8");
+const routers = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 
 describe("ARBITRADE shared design-system contract", () => {
   it("defines the semantic tokens used by shared components", () => {
@@ -229,6 +230,16 @@ describe("ARBITRADE shared design-system contract", () => {
         expect(contrast(foreground, surface), `${theme} ${token} on surface`).toBeGreaterThanOrEqual(4.5);
       }
     }
+  });
+
+
+  it("keeps server-side appearance policy validation constrained to known themes", () => {
+    expect(routers).toContain(
+      'enabledThemes: z.array(z.enum(["original","midnight-premium","clean-light","emerald-finance","aurora-modern"])).min(1).max(5)',
+    );
+    expect(routers).toContain(
+      'if (!input.appearance.enabledThemes.includes(input.appearance.defaultTheme)) throw new TRPCError({ code: "BAD_REQUEST", message: "The default theme must be enabled." });',
+    );
   });
 
 });
