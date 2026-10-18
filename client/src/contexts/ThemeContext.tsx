@@ -62,7 +62,10 @@ export function ThemeProvider({
   const isAdmin = auth.data?.role === "admin";
   const policy = appearance.data;
   const policyDefault = isTheme(policy?.defaultTheme) ? policy.defaultTheme : defaultTheme;
-  const enabledThemes = policy?.enabledThemes?.filter(isTheme) ?? [...ARBITRADE_THEMES];
+  // Match the selector's safe fallback: an absent, malformed, or empty published
+  // allow-list permits only the policy default for customers, never every theme.
+  const configuredThemes = policy?.enabledThemes?.filter(isTheme) ?? [];
+  const enabledThemes = configuredThemes.length > 0 ? configuredThemes : [policyDefault];
   const customerCanSelect = policy?.customerCanSelect === true;
   // Start from the published-safe default. Customer preferences are read only after policy loads,
   // preventing a previously stored but now-disabled theme from flashing during initial render.
