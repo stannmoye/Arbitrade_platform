@@ -90,14 +90,23 @@ async function postDueRewards(conn: Db, userId: number) {
     }
     const reference = `stake-reward:${position.id}:${position.rewardCount + 1}`;
     const [existing] = await conn.query<any[]>(`SELECT id FROM balance_ledger WHERE reference=? LIMIT 1`, [reference]);
-    if (!existing.length) {
-      await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId, position.asset, reward, "stake_reward", reference]);
-      await conn.execute(`UPDATE customer_balances SET availableMinor=availableMinor+?, earnedMinor=earnedMinor+?, updatedAt=NOW() WHERE userId=? AND currency=?`, [reward, reward, userId, position.asset]);
-      await conn.execute(`INSERT INTO stake_rewards (positionId,userId,amountMinor,asset,status,calculatedAt,postedAt,ledgerReference) VALUES (?,?,?,?, 'POSTED', NOW(), NOW(), ?)`, [position.id, userId, reward, position.asset, reference]);
-      await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, position.id, "reward.posted", "REWARD_ACCRUING", "REWARD_ACCRUING", reward, position.asset, JSON.stringify({ ledgerReference: reference })]);
-      await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, "Reward credited", `A ${reward} minor-unit reward was posted to your ${position.asset} wallet.`]);
+    if (existing.length) {
+      // A ledger row without the matching position transition is an inconsistent
+      // partial posting. Do not advance the position or silently mask it.
+      throw new Error(`Stake reward invariant violation for ${reference}: ledger entry already exists before position reward count advanced.`);
     }
-    await conn.execute(`UPDATE stake_positions SET rewardMinor=rewardMinor+?, rewardCount=rewardCount+1, status='REWARD_ACCRUING', nextRewardAt=?, updatedAt=NOW() WHERE id=?`, [reward, schedule.nextRewardAt, position.id]);
+    await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId, position.asset, reward, "stake_reward", reference]);
+    const [walletUpdate] = await conn.execute<any>(`UPDATE customer_balances SET availableMinor=availableMinor+?, earnedMinor=earnedMinor+?, updatedAt=NOW() WHERE userId=? AND currency=?`, [reward, reward, userId, position.asset]);
+    if (Number(walletUpdate.affectedRows) !== 1) {
+      throw new Error(`Stake reward ${reference} must update exactly one wallet row; received ${Number(walletUpdate.affectedRows) || 0}.`);
+    }
+    await conn.execute(`INSERT INTO stake_rewards (positionId,userId,amountMinor,asset,status,calculatedAt,postedAt,ledgerReference) VALUES (?,?,?,?, 'POSTED', NOW(), NOW(), ?)`, [position.id, userId, reward, position.asset, reference]);
+    await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, position.id, "reward.posted", "REWARD_ACCRUING", "REWARD_ACCRUING", reward, position.asset, JSON.stringify({ ledgerReference: reference })]);
+    await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, "Reward credited", `A ${reward} minor-unit reward was posted to your ${position.asset} wallet.`]);
+    const [positionUpdate] = await conn.execute<any>(`UPDATE stake_positions SET rewardMinor=rewardMinor+?, rewardCount=rewardCount+1, status='REWARD_ACCRUING', nextRewardAt=?, updatedAt=NOW() WHERE id=? AND status IN ('ACTIVE','REWARD_ACCRUING')`, [reward, schedule.nextRewardAt, position.id]);
+    if (Number(positionUpdate.affectedRows) !== 1) {
+      throw new Error(`Stake reward ${reference} must update exactly one eligible position; received ${Number(positionUpdate.affectedRows) || 0}.`);
+    }
   }
 }
 
