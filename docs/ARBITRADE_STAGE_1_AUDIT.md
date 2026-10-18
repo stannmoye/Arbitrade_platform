@@ -315,3 +315,16 @@ Added `server/mining-store.test.ts` with unit coverage for the pure `requestKey`
 - Empty, too-short, too-long, whitespace-containing, and unsupported-character keys are rejected.
 
 **Verification status:** the test file was committed to the working branch, but this environment has not executed the Vitest suite or type-check. These are test definitions, not passing test evidence. The unit tests do not replace database-backed tests for quote ownership/expiry, same-key replay, simultaneous different-key confirmations, ledger correspondence, atomic rollback, or notification replay/ownership. Those remain required before Stage 1 can be approved.
+
+
+## 18. Transaction-wrapper regression coverage (2026-10-18)
+
+Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTransaction`:
+
+- The success path begins a transaction, runs the callback, commits, and returns the callback result.
+- The failure path begins a transaction, runs the callback, rolls back, and rethrows the original error.
+- The tests use a lightweight mock connection and do not require a database.
+
+**Verification status:** Test definitions are committed in `13b2ea81f0885a06848cecbea4c2a2bf64c0853a`. This environment has not executed these newly added cases against the current commit. The most recently inspected successful CI run checks an earlier workflow commit and is not evidence that these new cases passed. Database-backed swap quote lifecycle, concurrent replay, ledger correspondence, cross-store rollback, and notification deduplication/ownership tests remain outstanding.
+
+**Next action:** Run `pnpm test -- server/mining-store.test.ts` and `pnpm check` on the current branch, then implement integration tests using an isolated disposable MySQL/MariaDB database. Do not use production data or mark Stage 1 complete until the new tests and remaining route/API/access and browser checks have passed.
