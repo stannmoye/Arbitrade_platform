@@ -723,3 +723,56 @@
     opacity: 1;
   }
 }
+
+
+/* Shared validation and descriptive-text relationships across portal forms. */
+[data-slot="input"][aria-describedby],
+[data-slot="textarea"][aria-describedby],
+[data-slot="select-trigger"][aria-describedby] {
+  scroll-margin-block: 5rem;
+}
+[data-slot="input"][aria-invalid="true"]:focus-visible,
+[data-slot="textarea"][aria-invalid="true"]:focus-visible,
+[data-slot="select-trigger"][aria-invalid="true"]:focus-visible {
+  outline-color: var(--arb-color-danger, #ff7777);
+}
+.arb-field-hint,
+.arb-field-error,
+[data-field-hint],
+[data-field-error] {
+  max-width: 70ch;
+  overflow-wrap: anywhere;
+}
+.arb-field-error,
+[data-field-error] {
+  color: var(--arb-color-danger, #ff7777);
+}
+.arb-field-hint,
+[data-field-hint] {
+  color: var(--arb-color-text-muted, #8295aa);
+}
+[data-slot="input"]::file-selector-button {
+  max-width: 100%;
+}
+[data-slot="select-content"] {
+  max-width: min( calc(100vw - 1rem), var(--radix-select-content-available-width, 32rem));
+}
+[data-slot="select-item"] {
+  overflow-wrap: anywhere;
+}
+@media (forced-colors: active) {
+  .arb-field-error,
+  [data-field-error] {
+    color: Mark;
+    font-weight: 700;
+  }
+  .arb-field-hint,
+  [data-field-hint] {
+    color: CanvasText;
+  }
+  [data-slot="input"][aria-invalid="true"]:focus-visible,
+  [data-slot="textarea"][aria-invalid="true"]:focus-visible,
+  [data-slot="select-trigger"][aria-invalid="true"]:focus-visible {
+    outline-color: Mark;
+  }
+}
