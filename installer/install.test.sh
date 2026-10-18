@@ -191,4 +191,20 @@ for guard_line in "$unit_guard_line" "$nginx_guard_line" "$enabled_guard_line" "
 done
 pass "VPS destination collisions are checked before system-changing operations"
 
+# Validate user-supplied domain and HTTPS contact information before any
+# system-changing operation can run, including optional runtime installation.
+domain_line="$(line_of '[[ "$DOMAIN" =~ ^([A-Za-z0-9]')"
+https_email_line="$(line_of 'if [[ "$ENABLE_HTTPS" == 1 && ! "$EMAIL" =~')"
+runtime_line="$(line_of 'if [[ "$INSTALL_RUNTIME" == 1 ]]; then')"
+group_line="$(line_of 'groupadd --system "$APP_USER"')"
+[[ -n "$domain_line" && "$domain_line" -lt "$runtime_line" && "$domain_line" -lt "$group_line" ]] || {
+  printf '[FAIL] Domain validation must precede runtime installation and account creation.\\n' >&2
+  exit 1
+}
+[[ -n "$https_email_line" && "$https_email_line" -lt "$runtime_line" && "$https_email_line" -lt "$group_line" ]] || {
+  printf '[FAIL] HTTPS email validation must precede runtime installation and account creation.\\n' >&2
+  exit 1
+}
+pass "VPS domain and HTTPS contact inputs are validated before system-changing operations"
+
 printf '\nInstaller CLI and runtime-provisioning regression checks passed. No database connection, package installation, or migration was attempted.\n'
