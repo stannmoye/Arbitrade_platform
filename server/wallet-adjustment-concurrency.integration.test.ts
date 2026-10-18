@@ -126,13 +126,14 @@ walletDescribe("wallet SQL concurrency integration (disposable MySQL)", () => {
     const connection = await pool!.getConnection();
     try {
       const [balances] = await connection.query<mysql.RowDataPacket[]>(
-        `SELECT availableMinor FROM ${balancesTable} WHERE id = 1`,
+        `SELECT availableMinor, promotionalMinor FROM ${balancesTable} WHERE id = 1`,
       );
       const [ledger] = await connection.query<mysql.RowDataPacket[]>(
         `SELECT COUNT(*) AS entryCount, COALESCE(SUM(amountMinor), 0) AS ledgerTotal FROM ${ledgerTable}`,
       );
       return {
         availableMinor: Number(balances[0].availableMinor),
+        promotionalMinor: Number(balances[0].promotionalMinor),
         entryCount: Number(ledger[0].entryCount),
         ledgerTotal: Number(ledger[0].ledgerTotal),
       };
@@ -160,6 +161,7 @@ walletDescribe("wallet SQL concurrency integration (disposable MySQL)", () => {
 
     expect(outcomes.every(Boolean)).toBe(true);
     expect(state.availableMinor).toBe(200);
+    expect(state.promotionalMinor).toBe(200);
     expect(state.entryCount).toBe(20);
     expect(state.ledgerTotal).toBe(200);
     expect(state.ledgerTotal).toBe(state.availableMinor);
