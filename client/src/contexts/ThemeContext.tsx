@@ -102,17 +102,21 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = document.documentElement;
-    root.dataset.arbTheme = theme;
-    root.classList.toggle("dark", theme !== "clean-light");
+    const effectiveTheme = !isAdmin && policy
+      ? (enabledThemes.includes(theme) ? theme : policyDefault)
+      : theme;
+    root.dataset.arbTheme = effectiveTheme;
+    root.classList.toggle("dark", effectiveTheme !== "clean-light");
+    root.style.colorScheme = effectiveTheme === "clean-light" ? "light" : "dark";
 
-    if (switchable && (isAdmin || (customerCanSelect && enabledThemes.includes(theme)))) {
+    if (switchable && (isAdmin || (policy && customerCanSelect && enabledThemes.includes(effectiveTheme)))) {
       try {
-        window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+        window.localStorage.setItem(THEME_STORAGE_KEY, effectiveTheme);
       } catch {
         // Keep the selected theme active for this session when storage is unavailable.
       }
     }
-  }, [theme, switchable, isAdmin, customerCanSelect, enabledThemes.join("|")]);
+  }, [theme, switchable, isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
 
   const toggleTheme = switchable
     ? () => setTheme(theme === "clean-light" ? "original" : "clean-light")
