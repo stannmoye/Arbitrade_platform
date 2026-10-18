@@ -185,3 +185,49 @@
   color: var(--arb-color-text-soft);
   font-size: 13px;
 }
+
+
+/* Administrator theme-management surface */
+.arb-appearance-admin { gap: 18px; }
+.arb-appearance-admin .settings-card { padding: 22px; }
+.arb-appearance-admin .settings-card h2 { margin: 7px 0 8px; color: var(--arb-color-text); }
+.arb-appearance-admin .settings-card h3 { margin: 20px 0 10px; color: var(--arb-color-text); }
+.arb-appearance-admin .settings-card p { color: var(--arb-color-text-muted); }
+.arb-theme-preview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 16px; }
+.arb-theme-preview-option {
+  display: grid; gap: 9px; text-align: left; padding: 12px;
+  border: 1px solid var(--arb-color-border); border-radius: var(--arb-radius-md);
+  background: var(--arb-color-surface); color: var(--arb-color-text); cursor: pointer;
+}
+.arb-theme-preview-option.is-active { outline: 2px solid var(--arb-color-accent); outline-offset: 1px; }
+.arb-theme-preview-option strong { font-size: 13px; }
+.arb-theme-preview-option > span:last-child { color: var(--arb-color-text-muted); font-size: 12px; }
+.arb-theme-swatch { display: flex; align-items: end; gap: 7px; height: 42px; padding: 8px; border: 1px solid var(--arb-color-border); border-radius: 8px; background: var(--arb-color-canvas); }
+.arb-theme-swatch i { display: block; width: 22px; height: 20px; border-radius: 5px; background: var(--arb-color-accent); }
+.arb-theme-swatch i:nth-child(2) { height: 26px; background: var(--arb-color-info); }
+.arb-theme-swatch i:nth-child(3) { height: 15px; background: var(--arb-color-decorative); }
+.arb-theme-swatch-midnight-premium { background: #070b18; border-color: #303d5c; }
+.arb-theme-swatch-midnight-premium i:nth-child(1) { background: #b8a4ff; }
+.arb-theme-swatch-clean-light { background: #f4f7fb; border-color: #d5deea; }
+.arb-theme-swatch-clean-light i:nth-child(1) { background: #176bdb; }
+.arb-theme-swatch-emerald-finance { background: #061711; border-color: #245542; }
+.arb-theme-swatch-emerald-finance i:nth-child(1) { background: #48e0a1; }
+.arb-theme-swatch-aurora-modern { background: #0b1025; border-color: #3b4774; }
+.arb-theme-swatch-aurora-modern i:nth-child(1) { background: #67e8f9; }
+.arb-appearance-field { display: grid; gap: 7px; max-width: 460px; color: var(--arb-color-text-soft); }
+.arb-appearance-field select { min-height: 40px; border: 1px solid var(--arb-color-border); border-radius: 8px; padding: 8px 10px; background: var(--arb-color-surface-raised); color: var(--arb-color-text); font: inherit; }
+.arb-theme-enabled-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 9px; }
+.arb-theme-enabled-list label, .arb-appearance-policy-toggle { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--arb-color-border); border-radius: 10px; background: var(--arb-color-surface); color: var(--arb-color-text); cursor: pointer; }
+.arb-theme-enabled-list input, .arb-appearance-policy-toggle input { margin-top: 3px; accent-color: var(--arb-color-accent); }
+.arb-theme-enabled-list span, .arb-appearance-policy-toggle span { display: grid; gap: 4px; }
+.arb-theme-enabled-list small, .arb-appearance-policy-toggle small { color: var(--arb-color-text-muted); line-height: 1.45; }
+.arb-appearance-policy-toggle { margin-top: 14px; }
+.arb-appearance-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+.arb-appearance-actions p { margin: 0; font-size: 13px; }
+.arb-theme-selector-current { color: var(--arb-color-text-soft); font-size: 13px; }
+@media (max-width: 520px) {
+  .arb-appearance-admin .settings-card { padding: 15px; }
+  .arb-theme-preview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .arb-theme-enabled-list { grid-template-columns: 1fr; }
+  .arb-appearance-actions { align-items: stretch; flex-direction: column; }
+}
