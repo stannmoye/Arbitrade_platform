@@ -111,3 +111,14 @@ No production database, production VPS, customer financial data, or live transac
 - **Verification state:** PR #62 has not yet had confirmed CI results; it targets integration, which is why PR #63 is needed. No local test suite was run in this session. Do not merge PR #62 until the exact head passes CI and the database-backed concurrency gaps are addressed/reviewed.
 - **Stage 1 estimate:** remains **40%**. This workflow and code progress do not close the wider release gates.
 - **Safety:** No production database/VPS was accessed, no deployment or live financial mutation occurred, and no application PR was merged.
+
+
+## Follow-up CI and wallet-adjustment update — 18 October 2026
+
+- **PR #63 merged:** default-branch installer validation now includes integration-targeting pull requests. Its validation [run #430](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39148304105) passed.
+- **PR #64 merged:** the same trigger correction is now present on the integration branch itself, because GitHub evaluates the base branch's workflow definition for pull-request events. The resulting integration-head Installer validation [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39148475342) and Mining regression [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39148475355) both passed on `f560fc564542d1e82567c5acef5da4aed1e88bdc`.
+- **PR #62 revised:** wallet adjustment amount/balance checks were extracted into `server/wallet-adjustment-guards.ts` with unit tests. The existing-wallet mutation uses atomic SQL deltas, conditional debit/credit bounds, and an exactly-one-row assertion.
+- **CI feedback applied:** an initial TypeScript run exposed a Drizzle update-value type mismatch for the unchanged promotional balance on debits. The debit update now omits that field rather than assigning a column object; this correction is included in PR #62 head `bd6a55c9e09d00719df3a74f0a15d9f06f5e33a7`.
+- **PR #62 current validation:** [run #39148591212](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39148591212) has passed syntax, TypeScript, application unit tests, installer/migration regression tests, and production build/server smoke checks. The disposable MariaDB and MySQL 8 installer/recovery jobs were still running at this checkpoint, so overall CI is **not yet confirmed green**.
+- **Decision:** PR #62 remains open and unmerged. The code is only a partial S1-A mitigation; concurrent first-time wallet creation, database-backed competing credit/debit tests, and wallet/ledger reconciliation remain unresolved. Do not claim S1-A complete.
+- **Safety:** no production database/VPS access, deployment, or live financial mutation. Stage 1 estimate remains **40%**.
