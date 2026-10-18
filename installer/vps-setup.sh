@@ -331,8 +331,12 @@ systemctl enable --now arbitrade.service
 systemctl reload nginx
 
 if [[ "$ENABLE_HTTPS" == 1 ]]; then
-  HTTPS_ATTEMPTED=1
+  # Installing Certbot is a prerequisite step; if it fails, normal rollback is
+  # still safe because Certbot has not yet been allowed to rewrite nginx.
   apt-get install -y certbot python3-certbot-nginx
+  # From this point Certbot may mutate nginx configuration, so preserve the
+  # published files and ask the operator to inspect the resulting host state.
+  HTTPS_ATTEMPTED=1
   certbot --nginx --non-interactive --agree-tos --email "$EMAIL" -d "$DOMAIN" --redirect
 fi
 
