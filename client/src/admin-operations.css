@@ -213,3 +213,33 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* Stage 2: ensure operations data tables remain readable in every published theme. */
+:root[data-arb-theme] .admin-ops-page .admin-ops-table {
+  border-color: var(--arb-color-border);
+  color: var(--arb-color-text);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table :where(th, td) {
+  border-color: var(--arb-color-border);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table thead th {
+  background: var(--arb-color-surface);
+  color: var(--arb-color-text-soft);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--arb-color-text) 2%, var(--arb-color-surface));
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--arb-color-accent) 7%, var(--arb-color-surface));
+}
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-panel, .admin-ops-metric, .admin-ops-export-card
+) {
+  border-color: var(--arb-color-border);
+}
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-panel, .admin-ops-metric, .admin-ops-export-card
+) :where(h2, h3, strong, label) {
+  color: var(--arb-color-text);
+}
