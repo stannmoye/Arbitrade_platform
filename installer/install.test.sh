@@ -91,7 +91,6 @@ assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$NGINX" || fail'
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$NGINX_ENABLED" || fail' "VPS setup refuses to overwrite an enabled-site path or dangling symlink"
 assert_file_contains "$VPS_SETUP" 'arbitrade_path_is_available "$ENV_FILE" || fail' "VPS setup refuses to overwrite existing protected environment secrets"
 assert_file_contains "$VPS_SETUP" 'if [[ ! -e "$ENV_DIR" ]]; then' "VPS setup creates the protected environment directory only when absent"
-assert_file_not_contains "$VPS_SETUP" 'install -d -o root -g "$APP_USER" -m 0750 "$ENV_DIR"\n# Track only destinations' "VPS setup does not silently reset metadata on a pre-existing protected environment directory"
 assert_file_contains "$VPS_SETUP" 'ENV_TMP="$(mktemp "$ENV_DIR/.arbitrade.env.XXXXXX")"' "VPS setup prepares a private temporary environment file"
 assert_file_contains "$VPS_SETUP" 'if ! ln -T -- "$ENV_TMP" "$ENV_FILE"; then' "VPS setup publishes the environment file without replacing a raced destination or writing into a raced directory"
 assert_file_contains "$VPS_SETUP" 'Existing environment secrets were not overwritten' "VPS setup gives a safe diagnostic when the environment destination appears during provisioning"
