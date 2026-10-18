@@ -124,3 +124,35 @@
 ) {
   box-shadow: 0 4px 16px rgba(20, 42, 72, .07);
 }
+
+
+/* Stage 2 refinement: theme semantic accents for operations status and data visuals. */
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-metric-icon, .admin-ops-bar-column i,
+  .admin-ops-export-icon, .am-engine-readout > strong small
+) {
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-bar-column i {
+  border-color: var(--arb-color-accent);
+  background: var(--arb-color-accent);
+  box-shadow: none;
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-status.good, .amount-positive) {
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-status.watch) {
+  color: var(--arb-color-warning);
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-status.high, .amount-negative) {
+  color: var(--arb-color-danger);
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-note, .admin-ops-export-icon) {
+  border-color: var(--arb-color-border);
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-note > svg, .admin-ops-export-icon) {
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-table tbody tr:hover td) {
+  background: color-mix(in srgb, var(--arb-color-accent) 5%, var(--arb-color-surface));
+}
