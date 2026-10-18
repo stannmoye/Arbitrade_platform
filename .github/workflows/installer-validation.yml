@@ -568,3 +568,118 @@ jobs:
           }
           console.log("PASS: interrupted migration remained failed and no migration SQL was rerun.");
           NODE
+
+  deployment-packages:
+    name: Package cPanel and fresh-VPS releases
+    runs-on: ubuntu-latest
+    needs:
+      - syntax
+      - installer-fresh-mariadb
+      - installer-mysql8-compatibility-and-recovery
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Enable the pinned pnpm version
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.18.0 --activate
+      - name: Install locked dependencies and build production application
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          test -s dist/index.js
+          test -s dist/public/index.html
+      - name: Assemble separate deployment packages
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          root="$RUNNER_TEMP/arbitrade-release"
+          cpanel="$root/cpanel"
+          vps="$root/fresh-vps"
+          mkdir -p "$cpanel" "$vps"
+          git archive HEAD | tar -x -C "$cpanel"
+          git archive HEAD | tar -x -C "$vps"
+          cp -a dist "$cpanel/dist"
+          cp -a dist "$vps/dist"
+
+          cat > "$cpanel/DEPLOYMENT-README.txt" <<'EOF'
+          Arbitrade — cPanel package (fresh database)
+          ============================================
+          Target: cPanel hosting with a newly created, empty MySQL/MariaDB database.
+          This package intentionally excludes VPS host-provisioning scripts.
+
+          1. Extract into the private application root and configure a cPanel Node.js
+             application using Node.js 20+ and startup file dist/index.js.
+          2. Create a NEW empty database and a database user with the required grants.
+          3. Configure the required environment variables in the private .env or
+             cPanel environment settings. Never publish .env or installer state.
+          4. From the private application root run:
+               pnpm install --frozen-lockfile
+          5. Open /installer/ and choose fresh installation. Confirm the wizard sees
+             an empty database; stop if any tables are present.
+          6. From the private application terminal run:
+               node installer/run-install.mjs --fresh-install
+          7. Start/restart through cPanel Setup Node.js App, then run:
+               pnpm installer:verify
+               pnpm installer:diagnose
+             Confirm GET /api/health returns {"status":"ok"}.
+          8. Remove or deny public access to /installer/ after verification.
+
+          Do not run VPS setup scripts or use fresh-install mode against an existing
+          database. See installer/README.md for the full installer safeguards.
+          EOF
+
+          cat > "$vps/DEPLOYMENT-README.txt" <<'EOF'
+          Arbitrade — fresh VPS package
+          =============================
+          Target: a new Debian/Ubuntu VPS dedicated to this application.
+
+          1. Extract the package into the intended private application directory.
+          2. Configure a private .env with the new database credentials, strong
+             unique SESSION_SECRET and PASSWORD_PEPPER, and the correct HTTPS
+             PUBLIC_APP_URL. Create a NEW empty database and grant its user access.
+          3. Install Node.js 22 and pnpm 10.18.x, or use the supported installer
+             runtime option on a VPS you administer.
+          4. From the application root install dependencies and build:
+               pnpm install --frozen-lockfile
+               pnpm build
+          5. Run the fresh-install wizard and confirm the database is empty, then:
+               node installer/run-install.mjs --fresh-install
+          6. Provision the dedicated service and reverse proxy only on this fresh
+             VPS, after reviewing the script and confirming the domain/DNS:
+               sudo bash installer/vps-setup.sh --domain=example.com
+             Add --install-runtime only if you want the script to install the runtime.
+             Request HTTPS only after DNS and ports 80/443 are ready.
+          7. Verify with pnpm installer:verify and pnpm installer:diagnose, then
+             confirm GET /api/health returns {"status":"ok"}.
+
+          This script creates systemd and Nginx configuration. Do not use it on
+          cPanel, shared hosting, or a VPS with existing host-managed services.
+          See installer/README.md and installer/vps-setup.sh before provisioning.
+          EOF
+
+          rm -f "$cpanel/installer/vps-setup.sh" "$cpanel/installer/vps-rollback.sh" \
+            "$cpanel/installer/vps-preflight.sh" "$cpanel/installer/vps-nodesource-rollback.sh" \
+            "$cpanel/installer/vps-rollback.test.sh" "$cpanel/installer/vps-nodesource-rollback.test.sh"
+          mkdir -p "$RUNNER_TEMP/deployment-artifacts"
+          (cd "$cpanel" && zip -qr "$RUNNER_TEMP/deployment-artifacts/arbitrade-cpanel-fresh-db.zip" .)
+          (cd "$vps" && zip -qr "$RUNNER_TEMP/deployment-artifacts/arbitrade-fresh-vps.zip" .)
+          unzip -t "$RUNNER_TEMP/deployment-artifacts/arbitrade-cpanel-fresh-db.zip"
+          unzip -t "$RUNNER_TEMP/deployment-artifacts/arbitrade-fresh-vps.zip"
+          printf 'Created separate cPanel and fresh-VPS packages.\n'
+      - name: Upload cPanel package
+        uses: actions/upload-artifact@v4
+        with:
+          name: arbitrade-cpanel-fresh-db
+          path: ${{ runner.temp }}/deployment-artifacts/arbitrade-cpanel-fresh-db.zip
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload fresh-VPS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: arbitrade-fresh-vps
+          path: ${{ runner.temp }}/deployment-artifacts/arbitrade-fresh-vps.zip
+          if-no-files-found: error
+          retention-days: 14
