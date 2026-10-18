@@ -17,7 +17,7 @@ jobs:
   settlement-integration:
     name: settlement integration (${{ matrix.database.image }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -57,8 +57,21 @@ jobs:
           corepack prepare pnpm@10.18.0 --activate
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
+      - name: TypeScript validation
+        run: pnpm check
+      - name: Full unit suite (database integration tests skipped)
+        env:
+          DATABASE_URL: ""
+          WALLET_TEST_DATABASE_URL: ""
+        run: pnpm test
+      - name: Production build
+        run: pnpm build
       - name: Create the application schema in the disposable database
         run: pnpm exec drizzle-kit push --force
+      - name: Test wallet concurrency and ledger reconciliation
+        run: pnpm exec vitest run server/wallet-adjustment-concurrency.integration.test.ts
+      - name: Test wallet unique-index migration preflight
+        run: pnpm exec vitest run --config vitest.installer.config.ts scripts/wallet-unique-index-migration.test.mjs
       - name: Test manual settlement concurrency and rollback
         run: pnpm exec vitest run server/settlement-idempotency.integration.test.ts
       - name: Test settlement reference migration preflight
