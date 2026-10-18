@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
-import { classifyMainMigrationPreflight } from "../installer/main-migration-preflight.mjs";
+import { classifyMainMigrationPreflight, loadExpectedMainMigrationHistory, validateMainMigrationHistory } from "../installer/main-migration-preflight.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const databaseUrl = process.env.DATABASE_URL;
@@ -50,8 +50,8 @@ async function main() {
   try {
     connection = await mysql.createConnection(parseDatabaseUrl(databaseUrl));
 
-    // Check imported-schema history before creating any guard/tracker tables.
-    // A missing or empty Drizzle tracker on a non-empty database needs manual review.
+    // Verify repository journal and imported tracker before creating guard tables or running DDL.
+    const expectedHistory = await loadExpectedMainMigrationHistory(root);
     const [tableRows] = await connection.query(
       "SELECT COUNT(*) AS tableCount FROM information_schema.tables WHERE table_schema=DATABASE()",
     );
@@ -60,16 +60,20 @@ async function main() {
       "SELECT COUNT(*) AS tableCount FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='__drizzle_migrations'",
     );
     const trackerExists = Number(trackerTableRows[0]?.tableCount) === 1;
-    let trackerCount = 0;
+    let trackerRows = [];
+    let trackerHistoryValid = false;
     if (trackerExists) {
-      const [trackerRows] = await connection.query("SELECT COUNT(*) AS migrationCount FROM __drizzle_migrations");
-      trackerCount = Number(trackerRows[0]?.migrationCount);
+      const [rows] = await connection.query("SELECT hash, created_at FROM __drizzle_migrations");
+      trackerRows = rows;
+      trackerHistoryValid = validateMainMigrationHistory(trackerRows, expectedHistory.migrations).allowed;
     }
+    const trackerCount = trackerRows.length;
     const preflight = classifyMainMigrationPreflight({
       mode: tableCount === 0 ? "fresh" : "existing",
       tableCount,
       trackerExists,
       trackerCount,
+      trackerHistoryValid,
     });
     if (!preflight.allowed) {
       console.error("[main-migrate] ERROR: " + preflight.reason + " No migrations were run. Back up and review the database, then establish a verified baseline before retrying.");
@@ -116,7 +120,7 @@ async function main() {
     }
     runStarted = true;
 
-    const journal = JSON.parse(await readFile(resolve(root, "drizzle/meta/_journal.json"), "utf8"));
+    const journal = expectedHistory.journal;
     if (!Array.isArray(journal.entries)) throw new Error("Drizzle migration journal has no entries array.");
 
     await connection.query(`
@@ -127,6 +131,9 @@ async function main() {
       )
     `);
     const [appliedRows] = await connection.query("SELECT hash, created_at FROM __drizzle_migrations");
+    if (tableCount > 0 && !validateMainMigrationHistory(appliedRows, expectedHistory.migrations).allowed) {
+      throw new Error("The imported Drizzle migration history changed or became invalid while acquiring the migration lock.");
+    }
     const appliedHashes = new Set(appliedRows.map(row => String(row.hash)));
     const hasExistingHistory = appliedRows.length > 0;
     const latestRecordedTimestamp = hasExistingHistory

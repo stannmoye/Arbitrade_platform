@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyMainMigrationPreflight } from "./main-migration-preflight.mjs";
+import { classifyMainMigrationPreflight, validateMainMigrationHistory } from "./main-migration-preflight.mjs";
 
 describe("main migration preflight", () => {
   it("does not require a Drizzle tracker for a verified fresh install", () => {
@@ -39,7 +39,20 @@ describe("main migration preflight", () => {
       tableCount: 109,
       trackerExists: true,
       trackerCount: 34,
+      trackerHistoryValid: true,
     }).allowed).toBe(true);
+  });
+
+  it("blocks a non-empty tracker unless its recorded history was verified", () => {
+    expect(classifyMainMigrationPreflight({ mode: "existing", tableCount: 109, trackerExists: true, trackerCount: 1, trackerHistoryValid: false }).allowed).toBe(false);
+  });
+
+  it("accepts only unique known migration hashes with matching timestamps", () => {
+    const expected = [{ hash: "a".repeat(64), createdAt: 1000 }, { hash: "b".repeat(64), createdAt: 2000 }];
+    expect(validateMainMigrationHistory([{ hash: "a".repeat(64), created_at: "1000" }, { hash: "b".repeat(64), created_at: 2000 }], expected).allowed).toBe(true);
+    expect(validateMainMigrationHistory([{ hash: "c".repeat(64), created_at: 1000 }], expected).allowed).toBe(false);
+    expect(validateMainMigrationHistory([{ hash: "a".repeat(64), created_at: 999 }], expected).allowed).toBe(false);
+    expect(validateMainMigrationHistory([{ hash: "a".repeat(64), created_at: 1000 }, { hash: "a".repeat(64), created_at: 1000 }], expected).allowed).toBe(false);
   });
 
   it("fails closed when database inventory counts are malformed", () => {
