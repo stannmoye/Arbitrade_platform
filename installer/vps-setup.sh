@@ -66,15 +66,36 @@ arbitrade_path_is_available "$UNIT" || fail "$UNIT already exists. Review it man
 arbitrade_path_is_available "$NGINX" || fail "$NGINX already exists. Review it manually; this script will not overwrite it."
 arbitrade_path_is_available "$NGINX_ENABLED" || fail "The nginx enabled-site path already exists. Review it manually; this script will not overwrite it."
 arbitrade_path_is_available "$ENV_FILE" || fail "$ENV_FILE already exists. Review it manually; this script will not overwrite existing environment secrets."
+if [[ "$INSTALL_RUNTIME" == 1 ]]; then
+  arbitrade_directory_is_safe "/etc/apt/keyrings" || fail "/etc/apt/keyrings must be a real directory, not a symlink or non-directory path."
+  arbitrade_path_is_available "/etc/apt/keyrings/nodesource.gpg" || fail "NodeSource signing key already exists; refusing to overwrite it."
+  arbitrade_path_is_available "/etc/apt/sources.list.d/nodesource.list" || fail "NodeSource apt source already exists; refusing to overwrite it."
+fi
 
 if [[ "$INSTALL_RUNTIME" == 1 ]]; then
   say "Installing OS prerequisites and Node.js 22"
   apt-get update
   apt-get install -y ca-certificates curl gnupg nginx
-  install -d -m 0755 /etc/apt/keyrings
-  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor --yes -o /etc/apt/keyrings/nodesource.gpg
-  chmod 0644 /etc/apt/keyrings/nodesource.gpg
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
+  if [[ ! -e /etc/apt/keyrings ]]; then install -d -m 0755 /etc/apt/keyrings; fi
+  NODE_KEY_TMP="$(mktemp /etc/apt/keyrings/.nodesource.gpg.XXXXXX)"
+  if ! curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o "$NODE_KEY_TMP"; then
+    rm -f -- "$NODE_KEY_TMP"
+    fail "Could not download or decode the NodeSource signing key."
+  fi
+  chmod 0644 "$NODE_KEY_TMP"
+  if ! ln -T -- "$NODE_KEY_TMP" /etc/apt/keyrings/nodesource.gpg; then
+    rm -f -- "$NODE_KEY_TMP"
+    fail "The NodeSource signing key destination appeared during provisioning; existing files were not overwritten."
+  fi
+  rm -f -- "$NODE_KEY_TMP"
+  NODE_SOURCE_TMP="$(mktemp /etc/apt/sources.list.d/.nodesource.list.XXXXXX)"
+  printf '%s\\n' "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > "$NODE_SOURCE_TMP"
+  chmod 0644 "$NODE_SOURCE_TMP"
+  if ! ln -T -- "$NODE_SOURCE_TMP" /etc/apt/sources.list.d/nodesource.list; then
+    rm -f -- "$NODE_SOURCE_TMP"
+    fail "The NodeSource apt source destination appeared during provisioning; existing files were not overwritten."
+  fi
+  rm -f -- "$NODE_SOURCE_TMP"
   apt-get update
   apt-get install -y nodejs
   corepack enable
