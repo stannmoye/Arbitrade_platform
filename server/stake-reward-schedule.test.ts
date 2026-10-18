@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateDueRewardSchedule } from "./stakeEarn";
+import { calculateAdditionalStakeReward, calculateDueRewardSchedule } from "./stakeEarn";
 
 const day = 24 * 60 * 60 * 1000;
 
@@ -44,5 +44,29 @@ describe("Stake & Earn reward catch-up schedule", () => {
 
     expect(result.periodsDue).toBe(1);
     expect(result.nextRewardAt.getTime()).toBe(nextAt.getTime() + day);
+  });
+});
+
+describe("Stake & Earn cumulative reward calculation", () => {
+  it("calculates the first daily reward from the full elapsed schedule", () => {
+    const openedAt = new Date("2026-10-01T00:00:00.000Z");
+    const now = new Date("2026-10-02T00:00:00.000Z");
+
+    expect(calculateAdditionalStakeReward(10000, 10000, openedAt, "DAILY", 0, now)).toBe(27);
+  });
+
+  it("pays the next daily increment instead of subtracting lifetime rewards from one period", () => {
+    const openedAt = new Date("2026-10-01T00:00:00.000Z");
+    const now = new Date("2026-10-02T00:00:00.000Z");
+
+    expect(calculateAdditionalStakeReward(10000, 10000, openedAt, "DAILY", 27, now)).toBe(0);
+    expect(calculateAdditionalStakeReward(10000, 10000, openedAt, "DAILY", 27, new Date("2026-10-03T00:00:00.000Z"))).toBe(27);
+  });
+
+  it("catches up missed periods while subtracting previously posted cumulative rewards", () => {
+    const openedAt = new Date("2026-10-01T00:00:00.000Z");
+    const now = new Date("2026-10-04T00:00:00.000Z");
+
+    expect(calculateAdditionalStakeReward(10000, 10000, openedAt, "DAILY", 27, now)).toBe(55);
   });
 });
