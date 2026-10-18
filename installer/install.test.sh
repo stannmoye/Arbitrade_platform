@@ -241,7 +241,7 @@ printf '\nInstaller CLI and runtime-provisioning regression checks passed. No da
 
 # Regression guard: failed VPS provisioning must not disable a systemd service
 # after another actor replaces the unit published by this installation attempt.
-assert_file_contains "$VPS_SETUP" 'if [[ "$SERVICE_ATTEMPTED" == 1 && "$UNIT_PUBLISHED" == 1 && -n "$UNIT_PUBLISHED_ID"' "VPS rollback verifies that this attempt published the service unit"
+assert_file_contains "$VPS_SETUP" 'arbitrade_published_file_identity_matches "$UNIT" "$UNIT_PUBLISHED_ID"' "VPS rollback verifies that this attempt published the service unit"
 assert_file_contains "$ROOT/installer/vps-preflight.sh" 'stat -c '\''%d:%i'\'' -- "$path"' "VPS identity predicate compares the published file device/inode"
 assert_file_contains "$VPS_SETUP" 'Service rollback skipped because the published unit identity could not be verified' "VPS rollback warns when service identity cannot be verified"
 assert_file_not_contains "$VPS_SETUP" 'if [[ "$SERVICE_ATTEMPTED" == 1 ]]; then' "VPS rollback never uses the former unconditional service-disable guard"
