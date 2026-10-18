@@ -212,12 +212,12 @@ describe("Mining transaction wrapper", () => {
 
 
 describe("Mining idempotency reservation", () => {
-  function mockConnection(row: { command: string; resultJson: string | null } | undefined) {
+  function mockConnection(row: { command: string; resultJson: string | null } | undefined, insertAffectedRows = 1) {
     const calls: Array<{ kind: string; sql: string; values: unknown[] }> = [];
     const conn = {
       execute: async (sql: string, values: unknown[] = []) => {
         calls.push({ kind: "execute", sql, values });
-        return [{ affectedRows: 1 }, []];
+        return [{ affectedRows: insertAffectedRows }, []];
       },
       query: async (sql: string, values: unknown[] = []) => {
         calls.push({ kind: "query", sql, values });
@@ -260,13 +260,23 @@ describe("Mining idempotency reservation", () => {
       .rejects.toThrow(/unable to reserve this operation/i);
   });
 
-  it("returns null for a reserved operation that has not stored a result yet", async () => {
+  it("returns null for a newly inserted reservation before the command runs", async () => {
     const { conn } = mockConnection({
       command: "mining.swap.confirm",
       resultJson: null,
-    });
+    }, 1);
 
     await expect(beginMiningIdempotency(conn, 42, "mining-swap:42:digest", "mining.swap.confirm"))
       .resolves.toBeNull();
+  });
+
+  it("rejects a duplicate reservation that has no stored result instead of rerunning it", async () => {
+    const { conn } = mockConnection({
+      command: "mining.swap.confirm",
+      resultJson: null,
+    }, 0);
+
+    await expect(beginMiningIdempotency(conn, 42, "mining-swap:42:digest", "mining.swap.confirm"))
+      .rejects.toThrow(/already in progress/i);
   });
 });
