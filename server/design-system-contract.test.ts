@@ -202,6 +202,15 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themeContext).toContain("window.localStorage.setItem(THEME_STORAGE_KEY, effectiveTheme)");
   });
 
+  it("keeps administrator appearance edits valid and protects the last enabled theme", () => {
+    expect(adminAppearance).toContain("if (enabledThemes.length === 1) return;");
+    expect(adminAppearance).toContain("if (candidate === defaultTheme) setDefaultTheme(next[0]);");
+    expect(adminAppearance).toContain("setEnabledThemes(ARBITRADE_THEMES.filter(value => value === candidate || enabledThemes.includes(value)))");
+    expect(adminAppearance).toContain('disabled={save.isPending || settings.isLoading || settings.isError || !enabledThemes.length}');
+    expect(adminAppearance).toContain('role="alert"');
+    expect(adminAppearance).toContain('role={save.isError ? "alert" : "status"}');
+  });
+
   it("keeps dialog content scrollable and action rows adaptable at short/mobile viewports", () => {
     expect(designSystem).toContain('[data-slot="dialog-content"]');
     expect(designSystem).toContain('max-height: calc(100dvh - 2rem)');
