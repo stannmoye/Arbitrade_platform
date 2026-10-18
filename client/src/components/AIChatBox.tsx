@@ -191,7 +191,7 @@ export function AIChatBox({
     <div
       ref={containerRef}
       className={cn(
-        "flex min-w-0 max-w-full flex-col overflow-hidden bg-card text-card-foreground rounded-lg border shadow-sm",
+        "arb-page flex min-w-0 max-w-full flex-col overflow-hidden bg-card text-card-foreground rounded-lg border shadow-sm",
         className
       )}
       style={{ height }}
