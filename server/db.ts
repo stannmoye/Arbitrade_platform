@@ -14,6 +14,7 @@ import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
+import { assertWalletAdjustmentAmount, assertWalletBalanceSnapshot } from "./wallet-adjustment-guards";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
@@ -281,7 +282,7 @@ export async function deleteAdminCustomer(userId:number){const db=await getDb();
 export async function adjustCustomerBalance(adminId:number,input:{userId:number;currency:string;amountMinor:number;mode:"credit"|"debit";reason:string}){
   const db=await getDb();
   if(!db) throw new Error("Database is not available");
-  if(!Number.isSafeInteger(input.amountMinor)||input.amountMinor<=0) throw new Error("Amount must be a positive safe integer");
+  assertWalletAdjustmentAmount(input.amountMinor);
   const result=await db.transaction(async tx=>{
     const user=(await tx.select({id:users.id,role:users.role}).from(users).where(input.userId===adminId?eq(users.id,input.userId):and(eq(users.id,input.userId),eq(users.role,"user"))).limit(1))[0];
     if(!user) throw new Error("Customer account not found");
@@ -291,7 +292,7 @@ export async function adjustCustomerBalance(adminId:number,input:{userId:number;
     const balance=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,input.userId),eq(customerBalances.currency,currency.code))).limit(1))[0];
     let next:number;
     if(balance){
-      if(!Number.isSafeInteger(Number(balance.availableMinor))||!Number.isSafeInteger(Number(balance.promotionalMinor))) throw new Error("Wallet balance exceeds the safe integer range");
+      assertWalletBalanceSnapshot(Number(balance.availableMinor),Number(balance.promotionalMinor),input.amountMinor,input.mode);
       const delta=input.mode==="credit"?input.amountMinor:-input.amountMinor;
       const mutation=await tx.update(customerBalances)
         .set({
