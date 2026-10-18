@@ -214,11 +214,13 @@ cleanup_vps_setup() {
     # Do not disable a service if an administrator or another process replaced
     # the unit after this attempt published it. Roll back service state only
     # while the unit path still points to our exact published inode.
-    if [[ "$SERVICE_ATTEMPTED" == 1 && "$UNIT_PUBLISHED" == 1 ]] && arbitrade_published_file_identity_matches "$UNIT" "$UNIT_PUBLISHED_ID"; then
-      systemctl disable --now arbitrade.service >/dev/null 2>&1 || true
-      systemctl daemon-reload >/dev/null 2>&1 || true
-    else
-      say "Service rollback skipped because the published unit identity could not be verified; inspect arbitrade.service manually."
+    if [[ "$SERVICE_ATTEMPTED" == 1 ]]; then
+      if [[ "$UNIT_PUBLISHED" == 1 ]] && arbitrade_published_file_identity_matches "$UNIT" "$UNIT_PUBLISHED_ID"; then
+        systemctl disable --now arbitrade.service >/dev/null 2>&1 || true
+        systemctl daemon-reload >/dev/null 2>&1 || true
+      else
+        say "Service rollback skipped because the published unit identity could not be verified; inspect arbitrade.service manually."
+      fi
     fi
     if [[ "$NGINX_ENABLED_PUBLISHED" == 1 && -n "$NGINX_ENABLED_PUBLISHED_ID" && -L "$NGINX_ENABLED" && "$(stat -c '%d:%i' -- "$NGINX_ENABLED" 2>/dev/null || true)" == "$NGINX_ENABLED_PUBLISHED_ID" ]]; then rm -f -- "$NGINX_ENABLED"; fi
     if [[ "$NGINX_PUBLISHED" == 1 && -n "$NGINX_PUBLISHED_ID" && ! -L "$NGINX" && -e "$NGINX" && "$(stat -c '%d:%i' -- "$NGINX" 2>/dev/null || true)" == "$NGINX_PUBLISHED_ID" ]]; then rm -f -- "$NGINX"; fi
