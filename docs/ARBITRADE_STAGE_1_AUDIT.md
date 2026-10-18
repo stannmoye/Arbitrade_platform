@@ -381,3 +381,13 @@ Extended `server/mining-store.test.ts` with focused unit tests for `inMiningTran
 - Regression-test commits: `5e5de580151cc9aa47da00a25517ef405bbf475f` and `19ec6fac9c16940881fa8d91c31415009730c604`.
 - **Verification status:** GitHub Actions was triggered for the updated code. The latest run must complete successfully before these newly added tests are marked CI-verified. This is still mock-connection coverage; real database concurrency/replay and transaction rollback tests remain required.
 - Stage 1 remains **in progress**. No production database or customer financial data was accessed or changed.
+
+## 24. Idempotency result persistence guard (2026-10-18)
+
+- Follow-up review found that `finishMiningIdempotency` did not check whether its update actually saved the operation result. If the reservation row were missing or already populated unexpectedly, the caller could otherwise continue without confirming the replay result was stored.
+- The helper now updates only rows whose `resultJson` is still NULL and throws if exactly one row was not updated. When used inside the existing Mining transaction wrapper, this error is intended to abort the transaction rather than commit financial changes without a saved idempotency result.
+- Added regression tests for successful conditional persistence and the missing/already-filled reservation failure case.
+- Implementation commit: `3cc362ed6dc89a18080c71921c41abe17a4a414f`.
+- Test commit: `78881b72531e6ed104f60e4d0b60e7ee7e70be16`.
+- **Verification status:** The latest workflow must pass before this new guard is marked CI-verified. Tests currently use mocked connections; database-backed concurrency and rollback remain outstanding.
+- Stage 1 remains **in progress**. No production database or customer financial data was accessed or changed.
