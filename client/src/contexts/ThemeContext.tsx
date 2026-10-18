@@ -101,7 +101,7 @@ export function ThemeProvider({
   // Keep theme previews in sync across tabs while revalidating customer choices
   // against the latest published policy instead of blindly trusting storage events.
   useEffect(() => {
-    if (!switchable || auth.isLoading) return;
+    if (!switchable || auth.isLoading || auth.isError) return;
 
     const handleStorage = (event: StorageEvent) => {
       if (event.key !== THEME_STORAGE_KEY && event.key !== null) return;
