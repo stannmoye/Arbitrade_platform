@@ -72,13 +72,13 @@ export function ThemeProvider({
   const [theme, setThemeState] = useState<ArbitradeTheme>(defaultTheme);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (auth.isLoading || !isAdmin) return;
     // Administrators may keep a local preview independent of the published customer policy.
     setThemeState(readStoredTheme(defaultTheme));
-  }, [isAdmin, defaultTheme]);
+  }, [auth.isLoading, isAdmin, defaultTheme]);
 
   useEffect(() => {
-    if (isAdmin || !policy) return;
+    if (auth.isLoading || isAdmin || !policy) return;
     let selected: ArbitradeTheme = policyDefault;
     if (customerCanSelect) {
       try {
@@ -89,7 +89,7 @@ export function ThemeProvider({
       }
     }
     setThemeState(selected);
-  }, [isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
+  }, [auth.isLoading, isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
 
   const setTheme = (nextTheme: ArbitradeTheme) => {
     if (!isTheme(nextTheme)) return;
@@ -105,21 +105,21 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = document.documentElement;
-    const effectiveTheme = !isAdmin && policy
+    const effectiveTheme = !auth.isLoading && !isAdmin && policy
       ? (enabledThemes.includes(theme) ? theme : policyDefault)
       : theme;
     root.dataset.arbTheme = effectiveTheme;
     root.classList.toggle("dark", effectiveTheme !== "clean-light");
     root.style.colorScheme = effectiveTheme === "clean-light" ? "light" : "dark";
 
-    if (switchable && (isAdmin || (policy && customerCanSelect && enabledThemes.includes(effectiveTheme)))) {
+    if (!auth.isLoading && switchable && (isAdmin || (policy && customerCanSelect && enabledThemes.includes(effectiveTheme)))) {
       try {
         window.localStorage.setItem(THEME_STORAGE_KEY, effectiveTheme);
       } catch {
         // Keep the selected theme active for this session when storage is unavailable.
       }
     }
-  }, [theme, switchable, isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
+  }, [theme, switchable, auth.isLoading, isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
 
   const toggleTheme = switchable
     ? () => setTheme(theme === "clean-light" ? "original" : "clean-light")
