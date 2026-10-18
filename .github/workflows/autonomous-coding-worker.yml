@@ -150,6 +150,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+      actions: write
     steps:
       - name: Check out the current work branch
         uses: actions/checkout@v7
@@ -212,3 +213,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "[ARBITRADE-AUTO-STEP-$TASK_NUMBER] automated Stage 1 task"
           git push origin "HEAD:${{ needs.code-one-task.outputs.target_branch }}"
+
+      - name: Explicitly dispatch validation for the published commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: ${{ needs.code-one-task.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          gh workflow run installer-validation.yml --ref "$TARGET_BRANCH"
+          echo "Dispatched Installer validation on $TARGET_BRANCH. The next coding task may start only after that run succeeds."
