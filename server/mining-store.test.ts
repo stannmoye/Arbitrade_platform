@@ -1,5 +1,55 @@
 import { describe, expect, it } from "vitest";
-import { inMiningTransaction, requestKey, type Db } from "./mining-store";
+import {
+  addUtcMonths,
+  amountString,
+  assertMiningAsset,
+  decimal,
+  inMiningTransaction,
+  requestKey,
+  type Db,
+} from "./mining-store";
+
+describe("Mining amount and asset normalization", () => {
+  it("rounds display/storage amounts down to the denomination precision", () => {
+    expect(amountString("12.349", "USD")).toBe("12.34");
+    expect(amountString("0.123456789", "BTC")).toBe("0.12345678");
+    expect(amountString("-1.239", "USD")).toBe("-1.23");
+  });
+
+  it("rejects unsupported denominations instead of silently choosing a scale", () => {
+    expect(() => amountString("1", "DOGE")).toThrow(/not supported/i);
+    expect(() => assertMiningAsset("DOGE")).toThrow(/supported Mining denomination/i);
+  });
+
+  it("normalizes the legacy TOKEN alias to CKI", () => {
+    expect(assertMiningAsset("TOKEN")).toBe("CKI");
+    expect(assertMiningAsset(" token ")).toBe("CKI");
+    expect(assertMiningAsset("USD")).toBe("USD");
+  });
+
+  it("rejects non-finite decimal input", () => {
+    expect(() => decimal("NaN")).toThrow(/invalid decimal/i);
+    expect(() => decimal("Infinity")).toThrow(/invalid decimal/i);
+  });
+});
+
+describe("Mining contract month arithmetic", () => {
+  it("clamps month-end dates to the last valid day of the target month", () => {
+    expect(addUtcMonths(new Date("2024-01-31T12:30:00.000Z"), 1).toISOString())
+      .toBe("2024-02-29T12:30:00.000Z");
+    expect(addUtcMonths(new Date("2023-01-31T12:30:00.000Z"), 1).toISOString())
+      .toBe("2023-02-28T12:30:00.000Z");
+  });
+
+  it("preserves the day when valid and rejects unsupported contract durations", () => {
+    expect(addUtcMonths(new Date("2024-03-15T09:00:00.000Z"), 2).toISOString())
+      .toBe("2024-05-15T09:00:00.000Z");
+    expect(() => addUtcMonths(new Date("2024-01-01T00:00:00.000Z"), 0))
+      .toThrow(/between one and 120 months/i);
+    expect(() => addUtcMonths(new Date("2024-01-01T00:00:00.000Z"), 121))
+      .toThrow(/between one and 120 months/i);
+  });
+});
 
 describe("Mining idempotency request keys", () => {
   it("produces a stable opaque digest for the same operation and customer", () => {
@@ -70,7 +120,7 @@ describe("Mining transaction wrapper", () => {
 
     expect(calls).toEqual(["begin", "work", "rollback"]);
   });
-  
+
   it("attempts rollback and preserves the commit error when commit fails", async () => {
     const calls: string[] = [];
     const commitFailure = new Error("simulated commit failure");
@@ -124,5 +174,4 @@ describe("Mining transaction wrapper", () => {
 
     expect(calls).toEqual(["begin"]);
   });
-
 });
