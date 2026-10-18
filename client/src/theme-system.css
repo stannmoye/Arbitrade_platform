@@ -578,3 +578,34 @@
   white-space: nowrap;
   border: 0;
 }
+
+
+/* Stage 2: give feedback messages a complete semantic surface, not color alone. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-success, .success-notice, [data-status="success"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 38%, var(--arb-color-border));
+  background-color: color-mix(in srgb, var(--arb-color-accent) 7%, var(--arb-color-surface));
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-warning, .warning-notice, [data-status="warning"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-warning) 42%, var(--arb-color-border));
+  background-color: color-mix(in srgb, var(--arb-color-warning) 7%, var(--arb-color-surface));
+  color: var(--arb-color-warning);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-info, .info-notice, [data-status="info"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-info) 40%, var(--arb-color-border));
+  background-color: color-mix(in srgb, var(--arb-color-info) 7%, var(--arb-color-surface));
+  color: var(--arb-color-info);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-success, .success-notice, .form-warning, .warning-notice, .form-info, .info-notice
+) {
+  border-style: solid;
+  border-width: 1px;
+  border-radius: var(--arb-radius-sm);
+}
