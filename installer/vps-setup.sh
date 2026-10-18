@@ -108,11 +108,33 @@ if [[ "$INSTALL_RUNTIME" == 1 ]]; then
     rm -f -- "$NODE_KEY_TMP" "$NODE_SOURCE_TMP"
     fail "The NodeSource apt source destination appeared during provisioning; the signing key created by this attempt was rolled back when still owned by this attempt."
   fi
+  NODE_KEY_ID="$(stat -c '%d:%i' -- "$NODE_KEY_TMP")"
+  NODE_SOURCE_ID="$(stat -c '%d:%i' -- "$NODE_SOURCE_TMP")"
   rm -f -- "$NODE_KEY_TMP" "$NODE_SOURCE_TMP"
-  apt-get update
-  apt-get install -y nodejs
-  corepack enable
-  corepack prepare pnpm@10.18.0 --activate
+  rollback_nodesource_config() {
+    if [[ -e /etc/apt/keyrings/nodesource.gpg && ! -L /etc/apt/keyrings/nodesource.gpg && "$(stat -c '%d:%i' -- /etc/apt/keyrings/nodesource.gpg)" == "$NODE_KEY_ID" ]]; then
+      rm -f -- /etc/apt/keyrings/nodesource.gpg
+    fi
+    if [[ -e /etc/apt/sources.list.d/nodesource.list && ! -L /etc/apt/sources.list.d/nodesource.list && "$(stat -c '%d:%i' -- /etc/apt/sources.list.d/nodesource.list)" == "$NODE_SOURCE_ID" ]]; then
+      rm -f -- /etc/apt/sources.list.d/nodesource.list
+    fi
+  }
+  if ! apt-get update; then
+    rollback_nodesource_config
+    fail "APT update failed after adding the NodeSource repository; this attempt's repository files were rolled back so a reviewed retry is possible."
+  fi
+  if ! apt-get install -y nodejs; then
+    rollback_nodesource_config
+    fail "Node.js installation failed; this attempt's NodeSource repository files were rolled back so a reviewed retry is possible."
+  fi
+  if ! corepack enable; then
+    rollback_nodesource_config
+    fail "Could not enable Corepack; this attempt's NodeSource repository files were rolled back."
+  fi
+  if ! corepack prepare pnpm@10.18.0 --activate; then
+    rollback_nodesource_config
+    fail "Could not activate pnpm 10.18.0; this attempt's NodeSource repository files were rolled back."
+  fi
 else
   command -v node >/dev/null 2>&1 || fail "Node.js is missing. Rerun with --install-runtime or install Node.js 20+ first."
   command -v pnpm >/dev/null 2>&1 || command -v corepack >/dev/null 2>&1 || fail "pnpm/Corepack is missing. Install pnpm 10.18.0."
