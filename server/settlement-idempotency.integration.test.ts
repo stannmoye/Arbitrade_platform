@@ -190,7 +190,11 @@ settlementDescribe("manual settlement idempotency and rollback (disposable MySQL
         CREATE TRIGGER trg_settlement_test_fail_reward
         BEFORE INSERT ON balance_ledger
         FOR EACH ROW
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'test forced settlement ledger failure'
+        BEGIN
+          IF NEW.amountMinor = 25 THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'test forced settlement ledger failure';
+          END IF;
+        END
       `);
       triggerCreated = true;
     } finally {
