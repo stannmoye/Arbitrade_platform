@@ -78,18 +78,7 @@ NODE_SOURCE_TMP=""
 NODE_KEY_ID=""
 NODE_SOURCE_ID=""
 NODE_RUNTIME_COMMITTED=0
-cleanup_nodesource_runtime() {
-  [[ -z "${NODE_KEY_TMP:-}" ]] || rm -f -- "$NODE_KEY_TMP"
-  [[ -z "${NODE_SOURCE_TMP:-}" ]] || rm -f -- "$NODE_SOURCE_TMP"
-  if [[ "${NODE_RUNTIME_COMMITTED:-0}" != 1 ]]; then
-    if [[ -n "${NODE_KEY_ID:-}" && -e /etc/apt/keyrings/nodesource.gpg && ! -L /etc/apt/keyrings/nodesource.gpg && "$(stat -c '%d:%i' -- /etc/apt/keyrings/nodesource.gpg)" == "$NODE_KEY_ID" ]]; then
-      rm -f -- /etc/apt/keyrings/nodesource.gpg
-    fi
-    if [[ -n "${NODE_SOURCE_ID:-}" && -e /etc/apt/sources.list.d/nodesource.list && ! -L /etc/apt/sources.list.d/nodesource.list && "$(stat -c '%d:%i' -- /etc/apt/sources.list.d/nodesource.list)" == "$NODE_SOURCE_ID" ]]; then
-      rm -f -- /etc/apt/sources.list.d/nodesource.list
-    fi
-  fi
-}
+. "$ROOT/installer/vps-nodesource-rollback.sh"
 if [[ "$INSTALL_RUNTIME" == 1 ]]; then
   # Cover interruptions and unexpected failures before the main VPS cleanup
   # trap is installed later in the script.
