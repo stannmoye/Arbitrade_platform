@@ -38,15 +38,24 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
     <section className={`arb-theme-selector${compact ? " arb-theme-selector-compact" : ""}`} aria-label="Appearance settings" aria-busy={!policyReady}>
       <label htmlFor={canChoose ? selectId : undefined}>
         <span className="arb-theme-selector-title">{canChoose ? "Appearance" : "Workspace appearance"}</span>
-        {!compact && <span className="arb-theme-selector-description">{!policyReady ? "Loading workspace appearance…" : policyFailed ? "Appearance settings could not be loaded; using the default theme." : canChoose ? "Choose your workspace theme" : "Theme selected by workspace settings"}</span>}
-      {(!policyReady || policyFailed) && <span className="arb-theme-selector-status" role={policyFailed ? "alert" : "status"} aria-live={policyFailed ? "assertive" : "polite"}>{policyFailed ? "Appearance settings could not be loaded; using the default theme." : "Loading workspace appearance…"}</span>}
+        {!compact && (
+          <span id={`arb-theme-description-${selectorId}`} className="arb-theme-selector-description">
+            {!policyReady ? "Loading workspace appearance…" : policyFailed ? "Appearance settings could not be loaded; using the default theme." : canChoose ? "Choose your workspace theme" : "Theme selected by workspace settings"}
+          </span>
+        )}
       </label>
+      {(!policyReady || policyFailed) && (
+        <span className="arb-theme-selector-status" role={policyFailed ? "alert" : "status"} aria-live={policyFailed ? "assertive" : "polite"}>
+          {policyFailed ? "Appearance settings could not be loaded; using the default theme." : "Loading workspace appearance…"}
+        </span>
+      )}
       {canChoose ? (
         <select
           id={selectId}
           value={selectedTheme}
           onChange={(event) => setTheme(event.target.value as ArbitradeTheme)}
           aria-label="Workspace theme"
+          aria-describedby={!compact ? `arb-theme-description-${selectorId}` : undefined}
         >
           {availableThemes.map((option) => (
             <option key={option} value={option}>{ARBITRADE_THEME_LABELS[option]}</option>
