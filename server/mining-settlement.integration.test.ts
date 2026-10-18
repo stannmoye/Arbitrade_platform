@@ -226,6 +226,35 @@ databaseDescribe("daily mining boost settlement database integration", () => {
     }
   }, 30_000);
 
+  it("marks a zero-value pending reward settled without creating financial ledger entries", async () => {
+    const setup = await mysql.createConnection(databaseUrl!);
+    const fixture: Fixture = {};
+    activeFixture = fixture;
+    try {
+      await ensureTables(setup);
+      await insertPendingReward(setup, "0.00000000", fixture);
+
+      const settled = await settleDuePendingBoostRewards(
+        setup as unknown as Parameters<typeof settleDuePendingBoostRewards>[0],
+      );
+      expect(settled).toBe(0);
+
+      const [pendingRows] = await setup.execute<any[]>(
+        "SELECT status,settlementReference FROM mining_pending_boost_rewards WHERE id=?",
+        [fixture.rewardId],
+      );
+      expect(pendingRows[0]?.status).toBe("settled");
+      expect(pendingRows[0]?.settlementReference).toBe(fixture.reference);
+      const [transactions] = await setup.execute<any[]>(
+        "SELECT id FROM mining_ledger_transactions WHERE idempotencyKey=?",
+        [fixture.reference],
+      );
+      expect(transactions).toHaveLength(0);
+    } finally {
+      await setup.end();
+    }
+  }, 30_000);
+
   it("rolls back the ledger and leaves the reward pending if ledger posting fails", async () => {
     const setup = await mysql.createConnection(databaseUrl!);
     const fixture: Fixture = {};
