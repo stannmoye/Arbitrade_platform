@@ -232,7 +232,7 @@ describe("Mining idempotency reservation", () => {
     const { conn, calls } = mockConnection({
       command: "mining.swap.confirm",
       resultJson: JSON.stringify(stored),
-    });
+    }, 0);
 
     await expect(beginMiningIdempotency(conn, 42, "mining-swap:42:digest", "mining.swap.confirm"))
       .resolves.toEqual(stored);
