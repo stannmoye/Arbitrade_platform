@@ -63,4 +63,28 @@ describe("appearance settings normalization", () => {
       normalizeAppearanceSettings(undefined),
     );
   });
+
+  it("always returns a valid enabled default for adversarial persisted payloads", () => {
+    const payloads = [
+      "null",
+      "false",
+      "0",
+      '"text"',
+      '{"defaultTheme":null,"enabledThemes":null,"customerCanSelect":1}',
+      '{"defaultTheme":"unknown","enabledThemes":[],"customerCanSelect":true}',
+      '{"defaultTheme":"clean-light","enabledThemes":["unknown",null,4,"clean-light","clean-light"]}',
+      '{"defaultTheme":"aurora-modern","enabledThemes":["midnight-premium"],"customerCanSelect":false}',
+    ];
+
+    for (const payload of payloads) {
+      const normalized = normalizeAppearanceSettings(payload);
+      expect(normalized.enabledThemes.length, payload).toBeGreaterThan(0);
+      expect(normalized.enabledThemes).toContain(normalized.defaultTheme);
+      expect(new Set(normalized.enabledThemes).size, payload).toBe(normalized.enabledThemes.length);
+      expect(normalized.enabledThemes.every(theme =>
+        ["original", "midnight-premium", "clean-light", "emerald-finance", "aurora-modern"].includes(theme)
+      ), payload).toBe(true);
+    }
+  });
+
 });
