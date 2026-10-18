@@ -1037,3 +1037,16 @@
     min-width: 44px;
   }
 }
+
+/* The shared theme selector remains comfortably tappable in both portal shells. */
+.arb-theme-selector {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.arb-theme-selector select {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+}
