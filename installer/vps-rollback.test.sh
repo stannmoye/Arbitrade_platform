@@ -13,6 +13,7 @@ cat > "$MOCK_BIN/systemctl" <<'MOCK'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$SYSTEMCTL_LOG"
 [[ "${SYSTEMCTL_FAIL_RELOAD:-0}" != 1 || "$*" != "reload nginx" ]] || exit 1
+[[ "${SYSTEMCTL_FAIL_ENABLE:-0}" != 1 || "$*" != "enable --now arbitrade.service" ]] || exit 1
 MOCK
 chmod +x "$MOCK_BIN/systemctl"
 cat > "$MOCK_BIN/nginx" <<'MOCK'
@@ -79,6 +80,24 @@ pass "post-reload failure restores and reloads nginx configuration"
 
 # If nginx validation/reload itself fails during rollback, surface a clear
 # manual-recovery warning rather than silently claiming the config is restored.
+# Simulate systemd rejecting service activation. The EXIT cleanup path must
+# disable/reload systemd only for this attempt's published unit and remove the
+# attempt's files even though activation itself failed.
+new_case
+SYSTEMCTL_FAIL_ENABLE=1
+export SYSTEMCTL_FAIL_ENABLE
+if systemctl enable --now arbitrade.service; then
+  unset SYSTEMCTL_FAIL_ENABLE
+  fail "mock service activation unexpectedly succeeded"
+else
+  cleanup_vps_setup 1
+fi
+unset SYSTEMCTL_FAIL_ENABLE
+[[ ! -e "$ENV_FILE" && ! -e "$UNIT" && ! -e "$NGINX" && ! -L "$NGINX_ENABLED" ]] || fail "failed service activation left owned files behind"
+grep -Fq 'disable --now arbitrade.service' "$SYSTEMCTL_LOG" || fail "service rollback was not attempted after activation failure"
+grep -Fq 'daemon-reload' "$SYSTEMCTL_LOG" || fail "systemd daemon-reload was not attempted after activation failure"
+pass "service activation failure rolls back owned files and refreshes systemd"
+
 new_case
 NGINX_RELOAD_ATTEMPTED=1
 NGINX_FAIL=1
