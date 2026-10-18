@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { trpc } from "@/lib/trpc";
 
 // Legacy values remain in the context type for compatibility with the component
 // showcase and any existing light/dark-only consumers.
@@ -56,12 +57,42 @@ export function ThemeProvider({
   defaultTheme = "original",
   switchable = true,
 }: ThemeProviderProps) {
+  const appearance = trpc.appearanceConfig.useQuery(undefined, { staleTime: 30_000 });
+  const auth = trpc.auth.me.useQuery(undefined, { retry: false, refetchOnWindowFocus: false });
+  const isAdmin = auth.data?.role === "admin";
+  const policy = appearance.data;
+  const policyDefault = isTheme(policy?.defaultTheme) ? policy.defaultTheme : defaultTheme;
+  const enabledThemes = policy?.enabledThemes?.filter(isTheme) ?? [...ARBITRADE_THEMES];
+  const customerCanSelect = policy?.customerCanSelect === true;
   const [theme, setThemeState] = useState<ArbitradeTheme>(() =>
     typeof window === "undefined" ? defaultTheme : readStoredTheme(defaultTheme)
   );
 
+  useEffect(() => {
+    if (isAdmin || !policy) return;
+    let selected: ArbitradeTheme = policyDefault;
+    if (customerCanSelect) {
+      try {
+        const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+        if (isTheme(stored) && enabledThemes.includes(stored)) selected = stored;
+      } catch {
+        // Continue with the administrator-published default when storage is unavailable.
+      }
+    }
+    setThemeState(selected);
+  }, [isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
+
   const setTheme = (nextTheme: ArbitradeTheme) => {
-    if (isTheme(nextTheme)) setThemeState(nextTheme);
+    if (!isTheme(nextTheme)) return;
+    if (isAdmin) {
+      setThemeState(nextTheme);
+      return;
+    }
+    if (!policy) {
+      setThemeState(nextTheme);
+      return;
+    }
+    if (customerCanSelect && enabledThemes.includes(nextTheme)) setThemeState(nextTheme);
   };
 
   useEffect(() => {
@@ -69,17 +100,17 @@ export function ThemeProvider({
     root.dataset.arbTheme = theme;
     root.classList.toggle("dark", theme !== "clean-light");
 
-    if (switchable) {
+    if (switchable && (isAdmin || (customerCanSelect && enabledThemes.includes(theme)))) {
       try {
         window.localStorage.setItem(THEME_STORAGE_KEY, theme);
       } catch {
         // Keep the selected theme active for this session when storage is unavailable.
       }
     }
-  }, [theme, switchable]);
+  }, [theme, switchable, isAdmin, customerCanSelect, enabledThemes.join("|")]);
 
   const toggleTheme = switchable
-    ? () => setThemeState(current => current === "clean-light" ? "original" : "clean-light")
+    ? () => setTheme(theme === "clean-light" ? "original" : "clean-light")
     : undefined;
 
   return (
