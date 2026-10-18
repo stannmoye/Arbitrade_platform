@@ -1,8 +1,12 @@
 name: ARBITRADE autonomous coding worker
 
 on:
-  # Legacy API-key coding worker is manual-only. Normal development uses ChatGPT
-  # with the GitHub connector; GitHub Actions remains responsible for CI validation.
+  # Automatic coding is dormant until an owner explicitly enables the repository variable.
+  workflow_run:
+    workflows: ["Installer validation"]
+    types: [completed]
+    branches:
+      - integration/auth-installer-vps-safety
   workflow_dispatch:
 
 permissions:
@@ -10,12 +14,18 @@ permissions:
   actions: read
 
 concurrency:
-  group: arbitrade-autonomous-worker-${{ github.ref_name }}
+  group: arbitrade-autonomous-worker-${{ github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   code-one-task:
-    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'integration/auth-installer-vps-safety'
+    if: >-
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref_name == 'integration/auth-installer-vps-safety') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'integration/auth-installer-vps-safety' &&
+       vars.ARBITRADE_AUTONOMOUS_WORKER_ENABLED == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 35
     outputs:
@@ -27,15 +37,15 @@ jobs:
       - name: Resolve the target branch
         id: context
         env:
-          TARGET_BRANCH: ${{ github.ref_name }}
+          TARGET_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
         run: |
           set -euo pipefail
           echo "target_branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
 
-      - name: Check out the revision that passed validation
+      - name: Check out the exact revision that passed validation
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
           fetch-depth: 0
 
       - name: Record the exact checked-out revision
@@ -44,28 +54,48 @@ jobs:
 
       - name: Resolve bounded task number
         id: task_number
+        shell: bash
         run: |
           set -euo pipefail
-          echo "number=1" >> "$GITHUB_OUTPUT"
-          echo "Manual API-worker run: task 1 of 5. No automatic follow-on is configured."
+          # Count only the consecutive automatic commits at the branch tip.
+          # A normal human-authored commit starts a new bounded chain.
+          count=0
+          while IFS= read -r subject; do
+            if [[ "$subject" =~ ^\[ARBITRADE-AUTO-STEP-([1-5])\] ]]; then
+              count=$((count + 1))
+            else
+              break
+            fi
+          done < <(git log -n 8 --format=%s)
+          number=$((count + 1))
+          if (( number > 5 )); then
+            echo "number=0" >> "$GITHUB_OUTPUT"
+            echo "::notice::The five-task chain limit has been reached. Stopping without another API call."
+          else
+            echo "number=$number" >> "$GITHUB_OUTPUT"
+            echo "Eligible bounded chain task $number of 5."
+          fi
 
       - name: Require the model API credential
+        if: steps.task_number.outputs.number != '0'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           if [[ -z "${OPENAI_API_KEY:-}" ]]; then
-            echo "::error::Add OPENAI_API_KEY under repository Settings → Secrets and variables → Actions before enabling the coding worker."
+            echo "::error::Add OPENAI_API_KEY under repository Settings → Secrets and variables → Actions before running the coding worker."
             exit 1
           fi
 
       # Install dependencies before exposing the API key to the coding action.
       - name: Install locked dependencies
+        if: steps.task_number.outputs.number != '0'
         run: |
           corepack enable
           corepack prepare pnpm@10.18.0 --activate
           pnpm install --frozen-lockfile
 
       - name: Run Codex on one prioritized Stage 1 task
+        if: steps.task_number.outputs.number != '0'
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -76,15 +106,15 @@ jobs:
             You are the bounded ARBITRADE Stage 1 coding worker for repository ${{ github.repository }}.
             Work on the checked-out revision only. This run is task ${{ steps.task_number.outputs.number }} of a maximum chain of five.
 
-            First inspect the current branch, recent commits, package scripts, relevant code/tests, and, if present,
+            First inspect the current branch, recent commits, package scripts, relevant code/tests, and
             docs/ARBITRADE_STAGE1_AUTOMATION_QUEUE.md and docs/ARBITRADE_STAGE_1_PROGRESS_2026-10-18.md.
-            Choose the highest-priority unblocked task supported by the repository evidence. Prefer a small,
+            Choose the highest-priority unblocked task supported by repository evidence. Prefer a small,
             test-backed P0 financial-correctness task (wallet concurrency, settlement single-winner/rollback,
             mining idempotency/reconciliation). Do not merely rewrite documentation or claim completion without evidence.
 
             Implement at most one coherent task in this run. Add or update focused regression tests, run the relevant
             tests available locally, and update the queue/progress docs only when the evidence justifies it.
-            The publisher will accept changes only under server/, client/, shared/, tests/, root-level *.test.* or
+            The publisher accepts changes only under server/, client/, shared/, tests/, root-level *.test.* or
             *.spec.* files, and the two named Stage 1 progress/queue documents.
 
             Do not modify .github/, workflow files, package manifests/lockfiles, dependency configuration, deployment
@@ -93,12 +123,13 @@ jobs:
             weaken tests, permissions, safety checks, or CI gates. Use only disposable/local test resources.
             Do not attempt git commit/push. Do not print credentials, environment variables, or secret values.
             If blocked or unable to make a safe tested change, leave the workspace unchanged and explain the blocker.
-            Be precise in your final summary: files changed, commands/tests run and their actual results, limitations,
-            and the next best task. A later run starts only after the pushed change passes the normal validation workflow.
+            Be precise in your final summary: files changed, commands/tests run and actual results, limitations,
+            and the next best task. A later task starts only after validation of the prior pushed change succeeds.
 
       # Capture only a patch. A separate fresh job validates its paths and publishes it.
       - name: Capture the proposed patch
         id: patch
+        if: steps.task_number.outputs.number != '0'
         run: |
           set -euo pipefail
           git add -N -- . 2>/dev/null || true
@@ -197,4 +228,4 @@ jobs:
         run: |
           set -euo pipefail
           gh workflow run installer-validation.yml --ref "$TARGET_BRANCH"
-          echo "Dispatched Installer validation on $TARGET_BRANCH. The next coding task may start only after that run succeeds."
+          echo "Dispatched Installer validation. A subsequent task is eligible only after that run succeeds."
