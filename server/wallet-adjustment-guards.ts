@@ -16,6 +16,9 @@ export function assertWalletBalanceSnapshot(
   if (!Number.isSafeInteger(availableMinor) || !Number.isSafeInteger(promotionalMinor)) {
     throw new Error("Wallet balance exceeds the safe integer range");
   }
+  if (availableMinor < 0 || promotionalMinor < 0) {
+    throw new Error("Wallet balance cannot be negative; reconcile the stored balance before adjusting it");
+  }
   if (mode === "debit" && availableMinor < amountMinor) {
     throw new Error("Debit exceeds available wallet balance");
   }
