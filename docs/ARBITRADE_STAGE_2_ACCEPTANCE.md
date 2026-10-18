@@ -56,7 +56,7 @@ Do not mark Stage 2 complete based solely on source changes or CI. Record actual
 
 ## Continuation review — 2026-10-19
 
-- Rechecked the open Stage 2 pull request at head `301cdaba2fb60ceaeb61a04018957ab0866d4a6d`.
-- Reviewed the appearance-settings normalization and tests, customer/admin theme policy flow, admin theme-management UI, application stylesheet imports, accessible table scroll region, shared UI controls, workflow definition, and the Stage 2 acceptance contract.
-- The latest head currently reports no commit status checks through the connected GitHub status endpoint, and the workflow-run lookup returned no pull-request-triggered runs for this head. Earlier successful CI belongs to an older commit and is not treated as evidence for the latest changes.
+- Reviewed the application code at head `301cdaba2fb60ceaeb61a04018957ab0866d4a6d`, then recorded this review in documentation-only commit `47cb6888f621e15a3a74d0aef4034d336b25814e`.
+- Review coverage: appearance-settings normalization and tests, customer/admin theme policy flow, admin theme-management UI, application stylesheet imports, accessible table scroll region, shared UI controls, workflow definition, and the Stage 2 acceptance contract.
+- The documentation-only head `47cb6888f621e15a3a74d0aef4034d336b25814e` currently reports no commit status checks through the connected GitHub status endpoint, and the workflow-run lookup returned no pull-request-triggered runs for that head. Earlier successful CI belongs to an older commit and is not treated as evidence for the latest changes.
 - No browser/viewport evidence is available yet. Keep the five-theme viewport checks, horizontal-overflow inspection, and rendered contrast verification open; do not mark Stage 2 complete until those are recorded.
