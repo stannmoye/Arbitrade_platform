@@ -66,6 +66,6 @@ Do not mark Stage 2 complete based solely on source changes or CI. Record actual
 
 - Extended additive `.arb-page` adoption across legacy portal page roots, customer/admin navigation drawers, account/settings surfaces, mining operations status, the shared AI chat panel, the responsive dialog, and the error fallback. Existing business logic and route layouts were retained.
 - Added shared reduced-motion handling for adopted pages, responsive bounds for embedded media and native form controls, and safe wrapping for long code/reference strings. The Mining operations visualization now stays static when the operating system requests reduced motion.
-- Latest implementation commit at this checkpoint: `dbf8140e75a567e01f36df04f99a80076797383b`.
+- Latest code commit at this checkpoint: `a5bc34472fb6f3bc103866399e2701b160990c04`. The CoinKi factory canvas also skips animation frames when the system requests reduced motion.
 - No tests or browser checks have been run for this latest batch. Do not report CI as green for the current head; verify only the required checks and viewport acceptance before closing Stage 2.
 - Still open: ten-width real-browser checks, page-overflow inspection, all-theme interaction/contrast inspection, and confirming the latest head's automated CI result.
