@@ -88,3 +88,87 @@
   --arb-color-decorative: #d8a7ff;
   --arb-focus-ring: #8ff0ff;
 }
+
+
+/* Bridge the semantic themes to existing portal variables so legacy screens
+   visibly respond while they are progressively migrated to arb-* tokens. */
+:root[data-arb-theme="midnight-premium"] {
+  --ux-ink: #070b18; --ux-ink-2: #0b1020; --ux-surface: #10172b;
+  --ux-surface-2: #18223b; --ux-surface-3: #202b48;
+  --ux-line: rgba(160, 177, 219, .2); --ux-line-strong: rgba(160, 177, 219, .34);
+  --ux-text: #f2f5ff; --ux-text-soft: #c1cbe2; --ux-muted: #8997b8;
+  --ux-accent: #b8a4ff; --ux-accent-2: #83b8ff; --ux-warning: #ffd27a;
+  --ux-negative: #ff8eaa; --ux-info: #d4b8ff;
+  --bg: #070b18; --panel: #10172b; --panel2: #18223b; --line: #303d5c;
+  --muted: #8997b8; --soft: #c1cbe2; --mint: #b8a4ff; --blue: #83b8ff;
+  --coral: #ff8eaa; --violet: #d4b8ff; --brand-accent: #b8a4ff;
+}
+
+:root[data-arb-theme="clean-light"] {
+  --ux-ink: #f4f7fb; --ux-ink-2: #edf2f8; --ux-surface: #ffffff;
+  --ux-surface-2: #edf2f8; --ux-surface-3: #e3eaf4;
+  --ux-line: rgba(55, 76, 105, .2); --ux-line-strong: rgba(55, 76, 105, .32);
+  --ux-text: #172438; --ux-text-soft: #35465d; --ux-muted: #5f7087;
+  --ux-accent: #176bdb; --ux-accent-2: #2463d4; --ux-warning: #8a5600;
+  --ux-negative: #b42335; --ux-info: #7048c8;
+  --bg: #f4f7fb; --panel: #ffffff; --panel2: #edf2f8; --line: #d5deea;
+  --muted: #5f7087; --soft: #35465d; --mint: #176bdb; --blue: #2463d4;
+  --coral: #b42335; --violet: #7048c8; --brand-accent: #176bdb;
+}
+
+:root[data-arb-theme="emerald-finance"] {
+  --ux-ink: #061711; --ux-ink-2: #081e16; --ux-surface: #0c241b;
+  --ux-surface-2: #123428; --ux-surface-3: #184433;
+  --ux-line: rgba(130, 206, 165, .2); --ux-line-strong: rgba(130, 206, 165, .34);
+  --ux-text: #effff7; --ux-text-soft: #c3e5d3; --ux-muted: #8ab8a1;
+  --ux-accent: #48e0a1; --ux-accent-2: #82d8e8; --ux-warning: #f2cf77;
+  --ux-negative: #ff9288; --ux-info: #9be7cf;
+  --bg: #061711; --panel: #0c241b; --panel2: #123428; --line: #245542;
+  --muted: #8ab8a1; --soft: #c3e5d3; --mint: #48e0a1; --blue: #82d8e8;
+  --coral: #ff9288; --violet: #9be7cf; --brand-accent: #48e0a1;
+}
+
+:root[data-arb-theme="aurora-modern"] {
+  --ux-ink: #0b1025; --ux-ink-2: #101733; --ux-surface: #141b36;
+  --ux-surface-2: #202747; --ux-surface-3: #2a3359;
+  --ux-line: rgba(167, 176, 245, .22); --ux-line-strong: rgba(167, 176, 245, .36);
+  --ux-text: #f5f5ff; --ux-text-soft: #d1d3f0; --ux-muted: #a0a5d0;
+  --ux-accent: #67e8f9; --ux-accent-2: #a5b4fc; --ux-warning: #fcd68b;
+  --ux-negative: #fb9ab8; --ux-info: #d8a7ff;
+  --bg: #0b1025; --panel: #141b36; --panel2: #202747; --line: #3b4774;
+  --muted: #a0a5d0; --soft: #d1d3f0; --mint: #67e8f9; --blue: #a5b4fc;
+  --coral: #fb9ab8; --violet: #d8a7ff; --brand-accent: #67e8f9;
+}
+
+.arb-theme-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--arb-color-border);
+  background: var(--arb-color-surface);
+  color: var(--arb-color-text);
+}
+.arb-theme-selector label { display: grid; gap: 2px; min-width: 0; }
+.arb-theme-selector-title { font-size: 13px; font-weight: 650; }
+.arb-theme-selector-description { color: var(--arb-color-text-muted); font-size: 12px; }
+.arb-theme-selector select {
+  min-width: min(220px, 48vw);
+  max-width: 100%;
+  min-height: 36px;
+  padding: 6px 30px 6px 10px;
+  border: 1px solid var(--arb-color-border);
+  border-radius: var(--arb-radius-sm);
+  background: var(--arb-color-surface-raised);
+  color: var(--arb-color-text);
+  font: inherit;
+}
+.arb-theme-selector-compact { justify-content: flex-end; padding: 7px 16px; }
+.arb-theme-selector-compact label { margin-right: auto; }
+.arb-theme-selector-compact select { min-width: min(230px, 52vw); }
+@media (max-width: 480px) {
+  .arb-theme-selector { align-items: flex-start; }
+  .arb-theme-selector-compact { gap: 8px; padding: 8px 10px; }
+  .arb-theme-selector-compact select { min-width: 0; width: 56%; }
+}
