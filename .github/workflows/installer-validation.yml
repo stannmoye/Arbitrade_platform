@@ -665,12 +665,51 @@ jobs:
           rm -f "$cpanel/installer/vps-setup.sh" "$cpanel/installer/vps-rollback.sh" \
             "$cpanel/installer/vps-preflight.sh" "$cpanel/installer/vps-nodesource-rollback.sh" \
             "$cpanel/installer/vps-rollback.test.sh" "$cpanel/installer/vps-nodesource-rollback.test.sh"
+
+          # Deployment archives must contain application files directly, never
+          # another ZIP, a database snapshot, or machine-local secret material.
+          rm -f "$cpanel/database.sql" "$vps/database.sql"
+          find "$cpanel" "$vps" -type f \\( -name '*.zip' -o -name '*.sql.gz' -o -name '*.dump' \\) -delete
+          find "$cpanel" "$vps" -type f \\( -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \\) -delete
+          find "$cpanel" "$vps" -type f \\( -name '.env' -o -name '.env.local' -o -name '.env.production' -o -name '.env.development.local' \\) -delete
+
           mkdir -p "$RUNNER_TEMP/deployment-artifacts"
-          (cd "$cpanel" && zip -qr "$RUNNER_TEMP/deployment-artifacts/arbitrade-cpanel-fresh-db.zip" .)
-          (cd "$vps" && zip -qr "$RUNNER_TEMP/deployment-artifacts/arbitrade-fresh-vps.zip" .)
+          (cd "$cpanel" && zip -X -qr "$RUNNER_TEMP/deployment-artifacts/arbitrade-cpanel-fresh-db.zip" .)
+          (cd "$vps" && zip -X -qr "$RUNNER_TEMP/deployment-artifacts/arbitrade-fresh-vps.zip" .)
           unzip -t "$RUNNER_TEMP/deployment-artifacts/arbitrade-cpanel-fresh-db.zip"
           unzip -t "$RUNNER_TEMP/deployment-artifacts/arbitrade-fresh-vps.zip"
-          printf 'Created separate cPanel fresh-database and fresh-VPS packages.\n'
+          python3 - "$RUNNER_TEMP/deployment-artifacts/arbitrade-cpanel-fresh-db.zip" "$RUNNER_TEMP/deployment-artifacts/arbitrade-fresh-vps.zip" <<'PY'
+          import sys, zipfile
+
+          required = {"package.json", "pnpm-lock.yaml", "dist/index.js", "dist/public/index.html"}
+          for archive in sys.argv[1:]:
+              with zipfile.ZipFile(archive) as z:
+                  bad = z.testzip()
+                  if bad:
+                      raise SystemExit(f"{archive}: corrupt entry {bad}")
+                  names = set(z.namelist())
+                  missing = sorted(required - names)
+                  if missing:
+                      raise SystemExit(f"{archive}: missing root-level entries: {', '.join(missing)}")
+                  if any(name.endswith(".zip") for name in names):
+                      raise SystemExit(f"{archive}: nested ZIP detected")
+                  forbidden = [name for name in names if name == "database.sql" or name in {".env", ".env.local", ".env.production"} or name.endswith((".pem", ".key", ".p12", ".pfx"))]
+                  if forbidden:
+                      raise SystemExit(f"{archive}: forbidden sensitive entries: {', '.join(forbidden)}")
+                  if any(name.startswith("../") or name.startswith("/") for name in names):
+                      raise SystemExit(f"{archive}: unsafe archive path")
+              print(f"Validated {archive}: root layout, required files, CRC, and sensitive-file exclusions OK")
+          PY
+          python3 - "$RUNNER_TEMP/deployment-artifacts/arbitrade-cpanel-fresh-db.zip" <<'PY'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as z:
+              forbidden = {"installer/vps-setup.sh", "installer/vps-rollback.sh", "installer/vps-preflight.sh", "installer/vps-nodesource-rollback.sh"}
+              present = forbidden.intersection(z.namelist())
+              if present:
+                  raise SystemExit("cPanel archive unexpectedly includes VPS-only scripts: " + ", ".join(sorted(present)))
+          print("Validated cPanel package excludes VPS host-provisioning scripts.")
+          PY
+          printf 'Created and independently inspected separate cPanel fresh-database and fresh-VPS packages.\n'
       - name: Upload cPanel package
         uses: actions/upload-artifact@v4
         with:
