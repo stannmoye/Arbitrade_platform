@@ -1114,7 +1114,8 @@
   overflow-wrap: anywhere;
 }
 
-.arb-page :where(img, video, iframe, canvas) {
+/* Preserve authored/intrinsic heights for embeds and drawing surfaces. */
+.arb-page :where(img, video) {
   height: auto;
 }
 
