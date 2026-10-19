@@ -747,7 +747,8 @@ async function runCustomerAuthFormInteractionCheck(browser) {
 
     const firstName = page.getByLabel("First name");
     const lastName = page.getByLabel("Last name");
-    const email = page.getByLabel("Email address");
+    const panel = page.locator(".email-recovery-panel");
+    const email = panel.getByLabel("Email address");
     const password = page.getByLabel("Password");
     const submit = page.getByRole("button", { name: /Register customer account/ });
     const fieldsFound = await Promise.all([
