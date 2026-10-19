@@ -336,6 +336,10 @@ async function runAdminAppearanceInteractionCheck(browser) {
         const select = document.querySelector(".arb-theme-selector-compact select");
         const saveButton = Array.from(root?.querySelectorAll("button") || [])
           .find(button => /save appearance policy/i.test(button.innerText));
+        const brand = document.querySelector(".portal-header .brand-lockup strong");
+        const brandRange = document.createRange();
+        if (brand) brandRange.selectNodeContents(brand);
+        const brandNameLineCount = brand ? brandRange.getClientRects().length : 0;
         const isVisible = (element) => {
           const style = getComputedStyle(element);
           const bounds = element.getBoundingClientRect();
@@ -361,6 +365,8 @@ async function runAdminAppearanceInteractionCheck(browser) {
           viewportWidth: window.innerWidth,
           documentWidth: document.documentElement.scrollWidth,
           editorFound: Boolean(root),
+          brandName: brand?.textContent?.trim() || "",
+          brandNameLineCount,
           selectWidth: select ? Math.round(select.getBoundingClientRect().width) : 0,
           saveButtonVisible: Boolean(saveButton && isVisible(saveButton)),
           controlsOutsideViewport: visibleControls.filter(control =>
@@ -377,6 +383,9 @@ async function runAdminAppearanceInteractionCheck(browser) {
         narrowAppearanceLayout.saveButtonVisible &&
         narrowAppearanceLayout.controlsOutsideViewport.length === 0 &&
         narrowAppearanceLayout.visibleControlCount >= 5;
+      record("admin-320-brand-name-stays-on-one-line",
+        narrowAppearanceLayout.brandName === "Arbitrade" && narrowAppearanceLayout.brandNameLineCount === 1,
+        { width: 320, brandName: narrowAppearanceLayout.brandName, lineCount: narrowAppearanceLayout.brandNameLineCount });
       record("admin-appearance-320-theme-policy-controls-fit",
         narrowAppearanceFits,
         { ...narrowAppearanceLayout, expectedTheme: screenshotTheme });
