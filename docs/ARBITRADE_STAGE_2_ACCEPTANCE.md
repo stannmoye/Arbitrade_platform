@@ -523,3 +523,14 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - This is runtime middleware-level evidence using synthetic contexts, not a live HTTP session test and not proof of production role enforcement or database persistence. Fresh exact-head CI is required before marking these tests verified.
 - The previous green Stage 2 workflow [#441 / 39307217510](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39307217510), installer validation [#777 / 39307217466](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39307217466), and mining database regression [#182 / 39307217516](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39307217516) validate predecessor head `aed55ab610fcb8b182a58433e91e37989e0edee7`, not this new test commit.
 - PR #71 remains draft/open/unmerged. Stage 2 remains open and Stage 3 blocked pending exact-head validation and the remaining acceptance gates.
+
+
+## Customer registration password-policy parity — 2026-10-19
+
+- Cross-layer review found a real validation mismatch: the customer registration API rejects passwords shorter than 12 characters, while the customer form previously accepted 10- and 11-character values. Those values could pass client-side checks and then fail at the server.
+- Updated the signup form's preflight validation, native `minLength`, inline placeholder, and accessible invalid-state condition to consistently require **12 characters**, matching `POST /api/customer/register`. Sign-in remains unchanged because existing credentials must not be subjected to the signup creation policy.
+- Updated the Chromium acceptance check to require `minlength="12"` and added a scenario that fills valid name/email fields with an 11-character password, verifies the accessible 12-character error and invalid state, and proves no registration request is sent.
+- Strengthened the shared form contract test to compare the client policy/error text with the server's 12-character guard, preventing future drift.
+- Changes were committed in sequence: `e4a6db774388a1e6a78fbce154fdcc39a31bf05b` (client), `2e70b6c9340053bf2a2b851105ba5d8ca75508ec` (browser assertion), `4ab91c7bbe60c7dfe520240bea24738645e939da` (initial contract update), `1f4cdb8b80913c85bc86501268a6cfdb675e6d8e` (below-minimum browser case), and `4998dccb1e7c736fa104ed11fd3747cedd1f7595` (cross-layer contract assertion).
+- **Validation is pending for these changes.** Prior green CI does not validate this new policy alignment; the exact-head browser, application tests, TypeScript, and build must pass before this fix is marked verified.
+- This is a client/server policy-alignment fix, not proof of live authentication or production deployment. PR #71 remains draft/unmerged, Stage 2 remains open, and Stage 3 remains blocked.
