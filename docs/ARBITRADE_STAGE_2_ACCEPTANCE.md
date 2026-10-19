@@ -559,3 +559,17 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Reviewed the refreshed authenticated Appearance & Themes screenshot sample at 390px and 1440px across all five themes. The sampled screens render coherently; this is still a spot review, not full-screen human sign-off.
 - This remains mocked-browser evidence, not proof of a deployed authenticated session. Remaining gates: live deployed-session acceptance if a safe staging environment is available; broader authenticated portal coverage; complete visual review; final Stage 2 sign-off. PR #71 remains draft/open/unmerged and Stage 3 remains blocked.
 - This document update creates a new head; exact-head CI must be checked again before claiming the newest repository head is green.
+
+## Signed-session HTTP adapter acceptance — exact code-head validation (2026-10-19)
+
+- **Validated code head:** `de687b03079d4906c97fc4f87e65dd8eee0cbf39`.
+- Added a disposable-database integration test that signs administrator/customer local-session cookies with the real session helper, then sends requests through an isolated Express server using the production `createExpressMiddleware({ router: appRouter, createContext })` adapter.
+- The opt-in MariaDB integration test verifies the administrator can read appearance settings over HTTP; customer read and write requests receive HTTP 403; and an anonymous read receives HTTP 403. It also retains the database persistence/read-back and rejected-mutation invariance checks.
+- Exact-head workflows all passed:
+  - Stage 2 design-system validation [#464 / 39312350663](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39312350663): all four jobs passed; Chromium acceptance **1,162/1,162 checks, zero failures**.
+  - Installer validation [#800 / 39312350632](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39312350632): all jobs passed, including the fresh MariaDB integration (**2/2 tests passed**), MySQL 8 compatibility/recovery, production build/server smoke, and deployment packaging.
+  - Mining database regression [#205 / 39312350839](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39312350839): passed.
+- The normal non-database suite reports **279 passed, 6 skipped**; the opt-in integration suite is run separately against the disposable MariaDB fixture in the installer workflow.
+- Browser artifact [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39312350663/artifacts/12215962435) was inspected. The 46 screenshots include gateway/customer/admin entry screens and administrator Appearance & Themes panels across the five palettes and responsive widths. Representative mobile and desktop samples looked coherent; this remains a focused visual review, not complete full-resolution sign-off.
+- **Boundary:** this closes the gap between synthetic-context tests and exercising the actual tRPC HTTP adapter in an isolated CI server. It still does not prove a deployed/staging browser session, production environment configuration, or production persistence. Browser-side auth/API scenarios remain mocked; live deployed-session acceptance, comprehensive authenticated portal review, and final Stage 2 sign-off remain open. PR #71 remains draft/open/unmerged; Stage 3 remains blocked; no production deployment/database change was made.
+- This acceptance-document update creates a new branch head; fresh exact-head CI must be checked before claiming the newest documentation head is validated.
