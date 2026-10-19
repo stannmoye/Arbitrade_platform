@@ -1,6 +1,6 @@
 # Stage 3 — Five-Theme Architecture and Administrator Theme Controls
 
-**Status:** Core implementation and account-switch guard validated by exact-code-head CI; acceptance review remains in progress  
+**Status:** Core implementation and account-switch guard validated by exact-head CI; formal accessibility and deployed-session acceptance remain in progress  
 **Working branch:** `feat/stage-3-five-theme-architecture`  
 **Base implementation checkpoint:** `22ca05ad65e20078775ca7956f121019fa6a966b`  
 **Started:** 2026-10-19
@@ -154,11 +154,12 @@ These checks require a human tester and actual browser/assistive-technology comb
 - Keep PR #72 in draft and do not merge or deploy until the remaining gates are completed and documented.
 
 
-## Continuation update — Prompt 12/30: stalled browser run recovery (2026-10-20)
+## Continuation update — Prompt 13/30: exact-head browser acceptance confirmed (2026-10-20)
 
-- Rechecked PR #72 metadata: the head is `b6478cc65ada012b86a1bdd54c9671408660d791`; the pull request remains open, draft, and unmerged.
-- Inspected workflow run [#582](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39340462718) and its four job records. Application/theme-policy tests, TypeScript validation, and production build passed on this head.
-- The Chromium job progressed through dependency installation, static client build, Chromium installation, and static preview startup, but the browser matrix step is still reported `in_progress`; the artifact list is empty. The run's last update is from 2026-10-19 23:15:58Z, so this appears stalled rather than a normal active test. A direct log retrieval did not return logs, and no failure conclusion is available.
-- The workflow already sets a 30-minute timeout on the browser job. I did not change the test script or declare a pass without evidence. A fresh run is needed to establish whether the browser acceptance script is reproducibly hanging or the prior runner became stuck.
-- Existing evidence remains valid only for its exact earlier heads: run #581 passed on `29e77db3eabf19cc7e7d2fcb8858d2c03f40a2a6`; it does not validate the newer documentation commit.
-- Manual keyboard-only and screen-reader/assistive-technology review remains open. Authenticated staging acceptance for live authorization and database persistence remains blocked because no staging URL has been provided. Keep PR #72 draft; do not merge or deploy.
+- Rechecked PR #72 and confirmed the exact head at the start of this verification was `0a03a7611534b294579e39ade412404dc4e77954`; the PR remains open, draft, and unmerged.
+- GitHub Actions run [#583](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39340624693) has now completed successfully on that exact head. All four jobs passed: application/theme-policy regression tests, TypeScript validation, production build, and Chromium viewport/five-theme acceptance.
+- Downloaded and inspected browser artifact [stage-3-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39340624693/artifacts/12228284925). Its `report.json` records **1,175 checks passed, 0 failures**. The report covers five themes, ten viewport widths (320–1920px), and gateway/customer/admin entry routes; it includes rendered-text and semantic-token contrast checks, keyboard focus checks, customer form/recovery interactions, theme-policy interactions, and administrator appearance controls.
+- The artifact includes the administrator appearance screenshots at desktop (1440px), mobile (390px), and narrow mobile (320px) for all five themes. The browser assertions confirm the theme surfaces track the selected palette, the narrow appearance controls fit the viewport, the preview group and checkbox fieldset are exposed by accessible names, native Tab order works, and Space toggles/restores the theme checkbox.
+- Reconciled the earlier stalled-run observation: run #582 was cancelled; run #583 subsequently completed successfully. The earlier checkpoint is superseded by this exact-head evidence.
+- Evidence scope remains limited: several authenticated flows use mocked auth/tRPC responses, so this artifact does not prove live authorization or database persistence. Automated contrast assertions and screenshot inspection are not a substitute for a formal manual accessibility review.
+- Remaining gates: formal keyboard-only and screen-reader/assistive-technology review; authenticated staging verification of live authorization and real database persistence. No staging URL has been provided. Keep PR #72 in draft; do not merge or deploy until these remaining gates are completed and recorded.
