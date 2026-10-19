@@ -361,3 +361,13 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Installer CI passed fresh disposable MariaDB install and appearance-policy authorization/database persistence checks, MySQL 8 migration compatibility/recovery, installer/migration regression tests, TypeScript, production build/server smoke, and deployment-package assembly. Mining database idempotency/transaction regression passed.
 - These are CI/disposable-database results, not a production deployment or production database verification. Browser administrator/auth/API fixtures remain mocked.
 - Remaining exit gates: broaden authenticated form/dialog/dropdown/disabled/busy coverage; complete human review of the full screenshot set; and record final Stage 2 acceptance sign-off. PR #71 remains open, draft, and unmerged; Stage 2 remains open and Stage 3 blocked.
+
+
+## Quick Actions search behavior — exact code head `dfdd5702b2dbd5f996b2abdbef7fb4d4f0054e14` (2026-10-19)
+
+- Stage 2 #395, installer validation #731, and mining regression #136 all completed successfully on this code head.
+- The exact-head browser artifact records **1,141 checks passed, 0 failures**. It includes a new search contract check that verifies the Quick Actions search filters across quick-create actions, assigned-work counters, and recent destinations; a wallet query reveals “Wallet & ledger”, a support query reveals “Open tickets”, unrelated destinations are filtered, and an unmatched query exposes accessible “No matching actions or destinations.” feedback.
+- Updated `client/src/components/AdminSlideMenu.tsx`: search is now labeled “Search actions and destinations” rather than claiming to search customer records it did not query. The same normalized query is applied consistently to quick-create actions, assigned-work counters, and recent destinations.
+- The browser report also confirms the Quick Actions keyboard trap (14 focusable controls, reverse/forward wrapping), trigger pointer hit target, 200px theme selector at 390px, 192px selector at 320px with no page overflow, and high-contrast Appearance label across all five themes.
+- Installer validation passed the disposable MariaDB fresh-install/appearance authorization-persistence checks and MySQL 8 compatibility/recovery. Mining database idempotency and transaction regression passed.
+- Browser authentication/API fixtures remain mocked; disposable CI database results are not production verification. PR #71 remains draft/open/unmerged. Stage 2 remains open pending full screenshot review and broader authenticated form/disabled/busy-state acceptance; Stage 3 remains blocked.
