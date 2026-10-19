@@ -383,8 +383,8 @@ describe("ARBITRADE shared design-system contract", () => {
 
 
   it("uses pull-request events as the single automatic Stage 2 trigger", () => {
-    expect(workflow).toContain("on:\\n  pull_request:");
-    expect(workflow).not.toContain("\\n  push:\\n");
+    expect(workflow).toContain("on:\n  pull_request:");
+    expect(workflow).not.toContain("\n  push:\n");
   });
 
 
