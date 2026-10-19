@@ -1302,6 +1302,74 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           note: "Verifies Tab from the last drawer control wraps to the first focusable control.",
         });
 
+        // Keep the authenticated customer navigation open while switching to a
+        // compact phone viewport. This catches clipping, page-level overflow,
+        // and inaccessible close/search controls in the real rendered drawer.
+        await page.setViewportSize({ width: 320, height: 568 });
+        await page.waitForFunction(() => {
+          const element = document.querySelector("#customer-navigation-drawer");
+          if (!(element instanceof HTMLElement)) return false;
+          const rect = element.getBoundingClientRect();
+          return rect.left >= 0 && rect.top >= 0 &&
+            rect.right <= window.innerWidth + 1 &&
+            rect.bottom <= window.innerHeight + 1;
+        });
+        const mobileDrawerLayout = await drawer.evaluate(element => {
+          const rect = element.getBoundingClientRect();
+          const nav = element.querySelector(".admin-slide-nav");
+          const close = element.querySelector(".admin-slide-close");
+          const search = element.querySelector('input[aria-label="Search customer pages and resources"]');
+          const visible = (node) => {
+            if (!(node instanceof HTMLElement)) return false;
+            const style = getComputedStyle(node);
+            const bounds = node.getBoundingClientRect();
+            return style.display !== "none" && style.visibility !== "hidden" &&
+              Number(style.opacity) !== 0 && bounds.width > 0 && bounds.height > 0 &&
+              bounds.right > 0 && bounds.left < window.innerWidth &&
+              bounds.bottom > 0 && bounds.top < window.innerHeight;
+          };
+          return {
+            bounds: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom,
+              width: rect.width, height: rect.height },
+            viewport: { width: window.innerWidth, height: window.innerHeight },
+            dialogRole: element.getAttribute("role"),
+            modal: element.getAttribute("aria-modal"),
+            ariaHidden: element.getAttribute("aria-hidden"),
+            closeVisible: visible(close),
+            searchVisible: visible(search),
+            navVisible: visible(nav),
+            navOverflowY: nav instanceof HTMLElement ? getComputedStyle(nav).overflowY : null,
+            navClientHeight: nav instanceof HTMLElement ? nav.clientHeight : null,
+            navScrollHeight: nav instanceof HTMLElement ? nav.scrollHeight : null,
+            documentWidth: document.documentElement.scrollWidth,
+          };
+        });
+        const mobileDrawerFits =
+          mobileDrawerLayout.bounds.left >= 0 &&
+          mobileDrawerLayout.bounds.top >= 0 &&
+          mobileDrawerLayout.bounds.right <= 321 &&
+          mobileDrawerLayout.bounds.bottom <= 569 &&
+          mobileDrawerLayout.bounds.width <= 320 &&
+          mobileDrawerLayout.bounds.height <= 568 &&
+          mobileDrawerLayout.dialogRole === "dialog" &&
+          mobileDrawerLayout.modal === "true" &&
+          mobileDrawerLayout.ariaHidden === "false" &&
+          mobileDrawerLayout.closeVisible &&
+          mobileDrawerLayout.searchVisible &&
+          mobileDrawerLayout.navVisible &&
+          mobileDrawerLayout.documentWidth <= 320;
+        checks.push({
+          route: "/customer",
+          routeName: "customer",
+          width: 320,
+          theme: scenario.policy.defaultTheme,
+          check: "customer-navigation-drawer-fits-compact-mobile-viewport",
+          passed: mobileDrawerFits,
+          ...mobileDrawerLayout,
+          note: "Checks the open customer navigation dialog, close/search controls, navigation region, and page-width containment at 320x568 in the mocked customer session.",
+        });
+
+        await page.setViewportSize({ width: 1440, height: 1000 });
         await page.keyboard.press("Escape");
         await page.waitForFunction(() => {
           const element = document.querySelector("#customer-navigation-drawer");
