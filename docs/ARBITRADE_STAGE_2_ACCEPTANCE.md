@@ -493,3 +493,7 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 
 - Test review follow-up: scoped the recovery email locator to the recovery panel because the sign-in screen and inline reset panel both contain an “Email address” field. This avoids Playwright strict-mode ambiguity. Commit: `c87a11de91f721cdb47988e3dd8e10e778863a60`.
 - The prior run was started before this final locator correction; fresh exact-head CI is required for the corrected script.
+
+
+- Follow-up review caught that the first locator-scoping edit had accidentally changed the registration test's email locator rather than the recovery test's locator. Corrected both scopes: registration uses its original page-level email locator, and password recovery scopes its email locator to `.email-recovery-panel`. Browser-script syntax was rechecked after the correction.
+- Corrective commit: `0404b756a02e85b2a2044428d098682058138807`. Fresh CI for this corrected head is required; prior runs were cancelled or predate this fix.
