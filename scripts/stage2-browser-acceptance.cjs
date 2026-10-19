@@ -23,6 +23,144 @@ const THEMES = [
 const ARTIFACT_DIR = path.resolve("artifacts/stage2-browser");
 fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 
+
+async function runAdminAppearanceInteractionCheck(browser) {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  page.setDefaultTimeout(10000);
+  const initialAppearance = {
+    defaultTheme: "original",
+    enabledThemes: [...THEMES],
+    customerCanSelect: false,
+  };
+  let savedAppearance = { ...initialAppearance, enabledThemes: [...initialAppearance.enabledThemes] };
+  const mutations = [];
+  const checks = [];
+  const record = (check, passed, details = {}) => checks.push({
+    route: "/ops-console-7f3a",
+    routeName: "admin",
+    width: 1440,
+    theme: "original",
+    check,
+    passed,
+    ...details,
+  });
+
+  try {
+    await page.route("**/api/trpc/**", async route => {
+      const request = route.request();
+      const url = new URL(request.url());
+      const procedurePath = decodeURIComponent(url.pathname.split("/api/trpc/")[1] || "");
+      const procedures = procedurePath.split(",").filter(Boolean);
+      let envelope = {};
+      try {
+        const raw = request.method() === "GET"
+          ? url.searchParams.get("input")
+          : request.postData();
+        envelope = raw ? JSON.parse(raw) : {};
+      } catch {
+        envelope = {};
+      }
+      const inputAt = index => {
+        const item = Array.isArray(envelope) ? envelope[index] : envelope[String(index)];
+        return item?.json ?? item?.input?.json ?? envelope?.json ?? envelope?.input?.json ?? {};
+      };
+      const output = procedures.map((procedure, index) => {
+        const input = inputAt(index);
+        let data = null;
+        if (procedure === "auth.me") {
+          data = { id: 9001, email: "stage2-admin@example.test", name: "Stage 2 Admin", role: "admin" };
+        } else if (procedure === "appearanceConfig") {
+          data = savedAppearance;
+        } else if (procedure === "adminOperations.settings") {
+          data = { appearance: savedAppearance };
+        } else if (procedure === "adminOperations.customers" || procedure === "adminOperations.packagePolicies") {
+          data = [];
+        } else if (procedure === "adminOperations.autoTradePolicy") {
+          data = { globalEnabled: false };
+        } else if (procedure === "adminOperations.updateSettings") {
+          mutations.push(input);
+          if (input?.appearance) {
+            savedAppearance = {
+              defaultTheme: input.appearance.defaultTheme,
+              enabledThemes: [...input.appearance.enabledThemes],
+              customerCanSelect: input.appearance.customerCanSelect === true,
+            };
+          }
+          data = { ok: true };
+        }
+        return { result: { data: { json: data } } };
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(output),
+      });
+    });
+
+    await page.goto(new URL("/ops-console-7f3a", BASE_URL).href, {
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
+    });
+    const adminLoaded = await page.getByRole("heading", { name: "Control centre" }).isVisible().catch(() => false);
+    record("mock-authenticated-admin-route", adminLoaded, {
+      note: "Uses mocked auth.me and tRPC responses; this is client-flow evidence, not live API authentication.",
+    });
+
+    if (!adminLoaded) {
+      record("admin-appearance-screen-opened", false, { error: "Authenticated admin shell did not render from the mock API." });
+      return checks;
+    }
+
+    await page.getByRole("button", { name: /Platform Configuration/ }).click();
+    await page.getByRole("button", { name: /Appearance & Themes/ }).click();
+    const appearanceLoaded = await page.getByRole("heading", { name: "Theme management" }).isVisible().catch(() => false);
+    record("admin-appearance-screen-opened", appearanceLoaded);
+    if (!appearanceLoaded) return checks;
+
+    const previewButtons = page.locator(".arb-theme-preview-option");
+    const previewCount = await previewButtons.count();
+    const previewButton = page.getByRole("button", { name: /Aurora Modern/ });
+    await previewButton.click();
+    await page.waitForTimeout(30);
+    const previewTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || "");
+    record("admin-theme-preview", previewCount === THEMES.length && previewTheme === "aurora-modern", {
+      previewCount,
+      previewTheme,
+    });
+
+    await page.getByLabel("Default theme").selectOption("clean-light");
+    await page.getByRole("checkbox", { name: /Midnight Premium/ }).uncheck();
+    await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).check();
+    await page.getByRole("button", { name: "Save appearance policy" }).click();
+    await page.getByRole("status").filter({ hasText: "Appearance policy saved" }).waitFor({ state: "visible" });
+
+    const saved = mutations.length > 0 &&
+      mutations.at(-1)?.appearance?.defaultTheme === "clean-light" &&
+      Array.isArray(mutations.at(-1)?.appearance?.enabledThemes) &&
+      !mutations.at(-1).appearance.enabledThemes.includes("midnight-premium") &&
+      mutations.at(-1).appearance.enabledThemes.includes("clean-light") &&
+      mutations.at(-1).appearance.customerCanSelect === true &&
+      savedAppearance.defaultTheme === "clean-light" &&
+      !savedAppearance.enabledThemes.includes("midnight-premium") &&
+      savedAppearance.customerCanSelect === true;
+    record("admin-appearance-policy-save-request", saved, {
+      mutationCount: mutations.length,
+      savedAppearance,
+      submittedAppearance: mutations.at(-1)?.appearance ?? null,
+    });
+    const feedback = (await page.getByRole("status").innerText()).includes("Appearance policy saved") &&
+      (await page.getByLabel("Default theme").inputValue()) === "clean-light";
+    record("admin-appearance-save-feedback-and-refetch", feedback);
+  } catch (error) {
+    record("admin-appearance-interaction-unhandled-error", false, {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  } finally {
+    await page.close();
+  }
+  return checks;
+}
+
 async function main() {
   const browser = await chromium.launch({ headless: true });
   const results = [];
@@ -334,6 +472,9 @@ async function main() {
         }
       }
     }
+    const interactionChecks = await runAdminAppearanceInteractionCheck(browser);
+    results.push(...interactionChecks);
+    failures.push(...interactionChecks.filter(check => !check.passed));
   } finally {
     await browser.close();
   }
@@ -350,9 +491,10 @@ async function main() {
     results,
     failureDetails: failures,
     limitations: [
-      "Static-client browser smoke tests do not authenticate to the live API.",
-      "Theme attribute overrides validate rendered CSS selection, not the administrator save flow.",
-      "Rendered WCAG contrast still requires explicit contrast measurements and review.",
+      "The admin appearance interaction uses mocked auth.me and tRPC responses; it verifies the client flow and submitted policy only, not live server authorization or database persistence.",
+      "Static-client browser smoke tests do not authenticate to the live API or verify customer-role enforcement.",
+      "Populated financial-table keyboard scrolling and the full authenticated form/dialog/dropdown/disabled/busy interaction matrix remain outside this static-client run.",
+      "The rendered contrast audit covers visible text on the three entry routes and semantic token pairs; human review of screenshots and broader authenticated portal coverage remain required.",
     ],
   };
   fs.writeFileSync(path.join(ARTIFACT_DIR, "report.json"), JSON.stringify(report, null, 2));
