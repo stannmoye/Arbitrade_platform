@@ -786,6 +786,43 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           return element?.getAttribute("aria-hidden") === "false" &&
             Boolean(element.contains(document.activeElement));
         });
+        const customerSearch = drawer.getByRole("textbox", { name: "Search customer pages and resources" });
+        await customerSearch.fill("wallet");
+        const walletSearchVisible = await drawer.getByRole("button", { name: /Wallet/ }).isVisible();
+        const dashboardHiddenForWallet = await drawer.getByRole("button", { name: /Dashboard/ }).count() === 0;
+        checks.push({
+          route: "/customer",
+          routeName: "customer",
+          width: 1440,
+          theme: scenario.policy.defaultTheme,
+          check: "customer-navigation-search-filters-destinations",
+          passed: walletSearchVisible && dashboardHiddenForWallet,
+          walletSearchVisible,
+          dashboardHiddenForWallet,
+          note: "Verifies customer navigation search filters destinations in the mocked customer session.",
+        });
+
+        await customerSearch.fill("no-such-customer-destination-xyz");
+        const emptySearchStatus = drawer.getByRole("status");
+        await emptySearchStatus.waitFor({ state: "visible" });
+        const emptySearchText = await emptySearchStatus.innerText();
+        const emptySearchLiveMode = await emptySearchStatus.getAttribute("aria-live");
+        const emptySearchAnnounced = /No pages or resources match/.test(emptySearchText) &&
+          emptySearchLiveMode === "polite";
+        checks.push({
+          route: "/customer",
+          routeName: "customer",
+          width: 1440,
+          theme: scenario.policy.defaultTheme,
+          check: "customer-navigation-empty-search-announced",
+          passed: emptySearchAnnounced,
+          emptySearchText,
+          emptySearchLiveMode,
+          note: "Checks the empty-result message is exposed as a polite live status for assistive technology.",
+        });
+
+        await customerSearch.fill("");
+        await drawer.getByRole("button", { name: /Dashboard/ }).waitFor({ state: "visible" });
         await drawer.evaluate((element, selector) => element.querySelectorAll(selector)[0]?.focus(), focusableSelector);
         await page.keyboard.press("Shift+Tab");
         const focusTrapWorks = await drawer.evaluate((element, selector) => {
