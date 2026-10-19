@@ -1122,3 +1122,11 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Exact-head CI after these changes is still pending; the prior green results do not validate the selector width adjustment. Continue by checking the newest branch head and workflow runs, downloading its browser report/screenshots, and fixing any failure before expanding the next authenticated interaction batch.
 - Installer CI on the prior head includes passing disposable MariaDB appearance authorization/persistence checks and MySQL 8 migration recovery; this is not production database verification. Browser auth/API fixtures remain mocked.
 - Remaining Stage 2 exit gates: latest-head CI; broader authenticated form/dialog/dropdown/disabled/busy interactions; full screenshot review; final sign-off. PR #71 remains draft/open/unmerged. Stage 2 remains open and Stage 3 blocked. No production deployment or production database mutation occurred.
+
+
+## Prompt 23/30 — CI failure corrected, awaiting fresh run (2026-10-19)
+
+- Exact follow-up Stage 2 run #380 on `d128184731c246c2c24a136300d4a46af559faa1` found one expected regression failure: the new 390px theme-selector width assertion measured 140.77px because the flex item still shrank. The report recorded 1,131 passed / 1 failed of 1,132. Application tests, TypeScript, and production build passed; installer #716 and mining regression #121 also passed.
+- Corrected the selector flex basis to a non-shrinking responsive width in `efcaa28f84437133816d211cbe393c9c71e77d2e`. Updated acceptance documentation with the measured failure and fix. The fix is not considered verified until fresh Chromium CI passes.
+- Next: inspect exact current PR head, poll Stage 2/installer/mining runs, download the latest browser artifact, confirm the selector width and visual screenshot, and repair any remaining failure before expanding coverage.
+- Remaining exit gates: latest-head CI; broader authenticated form/dialog/dropdown/disabled/busy coverage; full screenshot review; final sign-off. PR #71 stays draft/open/unmerged; Stage 2 remains open and Stage 3 blocked.
