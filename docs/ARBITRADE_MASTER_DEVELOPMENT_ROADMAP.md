@@ -926,3 +926,17 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Acceptance record updated in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`; the documentation commit triggers a fresh workflow run, which must be checked against its exact resulting head.
 - **Decision:** Stage 2 remains open on authenticated interaction and rendered-contrast evidence. Keep PR #71 draft/unmerged and do not advance to Stage 3.
 - **Continuation counter:** Prompt 9/30.
+
+## Stage 2 finalization — Prompt 10/30 (2026-10-19)
+
+- Resolved the Stage 2 pull-request base conflict by integrating the current `integration/auth-installer-vps-safety` branch. The branch is now up to date with its base, and PR #71 is reported mergeable. Mergeability is not a substitute for acceptance.
+- Added computed semantic-token contrast checks and rendered text contrast sampling to `scripts/stage2-browser-acceptance.cjs`, including hex-token parsing, settled-style sampling, and separation of keyboard-focus/disabled states from default-state text contrast.
+- Added semantic-token theme bridges for the legacy gateway and customer/admin authentication surfaces. The expanded browser matrix exposed and helped fix contrast problems in the clean-light and emerald-finance entry screens.
+- **Exact validated code head:** `498644b78f43b75f4e9e25625c969d844e8a7ab4`.
+- **Fresh Stage 2 workflow:** [run #185 / 39232008725](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39232008725) passed all four jobs: application/regression tests, TypeScript validation, production build, and Chromium viewport/theme acceptance.
+- **Test result:** 222 tests passed across 29 passing test files; four individual tests and one file were skipped by the configured suite. TypeScript validation and production build passed.
+- **Browser result:** 1,110 checks passed, 0 failed. The matrix covers the three entry routes, ten required viewport widths, page-level overflow, keyboard-focus visibility, all five themes, semantic token contrast, and rendered text contrast. Screenshots and `report.json` are available in [the browser acceptance artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39232008725/artifacts/12178056263).
+- The Mining database regression workflow [run #21 / 39232008773](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39232008773) and installer validation [run #616 / 39232008769](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39232008769) also passed for this code head.
+- **Remaining Stage 2 exit gates:** authenticated administrator appearance-policy save; customer theme permissions and persistence; keyboard scrolling of populated financial tables; detailed authenticated form/dialog/dropdown and disabled/busy interaction states; human review of browser screenshots; and final acceptance sign-off. The browser job uses the built static client without authenticated live API data and does not prove those interactions.
+- **Decision:** Stage 2 remains open pending the remaining authenticated interaction evidence. Keep PR #71 draft and unmerged; do not advance to Stage 3 until the remaining exit gates are verified.
+- The roadmap/acceptance documentation update creates a new head, so fresh CI must be checked against that exact resulting SHA before claiming current-head validation.
