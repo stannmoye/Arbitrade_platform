@@ -72,6 +72,19 @@ A source review found that the administrator's five preview buttons were visuall
 
 This improves semantic structure for assistive technology but is **not** evidence of a completed screen-reader audit. Exact-code-head GitHub Actions run [#555](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39335677771) completed successfully for commit `be63c2d4a3b3211e44769a2b201951bd86715c8b`: application/theme-policy regression tests passed, TypeScript validation passed, production build passed, and the Chromium viewport/five-theme matrix passed. The four jobs are all green. Manual keyboard-only and assistive-technology review remains open.
 
+## Browser-level accessibility interaction follow-up (2026-10-19)
+
+Added real Chromium checks to the existing administrator appearance acceptance flow for the recently improved semantics:
+
+- Resolve the administrator preview choices by their accessible group name and confirm all five preview buttons are exposed.
+- Resolve the customer-theme checkboxes by the native fieldset/legend accessible group name and confirm all five checkboxes are exposed.
+- Confirm the currently previewed theme exposes its pressed state.
+- Move keyboard focus to the first preview button and verify Tab advances to the next preview button in DOM order.
+- Use Space to uncheck and re-check the Original Arbitrade checkbox, confirming native keyboard interaction and state restoration.
+- Added source-contract coverage for the preview pressed state and customer selector's accessible status/current-theme labels.
+
+These are automated browser checks, not a screen-reader audit or a substitute for a manual keyboard-only review across supported browsers and assistive technologies. The browser acceptance script continues to mock authentication and tRPC responses; it cannot establish deployed authorization or database persistence. CI for this new batch must pass before the added checks are considered validated.
+
 ## External limitations and release gates
 
 No staging URL was provided at Stage 3 start. Authenticated deployed-session acceptance is therefore not currently available. Representative administrator screenshots have been reviewed for all five themes at desktop and 320px widths; formal accessibility review and staging acceptance remain open. The browser report explicitly uses mocked auth/API responses for several flows and does not prove live server authorization or database persistence. Do not claim production readiness or deploy based solely on this CI result.
