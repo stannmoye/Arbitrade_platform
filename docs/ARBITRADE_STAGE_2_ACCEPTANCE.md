@@ -465,8 +465,12 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - The test restores the desktop viewport and drawer scroll position before continuing the existing keyboard focus-trap and Escape/focus-restoration checks.
 - Implementation commits: `48bac47fe5525f3f0dd472cce49e0b6f11f7adf5` (initial coverage), `d83389d1336a427b75daeb91cc361a290ef3ce36` (drawer-specific selectors and scroll-region measurement), and `e39f885b236f717a4b5e897d3acc73c3a24b647a` (wait for the entrance animation to settle before measuring).
 - The first browser attempt exposed a timing issue in the test itself: the viewport was resized while the drawer's desktop entrance transition was still in progress, so the first geometry sample was offscreen. The test now waits until the transformed drawer bounds fit the compact viewport before measuring. Failed assertions are also printed into the Actions log for faster diagnosis.
-- **Validation is pending for the updated browser script and documentation head.** The previous head `b37f1ac5cfec6c9f68bedf4379c04bc6e9134ddf` had green Stage 2, installer, and mining-database workflows, but those results do not validate this new change.
-- This remains mocked-auth browser coverage. It does not establish live server authorization, production database persistence, or full authenticated form/dialog/dropdown coverage.
+- **Validation confirmed for head `2776f01ef035215852a0deec6dafc5532bd13bc1`:**
+  - [Stage 2 run #39305824745](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39305824745) passed all four jobs: application/regression tests (**272 passed, 5 skipped**), TypeScript, production build, and Chromium browser acceptance (**1,156 passed, 0 failed**).
+  - [Installer validation #39305824721](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39305824721) passed all jobs, including the opt-in MariaDB appearance-policy persistence/authorization integration test (**1 passed**), MySQL 8 compatibility/recovery, package validation, and server smoke test.
+  - [Mining database regression #39305824753](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39305824753) passed.
+- The first compact-viewport attempt caught a test timing issue while the drawer entrance transition was still running. The test now waits for the drawer to enter the viewport before measuring; the corrected run passed the new compact viewport check.
+- This remains mocked-auth browser coverage for client interactions. The disposable-database integration test verifies real database writes/read-back and rejects customer writes in CI; production environment authorization and persistence have not been exercised. Broader authenticated form/dialog/dropdown coverage and final human screenshot sign-off remain open.
 
 
 ## Password recovery interaction coverage — 2026-10-19
