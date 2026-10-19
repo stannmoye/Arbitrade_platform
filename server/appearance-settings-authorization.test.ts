@@ -43,4 +43,21 @@ describe("administrator appearance settings authorization", () => {
       code: "FORBIDDEN",
     });
   });
+  it("rejects an appearance policy whose default is absent from the enabled-theme allow-list", async () => {
+    const caller = appRouter.createCaller({
+      user: { id: 123, role: "admin" },
+    } as never);
+
+    await expect(caller.adminOperations.updateSettings({
+      appearance: {
+        defaultTheme: "aurora-modern",
+        enabledThemes: ["original", "clean-light"],
+        customerCanSelect: true,
+      },
+    })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "The default theme must be enabled.",
+    });
+  });
+
 });
