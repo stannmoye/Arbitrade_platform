@@ -270,8 +270,13 @@ async function runAdminAppearanceInteractionCheck(browser) {
       updateRequestIndex,
     });
 
-    // Verify a rejected save exposes an accessible error and releases all controls
-    // from the pending state without pretending the rejected policy was persisted.
+    // A rejected save must not mutate the mock server's persisted policy or be
+    // recorded as a successful mutation; the UI must also leave pending state.
+    const persistedBeforeRejectedSave = {
+      ...savedAppearance,
+      enabledThemes: [...savedAppearance.enabledThemes],
+    };
+    const successfulMutationCountBeforeRejectedSave = mutations.length;
     failNextSettingsSave = true;
     await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).uncheck();
     await page.getByRole("button", { name: "Save appearance policy" }).click();
@@ -284,6 +289,19 @@ async function runAdminAppearanceInteractionCheck(browser) {
     record("admin-appearance-save-error-feedback-controls-restored",
       await saveError.isVisible() && errorSaveEnabled && errorDefaultEnabled && errorThemeEnabled && errorChoiceEnabled,
       { errorVisible: await saveError.isVisible(), errorSaveEnabled, errorDefaultEnabled, errorThemeEnabled, errorChoiceEnabled });
+    const rejectedSaveDidNotPersist =
+      JSON.stringify(savedAppearance) === JSON.stringify(persistedBeforeRejectedSave) &&
+      mutations.length === successfulMutationCountBeforeRejectedSave &&
+      savedAppearance.customerCanSelect === true;
+    record("admin-appearance-rejected-save-does-not-persist",
+      rejectedSaveDidNotPersist,
+      {
+        persistedBeforeRejectedSave,
+        persistedAfterRejectedSave: savedAppearance,
+        successfulMutationCountBeforeRejectedSave,
+        successfulMutationCountAfterRejectedSave: mutations.length,
+        note: "Checks mocked server state only; live database persistence remains an independent acceptance gate.",
+      });
 
     // Reset the admin route after saving appearance settings so the next mobile navigation
     // check starts from a clean workspace rather than a scrolled settings-card position.
