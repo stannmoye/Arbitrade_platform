@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ARBITRADE_THEME_LABELS, ARBITRADE_THEMES, type ArbitradeTheme, useTheme } from "@/contexts/ThemeContext";
-import { toggleEnabledTheme } from "./appearance-policy";
+import { normalizeEnabledThemes, toggleEnabledTheme } from "./appearance-policy";
 import { trpc } from "@/lib/trpc";
 
 const DEFAULT_ENABLED = [...ARBITRADE_THEMES];
@@ -19,12 +19,9 @@ export function AdminAppearance() {
   useEffect(() => {
     const appearance = settings.data?.appearance;
     if (!appearance) return;
-    const validEnabled = appearance.enabledThemes.filter((value: string): value is ArbitradeTheme =>
-      ARBITRADE_THEMES.includes(value as ArbitradeTheme)
-    );
-    const nextEnabled = validEnabled.length ? validEnabled : ["original" as ArbitradeTheme];
     const requestedDefault = ARBITRADE_THEMES.includes(appearance.defaultTheme as ArbitradeTheme)
       ? appearance.defaultTheme as ArbitradeTheme : "original";
+    const nextEnabled = normalizeEnabledThemes(appearance.enabledThemes, requestedDefault);
     setEnabledThemes(nextEnabled);
     setDefaultTheme(nextEnabled.includes(requestedDefault) ? requestedDefault : nextEnabled[0]);
     setCustomerCanSelect(Boolean(appearance.customerCanSelect));
