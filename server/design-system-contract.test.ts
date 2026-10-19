@@ -308,4 +308,11 @@ describe("ARBITRADE shared design-system contract", () => {
     }
   });
 
+
+  it("uses the shared canonical theme normalizer in the customer provider", () => {
+    expect(themeContext).toContain("normalizeEnabledThemes(value, fallback)");
+    expect(themeContext).toContain("readEnabledThemes(policy?.enabledThemes, requestedPolicyDefault)");
+    expect(themeContext).not.toContain("Array.from(new Set(value.filter(isTheme)))");
+  });
+
 });
