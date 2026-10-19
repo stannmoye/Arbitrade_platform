@@ -282,3 +282,11 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Fresh current-head validation passed for `cea65e452ea5fd0e947bd31ee0e632fcf4164567`: Stage 2 run #286 (`39267102795`) passed all four jobs, including **1,121 Chromium checks passed, 0 failures**. The refreshed `report.json` confirms the settlement table has 12 rows and scrolls from 0 to 26px, and the wallet ledger has 24 rows and scrolls from 0 to 34px; both wrappers remain 338px wide with document width equal to the 390px viewport.
 - Installer validation #664 (`39267103014`) and mining database regression #69 (`39267102854`) also passed on this code head. The deployment package workflow completed successfully.
 - These table rows are mocked test data, so this proves responsive keyboard-scroll behavior but not live ledger authorization or persistence. Remaining acceptance gates include live API/database verification, broader authenticated form/dialog/dropdown/disabled/busy states, human review of the full screenshot set, and final sign-off. Stage 2 remains open; Stage 3 remains blocked.
+
+
+## Busy-state interaction regression — Prompt 18/30 (2026-10-19)
+
+- Extended `scripts/stage2-browser-acceptance.cjs` to briefly delay the mocked `adminOperations.updateSettings` response and inspect the pending state before resolving it.
+- The new `admin-appearance-save-busy-controls-disabled` check confirms the save button reads `Saving…` and is disabled, and the default-theme select, enabled-theme checkbox, and customer-choice checkbox are all disabled while the save is pending.
+- Current code commit `bb86d021b300d2db23f5c6bfc62285cb4149154f` passed Stage 2 run #292 (`39268470213`): **1,122/1,122 Chromium checks passed, zero failures**. The busy-state check passed. Installer run #667 (`39268470271`) and mining regression run #72 (`39268470158`) also passed, including deployment package assembly.
+- This is mocked client-flow evidence; it does not replace live authenticated authorization/database-persistence verification or broader authenticated forms/dialogs/dropdowns testing. Stage 2 remains open; Stage 3 remains blocked.
