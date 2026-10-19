@@ -501,3 +501,14 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 
 - Final test-script cleanup removed a duplicate recovery-check function introduced during the locator correction. Revalidated the current script parses successfully, has exactly one recovery-check declaration, uses the recovery-panel-scoped email locator, and contains four recovery assertions. Commit: `3bfbe35c1e68dd79cb6d92c88a0c9284971fe8ef`.
 - The preceding workflow run began before this cleanup, so only fresh CI on the resulting head can validate the final script. Stage 2 remains open pending that evidence and the remaining acceptance gates.
+
+
+## Password recovery interaction — exact-head CI verification
+
+- **Validated code head:** `aed55ab610fcb8b182a58433e91e37989e0edee7`.
+- Stage 2 workflow [#441 / 39307217510](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39307217510) passed all four jobs: application/regression tests, TypeScript, production build, and Chromium browser acceptance.
+- Application tests: **273 passed, 5 skipped** across 36 passing test files (2 integration-oriented files skipped by the standard non-database configuration). `server/shared-form-dialog-contract.test.ts` passed all 12 tests, including password-recovery accessibility contracts.
+- Chromium artifact `report.json`: **1,159 checks passed, 0 failures**. The four recovery checks passed: rate-limit response announces an alert and restores the request control; retry enters the eight-digit confirmation form with required code/password constraints; a rejected confirmation announces an alert and restores the submit control; and no page errors occurred.
+- Installer validation [#777 / 39307217466](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39307217466) passed all jobs, including fresh MariaDB install, MySQL 8 compatibility/recovery, tests, TypeScript, production build/server smoke, deployment packages, and Stage 1 dashboard. Mining database regression [#182 / 39307217516](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39307217516) passed.
+- Browser reset endpoints are mocked: this does not send email, change a real password, prove live authorization, or establish production persistence. Full authenticated portal coverage and final human screenshot sign-off remain outstanding.
+- The exact-head workflows above validate code head `aed55ab`. This acceptance-document follow-up creates a new documentation head, so fresh CI must be checked again before claiming the newest repository head is green. PR #71 remains draft/open/unmerged; Stage 2 remains open and Stage 3 blocked.
