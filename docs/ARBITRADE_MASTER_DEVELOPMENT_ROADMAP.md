@@ -993,3 +993,12 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Remaining exit gates: fresh CI on latest head, review customer-browser scenario results, verify live server authorization/database persistence, populated financial-table keyboard scrolling, detailed authenticated form/dialog/dropdown/disabled/busy states, screenshot review, final sign-off.
 - PR #71 remains draft and unmerged. Stage 2 stays open; Stage 3 is blocked until all gates have evidence.
 - **Continuation counter:** Prompt 14/30.
+
+
+## Stage 2 continuation checkpoint — Prompt 15/30 (2026-10-19)
+
+- Rechecked the current pull-request head: `3d9266f3c5a8588ad29d2e458238e39027f0d82f`. GitHub Actions has started a fresh set of checks for that head: Stage 2 validation run #261 (`39264320656`), installer validation #652 (`39264320496`), and mining database regression #57 (`39264320623`). These checks were queued/in progress when inspected; do not infer their outcome before completion.
+- Verified the prior completed Stage 2 run #257 (`39263152026`) was green across application/regression tests, TypeScript validation, production build, and Chromium viewport/theme acceptance. Its archived `report.json` confirms 1,117 checks passed and zero failures, using routes `/`, `/customer`, and `/ops-console-7f3a`, 10 viewport widths (320–1920 px), five themes, keyboard focus, contrast checks, and customer/admin theme-policy interactions.
+- Confirmed in the report that browser API/auth responses are mocked. It does not establish live API authorization or database persistence. Human visual screenshot sign-off is still open, along with populated financial-table keyboard scrolling and broader authenticated form/dialog/dropdown/disabled/busy state coverage.
+- Latest PR remains open, draft, and unmerged. Stage 2 stays in progress until current-head CI passes and the remaining acceptance evidence is addressed; Stage 3 remains blocked.
+- **Continuation counter:** Prompt 15/30.
