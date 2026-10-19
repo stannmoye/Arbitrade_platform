@@ -1,6 +1,6 @@
 # Stage 2 — Shared Design System Acceptance
 
-**Status:** In progress  
+**Status:** Implementation closed by user direction; deployed staging acceptance and human sign-off deferred  
 **Working branch:** `feat/stage-2-design-system-foundation`  
 **Last updated:** 2026-10-19
 
@@ -52,9 +52,9 @@ A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the fu
 - [ ] Measure rendered contrast ratios for actual text, controls, status states, and focus indicators; source/token checks alone do not prove WCAG conformance.
 - [ ] Continue shared-component adoption where it can be done without changing business behaviour or existing route layouts.
 
-## Working rule
+## Closeout decision
 
-Do not mark Stage 2 complete based solely on source changes or CI. Record actual test results and viewport/browser evidence before closing the stage. Keep Stage 3 theme-policy acceptance distinct from Stage 2 completion.
+Stage 2 implementation scope is closed by user direction. Existing automated evidence remains recorded above and should not be repeated without a code change or diagnostic reason. The following acceptance gates remain explicitly deferred because no deployed staging URL is available: authenticated keyboard scrolling, form/dialog/dropdown/save-flow inspection in a real authenticated session, rendered contrast measurement, and human sign-off. This is an implementation closeout, not a claim that staging or production acceptance passed. Stage 3 theme-policy acceptance is tracked separately in `docs/ARBITRADE_STAGE_3_ACCEPTANCE.md`.
 
 ## Continuation review — 2026-10-19
 
