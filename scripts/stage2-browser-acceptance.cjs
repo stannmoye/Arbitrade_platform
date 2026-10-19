@@ -1310,9 +1310,12 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           const element = document.querySelector("#customer-navigation-drawer");
           if (!(element instanceof HTMLElement)) return false;
           const rect = element.getBoundingClientRect();
-          return rect.left >= 0 && rect.top >= 0 &&
-            rect.right <= window.innerWidth + 1 &&
-            rect.bottom <= window.innerHeight + 1;
+          // Wait for the entrance transition to settle at the expected
+          // 6px inset; an intermediate transform can otherwise look clipped.
+          return rect.left >= 0 && rect.left <= 8 &&
+            rect.top >= 0 && rect.top <= 8 &&
+            rect.right <= window.innerWidth - 4 &&
+            rect.bottom <= window.innerHeight - 4;
         });
         const mobileDrawerLayout = await drawer.evaluate(element => {
           const rect = element.getBoundingClientRect();
@@ -1347,9 +1350,11 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         });
         const mobileDrawerFits =
           mobileDrawerLayout.bounds.left >= 0 &&
+          mobileDrawerLayout.bounds.left <= 8 &&
           mobileDrawerLayout.bounds.top >= 0 &&
-          mobileDrawerLayout.bounds.right <= 321 &&
-          mobileDrawerLayout.bounds.bottom <= 569 &&
+          mobileDrawerLayout.bounds.top <= 8 &&
+          mobileDrawerLayout.bounds.right <= 316 &&
+          mobileDrawerLayout.bounds.bottom <= 564 &&
           mobileDrawerLayout.bounds.width <= 320 &&
           mobileDrawerLayout.bounds.height <= 568 &&
           mobileDrawerLayout.dialogRole === "dialog" &&
