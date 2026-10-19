@@ -111,7 +111,9 @@ async function runAdminAppearanceInteractionCheck(browser) {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify(output),
+          // tRPC httpBatchLink expects batch responses keyed by procedure index,
+          // matching the indexed input envelope (rather than a bare JSON array).
+          body: JSON.stringify(Object.fromEntries(output.map((item, index) => [String(index), item]))),
         });
         apiRequests.push({ fulfilled: true, procedurePath });
       } catch (error) {
