@@ -7,6 +7,7 @@ const textarea = readFileSync(new URL("../client/src/components/ui/textarea.tsx"
 const select = readFileSync(new URL("../client/src/components/ui/select.tsx", import.meta.url), "utf8");
 const button = readFileSync(new URL("../client/src/components/ui/button.tsx", import.meta.url), "utf8");
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+const serverAuth = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
 const recovery = readFileSync(new URL("../client/src/components/EmailRecoveryPanel.tsx", import.meta.url), "utf8");
 
 describe("shared form and dialog interaction contracts", () => {
@@ -76,6 +77,9 @@ describe("shared form and dialog interaction contracts", () => {
     expect(app).toContain('placeholder="Davis" required aria-invalid={Boolean(error && mode==="signup" && !form.lastName.trim())}');
     expect(app).toContain('autoComplete="email" required aria-invalid={Boolean(error && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(form.email.trim()))}');
     expect(app).toContain('required minLength={mode==="signup" ? 12 : 1}');
+    expect(app).toContain("password of at least 12 characters");
+    expect(serverAuth).toContain("password.length < 12");
+    expect(serverAuth).toContain("password of at least 12 characters");
   });
 
 
