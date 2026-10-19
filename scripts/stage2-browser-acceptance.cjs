@@ -659,6 +659,148 @@ async function runAdminAppearanceInteractionCheck(browser) {
   return checks;
 }
 
+async function runCustomerAuthFormInteractionCheck(browser) {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  page.setDefaultTimeout(10000);
+  const checks = [];
+  const pageErrors = [];
+  let registerRequests = 0;
+  page.on("pageerror", error => pageErrors.push(error.message));
+  const record = (check, passed, details = {}) => checks.push({
+    route: "/customer",
+    routeName: "customer",
+    width: 390,
+    check,
+    passed,
+    ...details,
+  });
+
+  try {
+    await page.route("**/api/customer/register", async route => {
+      registerRequests += 1;
+      // Keep the request pending long enough to observe the actual busy state.
+      await new Promise(resolve => setTimeout(resolve, 450));
+      await route.fulfill({
+        status: 400,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Simulated registration failure" }),
+      });
+    });
+    await page.goto(new URL("/customer", BASE_URL).href, {
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
+    });
+    await page.getByRole("heading", { name: "Create your customer account" }).waitFor({
+      state: "visible",
+      timeout: 15000,
+    });
+
+    const firstName = page.getByLabel("First name");
+    const lastName = page.getByLabel("Last name");
+    const email = page.getByLabel("Email address");
+    const password = page.getByLabel("Password");
+    const submit = page.getByRole("button", { name: /Register customer account/ });
+    const fieldsFound = await Promise.all([
+      firstName.isVisible(),
+      lastName.isVisible(),
+      email.isVisible(),
+      password.isVisible(),
+    ]);
+    const fieldSemantics = {
+      firstNameRequired: await firstName.getAttribute("required") !== null,
+      lastNameRequired: await lastName.getAttribute("required") !== null,
+      emailRequired: await email.getAttribute("required") !== null,
+      emailType: await email.getAttribute("type"),
+      passwordRequired: await password.getAttribute("required") !== null,
+      passwordMinLength: await password.getAttribute("minlength"),
+    };
+
+    await submit.click();
+    const validationAlert = page.getByRole("alert");
+    await validationAlert.waitFor({ state: "visible" });
+    const validationText = await validationAlert.innerText();
+    const invalidStates = await Promise.all(
+      [firstName, lastName, email, password].map(async field =>
+        await field.getAttribute("aria-invalid") === "true"
+      ),
+    );
+    record("customer-registration-required-fields-validation", 
+      fieldsFound.every(Boolean) &&
+      fieldSemantics.firstNameRequired &&
+      fieldSemantics.lastNameRequired &&
+      fieldSemantics.emailRequired &&
+      fieldSemantics.emailType === "email" &&
+      fieldSemantics.passwordRequired &&
+      fieldSemantics.passwordMinLength === "10" &&
+      invalidStates.every(Boolean) &&
+      /first and last name/i.test(validationText) &&
+      registerRequests === 0,
+      {
+        fieldsFound,
+        fieldSemantics,
+        invalidStates,
+        validationText,
+        registerRequests,
+      },
+    );
+
+    await firstName.fill("Jordan");
+    await lastName.fill("Davis");
+    await email.fill("jordan.davis@example.test");
+    await password.fill("StageTwoSecurePass123");
+    const validStates = await Promise.all(
+      [firstName, lastName, email, password].map(async field =>
+        await field.getAttribute("aria-invalid") !== "true"
+      ),
+    );
+    await submit.click();
+    const busyButton = page.getByRole("button", { name: /Working/ });
+    await busyButton.waitFor({ state: "visible" });
+    const busyDisabled = await busyButton.isDisabled();
+    const busyAria = await busyButton.getAttribute("aria-busy");
+    const errorAlert = page.getByRole("alert").filter({ hasText: "Simulated registration failure" });
+    await errorAlert.waitFor({ state: "visible" });
+    const restoredButton = page.getByRole("button", { name: /Register customer account/ });
+    await page.waitForFunction(() => {
+      const button = document.querySelector(".auth-primary");
+      return button instanceof HTMLButtonElement && !button.disabled && button.getAttribute("aria-busy") === "false";
+    });
+    const errorRole = await errorAlert.getAttribute("role");
+    const errorLive = await errorAlert.getAttribute("aria-live");
+    const describedBy = await restoredButton.getAttribute("aria-describedby");
+    record("customer-registration-busy-and-error-recovery",
+      validStates.every(Boolean) &&
+      busyDisabled &&
+      busyAria === "true" &&
+      await restoredButton.isEnabled() &&
+      errorRole === "alert" &&
+      errorLive === "assertive" &&
+      describedBy === "customer-auth-error" &&
+      registerRequests === 1 &&
+      pageErrors.length === 0,
+      {
+        validStates,
+        busyDisabled,
+        busyAria,
+        errorRole,
+        errorLive,
+        describedBy,
+        registerRequests,
+        pageErrors,
+      },
+    );
+  } catch (error) {
+    record("customer-registration-form-interaction-completes", false, {
+      error: error instanceof Error ? error.message : String(error),
+      registerRequests,
+      pageErrors,
+    });
+  } finally {
+    await page.close();
+  }
+  return checks;
+}
+
 async function runCustomerThemePolicyInteractionCheck(browser) {
   const checks = [];
   const scenarios = [
@@ -1256,6 +1398,9 @@ async function main() {
         }
       }
     }
+    const customerFormChecks = await runCustomerAuthFormInteractionCheck(browser);
+    results.push(...customerFormChecks);
+    failures.push(...customerFormChecks.filter(check => !check.passed));
     const customerPolicyChecks = await runCustomerThemePolicyInteractionCheck(browser);
     results.push(...customerPolicyChecks);
     failures.push(...customerPolicyChecks.filter(check => !check.passed));
@@ -1280,6 +1425,7 @@ async function main() {
     limitations: [
       "The admin appearance interaction uses mocked auth.me and tRPC responses; it verifies the client flow and submitted policy only, not live server authorization or database persistence.",
       "Customer theme-choice enabled/disabled checks use mocked auth.me and appearanceConfig responses; they verify selector visibility, allow-list options, applied theme, and local preference only, not live server authorization or database persistence.",
+      "Customer registration form checks use a mocked rejected registration response; they verify client-side required-field validation and busy/error recovery, not live signup authorization or persistence.",
       "Static-client browser smoke tests do not authenticate to the live API or verify customer-role enforcement.",
       "Keyboard scrolling is exercised on populated mocked administrator settlement and wallet-ledger tables; live ledger data/authorization and the full authenticated form/dialog/dropdown/disabled/busy interaction matrix remain outside this static-client run.",
       "The rendered contrast audit covers visible text on the three entry routes and semantic token pairs; human review of screenshots and broader authenticated portal coverage remain required.",
