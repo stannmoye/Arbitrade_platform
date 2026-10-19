@@ -84,6 +84,12 @@ async function main() {
           };
           results.push(focusResult);
           if (!focusResult.passed) failures.push(focusResult);
+          // Measure default-state text contrast separately from the focus-ring
+          // check above so focused-control overlays do not distort the audit.
+          await page.evaluate(() => {
+            const active = document.activeElement;
+            if (active instanceof HTMLElement) active.blur();
+          });
           const ok = Boolean(response && response.status() < 500) &&
             dimensions.hasRenderedContent && !overflow && pageErrors.length === 0;
           const item = {
@@ -215,6 +221,10 @@ async function main() {
                     .trim();
                   if (!text) continue;
                   const computed = getComputedStyle(element);
+                  // WCAG text-contrast criteria exclude inactive controls; their
+                  // disabled/busy presentation is handled as a separate state.
+                  if (element.matches(":disabled,[aria-disabled='true']") ||
+                    element.closest("[aria-disabled='true']")) continue;
                   if (computed.display === "none" || computed.visibility === "hidden" ||
                     Number(computed.opacity) === 0) continue;
                   const rect = element.getBoundingClientRect();
