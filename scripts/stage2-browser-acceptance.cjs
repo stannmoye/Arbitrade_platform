@@ -99,7 +99,9 @@ async function runAdminAppearanceInteractionCheck(browser) {
           }
           data = { ok: true };
         }
-        return { result: { data: { json: data, meta: { values: {}, v: 1 } } } };
+        // SuperJSON omits metadata when the payload needs no special-value annotations.
+        // An empty `meta.values` object is not a valid serialized annotation map for this client.
+        return { result: { data: { json: data } } };
       });
       apiRequests.push({
         handled: true,
