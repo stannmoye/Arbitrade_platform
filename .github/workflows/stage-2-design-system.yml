@@ -49,6 +49,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -79,3 +80,52 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build client and server bundles
         run: pnpm build
+
+  browser-acceptance:
+    name: Chromium viewport and theme smoke matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build the static client
+        run: pnpm build:static
+      - name: Install Playwright Chromium
+        run: npx --yes --package=playwright playwright install --with-deps chromium
+      - name: Start static preview
+        run: |
+          pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort > /tmp/stage2-vite-preview.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/stage2-vite-preview.log
+          exit 1
+      - name: Run real-browser viewport and theme smoke matrix
+        run: |
+          PLAYWRIGHT_MODULES="$(dirname "$(dirname "$(command -v playwright)")")"
+          NODE_PATH="$PLAYWRIGHT_MODULES" node scripts/stage2-browser-acceptance.cjs
+        shell: bash
+        env:
+          STAGE2_BASE_URL: http://127.0.0.1:4173
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage-2-browser-acceptance
+          path: artifacts/stage2-browser/
+          if-no-files-found: warn
+          retention-days: 14
