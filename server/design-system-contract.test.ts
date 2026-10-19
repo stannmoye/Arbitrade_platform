@@ -390,7 +390,7 @@ describe("ARBITRADE shared design-system contract", () => {
 
   it("coalesces superseded installer validation runs per pull request", () => {
     expect(installerWorkflow).toContain("concurrency:");
-    expect(installerWorkflow).toContain("group: installer-validation-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}");
+    expect(installerWorkflow).toContain("group: installer-validation-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}");
     expect(installerWorkflow).toContain("cancel-in-progress: true");
   });
 
