@@ -230,6 +230,11 @@ async function runAdminAppearanceInteractionCheck(browser) {
       updateRequestIndex,
     });
 
+    // Reset the admin route after saving appearance settings so the next mobile navigation
+    // check starts from a clean workspace rather than a scrolled settings-card position.
+    await page.goto(`${baseUrl}/ops-console-7f3a`, { waitUntil: "domcontentloaded" });
+    await page.getByRole("heading", { name: /Administrator|Admin/i }).first().waitFor({ state: "visible" }).catch(() => {});
+
     // Exercise real operations table wrappers with populated mocked ledger data at a mobile width.
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole("button", { name: "Open Quick Actions" }).click();
