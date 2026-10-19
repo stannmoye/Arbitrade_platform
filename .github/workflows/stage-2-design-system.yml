@@ -1,9 +1,6 @@
 name: Stage 2 design-system validation
 
 on:
-  push:
-    branches:
-      - feat/stage-2-design-system-foundation
   pull_request:
     branches:
       - integration/auth-installer-vps-safety
