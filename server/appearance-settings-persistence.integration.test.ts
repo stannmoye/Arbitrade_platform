@@ -25,7 +25,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     previousValue = await getAppSetting("appearance.settings", missingValue);
     const policy = {
       defaultTheme: "clean-light" as const,
-      enabledThemes: ["original", "clean-light"] as const,
+      enabledThemes: ["original", "clean-light"] as Array<"original" | "clean-light">,
       customerCanSelect: true,
     };
 
