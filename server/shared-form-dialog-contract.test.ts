@@ -6,6 +6,7 @@ const input = readFileSync(new URL("../client/src/components/ui/input.tsx", impo
 const textarea = readFileSync(new URL("../client/src/components/ui/textarea.tsx", import.meta.url), "utf8");
 const select = readFileSync(new URL("../client/src/components/ui/select.tsx", import.meta.url), "utf8");
 const button = readFileSync(new URL("../client/src/components/ui/button.tsx", import.meta.url), "utf8");
+const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 
 describe("shared form and dialog interaction contracts", () => {
   it("prevents Escape from closing a dialog during active IME composition", () => {
@@ -64,5 +65,20 @@ describe("shared form and dialog interaction contracts", () => {
     expect(button).toContain('aria-disabled={ariaBusy ? true : ariaDisabled}');
     expect(button).toContain("focus-visible:ring-[3px]");
     expect(button).toContain("aria-invalid:ring-destructive/20");
+  });
+
+  
+  it("validates customer signup and sign-in fields before making auth requests", () => {
+    expect(app).toContain('if(mode==="signup"&&(!form.firstName.trim()||!form.lastName.trim()||!emailIsValid||form.password.length<10))');
+    expect(app).toContain('if(mode==="signin"&&(!emailIsValid||!form.password))');
+    expect(app).toContain('placeholder="Jordan" required aria-invalid={Boolean(error && mode==="signup" && !form.firstName.trim())}');
+    expect(app).toContain('placeholder="Davis" required aria-invalid={Boolean(error && mode==="signup" && !form.lastName.trim())}');
+    expect(app).toContain('autoComplete="email" required aria-invalid={Boolean(error && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(form.email.trim()))}');
+    expect(app).toContain('required minLength={mode==="signup" ? 10 : 1}');
+  });
+
+  it("announces customer authentication errors and exposes pending submission state", () => {
+    expect(app).toContain('id="customer-auth-error" className="auth-error" role="alert" aria-live="assertive"');
+    expect(app).toContain('disabled={busy} aria-busy={busy} aria-describedby={error ? "customer-auth-error" : undefined}');
   });
 });
