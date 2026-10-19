@@ -256,7 +256,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
           };
         });
         record("admin-mobile-theme-selector-retains-readable-width", Boolean(
-          themeSelectBounds && themeSelectBounds.width >= 180
+          themeSelectBounds && themeSelectBounds.width >= 195
         ), {
           width: 390,
           themeSelectBounds,
@@ -266,7 +266,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
         const narrowSelectBounds = await page.locator(".arb-theme-selector-compact select").boundingBox();
         const narrowDocumentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
         record("admin-320-theme-selector-fits-without-page-overflow", Boolean(
-          narrowSelectBounds && narrowSelectBounds.width >= 150 && narrowDocumentWidth <= 320
+          narrowSelectBounds && narrowSelectBounds.width >= 180 && narrowDocumentWidth <= 320
         ), {
           width: 320,
           narrowSelectBounds,
