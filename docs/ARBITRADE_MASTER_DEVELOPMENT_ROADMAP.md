@@ -1152,3 +1152,14 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Latest implementation commits include `ec3ad816` (search behavior) and `dfdd5702` (search acceptance tests). The acceptance evidence is recorded in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`.
 - Remaining Stage 2 gates: broader authenticated form and disabled/busy-state coverage, complete human review of all captured screenshots, and final sign-off. Browser auth/API fixtures are mocked; installer persistence/auth tests use disposable CI databases. PR #71 remains open/draft/unmerged, Stage 2 remains open, and Stage 3 remains blocked.
 - The green runs above validate the code head. This documentation-only update creates a new PR head, so check fresh CI for the updated head before claiming the newest commit is validated.
+
+
+## Prompt 24/30 — closed Quick Actions tab order fixed and verified (2026-10-19)
+
+- Exact code head `b6b689f97c61ec8cdd8a757fed1d409db4a270f6` passed Stage 2 #399, installer #735, and mining regression #140.
+- The exact-head browser artifact reports **1,142/1,142 checks passed**. It confirms the closed Quick Actions drawer has no tab stops (`aria-hidden=true`, search input tab index -1, zero tabbable descendants), keyboard focus wraps in both directions while open, and Escape restores focus.
+- The compact selector now displays “Original Arbitrade” at 390px and keeps a 192px selector at 320px without horizontal page overflow. Appearance label contrast passed across all five themes.
+- Quick Actions search now filters quick-create actions, assigned-work counters, and recent destinations using one normalized query, and provides accessible feedback when no results match. Browser acceptance covers wallet/support queries and empty results.
+- Acceptance evidence is recorded in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`. Remaining exit gates: broader authenticated forms and disabled/busy states; full human review of captured screenshots; final sign-off.
+- CI used mocked browser authentication/API responses and disposable MariaDB/MySQL 8 fixtures. No production deployment or production database mutation is claimed. PR #71 remains draft/open/unmerged; Stage 2 remains open and Stage 3 blocked.
+- These green runs validate the code head above. The documentation-only follow-up creates a new head, so confirm fresh CI for the latest documentation commit before claiming that newest commit is validated.
