@@ -456,3 +456,13 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - The exact-head browser report and screenshots are in the [Stage 2 acceptance artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39303597072/artifacts/12213030777). I reviewed a contact sheet spanning all 46 generated screenshots (gateway/customer/admin entry screens and authenticated mocked appearance panels across themes and mobile/desktop widths); this is a broad visual spot check, not full-resolution human sign-off of every screen.
 - Installer validation [#752 / 39303597164](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39303597164) passed all nine jobs, including fresh MariaDB install, MySQL 8 compatibility/recovery, tests, typecheck, production build/server smoke, and deployment package assembly. Mining database regression [#157 / 39303597215](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39303597215) also passed.
 - These checks validate code head b0b5169. This documentation-only follow-up creates a new branch head, so its own CI must be checked before claiming the latest head is green. Mocked browser auth/registration data does not prove live production authorization or persistence. Keep Stage 2 open and PR #71 draft/unmerged pending the remaining acceptance gates.
+
+
+## Continuation progress — compact mobile dialog acceptance (2026-10-19)
+
+- Extended `scripts/stage2-browser-acceptance.cjs` to exercise the real Quick Actions dialog at **320 × 568 CSS pixels** while it is open.
+- The new browser check measures the dialog's rendered bounds against the viewport, verifies the dialog uses vertical scrolling for constrained height, confirms its close control and search field remain present/visible, and checks that the document does not introduce horizontal page overflow.
+- The test restores the desktop viewport and dialog scroll position before continuing the existing keyboard focus-trap and Escape/focus-restoration checks.
+- Implementation commit: `48bac47fe5525f3f0dd472cce49e0b6f11f7adf5`.
+- **Validation is pending for the updated browser script and documentation head.** The previous head `b37f1ac5cfec6c9f68bedf4379c04bc6e9134ddf` had green Stage 2, installer, and mining-database workflows, but those results do not validate this new change.
+- This remains mocked-auth browser coverage. It does not establish live server authorization, production database persistence, or full authenticated form/dialog/dropdown coverage.
