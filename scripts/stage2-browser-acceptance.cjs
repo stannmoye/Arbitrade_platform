@@ -676,7 +676,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
 
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => {
-      const trigger = document.querySelector<HTMLButtonElement>('[aria-label="Open Quick Actions"]');
+      const trigger = document.querySelector('[aria-label="Open Quick Actions"]');
       return Boolean(trigger && trigger.getAttribute("aria-expanded") === "false" && document.activeElement === trigger);
     });
     const dialogClosed = await page.locator("#admin-navigation-drawer").getAttribute("aria-hidden") === "true";
