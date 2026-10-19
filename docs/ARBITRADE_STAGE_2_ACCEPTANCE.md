@@ -104,3 +104,5 @@ Do not mark Stage 2 complete based solely on source changes or CI. Record actual
 - Policy-editing controls now remain disabled while settings are loading, settings failed to load, or a save is pending, preventing edits against unavailable/stale settings.
 - Source contract updated in `server/design-system-contract.test.ts`. Latest commits include `6c59fa48e4ac33211436d74971516922a26cc554`, `04898496d43edc769b792bf565f4d081cd3a573b`, `e08b503d412ba3154c5bf0ea735fdfd3a24bdb0e`, and `08fd9c8c050f28d81084443320255683ae4906f7`.
 - CI has not yet been confirmed for this batch; no test pass or browser acceptance is claimed.
+
+- Follow-up architecture refinement: the canonical theme list and type now live in the pure `client/src/components/appearance-policy.ts` module; `ThemeContext` re-exports them for backward compatibility. The unit test imports only the pure domain helper, reducing test coupling to React/trpc. Commits: `e6590a50828917844b4f4cbf7de8bd0edf0f50e9`, `96b7c03f9f3c16227f029de0d14f0c62b41c3f33`, and `d8da8431d22d1590b5866f2f4cd4e6c404ef259e`. No test pass is claimed until CI reports it.
