@@ -1,21 +1,22 @@
-name: Stage 2 design-system validation
+name: Stage 3 five-theme validation
 
 on:
   pull_request:
     branches:
       - integration/auth-installer-vps-safety
+      - feat/stage-2-design-system-foundation
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: stage-2-design-system-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: stage-3-five-theme-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   tests:
-    name: Application and Stage 2 regression tests
+    name: Application and theme-policy regression tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -78,7 +79,7 @@ jobs:
         run: pnpm build
 
   browser-acceptance:
-    name: Chromium viewport and theme smoke matrix
+    name: Chromium viewport and five-theme smoke matrix
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
