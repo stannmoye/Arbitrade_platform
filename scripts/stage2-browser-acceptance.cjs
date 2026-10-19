@@ -132,6 +132,13 @@ async function runAdminAppearanceInteractionCheck(browser) {
       waitUntil: "domcontentloaded",
       timeout: 30000,
     });
+    // The route initially renders an authentication loading state while the
+    // mocked tRPC request resolves. Wait for the authenticated shell instead
+    // of asserting synchronously after DOMContentLoaded.
+    await page.getByRole("heading", { name: "Control centre" }).waitFor({
+      state: "visible",
+      timeout: 15000,
+    }).catch(() => undefined);
     const adminLoaded = await page.getByRole("heading", { name: "Control centre" }).isVisible().catch(() => false);
     record("mock-authenticated-admin-route", adminLoaded, {
       note: "Uses mocked auth.me and tRPC responses; this is client-flow evidence, not live API authentication.",
