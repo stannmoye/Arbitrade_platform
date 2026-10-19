@@ -16,6 +16,11 @@ on:
   # Allow a maintainer to run the same non-production checks on demand.
   workflow_dispatch:
 
+# Keep only the newest installer validation for a given PR or pushed branch.
+concurrency:
+  group: installer-validation-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   syntax:
     runs-on: ubuntu-latest
