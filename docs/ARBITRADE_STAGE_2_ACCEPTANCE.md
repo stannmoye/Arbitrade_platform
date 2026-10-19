@@ -138,3 +138,5 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Code commits: `9065f21f717fd50857e87a4c42d123c682ae79f7`, `8caace927010b15be3e66e9d902e6417a1ae24a0`, and `942ca65cf80e1bc3f0a4f48cf272807c4c956253` (test expectation correction during review).
 - The GitHub Actions workflow is configured to run the full Vitest suite, TypeScript check, and production build on this branch. A confirmed result for the latest head is not yet recorded; no pass is claimed.
 - Still open: ten-width real-browser acceptance, page overflow, keyboard and interaction checks across all five themes, and rendered contrast evidence. These cannot be replaced by source tests.
+
+- Follow-up in the same Prompt 4 batch: aligned server-side `normalizeAppearanceSettings` with the client policy by normalizing enabled themes to the same canonical order. Added exhaustive server-side coverage for all 32 theme subsets, every requested default, duplicate/unknown entries, and reversed input order. Commits: `c4742005e7a8a3f34b9157807e4cb7e8719fc2a5` and `a77d72b1343b4961e901a16f736828662ebf653b`. These tests are added but have not yet been executed in a confirmed CI run.
