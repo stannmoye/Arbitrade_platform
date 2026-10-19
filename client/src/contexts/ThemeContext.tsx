@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { ARBITRADE_THEMES, normalizeEnabledThemes, type ArbitradeTheme } from "../components/appearance-policy";
 import { canCustomerSelectTheme, resolveCustomerTheme } from "./theme-policy";
 import { trpc } from "@/lib/trpc";
+import { isThemeStorageEventForRole, themeStorageKeyForRole } from "./theme-storage";
 
 export { ARBITRADE_THEMES };
 export type { ArbitradeTheme };
@@ -32,7 +33,6 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-const THEME_STORAGE_KEY = "arbitrade-theme";
 
 function isTheme(value: unknown): value is ArbitradeTheme {
   return typeof value === "string" && ARBITRADE_THEMES.some(theme => theme === value);
@@ -44,9 +44,9 @@ function readEnabledThemes(value: unknown, fallback: ArbitradeTheme): ArbitradeT
   return normalizeEnabledThemes(value, fallback);
 }
 
-function readStoredTheme(defaultTheme: ArbitradeTheme): ArbitradeTheme {
+function readStoredTheme(defaultTheme: ArbitradeTheme, storageKey: string): ArbitradeTheme {
   try {
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    const stored = window.localStorage.getItem(storageKey);
     return isTheme(stored) ? stored : defaultTheme;
   } catch {
     return defaultTheme;
@@ -90,7 +90,7 @@ export function ThemeProvider({
       return;
     }
     // Administrators may keep a local preview independent of the published customer policy.
-    setThemeState(readStoredTheme(defaultTheme));
+    setThemeState(readStoredTheme(defaultTheme, themeStorageKeyForRole(true)));
     setAdminThemeReady(true);
   }, [auth.isLoading, auth.isError, isAdmin, defaultTheme]);
 
@@ -98,7 +98,7 @@ export function ThemeProvider({
     if (auth.isLoading || auth.isError || appearance.isError || isAdmin || !policy) return;
     let storedTheme: string | null = null;
     try {
-      storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+      storedTheme = window.localStorage.getItem(themeStorageKeyForRole(false));
     } catch {
       // Continue with the administrator-published default when storage is unavailable.
     }
@@ -116,7 +116,7 @@ export function ThemeProvider({
     if (!switchable || auth.isLoading || auth.isError) return;
 
     const handleStorage = (event: StorageEvent) => {
-      if (event.key !== THEME_STORAGE_KEY && event.key !== null) return;
+      if (!isThemeStorageEventForRole(event.key, isAdmin)) return;
 
       if (isAdmin) {
         setThemeState(isTheme(event.newValue) ? event.newValue : defaultTheme);
@@ -163,7 +163,7 @@ export function ThemeProvider({
 
     if (!auth.isLoading && !auth.isError && (!isAdmin || adminThemeReady) && switchable && (isAdmin || (policy && customerCanSelect && enabledThemes.includes(effectiveTheme)))) {
       try {
-        window.localStorage.setItem(THEME_STORAGE_KEY, effectiveTheme);
+        window.localStorage.setItem(themeStorageKeyForRole(isAdmin), effectiveTheme);
       } catch {
         // Keep the selected theme active for this session when storage is unavailable.
       }
