@@ -11,6 +11,11 @@ describe("administrator enabled-theme policy transitions", () => {
     expect(normalizeEnabledThemes(["unknown", null, 5], "emerald-finance")).toEqual(["emerald-finance"]);
   });
 
+  it("falls back to Original Arbitrade if a runtime caller supplies an invalid fallback", () => {
+    expect(normalizeEnabledThemes(null, "unknown-theme" as never)).toEqual(["original"]);
+    expect(normalizeEnabledThemes([], null as never)).toEqual(["original"]);
+  });
+
   it.each([null, undefined, 5, "original", { enabledThemes: ["clean-light"] }])(
     "recovers safely from malformed list input: %j",
     input => {
