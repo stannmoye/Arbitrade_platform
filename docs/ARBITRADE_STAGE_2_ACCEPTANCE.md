@@ -73,3 +73,12 @@ Do not mark Stage 2 complete based solely on source changes or CI. Record actual
 - **Responsive safeguards continuation — 2026-10-19:** Added shared `.arb-page` sizing guards, zero-minimum-width containment for common layout regions and grids, safe wrapping for long labels/identifiers, and small-screen table/preformatted-content safeguards. Added a source-level regression contract for these responsive rules. Implementation CSS commit: `7d20e54b0094ef68ed3708f0ec552b0cb7ad52fd`; the accompanying contract-test commit is recorded in Git history. No test run or real-browser viewport result is claimed for this batch. Stage 2 remains in progress until current-head CI and the required ten-width browser acceptance checks are recorded.
 
 - **Current-head CI confirmation — 2026-10-19:** Workflow run [39178247945](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39178247945) completed successfully for commit `8093dffd40afff9055bf88fe674e03ef8b67edec`. Production build, TypeScript validation, and application/Stage 2 regression tests all passed. This confirms automated checks for the current branch head; it does **not** substitute for the outstanding real-browser viewport, interaction, overflow, and rendered-contrast acceptance checks.
+
+## Continuation batch — Prompt 1/30 (2026-10-19)
+
+- Added two regression contracts in `server/design-system-contract.test.ts`: every supported theme must define all semantic status-colour tokens, and accent/info/warning/danger/decorative colours must meet a 4.5:1 contrast ratio against both canvas and surface backgrounds.
+- Code commit: `b57c57394144a2d05c2a39cb1fc44074bbe373c7`.
+- These are automated source/token-level calculations. They do not establish rendered contrast or replace the outstanding real-browser checks.
+- Validation is pending for this new commit; do not infer a pass from earlier green runs.
+- Still open: ten required viewport widths, rendered page overflow, interactive states/dialogs under all five themes, and browser-measured contrast. No browser evidence is claimed in this batch.
+- Next bundled work: inspect the fresh CI result, fix any contrast regressions it exposes, then continue closing shared-component and responsive acceptance gaps without repeating already completed theme-policy implementation.
