@@ -123,7 +123,7 @@ async function main() {
                 const root = document.documentElement;
                 const body = document.body;
                 const parseColor = value => {
-                  const parts = String(value).match(/[\\d.]+/g);
+                  const parts = String(value).match(/[\d.]+/g);
                   return parts && parts.length >= 3 ? parts.slice(0, 3).map(Number) : null;
                 };
                 const luminance = rgb => {
