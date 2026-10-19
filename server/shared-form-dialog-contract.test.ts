@@ -70,12 +70,12 @@ describe("shared form and dialog interaction contracts", () => {
 
   
   it("validates customer signup and sign-in fields before making auth requests", () => {
-    expect(app).toContain('if(mode==="signup"&&(!form.firstName.trim()||!form.lastName.trim()||!emailIsValid||form.password.length<10))');
+    expect(app).toContain('if(mode==="signup"&&(!form.firstName.trim()||!form.lastName.trim()||!emailIsValid||form.password.length<12))');
     expect(app).toContain('if(mode==="signin"&&(!emailIsValid||!form.password))');
     expect(app).toContain('placeholder="Jordan" required aria-invalid={Boolean(error && mode==="signup" && !form.firstName.trim())}');
     expect(app).toContain('placeholder="Davis" required aria-invalid={Boolean(error && mode==="signup" && !form.lastName.trim())}');
     expect(app).toContain('autoComplete="email" required aria-invalid={Boolean(error && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(form.email.trim()))}');
-    expect(app).toContain('required minLength={mode==="signup" ? 10 : 1}');
+    expect(app).toContain('required minLength={mode==="signup" ? 12 : 1}');
   });
 
 
