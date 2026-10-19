@@ -94,3 +94,12 @@ This validates the automated acceptance suite and a limited visual review at thi
 ## External limitations and release gates
 
 No staging URL was provided at Stage 3 start. Authenticated deployed-session acceptance is therefore not currently available. Representative administrator screenshots have been reviewed for all five themes at desktop and 320px widths; formal accessibility review and staging acceptance remain open. The browser report explicitly uses mocked auth/API responses for several flows and does not prove live server authorization or database persistence. Do not claim production readiness or deploy based solely on this CI result.
+
+
+## Continuation update — Prompt 8/30 (2026-10-20)
+
+- Rechecked the exact pull-request head `2853c4b40589866a81f74cac29c895cd517b6315` through GitHub Actions run [#574](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39339138443). All four jobs completed successfully: application/theme-policy regression tests, TypeScript validation, production build, and Chromium viewport/five-theme acceptance.
+- Downloaded and inspected the current-head `stage-3-browser-acceptance` artifact (artifact ID `12228247969`). Its `report.json` records **1,177 checks passed, 0 failures**. Focused results confirm named administrator preview/customer-theme groups, five preview buttons and five checkboxes exposed, preview `aria-pressed` state, native Tab ordering, and Space toggling/restoration of a theme checkbox.
+- Reviewed the five administrator appearance screenshots at **320px** for Original Arbitrade, Midnight Premium, Clean Light, Emerald Finance, and Aurora Modern as a single visual comparison. All five show the full theme list and customer-policy controls in a vertical layout, with the save action visible; no obvious horizontal page overflow or clipping was found in these captures. This is a limited screenshot review, not a full human review of every artifact image.
+- Exact-head CI and screenshot review are now confirmed for the latest documentation head. The automated browser flow still uses mocked authentication/API responses for several interactions and does not establish live server authorization or database persistence.
+- Formal keyboard-only and screen-reader/assistive-technology review remains open. Authenticated deployed-session acceptance remains blocked because no staging URL has been provided. Keep PR #72 in draft; do not merge or deploy based solely on static browser acceptance.
