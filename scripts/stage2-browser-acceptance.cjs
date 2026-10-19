@@ -307,6 +307,28 @@ async function runAdminAppearanceInteractionCheck(browser) {
     // check starts from a clean workspace rather than a scrolled settings-card position.
     await page.goto(`${BASE_URL}/ops-console-7f3a`, { waitUntil: "domcontentloaded" });
     await page.getByRole("heading", { name: /Administrator|Admin/i }).first().waitFor({ state: "visible" }).catch(() => {});
+    await page.getByLabel("Default theme").waitFor({ state: "visible" });
+    await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).waitFor({ state: "visible" });
+    await page.waitForFunction(() => {
+      const select = document.querySelector('select[aria-label="Default theme"], select');
+      return Boolean(select && !select.disabled);
+    }).catch(() => {});
+    const reloadedDefaultTheme = await page.getByLabel("Default theme").inputValue();
+    const reloadedCustomerChoice = await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).isChecked();
+    const reloadedMidnightEnabled = await page.getByRole("checkbox", { name: /Midnight Premium/ }).isChecked();
+    const rejectedSaveReloadPreservesPersistedPolicy =
+      reloadedDefaultTheme === persistedBeforeRejectedSave.defaultTheme &&
+      reloadedCustomerChoice === persistedBeforeRejectedSave.customerCanSelect &&
+      reloadedMidnightEnabled === persistedBeforeRejectedSave.enabledThemes.includes("midnight-premium");
+    record("admin-appearance-rejected-save-preserves-persisted-policy-on-reload",
+      rejectedSaveReloadPreservesPersistedPolicy,
+      {
+        reloadedDefaultTheme,
+        reloadedCustomerChoice,
+        reloadedMidnightEnabled,
+        expectedPersistedPolicy: persistedBeforeRejectedSave,
+        note: "Reload/refetch uses mocked settings storage; live database persistence remains an independent acceptance gate.",
+      });
 
     // Navigate while the desktop quick-action trigger is unobstructed, then resize
     // the populated financial page to mobile width for the keyboard-scroll check.
