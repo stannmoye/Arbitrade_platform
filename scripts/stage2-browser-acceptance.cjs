@@ -203,6 +203,14 @@ async function runAdminAppearanceInteractionCheck(browser) {
     });
 
     await page.getByLabel("Default theme").selectOption("clean-light");
+    await page.getByRole("checkbox", { name: /Clean Light/ }).uncheck();
+    const fallbackDefault = await page.getByLabel("Default theme").inputValue();
+    const fallbackOptions = await page.getByLabel("Default theme").locator("option").evaluateAll(options => options.map(option => option.value));
+    record("admin-default-removal-falls-back-to-enabled-theme",
+      fallbackDefault === "original" && !fallbackOptions.includes("clean-light"),
+      { fallbackDefault, fallbackOptions });
+    await page.getByRole("checkbox", { name: /Clean Light/ }).check();
+    await page.getByLabel("Default theme").selectOption("clean-light");
     await page.getByRole("checkbox", { name: /Midnight Premium/ }).uncheck();
     await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).check();
     await page.getByRole("button", { name: "Save appearance policy" }).click();
