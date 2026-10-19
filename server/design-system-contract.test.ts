@@ -12,6 +12,7 @@ const table = readFileSync(new URL("../client/src/components/ui/table.tsx", impo
 const componentShowcase = readFileSync(new URL("../client/src/pages/ComponentShowcase.tsx", import.meta.url), "utf8");
 const routers = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const browserAcceptance = readFileSync(new URL("../scripts/stage2-browser-acceptance.cjs", import.meta.url), "utf8");
+const workflow = readFileSync(new URL("../.github/workflows/stage-2-design-system.yml", import.meta.url), "utf8");
 
 describe("ARBITRADE shared design-system contract", () => {
   it("defines the semantic tokens used by shared components", () => {
@@ -375,6 +376,14 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(appearanceValidation, "missing early appearance-policy validation").toBeGreaterThan(updateSettingsStart);
     expect(firstSettingsWrite, "missing first settings-write branch").toBeGreaterThan(updateSettingsStart);
     expect(appearanceValidation, "appearance validation must precede every settings write branch").toBeLessThan(firstSettingsWrite);
+  });
+
+
+  it("shares Stage 2 concurrency groups across push and pull-request events for the same branch", () => {
+    expect(workflow).toContain("concurrency:");
+    expect(workflow).toContain("group: stage-2-design-system-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}");
+    expect(workflow).toContain("cancel-in-progress: true");
+    expect(workflow).not.toContain("group: stage-2-design-system-${{ github.workflow }}-${{ github.ref }}");
   });
 
 });
