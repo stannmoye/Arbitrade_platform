@@ -913,3 +913,14 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - **In progress / blocked:** browser acceptance, followed by a fresh CI check for the latest documentation head.
 - **Decision:** keep PR #71 draft and unmerged. Stage 2 is not complete until browser evidence is captured; do not advance to Stage 3.
 - **Continuation counter:** Prompt 8/30.
+
+
+## Stage 2 finalization continuation — Prompt 9/30 (2026-10-19)
+
+- Added a repository-managed Chromium smoke matrix in `scripts/stage2-browser-acceptance.cjs` and wired it into `.github/workflows/stage-2-design-system.yml`. This supersedes the earlier statement that no browser runner was available: GitHub Actions now provides the browser runner.
+- Workflow run [#153 / 39226956079](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39226956079) passed all four jobs for exact head `143a0731e1f8f9802bf7778a2371fb2d2de0ae50`: 220 tests / 29 files, TypeScript validation, production build, and Chromium browser smoke.
+- Browser artifact: [screenshots and JSON report](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39226956079/artifacts/12173993076). The report records 210 checks passed and zero failures across the three route shells, ten viewport widths, five theme CSS selectors, document overflow, and the first keyboard-focus target.
+- The browser test runs the static client without authenticated live API data. Populated table keyboard scrolling, authenticated administrator policy saving, detailed form/dialog/dropdown/disabled states, and rendered WCAG contrast remain unverified. Do not interpret the smoke pass as full acceptance.
+- Acceptance record updated in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`; the documentation commit triggers a fresh workflow run, which must be checked against its exact resulting head.
+- **Decision:** Stage 2 remains open on authenticated interaction and rendered-contrast evidence. Keep PR #71 draft/unmerged and do not advance to Stage 3.
+- **Continuation counter:** Prompt 9/30.
