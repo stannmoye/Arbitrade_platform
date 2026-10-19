@@ -1096,3 +1096,11 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Updated the design-system contract test to assert both expressions.
 - Commits: `ef54b0809f6976b6f7e509b1ce57ec36a232e470`, `9e6231a9d750acebbc016f63ef761e68783a909d`, `ff4327f13dc7ccd4d97fe2ec8ac8693a6dc1184e`.
 - These are configuration/test changes only. Fresh CI is required to establish validity; all previously inspected workflow jobs had no started jobs while queued. The queue bottleneck remains unresolved.
+
+## CI concurrency audit — mining workflows
+
+- Audited all four workflows used by this Stage 2 validation path. The mining database and mining regression workflows also used `github.ref`, which distinguishes pull-request merge refs from pushed branch refs.
+- Updated both mining workflows to key concurrency by source repository and source branch, matching the Stage 2 and installer workflows. This also avoids cancelling a same-named branch from an unrelated fork.
+- Extended `server/design-system-contract.test.ts` to assert the mining workflow group expressions, cancellation policy, and rejection of the legacy `github.ref` grouping.
+- Commits: `a6b50c5aca20bcefdd668b4e568d11f3cf93e2ae`, `1e6987d08005bf4db966409b1f7732c660d50512`, `972a4ecef0c533377066590e9242ae3e9c73ea6f`.
+- The change is a CI scheduling hardening measure, not proof that GitHub runner queuing is resolved. Validate on the current head; do not infer success from queued status.
