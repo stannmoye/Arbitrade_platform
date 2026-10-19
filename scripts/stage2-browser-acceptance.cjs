@@ -794,7 +794,7 @@ async function main() {
       "The admin appearance interaction uses mocked auth.me and tRPC responses; it verifies the client flow and submitted policy only, not live server authorization or database persistence.",
       "Customer theme-choice enabled/disabled checks use mocked auth.me and appearanceConfig responses; they verify selector visibility, allow-list options, applied theme, and local preference only, not live server authorization or database persistence.",
       "Static-client browser smoke tests do not authenticate to the live API or verify customer-role enforcement.",
-      "Populated financial-table keyboard scrolling and the full authenticated form/dialog/dropdown/disabled/busy interaction matrix remain outside this static-client run.",
+      "Keyboard scrolling is exercised on populated mocked administrator settlement and wallet-ledger tables; live ledger data/authorization and the full authenticated form/dialog/dropdown/disabled/busy interaction matrix remain outside this static-client run.",
       "The rendered contrast audit covers visible text on the three entry routes and semantic token pairs; human review of screenshots and broader authenticated portal coverage remain required.",
     ],
   };
