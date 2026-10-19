@@ -86,6 +86,31 @@ async function runAdminAppearanceInteractionCheck(browser) {
           data = { appearance: savedAppearance };
         } else if (procedure === "adminOperations.customers" || procedure === "adminOperations.packagePolicies") {
           data = [];
+        } else if (procedure === "adminOperations.pendingSettlements") {
+          data = Array.from({ length: 12 }, (_, index) => ({
+            id: 7000 + index,
+            userId: 8000 + index,
+            customerName: `Stage Customer ${index + 1}`,
+            customerEmail: `customer${index + 1}@example.test`,
+            currency: "USD",
+            symbol: "BTC/USD",
+            principalMinor: 100000 + index * 100,
+            rewardReservedMinor: 2500 + index * 10,
+          }));
+        } else if (procedure === "adminOperations.ledgerActivity") {
+          data = Array.from({ length: 24 }, (_, index) => ({
+            id: 9000 + index,
+            userId: 8000 + index,
+            customerName: `Ledger Customer ${index + 1}`,
+            customerEmail: `ledger${index + 1}@example.test`,
+            entryType: index % 2 ? "trade_reward" : "principal_reservation",
+            amountMinor: index % 2 ? 1250 + index : -(10000 + index * 100),
+            currency: "USD",
+            withdrawable: index % 2 === 1,
+            createdAt: new Date(Date.UTC(2026, 0, 1, 12, index)).toISOString(),
+          }));
+        } else if (procedure === "adminOperations.currencies") {
+          data = [{ code: "USD", scale: 2 }];
         } else if (procedure === "adminOperations.autoTradePolicy") {
           data = { globalEnabled: false };
         } else if (procedure === "adminOperations.updateSettings") {
@@ -204,6 +229,60 @@ async function runAdminAppearanceInteractionCheck(browser) {
       settingsRefetched,
       updateRequestIndex,
     });
+
+    // Exercise real operations table wrappers with populated mocked ledger data at a mobile width.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole("button", { name: "Open Quick Actions" }).click();
+    await page.getByRole("button", { name: /Wallet & ledger/ }).click();
+    await page.getByRole("heading", { name: "Transaction review" }).waitFor({ state: "visible" });
+
+    for (const tableCase of [
+      { label: "Trades awaiting manual settlement", check: "populated-settlement-table-keyboard-scroll", minimumRows: 10 },
+      { label: "Wallet activity ledger", check: "populated-financial-table-keyboard-scroll", minimumRows: 20 },
+    ]) {
+      const region = page.getByRole("region", { name: tableCase.label });
+      await region.waitFor({ state: "visible" });
+      const before = await region.evaluate(element => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        scrollLeft: element.scrollLeft,
+        tabIndex: element.tabIndex,
+        role: element.getAttribute("role"),
+        label: element.getAttribute("aria-label"),
+        rows: element.querySelectorAll("tbody tr").length,
+      }));
+      await region.focus();
+      await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(100);
+      const after = await region.evaluate(element => ({
+        scrollLeft: element.scrollLeft,
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      }));
+      const passed = before.rows >= tableCase.minimumRows &&
+        before.scrollWidth > before.clientWidth &&
+        before.tabIndex === 0 &&
+        before.role === "region" &&
+        before.label === tableCase.label &&
+        after.scrollLeft > before.scrollLeft &&
+        after.documentWidth <= after.viewportWidth + 1;
+      record(tableCase.check, passed, {
+        tableLabel: tableCase.label,
+        rows: before.rows,
+        clientWidth: before.clientWidth,
+        scrollWidth: before.scrollWidth,
+        scrollLeftBefore: before.scrollLeft,
+        scrollLeftAfter: after.scrollLeft,
+        tabIndex: before.tabIndex,
+        role: before.role,
+        accessibleName: before.label,
+        documentWidth: after.documentWidth,
+        viewportWidth: after.viewportWidth,
+        note: "Uses mocked administrator and ledger data; verifies the rendered table's keyboard scrolling and containment, not live ledger authorization or persistence.",
+      });
+    }
   } catch (error) {
     record("admin-appearance-interaction-unhandled-error", false, {
       error: error instanceof Error ? error.message : String(error),
