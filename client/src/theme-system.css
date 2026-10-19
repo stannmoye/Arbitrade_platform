@@ -1113,80 +1113,96 @@
 
 .gateway-card,
 .auth-card {
-  color: var(--arb-color-text);
-  background: var(--arb-color-surface);
-  border-color: var(--arb-color-border);
+  color: var(--arb-color-text) !important;
+  background: var(--arb-color-surface) !important;
+  border-color: var(--arb-color-border) !important;
 }
 
 .gateway-card > p,
 .auth-subtitle {
-  color: var(--arb-color-text-soft);
+  color: var(--arb-color-text-soft) !important;
+}
+
+.gateway-card h1,
+.auth-card h1,
+.gateway-brand strong,
+.auth-logo span {
+  color: var(--arb-color-text) !important;
 }
 
 .gateway-kicker {
-  color: var(--arb-color-accent);
-  background: var(--arb-color-surface);
-  border-color: var(--arb-color-border);
+  color: var(--arb-color-accent) !important;
+  background: var(--arb-color-surface) !important;
+  border-color: var(--arb-color-border) !important;
 }
 
 .portal-choice {
-  color: var(--arb-color-text);
-  background: var(--arb-color-surface-raised);
-  border-color: var(--arb-color-border);
+  color: var(--arb-color-text) !important;
+  background: var(--arb-color-surface-raised) !important;
+  border-color: var(--arb-color-border) !important;
 }
 
 .portal-choice span,
 .portal-choice small {
-  color: var(--arb-color-text-soft);
+  color: var(--arb-color-text-soft) !important;
 }
 
 .gateway-foot,
 .auth-demo-note,
-.auth-feature-strip div,
+.auth-feature-strip div {
+  color: var(--arb-color-text-muted) !important;
+}
+
 .auth-tabs button {
-  color: var(--arb-color-text-muted);
+  color: var(--arb-color-text-soft) !important;
 }
 
 .auth-tabs {
-  background: var(--arb-color-surface-raised);
-  border: 1px solid var(--arb-color-border);
+  background: var(--arb-color-surface-raised) !important;
+  border: 1px solid var(--arb-color-border) !important;
 }
 
 .auth-tabs button.active {
-  color: var(--arb-color-accent);
-  background: var(--arb-color-canvas);
+  color: var(--arb-color-accent) !important;
+  background: var(--arb-color-canvas) !important;
 }
 
 .input-with-icon {
-  color: var(--arb-color-text-muted);
-  background: var(--arb-color-canvas);
-  border-color: var(--arb-color-border);
+  color: var(--arb-color-text-muted) !important;
+  background: var(--arb-color-canvas) !important;
+  border-color: var(--arb-color-border) !important;
 }
 
 .input-with-icon input,
 .auth-form-grid select {
-  color: var(--arb-color-text);
+  color: var(--arb-color-text) !important;
 }
 
 .input-with-icon input::placeholder {
-  color: var(--arb-color-text-muted);
+  color: var(--arb-color-text-muted) !important;
+}
+
+.auth-form-grid label span,
+.auth-email-label > span {
+  color: var(--arb-color-text-soft) !important;
 }
 
 .auth-feature-strip {
-  border-color: var(--arb-color-border);
+  border-color: var(--arb-color-border) !important;
 }
 
 .auth-demo-note {
-  border-color: var(--arb-color-border);
+  border-color: var(--arb-color-border) !important;
 }
 
 .auth-demo-note strong {
-  color: var(--arb-color-text-soft);
+  color: var(--arb-color-text-soft) !important;
 }
 
 .auth-primary {
-  color: var(--arb-color-canvas);
-  background: var(--arb-color-accent);
+  color: var(--arb-color-canvas) !important;
+  background: var(--arb-color-accent) !important;
+  background-image: none !important;
 }
 
 :root[data-arb-theme="clean-light"] .gateway-kicker {
@@ -1194,6 +1210,10 @@
 }
 
 :root[data-arb-theme="clean-light"] .auth-primary {
-  color: #ffffff;
+  color: #ffffff !important;
+}
+
+:root[data-arb-theme="clean-light"] .auth-tabs button.active {
+  color: var(--arb-color-info) !important;
 }
 
