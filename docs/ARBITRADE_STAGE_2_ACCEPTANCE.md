@@ -155,3 +155,14 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - **Same Prompt 5/30 — customer provider consistency review:** Found that `ThemeContext` independently deduplicated server-provided theme values while preserving arbitrary input order, rather than using the shared canonical normalizer. Replaced the duplicate implementation with `normalizeEnabledThemes` so the customer provider, administrator editor, and server settings agree on validation, fallback, uniqueness, and canonical order. Added a source-level integration contract to prevent the provider from reintroducing its own divergent normalization. Commits: `314d18efc59f5bca82679a52371c1cf85703514c` (provider) and `61a414592bd481a637196097e18f1058323224c0` (integration contract). Tests have been added but are not yet executed for this head.
 
 - Current-head validation remains unconfirmed. Browser acceptance is still required before closing Stage 2.
+
+## Finalization follow-up — Prompt 6/30 (2026-10-19)
+
+- Reconciled the live Stage 2 branch and acceptance record with GitHub Actions rather than relying on earlier checkpoint notes.
+- Latest branch head at review: `ad0ca8acc8c69cad6b9172d185d24f805a915cb1`.
+- Current-head workflow run [39213971538](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39213971538) completed successfully on that exact SHA. All three jobs passed: application and Stage 2 regression tests, TypeScript validation, and production build.
+- The regression suite includes source-level WCAG contrast calculations for semantic text, focus indicators, accent/info/warning/danger/decorative tokens across all five themes, plus responsive and accessibility contracts. This is automated source-token evidence, not a rendered browser audit.
+- The remaining exit gates are unchanged: real-browser checks for customer and administrator routes at 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px; horizontal page overflow; keyboard-accessible tables; dialogs/forms/dropdowns and disabled/busy states; keyboard focus; and rendered contrast across all five themes.
+- Browser limitation is explicit: the connected GitHub tools can inspect and change repository files and inspect CI, but do not provide an interactive browser session in this execution. No viewport screenshots, rendered contrast measurements, or browser pass are claimed.
+- Decision: automated CI is verified for the current head; Stage 2 is **not complete** until browser acceptance evidence is recorded. Keep PR #71 as draft and do not merge or advance to Stage 3.
+- Continuation counter: Prompt 6/30.
