@@ -108,3 +108,25 @@ Do not mark Stage 2 complete based solely on source changes or CI. Record actual
 - Follow-up architecture refinement: the canonical theme list and type now live in the pure `client/src/components/appearance-policy.ts` module; `ThemeContext` re-exports them for backward compatibility. The unit test imports only the pure domain helper, reducing test coupling to React/trpc. Commits: `e6590a50828917844b4f4cbf7de8bd0edf0f50e9`, `96b7c03f9f3c16227f029de0d14f0c62b41c3f33`, and `d8da8431d22d1590b5866f2f4cd4e6c404ef259e`. No test pass is claimed until CI reports it.
 
 - Policy helper hardening: enabled-theme input is now normalized to the canonical unique theme order before applying a toggle, preserving the non-empty allow-list invariant even if duplicate values reach the helper. Added duplicate-input regression coverage and corrected the toggle test expectation during source review. Commits: `8d8a7a2cc12b12e4bf6fb2dc52c8cc85510f7d9c`, `6815c66809163086eb750c49af98cfbedb358680`, and `d8a912b6455d941d64b2248bb95139ee1e87a23a`. Test execution is not yet confirmed.
+## Finalization pass — 2026-10-19 (Prompt 3/30)
+
+### Additional implementation completed
+- Normalized administrator-loaded enabled-theme lists through the pure normalizeEnabledThemes helper. Duplicate and unknown persisted entries are removed and themes are restored to canonical product order before the admin editor renders; an empty/invalid list falls back to a known default.
+- Reused the normalization helper in theme toggles so persisted-data cleanup and interactive updates follow the same invariant.
+- Added focused client unit coverage for duplicate/unknown entries, canonical ordering, and fallback to a requested valid default.
+- Added a server design-system regression contract to ensure the administrator screen uses the shared normalization helper.
+- Commits: 85ef5acdb756830ac238f7b1938b93259d856d87 (normalization helper), b1938d845bbf95421f852d3a3bfb7ff0973d5c43 (unit tests), 661fc8db10fe26916f5118388d269c7d3ad1742b (admin integration), and 97c3b7363a9690a5e010c3712e3ff311960319ff (regression contract).
+- Latest observed PR head: 97c3b7363a9690a5e010c3712e3ff311960319ff. The available workflow lookup returned no run for this head; the earlier successful workflow run does not verify these later commits. No current-head test pass is claimed.
+
+### Exit-gate status
+- [x] Semantic design tokens, five-theme definitions, and additive shared page/component foundations implemented.
+- [x] Administrator theme-policy editing protects the final enabled theme and permits recovery when only one theme is enabled.
+- [x] Persisted enabled-theme lists are normalized before administrator editing.
+- [x] Regression tests and dedicated CI workflow are present in the repository.
+- [ ] Obtain a fresh passing CI run for the latest PR head: full tests, TypeScript, production build.
+- [ ] Capture real-browser evidence for customer and administrator routes at 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px.
+- [ ] Verify horizontal overflow, scrollable table keyboard access, forms, dialogs, dropdowns, busy/disabled states, and focus visibility in all five themes.
+- [ ] Confirm rendered contrast for actual controls/status states, not just token-level calculations.
+
+### Honest close-out decision
+Stage 2 is NOT yet eligible to be marked complete. The remaining items are evidence gates, not a reason to redo the existing implementation. The connected GitHub tools can inspect and update source/PR metadata but do not provide an interactive browser session in this execution; browser evidence therefore cannot be fabricated. Complete the latest-head CI check and perform the browser matrix using an available browser runner before closing Stage 2 or advancing to Stage 3.
