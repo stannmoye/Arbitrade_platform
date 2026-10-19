@@ -16,9 +16,9 @@ describe("administrator enabled-theme policy transitions", () => {
       .toEqual(["clean-light", "aurora-modern"]);
   });
 
-  it("adds a previously disabled theme without duplicates and in canonical order", () => {
+  it("removes a selected theme and adds a disabled theme in canonical order", () => {
     expect(toggleEnabledTheme(["aurora-modern", "original"], "aurora-modern"))
-      .toEqual(["original", "aurora-modern"]);
+      .toEqual(["original"]);
     expect(toggleEnabledTheme(["aurora-modern", "original"], "clean-light"))
       .toEqual(ARBITRADE_THEMES.filter(theme => ["aurora-modern", "original", "clean-light"].includes(theme)));
   });
