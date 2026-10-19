@@ -219,3 +219,14 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Pull request #71 remains open, draft, unmerged, and mergeable. Do not treat mergeability as acceptance.
 - **Remaining Stage 2 exit gates:** authenticated administrator appearance-policy save; customer theme permissions and persistence; populated financial-table keyboard scrolling; detailed form, dialog, dropdown, disabled and busy states; human review of browser screenshots; and final acceptance evidence. The static preview does not authenticate or load live API data, so it cannot establish these interaction gates.
 - **Decision:** keep Stage 2 open and PR #71 draft. Do not advance to Stage 3 until the remaining interaction evidence is captured and reviewed.
+
+
+## Customer theme-policy regression follow-up — 2026-10-19
+
+- Extracted the customer preference decision into `client/src/contexts/theme-policy.ts` and wired `ThemeContext` to use it for stored preference hydration, cross-tab storage updates, and user-driven theme changes.
+- Added `server/theme-policy.test.ts` to cover explicit customer-choice permission, allow-list enforcement, removed themes, malformed persisted preferences, and unknown/disabled choices.
+- The test resides under `server/` because the repository's Vitest configuration includes only `server/**/*.test.ts` and `server/**/*.spec.ts`; a client-folder test would not execute in the configured suite.
+- Implementation/test commits: `cf85e96f6bdbe577bdf2afa3085e9a9578e1fe4c`, `b2abd2c5364f6fbf1d3780e185088a3389b08214`, `312106c9be00c552ef8a8e8f0cac1db8b0d7de5f`, and `519474487c533f9a24d46b6fb6e675bd50aaf119`.
+- **CI for this new head is pending confirmation.** Previous green CI validates only its exact recorded commit.
+- Authenticated administrator save, customer browser permission/persistence, populated-table keyboard scrolling, detailed form/dialog/dropdown/disabled/busy states, and human screenshot review remain required. These pure policy tests improve regression coverage but do not substitute for those acceptance checks.
+- Stage 2 remains in progress; keep PR #71 draft/unmerged and do not advance to Stage 3 until the remaining exit gates are verified.
