@@ -214,6 +214,129 @@ async function runAdminAppearanceInteractionCheck(browser) {
   return checks;
 }
 
+async function runCustomerThemePolicyInteractionCheck(browser) {
+  const checks = [];
+  const scenarios = [
+    {
+      name: "customer-choice-disabled",
+      policy: { defaultTheme: "clean-light", enabledThemes: ["clean-light", "aurora-modern"], customerCanSelect: false },
+      expectedEditable: false,
+    },
+    {
+      name: "customer-choice-enabled",
+      policy: { defaultTheme: "clean-light", enabledThemes: ["clean-light", "aurora-modern"], customerCanSelect: true },
+      expectedEditable: true,
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    page.setDefaultTimeout(10000);
+    const pageErrors = [];
+    page.on("pageerror", error => pageErrors.push(error.message));
+    const apiRequests = [];
+    try {
+      await page.addInitScript(() => {
+        try { localStorage.removeItem("arbitrade-theme"); } catch {}
+      });
+      await page.route(/\\/api\\/trpc(?:\\/|$)/, async route => {
+        const request = route.request();
+        const url = new URL(request.url());
+        const procedurePath = decodeURIComponent(url.pathname.split("/api/trpc/")[1] || "");
+        const procedures = procedurePath.split(",").filter(Boolean);
+        let envelope = {};
+        try {
+          const raw = request.method() === "GET" ? url.searchParams.get("input") : request.postData();
+          envelope = raw ? JSON.parse(raw) : {};
+        } catch {
+          envelope = {};
+        }
+        const inputAt = index => {
+          const item = Array.isArray(envelope) ? envelope[index] : envelope[String(index)];
+          return item?.json ?? item?.input?.json ?? envelope?.json ?? envelope?.input?.json ?? {};
+        };
+        const output = procedures.map((procedure, index) => {
+          let data = null;
+          if (procedure === "auth.me") {
+            data = { id: 9002, email: "stage2-customer@example.test", name: "Stage 2 Customer", role: "customer" };
+          } else if (procedure === "appearanceConfig") {
+            data = scenario.policy;
+          } else if (procedure.endsWith(".logout")) {
+            data = { success: true };
+          } else if (procedure.endsWith(".settings") || procedure.endsWith(".branding")) {
+            data = {};
+          } else if (procedure.startsWith("customer.") && /\\.(balances|opportunities|trades|notifications|tickets|soundSettings)$/.test(procedure)) {
+            data = [];
+          }
+          return { result: { data: { json: data } } };
+        });
+        apiRequests.push({ procedures, method: request.method() });
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(output),
+        });
+      });
+
+      await page.goto(new URL("/customer", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
+      const selector = page.locator('section[aria-label="Appearance settings"]');
+      await selector.waitFor({ state: "visible", timeout: 15000 });
+      const select = selector.locator("select");
+      const editable = await select.count() === 1;
+      let options = [];
+      let selectedTheme = null;
+      let persistedTheme = null;
+      if (editable) {
+        options = await select.locator("option").evaluateAll(items => items.map(item => item.value));
+        if (scenario.expectedEditable) {
+          await select.selectOption("aurora-modern");
+          await page.waitForFunction(() => document.documentElement.dataset.arbTheme === "aurora-modern");
+          selectedTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || null);
+          persistedTheme = await page.evaluate(() => localStorage.getItem("arbitrade-theme"));
+        }
+      }
+      const correctEditability = editable === scenario.expectedEditable;
+      const correctOptions = !scenario.expectedEditable ||
+        (options.length === 2 && options.includes("clean-light") && options.includes("aurora-modern") &&
+          !options.includes("original") && !options.includes("midnight-premium") && !options.includes("emerald-finance"));
+      const correctSelection = !scenario.expectedEditable ||
+        (selectedTheme === "aurora-modern" && persistedTheme === "aurora-modern");
+      const passed = correctEditability && correctOptions && correctSelection && pageErrors.length === 0;
+      checks.push({
+        route: "/customer",
+        routeName: "customer",
+        width: 1440,
+        theme: scenario.policy.defaultTheme,
+        check: `customer-theme-policy-${scenario.name}`,
+        passed,
+        expectedEditable: scenario.expectedEditable,
+        editable,
+        options,
+        selectedTheme,
+        persistedTheme,
+        pageErrors,
+        apiProcedures: [...new Set(apiRequests.flatMap(item => item.procedures))],
+        note: "Uses mocked customer auth and appearanceConfig; proves the client policy UI and local preference behavior, not live server authorization or database persistence.",
+      });
+    } catch (error) {
+      checks.push({
+        route: "/customer",
+        routeName: "customer",
+        width: 1440,
+        theme: scenario.policy.defaultTheme,
+        check: `customer-theme-policy-${scenario.name}`,
+        passed: false,
+        error: error instanceof Error ? error.message : String(error),
+        pageErrors,
+        apiProcedures: [...new Set(apiRequests.flatMap(item => item.procedures))],
+      });
+    } finally {
+      await page.close();
+    }
+  }
+  return checks;
+}
+
 async function main() {
   const browser = await chromium.launch({ headless: true });
   const results = [];
@@ -525,6 +648,9 @@ async function main() {
         }
       }
     }
+    const customerPolicyChecks = await runCustomerThemePolicyInteractionCheck(browser);
+    results.push(...customerPolicyChecks);
+    failures.push(...customerPolicyChecks.filter(check => !check.passed));
     const interactionChecks = await runAdminAppearanceInteractionCheck(browser);
     results.push(...interactionChecks);
     failures.push(...interactionChecks.filter(check => !check.passed));
@@ -545,6 +671,7 @@ async function main() {
     failureDetails: failures,
     limitations: [
       "The admin appearance interaction uses mocked auth.me and tRPC responses; it verifies the client flow and submitted policy only, not live server authorization or database persistence.",
+      "Customer theme-choice enabled/disabled checks use mocked auth.me and appearanceConfig responses; they verify selector visibility, allow-list options, applied theme, and local preference only, not live server authorization or database persistence.",
       "Static-client browser smoke tests do not authenticate to the live API or verify customer-role enforcement.",
       "Populated financial-table keyboard scrolling and the full authenticated form/dialog/dropdown/disabled/busy interaction matrix remain outside this static-client run.",
       "The rendered contrast audit covers visible text on the three entry routes and semantic token pairs; human review of screenshots and broader authenticated portal coverage remain required.",
