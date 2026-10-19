@@ -955,3 +955,17 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - **Still required before Stage 2 sign-off:** verify the actual administrator save flow and server persistence, customer permission enforcement in an authenticated browser session, keyboard scrolling of populated financial tables, detailed authenticated form/dialog/dropdown/disabled/busy states, and review of the captured screenshots. Static-client browser smoke does not prove these workflows.
 - **Decision:** keep PR #71 draft and unmerged. Stage 2 remains open; do not advance to Stage 3 until the remaining acceptance gates have evidence.
 - **Continuation counter:** Prompt 11/30.
+
+
+## Stage 2 continuation checkpoint — Prompt 12/30 (2026-10-19)
+
+- Continued the existing Stage 2 branch and PR #71; no duplicate PR, merge, deployment, or Stage 3 transition.
+- **Bug found and fixed:** the active customer workspace passed `readOnly` to `ThemeSelector`, making customer theme selection unavailable even when the administrator policy explicitly allowed it. Removed the hardcoded prop so the shared selector can enforce the published policy and enabled-theme allow-list itself.
+- **Regression coverage:** added `server/customer-theme-selector.test.ts` to guard the active customer workspace integration against reintroducing hardcoded read-only behavior. Recorded the fix and remaining acceptance gates in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`.
+- **Commits:** `c84d59a5baa81931f05304c2c2f43f94096b84bf` (customer selector integration), `d75ac4834dc2f3c79da4f4c8543eee4caabf4f64` (regression test), and `625fac0b566bbeb2e4f403035f0487074fa2724f` (acceptance record).
+- **Previously verified CI:** run [39237373165](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39237373165) passed all four jobs on the previous head `6907d8ba9e67aeaa323a856f8c227894b727bab7`, including the 1,115-check Chromium matrix. That run predates the new selector fix and test; it is not evidence for the current head.
+- **Done:** policy-aware customer selector wiring and regression guard; acceptance notes updated.
+- **In progress:** verify the fresh workflow on the exact current head; add/execute browser checks for customer choice disabled/enabled, allow-list enforcement, and applied theme change.
+- **Still open:** live API/database persistence, populated financial-table keyboard scrolling, broader authenticated form/dialog/dropdown/disabled/busy states, human screenshot review, and final acceptance sign-off. The current browser interactions use mocked tRPC responses and cannot establish live authorization or database persistence.
+- **Decision:** keep PR #71 draft and unmerged. Stage 2 remains open; do not advance to Stage 3 until remaining gates have evidence.
+- **Continuation counter:** Prompt 12/30.
