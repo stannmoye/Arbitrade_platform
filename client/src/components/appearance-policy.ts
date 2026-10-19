@@ -10,14 +10,15 @@ export type ArbitradeTheme = (typeof ARBITRADE_THEMES)[number];
 
 /**
  * Normalize untrusted/persisted theme lists into canonical product order.
- * Unknown entries and duplicates are ignored, and an empty result always
- * falls back to one known theme so the policy remains usable.
+ * Unknown entries and duplicates are ignored, and an empty or malformed input
+ * always falls back to one known theme so the policy remains usable.
  */
 export function normalizeEnabledThemes(
-  enabledThemes: readonly unknown[],
+  enabledThemes: unknown,
   fallback: ArbitradeTheme = "original",
 ): ArbitradeTheme[] {
-  const normalized = ARBITRADE_THEMES.filter(theme => enabledThemes.includes(theme));
+  const candidates: readonly unknown[] = Array.isArray(enabledThemes) ? enabledThemes : [];
+  const normalized = ARBITRADE_THEMES.filter(theme => candidates.includes(theme));
   return normalized.length ? normalized : [fallback];
 }
 
@@ -27,7 +28,7 @@ export function normalizeEnabledThemes(
  * the canonical product order so admin previews and customer choices agree.
  */
 export function toggleEnabledTheme(
-  enabledThemes: readonly unknown[],
+  enabledThemes: unknown,
   candidate: ArbitradeTheme,
 ): ArbitradeTheme[] {
   const current = normalizeEnabledThemes(enabledThemes);
