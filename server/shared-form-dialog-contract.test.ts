@@ -7,6 +7,7 @@ const textarea = readFileSync(new URL("../client/src/components/ui/textarea.tsx"
 const select = readFileSync(new URL("../client/src/components/ui/select.tsx", import.meta.url), "utf8");
 const button = readFileSync(new URL("../client/src/components/ui/button.tsx", import.meta.url), "utf8");
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+const recovery = readFileSync(new URL("../client/src/components/EmailRecoveryPanel.tsx", import.meta.url), "utf8");
 
 describe("shared form and dialog interaction contracts", () => {
   it("prevents Escape from closing a dialog during active IME composition", () => {
@@ -75,6 +76,17 @@ describe("shared form and dialog interaction contracts", () => {
     expect(app).toContain('placeholder="Davis" required aria-invalid={Boolean(error && mode==="signup" && !form.lastName.trim())}');
     expect(app).toContain('autoComplete="email" required aria-invalid={Boolean(error && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(form.email.trim()))}');
     expect(app).toContain('required minLength={mode==="signup" ? 10 : 1}');
+  });
+
+
+
+  it("exposes password recovery pending and result states accessibly", () => {
+    expect(recovery.match(/aria-busy=\\{busy\\}/g) ?? []).toHaveLength(2);
+    expect(recovery.match(/disabled=\\{busy\\}/g) ?? []).toHaveLength(2);
+    expect(recovery).toContain('{message && <p role="status" className="test-notice">');
+    expect(recovery).toContain('{error && <p role="alert" className="auth-error">');
+    expect(recovery).toContain('pattern="[0-9]{8}" maxLength={8} required');
+    expect(recovery).toContain('minLength={12} maxLength={200} required');
   });
 
   it("announces customer authentication errors and exposes pending submission state", () => {
