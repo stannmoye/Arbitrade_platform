@@ -1206,3 +1206,12 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - This verifies CI and a limited five-screenshot comparison for the head above. The documentation update creates a new PR head; check fresh CI against that head before describing the newest commit as validated.
 - Remaining Stage 3 exit gates are unchanged: formal manual keyboard-only and screen-reader/assistive-technology review; authenticated deployed-session verification of server authorization and real database persistence. Browser acceptance uses mocked auth/API responses for several flows, and no staging URL has been provided.
 - PR #72 remains open/draft/unmerged. No merge, deployment, or production database mutation was performed.
+
+
+## Stage 3 continuation — Prompt 9/30 (2026-10-20)
+
+- Verified exact-head GitHub Actions run [#577](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39339593927) for commit `dbe5f77adf88e71559df4a0eeac73a7b8655f68c`: application/theme-policy regression tests, TypeScript validation, production build, and Chromium five-theme acceptance all passed.
+- Performed a focused code audit of customer-theme resolution, role/account-specific browser storage, and the administrator appearance-settings update path. Existing unit tests already cover disabled customer choice, stale/disallowed/malformed stored preferences, role/account key isolation, and cross-account storage-event filtering. The server path reads normalized public appearance settings and restricts updates to the administrator procedure with schema validation and an enabled-default invariant.
+- Recorded the findings in `docs/ARBITRADE_STAGE_3_ACCEPTANCE.md`. No duplicate tests or code changes were added because the reviewed source-level boundaries already have focused coverage.
+- Release gates remain open: manual keyboard-only and screen-reader/assistive-technology review, plus authenticated deployed-session verification of server authorization and real database persistence. No staging URL has been provided; mocked browser API responses cannot satisfy the live integration gate.
+- PR #72 remains draft/open/unmerged. No merge or deployment was performed.
