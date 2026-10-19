@@ -152,3 +152,13 @@ These checks require a human tester and actual browser/assistive-technology comb
 - Manual keyboard-only and screen-reader review: **open**.
 - Authenticated staging acceptance for live authorization and database persistence: **blocked; no staging URL provided**.
 - Keep PR #72 in draft and do not merge or deploy until the remaining gates are completed and documented.
+
+
+## Continuation update — Prompt 12/30: stalled browser run recovery (2026-10-20)
+
+- Rechecked PR #72 metadata: the head is `b6478cc65ada012b86a1bdd54c9671408660d791`; the pull request remains open, draft, and unmerged.
+- Inspected workflow run [#582](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39340462718) and its four job records. Application/theme-policy tests, TypeScript validation, and production build passed on this head.
+- The Chromium job progressed through dependency installation, static client build, Chromium installation, and static preview startup, but the browser matrix step is still reported `in_progress`; the artifact list is empty. The run's last update is from 2026-10-19 23:15:58Z, so this appears stalled rather than a normal active test. A direct log retrieval did not return logs, and no failure conclusion is available.
+- The workflow already sets a 30-minute timeout on the browser job. I did not change the test script or declare a pass without evidence. A fresh run is needed to establish whether the browser acceptance script is reproducibly hanging or the prior runner became stuck.
+- Existing evidence remains valid only for its exact earlier heads: run #581 passed on `29e77db3eabf19cc7e7d2fcb8858d2c03f40a2a6`; it does not validate the newer documentation commit.
+- Manual keyboard-only and screen-reader/assistive-technology review remains open. Authenticated staging acceptance for live authorization and database persistence remains blocked because no staging URL has been provided. Keep PR #72 draft; do not merge or deploy.
