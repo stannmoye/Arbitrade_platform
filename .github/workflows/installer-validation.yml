@@ -18,7 +18,7 @@ on:
 
 # Keep only the newest installer validation for a given PR or pushed branch.
 concurrency:
-  group: installer-validation-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: installer-validation-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
