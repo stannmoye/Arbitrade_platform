@@ -872,3 +872,18 @@ When continuing this project:
 - **Continuation budget:** Prompt 5/30.
 
 - **Same Prompt 5/30 — customer provider consistency review:** Found that `ThemeContext` independently deduplicated server-provided theme values while preserving arbitrary input order, rather than using the shared canonical normalizer. Replaced the duplicate implementation with `normalizeEnabledThemes` so the customer provider, administrator editor, and server settings agree on validation, fallback, uniqueness, and canonical order. Added a source-level integration contract to prevent the provider from reintroducing its own divergent normalization. Commits: `314d18efc59f5bca82679a52371c1cf85703514c` (provider) and `61a414592bd481a637196097e18f1058323224c0` (integration contract). Tests have been added but are not yet executed for this head.
+
+## Stage 2 continuation checkpoint — Prompt 6/30 (2026-10-19)
+
+This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI as unconfirmed. The previous Actions lookup was limited to PR-triggered runs; inspecting the repository's workflow-runs endpoint exposed the push-triggered Stage 2 run.
+
+- **Branch:** `feat/stage-2-design-system-foundation`
+- **PR:** [#71 — Stage 2: shared design-system foundation](https://github.com/stannmoye/Arbitrade_platform/pull/71), still draft and unmerged.
+- **Verified head before this documentation-only checkpoint:** `ad0ca8acc8c69cad6b9172d185d24f805a915cb1`.
+- **CI evidence:** [Stage 2 workflow run #130 / 39213971538](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39213971538) passed on that exact code SHA. Application and Stage 2 regression tests, TypeScript validation, and production build all passed.
+- **Documentation follow-up:** acceptance evidence recorded in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md` (commit `9aba6ad8001d6a06dd4b06a1a02218216f131684`).
+- **Done:** five-theme semantic foundation and policy normalization; source-level contrast/accessibility/responsive contracts; current-head automated validation; checkpoint and acceptance records reconciled.
+- **In progress / release gate:** actual browser acceptance on customer and administrator routes at 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px, including horizontal overflow, keyboard-scrolling tables, dialogs/forms/dropdowns, disabled/busy controls, visible focus, all five themes, and rendered contrast.
+- **Tooling blocker:** this connected execution has repository/CI tools but no interactive browser session. Do not fabricate screenshots or report rendered-browser acceptance as passed. Browser verification must be performed by an available browser runner before Stage 2 can close.
+- **Next:** record this checkpoint, keep PR #71 draft, and do not merge or advance to Stage 3 until browser evidence is available. Recheck CI after any subsequent code changes.
+- **Continuation counter:** Prompt 6/30. This was a substantive validation/documentation batch; the counter tracks user interruptions, not tool calls or commits.
