@@ -70,7 +70,7 @@ Reviewed the exact-code-head #540 `report.json` and the captured 320px Clean Lig
 
 A source review found that the administrator's five preview buttons were visually grouped but not programmatically named as a group, and the customer-theme checkbox collection had a heading without native group semantics. Updated `client/src/components/AdminAppearance.tsx` to expose the preview choices as a named group and wrap the available-theme checkboxes in a native `fieldset` with a `legend`. Added theme-aware, zero-border fieldset styling in `client/src/theme-system.css` and regression contracts in `server/design-system-contract.test.ts`.
 
-This improves semantic structure for assistive technology but is **not** evidence of a completed screen-reader audit. The exact-head CI run for this follow-up must pass before this change is considered validated; manual keyboard-only and assistive-technology review remains open.
+This improves semantic structure for assistive technology but is **not** evidence of a completed screen-reader audit. Exact-code-head GitHub Actions run [#555](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39335677771) completed successfully for commit `be63c2d4a3b3211e44769a2b201951bd86715c8b`: application/theme-policy regression tests passed, TypeScript validation passed, production build passed, and the Chromium viewport/five-theme matrix passed. The four jobs are all green. Manual keyboard-only and assistive-technology review remains open.
 
 ## External limitations and release gates
 
