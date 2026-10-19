@@ -221,6 +221,16 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themeContext).toContain("setLoadedThemeStorageKey(storageKey)");
   });
 
+  it("keeps theme controls exposed with accessible names, state, and announced loading errors", () => {
+    expect(adminAppearance).toContain('role="group" aria-label="Theme preview choices"');
+    expect(adminAppearance).toContain("aria-pressed={theme === option}");
+    expect(adminAppearance).toContain("<fieldset className=\"arb-appearance-theme-fieldset\">");
+    expect(adminAppearance).toContain("<legend>Available customer themes</legend>");
+    expect(themeSelector).toContain('aria-label="Appearance settings"');
+    expect(themeSelector).toContain('aria-live={policyFailed ? "assertive" : "polite"}');
+    expect(themeSelector).toContain('aria-label={`Current theme: ${ARBITRADE_THEME_LABELS[selectedTheme]}`}');
+  });
+
   it("keeps administrator appearance edits valid and protects the last enabled theme", () => {
     expect(adminAppearance).toContain('<fieldset className="arb-appearance-theme-fieldset">');
     expect(adminAppearance).toContain("<legend>Available customer themes</legend>");
