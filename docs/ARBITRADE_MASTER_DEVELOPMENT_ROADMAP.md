@@ -1190,3 +1190,13 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - **In progress:** exact-head validation of the new retry scenario and review of the latest browser artifact.
 - **Blocked by external environment/evidence:** deployed authenticated browser acceptance because no staging URL is documented; complete human review/sign-off of the broader authenticated portal.
 - **Next:** verify exact-head Stage 2, installer, and mining workflow results; fix any failure in the same batch if tooling permits; otherwise record the exact blocker and obtain the missing staging/sign-off evidence before any Stage 3 work. Keep PR #71 draft and unmerged; no production deployment or production database mutation is authorized or claimed.
+
+
+## Stage 2 continuation checkpoint — Prompt 31 (2026-10-19)
+
+- Made the administrator appearance-settings load-failure browser test deterministic: the mocked settings request continues to fail until the accessible error alert is observed, then the explicit retry is allowed to succeed.
+- Code commit: `8f6a653cc835b6c22cdf68c59168470793ca82b9`. Acceptance evidence and limitations: `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`.
+- Exact-head validation at that code commit passed all three workflows: Stage 2 design-system validation, installer validation, and mining database regression. Chromium reported **1,174/1,174 checks passed, zero failures**.
+- **Done:** five-theme/responsive foundation, theme-policy checks, administrator settings save/retry states, drawer geometry/scroll acceptance, financial-table keyboard scrolling, and disposable-database authorization/persistence integration.
+- **Still open:** deployed authenticated browser acceptance (no staging URL documented), broader authenticated portal review, and final human sign-off. Mocked-browser and disposable-database CI do not establish deployed production behavior.
+- This documentation checkpoint creates a new PR head; exact-head workflows must pass again before claiming the documentation head is fully verified. Keep PR #71 draft/open/unmerged, Stage 2 open, Stage 3 blocked, and do not claim production deployment or production database mutation.
