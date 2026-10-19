@@ -244,13 +244,43 @@ async function runAdminAppearanceInteractionCheck(browser) {
           appearanceBounds,
         });
         const themeSelectBounds = await page.locator(".arb-theme-selector-compact select").boundingBox();
+        const themeSelectStyle = await page.locator(".arb-theme-selector-compact select").evaluate(element => {
+          const style = getComputedStyle(element);
+          return {
+            width: style.width,
+            minWidth: style.minWidth,
+            flex: style.flex,
+            flexShrink: style.flexShrink,
+            viewportWidth: window.innerWidth,
+            parentWidth: element.parentElement?.getBoundingClientRect().width ?? null,
+          };
+        });
         record("admin-mobile-theme-selector-retains-readable-width", Boolean(
           themeSelectBounds && themeSelectBounds.width >= 150
         ), {
           width: 390,
           themeSelectBounds,
+          themeSelectStyle,
         });
+        await page.setViewportSize({ width: 320, height: 844 });
+        const narrowSelectBounds = await page.locator(".arb-theme-selector-compact select").boundingBox();
+        const narrowDocumentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+        record("admin-320-theme-selector-fits-without-page-overflow", Boolean(
+          narrowSelectBounds && narrowSelectBounds.width >= 150 && narrowDocumentWidth <= 320
+        ), {
+          width: 320,
+          narrowSelectBounds,
+          documentWidth: narrowDocumentWidth,
+        });
+        await page.setViewportSize({ width: 390, height: 844 });
       }
+      const selectorLabelColors = await page.locator(".arb-theme-selector-title").evaluate(element => ({
+        labelColor: getComputedStyle(element).color,
+        headerTextColor: getComputedStyle(document.querySelector(".portal-header .brand-lockup strong")).color,
+      }));
+      record("admin-mobile-theme-selector-label-contrast",
+        selectorLabelColors.labelColor === selectorLabelColors.headerTextColor,
+        { width: 390, theme: screenshotTheme, ...selectorLabelColors });
       const mobileScreenshot = path.join(ARTIFACT_DIR, `admin-appearance-390-${screenshotTheme}.png`);
       await page.screenshot({ path: mobileScreenshot, fullPage: true, animations: "disabled" });
       appearanceScreenshotPaths.push(mobileScreenshot);
