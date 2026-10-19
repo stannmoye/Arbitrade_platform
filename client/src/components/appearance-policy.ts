@@ -1,4 +1,13 @@
-import { ARBITRADE_THEMES, type ArbitradeTheme } from "../contexts/ThemeContext";
+export const ARBITRADE_THEMES = [
+  "original",
+  "midnight-premium",
+  "clean-light",
+  "emerald-finance",
+  "aurora-modern",
+] as const;
+
+export type ArbitradeTheme = (typeof ARBITRADE_THEMES)[number];
+
 
 /**
  * Toggle one customer-available theme while preserving the policy invariant
