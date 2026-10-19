@@ -82,3 +82,5 @@ Do not mark Stage 2 complete based solely on source changes or CI. Record actual
 - Validation is pending for this new commit; do not infer a pass from earlier green runs.
 - Still open: ten required viewport widths, rendered page overflow, interactive states/dialogs under all five themes, and browser-measured contrast. No browser evidence is claimed in this batch.
 - Next bundled work: inspect the fresh CI result, fix any contrast regressions it exposes, then continue closing shared-component and responsive acceptance gaps without repeating already completed theme-policy implementation.
+
+- Follow-up test correction: fixed the dynamic token-declaration matcher in commit `4e78a78ef7da5739577ca66ff2eac3bf884da87e`; the new token coverage now uses the same whitespace-matching pattern as the existing resolver. Current-head CI evidence has not yet been returned by the available GitHub Actions lookup, so these tests remain unverified until the workflow result is confirmed.
