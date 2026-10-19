@@ -7,6 +7,42 @@
 
 > **Working rule:** Complete and verify one stage at a time. Update this document as work progresses so the team can always identify what is complete, what is in progress, what failed, and what comes next. Do not claim a task or test is complete unless it has actually been implemented or run.
 
+
+## Mandatory execution cadence and substantial-work contract (Roadmap v2.1)
+
+These rules apply to every stage and override any workflow habit that causes repeated tiny changes or unnecessary user prompts.
+
+### Hard prompt budget
+- **Maximum: 30 continuation prompts per stage.** A continuation prompt means every time the assistant stops coding and asks the user to type "continue", "proceed", or an equivalent message to resume. Count these user interruptions, not internal tool calls, commits, parallel workstreams, or automated CI jobs.
+- Track the stage's continuation count explicitly in the current checkpoint and every progress report as **Prompt X/30**. Start at 0/30 when this cadence contract is adopted for the current stage; do not reset the counter merely because the conversation changes.
+- Never intentionally consume a prompt on a trivial isolated edit, status-only response, or work item that could reasonably be bundled with the active batch.
+- Do not ask the user to continue while there is useful, authorized work that can be done in the current session. Work through the planned batch, verify it, commit/update the roadmap where supported, and only then report the checkpoint.
+- If a hard external blocker truly requires user input or unavailable access, explain the precise blocker, complete all independent work first, and record the reason. Do not disguise avoidable stopping as a blocker.
+- If the stage approaches Prompt 24/30, consolidate remaining work into a prioritized completion plan. Prompts 27–30 are reserved for completing critical remaining deliverables, resolving integration/CI failures, and recording evidence; do not spend them on scope expansion.
+
+### Minimum work per continuation prompt
+- **Spend at least six minutes of active, substantive development effort per continuation prompt**, when tools and access permit. This is a minimum effort expectation, not permission to pad work, wait idly, or claim elapsed time that was not spent.
+- Before coding, inspect the live branch, current diff, stage acceptance criteria, recent CI results, and relevant existing components/tests. Continue from the actual checkpoint; never restart or duplicate completed work.
+- Build one coordinated batch from multiple related tasks. Prefer parallel independent workstreams (for example implementation, regression tests, accessibility/responsive review, documentation/CI investigation), then integrate and reconcile them. Parallelize independent tasks aggressively, but serialize conflicting edits to the same files.
+- Aim for **multiple meaningful deliverables per prompt**: connected user-facing behavior, shared component adoption, supporting tests, accessibility/responsive fixes, documentation, and CI feedback as appropriate. Do not stop after adding a small file or a handful of lines if related stage work remains.
+- A batch should normally change multiple related files or complete one substantial end-to-end capability, with regression coverage and an explicit acceptance check. File count is not a target by itself; quality, coherent behavior, and tested outcomes matter.
+- Run focused tests while implementing, then a proportionate integrated check for the batch. Use existing CI to handle broader suites when available; avoid repeatedly rerunning identical expensive checks without a code change or diagnostic reason.
+- If a CI failure occurs, diagnose the root cause, fix it, and rerun the relevant check within the same batch whenever possible. Do not merely report the failure and ask the user to prompt again while a fix is available.
+- Keep a live task ledger with **done / in progress / blocked / next**, file paths, test evidence, commit identifiers, risks, and continuation count. Update the roadmap/checkpoint after meaningful batches, not with repetitive near-duplicate diary entries.
+
+### Stage completion within the prompt budget
+- Plan each stage as a set of substantial, dependency-aware work packages that fit within the 30-prompt cap. Estimate the batches before implementation and combine overlapping tasks.
+- Complete the highest-value implementation work early; do not use most of the budget on audits, speculative hardening, or repetitive planning when the roadmap calls for product improvements.
+- A stage is complete only when its actual deliverables and exit criteria are implemented and supported by truthful test/acceptance evidence. The prompt limit never authorizes falsely marking incomplete work complete.
+- If a stage cannot responsibly meet its exit criteria within 30 prompts, stop scope expansion, prioritize the critical acceptance requirements, document the exact unmet items and external blockers, and seek approval before exceeding the cap. Do not silently exceed 30.
+- Report meaningful progress at each checkpoint: completed behavior, changed files, tests and outcomes, commits/CI links, remaining work, blockers, **Prompt X/30**, and the next bundled batch. Do not give a progress report that substitutes for coding when coding can continue.
+
+### Non-negotiable continuity rules
+- Preserve the existing ARBITRADE product, repository, branch/PR direction, and completed work. This is an incremental improvement of the existing development, not a restart or a parallel replacement project.
+- Stage 2 work currently belongs to the existing branch and PR #71. Inspect and continue that work; do not create duplicate implementations or a competing roadmap/PR without a concrete technical need.
+- Do not advance to a later stage just to make the roadmap appear to progress. Finish the active stage's acceptance criteria, while resolving a genuine prerequisite only when necessary.
+- Never claim a six-minute effort, test pass, browser check, deployment, merge, or production validation unless it actually occurred.
+
 ## Current project checkpoint
 
 - **Stage 2 table accessibility follow-up (2026-10-18):** Shared table scroll regions now accept an optional `containerAriaLabel` prop, retaining a backward-compatible default while allowing callers to supply a contextual accessible name. Updated the component showcase to demonstrate a contextual label and added regression contracts for both the prop and example. Fresh CI and real-browser acceptance are still required; Stage 2 remains in progress.
@@ -727,13 +763,16 @@ Do not mark a stage complete while required exit criteria remain unverified.
 ## Resume instructions for future sessions
 
 When continuing this project:
-1. Read this roadmap first.
-2. Read the latest repository state and recent commits; do not assume the last conversation reflects the current code.
-3. Check the **Current project checkpoint** and the status of each stage.
-4. Continue from the first stage that is not complete, unless a documented blocker or dependency requires otherwise.
-5. Verify prior claims against actual files and test evidence.
-6. Update this document with stage status, completed work, tests, failures, commit references and next actions.
-7. Do not silently skip stages or mark unverified work complete.
+1. Read this roadmap and its **Mandatory execution cadence and substantial-work contract** first.
+2. Read the live repository state, active branch/PR, current diff, recent commits, and CI results; do not assume the last conversation reflects the current code.
+3. Check the current stage, its acceptance criteria, continuation count, completed tasks, in-progress tasks, and blockers.
+4. Continue from the actual unfinished checkpoint. Do not restart, repeat completed work, or create a duplicate implementation.
+5. Plan a substantial, dependency-aware batch that combines related implementation, tests, accessibility/responsive work, and documentation. Parallelize independent workstreams where safe.
+6. Spend at least six minutes of active development effort on the batch when tools and access permit. Do not stop for a trivial change or ask the user to type "continue" while useful authorized work remains.
+7. Enforce the hard maximum of 30 user-facing continuation prompts per stage. Track it as **Prompt X/30** and reserve the final prompts for critical completion, integration/CI corrections, and evidence.
+8. Run proportionate tests, fix actionable failures in the same batch where possible, and state honestly what was and was not verified.
+9. Update this document with substantial completed work, file paths, tests/results, failures, commit/CI references, remaining work, blockers, and the current prompt count.
+10. Do not silently skip stages or mark unverified work complete. If a stage cannot meet its exit criteria within 30 prompts, document the precise remaining critical work and obtain approval before exceeding the limit.
 
 - **Transaction wrapper test coverage (2026-10-18):** Added unit tests for `inMiningTransaction` success/commit and failure/rollback/rethrow paths in commit `13b2ea81f0885a06848cecbea4c2a2bf64c0853a`. These use a mock connection; current-commit execution is pending and they are not database-backed swap tests. Stage 1 remains in progress.
 
