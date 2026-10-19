@@ -208,7 +208,46 @@ async function runAdminAppearanceInteractionCheck(browser) {
     record("admin-appearance-screen-opened", appearanceLoaded);
     if (!appearanceLoaded) return checks;
 
-    const previewButtons = page.locator(".arb-theme-preview-option");
+    // Exercise the accessibility tree and native keyboard behavior, not only source markup.
+    const previewGroup = page.getByRole("group", { name: "Theme preview choices" });
+    const customerThemesGroup = page.getByRole("group", { name: "Available customer themes" });
+    const previewButtons = previewGroup.getByRole("button");
+    const groupedThemeCheckboxes = customerThemesGroup.getByRole("checkbox");
+    const namedGroupsPass =
+      await previewGroup.count() === 1 &&
+      await customerThemesGroup.count() === 1 &&
+      await previewButtons.count() === THEMES.length &&
+      await groupedThemeCheckboxes.count() === THEMES.length &&
+      await page.getByRole("button", { name: /Original Arbitrade/ }).getAttribute("aria-pressed") === "true";
+    record("admin-theme-controls-expose-named-groups-and-pressed-state", namedGroupsPass, {
+      previewGroupCount: await previewGroup.count(),
+      customerThemesGroupCount: await customerThemesGroup.count(),
+      previewButtonCount: await previewButtons.count(),
+      customerThemeCheckboxCount: await groupedThemeCheckboxes.count(),
+    });
+
+    await previewButtons.nth(0).focus();
+    await page.keyboard.press("Tab");
+    const previewTabOrderPass = await previewButtons.nth(1).evaluate(element => element === document.activeElement);
+    record("admin-theme-preview-buttons-follow-native-tab-order", previewTabOrderPass, {
+      focusedButton: await page.evaluate(() => document.activeElement?.textContent?.trim() || ""),
+    });
+
+    const originalThemeCheckbox = customerThemesGroup.getByRole("checkbox", { name: /Original Arbitrade/ });
+    await originalThemeCheckbox.focus();
+    const originalCheckboxBefore = await originalThemeCheckbox.isChecked();
+    await page.keyboard.press("Space");
+    const originalCheckboxAfterFirstSpace = await originalThemeCheckbox.isChecked();
+    await page.keyboard.press("Space");
+    const originalCheckboxAfterSecondSpace = await originalThemeCheckbox.isChecked();
+    record("admin-theme-checkboxes-toggle-and-restore-with-space", 
+      originalCheckboxBefore && !originalCheckboxAfterFirstSpace && originalCheckboxAfterSecondSpace, {
+        before: originalCheckboxBefore,
+        afterFirstSpace: originalCheckboxAfterFirstSpace,
+        afterSecondSpace: originalCheckboxAfterSecondSpace,
+      });
+
+
     const previewCount = await previewButtons.count();
     const previewThemeLabels = {
       original: /Original Arbitrade/i,
