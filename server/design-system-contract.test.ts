@@ -361,4 +361,20 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themes).toContain(':root[data-arb-theme="clean-light"] .auth-primary');
   });
 
+  
+  it("validates appearance policy before any settings side-effect branch", () => {
+    const updateSettingsStart = routers.indexOf("updateSettings: adminProcedure.");
+    expect(updateSettingsStart, "missing admin settings mutation").toBeGreaterThanOrEqual(0);
+
+    const appearanceValidation = routers.indexOf(
+      "if (input.appearance && !input.appearance.enabledThemes.includes(input.appearance.defaultTheme))",
+      updateSettingsStart,
+    );
+    const firstSettingsWrite = routers.indexOf("if (input.ticket) {", updateSettingsStart);
+
+    expect(appearanceValidation, "missing early appearance-policy validation").toBeGreaterThan(updateSettingsStart);
+    expect(firstSettingsWrite, "missing first settings-write branch").toBeGreaterThan(updateSettingsStart);
+    expect(appearanceValidation, "appearance validation must precede every settings write branch").toBeLessThan(firstSettingsWrite);
+  });
+
 });
