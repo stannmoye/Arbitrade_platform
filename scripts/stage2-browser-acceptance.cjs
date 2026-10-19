@@ -232,7 +232,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
 
     // Reset the admin route after saving appearance settings so the next mobile navigation
     // check starts from a clean workspace rather than a scrolled settings-card position.
-    await page.goto(`${baseUrl}/ops-console-7f3a`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE_URL}/ops-console-7f3a`, { waitUntil: "domcontentloaded" });
     await page.getByRole("heading", { name: /Administrator|Admin/i }).first().waitFor({ state: "visible" }).catch(() => {});
 
     // Navigate while the desktop quick-action trigger is unobstructed, then resize
