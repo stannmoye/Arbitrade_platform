@@ -186,7 +186,9 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(table).toContain('data-slot="table-container"');
     expect(table).toContain('role="region"');
     expect(table).toContain('containerAriaLabel = "Scrollable table"');
-    expect(table).toContain("aria-label={containerAriaLabel}");
+    expect(table).toContain("const resolvedContainerAriaLabel");
+    expect(table).toContain('containerAriaLabel.trim() : "Scrollable table"');
+    expect(table).toContain("aria-label={resolvedContainerAriaLabel}");
     expect(table).toContain("tabIndex={0}");
     expect(table).toContain("overflow-x-auto");
     expect(componentShowcase).toContain('containerAriaLabel="Recent invoice examples"');
