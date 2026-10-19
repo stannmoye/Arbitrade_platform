@@ -80,7 +80,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       const output = procedures.map((procedure, index) => {
         const input = inputAt(index);
         if (procedure === "adminOperations.settings" && failNextSettingsLoad) {
-          failNextSettingsLoad = false;
+          // Keep failing until the test observes the alert: the admin shell may query before the tab is visible.
           return {
             error: {
               json: {
@@ -838,6 +838,8 @@ async function runAdminAppearanceInteractionCheck(browser) {
     const settingsLoadAlert = page.getByRole("alert")
       .filter({ hasText: "Appearance settings could not be loaded" });
     await settingsLoadAlert.waitFor({ state: "visible" });
+    // Let the explicit retry succeed after the error has been observed.
+    failNextSettingsLoad = false;
     const retryButton = page.getByRole("button", { name: "Retry loading settings" });
     const settingsDisabledBeforeRetry = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').isDisabled();
     const retryAvailable = await retryButton.isVisible() && await retryButton.isEnabled();
