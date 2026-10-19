@@ -601,3 +601,14 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Implementation commit: `f80dd372af5393ddac041afe5982667d369af132`.
 - Fresh exact-head Stage 2, installer, and mining-regression workflows must pass before this new assertion is considered verified. No test result is claimed in this update.
 - Remaining Stage 2 gates: deployed/staging browser-session acceptance, broader authenticated portal visual/interaction review, full screenshot review, and final human sign-off. No staging URL is documented in the repository. Keep PR #71 draft/unmerged and Stage 3 blocked until the evidence is complete; no production deployment or database change is claimed.
+
+## Prompt 27/30 — Compact customer drawer scroll acceptance (2026-10-19)
+
+- Strengthened `scripts/stage2-browser-acceptance.cjs` to assert that the open customer navigation drawer at **320×568** has a genuinely scrollable navigation region (`overflow-y: auto` and scroll height greater than client height), while the modal keeps body scrolling locked. Existing checks still verify drawer bounds, close/search visibility, modal semantics, and no page-level horizontal overflow.
+- Implementation commit: `d2bfc088af88ec47cae4d08dc5b5f740d60c8f46`.
+- Exact-head validation passed on that code commit:
+  - Stage 2 workflow [#478 / 39319657714](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39319657714): all four jobs passed; Chromium report records **1,173 checks passed, 0 failures**.
+  - Browser artifact: [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39319657714/artifacts/12219487395), including 52 files.
+  - Installer validation [#814 / 39319657678](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39319657678): passed all jobs, including disposable MariaDB/MySQL 8 validation and appearance-policy persistence/authorization checks.
+  - Mining database regression [#219 / 39319657594](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39319657594): passed.
+- This is mocked authenticated browser-flow evidence, not a live deployed session. Remaining exit gates are unchanged: deployed/staging browser-session acceptance (no staging URL is documented), broader authenticated portal visual/interaction review, full screenshot review, and final human sign-off. PR #71 remains draft/open/unmerged; Stage 2 stays open and Stage 3 blocked. No production deployment or production database mutation was made.
