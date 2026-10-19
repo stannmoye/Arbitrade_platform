@@ -436,3 +436,13 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Installer validation [#751 / 39302110766](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39302110766) and mining database regression [#156 / 39302110827](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39302110827) also passed on the same code head.
 - Spot-checked the browser artifact's representative 320px gateway/customer/admin screens and the 390px administrator Appearance & Themes screen in Clean Light, alongside theme contact sheets. No new layout defect was apparent in those samples; this is a spot check, not full screenshot sign-off.
 - Remaining gates are unchanged: real authenticated API authorization and production persistence evidence, broader authenticated form/dialog/dropdown/disabled/busy coverage, full screenshot review, and final Stage 2 sign-off. Browser authentication/API fixtures remain mocked; disposable CI database tests do not establish production persistence. PR #71 remains draft/open/unmerged; Stage 2 remains open and Stage 3 blocked.
+
+
+## Customer authentication form validation and interaction coverage — 2026-10-19
+
+- Added client-side preflight validation for customer registration (first and last name, email format, and a password of at least 10 characters) and sign-in (valid email and non-empty password). Invalid submissions stop before making an authentication request; server-side validation and authorization remain authoritative.
+- Required fields expose required and field-specific aria-invalid state. Authentication errors use an assertive live alert, and the submit button exposes aria-busy, is disabled while the request is pending, and references the error announcement.
+- Added Chromium acceptance checks that prove an invalid registration does not issue a request, a valid attempt enters a disabled/busy state, and a rejected mocked registration announces the error and restores the submit control.
+- Added source-level regression contracts for these customer-auth semantics.
+- Evidence limitation: the browser test deliberately returns a mocked registration error; it validates client-side behavior only and does not create an account or prove live authentication, role enforcement, or persistence. Fresh CI for the resulting head must pass before these checks are marked verified.
+- Decision: Stage 2 remains in progress. Keep PR #71 draft and unmerged; Stage 3 remains blocked pending the remaining acceptance evidence and sign-off.
