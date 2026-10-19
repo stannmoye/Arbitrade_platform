@@ -46,6 +46,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
   let savedAppearance = { ...initialAppearance, enabledThemes: [...initialAppearance.enabledThemes] };
   const mutations = [];
   let failNextSettingsSave = false;
+  let failNextSettingsLoad = false;
   const checks = [];
   const record = (check, passed, details = {}) => checks.push({
     route: "/ops-console-7f3a",
@@ -78,6 +79,22 @@ async function runAdminAppearanceInteractionCheck(browser) {
       };
       const output = procedures.map((procedure, index) => {
         const input = inputAt(index);
+        if (procedure === "adminOperations.settings" && failNextSettingsLoad) {
+          failNextSettingsLoad = false;
+          return {
+            error: {
+              json: {
+                message: "Simulated appearance settings load failure",
+                code: -32603,
+                data: {
+                  code: "INTERNAL_SERVER_ERROR",
+                  httpStatus: 500,
+                  path: procedure,
+                },
+              },
+            },
+          };
+        }
         let data = null;
         if (procedure === "auth.me") {
           data = { id: 9001, email: "stage2-admin@example.test", name: "Stage 2 Admin", role: "admin" };
@@ -803,6 +820,38 @@ async function runAdminAppearanceInteractionCheck(browser) {
         note: "Uses mocked administrator and ledger data; verifies the rendered table's keyboard scrolling and containment, not live ledger authorization or persistence.",
       });
     }
+
+    // A transient settings-load failure must expose a usable retry action,
+    // keep policy controls disabled until fresh settings arrive, and recover
+    // without requiring a full page reload.
+    failNextSettingsLoad = true;
+    await page.goto(`${BASE_URL}/ops-console-7f3a`, { waitUntil: "domcontentloaded" });
+    await page.getByRole("heading", { name: "Control centre" }).waitFor({ state: "visible", timeout: 15000 });
+    await page.getByRole("button", { name: /Platform Configuration/ }).click();
+    await page.getByRole("button", { name: /Appearance & Themes/ }).click();
+    const settingsLoadAlert = page.getByRole("alert")
+      .filter({ hasText: "Appearance settings could not be loaded" });
+    await settingsLoadAlert.waitFor({ state: "visible" });
+    const retryButton = page.getByRole("button", { name: "Retry loading settings" });
+    const settingsDisabledBeforeRetry = await page.getByLabel("Default theme").isDisabled();
+    const retryAvailable = await retryButton.isVisible() && await retryButton.isEnabled();
+    await retryButton.click();
+    await page.waitForFunction(() => {
+      const select = document.querySelector(".arb-appearance-admin select");
+      return select instanceof HTMLSelectElement && !select.disabled;
+    }, null, { timeout: 15000 });
+    const settingsRecovered = await page.getByLabel("Default theme").isEnabled() &&
+      await page.getByRole("heading", { name: "Theme management" }).isVisible();
+    record("admin-appearance-settings-load-error-retry-recovers",
+      retryAvailable && settingsDisabledBeforeRetry && settingsRecovered,
+      {
+        retryAvailable,
+        settingsDisabledBeforeRetry,
+        settingsRecovered,
+        errorMessage: await settingsLoadAlert.innerText().catch(() => "cleared after retry"),
+        note: "Exercises client recovery against a one-shot mocked settings error; live server behavior is covered separately by the disposable-database HTTP integration workflow.",
+      });
+
   } catch (error) {
     record("admin-appearance-interaction-unhandled-error", false, {
       error: error instanceof Error ? error.message : String(error),
