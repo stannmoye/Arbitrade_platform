@@ -647,6 +647,48 @@ async function runAdminAppearanceInteractionCheck(browser) {
 
     await quickActionsTrigger.focus();
     await page.keyboard.press("Enter");
+
+    // Exercise the actual navigation drawer as an accessible modal dialog:
+    // initial focus, keyboard-loop boundaries, Escape close, and focus restore.
+    const quickActionsDialog = page.getByRole("dialog", { name: "Quick Actions" });
+    await quickActionsDialog.waitFor({ state: "visible" });
+    const dialogState = await quickActionsDialog.evaluate(element => ({
+      modal: element.getAttribute("aria-modal"),
+      hidden: element.getAttribute("aria-hidden"),
+      triggerExpanded: document.querySelector<HTMLButtonElement>('[aria-label="Close Quick Actions"]')?.getAttribute("aria-expanded"),
+      bodyOverflow: document.body.style.overflow,
+      activeLabel: document.activeElement?.getAttribute("aria-label") || "",
+      activeTag: document.activeElement?.tagName.toLowerCase() || "",
+    }));
+    record("admin-quick-actions-dialog-opens-with-search-focus",
+      dialogState.modal === "true" && dialogState.hidden === "false" &&
+      dialogState.bodyOverflow === "hidden" &&
+      dialogState.activeLabel === "Global search and jump" &&
+      dialogState.activeTag === "input",
+      dialogState);
+
+    await page.keyboard.press("Shift+Tab");
+    const shiftTabWrapped = await page.getByRole("button", { name: "Refresh status" }).evaluate(element => element === document.activeElement);
+    await page.keyboard.press("Tab");
+    const tabWrapped = await page.getByLabel("Global search and jump").evaluate(element => element === document.activeElement);
+    record("admin-quick-actions-dialog-keyboard-focus-trap", shiftTabWrapped && tabWrapped,
+      { shiftTabWrapped, tabWrapped });
+
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => {
+      const trigger = document.querySelector<HTMLButtonElement>('[aria-label="Open Quick Actions"]');
+      return Boolean(trigger && trigger.getAttribute("aria-expanded") === "false" && document.activeElement === trigger);
+    });
+    const dialogClosed = await quickActionsDialog.getAttribute("aria-hidden") === "true";
+    const closeRestoredOverflow = await page.evaluate(() => document.body.style.overflow !== "hidden");
+    record("admin-quick-actions-dialog-escape-closes-and-restores-focus",
+      dialogClosed && closeRestoredOverflow,
+      { dialogClosed, closeRestoredOverflow, focusedTrigger: await page.evaluate(() => document.activeElement?.getAttribute("aria-label") || "") });
+
+    const reopenedTrigger = page.getByRole("button", { name: "Open Quick Actions" });
+    await reopenedTrigger.focus();
+    await page.keyboard.press("Enter");
+    await quickActionsDialog.waitFor({ state: "visible" });
     await page.getByRole("button", { name: /Wallet & ledger/ }).waitFor({ state: "visible" });
     await page.getByRole("button", { name: /Wallet & ledger/ }).click();
     await page.getByRole("heading", { name: "Transaction review" }).waitFor({ state: "visible" });
