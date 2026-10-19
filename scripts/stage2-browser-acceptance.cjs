@@ -99,7 +99,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
           }
           data = { ok: true };
         }
-        return { result: { data: { json: data } } };
+        return { result: { data: { json: data, meta: { values: {}, v: 1 } } } };
       });
       apiRequests.push({
         handled: true,
