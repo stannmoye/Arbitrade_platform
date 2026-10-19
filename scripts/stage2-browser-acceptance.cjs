@@ -660,7 +660,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       activeLabel: document.activeElement?.getAttribute("aria-label") || "",
       activeTag: document.activeElement?.tagName.toLowerCase() || "",
     }));
-    record("admin-quick-actions-dialog-opens-with-search-focus",
+    record("admin-quick-actions-dialog-opens-with-close-focus",
       dialogState.modal === "true" && dialogState.hidden === "false" &&
       dialogState.bodyOverflow === "hidden" &&
       dialogState.activeLabel === "Close Quick Actions" &&
