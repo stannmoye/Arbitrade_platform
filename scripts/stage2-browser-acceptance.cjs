@@ -679,7 +679,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       const trigger = document.querySelector<HTMLButtonElement>('[aria-label="Open Quick Actions"]');
       return Boolean(trigger && trigger.getAttribute("aria-expanded") === "false" && document.activeElement === trigger);
     });
-    const dialogClosed = await quickActionsDialog.getAttribute("aria-hidden") === "true";
+    const dialogClosed = await page.locator("#admin-navigation-drawer").getAttribute("aria-hidden") === "true";
     const closeRestoredOverflow = await page.evaluate(() => document.body.style.overflow !== "hidden");
     record("admin-quick-actions-dialog-escape-closes-and-restores-focus",
       dialogClosed && closeRestoredOverflow,
