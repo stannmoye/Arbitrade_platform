@@ -851,6 +851,110 @@ async function runCustomerAuthFormInteractionCheck(browser) {
   return checks;
 }
 
+
+async function runCustomerRecoveryInteractionCheck(browser) {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  page.setDefaultTimeout(10000);
+  const checks = [];
+  const pageErrors = [];
+  let requestCount = 0;
+  let confirmCount = 0;
+  page.on("pageerror", error => pageErrors.push(error.message));
+  const record = (check, passed, details = {}) => checks.push({
+    route: "/customer",
+    routeName: "customer",
+    width: 390,
+    check,
+    passed,
+    ...details,
+  });
+
+  try {
+    await page.route("**/api/customer/password-reset/request", async route => {
+      requestCount += 1;
+      await new Promise(resolve => setTimeout(resolve, 350));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "Simulated reset code queued." }),
+      });
+    });
+    await page.route("**/api/customer/password-reset/confirm", async route => {
+      confirmCount += 1;
+      await new Promise(resolve => setTimeout(resolve, 350));
+      await route.fulfill({
+        status: 400,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "Simulated reset-code rejection" }),
+      });
+    });
+
+    await page.goto(new URL("/customer", BASE_URL).href, {
+      waitUntil: "domcontentloaded",
+      timeout: 30000,
+    });
+    await page.locator(".auth-tabs").getByRole("button", { name: "Sign in", exact: true }).click();
+    await page.getByRole("button", { name: "Forgot password?", exact: true }).click();
+    await page.getByRole("heading", { name: "Reset password", exact: true }).waitFor({ state: "visible" });
+
+    const email = page.getByLabel("Email address");
+    await email.fill("recovery@example.test");
+    const send = page.getByRole("button", { name: "Send reset code", exact: true });
+    const sendRequired = await email.getAttribute("required") !== null &&
+      await email.getAttribute("type") === "email";
+    await send.click();
+    const requesting = page.getByRole("button", { name: "Requesting…", exact: true });
+    await requesting.waitFor({ state: "visible" });
+    const requestBusy = await requesting.isDisabled() &&
+      await requesting.getAttribute("aria-busy") === "true";
+    await page.getByRole("status").filter({ hasText: "Simulated reset code queued." }).waitFor({ state: "visible" });
+    const requestStatus = await page.getByRole("status").innerText();
+    const code = page.getByLabel("Eight-digit code");
+    const password = page.getByLabel("New password");
+    const confirmRequired = await code.getAttribute("required") !== null &&
+      await code.getAttribute("pattern") === "[0-9]{8}" &&
+      await code.getAttribute("maxlength") === "8" &&
+      await password.getAttribute("required") !== null &&
+      await password.getAttribute("minlength") === "12";
+    record("customer-password-recovery-request-busy-and-confirm-transition",
+      sendRequired && requestBusy && /Simulated reset code queued/.test(requestStatus) &&
+      confirmRequired && requestCount === 1 && pageErrors.length === 0,
+      { sendRequired, requestBusy, requestStatus, confirmRequired, requestCount, pageErrors });
+
+    await code.fill("12345678");
+    await password.fill("ValidRecoveryPass123!");
+    const update = page.getByRole("button", { name: "Set new password", exact: true });
+    await update.click();
+    const updating = page.getByRole("button", { name: "Updating…", exact: true });
+    await updating.waitFor({ state: "visible" });
+    const confirmBusy = await updating.isDisabled() &&
+      await updating.getAttribute("aria-busy") === "true";
+    const rejection = page.getByRole("alert").filter({ hasText: "Simulated reset-code rejection" });
+    await rejection.waitFor({ state: "visible" });
+    const errorRole = await rejection.getAttribute("role");
+    const recovered = page.getByRole("button", { name: "Set new password", exact: true });
+    await page.waitForFunction(() => {
+      const button = Array.from(document.querySelectorAll("button"))
+        .find(item => item.textContent?.includes("Set new password"));
+      return button instanceof HTMLButtonElement && !button.disabled && button.getAttribute("aria-busy") === "false";
+    });
+    record("customer-password-recovery-confirm-error-recovers",
+      confirmBusy && errorRole === "alert" && await recovered.isEnabled() &&
+      confirmCount === 1 && pageErrors.length === 0,
+      { confirmBusy, errorRole, confirmCount, recoveredEnabled: await recovered.isEnabled(), pageErrors });
+  } catch (error) {
+    record("customer-password-recovery-interaction-completes", false, {
+      error: error instanceof Error ? error.message : String(error),
+      requestCount,
+      confirmCount,
+      pageErrors,
+    });
+  } finally {
+    await page.close();
+  }
+  return checks;
+}
+
 async function runCustomerThemePolicyInteractionCheck(browser) {
   const checks = [];
   const scenarios = [
@@ -1451,6 +1555,9 @@ async function main() {
     const customerFormChecks = await runCustomerAuthFormInteractionCheck(browser);
     results.push(...customerFormChecks);
     failures.push(...customerFormChecks.filter(check => !check.passed));
+    const customerRecoveryChecks = await runCustomerRecoveryInteractionCheck(browser);
+    results.push(...customerRecoveryChecks);
+    failures.push(...customerRecoveryChecks.filter(check => !check.passed));
     const customerPolicyChecks = await runCustomerThemePolicyInteractionCheck(browser);
     results.push(...customerPolicyChecks);
     failures.push(...customerPolicyChecks.filter(check => !check.passed));
