@@ -487,6 +487,38 @@ async function runAdminAppearanceInteractionCheck(browser) {
       dialogSemantics.focusInside && triggerExpandedWhileOpen === "true",
       { ...dialogSemantics, triggerExpandedWhileOpen });
 
+    const commandSearch = quickActionsDialog.getByRole("textbox", {
+      name: "Search actions and destinations",
+    });
+    await commandSearch.fill("wallet");
+    const walletDestinationVisible = await quickActionsDialog.getByRole("button", {
+      name: "Wallet & ledger",
+    }).isVisible();
+    const addCustomerHiddenForWallet = await quickActionsDialog.getByRole("button", {
+      name: /Add Customer/,
+    }).count() === 0;
+    await commandSearch.fill("support");
+    const supportCounterVisible = await quickActionsDialog.getByRole("button", {
+      name: /Open tickets/,
+    }).isVisible();
+    const walletDestinationHiddenForSupport = await quickActionsDialog.getByRole("button", {
+      name: "Wallet & ledger",
+    }).count() === 0;
+    await commandSearch.fill("no-such-action-or-destination");
+    const noResultsFeedback = await quickActionsDialog.getByRole("status")
+      .filter({ hasText: "No matching actions or destinations." }).isVisible();
+    await commandSearch.fill("");
+    record("quick-actions-search-filters-actions-and-destinations",
+      walletDestinationVisible && addCustomerHiddenForWallet &&
+      supportCounterVisible && walletDestinationHiddenForSupport && noResultsFeedback,
+      {
+        walletDestinationVisible,
+        addCustomerHiddenForWallet,
+        supportCounterVisible,
+        walletDestinationHiddenForSupport,
+        noResultsFeedback,
+      });
+
     const dialogFocusable = quickActionsDialog.locator(
       'button:not([tabindex="-1"]), input:not([tabindex="-1"])'
     );
