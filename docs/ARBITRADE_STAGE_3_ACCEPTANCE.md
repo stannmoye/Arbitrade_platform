@@ -23,7 +23,9 @@ Finish and verify the existing five-theme implementation without duplicating Sta
 - [x] Inspect the existing Stage 2 implementation and identify its active theme integration points.
 - [x] Fix cross-role preference leakage: administrator previews and customer preferences now use separate browser-storage keys.
 - [x] Add focused tests for role-specific theme storage and storage-event filtering.
-- [ ] Run the new focused tests and the existing theme-policy/authorization checks; a first CI attempt exposed three stale source-contract expectations in `server/design-system-contract.test.ts` after the intentional key/workflow changes. Updated those expectations; validation of the updated commit is pending.
+- [x] Fix the browser acceptance script to inspect the account-scoped customer preference key (`arbitrade-theme:user:9002`) after selection; the prior run's only browser failure was a stale assertion reading the legacy unscoped key.
+- [x] Update the workflow source-contract test to match the intended push plus pull-request triggers; the prior test incorrectly expected the pull-request trigger to be the first trigger and forbade the intentional push trigger.
+- [ ] Re-run the focused tests and full CI on the updated commit; no pass is claimed until the new run completes.
 - [ ] Review theme compatibility overrides against the active customer and administrator portal components; fix any concrete visual integration gaps found.
 - [ ] Verify administrator save/retry behaviour and that disabled themes cannot be selected by customers.
 - [ ] Verify preference restoration after refresh and role changes without administrator/customer storage crossover.
