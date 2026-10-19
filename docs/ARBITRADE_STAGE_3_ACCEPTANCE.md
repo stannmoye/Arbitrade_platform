@@ -113,3 +113,13 @@ No staging URL was provided at Stage 3 start. Authenticated deployed-session acc
 - No additional code change was warranted by this focused audit; existing focused tests cover the reviewed policy boundaries. The next useful acceptance step is a real authenticated staging session, not another duplicate source-contract assertion.
 - Formal keyboard-only and screen-reader/assistive-technology review remains open. Authenticated deployed-session acceptance remains blocked because no staging URL has been provided. The browser suite uses mocked auth/API responses for several interactions and cannot prove live authorization or database persistence.
 - PR #72 remains open, draft, and unmerged. No merge, deployment, or production database mutation was performed.
+
+
+## Continuation update — Prompt 10/30: exact-head CI status reconciled (2026-10-20)
+
+- Re-fetched PR #72 metadata and confirmed the current head is `1f94e3699cc81b8a475652c8069ec10c3b8088d9`; the PR remains open/draft/unmerged.
+- Inspected GitHub Actions run [#578](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39339876592). It was **cancelled**, not completed successfully: the application/theme-policy test job reached success, but TypeScript, production build, and Chromium acceptance were cancelled during dependency installation. Therefore #578 does not provide a full four-job green result for the latest head.
+- The prior exact-head run #577 remains green for commit `dbe5f77adf88e71559df4a0eeac73a7b8655f68c`; that evidence must not be presented as validation of later commits. A commit-filtered workflow lookup returned no PR-triggered run for the current head at the time of this check, so fresh exact-head validation remains unresolved.
+- Re-read `client/src/contexts/ThemeContext.tsx`, `client/src/contexts/theme-storage.ts`, and `client/src/contexts/theme-storage.test.ts`. The existing identity-ready guard prevents the previous account's in-memory theme from being persisted under the next account's storage key before that preference is restored. Existing helper tests cover role/account key isolation and storage-event filtering. No speculative application change was made from this source-only review.
+- Next action: verify a fresh workflow run for the latest branch head and inspect all four job conclusions. Do not treat cancellation or a green earlier head as current-head acceptance.
+- Remaining gates: manual keyboard-only and screen-reader/assistive-technology review; authenticated deployed-session verification of live authorization and real database persistence. No staging URL has been provided. Keep PR #72 draft; no merge or deployment.
