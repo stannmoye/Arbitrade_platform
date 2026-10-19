@@ -140,3 +140,14 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Still open: ten-width real-browser acceptance, page overflow, keyboard and interaction checks across all five themes, and rendered contrast evidence. These cannot be replaced by source tests.
 
 - Follow-up in the same Prompt 4 batch: aligned server-side `normalizeAppearanceSettings` with the client policy by normalizing enabled themes to the same canonical order. Added exhaustive server-side coverage for all 32 theme subsets, every requested default, duplicate/unknown entries, and reversed input order. Commits: `c4742005e7a8a3f34b9157807e4cb7e8719fc2a5` and `a77d72b1343b4961e901a16f736828662ebf653b`. These tests are added but have not yet been executed in a confirmed CI run.
+
+
+## Finalization follow-up — Prompt 5/30 (2026-10-19)
+
+- Hardened client theme-list normalization against a malformed runtime fallback and added regression cases in `client/src/components/appearance-policy.test.ts`.
+- Administrator policy hydration now treats only `customerCanSelect === true` as opt-in; malformed truthy values do not enable customer choice.
+- Commits: `90bee53cabb731b1a859f35380ebe85cfc701974`, `174abc2bdbf30d8eb042fa5010c62d44fee8e768`, and `1e04765bcb62f4198df9b95db082ca3524d748a7`.
+- No test/typecheck/build pass is claimed for these new commits. The connected Actions lookup returned no PR-triggered run for the latest head but does not expose a complete repository-wide push-run listing; current-head validation is therefore unconfirmed, not presumed failed.
+- Real-browser acceptance remains outstanding for 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px, including overflow, table keyboard access, dialogs/forms/dropdowns, focus visibility, all five themes, and rendered contrast.
+- Stage 2 remains open until fresh current-head automated validation and browser acceptance evidence are recorded. Do not merge or mark complete based on source checks alone.
+- Continuation counter: Prompt 5/30.
