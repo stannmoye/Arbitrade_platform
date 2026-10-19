@@ -1148,9 +1148,12 @@
 }
 
 .gateway-foot,
-.auth-demo-note,
-.auth-feature-strip div {
+.auth-demo-note {
   color: var(--arb-color-text-muted) !important;
+}
+
+.auth-feature-strip div {
+  color: var(--arb-color-text-soft) !important;
 }
 
 .auth-tabs button {
@@ -1203,6 +1206,29 @@
   color: var(--arb-color-canvas) !important;
   background: var(--arb-color-accent) !important;
   background-image: none !important;
+}
+
+
+.auth-feature-strip {
+  background: var(--arb-color-surface-raised) !important;
+}
+
+.auth-card .secondary-button {
+  color: var(--arb-color-text-soft) !important;
+  background: var(--arb-color-surface-raised) !important;
+  border-color: var(--arb-color-border) !important;
+}
+
+.auth-safety-note {
+  color: var(--arb-color-text-soft) !important;
+  background: var(--arb-color-surface-raised) !important;
+  border-color: var(--arb-color-border) !important;
+}
+
+.input-with-icon input,
+.auth-form-grid input,
+.auth-form-grid select {
+  background: transparent !important;
 }
 
 :root[data-arb-theme="clean-light"] .gateway-kicker {
