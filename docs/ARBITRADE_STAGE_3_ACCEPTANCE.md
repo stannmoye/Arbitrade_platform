@@ -123,3 +123,32 @@ No staging URL was provided at Stage 3 start. Authenticated deployed-session acc
 - Re-read `client/src/contexts/ThemeContext.tsx`, `client/src/contexts/theme-storage.ts`, and `client/src/contexts/theme-storage.test.ts`. The existing identity-ready guard prevents the previous account's in-memory theme from being persisted under the next account's storage key before that preference is restored. Existing helper tests cover role/account key isolation and storage-event filtering. No speculative application change was made from this source-only review.
 - Next action: verify a fresh workflow run for the latest branch head and inspect all four job conclusions. Do not treat cancellation or a green earlier head as current-head acceptance.
 - Remaining gates: manual keyboard-only and screen-reader/assistive-technology review; authenticated deployed-session verification of live authorization and real database persistence. No staging URL has been provided. Keep PR #72 draft; no merge or deployment.
+
+
+## Continuation update — Prompt 11/30: latest-head reconciliation and manual audit plan (2026-10-20)
+
+- Re-fetched PR #72 and confirmed the head is `29e77db3eabf19cc7e7d2fcb8858d2c03f40a2a6`, still open, draft, and unmerged.
+- Inspected GitHub Actions run [#581](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39340014336) and confirmed all four jobs completed successfully on that exact head: application/theme-policy regression tests, TypeScript validation, production build, and Chromium viewport/five-theme smoke matrix.
+- Inspected the job summaries and verified the browser evidence artifact [stage-3-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39340014336/artifacts/12228308967) exists and is not expired. The recorded browser result is 1,175 checks passed with zero failures.
+- Re-reviewed the administrator appearance component and theme CSS at the current branch head. Preview choices have a programmatic group name and `aria-pressed` state; customer-theme checkboxes use a native `fieldset`/`legend`; loading and failure messages use status/alert semantics; retry and save controls have disabled/loading states. This is source-level inspection, not a human assistive-technology test.
+- No new application source change was justified by this review. Avoid adding duplicate source-contract tests when the existing automated coverage already verifies these semantics and interactions.
+
+### Manual accessibility acceptance checklist — still not executed
+
+Record the tester, browser/OS, assistive technology, date, and outcome for each item before closing the formal accessibility gate:
+
+- [ ] Keyboard-only: navigate from page start through preview buttons, default selector, enabled-theme checkboxes, customer-choice toggle, retry/save controls; confirm logical order and no keyboard trap.
+- [ ] Keyboard-only: activate every preview with Enter/Space; verify pressed state and visible focus; toggle checkboxes with Space and confirm the last enabled theme cannot be removed.
+- [ ] Screen reader: confirm the preview group name, each theme button name and pressed state, and the customer-theme fieldset/legend and checked/disabled states are announced clearly.
+- [ ] Screen reader: confirm loading, load failure, save success, and save failure messages are announced at the appropriate time without requiring focus movement.
+- [ ] Visual/accessibility: inspect focus visibility and text/control contrast in each theme, including hover, focus, disabled, error, and success states at desktop and 320px widths.
+- [ ] Record any issue with severity, reproducible steps, expected/actual behavior, and a linked follow-up; rerun relevant automated tests after fixes.
+
+These checks require a human tester and actual browser/assistive-technology combination; they cannot be truthfully marked complete from source inspection or CI screenshots alone.
+
+### Current release gates
+
+- Exact-head automated CI: **green on commit `29e77db3eabf19cc7e7d2fcb8858d2c03f40a2a6`** at the time of this check.
+- Manual keyboard-only and screen-reader review: **open**.
+- Authenticated staging acceptance for live authorization and database persistence: **blocked; no staging URL provided**.
+- Keep PR #72 in draft and do not merge or deploy until the remaining gates are completed and documented.
