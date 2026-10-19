@@ -188,7 +188,7 @@ export function AdminVerificationOversight() {
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Customer controls</span><h2>Verification-related accounts</h2></div><span className="admin-ops-subtle">{flagged.length} records</span></div>
-          <div className="admin-ops-table-wrap"><table className="admin-ops-table"><thead><tr><th>Customer</th><th>Account</th><th>Email</th><th>KYC policy</th><th>Package</th></tr></thead><tbody>
+          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Customer verification controls"><table className="admin-ops-table"><thead><tr><th>Customer</th><th>Account</th><th>Email</th><th>KYC policy</th><th>Package</th></tr></thead><tbody>
             {flagged.map((customer) => <tr key={customer.id}><td><strong>{customer.name || "Customer"}</strong><small>{customer.email || `Account ${customer.id}`}</small></td><td>{customer.accountState || customer.status || "active"}</td><td><StatusPill tone={customer.emailVerified ? "good" : "watch"}>{customer.emailVerified ? "Verified" : "Not verified"}</StatusPill></td><td><StatusPill tone={customer.kyc ? "watch" : "neutral"}>{customer.kyc ? "Required" : "Not required"}</StatusPill></td><td>{customer.package || "—"}</td></tr>)}
             {!flagged.length && <tr><td colSpan={5} className="admin-ops-table-empty">No accounts currently have verification-related flags.</td></tr>}
           </tbody></table></div>
@@ -217,7 +217,7 @@ export function AdminRiskWatchlist() {
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Policy-derived watchlist</span><h2>Accounts to review</h2></div><span className="admin-ops-subtle">Read only</span></div>
-          <div className="admin-ops-table-wrap"><table className="admin-ops-table"><thead><tr><th>Customer</th><th>Risk tier</th><th>Account state</th><th>Trading</th><th>Auto-trade</th><th>Opportunities</th></tr></thead><tbody>
+          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Customer risk watchlist"><table className="admin-ops-table"><thead><tr><th>Customer</th><th>Risk tier</th><th>Account state</th><th>Trading</th><th>Auto-trade</th><th>Opportunities</th></tr></thead><tbody>
             {watchlist.map((customer) => {
               const tier = customer.riskTier || "standard";
               const state = customer.accountState || customer.status || "active";
@@ -253,7 +253,7 @@ export function AdminTransactionReview() {
       {ledgerQuery.isLoading ? <LoadingState /> : ledgerQuery.isError ? <div className="admin-ops-empty error">The balance ledger could not be loaded.</div> : <>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Manual settlement queue</span><h2>Trades awaiting administrator confirmation</h2></div><span className="admin-ops-subtle">{pendingQuery.data?.length ?? 0} pending</span></div>
-          {!pendingQuery.data?.length ? <div className="admin-ops-empty compact">No trades are awaiting manual settlement.</div> : <div className="admin-ops-table-wrap"><table className="admin-ops-table"><thead><tr><th>Trade / customer</th><th>Principal</th><th>Reserved reward</th><th>Settlement reference</th><th>Action</th></tr></thead><tbody>
+          {!pendingQuery.data?.length ? <div className="admin-ops-empty compact">No trades are awaiting manual settlement.</div> : <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Trades awaiting manual settlement"><table className="admin-ops-table"><thead><tr><th>Trade / customer</th><th>Principal</th><th>Reserved reward</th><th>Settlement reference</th><th>Action</th></tr></thead><tbody>
             {(pendingQuery.data as any[]).map((trade) => { const draft = drafts[trade.id] || { rewardMinor: String(trade.rewardReservedMinor ?? 0), reference: `manual-${trade.id}` }; return <tr key={trade.id}><td><strong>Trade {trade.id} · {trade.symbol || "Opportunity"}</strong><small>{trade.customerName || trade.customerEmail || `Account ${trade.userId}`} · {trade.currency}</small></td><td>{trade.principalMinor}</td><td>{trade.rewardReservedMinor}</td><td><input value={draft.reference} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, reference: event.target.value } }))} placeholder="External/manual reference" /><input value={draft.rewardMinor} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, rewardMinor: event.target.value } }))} inputMode="numeric" aria-label={`Reward minor units for trade ${trade.id}`} /></td><td><button className="admin-ops-button" type="button" disabled={confirmSettlement.isPending} onClick={() => confirmSettlement.mutate({ tradeId: trade.id, rewardMinor: Number(draft.rewardMinor), settlementReference: draft.reference })}><CheckCircle2 size={14} /> Confirm manual settlement</button></td></tr>; })}
           </tbody></table></div>}
           <div className="admin-ops-note"><ShieldCheck size={16} /><span>The administrator enters the externally confirmed result and payment reference. This action atomically releases principal, credits the reward once, updates the wallet, and records lifecycle events.</span></div>
@@ -266,7 +266,7 @@ export function AdminTransactionReview() {
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Latest database entries</span><h2>Wallet activity</h2></div><span className="admin-ops-subtle">Up to 150 records</span></div>
-          <div className="admin-ops-table-wrap"><table className="admin-ops-table"><thead><tr><th>Recorded</th><th>Customer</th><th>Entry type</th><th>Amount</th><th>Withdrawable</th></tr></thead><tbody>
+          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Wallet activity ledger"><table className="admin-ops-table"><thead><tr><th>Recorded</th><th>Customer</th><th>Entry type</th><th>Amount</th><th>Withdrawable</th></tr></thead><tbody>
             {rows.map((row) => <tr key={row.id}><td>{timestamp(row.createdAt)}</td><td><strong>{row.customerName || "Customer"}</strong><small>{row.customerEmail || `Account ${row.userId}`}</small></td><td><span className="admin-ops-entry-type">{row.entryType}</span></td><td className={Number(row.amountMinor) < 0 ? "amount-negative" : "amount-positive"}>{formatAmount(Number(row.amountMinor), row.currency)}</td><td><StatusPill tone={row.withdrawable ? "good" : "neutral"}>{row.withdrawable ? "Yes" : "No"}</StatusPill></td></tr>)}
             {!rows.length && <tr><td colSpan={5} className="admin-ops-table-empty">No wallet ledger entries have been recorded.</td></tr>}
           </tbody></table></div>
