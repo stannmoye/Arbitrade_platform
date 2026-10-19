@@ -300,3 +300,11 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Installer validation #669 (`39271047221`) and mining database regression #74 (`39271047241`) also passed, including MariaDB/MySQL 8 checks, installer recovery/regressions, server smoke/build/package checks, and database idempotency/transaction tests.
 - The browser report remains based on mocked API/auth and table data; it does not prove live role enforcement or database persistence. Broader authenticated forms/dialogs/dropdowns, full authenticated screenshot review, and final sign-off remain open.
 - PR #71 remains draft and unmerged. Stage 2 stays open; Stage 3 remains blocked.
+
+## Save-failure recovery regression — 2026-10-19
+
+- Added a mocked rejected-mutation scenario to `scripts/stage2-browser-acceptance.cjs`. It verifies that a failed administrator appearance-policy save is exposed through an accessible alert and that the save button, default-theme selector, enabled-theme checkbox, and customer-choice checkbox all return to an enabled state after the pending mutation ends.
+- Code commit `a8dd9cea7a081b5f458d93300da6120ee2f65b5b` passed Stage 2 workflow [#303 / 39274748231](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39274748231): **1,124/1,124 browser checks passed, zero failures**. The new `admin-appearance-save-error-feedback-controls-restored` check passed; application tests, TypeScript, and production build passed.
+- Installer validation [#672 / 39274748218](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39274748218) and mining regression [#77 / 39274748360](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39274748360) also passed, including the installer/migration, MySQL 8, MariaDB, package, and mining idempotency checks.
+- Inspected artifact `stage-2-browser-acceptance` (run #303): `report.json` records 1,124 passed and 0 failed. The error-state check records a visible alert and all four controls enabled after failure.
+- Evidence remains mocked client-side evidence only. Live API role enforcement and database persistence, broader authenticated forms/dialogs/dropdowns/disabled/busy coverage, full authenticated screenshot review, and final sign-off remain open. Keep PR #71 draft/unmerged; Stage 2 remains open and Stage 3 blocked.
