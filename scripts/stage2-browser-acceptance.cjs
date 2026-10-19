@@ -388,7 +388,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
         { width: 320, brandName: narrowAppearanceLayout.brandName, lineCount: narrowAppearanceLayout.brandNameLineCount });
       record("admin-appearance-320-theme-policy-controls-fit",
         narrowAppearanceFits,
-        { ...narrowAppearanceLayout, expectedTheme: screenshotTheme });
+        { ...narrowAppearanceLayout, expectedTheme: screenshotTheme, width: 320 });
       await page.mouse.move(1, 1);
       await page.waitForTimeout(60);
       const narrowScreenshot = path.join(ARTIFACT_DIR, `admin-appearance-320-${screenshotTheme}.png`);
