@@ -468,7 +468,6 @@ async function runAdminAppearanceInteractionCheck(browser) {
       triggerHitTarget.visible && triggerHitTarget.hitTargetMatches,
       triggerHitTarget);
     await quickActionsTrigger.focus();
-    await page.keyboard.press("Enter");
 
     const closedDrawerFocusability = await page.locator("#admin-navigation-drawer").evaluate(drawer => ({
       hidden: drawer.getAttribute("aria-hidden") === "true",
@@ -481,6 +480,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       closedDrawerFocusability.unintendedTabStops === 0,
       closedDrawerFocusability);
 
+    await page.keyboard.press("Enter");
     const quickActionsDialog = page.getByRole("dialog", { name: "Quick Actions" });
     await page.waitForFunction(() => {
       const drawer = document.querySelector("#admin-navigation-drawer");
