@@ -1014,3 +1014,12 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Remaining gates: verify live API authorization and database persistence; exercise keyboard scrolling on populated financial tables; test broader authenticated forms/dialogs/dropdowns/disabled/busy states; complete broader authenticated visual review. Browser API responses remain mocked, so no live persistence claim is made.
 - PR #71 remains open, draft, and unmerged. Stage 2 stays open; Stage 3 remains blocked until the remaining acceptance gates have evidence.
 - **Continuation counter:** Prompt 16/30.
+
+
+## Stage 2 continuation checkpoint — Prompt 16/30 (2026-10-19)
+
+- Investigated a new Chromium regression in Stage 2 run #272 (`39265373433`) on commit `b5a6c5362fd20ac8eb9bf331552ac3ad10373493`. Application tests, TypeScript, build, installer validation and mining regression passed, but Chromium reported 1 failure out of 1,120 checks: a pointer click on the admin `Open Quick Actions` trigger was intercepted by the appearance settings card during the populated-table navigation check.
+- Fixed the test interaction in `scripts/stage2-browser-acceptance.cjs` to focus the quick-action trigger and open it with Enter, then wait for the Wallet & ledger action before continuing the populated financial-table keyboard-scroll checks. Commit: `d89abcd6227abfbc6baa7c32ab9595ba560cbdca`.
+- This change uses keyboard navigation instead of bypassing the browser's pointer-interception behavior with a forced click. It tests the intended accessible keyboard path. It does not claim the underlying pointer hit-target layering issue is resolved; that remains a visual/UI item to inspect during final screenshot review.
+- Fresh workflows for the new commit are pending; do not claim the Chromium regression is fixed until the next browser run passes.
+- **Continuation counter:** Prompt 16/30. Stage 2 remains open; Stage 3 blocked.
