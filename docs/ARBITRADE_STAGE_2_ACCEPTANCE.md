@@ -180,3 +180,17 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - **Continuation counter:** Prompt 7/30. This records one continuation batch, not a reset.
 
 - **Same Prompt 7/30 — test-quality follow-up:** extracted label fallback into the pure `client/src/components/ui/table-label.ts` helper and placed its Vitest cases in `server/table-label.test.ts`, because the repository's Vitest configuration only includes `server/**/*.test.ts` and `server/**/*.spec.ts`. Cases cover absent, blank/whitespace, malformed runtime, and trimmed valid labels. The table component calls the helper, and the source-level contract checks the shared path. Commits: `9354f2976a27ef538a51074c4608df14e7176b22` (helper), `936e85c8bd4446164c044ecd58721e9e8f648e6c` (initial client-side test, subsequently removed from the configured test scope), `2a5664d752a6779b0c528768308a5b3690683753` (component integration), `c0d62e32aba373f3b1596e35a6f52d74de40bbd7` (contract update), `7d990fb2da474608e1bef2bb1e0070b179bb6f3b` (remove misplaced test), and `da5242f02a5803f99d4aea9795b812ace718400f` (configured server test). The test suite has not yet been reported passing by a current-head workflow.
+
+## Stage 2 finalization continuation — Prompt 8/30 (2026-10-19)
+
+- Reconciled the actual branch head and Actions API directly rather than relying on the older PR-only run lookup.
+- **Exact validated code head:** `f8df6a83179adcc55f4067dc2ece8aec54e903cc`.
+- **CI evidence:** [Stage 2 workflow run #146 / 39214975699](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39214975699) completed successfully for that exact SHA. All three jobs passed: full application and Stage 2 regression tests, TypeScript validation, and production build.
+- **Test result from the job log:** 29 test files and 220 tests passed, including 10 focused cases for the table-region accessible-name fallback. `pnpm check` and `pnpm build` passed.
+- This confirms automated checks for the code head `f8df6a8`. The documentation update itself will create a newer branch head and trigger fresh validation; do not treat the old run as validating later commits.
+- **Still blocking Stage 2 sign-off:** real-browser checks for customer/admin routes at 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px; page-overflow checks; keyboard-accessible table scrolling; forms, dialogs, dropdowns, disabled/busy controls and focus states; all five themes; and rendered contrast.
+- The connected tools in this session do not expose an interactive browser runner. No browser screenshots, rendered contrast measurements, or browser pass are claimed. This is an evidence/tooling blocker, not a pass.
+- **Decision:** keep PR #71 draft and unmerged. Stage 2 is not complete until browser evidence is captured and recorded; do not advance to Stage 3.
+- **Done:** latest code-head CI reconciled and its test count confirmed from the workflow log.
+- **In progress / blocked:** real-browser acceptance and post-documentation CI for the resulting new head.
+- **Continuation counter:** Prompt 8/30.
