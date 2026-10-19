@@ -118,6 +118,10 @@ async function main() {
           // visual-token smoke check, not a substitute for authenticated admin
           // interactions or a human WCAG contrast review.
           {
+            // Sample settled colors, not interpolated mid-transition values.
+            await page.addStyleTag({
+              content: "*, *::before, *::after { transition: none !important; animation: none !important; }",
+            });
             for (const theme of THEMES) {
               await page.evaluate(value => {
                 document.documentElement.dataset.arbTheme = value;
