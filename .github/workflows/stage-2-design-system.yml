@@ -116,8 +116,7 @@ jobs:
           exit 1
       - name: Run real-browser viewport and theme smoke matrix
         run: |
-          PLAYWRIGHT_MODULES="$(dirname "$(dirname "$(command -v playwright)")")"
-          NODE_PATH="$PLAYWRIGHT_MODULES" node scripts/stage2-browser-acceptance.cjs
+          npx --yes --package=playwright -c 'PLAYWRIGHT_MODULES="$(dirname "$(dirname "$(command -v playwright)")")"; NODE_PATH="$PLAYWRIGHT_MODULES" node scripts/stage2-browser-acceptance.cjs'
         shell: bash
         env:
           STAGE2_BASE_URL: http://127.0.0.1:4173
