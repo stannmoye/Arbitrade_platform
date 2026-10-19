@@ -256,4 +256,48 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(designSystem).toContain("-webkit-overflow-scrolling: touch;");
   });
 
+
+  it("defines every semantic status colour for every supported theme", () => {
+    for (const theme of themeNames) {
+      const block = themeBlock(theme);
+      for (const token of [
+        "--arb-color-accent",
+        "--arb-color-info",
+        "--arb-color-warning",
+        "--arb-color-danger",
+        "--arb-color-decorative",
+      ]) {
+        expect(block, `${theme} missing semantic status token ${token}`).toMatch(
+          new RegExp(`${token}:\\\\s*[^;]+;`)
+        );
+      }
+    }
+  });
+
+  it("keeps semantic status colours readable against canvas and surfaces in every theme", () => {
+    const statusTokens = [
+      "--arb-color-accent",
+      "--arb-color-info",
+      "--arb-color-warning",
+      "--arb-color-danger",
+      "--arb-color-decorative",
+    ];
+    for (const theme of themeNames) {
+      const block = themeBlock(theme);
+      const backgrounds = [
+        ["canvas", resolveHexToken(block, "--arb-color-canvas")],
+        ["surface", resolveHexToken(block, "--arb-color-surface")],
+      ] as const;
+      for (const token of statusTokens) {
+        const foreground = resolveHexToken(block, token);
+        for (const [backgroundName, background] of backgrounds) {
+          expect(
+            contrast(foreground, background),
+            `${theme} ${token} against ${backgroundName}`,
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    }
+  });
+
 });
