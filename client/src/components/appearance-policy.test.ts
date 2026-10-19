@@ -18,8 +18,13 @@ describe("administrator enabled-theme policy transitions", () => {
 
   it("adds a previously disabled theme without duplicates and in canonical order", () => {
     expect(toggleEnabledTheme(["aurora-modern", "original"], "aurora-modern"))
-      .toEqual(["aurora-modern", "original"]);
+      .toEqual(["original", "aurora-modern"]);
     expect(toggleEnabledTheme(["aurora-modern", "original"], "clean-light"))
       .toEqual(ARBITRADE_THEMES.filter(theme => ["aurora-modern", "original", "clean-light"].includes(theme)));
+  });
+
+  it("normalizes duplicate enabled entries before applying the final-theme guard", () => {
+    expect(toggleEnabledTheme(["original", "original"], "original")).toEqual(["original"]);
+    expect(toggleEnabledTheme(["original", "original"], "clean-light")).toEqual(["original", "clean-light"]);
   });
 });
