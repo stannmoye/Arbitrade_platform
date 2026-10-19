@@ -900,3 +900,16 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Continuation counter: Prompt 7/30.
 
 - Same Prompt 7/30 follow-up: extracted table-region accessible-name normalization to `client/src/components/ui/table-label.ts` and integrated it into the shared table component. The initial test was placed under `client/`, but repository review caught that Vitest only includes `server/**/*.test.ts` and `server/**/*.spec.ts`; that misplaced test was removed and equivalent cases were added at `server/table-label.test.ts`. Commits: `9354f2976a27ef538a51074c4608df14e7176b22` (helper), `2a5664d752a6779b0c528768308a5b3690683753` (component), `c0d62e32aba373f3b1596e35a6f52d74de40bbd7` (contract), `7d990fb2da474608e1bef2bb1e0070b179bb6f3b` (remove misplaced test), `da5242f02a5803f99d4aea9795b812ace718400f` (configured server test). Current-head CI remains unconfirmed; the browser acceptance gate remains open.
+
+## Stage 2 finalization continuation — Prompt 8/30 (2026-10-19)
+
+- Continued the existing Stage 2 branch and PR #71; no restart, merge, deployment, or Stage 3 transition.
+- Confirmed the exact pre-documentation branch head `f8df6a83179adcc55f4067dc2ece8aec54e903cc` using the repository Actions API.
+- [Stage 2 workflow run #146 / 39214975699](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39214975699) passed all three jobs on that exact SHA: application/Stage 2 tests, TypeScript validation, and production build. The test job log confirms **220 tests passed across 29 files**; TypeScript and build jobs also succeeded.
+- Reconciled `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md` with that evidence and documented that the docs commit creates a new head requiring its own CI result.
+- **Remaining release gate:** actual browser acceptance across customer/admin routes at 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px; horizontal overflow; keyboard-scrollable tables; form/dialog/dropdown and disabled/busy states; visible focus; all five themes; and rendered contrast.
+- The current connected execution has repository/CI access but no interactive browser runner. Do not fabricate browser results or screenshots. Browser acceptance remains blocked on access to a real browser runner.
+- **Done:** exact-head CI evidence verified from Actions and job logs; acceptance document reconciled.
+- **In progress / blocked:** browser acceptance, followed by a fresh CI check for the latest documentation head.
+- **Decision:** keep PR #71 draft and unmerged. Stage 2 is not complete until browser evidence is captured; do not advance to Stage 3.
+- **Continuation counter:** Prompt 8/30.
