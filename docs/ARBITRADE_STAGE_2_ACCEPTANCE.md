@@ -264,3 +264,12 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Added `client/src/contexts/theme-policy.test.ts` with focused cases for stale preference rejection when customer choice is disabled, allow-list rejection, allowed preference preservation, malformed/unknown preference fallback, and direct selection permission checks.
 - Commit: `fdf455ba9b12d8131ab067ea330000f3f41d7390`.
 - These tests exercise the pure policy resolver and guard behavior independently of browser rendering. They are committed but have not yet been confirmed in a fresh workflow run on this exact commit.
+
+
+## Latest verified browser acceptance — 2026-10-19
+
+- Stage 2 run [#261 / 39264320656](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39264320656) passed all four jobs on the code head containing the narrow-screen typography fix and its regression test. Browser artifact `report.json`: **1,119 checks passed, 0 failures**.
+- New check `gateway-heading-word-not-split` passed at 320px and 360px, each reporting a single rendered text rectangle for the word `workspace`. The follow-up CSS reduces the gateway heading to 30px and trims card padding on screens at or below 380px.
+- Customer-choice-disabled scenario passed with stale `aurora-modern` stored while policy defaults to `clean-light`; the applied theme remained `clean-light`. Customer-choice-enabled scenario passed with only `clean-light` and `aurora-modern` exposed and selection/persistence of `aurora-modern` confirmed in local storage.
+- Mocked administrator appearance-policy save and refetch checks passed. Installer validation #652 and mining database regression #57 passed too. Documentation-only head `1a2fc664fffca737357fcdee4c1dee6ff9099765` subsequently passed Stage 2 run #263 with another 1,119/1,119 browser report.
+- **Still not verified:** live API authorization/database persistence, keyboard scrolling in populated financial tables, full authenticated forms/dialogs/dropdowns/disabled/busy states, and broader authenticated screenshot review. Keep Stage 2 open until evidence for these gates is recorded.
