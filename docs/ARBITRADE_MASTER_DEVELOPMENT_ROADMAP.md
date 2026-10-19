@@ -13,7 +13,7 @@
 
 These rules apply to every stage and override any workflow habit that causes repeated tiny changes or unnecessary user prompts.
 
-**Cadence baseline adopted 2026-10-19:** Stage 3 work is active on `feat/stage-3-five-theme-architecture`, based on the recorded Stage 2 implementation checkpoint `22ca05ad65e20078775ca7956f121019fa6a966b`. **Stage 3 continuation count: Prompt 7/30.** Stage 2 implementation has been closed out by user direction, while deployed staging acceptance and human sign-off remain deferred because no staging URL is available. This does not claim those external acceptance gates passed. Preserve prior Stage 1/2 evidence and avoid repeating successful checks without a code or diagnostic reason.
+**Cadence baseline adopted 2026-10-19:** Stage 3 work is active on `feat/stage-3-five-theme-architecture`, based on the recorded Stage 2 implementation checkpoint `22ca05ad65e20078775ca7956f121019fa6a966b`. **Stage 3 continuation count: Prompt 8/30.** Stage 2 implementation has been closed out by user direction, while deployed staging acceptance and human sign-off remain deferred because no staging URL is available. This does not claim those external acceptance gates passed. Preserve prior Stage 1/2 evidence and avoid repeating successful checks without a code or diagnostic reason.
 
 ### Hard prompt budget
 - **Maximum: 30 continuation prompts per stage.** A continuation prompt means every time the assistant stops coding and asks the user to type "continue", "proceed", or an equivalent message to resume. Count these user interruptions, not internal tool calls, commits, parallel workstreams, or automated CI jobs.
@@ -1196,3 +1196,13 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Exact code head 53c125bf7afd6946afb5fe57fb841cf3c5b71098 passed Stage 2 #473, installer #809, and mining regression #214. The browser artifact records **1,172/1,172 checks passed**, zero failures, and 51 screenshots. Each of the five 320px editor checks now correctly reports width=320; measured document width is 320, selector width 192, no controls are outside the viewport, and the brand remains on one line.
 - Updated acceptance evidence in docs/ARBITRADE_STAGE_2_ACCEPTANCE.md. This roadmap commit creates a new PR head, so check exact-head CI for the final documentation head before concluding.
 - Remaining exit gates are unchanged: no staging URL is documented for a deployed authenticated browser session; broader authenticated portal review and final Stage 2 sign-off remain outstanding. PR #71 remains draft/open/unmerged; Stage 2 is open and Stage 3 blocked.
+
+
+## Continuation update — Prompt 8/30 (2026-10-20)
+
+- Exact current Stage 3 pull-request head before this documentation update: `2853c4b40589866a81f74cac29c895cd517b6315`. GitHub Actions run #574 completed with all four jobs green: application/theme-policy tests, TypeScript validation, production build, and Chromium viewport/five-theme acceptance.
+- Inspected the exact-head browser artifact `stage-3-browser-acceptance` (artifact ID `12228247969`): `report.json` reports **1,177/1,177 checks passed**, zero failures. Confirmed administrator theme-preview/customer-theme groups, accessible pressed state, native Tab order, and Space toggling/restoration for a customer-theme checkbox.
+- Compared all five 320px administrator appearance captures (Original Arbitrade, Midnight Premium, Clean Light, Emerald Finance, Aurora Modern). Theme cards, customer-policy controls, and save action remain visible; no obvious horizontal overflow or clipping was observed in these captures.
+- This verifies CI and a limited five-screenshot comparison for the head above. The documentation update creates a new PR head; check fresh CI against that head before describing the newest commit as validated.
+- Remaining Stage 3 exit gates are unchanged: formal manual keyboard-only and screen-reader/assistive-technology review; authenticated deployed-session verification of server authorization and real database persistence. Browser acceptance uses mocked auth/API responses for several flows, and no staging URL has been provided.
+- PR #72 remains open/draft/unmerged. No merge, deployment, or production database mutation was performed.
