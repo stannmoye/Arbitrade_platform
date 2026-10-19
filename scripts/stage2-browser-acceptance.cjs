@@ -107,11 +107,21 @@ async function runAdminAppearanceInteractionCheck(browser) {
         procedures,
         output,
       });
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(output),
-      });
+      try {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(output),
+        });
+        apiRequests.push({ fulfilled: true, procedurePath });
+      } catch (error) {
+        apiRequests.push({
+          fulfilled: false,
+          procedurePath,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        await route.continue();
+      }
     });
 
     await page.goto(new URL("/ops-console-7f3a", BASE_URL).href, {
