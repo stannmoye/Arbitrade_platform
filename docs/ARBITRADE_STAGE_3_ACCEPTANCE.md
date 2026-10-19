@@ -1,6 +1,6 @@
 # Stage 3 — Five-Theme Architecture and Administrator Theme Controls
 
-**Status:** In progress  
+**Status:** Implementation and automated CI validation complete; acceptance review remains in progress  
 **Working branch:** `feat/stage-3-five-theme-architecture`  
 **Base implementation checkpoint:** `22ca05ad65e20078775ca7956f121019fa6a966b`  
 **Started:** 2026-10-19
@@ -23,24 +23,31 @@ Finish and verify the existing five-theme implementation without duplicating Sta
 - [x] Inspect the existing Stage 2 implementation and identify its active theme integration points.
 - [x] Fix cross-role preference leakage: administrator previews and customer preferences now use separate browser-storage keys.
 - [x] Add focused tests for role-specific theme storage and storage-event filtering.
-- [x] Fix the browser acceptance script to inspect the account-scoped customer preference key (`arbitrade-theme:user:9002`) after selection; the prior run's only browser failure was a stale assertion reading the legacy unscoped key.
-- [x] Update the workflow source-contract test to match the intended push plus pull-request triggers; the prior test incorrectly expected the pull-request trigger to be the first trigger and forbade the intentional push trigger.
-- [ ] Re-run the focused tests and full CI on the updated commit; no pass is claimed until the new run completes.
-- [ ] Review theme compatibility overrides against the active customer and administrator portal components; fix any concrete visual integration gaps found.
-- [ ] Verify administrator save/retry behaviour and that disabled themes cannot be selected by customers.
-- [ ] Verify preference restoration after refresh and role changes without administrator/customer storage crossover.
-- [ ] Capture authenticated browser evidence for the theme selector, admin preview/publish controls, and all five themes when a suitable browser/staging environment is available.
-- [ ] Record rendered contrast/accessibility findings; source-level token checks alone do not prove rendered WCAG conformance.
-- [ ] Update this checklist with actual test commands/results and remaining limitations before Stage 3 closeout.
+- [x] Fix the browser acceptance script to inspect the account-scoped customer preference key (`arbitrade-theme:user:9002`) after selection; the earlier failure was a stale assertion reading the legacy key.
+- [x] Update the workflow source-contract test to match the intended branch-push and pull-request triggers.
+- [x] Re-run the application test suite, TypeScript validation, production build, and Chromium viewport/theme smoke matrix on commit `2f0c443346dd1fe0def0c81267c762f79c9ca390`; all CI jobs passed.
+- [x] Confirm the static browser matrix passed all 1,172 checks with zero failures, including theme/viewport rendering, interaction checks, and contrast assertions covered by the script.
+- [x] Record the CI artifact containing screenshots and the browser report.
+- [ ] Complete human review of screenshots and rendered accessibility findings; automated contrast checks are useful evidence but are not a substitute for a complete human/accessibility audit.
+- [ ] Complete authenticated deployed-session acceptance when a staging URL is available.
+- [ ] Record any additional findings and remaining limitations before final Stage 3 acceptance.
 
 ## Current code change
 
-The shared `arbitrade-theme` key previously stored both administrator previews and customer preferences, and customer preferences were shared between accounts on the same browser. In a shared browser, an administrator's preview or another customer's preference could be mistaken for the active customer's choice when customer choice was enabled and the theme was allowed. The context now resolves a role- and account-specific storage key, and storage events are filtered to the active role/account key. The new unit tests cover role separation, account isolation, and event filtering.
+The shared `arbitrade-theme` key previously stored both administrator previews and customer preferences, and customer preferences were shared between accounts on the same browser. In a shared browser, an administrator's preview or another customer's preference could be mistaken for the active customer's choice when customer choice was enabled and the theme was allowed. The context now resolves a role- and account-specific storage key, and storage events are filtered to the active role/account key. Focused unit tests cover role separation, account isolation, and event filtering.
 
 ## Validation record
 
-Initial CI evidence for commit `14daca94d791ed722b46fc175d71337529493157`: TypeScript validation and production build passed; the application test suite failed 3 assertions in `server/design-system-contract.test.ts` because it still expected the previous shared storage key and Stage 2 workflow name/concurrency group. This was a test-contract mismatch caused by the Stage 3 refactor, not a reported runtime failure. The assertions were updated in commit `9c3e3fa5ee104c9773922e7ec49231481dbbddef`. The browser job from that run was cancelled by overlapping push/PR concurrency; workflow concurrency/trigger handling was adjusted afterward. A fresh run against the updated test contracts is pending. Do not infer a pass until the new run completes.
+Exact-head GitHub Actions run [#508](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333093465) for commit `2f0c443346dd1fe0def0c81267c762f79c9ca390` completed successfully:
 
-## External limitations
+- Application and theme-policy regression tests: **279 passed, 6 skipped**; 37 test files passed and 2 skipped.
+- TypeScript validation: **passed**.
+- Production build: **passed**.
+- Chromium viewport and five-theme smoke matrix: **1,172 checks passed, 0 failures**.
+- Browser evidence artifact: [stage-3-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333093465/artifacts/12225396789).
 
-No staging URL was provided at Stage 3 start. Authenticated deployed-session acceptance is therefore not currently available. Keep that limitation separate from source-level and CI validation, and do not claim deployment or production readiness.
+An earlier run failed due to a stale source-contract assertion and a browser check reading the retired storage key. Those assertions were corrected, and the exact-head run above passed. Do not treat the static browser run as proof of live server authorization or database persistence: the browser script uses mocked API responses for several interactions, while server-side behavior is covered separately by automated tests.
+
+## External limitations and release gates
+
+No staging URL was provided at Stage 3 start. Authenticated deployed-session acceptance is therefore not currently available. The automated suite is green, but human screenshot/accessibility review and staging acceptance remain open. Do not claim production readiness or deploy based solely on this CI result.
