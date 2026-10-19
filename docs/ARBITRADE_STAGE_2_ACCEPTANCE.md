@@ -84,3 +84,11 @@ Do not mark Stage 2 complete based solely on source changes or CI. Record actual
 - Next bundled work: inspect the fresh CI result, fix any contrast regressions it exposes, then continue closing shared-component and responsive acceptance gaps without repeating already completed theme-policy implementation.
 
 - Follow-up test correction: fixed the dynamic token-declaration matcher in commit `4e78a78ef7da5739577ca66ff2eac3bf884da87e`; the new token coverage now uses the same whitespace-matching pattern as the existing resolver. Current-head CI evidence has not yet been returned by the available GitHub Actions lookup, so these tests remain unverified until the workflow result is confirmed.
+
+
+## Responsive embedded-content correction — 2026-10-19
+
+- Updated `client/src/design-system.css` so adopted page media remains width-constrained while automatic height sizing applies only to images and video. Iframes and canvas elements keep their authored/intrinsic height rather than inheriting a broad `height: auto` rule that could distort embedded content or drawing surfaces.
+- Added a regression contract in `server/design-system-contract.test.ts` to protect this sizing boundary.
+- Commits: `31437b1baff27164c0a5dc51be3b9f6ed615d4c9` (CSS) and `fd3ac7fc5096209140bf824a2bdcba59c8448d59` (regression contract).
+- The new contract has not yet been confirmed by a workflow run. Real-browser viewport and embedded-content checks remain outstanding; Stage 2 is not complete.
