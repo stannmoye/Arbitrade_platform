@@ -487,3 +487,10 @@
     padding-inline: 12px;
   }
 }
+
+
+/* Keep the operations table's intrinsic width after the theme-token reset so
+   the focusable wrapper can provide real horizontal keyboard scrolling. */
+:root[data-arb-theme] .admin-ops-page .admin-ops-table {
+  min-width: 620px;
+}
