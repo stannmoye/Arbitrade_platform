@@ -91,7 +91,7 @@ export function AdminAppearance() {
         <h2>Published customer theme</h2>
         <label className="arb-appearance-field">
           <span>Default theme</span>
-          <select value={defaultTheme} disabled={controlsDisabled} onChange={event => setDefaultTheme(event.target.value as ArbitradeTheme)}>
+          <select aria-label="Default theme" value={defaultTheme} disabled={controlsDisabled} onChange={event => setDefaultTheme(event.target.value as ArbitradeTheme)}>
             {ARBITRADE_THEMES.filter(option => enabledThemes.includes(option)).map(option =>
               <option key={option} value={option}>{ARBITRADE_THEME_LABELS[option]}</option>
             )}
