@@ -60,6 +60,24 @@ describe("administrator appearance settings authorization", () => {
     });
   });
 
+  it("validates appearance policy before applying other settings in a combined update", async () => {
+    const caller = appRouter.createCaller({
+      user: { id: 123, role: "admin" },
+    } as never);
+
+    await expect(caller.adminOperations.updateSettings({
+      branding: { siteName: "must-not-be-written" },
+      appearance: {
+        defaultTheme: "aurora-modern",
+        enabledThemes: ["original", "clean-light"],
+        customerCanSelect: true,
+      },
+    })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "The default theme must be enabled.",
+    });
+  });
+
   it("rejects an empty enabled-theme list before attempting persistence", async () => {
     const caller = appRouter.createCaller({
       user: { id: 123, role: "admin" },
