@@ -388,6 +388,12 @@ jobs:
           console.log("Installation lock exists and temporary bootstrap/progress files were cleaned up.");
           NODE
 
+      - name: Verify appearance policy authorization and real database persistence
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+          RUN_APPEARANCE_SETTINGS_DB_INTEGRATION: "1"
+        run: pnpm exec vitest run server/appearance-settings-persistence.integration.test.ts
+
   installer-mysql8-compatibility-and-recovery:
     runs-on: ubuntu-latest
     timeout-minutes: 30
