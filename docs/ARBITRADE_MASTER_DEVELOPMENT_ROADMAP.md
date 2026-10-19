@@ -1179,3 +1179,14 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Exact code head 53c125bf7afd6946afb5fe57fb841cf3c5b71098 passed Stage 2 #473, installer #809, and mining regression #214. The browser artifact records **1,172/1,172 checks passed**, zero failures, and 51 screenshots. Each of the five 320px editor checks now correctly reports width=320; measured document width is 320, selector width 192, no controls are outside the viewport, and the brand remains on one line.
 - Updated acceptance evidence in docs/ARBITRADE_STAGE_2_ACCEPTANCE.md. This roadmap commit creates a new PR head, so check exact-head CI for the final documentation head before concluding.
 - Remaining exit gates are unchanged: no staging URL is documented for a deployed authenticated browser session; broader authenticated portal review and final Stage 2 sign-off remain outstanding. PR #71 remains draft/open/unmerged; Stage 2 is open and Stage 3 blocked.
+
+
+## Stage 2 continuation checkpoint — Prompt 30/30 (2026-10-19)
+
+- Added a Chromium regression scenario for transient administrator appearance-settings load failure and retry recovery, plus a source contract guarding the retry control and refetch behavior.
+- Code/test commits: `c5b5906dacc0e279e9b92b0de8697afdf37e1009` and `799638e50cc3577838fe3a1dff21cef780596d6f`. Acceptance evidence and limitations are recorded in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`.
+- Prior exact-head validation for `f65166f4c5ed4762207737602ebb93b30b474c78` passed Stage 2, installer, and mining regression; the browser matrix reported 1,173/1,173 checks. Those results predate the retry change, so the new exact head must be validated separately.
+- **Done:** five-theme/responsive foundation, customer theme-policy browser cases, administrator save/pending/error/refetch checks, compact drawer geometry/scroll checks, populated financial-table keyboard scrolling, and disposable-database authorization/persistence integration.
+- **In progress:** exact-head validation of the new retry scenario and review of the latest browser artifact.
+- **Blocked by external environment/evidence:** deployed authenticated browser acceptance because no staging URL is documented; complete human review/sign-off of the broader authenticated portal.
+- **Next:** verify exact-head Stage 2, installer, and mining workflow results; fix any failure in the same batch if tooling permits; otherwise record the exact blocker and obtain the missing staging/sign-off evidence before any Stage 3 work. Keep PR #71 draft and unmerged; no production deployment or production database mutation is authorized or claimed.
