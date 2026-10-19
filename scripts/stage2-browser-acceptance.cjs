@@ -445,6 +445,22 @@ async function runAdminAppearanceInteractionCheck(browser) {
     // Navigate while the desktop quick-action trigger is unobstructed, then resize
     // the populated financial page to mobile width for the keyboard-scroll check.
     const quickActionsTrigger = page.getByRole("button", { name: "Open Quick Actions" });
+    const triggerHitTarget = await quickActionsTrigger.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      return {
+        visible: rect.width > 0 && rect.height > 0,
+        hitTargetMatches: Boolean(hit && (hit === element || element.contains(hit))),
+        hitTag: hit?.tagName ?? null,
+        hitClass: typeof hit?.className === "string" ? hit.className : null,
+        bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+      };
+    });
+    record("quick-actions-trigger-pointer-hit-target",
+      triggerHitTarget.visible && triggerHitTarget.hitTargetMatches,
+      triggerHitTarget);
     await quickActionsTrigger.focus();
     await page.keyboard.press("Enter");
 
