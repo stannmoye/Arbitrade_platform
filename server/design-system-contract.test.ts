@@ -14,6 +14,8 @@ const routers = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const browserAcceptance = readFileSync(new URL("../scripts/stage2-browser-acceptance.cjs", import.meta.url), "utf8");
 const workflow = readFileSync(new URL("../.github/workflows/stage-2-design-system.yml", import.meta.url), "utf8");
 const installerWorkflow = readFileSync(new URL("../.github/workflows/installer-validation.yml", import.meta.url), "utf8");
+const miningDatabaseWorkflow = readFileSync(new URL("../.github/workflows/mining-database-regression.yml", import.meta.url), "utf8");
+const miningRegressionWorkflow = readFileSync(new URL("../.github/workflows/mining-regression.yml", import.meta.url), "utf8");
 
 describe("ARBITRADE shared design-system contract", () => {
   it("defines the semantic tokens used by shared components", () => {
@@ -393,6 +395,19 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(installerWorkflow).toContain("group: installer-validation-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}");
     expect(installerWorkflow).toContain("cancel-in-progress: true");
     expect(installerWorkflow).not.toContain("group: installer-validation-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}");
+  });
+
+
+  it("scopes mining database workflow concurrency to repository and branch across events", () => {
+    expect(miningDatabaseWorkflow).toContain("group: mining-database-regression-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}");
+    expect(miningDatabaseWorkflow).toContain("cancel-in-progress: true");
+    expect(miningDatabaseWorkflow).not.toContain("group: mining-database-regression-${{ github.workflow }}-${{ github.ref }}");
+  });
+
+  it("scopes mining regression workflow concurrency to repository and branch across events", () => {
+    expect(miningRegressionWorkflow).toContain("group: mining-regression-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}");
+    expect(miningRegressionWorkflow).toContain("cancel-in-progress: true");
+    expect(miningRegressionWorkflow).not.toContain("group: mining-regression-${{ github.workflow }}-${{ github.ref }}");
   });
 
 });
