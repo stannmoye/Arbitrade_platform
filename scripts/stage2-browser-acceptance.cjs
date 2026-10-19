@@ -470,6 +470,17 @@ async function runAdminAppearanceInteractionCheck(browser) {
     await quickActionsTrigger.focus();
     await page.keyboard.press("Enter");
 
+    const closedDrawerFocusability = await page.locator("#admin-navigation-drawer").evaluate(drawer => ({
+      hidden: drawer.getAttribute("aria-hidden") === "true",
+      searchTabIndex: drawer.querySelector('input[aria-label="Search actions and destinations"]')?.tabIndex ?? null,
+      unintendedTabStops: drawer.querySelectorAll('button:not([tabindex="-1"]),input:not([tabindex="-1"])').length,
+    }));
+    record("quick-actions-closed-drawer-has-no-tab-stops",
+      closedDrawerFocusability.hidden &&
+      closedDrawerFocusability.searchTabIndex === -1 &&
+      closedDrawerFocusability.unintendedTabStops === 0,
+      closedDrawerFocusability);
+
     const quickActionsDialog = page.getByRole("dialog", { name: "Quick Actions" });
     await page.waitForFunction(() => {
       const drawer = document.querySelector("#admin-navigation-drawer");

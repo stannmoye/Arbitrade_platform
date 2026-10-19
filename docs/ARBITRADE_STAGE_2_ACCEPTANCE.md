@@ -371,3 +371,12 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - The browser report also confirms the Quick Actions keyboard trap (14 focusable controls, reverse/forward wrapping), trigger pointer hit target, 200px theme selector at 390px, 192px selector at 320px with no page overflow, and high-contrast Appearance label across all five themes.
 - Installer validation passed the disposable MariaDB fresh-install/appearance authorization-persistence checks and MySQL 8 compatibility/recovery. Mining database idempotency and transaction regression passed.
 - Browser authentication/API fixtures remain mocked; disposable CI database results are not production verification. PR #71 remains draft/open/unmerged. Stage 2 remains open pending full screenshot review and broader authenticated form/disabled/busy-state acceptance; Stage 3 remains blocked.
+
+
+## Prompt 24/30 — Closed Quick Actions tab-order fix (2026-10-19)
+
+- Reviewed exact PR head `b41bcbf86f695831f40106395072071cbb2a864b` and current CI state before changing code. The preceding code head `dfdd5702b2dbd5f996b2abdbef7fb4d4f0054e14` passed installer run [#731 / 39296377405](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39296377405) and mining regression [#136 / 39296377443](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39296377443); its Stage 2 browser run was in progress at the last check.
+- Source review found the Quick Actions search input remained tabbable while its containing drawer had `aria-hidden="true"`. Other drawer controls already set a conditional tab index, but the search input did not.
+- Fixed `client/src/components/AdminSlideMenu.tsx` so the search input uses `tabIndex={open ? 0 : -1}`. Added `quick-actions-closed-drawer-has-no-tab-stops` to `scripts/stage2-browser-acceptance.cjs`, asserting that the closed drawer is hidden, its search input has tab index -1, and no drawer descendants remain in the tab sequence.
+- This source fix and regression check require fresh CI. It does not claim a passing browser result yet. Browser API/auth fixtures remain mocked; installer disposable-database checks are not production verification.
+- Remaining exit gates: exact-head Stage 2 browser acceptance; broader authenticated form/dialog/dropdown/disabled/busy coverage; complete human screenshot review; final sign-off. PR #71 remains open/draft/unmerged, Stage 2 remains open, and Stage 3 remains blocked.
