@@ -57,7 +57,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
   });
 
   try {
-    await page.route("**/api/trpc*", async route => {
+    await page.route(/\/api\/trpc(?:\/|$)/, async route => {
       const request = route.request();
       const url = new URL(request.url());
       const procedurePath = decodeURIComponent(url.pathname.split("/api/trpc/")[1] || "");
