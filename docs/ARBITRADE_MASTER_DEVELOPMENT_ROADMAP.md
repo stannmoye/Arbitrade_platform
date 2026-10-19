@@ -854,3 +854,19 @@ When continuing this project:
 - Stage 2 continuation counter: Prompt 4/30. Next batch: verify the triggered workflow against the exact latest head, repair failures within the same batch where possible, then pursue the browser acceptance gate. Stage 2 remains open until all exit criteria have evidence.
 
 - Additional same-batch consistency fix: server-published enabled-theme lists now use the same canonical order as the administrator policy helper and customer selector. Added exhaustive server tests for all allow-list subsets and defaults. Commits: `c4742005e7a8a3f34b9157807e4cb7e8719fc2a5`, `a77d72b1343b4961e901a16f736828662ebf653b`. Fresh CI and browser acceptance remain unconfirmed; keep Stage 2 open until evidence is available.
+
+
+## Stage 2 close-out continuation — Prompt 5/30 (2026-10-19)
+
+- Continued from the live PR #71 head; no restart or duplicate implementation.
+- Hardened `normalizeEnabledThemes` against an invalid fallback supplied by a JavaScript/persisted-data boundary. Even if the fallback violates the TypeScript union at runtime, normalization now returns the known `original` theme rather than propagating an unsupported value.
+- Added focused regression cases for invalid fallback values while retaining exhaustive checks across all 32 theme subsets and each theme toggle.
+- Tightened administrator customer-choice hydration so only the literal boolean `true` enables customer theme selection; malformed truthy values such as the string `"false"` cannot be interpreted as consent.
+- Commits: `90bee53cabb731b1a859f35380ebe85cfc701974` (normalizer hardening), `174abc2bdbf30d8eb042fa5010c62d44fee8e768` (regression tests), `1e04765bcb62f4198df9b95db082ca3524d748a7` (strict administrator policy hydration).
+- Reviewed the dedicated workflow definition and current PR head. The connected workflow-run action only returns pull-request-triggered runs, and returned no run for the latest head; this is not proof that a push-triggered run does not exist. A direct confirmed latest-head check/test/build result remains outstanding.
+- Browser gate remains open: no interactive browser is available through the connected tool surface, so the 10-width viewport matrix, overflow, keyboard/dialog/form states, and rendered five-theme contrast have not been executed or claimed.
+- **Done:** runtime policy hardening, client regression cases, admin hydration hardening, current-head/workflow/acceptance review.
+- **In progress:** obtaining trustworthy latest-head CI evidence and executable browser acceptance.
+- **Blocked by available tooling:** interactive browser execution and a repository-wide Actions run listing beyond the exposed PR-run lookup. Do not infer failure or success from the empty lookup.
+- **Next bundled batch:** use a CI path that can report the exact head's test/typecheck/build results; then run and record the browser matrix with an actual browser runner. Do not close Stage 2 until both gates have evidence.
+- **Continuation budget:** Prompt 5/30.
