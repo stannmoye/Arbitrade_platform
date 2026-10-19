@@ -1104,3 +1104,11 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Extended `server/design-system-contract.test.ts` to assert the mining workflow group expressions, cancellation policy, and rejection of the legacy `github.ref` grouping.
 - Commits: `a6b50c5aca20bcefdd668b4e568d11f3cf93e2ae`, `1e6987d08005bf4db966409b1f7732c660d50512`, `972a4ecef0c533377066590e9242ae3e9c73ea6f`.
 - The change is a CI scheduling hardening measure, not proof that GitHub runner queuing is resolved. Validate on the current head; do not infer success from queued status.
+
+## Duplicate Stage 2 trigger removal
+
+- The repository Actions run list showed separate `push` and `pull_request` Stage 2 runs being created for the same source branch and commit while the queue was stalled.
+- Removed the Stage 2 workflow's branch-specific `push` trigger. Automatic validation now runs for the open pull request; `workflow_dispatch` remains available for a maintainer to request a manual run.
+- Added a contract test that prevents the duplicate push trigger from being reintroduced.
+- Commits: `ab1efb69332ddd653fcb0a349f989f0f999cadfc`, `327a95c268d52ad9d78d96641156e807e6e22b0d`.
+- This avoids generating a second Stage 2 run for each pull-request update. It does not clear or explain the pre-existing queued runs; current-head validation is still pending.
