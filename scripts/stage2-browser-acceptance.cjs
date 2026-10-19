@@ -389,7 +389,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       await page.setViewportSize({ width: 1440, height: 1000 });
     }
     record("admin-appearance-authenticated-panel-screenshots-captured",
-      appearanceScreenshotPaths.length === THEMES.length * 2,
+      appearanceScreenshotPaths.length === THEMES.length * 3,
       { screenshotCount: appearanceScreenshotPaths.length, screenshots: appearanceScreenshotPaths.map(file => path.basename(file)) });
 
     const previewButton = page.getByRole("button", { name: /Aurora Modern/ });
