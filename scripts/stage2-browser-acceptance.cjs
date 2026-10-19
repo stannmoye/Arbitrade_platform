@@ -873,6 +873,14 @@ async function runCustomerRecoveryInteractionCheck(browser) {
     await page.route("**/api/customer/password-reset/request", async route => {
       requestCount += 1;
       await new Promise(resolve => setTimeout(resolve, 350));
+      if (requestCount === 1) {
+        await route.fulfill({
+          status: 429,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "Simulated reset request rate limit" }),
+        });
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -907,6 +915,24 @@ async function runCustomerRecoveryInteractionCheck(browser) {
     await requesting.waitFor({ state: "visible" });
     const requestBusy = await requesting.isDisabled() &&
       await requesting.getAttribute("aria-busy") === "true";
+    const requestError = page.getByRole("alert").filter({ hasText: "Simulated reset request rate limit" });
+    await requestError.waitFor({ state: "visible" });
+    const requestErrorRole = await requestError.getAttribute("role");
+    await page.waitForFunction(() => {
+      const button = Array.from(document.querySelectorAll(".email-recovery-panel button"))
+        .find(item => item.textContent?.includes("Send reset code"));
+      return button instanceof HTMLButtonElement && !button.disabled && button.getAttribute("aria-busy") === "false";
+    });
+    record("customer-password-recovery-request-error-recovers",
+      sendRequired && requestBusy && requestErrorRole === "alert" &&
+      await send.isEnabled() && requestCount === 1 && pageErrors.length === 0,
+      { sendRequired, requestBusy, requestErrorRole, requestCount, pageErrors });
+
+    await send.click();
+    const retrying = page.getByRole("button", { name: "Requesting…", exact: true });
+    await retrying.waitFor({ state: "visible" });
+    const retryBusy = await retrying.isDisabled() &&
+      await retrying.getAttribute("aria-busy") === "true";
     await page.getByRole("status").filter({ hasText: "Simulated reset code queued." }).waitFor({ state: "visible" });
     const requestStatus = await page.getByRole("status").innerText();
     const code = page.getByLabel("Eight-digit code");
@@ -916,10 +942,10 @@ async function runCustomerRecoveryInteractionCheck(browser) {
       await code.getAttribute("maxlength") === "8" &&
       await password.getAttribute("required") !== null &&
       await password.getAttribute("minlength") === "12";
-    record("customer-password-recovery-request-busy-and-confirm-transition",
-      sendRequired && requestBusy && /Simulated reset code queued/.test(requestStatus) &&
-      confirmRequired && requestCount === 1 && pageErrors.length === 0,
-      { sendRequired, requestBusy, requestStatus, confirmRequired, requestCount, pageErrors });
+    record("customer-password-recovery-request-retry-and-confirm-transition",
+      retryBusy && /Simulated reset code queued/.test(requestStatus) &&
+      confirmRequired && requestCount === 2 && pageErrors.length === 0,
+      { retryBusy, requestStatus, confirmRequired, requestCount, pageErrors });
 
     await code.fill("12345678");
     await password.fill("ValidRecoveryPass123!");
