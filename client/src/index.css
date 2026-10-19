@@ -441,3 +441,32 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
 @media(max-width:700px){.portal-header{position:relative!important}.customer-top-welcome-band,.customer-market-hero,.am-hero,.admin-ops-head,.report-hero{border-radius:16px!important}.customer-metric-grid,.admin-kpi-grid,.am-kpis,.admin-ops-metrics,.report-grid{grid-template-columns:1fr 1fr!important}.customer-quick-actions{grid-template-columns:1fr 1fr!important}.portal-action,.am-button,.admin-ops-button{min-height:42px}.customer-panel,.customer-ledger-panel,.admin-control-card,.admin-table-card,.am-panel,.admin-ops-panel{box-shadow:0 12px 30px rgba(0,0,0,.16),inset 0 1px rgba(255,255,255,.06)!important}}
 @media(max-width:460px){.customer-metric-grid,.admin-kpi-grid,.am-kpis,.admin-ops-metrics,.report-grid,.customer-quick-actions{grid-template-columns:1fr!important}.portal-header{padding-inline:12px!important}.portal-header .brand-lockup strong{font-size:15px!important}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important}}
+
+/* Stage 2: keep the administrator identity and controls legible on 320px screens. */
+@media (max-width: 360px) {
+  .admin-portal .portal-header {
+    gap: 8px !important;
+    padding-inline: 8px !important;
+  }
+  .admin-portal .portal-header .brand-lockup {
+    flex: 0 0 auto !important;
+    min-width: max-content !important;
+    gap: 6px !important;
+  }
+  .admin-portal .portal-header .brand-lockup strong {
+    white-space: nowrap !important;
+    font-size: 14px !important;
+  }
+  .admin-portal .portal-header .brand-lockup span,
+  .admin-portal .portal-header-context {
+    display: none !important;
+  }
+  .admin-portal .portal-session {
+    gap: 6px !important;
+    font-size: 0 !important;
+  }
+  .admin-portal .portal-session button {
+    margin-left: 0 !important;
+    padding-inline: 8px !important;
+  }
+}
