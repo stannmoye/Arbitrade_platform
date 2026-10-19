@@ -123,7 +123,18 @@ async function main() {
                 const root = document.documentElement;
                 const body = document.body;
                 const parseColor = value => {
-                  const parts = String(value).match(/[\d.]+/g);
+                  const input = String(value).trim();
+                  const hex = input.match(/^#([\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i);
+                  if (hex) {
+                    let digits = hex[1];
+                    if (digits.length === 3 || digits.length === 4) {
+                      digits = digits.slice(0, 3).split("").map(channel => channel + channel).join("");
+                    } else if (digits.length === 8) {
+                      digits = digits.slice(0, 6);
+                    }
+                    return [0, 2, 4].map(index => Number.parseInt(digits.slice(index, index + 2), 16));
+                  }
+                  const parts = input.match(/[\d.]+/g);
                   return parts && parts.length >= 3 ? parts.slice(0, 3).map(Number) : null;
                 };
                 const luminance = rgb => {
