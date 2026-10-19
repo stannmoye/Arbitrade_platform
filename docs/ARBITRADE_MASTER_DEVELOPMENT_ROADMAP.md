@@ -887,3 +887,14 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - **Tooling blocker:** this connected execution has repository/CI tools but no interactive browser session. Do not fabricate screenshots or report rendered-browser acceptance as passed. Browser verification must be performed by an available browser runner before Stage 2 can close.
 - **Next:** record this checkpoint, keep PR #71 draft, and do not merge or advance to Stage 3 until browser evidence is available. Recheck CI after any subsequent code changes.
 - **Continuation counter:** Prompt 6/30. This was a substantive validation/documentation batch; the counter tracks user interruptions, not tool calls or commits.
+
+
+## Stage 2 finalization continuation — Prompt 7/30 (2026-10-19)
+
+- Continued the existing Stage 2 implementation and acceptance workflow without restarting the branch.
+- Hardened the keyboard-focusable shared table region so empty/whitespace labels and malformed runtime values resolve to the stable accessible name `Scrollable table`; non-empty caller labels are trimmed. Added a regression contract.
+- Implementation commit: `c84b46db965c6a817a67ca9a0bc0b30c43956417`; contract test: `e1d7a4fdaacf4b5d07ef9746695d10f54d5f2c46`; acceptance checkpoint: `fbaca09ccaa2ae42ae0cd1e3cd77e7fa3fd830ee`.
+- Latest-head CI is **unconfirmed**: the connected workflow lookup returned no PR-triggered run for the test commit, and that lookup does not enumerate every push-triggered run. Earlier green runs cannot be used as proof for this newer head.
+- Browser acceptance remains the blocking exit gate: ten required viewport widths (320, 360, 390, 430, 480, 768, 1024, 1280, 1440, 1920), customer/admin routes, overflow, table keyboard access, forms/dialogs/dropdowns, disabled/busy controls, focus visibility, all five themes, and rendered contrast. No interactive browser session is exposed by the current connected tool surface, so no browser pass or screenshots are claimed.
+- Keep PR #71 draft and unmerged; do not advance to Stage 3 until fresh current-head CI and actual browser evidence are recorded.
+- Continuation counter: Prompt 7/30.
