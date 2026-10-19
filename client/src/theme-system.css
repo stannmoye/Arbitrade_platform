@@ -242,6 +242,42 @@
 }
 
 
+/* Keep the administrator appearance editor itself faithful to the selected theme.
+   The legacy admin skin uses !important dark gradients, so token-only declarations
+   otherwise leave a dark page with light cards even when Clean Light is selected. */
+:root[data-arb-theme] .admin-portal .portal-main:has(.arb-appearance-admin) {
+  background: var(--arb-color-canvas) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .settings-card {
+  background: var(--arb-color-surface) !important;
+  background-image: none !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .settings-card :where(h2, h3, strong, label) {
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .settings-card :where(p, small, .eyebrow, .arb-theme-preview-option > span:last-child) {
+  color: var(--arb-color-text-muted) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .arb-theme-preview-option {
+  background: var(--arb-color-surface-raised) !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .arb-theme-enabled-list label,
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .arb-appearance-policy-toggle {
+  background: var(--arb-color-surface-raised) !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .arb-theme-enabled-list small,
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .arb-appearance-policy-toggle small {
+  color: var(--arb-color-text-muted) !important;
+}
+
+
 /* Stage 2 adoption: apply semantic tokens to the shared portal building blocks.
    These scoped rules let existing screens inherit the selected theme without
    requiring each feature page to be rewritten individually. */
