@@ -318,17 +318,28 @@ async function runAdminAppearanceInteractionCheck(browser) {
     });
     const reloadedDefaultTheme = await page.getByLabel("Default theme").inputValue();
     const reloadedCustomerChoice = await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).isChecked();
-    const reloadedMidnightEnabled = await page.getByRole("checkbox", { name: /Midnight Premium/ }).isChecked();
+    const themeLabelPatterns = {
+      original: /Original/i,
+      "midnight-premium": /Midnight Premium/i,
+      "clean-light": /Clean Light/i,
+      "emerald-finance": /Emerald Finance/i,
+      "aurora-modern": /Aurora Modern/i,
+    };
+    const reloadedThemeStates = await Promise.all(THEMES.map(async theme => ({
+      theme,
+      enabled: await page.getByRole("checkbox", { name: themeLabelPatterns[theme] }).isChecked(),
+    })));
+    const reloadedEnabledThemes = reloadedThemeStates.filter(item => item.enabled).map(item => item.theme);
     const rejectedSaveReloadPreservesPersistedPolicy =
       reloadedDefaultTheme === persistedBeforeRejectedSave.defaultTheme &&
       reloadedCustomerChoice === persistedBeforeRejectedSave.customerCanSelect &&
-      reloadedMidnightEnabled === persistedBeforeRejectedSave.enabledThemes.includes("midnight-premium");
+      JSON.stringify(reloadedEnabledThemes) === JSON.stringify(persistedBeforeRejectedSave.enabledThemes);
     record("admin-appearance-rejected-save-preserves-persisted-policy-on-reload",
       rejectedSaveReloadPreservesPersistedPolicy,
       {
         reloadedDefaultTheme,
         reloadedCustomerChoice,
-        reloadedMidnightEnabled,
+        reloadedEnabledThemes,
         expectedPersistedPolicy: persistedBeforeRejectedSave,
         note: "Reload/refetch uses mocked settings storage; live database persistence remains an independent acceptance gate.",
       });
