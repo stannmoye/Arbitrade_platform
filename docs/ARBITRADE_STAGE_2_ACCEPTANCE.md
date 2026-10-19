@@ -346,3 +346,18 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - The first follow-up Chromium run on the mobile selector width change correctly failed: `admin-mobile-theme-selector-retains-readable-width` measured only **140.77px** at 390px, below the 150px acceptance threshold. This showed the selector's flex item was shrinking despite its width rule.
 - Corrected the compact selector to use a non-shrinking responsive flex basis (`flex: 0 0 min(10rem, 44vw)`) in commit `efcaa28f84437133816d211cbe393c9c71e77d2e`. The 390px browser assertion remains in place and is intended to catch regressions.
 - The failing run's other Stage 2 jobs passed (application tests, TypeScript, and production build); installer validation and mining database regression also passed. The Chromium result was **1,131 passed / 1 failed of 1,132**. The corrected code requires a fresh run; do not count this as a pass yet.
+
+
+## Exact-head validation — mobile theme selector and Quick Actions keyboard trap (2026-10-19)
+
+- Current code head `aeb837479b930e8e0c679e31ec6f1af97c5ca52a` passed Stage 2 workflow [#391 / 39295714293](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39295714293), installer validation [#727 / 39295714299](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39295714299), and mining database regression [#132 / 39295714295](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39295714295).
+- Inspected the exact-head Stage 2 artifact: **1,140 browser checks passed, 0 failures**. The report includes:
+  - Compact theme selector width: 200px at 390px and 192px at 320px; document width remains exactly 320px at the narrow viewport.
+  - Appearance label color matches the administrator header text across all five themes.
+  - Quick Actions dialog keyboard trap: 14 focusable controls; Shift+Tab wraps from the first control to the last and Tab wraps from the last to the first.
+  - Quick Actions pointer hit target: the trigger's center resolves to the trigger button itself.
+  - Existing dialog semantics, Escape-close, and focus restoration remain green.
+- Visually rechecked authenticated mocked administrator Appearance & Themes screenshots at 390px in Original and Clean Light. The full “Original Arbitrade” label is now readable, the label remains high-contrast when Clean Light is selected, and the mobile Menu button stays below the selector row. The artifact also contains desktop/mobile screenshots across all five themes; full human review of every captured screen is still a separate sign-off task.
+- Installer CI passed fresh disposable MariaDB install and appearance-policy authorization/database persistence checks, MySQL 8 migration compatibility/recovery, installer/migration regression tests, TypeScript, production build/server smoke, and deployment-package assembly. Mining database idempotency/transaction regression passed.
+- These are CI/disposable-database results, not a production deployment or production database verification. Browser administrator/auth/API fixtures remain mocked.
+- Remaining exit gates: broaden authenticated form/dialog/dropdown/disabled/busy coverage; complete human review of the full screenshot set; and record final Stage 2 acceptance sign-off. PR #71 remains open, draft, and unmerged; Stage 2 remains open and Stage 3 blocked.
