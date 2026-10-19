@@ -151,3 +151,7 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Real-browser acceptance remains outstanding for 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px, including overflow, table keyboard access, dialogs/forms/dropdowns, focus visibility, all five themes, and rendered contrast.
 - Stage 2 remains open until fresh current-head automated validation and browser acceptance evidence are recorded. Do not merge or mark complete based on source checks alone.
 - Continuation counter: Prompt 5/30.
+
+- **Same Prompt 5/30 — customer provider consistency review:** Found that `ThemeContext` independently deduplicated server-provided theme values while preserving arbitrary input order, rather than using the shared canonical normalizer. Replaced the duplicate implementation with `normalizeEnabledThemes` so the customer provider, administrator editor, and server settings agree on validation, fallback, uniqueness, and canonical order. Added a source-level integration contract to prevent the provider from reintroducing its own divergent normalization. Commits: `314d18efc59f5bca82679a52371c1cf85703514c` (provider) and `61a414592bd481a637196097e18f1058323224c0` (integration contract). Tests have been added but are not yet executed for this head.
+
+- Current-head validation remains unconfirmed. Browser acceptance is still required before closing Stage 2.
