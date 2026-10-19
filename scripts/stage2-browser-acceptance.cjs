@@ -650,7 +650,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
 
     // Exercise the actual navigation drawer as an accessible modal dialog:
     // initial focus, keyboard-loop boundaries, Escape close, and focus restore.
-    const quickActionsDialog = page.getByRole("dialog", { name: "Quick Actions" });
+    // Reuse the dialog locator created earlier in this interaction check.
     await quickActionsDialog.waitFor({ state: "visible" });
     const dialogState = await quickActionsDialog.evaluate(element => ({
       modal: element.getAttribute("aria-modal"),
