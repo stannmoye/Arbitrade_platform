@@ -222,6 +222,11 @@ describe("ARBITRADE shared design-system contract", () => {
   });
 
   it("keeps administrator appearance edits valid and protects the last enabled theme", () => {
+    expect(adminAppearance).toContain('<fieldset className="arb-appearance-theme-fieldset">');
+    expect(adminAppearance).toContain("<legend>Available customer themes</legend>");
+    expect(adminAppearance).toContain('role="group" aria-label="Theme preview choices"');
+    expect(themes).toContain(".arb-appearance-theme-fieldset { min-width: 0;");
+    expect(themes).toContain(".arb-appearance-theme-fieldset legend");
     expect(adminAppearance).toContain("toggleEnabledTheme(enabledThemes, candidate)");
     expect(adminAppearance).toContain("normalizeEnabledThemes(appearance.enabledThemes, requestedDefault)");
     expect(adminAppearance).toContain("disabled={controlsDisabled || (enabledThemes.length === 1 && enabledThemes.includes(option))}");
