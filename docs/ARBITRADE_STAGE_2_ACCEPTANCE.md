@@ -130,3 +130,11 @@ Do not mark Stage 2 complete based solely on source changes or CI. Record actual
 
 ### Honest close-out decision
 Stage 2 is NOT yet eligible to be marked complete. The remaining items are evidence gates, not a reason to redo the existing implementation. The connected GitHub tools can inspect and update source/PR metadata but do not provide an interactive browser session in this execution; browser evidence therefore cannot be fabricated. Complete the latest-head CI check and perform the browser matrix using an available browser runner before closing Stage 2 or advancing to Stage 3.
+
+## Finalization follow-up — Prompt 4/30 (2026-10-19)
+
+- Hardened `client/src/components/appearance-policy.ts` so normalization accepts unknown runtime input and treats non-array persisted values as an empty list, safely falling back to a known theme rather than throwing on malformed data.
+- Expanded `client/src/components/appearance-policy.test.ts` with malformed-value cases (null, undefined, scalar, string, object) and exhaustive checks across all 32 five-theme subsets and each possible toggle. The invariants under test are a non-empty allow-list, unique themes, canonical ordering, and the final-enabled-theme guard.
+- Code commits: `9065f21f717fd50857e87a4c42d123c682ae79f7`, `8caace927010b15be3e66e9d902e6417a1ae24a0`, and `942ca65cf80e1bc3f0a4f48cf272807c4c956253` (test expectation correction during review).
+- The GitHub Actions workflow is configured to run the full Vitest suite, TypeScript check, and production build on this branch. A confirmed result for the latest head is not yet recorded; no pass is claimed.
+- Still open: ten-width real-browser acceptance, page overflow, keyboard and interaction checks across all five themes, and rendered contrast evidence. These cannot be replaced by source tests.
