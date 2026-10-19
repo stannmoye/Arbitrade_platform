@@ -649,3 +649,15 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Exact-head mining database regression passed.
 - Browser evidence artifact: [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322323895/artifacts/12219784794) (retained until 2026-11-02).
 - Remaining gates are external to this mocked CI run: no staging URL is documented for a deployed authenticated browser session, broader authenticated portal review and final human sign-off remain outstanding. PR #71 remains draft/open/unmerged; Stage 2 stays open and Stage 3 blocked. No production deployment or production database change is claimed.
+
+
+## Exact-head closure checkpoint — 2026-10-19
+
+- Exact PR head `50e7ce246cac2d545053f1a4ad709d4eafd9484a` has all three required workflows green:
+  - Stage 2 validation [#488 / 39322737636](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322737636): all four jobs passed (application/regression suite, TypeScript, production build, and Chromium).
+  - Installer validation [#824 / 39322737743](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322737743): all jobs passed, including the disposable MariaDB authorization/persistence integration, MySQL 8 compatibility/recovery, installer/migration checks, server smoke test, and package assembly.
+  - Mining database regression [#229 / 39322738394](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322738394): passed.
+- The exact-head Chromium artifact reports **1,174 checks passed, 0 failures**. The latest retry-recovery scenario, five-theme editor sizing, compact navigation drawer behavior, keyboard-scrollable populated financial tables, theme-policy cases, and pending/error save states are included in this matrix.
+- The fresh MariaDB integration ran with `RUN_APPEARANCE_SETTINGS_DB_INTEGRATION=1`: **2 integration tests passed**. It resolved signed sessions against database roles, exercised the production tRPC router through an isolated local HTTP adapter, rejected customer/anonymous settings access, persisted the administrator policy, read it back, and verified a rejected customer write did not change the committed value. Test data was cleaned up; this was a disposable CI database, not production.
+- Automated acceptance gates are now green on the exact PR head. **Still external/open:** deployed staging browser acceptance (no staging URL is documented), complete human review of the broader authenticated portal screenshots/interactions, and final human sign-off. The static Chromium flow uses mocked API/auth data; the database integration is real but runs in an isolated CI environment.
+- PR #71 remains draft/open/unmerged. Do not claim deployed behavior or production changes. Stage 2 can be proposed for review once the external review/sign-off decision is made; Stage 3 remains blocked until formal acceptance.
