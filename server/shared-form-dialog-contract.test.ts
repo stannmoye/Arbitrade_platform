@@ -81,8 +81,8 @@ describe("shared form and dialog interaction contracts", () => {
 
 
   it("exposes password recovery pending and result states accessibly", () => {
-    expect(recovery.match(/aria-busy=\\{busy\\}/g) ?? []).toHaveLength(2);
-    expect(recovery.match(/disabled=\\{busy\\}/g) ?? []).toHaveLength(2);
+    expect(recovery.split("aria-busy={busy}")).toHaveLength(3);
+    expect(recovery.split("disabled={busy}")).toHaveLength(3);
     expect(recovery).toContain('{message && <p role="status" className="test-notice">');
     expect(recovery).toContain('{error && <p role="alert" className="auth-error">');
     expect(recovery).toContain('pattern="[0-9]{8}" maxLength={8} required');
