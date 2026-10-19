@@ -572,8 +572,10 @@ async function runAdminAppearanceInteractionCheck(browser) {
     const compactDialogLayout = await quickActionsDialog.evaluate(element => {
       const rect = element.getBoundingClientRect();
       const style = getComputedStyle(element);
-      const close = element.querySelector('[data-slot="dialog-close"]');
+      const close = element.querySelector('.admin-slide-close');
       const search = element.querySelector('input[aria-label="Search actions and destinations"]');
+      const nav = element.querySelector('.admin-slide-nav');
+      const navStyle = nav ? getComputedStyle(nav) : null;
       const withinViewport = rect.left >= 0 && rect.top >= 0 &&
         rect.right <= window.innerWidth + 1 && rect.bottom <= window.innerHeight + 1;
       return {
@@ -581,14 +583,16 @@ async function runAdminAppearanceInteractionCheck(browser) {
           width: rect.width, height: rect.height },
         viewport: { width: window.innerWidth, height: window.innerHeight },
         maxHeight: style.maxHeight,
-        overflowY: style.overflowY,
+        overflowY: navStyle?.overflowY ?? null,
+        navClientHeight: nav instanceof HTMLElement ? nav.clientHeight : null,
+        navScrollHeight: nav instanceof HTMLElement ? nav.scrollHeight : null,
         withinViewport,
         closeButtonPresent: close instanceof HTMLElement,
         searchPresent: search instanceof HTMLInputElement,
         documentWidth: document.documentElement.scrollWidth,
       };
     });
-    const compactCloseButtonVisible = await quickActionsDialog.locator('[data-slot="dialog-close"]').isVisible();
+    const compactCloseButtonVisible = await quickActionsDialog.locator('.admin-slide-close').isVisible();
     const compactSearchVisible = await commandSearch.isVisible();
     record("quick-actions-dialog-fits-compact-mobile-viewport",
       compactDialogLayout.withinViewport &&
