@@ -1,19 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { ARBITRADE_THEMES, type ArbitradeTheme } from "../components/appearance-policy";
 import { trpc } from "@/lib/trpc";
+
+export { ARBITRADE_THEMES };
+export type { ArbitradeTheme };
 
 // Legacy values remain in the context type for compatibility with the component
 // showcase and any existing light/dark-only consumers.
 export type Theme = "light" | "dark";
-
-export const ARBITRADE_THEMES = [
-  "original",
-  "midnight-premium",
-  "clean-light",
-  "emerald-finance",
-  "aurora-modern",
-] as const;
-
-export type ArbitradeTheme = (typeof ARBITRADE_THEMES)[number];
 
 export const ARBITRADE_THEME_LABELS: Record<ArbitradeTheme, string> = {
   original: "Original Arbitrade",
