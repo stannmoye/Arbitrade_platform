@@ -566,6 +566,44 @@ async function runAdminAppearanceInteractionCheck(browser) {
         noResultsFeedback,
       });
 
+    // Dialogs must remain operable when the on-screen keyboard leaves very little
+    // vertical space. Exercise the real rendered dialog at a compact phone size.
+    await page.setViewportSize({ width: 320, height: 568 });
+    const compactDialogLayout = await quickActionsDialog.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      const close = element.querySelector('[data-slot="dialog-close"]');
+      const search = element.querySelector('input[aria-label="Search actions and destinations"]');
+      const withinViewport = rect.left >= 0 && rect.top >= 0 &&
+        rect.right <= window.innerWidth + 1 && rect.bottom <= window.innerHeight + 1;
+      return {
+        bounds: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom,
+          width: rect.width, height: rect.height },
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        maxHeight: style.maxHeight,
+        overflowY: style.overflowY,
+        withinViewport,
+        closeButtonPresent: close instanceof HTMLElement,
+        searchPresent: search instanceof HTMLInputElement,
+        documentWidth: document.documentElement.scrollWidth,
+      };
+    });
+    const compactCloseButtonVisible = await quickActionsDialog.locator('[data-slot="dialog-close"]').isVisible();
+    const compactSearchVisible = await commandSearch.isVisible();
+    record("quick-actions-dialog-fits-compact-mobile-viewport",
+      compactDialogLayout.withinViewport &&
+      compactDialogLayout.bounds.width <= 320 &&
+      compactDialogLayout.bounds.height <= 568 &&
+      compactDialogLayout.overflowY === "auto" &&
+      compactDialogLayout.closeButtonPresent &&
+      compactDialogLayout.searchPresent &&
+      compactCloseButtonVisible &&
+      compactSearchVisible &&
+      compactDialogLayout.documentWidth <= 320,
+      { ...compactDialogLayout, compactCloseButtonVisible, compactSearchVisible });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await quickActionsDialog.evaluate(element => { element.scrollTop = 0; });
+
     const dialogFocusable = quickActionsDialog.locator(
       'button:not([tabindex="-1"]), input:not([tabindex="-1"])'
     );
