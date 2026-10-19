@@ -92,3 +92,6 @@ Do not mark Stage 2 complete based solely on source changes or CI. Record actual
 - Added a regression contract in `server/design-system-contract.test.ts` to protect this sizing boundary.
 - Commits: `31437b1baff27164c0a5dc51be3b9f6ed615d4c9` (CSS) and `fd3ac7fc5096209140bf824a2bdcba59c8448d59` (regression contract).
 - The new contract has not yet been confirmed by a workflow run. Real-browser viewport and embedded-content checks remain outstanding; Stage 2 is not complete.
+
+
+- **Contract review correction — 2026-10-19:** A follow-up source review caught that the new media test expected a selector without the existing SVG entry. Corrected the assertion to match the actual bounded-media selector, including SVG, in commit `ce0e8c3918c66e2c07d2f7fbc55a77e27e77ee6f`. This was caught during review before claiming test success. Automated CI remains unconfirmed for the latest head.
