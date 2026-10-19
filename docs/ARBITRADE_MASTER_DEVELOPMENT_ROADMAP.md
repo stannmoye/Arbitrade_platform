@@ -1142,3 +1142,13 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Follow-up commits in this batch: compact selector CSS and width assertions (`63e6d9b4`, `bf6c85f9`, `efcaa28f`, `88a6b668`, `a132700b`, `7f82f6e6`, `8c586336`, `4decac8d`, `59d0ad78`, `8cc7a250`), Quick Actions focus trap (`c59c7860`), and pointer hit-target assertion (`aeb83747`). Acceptance evidence is recorded in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`.
 - This checkpoint supersedes earlier “selector width pending” notes. The exact code head above is green; fresh CI for the documentation-only follow-up head still must be checked before claiming that newest head is validated.
 - Remaining Stage 2 exit gates: broader authenticated forms/dialogs/dropdowns/disabled/busy interactions; full human screenshot review; final acceptance sign-off. PR #71 remains open/draft/unmerged; Stage 2 remains open and Stage 3 blocked. No production deployment or production database mutation occurred.
+
+
+## Prompt 23/30 — Quick Actions search coverage green (2026-10-19)
+
+- Exact code head `dfdd5702b2dbd5f996b2abdbef7fb4d4f0054e14` passed Stage 2 #395, installer #731, and mining regression #136.
+- The latest Stage 2 artifact records **1,141/1,141 checks passed**. Added search coverage for quick-create actions, assigned-work counters, recent destinations, and accessible no-results feedback. Updated the search's accessible name and placeholder to “Search actions and destinations” so it no longer implies customer-record search that was not implemented.
+- Earlier in this continuation, fixed the compact theme selector width/contrast, added 320px no-overflow and five-theme label-contrast checks, added Quick Actions focus-trap wrapping coverage, and verified the trigger's center-point pointer hit target. All those checks remain green in the latest artifact.
+- Latest implementation commits include `ec3ad816` (search behavior) and `dfdd5702` (search acceptance tests). The acceptance evidence is recorded in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`.
+- Remaining Stage 2 gates: broader authenticated form and disabled/busy-state coverage, complete human review of all captured screenshots, and final sign-off. Browser auth/API fixtures are mocked; installer persistence/auth tests use disposable CI databases. PR #71 remains open/draft/unmerged, Stage 2 remains open, and Stage 3 remains blocked.
+- The green runs above validate the code head. This documentation-only update creates a new PR head, so check fresh CI for the updated head before claiming the newest commit is validated.
