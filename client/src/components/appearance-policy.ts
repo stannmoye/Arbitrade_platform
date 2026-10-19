@@ -19,7 +19,14 @@ export function normalizeEnabledThemes(
 ): ArbitradeTheme[] {
   const candidates: readonly unknown[] = Array.isArray(enabledThemes) ? enabledThemes : [];
   const normalized = ARBITRADE_THEMES.filter(theme => candidates.includes(theme));
-  return normalized.length ? normalized : [fallback];
+  if (normalized.length) return normalized;
+
+  // The TypeScript type protects ordinary callers, but persisted or JavaScript
+  // callers can still cross the boundary with an invalid fallback at runtime.
+  const safeFallback = (ARBITRADE_THEMES as readonly unknown[]).includes(fallback)
+    ? fallback
+    : "original";
+  return [safeFallback];
 }
 
 /**
