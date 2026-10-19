@@ -219,8 +219,10 @@ async function runAdminAppearanceInteractionCheck(browser) {
       return checks;
     }
 
-    await page.getByRole("button", { name: /Platform Configuration/ }).click();
-    await page.getByRole("button", { name: /Appearance & Themes/ }).click();
+    await page.getByRole("button", { name: /Platform Configuration/ }).focus();
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: /Appearance & Themes/ }).focus();
+    await page.keyboard.press("Enter");
     const appearanceLoaded = await page.getByRole("heading", { name: "Theme management" }).isVisible().catch(() => false);
     record("admin-appearance-screen-opened", appearanceLoaded);
     if (!appearanceLoaded) return checks;
@@ -517,8 +519,10 @@ async function runAdminAppearanceInteractionCheck(browser) {
     // before asserting that its controls have hydrated.
     await page.goto(`${BASE_URL}/ops-console-7f3a`, { waitUntil: "domcontentloaded" });
     await page.getByRole("heading", { name: "Control centre" }).waitFor({ state: "visible", timeout: 15000 });
-    await page.getByRole("button", { name: /Platform Configuration/ }).click();
-    await page.getByRole("button", { name: /Appearance & Themes/ }).click();
+    await page.getByRole("button", { name: /Platform Configuration/ }).focus();
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: /Appearance & Themes/ }).focus();
+    await page.keyboard.press("Enter");
     await page.getByRole("heading", { name: "Theme management" }).waitFor({ state: "visible", timeout: 15000 });
     await page.locator(".arb-appearance-admin select[aria-label=\"Default theme\"]").waitFor({ state: "visible", timeout: 15000 });
     await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).waitFor({ state: "visible" });
@@ -827,8 +831,10 @@ async function runAdminAppearanceInteractionCheck(browser) {
     failNextSettingsLoad = true;
     await page.goto(`${BASE_URL}/ops-console-7f3a`, { waitUntil: "domcontentloaded" });
     await page.getByRole("heading", { name: "Control centre" }).waitFor({ state: "visible", timeout: 15000 });
-    await page.getByRole("button", { name: /Platform Configuration/ }).click();
-    await page.getByRole("button", { name: /Appearance & Themes/ }).click();
+    await page.getByRole("button", { name: /Platform Configuration/ }).focus();
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: /Appearance & Themes/ }).focus();
+    await page.keyboard.press("Enter");
     const settingsLoadAlert = page.getByRole("alert")
       .filter({ hasText: "Appearance settings could not be loaded" });
     await settingsLoadAlert.waitFor({ state: "visible" });
