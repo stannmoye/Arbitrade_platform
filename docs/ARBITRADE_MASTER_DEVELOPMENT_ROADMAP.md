@@ -844,3 +844,11 @@ When continuing this project:
 - **In progress:** latest-head CI evidence and Stage 2 acceptance verification.
 - **Blocked by available tooling:** actual interactive browser/viewport evidence. This is an evidence blocker, not authorization to mark the stage complete without proof.
 - **Next bundled work:** retrieve latest CI results; fix any failure in the same batch. Then run the customer/admin browser matrix and record measured outcomes. Do not advance to Stage 3 until these acceptance gates pass.
+
+## Stage 2 finalization follow-up — Prompt 4/30 (2026-10-19)
+
+- Continued the existing Stage 2 branch; did not restart or duplicate the theme implementation.
+- Hardened the pure appearance-policy normalizer against malformed runtime input and added exhaustive subset/toggle regression coverage. Changes are recorded in `client/src/components/appearance-policy.ts` and `client/src/components/appearance-policy.test.ts`.
+- Commits: `9065f21f717fd50857e87a4c42d123c682ae79f7`, `8caace927010b15be3e66e9d902e6417a1ae24a0`, `942ca65cf80e1bc3f0a4f48cf272807c4c956253`; acceptance record commit follows.
+- Status: source implementation and regression cases added; latest-head CI result is not yet confirmed. Required browser/viewport evidence remains outstanding and must not be fabricated.
+- Stage 2 continuation counter: Prompt 4/30. Next batch: verify the triggered workflow against the exact latest head, repair failures within the same batch where possible, then pursue the browser acceptance gate. Stage 2 remains open until all exit criteria have evidence.
