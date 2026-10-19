@@ -249,6 +249,9 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(designSystem).toContain("min-width: 0;");
     expect(designSystem).toContain("max-width: 100%;");
     expect(designSystem).toContain("overflow-wrap: anywhere;");
+    expect(designSystem).toContain(".arb-page :where(img, video, iframe, canvas, svg)");
+    expect(designSystem).toContain(".arb-page :where(input, select, textarea)");
+    expect(designSystem).toContain(".arb-page :where(pre, code)");
     expect(designSystem).toContain("@media (max-width: 640px)");
     expect(designSystem).toContain("-webkit-overflow-scrolling: touch;");
   });
