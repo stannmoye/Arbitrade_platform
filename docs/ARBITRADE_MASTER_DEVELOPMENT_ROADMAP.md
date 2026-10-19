@@ -1215,3 +1215,12 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Recorded the findings in `docs/ARBITRADE_STAGE_3_ACCEPTANCE.md`. No duplicate tests or code changes were added because the reviewed source-level boundaries already have focused coverage.
 - Release gates remain open: manual keyboard-only and screen-reader/assistive-technology review, plus authenticated deployed-session verification of server authorization and real database persistence. No staging URL has been provided; mocked browser API responses cannot satisfy the live integration gate.
 - PR #72 remains draft/open/unmerged. No merge or deployment was performed.
+
+
+## Stage 3 continuation — Prompt 10/30 (2026-10-20)
+
+- Reconciled current PR #72 head `1f94e3699cc81b8a475652c8069ec10c3b8088d9` against actual workflow-job evidence.
+- Run [#578](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39339876592) was cancelled: the application/theme-policy regression job completed successfully, while TypeScript validation, production build, and Chromium acceptance were cancelled before their validation steps. Do not describe this run as fully green.
+- Previous exact-head run #577 passed all four jobs on `dbe5f77adf88e71559df4a0eeac73a7b8655f68c`, but it does not validate subsequent documentation commits. The current-head workflow lookup returned no matching PR-triggered run during this check; fresh exact-head CI is still required.
+- Re-read the theme context and storage helper/tests. The storage identity readiness guard and role/account-key tests already address the reviewed account-switch persistence concern, so no unneeded source change was introduced.
+- Next: obtain a fresh run on the latest head and verify all four job conclusions before proceeding. Accessibility and authenticated staging acceptance remain open; no staging URL is available. PR #72 remains draft/open/unmerged. No merge or deployment.
