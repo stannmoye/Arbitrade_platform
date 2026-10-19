@@ -43,6 +43,7 @@ function Button({
   asChild = false,
   "aria-busy": ariaBusy,
   "aria-disabled": ariaDisabled,
+  disabled,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
@@ -57,6 +58,7 @@ function Button({
       data-wb-state={ariaBusy ? "loading" : "idle"}
       aria-busy={ariaBusy}
       aria-disabled={ariaBusy ? true : ariaDisabled}
+      disabled={Boolean(disabled || ariaBusy)}
       className={cn("wb-button", buttonVariants({ variant, size, className }))}
       {...props}
     />
