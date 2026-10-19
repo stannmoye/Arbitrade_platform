@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { ARBITRADE_THEMES, normalizeEnabledThemes, type ArbitradeTheme } from "../components/appearance-policy";
+import { canCustomerSelectTheme, resolveCustomerTheme } from "./theme-policy";
 import { trpc } from "@/lib/trpc";
 
 export { ARBITRADE_THEMES };
@@ -95,16 +96,18 @@ export function ThemeProvider({
 
   useEffect(() => {
     if (auth.isLoading || auth.isError || appearance.isError || isAdmin || !policy) return;
-    let selected: ArbitradeTheme = policyDefault;
-    if (customerCanSelect) {
-      try {
-        const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-        if (isTheme(stored) && enabledThemes.includes(stored)) selected = stored;
-      } catch {
-        // Continue with the administrator-published default when storage is unavailable.
-      }
+    let storedTheme: string | null = null;
+    try {
+      storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    } catch {
+      // Continue with the administrator-published default when storage is unavailable.
     }
-    setThemeState(selected);
+    setThemeState(resolveCustomerTheme({
+      storedTheme,
+      policyDefault,
+      enabledThemes,
+      customerCanSelect,
+    }));
   }, [auth.isLoading, auth.isError, appearance.isError, isAdmin, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
 
   // Keep theme previews in sync across tabs while revalidating customer choices
@@ -121,10 +124,12 @@ export function ThemeProvider({
       }
 
       if (!policy || appearance.isError) return;
-      const nextTheme = customerCanSelect && isTheme(event.newValue) && enabledThemes.includes(event.newValue)
-        ? event.newValue
-        : policyDefault;
-      setThemeState(nextTheme);
+      setThemeState(resolveCustomerTheme({
+        storedTheme: event.newValue,
+        policyDefault,
+        enabledThemes,
+        customerCanSelect,
+      }));
     };
 
     window.addEventListener("storage", handleStorage);
@@ -140,7 +145,7 @@ export function ThemeProvider({
     // Do not accept customer theme changes until authentication and the server policy
     // have both resolved; this prevents role/policy transitions from applying stale choices.
     if (!policy || appearance.isError) return;
-    if (customerCanSelect && enabledThemes.includes(nextTheme)) setThemeState(nextTheme);
+    if (canCustomerSelectTheme(nextTheme, enabledThemes, customerCanSelect)) setThemeState(nextTheme);
   };
 
   useEffect(() => {
