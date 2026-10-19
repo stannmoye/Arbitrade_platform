@@ -1112,3 +1112,13 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Added a contract test that prevents the duplicate push trigger from being reintroduced.
 - Commits: `ab1efb69332ddd653fcb0a349f989f0f999cadfc`, `327a95c268d52ad9d78d96641156e807e6e22b0d`.
 - This avoids generating a second Stage 2 run for each pull-request update. It does not clear or explain the pre-existing queued runs; current-head validation is still pending.
+
+
+## Continuation update — Prompt 23/30 (2026-10-19)
+
+- Rechecked exact prior head `d5b1f0ba6856dd5a5c34b61965d02b6c9ea39b1b`: Stage 2 #376, installer #712, and mining regression #117 all passed. Inspected the Stage 2 artifact directly: **1,131 browser checks passed, zero failures**. The new mobile navigation geometry check and Quick Actions dialog focus/Escape checks passed.
+- Human screenshot review of the authenticated mocked administrator Appearance & Themes panel found the mobile header overlap fix effective, but the compact native theme selector displayed only “Original A”. This is now being addressed rather than treating a passing geometry test as sufficient visual acceptance.
+- Added a bounded mobile selector width rule in `client/src/design-system.css` and a 390px Chromium width assertion in `scripts/stage2-browser-acceptance.cjs`. Commits: `63e6d9b4d970ac68f5777b1486c4d748c5a5c7d5` and `bf6c85f964038c6eef4d482148caa702134d241c`. Acceptance evidence was recorded in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`.
+- Exact-head CI after these changes is still pending; the prior green results do not validate the selector width adjustment. Continue by checking the newest branch head and workflow runs, downloading its browser report/screenshots, and fixing any failure before expanding the next authenticated interaction batch.
+- Installer CI on the prior head includes passing disposable MariaDB appearance authorization/persistence checks and MySQL 8 migration recovery; this is not production database verification. Browser auth/API fixtures remain mocked.
+- Remaining Stage 2 exit gates: latest-head CI; broader authenticated form/dialog/dropdown/disabled/busy interactions; full screenshot review; final sign-off. PR #71 remains draft/open/unmerged. Stage 2 remains open and Stage 3 blocked. No production deployment or production database mutation occurred.
