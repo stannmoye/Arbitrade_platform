@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { ARBITRADE_THEMES, type ArbitradeTheme } from "../components/appearance-policy";
+import { ARBITRADE_THEMES, normalizeEnabledThemes, type ArbitradeTheme } from "../components/appearance-policy";
 import { trpc } from "@/lib/trpc";
 
 export { ARBITRADE_THEMES };
@@ -37,10 +37,10 @@ function isTheme(value: unknown): value is ArbitradeTheme {
   return typeof value === "string" && ARBITRADE_THEMES.some(theme => theme === value);
 }
 
-function readEnabledThemes(value: unknown): ArbitradeTheme[] {
-  if (!Array.isArray(value)) return [];
-  // Ignore malformed entries and duplicates while preserving the published order.
-  return Array.from(new Set(value.filter(isTheme)));
+function readEnabledThemes(value: unknown, fallback: ArbitradeTheme): ArbitradeTheme[] {
+  // Reuse the domain normalizer so server, administrator and customer theme
+  // lists share the same validation and canonical product order.
+  return normalizeEnabledThemes(value, fallback);
 }
 
 function readStoredTheme(defaultTheme: ArbitradeTheme): ArbitradeTheme {
@@ -70,8 +70,7 @@ export function ThemeProvider({
   const requestedPolicyDefault = isTheme(policy?.defaultTheme) ? policy.defaultTheme : defaultTheme;
   // A published default must also be in the allow-list. If configuration is malformed
   // or omits that default, consistently fall back to the first permitted theme.
-  const configuredThemes = readEnabledThemes(policy?.enabledThemes);
-  const enabledThemes = configuredThemes.length > 0 ? configuredThemes : [requestedPolicyDefault];
+  const enabledThemes = readEnabledThemes(policy?.enabledThemes, requestedPolicyDefault);
   const policyDefault = enabledThemes.includes(requestedPolicyDefault)
     ? requestedPolicyDefault
     : enabledThemes[0];
