@@ -258,7 +258,7 @@ describe("ARBITRADE shared design-system contract", () => {
 
 
   it("keeps responsive media bounded without overriding explicit embed or canvas heights", () => {
-    expect(designSystem).toContain(".arb-page :where(img, video, iframe, canvas) {");
+    expect(designSystem).toContain(".arb-page :where(img, video, iframe, canvas, svg) {");
     expect(designSystem).toContain("max-width: 100%;");
     expect(designSystem).toContain(".arb-page :where(img, video) {\n  height: auto;\n}");
     expect(designSystem).not.toContain(".arb-page :where(img, video, iframe, canvas) {\n  height: auto;\n}");
