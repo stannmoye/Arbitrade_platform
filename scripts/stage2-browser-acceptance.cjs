@@ -378,6 +378,40 @@ async function main() {
             title: document.title,
           }));
 
+          if (route.name === "gateway" && width <= 360) {
+            const headingWord = await page.evaluate(() => {
+              const heading = document.querySelector(".portal-gateway .gateway-card h1");
+              if (!heading) return { found: false, rectCount: 0, fontSize: null, text: null };
+              const walker = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT);
+              let node;
+              while ((node = walker.nextNode())) {
+                const text = node.textContent || "";
+                const start = text.toLowerCase().indexOf("workspace");
+                if (start < 0) continue;
+                const range = document.createRange();
+                range.setStart(node, start);
+                range.setEnd(node, start + "workspace".length);
+                return {
+                  found: true,
+                  rectCount: range.getClientRects().length,
+                  fontSize: getComputedStyle(heading).fontSize,
+                  text: heading.textContent?.trim() || "",
+                };
+              }
+              return { found: false, rectCount: 0, fontSize: getComputedStyle(heading).fontSize, text: heading.textContent?.trim() || "" };
+            });
+            const headingItem = {
+              route: route.path,
+              routeName: route.name,
+              width,
+              check: "gateway-heading-word-not-split",
+              ...headingWord,
+              passed: headingWord.found && headingWord.rectCount === 1,
+            };
+            results.push(headingItem);
+            if (!headingItem.passed) failures.push(headingItem);
+          }
+
           const overflow = dimensions.documentWidth > dimensions.viewportWidth + 1;
           await page.keyboard.press("Tab");
           const focusItem = await page.evaluate(() => {
