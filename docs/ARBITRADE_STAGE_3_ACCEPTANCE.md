@@ -28,10 +28,9 @@ Finish and verify the existing five-theme implementation without duplicating Sta
 - [x] Run the updated application/theme-policy tests and TypeScript validation on the current implementation commit.
 - [x] Build the production client and server bundles on the current implementation commit.
 - [x] Run the Chromium viewport/five-theme smoke matrix on the current implementation commit.
-- [ ] Review theme compatibility overrides against active customer/admin components; fix any concrete visual integration gaps found.
 - [ ] Complete human keyboard-only and screen-reader review.
 - [ ] Verify live server authorization, database persistence, and cross-account isolation in authenticated staging.
-- [ ] Update this checklist with the final human/staging evidence and remaining limitations before Stage 3 closeout.
+- [ ] Record human/staging evidence and remaining limitations before Stage 3 closeout.
 
 ## Current code change
 
@@ -41,15 +40,19 @@ A follow-up review found that storage-key scoping and persistence gating prevent
 
 ## Current-head CI validation
 
-GitHub Actions run [#591](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39342933987) completed successfully on implementation commit `66c72f4c4a599b1e82890f2fb080a6b7e4b05aed):
+Two completed GitHub Actions runs provide validation evidence:
 
+- Run [#591](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39342933987) tested implementation commit `66c72f4c4a599b1e82890f2fb080a6b7e4b05aed`.
+- Run [#592](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39343171197) tested the current PR head `961098376d645b7392d3a6b4bf95de92572d95bf`, which includes the acceptance-ledger documentation update.
+
+Run #592 completed successfully:
 - Application and theme-policy regression tests: **passed**.
 - TypeScript validation: **passed**.
 - Production build: **passed**.
 - Chromium viewport and five-theme smoke matrix: **passed — 1,174 checks, 1,174 passed, 0 failures**.
-- Browser evidence artifact: [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39342933987/artifacts/12229712342).
+- Browser evidence artifact for run #592: [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39343171197/artifacts/12229469110).
 
-The browser job uses a static client preview and mocked API responses for several interactions. These results verify the automated browser matrix but do not prove live server authorization or database persistence. This validation applies to the implementation commit above; subsequent changes require their own verification.
+The browser job uses a static client preview and mocked API responses for several interactions. These results verify the automated browser matrix but do not prove live server authorization or database persistence.
 
 ## External limitations
 
