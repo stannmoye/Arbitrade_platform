@@ -13,6 +13,7 @@ const componentShowcase = readFileSync(new URL("../client/src/pages/ComponentSho
 const routers = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const browserAcceptance = readFileSync(new URL("../scripts/stage2-browser-acceptance.cjs", import.meta.url), "utf8");
 const workflow = readFileSync(new URL("../.github/workflows/stage-2-design-system.yml", import.meta.url), "utf8");
+const installerWorkflow = readFileSync(new URL("../.github/workflows/installer-validation.yml", import.meta.url), "utf8");
 
 describe("ARBITRADE shared design-system contract", () => {
   it("defines the semantic tokens used by shared components", () => {
@@ -384,6 +385,13 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(workflow).toContain("group: stage-2-design-system-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}");
     expect(workflow).toContain("cancel-in-progress: true");
     expect(workflow).not.toContain("group: stage-2-design-system-${{ github.workflow }}-${{ github.ref }}");
+  });
+
+
+  it("coalesces superseded installer validation runs per pull request", () => {
+    expect(installerWorkflow).toContain("concurrency:");
+    expect(installerWorkflow).toContain("group: installer-validation-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}");
+    expect(installerWorkflow).toContain("cancel-in-progress: true");
   });
 
 });
