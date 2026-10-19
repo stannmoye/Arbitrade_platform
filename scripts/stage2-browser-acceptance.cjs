@@ -235,11 +235,12 @@ async function runAdminAppearanceInteractionCheck(browser) {
     await page.goto(`${baseUrl}/ops-console-7f3a`, { waitUntil: "domcontentloaded" });
     await page.getByRole("heading", { name: /Administrator|Admin/i }).first().waitFor({ state: "visible" }).catch(() => {});
 
-    // Exercise real operations table wrappers with populated mocked ledger data at a mobile width.
-    await page.setViewportSize({ width: 390, height: 844 });
+    // Navigate while the desktop quick-action trigger is unobstructed, then resize
+    // the populated financial page to mobile width for the keyboard-scroll check.
     await page.getByRole("button", { name: "Open Quick Actions" }).click();
     await page.getByRole("button", { name: /Wallet & ledger/ }).click();
     await page.getByRole("heading", { name: "Transaction review" }).waitFor({ state: "visible" });
+    await page.setViewportSize({ width: 390, height: 844 });
 
     for (const tableCase of [
       { label: "Trades awaiting manual settlement", check: "populated-settlement-table-keyboard-scroll", minimumRows: 10 },
