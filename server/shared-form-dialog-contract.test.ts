@@ -60,6 +60,8 @@ describe("shared form and dialog interaction contracts", () => {
   it("keeps shared button disabled state explicit and visibly distinguishable", () => {
     expect(button).toContain("disabled:pointer-events-none");
     expect(button).toContain("disabled:opacity-50");
+    expect(button).toContain('disabled={Boolean(disabled || ariaBusy)}');
+    expect(button).toContain('aria-disabled={ariaBusy ? true : ariaDisabled}');
     expect(button).toContain("focus-visible:ring-[3px]");
     expect(button).toContain("aria-invalid:ring-destructive/20");
   });
