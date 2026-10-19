@@ -157,9 +157,11 @@ export function ThemeProvider({
     // authentication is resolving; this prevents a stale initial theme flash.
     const effectiveTheme = auth.isError || (auth.isLoading && policy) || (!isAdmin && appearance.isError)
       ? policyDefault
-      : !auth.isLoading && !isAdmin && policy
-        ? (customerCanSelect && enabledThemes.includes(theme) ? theme : policyDefault)
-        : theme;
+      : !auth.isLoading && themePreferenceReadyKey !== activeStorageKey
+        ? (isAdmin ? defaultTheme : policyDefault)
+        : !auth.isLoading && !isAdmin && policy
+          ? (customerCanSelect && enabledThemes.includes(theme) ? theme : policyDefault)
+          : theme;
     root.dataset.arbTheme = effectiveTheme;
     root.classList.toggle("dark", effectiveTheme !== "clean-light");
     root.style.colorScheme = effectiveTheme === "clean-light" ? "light" : "dark";
