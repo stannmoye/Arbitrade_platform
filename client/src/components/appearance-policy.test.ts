@@ -57,7 +57,7 @@ describe("administrator enabled-theme policy transitions", () => {
         expect(next.length, `mask=${mask}, candidate=${candidate}`).toBeGreaterThan(0);
         expect(new Set(next).size).toBe(next.length);
         expect(next).toEqual(ARBITRADE_THEMES.filter(theme => next.includes(theme)));
-        expect(next).toContain(candidate === normalized[0] && normalized.length === 1 ? normalized[0] : next.includes(candidate) ? candidate : normalized[0]);
+        expect(next.includes(candidate)).toBe(!normalized.includes(candidate) || normalized.length === 1);
       }
     }
   });
