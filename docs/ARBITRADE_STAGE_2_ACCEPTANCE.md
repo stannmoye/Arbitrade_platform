@@ -257,3 +257,10 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - The scenario now asserts the applied document theme remains `clean-light`, preventing a previously stored but now-disallowed customer preference from overriding policy.
 - This is still a mocked browser scenario. Fresh CI for the latest head must pass before the check is considered verified; live API/database persistence remains outside its scope.
 - Commit: `01ea8c98003de6caa138835441efaef59efd8f5e`.
+
+
+## Customer theme policy unit coverage — 2026-10-19
+
+- Added `client/src/contexts/theme-policy.test.ts` with focused cases for stale preference rejection when customer choice is disabled, allow-list rejection, allowed preference preservation, malformed/unknown preference fallback, and direct selection permission checks.
+- Commit: `fdf455ba9b12d8131ab067ea330000f3f41d7390`.
+- These tests exercise the pure policy resolver and guard behavior independently of browser rendering. They are committed but have not yet been confirmed in a fresh workflow run on this exact commit.
