@@ -256,7 +256,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
           };
         });
         record("admin-mobile-theme-selector-retains-readable-width", Boolean(
-          themeSelectBounds && themeSelectBounds.width >= 150
+          themeSelectBounds && themeSelectBounds.width >= 180
         ), {
           width: 390,
           themeSelectBounds,
