@@ -192,9 +192,18 @@ async function runAdminAppearanceInteractionCheck(browser) {
       savedAppearance,
       submittedAppearance: mutations.at(-1)?.appearance ?? null,
     });
+    const updateRequestIndex = apiRequests.findIndex(item =>
+      item.procedures?.includes("adminOperations.updateSettings"));
+    const settingsRefetched = updateRequestIndex >= 0 &&
+      apiRequests.slice(updateRequestIndex + 1).some(item =>
+        item.procedures?.includes("adminOperations.settings"));
     const feedback = (await page.getByRole("status").filter({ hasText: "Appearance policy saved" }).innerText()).includes("Appearance policy saved") &&
-      (await page.getByLabel("Default theme").inputValue()) === "clean-light";
-    record("admin-appearance-save-feedback-and-refetch", feedback);
+      (await page.getByLabel("Default theme").inputValue()) === "clean-light" &&
+      settingsRefetched;
+    record("admin-appearance-save-feedback-and-refetch", feedback, {
+      settingsRefetched,
+      updateRequestIndex,
+    });
   } catch (error) {
     record("admin-appearance-interaction-unhandled-error", false, {
       error: error instanceof Error ? error.message : String(error),
