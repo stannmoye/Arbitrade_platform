@@ -1072,10 +1072,16 @@
   min-height: 44px;
 }
 
-/* Preserve the full theme name in the compact portal header on narrow screens. */
+/* Preserve the full theme name and header-label contrast in compact portal headers. */
+.arb-theme-selector-compact .arb-theme-selector-title {
+  color: var(--wb-text, #e9f0f7) !important;
+}
+
 .arb-theme-selector-compact select {
-  width: min(10rem, 44vw);
-  flex: 0 0 min(10rem, 44vw);
+  width: min(10rem, 44vw) !important;
+  min-width: min(10rem, 44vw) !important;
+  flex: 0 0 min(10rem, 44vw) !important;
+  flex-shrink: 0 !important;
 }
 
 /* Stage 2 accessibility: honor reduced-motion preferences throughout adopted pages. */
