@@ -31,7 +31,8 @@ Finish and verify the existing five-theme implementation without duplicating Sta
 - [x] Verify the customer-selected theme is restored after a full browser-page reload when customer choice is enabled; the scenario seed now runs once per tab so it does not erase the stored preference on reload.
 - [x] Record the CI artifact containing screenshots and the browser report.
 - [x] Review the latest run #520 screenshot artifact for representative administrator Appearance & Themes screens at desktop (1440px) and narrow mobile (320px) widths across all five themes. The mobile controls stack vertically, the full theme labels and save action remain visible, and no obvious overlap/clipping was found in the reviewed captures.
-- [ ] Complete formal accessibility review of rendered contrast, focus visibility, keyboard behavior, and screen-reader semantics; screenshot review and automated checks do not replace this audit.
+- [x] Complete a preliminary evidence-based accessibility pass over the exact-code-head browser report and representative desktop/mobile screenshots; record findings below. This is not a substitute for the remaining formal human accessibility review.
+- [ ] Complete formal accessibility review of screen-reader semantics, full keyboard-only flows, and manual assistive-technology behavior; automated checks and screenshot review do not replace this audit.
 - [ ] Complete authenticated deployed-session acceptance when a staging URL is available.
 - [ ] Record any additional findings and remaining limitations before final Stage 3 acceptance.
 
@@ -49,7 +50,20 @@ Exact code-head GitHub Actions run [#540](https://github.com/stannmoye/Arbitrade
 - Chromium viewport and five-theme smoke matrix: **1,174 checks passed, 0 failures**.
 - Browser evidence artifact: [stage-3-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39334670742/artifacts/12225682366). Inspected `report.json`: **1,174 passed, 0 failed**, covering five themes across 10 viewport widths and three entry routes.
 
-Earlier runs exposed a stale workflow source-contract assertion and a browser check reading the retired storage key. Both were corrected. Run #540 validates the latest application-code commit before this documentation refresh; the follow-up documentation commit triggers a docs-only CI run. Do not treat the static browser run as proof of live server authorization or database persistence. Do not treat the static browser run as proof of live server authorization or database persistence: the browser script uses mocked API responses for several interactions, while server-side behavior is covered separately by automated tests.
+Earlier runs exposed a stale workflow source-contract assertion and a browser check reading the retired storage key. Both were corrected. Run #540 validates the latest application-code commit before this documentation refresh; follow-up documentation commits trigger fresh CI. Do not treat the static browser run as proof of live server authorization or database persistence: the browser script uses mocked API responses for several interactions, while server-side behavior is covered separately by automated tests.
+
+## Preliminary accessibility evidence review (2026-10-19)
+
+Reviewed the exact-code-head #540 `report.json` and the captured 320px Clean Light administrator Appearance screen in addition to the existing desktop/mobile screenshot review. The static report records:
+
+- **150/150** rendered-text contrast checks passed; minimum measured ratio **5.05:1**.
+- **150/150** checks passed for each semantic token pair: text/canvas (minimum **14.52:1**), text/surface (**15.19:1**), soft text/canvas (**8.94:1**), muted text/canvas (**4.70:1**), and focus ring/canvas (**5.64:1**). The measured checks meet the thresholds encoded by the test (4.5:1 for text and 3:1 for focus indication).
+- **30/30** keyboard-focus-visible checks passed.
+- Customer navigation checks passed for closed-drawer tab-stop removal, empty-search announcement, forward/reverse focus trapping, and Escape-trigger focus restoration.
+- Quick Actions dialog checks passed for dialog semantics, forward/reverse focus wrapping, and Escape-close/focus restoration. Administrator default-theme dropdown keyboard navigation passed.
+- The 320px Clean Light administrator screenshot shows the full theme-management form, labels, customer policy controls, and save action within the narrow viewport; no obvious clipping or horizontal page overflow was observed in the inspected capture.
+
+**Scope limit:** these are automated browser assertions and a limited screenshot review, not a complete WCAG conformance audit. They do not fully establish screen-reader announcements, all interactive states, browser/assistive-technology combinations, or manual keyboard-only behavior. Keep the formal accessibility gate open until that review is completed.
 
 ## External limitations and release gates
 
