@@ -237,7 +237,10 @@ async function runAdminAppearanceInteractionCheck(browser) {
 
     // Navigate while the desktop quick-action trigger is unobstructed, then resize
     // the populated financial page to mobile width for the keyboard-scroll check.
-    await page.getByRole("button", { name: "Open Quick Actions" }).click();
+    const quickActionsTrigger = page.getByRole("button", { name: "Open Quick Actions" });
+    await quickActionsTrigger.focus();
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: /Wallet & ledger/ }).waitFor({ state: "visible" });
     await page.getByRole("button", { name: /Wallet & ledger/ }).click();
     await page.getByRole("heading", { name: "Transaction review" }).waitFor({ state: "visible" });
     await page.setViewportSize({ width: 390, height: 844 });
