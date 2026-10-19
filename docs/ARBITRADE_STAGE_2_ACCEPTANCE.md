@@ -489,3 +489,7 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Follow-up commits: `6b9e4235d001d7c5cca6c3c22c93557bcecf08aa` (initial contract coverage), `d5afc5d1a99be0c4d5638eaa8cdcce3a45181ce4` (assertion correction), and `82263065c9601fd7a4de3ec6609f8fbb6010985e` (rate-limit retry browser coverage).
 - No fresh CI result is currently available for these new commits. The prior green workflow results predate this change and must not be treated as validation for the current head. The connector does not expose a workflow-dispatch action; exact-head CI status remains unconfirmed.
 - Browser endpoints remain mocked. No real email is sent, no password is changed, and no production session or database is touched. Keep PR #71 draft/unmerged and Stage 2 open.
+
+
+- Test review follow-up: scoped the recovery email locator to the recovery panel because the sign-in screen and inline reset panel both contain an “Email address” field. This avoids Playwright strict-mode ambiguity. Commit: `c87a11de91f721cdb47988e3dd8e10e778863a60`.
+- The prior run was started before this final locator correction; fresh exact-head CI is required for the corrected script.
