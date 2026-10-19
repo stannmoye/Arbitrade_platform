@@ -57,6 +57,33 @@ async function main() {
           }));
 
           const overflow = dimensions.documentWidth > dimensions.viewportWidth + 1;
+          await page.keyboard.press("Tab");
+          const focusItem = await page.evaluate(() => {
+            const element = document.activeElement;
+            if (!element || element === document.body || element === document.documentElement) {
+              return { found: false, visible: false, focusStyle: false, tag: null };
+            }
+            const style = getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            const visible = rect.width > 0 && rect.height > 0 &&
+              rect.bottom > 0 && rect.right > 0 &&
+              rect.top < window.innerHeight && rect.left < window.innerWidth;
+            const focusStyle = (style.outlineStyle !== "none" &&
+              Number.parseFloat(style.outlineWidth) > 0) || style.boxShadow !== "none";
+            return { found: true, visible, focusStyle, tag: element.tagName.toLowerCase(),
+              outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth,
+              boxShadow: style.boxShadow };
+          });
+          const focusResult = {
+            route: route.path,
+            routeName: route.name,
+            width,
+            check: "keyboard-focus-visible",
+            ...focusItem,
+            passed: focusItem.found && focusItem.visible && focusItem.focusStyle,
+          };
+          results.push(focusResult);
+          if (!focusResult.passed) failures.push(focusResult);
           const ok = Boolean(response && response.status() < 500) &&
             dimensions.hasRenderedContent && !overflow && pageErrors.length === 0;
           const item = {
@@ -84,7 +111,7 @@ async function main() {
           // Exercise each theme's CSS selector in the actual browser. This is a
           // visual-token smoke check, not a substitute for authenticated admin
           // interactions or a human WCAG contrast review.
-          if (width === 320 || width === 1440) {
+          {
             for (const theme of THEMES) {
               await page.evaluate(value => {
                 document.documentElement.dataset.arbTheme = value;
@@ -113,11 +140,13 @@ async function main() {
               };
               results.push(themeItem);
               if (!themeItem.passed) failures.push(themeItem);
-              await page.screenshot({
-                path: path.join(ARTIFACT_DIR, `${route.name}-${width}-${theme}.png`),
-                fullPage: true,
-                animations: "disabled",
-              });
+              if (width === 320 || width === 1440) {
+                await page.screenshot({
+                  path: path.join(ARTIFACT_DIR, `${route.name}-${width}-${theme}.png`),
+                  fullPage: true,
+                  animations: "disabled",
+                });
+              }
             }
           }
         } catch (error) {
