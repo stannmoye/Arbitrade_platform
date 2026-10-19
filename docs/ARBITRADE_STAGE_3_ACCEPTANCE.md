@@ -27,6 +27,7 @@ Finish and verify the existing five-theme implementation without duplicating Sta
 - [x] Update the workflow source-contract test to match the intended branch-push and pull-request triggers.
 - [x] Re-run the application test suite, TypeScript validation, production build, and Chromium viewport/theme smoke matrix on commit `2f0c443346dd1fe0def0c81267c762f79c9ca390`; all CI jobs passed.
 - [x] Confirm the static browser matrix passed all 1,172 checks with zero failures, including theme/viewport rendering, interaction checks, and contrast assertions covered by the script.
+- [x] Verify the customer-selected theme is restored after a full browser-page reload when customer choice is enabled; the scenario seed now runs once per tab so it does not erase the stored preference on reload.
 - [x] Record the CI artifact containing screenshots and the browser report.
 - [ ] Complete human review of screenshots and rendered accessibility findings; automated contrast checks are useful evidence but are not a substitute for a complete human/accessibility audit.
 - [ ] Complete authenticated deployed-session acceptance when a staging URL is available.
@@ -38,15 +39,15 @@ The shared `arbitrade-theme` key previously stored both administrator previews a
 
 ## Validation record
 
-Exact-head GitHub Actions run [#508](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333093465) for commit `2f0c443346dd1fe0def0c81267c762f79c9ca390` completed successfully:
+Exact-head GitHub Actions run [#512](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333544987) for code commit `e533f5e2fbcb94a54dc4a877cce0ff76dcc8ce40` completed successfully. This run includes the additional customer-preference reload-restoration assertion:
 
 - Application and theme-policy regression tests: **279 passed, 6 skipped**; 37 test files passed and 2 skipped.
 - TypeScript validation: **passed**.
 - Production build: **passed**.
 - Chromium viewport and five-theme smoke matrix: **1,172 checks passed, 0 failures**.
-- Browser evidence artifact: [stage-3-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333093465/artifacts/12225396789).
+- Browser evidence artifact: [stage-3-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333544987/artifacts/12226510104).
 
-An earlier run failed due to a stale source-contract assertion and a browser check reading the retired storage key. Those assertions were corrected, and the exact-head run above passed. Do not treat the static browser run as proof of live server authorization or database persistence: the browser script uses mocked API responses for several interactions, while server-side behavior is covered separately by automated tests.
+Earlier runs exposed a stale workflow source-contract assertion and a browser check reading the retired storage key. Both were corrected, and the latest exact-head run above passed. Do not treat the static browser run as proof of live server authorization or database persistence: the browser script uses mocked API responses for several interactions, while server-side behavior is covered separately by automated tests.
 
 ## External limitations and release gates
 
