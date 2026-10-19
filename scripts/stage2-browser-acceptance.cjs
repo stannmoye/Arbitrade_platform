@@ -1312,9 +1312,9 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           const rect = element.getBoundingClientRect();
           // Wait for the entrance transition to settle at the expected
           // 6px inset; an intermediate transform can otherwise look clipped.
-          return rect.left >= 0 && rect.left <= 8 &&
+          return rect.left >= 0 && rect.left <= 6.5 &&
             rect.top >= 0 && rect.top <= 8 &&
-            rect.right <= window.innerWidth - 4 &&
+            rect.right <= window.innerWidth - 5.5 &&
             rect.bottom <= window.innerHeight - 4;
         });
         const mobileDrawerLayout = await drawer.evaluate(element => {
@@ -1350,10 +1350,10 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         });
         const mobileDrawerFits =
           mobileDrawerLayout.bounds.left >= 0 &&
-          mobileDrawerLayout.bounds.left <= 8 &&
+          mobileDrawerLayout.bounds.left <= 6.5 &&
           mobileDrawerLayout.bounds.top >= 0 &&
           mobileDrawerLayout.bounds.top <= 8 &&
-          mobileDrawerLayout.bounds.right <= 316 &&
+          mobileDrawerLayout.bounds.right <= 314.5 &&
           mobileDrawerLayout.bounds.bottom <= 564 &&
           mobileDrawerLayout.bounds.width <= 320 &&
           mobileDrawerLayout.bounds.height <= 568 &&

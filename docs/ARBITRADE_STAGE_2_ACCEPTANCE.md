@@ -620,3 +620,11 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - This follow-up is committed together with this acceptance note to avoid an intermediate documentation-only head. Fresh exact-head Stage 2, installer, and mining-regression CI must pass before the tightened assertion is accepted.
 - The previous code head `d2bfc088af88ec47cae4d08dc5b5f740d60c8f46` had green Stage 2, installer, and mining-regression workflows; this note does not transfer those results to the new head.
 - Remaining Stage 2 exit gates: deployed/staging browser-session acceptance, broader authenticated portal review, complete screenshot review, and final human sign-off. No staging URL is documented; PR #71 remains draft/unmerged and Stage 3 remains blocked.
+
+## Prompt 29/30 — Require settled, not near-settled, drawer geometry
+
+- The exact-head CI for `f65166f4c5ed4762207737602ebb93b30b474c78` passed Stage 2, installer, and mining regression. Its browser artifact reported **1,173/1,173 checks passed, 0 failures**.
+- The tightened measurement still captured the drawer at left/right **7.99px/315.99px**. This is safely within the viewport, but shows the wait could still finish just before the transition reaches its final 6px inset.
+- Tightened the synchronization threshold to left ≤6.5px and right ≤314.5px, then applied the same thresholds to the final assertion. This makes the report capture the fully settled drawer geometry rather than a near-final animation frame.
+- This update changes only browser-acceptance synchronization and its documented evidence. Fresh exact-head Stage 2, installer, and mining workflows must pass before the adjustment is verified.
+- Stage 2 remains open pending deployed/staging browser-session acceptance, broader authenticated portal review, complete screenshot review, and human sign-off. PR #71 stays draft/unmerged; Stage 3 remains blocked.
