@@ -1130,3 +1130,15 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Corrected the selector flex basis to a non-shrinking responsive width in `efcaa28f84437133816d211cbe393c9c71e77d2e`. Updated acceptance documentation with the measured failure and fix. The fix is not considered verified until fresh Chromium CI passes.
 - Next: inspect exact current PR head, poll Stage 2/installer/mining runs, download the latest browser artifact, confirm the selector width and visual screenshot, and repair any remaining failure before expanding coverage.
 - Remaining exit gates: latest-head CI; broader authenticated form/dialog/dropdown/disabled/busy coverage; full screenshot review; final sign-off. PR #71 stays draft/open/unmerged; Stage 2 remains open and Stage 3 blocked.
+
+
+## Prompt 23/30 — exact-head browser acceptance confirmed (2026-10-19)
+
+- Current code head before this documentation update: `aeb837479b930e8e0c679e31ec6f1af97c5ca52a`. Stage 2 #391, installer #727, and mining regression #132 all completed successfully.
+- Inspected the exact-head browser artifact: **1,140/1,140 checks passed**. New mobile selector checks pass at 390px (200px selector) and 320px (192px selector, document width 320px). Appearance-label color matches the header text for all five themes.
+- Added Quick Actions dialog focus-trap coverage: 14 focusable elements, reverse and forward focus wrapping both passed. The trigger's center-point pointer hit test also passed, as did existing modal semantics, Escape-close, and focus restoration.
+- Visual review of Original and Clean Light authenticated mocked appearance panels confirms the complete “Original Arbitrade” selection label is now visible, the label remains readable across themes, and the mobile Menu trigger no longer overlaps the selector row. Full human review of all captured screenshots remains outstanding.
+- Installer validation passed disposable MariaDB authorization/persistence, MySQL 8 migration recovery, installer/migration tests, build/server smoke, and package assembly. Mining database idempotency/transaction checks passed.
+- Follow-up commits in this batch: compact selector CSS and width assertions (`63e6d9b4`, `bf6c85f9`, `efcaa28f`, `88a6b668`, `a132700b`, `7f82f6e6`, `8c586336`, `4decac8d`, `59d0ad78`, `8cc7a250`), Quick Actions focus trap (`c59c7860`), and pointer hit-target assertion (`aeb83747`). Acceptance evidence is recorded in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`.
+- This checkpoint supersedes earlier “selector width pending” notes. The exact code head above is green; fresh CI for the documentation-only follow-up head still must be checked before claiming that newest head is validated.
+- Remaining Stage 2 exit gates: broader authenticated forms/dialogs/dropdowns/disabled/busy interactions; full human screenshot review; final acceptance sign-off. PR #71 remains open/draft/unmerged; Stage 2 remains open and Stage 3 blocked. No production deployment or production database mutation occurred.
