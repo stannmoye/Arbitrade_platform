@@ -208,3 +208,14 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - **Scope limitation:** this runs the built static client without authenticated live API data. It does not prove populated table keyboard scrolling, authenticated administrator save/policy interactions, form/dialog/dropdown states, or rendered WCAG contrast. The script and artifact report explicitly disclose these limitations.
 - Stage 2 therefore remains in progress. Keep PR #71 draft/unmerged and do not advance to Stage 3 until the remaining authenticated interaction and rendered-contrast evidence is captured.
 - Continuation counter: Prompt 9/30.
+
+
+## Finalization continuation — rendered contrast remediation (2026-10-19)
+
+- Inspected the uploaded browser report for run 39230858959: the initial expanded matrix measured 1,110 checks and exposed 35 rendered-text contrast failures, concentrated in the clean-light and emerald-finance gateway/authentication entry screens.
+- Updated client/src/theme-system.css with theme-specific, higher-specificity contrast rules for gateway choices, authentication primary actions, active auth tabs, and secondary auth actions. The auth rules cover unauthenticated entry screens that render before the authenticated customer/admin portal shell exists.
+- Follow-up exact code head: 498644b78f43b75f4e9e25625c969d844e8a7ab4.
+- Fresh GitHub Actions run [39232008725](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39232008725) passed all four Stage 2 jobs: application/regression tests, TypeScript validation, production build, and Chromium viewport/theme acceptance. The browser job reports **1,110 checks passed, 0 failed**. Mining database regression checks and installer validation also passed for this head.
+- Pull request #71 remains open, draft, unmerged, and mergeable. Do not treat mergeability as acceptance.
+- **Remaining Stage 2 exit gates:** authenticated administrator appearance-policy save; customer theme permissions and persistence; populated financial-table keyboard scrolling; detailed form, dialog, dropdown, disabled and busy states; human review of browser screenshots; and final acceptance evidence. The static preview does not authenticate or load live API data, so it cannot establish these interaction gates.
+- **Decision:** keep Stage 2 open and PR #71 draft. Do not advance to Stage 3 until the remaining interaction evidence is captured and reviewed.
