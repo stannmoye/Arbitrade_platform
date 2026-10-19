@@ -1078,9 +1078,9 @@
 }
 
 .arb-theme-selector-compact select {
-  width: min(11.5rem, 50vw) !important;
-  min-width: min(11.5rem, 50vw) !important;
-  flex: 0 0 min(11.5rem, 50vw) !important;
+  width: min(12.5rem, 60vw) !important;
+  min-width: min(12.5rem, 60vw) !important;
+  flex: 0 0 min(12.5rem, 60vw) !important;
   flex-shrink: 0 !important;
 }
 
