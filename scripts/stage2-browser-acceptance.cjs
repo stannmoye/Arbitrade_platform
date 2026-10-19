@@ -167,6 +167,77 @@ async function main() {
                     passed: ratio !== null && ratio + 1e-6 >= pair.minimum,
                   };
                 });
+                const parseColorWithAlpha = value => {
+                  const parts = String(value).match(/[\\d.]+/g);
+                  if (!parts || parts.length < 3) return null;
+                  const channels = parts.map(Number);
+                  return {
+                    rgb: channels.slice(0, 3),
+                    alpha: channels.length >= 4 ? channels[3] : 1,
+                  };
+                };
+                const solidBackground = element => {
+                  let current = element;
+                  while (current && current !== document.documentElement.parentElement) {
+                    const parsed = parseColorWithAlpha(getComputedStyle(current).backgroundColor);
+                    if (parsed && parsed.alpha >= 0.99) {
+                      return {
+                        rgb: parsed.rgb,
+                        value: getComputedStyle(current).backgroundColor,
+                        source: current.tagName.toLowerCase(),
+                      };
+                    }
+                    current = current.parentElement;
+                  }
+                  const fallback = parseColorWithAlpha(styles.getPropertyValue("--arb-color-canvas"));
+                  return fallback
+                    ? { rgb: fallback.rgb, value: styles.getPropertyValue("--arb-color-canvas").trim(), source: "--arb-color-canvas" }
+                    : null;
+                };
+                const textSamples = [];
+                const textFailures = [];
+                for (const element of Array.from(document.querySelectorAll("body *"))) {
+                  const text = Array.from(element.childNodes)
+                    .filter(node => node.nodeType === Node.TEXT_NODE)
+                    .map(node => node.textContent || "")
+                    .join(" ")
+                    .trim();
+                  if (!text) continue;
+                  const computed = getComputedStyle(element);
+                  if (computed.display === "none" || computed.visibility === "hidden" ||
+                    Number(computed.opacity) === 0) continue;
+                  const rect = element.getBoundingClientRect();
+                  if (rect.width <= 0 || rect.height <= 0) continue;
+                  const foreground = parseColorWithAlpha(computed.color);
+                  const background = solidBackground(element);
+                  if (!foreground || !background) continue;
+                  const ratio = contrastRatio(foreground.rgb, background.rgb);
+                  const fontSize = Number.parseFloat(computed.fontSize) || 16;
+                  const fontWeight = Number.parseInt(computed.fontWeight, 10) || 400;
+                  const largeText = fontSize >= 24 || (fontSize >= 18.66 && fontWeight >= 700);
+                  const minimum = largeText ? 3 : 4.5;
+                  const sample = {
+                    text: text.slice(0, 80),
+                    tag: element.tagName.toLowerCase(),
+                    className: typeof element.className === "string" ? element.className.slice(0, 100) : "",
+                    foreground: computed.color,
+                    background: background.value,
+                    backgroundSource: background.source,
+                    ratio: Number(ratio.toFixed(2)),
+                    minimum,
+                    passed: ratio + 1e-6 >= minimum,
+                  };
+                  textSamples.push(sample);
+                  if (!sample.passed) textFailures.push(sample);
+                }
+                const renderedTextAudit = {
+                  measured: textSamples.length,
+                  belowThreshold: textFailures.length,
+                  minimumRatio: textSamples.length
+                    ? Math.min(...textSamples.map(sample => sample.ratio))
+                    : null,
+                  failures: textFailures.slice(0, 20),
+                };
                 return {
                   theme: root.dataset.arbTheme || null,
                   background: getComputedStyle(body).backgroundColor,
@@ -174,9 +245,10 @@ async function main() {
                   viewportWidth: window.innerWidth,
                   documentWidth: root.scrollWidth,
                   contrastChecks,
+                  renderedTextAudit,
                 };
               });
-              const { contrastChecks, ...visualSummary } = visual;
+              const { contrastChecks, renderedTextAudit, ...visualSummary } = visual;
               const themeItem = {
                 route: route.path,
                 routeName: route.name,
@@ -188,6 +260,17 @@ async function main() {
               };
               results.push(themeItem);
               if (!themeItem.passed) failures.push(themeItem);
+              const renderedTextItem = {
+                route: route.path,
+                routeName: route.name,
+                width,
+                theme,
+                check: "rendered-text-contrast",
+                ...renderedTextAudit,
+                passed: renderedTextAudit.measured > 0 && renderedTextAudit.belowThreshold === 0,
+              };
+              results.push(renderedTextItem);
+              if (!renderedTextItem.passed) failures.push(renderedTextItem);
               for (const check of contrastChecks) {
                 const contrastItem = {
                   route: route.path,
