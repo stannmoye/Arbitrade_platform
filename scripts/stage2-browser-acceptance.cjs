@@ -1129,8 +1129,8 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
     try {
       await page.addInitScript((storedTheme) => {
         try {
-          if (storedTheme) localStorage.setItem("arbitrade-theme", storedTheme);
-          else localStorage.removeItem("arbitrade-theme");
+          if (storedTheme) localStorage.setItem("arbitrade-theme:user:9002", storedTheme);
+          else localStorage.removeItem("arbitrade-theme:user:9002");
         } catch {}
       }, scenario.expectedEditable ? null : "aurora-modern");
       await page.route(/\/api\/trpc(?:\/|$)/, async route => {
@@ -1187,7 +1187,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           await select.selectOption("aurora-modern");
           await page.waitForFunction(() => document.documentElement.dataset.arbTheme === "aurora-modern");
           selectedTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || null);
-          persistedTheme = await page.evaluate(() => localStorage.getItem("arbitrade-theme"));
+          persistedTheme = await page.evaluate(() => localStorage.getItem("arbitrade-theme:user:9002"));
         }
       }
       appliedTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || null);
