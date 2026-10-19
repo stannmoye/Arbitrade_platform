@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: stage-2-design-system-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: stage-2-design-system-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
