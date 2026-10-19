@@ -233,18 +233,19 @@ async function runAdminAppearanceInteractionCheck(browser) {
       focusedButton: await page.evaluate(() => document.activeElement?.textContent?.trim() || ""),
     });
 
-    const originalThemeCheckbox = customerThemesGroup.getByRole("checkbox", { name: /Original Arbitrade/ });
-    await originalThemeCheckbox.focus();
-    const originalCheckboxBefore = await originalThemeCheckbox.isChecked();
+    // Use a non-default theme so the keyboard check does not change the published-default control.
+    const auroraThemeCheckbox = customerThemesGroup.getByRole("checkbox", { name: /Aurora Modern/ });
+    await auroraThemeCheckbox.focus();
+    const auroraCheckboxBefore = await auroraThemeCheckbox.isChecked();
     await page.keyboard.press("Space");
-    const originalCheckboxAfterFirstSpace = await originalThemeCheckbox.isChecked();
+    const auroraCheckboxAfterFirstSpace = await auroraThemeCheckbox.isChecked();
     await page.keyboard.press("Space");
-    const originalCheckboxAfterSecondSpace = await originalThemeCheckbox.isChecked();
-    record("admin-theme-checkboxes-toggle-and-restore-with-space", 
-      originalCheckboxBefore && !originalCheckboxAfterFirstSpace && originalCheckboxAfterSecondSpace, {
-        before: originalCheckboxBefore,
-        afterFirstSpace: originalCheckboxAfterFirstSpace,
-        afterSecondSpace: originalCheckboxAfterSecondSpace,
+    const auroraCheckboxAfterSecondSpace = await auroraThemeCheckbox.isChecked();
+    record("admin-theme-checkboxes-toggle-and-restore-with-space",
+      auroraCheckboxBefore && !auroraCheckboxAfterFirstSpace && auroraCheckboxAfterSecondSpace, {
+        before: auroraCheckboxBefore,
+        afterFirstSpace: auroraCheckboxAfterFirstSpace,
+        afterSecondSpace: auroraCheckboxAfterSecondSpace,
       });
 
 
