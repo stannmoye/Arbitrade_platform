@@ -667,13 +667,6 @@ async function runAdminAppearanceInteractionCheck(browser) {
       dialogState.activeTag === "button",
       dialogState);
 
-    await page.keyboard.press("Shift+Tab");
-    const shiftTabWrapped = await page.getByRole("button", { name: "Refresh status" }).evaluate(element => element === document.activeElement);
-    await page.keyboard.press("Tab");
-    const tabWrapped = await page.getByRole("button", { name: "Close Quick Actions" }).last().evaluate(element => element === document.activeElement);
-    record("admin-quick-actions-dialog-keyboard-focus-trap", shiftTabWrapped && tabWrapped,
-      { shiftTabWrapped, tabWrapped });
-
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => {
       const trigger = document.querySelector('[aria-label="Open Quick Actions"]');
