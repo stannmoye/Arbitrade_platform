@@ -593,3 +593,11 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Exact-head workflows all passed: Stage 2 validation [#473 / 39315633428](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39315633428), installer validation [#809 / 39315633411](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39315633411), and mining regression [#214 / 39315633447](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39315633447).
 - Final browser artifact [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39315633428/artifacts/12218000697) records **1,172 checks passed, 0 failures** and 51 screenshots. All five 320px editor checks now report width=320 and pass with documentWidth=320, selectorWidth=192, no visible controls outside the viewport, and brandNameLineCount=1.
 - This documentation follow-up creates a new PR head; verify fresh exact-head CI before claiming the latest documentation commit is green. Live deployed/staging browser acceptance, broader authenticated portal review, and final Stage 2 sign-off remain open. PR #71 remains draft/open/unmerged and Stage 3 remains blocked.
+
+## Prompt 26/30 — Compact customer-navigation acceptance
+
+- Added a Chromium regression check in `scripts/stage2-browser-acceptance.cjs` that keeps the customer navigation dialog open while switching from desktop to a **320×568** viewport.
+- The new check measures the rendered drawer bounds and verifies the modal semantics, close/search control visibility, navigation-region visibility, and absence of page-level horizontal overflow. It runs within the existing mocked customer session and does not claim live deployed-session acceptance.
+- Implementation commit: `f80dd372af5393ddac041afe5982667d369af132`.
+- Fresh exact-head Stage 2, installer, and mining-regression workflows must pass before this new assertion is considered verified. No test result is claimed in this update.
+- Remaining Stage 2 gates: deployed/staging browser-session acceptance, broader authenticated portal visual/interaction review, full screenshot review, and final human sign-off. No staging URL is documented in the repository. Keep PR #71 draft/unmerged and Stage 3 blocked until the evidence is complete; no production deployment or database change is claimed.
