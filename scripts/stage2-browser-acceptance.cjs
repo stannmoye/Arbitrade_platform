@@ -1480,7 +1480,12 @@ async function main() {
     failures: report.failures,
     report: path.join(ARTIFACT_DIR, "report.json"),
   }, null, 2));
-  if (failures.length) process.exitCode = 1;
+  if (failures.length) {
+    // Keep failed assertions visible in the Actions log as well as report.json,
+    // so a failed browser job can be diagnosed without downloading its artifact.
+    console.error(JSON.stringify({ failureDetails: failures }, null, 2));
+    process.exitCode = 1;
+  }
 }
 
 main().catch(error => {
