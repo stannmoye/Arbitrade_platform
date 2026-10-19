@@ -41,6 +41,22 @@ describe("shared form and dialog interaction contracts", () => {
     expect(select).toContain("{...props}");
   });
 
+  it.each([
+    ["input", input, 'data-slot="input"'],
+    ["textarea", textarea, 'data-slot="textarea"'],
+  ])("%s preserves keyboard focus, invalid, and disabled affordances", (_name, source, slot) => {
+    expect(source).toContain(slot);
+    expect(source).toContain("focus-visible:ring-[3px]");
+    expect(source).toContain("aria-invalid:border-destructive");
+    expect(source).toContain("disabled:opacity-50");
+    expect(source).toContain("disabled:cursor-not-allowed");
+  });
+
+  it("preserves Shift+Enter for textarea newlines during IME composition", () => {
+    expect(textarea).toContain("// Note: For textarea, Shift+Enter should still work for newlines");
+    expect(textarea).toContain('if (e.key === "Enter" && !e.shiftKey && isComposing)');
+  });
+
   it("keeps shared button disabled state explicit and visibly distinguishable", () => {
     expect(button).toContain("disabled:pointer-events-none");
     expect(button).toContain("disabled:opacity-50");

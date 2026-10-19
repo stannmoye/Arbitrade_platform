@@ -308,3 +308,10 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Installer validation [#672 / 39274748218](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39274748218) and mining regression [#77 / 39274748360](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39274748360) also passed, including the installer/migration, MySQL 8, MariaDB, package, and mining idempotency checks.
 - Inspected artifact `stage-2-browser-acceptance` (run #303): `report.json` records 1,124 passed and 0 failed. The error-state check records a visible alert and all four controls enabled after failure.
 - Evidence remains mocked client-side evidence only. Live API role enforcement and database persistence, broader authenticated forms/dialogs/dropdowns/disabled/busy coverage, full authenticated screenshot review, and final sign-off remain open. Keep PR #71 draft/unmerged; Stage 2 remains open and Stage 3 blocked.
+
+## Continuation validation — keyboard interactions and dialog semantics (2026-10-19)
+
+- Latest verified baseline head `989d1aa6a31d250c9c0158e5ef6d08ebc798fa7a` passed all three workflows: Stage 2 #373, installer #709, and mining database regression #114.
+- The baseline browser artifact reports 1,126 checks passed and zero failures across 3 routes, 10 viewport widths, and 5 themes. The installer workflow includes successful disposable MariaDB appearance-policy authorization/persistence checks and MySQL 8 migration recovery checks.
+- Added two targeted mocked-admin browser checks for the native default-theme dropdown's keyboard navigation and the Quick Actions drawer's dialog semantics, Escape-close behavior, and focus restoration. Added shared-control contracts for input/textarea focus, invalid and disabled styling, plus textarea Shift+Enter behavior during IME composition.
+- These additions are pending fresh CI on the new commit. The browser interaction fixtures still use mocked administrator/API data; they do not establish live production authorization or persistence. Broader authenticated form/dialog/dropdown coverage, full screenshot review, and final Stage 2 sign-off remain open.

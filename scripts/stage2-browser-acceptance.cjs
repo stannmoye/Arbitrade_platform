@@ -322,6 +322,19 @@ async function runAdminAppearanceInteractionCheck(browser) {
       return select instanceof HTMLSelectElement && !select.disabled;
     });
     const reloadedDefaultTheme = await page.getByLabel("Default theme").inputValue();
+
+    // Exercise the native theme dropdown with keyboard input, not only selectOption().
+    const keyboardThemeSelect = page.getByLabel("Default theme");
+    await keyboardThemeSelect.focus();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    const keyboardSelectedTheme = await keyboardThemeSelect.inputValue();
+    const keyboardDropdownWorks = keyboardSelectedTheme !== reloadedDefaultTheme;
+    await keyboardThemeSelect.selectOption(reloadedDefaultTheme);
+    record("admin-default-theme-dropdown-keyboard-navigation",
+      keyboardDropdownWorks,
+      { initialTheme: reloadedDefaultTheme, keyboardSelectedTheme });
+
     const reloadedCustomerChoice = await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).isChecked();
     const themeLabelPatterns = {
       original: /Original/i,
@@ -352,6 +365,33 @@ async function runAdminAppearanceInteractionCheck(browser) {
     // Navigate while the desktop quick-action trigger is unobstructed, then resize
     // the populated financial page to mobile width for the keyboard-scroll check.
     const quickActionsTrigger = page.getByRole("button", { name: "Open Quick Actions" });
+    await quickActionsTrigger.focus();
+    await page.keyboard.press("Enter");
+
+    const quickActionsDialog = page.getByRole("dialog", { name: "Quick Actions" });
+    await page.waitForFunction(() =>
+      document.querySelector("#admin-navigation-drawer")?.getAttribute("aria-hidden") === "false"
+    );
+    const dialogSemantics = await quickActionsDialog.evaluate(element => ({
+      visible: element.getAttribute("aria-hidden") === "false",
+      modal: element.getAttribute("aria-modal"),
+      focusInside: element.contains(document.activeElement),
+    }));
+    const triggerExpandedWhileOpen = await page.locator(".admin-slide-trigger").getAttribute("aria-expanded");
+    record("quick-actions-dialog-accessibility-and-focus",
+      dialogSemantics.visible && dialogSemantics.modal === "true" &&
+      dialogSemantics.focusInside && triggerExpandedWhileOpen === "true",
+      { ...dialogSemantics, triggerExpandedWhileOpen });
+
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() =>
+      document.querySelector("#admin-navigation-drawer")?.getAttribute("aria-hidden") === "true"
+    );
+    const focusRestored = await page.locator(".admin-slide-trigger").evaluate(element =>
+      document.activeElement === element
+    );
+    record("quick-actions-dialog-escape-closes-and-restores-focus", focusRestored, { focusRestored });
+
     await quickActionsTrigger.focus();
     await page.keyboard.press("Enter");
     await page.getByRole("button", { name: /Wallet & ledger/ }).waitFor({ state: "visible" });
