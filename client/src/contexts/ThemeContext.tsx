@@ -156,6 +156,9 @@ export function ThemeProvider({
     if (canCustomerSelectTheme(nextTheme, enabledThemes, customerCanSelect)) setThemeState(nextTheme);
   };
 
+  const activeThemeStorageKey = themeStorageKeyForRole(isAdmin, currentUserId);
+  const themeIdentityReady = loadedThemeStorageKey === activeThemeStorageKey;
+
   useEffect(() => {
     const root = document.documentElement;
     // Apply the published default as soon as policy is available, even while
@@ -163,20 +166,20 @@ export function ThemeProvider({
     const effectiveTheme = auth.isError || (auth.isLoading && policy) || (!isAdmin && appearance.isError)
       ? policyDefault
       : !auth.isLoading && !isAdmin && policy
-        ? (customerCanSelect && enabledThemes.includes(theme) ? theme : policyDefault)
-        : theme;
+        ? (themeIdentityReady && customerCanSelect && enabledThemes.includes(theme) ? theme : policyDefault)
+        : !themeIdentityReady ? defaultTheme : theme;
     root.dataset.arbTheme = effectiveTheme;
     root.classList.toggle("dark", effectiveTheme !== "clean-light");
     root.style.colorScheme = effectiveTheme === "clean-light" ? "light" : "dark";
 
-    if (!auth.isLoading && !auth.isError && loadedThemeStorageKey === themeStorageKeyForRole(isAdmin, currentUserId) && (!isAdmin || adminThemeReady) && switchable && (isAdmin || (policy && customerCanSelect && enabledThemes.includes(effectiveTheme)))) {
+    if (!auth.isLoading && !auth.isError && themeIdentityReady && (!isAdmin || adminThemeReady) && switchable && (isAdmin || (policy && customerCanSelect && enabledThemes.includes(effectiveTheme)))) {
       try {
-        window.localStorage.setItem(themeStorageKeyForRole(isAdmin, currentUserId), effectiveTheme);
+        window.localStorage.setItem(activeThemeStorageKey, effectiveTheme);
       } catch {
         // Keep the selected theme active for this session when storage is unavailable.
       }
     }
-  }, [theme, switchable, auth.isLoading, auth.isError, appearance.isError, isAdmin, currentUserId, adminThemeReady, loadedThemeStorageKey, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
+  }, [theme, switchable, auth.isLoading, auth.isError, appearance.isError, isAdmin, currentUserId, adminThemeReady, loadedThemeStorageKey, themeIdentityReady, activeThemeStorageKey, defaultTheme, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
 
   const selectableThemes: ArbitradeTheme[] = isAdmin
     ? [...ARBITRADE_THEMES]
