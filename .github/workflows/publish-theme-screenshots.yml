@@ -1,0 +1,105 @@
+name: Publish actual theme screenshots
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/publish-theme-screenshots.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-theme-screenshots:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+
+      - name: Download browser-acceptance screenshots
+        uses: actions/download-artifact@v4
+        with:
+          name: stage-2-browser-acceptance
+          repository: ${{ github.repository }}
+          run-id: 39316044807
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: /tmp/stage-2-browser-acceptance
+
+      - name: Publish desktop and mobile screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_dir=/tmp/stage-2-browser-acceptance
+          destination=docs/theme-previews/screenshots
+          mkdir -p "$destination"
+
+          for theme in original midnight-premium clean-light emerald-finance aurora-modern; do
+            cp "$artifact_dir/customer-1440-$theme.png" "$destination/$theme-desktop.png"
+            cp "$artifact_dir/customer-320-$theme.png" "$destination/$theme-mobile.png"
+          done
+
+          cat > "$destination/README.md" <<'EOF'
+          # ARBITRADE — actual browser theme screenshots
+
+          These are **real PNG screenshots captured from the browser acceptance run**, not SVG concept mockups. The screenshots show the customer registration page in each of the five implemented theme variants.
+
+          Desktop captures use a 1440px viewport; mobile captures use a 320px viewport.
+
+          ## Original Arbitrade
+
+          ![Original Arbitrade — desktop](original-desktop.png)
+
+          [Open desktop PNG](original-desktop.png) · [Open mobile PNG](original-mobile.png)
+
+          ## Midnight Premium
+
+          ![Midnight Premium — desktop](midnight-premium-desktop.png)
+
+          [Open desktop PNG](midnight-premium-desktop.png) · [Open mobile PNG](midnight-premium-mobile.png)
+
+          ## Clean Light
+
+          ![Clean Light — desktop](clean-light-desktop.png)
+
+          [Open desktop PNG](clean-light-desktop.png) · [Open mobile PNG](clean-light-mobile.png)
+
+          ## Emerald Finance
+
+          ![Emerald Finance — desktop](emerald-finance-desktop.png)
+
+          [Open desktop PNG](emerald-finance-desktop.png) · [Open mobile PNG](emerald-finance-mobile.png)
+
+          ## Aurora Modern
+
+          ![Aurora Modern — desktop](aurora-modern-desktop.png)
+
+          [Open desktop PNG](aurora-modern-desktop.png) · [Open mobile PNG](aurora-modern-mobile.png)
+
+          ## Validation evidence
+
+          The source browser-acceptance report recorded **1,172 checks passed and 0 failures** across the gateway, customer, and admin routes. These five screenshots are customer-route captures.
+          EOF
+
+          cat > "$destination/VALIDATION.txt" <<'EOF'
+          Browser acceptance run: 39316044807
+          Run URL: https://github.com/stannmoye/Arbitrade_platform/actions/runs/39316044807
+          Artifact: stage-2-browser-acceptance
+          Capture date: 2026-10-19
+          Viewports: desktop 1440x900; mobile 320x900
+          Themes: original, midnight-premium, clean-light, emerald-finance, aurora-modern
+          Acceptance report: 1172 checks passed; 0 failures
+          EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$destination"
+          if git diff --cached --quiet; then
+            echo "Theme screenshots already published; no commit needed."
+            exit 0
+          fi
+          git commit -m "Add actual browser screenshots for five themes"
+          git push origin HEAD:main
