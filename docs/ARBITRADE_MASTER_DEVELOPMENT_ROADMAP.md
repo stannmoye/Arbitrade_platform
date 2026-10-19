@@ -1064,3 +1064,16 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Workflow change commit: `fbb617c86d284f23ec89e562e3ede454e5a27ef7`. Fresh CI must validate this workflow change and the current code head; the previous queued runs do not prove it works.
 - Remaining exit gates are unchanged: live API role enforcement and database persistence, broader authenticated forms/dialogs/dropdowns/disabled/busy states, human screenshot review, and final sign-off. Browser tests use mocked API/auth data. PR #71 remains draft/unmerged; Stage 2 remains open and Stage 3 blocked.
 - **Continuation counter:** Prompt 23/30.
+
+
+### Stage 2 continuation — CI queue and concurrency hardening (2026-10-19)
+
+- Corrected the Stage 2 workflow concurrency key so push and pull-request events for the same source branch share a group. Commit: `fbb617c86d284f23ec89e562e3ede454e5a27ef7`.
+- Added a contract regression assertion in `server/design-system-contract.test.ts` to protect that concurrency expression. Commit: `b4ea03e78d44cc7f7ab64b8d016479a88654b683`.
+- Added workflow-level concurrency to installer validation, keyed by pull-request number (or pushed ref), so superseded installer runs for the same PR/branch are cancelled. Commit: `28defce9cc37f08d3f936c0b3858ba3f20dc4951`.
+- Added a second contract assertion to prevent accidental removal of installer-run coalescing. Commit: `9af5fd8c900c1367683c392d315b0b55db80b8d1`.
+- Latest PR head before this roadmap note: `9af5fd8c900c1367683c392d315b0b55db80b8d1`; PR #71 remains open, draft, and unmerged.
+- Fresh Stage 2 run #341 (`39285859803`) was queued for the current code head when inspected. Installer and mining regression runs for the preceding commit were also queued; no current-head green result or failure is claimed. The commit-status endpoint returned no completed statuses.
+- The concurrency changes are intended to reduce duplicate runs; queued status alone does not prove the queue bottleneck is resolved. Recheck the newest runs and inspect actual job state before claiming improvement.
+- Remaining Stage 2 exit gates: fresh CI on the latest head; live server authorization and database persistence; broader authenticated form/dialog/dropdown/disabled/busy states; final authenticated screenshot review and acceptance sign-off. Existing browser API/auth and financial data are mocked and do not prove live persistence or role enforcement.
+- Stage 2 remains open and Stage 3 blocked. No merge, deployment, or production change is claimed.
