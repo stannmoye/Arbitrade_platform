@@ -1054,3 +1054,13 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Added browser acceptance coverage for a rejected administrator appearance-policy mutation. The test verifies accessible error feedback and that the save button plus all policy controls are re-enabled after failure.
 - Code head `a8dd9cea7a081b5f458d93300da6120ee2f65b5b` passed Stage 2 run #303 with **1,124/1,124 Chromium checks passing**; application tests, TypeScript, and build passed. Installer run #672 and Mining database regression run #77 passed as well.
 - The report artifact was inspected directly and confirms the new error-recovery check passed. The scenario uses mocked tRPC responses; it does not close the live authorization/database-persistence or broader authenticated-screen acceptance gaps. PR #71 remains draft/unmerged; Stage 2 remains open and Stage 3 blocked.
+
+
+### Stage 2 continuation — CI concurrency correction (2026-10-19)
+
+- Investigated current-head runs for `b78912de09dad0d98277ea59dda1b563ed088d90`: Stage 2 run #332 (`39283862613`), installer #686 (`39283862855`), and mining database regression #91 (`39283862314`) were queued; their jobs were also all queued when inspected. The commit-status endpoint returned no completed statuses. This is pending validation, not a pass or failure.
+- Confirmed the Stage 2 workflow concurrency key used `${{ github.ref }}`, separating push refs from pull-request merge refs and allowing duplicate validation runs for the same branch update.
+- Updated `.github/workflows/stage-2-design-system.yml` so the concurrency group uses `${{ github.event.pull_request.head.ref || github.ref_name }}`. Push and pull-request events for the same branch now resolve to the same group, allowing `cancel-in-progress: true` to coalesce duplicate work.
+- Workflow change commit: `fbb617c86d284f23ec89e562e3ede454e5a27ef7`. Fresh CI must validate this workflow change and the current code head; the previous queued runs do not prove it works.
+- Remaining exit gates are unchanged: live API role enforcement and database persistence, broader authenticated forms/dialogs/dropdowns/disabled/busy states, human screenshot review, and final sign-off. Browser tests use mocked API/auth data. PR #71 remains draft/unmerged; Stage 2 remains open and Stage 3 blocked.
+- **Continuation counter:** Prompt 23/30.
