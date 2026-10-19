@@ -39,7 +39,7 @@ The shared `arbitrade-theme` key previously stored both administrator previews a
 
 ## Validation record
 
-Exact-head GitHub Actions run [#512](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333544987) for code commit `e533f5e2fbcb94a54dc4a877cce0ff76dcc8ce40` completed successfully. This run includes the additional customer-preference reload-restoration assertion:
+Exact-head GitHub Actions run [#515](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333544987) for code commit `e533f5e2fbcb94a54dc4a877cce0ff76dcc8ce40` completed successfully. This run includes the additional customer-preference reload-restoration assertion:
 
 - Application and theme-policy regression tests: **279 passed, 6 skipped**; 37 test files passed and 2 skipped.
 - TypeScript validation: **passed**.
