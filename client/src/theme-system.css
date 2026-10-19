@@ -249,6 +249,17 @@
   background: var(--arb-color-canvas) !important;
   color: var(--arb-color-text) !important;
 }
+:root[data-arb-theme] .admin-portal .arb-appearance-admin > .portal-page-top h1 {
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin > .portal-page-top p {
+  color: var(--arb-color-text-soft) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin > .portal-page-top .admin-live-chip {
+  border-color: var(--arb-color-border) !important;
+  background: var(--arb-color-surface-raised) !important;
+  color: var(--arb-color-accent) !important;
+}
 :root[data-arb-theme] .admin-portal .arb-appearance-admin .settings-card {
   background: var(--arb-color-surface) !important;
   background-image: none !important;
