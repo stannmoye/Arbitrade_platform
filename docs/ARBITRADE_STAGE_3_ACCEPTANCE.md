@@ -83,7 +83,13 @@ Added real Chromium checks to the existing administrator appearance acceptance f
 - Use Space to uncheck and re-check the Original Arbitrade checkbox, confirming native keyboard interaction and state restoration.
 - Added source-contract coverage for the preview pressed state and customer selector's accessible status/current-theme labels.
 
-These are automated browser checks, not a screen-reader audit or a substitute for a manual keyboard-only review across supported browsers and assistive technologies. The browser acceptance script continues to mock authentication and tRPC responses; it cannot establish deployed authorization or database persistence. CI for this new batch must pass before the added checks are considered validated.
+These are automated browser checks, not a screen-reader audit or a substitute for a manual keyboard-only review across supported browsers and assistive technologies. The browser acceptance script continues to mock authentication and tRPC responses; it cannot establish deployed authorization or database persistence. The added checks are validated by the successful exact-head CI run recorded below.
+
+## Exact-head CI validation of browser accessibility interactions (2026-10-20)
+
+GitHub Actions run [#566](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39336429308) completed successfully for the current code head `9a9bcdb163a6baf95f572e21fccb8c3228e54a68`. All four jobs passed: application and theme-policy regression tests, TypeScript validation, production build, and Chromium viewport/five-theme smoke matrix. The Chromium job completed its real-browser acceptance script and uploaded the `stage-3-browser-acceptance` artifact (artifact ID `12226349665`).
+
+This validates the automated acceptance suite at this code head. The report details and screenshot review for this new artifact have not been independently inspected as part of this checkpoint, so no new per-check count or screenshot-review claim is made. The browser suite uses mocked authentication/API responses for several flows; it does not establish deployed authorization or real database persistence. Manual keyboard-only and screen-reader/assistive-technology review remain open.
 
 ## External limitations and release gates
 
