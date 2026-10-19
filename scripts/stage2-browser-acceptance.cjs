@@ -469,7 +469,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
 
     // Verify the final enabled theme cannot be unchecked, then restore the full list for subsequent policy checks.
     for (const themeName of THEMES.filter(name => name !== "original")) {
-      const checkbox = customerThemesGroup.getByRole("checkbox", { name: new RegExp(THEME_LABELS[name], "i") });
+      const checkbox = customerThemesGroup.getByRole("checkbox", { name: previewThemeLabels[name] });
       if (await checkbox.isChecked()) await checkbox.uncheck();
     }
     const originalOnlyCheckbox = customerThemesGroup.getByRole("checkbox", { name: /Original Arbitrade/ });
@@ -480,7 +480,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       checkedThemeCount: await customerThemesGroup.getByRole("checkbox", { checked: true }).count(),
     });
     for (const themeName of THEMES.filter(name => name !== "original")) {
-      const checkbox = customerThemesGroup.getByRole("checkbox", { name: new RegExp(THEME_LABELS[name], "i") });
+      const checkbox = customerThemesGroup.getByRole("checkbox", { name: previewThemeLabels[name] });
       if (!(await checkbox.isChecked())) await checkbox.check();
     }
 
