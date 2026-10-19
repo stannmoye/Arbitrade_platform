@@ -655,7 +655,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
     const dialogState = await quickActionsDialog.evaluate(element => ({
       modal: element.getAttribute("aria-modal"),
       hidden: element.getAttribute("aria-hidden"),
-      triggerExpanded: document.querySelector<HTMLButtonElement>('[aria-label="Close Quick Actions"]')?.getAttribute("aria-expanded"),
+      triggerExpanded: document.querySelector('[aria-label="Close Quick Actions"]')?.getAttribute("aria-expanded"),
       bodyOverflow: document.body.style.overflow,
       activeLabel: document.activeElement?.getAttribute("aria-label") || "",
       activeTag: document.activeElement?.tagName.toLowerCase() || "",
