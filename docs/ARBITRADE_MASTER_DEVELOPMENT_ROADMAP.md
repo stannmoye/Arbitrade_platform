@@ -1048,3 +1048,9 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Browser acceptance still uses mocked API/auth and financial table data. Live server authorization/database persistence, broader authenticated forms/dialogs/dropdowns/disabled/busy states, full authenticated screenshot review, and final acceptance sign-off remain open.
 - PR #71 remains open, draft, and unmerged. Stage 2 remains in progress; Stage 3 remains blocked.
 - **Continuation counter:** Prompt 22/30.
+
+### Stage 2 continuation — appearance-save error recovery (2026-10-19)
+
+- Added browser acceptance coverage for a rejected administrator appearance-policy mutation. The test verifies accessible error feedback and that the save button plus all policy controls are re-enabled after failure.
+- Code head `a8dd9cea7a081b5f458d93300da6120ee2f65b5b` passed Stage 2 run #303 with **1,124/1,124 Chromium checks passing**; application tests, TypeScript, and build passed. Installer run #672 and Mining database regression run #77 passed as well.
+- The report artifact was inspected directly and confirms the new error-recovery check passed. The scenario uses mocked tRPC responses; it does not close the live authorization/database-persistence or broader authenticated-screen acceptance gaps. PR #71 remains draft/unmerged; Stage 2 remains open and Stage 3 blocked.
