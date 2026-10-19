@@ -333,7 +333,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       await page.evaluate(() => window.scrollTo(0, 0));
       const narrowAppearanceLayout = await page.evaluate(() => {
         const root = document.querySelector(".arb-appearance-admin");
-        const select = root?.querySelector(".arb-theme-selector-compact select");
+        const select = document.querySelector(".arb-theme-selector-compact select");
         const saveButton = Array.from(root?.querySelectorAll("button") || [])
           .find(button => /save appearance policy/i.test(button.innerText));
         const isVisible = (element) => {
