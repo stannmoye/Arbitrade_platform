@@ -202,8 +202,8 @@ describe("ARBITRADE shared design-system contract", () => {
 
 
   it("keeps administrator previews persistent while enforcing customer theme policy", () => {
-    expect(themeContext).toContain('const THEME_STORAGE_KEY = "arbitrade-theme"');
-    expect(themeContext).toContain("setThemeState(readStoredTheme(defaultTheme))");
+    expect(themeContext).toContain('import { isThemeStorageEventForRole, themeStorageKeyForRole } from "./theme-storage"');
+    expect(themeContext).toContain("setThemeState(readStoredTheme(defaultTheme, themeStorageKeyForRole(true, currentUserId)))");
     expect(themeContext).toContain("if (isAdmin) {\n      setThemeState(nextTheme);\n      return;\n    }");
     expect(themeContext).toContain("if (!policy || appearance.isError) return;");
     expect(themeContext).toContain("if (canCustomerSelectTheme(nextTheme, enabledThemes, customerCanSelect)) setThemeState(nextTheme);");
@@ -213,7 +213,7 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themeContext).toContain("setThemeState(resolveCustomerTheme({");
     expect(themePolicy).toContain("export function resolveCustomerTheme");
     expect(themePolicy).toContain("export function canCustomerSelectTheme");
-    expect(themeContext).toContain("window.localStorage.setItem(THEME_STORAGE_KEY, effectiveTheme)");
+    expect(themeContext).toContain("window.localStorage.setItem(themeStorageKeyForRole(isAdmin, currentUserId), effectiveTheme)");
   });
 
   it("keeps administrator appearance edits valid and protects the last enabled theme", () => {
@@ -382,17 +382,20 @@ describe("ARBITRADE shared design-system contract", () => {
   });
 
 
-  it("uses pull-request events as the single automatic Stage 2 trigger", () => {
+  it("uses pull-request events as the single automatic Stage 3 trigger", () => {
+    expect(workflow).toContain("name: Stage 3 five-theme validation");
     expect(workflow).toContain("on:\n  pull_request:");
+    expect(workflow).toContain("- feat/stage-2-design-system-foundation");
+    expect(workflow).toContain("- integration/auth-installer-vps-safety");
     expect(workflow).not.toContain("\n  push:\n");
   });
 
 
-  it("shares same-repository Stage 2 concurrency groups across events while isolating forks", () => {
+  it("isolates Stage 3 concurrency groups by event and head branch", () => {
     expect(workflow).toContain("concurrency:");
-    expect(workflow).toContain("group: stage-2-design-system-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}");
+    expect(workflow).toContain("group: stage-3-five-theme-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}");
     expect(workflow).toContain("cancel-in-progress: true");
-    expect(workflow).not.toContain("group: stage-2-design-system-${{ github.workflow }}-${{ github.ref }}");
+    expect(workflow).not.toContain("group: stage-3-five-theme-${{ github.workflow }}-${{ github.ref }}");
   });
 
 
