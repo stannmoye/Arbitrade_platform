@@ -382,12 +382,13 @@ describe("ARBITRADE shared design-system contract", () => {
   });
 
 
-  it("uses pull-request events as the single automatic Stage 3 trigger", () => {
+  it("runs Stage 3 validation on branch pushes and pull requests to integration bases", () => {
     expect(workflow).toContain("name: Stage 3 five-theme validation");
-    expect(workflow).toContain("on:\n  pull_request:");
+    expect(workflow).toContain("on:\n  push:");
+    expect(workflow).toContain("- feat/stage-3-five-theme-architecture");
+    expect(workflow).toContain("  pull_request:\n    branches:");
     expect(workflow).toContain("- feat/stage-2-design-system-foundation");
     expect(workflow).toContain("- integration/auth-installer-vps-safety");
-    expect(workflow).not.toContain("\n  push:\n");
   });
 
 
