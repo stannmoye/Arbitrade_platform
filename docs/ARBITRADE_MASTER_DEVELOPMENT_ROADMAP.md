@@ -1038,3 +1038,13 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Added a real-browser regression for the administrator appearance-policy pending-save state. The mocked settings mutation is intentionally delayed so the test verifies `Saving…`, a disabled save button, and disabled default/theme/customer-choice controls while saving.
 - Verified on code commit `bb86d021b300d2db23f5c6bfc62285cb4149154f`: Stage 2 run #292 (`39268470213`) passed **1,122/1,122 Chromium checks**, installer #667 (`39268470271`) passed including deployment package assembly, and mining regression #72 (`39268470158`) passed.
 - This increases client-flow coverage only. Live server authorization/database persistence, wider authenticated interaction coverage, human screenshot review, and final sign-off remain open; Stage 2 stays in progress and Stage 3 blocked.
+
+
+## Stage 2 continuation checkpoint — Prompt 22/30 (2026-10-19)
+
+- Added a Chromium regression for removing the currently published default theme from the enabled-theme list. It verifies the default falls back to the first remaining canonical theme and the removed theme disappears from the selector; the test re-enables the theme and continues the save interaction.
+- Code commit `86c047a8c2a4aa56f82f0a256977fa5203e8af26` passed Stage 2 run #297 (`39271047209`): **1,123/1,123 Chromium checks passed, zero failures**. Application/regression tests, TypeScript validation, and production build passed.
+- Installer validation #669 (`39271047221`) and mining database regression #74 (`39271047241`) also passed. The installer workflow included fresh MariaDB, MySQL 8 compatibility/recovery, installer/migration regressions, production build/server smoke, and deployment-package assembly.
+- Browser acceptance still uses mocked API/auth and financial table data. Live server authorization/database persistence, broader authenticated forms/dialogs/dropdowns/disabled/busy states, full authenticated screenshot review, and final acceptance sign-off remain open.
+- PR #71 remains open, draft, and unmerged. Stage 2 remains in progress; Stage 3 remains blocked.
+- **Continuation counter:** Prompt 22/30.
