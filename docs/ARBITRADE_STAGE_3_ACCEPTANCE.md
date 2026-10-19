@@ -25,9 +25,10 @@ Finish and verify the existing five-theme implementation without duplicating Sta
 - [x] Scope browser-stored preferences to the signed-in account to prevent theme crossover on shared devices.
 - [x] Add focused tests for role/account isolation and storage-event filtering.
 - [x] Update stale source-contract assertions to the new storage helper and Stage 3 workflow.
-- [x] Run the updated application/theme-policy tests and TypeScript validation on the current implementation commit.
-- [x] Build the production client and server bundles on the current implementation commit.
-- [x] Run the Chromium viewport/five-theme smoke matrix on the current implementation commit.
+- [x] Run the updated application/theme-policy tests and TypeScript validation on the implementation commit.
+- [x] Build the production client and server bundles on the implementation commit.
+- [x] Run the Chromium viewport/five-theme smoke matrix on the implementation commit and current documentation head.
+- [x] Inspect the downloaded browser report and selected mobile screenshots for the current PR head.
 - [ ] Complete human keyboard-only and screen-reader review.
 - [ ] Verify live server authorization, database persistence, and cross-account isolation in authenticated staging.
 - [ ] Record human/staging evidence and remaining limitations before Stage 3 closeout.
@@ -40,19 +41,31 @@ A follow-up review found that storage-key scoping and persistence gating prevent
 
 ## Current-head CI validation
 
-Two completed GitHub Actions runs provide validation evidence:
+Three completed GitHub Actions runs provide validation evidence:
 
 - Run [#591](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39342933987) tested implementation commit `66c72f4c4a599b1e82890f2fb080a6b7e4b05aed`.
-- Run [#592](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39343171197) tested the current PR head `961098376d645b7392d3a6b4bf95de92572d95bf`, which includes the acceptance-ledger documentation update.
+- Run [#592](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39343171197) tested acceptance-ledger commit `961098376d645b7392d3a6b4bf95de92572d95bf`.
+- Run [#593](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39343442195) tested the current PR head `37d42b6f929755df30915e11a13e01e0b57c055b`.
 
-Run #592 completed successfully:
+Run #593 completed successfully:
 - Application and theme-policy regression tests: **passed**.
 - TypeScript validation: **passed**.
 - Production build: **passed**.
 - Chromium viewport and five-theme smoke matrix: **passed — 1,174 checks, 1,174 passed, 0 failures**.
-- Browser evidence artifact for run #592: [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39343171197/artifacts/12229469110).
+- Browser evidence artifact: [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39343442195/artifacts/12230260432).
 
-The browser job uses a static client preview and mocked API responses for several interactions. These results verify the automated browser matrix but do not prove live server authorization or database persistence.
+## Browser evidence review
+
+The downloaded `report.json` from run #593 confirms 1,174/1,174 checks passed with no recorded failures. The report includes responsive checks at widths from 320 to 1920 pixels, theme-token contrast sampling, visible keyboard focus checks, admin appearance interaction checks, and screenshots for the entry, customer, and administrator routes.
+
+The lowest reported semantic-token contrast ratios across the five themes were:
+- Main text on canvas: **14.52:1**.
+- Main text on surface: **15.19:1**.
+- Soft text on canvas: **8.94:1**.
+- Muted text on canvas: **4.70:1**.
+- Focus ring on canvas: **5.64:1**.
+
+Those figures are from the report's sampled semantic token pairs, not a guarantee for every text element in every portal. The report explicitly notes that admin appearance interactions use mocked authentication/tRPC responses, live API authorization and persistence are not tested, and broader authenticated portal plus human screen-reader coverage remains outstanding. Selected mobile screenshots were reviewed as a preliminary visual check; this does not count as a complete human accessibility audit.
 
 ## External limitations
 
