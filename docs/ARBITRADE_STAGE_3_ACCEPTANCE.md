@@ -32,6 +32,7 @@ Finish and verify the existing five-theme implementation without duplicating Sta
 - [x] Record the CI artifact containing screenshots and the browser report.
 - [x] Review the latest run #520 screenshot artifact for representative administrator Appearance & Themes screens at desktop (1440px) and narrow mobile (320px) widths across all five themes. The mobile controls stack vertically, the full theme labels and save action remain visible, and no obvious overlap/clipping was found in the reviewed captures.
 - [x] Complete a preliminary evidence-based accessibility pass over the exact-code-head browser report and representative desktop/mobile screenshots; record findings below. This is not a substitute for the remaining formal human accessibility review.
+- [x] Improve administrator theme-management semantics: group theme previews with an accessible name and expose available customer themes as a native fieldset with a legend; add source regression contracts and theme-aware fieldset styling.
 - [ ] Complete formal accessibility review of screen-reader semantics, full keyboard-only flows, and manual assistive-technology behavior; automated checks and screenshot review do not replace this audit.
 - [ ] Complete authenticated deployed-session acceptance when a staging URL is available.
 - [ ] Record any additional findings and remaining limitations before final Stage 3 acceptance.
@@ -64,6 +65,12 @@ Reviewed the exact-code-head #540 `report.json` and the captured 320px Clean Lig
 - The 320px Clean Light administrator screenshot shows the full theme-management form, labels, customer policy controls, and save action within the narrow viewport; no obvious clipping or horizontal page overflow was observed in the inspected capture.
 
 **Scope limit:** these are automated browser assertions and a limited screenshot review, not a complete WCAG conformance audit. They do not fully establish screen-reader announcements, all interactive states, browser/assistive-technology combinations, or manual keyboard-only behavior. Keep the formal accessibility gate open until that review is completed.
+
+## Source-level accessibility follow-up (2026-10-19)
+
+A source review found that the administrator's five preview buttons were visually grouped but not programmatically named as a group, and the customer-theme checkbox collection had a heading without native group semantics. Updated `client/src/components/AdminAppearance.tsx` to expose the preview choices as a named group and wrap the available-theme checkboxes in a native `fieldset` with a `legend`. Added theme-aware, zero-border fieldset styling in `client/src/theme-system.css` and regression contracts in `server/design-system-contract.test.ts`.
+
+This improves semantic structure for assistive technology but is **not** evidence of a completed screen-reader audit. The exact-head CI run for this follow-up must pass before this change is considered validated; manual keyboard-only and assistive-technology review remains open.
 
 ## External limitations and release gates
 
