@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { ARBITRADE_THEMES, toggleEnabledTheme } from "./appearance-policy";
+import { ARBITRADE_THEMES, normalizeEnabledThemes, toggleEnabledTheme } from "./appearance-policy";
 
 describe("administrator enabled-theme policy transitions", () => {
+  it("normalizes duplicate and unknown persisted entries in canonical order", () => {
+    expect(normalizeEnabledThemes(["aurora-modern", "unknown", "original", "aurora-modern"]))
+      .toEqual(["original", "aurora-modern"]);
+  });
+
+  it("falls back to the requested known default when no enabled theme is valid", () => {
+    expect(normalizeEnabledThemes(["unknown", null, 5], "emerald-finance")).toEqual(["emerald-finance"]);
+  });
+
   it("allows adding a theme when only one theme is currently enabled", () => {
     expect(toggleEnabledTheme(["original"], "clean-light")).toEqual(["original", "clean-light"]);
   });
