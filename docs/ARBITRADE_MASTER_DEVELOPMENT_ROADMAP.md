@@ -1088,3 +1088,11 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Previous workflow jobs remain queued too. This indicates the queue bottleneck is not yet demonstrated to be resolved by concurrency grouping. Do not infer runner availability or cancellation success without completed run/job state.
 - Acceptance gates remain unchanged: fresh current-head CI; live authenticated appearance-policy authorization and database persistence; keyboard scrolling of populated financial tables; authenticated form/dialog/dropdown/disabled/busy interaction checks; screenshot review and explicit Stage 2 sign-off.
 - No merge, deployment, or production database change was made.
+
+## Follow-up hardening — repository-scoped CI concurrency
+
+- Further review identified a cross-fork collision risk in branch-only concurrency keys: a pull request from a fork could share a branch name with a branch in the upstream repository and cancel unrelated work.
+- Both Stage 2 and installer workflow groups now include the source repository identity and branch identity. Same-repository push and pull-request runs can coalesce; fork-originated runs remain isolated.
+- Updated the design-system contract test to assert both expressions.
+- Commits: `ef54b0809f6976b6f7e509b1ce57ec36a232e470`, `9e6231a9d750acebbc016f63ef761e68783a909d`, `ff4327f13dc7ccd4d97fe2ec8ac8693a6dc1184e`.
+- These are configuration/test changes only. Fresh CI is required to establish validity; all previously inspected workflow jobs had no started jobs while queued. The queue bottleneck remains unresolved.
