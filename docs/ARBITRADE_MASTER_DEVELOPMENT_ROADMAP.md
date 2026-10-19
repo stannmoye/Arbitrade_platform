@@ -1023,3 +1023,11 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - This change uses keyboard navigation instead of bypassing the browser's pointer-interception behavior with a forced click. It tests the intended accessible keyboard path. It does not claim the underlying pointer hit-target layering issue is resolved; that remains a visual/UI item to inspect during final screenshot review.
 - Fresh workflows for the new commit are pending; do not claim the Chromium regression is fixed until the next browser run passes.
 - **Continuation counter:** Prompt 16/30. Stage 2 remains open; Stage 3 blocked.
+
+
+## Stage 2 continuation — Prompt 17/30 (2026-10-19)
+
+- Reviewed failed current-head browser evidence rather than treating CI's earlier green jobs as sufficient. Run #282 (`39266381692`) reported 1,119 passes and 2 failures because populated settlement and wallet-ledger tables collapsed to the mobile wrapper width and could not keyboard-scroll horizontally.
+- Fixed the actual responsive behavior in `client/src/admin-operations.css` by enforcing a 640px minimum width on dense admin tables inside their scroll regions. Code commit: `cea65e452ea5fd0e947bd31ee0e632fcf4164567`.
+- Verified the fix on that code head: Stage 2 run #286 (`39267102795`) passed all jobs and **1,121/1,121 Chromium checks**. The settlement table scrolled 26px with 12 mocked rows; the ledger scrolled 34px with 24 mocked rows. Installer run #664 (`39267103014`) and mining regression run #69 (`39267102854`) also passed.
+- The acceptance report and PR discussion now document the root cause, fix, and evidence. The checks use mocked admin/customer data; they do not establish live server authorization or database persistence. Broader authenticated interaction review and full screenshot sign-off remain open. Keep Stage 2 in progress and Stage 3 blocked until all exit gates are satisfied.
