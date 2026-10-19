@@ -32,6 +32,7 @@
 .admin-ops-note strong{color:#d7eee9}
 .admin-ops-table-wrap{width:100%;overflow:auto;border:1px solid rgba(132,164,177,.11);border-radius:12px}
 .admin-ops-table{width:100%;border-collapse:collapse;text-align:left;font-size:10px}
+.admin-ops-table-wrap > .admin-ops-table{min-width:640px}
 .admin-ops-table th{padding:11px 12px;border-bottom:1px solid rgba(132,164,177,.15);color:#77919d;background:rgba(255,255,255,.018);font-size:9px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
 .admin-ops-table td{padding:11px 12px;border-bottom:1px solid rgba(132,164,177,.085);color:#b8c9cd;vertical-align:middle;white-space:nowrap}
 .admin-ops-table tbody tr:last-child td{border-bottom:0}
