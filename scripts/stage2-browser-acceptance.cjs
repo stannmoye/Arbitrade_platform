@@ -797,6 +797,25 @@ async function runCustomerAuthFormInteractionCheck(browser) {
     await firstName.fill("Jordan");
     await lastName.fill("Davis");
     await email.fill("jordan.davis@example.test");
+    await password.fill("ShortPass12");
+    await submit.click();
+    const shortPasswordAlert = page.getByRole("alert").filter({
+      hasText: /password of at least 12 characters/i,
+    });
+    await shortPasswordAlert.waitFor({ state: "visible" });
+    const shortPasswordRejected =
+      await password.getAttribute("aria-invalid") === "true" &&
+      registerRequests === 0;
+    record("customer-registration-rejects-password-below-server-minimum",
+      shortPasswordRejected,
+      {
+        passwordLength: (await password.inputValue()).length,
+        passwordMinLength: await password.getAttribute("minlength"),
+        registerRequests,
+        validationText: await shortPasswordAlert.innerText(),
+      },
+    );
+
     await password.fill("StageTwoSecurePass123");
     const validStates = await Promise.all(
       [firstName, lastName, email, password].map(async field =>
