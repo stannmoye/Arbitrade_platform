@@ -204,9 +204,9 @@ describe("ARBITRADE shared design-system contract", () => {
   });
 
   it("keeps administrator appearance edits valid and protects the last enabled theme", () => {
-    expect(adminAppearance).toContain("if (enabledThemes.length === 1) return;");
-    expect(adminAppearance).toContain("if (candidate === defaultTheme) setDefaultTheme(next[0]);");
-    expect(adminAppearance).toContain("setEnabledThemes(ARBITRADE_THEMES.filter(value => value === candidate || enabledThemes.includes(value)))");
+    expect(adminAppearance).toContain("toggleEnabledTheme(enabledThemes, candidate)");
+    expect(adminAppearance).toContain("disabled={controlsDisabled || (enabledThemes.length === 1 && enabledThemes.includes(option))}");
+    expect(adminAppearance).toContain("if (!next.includes(defaultTheme)) setDefaultTheme(next[0]);");
     expect(adminAppearance).toContain('disabled={save.isPending || settings.isLoading || settings.isError || !enabledThemes.length}');
     expect(adminAppearance).toContain('role="alert"');
     expect(adminAppearance).toContain('role={save.isError ? "alert" : "status"}');
