@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ARBITRADE_THEME_LABELS, ARBITRADE_THEMES, type ArbitradeTheme, useTheme } from "@/contexts/ThemeContext";
+import { toggleEnabledTheme } from "./appearance-policy";
 import { trpc } from "@/lib/trpc";
 
 const DEFAULT_ENABLED = [...ARBITRADE_THEMES];
@@ -13,6 +14,7 @@ export function AdminAppearance() {
   const [enabledThemes, setEnabledThemes] = useState<ArbitradeTheme[]>(DEFAULT_ENABLED);
   const [customerCanSelect, setCustomerCanSelect] = useState(false);
   const [notice, setNotice] = useState("");
+  const controlsDisabled = settings.isLoading || settings.isError || save.isPending;
 
   useEffect(() => {
     const appearance = settings.data?.appearance;
@@ -28,17 +30,12 @@ export function AdminAppearance() {
     setCustomerCanSelect(Boolean(appearance.customerCanSelect));
   }, [settings.data]);
 
-  // Keep state updaters pure: React may invoke updater functions more than once in
-  // development Strict Mode. Derive the next allow-list before updating either state.
+  // Keep the policy transition pure and testable. The last enabled theme cannot
+  // be removed, but unchecked themes must remain available to re-enable it later.
   const toggleEnabled = (candidate: ArbitradeTheme) => {
-    if (enabledThemes.includes(candidate)) {
-      if (enabledThemes.length === 1) return;
-      const next = enabledThemes.filter(value => value !== candidate);
-      if (candidate === defaultTheme) setDefaultTheme(next[0]);
-      setEnabledThemes(next);
-      return;
-    }
-    setEnabledThemes(ARBITRADE_THEMES.filter(value => value === candidate || enabledThemes.includes(value)));
+    const next = toggleEnabledTheme(enabledThemes, candidate);
+    if (!next.includes(defaultTheme)) setDefaultTheme(next[0]);
+    setEnabledThemes(next);
   };
 
   const persist = async () => {
@@ -95,7 +92,7 @@ export function AdminAppearance() {
         <h2>Published customer theme</h2>
         <label className="arb-appearance-field">
           <span>Default theme</span>
-          <select value={defaultTheme} onChange={event => setDefaultTheme(event.target.value as ArbitradeTheme)}>
+          <select value={defaultTheme} disabled={controlsDisabled} onChange={event => setDefaultTheme(event.target.value as ArbitradeTheme)}>
             {ARBITRADE_THEMES.filter(option => enabledThemes.includes(option)).map(option =>
               <option key={option} value={option}>{ARBITRADE_THEME_LABELS[option]}</option>
             )}
@@ -105,14 +102,15 @@ export function AdminAppearance() {
         <div className="arb-theme-enabled-list">
           {ARBITRADE_THEMES.map(option => (
             <label key={option}>
-              <input type="checkbox" checked={enabledThemes.includes(option)} disabled={enabledThemes.length === 1}
+              <input type="checkbox" checked={enabledThemes.includes(option)}
+                disabled={controlsDisabled || (enabledThemes.length === 1 && enabledThemes.includes(option))}
                 onChange={() => toggleEnabled(option)} />
               <span><strong>{ARBITRADE_THEME_LABELS[option]}</strong><small>{option === defaultTheme ? "Current published default" : "Can be enabled for customer choice"}</small></span>
             </label>
           ))}
         </div>
         <label className="arb-appearance-policy-toggle">
-          <input type="checkbox" checked={customerCanSelect} onChange={event => setCustomerCanSelect(event.target.checked)} />
+          <input type="checkbox" checked={customerCanSelect} disabled={controlsDisabled} onChange={event => setCustomerCanSelect(event.target.checked)} />
           <span><strong>Allow customers to choose their own theme</strong><small>When disabled, customers see the published default. When enabled, they may choose from the enabled themes.</small></span>
         </label>
         <div className="arb-appearance-actions">
