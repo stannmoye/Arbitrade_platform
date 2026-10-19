@@ -236,9 +236,12 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
     page.on("pageerror", error => pageErrors.push(error.message));
     const apiRequests = [];
     try {
-      await page.addInitScript(() => {
-        try { localStorage.removeItem("arbitrade-theme"); } catch {}
-      });
+      await page.addInitScript((storedTheme) => {
+        try {
+          if (storedTheme) localStorage.setItem("arbitrade-theme", storedTheme);
+          else localStorage.removeItem("arbitrade-theme");
+        } catch {}
+      }, scenario.expectedEditable ? null : "aurora-modern");
       await page.route(/\/api\/trpc(?:\/|$)/, async route => {
         const request = route.request();
         const url = new URL(request.url());
@@ -286,6 +289,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
       let options = [];
       let selectedTheme = null;
       let persistedTheme = null;
+      let appliedTheme = null;
       if (editable) {
         options = await select.locator("option").evaluateAll(items => items.map(item => item.value));
         if (scenario.expectedEditable) {
@@ -295,13 +299,15 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           persistedTheme = await page.evaluate(() => localStorage.getItem("arbitrade-theme"));
         }
       }
+      appliedTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || null);
       const correctEditability = editable === scenario.expectedEditable;
+      const correctDisabledFallback = scenario.expectedEditable || appliedTheme === "clean-light";
       const correctOptions = !scenario.expectedEditable ||
         (options.length === 2 && options.includes("clean-light") && options.includes("aurora-modern") &&
           !options.includes("original") && !options.includes("midnight-premium") && !options.includes("emerald-finance"));
       const correctSelection = !scenario.expectedEditable ||
         (selectedTheme === "aurora-modern" && persistedTheme === "aurora-modern");
-      const passed = correctEditability && correctOptions && correctSelection && pageErrors.length === 0;
+      const passed = correctEditability && correctDisabledFallback && correctOptions && correctSelection && pageErrors.length === 0;
       checks.push({
         route: "/customer",
         routeName: "customer",
@@ -314,6 +320,8 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         options,
         selectedTheme,
         persistedTheme,
+        appliedTheme,
+        staleStoredThemeIgnored: scenario.expectedEditable || appliedTheme === "clean-light",
         pageErrors,
         apiProcedures: [...new Set(apiRequests.flatMap(item => item.procedures))],
         note: "Uses mocked customer auth and appearanceConfig; proves the client policy UI and local preference behavior, not live server authorization or database persistence.",
