@@ -134,6 +134,11 @@ async function runAdminAppearanceInteractionCheck(browser) {
         procedures,
         output,
       });
+      // Hold the mocked settings save briefly so the acceptance check can
+      // observe the real pending/busy UI state before the server response.
+      if (procedures.includes("adminOperations.updateSettings")) {
+        await new Promise(resolve => setTimeout(resolve, 400));
+      }
       try {
         await route.fulfill({
           status: 200,
@@ -201,6 +206,16 @@ async function runAdminAppearanceInteractionCheck(browser) {
     await page.getByRole("checkbox", { name: /Midnight Premium/ }).uncheck();
     await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).check();
     await page.getByRole("button", { name: "Save appearance policy" }).click();
+    await page.waitForTimeout(60);
+    const saveButton = page.getByRole("button", { name: /Saving…|Save appearance policy/ });
+    const busySaveText = await saveButton.innerText();
+    const busySaveDisabled = await saveButton.isDisabled();
+    const busyDefaultDisabled = await page.getByLabel("Default theme").isDisabled();
+    const busyThemeDisabled = await page.getByRole("checkbox", { name: /Aurora Modern/ }).isDisabled();
+    const busyChoiceDisabled = await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).isDisabled();
+    record("admin-appearance-save-busy-controls-disabled",
+      busySaveText.includes("Saving") && busySaveDisabled && busyDefaultDisabled && busyThemeDisabled && busyChoiceDisabled,
+      { busySaveText, busySaveDisabled, busyDefaultDisabled, busyThemeDisabled, busyChoiceDisabled });
     await page.getByRole("status").filter({ hasText: "Appearance policy saved" }).waitFor({ state: "visible" });
 
     const saved = mutations.length > 0 &&
