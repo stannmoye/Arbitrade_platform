@@ -168,7 +168,7 @@ async function main() {
                   };
                 });
                 const parseColorWithAlpha = value => {
-                  const parts = String(value).match(/[\\d.]+/g);
+                  const parts = String(value).match(/[\d.]+/g);
                   if (!parts || parts.length < 3) return null;
                   const channels = parts.map(Number);
                   return {
