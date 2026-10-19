@@ -339,3 +339,10 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - The installer workflow includes successful disposable MariaDB verification of administrator-only appearance-policy authorization and real database persistence, plus MySQL 8 migration compatibility/recovery. This is integration evidence against disposable CI databases, not production database verification. The mining database transaction/idempotency job also passed.
 - Follow-up commit `63e6d9b4d970ac68f5777b1486c4d748c5a5c7d5` increases the compact selector width within the mobile viewport; commit `bf6c85f964038c6eef4d482148caa702134d241c` adds a Chromium regression check requiring at least 150px width at 390px. Fresh CI for these follow-up commits is pending; no pass is claimed for them yet.
 - Remaining exit gates: verify the new width check on the latest head; broaden authenticated form/dialog/dropdown/disabled/busy coverage; review the complete screenshot set; and complete final acceptance sign-off. The browser API/auth data remains mocked. PR #71 stays draft and unmerged; Stage 2 stays open and Stage 3 remains blocked.
+
+
+## Compact selector width regression diagnosed — 2026-10-19
+
+- The first follow-up Chromium run on the mobile selector width change correctly failed: `admin-mobile-theme-selector-retains-readable-width` measured only **140.77px** at 390px, below the 150px acceptance threshold. This showed the selector's flex item was shrinking despite its width rule.
+- Corrected the compact selector to use a non-shrinking responsive flex basis (`flex: 0 0 min(10rem, 44vw)`) in commit `efcaa28f84437133816d211cbe393c9c71e77d2e`. The 390px browser assertion remains in place and is intended to catch regressions.
+- The failing run's other Stage 2 jobs passed (application tests, TypeScript, and production build); installer validation and mining database regression also passed. The Chromium result was **1,131 passed / 1 failed of 1,132**. The corrected code requires a fresh run; do not count this as a pass yet.
