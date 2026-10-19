@@ -1129,6 +1129,10 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
     try {
       await page.addInitScript((storedTheme) => {
         try {
+          // Seed the policy scenario once per tab so a reload can verify that
+          // the selected account-scoped preference survives navigation.
+          if (sessionStorage.getItem("__stage3-theme-seeded") === "1") return;
+          sessionStorage.setItem("__stage3-theme-seeded", "1");
           if (storedTheme) localStorage.setItem("arbitrade-theme:user:9002", storedTheme);
           else localStorage.removeItem("arbitrade-theme:user:9002");
         } catch {}
@@ -1180,6 +1184,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
       let options = [];
       let selectedTheme = null;
       let persistedTheme = null;
+      let restoredTheme = null;
       let appliedTheme = null;
       if (editable) {
         options = await select.locator("option").evaluateAll(items => items.map(item => item.value));
@@ -1188,6 +1193,9 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           await page.waitForFunction(() => document.documentElement.dataset.arbTheme === "aurora-modern");
           selectedTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || null);
           persistedTheme = await page.evaluate(() => localStorage.getItem("arbitrade-theme:user:9002"));
+          await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+          await page.waitForFunction(() => document.documentElement.dataset.arbTheme === "aurora-modern", { timeout: 15000 });
+          restoredTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || null);
         }
       }
       appliedTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || null);
@@ -1197,7 +1205,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         (options.length === 2 && options.includes("clean-light") && options.includes("aurora-modern") &&
           !options.includes("original") && !options.includes("midnight-premium") && !options.includes("emerald-finance"));
       const correctSelection = !scenario.expectedEditable ||
-        (selectedTheme === "aurora-modern" && persistedTheme === "aurora-modern");
+        (selectedTheme === "aurora-modern" && persistedTheme === "aurora-modern" && restoredTheme === "aurora-modern");
       const passed = correctEditability && correctDisabledFallback && correctOptions && correctSelection && pageErrors.length === 0;
 
       // The customer navigation drawer must be inert while closed and must
@@ -1332,6 +1340,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         options,
         selectedTheme,
         persistedTheme,
+        restoredTheme,
         appliedTheme,
         staleStoredThemeIgnored: scenario.expectedEditable || appliedTheme === "clean-light",
         pageErrors,
