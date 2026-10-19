@@ -940,3 +940,18 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - **Remaining Stage 2 exit gates:** authenticated administrator appearance-policy save; customer theme permissions and persistence; keyboard scrolling of populated financial tables; detailed authenticated form/dialog/dropdown and disabled/busy interaction states; human review of browser screenshots; and final acceptance sign-off. The browser job uses the built static client without authenticated live API data and does not prove those interactions.
 - **Decision:** Stage 2 remains open pending the remaining authenticated interaction evidence. Keep PR #71 draft and unmerged; do not advance to Stage 3 until the remaining exit gates are verified.
 - The roadmap/acceptance documentation update creates a new head, so fresh CI must be checked against that exact resulting SHA before claiming current-head validation.
+
+
+## Stage 2 continuation — Prompt 11/30 (2026-10-19)
+
+- Continued the existing Stage 2 branch and PR #71; no restart, merge, deployment, or Stage 3 transition.
+- Centralized customer theme preference resolution and selection authorization in `client/src/contexts/theme-policy.ts`. The provider now uses the same pure policy helpers when hydrating local preferences, handling cross-tab storage events, and accepting customer theme changes.
+- Added regression cases for explicitly disabled customer choice, valid allowed preferences, preferences removed from the administrator allow-list, malformed stored values, and attempts to select unknown or disabled themes.
+- Repository inspection confirmed Vitest is configured to include only `server/**/*.test.ts` and `server/**/*.spec.ts`; the new tests therefore live in `server/theme-policy.test.ts` and import the client policy helper. The test was deliberately moved out of the client folder so it will run in the configured suite.
+- Code commits: `cf85e96f6bdbe577bdf2afa3085e9a9578e1fe4c` (provider integration), `b2abd2c5364f6fbf1d3780e185088a3389b08214` (pure policy helper), `312106c9be00c552ef8a8e8f0cac1db8b0d7de5f` (remove misplaced test), and `519474487c533f9a24d46b6fb6e675bd50aaf119` (configured regression suite).
+- **Validation status:** CI for the new code head has not yet been confirmed. The earlier green Stage 2 run #189 / 39232454051 applies to the prior head only and must not be used as evidence for these changes.
+- **Done:** provider policy logic now shares a pure, directly testable decision layer; targeted regression tests are in the configured test path.
+- **In progress:** exact-head CI validation and browser-level authenticated policy save/customer persistence acceptance.
+- **Still required before Stage 2 sign-off:** verify the actual administrator save flow and server persistence, customer permission enforcement in an authenticated browser session, keyboard scrolling of populated financial tables, detailed authenticated form/dialog/dropdown/disabled/busy states, and review of the captured screenshots. Static-client browser smoke does not prove these workflows.
+- **Decision:** keep PR #71 draft and unmerged. Stage 2 remains open; do not advance to Stage 3 until the remaining acceptance gates have evidence.
+- **Continuation counter:** Prompt 11/30.
