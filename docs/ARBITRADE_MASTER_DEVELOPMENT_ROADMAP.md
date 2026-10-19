@@ -982,3 +982,14 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Remaining exit gates: obtain fresh current-head CI evidence; review any browser failures; verify live server authorization and database persistence; exercise populated financial-table keyboard scrolling and detailed authenticated controls; review screenshots and complete sign-off.
 - PR #71 stays draft and unmerged. Stage 2 remains open; Stage 3 remains blocked until all acceptance gates pass.
 - **Continuation counter:** Prompt 13/30.
+
+
+## Stage 2 continuation checkpoint — Prompt 14/30 (2026-10-19)
+
+- Added focused unit coverage in `client/src/contexts/theme-policy.test.ts` for disabled customer-choice behavior, allow-list enforcement, allowed stored preferences, malformed/unknown stored values, and selection permission checks.
+- Commit: `fdf455ba9b12d8131ab067ea330000f3f41d7390`; acceptance document updated to describe the new coverage.
+- Fresh CI had started for the previous documentation head `548171ded2304c0c407dbaf05b4b9122231e3ac5`: Stage 2 application tests, typecheck, and production build passed; Chromium matrix was still in progress when inspected. Installer workflow checks passed several jobs, with deployment package assembly still running. Those results predate the new unit-test commit and must not be represented as validation of the latest head.
+- Exact-head status/workflow lookup for `fdf455ba9b12d8131ab067ea330000f3f41d7390` returned no status entries or PR-triggered runs. This is not proof of success or failure; keep current-head validation pending.
+- Remaining exit gates: fresh CI on latest head, review customer-browser scenario results, verify live server authorization/database persistence, populated financial-table keyboard scrolling, detailed authenticated form/dialog/dropdown/disabled/busy states, screenshot review, final sign-off.
+- PR #71 remains draft and unmerged. Stage 2 stays open; Stage 3 is blocked until all gates have evidence.
+- **Continuation counter:** Prompt 14/30.
