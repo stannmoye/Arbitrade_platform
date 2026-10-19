@@ -1341,6 +1341,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
             navOverflowY: nav instanceof HTMLElement ? getComputedStyle(nav).overflowY : null,
             navClientHeight: nav instanceof HTMLElement ? nav.clientHeight : null,
             navScrollHeight: nav instanceof HTMLElement ? nav.scrollHeight : null,
+            bodyOverflow: document.body.style.overflow,
             documentWidth: document.documentElement.scrollWidth,
           };
         });
@@ -1357,6 +1358,9 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           mobileDrawerLayout.closeVisible &&
           mobileDrawerLayout.searchVisible &&
           mobileDrawerLayout.navVisible &&
+          mobileDrawerLayout.navOverflowY === "auto" &&
+          mobileDrawerLayout.navScrollHeight > mobileDrawerLayout.navClientHeight &&
+          mobileDrawerLayout.bodyOverflow === "hidden" &&
           mobileDrawerLayout.documentWidth <= 320;
         checks.push({
           route: "/customer",
@@ -1366,7 +1370,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           check: "customer-navigation-drawer-fits-compact-mobile-viewport",
           passed: mobileDrawerFits,
           ...mobileDrawerLayout,
-          note: "Checks the open customer navigation dialog, close/search controls, navigation region, and page-width containment at 320x568 in the mocked customer session.",
+          note: "Checks the open customer navigation dialog, close/search controls, internally scrollable navigation, modal body scroll lock, and page-width containment at 320x568 in the mocked customer session.",
         });
 
         await page.setViewportSize({ width: 1440, height: 1000 });
