@@ -45,6 +45,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
   };
   let savedAppearance = { ...initialAppearance, enabledThemes: [...initialAppearance.enabledThemes] };
   const mutations = [];
+  let failNextSettingsSave = false;
   const checks = [];
   const record = (check, passed, details = {}) => checks.push({
     route: "/ops-console-7f3a",
@@ -114,6 +115,22 @@ async function runAdminAppearanceInteractionCheck(browser) {
         } else if (procedure === "adminOperations.autoTradePolicy") {
           data = { globalEnabled: false };
         } else if (procedure === "adminOperations.updateSettings") {
+          if (failNextSettingsSave) {
+            failNextSettingsSave = false;
+            return {
+              error: {
+                json: {
+                  message: "Simulated appearance save failure",
+                  code: -32603,
+                  data: {
+                    code: "INTERNAL_SERVER_ERROR",
+                    httpStatus: 500,
+                    path: procedure,
+                  },
+                },
+              },
+            };
+          }
           mutations.push(input);
           if (input?.appearance) {
             savedAppearance = {
@@ -252,6 +269,21 @@ async function runAdminAppearanceInteractionCheck(browser) {
       settingsRefetched,
       updateRequestIndex,
     });
+
+    // Verify a rejected save exposes an accessible error and releases all controls
+    // from the pending state without pretending the rejected policy was persisted.
+    failNextSettingsSave = true;
+    await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).uncheck();
+    await page.getByRole("button", { name: "Save appearance policy" }).click();
+    const saveError = page.getByRole("alert").filter({ hasText: "Simulated appearance save failure" });
+    await saveError.waitFor({ state: "visible" });
+    const errorSaveEnabled = await page.getByRole("button", { name: "Save appearance policy" }).isEnabled();
+    const errorDefaultEnabled = await page.getByLabel("Default theme").isEnabled();
+    const errorThemeEnabled = await page.getByRole("checkbox", { name: /Aurora Modern/ }).isEnabled();
+    const errorChoiceEnabled = await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).isEnabled();
+    record("admin-appearance-save-error-feedback-controls-restored",
+      await saveError.isVisible() && errorSaveEnabled && errorDefaultEnabled && errorThemeEnabled && errorChoiceEnabled,
+      { errorVisible: await saveError.isVisible(), errorSaveEnabled, errorDefaultEnabled, errorThemeEnabled, errorChoiceEnabled });
 
     // Reset the admin route after saving appearance settings so the next mobile navigation
     // check starts from a clean workspace rather than a scrolled settings-card position.
