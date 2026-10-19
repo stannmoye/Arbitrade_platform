@@ -1,4 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
+import express from "express";
+import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { eq } from "drizzle-orm";
 import { appSettings, users } from "../drizzle/schema";
 import { createContext } from "./_core/context";
@@ -82,6 +84,72 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
         },
       }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    // Exercise the production tRPC router/context through a real local HTTP adapter,
+    // while keeping the disposable database and test server isolated from deployment.
+    const httpApp = express();
+    httpApp.use(express.json());
+    httpApp.use("/api/trpc", createExpressMiddleware({ router: appRouter, createContext }));
+    const server = httpApp.listen(0, "127.0.0.1");
+    await new Promise<void>((resolve, reject) => {
+      server.once("listening", resolve);
+      server.once("error", reject);
+    });
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Could not resolve the isolated tRPC test server address");
+      }
+      const endpoint = "http://127.0.0.1:" + address.port + "/api/trpc";
+      const adminToken = createLocalSession(
+        administrator.id,
+        Number(administrator.authVersion || 0),
+      );
+      const customerToken = createLocalSession(
+        customer.id,
+        Number(customer.authVersion || 0),
+      );
+
+      const adminRead = await fetch(endpoint + "/adminOperations.settings", {
+        headers: { cookie: "webdev_app_session=" + adminToken },
+      });
+      expect(adminRead.status).toBe(200);
+      const adminPayload = await adminRead.json() as {
+        result?: { data?: { json?: { appearance?: unknown } } };
+      };
+      expect(adminPayload.result?.data?.json?.appearance).toBeDefined();
+
+      const customerRead = await fetch(endpoint + "/adminOperations.settings", {
+        headers: { cookie: "webdev_app_session=" + customerToken },
+      });
+      expect(customerRead.status).toBe(403);
+
+      const customerWrite = await fetch(endpoint + "/adminOperations.updateSettings", {
+        method: "POST",
+        headers: {
+          cookie: "webdev_app_session=" + customerToken,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          json: {
+            appearance: {
+              defaultTheme: "original",
+              enabledThemes: ["original"],
+              customerCanSelect: false,
+            },
+          },
+        }),
+      });
+      expect(customerWrite.status).toBe(403);
+
+      const anonymousRead = await fetch(endpoint + "/adminOperations.settings");
+      expect(anonymousRead.status).toBe(403);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close(error => error ? reject(error) : resolve());
+      });
+    }
   });
 
   it("persists an administrator policy, reads it back, and rejects customer writes", async () => {
