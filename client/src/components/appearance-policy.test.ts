@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { toggleEnabledTheme } from "./appearance-policy";
-import { ARBITRADE_THEMES } from "../contexts/ThemeContext";
+import { ARBITRADE_THEMES } from "./appearance-policy";
 
 describe("administrator enabled-theme policy transitions", () => {
   it("allows adding a theme when only one theme is currently enabled", () => {
