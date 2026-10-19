@@ -233,6 +233,23 @@ async function runAdminAppearanceInteractionCheck(browser) {
       focusedButton: await page.evaluate(() => document.activeElement?.textContent?.trim() || ""),
     });
 
+    // Verify preview buttons activate with both native keyboard activation keys.
+    const midnightPreviewButton = previewGroup.getByRole("button", { name: /Midnight Premium/ });
+    await midnightPreviewButton.focus();
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() => document.documentElement.dataset.arbTheme === "midnight-premium");
+    const midnightPressedAfterEnter = await midnightPreviewButton.getAttribute("aria-pressed");
+    const cleanPreviewButton = previewGroup.getByRole("button", { name: /Clean Light/ });
+    await cleanPreviewButton.focus();
+    await page.keyboard.press("Space");
+    await page.waitForFunction(() => document.documentElement.dataset.arbTheme === "clean-light");
+    const cleanPressedAfterSpace = await cleanPreviewButton.getAttribute("aria-pressed");
+    record("admin-theme-preview-buttons-activate-with-enter-and-space",
+      midnightPressedAfterEnter === "true" && cleanPressedAfterSpace === "true", {
+        midnightPressedAfterEnter,
+        cleanPressedAfterSpace,
+      });
+
     // Use a non-default theme so the keyboard check does not change the published-default control.
     const auroraThemeCheckbox = customerThemesGroup.getByRole("checkbox", { name: /Aurora Modern/ });
     await auroraThemeCheckbox.focus();
@@ -449,6 +466,23 @@ async function runAdminAppearanceInteractionCheck(browser) {
       previewCount,
       previewTheme,
     });
+
+    // Verify the final enabled theme cannot be unchecked, then restore the full list for subsequent policy checks.
+    for (const themeName of THEMES.filter(name => name !== "original")) {
+      const checkbox = customerThemesGroup.getByRole("checkbox", { name: new RegExp(THEME_LABELS[name], "i") });
+      if (await checkbox.isChecked()) await checkbox.uncheck();
+    }
+    const originalOnlyCheckbox = customerThemesGroup.getByRole("checkbox", { name: /Original Arbitrade/ });
+    const finalThemeGuardPass = await originalOnlyCheckbox.isChecked() && await originalOnlyCheckbox.isDisabled();
+    record("admin-final-enabled-theme-cannot-be-removed", finalThemeGuardPass, {
+      originalChecked: await originalOnlyCheckbox.isChecked(),
+      originalDisabled: await originalOnlyCheckbox.isDisabled(),
+      checkedThemeCount: await customerThemesGroup.getByRole("checkbox", { checked: true }).count(),
+    });
+    for (const themeName of THEMES.filter(name => name !== "original")) {
+      const checkbox = customerThemesGroup.getByRole("checkbox", { name: new RegExp(THEME_LABELS[name], "i") });
+      if (!(await checkbox.isChecked())) await checkbox.check();
+    }
 
     await page.getByLabel("Default theme").selectOption("clean-light");
     await page.getByRole("checkbox", { name: /Clean Light/ }).uncheck();
