@@ -214,6 +214,8 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themePolicy).toContain("export function resolveCustomerTheme");
     expect(themePolicy).toContain("export function canCustomerSelectTheme");
     expect(themeContext).toContain("window.localStorage.setItem(themeStorageKeyForRole(isAdmin, currentUserId), effectiveTheme)");
+    expect(themeContext).toContain("loadedThemeStorageKey === themeStorageKeyForRole(isAdmin, currentUserId)");
+    expect(themeContext).toContain("setLoadedThemeStorageKey(storageKey)");
   });
 
   it("keeps administrator appearance edits valid and protects the last enabled theme", () => {
