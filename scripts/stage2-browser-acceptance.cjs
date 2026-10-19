@@ -781,7 +781,7 @@ async function runCustomerAuthFormInteractionCheck(browser) {
       fieldSemantics.emailRequired &&
       fieldSemantics.emailType === "email" &&
       fieldSemantics.passwordRequired &&
-      fieldSemantics.passwordMinLength === "10" &&
+      fieldSemantics.passwordMinLength === "12" &&
       invalidStates.every(Boolean) &&
       /first and last name/i.test(validationText) &&
       registerRequests === 0,
