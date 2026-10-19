@@ -1,6 +1,6 @@
 # Stage 3 — Five-Theme Architecture and Administrator Theme Controls
 
-**Status:** Core implementation and prior exact-head CI validated; account-switch persistence guard awaiting fresh CI; acceptance review remains in progress  
+**Status:** Core implementation and account-switch guard validated by exact-code-head CI; acceptance review remains in progress  
 **Working branch:** `feat/stage-3-five-theme-architecture`  
 **Base implementation checkpoint:** `22ca05ad65e20078775ca7956f121019fa6a966b`  
 **Started:** 2026-10-19
@@ -37,19 +37,19 @@ Finish and verify the existing five-theme implementation without duplicating Sta
 
 ## Current code change
 
-The shared `arbitrade-theme` key previously stored both administrator previews and customer preferences, and customer preferences were shared between accounts on the same browser. In a shared browser, an administrator's preview or another customer's preference could be mistaken for the active customer's choice when customer choice was enabled and the theme was allowed. The context now resolves a role- and account-specific storage key, and storage events are filtered to the active role/account key. A follow-up review found a timing edge case during an in-app account switch: before restoration completed, the previous account's in-memory theme could be written to the new account's key and briefly rendered. The context now gates both persistence and account-specific theme rendering on the active storage key having been restored; until then it uses the safe default. Source regression contracts protect the guard. Commits `65bac9b0` and `891423eb` implement the rendering/persistence guard and assertions. Fresh exact-head CI is pending.
+The shared `arbitrade-theme` key previously stored both administrator previews and customer preferences, and customer preferences were shared between accounts on the same browser. In a shared browser, an administrator's preview or another customer's preference could be mistaken for the active customer's choice when customer choice was enabled and the theme was allowed. The context now resolves a role- and account-specific storage key, and storage events are filtered to the active role/account key. A follow-up review found a timing edge case during an in-app account switch: before restoration completed, the previous account's in-memory theme could be written to the new account's key and briefly rendered. The context now gates both persistence and account-specific theme rendering on the active storage key having been restored; until then it uses the safe default. Source regression contracts protect the guard. Commits `65bac9b0`, `891423eb`, `5e2e6e14`, and `9572f167` implement the rendering/persistence guard and align the regression contract with the active storage key. Exact code-head CI run #540 passed all four jobs.
 
 ## Validation record
 
-Exact-head GitHub Actions run [#520](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333823586) for commit `0be8ec373fb1cc154f249df7bd5f89c152107a2d` completed successfully:
+Exact code-head GitHub Actions run [#540](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39334670742) for commit `9572f167f5ffce867d39bcee92201cc5c75a3785` completed successfully after the account-switch rendering/persistence guard and regression-contract fixes:
 
 - Application and theme-policy regression tests: **280 passed, 6 skipped**; 37 test files passed and 2 skipped.
 - TypeScript validation: **passed**.
 - Production build: **passed**.
 - Chromium viewport and five-theme smoke matrix: **1,174 checks passed, 0 failures**.
-- Browser evidence artifact: [stage-3-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333823586/artifacts/12225587188). The report covers five themes across 10 viewport widths and three entry routes.
+- Browser evidence artifact: [stage-3-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39334670742/artifacts/12225682366). Inspected `report.json`: **1,174 passed, 0 failed**, covering five themes across 10 viewport widths and three entry routes.
 
-Earlier runs exposed a stale workflow source-contract assertion and a browser check reading the retired storage key. Both were corrected. The exact current head above was green before the account-switch persistence guard was added. Fresh CI for the new code head is required; do not reuse run #520 as proof that the latest code has passed. Do not treat the static browser run as proof of live server authorization or database persistence: the browser script uses mocked API responses for several interactions, while server-side behavior is covered separately by automated tests.
+Earlier runs exposed a stale workflow source-contract assertion and a browser check reading the retired storage key. Both were corrected. Run #540 validates the latest application-code commit before this documentation refresh; the follow-up documentation commit triggers a docs-only CI run. Do not treat the static browser run as proof of live server authorization or database persistence. Do not treat the static browser run as proof of live server authorization or database persistence: the browser script uses mocked API responses for several interactions, while server-side behavior is covered separately by automated tests.
 
 ## External limitations and release gates
 
