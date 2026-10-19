@@ -74,7 +74,7 @@ export function AdminAppearance() {
         <div className="eyebrow">Preview</div>
         <h2>Try a theme before publishing</h2>
         <p>Preview changes apply to this administrator session. Saving the default is a separate action.</p>
-        <div className="arb-theme-preview-grid">
+        <div className="arb-theme-preview-grid" role="group" aria-label="Theme preview choices">
           {ARBITRADE_THEMES.map(option => (
             <button type="button" key={option} className={`arb-theme-preview-option${theme === option ? " is-active" : ""}`}
               onClick={() => setTheme(option)} aria-pressed={theme === option}>
@@ -97,17 +97,19 @@ export function AdminAppearance() {
             )}
           </select>
         </label>
-        <h3>Available customer themes</h3>
-        <div className="arb-theme-enabled-list">
-          {ARBITRADE_THEMES.map(option => (
-            <label key={option}>
-              <input type="checkbox" checked={enabledThemes.includes(option)}
-                disabled={controlsDisabled || (enabledThemes.length === 1 && enabledThemes.includes(option))}
-                onChange={() => toggleEnabled(option)} />
-              <span><strong>{ARBITRADE_THEME_LABELS[option]}</strong><small>{option === defaultTheme ? "Current published default" : "Can be enabled for customer choice"}</small></span>
-            </label>
-          ))}
-        </div>
+        <fieldset className="arb-appearance-theme-fieldset">
+          <legend>Available customer themes</legend>
+          <div className="arb-theme-enabled-list">
+            {ARBITRADE_THEMES.map(option => (
+              <label key={option}>
+                <input type="checkbox" checked={enabledThemes.includes(option)}
+                  disabled={controlsDisabled || (enabledThemes.length === 1 && enabledThemes.includes(option))}
+                  onChange={() => toggleEnabled(option)} />
+                <span><strong>{ARBITRADE_THEME_LABELS[option]}</strong><small>{option === defaultTheme ? "Current published default" : "Can be enabled for customer choice"}</small></span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <label className="arb-appearance-policy-toggle">
           <input type="checkbox" checked={customerCanSelect} disabled={controlsDisabled} onChange={event => setCustomerCanSelect(event.target.checked)} />
           <span><strong>Allow customers to choose their own theme</strong><small>When disabled, customers see the published default. When enabled, they may choose from the enabled themes.</small></span>
