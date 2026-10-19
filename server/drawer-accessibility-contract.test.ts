@@ -5,6 +5,11 @@ const adminDrawer = readFileSync(new URL("../client/src/components/AdminSlideMen
 const customerDrawer = readFileSync(new URL("../client/src/components/CustomerSlideMenu.tsx", import.meta.url), "utf8");
 
 describe("navigation drawer keyboard accessibility contracts", () => {
+  it("announces empty customer navigation search results politely", () => {
+    expect(customerDrawer).toContain('className="customer-resource-empty" role="status" aria-live="polite"');
+    expect(customerDrawer).toContain("No pages or resources match");
+  });
+
   it("removes the customer search field from the tab order while the drawer is closed", () => {
     expect(customerDrawer).toContain('aria-label="Search customer pages and resources" tabIndex={open ? 0 : -1}');
     expect(customerDrawer).toContain('aria-hidden={!open} role="dialog" aria-modal={open}');
