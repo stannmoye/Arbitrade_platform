@@ -18,10 +18,12 @@ export function toggleEnabledTheme(
   enabledThemes: readonly ArbitradeTheme[],
   candidate: ArbitradeTheme,
 ): ArbitradeTheme[] {
-  if (enabledThemes.includes(candidate)) {
-    if (enabledThemes.length <= 1) return [...enabledThemes];
-    return ARBITRADE_THEMES.filter(theme => enabledThemes.includes(theme) && theme !== candidate);
+  const current = ARBITRADE_THEMES.filter(theme => enabledThemes.includes(theme));
+
+  if (current.includes(candidate)) {
+    if (current.length <= 1) return current;
+    return current.filter(theme => theme !== candidate);
   }
 
-  return ARBITRADE_THEMES.filter(theme => theme === candidate || enabledThemes.includes(theme));
+  return ARBITRADE_THEMES.filter(theme => theme === candidate || current.includes(theme));
 }
