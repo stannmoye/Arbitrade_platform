@@ -248,7 +248,7 @@ describe("ARBITRADE shared design-system contract", () => {
       'enabledThemes: z.array(z.enum(["original","midnight-premium","clean-light","emerald-finance","aurora-modern"])).min(1).max(5)',
     );
     expect(routers).toContain(
-      'if (!input.appearance.enabledThemes.includes(input.appearance.defaultTheme)) throw new TRPCError({ code: "BAD_REQUEST", message: "The default theme must be enabled." });',
+      'if (input.appearance && !input.appearance.enabledThemes.includes(input.appearance.defaultTheme)) throw new TRPCError({ code: "BAD_REQUEST", message: "The default theme must be enabled." });',
     );
   });
 
