@@ -382,7 +382,7 @@ describe("ARBITRADE shared design-system contract", () => {
 
   it("shares Stage 2 concurrency groups across push and pull-request events for the same branch", () => {
     expect(workflow).toContain("concurrency:");
-    expect(workflow).toContain("group: stage-2-design-system-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}");
+    expect(workflow).toContain("group: stage-2-design-system-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}");
     expect(workflow).toContain("cancel-in-progress: true");
     expect(workflow).not.toContain("group: stage-2-design-system-${{ github.workflow }}-${{ github.ref }}");
   });
@@ -390,7 +390,7 @@ describe("ARBITRADE shared design-system contract", () => {
 
   it("coalesces superseded installer validation runs per pull request", () => {
     expect(installerWorkflow).toContain("concurrency:");
-    expect(installerWorkflow).toContain("group: installer-validation-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}");
+    expect(installerWorkflow).toContain("group: installer-validation-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}");
     expect(installerWorkflow).toContain("cancel-in-progress: true");
   });
 
