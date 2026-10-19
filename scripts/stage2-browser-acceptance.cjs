@@ -223,6 +223,9 @@ async function runAdminAppearanceInteractionCheck(browser) {
       await page.waitForFunction(expected =>
         document.documentElement.dataset.arbTheme === expected, screenshotTheme);
       await page.evaluate(() => window.scrollTo(0, 0));
+      // Move away from nav controls before capture so native title tooltips do not contaminate evidence.
+      await page.mouse.move(1, 1);
+      await page.waitForTimeout(100);
       const desktopScreenshot = path.join(ARTIFACT_DIR, `admin-appearance-1440-${screenshotTheme}.png`);
       await page.screenshot({ path: desktopScreenshot, fullPage: true, animations: "disabled" });
       appearanceScreenshotPaths.push(desktopScreenshot);
@@ -281,6 +284,9 @@ async function runAdminAppearanceInteractionCheck(browser) {
       record("admin-mobile-theme-selector-label-contrast",
         selectorLabelColors.labelColor === selectorLabelColors.headerTextColor,
         { width: 390, theme: screenshotTheme, ...selectorLabelColors });
+      // Clear hover state before taking the mobile screenshot as well.
+      await page.mouse.move(1, 1);
+      await page.waitForTimeout(100);
       const mobileScreenshot = path.join(ARTIFACT_DIR, `admin-appearance-390-${screenshotTheme}.png`);
       await page.screenshot({ path: mobileScreenshot, fullPage: true, animations: "disabled" });
       appearanceScreenshotPaths.push(mobileScreenshot);
