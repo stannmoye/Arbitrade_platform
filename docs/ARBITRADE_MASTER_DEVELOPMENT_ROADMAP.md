@@ -852,3 +852,5 @@ When continuing this project:
 - Commits: `9065f21f717fd50857e87a4c42d123c682ae79f7`, `8caace927010b15be3e66e9d902e6417a1ae24a0`, `942ca65cf80e1bc3f0a4f48cf272807c4c956253`; acceptance record commit follows.
 - Status: source implementation and regression cases added; latest-head CI result is not yet confirmed. Required browser/viewport evidence remains outstanding and must not be fabricated.
 - Stage 2 continuation counter: Prompt 4/30. Next batch: verify the triggered workflow against the exact latest head, repair failures within the same batch where possible, then pursue the browser acceptance gate. Stage 2 remains open until all exit criteria have evidence.
+
+- Additional same-batch consistency fix: server-published enabled-theme lists now use the same canonical order as the administrator policy helper and customer selector. Added exhaustive server tests for all allow-list subsets and defaults. Commits: `c4742005e7a8a3f34b9157807e4cb7e8719fc2a5`, `a77d72b1343b4961e901a16f736828662ebf653b`. Fresh CI and browser acceptance remain unconfirmed; keep Stage 2 open until evidence is available.
