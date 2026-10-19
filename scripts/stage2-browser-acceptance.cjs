@@ -210,6 +210,34 @@ async function runAdminAppearanceInteractionCheck(browser) {
 
     const previewButtons = page.locator(".arb-theme-preview-option");
     const previewCount = await previewButtons.count();
+    const previewThemeLabels = {
+      original: /Original Arbitrade/i,
+      "midnight-premium": /Midnight Premium/i,
+      "clean-light": /Clean Light/i,
+      "emerald-finance": /Emerald Finance/i,
+      "aurora-modern": /Aurora Modern/i,
+    };
+    const appearanceScreenshotPaths = [];
+    for (const screenshotTheme of THEMES) {
+      await page.getByRole("button", { name: previewThemeLabels[screenshotTheme] }).click();
+      await page.waitForFunction(expected =>
+        document.documentElement.dataset.arbTheme === expected, screenshotTheme);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const desktopScreenshot = path.join(ARTIFACT_DIR, `admin-appearance-1440-${screenshotTheme}.png`);
+      await page.screenshot({ path: desktopScreenshot, fullPage: true, animations: "disabled" });
+      appearanceScreenshotPaths.push(desktopScreenshot);
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const mobileScreenshot = path.join(ARTIFACT_DIR, `admin-appearance-390-${screenshotTheme}.png`);
+      await page.screenshot({ path: mobileScreenshot, fullPage: true, animations: "disabled" });
+      appearanceScreenshotPaths.push(mobileScreenshot);
+      await page.setViewportSize({ width: 1440, height: 1000 });
+    }
+    record("admin-appearance-authenticated-panel-screenshots-captured",
+      appearanceScreenshotPaths.length === THEMES.length * 2,
+      { screenshotCount: appearanceScreenshotPaths.length, screenshots: appearanceScreenshotPaths.map(file => path.basename(file)) });
+
     const previewButton = page.getByRole("button", { name: /Aurora Modern/ });
     await previewButton.click();
     await page.waitForTimeout(30);
@@ -385,7 +413,8 @@ async function runAdminAppearanceInteractionCheck(browser) {
 
     await page.keyboard.press("Escape");
     await page.waitForFunction(() =>
-      document.querySelector("#admin-navigation-drawer")?.getAttribute("aria-hidden") === "true"
+      document.querySelector("#admin-navigation-drawer")?.getAttribute("aria-hidden") === "true" &&
+      document.activeElement === document.querySelector(".admin-slide-trigger")
     );
     const focusRestored = await page.locator(".admin-slide-trigger").evaluate(element =>
       document.activeElement === element

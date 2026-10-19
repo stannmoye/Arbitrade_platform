@@ -315,3 +315,10 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - The baseline browser artifact reports 1,126 checks passed and zero failures across 3 routes, 10 viewport widths, and 5 themes. The installer workflow includes successful disposable MariaDB appearance-policy authorization/persistence checks and MySQL 8 migration recovery checks.
 - Added two targeted mocked-admin browser checks for the native default-theme dropdown's keyboard navigation and the Quick Actions drawer's dialog semantics, Escape-close behavior, and focus restoration. Added shared-control contracts for input/textarea focus, invalid and disabled styling, plus textarea Shift+Enter behavior during IME composition.
 - These additions are pending fresh CI on the new commit. The browser interaction fixtures still use mocked administrator/API data; they do not establish live production authorization or persistence. Broader authenticated form/dialog/dropdown coverage, full screenshot review, and final Stage 2 sign-off remain open.
+
+## Authenticated appearance-panel visual evidence — continuation (2026-10-19)
+
+- The first keyboard interaction run on commit `58024bc7ec09f7a00b3ba4281c6687e533d6b228` passed application tests, TypeScript, production build, installer syntax/unit/migration tests, and mining database regression, but Chromium reported one failed check: focus restoration was inspected before the Quick Actions drawer's requestAnimationFrame focus callback had completed.
+- Updated the browser assertion to wait for both the closed dialog state and focus restoration, rather than sampling focus immediately after the state transition.
+- Expanded the browser artifact to capture the authenticated mocked administrator Appearance & Themes panel at 1440px and 390px for all five themes. This fills the prior artifact gap where `admin-*` screenshots only showed the unauthenticated administrator sign-in screen.
+- Fresh CI is pending. The authenticated panel uses mocked admin/API responses, and screenshots do not establish live server authorization or database persistence. Human review of the newly captured screenshots and final acceptance remain required.
