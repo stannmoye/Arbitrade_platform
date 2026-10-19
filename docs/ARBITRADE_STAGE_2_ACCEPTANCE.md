@@ -95,3 +95,12 @@ Do not mark Stage 2 complete based solely on source changes or CI. Record actual
 
 
 - **Contract review correction — 2026-10-19:** A follow-up source review caught that the new media test expected a selector without the existing SVG entry. Corrected the assertion to match the actual bounded-media selector, including SVG, in commit `ce0e8c3918c66e2c07d2f7fbc55a77e27e77ee6f`. This was caught during review before claiming test success. Automated CI remains unconfirmed for the latest head.
+
+
+## Administrator theme-policy recovery fix — 2026-10-19
+
+- Fixed the allow-list editor so the final enabled theme cannot be unchecked, but other unchecked themes can still be enabled when only one theme remains. Previously, disabling all checkboxes whenever one theme was enabled made recovery impossible without another mechanism.
+- Extracted policy transitions to `client/src/components/appearance-policy.ts` and added unit tests in `client/src/components/appearance-policy.test.ts` for single-theme recovery, final-theme protection, canonical ordering, and duplicate-free additions.
+- Policy-editing controls now remain disabled while settings are loading, settings failed to load, or a save is pending, preventing edits against unavailable/stale settings.
+- Source contract updated in `server/design-system-contract.test.ts`. Latest commits include `6c59fa48e4ac33211436d74971516922a26cc554`, `04898496d43edc769b792bf565f4d081cd3a573b`, `e08b503d412ba3154c5bf0ea735fdfd3a24bdb0e`, and `08fd9c8c050f28d81084443320255683ae4906f7`.
+- CI has not yet been confirmed for this batch; no test pass or browser acceptance is claimed.
