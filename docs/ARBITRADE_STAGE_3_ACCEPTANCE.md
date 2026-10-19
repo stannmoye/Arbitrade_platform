@@ -23,7 +23,7 @@ Finish and verify the existing five-theme implementation without duplicating Sta
 - [x] Inspect the existing Stage 2 implementation and identify its active theme integration points.
 - [x] Fix cross-role preference leakage: administrator previews and customer preferences now use separate browser-storage keys.
 - [x] Add focused tests for role-specific theme storage and storage-event filtering.
-- [ ] Run the new focused tests and the existing theme-policy/authorization checks.
+- [ ] Run the new focused tests and the existing theme-policy/authorization checks; a first CI attempt exposed three stale source-contract expectations in `server/design-system-contract.test.ts` after the intentional key/workflow changes. Updated those expectations; validation of the updated commit is pending.
 - [ ] Review theme compatibility overrides against the active customer and administrator portal components; fix any concrete visual integration gaps found.
 - [ ] Verify administrator save/retry behaviour and that disabled themes cannot be selected by customers.
 - [ ] Verify preference restoration after refresh and role changes without administrator/customer storage crossover.
@@ -37,7 +37,7 @@ The shared `arbitrade-theme` key previously stored both administrator previews a
 
 ## Validation record
 
-No Stage 3 tests have been run for this branch yet. Do not infer a pass from the existence of test files or from Stage 2 CI results. Update this section only with observed commands, results, commit SHA, and CI links.
+Initial CI evidence for commit `14daca94d791ed722b46fc175d71337529493157`: TypeScript validation and production build passed; the application test suite failed 3 assertions in `server/design-system-contract.test.ts` because it still expected the previous shared storage key and Stage 2 workflow name/concurrency group. This was a test-contract mismatch caused by the Stage 3 refactor, not a reported runtime failure. The assertions were updated in commit `9c3e3fa5ee104c9773922e7ec49231481dbbddef`. The browser job from that run was cancelled by overlapping push/PR concurrency; workflow concurrency/trigger handling was adjusted afterward. A fresh run against the updated test contracts is pending. Do not infer a pass until the new run completes.
 
 ## External limitations
 
