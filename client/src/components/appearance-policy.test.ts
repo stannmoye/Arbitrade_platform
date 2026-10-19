@@ -11,6 +11,14 @@ describe("administrator enabled-theme policy transitions", () => {
     expect(normalizeEnabledThemes(["unknown", null, 5], "emerald-finance")).toEqual(["emerald-finance"]);
   });
 
+  it.each([null, undefined, 5, "original", { enabledThemes: ["clean-light"] }])(
+    "recovers safely from malformed list input: %j",
+    input => {
+      expect(normalizeEnabledThemes(input, "midnight-premium")).toEqual(["midnight-premium"]);
+      expect(toggleEnabledTheme(input, "clean-light")).toEqual(["midnight-premium", "clean-light"]);
+    },
+  );
+
   it("allows adding a theme when only one theme is currently enabled", () => {
     expect(toggleEnabledTheme(["original"], "clean-light")).toEqual(["original", "clean-light"]);
   });
@@ -34,5 +42,23 @@ describe("administrator enabled-theme policy transitions", () => {
   it("normalizes duplicate enabled entries before applying the final-theme guard", () => {
     expect(toggleEnabledTheme(["original", "original"], "original")).toEqual(["original"]);
     expect(toggleEnabledTheme(["original", "original"], "clean-light")).toEqual(["original", "clean-light"]);
+  });
+
+  it("preserves the non-empty, unique, canonical-order invariant across every subset and toggle", () => {
+    for (let mask = 0; mask < (1 << ARBITRADE_THEMES.length); mask += 1) {
+      const subset = ARBITRADE_THEMES.filter((_, index) => (mask & (1 << index)) !== 0);
+      const normalized = normalizeEnabledThemes(subset);
+      expect(normalized.length, `mask=${mask}`).toBeGreaterThan(0);
+      expect(new Set(normalized).size).toBe(normalized.length);
+      expect(normalized).toEqual(ARBITRADE_THEMES.filter(theme => normalized.includes(theme)));
+
+      for (const candidate of ARBITRADE_THEMES) {
+        const next = toggleEnabledTheme(subset, candidate);
+        expect(next.length, `mask=${mask}, candidate=${candidate}`).toBeGreaterThan(0);
+        expect(new Set(next).size).toBe(next.length);
+        expect(next).toEqual(ARBITRADE_THEMES.filter(theme => next.includes(theme)));
+        expect(next).toContain(candidate === normalized[0] && normalized.length === 1 ? normalized[0] : next.includes(candidate) ? candidate : normalized[0]);
+      }
+    }
   });
 });
