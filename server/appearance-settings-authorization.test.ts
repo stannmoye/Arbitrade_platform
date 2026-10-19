@@ -3,7 +3,7 @@ import { appRouter } from "./routers";
 
 const appearance = {
   defaultTheme: "clean-light" as const,
-  enabledThemes: ["original", "clean-light"] as const,
+  enabledThemes: ["original" as const, "clean-light" as const],
   customerCanSelect: true,
 };
 
