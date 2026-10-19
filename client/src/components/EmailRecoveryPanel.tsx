@@ -38,13 +38,13 @@ export function EmailRecoveryPanel({ defaultEmail = "", onClose }: Props) {
     {stage === "request" ? <form onSubmit={requestCode}>
       <label>Email address<input type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} /></label>
       <p className="settings-copy">If the account exists and SMTP is configured, an eight-digit, one-time code will be sent. Requests are rate-limited.</p>
-      <button className="primary-button" disabled={busy}>{busy ? "Requesting…" : "Send reset code"}</button>
+      <button className="primary-button" disabled={busy} aria-busy={busy}>{busy ? "Requesting…" : "Send reset code"}</button>
     </form> : <form onSubmit={confirmReset}>
       <label>Email address<input type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} /></label>
       <label>Eight-digit code<input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{8}" maxLength={8} required value={code} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))} /></label>
       <label>New password<input type="password" autoComplete="new-password" minLength={12} maxLength={200} required value={password} onChange={e => setPassword(e.target.value)} /></label>
       <p className="settings-copy">The code expires in 30 minutes and is limited to five attempts.</p>
-      <button className="primary-button" disabled={busy}>{busy ? "Updating…" : "Set new password"}</button>
+      <button className="primary-button" disabled={busy} aria-busy={busy}>{busy ? "Updating…" : "Set new password"}</button>
       <button type="button" className="secondary-button" onClick={() => { setStage("request"); setCode(""); setPassword(""); }}>Request another code</button>
     </form>}
     {message && <p role="status" className="test-notice">{message}</p>}{error && <p role="alert" className="auth-error">{error}</p>}
