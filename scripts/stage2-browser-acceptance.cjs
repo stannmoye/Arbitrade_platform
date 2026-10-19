@@ -243,6 +243,13 @@ async function runAdminAppearanceInteractionCheck(browser) {
           menuBounds,
           appearanceBounds,
         });
+        const themeSelectBounds = await page.locator(".arb-theme-selector-compact select").boundingBox();
+        record("admin-mobile-theme-selector-retains-readable-width", Boolean(
+          themeSelectBounds && themeSelectBounds.width >= 150
+        ), {
+          width: 390,
+          themeSelectBounds,
+        });
       }
       const mobileScreenshot = path.join(ARTIFACT_DIR, `admin-appearance-390-${screenshotTheme}.png`);
       await page.screenshot({ path: mobileScreenshot, fullPage: true, animations: "disabled" });
