@@ -27,6 +27,15 @@ fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 async function runAdminAppearanceInteractionCheck(browser) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   page.setDefaultTimeout(10000);
+  const apiRequests = [];
+  const pageErrors = [];
+  page.on("pageerror", error => pageErrors.push(error.message));
+  page.on("request", request => {
+    if (request.url().includes("/api/trpc")) apiRequests.push({ method: request.method(), url: request.url() });
+  });
+  page.on("response", response => {
+    if (response.url().includes("/api/trpc")) apiRequests.push({ status: response.status(), url: response.url() });
+  });
   const initialAppearance = {
     defaultTheme: "original",
     enabledThemes: [...THEMES],
@@ -46,7 +55,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
   });
 
   try {
-    await page.route("**/api/trpc/**", async route => {
+    await page.route("**/api/trpc*", async route => {
       const request = route.request();
       const url = new URL(request.url());
       const procedurePath = decodeURIComponent(url.pathname.split("/api/trpc/")[1] || "");
@@ -107,7 +116,12 @@ async function runAdminAppearanceInteractionCheck(browser) {
     });
 
     if (!adminLoaded) {
-      record("admin-appearance-screen-opened", false, { error: "Authenticated admin shell did not render from the mock API." });
+      record("admin-appearance-screen-opened", false, {
+        error: "Authenticated admin shell did not render from the mock API.",
+        apiRequests: apiRequests.slice(0, 12),
+        pageErrors,
+        bodyText: await page.locator("body").innerText().catch(() => ""),
+      });
       return checks;
     }
 
