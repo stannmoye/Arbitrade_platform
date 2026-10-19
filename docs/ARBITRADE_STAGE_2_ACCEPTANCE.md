@@ -28,7 +28,7 @@ Do not mark these as passed until CI or a local run reports success.
 
 ## Automated CI coverage
 
-A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the full test suite, TypeScript validation, and production build as three parallel jobs on pushes to the Stage 2 branch. The same workflow is configured for pull requests targeting `integration/auth-installer-vps-safety` and for manual dispatch. A configured workflow is not evidence of a passing run; record the actual run result before marking checks complete.
+A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the full test suite, TypeScript validation, production build, and a Chromium browser smoke matrix on pushes to the Stage 2 branch. The same workflow is configured for pull requests targeting `integration/auth-installer-vps-safety` and for manual dispatch. Browser screenshots and a JSON report are uploaded as a workflow artifact; the artifact documents its static-client/authentication limitations.
 
 ## Latest confirmed automated validation evidence
 
@@ -43,11 +43,13 @@ A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the fu
 
 - [x] Re-run the contract tests and complete application test suite; run 39175814611 passed 28 test files / 205 tests for commit `d491810fd42665c190c1e62bd2238c1768b37603`.
 - [x] Re-run TypeScript validation and production build; both passed in run 39175814611 for commit `d491810fd42665c190c1e62bd2238c1768b37603`.
-- [ ] Verify representative customer and administrator routes at the roadmap viewport widths: 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 pixels in a real browser.
+- [x] Exercise customer/admin route shells at 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 pixels in Chromium (static-client smoke coverage; authenticated workflows are not covered).
+- [x] Check document-level horizontal overflow for all three representative routes at every required viewport and exercise all five theme CSS selectors at every viewport.
+- [x] Check the first keyboard Tab focus target for visible focus styling at each route/viewport combination.
 - [x] Add an accessible name and region semantics to keyboard-focusable shared table overflow containers; callers can provide contextual names, and the component showcase demonstrates the prop.
-- [ ] Confirm there is no unintended horizontal page overflow; horizontally scrollable financial tables must remain keyboard accessible in a real browser.
-- [ ] Inspect form errors, disabled/busy controls, dialogs, dropdowns, and focus visibility under all five themes.
-- [ ] Confirm actual contrast ratios for text, controls, status states, and focus indicators; CSS presence alone does not prove WCAG conformance.
+- [ ] Verify keyboard scrolling of populated financial tables in the authenticated application.
+- [ ] Inspect form errors, disabled/busy controls, dialogs, dropdowns, and the administrator theme-save flow under all five themes.
+- [ ] Measure rendered contrast ratios for actual text, controls, status states, and focus indicators; source/token checks alone do not prove WCAG conformance.
 - [ ] Continue shared-component adoption where it can be done without changing business behaviour or existing route layouts.
 
 ## Working rule
@@ -194,3 +196,15 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - **Done:** latest code-head CI reconciled and its test count confirmed from the workflow log.
 - **In progress / blocked:** real-browser acceptance and post-documentation CI for the resulting new head.
 - **Continuation counter:** Prompt 8/30.
+
+
+## Finalization continuation — Prompt 9/30 (2026-10-19)
+
+- Added `scripts/stage2-browser-acceptance.cjs` and a dedicated Chromium job to `.github/workflows/stage-2-design-system.yml`. The job builds the static client, runs the browser matrix, and uploads screenshots plus `report.json` as the `stage-2-browser-acceptance` artifact.
+- Exact validated head: `143a0731e1f8f9802bf7778a2371fb2d2de0ae50`.
+- Workflow run [#153 / 39226956079](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39226956079) passed all four jobs: application tests, TypeScript validation, production build, and Chromium viewport/theme smoke matrix.
+- Automated tests: **220 passed across 29 test files**; `pnpm check` and `pnpm build` passed.
+- Browser smoke result: **210 checks passed, 0 failed**. Coverage includes three route shells (`/`, `/customer`, and `/ops-console-7f3a`), all ten required viewport widths, page-level overflow, the first keyboard-focus target, and all five theme CSS selectors at every route/width. Screenshots and JSON report are available in [the browser acceptance artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39226956079/artifacts/12173993076).
+- **Scope limitation:** this runs the built static client without authenticated live API data. It does not prove populated table keyboard scrolling, authenticated administrator save/policy interactions, form/dialog/dropdown states, or rendered WCAG contrast. The script and artifact report explicitly disclose these limitations.
+- Stage 2 therefore remains in progress. Keep PR #71 draft/unmerged and do not advance to Stage 3 until the remaining authenticated interaction and rendered-contrast evidence is captured.
+- Continuation counter: Prompt 9/30.
