@@ -106,3 +106,5 @@ Do not mark Stage 2 complete based solely on source changes or CI. Record actual
 - CI has not yet been confirmed for this batch; no test pass or browser acceptance is claimed.
 
 - Follow-up architecture refinement: the canonical theme list and type now live in the pure `client/src/components/appearance-policy.ts` module; `ThemeContext` re-exports them for backward compatibility. The unit test imports only the pure domain helper, reducing test coupling to React/trpc. Commits: `e6590a50828917844b4f4cbf7de8bd0edf0f50e9`, `96b7c03f9f3c16227f029de0d14f0c62b41c3f33`, and `d8da8431d22d1590b5866f2f4cd4e6c404ef259e`. No test pass is claimed until CI reports it.
+
+- Policy helper hardening: enabled-theme input is now normalized to the canonical unique theme order before applying a toggle, preserving the non-empty allow-list invariant even if duplicate values reach the helper. Added duplicate-input regression coverage and corrected the toggle test expectation during source review. Commits: `8d8a7a2cc12b12e4bf6fb2dc52c8cc85510f7d9c`, `6815c66809163086eb750c49af98cfbedb358680`, and `d8a912b6455d941d64b2248bb95139ee1e87a23a`. Test execution is not yet confirmed.
