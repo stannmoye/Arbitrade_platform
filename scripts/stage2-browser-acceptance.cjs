@@ -663,14 +663,14 @@ async function runAdminAppearanceInteractionCheck(browser) {
     record("admin-quick-actions-dialog-opens-with-search-focus",
       dialogState.modal === "true" && dialogState.hidden === "false" &&
       dialogState.bodyOverflow === "hidden" &&
-      dialogState.activeLabel === "Global search and jump" &&
-      dialogState.activeTag === "input",
+      dialogState.activeLabel === "Close Quick Actions" &&
+      dialogState.activeTag === "button",
       dialogState);
 
     await page.keyboard.press("Shift+Tab");
     const shiftTabWrapped = await page.getByRole("button", { name: "Refresh status" }).evaluate(element => element === document.activeElement);
     await page.keyboard.press("Tab");
-    const tabWrapped = await page.getByLabel("Global search and jump").evaluate(element => element === document.activeElement);
+    const tabWrapped = await page.getByRole("button", { name: "Close Quick Actions" }).last().evaluate(element => element === document.activeElement);
     record("admin-quick-actions-dialog-keyboard-focus-trap", shiftTabWrapped && tabWrapped,
       { shiftTabWrapped, tabWrapped });
 
