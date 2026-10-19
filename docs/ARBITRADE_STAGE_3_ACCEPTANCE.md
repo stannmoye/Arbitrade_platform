@@ -29,7 +29,8 @@ Finish and verify the existing five-theme implementation without duplicating Sta
 - [x] Confirm the static browser matrix passed all 1,172 checks with zero failures, including theme/viewport rendering, interaction checks, and contrast assertions covered by the script.
 - [x] Verify the customer-selected theme is restored after a full browser-page reload when customer choice is enabled; the scenario seed now runs once per tab so it does not erase the stored preference on reload.
 - [x] Record the CI artifact containing screenshots and the browser report.
-- [ ] Complete human review of screenshots and rendered accessibility findings; automated contrast checks are useful evidence but are not a substitute for a complete human/accessibility audit.
+- [x] Review the latest run #520 screenshot artifact for representative administrator Appearance & Themes screens at desktop (1440px) and narrow mobile (320px) widths across all five themes. The mobile controls stack vertically, the full theme labels and save action remain visible, and no obvious overlap/clipping was found in the reviewed captures.
+- [ ] Complete formal accessibility review of rendered contrast, focus visibility, keyboard behavior, and screen-reader semantics; screenshot review and automated checks do not replace this audit.
 - [ ] Complete authenticated deployed-session acceptance when a staging URL is available.
 - [ ] Record any additional findings and remaining limitations before final Stage 3 acceptance.
 
@@ -39,16 +40,16 @@ The shared `arbitrade-theme` key previously stored both administrator previews a
 
 ## Validation record
 
-Exact-head GitHub Actions run [#515](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333544987) for code commit `e533f5e2fbcb94a54dc4a877cce0ff76dcc8ce40` completed successfully. This run includes the additional customer-preference reload-restoration assertion:
+Exact-head GitHub Actions run [#520](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333823586) for commit `0be8ec373fb1cc154f249df7bd5f89c152107a2d` completed successfully:
 
-- Application and theme-policy regression tests: **279 passed, 6 skipped**; 37 test files passed and 2 skipped.
+- Application and theme-policy regression tests: **280 passed, 6 skipped**; 37 test files passed and 2 skipped.
 - TypeScript validation: **passed**.
 - Production build: **passed**.
-- Chromium viewport and five-theme smoke matrix: **1,172 checks passed, 0 failures**.
-- Browser evidence artifact: [stage-3-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333544987/artifacts/12226510104).
+- Chromium viewport and five-theme smoke matrix: **1,174 checks passed, 0 failures**.
+- Browser evidence artifact: [stage-3-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333823586/artifacts/12225587188). The report covers five themes across 10 viewport widths and three entry routes.
 
-Earlier runs exposed a stale workflow source-contract assertion and a browser check reading the retired storage key. Both were corrected, and the latest exact-head run above passed. Do not treat the static browser run as proof of live server authorization or database persistence: the browser script uses mocked API responses for several interactions, while server-side behavior is covered separately by automated tests.
+Earlier runs exposed a stale workflow source-contract assertion and a browser check reading the retired storage key. Both were corrected. The exact current head above is green. Do not treat the static browser run as proof of live server authorization or database persistence: the browser script uses mocked API responses for several interactions, while server-side behavior is covered separately by automated tests.
 
 ## External limitations and release gates
 
-No staging URL was provided at Stage 3 start. Authenticated deployed-session acceptance is therefore not currently available. The automated suite is green, but human screenshot/accessibility review and staging acceptance remain open. Do not claim production readiness or deploy based solely on this CI result.
+No staging URL was provided at Stage 3 start. Authenticated deployed-session acceptance is therefore not currently available. Representative administrator screenshots have been reviewed for all five themes at desktop and 320px widths; formal accessibility review and staging acceptance remain open. The browser report explicitly uses mocked auth/API responses for several flows and does not prove live server authorization or database persistence. Do not claim production readiness or deploy based solely on this CI result.
