@@ -637,3 +637,15 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Commits: browser acceptance `c5b5906dacc0e279e9b92b0de8697afdf37e1009`; contract test `799638e50cc3577838fe3a1dff21cef780596d6f`.
 - The latest previously verified head `f65166f4c5ed4762207737602ebb93b30b474c78` passed Stage 2, installer, and mining-regression workflows (1,173 Chromium checks, zero failures). That result predates this new retry scenario. Exact-head CI and browser artifact review for `799638e50cc3577838fe3a1dff21cef780596d6f` remain unconfirmed; no pass is claimed for the new test.
 - Remaining acceptance gates: verify this new scenario on exact-head CI; obtain a safe staging URL and run a deployed authenticated browser session; complete broader authenticated portal visual review and final human sign-off. The mocked browser does not prove live deployment behavior. PR #71 remains draft/open/unmerged, Stage 2 remains open, Stage 3 remains blocked, and no production deployment or production database change is claimed.
+
+
+## Prompt 31 — Deterministic settings-load failure and exact-head validation
+
+- The first run exposed a real flaw in the test setup: the administrator shell can issue `adminOperations.settings` before the Appearance tab is visible, so consuming the mock failure on the first request made the expected alert nondeterministic.
+- Updated the mock to keep returning the simulated settings error until the browser has observed the accessible alert; only then is the explicit retry allowed to succeed. This tests the intended failure/recovery path instead of depending on query timing.
+- Exact-head commit: `8f6a653cc835b6c22cdf68c59168470793ca82b9`.
+- Exact-head Stage 2 workflow passed: **1,174/1,174 Chromium checks, zero failures**. Application/Stage 2 regression tests, TypeScript validation, and production build passed.
+- Exact-head installer validation passed, including syntax, application unit tests, TypeScript, production build/server smoke, migration regression, fresh MariaDB installation, MySQL 8 recovery/compatibility, deployment packages, and the Stage 1 validation dashboard.
+- Exact-head mining database regression passed.
+- Browser evidence artifact: [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322323895/artifacts/12219784794) (retained until 2026-11-02).
+- Remaining gates are external to this mocked CI run: no staging URL is documented for a deployed authenticated browser session, broader authenticated portal review and final human sign-off remain outstanding. PR #71 remains draft/open/unmerged; Stage 2 stays open and Stage 3 blocked. No production deployment or production database change is claimed.
