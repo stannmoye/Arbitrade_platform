@@ -1072,6 +1072,12 @@
   min-height: 44px;
 }
 
+/* Preserve the full theme name in the compact portal header on narrow screens. */
+.arb-theme-selector-compact select {
+  width: min(10rem, 44vw);
+  flex: 0 1 10rem;
+}
+
 /* Stage 2 accessibility: honor reduced-motion preferences throughout adopted pages. */
 @media (prefers-reduced-motion: reduce) {
   .arb-page,
