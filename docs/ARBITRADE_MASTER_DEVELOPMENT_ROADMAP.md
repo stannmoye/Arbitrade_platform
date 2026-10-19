@@ -1002,3 +1002,15 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Confirmed in the report that browser API/auth responses are mocked. It does not establish live API authorization or database persistence. Human visual screenshot sign-off is still open, along with populated financial-table keyboard scrolling and broader authenticated form/dialog/dropdown/disabled/busy state coverage.
 - Latest PR remains open, draft, and unmerged. Stage 2 stays in progress until current-head CI passes and the remaining acceptance evidence is addressed; Stage 3 remains blocked.
 - **Continuation counter:** Prompt 15/30.
+
+
+## Stage 2 continuation checkpoint — Prompt 16/30 (2026-10-19)
+
+- Reviewed generated screenshots at mobile and desktop sizes. Found the gateway title breaking the word `workspace` at 320px; corrected the narrow-screen font size and card padding in `client/src/design-system.css` and added the `gateway-heading-word-not-split` Chromium assertion at 320px and 360px.
+- Code commits: `b7a6aee63e52e3c2ea26fa6688368d2adabb38aa` (responsive typography fix) and `3d9266f3c5a8588ad29d2e458238e39027f0d82f` (browser regression check).
+- Stage 2 run #261 (`39264320656`) completed successfully on the code head: **1,119/1,119 browser checks passed, zero failures**. Its report confirms both gateway heading checks passed with one text rectangle each at 320px and 360px, both customer theme-policy scenarios passed, and the mocked administrator appearance save/refetch interaction passed. Application/regression tests, TypeScript validation, and production build passed as well.
+- Installer validation #652 (`39264320496`) and mining database regression #57 (`39264320623`) also passed. A later documentation-only head `1a2fc664fffca737357fcdee4c1dee6ff9099765` was validated by Stage 2 run #263 (`39264617422`), with all four jobs green and a fresh artifact confirming 1,119/1,119 checks passed.
+- Current screenshot review covers the gateway and unauthenticated customer/admin entry screens at mobile and desktop widths, including the fixed gateway title. It does not count as review of every authenticated screen.
+- Remaining gates: verify live API authorization and database persistence; exercise keyboard scrolling on populated financial tables; test broader authenticated forms/dialogs/dropdowns/disabled/busy states; complete broader authenticated visual review. Browser API responses remain mocked, so no live persistence claim is made.
+- PR #71 remains open, draft, and unmerged. Stage 2 stays open; Stage 3 remains blocked until the remaining acceptance gates have evidence.
+- **Continuation counter:** Prompt 16/30.
