@@ -60,4 +60,45 @@ describe("administrator appearance settings authorization", () => {
     });
   });
 
+  it("rejects an empty enabled-theme list before attempting persistence", async () => {
+    const caller = appRouter.createCaller({
+      user: { id: 123, role: "admin" },
+    } as never);
+
+    await expect(caller.adminOperations.updateSettings({
+      appearance: {
+        defaultTheme: "original",
+        enabledThemes: [],
+        customerCanSelect: false,
+      },
+    })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("rejects unknown theme identifiers before attempting persistence", async () => {
+    const caller = appRouter.createCaller({
+      user: { id: 123, role: "admin" },
+    } as never);
+
+    await expect(caller.adminOperations.updateSettings({
+      appearance: {
+        defaultTheme: "original",
+        enabledThemes: ["original", "custom-unregistered-theme"],
+        customerCanSelect: false,
+      },
+    } as never)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("rejects non-boolean customer selection flags before attempting persistence", async () => {
+    const caller = appRouter.createCaller({
+      user: { id: 123, role: "admin" },
+    } as never);
+
+    await expect(caller.adminOperations.updateSettings({
+      appearance: {
+        defaultTheme: "original",
+        enabledThemes: ["original"],
+        customerCanSelect: "true",
+      },
+    } as never)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
 });
