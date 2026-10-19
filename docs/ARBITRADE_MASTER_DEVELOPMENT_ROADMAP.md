@@ -971,3 +971,14 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - **Continuation counter:** Prompt 12/30.
 
 - **Prompt 12/30 follow-up:** Added two Chromium customer-session scenarios to `scripts/stage2-browser-acceptance.cjs`: policy-disabled read-only display, and policy-enabled allow-list selection plus applied-theme/localStorage verification. The test explicitly records mocked API limitations. Corrected the route/procedure regexes during code review before recording the checkpoint. Acceptance documentation updated; fresh workflow result remains pending for the resulting head.
+
+
+## Stage 2 continuation checkpoint — Prompt 13/30 (2026-10-19)
+
+- Continued from current PR #71 head and reviewed the theme policy integration and Chromium scenario wiring.
+- Improved the disabled-customer-choice browser scenario: it now seeds a stale `aurora-modern` local preference while policy specifies `clean-light` and disallows customer choice, then asserts that the applied document theme remains `clean-light`. This covers a meaningful regression risk when policy changes after a preference was stored.
+- Commit: `01ea8c98003de6caa138835441efaef59efd8f5e`. Updated the acceptance record with the exact behavior and limitation.
+- Previous green Stage 2 run [#224 / 39237373165](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39237373165) predates the customer-selector integration, browser scenarios, and stale-preference regression. Current-head CI is still unconfirmed; do not interpret empty status/workflow lookups as a pass.
+- Remaining exit gates: obtain fresh current-head CI evidence; review any browser failures; verify live server authorization and database persistence; exercise populated financial-table keyboard scrolling and detailed authenticated controls; review screenshots and complete sign-off.
+- PR #71 stays draft and unmerged. Stage 2 remains open; Stage 3 remains blocked until all acceptance gates pass.
+- **Continuation counter:** Prompt 13/30.
