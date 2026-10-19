@@ -467,3 +467,12 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - The first browser attempt exposed a timing issue in the test itself: the viewport was resized while the drawer's desktop entrance transition was still in progress, so the first geometry sample was offscreen. The test now waits until the transformed drawer bounds fit the compact viewport before measuring. Failed assertions are also printed into the Actions log for faster diagnosis.
 - **Validation is pending for the updated browser script and documentation head.** The previous head `b37f1ac5cfec6c9f68bedf4379c04bc6e9134ddf` had green Stage 2, installer, and mining-database workflows, but those results do not validate this new change.
 - This remains mocked-auth browser coverage. It does not establish live server authorization, production database persistence, or full authenticated form/dialog/dropdown coverage.
+
+
+## Password recovery interaction coverage — 2026-10-19
+
+- Added explicit `aria-busy` state to the customer password-recovery request and confirmation buttons while requests are pending.
+- Added Chromium acceptance coverage for the customer sign-in → “Forgot password?” flow: required email semantics, pending/disabled request state, transition to the eight-digit confirmation form, code/password constraints, pending confirmation state, accessible mocked rejection, and recovery of the submit control after failure.
+- The browser test stubs both password-reset endpoints. It verifies client-side interaction and accessibility only; it does not send email, change a password, invalidate real sessions, or prove live API authorization/persistence.
+- Implementation commit: `cffb1f43f0c77791b16a71ee21cb41a6b91a1a6a`; browser regression commit: `e749e16705b0e6242babea7ea68d14d344c47f33`.
+- Fresh exact-head Stage 2, installer, and mining-database CI must pass before this change is treated as verified. Keep PR #71 draft and unmerged; Stage 2 remains open pending the other acceptance gates.
