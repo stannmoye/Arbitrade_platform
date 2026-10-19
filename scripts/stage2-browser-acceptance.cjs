@@ -1194,7 +1194,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           selectedTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || null);
           persistedTheme = await page.evaluate(() => localStorage.getItem("arbitrade-theme:user:9002"));
           await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
-          await page.waitForFunction(() => document.documentElement.dataset.arbTheme === "aurora-modern", { timeout: 15000 });
+          await page.waitForFunction(() => document.documentElement.dataset.arbTheme === "aurora-modern", undefined, { timeout: 15000 });
           restoredTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || null);
         }
       }
