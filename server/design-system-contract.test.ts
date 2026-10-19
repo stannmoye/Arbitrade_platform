@@ -7,6 +7,7 @@ const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf
 const adminAppearance = readFileSync(new URL("../client/src/components/AdminAppearance.tsx", import.meta.url), "utf8");
 const themeSelector = readFileSync(new URL("../client/src/components/ThemeSelector.tsx", import.meta.url), "utf8");
 const themeContext = readFileSync(new URL("../client/src/contexts/ThemeContext.tsx", import.meta.url), "utf8");
+const themePolicy = readFileSync(new URL("../client/src/contexts/theme-policy.ts", import.meta.url), "utf8");
 const table = readFileSync(new URL("../client/src/components/ui/table.tsx", import.meta.url), "utf8");
 const componentShowcase = readFileSync(new URL("../client/src/pages/ComponentShowcase.tsx", import.meta.url), "utf8");
 const routers = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
@@ -201,7 +202,10 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themeContext).toContain("setThemeState(readStoredTheme(defaultTheme))");
     expect(themeContext).toContain("if (isAdmin) {\n      setThemeState(nextTheme);\n      return;\n    }");
     expect(themeContext).toContain("if (!policy || appearance.isError) return;");
-    expect(themeContext).toContain("if (customerCanSelect && enabledThemes.includes(nextTheme)) setThemeState(nextTheme)");
+    expect(themeContext).toContain("if (canCustomerSelectTheme(nextTheme, enabledThemes, customerCanSelect)) setThemeState(nextTheme);");
+    expect(themeContext).toContain("resolveCustomerTheme({");
+    expect(themePolicy).toContain("export function resolveCustomerTheme");
+    expect(themePolicy).toContain("export function canCustomerSelectTheme");
     expect(themeContext).toContain("const nextTheme = customerCanSelect && isTheme(event.newValue) && enabledThemes.includes(event.newValue)");
     expect(themeContext).toContain("window.localStorage.setItem(THEME_STORAGE_KEY, effectiveTheme)");
   });
