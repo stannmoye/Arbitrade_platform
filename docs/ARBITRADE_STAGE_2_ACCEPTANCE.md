@@ -390,3 +390,16 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - The same artifact confirms the 200px selector at 390px, 192px selector at 320px without document overflow, high-contrast Appearance label across all five themes, 14-element keyboard focus wrapping, Escape-close/focus restoration, and the trigger pointer hit target.
 - Installer CI passed disposable MariaDB authorization/persistence and MySQL 8 migration recovery. Mining idempotency/transaction regression passed. These are CI results, not production database verification; browser auth/API fixtures remain mocked.
 - Remaining Stage 2 gates: broader authenticated form and disabled/busy-state coverage, full human review of all screenshots, and final sign-off. PR #71 remains open/draft/unmerged; Stage 2 remains open and Stage 3 blocked.
+
+## Continuation — busy-button interaction contract and exact-head validation (2026-10-19)
+
+- During shared-control review, found that the shared `Button` exposed `aria-busy` / `aria-disabled` while not setting the native `disabled` attribute. A native button could therefore still receive pointer or keyboard activation while marked busy.
+- Updated `client/src/components/ui/button.tsx` to derive native disabled state from either the caller's disabled prop or `aria-busy`. Added regression assertions in `server/shared-form-dialog-contract.test.ts` so busy semantics cannot silently regress.
+- Implementation commit: `49c8542eb51fcd605948a6ac91eed432e5749655`; contract test commit/current code head: `da2853aebf52eba17017660196363122f556805d`.
+- Exact-head workflows all passed:
+  - Stage 2 validation [run 39299663438](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39299663438): full tests, TypeScript, production build, and Chromium matrix passed. Browser report: **1,146 checks passed, 0 failures**; artifact [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39299663438/artifacts/12211885799).
+  - Installer validation [run 39299663320](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39299663320): passed, including disposable MariaDB appearance-policy authorization/persistence integration, MySQL 8 compatibility/recovery, server smoke checks, and package assembly.
+  - Mining database regression [run 39299663474](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39299663474): passed.
+  - Application test log: **266 passed, 5 skipped** across 35 passing test files; 2 integration-oriented files were skipped in the standard non-database suite.
+- The 1,146 browser checks include the existing five-theme/ten-width route matrix, administrator save pending/error/reload behavior, keyboard-operable theme dropdown, Quick Actions dialog focus wrapping/Escape restoration, populated financial-table keyboard scrolling, and customer theme-policy/navigation-drawer scenarios. API/authentication fixtures remain mocked in browser checks; the separate disposable-database integration is the evidence for persisted appearance-policy authorization.
+- This validation is for the exact code head above. Continue to keep PR #71 draft and unmerged; live deployed-session acceptance, comprehensive authenticated portal screenshot review, and final Stage 2 sign-off remain open. Stage 3 stays blocked; no production deployment or production database change was made.
