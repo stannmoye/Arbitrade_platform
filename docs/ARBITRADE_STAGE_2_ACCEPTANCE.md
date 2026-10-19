@@ -166,3 +166,15 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Browser limitation is explicit: the connected GitHub tools can inspect and change repository files and inspect CI, but do not provide an interactive browser session in this execution. No viewport screenshots, rendered contrast measurements, or browser pass are claimed.
 - Decision: automated CI is verified for the current head; Stage 2 is **not complete** until browser acceptance evidence is recorded. Keep PR #71 as draft and do not merge or advance to Stage 3.
 - Continuation counter: Prompt 6/30.
+
+
+## Finalization continuation — Prompt 7/30 (2026-10-19)
+
+- Continued the existing Stage 2 branch; no restart and no repeated theme-policy implementation.
+- Hardened the shared table wrapper so a missing, whitespace-only, or malformed runtime accessible-region label falls back to the non-empty name `Scrollable table`. Valid caller-provided names are trimmed before being applied. This protects keyboard-focusable table scroll regions from losing their accessible name when an empty label is passed.
+- Added a source-level regression assertion in `server/design-system-contract.test.ts` for the fallback/normalization path.
+- Code commit: `c84b46db965c6a817a67ca9a0bc0b30c43956417`; contract-test commit: `e1d7a4fdaacf4b5d07ef9746695d10f54d5f2c46`.
+- **Validation status:** a fresh workflow lookup for `e1d7a4fdaacf4b5d07ef9746695d10f54d5f2c46` returned no PR-triggered run. This lookup is not a complete listing of push-triggered runs; therefore latest-head test/typecheck/build status is unconfirmed. Do not infer success or failure.
+- **Browser gate:** still open. Actual browser evidence is required at 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px for customer/admin routes, page overflow, keyboard-scrollable tables, forms/dialogs/dropdowns, disabled/busy controls, focus visibility, all five themes, and rendered contrast. No screenshots or rendered browser results are claimed.
+- **Decision:** keep PR #71 draft and unmerged. Stage 2 is not complete until current-head CI and the browser acceptance matrix have evidence. Do not advance to Stage 3.
+- **Continuation counter:** Prompt 7/30. This records one continuation batch, not a reset.
