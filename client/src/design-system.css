@@ -1138,3 +1138,20 @@
     -webkit-overflow-scrolling: touch;
   }
 }
+
+
+/* Stage 2 mobile typography fix: keep the gateway headline's final word intact. */
+.portal-gateway .gateway-card h1 {
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+@media (max-width: 380px) {
+  .portal-gateway .gateway-card {
+    padding: 24px 20px;
+  }
+  .portal-gateway .gateway-card h1 {
+    font-size: 1.875rem;
+    letter-spacing: -0.045em !important;
+  }
+}
