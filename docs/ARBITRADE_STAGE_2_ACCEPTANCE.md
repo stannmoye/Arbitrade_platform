@@ -534,3 +534,14 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Changes were committed in sequence: `e4a6db774388a1e6a78fbce154fdcc39a31bf05b` (client), `2e70b6c9340053bf2a2b851105ba5d8ca75508ec` (browser assertion), `4ab91c7bbe60c7dfe520240bea24738645e939da` (initial contract update), `1f4cdb8b80913c85bc86501268a6cfdb675e6d8e` (below-minimum browser case), and `4998dccb1e7c736fa104ed11fd3747cedd1f7595` (cross-layer contract assertion).
 - **Validation is pending for these changes.** Prior green CI does not validate this new policy alignment; the exact-head browser, application tests, TypeScript, and build must pass before this fix is marked verified.
 - This is a client/server policy-alignment fix, not proof of live authentication or production deployment. PR #71 remains draft/unmerged, Stage 2 remains open, and Stage 3 remains blocked.
+
+
+## Customer signup policy and runtime authorization — exact-head verification
+
+- **Validated code head:** `c020d9915b8637b3afac01e2b60f382a417d0094`.
+- Stage 2 workflow [#450 / 39308263836](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39308263836) passed all four jobs: application/regression tests, TypeScript, production build, and Chromium browser acceptance.
+- Application suite: **279 passed, 5 skipped** across 37 passing test files (2 additional integration-oriented files skipped by the standard non-database configuration). The 12 shared form/dialog contract tests and 6 runtime tRPC authorization middleware tests passed.
+- Chromium report: **1,160 checks passed, 0 failures**. New customer-auth checks verify that signup enforces the server-aligned 12-character password minimum and sends no request for an 11-character password; registration pending/error recovery and password-reset request rate-limit/retry plus confirmation-error recovery also passed.
+- Installer validation [#786 / 39308264279](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39308264279) passed all jobs, including fresh MariaDB, MySQL 8 compatibility/recovery, installer regressions, TypeScript, build/server smoke, deployment packages, and Stage 1 dashboard. Mining database regression [#191 / 39308264178](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39308264178) passed.
+- Runtime authorization tests exercise the real exported tRPC middleware using synthetic contexts. They are stronger than source-string checks but do not replace live HTTP/session testing or production role-enforcement evidence. Browser authentication/API responses remain mocked; no production database or deployment was changed.
+- This validation is for code head `c020d99`. This documentation-only follow-up creates a new head, so exact-head CI must be checked again before claiming the newest repository head is green. PR #71 remains open/draft/unmerged; Stage 2 remains open pending full authenticated portal coverage and final human screenshot sign-off; Stage 3 remains blocked.
