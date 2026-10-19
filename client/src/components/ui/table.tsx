@@ -3,11 +3,16 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 function Table({ className, containerAriaLabel = "Scrollable table", ...props }: React.ComponentProps<"table"> & { containerAriaLabel?: string }) {
+  const resolvedContainerAriaLabel =
+    typeof containerAriaLabel === "string" && containerAriaLabel.trim()
+      ? containerAriaLabel.trim()
+      : "Scrollable table";
+
   return (
     <div
       data-slot="table-container"
       role="region"
-      aria-label={containerAriaLabel}
+      aria-label={resolvedContainerAriaLabel}
       tabIndex={0}
       className="relative w-full min-w-0 overflow-x-auto"
     >
