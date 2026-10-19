@@ -10,6 +10,7 @@ const themeContext = readFileSync(new URL("../client/src/contexts/ThemeContext.t
 const table = readFileSync(new URL("../client/src/components/ui/table.tsx", import.meta.url), "utf8");
 const componentShowcase = readFileSync(new URL("../client/src/pages/ComponentShowcase.tsx", import.meta.url), "utf8");
 const routers = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
+const browserAcceptance = readFileSync(new URL("../scripts/stage2-browser-acceptance.cjs", import.meta.url), "utf8");
 
 describe("ARBITRADE shared design-system contract", () => {
   it("defines the semantic tokens used by shared components", () => {
@@ -315,6 +316,24 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themeContext).toContain("normalizeEnabledThemes(value, fallback)");
     expect(themeContext).toContain("readEnabledThemes(policy?.enabledThemes, requestedPolicyDefault)");
     expect(themeContext).not.toContain("Array.from(new Set(value.filter(isTheme)))");
+  });
+
+
+  it("measures computed theme-token contrast in the Chromium acceptance matrix", () => {
+    for (const token of [
+      "--arb-color-text",
+      "--arb-color-text-soft",
+      "--arb-color-text-muted",
+      "--arb-color-canvas",
+      "--arb-color-surface",
+      "--arb-focus-ring",
+    ]) {
+      expect(browserAcceptance, `browser matrix missing contrast token ${token}`).toContain(token);
+    }
+    expect(browserAcceptance).toContain("contrastRatio");
+    expect(browserAcceptance).toContain("minimum: 4.5");
+    expect(browserAcceptance).toContain("minimum: 3");
+    expect(browserAcceptance).toContain("failureDetails: failures");
   });
 
 });
