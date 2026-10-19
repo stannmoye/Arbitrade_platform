@@ -11,6 +11,7 @@ export interface AppearanceSettings {
  * Normalize persisted appearance settings at the API boundary. This is
  * deliberately tolerant of malformed or legacy settings, but never returns
  * a published default that is unavailable in the enabled-theme list.
+ * Theme choices are always returned in canonical product order.
  */
 export function normalizeAppearanceSettings(raw: string | null | undefined): AppearanceSettings {
   let saved: Record<string, unknown> = {};
@@ -31,15 +32,15 @@ export function normalizeAppearanceSettings(raw: string | null | undefined): App
     ? saved.enabledThemes.filter((theme: unknown): theme is AppearanceTheme =>
         typeof theme === "string" && APPEARANCE_THEMES.includes(theme as AppearanceTheme))
     : [...APPEARANCE_THEMES];
-  const uniqueEnabled = [...new Set(requestedEnabled)];
-  const enabledThemes: AppearanceTheme[] = uniqueEnabled.length ? uniqueEnabled : [requestedDefault];
-  const defaultTheme = enabledThemes.includes(requestedDefault)
+  const enabledThemes = APPEARANCE_THEMES.filter(theme => requestedEnabled.includes(theme));
+  const nonEmptyEnabled = enabledThemes.length ? enabledThemes : [requestedDefault];
+  const defaultTheme = nonEmptyEnabled.includes(requestedDefault)
     ? requestedDefault
-    : (enabledThemes[0] ?? requestedDefault);
+    : nonEmptyEnabled[0];
 
   return {
     defaultTheme,
-    enabledThemes,
+    enabledThemes: nonEmptyEnabled,
     customerCanSelect: saved.customerCanSelect === true,
   };
 }
