@@ -1,7 +1,7 @@
 # Arbitrade Master Development Roadmap
 
 **Repository:** `stannmoye/Arbitrade_platform`  
-**Active Stage 2 branch:** `feat/stage-2-design-system-foundation`  
+**Active Stage 3 branch:** `feat/stage-3-five-theme-architecture`  
 **PR target branch:** `integration/auth-installer-vps-safety`  
 **Roadmap version:** 2.1  
 **Purpose:** The durable source of truth for the customer experience, themes, notifications, sounds, responsive layouts, administrator portal, quality assurance, and deployment-verification work.
@@ -13,7 +13,7 @@
 
 These rules apply to every stage and override any workflow habit that causes repeated tiny changes or unnecessary user prompts.
 
-**Cadence baseline adopted 2026-10-19:** Active work remains Stage 2 on `feat/stage-2-design-system-foundation`, PR #71. **Stage 2 continuation count: Prompt 1/30** under this newly adopted contract. This counter measures user interruptions from this baseline forward; it does not erase prior development history or imply Stage 2 is complete. The existing roadmap's Stage 1 audit findings remain recorded and any unverified exit criteria must still be reconciled without restarting completed work.
+**Cadence baseline adopted 2026-10-19:** Stage 3 work is active on `feat/stage-3-five-theme-architecture`, based on the recorded Stage 2 implementation checkpoint `22ca05ad65e20078775ca7956f121019fa6a966b`. **Stage 3 continuation count: Prompt 1/30.** Stage 2 implementation has been closed out by user direction, while deployed staging acceptance and human sign-off remain deferred because no staging URL is available. This does not claim those external acceptance gates passed. Preserve prior Stage 1/2 evidence and avoid repeating successful checks without a code or diagnostic reason.
 
 ### Hard prompt budget
 - **Maximum: 30 continuation prompts per stage.** A continuation prompt means every time the assistant stops coding and asks the user to type "continue", "proceed", or an equivalent message to resume. Count these user interruptions, not internal tool calls, commits, parallel workstreams, or automated CI jobs.
@@ -43,10 +43,12 @@ These rules apply to every stage and override any workflow habit that causes rep
 ### Non-negotiable continuity rules
 - Preserve the existing ARBITRADE product, repository, branch/PR direction, and completed work. This is an incremental improvement of the existing development, not a restart or a parallel replacement project.
 - Stage 2 work currently belongs to the existing branch and PR #71. Inspect and continue that work; do not create duplicate implementations or a competing roadmap/PR without a concrete technical need.
-- Do not advance to a later stage just to make the roadmap appear to progress. Finish the active stage's acceptance criteria, while resolving a genuine prerequisite only when necessary.
+- Do not advance to a later stage just to make the roadmap appear to progress. Normally finish the active stage's acceptance criteria first. If the user explicitly directs work on a later implementation stage while an earlier stage has an external acceptance gate blocked by unavailable staging access, document that dependency clearly and never claim the earlier gate passed.
 - Never claim a six-minute effort, test pass, browser check, deployment, merge, or production validation unless it actually occurred.
 
 ## Current project checkpoint
+
+- **Stage 3 start (2026-10-19, Prompt 1/30):** Created `feat/stage-3-five-theme-architecture` from the recorded Stage 2 implementation checkpoint. The five-theme definitions, shared theme tokens, ThemeProvider, administrator appearance controls, policy validation, and focused policy tests already exist in the baseline; Stage 3 work must finish real integration gaps rather than recreate them. First defect addressed: administrator theme previews and customer theme preferences shared the same `localStorage` key, allowing a preview in a shared browser to be mistaken for a customer's saved choice when customer choice was enabled. Added role-specific storage keys and focused regression tests. Validation is pending; no test pass is claimed. Stage 2 staging acceptance remains deferred and is not represented as passed.
 
 - **Database-backed Mining idempotency, ledger, and rollback regression slice (2026-10-18):** Added `server/mining-store.mysql.integration.test.ts` and `.github/workflows/mining-database-regression.yml`. The isolated MariaDB 11.4 workflow now exercises real InnoDB same-key concurrent replay, rollback releasing an uncommitted idempotency reservation, rejection of a committed key reused for another command, balanced CKI journal writes with matching wallet balances, and an injected failure proving wallet balances, journal rows, and the new customer's opening baseline all roll back atomically. The database-backed tests and TypeScript check passed in [Mining database regression run 39166796533](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39166796533); the focused Mining unit-test/type-check run [39166796558](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39166796558) also passed. This is meaningful database evidence for the shared Mining idempotency and wallet-ledger helpers, but it is **not** yet a full database-backed quote-to-conversion replay/concurrency test or a complete main-wallet-versus-mining-ledger reconciliation. Installer validation run [39166796580](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39166796580) passed its syntax, TypeScript, unit, installer/migration, fresh MariaDB, MySQL 8, and production build/smoke jobs; deployment-package validation was still running at this checkpoint. Stage 1 remains in progress.
 
