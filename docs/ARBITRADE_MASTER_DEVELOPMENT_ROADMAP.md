@@ -1031,3 +1031,10 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - Fixed the actual responsive behavior in `client/src/admin-operations.css` by enforcing a 640px minimum width on dense admin tables inside their scroll regions. Code commit: `cea65e452ea5fd0e947bd31ee0e632fcf4164567`.
 - Verified the fix on that code head: Stage 2 run #286 (`39267102795`) passed all jobs and **1,121/1,121 Chromium checks**. The settlement table scrolled 26px with 12 mocked rows; the ledger scrolled 34px with 24 mocked rows. Installer run #664 (`39267103014`) and mining regression run #69 (`39267102854`) also passed.
 - The acceptance report and PR discussion now document the root cause, fix, and evidence. The checks use mocked admin/customer data; they do not establish live server authorization or database persistence. Broader authenticated interaction review and full screenshot sign-off remain open. Keep Stage 2 in progress and Stage 3 blocked until all exit gates are satisfied.
+
+
+## Stage 2 continuation — Prompt 18/30 (2026-10-19)
+
+- Added a real-browser regression for the administrator appearance-policy pending-save state. The mocked settings mutation is intentionally delayed so the test verifies `Saving…`, a disabled save button, and disabled default/theme/customer-choice controls while saving.
+- Verified on code commit `bb86d021b300d2db23f5c6bfc62285cb4149154f`: Stage 2 run #292 (`39268470213`) passed **1,122/1,122 Chromium checks**, installer #667 (`39268470271`) passed including deployment package assembly, and mining regression #72 (`39268470158`) passed.
+- This increases client-flow coverage only. Live server authorization/database persistence, wider authenticated interaction coverage, human screenshot review, and final sign-off remain open; Stage 2 stays in progress and Stage 3 blocked.
