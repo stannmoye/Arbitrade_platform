@@ -326,6 +326,66 @@ async function runAdminAppearanceInteractionCheck(browser) {
       const mobileScreenshot = path.join(ARTIFACT_DIR, `admin-appearance-390-${screenshotTheme}.png`);
       await page.screenshot({ path: mobileScreenshot, fullPage: true, animations: "disabled" });
       appearanceScreenshotPaths.push(mobileScreenshot);
+
+      // Exercise the complete authenticated appearance editor at the narrowest
+      // supported viewport for every theme, not only the top-level theme selector.
+      await page.setViewportSize({ width: 320, height: 844 });
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const narrowAppearanceLayout = await page.evaluate(() => {
+        const root = document.querySelector(".arb-appearance-admin");
+        const select = root?.querySelector(".arb-theme-selector-compact select");
+        const saveButton = Array.from(root?.querySelectorAll("button") || [])
+          .find(button => /save appearance policy/i.test(button.innerText));
+        const isVisible = (element) => {
+          const style = getComputedStyle(element);
+          const bounds = element.getBoundingClientRect();
+          return style.display !== "none" && style.visibility !== "hidden" &&
+            Number(style.opacity) !== 0 && bounds.width > 0 && bounds.height > 0;
+        };
+        const visibleControls = Array.from(root?.querySelectorAll("input, select, button, textarea") || [])
+          .filter(isVisible)
+          .map(element => {
+            const bounds = element.getBoundingClientRect();
+            return {
+              label: element.getAttribute("aria-label") ||
+                element.getAttribute("name") ||
+                element.innerText?.trim().slice(0, 60) ||
+                element.tagName.toLowerCase(),
+              left: Math.round(bounds.left),
+              right: Math.round(bounds.right),
+              width: Math.round(bounds.width),
+            };
+          });
+        return {
+          theme: document.documentElement.dataset.arbTheme || "",
+          viewportWidth: window.innerWidth,
+          documentWidth: document.documentElement.scrollWidth,
+          editorFound: Boolean(root),
+          selectWidth: select ? Math.round(select.getBoundingClientRect().width) : 0,
+          saveButtonVisible: Boolean(saveButton && isVisible(saveButton)),
+          controlsOutsideViewport: visibleControls.filter(control =>
+            control.left < -1 || control.right > window.innerWidth + 1),
+          visibleControlCount: visibleControls.length,
+        };
+      });
+      const narrowAppearanceFits =
+        narrowAppearanceLayout.theme === screenshotTheme &&
+        narrowAppearanceLayout.viewportWidth === 320 &&
+        narrowAppearanceLayout.documentWidth <= 321 &&
+        narrowAppearanceLayout.editorFound &&
+        narrowAppearanceLayout.selectWidth >= 160 &&
+        narrowAppearanceLayout.saveButtonVisible &&
+        narrowAppearanceLayout.controlsOutsideViewport.length === 0 &&
+        narrowAppearanceLayout.visibleControlCount >= 5;
+      record("admin-appearance-320-theme-policy-controls-fit",
+        narrowAppearanceFits,
+        { ...narrowAppearanceLayout, expectedTheme: screenshotTheme });
+      await page.mouse.move(1, 1);
+      await page.waitForTimeout(60);
+      const narrowScreenshot = path.join(ARTIFACT_DIR, `admin-appearance-320-${screenshotTheme}.png`);
+      await page.screenshot({ path: narrowScreenshot, fullPage: true, animations: "disabled" });
+      appearanceScreenshotPaths.push(narrowScreenshot);
+
       await page.setViewportSize({ width: 1440, height: 1000 });
     }
     record("admin-appearance-authenticated-panel-screenshots-captured",
