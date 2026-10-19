@@ -42,13 +42,15 @@ A follow-up review found that storage-key scoping and persistence gating prevent
 
 ## Current-head CI validation
 
-The latest validation is workflow run [#594](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39343974780), associated with PR head `53233400e38345be3dadefa2fb284a192d90f7d6`. All four jobs completed successfully:
+The latest verified validation is workflow run [#595](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39344555095), associated with PR head `39aaff61c17d7b3b89a50f9209baa53c183bf2a9`. All four jobs completed successfully:
 
 - Application and theme-policy regression tests: **passed**.
 - TypeScript validation: **passed**.
 - Production build: **passed**.
-- Chromium viewport and five-theme smoke matrix: **passed** — the prior detailed report records 1,174 checks and 0 failures; the latest browser job also completed and uploaded its evidence artifact.
-- Latest browser evidence artifact: [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39343974780/artifacts/12230530948).
+- Chromium viewport and five-theme smoke matrix: **passed** — inspected the uploaded `report.json`: **1,174 checks passed, 0 failures** across the three entry/customer/admin routes, ten viewport widths (320–1920 px), and five themes.
+- Latest browser evidence artifact: [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39344555095/artifacts/12230820905) (52 files including the JSON report and screenshots; artifact inspected on 2026-10-20).
+
+This confirms the static-client browser matrix and automated CI on the documented head. It does not close the separately listed human keyboard/screen-reader and authenticated-staging acceptance gates.
 
 The prior fully inspected report from run #593 confirms 1,174/1,174 checks passed with no recorded failures. The report includes responsive checks at widths from 320 to 1920 pixels, theme-token contrast sampling, visible keyboard focus checks, admin appearance interaction checks, and screenshots for the entry, customer, and administrator routes.
 
