@@ -497,3 +497,7 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 
 - Follow-up review caught that the first locator-scoping edit had accidentally changed the registration test's email locator rather than the recovery test's locator. Corrected both scopes: registration uses its original page-level email locator, and password recovery scopes its email locator to `.email-recovery-panel`. Browser-script syntax was rechecked after the correction.
 - Corrective commit: `0404b756a02e85b2a2044428d098682058138807`. Fresh CI for this corrected head is required; prior runs were cancelled or predate this fix.
+
+
+- Final test-script cleanup removed a duplicate recovery-check function introduced during the locator correction. Revalidated the current script parses successfully, has exactly one recovery-check declaration, uses the recovery-panel-scoped email locator, and contains four recovery assertions. Commit: `3bfbe35c1e68dd79cb6d92c88a0c9284971fe8ef`.
+- The preceding workflow run began before this cleanup, so only fresh CI on the resulting head can validate the final script. Stage 2 remains open pending that evidence and the remaining acceptance gates.
