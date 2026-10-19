@@ -203,7 +203,7 @@ describe("ARBITRADE shared design-system contract", () => {
 
   it("keeps administrator previews persistent while enforcing customer theme policy", () => {
     expect(themeContext).toContain('import { isThemeStorageEventForRole, themeStorageKeyForRole } from "./theme-storage"');
-    expect(themeContext).toContain("setThemeState(readStoredTheme(defaultTheme, themeStorageKeyForRole(true, currentUserId)))");
+    expect(themeContext).toContain("setThemeState(readStoredTheme(defaultTheme, activeStorageKey))");
     expect(themeContext).toContain("if (isAdmin) {\n      setThemeState(nextTheme);\n      return;\n    }");
     expect(themeContext).toContain("if (!policy || appearance.isError) return;");
     expect(themeContext).toContain("if (canCustomerSelectTheme(nextTheme, enabledThemes, customerCanSelect)) setThemeState(nextTheme);");
@@ -215,6 +215,7 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themePolicy).toContain("export function canCustomerSelectTheme");
     expect(themeContext).toContain("window.localStorage.setItem(themeStorageKeyForRole(isAdmin, currentUserId), effectiveTheme)");
     expect(themeContext).toContain("themePreferenceReadyKey === activeStorageKey");
+    expect(themeContext).toContain("setThemePreferenceReadyKey(activeStorageKey)");
     expect(themeContext).toContain("setThemePreferenceReadyKey(themeStorageKeyForRole(false, currentUserId))");
   });
 
