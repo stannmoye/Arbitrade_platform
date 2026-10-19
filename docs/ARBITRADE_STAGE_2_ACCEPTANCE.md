@@ -512,3 +512,14 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Installer validation [#777 / 39307217466](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39307217466) passed all jobs, including fresh MariaDB install, MySQL 8 compatibility/recovery, tests, TypeScript, production build/server smoke, deployment packages, and Stage 1 dashboard. Mining database regression [#182 / 39307217516](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39307217516) passed.
 - Browser reset endpoints are mocked: this does not send email, change a real password, prove live authorization, or establish production persistence. Full authenticated portal coverage and final human screenshot sign-off remain outstanding.
 - The exact-head workflows above validate code head `aed55ab`. This acceptance-document follow-up creates a new documentation head, so fresh CI must be checked again before claiming the newest repository head is green. PR #71 remains draft/open/unmerged; Stage 2 remains open and Stage 3 blocked.
+
+
+## Runtime authorization middleware regression — 2026-10-19
+
+- Added `server/trpc-authorization.test.ts` to exercise the actual exported tRPC middleware through a small test router and `createCaller`, rather than relying only on source-string assertions.
+- Six cases cover the protected/admin access matrix: unauthenticated callers are rejected by protected procedures; customer and administrator callers are accepted by protected procedures; unauthenticated and customer callers are rejected by administrator procedures; and administrator callers are accepted.
+- Expected rejection codes are asserted as `UNAUTHORIZED` for protected procedures and `FORBIDDEN` for administrator procedures.
+- Test commit: `5e020d46b273bbd93c6819b78ea81b2068a45fda`.
+- This is runtime middleware-level evidence using synthetic contexts, not a live HTTP session test and not proof of production role enforcement or database persistence. Fresh exact-head CI is required before marking these tests verified.
+- The previous green Stage 2 workflow [#441 / 39307217510](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39307217510), installer validation [#777 / 39307217466](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39307217466), and mining database regression [#182 / 39307217516](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39307217516) validate predecessor head `aed55ab610fcb8b182a58433e91e37989e0edee7`, not this new test commit.
+- PR #71 remains draft/open/unmerged. Stage 2 remains open and Stage 3 blocked pending exact-head validation and the remaining acceptance gates.
