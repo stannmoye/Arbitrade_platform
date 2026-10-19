@@ -214,6 +214,8 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themePolicy).toContain("export function resolveCustomerTheme");
     expect(themePolicy).toContain("export function canCustomerSelectTheme");
     expect(themeContext).toContain("window.localStorage.setItem(themeStorageKeyForRole(isAdmin, currentUserId), effectiveTheme)");
+    expect(themeContext).toContain("themePreferenceReadyKey === activeStorageKey");
+    expect(themeContext).toContain("setThemePreferenceReadyKey(themeStorageKeyForRole(false, currentUserId))");
   });
 
   it("recovers administrator appearance settings after a transient load failure", () => {
