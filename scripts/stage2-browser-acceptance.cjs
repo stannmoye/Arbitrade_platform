@@ -222,6 +222,42 @@ async function runAdminAppearanceInteractionCheck(browser) {
       await page.getByRole("button", { name: previewThemeLabels[screenshotTheme] }).click();
       await page.waitForFunction(expected =>
         document.documentElement.dataset.arbTheme === expected, screenshotTheme);
+      const appearanceThemeSurface = await page.evaluate(() => {
+        const root = document.documentElement;
+        const portalMain = document.querySelector(".admin-portal .portal-main");
+        const card = document.querySelector(".arb-appearance-admin .settings-card");
+        const heading = card?.querySelector("h2");
+        const probe = document.createElement("div");
+        probe.style.backgroundColor = "var(--arb-color-canvas)";
+        probe.style.color = "var(--arb-color-text)";
+        probe.style.setProperty("border-color", "var(--arb-color-surface)");
+        document.body.appendChild(probe);
+        const expectedCanvas = getComputedStyle(probe).backgroundColor;
+        const expectedText = getComputedStyle(probe).color;
+        probe.style.backgroundColor = "var(--arb-color-surface)";
+        const expectedSurface = getComputedStyle(probe).backgroundColor;
+        const actualCanvas = portalMain ? getComputedStyle(portalMain).backgroundColor : null;
+        const actualSurface = card ? getComputedStyle(card).backgroundColor : null;
+        const actualText = heading ? getComputedStyle(heading).color : null;
+        probe.remove();
+        return {
+          theme: root.dataset.arbTheme,
+          expectedCanvas,
+          actualCanvas,
+          expectedSurface,
+          actualSurface,
+          expectedText,
+          actualText,
+          canvasMatches: actualCanvas === expectedCanvas,
+          surfaceMatches: actualSurface === expectedSurface,
+          textMatches: actualText === expectedText,
+        };
+      });
+      record("admin-appearance-theme-surfaces-follow-selected-palette",
+        appearanceThemeSurface.canvasMatches &&
+        appearanceThemeSurface.surfaceMatches &&
+        appearanceThemeSurface.textMatches,
+        { ...appearanceThemeSurface, width: 1440, theme: screenshotTheme });
       await page.evaluate(() => window.scrollTo(0, 0));
       // Move away from nav controls before capture so native title tooltips do not contaminate evidence.
       await page.mouse.move(1, 1);
