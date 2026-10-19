@@ -216,6 +216,15 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themeContext).toContain("window.localStorage.setItem(THEME_STORAGE_KEY, effectiveTheme)");
   });
 
+  it("recovers administrator appearance settings after a transient load failure", () => {
+    expect(adminAppearance).toContain("Appearance settings could not be loaded. Retry before publishing a change.");
+    expect(adminAppearance).toContain('disabled={settings.isFetching}');
+    expect(adminAppearance).toContain('onClick={() => void settings.refetch()}');
+    expect(browserAcceptance).toContain("failNextSettingsLoad");
+    expect(browserAcceptance).toContain("admin-appearance-settings-load-error-retry-recovers");
+    expect(browserAcceptance).toContain('name: "Retry loading settings"');
+  });
+
   it("keeps administrator appearance edits valid and protects the last enabled theme", () => {
     expect(adminAppearance).toContain("toggleEnabledTheme(enabledThemes, candidate)");
     expect(adminAppearance).toContain("normalizeEnabledThemes(appearance.enabledThemes, requestedDefault)");
