@@ -122,24 +122,85 @@ async function main() {
               const visual = await page.evaluate(() => {
                 const root = document.documentElement;
                 const body = document.body;
+                const parseColor = value => {
+                  const parts = String(value).match(/[\\d.]+/g);
+                  return parts && parts.length >= 3 ? parts.slice(0, 3).map(Number) : null;
+                };
+                const luminance = rgb => {
+                  const linear = rgb.map(channel => {
+                    const normalized = channel / 255;
+                    return normalized <= 0.04045
+                      ? normalized / 12.92
+                      : ((normalized + 0.055) / 1.055) ** 2.4;
+                  });
+                  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+                };
+                const contrastRatio = (foreground, background) => {
+                  const first = luminance(foreground);
+                  const second = luminance(background);
+                  return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+                };
+                const styles = getComputedStyle(root);
+                const tokenPairs = [
+                  { name: "text-on-canvas", foreground: "--arb-color-text", background: "--arb-color-canvas", minimum: 4.5 },
+                  { name: "text-on-surface", foreground: "--arb-color-text", background: "--arb-color-surface", minimum: 4.5 },
+                  { name: "soft-text-on-canvas", foreground: "--arb-color-text-soft", background: "--arb-color-canvas", minimum: 4.5 },
+                  { name: "muted-text-on-canvas", foreground: "--arb-color-text-muted", background: "--arb-color-canvas", minimum: 4.5 },
+                  { name: "focus-ring-on-canvas", foreground: "--arb-focus-ring", background: "--arb-color-canvas", minimum: 3 },
+                ];
+                const contrastChecks = tokenPairs.map(pair => {
+                  const foregroundValue = styles.getPropertyValue(pair.foreground).trim();
+                  const backgroundValue = styles.getPropertyValue(pair.background).trim();
+                  const foreground = parseColor(foregroundValue);
+                  const background = parseColor(backgroundValue);
+                  const ratio = foreground && background
+                    ? contrastRatio(foreground, background)
+                    : null;
+                  return {
+                    name: pair.name,
+                    foregroundToken: pair.foreground,
+                    backgroundToken: pair.background,
+                    foreground: foregroundValue,
+                    background: backgroundValue,
+                    ratio: ratio === null ? null : Number(ratio.toFixed(2)),
+                    minimum: pair.minimum,
+                    passed: ratio !== null && ratio + 1e-6 >= pair.minimum,
+                  };
+                });
                 return {
                   theme: root.dataset.arbTheme || null,
                   background: getComputedStyle(body).backgroundColor,
                   textColor: getComputedStyle(body).color,
                   viewportWidth: window.innerWidth,
                   documentWidth: root.scrollWidth,
+                  contrastChecks,
                 };
               });
+              const { contrastChecks, ...visualSummary } = visual;
               const themeItem = {
                 route: route.path,
                 routeName: route.name,
                 width,
                 theme,
-                ...visual,
-                passed: visual.theme === theme && visual.documentWidth <= visual.viewportWidth + 1,
+                ...visualSummary,
+                passed: visualSummary.theme === theme &&
+                  visualSummary.documentWidth <= visualSummary.viewportWidth + 1,
               };
               results.push(themeItem);
               if (!themeItem.passed) failures.push(themeItem);
+              for (const check of contrastChecks) {
+                const contrastItem = {
+                  route: route.path,
+                  routeName: route.name,
+                  width,
+                  theme,
+                  check: `contrast:${check.name}`,
+                  ...check,
+                  passed: check.passed,
+                };
+                results.push(contrastItem);
+                if (!contrastItem.passed) failures.push(contrastItem);
+              }
               if (width === 320 || width === 1440) {
                 await page.screenshot({
                   path: path.join(ARTIFACT_DIR, `${route.name}-${width}-${theme}.png`),
