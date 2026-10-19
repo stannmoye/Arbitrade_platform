@@ -382,6 +382,12 @@ describe("ARBITRADE shared design-system contract", () => {
   });
 
 
+  it("uses pull-request events as the single automatic Stage 2 trigger", () => {
+    expect(workflow).toContain("on:\\n  pull_request:");
+    expect(workflow).not.toContain("\\n  push:\\n");
+  });
+
+
   it("shares same-repository Stage 2 concurrency groups across events while isolating forks", () => {
     expect(workflow).toContain("concurrency:");
     expect(workflow).toContain("group: stage-2-design-system-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}");
