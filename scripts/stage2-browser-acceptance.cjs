@@ -472,7 +472,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
     const closedDrawerFocusability = await page.locator("#admin-navigation-drawer").evaluate(drawer => ({
       hidden: drawer.getAttribute("aria-hidden") === "true",
       searchTabIndex: drawer.querySelector('input[aria-label="Search actions and destinations"]')?.tabIndex ?? null,
-      unintendedTabStops: drawer.querySelectorAll('button:not([tabindex="-1"]),input:not([tabindex="-1"])').length,
+      unintendedTabStops: drawer.querySelectorAll('a[href]:not([tabindex="-1"]):not([aria-disabled="true"]),button:not([tabindex="-1"]):not([disabled]),input:not([tabindex="-1"]):not([disabled]),select:not([tabindex="-1"]):not([disabled]),textarea:not([tabindex="-1"]):not([disabled]),[tabindex]:not([tabindex="-1"]):not([disabled]),[contenteditable="true"]').length,
     }));
     record("quick-actions-closed-drawer-has-no-tab-stops",
       closedDrawerFocusability.hidden &&
@@ -717,6 +717,74 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
       const correctSelection = !scenario.expectedEditable ||
         (selectedTheme === "aurora-modern" && persistedTheme === "aurora-modern");
       const passed = correctEditability && correctDisabledFallback && correctOptions && correctSelection && pageErrors.length === 0;
+
+      // The customer navigation drawer must be inert while closed and must
+      // preserve a complete keyboard focus loop when open.
+      if (scenario.name === "customer-choice-disabled") {
+        const trigger = page.getByRole("button", { name: "Open customer navigation" });
+        const drawer = page.locator("#customer-navigation-drawer");
+        const focusableSelector = 'a[href]:not([tabindex="-1"]):not([aria-disabled="true"]),button:not([tabindex="-1"]):not([disabled]),input:not([tabindex="-1"]):not([disabled]),select:not([tabindex="-1"]):not([disabled]),textarea:not([tabindex="-1"]):not([disabled]),[tabindex]:not([tabindex="-1"]):not([disabled]),[contenteditable="true"]';
+        const closedState = await drawer.evaluate((element, selector) => ({
+          hidden: element.getAttribute("aria-hidden") === "true",
+          searchTabIndex: element.querySelector('input[aria-label="Search customer pages and resources"]')?.tabIndex ?? null,
+          focusableCount: element.querySelectorAll(selector).length,
+        }), focusableSelector);
+        const closedDrawerSafe = closedState.hidden &&
+          closedState.searchTabIndex === -1 &&
+          closedState.focusableCount === 0;
+        checks.push({
+          route: "/customer",
+          routeName: "customer",
+          width: 1440,
+          theme: scenario.policy.defaultTheme,
+          check: "customer-navigation-closed-drawer-has-no-tab-stops",
+          passed: closedDrawerSafe,
+          ...closedState,
+          note: "Counts links, buttons, form controls, explicit tab stops, and editable content while the drawer is closed.",
+        });
+
+        await trigger.focus();
+        await page.keyboard.press("Enter");
+        await page.waitForFunction(() => {
+          const element = document.querySelector("#customer-navigation-drawer");
+          return element?.getAttribute("aria-hidden") === "false" &&
+            Boolean(element.contains(document.activeElement));
+        });
+        await drawer.evaluate((element, selector) => element.querySelector(selector.split(",")[0])?.focus(), focusableSelector);
+        await page.keyboard.press("Shift+Tab");
+        const focusTrapWorks = await drawer.evaluate((element, selector) => {
+          const focusable = Array.from(element.querySelectorAll(selector));
+          return focusable.length > 1 && document.activeElement === focusable[focusable.length - 1];
+        }, focusableSelector);
+        checks.push({
+          route: "/customer",
+          routeName: "customer",
+          width: 1440,
+          theme: scenario.policy.defaultTheme,
+          check: "customer-navigation-focus-trap-wraps-backward",
+          passed: focusTrapWorks,
+          focusTrapWorks,
+          note: "Verifies Shift+Tab from the first drawer control wraps to the last focusable control.",
+        });
+
+        await page.keyboard.press("Escape");
+        await page.waitForFunction(() => {
+          const element = document.querySelector("#customer-navigation-drawer");
+          return element?.getAttribute("aria-hidden") === "true" &&
+            document.activeElement?.getAttribute("aria-label") === "Open customer navigation";
+        });
+        const focusRestored = await trigger.evaluate(element => document.activeElement === element);
+        checks.push({
+          route: "/customer",
+          routeName: "customer",
+          width: 1440,
+          theme: scenario.policy.defaultTheme,
+          check: "customer-navigation-escape-restores-trigger-focus",
+          passed: focusRestored,
+          focusRestored,
+        });
+      }
+
       checks.push({
         route: "/customer",
         routeName: "customer",
