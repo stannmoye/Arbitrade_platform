@@ -465,6 +465,25 @@ async function runAdminAppearanceInteractionCheck(browser) {
       dialogSemantics.focusInside && triggerExpandedWhileOpen === "true",
       { ...dialogSemantics, triggerExpandedWhileOpen });
 
+    const dialogFocusable = quickActionsDialog.locator(
+      'button:not([tabindex="-1"]), input:not([tabindex="-1"])'
+    );
+    const dialogFocusableCount = await dialogFocusable.count();
+    const firstDialogFocusable = dialogFocusable.first();
+    const lastDialogFocusable = dialogFocusable.last();
+    await firstDialogFocusable.focus();
+    await page.keyboard.press("Shift+Tab");
+    const reverseFocusWrapped = await lastDialogFocusable.evaluate(element =>
+      document.activeElement === element
+    );
+    await page.keyboard.press("Tab");
+    const forwardFocusWrapped = await firstDialogFocusable.evaluate(element =>
+      document.activeElement === element
+    );
+    record("quick-actions-dialog-traps-keyboard-focus",
+      dialogFocusableCount >= 2 && reverseFocusWrapped && forwardFocusWrapped,
+      { dialogFocusableCount, reverseFocusWrapped, forwardFocusWrapped });
+
     await page.keyboard.press("Escape");
     await page.waitForFunction(() =>
       document.querySelector("#admin-navigation-drawer")?.getAttribute("aria-hidden") === "true" &&
