@@ -569,6 +569,14 @@ async function runAdminAppearanceInteractionCheck(browser) {
     // Dialogs must remain operable when the on-screen keyboard leaves very little
     // vertical space. Exercise the real rendered dialog at a compact phone size.
     await page.setViewportSize({ width: 320, height: 568 });
+    // The drawer may still be completing its entrance animation from the desktop
+    // viewport. Wait for its transformed bounds to settle before measuring layout.
+    await page.waitForFunction(() => {
+      const drawer = document.querySelector("#admin-navigation-drawer");
+      if (!(drawer instanceof HTMLElement)) return false;
+      const rect = drawer.getBoundingClientRect();
+      return rect.left >= 0 && rect.right <= window.innerWidth + 1;
+    });
     const compactDialogLayout = await quickActionsDialog.evaluate(element => {
       const rect = element.getBoundingClientRect();
       const style = getComputedStyle(element);
