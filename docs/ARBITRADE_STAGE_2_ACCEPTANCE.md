@@ -290,3 +290,13 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - The new `admin-appearance-save-busy-controls-disabled` check confirms the save button reads `Saving…` and is disabled, and the default-theme select, enabled-theme checkbox, and customer-choice checkbox are all disabled while the save is pending.
 - Current code commit `bb86d021b300d2db23f5c6bfc62285cb4149154f` passed Stage 2 run #292 (`39268470213`): **1,122/1,122 Chromium checks passed, zero failures**. The busy-state check passed. Installer run #667 (`39268470271`) and mining regression run #72 (`39268470158`) also passed, including deployment package assembly.
 - This is mocked client-flow evidence; it does not replace live authenticated authorization/database-persistence verification or broader authenticated forms/dialogs/dropdowns testing. Stage 2 remains open; Stage 3 remains blocked.
+
+
+## Default-theme removal fallback regression — 2026-10-19
+
+- Added a Chromium interaction check that chooses `Clean Light` as the published default, unchecks it from the enabled-theme list, and verifies the UI falls back to `Original Arbitrade` while removing `Clean Light` from the default selector options.
+- The test then re-enables `Clean Light` and continues through the existing save/busy/refetch and populated financial-table checks.
+- Exact code head `86c047a8c2a4aa56f82f0a256977fa5203e8af26` passed Stage 2 run #297 (`39271047209`): **1,123/1,123 browser checks passed, zero failures**. The new fallback check passed. Application/regression tests, TypeScript, and production build passed.
+- Installer validation #669 (`39271047221`) and mining database regression #74 (`39271047241`) also passed, including MariaDB/MySQL 8 checks, installer recovery/regressions, server smoke/build/package checks, and database idempotency/transaction tests.
+- The browser report remains based on mocked API/auth and table data; it does not prove live role enforcement or database persistence. Broader authenticated forms/dialogs/dropdowns, full authenticated screenshot review, and final sign-off remain open.
+- PR #71 remains draft and unmerged. Stage 2 stays open; Stage 3 remains blocked.
