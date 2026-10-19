@@ -767,6 +767,22 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           note: "Verifies Shift+Tab from the first drawer control wraps to the last focusable control.",
         });
 
+        await page.keyboard.press("Tab");
+        const forwardFocusTrapWorks = await drawer.evaluate((element, selector) => {
+          const focusable = Array.from(element.querySelectorAll(selector));
+          return focusable.length > 1 && document.activeElement === focusable[0];
+        }, focusableSelector);
+        checks.push({
+          route: "/customer",
+          routeName: "customer",
+          width: 1440,
+          theme: scenario.policy.defaultTheme,
+          check: "customer-navigation-focus-trap-wraps-forward",
+          passed: forwardFocusTrapWorks,
+          forwardFocusTrapWorks,
+          note: "Verifies Tab from the last drawer control wraps to the first focusable control.",
+        });
+
         await page.keyboard.press("Escape");
         await page.waitForFunction(() => {
           const element = document.querySelector("#customer-navigation-drawer");
