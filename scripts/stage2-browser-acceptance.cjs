@@ -427,15 +427,15 @@ async function runAdminAppearanceInteractionCheck(browser) {
       previewTheme,
     });
 
-    await page.getByLabel("Default theme").selectOption("clean-light");
+    await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').selectOption("clean-light");
     await page.getByRole("checkbox", { name: /Clean Light/ }).uncheck();
-    const fallbackDefault = await page.getByLabel("Default theme").inputValue();
-    const fallbackOptions = await page.getByLabel("Default theme").locator("option").evaluateAll(options => options.map(option => option.value));
+    const fallbackDefault = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').inputValue();
+    const fallbackOptions = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').locator("option").evaluateAll(options => options.map(option => option.value));
     record("admin-default-removal-falls-back-to-enabled-theme",
       fallbackDefault === "original" && !fallbackOptions.includes("clean-light"),
       { fallbackDefault, fallbackOptions });
     await page.getByRole("checkbox", { name: /Clean Light/ }).check();
-    await page.getByLabel("Default theme").selectOption("clean-light");
+    await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').selectOption("clean-light");
     await page.getByRole("checkbox", { name: /Midnight Premium/ }).uncheck();
     await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).check();
     await page.getByRole("button", { name: "Save appearance policy" }).click();
@@ -443,7 +443,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
     const saveButton = page.getByRole("button", { name: /Saving…|Save appearance policy/ });
     const busySaveText = await saveButton.innerText();
     const busySaveDisabled = await saveButton.isDisabled();
-    const busyDefaultDisabled = await page.getByLabel("Default theme").isDisabled();
+    const busyDefaultDisabled = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').isDisabled();
     const busyThemeDisabled = await page.getByRole("checkbox", { name: /Aurora Modern/ }).isDisabled();
     const busyChoiceDisabled = await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).isDisabled();
     record("admin-appearance-save-busy-controls-disabled",
@@ -471,7 +471,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       apiRequests.slice(updateRequestIndex + 1).some(item =>
         item.procedures?.includes("adminOperations.settings"));
     const feedback = (await page.getByRole("status").filter({ hasText: "Appearance policy saved" }).innerText()).includes("Appearance policy saved") &&
-      (await page.getByLabel("Default theme").inputValue()) === "clean-light" &&
+      (await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').inputValue()) === "clean-light" &&
       settingsRefetched;
     record("admin-appearance-save-feedback-and-refetch", feedback, {
       settingsRefetched,
@@ -491,7 +491,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
     const saveError = page.getByRole("alert").filter({ hasText: "Simulated appearance save failure" });
     await saveError.waitFor({ state: "visible" });
     const errorSaveEnabled = await page.getByRole("button", { name: "Save appearance policy" }).isEnabled();
-    const errorDefaultEnabled = await page.getByLabel("Default theme").isEnabled();
+    const errorDefaultEnabled = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').isEnabled();
     const errorThemeEnabled = await page.getByRole("checkbox", { name: /Aurora Modern/ }).isEnabled();
     const errorChoiceEnabled = await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).isEnabled();
     record("admin-appearance-save-error-feedback-controls-restored",
@@ -520,7 +520,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
     await page.getByRole("button", { name: /Platform Configuration/ }).click();
     await page.getByRole("button", { name: /Appearance & Themes/ }).click();
     await page.getByRole("heading", { name: "Theme management" }).waitFor({ state: "visible", timeout: 15000 });
-    await page.getByLabel("Default theme").waitFor({ state: "visible" });
+    await page.locator(".arb-appearance-admin select[aria-label=\"Default theme\"]").waitFor({ state: "visible", timeout: 15000 });
     await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).waitFor({ state: "visible" });
     await page.waitForFunction(() => {
       const labelled = Array.from(document.querySelectorAll("label"))
@@ -529,10 +529,10 @@ async function runAdminAppearanceInteractionCheck(browser) {
         labelled?.querySelector("select");
       return select instanceof HTMLSelectElement && !select.disabled;
     });
-    const reloadedDefaultTheme = await page.getByLabel("Default theme").inputValue();
+    const reloadedDefaultTheme = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').inputValue();
 
     // Exercise the native theme dropdown with keyboard input, not only selectOption().
-    const keyboardThemeSelect = page.getByLabel("Default theme");
+    const keyboardThemeSelect = page.locator('.arb-appearance-admin select[aria-label="Default theme"]');
     await keyboardThemeSelect.focus();
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
@@ -833,14 +833,14 @@ async function runAdminAppearanceInteractionCheck(browser) {
       .filter({ hasText: "Appearance settings could not be loaded" });
     await settingsLoadAlert.waitFor({ state: "visible" });
     const retryButton = page.getByRole("button", { name: "Retry loading settings" });
-    const settingsDisabledBeforeRetry = await page.getByLabel("Default theme").isDisabled();
+    const settingsDisabledBeforeRetry = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').isDisabled();
     const retryAvailable = await retryButton.isVisible() && await retryButton.isEnabled();
     await retryButton.click();
     await page.waitForFunction(() => {
       const select = document.querySelector(".arb-appearance-admin select");
       return select instanceof HTMLSelectElement && !select.disabled;
     }, null, { timeout: 15000 });
-    const settingsRecovered = await page.getByLabel("Default theme").isEnabled() &&
+    const settingsRecovered = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').isEnabled() &&
       await page.getByRole("heading", { name: "Theme management" }).isVisible();
     record("admin-appearance-settings-load-error-retry-recovers",
       retryAvailable && settingsDisabledBeforeRetry && settingsRecovered,
