@@ -28,7 +28,7 @@ describe("shared form and dialog interaction contracts", () => {
     ["textarea", textarea],
   ])("%s does not submit on Enter while text composition is active or has just ended", (_name, source) => {
     expect(source).toContain("e.nativeEvent.isComposing || dialogComposition.justEndedComposing()");
-    expect(source).toContain('if (e.key === "Enter" && isComposing)');
+    expect(source).toMatch(/if \(e\.key === "Enter" &&(?: !e\.shiftKey &&)? isComposing\)/);
     expect(source).toContain("return;");
     expect(source).toContain("onKeyDown?.(e)");
   });
