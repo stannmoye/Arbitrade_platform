@@ -29,7 +29,9 @@ async function runAdminAppearanceInteractionCheck(browser) {
   page.setDefaultTimeout(10000);
   const apiRequests = [];
   const pageErrors = [];
+  const consoleErrors = [];
   page.on("pageerror", error => pageErrors.push(error.message));
+  page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
   page.on("request", request => {
     if (request.url().includes("/api/trpc")) apiRequests.push({ method: request.method(), url: request.url() });
   });
@@ -99,6 +101,12 @@ async function runAdminAppearanceInteractionCheck(browser) {
         }
         return { result: { data: { json: data } } };
       });
+      apiRequests.push({
+        handled: true,
+        procedurePath,
+        procedures,
+        output,
+      });
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -120,6 +128,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
         error: "Authenticated admin shell did not render from the mock API.",
         apiRequests: apiRequests.slice(0, 12),
         pageErrors,
+        consoleErrors: consoleErrors.slice(0, 12),
         bodyText: await page.locator("body").innerText().catch(() => ""),
       });
       return checks;
