@@ -249,3 +249,11 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - The enabled-policy scenario checks that only the two allow-listed themes appear, selects `aurora-modern`, and verifies both the applied document theme and `arbitrade-theme` local preference. The disabled-policy scenario checks that the selector is not editable.
 - The report labels these as mocked client-flow checks. They do not prove live API authorization, server/database persistence, or cross-session behavior.
 - Added the customer browser scenarios after correcting the selector integration bug recorded above. Current-head workflow validation is pending; no pass is claimed for these new scenarios yet.
+
+
+## Stale customer preference regression — 2026-10-19
+
+- Strengthened the disabled-choice Chromium scenario to seed a stale `aurora-modern` local preference while the administrator-published default is `clean-light` and customer choice is disabled.
+- The scenario now asserts the applied document theme remains `clean-light`, preventing a previously stored but now-disallowed customer preference from overriding policy.
+- This is still a mocked browser scenario. Fresh CI for the latest head must pass before the check is considered verified; live API/database persistence remains outside its scope.
+- Commit: `01ea8c98003de6caa138835441efaef59efd8f5e`.
