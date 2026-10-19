@@ -1,7 +1,8 @@
 # Arbitrade Master Development Roadmap
 
 **Repository:** `stannmoye/Arbitrade_platform`  
-**Working branch:** `integration/auth-installer-vps-safety`  
+**Active Stage 2 branch:** `feat/stage-2-design-system-foundation`  
+**PR target branch:** `integration/auth-installer-vps-safety`  
 **Roadmap version:** 2.1  
 **Purpose:** The durable source of truth for the customer experience, themes, notifications, sounds, responsive layouts, administrator portal, quality assurance, and deployment-verification work.
 
@@ -819,3 +820,12 @@ When continuing this project:
 
 
 - **Responsive media regression follow-up — Prompt 1/30 (2026-10-19):** During verification of the new source contract, caught and fixed a selector mismatch in the test: the existing bounded-media rule includes SVG in addition to images, video, iframes and canvas. Updated the test to assert the actual selector rather than a guessed one. Commit: `ce0e8c3918c66e2c07d2f7fbc55a77e27e77ee6f`; acceptance correction recorded in `9d108508134a477bfe506de818441ee1bbe6532f`. This demonstrates a review correction, not a test pass; current-head CI and browser acceptance are still pending.
+
+
+## Continuation batch — Prompt 2/30 (2026-10-19)
+
+- Fixed an administrator theme-policy recovery defect: when only one theme was enabled, every checkbox was disabled, which also prevented administrators from re-enabling any other theme. The last enabled theme remains protected, while unchecked themes remain available to restore the allow-list.
+- Extracted the enable/disable transition into the pure helper `client/src/components/appearance-policy.ts` and added focused unit coverage in `client/src/components/appearance-policy.test.ts` for adding a theme from a single-theme policy, protecting the last theme, removal/default ordering, and duplicate-free canonical ordering.
+- Updated `client/src/components/AdminAppearance.tsx` to use the helper and disable policy-editing controls while settings are loading, settings have failed, or a save is pending. Added a source-level regression assertion in `server/design-system-contract.test.ts`.
+- Commits: `6c59fa48e4ac33211436d74971516922a26cc554` (admin UI), `04898496d43edc769b792bf565f4d081cd3a573b` (pure helper), `e08b503d412ba3154c5bf0ea735fdfd3a24bdb0e` (unit tests), and `08fd9c8c050f28d81084443320255683ae4906f7` (design-system contract).
+- This is implementation plus test coverage, not a claimed test pass. Check the current-head GitHub Actions run before reporting validation. Real-browser viewport and rendered contrast acceptance remain open.
