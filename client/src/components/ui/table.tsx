@@ -1,12 +1,10 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { resolveTableContainerLabel } from "./table-label";
 
 function Table({ className, containerAriaLabel = "Scrollable table", ...props }: React.ComponentProps<"table"> & { containerAriaLabel?: string }) {
-  const resolvedContainerAriaLabel =
-    typeof containerAriaLabel === "string" && containerAriaLabel.trim()
-      ? containerAriaLabel.trim()
-      : "Scrollable table";
+  const resolvedContainerAriaLabel = resolveTableContainerLabel(containerAriaLabel);
 
   return (
     <div
