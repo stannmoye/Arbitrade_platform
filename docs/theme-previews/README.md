@@ -1,5 +1,7 @@
 # ARBITRADE — Five Theme Visual Previews
 
+> **Want real screenshots instead of mockups?** [Open the actual desktop and mobile browser screenshots for all five themes](screenshots/README.md). Those PNGs were captured by the Stage 2 browser-acceptance run and committed to `main`.
+
 Open this page on GitHub to compare the five planned design-system themes. The previews use absolute raw-image sources so they can render in clients that do not resolve relative image paths.
 
 > **Important:** These are static visual concept previews, not screenshots captured from the running app and not live market data. They illustrate each theme's intended palette and a shared dashboard layout. The production UI may differ as the theme implementation evolves.
