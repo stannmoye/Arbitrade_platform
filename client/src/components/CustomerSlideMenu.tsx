@@ -124,7 +124,7 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
       <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search pages and resources" aria-label="Search customer pages and resources" tabIndex={open ? 0 : -1} /></div>
       <nav className="admin-slide-nav quick-actions-nav customer-resource-nav" aria-label="Customer pages and resources">
         {filteredGroups.map((group) => <section className="admin-slide-group customer-resource-group" key={group.label}><div className="admin-slide-group-title"><span>{group.label}</span><small>{group.detail}</small><i /></div><div className="admin-slide-items">{group.items.map(renderItem)}</div></section>)}
-        {!filteredGroups.length && <div className="customer-resource-empty">No pages or resources match “{query}”.</div>}
+        {!filteredGroups.length && <div className="customer-resource-empty" role="status" aria-live="polite">No pages or resources match “{query}”.</div>}
       </nav>
       <div className="admin-slide-footer"><div className="quick-actions-status"><span><span className="quick-actions-status-dot" /> Customer workspace</span><strong>Connected</strong><small>Database-backed customer portal</small></div><div className="admin-slide-footer-note">Open a destination to switch customer pages. Items marked Planned are not live offerings.</div></div>
     </aside>
