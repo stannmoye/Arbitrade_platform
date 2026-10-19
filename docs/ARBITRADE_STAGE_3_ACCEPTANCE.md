@@ -33,7 +33,7 @@ Finish and verify the existing five-theme implementation without duplicating Sta
 
 ## Current code change
 
-The shared `arbitrade-theme` key previously stored both administrator previews and customer preferences. In a shared browser, an administrator's preview could be mistaken for a customer's preference when customer choice was enabled and the previewed theme was in the allow-list. The context now resolves a role-specific storage key, and storage events are filtered to the active role's key. The new unit tests cover key separation and event filtering.
+The shared `arbitrade-theme` key previously stored both administrator previews and customer preferences, and customer preferences were shared between accounts on the same browser. In a shared browser, an administrator's preview or another customer's preference could be mistaken for the active customer's choice when customer choice was enabled and the theme was allowed. The context now resolves a role- and account-specific storage key, and storage events are filtered to the active role/account key. The new unit tests cover role separation, account isolation, and event filtering.
 
 ## Validation record
 
