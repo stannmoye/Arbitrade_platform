@@ -2,7 +2,7 @@
 
 **Repository:** `stannmoye/Arbitrade_platform`  
 **Working branch:** `integration/auth-installer-vps-safety`  
-**Roadmap version:** 2.0  
+**Roadmap version:** 2.1  
 **Purpose:** The durable source of truth for the customer experience, themes, notifications, sounds, responsive layouts, administrator portal, quality assurance, and deployment-verification work.
 
 > **Working rule:** Complete and verify one stage at a time. Update this document as work progresses so the team can always identify what is complete, what is in progress, what failed, and what comes next. Do not claim a task or test is complete unless it has actually been implemented or run.
@@ -11,6 +11,8 @@
 ## Mandatory execution cadence and substantial-work contract (Roadmap v2.1)
 
 These rules apply to every stage and override any workflow habit that causes repeated tiny changes or unnecessary user prompts.
+
+**Cadence baseline adopted 2026-10-19:** Active work remains Stage 2 on `feat/stage-2-design-system-foundation`, PR #71. **Stage 2 continuation count: Prompt 0/30** under this newly adopted contract. This counter measures user interruptions from this baseline forward; it does not erase prior development history or imply Stage 2 is complete. The existing roadmap's Stage 1 audit findings remain recorded and any unverified exit criteria must still be reconciled without restarting completed work.
 
 ### Hard prompt budget
 - **Maximum: 30 continuation prompts per stage.** A continuation prompt means every time the assistant stops coding and asks the user to type "continue", "proceed", or an equivalent message to resume. Count these user interruptions, not internal tool calls, commits, parallel workstreams, or automated CI jobs.
