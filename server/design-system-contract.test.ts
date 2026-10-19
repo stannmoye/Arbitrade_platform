@@ -319,7 +319,7 @@ describe("ARBITRADE shared design-system contract", () => {
   });
 
 
-  it("measures computed theme-token contrast in the Chromium acceptance matrix", () => {
+  it("measures computed token and rendered-text contrast in the Chromium acceptance matrix", () => {
     for (const token of [
       "--arb-color-text",
       "--arb-color-text-soft",
@@ -330,10 +330,29 @@ describe("ARBITRADE shared design-system contract", () => {
     ]) {
       expect(browserAcceptance, `browser matrix missing contrast token ${token}`).toContain(token);
     }
+    expect(browserAcceptance).toContain("const hex = input.match");
+    expect(browserAcceptance).toContain("rendered-text-contrast");
     expect(browserAcceptance).toContain("contrastRatio");
     expect(browserAcceptance).toContain("minimum: 4.5");
     expect(browserAcceptance).toContain("minimum: 3");
     expect(browserAcceptance).toContain("failureDetails: failures");
+  });
+
+  it("bridges legacy gateway and authentication surfaces to theme tokens", () => {
+    for (const selector of [
+      ".portal-gateway,",
+      ".auth-shell {",
+      ".gateway-card,",
+      ".auth-card {",
+      ".portal-choice {",
+      ".auth-primary {",
+      ".auth-form-grid label span,",
+    ]) {
+      expect(themes, `missing themed entry/auth selector ${selector}`).toContain(selector);
+    }
+    expect(themes).toContain("background: var(--arb-color-surface) !important;");
+    expect(themes).toContain("background: var(--arb-color-accent) !important;");
+    expect(themes).toContain(':root[data-arb-theme="clean-light"] .auth-primary');
   });
 
 });
