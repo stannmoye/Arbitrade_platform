@@ -1,6 +1,9 @@
 name: Stage 3 five-theme validation
 
 on:
+  push:
+    branches:
+      - feat/stage-3-five-theme-architecture
   pull_request:
     branches:
       - integration/auth-installer-vps-safety
