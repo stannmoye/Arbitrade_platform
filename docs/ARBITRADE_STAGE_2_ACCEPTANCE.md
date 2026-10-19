@@ -241,3 +241,11 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - **Validation:** Fresh CI for this code head is pending. The prior green run on `6907d8ba9e67aeaa323a856f8c227894b727bab7` does not validate these commits. No live API or database persistence is claimed.
 - **Still open:** Exercise customer selector behavior in Chromium with mocked customer sessions for both policy states (choice disabled and enabled), verify only allow-listed options are exposed, verify a permitted selection updates the applied theme, and review populated-table keyboard scrolling plus detailed form/dialog/dropdown/disabled/busy states. Administrator browser interaction remains mocked; live server authorization/persistence and human screenshot review are still separate acceptance gates.
 - **Decision:** Stage 2 remains open. Keep PR #71 draft/unmerged and do not advance to Stage 3 until the outstanding acceptance evidence is recorded.
+
+
+## Customer theme policy browser coverage — 2026-10-19
+
+- Extended `scripts/stage2-browser-acceptance.cjs` with two Chromium customer-session scenarios using mocked tRPC responses: customer theme choice disabled, and customer theme choice enabled.
+- The enabled-policy scenario checks that only the two allow-listed themes appear, selects `aurora-modern`, and verifies both the applied document theme and `arbitrade-theme` local preference. The disabled-policy scenario checks that the selector is not editable.
+- The report labels these as mocked client-flow checks. They do not prove live API authorization, server/database persistence, or cross-session behavior.
+- Added the customer browser scenarios after correcting the selector integration bug recorded above. Current-head workflow validation is pending; no pass is claimed for these new scenarios yet.
