@@ -192,7 +192,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       savedAppearance,
       submittedAppearance: mutations.at(-1)?.appearance ?? null,
     });
-    const feedback = (await page.getByRole("status").innerText()).includes("Appearance policy saved") &&
+    const feedback = (await page.getByRole("status").filter({ hasText: "Appearance policy saved" }).innerText()).includes("Appearance policy saved") &&
       (await page.getByLabel("Default theme").inputValue()) === "clean-light";
     record("admin-appearance-save-feedback-and-refetch", feedback);
   } catch (error) {
