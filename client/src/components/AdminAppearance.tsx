@@ -24,7 +24,9 @@ export function AdminAppearance() {
     const nextEnabled = normalizeEnabledThemes(appearance.enabledThemes, requestedDefault);
     setEnabledThemes(nextEnabled);
     setDefaultTheme(nextEnabled.includes(requestedDefault) ? requestedDefault : nextEnabled[0]);
-    setCustomerCanSelect(Boolean(appearance.customerCanSelect));
+    // Do not treat malformed truthy values (for example, the string "false")
+    // as an explicit customer opt-in if data is ever returned outside its schema.
+    setCustomerCanSelect(appearance.customerCanSelect === true);
   }, [settings.data]);
 
   // Keep the policy transition pure and testable. The last enabled theme cannot
