@@ -969,3 +969,5 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - **Still open:** live API/database persistence, populated financial-table keyboard scrolling, broader authenticated form/dialog/dropdown/disabled/busy states, human screenshot review, and final acceptance sign-off. The current browser interactions use mocked tRPC responses and cannot establish live authorization or database persistence.
 - **Decision:** keep PR #71 draft and unmerged. Stage 2 remains open; do not advance to Stage 3 until remaining gates have evidence.
 - **Continuation counter:** Prompt 12/30.
+
+- **Prompt 12/30 follow-up:** Added two Chromium customer-session scenarios to `scripts/stage2-browser-acceptance.cjs`: policy-disabled read-only display, and policy-enabled allow-list selection plus applied-theme/localStorage verification. The test explicitly records mocked API limitations. Corrected the route/procedure regexes during code review before recording the checkpoint. Acceptance documentation updated; fresh workflow result remains pending for the resulting head.
