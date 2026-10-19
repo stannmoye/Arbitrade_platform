@@ -39,7 +39,11 @@ The shared `arbitrade-theme` key previously stored both administrator previews a
 
 ## Validation record
 
-Initial CI on an earlier Stage 3 commit found three stale source-contract assertions in `server/design-system-contract.test.ts` after the intentional storage/workflow refactor. TypeScript and production build passed on that earlier commit; the full test job failed on those assertions. The assertions were updated, and a new validation run is pending. Do not infer a pass from the existence of test files or from Stage 2 CI results.
+GitHub Actions run [#521](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39333847850) completed successfully on commit `bf4c7c044585aa4b6d2b2d2207cb6ac3085af790`: application/theme-policy regression tests, TypeScript validation, production build, and Chromium viewport/five-theme smoke matrix all passed. This is the last verified successful run before the account-transition fix described below; it does not validate the newer commits.
+
+## Follow-up regression fix — account/role transition theme flash
+
+Code review found that storage-key scoping and persistence gating prevented cross-account writes, but the document theme could still briefly render the previous account's in-memory theme between an identity/role change and the restoration effect. The provider now uses the safe default for the active role while `themePreferenceReadyKey !== activeStorageKey`, then applies the restored preference. A source-contract assertion protects this readiness gate. Commits: `eac324a9bf28e25323b42fa90eac65eb98a58852` and `2234da9fe475786373fd2c25360475b368569545`. Validation of these newer commits is pending; do not treat run #521 as validation of them.
 
 ## External limitations
 
