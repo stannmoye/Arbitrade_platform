@@ -230,3 +230,14 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - **CI for this new head is pending confirmation.** Previous green CI validates only its exact recorded commit.
 - Authenticated administrator save, customer browser permission/persistence, populated-table keyboard scrolling, detailed form/dialog/dropdown/disabled/busy states, and human screenshot review remain required. These pure policy tests improve regression coverage but do not substitute for those acceptance checks.
 - Stage 2 remains in progress; keep PR #71 draft/unmerged and do not advance to Stage 3 until the remaining exit gates are verified.
+
+
+## Customer theme-selector policy integration — 2026-10-19
+
+- **Finding:** The active customer workspace rendered `<ThemeSelector compact readOnly/>`, which hard-disabled customer theme selection regardless of the administrator's published `customerCanSelect` policy. This contradicted the shared selector's policy-aware behavior and the Stage 2 theme-permission intent.
+- **Fix:** Removed the hardcoded `readOnly` prop from the customer workspace. The shared `ThemeSelector` now decides whether to show an editable control or read-only current-theme text based on policy readiness, policy load success, customer-choice permission, and the enabled-theme allow-list.
+- **Regression guard:** Added `server/customer-theme-selector.test.ts` to ensure the active customer workspace uses the policy-aware selector and does not reintroduce the hardcoded read-only prop.
+- **Commits:** `c84d59a5baa81931f05304c2c2f43f94096b84bf` (implementation) and `d75ac4834dc2f3c79da4f4c8543eee4caabf4f64` (regression guard).
+- **Validation:** Fresh CI for this code head is pending. The prior green run on `6907d8ba9e67aeaa323a856f8c227894b727bab7` does not validate these commits. No live API or database persistence is claimed.
+- **Still open:** Exercise customer selector behavior in Chromium with mocked customer sessions for both policy states (choice disabled and enabled), verify only allow-listed options are exposed, verify a permitted selection updates the applied theme, and review populated-table keyboard scrolling plus detailed form/dialog/dropdown/disabled/busy states. Administrator browser interaction remains mocked; live server authorization/persistence and human screenshot review are still separate acceptance gates.
+- **Decision:** Stage 2 remains open. Keep PR #71 draft/unmerged and do not advance to Stage 3 until the outstanding acceptance evidence is recorded.
