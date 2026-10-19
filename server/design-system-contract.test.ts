@@ -206,7 +206,9 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themeContext).toContain("resolveCustomerTheme({");
     expect(themePolicy).toContain("export function resolveCustomerTheme");
     expect(themePolicy).toContain("export function canCustomerSelectTheme");
-    expect(themeContext).toContain("const nextTheme = customerCanSelect && isTheme(event.newValue) && enabledThemes.includes(event.newValue)");
+    expect(themeContext).toContain("setThemeState(resolveCustomerTheme({");
+    expect(themePolicy).toContain("export function resolveCustomerTheme");
+    expect(themePolicy).toContain("export function canCustomerSelectTheme");
     expect(themeContext).toContain("window.localStorage.setItem(THEME_STORAGE_KEY, effectiveTheme)");
   });
 
