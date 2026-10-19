@@ -268,7 +268,7 @@ describe("ARBITRADE shared design-system contract", () => {
         "--arb-color-decorative",
       ]) {
         expect(block, `${theme} missing semantic status token ${token}`).toMatch(
-          new RegExp(`${token}:\\\\s*[^;]+;`)
+          new RegExp(`${token}:\\s*[^;]+;`)
         );
       }
     }
