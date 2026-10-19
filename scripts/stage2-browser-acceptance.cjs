@@ -310,9 +310,12 @@ async function runAdminAppearanceInteractionCheck(browser) {
     await page.getByLabel("Default theme").waitFor({ state: "visible" });
     await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).waitFor({ state: "visible" });
     await page.waitForFunction(() => {
-      const select = document.querySelector('select[aria-label="Default theme"], select');
-      return Boolean(select && !select.disabled);
-    }).catch(() => {});
+      const labelled = Array.from(document.querySelectorAll("label"))
+        .find(label => label.textContent?.trim().startsWith("Default theme"));
+      const select = document.querySelector('select[aria-label="Default theme"]') ||
+        labelled?.querySelector("select");
+      return select instanceof HTMLSelectElement && !select.disabled;
+    });
     const reloadedDefaultTheme = await page.getByLabel("Default theme").inputValue();
     const reloadedCustomerChoice = await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).isChecked();
     const reloadedMidnightEnabled = await page.getByRole("checkbox", { name: /Midnight Premium/ }).isChecked();
