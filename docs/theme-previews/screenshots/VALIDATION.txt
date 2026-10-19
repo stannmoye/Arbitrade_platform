@@ -1,0 +1,7 @@
+Browser acceptance run: 39316044807
+Run URL: https://github.com/stannmoye/Arbitrade_platform/actions/runs/39316044807
+Artifact: stage-2-browser-acceptance
+Capture date: 2026-10-19
+Viewports: desktop 1440x900; mobile 320x900
+Themes: original, midnight-premium, clean-light, emerald-finance, aurora-modern
+Acceptance report: 1172 checks passed; 0 failures
