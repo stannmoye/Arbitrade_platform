@@ -628,3 +628,12 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Tightened the synchronization threshold to left ≤6.5px and right ≤314.5px, then applied the same thresholds to the final assertion. This makes the report capture the fully settled drawer geometry rather than a near-final animation frame.
 - This update changes only browser-acceptance synchronization and its documented evidence. Fresh exact-head Stage 2, installer, and mining workflows must pass before the adjustment is verified.
 - Stage 2 remains open pending deployed/staging browser-session acceptance, broader authenticated portal review, complete screenshot review, and human sign-off. PR #71 stays draft/unmerged; Stage 3 remains blocked.
+
+
+## Prompt 30/30 — Administrator appearance-settings retry recovery
+
+- Extended `scripts/stage2-browser-acceptance.cjs` with a one-shot mocked failure for `adminOperations.settings`. The Chromium flow now verifies that a failed settings load exposes an enabled “Retry loading settings” action, keeps the default-theme control disabled while settings are unavailable, and recovers to an enabled, hydrated appearance editor after retry without a full page reload.
+- Added a design-system contract test in `server/design-system-contract.test.ts` to guard the retry affordance, refetch wiring, and browser regression assertion.
+- Commits: browser acceptance `c5b5906dacc0e279e9b92b0de8697afdf37e1009`; contract test `799638e50cc3577838fe3a1dff21cef780596d6f`.
+- The latest previously verified head `f65166f4c5ed4762207737602ebb93b30b474c78` passed Stage 2, installer, and mining-regression workflows (1,173 Chromium checks, zero failures). That result predates this new retry scenario. Exact-head CI and browser artifact review for `799638e50cc3577838fe3a1dff21cef780596d6f` remain unconfirmed; no pass is claimed for the new test.
+- Remaining acceptance gates: verify this new scenario on exact-head CI; obtain a safe staging URL and run a deployed authenticated browser session; complete broader authenticated portal visual review and final human sign-off. The mocked browser does not prove live deployment behavior. PR #71 remains draft/open/unmerged, Stage 2 remains open, Stage 3 remains blocked, and no production deployment or production database change is claimed.
