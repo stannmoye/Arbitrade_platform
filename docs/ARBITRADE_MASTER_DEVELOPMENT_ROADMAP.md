@@ -1077,3 +1077,14 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - The concurrency changes are intended to reduce duplicate runs; queued status alone does not prove the queue bottleneck is resolved. Recheck the newest runs and inspect actual job state before claiming improvement.
 - Remaining Stage 2 exit gates: fresh CI on the latest head; live server authorization and database persistence; broader authenticated form/dialog/dropdown/disabled/busy states; final authenticated screenshot review and acceptance sign-off. Existing browser API/auth and financial data are mocked and do not prove live persistence or role enforcement.
 - Stage 2 remains open and Stage 3 blocked. No merge, deployment, or production change is claimed.
+
+## Continuation update — 2026-10-19 (installer concurrency parity)
+
+- Reviewed the actual installer workflow and found its concurrency key used `github.event.pull_request.number || github.ref`. This separated pull-request and push events for the same branch, unlike the intended cross-event coalescing.
+- Updated `.github/workflows/installer-validation.yml` to use `github.event.pull_request.head.ref || github.ref_name`, matching the Stage 2 workflow's branch identity strategy.
+- Updated `server/design-system-contract.test.ts` to assert the corrected installer concurrency expression.
+- Commits: `7ac5b0f2573ead36954323d5cc01e06b9403c171` (workflow), `08f958e722ad87940826a047d2c2184ee6e6bd5c` (regression test).
+- The latest PR head after these changes is `08f958e722ad87940826a047d2c2184ee6e6bd5c`. Stage 2, installer, and mining-database workflows have been created for this head, but all are queued; no fresh pass/fail result is available.
+- Previous workflow jobs remain queued too. This indicates the queue bottleneck is not yet demonstrated to be resolved by concurrency grouping. Do not infer runner availability or cancellation success without completed run/job state.
+- Acceptance gates remain unchanged: fresh current-head CI; live authenticated appearance-policy authorization and database persistence; keyboard scrolling of populated financial tables; authenticated form/dialog/dropdown/disabled/busy interaction checks; screenshot review and explicit Stage 2 sign-off.
+- No merge, deployment, or production database change was made.
