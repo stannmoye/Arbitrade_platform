@@ -750,7 +750,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           return element?.getAttribute("aria-hidden") === "false" &&
             Boolean(element.contains(document.activeElement));
         });
-        await drawer.evaluate((element, selector) => element.querySelector(selector.split(",")[0])?.focus(), focusableSelector);
+        await drawer.evaluate((element, selector) => element.querySelectorAll(selector)[0]?.focus(), focusableSelector);
         await page.keyboard.press("Shift+Tab");
         const focusTrapWorks = await drawer.evaluate((element, selector) => {
           const focusable = Array.from(element.querySelectorAll(selector));
