@@ -305,8 +305,13 @@ async function runAdminAppearanceInteractionCheck(browser) {
 
     // Reset the admin route after saving appearance settings so the next mobile navigation
     // check starts from a clean workspace rather than a scrolled settings-card position.
+    // Route navigation resets the active settings section, so reopen Appearance & Themes
+    // before asserting that its controls have hydrated.
     await page.goto(`${BASE_URL}/ops-console-7f3a`, { waitUntil: "domcontentloaded" });
-    await page.getByRole("heading", { name: /Administrator|Admin/i }).first().waitFor({ state: "visible" }).catch(() => {});
+    await page.getByRole("heading", { name: "Control centre" }).waitFor({ state: "visible", timeout: 15000 });
+    await page.getByRole("button", { name: /Platform Configuration/ }).click();
+    await page.getByRole("button", { name: /Appearance & Themes/ }).click();
+    await page.getByRole("heading", { name: "Theme management" }).waitFor({ state: "visible", timeout: 15000 });
     await page.getByLabel("Default theme").waitFor({ state: "visible" });
     await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).waitFor({ state: "visible" });
     await page.waitForFunction(() => {
