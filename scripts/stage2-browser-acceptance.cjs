@@ -239,7 +239,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
       await page.addInitScript(() => {
         try { localStorage.removeItem("arbitrade-theme"); } catch {}
       });
-      await page.route(/\\/api\\/trpc(?:\\/|$)/, async route => {
+      await page.route(/\/api\/trpc(?:\/|$)/, async route => {
         const request = route.request();
         const url = new URL(request.url());
         const procedurePath = decodeURIComponent(url.pathname.split("/api/trpc/")[1] || "");
@@ -265,7 +265,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
             data = { success: true };
           } else if (procedure.endsWith(".settings") || procedure.endsWith(".branding")) {
             data = {};
-          } else if (procedure.startsWith("customer.") && /\\.(balances|opportunities|trades|notifications|tickets|soundSettings)$/.test(procedure)) {
+          } else if (procedure.startsWith("customer.") && /\.(balances|opportunities|trades|notifications|tickets|soundSettings)$/.test(procedure)) {
             data = [];
           }
           return { result: { data: { json: data } } };
