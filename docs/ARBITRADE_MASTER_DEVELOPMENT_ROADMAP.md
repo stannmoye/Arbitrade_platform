@@ -1200,3 +1200,11 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - **Done:** five-theme/responsive foundation, theme-policy checks, administrator settings save/retry states, drawer geometry/scroll acceptance, financial-table keyboard scrolling, and disposable-database authorization/persistence integration.
 - **Still open:** deployed authenticated browser acceptance (no staging URL documented), broader authenticated portal review, and final human sign-off. Mocked-browser and disposable-database CI do not establish deployed production behavior.
 - This documentation checkpoint creates a new PR head; exact-head workflows must pass again before claiming the documentation head is fully verified. Keep PR #71 draft/open/unmerged, Stage 2 open, Stage 3 blocked, and do not claim production deployment or production database mutation.
+
+
+## Stage 2 exact-head validation checkpoint — 2026-10-19
+
+- Exact PR head `50e7ce246cac2d545053f1a4ad709d4eafd9484a` passed Stage 2 workflow [#488](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322737636), installer validation [#824](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322737743), and mining database regression [#229](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322738394).
+- Chromium acceptance: **1,174 passed, 0 failed**. Fresh disposable MariaDB appearance-policy authorization/persistence integration: **2 passed**, including signed-session role resolution, HTTP/tRPC role enforcement, persisted read-back, and rejected-write integrity. MySQL 8 compatibility/recovery, installer/migration checks, production build/smoke, TypeScript, and mining transaction/idempotency checks also passed.
+- Remaining Stage 2 exit items are not reasons to expand duplicate automated coverage: obtain a documented staging URL for deployed authenticated browser acceptance, finish human review of the broader portal screenshot/interaction evidence, and record final acceptance/sign-off. Browser API/auth fixtures remain mocked; CI database integration is isolated and makes no production changes.
+- Keep PR #71 draft/open/unmerged and Stage 3 blocked until the external review/sign-off gates are resolved.
