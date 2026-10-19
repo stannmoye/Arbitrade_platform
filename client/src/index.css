@@ -256,7 +256,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 }
 @media(max-width:600px){
   .admin-portal .portal-rail{inset:70px auto 0 0!important;max-height:calc(100dvh - 70px)!important;width:min(330px,calc(100vw - 20px))!important}
-  .admin-mobile-nav-trigger{top:82px;left:10px;min-height:36px}
+  /* Keep the menu trigger below the compact Appearance selector row. */
+  .admin-mobile-nav-trigger{top:136px;left:10px;min-height:36px}
   .admin-mobile-nav-backdrop{inset:70px 0 0}
   .admin-portal .portal-page{padding-top:68px!important}
 }

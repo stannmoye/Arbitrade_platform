@@ -322,3 +322,10 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Updated the browser assertion to wait for both the closed dialog state and focus restoration, rather than sampling focus immediately after the state transition.
 - Expanded the browser artifact to capture the authenticated mocked administrator Appearance & Themes panel at 1440px and 390px for all five themes. This fills the prior artifact gap where `admin-*` screenshots only showed the unauthenticated administrator sign-in screen.
 - Fresh CI is pending. The authenticated panel uses mocked admin/API responses, and screenshots do not establish live server authorization or database persistence. Human review of the newly captured screenshots and final acceptance remain required.
+
+## Mobile admin header overlap and dialog-focus follow-up — 2026-10-19
+
+- Reviewed the newly captured authenticated Appearance & Themes screenshots at 390px and 1440px for all five themes. The desktop panel looked coherent in the sampled images; the mobile screenshot exposed the fixed admin Menu button overlapping the compact Appearance label.
+- Moved the mobile admin navigation trigger below the compact theme-selector row and added a Chromium geometry assertion to ensure the controls do not overlap at 390px.
+- The prior run on `b624849c6edfa8be2d01549b06a2c54f3541bf18` passed tests, typecheck, build, installer/MariaDB/MySQL checks, and mining regression, but Chromium had one remaining race in the Quick Actions open-state focus assertion. Updated the test to wait until focus actually enters the open dialog before evaluating semantics. Escape-close and focus restoration already passed.
+- These changes require fresh CI; no pass is claimed yet. The screenshot/browser fixtures use mocked administrator/API data. Live production authorization/persistence and broader authenticated workflow acceptance remain separate gates.

@@ -229,6 +229,21 @@ async function runAdminAppearanceInteractionCheck(browser) {
 
       await page.setViewportSize({ width: 390, height: 844 });
       await page.evaluate(() => window.scrollTo(0, 0));
+      if (screenshotTheme === "original") {
+        const menuBounds = await page.locator(".admin-mobile-nav-trigger").boundingBox();
+        const appearanceBounds = await page.locator(".arb-theme-selector-title").boundingBox();
+        const noOverlap = Boolean(menuBounds && appearanceBounds && (
+          menuBounds.x + menuBounds.width <= appearanceBounds.x ||
+          appearanceBounds.x + appearanceBounds.width <= menuBounds.x ||
+          menuBounds.y + menuBounds.height <= appearanceBounds.y ||
+          appearanceBounds.y + appearanceBounds.height <= menuBounds.y
+        ));
+        record("admin-mobile-menu-does-not-overlap-appearance-label", noOverlap, {
+          width: 390,
+          menuBounds,
+          appearanceBounds,
+        });
+      }
       const mobileScreenshot = path.join(ARTIFACT_DIR, `admin-appearance-390-${screenshotTheme}.png`);
       await page.screenshot({ path: mobileScreenshot, fullPage: true, animations: "disabled" });
       appearanceScreenshotPaths.push(mobileScreenshot);
@@ -397,9 +412,11 @@ async function runAdminAppearanceInteractionCheck(browser) {
     await page.keyboard.press("Enter");
 
     const quickActionsDialog = page.getByRole("dialog", { name: "Quick Actions" });
-    await page.waitForFunction(() =>
-      document.querySelector("#admin-navigation-drawer")?.getAttribute("aria-hidden") === "false"
-    );
+    await page.waitForFunction(() => {
+      const drawer = document.querySelector("#admin-navigation-drawer");
+      return drawer?.getAttribute("aria-hidden") === "false" &&
+        Boolean(drawer?.contains(document.activeElement));
+    });
     const dialogSemantics = await quickActionsDialog.evaluate(element => ({
       visible: element.getAttribute("aria-hidden") === "false",
       modal: element.getAttribute("aria-modal"),
