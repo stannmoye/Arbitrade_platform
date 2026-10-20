@@ -1383,28 +1383,13 @@
 }
 
 
-/* Customer theme controls: compact, tactile, and usable from the header and navigation. */
-.customer-portal > .arb-theme-selector-compact {
-  position: fixed !important;
-  top: 13px !important;
-  right: 430px !important;
-  z-index: 95 !important;
-  display: inline-flex !important;
-  width: auto !important;
-  max-width: 180px !important;
-  min-height: 40px !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 12px !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
+/* Customer theme controls: embedded in the real header and navigation surfaces. */
 .arb-theme-selector-control { position: relative; display: inline-flex; align-items: center; min-width: 0; }
 .arb-theme-selector-trigger {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 40px; padding: 0 12px; border: 1px solid var(--arb-color-border);
   border-radius: 12px; background: color-mix(in srgb, var(--arb-color-surface) 92%, transparent);
-  color: var(--arb-color-text); box-shadow: inset 0 1px rgba(255,255,255,.06), 0 8px 22px rgba(0,0,0,.14);
+  color: var(--arb-color-text); box-shadow: inset 0 1px rgba(255,255,255,.06), 0 8px 22px color-mix(in srgb, var(--arb-color-canvas) 76%, #000 24%);
   font-size: 12px; font-weight: 700; letter-spacing: .01em; white-space: nowrap;
   transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
 }
@@ -1414,7 +1399,7 @@
 .arb-theme-selector.is-selectable:hover .arb-theme-selector-trigger,
 .arb-theme-selector.is-selectable:focus-within .arb-theme-selector-trigger {
   border-color: var(--arb-color-accent); background: var(--arb-color-surface-raised);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--arb-color-accent) 14%, transparent), 0 12px 26px rgba(0,0,0,.18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--arb-color-accent) 14%, transparent), 0 12px 26px color-mix(in srgb, var(--arb-color-canvas) 70%, #000 30%);
   transform: translateY(-1px);
 }
 .arb-theme-selector-control select {
@@ -1423,32 +1408,217 @@
 }
 .arb-theme-selector-control:focus-within .arb-theme-selector-trigger { outline: 2px solid var(--arb-focus-ring); outline-offset: 3px; }
 .arb-theme-selector.is-readonly .arb-theme-selector-trigger { cursor: default; opacity: .86; }
+.arb-theme-selector-compact { min-width: 0; max-width: 100%; }
 .arb-theme-selector-compact .arb-theme-selector-copy,
-.arb-theme-selector-compact .arb-theme-selector-status { display: none !important; }
+.arb-theme-selector-compact .arb-theme-selector-status,
 .arb-theme-selector-compact .arb-theme-selector-current { display: none !important; }
+.customer-portal .portal-header .arb-theme-selector-compact {
+  position: relative !important; inset: auto !important; z-index: auto !important;
+  display: inline-flex !important; flex: 0 1 auto; align-self: center;
+  width: auto !important; max-width: 148px !important; min-height: 40px !important;
+  margin: 0 2px 0 0 !important; padding: 0 !important; border: 0 !important;
+  border-radius: 12px !important; background: transparent !important; box-shadow: none !important;
+}
+.customer-portal .portal-header .arb-theme-selector-trigger { min-height: 40px; }
+.customer-portal .portal-header .arb-theme-selector-trigger-label { max-width: 82px; overflow: hidden; text-overflow: ellipsis; }
+.customer-primary-rail-theme-control { margin: 10px 0 16px; padding: 0 10px; }
+.customer-primary-rail-theme-control .arb-theme-selector { display: flex !important; justify-content: stretch !important; width: 100%; padding: 0 !important; border: 0 !important; background: transparent !important; color: var(--arb-color-text) !important; }
+.customer-primary-rail-theme-control .arb-theme-selector-control,
+.customer-primary-rail-theme-control .arb-theme-selector-trigger { width: 100%; }
+.customer-primary-rail-theme-control .arb-theme-selector-trigger { justify-content: flex-start; }
+.customer-primary-rail-theme-control .arb-theme-selector-trigger-label { flex: 1; text-align: left; }
+.customer-primary-rail-theme-control .arb-theme-selector-control select { width: 100%; }
 .customer-slide-theme-control { padding: 12px 16px 4px; }
-.customer-slide-theme-control .arb-theme-selector { display: flex !important; justify-content: flex-start !important; padding: 0 !important; border: 0 !important; background: transparent !important; color: var(--arb-color-text) !important; }
-.customer-slide-theme-control .arb-theme-selector-control { width: 100%; }
-.customer-slide-theme-control .arb-theme-selector-trigger { width: 100%; justify-content: flex-start; }
+.customer-slide-theme-control .arb-theme-selector { display: flex !important; justify-content: flex-start !important; width: 100%; padding: 0 !important; border: 0 !important; background: transparent !important; color: var(--arb-color-text) !important; }
+.customer-slide-theme-control .arb-theme-selector-control,
+.customer-slide-theme-control .arb-theme-selector-trigger { width: 100%; }
+.customer-slide-theme-control .arb-theme-selector-trigger { justify-content: flex-start; }
 .customer-slide-theme-control .arb-theme-selector-trigger-label { flex: 1; text-align: left; }
 .customer-slide-theme-control .arb-theme-selector-control select { width: 100%; }
-.customer-theme-sidebar-control { position: fixed !important; left: 10px !important; bottom: 66px !important; z-index: 76 !important; width: 174px !important; max-width: calc(194px - 20px) !important; }
-.customer-theme-sidebar-control .arb-theme-selector { justify-content: stretch !important; padding: 0 !important; border: 0 !important; background: transparent !important; }
-.customer-theme-sidebar-control .arb-theme-selector-control { width: 100%; }
-.customer-theme-sidebar-control .arb-theme-selector-trigger { width: 100%; justify-content: flex-start; }
-.customer-theme-sidebar-control .arb-theme-selector-trigger-label { flex: 1; text-align: left; }
-.customer-theme-sidebar-control .arb-theme-selector-control select { width: 100%; }
-.arb-appearance-policy-status { display: grid !important; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; border-radius: 999px; background: color-mix(in srgb, var(--arb-color-accent) 16%, transparent); color: var(--arb-color-accent); font-size: 14px; font-weight: 800; }
-@media (max-width: 1100px) { .customer-portal > .arb-theme-selector-compact { right: 430px !important; } }
-@media (max-width: 760px) {
-  .customer-portal > .arb-theme-selector-compact { top: 12px !important; right: 148px !important; max-width: 42px !important; }
-  .customer-portal > .arb-theme-selector-compact .arb-theme-selector-trigger { width: 38px; min-width: 38px; min-height: 38px; padding: 0; gap: 0; justify-content: center; }\n  .customer-portal > .arb-theme-selector-compact .arb-theme-selector-trigger-label,\n  .customer-portal > .arb-theme-selector-compact .arb-theme-selector-chevron { display: none !important; }
-  .customer-theme-sidebar-control { display: none !important; }
-  .customer-slide-theme-control { padding: 12px 14px 4px; }
+@media (max-width: 1100px) {
+  .customer-portal .portal-header .arb-theme-selector-compact { max-width: 112px !important; }
+  .customer-portal .portal-header .arb-theme-selector-trigger { min-height: 38px; padding: 0 9px; gap: 6px; font-size: 11px; }
+  .customer-portal .portal-header .arb-theme-selector-trigger-label { max-width: 48px; }
 }
-@media (max-width: 380px) {
-  .customer-portal .portal-header .brand-lockup { gap: 8px !important; }
-  .customer-portal .portal-header .brand-lockup strong { font-size: 14px !important; }
-  .customer-portal > .arb-theme-selector-compact { right: 148px !important; }
-  .customer-portal > .arb-theme-selector-compact .arb-theme-selector-trigger { width: 38px; min-width: 38px; min-height: 36px; padding: 0; gap: 0; }
+@media (max-width: 760px) {
+  .customer-primary-rail-theme-control { display: none !important; }
+  .customer-slide-theme-control { padding: 12px 14px 4px; }
+  .customer-portal .portal-header .arb-theme-selector-compact { width: 40px !important; max-width: 40px !important; flex: 0 0 40px; margin-right: 0 !important; }
+  .customer-portal .portal-header .arb-theme-selector-trigger { width: 40px; min-height: 38px; padding: 0; gap: 0; }
+  .customer-portal .portal-header .arb-theme-selector-trigger-label,
+  .customer-portal .portal-header .arb-theme-selector-chevron { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@media (max-width: 420px) {
+  .customer-portal .portal-header .arb-theme-selector-compact { width: 36px !important; max-width: 36px !important; flex-basis: 36px; }
+  .customer-portal .portal-header .arb-theme-selector-trigger { width: 36px; min-height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .customer-portal .arb-theme-selector-trigger,
+  .customer-portal .customer-primary-rail nav button,
+  .customer-portal .customer-quick-tile,
+  .customer-portal .customer-package-card { transition: none !important; }
+}
+
+/* Stage 3.2: customer workspace visual polish and full theme-token adoption.
+   Keep the visual language consistent across legacy widgets and newer feature cards. */
+:root[data-arb-theme] .customer-portal .portal-header {
+  min-height: 68px;
+  gap: clamp(10px, 1.4vw, 22px);
+}
+:root[data-arb-theme] .customer-portal .portal-session {
+  min-width: 0;
+  gap: clamp(7px, .9vw, 13px);
+}
+:root[data-arb-theme] .customer-portal .portal-main {
+  min-width: 0;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 92% 0%, color-mix(in srgb, var(--arb-color-accent) 7%, transparent), transparent 42%),
+    var(--arb-color-canvas) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main .portal-page {
+  width: min(100%, 1440px) !important;
+  max-width: 1440px !important;
+  padding: clamp(16px, 2vw, 30px) clamp(14px, 2.4vw, 34px) 36px !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(
+  [class*="-card"], [class*="-panel"], [class*="-tile"], [class*="-surface"],
+  .report-card, .connector-card, .customer-balance-card, .customer-quick-tile
+) {
+  color: var(--arb-color-text) !important;
+  border-color: var(--arb-color-border) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(
+  .customer-balance-ribbon, .customer-balance-actions, .customer-quick-actions,
+  .customer-activity-list, .customer-transaction-list, .customer-notification-list,
+  .customer-setting-group, .customer-table-wrap, .customer-ledger-table,
+  .customer-account-summary, .customer-insight-grid, .customer-opportunity-list,
+  .customer-resource-list, .customer-support-conversation, .customer-chat-composer,
+  .customer-data-table-wrap, .customer-preference-section, .customer-history-list
+) {
+  color: var(--arb-color-text) !important;
+  border-color: var(--arb-color-border) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(table, thead, tbody, tr, th, td) {
+  border-color: var(--arb-color-border) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(th, thead) {
+  color: var(--arb-color-text-soft) !important;
+  background: color-mix(in srgb, var(--arb-color-surface-raised) 86%, transparent) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(td, tbody tr) {
+  color: var(--arb-color-text) !important;
+  background-color: transparent !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main tbody tr:hover {
+  background: color-mix(in srgb, var(--arb-color-accent) 7%, var(--arb-color-surface)) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(
+  .customer-balance-actions button, .customer-quick-actions button,
+  .customer-workspace-categories button, .customer-filter-bar button,
+  .customer-resource-actions button, .customer-preference-tabs button,
+  .customer-tabs button, .customer-table-action
+) {
+  color: var(--arb-color-text-soft) !important;
+  border-color: var(--arb-color-border) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(
+  .customer-balance-actions button:hover, .customer-quick-actions button:hover,
+  .customer-workspace-categories button:hover, .customer-filter-bar button:hover,
+  .customer-resource-actions button:hover, .customer-preference-tabs button:hover,
+  .customer-tabs button:hover, .customer-table-action:hover
+) {
+  color: var(--arb-color-text) !important;
+  background: color-mix(in srgb, var(--arb-color-accent) 10%, var(--arb-color-surface-raised)) !important;
+  border-color: color-mix(in srgb, var(--arb-color-accent) 45%, var(--arb-color-border)) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(
+  .customer-balance-note, .customer-empty-state, .customer-helper-text,
+  .customer-field-help, .customer-muted, .customer-section-description
+) { color: var(--arb-color-text-muted) !important; }
+:root[data-arb-theme] .customer-portal .portal-main :where(a:not([class*="button"]), .customer-inline-link) {
+  color: var(--arb-color-accent);
+  text-underline-offset: 3px;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(input, textarea, select, [contenteditable="true"]) {
+  background-color: var(--arb-color-surface-raised) !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+  border-radius: 10px;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(input, textarea, select)::placeholder {
+  color: var(--arb-color-text-muted) !important;
+  opacity: 1;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(.customer-market-hero, .customer-hero-panel, .customer-console-panel, .customer-welcome-panel, .customer-resource-hero) {
+  border-radius: 22px !important;
+  box-shadow: 0 20px 48px color-mix(in srgb, var(--arb-color-canvas) 80%, #000 20%), inset 0 1px color-mix(in srgb, var(--arb-color-text) 7%, transparent) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(.customer-balance-card, .customer-workspace-card, .customer-ledger-panel, .customer-resource-card, .customer-intelligence-card, .customer-support-card, .customer-account-card, .customer-investment-card, .customer-package-card, .customer-opportunity, .report-card, .connector-card) {
+  border-radius: 16px !important;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--arb-color-canvas) 82%, #000 18%), inset 0 1px color-mix(in srgb, var(--arb-color-text) 4%, transparent) !important;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(.customer-balance-card, .customer-workspace-card, .customer-resource-card, .customer-investment-card, .customer-package-card, .customer-opportunity):hover {
+  transform: translateY(-2px);
+}
+@media (max-width: 760px) {
+  :root[data-arb-theme] .customer-portal .portal-header { gap: 8px; }
+  :root[data-arb-theme] .customer-portal .portal-session { gap: 6px; }
+  :root[data-arb-theme] .customer-portal .portal-main .portal-page { padding: 14px 12px 28px !important; }
+  :root[data-arb-theme] .customer-portal .portal-main :where([class*="-card"], [class*="-panel"], [class*="-tile"]) { border-radius: 14px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-arb-theme] .customer-portal .portal-main :where(.customer-balance-card, .customer-workspace-card, .customer-resource-card, .customer-investment-card, .customer-package-card, .customer-opportunity) {
+    transition: none !important;
+  }
+  :root[data-arb-theme] .customer-portal .portal-main :where(.customer-balance-card, .customer-workspace-card, .customer-resource-card, .customer-investment-card, .customer-package-card, .customer-opportunity):hover {
+    transform: none !important;
+  }
+}
+
+/* Shared status badge used by administrator appearance-policy controls. */
+.arb-appearance-policy-status { display: grid !important; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; border-radius: 999px; background: color-mix(in srgb, var(--arb-color-accent) 16%, transparent); color: var(--arb-color-accent); font-size: 14px; font-weight: 800; }
+
+
+/* Customer surface background token coverage: override legacy hard-coded dark fills. */
+:root[data-arb-theme] .customer-portal .portal-main :where(
+  [class*="-card"], [class*="-panel"], [class*="-tile"], [class*="-surface"],
+  .customer-balance-ribbon, .customer-quick-actions, .customer-workspace-menu,
+  .customer-balance-actions, .customer-activity-list, .customer-transaction-list,
+  .customer-notification-list, .customer-setting-group, .customer-table-wrap,
+  .customer-ledger-table, .customer-account-summary, .customer-insight-grid,
+  .customer-opportunity-list, .customer-resource-list, .customer-support-conversation,
+  .customer-chat-composer, .customer-data-table-wrap, .customer-preference-section,
+  .customer-history-list
+) {
+  background: var(--arb-color-surface) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(
+  .customer-home-page .customer-metric-grid > div,
+  .customer-home-page .customer-panel,
+  .customer-home-page .customer-balance-card,
+  .customer-home-page .customer-workspace-card,
+  .customer-home-page .customer-ledger-panel,
+  .customer-resource-panel-grid > .customer-panel,
+  .customer-account-card .customer-setting-group,
+  .customer-preference-section .customer-setting-group
+) {
+  background: var(--arb-color-surface-raised) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(
+  .customer-market-hero, .customer-hero-panel, .customer-console-panel,
+  .customer-welcome-panel, .customer-resource-hero
+) {
+  background:
+    radial-gradient(ellipse at 88% 0%, color-mix(in srgb, var(--arb-color-accent) 18%, transparent), transparent 48%),
+    linear-gradient(135deg, var(--arb-color-surface-raised), var(--arb-color-surface)) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(
+  .customer-quick-feature.trade, .customer-quick-feature.stake,
+  .customer-protected-note, .customer-market-status, .customer-hero-opportunity
+) {
+  background: color-mix(in srgb, var(--arb-color-surface-raised) 82%, var(--arb-color-accent) 18%) !important;
+  border-color: color-mix(in srgb, var(--arb-color-border) 62%, var(--arb-color-accent) 38%) !important;
+  color: var(--arb-color-text) !important;
 }
