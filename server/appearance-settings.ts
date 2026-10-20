@@ -1,4 +1,4 @@
-export const APPEARANCE_THEMES = ["original", "midnight-premium", "clean-light", "emerald-finance", "aurora-modern"] as const;
+export const APPEARANCE_THEMES = ["original", "midnight-premium", "clean-light", "emerald-finance", "aurora-modern", "gold-luxe"] as const;
 export type AppearanceTheme = (typeof APPEARANCE_THEMES)[number];
 
 export interface AppearanceSettings {
