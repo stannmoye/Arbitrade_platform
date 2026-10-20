@@ -248,7 +248,9 @@ export const customerBalances = mysqlTable("customer_balances", {
   promotionalMinor: bigint("promotionalMinor", { mode: "number" }).default(0).notNull(),
   earnedMinor: bigint("earnedMinor", { mode: "number" }).default(0).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, table => ({
+  userCurrencyUnique: uniqueIndex("uq_customer_balance_user_currency").on(table.userId, table.currency),
+}));
 
 export const currencyRegistry = mysqlTable("currency_registry", {
   id: int("id").autoincrement().primaryKey(),

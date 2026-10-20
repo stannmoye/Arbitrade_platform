@@ -1,0 +1,68 @@
+name: Wallet concurrency integration
+
+on:
+  pull_request:
+    branches:
+      - integration/auth-installer-vps-safety
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wallet-concurrency-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wallet-concurrency:
+    name: wallet concurrency (${{ matrix.database.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        database:
+          - image: mysql:8.0
+            health: mysqladmin ping -h 127.0.0.1 -uroot -proot
+          - image: mariadb:11.4
+            health: healthcheck.sh --connect --innodb_initialized
+    services:
+      mysql:
+        image: ${{ matrix.database.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: arbitrade_test
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: arbitrade_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="${{ matrix.database.health }}"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_test
+      WALLET_TEST_DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_test
+      MIGRATION_SQL_TEST_DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_test
+    steps:
+      - name: Check out proposed changes
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.18.0 --activate
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Create the application schema in the disposable database
+        run: pnpm exec drizzle-kit push --force
+      - name: Run database concurrency and reconciliation tests
+        run: pnpm exec vitest run server/wallet-adjustment-concurrency.integration.test.ts
+      - name: Run wallet uniqueness migration preflight against disposable database
+        run: pnpm exec vitest run --config vitest.installer.config.ts scripts/wallet-unique-index-migration.test.mjs
+      - name: Run MySQL-compatible migration adapter replay test
+        run: pnpm exec vitest run --config vitest.installer.config.ts scripts/mysql-compatible-migration-sql.integration.test.mjs
