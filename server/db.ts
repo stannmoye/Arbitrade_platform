@@ -463,7 +463,7 @@ export async function listAdminNotificationCampaigns() {
     campaignId:notificationCampaignDeliveries.campaignId,
     status:notificationCampaignDeliveries.status,
     count:sql<number>`COUNT(*)`,
-  }).from(notificationCampaignDeliveries).groupBy(notificationCampaignDeliveries.campaignId,notificationCampaignDeliveries.status);
+  }).from(notificationCampaignDeliveries).where(inArray(notificationCampaignDeliveries.campaignId,campaigns.map(campaign=>campaign.id))).groupBy(notificationCampaignDeliveries.campaignId,notificationCampaignDeliveries.status);
   const byCampaign=new Map<number,{total:number;delivered:number;read:number;failed:number;pending:number;expired:number}>();
   for(const row of counts) {
     const summary=byCampaign.get(row.campaignId)??{total:0,delivered:0,read:0,failed:0,pending:0,expired:0};
