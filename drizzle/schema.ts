@@ -119,6 +119,47 @@ export const customerNotifications = mysqlTable("customer_notifications", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export const notificationCampaigns = mysqlTable("notification_campaigns", {
+  id: int("id").autoincrement().primaryKey(),
+  createdBy: int("createdBy").notNull(),
+  eventKey: varchar("eventKey", { length: 120 }).notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  body: text("body").notNull(),
+  category: varchar("category", { length: 40 }).notNull(),
+  priority: varchar("priority", { length: 20 }).notNull(),
+  href: varchar("href", { length: 512 }),
+  targetUserId: int("targetUserId"),
+  status: mysqlEnum("status", ["draft", "published", "expired", "failed"]).default("draft").notNull(),
+  scheduledAt: timestamp("scheduledAt"),
+  expiresAt: timestamp("expiresAt"),
+  publishedAt: timestamp("publishedAt"),
+  totalRecipientCount: int("totalRecipientCount").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  creatorEventUnique: uniqueIndex("notification_campaign_creator_event_uq").on(table.createdBy, table.eventKey),
+  statusScheduledIndex: index("notification_campaign_status_scheduled_idx").on(table.status, table.scheduledAt),
+  expiryIndex: index("notification_campaign_expiry_idx").on(table.expiresAt),
+}));
+
+export const notificationCampaignDeliveries = mysqlTable("notification_campaign_deliveries", {
+  id: int("id").autoincrement().primaryKey(),
+  campaignId: int("campaignId").notNull(),
+  userId: int("userId").notNull(),
+  notificationId: int("notificationId"),
+  status: mysqlEnum("status", ["pending", "delivered", "read", "failed", "expired"]).default("pending").notNull(),
+  errorCode: varchar("errorCode", { length: 80 }),
+  attemptedAt: timestamp("attemptedAt"),
+  deliveredAt: timestamp("deliveredAt"),
+  readAt: timestamp("readAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  campaignRecipientUnique: uniqueIndex("notification_campaign_delivery_recipient_uq").on(table.campaignId, table.userId),
+  campaignStatusIndex: index("notification_campaign_delivery_status_idx").on(table.campaignId, table.status),
+  userStatusIndex: index("notification_campaign_delivery_user_status_idx").on(table.userId, table.status),
+}));
+
 export const opportunityDeliveryEvents = mysqlTable("opportunity_delivery_events", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
