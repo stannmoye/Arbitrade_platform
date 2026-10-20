@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, filterVisibleNotificationEventCursor, NOTIFICATION_CATEGORIES, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients } from "./notification-events";
+import { assertNotificationPayloadMatches, buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, filterVisibleNotificationEventCursor, NOTIFICATION_CATEGORIES, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients } from "./notification-events";
 
 describe("admin broadcast recipient validation", () => {
   it("distinguishes a valid single-customer target from an explicit all-customer broadcast", () => {
@@ -111,6 +111,32 @@ describe("trade settlement notification categories", () => {
     expect(() => buildTradeSettlementNotices({ tradeId: 0, currency: "USD", principalMinor: 1, rewardMinor: 0 })).toThrow(RangeError);
     expect(() => buildTradeSettlementNotices({ tradeId: 1, currency: "USD", principalMinor: -1, rewardMinor: 0 })).toThrow(RangeError);
   });
+});
+
+
+describe("notification event-key payload consistency", () => {
+  const payload = {
+    userId: 12,
+    title: "Wallet credited",
+    body: "Your wallet was credited after the transaction committed.",
+    category: "ledger_credit",
+    priority: "normal",
+    href: "/customer/wallet",
+  };
+
+  it("accepts an idempotent retry only when every durable payload field matches", () => {
+    expect(() => assertNotificationPayloadMatches({ ...payload }, { ...payload })).not.toThrow();
+  });
+
+  it.each(["userId", "title", "body", "category", "priority", "href"] as const)(
+    "rejects a reused event key when %s changes",
+    field => {
+      const changed = { ...payload, [field]: field === "userId" ? 13 : `changed-${field}` };
+      expect(() => assertNotificationPayloadMatches(payload, changed)).toThrow(
+        "Notification event key was already used with a different payload",
+      );
+    },
+  );
 });
 
 
