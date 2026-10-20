@@ -85,6 +85,11 @@ describe("notification navigation links", () => {
     "/safe%5c..%5cpath",
     "/path\u0000bad",
     "/path%0aInjected: value",
+    "/path%00hidden",
+    "/path%09tab",
+    "/path%1fseparator",
+    "/path%7fdelete",
+    "/path%0Bvertical-tab",
   ])("rejects unsafe link %s", href => {
     expect(() => normalizeNotificationHref(href)).toThrow(TypeError);
   });
