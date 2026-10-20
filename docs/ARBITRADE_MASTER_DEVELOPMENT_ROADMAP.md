@@ -6,6 +6,17 @@
 **Roadmap version:** 2.1  
 **Purpose:** The durable source of truth for the customer experience, themes, notifications, sounds, responsive layouts, administrator portal, quality assurance, and deployment-verification work.
 
+## Current user-accepted project checkpoint (2026-10-20)
+
+- **Stages 1, 2 and 3:** Accepted complete by the user.
+- **Final host-required test:** User-confirmed complete; the user tested the integrated application on their host and reported that it worked. This is user-reported host acceptance, separate from CI evidence.
+- **Current stage:** Stage 4 — Customer Experience, Live Notifications, Support and Dashboard Redesign.
+- **Active implementation branch:** `feat/stage-4-live-notifications-support`.
+- **Draft pull request:** [#95 — Stage 4: live notifications, two-way support and real sound controls](https://github.com/stannmoye/Arbitrade_platform/pull/95).
+- **Implemented first slice:** Customer header bell derives its unread badge from the authenticated user's database-backed notification query and includes a recent-notification popover with per-item and mark-all-read actions. The query refreshes every five seconds while the customer portal is active.
+- **Not yet complete:** Full backend event coverage and deduplication, admin announcements/promotions, complete ticket workflow upgrades, five bundled audio assets and expanded sound mapping, true push transport where supported, and exact-head tests/package validation. Stage 4 must not be marked complete until those acceptance criteria are met.
+- **Compatibility guardrails:** Preserve the internal database ledger, the completed Stage 1–3 theme work, the existing installer/deployment paths, and cPanel compatibility. No external payment APIs are introduced.
+
 > **Working rule:** Complete and verify one stage at a time. Update this document as work progresses so the team can always identify what is complete, what is in progress, what failed, and what comes next. Do not claim a task or test is complete unless it has actually been implemented or run.
 
 
