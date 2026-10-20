@@ -22,7 +22,7 @@ describe("support reply notification failure visibility", () => {
     expect(create.slice(0, transactionEnd)).toContain("tx.insert(supportMessages)");
     expect(adminNotice).toBeGreaterThan(transactionEnd);
     expect(customerNotice).toBeGreaterThan(transactionEnd);
-    expect(create).toContain("eventKey:`support-ticket-created:${ticketId}`");
+    expect(create).toContain("eventKey:`support-ticket-created:${ticketId}:admin:${admin.id}`");
     expect(create).toContain("eventKey:`support-ticket-created-customer:${ticketId}`");
     expect(create).toContain('category:"support"');
     expect(create).toContain("Promise.allSettled([");
