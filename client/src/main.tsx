@@ -12,6 +12,7 @@ import "./index.css";
 import "./design-system.css";
 import "./theme-system.css";
 import "./customer-reference.css";
+import "./customer-theme-overrides.css";
 
 const queryClient = new QueryClient();
 

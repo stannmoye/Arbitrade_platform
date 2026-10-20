@@ -11,6 +11,8 @@ describe("customer theme selector integration", () => {
   it("mounts the shared theme selector in the customer workspace", () => {
     expect(appSource).toContain('return <div className="arb-page separate-portal customer-portal"');
     expect(appSource).toContain("<ThemeSelector compact/>");
+    expect(appSource).toContain('<ThemeSelector compact ariaLabel="Change customer theme"/>');
+    expect(appSource).toContain('<div className="customer-primary-rail-theme-control"><ThemeSelector compact ariaLabel="Change customer theme"/></div>');
     expect(appSource).not.toContain("<ThemeSelector compact readOnly/>");
   });
 
