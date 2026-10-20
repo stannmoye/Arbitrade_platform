@@ -284,7 +284,7 @@ export async function createNotification(userId:number,title:string,body:string,
     catch(error) { console.error("[Email] System notification enqueue failed:",error instanceof Error?error.name:"UnknownError"); }
   }
 }
-export async function broadcastCustomerNotification(adminId:number,input:{title:string;body:string;eventKey:string;category:"announcement"|"promotion"|"platform_update";priority:NotificationPriority;href?:string|null;targetUserId?:number|null}) {
+export async function broadcastCustomerNotification(adminId:number,input:{title:string;body:string;eventKey:string;category:NotificationCategory;priority:NotificationPriority;href?:string|null;targetUserId?:number|null}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const title=normalizeNotificationText(input.title,200,"title");
   const body=normalizeNotificationText(input.body,10000,"body");
