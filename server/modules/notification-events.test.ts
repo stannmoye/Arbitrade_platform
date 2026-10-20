@@ -14,6 +14,17 @@ describe("admin broadcast recipient validation", () => {
   );
 });
 
+describe("bounded notification fan-out", () => {
+  it("partitions recipient IDs in order and keeps each batch within the configured limit", () => {
+    expect(partitionNotificationRecipients([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+    expect(partitionNotificationRecipients([], 2)).toEqual([]);
+  });
+
+  it.each([0, -1, 1.5, 501, Number.NaN])("rejects unsafe batch size %s", size => {
+    expect(() => partitionNotificationRecipients([1], size)).toThrow(RangeError);
+  });
+});
+
 describe("notification event identity", () => {
   it("scopes event keys to the recipient", () => {
     expect(buildNotificationEventKey(12, "ledger:123")).toBe("u12:ledger:123");
