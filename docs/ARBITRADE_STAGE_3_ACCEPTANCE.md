@@ -1,6 +1,6 @@
 # Stage 3 — Five-Theme Architecture and Administrator Theme Controls
 
-**Status:** In progress  
+**Status:** Implementation complete; hosted/human release gates deferred  
 **Working branch:** `feat/stage-3-theme-controls`  
 **Base:** Current `feat/stage-2-design-system-foundation` branch  
 **Started:** 2026-10-19
@@ -8,6 +8,12 @@
 ## Objective
 
 Finish and verify the existing five-theme implementation without duplicating Stage 2's shared design-system work. Preserve Original Arbitrade as the default and keep server-side administrator policy authoritative.
+
+## Final implementation decision — 2026-10-20
+
+**Stage 3 implementation is complete. Do not reopen it or repeat passing automated checks without a specific code change or concrete failure.** The existing exact-head CI evidence records successful application/theme-policy tests, TypeScript validation, production build, and the Chromium responsive/five-theme matrix (1,175 checks passed, 0 failures). The diagnostic axe scans recorded zero confirmed violations; 15 contrast nodes remain marked incomplete for human review.
+
+The remaining human keyboard/screen-reader review and authenticated live-server/database checks are release gates, not unfinished implementation tasks. They are deferred because no hosting/staging environment is available. Do not claim these gates passed, and do not block preparation of a build artifact on them. The next step is to assemble and verify the existing production build/deployment package so the owner can host it and inspect real progress. Hosting itself and any live acceptance must wait until an environment is available.
 
 ## Baseline implementation found
 
