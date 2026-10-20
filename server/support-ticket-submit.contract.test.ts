@@ -108,7 +108,7 @@ describe("Stage 4 support ticket submission security contract", () => {
     const attachmentStart = database.indexOf("export async function addTicketAttachment");
     const attachmentEnd = database.indexOf("export async function getTicketUploadPolicy", attachmentStart);
     const attachment = database.slice(attachmentStart, attachmentEnd);
-    expect(attachment).toContain("getCustomerTicket(actorId,input.ticketId)");
+    expect(attachment).toContain("eq(supportTickets.customerId,userId)");
     expect(attachment).toContain('throw new Error("You do not have access to this ticket")');
     expect(attachment).toContain("isValidSupportAttachmentStorageKey(input.storageKey)");
   });
