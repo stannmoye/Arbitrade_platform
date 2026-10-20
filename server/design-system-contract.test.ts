@@ -227,7 +227,7 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(app).toContain('<div className="customer-theme-sidebar-control"><ThemeSelector compact ariaLabel="Change customer theme"/></div>');
     expect(themeContext).toContain("const customerCanSelect = Boolean(policy && enabledThemes.length > 0);");
     expect(customerReference).toContain(":root[data-arb-theme] .customer-portal");
-    expect(customerReference).toContain(".customer-theme-sidebar-control");
+    expect(customerReference).toContain(".customer-primary-rail-theme-control");
   });
 
   it("keeps theme controls exposed with accessible names, state, and announced loading errors", () => {
