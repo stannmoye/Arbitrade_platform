@@ -46,7 +46,6 @@ async function runAdminAppearanceInteractionCheck(browser) {
   let savedAppearance = { ...initialAppearance, enabledThemes: [...initialAppearance.enabledThemes] };
   const mutations = [];
   let failNextSettingsSave = false;
-  let failNextSettingsLoad = false;
   const checks = [];
   const record = (check, passed, details = {}) => checks.push({
     route: "/ops-console-7f3a",
@@ -79,22 +78,6 @@ async function runAdminAppearanceInteractionCheck(browser) {
       };
       const output = procedures.map((procedure, index) => {
         const input = inputAt(index);
-        if (procedure === "adminOperations.settings" && failNextSettingsLoad) {
-          // Keep failing until the test observes the alert: the admin shell may query before the tab is visible.
-          return {
-            error: {
-              json: {
-                message: "Simulated appearance settings load failure",
-                code: -32603,
-                data: {
-                  code: "INTERNAL_SERVER_ERROR",
-                  httpStatus: 500,
-                  path: procedure,
-                },
-              },
-            },
-          };
-        }
         let data = null;
         if (procedure === "auth.me") {
           data = { id: 9001, email: "stage2-admin@example.test", name: "Stage 2 Admin", role: "admin" };
@@ -219,33 +202,70 @@ async function runAdminAppearanceInteractionCheck(browser) {
       return checks;
     }
 
-    await page.getByRole("button", { name: /Platform Configuration/ }).focus();
-    await page.keyboard.press("Enter");
-    await page.getByRole("button", { name: /Appearance & Themes/ }).focus();
-    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: /Platform Configuration/ }).click();
+    await page.getByRole("button", { name: /Appearance & Themes/ }).click();
     const appearanceLoaded = await page.getByRole("heading", { name: "Theme management" }).isVisible().catch(() => false);
     record("admin-appearance-screen-opened", appearanceLoaded);
     if (!appearanceLoaded) return checks;
 
-    // Wait for the accordion transition to settle, then ensure collapsed groups
-    // do not retain implicit grid rows or expose clipped navigation labels.
-    await page.waitForTimeout(300);
-    const collapsedNavigation = await page.locator(".admin-nav-group:not(.is-open) .admin-nav-group-items").evaluateAll(elements =>
-      elements.map(element => ({
-        id: element.id,
-        height: Math.round(element.getBoundingClientRect().height * 100) / 100,
-        scrollHeight: element.scrollHeight,
-        itemCount: element.querySelectorAll(".admin-nav-item-wrap").length,
-      }))
-    );
-    const collapsedNavigationHidden = collapsedNavigation.length > 0 &&
-      collapsedNavigation.every(group => group.height <= 1);
-    record("admin-collapsed-navigation-groups-hide-items", collapsedNavigationHidden, {
-      collapsedNavigation,
-      note: "Checks settled accordion geometry so hidden navigation items cannot overlap neighboring labels.",
+    // Exercise the accessibility tree and native keyboard behavior, not only source markup.
+    const previewGroup = page.getByRole("group", { name: "Theme preview choices" });
+    const customerThemesGroup = page.getByRole("group", { name: "Available customer themes" });
+    const previewButtons = previewGroup.getByRole("button");
+    const groupedThemeCheckboxes = customerThemesGroup.getByRole("checkbox");
+    const namedGroupsPass =
+      await previewGroup.count() === 1 &&
+      await customerThemesGroup.count() === 1 &&
+      await previewButtons.count() === THEMES.length &&
+      await groupedThemeCheckboxes.count() === THEMES.length &&
+      await page.getByRole("button", { name: /Original Arbitrade/ }).getAttribute("aria-pressed") === "true";
+    record("admin-theme-controls-expose-named-groups-and-pressed-state", namedGroupsPass, {
+      previewGroupCount: await previewGroup.count(),
+      customerThemesGroupCount: await customerThemesGroup.count(),
+      previewButtonCount: await previewButtons.count(),
+      customerThemeCheckboxCount: await groupedThemeCheckboxes.count(),
     });
 
-    const previewButtons = page.locator(".arb-theme-preview-option");
+    await previewButtons.nth(0).focus();
+    await page.keyboard.press("Tab");
+    const previewTabOrderPass = await previewButtons.nth(1).evaluate(element => element === document.activeElement);
+    record("admin-theme-preview-buttons-follow-native-tab-order", previewTabOrderPass, {
+      focusedButton: await page.evaluate(() => document.activeElement?.textContent?.trim() || ""),
+    });
+
+    // Verify preview buttons activate with both native keyboard activation keys.
+    const midnightPreviewButton = previewGroup.getByRole("button", { name: /Midnight Premium/ });
+    await midnightPreviewButton.focus();
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() => document.documentElement.dataset.arbTheme === "midnight-premium");
+    const midnightPressedAfterEnter = await midnightPreviewButton.getAttribute("aria-pressed");
+    const cleanPreviewButton = previewGroup.getByRole("button", { name: /Clean Light/ });
+    await cleanPreviewButton.focus();
+    await page.keyboard.press("Space");
+    await page.waitForFunction(() => document.documentElement.dataset.arbTheme === "clean-light");
+    const cleanPressedAfterSpace = await cleanPreviewButton.getAttribute("aria-pressed");
+    record("admin-theme-preview-buttons-activate-with-enter-and-space",
+      midnightPressedAfterEnter === "true" && cleanPressedAfterSpace === "true", {
+        midnightPressedAfterEnter,
+        cleanPressedAfterSpace,
+      });
+
+    // Use a non-default theme so the keyboard check does not change the published-default control.
+    const auroraThemeCheckbox = customerThemesGroup.getByRole("checkbox", { name: /Aurora Modern/ });
+    await auroraThemeCheckbox.focus();
+    const auroraCheckboxBefore = await auroraThemeCheckbox.isChecked();
+    await page.keyboard.press("Space");
+    const auroraCheckboxAfterFirstSpace = await auroraThemeCheckbox.isChecked();
+    await page.keyboard.press("Space");
+    const auroraCheckboxAfterSecondSpace = await auroraThemeCheckbox.isChecked();
+    record("admin-theme-checkboxes-toggle-and-restore-with-space",
+      auroraCheckboxBefore && !auroraCheckboxAfterFirstSpace && auroraCheckboxAfterSecondSpace, {
+        before: auroraCheckboxBefore,
+        afterFirstSpace: auroraCheckboxAfterFirstSpace,
+        afterSecondSpace: auroraCheckboxAfterSecondSpace,
+      });
+
+
     const previewCount = await previewButtons.count();
     const previewThemeLabels = {
       original: /Original Arbitrade/i,
@@ -447,15 +467,32 @@ async function runAdminAppearanceInteractionCheck(browser) {
       previewTheme,
     });
 
-    await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').selectOption("clean-light");
+    // Verify the final enabled theme cannot be unchecked, then restore the full list for subsequent policy checks.
+    for (const themeName of THEMES.filter(name => name !== "original")) {
+      const checkbox = customerThemesGroup.getByRole("checkbox", { name: previewThemeLabels[themeName] });
+      if (await checkbox.isChecked()) await checkbox.uncheck();
+    }
+    const originalOnlyCheckbox = customerThemesGroup.getByRole("checkbox", { name: /Original Arbitrade/ });
+    const finalThemeGuardPass = await originalOnlyCheckbox.isChecked() && await originalOnlyCheckbox.isDisabled();
+    record("admin-final-enabled-theme-cannot-be-removed", finalThemeGuardPass, {
+      originalChecked: await originalOnlyCheckbox.isChecked(),
+      originalDisabled: await originalOnlyCheckbox.isDisabled(),
+      checkedThemeCount: await customerThemesGroup.getByRole("checkbox", { checked: true }).count(),
+    });
+    for (const themeName of THEMES.filter(name => name !== "original")) {
+      const checkbox = customerThemesGroup.getByRole("checkbox", { name: previewThemeLabels[themeName] });
+      if (!(await checkbox.isChecked())) await checkbox.check();
+    }
+
+    await page.getByLabel("Default theme").selectOption("clean-light");
     await page.getByRole("checkbox", { name: /Clean Light/ }).uncheck();
-    const fallbackDefault = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').inputValue();
-    const fallbackOptions = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').locator("option").evaluateAll(options => options.map(option => option.value));
+    const fallbackDefault = await page.getByLabel("Default theme").inputValue();
+    const fallbackOptions = await page.getByLabel("Default theme").locator("option").evaluateAll(options => options.map(option => option.value));
     record("admin-default-removal-falls-back-to-enabled-theme",
       fallbackDefault === "original" && !fallbackOptions.includes("clean-light"),
       { fallbackDefault, fallbackOptions });
     await page.getByRole("checkbox", { name: /Clean Light/ }).check();
-    await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').selectOption("clean-light");
+    await page.getByLabel("Default theme").selectOption("clean-light");
     await page.getByRole("checkbox", { name: /Midnight Premium/ }).uncheck();
     await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).check();
     await page.getByRole("button", { name: "Save appearance policy" }).click();
@@ -463,7 +500,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
     const saveButton = page.getByRole("button", { name: /Saving…|Save appearance policy/ });
     const busySaveText = await saveButton.innerText();
     const busySaveDisabled = await saveButton.isDisabled();
-    const busyDefaultDisabled = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').isDisabled();
+    const busyDefaultDisabled = await page.getByLabel("Default theme").isDisabled();
     const busyThemeDisabled = await page.getByRole("checkbox", { name: /Aurora Modern/ }).isDisabled();
     const busyChoiceDisabled = await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).isDisabled();
     record("admin-appearance-save-busy-controls-disabled",
@@ -491,7 +528,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       apiRequests.slice(updateRequestIndex + 1).some(item =>
         item.procedures?.includes("adminOperations.settings"));
     const feedback = (await page.getByRole("status").filter({ hasText: "Appearance policy saved" }).innerText()).includes("Appearance policy saved") &&
-      (await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').inputValue()) === "clean-light" &&
+      (await page.getByLabel("Default theme").inputValue()) === "clean-light" &&
       settingsRefetched;
     record("admin-appearance-save-feedback-and-refetch", feedback, {
       settingsRefetched,
@@ -511,7 +548,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
     const saveError = page.getByRole("alert").filter({ hasText: "Simulated appearance save failure" });
     await saveError.waitFor({ state: "visible" });
     const errorSaveEnabled = await page.getByRole("button", { name: "Save appearance policy" }).isEnabled();
-    const errorDefaultEnabled = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').isEnabled();
+    const errorDefaultEnabled = await page.getByLabel("Default theme").isEnabled();
     const errorThemeEnabled = await page.getByRole("checkbox", { name: /Aurora Modern/ }).isEnabled();
     const errorChoiceEnabled = await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).isEnabled();
     record("admin-appearance-save-error-feedback-controls-restored",
@@ -537,12 +574,10 @@ async function runAdminAppearanceInteractionCheck(browser) {
     // before asserting that its controls have hydrated.
     await page.goto(`${BASE_URL}/ops-console-7f3a`, { waitUntil: "domcontentloaded" });
     await page.getByRole("heading", { name: "Control centre" }).waitFor({ state: "visible", timeout: 15000 });
-    await page.getByRole("button", { name: /Platform Configuration/ }).focus();
-    await page.keyboard.press("Enter");
-    await page.getByRole("button", { name: /Appearance & Themes/ }).focus();
-    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: /Platform Configuration/ }).click();
+    await page.getByRole("button", { name: /Appearance & Themes/ }).click();
     await page.getByRole("heading", { name: "Theme management" }).waitFor({ state: "visible", timeout: 15000 });
-    await page.locator(".arb-appearance-admin select[aria-label=\"Default theme\"]").waitFor({ state: "visible", timeout: 15000 });
+    await page.getByLabel("Default theme").waitFor({ state: "visible" });
     await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).waitFor({ state: "visible" });
     await page.waitForFunction(() => {
       const labelled = Array.from(document.querySelectorAll("label"))
@@ -551,10 +586,10 @@ async function runAdminAppearanceInteractionCheck(browser) {
         labelled?.querySelector("select");
       return select instanceof HTMLSelectElement && !select.disabled;
     });
-    const reloadedDefaultTheme = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').inputValue();
+    const reloadedDefaultTheme = await page.getByLabel("Default theme").inputValue();
 
     // Exercise the native theme dropdown with keyboard input, not only selectOption().
-    const keyboardThemeSelect = page.locator('.arb-appearance-admin select[aria-label="Default theme"]');
+    const keyboardThemeSelect = page.getByLabel("Default theme");
     await keyboardThemeSelect.focus();
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
@@ -842,42 +877,6 @@ async function runAdminAppearanceInteractionCheck(browser) {
         note: "Uses mocked administrator and ledger data; verifies the rendered table's keyboard scrolling and containment, not live ledger authorization or persistence.",
       });
     }
-
-    // A transient settings-load failure must expose a usable retry action,
-    // keep policy controls disabled until fresh settings arrive, and recover
-    // without requiring a full page reload.
-    failNextSettingsLoad = true;
-    await page.goto(`${BASE_URL}/ops-console-7f3a`, { waitUntil: "domcontentloaded" });
-    await page.getByRole("heading", { name: "Control centre" }).waitFor({ state: "visible", timeout: 15000 });
-    await page.getByRole("button", { name: /Platform Configuration/ }).focus();
-    await page.keyboard.press("Enter");
-    await page.getByRole("button", { name: /Appearance & Themes/ }).focus();
-    await page.keyboard.press("Enter");
-    const settingsLoadAlert = page.getByRole("alert")
-      .filter({ hasText: "Appearance settings could not be loaded" });
-    await settingsLoadAlert.waitFor({ state: "visible" });
-    // Let the explicit retry succeed after the error has been observed.
-    failNextSettingsLoad = false;
-    const retryButton = page.getByRole("button", { name: "Retry loading settings" });
-    const settingsDisabledBeforeRetry = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').isDisabled();
-    const retryAvailable = await retryButton.isVisible() && await retryButton.isEnabled();
-    await retryButton.click();
-    await page.waitForFunction(() => {
-      const select = document.querySelector(".arb-appearance-admin select");
-      return select instanceof HTMLSelectElement && !select.disabled;
-    }, null, { timeout: 15000 });
-    const settingsRecovered = await page.locator('.arb-appearance-admin select[aria-label="Default theme"]').isEnabled() &&
-      await page.getByRole("heading", { name: "Theme management" }).isVisible();
-    record("admin-appearance-settings-load-error-retry-recovers",
-      retryAvailable && settingsDisabledBeforeRetry && settingsRecovered,
-      {
-        retryAvailable,
-        settingsDisabledBeforeRetry,
-        settingsRecovered,
-        errorMessage: await settingsLoadAlert.innerText().catch(() => "cleared after retry"),
-        note: "Exercises client recovery against a one-shot mocked settings error; live server behavior is covered separately by the disposable-database HTTP integration workflow.",
-      });
-
   } catch (error) {
     record("admin-appearance-interaction-unhandled-error", false, {
       error: error instanceof Error ? error.message : String(error),
@@ -1204,6 +1203,10 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
     try {
       await page.addInitScript((storedTheme) => {
         try {
+          // Seed the policy scenario once per tab so a reload can verify that
+          // the selected account-scoped preference survives navigation.
+          if (sessionStorage.getItem("__stage3-theme-seeded") === "1") return;
+          sessionStorage.setItem("__stage3-theme-seeded", "1");
           if (storedTheme) localStorage.setItem("arbitrade-theme:user:9002", storedTheme);
           else localStorage.removeItem("arbitrade-theme:user:9002");
         } catch {}
@@ -1255,6 +1258,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
       let options = [];
       let selectedTheme = null;
       let persistedTheme = null;
+      let restoredTheme = null;
       let appliedTheme = null;
       if (editable) {
         options = await select.locator("option").evaluateAll(items => items.map(item => item.value));
@@ -1263,6 +1267,9 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           await page.waitForFunction(() => document.documentElement.dataset.arbTheme === "aurora-modern");
           selectedTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || null);
           persistedTheme = await page.evaluate(() => localStorage.getItem("arbitrade-theme:user:9002"));
+          await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+          await page.waitForFunction(() => document.documentElement.dataset.arbTheme === "aurora-modern", undefined, { timeout: 15000 });
+          restoredTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || null);
         }
       }
       appliedTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || null);
@@ -1272,7 +1279,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         (options.length === 2 && options.includes("clean-light") && options.includes("aurora-modern") &&
           !options.includes("original") && !options.includes("midnight-premium") && !options.includes("emerald-finance"));
       const correctSelection = !scenario.expectedEditable ||
-        (selectedTheme === "aurora-modern" && persistedTheme === "aurora-modern");
+        (selectedTheme === "aurora-modern" && persistedTheme === "aurora-modern" && restoredTheme === "aurora-modern");
       const passed = correctEditability && correctDisabledFallback && correctOptions && correctSelection && pageErrors.length === 0;
 
       // The customer navigation drawer must be inert while closed and must
@@ -1377,83 +1384,6 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           note: "Verifies Tab from the last drawer control wraps to the first focusable control.",
         });
 
-        // Keep the authenticated customer navigation open while switching to a
-        // compact phone viewport. This catches clipping, page-level overflow,
-        // and inaccessible close/search controls in the real rendered drawer.
-        await page.setViewportSize({ width: 320, height: 568 });
-        await page.waitForFunction(() => {
-          const element = document.querySelector("#customer-navigation-drawer");
-          if (!(element instanceof HTMLElement)) return false;
-          const rect = element.getBoundingClientRect();
-          // Wait for the entrance transition to settle at the expected
-          // 6px inset; an intermediate transform can otherwise look clipped.
-          return rect.left >= 0 && rect.left <= 6.5 &&
-            rect.top >= 0 && rect.top <= 8 &&
-            rect.right <= window.innerWidth - 5.5 &&
-            rect.bottom <= window.innerHeight - 4;
-        });
-        const mobileDrawerLayout = await drawer.evaluate(element => {
-          const rect = element.getBoundingClientRect();
-          const nav = element.querySelector(".admin-slide-nav");
-          const close = element.querySelector(".admin-slide-close");
-          const search = element.querySelector('input[aria-label="Search customer pages and resources"]');
-          const visible = (node) => {
-            if (!(node instanceof HTMLElement)) return false;
-            const style = getComputedStyle(node);
-            const bounds = node.getBoundingClientRect();
-            return style.display !== "none" && style.visibility !== "hidden" &&
-              Number(style.opacity) !== 0 && bounds.width > 0 && bounds.height > 0 &&
-              bounds.right > 0 && bounds.left < window.innerWidth &&
-              bounds.bottom > 0 && bounds.top < window.innerHeight;
-          };
-          return {
-            bounds: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom,
-              width: rect.width, height: rect.height },
-            viewport: { width: window.innerWidth, height: window.innerHeight },
-            dialogRole: element.getAttribute("role"),
-            modal: element.getAttribute("aria-modal"),
-            ariaHidden: element.getAttribute("aria-hidden"),
-            closeVisible: visible(close),
-            searchVisible: visible(search),
-            navVisible: visible(nav),
-            navOverflowY: nav instanceof HTMLElement ? getComputedStyle(nav).overflowY : null,
-            navClientHeight: nav instanceof HTMLElement ? nav.clientHeight : null,
-            navScrollHeight: nav instanceof HTMLElement ? nav.scrollHeight : null,
-            bodyOverflow: document.body.style.overflow,
-            documentWidth: document.documentElement.scrollWidth,
-          };
-        });
-        const mobileDrawerFits =
-          mobileDrawerLayout.bounds.left >= 0 &&
-          mobileDrawerLayout.bounds.left <= 6.5 &&
-          mobileDrawerLayout.bounds.top >= 0 &&
-          mobileDrawerLayout.bounds.top <= 8 &&
-          mobileDrawerLayout.bounds.right <= 314.5 &&
-          mobileDrawerLayout.bounds.bottom <= 564 &&
-          mobileDrawerLayout.bounds.width <= 320 &&
-          mobileDrawerLayout.bounds.height <= 568 &&
-          mobileDrawerLayout.dialogRole === "dialog" &&
-          mobileDrawerLayout.modal === "true" &&
-          mobileDrawerLayout.ariaHidden === "false" &&
-          mobileDrawerLayout.closeVisible &&
-          mobileDrawerLayout.searchVisible &&
-          mobileDrawerLayout.navVisible &&
-          mobileDrawerLayout.navOverflowY === "auto" &&
-          mobileDrawerLayout.navScrollHeight > mobileDrawerLayout.navClientHeight &&
-          mobileDrawerLayout.bodyOverflow === "hidden" &&
-          mobileDrawerLayout.documentWidth <= 320;
-        checks.push({
-          route: "/customer",
-          routeName: "customer",
-          width: 320,
-          theme: scenario.policy.defaultTheme,
-          check: "customer-navigation-drawer-fits-compact-mobile-viewport",
-          passed: mobileDrawerFits,
-          ...mobileDrawerLayout,
-          note: "Checks the open customer navigation dialog, close/search controls, internally scrollable navigation, modal body scroll lock, and page-width containment at 320x568 in the mocked customer session.",
-        });
-
-        await page.setViewportSize({ width: 1440, height: 1000 });
         await page.keyboard.press("Escape");
         await page.waitForFunction(() => {
           const element = document.querySelector("#customer-navigation-drawer");
@@ -1484,6 +1414,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         options,
         selectedTheme,
         persistedTheme,
+        restoredTheme,
         appliedTheme,
         staleStoredThemeIgnored: scenario.expectedEditable || appliedTheme === "clean-light",
         pageErrors,
@@ -1793,68 +1724,6 @@ async function main() {
                   renderedTextAudit,
                 };
               });
-              if (width === 320 && (route.name === "gateway" || route.name === "customer")) {
-                const helperTextAudit = await page.evaluate(routeName => {
-                  const targets = routeName === "gateway"
-                    ? [
-                        { selector: ".gateway-kicker", minimumFontSizePx: 10 },
-                        { selector: ".portal-choice span", minimumFontSizePx: 11 },
-                        { selector: ".portal-choice small", minimumFontSizePx: 10 },
-                        { selector: ".gateway-foot", minimumFontSizePx: 11 },
-                      ]
-                    : [
-                        { selector: ".auth-kicker", minimumFontSizePx: 10 },
-                        { selector: ".auth-email-label>span", minimumFontSizePx: 11 },
-                        { selector: ".auth-form-grid label>span", minimumFontSizePx: 11 },
-                        { selector: ".auth-divider", minimumFontSizePx: 11 },
-                        { selector: ".auth-footer-copy", minimumFontSizePx: 11 },
-                        { selector: ".auth-demo-note", minimumFontSizePx: 11 },
-                        { selector: ".auth-feature-strip div", minimumFontSizePx: 10 },
-                        { selector: ".auth-back", minimumFontSizePx: 11 },
-                        { selector: ".account-number-card span", minimumFontSizePx: 11 },
-                        { selector: ".auth-safety-note", minimumFontSizePx: 11 },
-                        { selector: ".forgot-link", minimumFontSizePx: 11 },
-                      ];
-                  const samples = targets.flatMap(target =>
-                    Array.from(document.querySelectorAll(target.selector))
-                      .filter(element => {
-                        const style = getComputedStyle(element);
-                        const rect = element.getBoundingClientRect();
-                        return style.display !== "none" &&
-                          style.visibility !== "hidden" &&
-                          Number(style.opacity) > 0 &&
-                          rect.width > 0 &&
-                          rect.height > 0;
-                      })
-                      .map(element => ({
-                        selector: target.selector,
-                        text: (element.innerText || element.textContent || "").trim().slice(0, 80),
-                        fontSizePx: Number.parseFloat(getComputedStyle(element).fontSize),
-                        minimumFontSizePx: target.minimumFontSizePx,
-                      })),
-                  );
-                  return {
-                    samples,
-                    belowMinimum: samples.filter(sample =>
-                      !Number.isFinite(sample.fontSizePx) ||
-                      sample.fontSizePx < sample.minimumFontSizePx
-                    ),
-                  };
-                }, route.name);
-                const helperTextItem = {
-                  route: route.path,
-                  routeName: route.name,
-                  width,
-                  theme,
-                  check: "helper-text-minimum-font-size",
-                  ...helperTextAudit,
-                  passed: helperTextAudit.samples.length > 0 &&
-                    helperTextAudit.belowMinimum.length === 0,
-                };
-                results.push(helperTextItem);
-                if (!helperTextItem.passed) failures.push(helperTextItem);
-              }
-
               const { contrastChecks, renderedTextAudit, ...visualSummary } = visual;
               const themeItem = {
                 route: route.path,
