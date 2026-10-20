@@ -661,7 +661,7 @@ async function executeTokenConversion(conn: Db, userId: number, input: {
 
 export async function confirmCustomerMiningSwap(userId: number, input: { quoteId: number; idempotencyKey: string }) {
   const key = requestKey("mining-swap", userId, input.idempotencyKey);
-  return withMiningConnection(async conn => inMiningTransaction(conn, async () => {
+  const result = await withMiningConnection(async conn => inMiningTransaction(conn, async () => {
     const prior = await beginMiningIdempotency(conn, userId, key, "mining.swap.confirm");
     if (prior) return prior;
     await ensureMiningCheckpoint(conn, userId);
@@ -694,6 +694,18 @@ export async function confirmCustomerMiningSwap(userId: number, input: { quoteId
     await createMiningNotification(conn, userId, "Mining swap completed", `${result.sourceAmount} CKI was converted to ${result.destinationAmount} ${targetAsset} and credited to the main wallet. Reference ${result.receiptReference}.`, `mining-swap:${result.receiptReference}`);
     return result;
   }));
+  // The main-wallet conversion and mining journal have committed before notices
+  // are emitted. Notification failure must not make a successful swap appear failed.
+  try {
+    await Promise.all([
+      createNotification(userId,"Mining swap completed",`${result.sourceAmount} CKI was debited and ${result.destinationAmount} ${result.destinationAsset} was credited to your main wallet. Reference ${result.receiptReference}.`,{eventKey:`mining-swap:${result.conversionId}`,category:"mining",priority:"normal"}),
+      createNotification(userId,"Balance debited",`${result.sourceAmount} CKI was used for mining conversion ${result.conversionId}.`,{eventKey:`mining-swap-debit:${result.conversionId}`,category:"ledger_debit",priority:"normal"}),
+      createNotification(userId,"Balance credited",`${result.destinationAmount} ${result.destinationAsset} was credited from mining conversion ${result.conversionId}.`,{eventKey:`mining-swap-credit:${result.conversionId}`,category:"ledger_credit",priority:"normal"})
+    ]);
+  } catch(error) {
+    console.error("[Notifications] Mining swap notices failed after commit:",error instanceof Error?error.name:"UnknownError");
+  }
+  return result;
 }
 
 function normalizeMiningHistoryDetails(value: any): any {
