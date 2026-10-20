@@ -72,13 +72,13 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 
 ## Exact-head validation evidence (2026-10-20)
 
-The latest recorded branch head is `c734394e212fdeedcf2b89c338af1f4266eb4fee` (`Include notification sound tests in Vitest CI`). The three latest consolidated GitHub Actions workflow groups associated with this head report success: Stage 3 five-theme validation, installer validation, and mining database regression checks. The application suite on this head reported 461 passed and 6 skipped across 54 passing test files and 2 skipped files; TypeScript validation and production build passed. Evidence:
-- [Stage 4 theme/browser validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39494259929): TypeScript validation, application/theme regression tests, Chromium viewport/five-theme smoke matrix, and production build passed.
-- Latest installer validation workflow (run 1423): installer/migration regression tests, fresh MariaDB, MySQL 8 compatibility/recovery, production build/server smoke checks, and deployment ZIP validation passed.
-- Latest mining database regression workflow (run 544): MySQL/MariaDB mining idempotency transaction tests and TypeScript validation passed.
-- The Vitest include list now discovers both `client/src/notification-sound-*.test.ts` suites, and the recorded application run reports 461 passed, 6 skipped.
+The latest verified branch head is `473914a584aa87dc38d226e2ca2d7c6f99666084` (`fix(stage-4): serve notification sounds in dev and production builds`). All three consolidated workflow groups for this exact commit succeeded:
+- [Installer validation, run 1441](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39498469827): all jobs passed, including fresh MariaDB, MySQL 8 compatibility/recovery, installer/migration regression tests, production build/server smoke checks, and deployment package generation. The targeted notification migration assertion script ran on both disposable databases; duplicate event keys were rejected on both engines. The MySQL recovery fixtures also confirmed failed/interrupted migration state remained blocked without replaying SQL or fabricating tracker entries.
+- [Five-theme/browser validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39498469801): Chromium viewport and five-theme smoke matrix passed with 1,182 checks; the new real-browser playback check covered all five bundled notification WAV assets. Application/theme regression tests, TypeScript validation, and production build passed.
+- [Mining database regression](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39498469921): MySQL/MariaDB mining idempotency transaction checks passed.
+- The successful installer run published the `arbitrade-universal-installer` artifact from this exact commit.
 
-These are CI checks on the feature branch, not a production-host acceptance test. They do not close the remaining event-coverage, announcement lifecycle, real-browser audio behavior, ticket attachment/authorization, push-transport, accessibility, or release-ZIP acceptance gaps below.
+These are CI checks on the feature branch, not a production-host acceptance test. Browser asset playback does not by itself prove customer preference handling, admin event mapping, reconnect deduplication, or post-commit sound timing. Those and the remaining event-coverage, announcement lifecycle, ticket authorization, transport, accessibility, and release sign-off gaps remain open.
 
 ## Current branch evidence and known gaps (2026-10-20)
 
@@ -114,7 +114,7 @@ These are CI checks on the feature branch, not a production-host acceptance test
 
 Track these as six acceptance work areas within Stage 4, not as six separate top-level project stages. Close each only when its evidence is recorded:
 
-1. **Database migration verification:** targeted disposable MySQL 8 and MariaDB checks for migration 0054, rerun/idempotency, and recovery behavior. Broader installer compatibility/recovery CI has passed, but this targeted acceptance item remains open.
+1. **Database migration verification — COMPLETE:** on exact-head commit `473914a`, disposable MySQL 8 and MariaDB 11.4 both ran the migration assertion script, confirmed duplicate event keys are rejected, and passed installer migration/recovery checks. See [installer validation run 1441](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39498469827).
 2. **Real event integration:** verify persisted deposit/withdrawal lifecycles and the other real financial, trading, mining, swap, ticket, account and security event boundaries. Do not fake success for provider-gated deposit/withdrawal flows.
 3. **Browser sound behavior:** test all five sounds, admin mappings, customer preferences, autoplay/volume constraints, post-commit financial sound timing, and reconnect deduplication in a real browser.
 4. **Ticket lifecycle and attachments:** verify assignment/status/reopen/reply flows, attachment ownership and authorization, and customer/admin regression behavior.
@@ -123,7 +123,7 @@ Track these as six acceptance work areas within Stage 4, not as six separate top
 
 ## Remaining before Stage 4 can be called complete
 - [x] Run exact-head checks and review CI status after the latest commits (14 check runs passed on `f2074c1fbdc3fb27542385c0eb214fde8f534a5c`; see evidence below).
-- [ ] Exercise migration 0054 with disposable MySQL 8 and MariaDB schemas, including rerun/idempotency and tracked recovery behavior.
+- [x] Exercise migration 0054 with disposable MySQL 8 and MariaDB schemas, including rerun/idempotency and tracked recovery behavior (exact-head installer validation run 1441; see evidence above).
 - [ ] Verify all real event sources for deposit, withdrawal, ledger credit/debit, mining, swap, trading and account/security lifecycle. Customer session-revocation notification is now implemented, but overall event coverage remains incomplete.
 - [ ] Verify sound configuration end-to-end, including event mapping, actual browser playback, preferences, autoplay handling and reconnect deduplication.
 - [ ] Verify announcement persistence, scheduling/expiry and delivery/read reporting end-to-end against the latest commit; campaign/delivery ledger, bounded retries, history counts and the due/expiry worker are implemented, but source-level coverage alone is not runtime acceptance.
