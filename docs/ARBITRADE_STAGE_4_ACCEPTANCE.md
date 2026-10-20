@@ -100,6 +100,8 @@ These are CI checks on the feature branch, not a production-host acceptance test
 - [ ] Keep PR #95 draft/unmerged until the above evidence is reviewed.
 
 ## Change log
+
+- 2026-10-20: Tightened notification navigation validation to reject every percent-encoded ASCII control byte (`%00`–`%1F` and `%7F`), not only CR/LF and backslash. Added regression cases for encoded NUL, tab, vertical-tab, unit-separator and DEL. This is a security-focused source/test change; exact-head CI must verify it before release acceptance.
 - 2026-10-20: Consolidated the Stage 4 product and acceptance scope in a repository document.
 - 2026-10-20: Updated the customer notification router to enforce category visibility server-side.
 - 2026-10-20: Updated customer header sound handling to use the persisted admin sound policy and respect local customer opt-in.
