@@ -86,6 +86,15 @@ export function filterNotificationCategories<T extends { category?: string | nul
 }
 
 
+/** Filter sound/event cursors with the same server-owned visibility policy as the inbox. */
+export function filterVisibleNotificationEventCursor<T extends { category?: string | null }>(
+  rows: T[],
+  visibility: Partial<Record<NotificationCategory, boolean>>,
+): T[] {
+  return filterNotificationCategories(rows, visibility);
+}
+
+
 export type TradeSettlementNotice = {
   title: string;
   body: string;
