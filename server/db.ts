@@ -256,7 +256,7 @@ export async function addTicketMessage(actorId:number,ticketId:number,body:strin
   // Keep the message and ticket status in one transaction: a failed status
   // update must not leave a committed reply with stale inbox state.
   const committed=await db.transaction(async tx=>{
-    const ticket=(await tx.select().from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1))[0];
+    const ticket=(await tx.select().from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1).for("update"))[0];
     if(!ticket) throw new Error("Ticket not found");
     const actor=(await tx.select({role:users.role}).from(users).where(eq(users.id,actorId)).limit(1))[0];
     if(!actor) throw new Error("Message author not found");
