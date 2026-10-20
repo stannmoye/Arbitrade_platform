@@ -65,4 +65,15 @@ describe("notification sound reconnect deduplication", () => {
     expect(() => mergeSeenNotificationIds([], [], 0)).toThrow(RangeError);
     expect(() => mergeSeenNotificationIds([], [], 5001)).toThrow(RangeError);
   });
+
+  it("uses the newest ID to break priority ties and safely treats unknown priorities as normal", () => {
+    const mixed = [
+      { id: 70, priority: "normal" },
+      { id: 72, priority: "future-priority" },
+      { id: 71, priority: "normal" },
+      { id: 99, priority: "low" },
+    ];
+    expect(selectMostImportantNotificationSoundEvent(mixed)).toEqual(mixed[1]);
+  });
+
 });
