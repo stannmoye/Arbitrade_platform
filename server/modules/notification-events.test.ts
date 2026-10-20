@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, NOTIFICATION_CATEGORIES, normalizeNotificationHref, normalizeNotificationText } from "./notification-events";
+import { buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, NOTIFICATION_CATEGORIES, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText } from "./notification-events";
 
 describe("notification event identity", () => {
   it("scopes event keys to the recipient", () => {
