@@ -18,7 +18,7 @@ describe("administrator wallet adjustment notification boundary", () => {
   });
 
   it("uses the correct credit/debit title and ledger category with a stable ledger-reference key", () => {
-    expect(implementation).toContain('input.mode==="credit"?"Wallet credited":"Wallet debited"');
+    expect(implementation).toContain('`Wallet ${input.mode==="credit"?"credited":"debited"}`');
     expect(implementation).toContain('input.mode==="credit"?"ledger_credit":"ledger_debit"');
     expect(implementation).toContain('category:input.mode==="credit"?"ledger_credit":"ledger_debit"');
     expect(implementation).toContain("eventKey:`wallet-adjustment:${result.ledgerReference}`");
