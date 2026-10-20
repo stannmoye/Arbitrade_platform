@@ -229,8 +229,8 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \\
-            --jq ".artifacts[] | select(.name | startswith(\\"arbitrade-installer-v2.0.0-stage3-sandbox.\\")) | select(.workflow_run.id != ${CURRENT_RUN_ID}) | .id" \\
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
+            --jq ".artifacts[] | select(.name | startswith(\"arbitrade-installer-v2.0.0-stage3-sandbox.\")) | select(.workflow_run.id != ${CURRENT_RUN_ID}) | .id" \
             > "$RUNNER_TEMP/superseded-installer-artifacts.txt"
           while IFS= read -r artifact_id; do
             [[ -n "$artifact_id" ]] || continue
