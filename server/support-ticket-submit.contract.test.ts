@@ -73,12 +73,12 @@ describe("Stage 4 support ticket submission security contract", () => {
     expect(routers).toContain('throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" })');
   });
 
-  it("keeps reply persistence serialized and rejects customer replies to closed tickets", () => {
+  it("keeps reply persistence serialized and requires reopening resolved or closed tickets", () => {
     const start = database.indexOf("export async function addTicketMessage");
     const end = database.indexOf("export async function reopenSupportTicket", start);
     const lifecycle = database.slice(start, end);
     expect(lifecycle).toContain(".for(\"update\")");
-    expect(lifecycle).toContain("if(!isAdmin && ticket.status===\"closed\")");
+    expect(lifecycle).toContain('if(!isAdmin && (ticket.status==="closed" || ticket.status==="resolved"))');
     expect(lifecycle).toContain("const committed=await db.transaction(async tx=>");
     expect(lifecycle).toContain("support-ticket:${ticketId}:message:${committed.messageId}");
   });
