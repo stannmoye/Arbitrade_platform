@@ -691,7 +691,6 @@ export async function confirmCustomerMiningSwap(userId: number, input: { quoteId
       tokenName: config.tokenName, tokenSymbol: config.tokenSymbol, tokenUnitsPerUsd: config.tokenUnitsPerUsd,
     });
     await finishMiningIdempotency(conn, key, result);
-    await createMiningNotification(conn, userId, "Mining swap completed", `${result.sourceAmount} CKI was converted to ${result.destinationAmount} ${targetAsset} and credited to the main wallet. Reference ${result.receiptReference}.`, `mining-swap:${result.receiptReference}`);
     return result;
   }));
   // The main-wallet conversion and mining journal have committed before notices
@@ -700,6 +699,8 @@ export async function confirmCustomerMiningSwap(userId: number, input: { quoteId
     await Promise.all([
       createNotification(userId,"Balance debited",`${result.sourceAmount} CKI was used for mining conversion ${result.conversionId}.`,{eventKey:`mining-swap-debit:${result.conversionId}`,category:"ledger_debit",priority:"normal"}),
       createNotification(userId,"Balance credited",`${result.destinationAmount} ${result.destinationAsset} was credited from mining conversion ${result.conversionId}.`,{eventKey:`mining-swap-credit:${result.conversionId}`,category:"ledger_credit",priority:"normal"})
+,
+      createNotification(userId,"Mining swap completed",`${result.sourceAmount} CKI was converted to ${result.destinationAmount} ${result.destinationAsset} and credited to the main wallet. Reference ${result.receiptReference}.`,{eventKey:`mining-swap:${result.receiptReference}`,category:"mining",priority:"normal"})
     ]);
   } catch(error) {
     console.error("[Notifications] Mining swap notices failed after commit:",error instanceof Error?error.name:"UnknownError");
