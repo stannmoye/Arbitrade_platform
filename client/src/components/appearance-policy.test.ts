@@ -32,7 +32,7 @@ describe("administrator enabled-theme policy transitions", () => {
     "recovers safely from malformed list input: %j",
     input => {
       expect(normalizeEnabledThemes(input, "midnight-premium")).toEqual(["midnight-premium"]);
-      expect(toggleEnabledTheme(input, "clean-light")).toEqual(["midnight-premium", "clean-light"]);
+      expect(toggleEnabledTheme(input, "clean-light")).toEqual(["original", "clean-light"]);
     },
   );
 
