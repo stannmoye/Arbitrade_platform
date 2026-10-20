@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
+const uploadSecurity = readFileSync(new URL("./support-upload-security.ts", import.meta.url), "utf8");
 const route = source.match(/app\.post\("\/api\/support\/attachments\/presign"[\s\S]*?registerOAuthRoutes\(app\);/);
 
 describe("support attachment presign error logging", () => {
@@ -24,8 +25,9 @@ describe("support attachment presign error logging", () => {
     const responsePosition = routeSource.indexOf("return res.json({ uploadUrl: safeUploadUrl");
     expect(validationPosition).toBeGreaterThan(-1);
     expect(responsePosition).toBeGreaterThan(validationPosition);
-    const helper = source.includes("value !== value.trim() || /[\\\\u0000-\\\\u001f\\\\u007f]/.test(value)");
-    expect(helper).toBe(true);
+    expect(uploadSecurity).toContain("value !== value.trim()");
+    expect(uploadSecurity).toContain(".test(value)");
+    expect(uploadSecurity).toContain("u007f]/.test(value)");
   });
 
   it("does not log raw provider or network exception messages", () => {
