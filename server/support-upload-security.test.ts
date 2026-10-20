@@ -16,6 +16,11 @@ describe("presigned support upload URL validation", () => {
     ["malformed URL", "https://[invalid"],
     ["an empty value", ""],
     ["a non-string value", null],
+    ["an embedded tab that URL parsing would normalize", "https://uploads.example.test/ob\tject"],
+    ["an embedded newline that URL parsing would normalize", "https://uploads.example.test/ob\nject"],
+    ["a DEL control byte", "https://uploads.example.test/ob\u007fject"],
+    ["leading whitespace", " https://uploads.example.test/object"],
+    ["trailing whitespace", "https://uploads.example.test/object "],
   ])("rejects %s", (_label, input) => {
     expect(getSafePresignedUploadUrl(input)).toBeNull();
   });
