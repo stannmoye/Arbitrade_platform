@@ -109,3 +109,5 @@ These are CI checks on the feature branch, not a production-host acceptance test
 - 2026-10-20: Matched customer category-policy refresh to the five-second notification poll interval so admin visibility changes propagate promptly.
 - 2026-10-20: Split Mining activity from Mining reward and Trading activity from Trading reward so administrators can hide rewards independently and customers receive accurate badges.
 - 2026-10-20: Added partial broadcast delivery counts and same-event-key retries for unchanged drafts to avoid duplicate notices when a broadcast only partly succeeds.
+- 2026-10-20: Added a separately configurable administrator sound mapping for confirmed deposit notifications instead of reusing the generic wallet-credit sound; older saved sound policies fall back to the default until saved again.
+- 2026-10-20: Recorded exact-head CI evidence for the previously completed feature head; subsequent sound-policy changes are awaiting their own checks and must not inherit that earlier pass status.
