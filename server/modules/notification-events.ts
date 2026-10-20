@@ -20,6 +20,10 @@ export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 export const NOTIFICATION_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 export type NotificationPriority = (typeof NOTIFICATION_PRIORITIES)[number];
 
+// Admin-authored messages are communications, never synthetic financial events.
+export const ADMIN_BROADCAST_CATEGORIES = ["announcement", "promotion", "platform_update"] as const;
+export type AdminBroadcastCategory = (typeof ADMIN_BROADCAST_CATEGORIES)[number];
+
 export function buildNotificationEventKey(userId: number, eventKey?: string | null): string | null {
   if (!Number.isSafeInteger(userId) || userId <= 0) {
     throw new RangeError("Notification recipient must be a positive integer user ID");

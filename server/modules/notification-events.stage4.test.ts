@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ADMIN_BROADCAST_CATEGORIES,
   buildNotificationEventKey,
   filterNotificationCategories,
   filterVisibleNotificationEventCursor,
@@ -11,6 +12,13 @@ import {
 } from "./notification-events";
 
 describe("Stage 4 notification safety and delivery helpers", () => {
+  it("restricts admin-authored broadcasts to non-financial communication categories", () => {
+    expect(ADMIN_BROADCAST_CATEGORIES).toEqual(["announcement", "promotion", "platform_update"]);
+    expect(ADMIN_BROADCAST_CATEGORIES).not.toContain("deposit");
+    expect(ADMIN_BROADCAST_CATEGORIES).not.toContain("ledger_credit");
+    expect(ADMIN_BROADCAST_CATEGORIES).not.toContain("trading_reward");
+  });
+
   it("scopes idempotency keys by recipient and trims the event key", () => {
     expect(buildNotificationEventKey(17, "  ledger:42  ")).toBe("u17:ledger:42");
     expect(buildNotificationEventKey(18, "ledger:42")).toBe("u18:ledger:42");
