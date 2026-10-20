@@ -7,7 +7,7 @@ describe("Stake & Earn notification event integrity", () => {
   it("persists reward notifications atomically with recipient-scoped idempotency metadata", () => {
     expect(source).toContain("INSERT INTO customer_notifications (userId,title,body,eventKey,category,priority) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE eventKey=VALUES(eventKey)");
     expect(source).toContain("`u${userId}:stake-reward:${position.id}:${position.rewardCount + 1}`");
-    expect(source).toContain('"trading_reward"');
+    expect(source).toContain('"ledger_credit"');
     expect(source).toContain("Keep the notice atomic with the committed ledger reward");
   });
 
