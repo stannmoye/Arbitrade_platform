@@ -72,10 +72,11 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 
 ## Exact-head validation evidence (2026-10-20)
 
-The current Stage 4 head `f2074c1fbdc3fb27542385c0eb214fde8f534a5c` completed 14 GitHub check runs successfully. Evidence:
-- [Stage 4 theme/browser validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39467773168): application/theme regression tests, TypeScript validation, Chromium viewport/five-theme smoke matrix, and production build all passed.
-- [Installer validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39467773125): application unit tests, TypeScript validation, installer/migration regression tests, fresh MariaDB, MySQL 8 compatibility/recovery, production build/bundle budgets/server smoke test, and deployment ZIP validation all passed.
-- [Mining database regression checks](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39467773109): MySQL/MariaDB mining idempotency transaction tests and TypeScript validation passed.
+The latest recorded branch head is `c734394e212fdeedcf2b89c338af1f4266eb4fee` (`Include notification sound tests in Vitest CI`). The three latest consolidated GitHub Actions workflow groups associated with this head report success: Stage 3 five-theme validation, installer validation, and mining database regression checks. The application suite on this head reported 461 passed and 6 skipped across 54 passing test files and 2 skipped files; TypeScript validation and production build passed. Evidence:
+- [Stage 4 theme/browser validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39494259929): TypeScript validation, application/theme regression tests, Chromium viewport/five-theme smoke matrix, and production build passed.
+- Latest installer validation workflow (run 1423): installer/migration regression tests, fresh MariaDB, MySQL 8 compatibility/recovery, production build/server smoke checks, and deployment ZIP validation passed.
+- Latest mining database regression workflow (run 544): MySQL/MariaDB mining idempotency transaction tests and TypeScript validation passed.
+- The Vitest include list now discovers both `client/src/notification-sound-*.test.ts` suites, and the recorded application run reports 461 passed, 6 skipped.
 
 These are CI checks on the feature branch, not a production-host acceptance test. They do not close the remaining event-coverage, announcement lifecycle, real-browser audio behavior, ticket attachment/authorization, push-transport, accessibility, or release-ZIP acceptance gaps below.
 
@@ -109,12 +110,23 @@ These are CI checks on the feature branch, not a production-host acceptance test
 - The admin communications screen shows persisted delivered/read/failed/pending/expired counts and can retry failed deliveries for a persisted campaign.
 - Exact-head CI and disposable-schema migration testing remain release gates; source-level contract tests are not proof of runtime correctness.
 
-### Remaining before Stage 4 can be called complete
+### Six remaining Stage 4 work areas
+
+Track these as six acceptance work areas within Stage 4, not as six separate top-level project stages. Close each only when its evidence is recorded:
+
+1. **Database migration verification:** targeted disposable MySQL 8 and MariaDB checks for migration 0054, rerun/idempotency, and recovery behavior. Broader installer compatibility/recovery CI has passed, but this targeted acceptance item remains open.
+2. **Real event integration:** verify persisted deposit/withdrawal lifecycles and the other real financial, trading, mining, swap, ticket, account and security event boundaries. Do not fake success for provider-gated deposit/withdrawal flows.
+3. **Browser sound behavior:** test all five sounds, admin mappings, customer preferences, autoplay/volume constraints, post-commit financial sound timing, and reconnect deduplication in a real browser.
+4. **Ticket lifecycle and attachments:** verify assignment/status/reopen/reply flows, attachment ownership and authorization, and customer/admin regression behavior.
+5. **Live-update transport:** verify supported push delivery or explicitly accept and test bounded polling/reconnect as the hosting-compatible fallback.
+6. **Final acceptance and release:** finish keyboard/screen-reader/reduced-motion/accessibility review, responsive/theme checks, verify the release ZIP corresponds to the validated source, and record limitations before release sign-off.
+
+## Remaining before Stage 4 can be called complete
 - [x] Run exact-head checks and review CI status after the latest commits (14 check runs passed on `f2074c1fbdc3fb27542385c0eb214fde8f534a5c`; see evidence below).
 - [ ] Exercise migration 0054 with disposable MySQL 8 and MariaDB schemas, including rerun/idempotency and tracked recovery behavior.
 - [ ] Verify all real event sources for deposit, withdrawal, ledger credit/debit, mining, swap, trading and account/security lifecycle. Customer session-revocation notification is now implemented, but overall event coverage remains incomplete.
 - [ ] Verify sound configuration end-to-end, including event mapping, actual browser playback, preferences, autoplay handling and reconnect deduplication.
-- [ ] Finish announcement persistence/scheduling/expiry and delivery/read reporting.
+- [ ] Verify announcement persistence, scheduling/expiry and delivery/read reporting end-to-end against the latest commit; campaign/delivery ledger, bounded retries, history counts and the due/expiry worker are implemented, but source-level coverage alone is not runtime acceptance.
 - [ ] Finish ticket status/assignment/reopen/attachment authorization and customer/admin regression tests.
 - [ ] Add and verify real-time push transport where supported, retaining bounded polling/reconnect fallback for cPanel/shared hosting.
 - [ ] Finish responsive/theme/accessibility regression checks and validate the release ZIP.
