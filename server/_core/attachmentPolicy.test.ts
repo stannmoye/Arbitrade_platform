@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAllowedAttachmentRequest } from "./attachmentPolicy";
+import { isAllowedAttachmentRequest, isValidSupportAttachmentStorageKey } from "./attachmentPolicy";
 
 const policy = {
   maxAttachmentMb: 5,
@@ -55,6 +55,26 @@ describe("support attachment request validation", () => {
         { fileName: "report.pdf", mimeType: "application/pdf", sizeBytes },
         policy,
       )).toBe(false);
+    }
+  });
+});
+
+describe("support attachment storage key validation", () => {
+  it("accepts keys in the managed support upload format", () => {
+    expect(isValidSupportAttachmentStorageKey("support/1729440000000-ab12cd34-report.pdf")).toBe(true);
+  });
+
+  it("rejects arbitrary paths and malformed keys", () => {
+    for (const key of [
+      "",
+      "../support/report.pdf",
+      "support/../private/file.pdf",
+      "support/report.pdf",
+      "support/1729440000000-ab12cd34-folder/report.pdf",
+      null,
+      42,
+    ]) {
+      expect(isValidSupportAttachmentStorageKey(key)).toBe(false);
     }
   });
 });
