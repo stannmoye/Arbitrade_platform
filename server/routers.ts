@@ -63,7 +63,29 @@ export const appRouter = router({
       return listCustomerSessions(ctx.user.id);
     }),
     sessions: protectedProcedure.query(({ ctx }) => listCustomerSessions(ctx.user.id)),
-    revokeSession: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => { await revokeCustomerSession(ctx.user.id, input.id); return { success: true }; }),
+    revokeSession: protectedProcedure.input(z.object({ id: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      const sessions = await listCustomerSessions(ctx.user.id);
+      const target = sessions.find((session: any) => Number(session.id) === input.id);
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+      await revokeCustomerSession(ctx.user.id, input.id);
+      // The security action is authoritative; notification delivery is best-effort.
+      // The last-seen cursor distinguishes a later revocation after this session is reused.
+      const sessionCursor = target.lastSeenAt instanceof Date
+        ? target.lastSeenAt.getTime()
+        : String(target.lastSeenAt || "unknown");
+      try {
+        await createNotification(ctx.user.id, "Security: session revoked",
+          "A device session was revoked from your account security settings.", {
+            eventKey: `security-session-revoked:${input.id}:${sessionCursor}`,
+            category: "security",
+            priority: "high",
+            href: "/customer",
+          });
+      } catch (error) {
+        console.error("[Notifications] Session revocation notice failed after security change:", error instanceof Error ? error.name : "UnknownError");
+      }
+      return { success: true };
+    }),
     requestRiskReport: protectedProcedure.input(z.object({ title: z.string().min(3).max(200), requestedFor: z.string().max(200).optional() })).mutation(({ ctx, input }) => createRiskReport(ctx.user.id, input.title, input.requestedFor)),
     riskReports: protectedProcedure.query(({ ctx }) => listRiskReports(ctx.user.id)),
     createTicket: protectedProcedure.input(z.object({ subject: z.string().min(3).max(200), body: z.string().min(1).max(20000), category: z.enum(["account","wallet","opportunity","security","technical"]).default("account"), priority: z.enum(["low", "normal", "high", "urgent"]) })).mutation(async ({ ctx, input }) => { const created=await createTicket(ctx.user.id,input); return created; }),
