@@ -1387,7 +1387,7 @@
 .customer-portal > .arb-theme-selector-compact {
   position: fixed !important;
   top: 13px !important;
-  right: 224px !important;
+  right: 430px !important;
   z-index: 95 !important;
   display: inline-flex !important;
   width: auto !important;
@@ -1439,14 +1439,14 @@
 .customer-theme-sidebar-control .arb-theme-selector-trigger-label { flex: 1; text-align: left; }
 .customer-theme-sidebar-control .arb-theme-selector-control select { width: 100%; }
 .arb-appearance-policy-status { display: grid !important; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; border-radius: 999px; background: color-mix(in srgb, var(--arb-color-accent) 16%, transparent); color: var(--arb-color-accent); font-size: 14px; font-weight: 800; }
-@media (max-width: 1100px) { .customer-portal > .arb-theme-selector-compact { right: 170px !important; } }
+@media (max-width: 1100px) { .customer-portal > .arb-theme-selector-compact { right: 430px !important; } }
 @media (max-width: 760px) {
-  .customer-portal > .arb-theme-selector-compact { top: 12px !important; right: 90px !important; max-width: 112px !important; }
-  .customer-portal > .arb-theme-selector-compact .arb-theme-selector-trigger { min-height: 38px; padding: 0 9px; gap: 6px; font-size: 11px; }
+  .customer-portal > .arb-theme-selector-compact { top: 12px !important; right: 148px !important; max-width: 42px !important; }
+  .customer-portal > .arb-theme-selector-compact .arb-theme-selector-trigger { width: 38px; min-width: 38px; min-height: 38px; padding: 0; gap: 0; justify-content: center; }\n  .customer-portal > .arb-theme-selector-compact .arb-theme-selector-trigger-label,\n  .customer-portal > .arb-theme-selector-compact .arb-theme-selector-chevron { display: none !important; }
   .customer-theme-sidebar-control { display: none !important; }
   .customer-slide-theme-control { padding: 12px 14px 4px; }
 }
 @media (max-width: 380px) {
-  .customer-portal > .arb-theme-selector-compact { right: 88px !important; }
+  .customer-portal > .arb-theme-selector-compact { right: 148px !important; }
   .customer-portal > .arb-theme-selector-compact .arb-theme-selector-trigger { min-height: 36px; padding: 0 7px; gap: 5px; }
 }
