@@ -698,7 +698,6 @@ export async function confirmCustomerMiningSwap(userId: number, input: { quoteId
   // are emitted. Notification failure must not make a successful swap appear failed.
   try {
     await Promise.all([
-      createNotification(userId,"Mining swap completed",`${result.sourceAmount} CKI was debited and ${result.destinationAmount} ${result.destinationAsset} was credited to your main wallet. Reference ${result.receiptReference}.`,{eventKey:`mining-swap:${result.conversionId}`,category:"mining",priority:"normal"}),
       createNotification(userId,"Balance debited",`${result.sourceAmount} CKI was used for mining conversion ${result.conversionId}.`,{eventKey:`mining-swap-debit:${result.conversionId}`,category:"ledger_debit",priority:"normal"}),
       createNotification(userId,"Balance credited",`${result.destinationAmount} ${result.destinationAsset} was credited from mining conversion ${result.conversionId}.`,{eventKey:`mining-swap-credit:${result.conversionId}`,category:"ledger_credit",priority:"normal"})
     ]);
