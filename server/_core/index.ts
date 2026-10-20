@@ -45,6 +45,14 @@ async function startServer() {
   // Do not trust X-Forwarded-For unless the actual reverse-proxy hop count is configured.
   app.set("trust proxy", resolveTrustedProxyHops(process.env.TRUST_PROXY_HOPS));
   const server = createServer(app);
+  // Rate-limit support presign requests before JSON parsing so oversized request
+  // bodies cannot consume parser resources before the route limiter runs.
+  app.use((req, res, next) => {
+    if (req.method === "POST" && req.path === "/api/support/attachments/presign") {
+      return supportAttachmentPresignRateLimit(req, res, next);
+    }
+    return next();
+  });
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -128,7 +136,7 @@ async function startServer() {
   app.get("/api/platform/config.js", (_req, res) => {
     res.set("Cache-Control", "no-store").type("application/javascript").send(publicPlatformScript());
   });
-  app.post("/api/support/attachments/presign", supportAttachmentPresignRateLimit, async (req, res) => {
+  app.post("/api/support/attachments/presign", async (req, res) => {
     // Keep authentication failures separate from storage/provider failures. A
     // storage outage must never be reported as an invalid customer session.
     try {
