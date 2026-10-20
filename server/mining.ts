@@ -945,8 +945,13 @@ async function processConversionJob(conn: Db, jobId: number) {
       tokenName:config.tokenName,tokenSymbol:config.tokenSymbol,tokenUnitsPerUsd:config.tokenUnitsPerUsd,
     });
     await conn.execute(`UPDATE mining_conversion_jobs SET status='completed',conversionId=?,lastError=NULL,updatedAt=UTC_TIMESTAMP(3) WHERE id=?`,[conversion.conversionId,jobId]);
-    await createMiningNotification(conn,userId,"Automatic Mining conversion completed",`${conversion.sourceAmount} CKI was converted to ${conversion.destinationAmount} simulated ${targetAsset}. Reference ${conversion.receiptReference}.`,`mining-conversion:${conversion.receiptReference}`);
-    await conn.commit(); return "completed";
+    await conn.commit();
+    try {
+      await createNotification(userId,"Automatic Mining conversion completed",`${conversion.sourceAmount} CKI was converted to ${conversion.destinationAmount} simulated ${targetAsset}. Reference ${conversion.receiptReference}.`,{eventKey:`mining-conversion:${conversion.receiptReference}`,category:"mining",priority:"normal"});
+    } catch (notificationError) {
+      console.error("[Notifications] Automatic mining conversion notice failed after commit:",notificationError instanceof Error?notificationError.name:"UnknownError");
+    }
+    return "completed";
   } catch (error) {
     await conn.rollback();
     const message = error instanceof MiningError ? error.message : "Conversion could not be completed; the CKI balance was left unchanged";
