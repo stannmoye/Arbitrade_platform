@@ -17,17 +17,12 @@ describe("administrator wallet adjustment notification boundary", () => {
     expect(noticeAttempt).toBeGreaterThan(transactionEnd);
   });
 
-  it.each([
-    ["credit", "ledger_credit", "Wallet credited"],
-    ["debit", "ledger_debit", "Wallet debited"],
-  ] as const)("emits the matching %s category and title after commit", (mode, category, title) => {
-    expect(implementation).toContain(`input.mode==="credit"?"Wallet credited":"Wallet debited"`);
-    expect(implementation).toContain(`input.mode==="credit"?"ledger_credit":"ledger_debit"`);
-    expect(implementation).toContain(`category:input.mode==="credit"?"ledger_credit":"ledger_debit"`);
-    expect(implementation).toContain(`eventKey:` + "`wallet-adjustment:${result.ledgerReference}`");
-    expect(implementation).toContain("category:input.mode===");
-    expect(implementation).toContain(`entryType:` + "`admin_${input.mode}`");
-    expect({mode, category, title}).toEqual({mode, category, title});
+  it("uses the correct credit/debit title and ledger category with a stable ledger-reference key", () => {
+    expect(implementation).toContain('input.mode==="credit"?"Wallet credited":"Wallet debited"');
+    expect(implementation).toContain('input.mode==="credit"?"ledger_credit":"ledger_debit"');
+    expect(implementation).toContain('category:input.mode==="credit"?"ledger_credit":"ledger_debit"');
+    expect(implementation).toContain("eventKey:`wallet-adjustment:${result.ledgerReference}`");
+    expect(implementation).toContain('entryType:`admin_${input.mode}`');
   });
 
   it("keeps notice delivery best-effort and does not reverse a committed ledger adjustment", () => {
