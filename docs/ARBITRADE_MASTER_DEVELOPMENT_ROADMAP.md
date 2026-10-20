@@ -1343,3 +1343,31 @@ This section preserves the integration-branch roadmap updates while keeping the 
 
 Keep the newer Stage 2/Stage 3 source and roadmap history, retain the relevant integration-branch acceptance evidence above, and proceed with sandbox verification after the branch merge. This update does not claim that the hosted test or human accessibility sign-off has already passed.
 
+## Stage 4 implementation checkpoint — 2026-10-20 (active work)
+
+**Prompt cadence:** Prompt 1/30. Stage 4 remains in progress; do not merge, deploy, or mark complete on this checkpoint.
+
+### Delivered in this work batch
+- Central communications form supports either **all customers** or one selected customer, with a subject, message, category, priority, and optional internal link.
+- Customer bell previews show a category badge (including **Announcement**, **Ticket**, **Update**, **Deposit**, **Withdrawal**, **Mining reward**, **Trading reward**, **Balance credit**, and **Balance debit**) and use a validated internal notification link when present.
+- Added persisted administrator controls for independent category visibility. Disabling a category filters it out of the customer bell and unread badge while preserving the underlying notification record and transaction/reward processing.
+- Notification history remains available independently from bell visibility, so turning a category back on does not delete history. Bell seen-ID tracking observes all notification IDs to avoid replaying old sounds when a category is re-enabled.
+- Added unit coverage for supported notification categories, event-key scoping, bounded text, category filtering, preservation of source records, and unknown-category forward compatibility.
+- Admin balance adjustments now create categorized, event-keyed credit/debit notices after the ledger commit; notification failure is logged without converting a committed ledger adjustment into a failed API response.
+- Customer trade allocation, automatic allocation, and settlement paths emit idempotent trading and ledger-category notices after their confirmed application event paths.
+- Added responsive styles for category controls and badge labels.
+
+### Still outstanding
+- Inspect and fix exact-head type/test/build/installer failures. This session has not yet produced a verified workflow result for the new commits; no test pass is claimed.
+- Finish event integration at verified deposit/withdrawal, mining reward, mining swap, and account/security lifecycle boundaries, and confirm failed/pending/reversed operations never trigger success sounds.
+- Complete announcement persistence, scheduling/expiry, per-recipient delivery/read reporting, and broadcast audit history.
+- Verify five WAV assets are valid and browser playback works; complete customer sound opt-in/volume policy, sound previews, and no-repeat/reconnect behavior.
+- Complete ticket attachment/status/authorization coverage, live push transport with bounded polling fallback, and dashboard/theme/accessibility regression tests.
+- Verify migration 0054 against disposable MySQL and MariaDB schemas and validate the final release package. Do not apply migrations to the user's host from this branch.
+- Preserve Stage 1–3 and the user's host acceptance checkpoint. User-reported hosting acceptance is not a claim of independent hosted verification in this session.
+
+### Guardrails
+- Category preferences affect notification visibility only, never wallet, ledger, deposit, withdrawal, mining, or trading execution.
+- Financial notifications must follow the durable committed event; they must not substitute for ledger evidence.
+- Keep PR #95 Draft/Open/Unmerged until exact-head CI and remaining acceptance criteria are verified.
+
