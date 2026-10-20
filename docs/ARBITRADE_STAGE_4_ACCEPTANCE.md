@@ -21,7 +21,7 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - [ ] Provide one canonical customer communication workflow for announcements, platform updates/upgrades and promotions, with subject, message, category, priority, optional safe internal link and recipient selection.
 - [ ] Target exactly one selected customer or all customer accounts; reject invalid/non-customer recipients and enforce administrator authorization on the server.
 - [ ] Show the subject and correct category badge on the customer side.
-- [ ] Persist drafts/publishing history, scheduling/expiry where implemented, and delivery/read reporting; clearly distinguish published, delivered, read and failed states.
+- [ ] Persist drafts/publishing history, scheduling/expiry where implemented, and delivery/read reporting; clearly distinguish published, delivered, read and failed states, including partial broadcast counts and safe retries.
 - [ ] Do not turn message publishing into a financial operation.
 - [ ] Ensure announcements submitted from the agreed support/communications workflow reach the same notification pipeline; avoid maintaining unrelated duplicate publishing implementations.
 
@@ -99,3 +99,4 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - 2026-10-20: Added a sound-policy readiness guard so the customer bell does not play a category sound before the saved visibility policy has loaded.
 - 2026-10-20: Matched customer category-policy refresh to the five-second notification poll interval so admin visibility changes propagate promptly.
 - 2026-10-20: Split Mining activity from Mining reward and Trading activity from Trading reward so administrators can hide rewards independently and customers receive accurate badges.
+- 2026-10-20: Added partial broadcast delivery counts and same-event-key retries for unchanged drafts to avoid duplicate notices when a broadcast only partly succeeds.
