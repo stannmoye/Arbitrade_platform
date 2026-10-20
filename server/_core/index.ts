@@ -14,6 +14,7 @@ import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
 import { resolveTrustedProxyHops } from "./trustedProxy";
 import { isAllowedAttachmentRequest } from "./attachmentPolicy";
+import { getSafePresignedUploadUrl } from "../support-upload-security";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
 import { getTicketUploadPolicy } from "../db";
 import { ensureMarketDrivenOpportunities, refreshMarketData } from "../marketSync";
@@ -159,19 +160,14 @@ async function startServer() {
         console.error("[SupportAttachmentPresign] Storage provider rejected presign request", upstream.status);
         return res.status(502).json({ error: "Unable to prepare managed upload. Please retry." });
       }
-      let uploadUrl: URL;
-      try {
-        uploadUrl = new URL(payload.url);
-      } catch {
-        return res.status(502).json({ error: "Managed storage returned an invalid upload URL" });
+      // Presigned URLs are bearer credentials. Never send malformed, non-HTTPS,
+      // or credential-bearing URLs back to the customer's browser.
+      const safeUploadUrl = getSafePresignedUploadUrl(payload.url);
+      if (!safeUploadUrl) {
+        console.error("[SupportAttachmentPresign] Storage provider returned an invalid or unsafe upload URL");
+        return res.status(502).json({ error: "Managed storage returned an invalid or unsafe upload URL" });
       }
-      // A presigned URL is handed directly to the customer's browser. Require
-      // HTTPS and reject credential-bearing URLs before returning it.
-      if (uploadUrl.protocol !== "https:" || uploadUrl.username || uploadUrl.password) {
-        console.error("[SupportAttachmentPresign] Storage provider returned an unsafe upload URL");
-        return res.status(502).json({ error: "Managed storage returned an unsafe upload URL" });
-      }
-      return res.json({ uploadUrl: uploadUrl.toString(), storageKey: key, stableUrl: `/manus-storage/${key}` });
+      return res.json({ uploadUrl: safeUploadUrl, storageKey: key, stableUrl: `/manus-storage/${key}` });
     } catch (error) {
       // Avoid returning internal provider URLs, tokens, or exception details.
       console.error("[SupportAttachmentPresign] Unable to prepare upload", error instanceof Error ? error.message : "unknown error");
