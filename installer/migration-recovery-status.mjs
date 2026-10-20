@@ -26,6 +26,7 @@ const portalMigrationFiles = [
   "0051_advanced_auto_trading.sql",
   "0052_delivery_diagnostics.sql",
   "0053_manual_settlement_lifecycle.sql",
+  "0054_notification_event_idempotency.sql",
 ];
 let journal;
 try {
