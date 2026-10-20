@@ -18,6 +18,16 @@ describe("appearance settings normalization", () => {
     });
   });
 
+  it("keeps customer theme choice enabled even when a legacy policy saved it as disabled", () => {
+    const normalized = normalizeAppearanceSettings(JSON.stringify({
+      defaultTheme: "clean-light",
+      enabledThemes: ["clean-light", "aurora-modern"],
+      customerCanSelect: false,
+    }));
+    expect(normalized.customerCanSelect).toBe(true);
+    expect(normalized.enabledThemes).toEqual(["clean-light", "aurora-modern"]);
+  });
+
   it("preserves a valid default and normalizes enabled themes to canonical order", () => {
     expect(normalizeAppearanceSettings(JSON.stringify({
       defaultTheme: "emerald-finance",
