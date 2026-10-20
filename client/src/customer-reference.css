@@ -1486,3 +1486,18 @@
   .customer-portal .customer-quick-tile, .customer-portal .customer-investment-card,
   .customer-portal .customer-package-card { transition: none !important; }
 }
+
+
+/* Catch customer panels introduced by individual feature modules so they cannot
+   silently fall back to the legacy navy palette when a theme changes. */
+:root[data-arb-theme] .customer-portal .portal-main :where([class*="-card"], [class*="-panel"]) {
+  background-color: var(--arb-color-surface) !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(.customer-market-hero, .customer-resource-hero, .customer-hero-panel, .customer-console-panel, .customer-welcome-panel) {
+  background: radial-gradient(ellipse at 12% 0%, color-mix(in srgb, var(--arb-color-accent) 18%, transparent), transparent 48%),
+    linear-gradient(135deg, var(--arb-color-surface-raised), var(--arb-color-canvas)) !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+}
