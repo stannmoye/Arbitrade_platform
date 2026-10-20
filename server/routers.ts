@@ -18,6 +18,7 @@ import * as mining from "./mining";
 import * as miningAdmin from "./mining-admin";
 import { normalizeAppearanceSettings } from "./appearance-settings";
 import { buildTradeSettlementNotices } from "./modules/notification-events";
+import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -70,7 +71,7 @@ export const appRouter = router({
     ticketMessages: protectedProcedure.input(z.object({ ticketId: z.number().int().positive() })).query(async ({ ctx, input }) => { if (!(await getCustomerTicket(ctx.user.id,input.ticketId))) throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" }); return listTicketMessages(input.ticketId); }),
     replyTicket: protectedProcedure.input(z.object({ ticketId: z.number().int().positive(), body: z.string().trim().min(1).max(20000) })).mutation(async ({ ctx, input }) => { if (!(await getCustomerTicket(ctx.user.id,input.ticketId))) throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" }); await addTicketMessage(ctx.user.id,input.ticketId,input.body); return { success:true }; }),
     reopenTicket: protectedProcedure.input(z.object({ ticketId: z.number().int().positive() })).mutation(({ ctx, input }) => reopenSupportTicket(ctx.user.id,input.ticketId)),
-    addAttachment: protectedProcedure.input(z.object({ ticketId: z.number().int().positive(), fileName: z.string().max(255), mimeType: z.string().max(160), sizeBytes: z.number().int().positive().max(25_000_000), storageKey: z.string().max(512) })).mutation(({ ctx, input }) => addTicketAttachment(ctx.user.id, input)),
+    addAttachment: protectedProcedure.input(z.object({ ticketId: z.number().int().positive(), fileName: z.string().max(255), mimeType: z.string().max(160), sizeBytes: z.number().int().positive().max(25_000_000), storageKey: z.string().max(512) })).mutation(({ ctx, input }) => { if (!isValidSupportAttachmentStorageKey(input.storageKey)) throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid support attachment storage key" }); return addTicketAttachment(ctx.user.id, input); }),
     uploadPolicy: protectedProcedure.query(() => getTicketUploadPolicy()),
     balances: protectedProcedure.query(({ ctx }) => getCustomerBalanceSummary(ctx.user.id)),
     walletPreferences: protectedProcedure.query(({ ctx }) => getCustomerWalletPreferences(ctx.user.id)),
