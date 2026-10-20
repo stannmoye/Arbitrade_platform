@@ -42,31 +42,28 @@ A follow-up review found that storage-key scoping and persistence gating prevent
 
 ## Current-head CI validation
 
-The latest verified validation is workflow run [#595](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39344555095), associated with PR head `39aaff61c17d7b3b89a50f9209baa53c183bf2a9`. All four jobs completed successfully:
+The latest verified PR head is `1e218fe3dbb380e5258668e9b3eb8c15c2f996da`. Workflow [run #596](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39344814962) completed successfully with all four jobs passing:
 
 - Application and theme-policy regression tests: **passed**.
 - TypeScript validation: **passed**.
 - Production build: **passed**.
-- Chromium viewport and five-theme smoke matrix: **passed** — inspected the uploaded `report.json`: **1,174 checks passed, 0 failures** across the three entry/customer/admin routes, ten viewport widths (320–1920 px), and five themes.
-- Latest browser evidence artifact: [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39344555095/artifacts/12230820905) (52 files including the JSON report and screenshots; artifact inspected on 2026-10-20).
+- Chromium viewport and five-theme smoke matrix: **passed** — the downloaded `report.json` was independently inspected: **1,174 checks passed, 0 failures**, with no recorded page errors.
 
-This confirms the static-client browser matrix and automated CI on the documented head. It does not close the separately listed human keyboard/screen-reader and authenticated-staging acceptance gates.
+The browser matrix covers the gateway (`/`), customer (`/customer`), and admin (`/ops-console-7f3a`) routes; ten viewport widths (320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px); and five themes. The report contains 150 sampled semantic-token contrast checks per category and 150 rendered-text contrast samples (1,800 measured text instances in total). No sampled rendered-text cases fell below threshold; the lowest measured rendered-text ratio was 5.05:1.
 
-The prior fully inspected report from run #593 confirms 1,174/1,174 checks passed with no recorded failures. The report includes responsive checks at widths from 320 to 1920 pixels, theme-token contrast sampling, visible keyboard focus checks, admin appearance interaction checks, and screenshots for the entry, customer, and administrator routes.
-
-The lowest reported semantic-token contrast ratios across the five themes were:
+The lowest sampled semantic-token contrast ratios were:
 - Main text on canvas: **14.52:1**.
 - Main text on surface: **15.19:1**.
 - Soft text on canvas: **8.94:1**.
 - Muted text on canvas: **4.70:1**.
 - Focus ring on canvas: **5.64:1**.
 
-Those figures are from the report's sampled semantic token pairs, not a guarantee for every text element in every portal. The report explicitly notes that admin appearance interactions use mocked authentication/tRPC responses, live API authorization and persistence are not tested, and broader authenticated portal plus human screen-reader coverage remains outstanding. Selected mobile screenshots were reviewed as a preliminary visual check; this does not count as a complete human accessibility audit.
+These are sampled results, not a guarantee for every rendered element. The evidence artifact is [stage-2-browser-acceptance for run #596](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39344814962/artifacts/12230606501) (52 files, including the JSON report and screenshots; generated 2026-10-20). Selected mobile screenshots were also available for visual inspection.
 
 ## Code review notes
 
-Reviewed `ThemeContext.tsx`, `theme-storage.ts`, and `theme-storage.test.ts` at the latest recorded head. Role/account key isolation, storage-event filtering, customer allow-list revalidation, and the preference-readiness gate are present, with focused unit coverage. No additional source change was justified by this bounded review. This is not a substitute for testing account transitions against a live authenticated session.
+Reviewed `ThemeContext.tsx`, `theme-storage.ts`, and `theme-storage.test.ts` at the latest recorded head. Role/account key isolation, storage-event filtering, customer allow-list revalidation, and the preference-readiness gate are present, with focused unit coverage. The downloaded report was checked directly for totals, failed rows, page errors, route/theme/viewport coverage, and minimum sampled contrast values. No additional source change was justified by this bounded review. This is not a substitute for testing account transitions against a live authenticated session.
 
 ## External limitations
 
-No staging URL has been confirmed. Authenticated deployed-session acceptance is therefore still pending, as are human keyboard-only and screen-reader review. Keep those limitations separate from source-level and CI validation; do not claim deployment or production readiness until the remaining acceptance gates are addressed.
+The browser matrix uses a static client preview and mocked authentication/tRPC responses for some interactions. It does not prove live server authorization or database persistence. No staging URL or access has been confirmed. Human keyboard-only and screen-reader review, plus authenticated staging acceptance for authorization, persistence, and cross-account isolation, remain pending. Keep those limitations separate from source-level and CI validation; do not claim deployment or production readiness until the remaining acceptance gates are addressed.
