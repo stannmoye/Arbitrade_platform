@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const source = readFileSync(new URL("../mining.ts", import.meta.url), "utf8");
+const source = readFileSync(new URL("./mining.ts", import.meta.url), "utf8");
 const start = source.indexOf("export async function confirmCustomerMiningSwap(");
 const end = source.indexOf("function normalizeMiningHistoryDetails(", start);
 const swap = source.slice(start, end);
