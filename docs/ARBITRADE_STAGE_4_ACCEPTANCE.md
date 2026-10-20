@@ -62,6 +62,15 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - [ ] Verify the release ZIP is built from the verified source; do not deploy or apply migrations to the user's production host/database from this PR.
 - [ ] Record known limitations and honest evidence; CI passing alone is not hosted acceptance.
 
+## Exact-head validation evidence (2026-10-20)
+
+The current Stage 4 head `f2074c1fbdc3fb27542385c0eb214fde8f534a5c` completed 14 GitHub check runs successfully. Evidence:
+- [Stage 4 theme/browser validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39467773168): application/theme regression tests, TypeScript validation, Chromium viewport/five-theme smoke matrix, and production build all passed.
+- [Installer validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39467773125): application unit tests, TypeScript validation, installer/migration regression tests, fresh MariaDB, MySQL 8 compatibility/recovery, production build/bundle budgets/server smoke test, and deployment ZIP validation all passed.
+- [Mining database regression checks](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39467773109): MySQL/MariaDB mining idempotency transaction tests and TypeScript validation passed.
+
+These are CI checks on the feature branch, not a production-host acceptance test. They do not close the remaining event-coverage, announcement lifecycle, real-browser audio behavior, ticket attachment/authorization, push-transport, accessibility, or release-ZIP acceptance gaps below.
+
 ## Current branch evidence and known gaps (2026-10-20)
 
 ### Implemented in the current draft, pending exact-head verification
@@ -80,7 +89,7 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - Follow-up fix: Mining package/boost/swap/conversion notices now use the `mining` category and stable recipient-scoped event keys; unit tests cover category metadata, idempotency SQL, and input validation.
 
 ### Remaining before Stage 4 can be called complete
-- [ ] Run exact-head checks and review CI status after the latest commits.
+- [x] Run exact-head checks and review CI status after the latest commits (14 check runs passed on `f2074c1fbdc3fb27542385c0eb214fde8f534a5c`; see evidence below).
 - [ ] Exercise migration 0054 with disposable MySQL 8 and MariaDB schemas, including rerun/idempotency and tracked recovery behavior.
 - [ ] Verify all real event sources for deposit, withdrawal, ledger credit/debit, mining, swap, trading and account/security lifecycle; coverage is currently incomplete.
 - [ ] Verify sound configuration end-to-end, including event mapping, actual browser playback, preferences, autoplay handling and reconnect deduplication.
