@@ -52,7 +52,7 @@ describe("support attachment request validation", () => {
       policy,
     )).toBe(false);
     expect(isAllowedAttachmentRequest(
-      { fileName: "report\\n.pdf", mimeType: "application/pdf", sizeBytes: 1000 },
+      { fileName: "report\n.pdf", mimeType: "application/pdf", sizeBytes: 1000 },
       policy,
     )).toBe(false);
   });
