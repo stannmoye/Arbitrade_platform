@@ -70,6 +70,7 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - Recipient-scoped event keys and text validation helper with unit tests.
 - Admin announcement/promotion/platform-update composer with one-customer/all-customer targeting and category visibility controls.
 - Ticket creation/reply notifications using keyed events.
+- Ticket creation now also creates a customer-facing Ticket badge with the ticket number and subject; notification enqueue failures no longer turn an already-persisted ticket into an apparent failed submission.
 - Customer and admin ticket desks now expose an explicit reopen action for closed tickets; the server verifies ticket ownership/administrator role and emits idempotent support notifications after the status change.
 - Some trade allocation/manual settlement event notifications.
 - Five bundled WAV files and administrator sound policy fields.
