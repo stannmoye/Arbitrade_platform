@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, NOTIFICATION_CATEGORIES, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText } from "./notification-events";
 
+describe("admin broadcast recipient validation", () => {
+  it("distinguishes a valid single-customer target from an explicit all-customer broadcast", () => {
+    expect(normalizeBroadcastTargetUserId(undefined)).toBeNull();
+    expect(normalizeBroadcastTargetUserId(null)).toBeNull();
+    expect(normalizeBroadcastTargetUserId(42)).toBe(42);
+  });
+
+  it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects invalid customer target %s instead of broadening the broadcast",
+    target => expect(() => normalizeBroadcastTargetUserId(target)).toThrow(RangeError),
+  );
+});
+
 describe("notification event identity", () => {
   it("scopes event keys to the recipient", () => {
     expect(buildNotificationEventKey(12, "ledger:123")).toBe("u12:ledger:123");
