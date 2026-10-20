@@ -70,6 +70,7 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - Recipient-scoped event keys and text validation helper with unit tests.
 - Admin announcement/promotion/platform-update composer with one-customer/all-customer targeting and category visibility controls.
 - Ticket creation/reply notifications using keyed events.
+- Customer and admin ticket desks now expose an explicit reopen action for closed tickets; the server verifies ticket ownership/administrator role and emits idempotent support notifications after the status change.
 - Some trade allocation/manual settlement event notifications.
 - Five bundled WAV files and administrator sound policy fields.
 - Follow-up fix: customer notification API now applies the server-side category visibility policy, so disabled categories are hidden consistently in customer bell/inbox results.
@@ -93,3 +94,4 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - 2026-10-20: Updated the customer notification router to enforce category visibility server-side.
 - 2026-10-20: Updated customer header sound handling to use the persisted admin sound policy and respect local customer opt-in.
 - 2026-10-20: Added category badges and responsive states to the full customer inbox, and made Mining activity notices category-aware and idempotent with focused tests.
+- 2026-10-20: Added authorized ticket reopening on both portals with status-change notifications; deposit/withdrawal events remain gated on verified provider lifecycle records.
