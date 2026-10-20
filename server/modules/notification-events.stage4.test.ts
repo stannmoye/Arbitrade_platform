@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildNotificationEventKey,
   filterNotificationCategories,
+  filterVisibleNotificationEventCursor,
   normalizeBroadcastTargetUserId,
   normalizeNotificationHref,
   normalizeNotificationText,
@@ -66,6 +67,16 @@ describe("Stage 4 notification safety and delivery helpers", () => {
     expect(partitionNotificationRecipients([], 2)).toEqual([]);
     expect(() => partitionNotificationRecipients([1], 0)).toThrow(RangeError);
     expect(() => partitionNotificationRecipients([1], 501)).toThrow(RangeError);
+  });
+
+  it("applies category visibility to sound cursors before they reach customer sessions", () => {
+    const rows = [
+      { id: 10, category: "deposit", readAt: null },
+      { id: 11, category: "announcement", readAt: null },
+      { id: 12, category: "future_category", readAt: null },
+    ];
+    expect(filterVisibleNotificationEventCursor(rows, { deposit: false }))
+      .toEqual([rows[1], rows[2]]);
   });
 
   it("filters disabled categories but leaves unknown future categories visible", () => {
