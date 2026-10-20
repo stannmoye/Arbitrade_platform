@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ThemeSelector } from "@/components/ThemeSelector";
 import {
   Activity, ArrowDownUp, BarChart3, BookMarked, BookOpen, CircleHelp, Coins, Cpu, FileText,
   Headphones, Home, Library, LockKeyhole, Map, Menu, Newspaper, Scale, Search, ShieldAlert,
@@ -115,12 +116,14 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
   };
 
   return <div className={`admin-slide-layer customer-slide-layer arb-page${open ? " is-open" : ""}`}>
+    <div className="customer-theme-sidebar-control" aria-label="Change customer workspace theme"><ThemeSelector compact ariaLabel="Change theme from left navigation" /></div>
     <button ref={triggerRef} className="admin-slide-trigger customer-slide-trigger customer-resource-peek-trigger" type="button" aria-label={open ? "Close customer navigation" : "Open customer navigation"} title={open ? "Close customer navigation" : "Open customer navigation"} aria-controls="customer-navigation-drawer" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setOpen(true)}><span className="customer-resource-bulb" aria-hidden="true"><Menu size={24} strokeWidth={1.9} /></span><span className="customer-resource-bulb-label">MENU</span><span className="admin-slide-trigger-led" /></button>
     <button className="admin-slide-backdrop" type="button" aria-label="Close customer navigation" tabIndex={open ? 0 : -1} onClick={close} />
     <aside id="customer-navigation-drawer" ref={menuRef} className="admin-slide-drawer customer-slide-drawer" aria-label="Customer navigation and resources" aria-hidden={!open} role="dialog" aria-modal={open}>
       <div className="admin-slide-drawer-topline"><span><i /> CUSTOMER COMMAND PANEL</span><span className="admin-slide-count">MAIN MENU</span></div>
       <div className="admin-slide-heading"><div className="admin-slide-mark"><img src="/arbitrade-mark.svg" alt="" /></div><div className="admin-slide-title"><span>CUSTOMER WORKSPACE</span><h2>Navigation &amp; resources</h2></div><button className="admin-slide-close" type="button" onClick={close} aria-label="Close customer navigation" tabIndex={open ? 0 : -1}><X size={17} /></button></div>
       <div className="admin-slide-current"><span className="admin-slide-current-icon"><Activity size={15} /></span><span><small>YOU ARE IN</small><strong>{activeLabel}</strong></span><span className="admin-slide-current-dot" /></div>
+      <div className="customer-slide-theme-control" aria-label="Customer appearance preferences"><ThemeSelector compact readOnly={!open} ariaLabel="Change theme from customer menu" /></div>
       <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search pages and resources" aria-label="Search customer pages and resources" tabIndex={open ? 0 : -1} /></div>
       <nav className="admin-slide-nav quick-actions-nav customer-resource-nav" aria-label="Customer pages and resources">
         {filteredGroups.map((group) => <section className="admin-slide-group customer-resource-group" key={group.label}><div className="admin-slide-group-title"><span>{group.label}</span><small>{group.detail}</small><i /></div><div className="admin-slide-items">{group.items.map(renderItem)}</div></section>)}

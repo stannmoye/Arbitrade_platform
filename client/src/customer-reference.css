@@ -1364,3 +1364,141 @@
   .customer-portal .customer-console-launch,
   .customer-console-launch.is-active .customer-console-launch-copy small i { transition: none; animation: none; }
 }
+
+
+/* Stage 3.1 customer visual-system bridge.
+   Replace legacy hard-coded navy/teal panels with the active semantic theme tokens,
+   so every customer surface follows the same palette as the sidebar and page canvas. */
+:root[data-arb-theme] .customer-portal {
+  background: var(--arb-color-canvas) !important;
+  color: var(--arb-color-text) !important;
+  --customer-panel-shadow: 0 16px 38px color-mix(in srgb, var(--arb-color-canvas) 76%, #000 24%);
+}
+:root[data-arb-theme] .customer-portal .portal-header {
+  background: color-mix(in srgb, var(--arb-color-surface) 94%, transparent) !important;
+  border-bottom-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--arb-color-canvas) 80%, #000 20%) !important;
+  backdrop-filter: blur(22px) saturate(1.25) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-header .brand-lockup strong,
+:root[data-arb-theme] .customer-portal .portal-header .customer-header-name,
+:root[data-arb-theme] .customer-portal .portal-session,
+:root[data-arb-theme] .customer-portal .customer-header-profile { color: var(--arb-color-text) !important; }
+:root[data-arb-theme] .customer-portal .portal-header .brand-lockup span,
+:root[data-arb-theme] .customer-portal .portal-header-context,
+:root[data-arb-theme] .customer-portal .customer-header-name small { color: var(--arb-color-text-muted) !important; }
+:root[data-arb-theme] .customer-portal .customer-primary-rail {
+  background: linear-gradient(180deg, var(--arb-color-surface), var(--arb-color-canvas)) !important;
+  border-right-color: var(--arb-color-border) !important; color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal .customer-rail-brand-note,
+:root[data-arb-theme] .customer-portal .customer-rail-promo,
+:root[data-arb-theme] .customer-portal .customer-rail-group button.active {
+  background: color-mix(in srgb, var(--arb-color-accent) 10%, var(--arb-color-surface)) !important;
+  border-color: color-mix(in srgb, var(--arb-color-accent) 28%, var(--arb-color-border)) !important;
+  color: var(--arb-color-text) !important;
+  box-shadow: inset 3px 0 var(--arb-color-accent), 0 10px 24px color-mix(in srgb, var(--arb-color-canvas) 84%, #000 16%) !important;
+}
+:root[data-arb-theme] .customer-portal .customer-rail-brand-note > svg,
+:root[data-arb-theme] .customer-portal .customer-rail-group-heading span,
+:root[data-arb-theme] .customer-portal .customer-primary-rail nav button.active svg { color: var(--arb-color-accent) !important; }
+:root[data-arb-theme] .customer-portal .customer-rail-brand-note span,
+:root[data-arb-theme] .customer-portal .customer-rail-group-heading small { color: var(--arb-color-text-muted) !important; }
+:root[data-arb-theme] .customer-portal .customer-primary-rail nav button { color: var(--arb-color-text-soft) !important; border-color: transparent !important; }
+:root[data-arb-theme] .customer-portal .customer-primary-rail nav button:hover,
+:root[data-arb-theme] .customer-portal .customer-primary-rail nav button:focus-visible {
+  background: color-mix(in srgb, var(--arb-color-accent) 9%, var(--arb-color-surface)) !important;
+  border-color: color-mix(in srgb, var(--arb-color-accent) 24%, var(--arb-color-border)) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main { background: var(--arb-color-canvas) !important; color: var(--arb-color-text) !important; }
+:root[data-arb-theme] .customer-portal .portal-page,
+:root[data-arb-theme] .customer-portal .customer-top-wallet-band,
+:root[data-arb-theme] .customer-portal .customer-trade-progress,
+:root[data-arb-theme] .customer-portal .customer-workspace-card,
+:root[data-arb-theme] .customer-portal .customer-ledger-panel,
+:root[data-arb-theme] .customer-portal .settings-card,
+:root[data-arb-theme] .customer-portal .preference-card,
+:root[data-arb-theme] .customer-portal .preference-hero,
+:root[data-arb-theme] .customer-portal .customer-wallet-panel,
+:root[data-arb-theme] .customer-portal .customer-activity-panel,
+:root[data-arb-theme] .customer-portal .customer-resource-card,
+:root[data-arb-theme] .customer-portal .customer-intelligence-card,
+:root[data-arb-theme] .customer-portal .customer-support-card,
+:root[data-arb-theme] .customer-portal .customer-account-card {
+  background: var(--arb-color-surface) !important; background-image: none !important;
+  border-color: var(--arb-color-border) !important; color: var(--arb-color-text) !important;
+  box-shadow: var(--customer-panel-shadow), inset 0 1px color-mix(in srgb, var(--arb-color-text) 4%, transparent) !important;
+}
+:root[data-arb-theme] .customer-portal .customer-balance-card,
+:root[data-arb-theme] .customer-portal .customer-balance-trigger,
+:root[data-arb-theme] .customer-portal .customer-quick-tile,
+:root[data-arb-theme] .customer-portal .customer-investment-card,
+:root[data-arb-theme] .customer-portal .customer-package-card,
+:root[data-arb-theme] .customer-portal .customer-opportunity,
+:root[data-arb-theme] .customer-portal .report-card,
+:root[data-arb-theme] .customer-portal .connector-card,
+:root[data-arb-theme] .customer-portal .customer-metric-grid > div,
+:root[data-arb-theme] .customer-portal .customer-workspace-categories button,
+:root[data-arb-theme] .customer-portal .customer-quick-actions button {
+  background: var(--arb-color-surface) !important; background-image: none !important;
+  border-color: var(--arb-color-border) !important; color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal .customer-balance-trigger:hover,
+:root[data-arb-theme] .customer-portal .customer-quick-tile:hover,
+:root[data-arb-theme] .customer-portal .customer-investment-card:hover,
+:root[data-arb-theme] .customer-portal .customer-package-card:hover,
+:root[data-arb-theme] .customer-portal .customer-opportunity:hover,
+:root[data-arb-theme] .customer-portal .customer-workspace-categories button:hover {
+  border-color: var(--arb-color-accent) !important; background: var(--arb-color-surface-raised) !important;
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--arb-color-canvas) 76%, #000 24%), 0 0 0 1px color-mix(in srgb, var(--arb-color-accent) 18%, transparent) !important;
+}
+:root[data-arb-theme] .customer-portal :where(h1,h2,h3,h4,strong,b,label,th,.customer-ledger-heading h2,.customer-hero-copy h1) { color: var(--arb-color-text) !important; }
+:root[data-arb-theme] .customer-portal :where(p,small,.eyebrow,.customer-ledger-heading p,.customer-hero-copy p,.customer-balance-name small,.customer-balance-note,.customer-resource-card p) { color: var(--arb-color-text-muted) !important; }
+:root[data-arb-theme] .customer-portal :where(input,textarea,select) {
+  background-color: var(--arb-color-surface-raised) !important; border-color: var(--arb-color-border) !important; color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal :where(button,a,[role="button"],input,select,textarea):focus-visible { outline-color: var(--arb-focus-ring) !important; outline-offset: 3px; }
+:root[data-arb-theme="clean-light"] .customer-portal .customer-market-hero,
+:root[data-arb-theme="clean-light"] .customer-portal .customer-hero-panel,
+:root[data-arb-theme="clean-light"] .customer-portal .customer-console-panel {
+  background: linear-gradient(135deg, #ffffff, #edf2f8) !important; border-color: var(--arb-color-border) !important; color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal .customer-primary-menu-scrim { background: color-mix(in srgb, var(--arb-color-canvas) 72%, transparent) !important; backdrop-filter: blur(5px); }
+:root[data-arb-theme] .customer-portal .admin-slide-drawer {
+  background: var(--arb-color-surface) !important; border-left-color: var(--arb-color-border) !important; color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal .admin-slide-drawer-topline,
+:root[data-arb-theme] .customer-portal .admin-slide-current,
+:root[data-arb-theme] .customer-portal .admin-slide-item {
+  border-color: var(--arb-color-border) !important; background-color: var(--arb-color-surface-raised) !important; color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal .admin-slide-item:hover,
+:root[data-arb-theme] .customer-portal .admin-slide-item.is-active {
+  border-color: var(--arb-color-accent) !important;
+  background: color-mix(in srgb, var(--arb-color-accent) 12%, var(--arb-color-surface-raised)) !important;
+}
+:root[data-arb-theme] .customer-portal .customer-toast {
+  background: var(--arb-color-surface-raised) !important; border-color: var(--arb-color-border) !important; color: var(--arb-color-text) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .customer-portal .arb-theme-selector-trigger, .customer-portal .customer-primary-rail nav button,
+  .customer-portal .customer-quick-tile, .customer-portal .customer-investment-card,
+  .customer-portal .customer-package-card { transition: none !important; }
+}
+
+
+/* Catch customer panels introduced by individual feature modules so they cannot
+   silently fall back to the legacy navy palette when a theme changes. */
+:root[data-arb-theme] .customer-portal .portal-main :where([class*="-card"], [class*="-panel"]) {
+  background: var(--arb-color-surface) !important;
+  background-image: none !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(.customer-market-hero, .customer-resource-hero, .customer-hero-panel, .customer-console-panel, .customer-welcome-panel) {
+  background: radial-gradient(ellipse at 12% 0%, color-mix(in srgb, var(--arb-color-accent) 18%, transparent), transparent 48%),
+    linear-gradient(135deg, var(--arb-color-surface-raised), var(--arb-color-canvas)) !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+}
