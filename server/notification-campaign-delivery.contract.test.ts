@@ -7,6 +7,8 @@ const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "u
 const migration = readFileSync(new URL("../drizzle/0055_notification_campaign_delivery_tracking.sql", import.meta.url), "utf8");
 const runner = readFileSync(new URL("../scripts/apply-portal-migrations.mjs", import.meta.url), "utf8");
 const recovery = readFileSync(new URL("../installer/migration-recovery-status.mjs", import.meta.url), "utf8");
+const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+const core = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
 
 describe("Stage 4 announcement campaign delivery persistence", () => {
   it("stores campaigns and per-recipient delivery state with unique campaign-recipient identity", () => {
@@ -17,6 +19,7 @@ describe("Stage 4 announcement campaign delivery persistence", () => {
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS `notification_campaign_deliveries`");
     expect(migration).toContain("UNIQUE KEY `notification_campaign_creator_event_uq`");
     expect(migration).toContain("UNIQUE KEY `notification_campaign_delivery_recipient_uq`");
+    expect(migration).toContain("enum('draft','scheduled','published','expired','failed')");
   });
 
   it("rejects conflicting campaign payload retries and records delivery failures separately", () => {
@@ -24,6 +27,8 @@ describe("Stage 4 announcement campaign delivery persistence", () => {
     expect(db).toContain('errorCode:"DELIVERY_FAILED"');
     expect(db).toContain('status:"failed"');
     expect(db).toContain("partitionNotificationRecipients(recipients,50)");
+    expect(db).toContain("processNotificationCampaignLifecycle");
+    expect(db).toContain("Expired announcement campaigns cannot be republished");
   });
 
   it("exposes bounded campaign history and synchronizes read receipts by recipient", () => {
@@ -31,6 +36,11 @@ describe("Stage 4 announcement campaign delivery persistence", () => {
     expect(db).toContain("export async function listAdminNotificationCampaigns()");
     expect(db).toContain('eq(notificationCampaignDeliveries.userId,userId)');
     expect(db).toContain('set({status:"read",readAt:new Date()})');
+    expect(router).toContain("retryAnnouncement: adminProcedure.input");
+    expect(app).toContain("trpc.adminOperations.announcementHistory.useQuery");
+    expect(app).toContain("Retry failed deliveries");
+    expect(app).toContain('type="datetime-local"');
+    expect(core).toContain("processNotificationCampaignLifecycle");
   });
 
   it("registers the forward-only migration in both normal and recovery tooling", () => {
