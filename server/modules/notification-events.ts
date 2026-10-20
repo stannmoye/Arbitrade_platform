@@ -35,6 +35,15 @@ export function buildNotificationEventKey(userId: number, eventKey?: string | nu
   return scoped;
 }
 
+/** Normalize optional admin broadcast targeting without treating invalid IDs as "all customers". */
+export function normalizeBroadcastTargetUserId(value: number | null | undefined): number | null {
+  if (value == null) return null;
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new RangeError("Broadcast target must be a positive integer customer ID");
+  }
+  return value;
+}
+
 export function normalizeNotificationText(value: string, maxLength: number, field: string): string {
   const normalized = value.trim();
   if (!normalized) throw new TypeError(`Notification ${field} cannot be empty`);
