@@ -5,6 +5,7 @@ const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf
 const server = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
 const uploadSecurity = readFileSync(new URL("./support-upload-security.ts", import.meta.url), "utf8");
 const routers = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
+const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 
 const supportStart = app.indexOf("function CustomerSupportCenter(");
 const supportEnd = app.indexOf("\nfunction ", supportStart + 10);
@@ -66,6 +67,16 @@ describe("Stage 4 support ticket submission security contract", () => {
     expect(adminReply).toContain('throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" })');
     expect(adminReply).not.toContain("await createNotification(");
     expect(routers).toContain('throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" })');
+  });
+
+  it("keeps reply persistence serialized and rejects customer replies to closed tickets", () => {
+    const start = database.indexOf("export async function addTicketMessage");
+    const end = database.indexOf("export async function reopenSupportTicket", start);
+    const lifecycle = database.slice(start, end);
+    expect(lifecycle).toContain(".for(\"update\")");
+    expect(lifecycle).toContain("if(!isAdmin && ticket.status===\"closed\")");
+    expect(lifecycle).toContain("const committed=await db.transaction(async tx=>");
+    expect(lifecycle).toContain("support-ticket:${ticketId}:message:${committed.messageId}");
   });
 
 });
