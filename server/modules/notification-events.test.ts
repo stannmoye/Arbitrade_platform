@@ -29,7 +29,7 @@ describe("notification category visibility", () => {
   it("covers the customer-facing event types independently", () => {
     expect(NOTIFICATION_CATEGORIES).toEqual(expect.arrayContaining([
       "announcement", "support", "platform_update", "promotion", "deposit",
-      "withdrawal", "ledger_credit", "ledger_debit", "mining", "trading",
+      "withdrawal", "ledger_credit", "ledger_debit", "mining", "mining_reward", "trading", "trading_reward",
     ]));
     expect(new Set(NOTIFICATION_CATEGORIES).size).toBe(NOTIFICATION_CATEGORIES.length);
   });
