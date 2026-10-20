@@ -12,7 +12,7 @@ import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
-import { buildNotificationEventKey, filterNotificationCategories, normalizeNotificationText, NOTIFICATION_CATEGORIES, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
+import { buildNotificationEventKey, filterNotificationCategories, normalizeNotificationHref, normalizeNotificationText, NOTIFICATION_CATEGORIES, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
@@ -286,7 +286,7 @@ export async function createNotification(userId:number,title:string,body:string,
   const safeTitle=normalizeNotificationText(title,200,"title");
   const safeBody=normalizeNotificationText(body,10000,"body");
   const eventKey=buildNotificationEventKey(userId,options.eventKey);
-  const values={userId,title:safeTitle,body:safeBody,eventKey,category:options.category||"account",priority:options.priority||"normal",href:options.href?.trim()||null};
+  const href=normalizeNotificationHref(options.href);\n  const values={userId,title:safeTitle,body:safeBody,eventKey,category:options.category||"account",priority:options.priority||"normal",href};
   let notificationId=0;
   if(eventKey){
     const inserted=await db.insert(customerNotifications).values(values).onDuplicateKeyUpdate({set:{eventKey}});
