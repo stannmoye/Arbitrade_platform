@@ -88,6 +88,7 @@ export const appRouter = router({
     settle: protectedProcedure.input(z.object({ tradeId: z.number().int().positive() })).mutation(async () => { throw new TRPCError({ code: "FORBIDDEN", message: "Settlement is performed manually by an administrator after the external payment is confirmed." }); }),
     notifications: protectedProcedure.query(({ ctx }) => listCustomerNotifications(ctx.user.id)),
     notificationCategoryVisibility: protectedProcedure.query(() => getNotificationCategoryVisibility()),
+    notificationEventCursor: protectedProcedure.query(async ({ ctx }) => (await listNotifications(ctx.user.id)).map(({id,category,readAt})=>({id,category,readAt})),
     markNotificationsRead: protectedProcedure.input(z.object({ id: z.number().int().positive().optional() }).optional()).mutation(({ ctx, input }) => markCustomerNotificationsRead(ctx.user.id, input?.id)),
     emailPreferences: protectedProcedure.query(({ ctx }) => getCustomerEmailPreferences(ctx.user.id)),
     updateEmailPreferences: protectedProcedure.input(z.object({ dailyTradingReports: z.boolean().optional(), systemAlerts: z.boolean().optional(), transactionAlerts: z.boolean().optional(), adminMessages: z.boolean().optional() })).mutation(({ ctx, input }) => updateCustomerEmailPreferences(ctx.user.id, input)),
