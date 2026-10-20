@@ -42,9 +42,9 @@ describe("Stage 4 notification safety and delivery helpers", () => {
   });
 
   it("allows multiline support replies while keeping ticket subjects single-line", () => {
-    expect(normalizeNotificationText("  First paragraph\\r\\nSecond paragraph  ", 20000, "ticket message"))
-      .toBe("First paragraph\\nSecond paragraph");
-    expect(() => normalizeNotificationText("Subject\\nforged", 200, "ticket subject")).toThrow(/single line/);
+    expect(normalizeNotificationText("  First paragraph\r\nSecond paragraph  ", 20000, "ticket message"))
+      .toBe("First paragraph\nSecond paragraph");
+    expect(() => normalizeNotificationText("Subject\nforged", 200, "ticket subject")).toThrow(/single line/);
   });
 
   it("rejects non-text runtime values and invalid length bounds", () => {
