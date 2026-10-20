@@ -574,11 +574,27 @@ export async function provisionSignupCredit(userId:number) {
   const currency=(await getAppSetting("signup.autoCreditCurrency")) || "USD";
   if(!Number.isFinite(amount) || amount<=0) return;
   const existing=await db.select().from(balanceLedger).where(and(eq(balanceLedger.userId,userId),eq(balanceLedger.entryType,"signup_credit"))).limit(1);
-  if(existing[0]) return;
+  // Retry the notice on repeated provisioning calls if the ledger write succeeded
+  // but notification persistence failed on the first attempt. The stable event key
+  // makes this safe when the notification already exists.
+  const notifySignupCredit=async(creditedAmount:number,creditedCurrency:string)=>{
+    try {
+      await createNotification(userId,"Signup credit added",`A signup credit of ${creditedAmount} minor units was added to your ${creditedCurrency} wallet. This credit is not withdrawable.`,{
+        eventKey:`signup-credit:${userId}`,category:"ledger_credit",priority:"normal",
+      });
+    } catch(error) {
+      console.error("[Notifications] Signup credit notice failed after ledger persistence:",error instanceof Error?error.name:"UnknownError");
+    }
+  };
+  if(existing[0]) {
+    await notifySignupCredit(Number(existing[0].amountMinor),String(existing[0].currency));
+    return;
+  }
   const balance=(await db.select().from(customerBalances).where(and(eq(customerBalances.userId,userId),eq(customerBalances.currency,currency))).limit(1))[0];
   if(balance) await db.update(customerBalances).set({availableMinor:balance.availableMinor+amount,promotionalMinor:balance.promotionalMinor+amount}).where(eq(customerBalances.id,balance.id));
   else await db.insert(customerBalances).values({userId,currency,availableMinor:amount,promotionalMinor:amount,earnedMinor:0});
   await db.insert(balanceLedger).values({userId,currency,amountMinor:amount,entryType:"signup_credit",reference:`signup-${userId}`,withdrawable:false});
+  await notifySignupCredit(amount,currency);
 }
 const defaultCurrencies=[{code:"USD",name:"US Dollar",symbol:"$",scale:2,assetType:"fiat" as const,usdRate:"1",rateProvider:"manual",externalCode:"USD",enabled:true},{code:"EUR",name:"Euro",symbol:"€",scale:2,assetType:"fiat" as const,usdRate:"1.08",rateProvider:"manual",externalCode:"EUR",enabled:true},{code:"GBP",name:"British Pound",symbol:"£",scale:2,assetType:"fiat" as const,usdRate:"1.27",rateProvider:"manual",externalCode:"GBP",enabled:true},{code:"BTC",name:"Bitcoin",symbol:"₿",scale:8,assetType:"crypto" as const,usdRate:"65000",rateProvider:"manual",externalCode:"BTC",enabled:true},{code:"ETH",name:"Ethereum",symbol:"Ξ",scale:8,assetType:"crypto" as const,usdRate:"3500",rateProvider:"manual",externalCode:"ETH",enabled:true}];
 export async function listCurrencies(){const db=await getDb();if(!db)throw new Error("Database is not available");let rows=await db.select().from(currencyRegistry).where(eq(currencyRegistry.enabled,true));if(!rows.length){for(const c of defaultCurrencies)await db.insert(currencyRegistry).values(c).onDuplicateKeyUpdate({set:{name:c.name,symbol:c.symbol,scale:c.scale,usdRate:c.usdRate}});rows=await db.select().from(currencyRegistry).where(eq(currencyRegistry.enabled,true));}return rows;}
