@@ -226,7 +226,7 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(adminAppearance).toContain("aria-pressed={theme === option}");
     expect(adminAppearance).toContain("<fieldset className=\"arb-appearance-theme-fieldset\">");
     expect(adminAppearance).toContain("<legend>Available customer themes</legend>");
-    expect(themeSelector).toContain('aria-label="Appearance settings"');
+    expect(themeSelector).toContain('ariaLabel ?? (compact ? "Change workspace theme" : "Appearance settings")');
     expect(themeSelector).toContain('aria-live={policyFailed ? "assertive" : "polite"}');
     expect(themeSelector).toContain('aria-label={`Current theme: ${ARBITRADE_THEME_LABELS[selectedTheme]}`}');
   });
