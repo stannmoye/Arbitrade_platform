@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const server = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
 const uploadSecurity = readFileSync(new URL("./support-upload-security.ts", import.meta.url), "utf8");
+const routers = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 
 const supportStart = app.indexOf("function CustomerSupportCenter(");
 const supportEnd = app.indexOf("\nfunction ", supportStart + 10);
@@ -52,4 +53,15 @@ describe("Stage 4 support ticket submission security contract", () => {
     expect(presign).toContain('error: "Unable to prepare managed upload. Please retry."');
     expect(presign).not.toContain("payload.error ||");
   });
+  it("keeps ticket reply failures safe and avoids a second admin reply notification", () => {
+    expect(support).toContain("Your reply could not be confirmed. Refresh this ticket before retrying to avoid sending a duplicate.");
+    expect(support).toContain("This ticket could not be reopened. Refresh the inbox and try again.");
+    const adminStart = routers.indexOf("replyTicket: adminProcedure");
+    const adminEnd = routers.indexOf("reopenTicket: adminProcedure", adminStart);
+    const adminReply = routers.slice(adminStart, adminEnd);
+    expect(adminReply).toContain("await addTicketMessage(ctx.user.id,input.ticketId,input.body,input.status)");
+    expect(adminReply).not.toContain("await createNotification(");
+    expect(routers).toContain('throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" })');
+  });
+
 });
