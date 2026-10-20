@@ -129,7 +129,7 @@ export const notificationCampaigns = mysqlTable("notification_campaigns", {
   priority: varchar("priority", { length: 20 }).notNull(),
   href: varchar("href", { length: 512 }),
   targetUserId: int("targetUserId"),
-  status: mysqlEnum("status", ["draft", "published", "expired", "failed"]).default("draft").notNull(),
+  status: mysqlEnum("status", ["draft", "scheduled", "published", "expired", "failed"]).default("draft").notNull(),
   scheduledAt: timestamp("scheduledAt"),
   expiresAt: timestamp("expiresAt"),
   publishedAt: timestamp("publishedAt"),
