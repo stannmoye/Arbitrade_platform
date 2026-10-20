@@ -55,7 +55,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           version="$(tr -d '\r\n' < INSTALLER-VERSION.txt)"
-          if [[ "$version" != "2.0.0-stage3-sandbox.4" ]]; then
+          if [[ "$version" != "2.0.0-stage3-sandbox.5" ]]; then
             echo "Unexpected installer version: $version" >&2
             exit 1
           fi
@@ -217,8 +217,8 @@ jobs:
       - name: Upload versioned installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: arbitrade-installer-v2.0.0-stage3-sandbox.4
-          path: ${{ runner.temp }}/arbitrade-installer-artifacts/arbitrade-installer-v2.0.0-stage3-sandbox.4.zip
+          name: arbitrade-installer-v2.0.0-stage3-sandbox.5
+          path: ${{ runner.temp }}/arbitrade-installer-artifacts/arbitrade-installer-v2.0.0-stage3-sandbox.5.zip
           if-no-files-found: error
           retention-days: 30
 
