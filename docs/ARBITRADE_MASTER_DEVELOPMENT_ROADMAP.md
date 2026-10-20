@@ -764,3 +764,11 @@ When continuing this project:
 - **Environment constraint remains unchanged: no hosting is available.** Do not ask for a staging URL or hosted test accounts. Authenticated staging checks and deployment validation are deferred until the user explicitly says hosting is available. Human keyboard-only and screen-reader acceptance remains pending; do not represent automated axe results as a substitute.
 - Efficiency decision: reuse run #629 as the current baseline; do not rerun the full matrix unless code changes or a specific uncertainty requires it.
 - Next: review the 60 incomplete contrast candidates in the existing report/artifact, prioritizing any selectors with uncertain compositing; then make only evidence-backed fixes. Keep PR #73 draft and do not merge/deploy before remaining acceptance gates and sign-off.
+
+
+### Follow-up triage of run #629 incomplete contrast results (2026-10-20)
+
+- Inspected the JSON report from artifact `12247719414` rather than rerunning CI. The 60 incomplete items are all axe `color-contrast` candidates; axe could not determine some backgrounds because pseudo-elements/complex backgrounds were present.
+- Compared each candidate's computed foreground color with its nearest fully opaque computed ancestor background as a conservative triage check. Across available comparisons, the lowest ratio was approximately **5.045:1**; no candidate comparison fell below **4.5:1**. This is not full pixel compositing across gradients, pseudo-elements, overlays, or interactive states, and it does not convert axe's incomplete findings into a full WCAG pass.
+- Spot-checked the existing 320 px Clean Light screenshots for gateway, customer registration, and administrator Appearance. No obvious horizontal clipping was visible in the gateway/customer views; administrator theme cards, customer defaults, and Save control remain visible in the captured full-page view. Small helper labels and the floating Quick Actions edge control remain candidates for human readability/keyboard review.
+- No code change is justified solely by these incomplete results. Keep the findings explicitly classified as **unconfirmed/manual review**, and reuse the existing evidence.
