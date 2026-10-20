@@ -1560,3 +1560,16 @@
 .customer-notification-title-link:hover{text-decoration:underline;text-underline-offset:3px}
 .customer-notification-preview-copy{min-width:0}
 .customer-notification-preview-copy strong{overflow-wrap:anywhere}
+
+/* Stage 4: customer notification centre */
+.inbox-list{display:flex;flex-direction:column;gap:0;overflow:hidden;padding:0}
+.inbox-item{display:grid;grid-template-columns:36px minmax(0,1fr) auto;align-items:start;gap:13px;padding:16px;border-bottom:1px solid var(--arb-color-border,var(--border,#dce5e1));min-width:0}
+.inbox-item:last-child{border-bottom:0}
+.inbox-item.unread{background:color-mix(in srgb,var(--arb-color-accent,#48c9a5) 6%,transparent)}
+.inbox-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:color-mix(in srgb,var(--arb-color-accent,#48c9a5) 12%,transparent);color:var(--arb-color-accent,#48c9a5)}
+.inbox-item-copy{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+.inbox-item-copy>strong,.inbox-item-copy>.customer-notification-title-link{font-size:.94rem;line-height:1.4;font-weight:750;overflow-wrap:anywhere}
+.inbox-item-copy>span:not(.customer-notification-category-badge){font-size:.86rem;line-height:1.55;color:var(--arb-color-text-muted,var(--muted,#68756f));overflow-wrap:anywhere}
+.inbox-item-copy>small{font-size:.73rem;color:var(--arb-color-text-muted,var(--muted,#68756f));line-height:1.4}
+.inbox-item .mini-button{white-space:nowrap}
+@media(max-width:640px){.inbox-item{grid-template-columns:30px minmax(0,1fr);gap:10px;padding:13px}.inbox-icon{width:30px;height:30px}.inbox-item .mini-button{grid-column:2;justify-self:start}.inbox-item-copy>strong,.inbox-item-copy>.customer-notification-title-link{font-size:.9rem}}
