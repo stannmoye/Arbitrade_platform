@@ -116,7 +116,7 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--arb-color-accent) 14%, transparent) !important;
 }
 /* Keep the left-rail selector inside the account menu, not floating over content. */
-.customer-portal .customer-theme-sidebar-control {
+.customer-portal .customer-primary-rail-theme-control {
   position: static !important;
   inset: auto !important;
   z-index: auto !important;
