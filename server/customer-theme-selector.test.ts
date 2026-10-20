@@ -6,6 +6,7 @@ const menuSource = readFileSync("client/src/components/CustomerSlideMenu.tsx", "
 const selectorSource = readFileSync("client/src/components/ThemeSelector.tsx", "utf8");
 const themeCss = readFileSync("client/src/theme-system.css", "utf8");
 const customerCss = readFileSync("client/src/customer-reference.css", "utf8");
+const customerThemeOverrides = readFileSync("client/src/customer-theme-overrides.css", "utf8");
 
 describe("customer theme selector integration", () => {
   it("mounts the shared theme selector in the customer workspace", () => {
@@ -31,4 +32,23 @@ describe("customer theme selector integration", () => {
     expect(customerCss).toContain(':root[data-arb-theme] .customer-portal .customer-primary-rail');
     expect(customerCss).toContain("var(--arb-color-surface)");
   });
+
+  it("places the customer theme selector beside the profile in the top bar and preserves the left-rail selector", () => {
+    const headerStart = appSource.indexOf("function PortalHeader");
+    const customerAuthStart = appSource.indexOf("function CustomerAuth", headerStart);
+    const header = appSource.slice(headerStart, customerAuthStart);
+    expect(header).toContain('<ThemeSelector compact ariaLabel="Change customer theme"/>');
+    expect(header.indexOf('<ThemeSelector compact ariaLabel="Change customer theme"/>')).toBeLessThan(header.indexOf('className="customer-header-bell"'));
+    expect(appSource).toContain('<div className="customer-primary-rail-theme-control"><ThemeSelector compact ariaLabel="Change customer theme"/></div>');
+    expect(customerThemeOverrides).toContain(".portal-session > .arb-theme-selector-compact");
+    expect(customerThemeOverrides).toContain("Customer workspace experience polish");
+  });
+
+  it("keeps customer layout and surfaces responsive and driven by the active theme tokens", () => {
+    expect(customerThemeOverrides).toContain("max-width: 1320px");
+    expect(customerThemeOverrides).toContain("var(--arb-color-surface-raised)");
+    expect(customerThemeOverrides).toContain("@media (max-width: 760px)");
+    expect(customerThemeOverrides).toContain("prefers-reduced-motion: reduce");
+  });
+
 });
