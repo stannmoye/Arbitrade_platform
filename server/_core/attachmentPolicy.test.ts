@@ -111,21 +111,20 @@ describe("support attachment request validation", () => {
 });
 
 describe("support attachment storage key validation", () => {
-  it("accepts keys in the managed support upload format", () => {
-    expect(isValidSupportAttachmentStorageKey("support/1729440000000-ab12cd34-report.pdf")).toBe(true);
-  });
-
-  it("accepts cryptographically random 192-bit upload identifiers", () => {
+  it("accepts only the current managed upload format with a full 192-bit identifier", () => {
+    expect(isValidSupportAttachmentStorageKey("support/1729440000000-ab12cd34-report.pdf")).toBe(false);
     expect(isValidSupportAttachmentStorageKey(`support/1729440000000-${"a".repeat(48)}-report.pdf`)).toBe(true);
   });
 
-  it("rejects arbitrary paths and malformed keys", () => {
+  it("rejects arbitrary paths and malformed or weak identifiers", () => {
     for (const key of [
       "",
       "../support/report.pdf",
       "support/../private/file.pdf",
       "support/report.pdf",
       "support/1729440000000-ab12cd34-folder/report.pdf",
+      `support/1729440000000-${"A".repeat(48)}-report.pdf`,
+      `support/1729440000000-${"a".repeat(48)}-folder/report.pdf`,
       null,
       42,
     ]) {
