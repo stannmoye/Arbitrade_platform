@@ -5,9 +5,10 @@ import { ARBITRADE_THEME_LABELS, ARBITRADE_THEMES, type ArbitradeTheme, useTheme
 type ThemeSelectorProps = {
   compact?: boolean;
   readOnly?: boolean;
+  ariaLabel?: string;
 };
 
-export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelectorProps) {
+export function ThemeSelector({ compact = false, readOnly = false, ariaLabel }: ThemeSelectorProps) {
   const {
     theme,
     setTheme,
@@ -38,7 +39,7 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
   return (
     <section
       className={`arb-theme-selector${compact ? " arb-theme-selector-compact" : ""}${canChoose ? " is-selectable" : " is-readonly"}`}
-      aria-label="Appearance settings"
+      aria-label={ariaLabel ?? (compact ? "Change workspace theme" : "Appearance settings")}
       aria-busy={!policyReady}
     >
       {!compact && (
