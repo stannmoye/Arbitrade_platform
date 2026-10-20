@@ -13,7 +13,7 @@ import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./mod
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
 import { isAllowedAttachmentRequest, isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
-import { buildNotificationEventKey, filterNotificationCategories, normalizeNotificationHref, normalizeNotificationText, NOTIFICATION_CATEGORIES, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
+import { buildNotificationEventKey, filterNotificationCategories, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, NOTIFICATION_CATEGORIES, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
@@ -350,14 +350,16 @@ export async function createNotification(userId:number,title:string,body:string,
 }
 export async function broadcastCustomerNotification(adminId:number,input:{title:string;body:string;eventKey:string;category:NotificationCategory;priority:NotificationPriority;href?:string|null;targetUserId?:number|null}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
+  if(!Number.isSafeInteger(adminId) || adminId <= 0) throw new RangeError("Broadcast administrator must be a positive integer user ID");
+  const targetUserId=normalizeBroadcastTargetUserId(input.targetUserId);
   const title=normalizeNotificationText(input.title,200,"title");
   const body=normalizeNotificationText(input.body,10000,"body");
   const eventKey=normalizeNotificationText(input.eventKey,120,"event key");
   const href=normalizeNotificationHref(input.href);
-  const recipients=input.targetUserId
-    ? await db.select({id:users.id}).from(users).where(and(eq(users.id,input.targetUserId),eq(users.role,"user"))).limit(1)
+  const recipients=targetUserId !== null
+    ? await db.select({id:users.id}).from(users).where(and(eq(users.id,targetUserId),eq(users.role,"user"))).limit(1)
     : await db.select({id:users.id}).from(users).where(eq(users.role,"user"));
-  if(input.targetUserId && !recipients.length) throw new Error("Selected customer account was not found");
+  if(targetUserId !== null && !recipients.length) throw new Error("Selected customer account was not found");
   const deliveries=await Promise.allSettled(recipients.map(recipient=>createNotification(recipient.id,title,body,{eventKey:`admin-broadcast:${adminId}:${eventKey}`,category:input.category,priority:input.priority,href})));
   const recipientCount=deliveries.filter(result=>result.status==="fulfilled").length;
   const failedCount=deliveries.length-recipientCount;
