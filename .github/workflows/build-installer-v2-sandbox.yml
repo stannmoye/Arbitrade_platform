@@ -24,6 +24,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 concurrency:
   group: arbitrade-installer-v2-sandbox-${{ github.ref }}
@@ -220,3 +221,19 @@ jobs:
           path: ${{ runner.temp }}/arbitrade-installer-artifacts/arbitrade-installer-v2.0.0-stage3-sandbox.3.zip
           if-no-files-found: error
           retention-days: 30
+
+      - name: Delete superseded installer ZIP artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \\
+            --jq ".artifacts[] | select(.name | startswith(\\"arbitrade-installer-v2.0.0-stage3-sandbox.\\")) | select(.workflow_run.id != ${CURRENT_RUN_ID}) | .id" \\
+            > "$RUNNER_TEMP/superseded-installer-artifacts.txt"
+          while IFS= read -r artifact_id; do
+            [[ -n "$artifact_id" ]] || continue
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}"
+            echo "Deleted superseded installer artifact ${artifact_id}"
+          done < "$RUNNER_TEMP/superseded-installer-artifacts.txt"
