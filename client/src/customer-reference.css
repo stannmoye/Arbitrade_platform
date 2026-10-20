@@ -1538,3 +1538,19 @@
 .admin-notification-inbox .portal-page-top{margin-bottom:4px}
 .admin-notification-inbox .inbox-item{border-top:1px solid var(--arb-color-border)}
 @media(max-width:680px){.announcement-form-footer{align-items:stretch;flex-direction:column}.announcement-form-footer .primary-button{width:100%;justify-content:center}.admin-notification-center .form-two{grid-template-columns:minmax(0,1fr)}}
+
+/* Stage 4: central communications and category policy controls */
+.notification-category-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:16px}
+.notification-category-toggle{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 15px;border:1px solid var(--border,#dce5e1);border-radius:12px;background:var(--card,rgba(255,255,255,.035));cursor:pointer}
+.notification-category-toggle>span{display:flex;flex-direction:column;gap:4px;min-width:0}
+.notification-category-toggle strong{font-size:.9rem}
+.notification-category-toggle small{font-size:.76rem;opacity:.72}
+.notification-category-toggle input{width:18px;height:18px;accent-color:var(--brand-accent,#7ce7c2);flex:none}
+.notification-category-badge{display:inline-flex;align-items:center;width:max-content;padding:4px 8px;border:1px solid var(--border,#dce5e1);border-radius:999px;font-size:.7rem;font-weight:700;letter-spacing:.02em;margin-bottom:7px}
+.admin-notification-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:15px 0;border-bottom:1px solid var(--border,#dce5e1)}
+.admin-notification-row>div{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0}
+.admin-notification-row p{margin:0;overflow-wrap:anywhere}
+.admin-notification-row small{opacity:.72}
+.admin-notification-row.read{opacity:.76}
+@media(max-width:640px){.notification-category-grid{grid-template-columns:1fr}.admin-notification-row{flex-direction:column}.admin-notification-row .secondary-button{align-self:flex-start}.admin-announcement-form .form-two{grid-template-columns:1fr}}
+
