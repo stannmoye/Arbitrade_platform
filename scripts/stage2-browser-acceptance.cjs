@@ -502,7 +502,8 @@ async function runAdminAppearanceInteractionCheck(browser) {
     await page.getByRole("checkbox", { name: /Clean Light/ }).check();
     await page.getByLabel("Default theme").selectOption("clean-light");
     await page.getByRole("checkbox", { name: /Midnight Premium/ }).uncheck();
-    await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).check();
+    const customerChoiceStatusVisible = await page.getByRole("status")
+      .filter({ hasText: "Customer theme selection is enabled" }).isVisible();
     await page.getByRole("button", { name: "Save appearance policy" }).click();
     await page.waitForTimeout(60);
     const saveButton = page.getByRole("button", { name: /Saving…|Save appearance policy/ });
@@ -510,10 +511,9 @@ async function runAdminAppearanceInteractionCheck(browser) {
     const busySaveDisabled = await saveButton.isDisabled();
     const busyDefaultDisabled = await page.getByLabel("Default theme").isDisabled();
     const busyThemeDisabled = await page.getByRole("checkbox", { name: /Aurora Modern/ }).isDisabled();
-    const busyChoiceDisabled = await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).isDisabled();
     record("admin-appearance-save-busy-controls-disabled",
-      busySaveText.includes("Saving") && busySaveDisabled && busyDefaultDisabled && busyThemeDisabled && busyChoiceDisabled,
-      { busySaveText, busySaveDisabled, busyDefaultDisabled, busyThemeDisabled, busyChoiceDisabled });
+      busySaveText.includes("Saving") && busySaveDisabled && busyDefaultDisabled && busyThemeDisabled && customerChoiceStatusVisible,
+      { busySaveText, busySaveDisabled, busyDefaultDisabled, busyThemeDisabled, customerChoiceStatusVisible });
     await page.getByRole("status").filter({ hasText: "Appearance policy saved" }).waitFor({ state: "visible" });
 
     const saved = mutations.length > 0 &&
@@ -551,17 +551,18 @@ async function runAdminAppearanceInteractionCheck(browser) {
     };
     const successfulMutationCountBeforeRejectedSave = mutations.length;
     failNextSettingsSave = true;
-    await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).uncheck();
+    await page.getByRole("checkbox", { name: /Aurora Modern/ }).uncheck();
     await page.getByRole("button", { name: "Save appearance policy" }).click();
     const saveError = page.getByRole("alert").filter({ hasText: "Simulated appearance save failure" });
     await saveError.waitFor({ state: "visible" });
     const errorSaveEnabled = await page.getByRole("button", { name: "Save appearance policy" }).isEnabled();
     const errorDefaultEnabled = await page.getByLabel("Default theme").isEnabled();
     const errorThemeEnabled = await page.getByRole("checkbox", { name: /Aurora Modern/ }).isEnabled();
-    const errorChoiceEnabled = await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).isEnabled();
+    const errorChoiceStatusVisible = await page.getByRole("status")
+      .filter({ hasText: "Customer theme selection is enabled" }).isVisible();
     record("admin-appearance-save-error-feedback-controls-restored",
-      await saveError.isVisible() && errorSaveEnabled && errorDefaultEnabled && errorThemeEnabled && errorChoiceEnabled,
-      { errorVisible: await saveError.isVisible(), errorSaveEnabled, errorDefaultEnabled, errorThemeEnabled, errorChoiceEnabled });
+      await saveError.isVisible() && errorSaveEnabled && errorDefaultEnabled && errorThemeEnabled && errorChoiceStatusVisible,
+      { errorVisible: await saveError.isVisible(), errorSaveEnabled, errorDefaultEnabled, errorThemeEnabled, errorChoiceStatusVisible });
     const rejectedSaveDidNotPersist =
       JSON.stringify(savedAppearance) === JSON.stringify(persistedBeforeRejectedSave) &&
       mutations.length === successfulMutationCountBeforeRejectedSave &&
@@ -586,7 +587,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
     await page.getByRole("button", { name: /Appearance & Themes/ }).click();
     await page.getByRole("heading", { name: "Theme management" }).waitFor({ state: "visible", timeout: 15000 });
     await page.getByLabel("Default theme").waitFor({ state: "visible" });
-    await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).waitFor({ state: "visible" });
+    await page.getByRole("status").filter({ hasText: "Customer theme selection is enabled" }).waitFor({ state: "visible" });
     await page.waitForFunction(() => {
       const labelled = Array.from(document.querySelectorAll("label"))
         .find(label => label.textContent?.trim().startsWith("Default theme"));
@@ -608,7 +609,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       keyboardDropdownWorks,
       { initialTheme: reloadedDefaultTheme, keyboardSelectedTheme });
 
-    const reloadedCustomerChoice = await page.getByRole("checkbox", { name: /Allow customers to choose their own theme/ }).isChecked();
+    const reloadedCustomerChoice = await page.getByRole("status").filter({ hasText: "Customer theme selection is enabled" }).isVisible();
     const themeLabelPatterns = {
       original: /Original/i,
       "midnight-premium": /Midnight Premium/i,
