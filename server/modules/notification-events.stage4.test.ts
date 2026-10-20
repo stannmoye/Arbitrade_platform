@@ -157,4 +157,20 @@ describe("Stage 4 notification safety and delivery helpers", () => {
       priority: "high",
     });
   });
+
+  it("accepts the exact maximum recipient-scoped event-key length", () => {
+    const key = buildNotificationEventKey(1, "x".repeat(177));
+    expect(key).toHaveLength(180);
+    expect(key?.slice(0, 3)).toBe("u1:");
+  });
+
+  it("keeps equal event names independent across recipients even at the storage boundary", () => {
+    const event = "x".repeat(177);
+    const first = buildNotificationEventKey(1, event);
+    const second = buildNotificationEventKey(2, event);
+    expect(first).toHaveLength(180);
+    expect(second).toHaveLength(180);
+    expect(first).not.toBe(second);
+  });
+
 });
