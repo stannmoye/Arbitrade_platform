@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findNewNotificationSoundEvents, mergeSeenNotificationIds } from "./notification-sound-deduplication";
+import { findNewNotificationSoundEvents, mergeSeenNotificationIds, selectMostImportantNotificationSoundEvent } from "./notification-sound-deduplication";
 
 describe("notification sound reconnect deduplication", () => {
   const rows = [
@@ -47,6 +47,18 @@ describe("notification sound reconnect deduplication", () => {
     expect(mergeSeenNotificationIds([], [1, -1, 1.5, Number.NaN, 2], 10)).toEqual([1, 2]);
     // The API cursor is newest-first; bounded storage must retain the newest IDs.
     expect(mergeSeenNotificationIds([], [1000, 999, 998, 997, 996], 3)).toEqual([998, 999, 1000]);
+  });
+
+
+  it("selects the highest-priority event for a mixed polling batch", () => {
+    const mixed = [
+      { id: 40, category: "account", priority: "normal" },
+      { id: 41, category: "support", priority: "urgent" },
+      { id: 42, category: "security", priority: "high" },
+      { id: 43, category: "deposit", priority: "urgent" },
+    ];
+    expect(selectMostImportantNotificationSoundEvent(mixed)).toEqual(mixed[3]);
+    expect(selectMostImportantNotificationSoundEvent([])).toBeNull();
   });
 
   it("rejects unsafe history bounds", () => {
