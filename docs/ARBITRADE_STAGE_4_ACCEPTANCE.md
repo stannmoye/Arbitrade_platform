@@ -47,6 +47,7 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - [ ] Deduplicate playback on polling, retries, reconnection and repeated event delivery.
 
 ### F. Real event integration
+- [ ] Deposit and withdrawal UI flows are currently provider-gated/mock or blocked; success/status notifications remain pending until a real persisted request lifecycle exists. Never invent successful deposits or payouts merely to make the bell look active.
 - [ ] Connect notifications to verified, persisted event boundaries for deposits, withdrawals, ledger credit/debit, trading, mining rewards, swaps, upgrades, promotions, tickets, account and security lifecycle.
 - [ ] Use stable event identifiers, scoped by recipient, with database-enforced idempotency.
 - [ ] Do not fabricate a financial success event or present simulated estimates as withdrawable funds.
