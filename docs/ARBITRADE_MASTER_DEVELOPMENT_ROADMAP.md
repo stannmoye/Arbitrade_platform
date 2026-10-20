@@ -772,3 +772,26 @@ When continuing this project:
 - Compared each candidate's computed foreground color with its nearest fully opaque computed ancestor background as a conservative triage check. Across available comparisons, the lowest ratio was approximately **5.045:1**; no candidate comparison fell below **4.5:1**. This is not full pixel compositing across gradients, pseudo-elements, overlays, or interactive states, and it does not convert axe's incomplete findings into a full WCAG pass.
 - Spot-checked the existing 320 px Clean Light screenshots for gateway, customer registration, and administrator Appearance. No obvious horizontal clipping was visible in the gateway/customer views; administrator theme cards, customer defaults, and Save control remain visible in the captured full-page view. Small helper labels and the floating Quick Actions edge control remain candidates for human readability/keyboard review.
 - No code change is justified solely by these incomplete results. Keep the findings explicitly classified as **unconfirmed/manual review**, and reuse the existing evidence.
+
+
+## Stage 3 closeout — 2026-10-20
+
+**Decision: Stage 3 implementation and repository-based automated validation are complete. Hosting-dependent release acceptance is explicitly deferred, not failed and not falsely marked passed.** This closes the current implementation work so development can move forward without repeatedly asking the user for hosting or another prompt.
+
+### Delivered and verified
+- Five-theme architecture: Original Arbitrade remains the default; Midnight Premium, Clean Light, Emerald Finance, and Aurora Modern are included.
+- Administrator appearance controls: preview, default theme, enabled-theme policy, and customer-choice policy are part of the Stage 3 implementation.
+- Theme preference handling isolates role and account, filters cross-tab storage events to the active key, and guards writes until the active preference is restored.
+- Existing Stage 3 regression evidence includes policy/storage isolation tests, TypeScript validation, production build, and Chromium five-theme/responsive coverage.
+- Latest exact-head evidence recorded in the Stage 3 PR body: [workflow #622](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39379981705) passed all four jobs; 1,175 browser checks passed with zero failures; 15 axe scans had zero scan errors and zero confirmed violations. Fifteen incomplete contrast results remain manual-review candidates because pseudo-element backgrounds prevent automated certainty. The rendered-text sample reported 1,800 samples with none below threshold and a minimum sampled ratio of 5.05:1. These are bounded automated checks, not a complete WCAG certification.
+
+### Explicitly deferred because no hosting is available
+- Deployed authenticated browser acceptance.
+- Live-server authorization and database-backed preference persistence/cross-account isolation in a deployed environment.
+- Human keyboard-only and screen-reader acceptance/sign-off, plus manual review of the axe-incomplete contrast candidates.
+- Merge and production deployment.
+
+These items require an accessible environment and/or a human reviewer. They are not reasons to repeat already-passing automated suites, and they must not be described as passed. Do not ask the user for a staging URL, hosting credentials, or hosted test accounts unless the user explicitly reports that hosting has become available.
+
+### Next-stage rule
+Stage 3 implementation is closed for roadmap sequencing. Move to the next planned repository task rather than asking for another continuation prompt. Reopen Stage 3 only for a concrete defect, failed check, or when deferred acceptance becomes possible.
