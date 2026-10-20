@@ -449,12 +449,17 @@ export async function processNotificationCampaignLifecycle() {
     await db.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
   }
   const due=await db.select().from(notificationCampaigns).where(and(eq(notificationCampaigns.status,"scheduled"),lte(notificationCampaigns.scheduledAt,now))).limit(100);
-  let published=0,failed=0;
+  let published=0,failed=0,expiredDuringPublish=0;
   for(const campaign of due) {
-    try { await broadcastCustomerNotification(campaign.createdBy,{title:campaign.title,body:campaign.body,eventKey:campaign.eventKey,category:campaign.category as AdminBroadcastCategory,priority:campaign.priority as NotificationPriority,href:campaign.href,targetUserId:campaign.targetUserId,scheduledAt:campaign.scheduledAt?.toISOString()??null,expiresAt:campaign.expiresAt?.toISOString()??null}); published++; }
-    catch(error) { failed++; console.error("[Notifications] Scheduled announcement lifecycle failed:",error instanceof Error?error.name:"UnknownError"); }
+    try {
+      const result=await broadcastCustomerNotification(campaign.createdBy,{title:campaign.title,body:campaign.body,eventKey:campaign.eventKey,category:campaign.category as AdminBroadcastCategory,priority:campaign.priority as NotificationPriority,href:campaign.href,targetUserId:campaign.targetUserId,scheduledAt:campaign.scheduledAt?.toISOString()??null,expiresAt:campaign.expiresAt?.toISOString()??null});
+      // A campaign can expire between the initial expiry sweep and this due batch.
+      // Count the actual persisted outcome, not merely a non-throwing function call.
+      if(result.status==="published") published++;
+      else if(result.status==="expired") expiredDuringPublish++;
+    } catch(error) { failed++; console.error("[Notifications] Scheduled announcement lifecycle failed:",error instanceof Error?error.name:"UnknownError"); }
   }
-  return {expired:expired.length,published,failed};
+  return {expired:expired.length+expiredDuringPublish,published,failed};
 }
 export async function listAdminNotificationCampaigns() {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
