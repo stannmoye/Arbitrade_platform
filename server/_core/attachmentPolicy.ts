@@ -63,7 +63,7 @@ export function isAllowedAttachmentRequest(
     return false;
   }
 
-  const normalizedName = fileName.toLowerCase();
+  // Normalize filename suffixes before extension checks. Trailing dots/spaces are\n  // ignored by some filesystems and can otherwise disguise a known extension.\n  const normalizedName = fileName.trim().toLowerCase().replace(/[. ]+$/, "");
   const normalizedMimeType = mimeType.toLowerCase();
   const knownExtension = Object.keys(KNOWN_EXTENSION_MIME_TYPES).find(extension =>
     normalizedName.endsWith(extension),
