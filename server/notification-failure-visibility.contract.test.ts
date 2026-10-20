@@ -9,6 +9,10 @@ describe("financial notification delivery observability", () => {
     expect(dbSource).toContain('if(!notificationId) throw new Error("Notification persistence could not be confirmed");');
   });
 
+  it("keeps null-category legacy notifications visible in the event cursor when a category is disabled", () => {
+    expect(dbSource).toContain("or(isNull(customerNotifications.category),notInArray(customerNotifications.category,disabled))");
+  });
+
   it("reports failed allocation, settlement, and trade-allocation notices after commit", () => {
     expect(source).toContain('Automatic allocation notices failed after ledger commit.');
     expect(source).toContain('Automatic settlement notices failed after ledger commit.');
