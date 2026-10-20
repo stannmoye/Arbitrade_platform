@@ -94,7 +94,7 @@ describe("Stage 4 support ticket submission security contract", () => {
     expect(reopen).toContain('or(eq(supportTickets.status,"closed"),eq(supportTickets.status,"resolved"))');
     expect(reopen).toContain('const eventKey=`support-ticket:${ticketId}:reopened:${previousUpdatedAt}`');
     expect(reopen).toContain('createNotification(ticket.customerId,"Your support ticket was reopened"');
-    expect(reopen).toContain('`support-ticket:${ticketId}:reopened:${previousUpdatedAt}:admin:${admin.id}`');
+    expect(reopen).toContain('`${eventKey}:admin:${admin.id}`');
     expect(reopen).toContain('console.error("[Notifications] One or more reopen notices failed after status commit.")');
     expect(reopen).not.toContain("await db.transaction(async tx=>");
   });
