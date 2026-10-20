@@ -80,3 +80,302 @@
   .customer-portal .customer-primary-rail-theme-control {margin:8px 0 10px!important}
   .customer-portal .customer-primary-rail-theme-control .arb-theme-selector-trigger {min-height:38px!important;padding-inline:9px!important}
 }
+
+/* Customer workspace experience polish: semantic colors, calmer density, and responsive hierarchy. */
+:root[data-arb-theme] .customer-portal {
+  --customer-panel-shadow: 0 14px 34px color-mix(in srgb, var(--arb-color-canvas) 78%, #000 22%);
+  --customer-panel-radius: 18px;
+}
+:root[data-arb-theme] .customer-portal .portal-main {
+  background:
+    radial-gradient(ellipse at 88% 0%, color-mix(in srgb, var(--arb-color-accent) 7%, transparent), transparent 38%),
+    var(--arb-color-canvas) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-page {
+  box-sizing: border-box;
+  width: 100% !important;
+  max-width: 1320px !important;
+  padding: clamp(18px, 2.2vw, 32px) clamp(16px, 2.2vw, 32px) 42px !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main > .portal-page:not(.customer-home-page) {
+  padding-top: clamp(22px, 3vw, 38px) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-page-top {
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+:root[data-arb-theme] .customer-portal .portal-page-top h1,
+:root[data-arb-theme] .customer-portal .portal-page > h1 {
+  margin: 0 0 8px !important;
+  color: var(--arb-color-text) !important;
+  font-size: clamp(25px, 2.6vw, 34px) !important;
+  font-weight: 760 !important;
+  line-height: 1.12 !important;
+  letter-spacing: -.035em !important;
+}
+:root[data-arb-theme] .customer-portal .portal-page-top p {
+  max-width: 68ch;
+  color: var(--arb-color-text-muted) !important;
+  font-size: 14px !important;
+  line-height: 1.65 !important;
+}
+:root[data-arb-theme] .customer-portal :is(
+  .customer-market-hero, .customer-resource-hero, .customer-welcome-panel,
+  .customer-hero-panel, .customer-console-panel
+) {
+  border: 1px solid var(--arb-color-border) !important;
+  border-radius: 22px !important;
+  background:
+    radial-gradient(ellipse at 88% 0%, color-mix(in srgb, var(--arb-color-accent) 15%, transparent), transparent 45%),
+    linear-gradient(135deg, var(--arb-color-surface-raised), var(--arb-color-surface)) !important;
+  box-shadow: var(--customer-panel-shadow), inset 0 1px color-mix(in srgb, var(--arb-color-text) 5%, transparent) !important;
+}
+:root[data-arb-theme] .customer-portal .customer-market-hero {
+  min-height: 206px;
+  padding: clamp(22px, 2.5vw, 34px) !important;
+}
+:root[data-arb-theme] .customer-portal .customer-hero-copy h1 {
+  font-size: clamp(27px, 3vw, 38px) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -.045em !important;
+}
+:root[data-arb-theme] .customer-portal .customer-hero-copy p {
+  font-size: 13px !important;
+  line-height: 1.65 !important;
+}
+:root[data-arb-theme] .customer-portal :where(
+  .customer-wallet-panel, .customer-ledger-panel, .customer-activity-panel,
+  .customer-resource-card, .customer-intelligence-card, .customer-support-card,
+  .customer-account-card, .customer-investment-card, .customer-package-card,
+  .customer-opportunity, .customer-balance-card, .customer-metric-grid > div,
+  .customer-panel, .customer-resource-panel-grid > div
+) {
+  min-width: 0;
+  border-radius: var(--customer-panel-radius) !important;
+  box-shadow: var(--customer-panel-shadow), inset 0 1px color-mix(in srgb, var(--arb-color-text) 4%, transparent) !important;
+}
+:root[data-arb-theme] .customer-portal :where(
+  .customer-wallet-panel, .customer-ledger-panel, .customer-activity-panel,
+  .customer-resource-card, .customer-intelligence-card, .customer-support-card,
+  .customer-account-card, .customer-investment-card, .customer-package-card,
+  .customer-panel, .customer-resource-panel-grid > div
+) {
+  padding: clamp(16px, 1.7vw, 24px);
+}
+:root[data-arb-theme] .customer-portal .customer-balance-ribbon {
+  border: 1px solid var(--arb-color-border) !important;
+  border-radius: 20px !important;
+  padding: 16px !important;
+  background: color-mix(in srgb, var(--arb-color-surface) 94%, transparent) !important;
+  box-shadow: var(--customer-panel-shadow) !important;
+}
+:root[data-arb-theme] .customer-portal .customer-balance-cards {
+  gap: 12px !important;
+}
+:root[data-arb-theme] .customer-portal .customer-balance-trigger {
+  min-height: 72px !important;
+  padding: 13px 14px !important;
+  border-radius: 14px !important;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease !important;
+}
+:root[data-arb-theme] .customer-portal .customer-balance-name strong,
+:root[data-arb-theme] .customer-portal .customer-metric-grid strong,
+:root[data-arb-theme] .customer-portal .customer-metric-grid b {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+}
+:root[data-arb-theme] .customer-portal .customer-quick-actions {
+  gap: 12px !important;
+  margin-block: 18px !important;
+}
+:root[data-arb-theme] .customer-portal .customer-quick-actions > button {
+  min-width: 0;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--arb-color-canvas) 82%, #000 18%) !important;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease !important;
+}
+:root[data-arb-theme] .customer-portal .customer-primary-rail {
+  scrollbar-width: thin;
+  scrollbar-color: var(--arb-color-border) transparent;
+}
+:root[data-arb-theme] .customer-portal .customer-primary-rail .customer-rail-group {
+  margin-bottom: 8px;
+  padding: 8px 0 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--arb-color-border) 70%, transparent);
+  background: transparent !important;
+}
+:root[data-arb-theme] .customer-portal .customer-rail-group-heading {
+  padding: 5px 10px 8px;
+  color: var(--arb-color-text-muted) !important;
+  font-size: 10px !important;
+  font-weight: 750 !important;
+  letter-spacing: .1em !important;
+  text-transform: uppercase;
+}
+:root[data-arb-theme] .customer-portal .customer-primary-rail nav button {
+  min-height: 42px !important;
+  border-radius: 11px !important;
+  font-size: 12px !important;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease !important;
+}
+:root[data-arb-theme] .customer-portal .customer-primary-rail nav button.active {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 30%, var(--arb-color-border)) !important;
+  background: color-mix(in srgb, var(--arb-color-accent) 13%, var(--arb-color-surface-raised)) !important;
+  box-shadow: inset 3px 0 var(--arb-color-accent) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal .customer-primary-rail nav button.active svg {
+  color: var(--arb-color-accent) !important;
+}
+:root[data-arb-theme] .customer-portal :where(button, a, [role="button"]) {
+  -webkit-tap-highlight-color: transparent;
+}
+:root[data-arb-theme] .customer-portal :where(input, select, textarea) {
+  min-height: 42px;
+  border-radius: 10px !important;
+}
+:root[data-arb-theme] .customer-portal :where(button, a, input, select, textarea, [role="button"]):focus-visible {
+  outline: 2px solid var(--arb-focus-ring) !important;
+  outline-offset: 3px !important;
+}
+:root[data-arb-theme] .customer-portal .portal-session > .arb-theme-selector-compact {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+:root[data-arb-theme] .customer-portal .portal-session > .arb-theme-selector-compact .arb-theme-selector-control {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+:root[data-arb-theme] .customer-portal .portal-session > .arb-theme-selector-compact .arb-theme-selector-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--arb-color-border) !important;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--arb-color-surface-raised) 90%, var(--arb-color-accent) 10%) !important;
+  color: var(--arb-color-text) !important;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+}
+:root[data-arb-theme] .customer-portal .portal-session > .arb-theme-selector-compact .arb-theme-selector-control select {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 2;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: .01;
+  cursor: pointer;
+}
+:root[data-arb-theme] .customer-portal .portal-session > .arb-theme-selector-compact .arb-theme-selector-control:focus-within .arb-theme-selector-trigger {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+:root[data-arb-theme] .customer-portal .portal-session > .arb-theme-selector-compact:hover .arb-theme-selector-trigger {
+  border-color: var(--arb-color-accent) !important;
+}
+@media (min-width: 1201px) {
+  .customer-portal .customer-primary-rail {
+    width: 218px !important;
+    min-width: 218px !important;
+    max-width: 218px !important;
+  }
+  .customer-portal .portal-main { margin-left: 218px !important; }
+}
+@media (max-width: 1100px) {
+  :root[data-arb-theme] .customer-portal .portal-page {
+    padding-inline: 18px !important;
+  }
+}
+@media (max-width: 760px) {
+  :root[data-arb-theme] .customer-portal .portal-page {
+    padding: 16px 12px 30px !important;
+  }
+  :root[data-arb-theme] .customer-portal .portal-page-top {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+  :root[data-arb-theme] .customer-portal .customer-market-hero {
+    min-height: 178px;
+    padding: 20px 16px !important;
+    border-radius: 18px !important;
+  }
+  :root[data-arb-theme] .customer-portal .customer-hero-copy {
+    max-width: 100%;
+  }
+  :root[data-arb-theme] .customer-portal .customer-hero-copy h1 {
+    font-size: clamp(24px, 6vw, 30px) !important;
+  }
+  :root[data-arb-theme] .customer-portal .portal-session {
+    gap: 6px !important;
+  }
+  :root[data-arb-theme] .customer-portal .portal-session > .arb-theme-selector-compact .arb-theme-selector-trigger {
+    min-height: 34px;
+    padding: 7px !important;
+    gap: 5px;
+    font-size: 10px;
+  }
+  :root[data-arb-theme] .customer-portal .portal-session > .arb-theme-selector-compact .arb-theme-selector-trigger svg {
+    width: 15px;
+    height: 15px;
+  }
+  :root[data-arb-theme] .customer-portal .customer-balance-ribbon {
+    padding: 12px !important;
+    border-radius: 16px !important;
+  }
+  :root[data-arb-theme] .customer-portal .customer-quick-actions {
+    gap: 9px !important;
+    margin-block: 12px !important;
+  }
+}
+@media (max-width: 420px) {
+  :root[data-arb-theme] .customer-portal .portal-session > .arb-theme-selector-compact .arb-theme-selector-trigger-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  :root[data-arb-theme] .customer-portal .portal-session > .arb-theme-selector-compact .arb-theme-selector-trigger {
+    width: 34px;
+    justify-content: center;
+    padding: 7px !important;
+  }
+}
+@media (hover: hover) {
+  :root[data-arb-theme] .customer-portal .customer-quick-actions > button:hover,
+  :root[data-arb-theme] .customer-portal .customer-investment-card:hover,
+  :root[data-arb-theme] .customer-portal .customer-package-card:hover,
+  :root[data-arb-theme] .customer-portal .customer-opportunity:hover {
+    transform: translateY(-2px);
+    border-color: var(--arb-color-accent) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-arb-theme] .customer-portal *,
+  :root[data-arb-theme] .customer-portal *::before,
+  :root[data-arb-theme] .customer-portal *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
