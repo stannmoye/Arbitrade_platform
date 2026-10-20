@@ -30,6 +30,8 @@ Finish and verify the existing five-theme implementation without duplicating Sta
 - [x] Run the Chromium viewport/five-theme smoke matrix on the implementation commit and current documentation head.
 - [x] Inspect the downloaded browser report and selected mobile screenshots for the current PR head.
 - [x] Recheck the latest Stage 3 workflow run and review the theme context/storage isolation code.
+- [x] Inspect Run #597 administrator screenshots and identify collapsed navigation label overlap in Communications and Integrations.
+- [x] Fix collapsed navigation grid structure and add a settled-layout browser regression assertion; verify in Run #598.
 - [ ] Complete human keyboard-only and screen-reader review.
 - [ ] Verify live server authorization, database persistence, and cross-account isolation in authenticated staging.
 - [ ] Record human/staging evidence and remaining limitations before Stage 3 closeout.
@@ -42,27 +44,36 @@ A follow-up review found that storage-key scoping and persistence gating prevent
 
 ## Current-head CI validation
 
-The latest verified PR head is `1e218fe3dbb380e5258668e9b3eb8c15c2f996da`. Workflow [run #596](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39344814962) completed successfully with all four jobs passing:
+The current PR head is `9ddd9689bd5207ab969e0c34e84bb885ba9e5e99`. Workflow [run #598](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39346036351) completed successfully with all four jobs passing:
 
 - Application and theme-policy regression tests: **passed**.
 - TypeScript validation: **passed**.
 - Production build: **passed**.
-- Chromium viewport and five-theme smoke matrix: **passed** — the downloaded `report.json` was independently inspected: **1,174 checks passed, 0 failures**, with no recorded page errors.
+- Chromium viewport and five-theme smoke matrix: **passed** — **1,175 checks passed, 0 failures**, with no recorded page errors.
 
-The browser matrix covers the gateway (`/`), customer (`/customer`), and admin (`/ops-console-7f3a`) routes; ten viewport widths (320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px); and five themes. The report contains 150 sampled semantic-token contrast checks per category and 150 rendered-text contrast samples (1,800 measured text instances in total). No sampled rendered-text cases fell below threshold; the lowest measured rendered-text ratio was 5.05:1.
+The [Run #598 browser evidence artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39346036351/artifacts/12230589103) contains 52 files, including `report.json` and screenshots. The matrix covers the gateway (`/`), customer (`/customer`), and admin (`/ops-console-7f3a`) routes; ten viewport widths (320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px); and five themes.
 
-The lowest sampled semantic-token contrast ratios were:
+The report contains 1,800 sampled rendered-text contrast measurements; no sampled cases fell below the test threshold, and the lowest measured rendered-text ratio was **5.05:1**. The lowest sampled semantic-token contrast ratios were:
+
 - Main text on canvas: **14.52:1**.
 - Main text on surface: **15.19:1**.
 - Soft text on canvas: **8.94:1**.
 - Muted text on canvas: **4.70:1**.
 - Focus ring on canvas: **5.64:1**.
 
-These are sampled results, not a guarantee for every rendered element. The evidence artifact is [stage-2-browser-acceptance for run #596](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39344814962/artifacts/12230606501) (52 files, including the JSON report and screenshots; generated 2026-10-20). Selected mobile screenshots were also available for visual inspection.
+These are sampled results, not a guarantee for every rendered element and not a complete WCAG audit.
+
+## Collapsed administrator navigation follow-up
+
+Review of Run #597 screenshots found overlapping/duplicated sidebar labels in the collapsed Communications and Integrations groups. The cause was the animated `grid-template-rows: 0fr` container receiving multiple direct grid children, which created implicit rows instead of a single collapsible content row.
+
+The fix wraps each group's items in one `.admin-nav-group-items-inner` grid child, allowing the existing `0fr ↔ 1fr` accordion transition to collapse the content as a unit. The browser acceptance script now waits for the transition to settle and asserts that every collapsed group's content container has zero height.
+
+Run #598 verified the new regression check passed. Its screenshots show the collapsed Communications and Integrations labels hidden without overlap. The change does not alter navigation destinations or administrator authorization behavior.
 
 ## Code review notes
 
-Reviewed `ThemeContext.tsx`, `theme-storage.ts`, and `theme-storage.test.ts` at the latest recorded head. Role/account key isolation, storage-event filtering, customer allow-list revalidation, and the preference-readiness gate are present, with focused unit coverage. The downloaded report was checked directly for totals, failed rows, page errors, route/theme/viewport coverage, and minimum sampled contrast values. No additional source change was justified by this bounded review. This is not a substitute for testing account transitions against a live authenticated session.
+Reviewed `ThemeContext.tsx`, `theme-storage.ts`, and `theme-storage.test.ts` for role/account key isolation, storage-event filtering, customer allow-list revalidation, and the preference-readiness gate. The collapsed-navigation fix was reviewed against the Run #597 screenshots and verified with the new Run #598 browser assertion and screenshots. The report was checked for totals, failed rows, page errors, route/theme/viewport coverage, the collapsed-group geometry result, and sampled contrast values. This source and automated review is not a substitute for human assistive-technology testing or account-transition testing against a live authenticated session.
 
 ## External limitations
 
