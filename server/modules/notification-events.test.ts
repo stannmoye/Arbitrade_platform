@@ -77,9 +77,15 @@ describe("notification navigation links", () => {
     expect(normalizeNotificationHref("   ")).toBeNull();
   });
 
-  it.each(["https://example.com", "//example.com/path", "/%2fexample.com", "/\\\\example.com", "/safe%5c..%5cpath", "/path\\nInjected: value"]) (
-    "rejects unsafe link %s", href => {
-      expect(() => normalizeNotificationHref(href)).toThrow(TypeError);
-    },
-  );
+  it.each([
+    "https://example.com",
+    "//example.com/path",
+    "/%2fexample.com",
+    "/\\example.com",
+    "/safe%5c..%5cpath",
+    "/path\u0000bad",
+    "/path%0aInjected: value",
+  ])("rejects unsafe link %s", href => {
+    expect(() => normalizeNotificationHref(href)).toThrow(TypeError);
+  });
 });
