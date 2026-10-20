@@ -228,15 +228,24 @@ export async function createTicket(userId:number,input:{subject:string;body:stri
   const body=normalizeNotificationText(input.body,20000,"ticket message");
   if(subject.length<3) throw new Error("Ticket subject must contain at least 3 characters");
   const ticketNumber=`ARB-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
-  const result=await db.insert(supportTickets).values({ticketNumber,customerId:userId,subject,category:input.category||"account",priority:input.priority});
-  const ticketId=Number(result[0].insertId);
-  await db.insert(supportMessages).values({ticketId,authorId:userId,body});
-  const admins=await db.select({id:users.id}).from(users).where(eq(users.role,"admin"));
-  const notificationResults=await Promise.allSettled([
-    ...admins.map(admin=>createNotification(admin.id,"New customer support ticket",`${ticketNumber}: ${subject}`,{eventKey:`support-ticket-created:${ticketId}`,category:"support",priority:input.priority==="urgent"?"urgent":input.priority==="high"?"high":"normal"})),
-    createNotification(userId,subject,`${ticketNumber}: Your support ticket was created and is now in the support centre.`,{eventKey:`support-ticket-created-customer:${ticketId}`,category:"support",priority:input.priority==="urgent"?"urgent":input.priority==="high"?"high":"normal"}),
-  ]);
-  if(notificationResults.some(result=>result.status==="rejected")) console.error("[Notifications] One or more ticket-created notices failed after ticket persistence.");
+  // A ticket without its opening message is not a usable support case. Persist
+  // both records together, then send best-effort notifications after commit.
+  const ticketId=await db.transaction(async tx=>{
+    const result=await tx.insert(supportTickets).values({ticketNumber,customerId:userId,subject,category:input.category||"account",priority:input.priority});
+    const id=Number(result[0].insertId);
+    await tx.insert(supportMessages).values({ticketId:id,authorId:userId,body});
+    return id;
+  });
+  try {
+    const admins=await db.select({id:users.id}).from(users).where(eq(users.role,"admin"));
+    const notificationResults=await Promise.allSettled([
+      ...admins.map(admin=>createNotification(admin.id,"New customer support ticket",`${ticketNumber}: ${subject}`,{eventKey:`support-ticket-created:${ticketId}`,category:"support",priority:input.priority==="urgent"?"urgent":input.priority==="high"?"high":"normal"})),
+      createNotification(userId,subject,`${ticketNumber}: Your support ticket was created and is now in the support centre.`,{eventKey:`support-ticket-created-customer:${ticketId}`,category:"support",priority:input.priority==="urgent"?"urgent":input.priority==="high"?"high":"normal"}),
+    ]);
+    if(notificationResults.some(result=>result.status==="rejected")) console.error("[Notifications] One or more ticket-created notices failed after ticket persistence.");
+  } catch(error) {
+    console.error("[Notifications] Ticket-created notices failed after ticket persistence:",error instanceof Error?error.name:"UnknownError");
+  }
   return {ticketId,ticketNumber};
  }
 export async function listCustomerTickets(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(supportTickets).where(eq(supportTickets.customerId,userId)).orderBy(desc(supportTickets.updatedAt)); }
