@@ -139,3 +139,5 @@ These are CI checks on the feature branch, not a production-host acceptance test
 
 
 - 2026-10-20: Admin ticket reply preflight now performs a targeted indexed ticket-ID lookup instead of loading the entire admin ticket inbox and scanning it for one record. This reduces query work as the inbox grows while retaining the typed `NOT_FOUND` response and transactional reply authorization. Added a focused source-contract assertion; exact-head CI is the verification gate, with no repeated local test loops.
+
+- 2026-10-20: Backend support reply enforcement now matches the customer UI: customer replies to either `resolved` or `closed` tickets are rejected until the ticket is explicitly reopened. The check runs after the ticket row is locked inside the reply transaction, preventing stale UI state or a direct API call from bypassing the lifecycle. The focused source-contract assertion was updated once; runtime database concurrency remains part of final CI/disposable-DB verification.
