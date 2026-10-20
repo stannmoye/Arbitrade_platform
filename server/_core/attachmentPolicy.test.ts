@@ -70,6 +70,15 @@ describe("support attachment request validation", () => {
       { fileName: "report.PDF", mimeType: "application/pdf", sizeBytes: 1000 },
       policy,
     )).toBe(true);
+    // Trailing dots/spaces must not bypass known-extension MIME consistency.
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.pdf.", mimeType: "image/png", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.pdf ", mimeType: "image/png", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
   });
 
   it("rejects unsupported types and invalid sizes", () => {
