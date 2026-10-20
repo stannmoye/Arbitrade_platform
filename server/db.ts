@@ -317,8 +317,11 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
     ? await db.select({id:users.id}).from(users).where(and(eq(users.id,input.targetUserId),eq(users.role,"user"))).limit(1)
     : await db.select({id:users.id}).from(users).where(eq(users.role,"user"));
   if(input.targetUserId && !recipients.length) throw new Error("Selected customer account was not found");
-  await Promise.all(recipients.map(recipient=>createNotification(recipient.id,title,body,{eventKey:`admin-broadcast:${adminId}:${eventKey}`,category:input.category,priority:input.priority,href})));
-  return {recipientCount:recipients.length,eventKey,targetUserId:input.targetUserId??null};
+  const deliveries=await Promise.allSettled(recipients.map(recipient=>createNotification(recipient.id,title,body,{eventKey:`admin-broadcast:${adminId}:${eventKey}`,category:input.category,priority:input.priority,href})));
+  const recipientCount=deliveries.filter(result=>result.status==="fulfilled").length;
+  const failedCount=deliveries.length-recipientCount;
+  if(failedCount) console.error(`[Notifications] Admin broadcast ${eventKey} failed for ${failedCount} recipient(s).`);
+  return {recipientCount,totalRecipientCount:recipients.length,failedCount,eventKey,targetUserId:input.targetUserId??null};
  }
 export async function getNotificationCategoryVisibility():Promise<Record<NotificationCategory,boolean>> {
   const defaults=Object.fromEntries(NOTIFICATION_CATEGORIES.map(category=>[category,true])) as Record<NotificationCategory,boolean>;
