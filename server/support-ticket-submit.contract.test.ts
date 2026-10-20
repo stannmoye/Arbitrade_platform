@@ -56,6 +56,8 @@ describe("Stage 4 support ticket submission security contract", () => {
   it("keeps ticket reply failures safe and avoids a second admin reply notification", () => {
     expect(support).toContain("Your reply could not be confirmed. Refresh this ticket before retrying to avoid sending a duplicate.");
     expect(support).toContain("This ticket could not be reopened. Refresh the inbox and try again.");
+    expect(support).toContain('selectedTicket.status!=="closed"&&selectedTicket.status!=="resolved"&&<div className="support-reply-box">');
+    expect(support).toContain('(selectedTicket.status==="closed"||selectedTicket.status==="resolved")&&<div className="support-closed-note">');
     const adminStart = routers.indexOf("replyTicket: adminProcedure");
     const adminEnd = routers.indexOf("reopenTicket: adminProcedure", adminStart);
     const adminReply = routers.slice(adminStart, adminEnd);
