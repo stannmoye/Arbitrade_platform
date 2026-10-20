@@ -44,14 +44,14 @@ A follow-up review found that storage-key scoping and persistence gating prevent
 
 ## Current-head CI validation
 
-The latest code head validated is `deea3bce93d90f53ab5d43d4dc7baba389eaaa96`. Workflow [run #599](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39346374005) completed successfully with all four jobs passing. Subsequent commits only refresh this acceptance ledger; they do not change application code. No workflow run or status check is reported for those documentation-only commits.
+The latest PR head `8cc747a323fd39fd23a9f52f3fcb721ec6d3e7c3` was validated by workflow [run #610](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39348329389), which completed successfully with all four jobs passing: application/theme-policy regression tests, TypeScript validation, production build, and the Chromium viewport/five-theme browser job.
 
 - Application and theme-policy regression tests: **passed**.
 - TypeScript validation: **passed**.
 - Production build: **passed**.
 - Chromium viewport and five-theme smoke matrix: **passed** — **1,175 checks passed, 0 failures**, with no recorded page errors.
 
-The [Run #599 browser evidence artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39346374005/artifacts/12230704533) contains 52 files, including `report.json` and screenshots. I downloaded and inspected `report.json`: it records 1,175 checks passed, 0 failures, and no page errors. The matrix covers the gateway (`/`), customer (`/customer`), and admin (`/ops-console-7f3a`) routes; ten viewport widths (320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px); and five themes.
+The [Run #610 browser evidence artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39348329389/artifacts/12232221613) contains 53 files, including `report.json`, `axe-accessibility-report.json`, and screenshots. The browser job log confirms **1,175 checks passed, 0 failures**, and the axe step confirms 15 scans, 0 scan errors, 0 violations, and 0 recorded page errors. The matrix covers the gateway (`/`), customer (`/customer`), and admin (`/ops-console-7f3a`) routes; ten viewport widths (320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px); and five themes.
 
 The report contains 1,800 sampled rendered-text contrast measurements; no sampled cases fell below the test threshold, and the lowest measured rendered-text ratio was **5.05:1**. The lowest sampled semantic-token contrast ratios were:
 
@@ -62,6 +62,11 @@ The report contains 1,800 sampled rendered-text contrast measurements; no sample
 - Focus ring on canvas: **5.64:1**.
 
 These are sampled results, not a guarantee for every rendered element and not a complete WCAG audit.
+
+
+## Diagnostic axe accessibility scan
+
+The current-head Run #610 workflow runs axe-core against all three static-preview routes under each of the five themes (15 route/theme scans), targeting WCAG 2.0 A/AA, WCAG 2.1 A/AA, WCAG 2.2 AA, and axe best-practice rules. The logged result is **15 scans, 0 scan errors, 0 violations, and 0 page errors**. The JSON report is included in the Run #610 artifact. This is a positive automated diagnostic result for the static preview; it is not full WCAG certification and does not replace manual keyboard-only/screen-reader testing or authenticated staging checks.
 
 ## Collapsed administrator navigation follow-up
 
