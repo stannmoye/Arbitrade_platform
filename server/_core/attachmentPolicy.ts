@@ -18,6 +18,19 @@ export function isAllowedAttachmentRequest(
   policy: AttachmentPolicy,
 ): boolean {
   const { fileName, mimeType, sizeBytes } = request;
+  // Fail closed when configuration is corrupt or incomplete. In particular,
+  // comparisons against NaN are always false and would otherwise bypass the
+  // maximum-size check.
+  if (
+    !Number.isFinite(policy?.maxAttachmentMb) ||
+    policy.maxAttachmentMb <= 0 ||
+    !Array.isArray(policy.allowedMimeTypes) ||
+    policy.allowedMimeTypes.length === 0 ||
+    policy.allowedMimeTypes.some(rule => typeof rule !== "string" || rule.trim().length === 0)
+  ) {
+    return false;
+  }
+
   if (
     typeof fileName !== "string" ||
     typeof mimeType !== "string" ||
