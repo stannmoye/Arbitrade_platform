@@ -57,6 +57,21 @@ describe("support attachment request validation", () => {
     )).toBe(false);
   });
 
+  it("rejects known file extensions whose declared MIME type disagrees", () => {
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.pdf", mimeType: "image/png", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "photo.png", mimeType: "application/pdf", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.PDF", mimeType: "application/pdf", sizeBytes: 1000 },
+      policy,
+    )).toBe(true);
+  });
+
   it("rejects unsupported types and invalid sizes", () => {
     expect(isAllowedAttachmentRequest(
       { fileName: "payload.exe", mimeType: "application/octet-stream", sizeBytes: 1000 },
