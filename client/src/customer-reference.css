@@ -1599,3 +1599,6 @@
 @media(max-width:800px){.support-inbox-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.support-toolbar select{flex:1 1 150px}.support-toolbar>.secondary-button{flex:0 0 auto}}
 @media(max-width:480px){.support-inbox-summary{gap:8px}.support-summary-card{padding:10px;grid-template-columns:28px 1fr;column-gap:8px}.support-summary-icon{width:28px;height:28px}.support-summary-card strong{font-size:1.1rem}.support-summary-card>span:last-child{font-size:.7rem}.support-toolbar>.secondary-button{width:100%;justify-content:center}.support-next-step{padding:10px}}
 @media(prefers-reduced-motion:reduce){.support-page *{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+.support-attachment-error{display:block;flex-basis:100%;width:100%;margin-top:5px;color:#b42318;font-size:.82rem;line-height:1.45}
+.attachment-dropzone input[type=file]{max-width:100%;font:inherit;font-size:.8rem}
