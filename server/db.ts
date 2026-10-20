@@ -270,7 +270,7 @@ export async function assignSupportTicket(actorId:number,ticketId:number,assigne
   return {changed:true,ticket,assignee,changedAt};
  });
  if(committed.changed&&committed.assignee) {
-  try { await createNotification(committed.assignee.id,"Support ticket assigned",`${committed.ticket.ticketNumber}: ${committed.ticket.subject}`,{eventKey:`support-ticket:${ticketId}:assignment:${committed.changedAt!.getTime()}`,category:"support",priority:committed.ticket.priority==="urgent"?"urgent":committed.ticket.priority==="high"?"high":"normal",href:"/admin"}); }
+  try { await createNotification(committed.assignee.id,"Support ticket assigned",`${committed.ticket.ticketNumber}: ${committed.ticket.subject}`,{eventKey:`support-ticket:${ticketId}:assignment:${committed.changedAt!.getTime()}`,category:"support",priority:committed.ticket.priority==="urgent"?"urgent":committed.ticket.priority==="high"?"high":committed.ticket.priority==="low"?"low":"normal",href:"/admin"}); }
   catch(error) { console.error("[Notifications] Support assignment notice failed after assignment commit:",error instanceof Error?error.name:"UnknownError"); }
  }
  return {success:true,changed:committed.changed,assignedAdminId:committed.assignee?.id??null};
