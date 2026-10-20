@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS `notification_campaigns` (
   `priority` varchar(20) NOT NULL,
   `href` varchar(512) NULL,
   `targetUserId` int NULL,
-  `status` enum('draft','published','expired','failed') NOT NULL DEFAULT 'draft',
+  `status` enum('draft','scheduled','published','expired','failed') NOT NULL DEFAULT 'draft',
   `scheduledAt` timestamp NULL DEFAULT NULL,
   `expiresAt` timestamp NULL DEFAULT NULL,
   `publishedAt` timestamp NULL DEFAULT NULL,
