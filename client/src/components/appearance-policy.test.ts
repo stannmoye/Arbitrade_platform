@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { ARBITRADE_THEMES, normalizeEnabledThemes, toggleEnabledTheme } from "./appearance-policy";
 
+describe("Gold Luxe theme registration", () => {
+  it("includes Gold Luxe in the canonical theme list", () => {
+    expect(ARBITRADE_THEMES).toContain("gold-luxe");
+    expect(normalizeEnabledThemes(["gold-luxe", "original"])).toEqual(["original", "gold-luxe"]);
+  });
+
+  it("allows Gold Luxe to be enabled and disabled using the same policy rules", () => {
+    expect(toggleEnabledTheme(["original"], "gold-luxe")).toEqual(["original", "gold-luxe"]);
+    expect(toggleEnabledTheme(["original", "gold-luxe"], "gold-luxe")).toEqual(["original"]);
+  });
+});
+
 describe("administrator enabled-theme policy transitions", () => {
   it("normalizes duplicate and unknown persisted entries in canonical order", () => {
     expect(normalizeEnabledThemes(["aurora-modern", "unknown", "original", "aurora-modern"]))
@@ -20,7 +32,7 @@ describe("administrator enabled-theme policy transitions", () => {
     "recovers safely from malformed list input: %j",
     input => {
       expect(normalizeEnabledThemes(input, "midnight-premium")).toEqual(["midnight-premium"]);
-      expect(toggleEnabledTheme(input, "clean-light")).toEqual(["midnight-premium", "clean-light"]);
+      expect(toggleEnabledTheme(input, "clean-light")).toEqual(["original", "clean-light"]);
     },
   );
 
