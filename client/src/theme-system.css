@@ -1447,6 +1447,8 @@
   .customer-slide-theme-control { padding: 12px 14px 4px; }
 }
 @media (max-width: 380px) {
+  .customer-portal .portal-header .brand-lockup { gap: 8px !important; }
+  .customer-portal .portal-header .brand-lockup strong { font-size: 14px !important; }
   .customer-portal > .arb-theme-selector-compact { right: 148px !important; }
-  .customer-portal > .arb-theme-selector-compact .arb-theme-selector-trigger { min-height: 36px; padding: 0 7px; gap: 5px; }
+  .customer-portal > .arb-theme-selector-compact .arb-theme-selector-trigger { width: 38px; min-width: 38px; min-height: 36px; padding: 0; gap: 0; }
 }
