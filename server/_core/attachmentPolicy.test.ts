@@ -85,6 +85,26 @@ describe("support attachment request validation", () => {
     )).toBe(false);
   });
 
+  it("rejects active-content and executable suffixes despite an allowed declared MIME type", () => {
+    for (const fileName of [
+      "payload.exe",
+      "script.js",
+      "page.html",
+      "image.svg",
+      "payload.exe.png",
+      "report.pdf.html",
+    ]) {
+      expect(isAllowedAttachmentRequest(
+        { fileName, mimeType: "image/png", sizeBytes: 1000 },
+        policy,
+      )).toBe(false);
+    }
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.pdf", mimeType: "application/pdf", sizeBytes: 1000 },
+      policy,
+    )).toBe(true);
+  });
+
   it("rejects unsupported types and invalid sizes", () => {
     expect(isAllowedAttachmentRequest(
       { fileName: "payload.exe", mimeType: "application/octet-stream", sizeBytes: 1000 },
