@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ADMIN_BROADCAST_CATEGORIES,
+  assertNotificationPayloadMatches,
   buildNotificationEventKey,
   filterNotificationCategories,
   filterVisibleNotificationEventCursor,
@@ -10,6 +11,31 @@ import {
   partitionNotificationRecipients,
   buildTradeSettlementNotices,
 } from "./notification-events";
+
+describe("notification idempotency payload integrity", () => {
+  const original = { userId: 7, title: "Maintenance", body: "Read-only window", category: "announcement", priority: "normal", href: "/notifications" };
+
+  it("accepts a retry only when every persisted payload field matches", () => {
+    expect(() => assertNotificationPayloadMatches({ ...original }, { ...original })).not.toThrow();
+  });
+
+  it.each([
+    ["userId", 8],
+    ["title", "Changed title"],
+    ["body", "Changed body"],
+    ["category", "promotion"],
+    ["priority", "high"],
+    ["href", "/different"],
+  ] as const)("rejects a reused event key with changed %s", (field, value) => {
+    const changed = { ...original, [field]: value } as typeof original;
+    expect(() => assertNotificationPayloadMatches({ ...original }, changed)).toThrow(/different payload/);
+  });
+
+  it("treats null and empty links as distinct payloads", () => {
+    expect(() => assertNotificationPayloadMatches({ ...original, href: null }, { ...original, href: "" }))
+      .toThrow(/different payload/);
+  });
+});
 
 describe("Stage 4 notification safety and delivery helpers", () => {
   it("restricts admin-authored broadcasts to non-financial communication categories", () => {
