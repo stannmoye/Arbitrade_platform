@@ -68,10 +68,11 @@ jobs:
           git archive HEAD -- . ':(exclude)database.sql' ':(exclude)**/database.sql' | tar -x -C "$package"
           cp -a dist "$package/dist"
 
-          # Bundle production runtime dependencies so this is a usable release package,
-          # not source that must be rebuilt after upload. Hoisted layout avoids the
-          # symlink-heavy node_modules structure produced by pnpm's isolated linker.
-          pnpm --dir "$package" install --prod --frozen-lockfile --config.node-linker=hoisted
+          # Bundle all locked dependencies. The server build currently retains a
+          # runtime import path through vite.config, so devDependencies are also
+          # needed for a portable package even when NODE_ENV=production. Hoisted
+          # layout avoids pnpm's symlink-heavy isolated node_modules structure.
+          pnpm --dir "$package" install --frozen-lockfile --config.node-linker=hoisted
           node --input-type=module - "$package" <<'NODE'
           import { createRequire } from "node:module";
           import { readFile } from "node:fs/promises";
@@ -86,7 +87,7 @@ jobs:
           if (missing.length) throw new Error("Production dependencies not resolvable in release package: " + missing.join(", "));
           console.log("Bundled and resolved " + Object.keys(pkg.dependencies ?? {}).length + " direct production dependencies.");
           NODE
-          echo "Bundled production dependencies: $(du -sh "$package/node_modules" | cut -f1)"
+          echo "Bundled application dependencies: $(du -sh "$package/node_modules" | cut -f1)"
           printf 'Arbitrade installer version: %s\nBuild commit: %s\n' "$version" "$GITHUB_SHA" > "$package/INSTALLER-BUILD.txt"
 
           # Smoke-test the app from the assembled release directory, not only the
