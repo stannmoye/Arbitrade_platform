@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, NOTIFICATION_CATEGORIES, normalizeNotificationText } from "./notification-events";
+import { buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, NOTIFICATION_CATEGORIES, normalizeNotificationHref, normalizeNotificationText } from "./notification-events";
 
 describe("notification event identity", () => {
   it("scopes event keys to the recipient", () => {
@@ -67,4 +67,19 @@ describe("trade settlement notification categories", () => {
     expect(() => buildTradeSettlementNotices({ tradeId: 0, currency: "USD", principalMinor: 1, rewardMinor: 0 })).toThrow(RangeError);
     expect(() => buildTradeSettlementNotices({ tradeId: 1, currency: "USD", principalMinor: -1, rewardMinor: 0 })).toThrow(RangeError);
   });
+});
+
+
+describe("notification navigation links", () => {
+  it("accepts same-origin paths and normalizes empty values", () => {
+    expect(normalizeNotificationHref("  /customer/notifications?id=3  ")).toBe("/customer/notifications?id=3");
+    expect(normalizeNotificationHref(undefined)).toBeNull();
+    expect(normalizeNotificationHref("   ")).toBeNull();
+  });
+
+  it.each(["https://example.com", "//example.com/path", "/%2fexample.com", "/\\\\example.com", "/safe%5c..%5cpath", "/path\\nInjected: value"]) (
+    "rejects unsafe link %s", href => {
+      expect(() => normalizeNotificationHref(href)).toThrow(TypeError);
+    },
+  );
 });
