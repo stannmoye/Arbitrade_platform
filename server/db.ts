@@ -258,6 +258,24 @@ export async function addTicketMessage(actorId:number,ticketId:number,body:strin
     await Promise.all(admins.map(admin=>createNotification(admin.id,"Customer replied to a support ticket",`${ticket.ticketNumber}: ${normalizedBody.slice(0,240)}`,{eventKey:`support-ticket:${ticketId}:message:${messageId}`,category:"support",priority:ticket.priority==="urgent"?"urgent":ticket.priority==="high"?"high":"normal"})));
   }
  }
+export async function reopenSupportTicket(actorId:number,ticketId:number) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const ticket=(await db.select().from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1))[0];
+  if(!ticket) throw new Error("Ticket not found");
+  const actor=(await db.select({role:users.role}).from(users).where(eq(users.id,actorId)).limit(1))[0];
+  if(!actor) throw new Error("Ticket actor not found");
+  const isAdmin=actor.role==="admin";
+  if(!isAdmin && ticket.customerId!==actorId) throw new Error("You do not have access to this ticket");
+  if(ticket.status!=="closed" && ticket.status!=="resolved") return {success:true,changed:false,status:ticket.status};
+  const previousUpdatedAt=new Date(ticket.updatedAt as any).getTime();
+  await db.update(supportTickets).set({status:"open",updatedAt:new Date()}).where(eq(supportTickets.id,ticketId));
+  const eventKey=`support-ticket:${ticketId}:reopened:${previousUpdatedAt}`;
+  const notice=isAdmin
+    ? createNotification(ticket.customerId,"Your support ticket was reopened",`${ticket.ticketNumber}: support has reopened this case and the conversation is available again.`,{eventKey,category:"support",priority:ticket.priority==="urgent"?"urgent":"normal"})
+    : (async()=>{const admins=await db.select({id:users.id}).from(users).where(eq(users.role,"admin"));await Promise.all(admins.map(admin=>createNotification(admin.id,"Customer reopened a support ticket",`${ticket.ticketNumber}: the customer reopened this case.`,{eventKey:`${eventKey}:admin:${admin.id}`,category:"support",priority:ticket.priority==="urgent"?"urgent":"normal"})));})();
+  try { await notice; } catch(error) { console.error("[Notifications] Ticket reopen notice failed after status commit:",error instanceof Error?error.name:"UnknownError"); }
+  return {success:true,changed:true,status:"open" as const};
+}
 export async function listTicketMessages(ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select({id:supportMessages.id,ticketId:supportMessages.ticketId,authorId:supportMessages.authorId,authorName:users.name,authorRole:users.role,body:supportMessages.body,createdAt:supportMessages.createdAt}).from(supportMessages).leftJoin(users,eq(users.id,supportMessages.authorId)).where(eq(supportMessages.ticketId,ticketId)).orderBy(supportMessages.createdAt); }
 export async function createNotification(userId:number,title:string,body:string,options:{eventKey?:string|null;category?:NotificationCategory;priority?:NotificationPriority;href?:string|null}={}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
