@@ -37,7 +37,7 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
 
   return (
     <section
-      className={\`arb-theme-selector\${compact ? " arb-theme-selector-compact" : ""}\${canChoose ? " is-selectable" : " is-readonly"}\`}
+      className={`arb-theme-selector${compact ? " arb-theme-selector-compact" : ""}${canChoose ? " is-selectable" : " is-readonly"}`}
       aria-label="Appearance settings"
       aria-busy={!policyReady}
     >
@@ -48,7 +48,7 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
           ) : (
             <span className="arb-theme-selector-title">Workspace appearance</span>
           )}
-          <span id={\`arb-theme-description-\${selectorId}\`} className="arb-theme-selector-description">
+          <span id={`arb-theme-description-${selectorId}`} className="arb-theme-selector-description">
             {!policyReady || policyFailed ? "Workspace appearance settings" : canChoose ? "Choose your workspace theme" : "Theme selected by workspace settings"}
           </span>
         </div>
@@ -70,15 +70,15 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
             value={selectedTheme}
             onChange={(event) => setTheme(event.target.value as ArbitradeTheme)}
             aria-label="Choose workspace theme"
-            aria-describedby={!compact ? \`arb-theme-description-\${selectorId}\` : undefined}
-            title={\`Current theme: \${ARBITRADE_THEME_LABELS[selectedTheme]}. Choose another theme.\`}
+            aria-describedby={!compact ? `arb-theme-description-${selectorId}` : undefined}
+            title={`Current theme: ${ARBITRADE_THEME_LABELS[selectedTheme]}. Choose another theme.`}
           >
             {availableThemes.map((option) => (
               <option key={option} value={option}>{ARBITRADE_THEME_LABELS[option]}</option>
             ))}
           </select>
         ) : (
-          <span className="arb-theme-selector-current" aria-label={\`Current theme: \${ARBITRADE_THEME_LABELS[selectedTheme]}\`}>
+          <span className="arb-theme-selector-current" aria-label={`Current theme: ${ARBITRADE_THEME_LABELS[selectedTheme]}`}>
             {ARBITRADE_THEME_LABELS[selectedTheme]}
           </span>
         )}
