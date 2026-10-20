@@ -366,7 +366,7 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
   const now=new Date();
   if(expiresAt && expiresAt.getTime()<=now.getTime())throw new RangeError("Announcement expiry must be in the future");
   if(scheduledAt && expiresAt && expiresAt.getTime()<=scheduledAt.getTime())throw new RangeError("Announcement expiry must be later than its scheduled publish time");
-  const sameDate=(left:Date|null|undefined,right:Date|null)=>left==null?right==null:right!=null&&new Date(left).getTime()===right.getTime();
+  const sameDate=(left:Date|null|undefined,right:Date|null)=>left==null?right==null:right!=null&&left.getTime()===right.getTime();
   const activeCustomerCondition=or(isNull(customerControls.accountStatus),eq(customerControls.accountStatus,"active"));
   const findRecipients=async()=>targetUserId!==null
     ? await db.select({id:users.id}).from(users).leftJoin(customerControls,eq(customerControls.userId,users.id)).where(and(eq(users.id,targetUserId),eq(users.role,"user"),activeCustomerCondition)).limit(1)
@@ -377,7 +377,7 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
   if(!campaign) {
     const recipients=await findRecipients();
     if(targetUserId!==null && !recipients.length)throw new Error("Selected customer account was not found or is not active");
-    await db.insert(notificationCampaigns).values({createdBy:adminId,eventKey,title,body,category:input.category,priority:input.priority,href,targetUserId:targetUserId??null,status:scheduledAt&&scheduledAt.getTime()>now.getTime()?"scheduled":"draft",scheduledAt,expiresAt,totalRecipientCount:recipients.length}).onDuplicateKeyUpdate({set:{eventKey}});
+    await db.insert(notificationCampaigns).values({createdBy:adminId,eventKey,title,body,category:input.category,priority:input.priority,href,targetUserId:targetUserId??null,status:"draft",scheduledAt,expiresAt,totalRecipientCount:recipients.length}).onDuplicateKeyUpdate({set:{eventKey}});
     campaign=(await db.select().from(notificationCampaigns).where(and(eq(notificationCampaigns.createdBy,adminId),eq(notificationCampaigns.eventKey,eventKey))).limit(1))[0];
     if(!campaign)throw new Error("Announcement campaign persistence could not be confirmed");
     if(!matchesPayload(campaign))throw new Error("Announcement event key was already used with a different campaign payload");
@@ -404,6 +404,10 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
   } else if(campaign.status==="scheduled") {
     await db.update(notificationCampaigns).set({status:"published",publishedAt:now}).where(and(eq(notificationCampaigns.id,campaign.id),eq(notificationCampaigns.status,"scheduled")));
     campaign=(await db.select().from(notificationCampaigns).where(eq(notificationCampaigns.id,campaign.id)).limit(1))[0]!;
+  }
+  if(campaign.status==="scheduled" && campaign.scheduledAt && new Date(campaign.scheduledAt).getTime()>now.getTime()) {
+    const rows=await db.select({status:notificationCampaignDeliveries.status}).from(notificationCampaignDeliveries).where(eq(notificationCampaignDeliveries.campaignId,campaign.id));
+    return {campaignId:campaign.id,recipientCount:0,totalRecipientCount:rows.length,readCount:0,failedCount:rows.filter(x=>x.status==="failed").length,pendingCount:rows.filter(x=>x.status==="pending").length,eventKey,targetUserId:targetUserId??null,status:"scheduled" as const};
   }
   if(campaign.status!=="published")throw new Error("Announcement campaign is not ready for delivery");
   const pending=await db.select({id:notificationCampaignDeliveries.id,userId:notificationCampaignDeliveries.userId}).from(notificationCampaignDeliveries).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
