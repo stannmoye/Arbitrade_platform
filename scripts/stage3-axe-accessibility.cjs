@@ -21,6 +21,12 @@ const THEMES = [
   "emerald-finance",
   "aurora-modern",
 ];
+const VIEWPORTS = [
+  { width: 320, height: 800, name: "mobile-narrow" },
+  { width: 390, height: 844, name: "mobile-standard" },
+  { width: 768, height: 1024, name: "tablet" },
+  { width: 1440, height: 1000, name: "desktop" },
+];
 const OUT_DIR = path.resolve("artifacts/stage2-browser");
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
@@ -30,8 +36,9 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
   try {
     for (const route of ROUTES) {
       for (const theme of THEMES) {
+        for (const viewport of VIEWPORTS) {
         const page = await browser.newPage({
-          viewport: { width: 1440, height: 1000 },
+          viewport: { width: viewport.width, height: viewport.height },
           reducedMotion: "reduce",
         });
         const pageErrors = [];
@@ -142,6 +149,7 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
             route: route.path,
             routeName: route.name,
             theme,
+            viewport: { name: viewport.name, width: viewport.width, height: viewport.height },
             url: page.url(),
             httpStatus: response ? response.status() : null,
             title: await page.title(),
@@ -168,11 +176,13 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
             route: route.path,
             routeName: route.name,
             theme,
+            viewport: { name: viewport.name, width: viewport.width, height: viewport.height },
             scanError: error instanceof Error ? error.message : String(error),
             pageErrors,
           });
         } finally {
           await page.close();
+        }
         }
       }
     }
@@ -186,6 +196,7 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
     standards: ["WCAG 2.0 A/AA", "WCAG 2.1 A/AA", "WCAG 2.2 AA", "axe best-practice"],
     routes: ROUTES,
     themes: THEMES,
+    viewports: VIEWPORTS,
     scanCount: scans.length,
     scanErrors: scans.filter(scan => scan.scanError).length,
     totalViolations: scans.reduce((sum, scan) => sum + (scan.violationCount || 0), 0),
@@ -203,7 +214,7 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
       return summary;
     }, {}),
     scans,
-    limitation: "Static preview only. Findings are diagnostic and do not prove live authorization, persistence, or assistive-technology acceptance.",
+    limitation: "Static preview only across the listed viewport sizes. Findings are diagnostic and do not prove live authorization, persistence, or assistive-technology acceptance.",
   };
   const output = path.join(OUT_DIR, "axe-accessibility-report.json");
   fs.writeFileSync(output, JSON.stringify(report, null, 2));
