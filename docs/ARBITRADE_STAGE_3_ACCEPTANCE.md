@@ -32,9 +32,9 @@ Finish and verify the existing five-theme implementation without duplicating Sta
 - [x] Recheck the latest Stage 3 workflow run and review the theme context/storage isolation code.
 - [x] Inspect Run #597 administrator screenshots and identify collapsed navigation label overlap in Communications and Integrations.
 - [x] Fix collapsed navigation grid structure and add a settled-layout browser regression assertion; verify in Run #598 and revalidate on current head in Run #599.
-- [ ] Complete human keyboard-only and screen-reader review.
-- [ ] Verify live server authorization, database persistence, and cross-account isolation in authenticated staging.
-- [ ] Record human/staging evidence and remaining limitations before Stage 3 closeout.
+- [deferred — no hosting] Complete human keyboard-only and screen-reader review; requires a human reviewer and a suitable browser/device environment.
+- [deferred — no hosting] Verify live server authorization, database persistence, and cross-account isolation in authenticated staging; no host or staging environment exists.
+- [x] Record the implementation closeout and the explicit deferred-release-gate decision in this ledger and the master roadmap. Do not represent the deferred gates as passed.
 
 ## Current code change
 
@@ -117,3 +117,14 @@ The current PR head `90c3063bda255bff460595f85279e8438b4b2cd1` passed [Stage 3 w
 - Evidence artifact includes `report.json`, `axe-accessibility-report.json`, and screenshots; artifact has not expired at the time of this checkpoint.
 
 **Exit gates remain open:** human keyboard-only and screen-reader review; authenticated staging verification of live server authorization, persisted preferences, and cross-account isolation; and recorded final acceptance. The workflow serves a static client preview and mocks some auth/API interactions, so it does not establish these live-system properties. Keep PR #73 draft/open/unmerged and do not deploy until the outstanding gates have evidence.
+
+## Stage 3 implementation closeout — 2026-10-20
+
+**Decision: implementation complete for roadmap sequencing; deployed release acceptance deferred.** The user has confirmed there is no hosting provider/server or live/staging environment at present. Do not ask for a staging URL, host access, credentials, or hosted test accounts, and do not leave Stage 3 implementation looping on those unavailable prerequisites.
+
+- Latest recorded automated baseline: workflow **#628**, all four jobs passed.
+- Chromium responsive/five-theme matrix: **1,175 checks passed, 0 failures**.
+- Diagnostic axe scan: **15 scans, 0 scan errors, 0 confirmed violations, 0 page errors**; 15 incomplete `color-contrast` findings remain explicitly identified as manual-review candidates.
+- **Deferred, not passed:** human keyboard-only review; human screen-reader review; authenticated live-server authorization; persisted preference verification; and cross-account isolation in a live authenticated session.
+- No extra full-matrix CI run is warranted for this documentation-only closeout. Re-run only after a relevant code change or a concrete failure.
+- Stage 3 is closed for sequencing, not certified production-ready. Do not infer merge or deployment approval from this status.
