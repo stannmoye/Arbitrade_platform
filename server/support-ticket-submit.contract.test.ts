@@ -60,6 +60,8 @@ describe("Stage 4 support ticket submission security contract", () => {
     const adminEnd = routers.indexOf("reopenTicket: adminProcedure", adminStart);
     const adminReply = routers.slice(adminStart, adminEnd);
     expect(adminReply).toContain("await addTicketMessage(ctx.user.id,input.ticketId,input.body,input.status)");
+    expect(adminReply).toContain('body: z.string().trim().min(1).max(20000)');
+    expect(adminReply).toContain('throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" })');
     expect(adminReply).not.toContain("await createNotification(");
     expect(routers).toContain('throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" })');
   });
