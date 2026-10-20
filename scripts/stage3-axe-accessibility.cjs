@@ -101,7 +101,7 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
 
   const report = {
     generatedAt: new Date().toISOString(),
-    mode: "diagnostic-report-only",
+    mode: "ci-gate-no-violations",
     standards: ["WCAG 2.0 A/AA", "WCAG 2.1 A/AA", "WCAG 2.2 AA", "axe best-practice"],
     routes: ROUTES,
     themes: THEMES,
@@ -126,7 +126,7 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
     totalViolations: report.totalViolations,
     byImpact: report.byImpact,
   }, null, 2));
-  if (report.scanErrors > 0) process.exitCode = 1;
+  if (report.scanErrors > 0 || report.totalViolations > 0) process.exitCode = 1;
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;
