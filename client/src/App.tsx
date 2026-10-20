@@ -124,7 +124,7 @@ function AdminNotificationCenter(){
  const submit=(event:React.FormEvent)=>{event.preventDefault();setMessage("");const eventKey=typeof crypto!=="undefined"&&"randomUUID" in crypto?crypto.randomUUID():`broadcast-${Date.now()}-${Math.random().toString(36).slice(2)}`;publish.mutate({title,body,eventKey,category,priority,href:href.trim()||undefined,targetUserId:targetUser==="all"?undefined:Number(targetUser)})};
  const unread=(q.data||[]).filter((item:any)=>!item.readAt).length;
  const categoryLabels:Record<string,string>={account:"Account",transaction:"Transaction",deposit:"Deposit",withdrawal:"Withdrawal",ledger_credit:"Balance credit",ledger_debit:"Balance debit",trading:"Trading",mining:"Mining reward",support:"Ticket",announcement:"Announcement",promotion:"Promotion",platform_update:"Update",security:"Security"};
- const categories=Object.keys(categoryLabels);
+ const categories=Object.keys(categoryLabels) as Array<keyof typeof categoryLabels>;
  return <div className="arb-page portal-page admin-notification-center">
   <div className="portal-page-top"><div><div className="eyebrow">Communications · audience publishing</div><h1>Announcements & notifications</h1><p>Publish to one customer or everyone. Delivery is recorded per customer; publishing never creates a financial ledger event.</p></div><span className="admin-live-chip"><span className="pulse"/> Admin controlled</span></div>
   <form className="settings-card admin-announcement-form" onSubmit={submit}><div className="eyebrow">Central customer communication form</div><h2>Compose message</h2>
