@@ -1602,3 +1602,6 @@
 
 .support-attachment-error{display:block;flex-basis:100%;width:100%;margin-top:5px;color:#b42318;font-size:.82rem;line-height:1.45}
 .attachment-dropzone input[type=file]{max-width:100%;font:inherit;font-size:.8rem}
+
+.admin-ticket-search{margin:12px 0 16px;max-width:100%}
+.admin-ticket-search input{min-height:40px}
