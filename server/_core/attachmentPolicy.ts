@@ -14,7 +14,7 @@ export type AttachmentPolicy = {
 // extension and MIME rules are currently alternatives.
 // Reject executable/script-capable suffixes even when a client lies about MIME type
 // or appends an allowed-looking extension. Support attachments are untrusted content.
-const BLOCKED_ACTIVE_CONTENT_EXTENSION = /\\.(?:exe|dll|bat|cmd|com|msi|msp|scr|ps1|psm1|sh|bash|zsh|vbs|vbe|js|mjs|cjs|jar|html?|xhtml|svg|php|phtml|asp|aspx|jsp|jspx|wsf|hta)(?:\\.|$)/i;
+const BLOCKED_ACTIVE_CONTENT_EXTENSION = /\.(?:exe|dll|bat|cmd|com|msi|msp|scr|ps1|psm1|sh|bash|zsh|vbs|vbe|js|mjs|cjs|jar|html?|xhtml|svg|php|phtml|asp|aspx|jsp|jspx|wsf|hta)(?:\.|$)/i;
 
 const KNOWN_EXTENSION_MIME_TYPES: Record<string, readonly string[]> = {
   ".pdf": ["application/pdf"],
