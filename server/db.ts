@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { and, desc, eq, gt, gte, inArray, isNull, lte, notInArray, or, sql } from "drizzle-orm";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool } from "mysql2/promise";
-import { InsertUser, appSettings, customerBalances, currencyRegistry, customerControls, customerNotifications, customerSessions, customerWalletPreferences, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPopupEvents, balanceLedger, tradePositions, tradeRewardReservations, tradeLifecycleEvents, users, missedOpportunities, v5AuditEvents } from "../drizzle/schema";
+import { InsertUser, appSettings, customerBalances, currencyRegistry, customerControls, customerNotifications, customerSessions, customerWalletPreferences, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPopupEvents, balanceLedger, tradePositions, tradeRewardReservations, tradeLifecycleEvents, users, missedOpportunities, v5AuditEvents } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
@@ -350,6 +350,7 @@ export async function createNotification(userId:number,title:string,body:string,
     try { const { enqueueSystemNotificationEmail }=await import("./emailQueue"); await enqueueSystemNotificationEmail(userId,safeTitle,safeBody,`notification:${notificationId}`); }
     catch(error) { console.error("[Email] System notification enqueue failed:",error instanceof Error?error.name:"UnknownError"); }
   }
+  return notificationId;
 }
 export async function broadcastCustomerNotification(adminId:number,input:{title:string;body:string;eventKey:string;category:AdminBroadcastCategory;priority:NotificationPriority;href?:string|null;targetUserId?:number|null}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
@@ -360,22 +361,101 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
   const eventKey=normalizeNotificationText(input.eventKey,120,"event key");
   const href=normalizeNotificationHref(input.href);
   const activeCustomerCondition=or(isNull(customerControls.accountStatus),eq(customerControls.accountStatus,"active"));
-  const recipients=targetUserId !== null
+  const findRecipients=async()=>targetUserId !== null
     ? await db.select({id:users.id}).from(users).leftJoin(customerControls,eq(customerControls.userId,users.id)).where(and(eq(users.id,targetUserId),eq(users.role,"user"),activeCustomerCondition)).limit(1)
     : await db.select({id:users.id}).from(users).leftJoin(customerControls,eq(customerControls.userId,users.id)).where(and(eq(users.role,"user"),activeCustomerCondition));
-  if(targetUserId !== null && !recipients.length) throw new Error("Selected customer account was not found or is not active");
-  let recipientCount=0;
-  let failedCount=0;
-  // Bound database writes and email-outbox enqueue attempts for large broadcasts.
-  // A failed recipient remains visible in the aggregate result; other batches continue.
-  for(const batch of partitionNotificationRecipients(recipients,50)){
-    const deliveries=await Promise.allSettled(batch.map(recipient=>createNotification(recipient.id,title,body,{eventKey:`admin-broadcast:${adminId}:${eventKey}`,category:input.category,priority:input.priority,href})));
-    recipientCount+=deliveries.filter(result=>result.status==="fulfilled").length;
-    failedCount+=deliveries.filter(result=>result.status==="rejected").length;
+  let campaign=(await db.select().from(notificationCampaigns).where(and(eq(notificationCampaigns.createdBy,adminId),eq(notificationCampaigns.eventKey,eventKey))).limit(1))[0];
+  if(campaign && (campaign.title!==title || campaign.body!==body || campaign.category!==input.category ||
+    campaign.priority!==input.priority || campaign.href!==(href??null) || campaign.targetUserId!==(targetUserId??null))) {
+    throw new Error("Announcement event key was already used with a different campaign payload");
   }
-  if(failedCount) console.error(`[Notifications] Admin broadcast ${eventKey} failed for ${failedCount} recipient(s).`);
-  return {recipientCount,totalRecipientCount:recipients.length,failedCount,eventKey,targetUserId:input.targetUserId??null};
- }
+  if(!campaign) {
+    const recipients=await findRecipients();
+    if(targetUserId!==null && !recipients.length) throw new Error("Selected customer account was not found or is not active");
+    await db.insert(notificationCampaigns).values({
+      createdBy:adminId,eventKey,title,body,category:input.category,priority:input.priority,href,
+      targetUserId:targetUserId??null,status:"draft",totalRecipientCount:recipients.length,
+    }).onDuplicateKeyUpdate({set:{eventKey}});
+    campaign=(await db.select().from(notificationCampaigns).where(and(eq(notificationCampaigns.createdBy,adminId),eq(notificationCampaigns.eventKey,eventKey))).limit(1))[0];
+    if(!campaign) throw new Error("Announcement campaign persistence could not be confirmed");
+    if(campaign.title!==title || campaign.body!==body || campaign.category!==input.category ||
+      campaign.priority!==input.priority || campaign.href!==(href??null) || campaign.targetUserId!==(targetUserId??null)) {
+      throw new Error("Announcement event key was already used with a different campaign payload");
+    }
+  }
+  if(campaign.status==="expired") throw new Error("Expired announcement campaigns cannot be republished");
+  // A draft indicates recipient snapshotting did not finish. Complete the snapshot before publishing.
+  if(campaign.status==="draft") {
+    const recipients=await findRecipients();
+    if(targetUserId!==null && !recipients.length) throw new Error("Selected customer account was not found or is not active");
+    for(const batch of partitionNotificationRecipients(recipients,50)) {
+      if(batch.length) await db.insert(notificationCampaignDeliveries).values(batch.map(recipient=>({
+        campaignId:campaign!.id,userId:recipient.id,status:"pending" as const,
+      }))).onDuplicateKeyUpdate({set:{campaignId:campaign.id}});
+    }
+    await db.update(notificationCampaigns).set({status:"published",publishedAt:new Date(),totalRecipientCount:recipients.length}).where(and(eq(notificationCampaigns.id,campaign.id),eq(notificationCampaigns.status,"draft")));
+    campaign=(await db.select().from(notificationCampaigns).where(eq(notificationCampaigns.id,campaign.id)).limit(1))[0]!;
+  }
+  const pending=await db.select({id:notificationCampaignDeliveries.id,userId:notificationCampaignDeliveries.userId})
+    .from(notificationCampaignDeliveries)
+    .where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
+  for(const batch of partitionNotificationRecipients(pending,50)) {
+    await Promise.allSettled(batch.map(async delivery=>{
+      const attemptedAt=new Date();
+      try {
+        const notificationId=await createNotification(delivery.userId,title,body,{
+          eventKey:`admin-broadcast:${adminId}:${eventKey}`,category:input.category,priority:input.priority,href,
+        });
+        await db.insert(notificationCampaignDeliveries).values({
+          campaignId:campaign!.id,userId:delivery.userId,notificationId,status:"delivered",
+          attemptedAt,deliveredAt:new Date(),errorCode:null,
+        }).onDuplicateKeyUpdate({set:{notificationId,status:"delivered",attemptedAt,deliveredAt:new Date(),errorCode:null}});
+      } catch(error) {
+        try {
+          await db.insert(notificationCampaignDeliveries).values({
+            campaignId:campaign!.id,userId:delivery.userId,status:"failed",attemptedAt,errorCode:"DELIVERY_FAILED",
+          }).onDuplicateKeyUpdate({set:{status:"failed",attemptedAt,errorCode:"DELIVERY_FAILED"}});
+        } catch {
+          // The persisted campaign remains queryable even if its delivery ledger is temporarily unavailable.
+        }
+        console.error("[Notifications] Announcement recipient delivery failed:",error instanceof Error?error.name:"UnknownError");
+      }
+    }));
+  }
+  const deliveries=await db.select({status:notificationCampaignDeliveries.status})
+    .from(notificationCampaignDeliveries).where(eq(notificationCampaignDeliveries.campaignId,campaign.id));
+  const recipientCount=deliveries.filter(row=>row.status==="delivered"||row.status==="read").length;
+  const readCount=deliveries.filter(row=>row.status==="read").length;
+  const failedCount=deliveries.filter(row=>row.status==="failed").length;
+  await db.update(notificationCampaigns).set({totalRecipientCount:deliveries.length}).where(eq(notificationCampaigns.id,campaign.id));
+  return {campaignId:campaign.id,recipientCount,totalRecipientCount:deliveries.length,readCount,failedCount,eventKey,targetUserId:targetUserId??null,status:"published" as const};
+}
+
+export async function listAdminNotificationCampaigns() {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const campaigns=await db.select().from(notificationCampaigns).orderBy(desc(notificationCampaigns.createdAt)).limit(100);
+  const counts=await db.select({
+    campaignId:notificationCampaignDeliveries.campaignId,
+    status:notificationCampaignDeliveries.status,
+    count:sql<number>`COUNT(*)`,
+  }).from(notificationCampaignDeliveries).groupBy(notificationCampaignDeliveries.campaignId,notificationCampaignDeliveries.status);
+  const byCampaign=new Map<number,{total:number;delivered:number;read:number;failed:number;pending:number;expired:number}>();
+  for(const row of counts) {
+    const summary=byCampaign.get(row.campaignId)??{total:0,delivered:0,read:0,failed:0,pending:0,expired:0};
+    const count=Number(row.count)||0;
+    summary.total+=count;
+    if(row.status==="delivered") summary.delivered+=count;
+    if(row.status==="read") { summary.read+=count; summary.delivered+=count; }
+    if(row.status==="failed") summary.failed+=count;
+    if(row.status==="pending") summary.pending+=count;
+    if(row.status==="expired") summary.expired+=count;
+    byCampaign.set(row.campaignId,summary);
+  }
+  return campaigns.map(campaign=>({
+    ...campaign,
+    delivery:byCampaign.get(campaign.id)??{total:0,delivered:0,read:0,failed:0,pending:0,expired:0},
+  }));
+}
 export async function getNotificationCategoryVisibility():Promise<Record<NotificationCategory,boolean>> {
   const defaults=Object.fromEntries(NOTIFICATION_CATEGORIES.map(category=>[category,true])) as Record<NotificationCategory,boolean>;
   const raw=await getAppSetting("notification.categoryVisibility");
@@ -394,7 +474,19 @@ export async function listCustomerNotifications(userId:number) {
 }
 export async function listNotifications(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(customerNotifications).where(eq(customerNotifications.userId,userId)).orderBy(desc(customerNotifications.createdAt)); }
 export async function listNotificationEventCursor(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const visibility=await getNotificationCategoryVisibility(); const disabled=NOTIFICATION_CATEGORIES.filter(category=>visibility[category]===false); const condition=disabled.length?and(eq(customerNotifications.userId,userId),notInArray(customerNotifications.category,disabled)):eq(customerNotifications.userId,userId); const rows=await db.select({id:customerNotifications.id,category:customerNotifications.category,readAt:customerNotifications.readAt}).from(customerNotifications).where(condition).orderBy(desc(customerNotifications.createdAt)).limit(500); return filterVisibleNotificationEventCursor(rows,visibility); }
-export async function markCustomerNotificationsRead(userId:number, notificationId?:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const condition=notificationId ? and(eq(customerNotifications.userId,userId),eq(customerNotifications.id,notificationId)) : and(eq(customerNotifications.userId,userId),sql`${customerNotifications.readAt} IS NULL`); await db.update(customerNotifications).set({readAt:new Date()}).where(condition); return listCustomerNotifications(userId); }
+export async function markCustomerNotificationsRead(userId:number, notificationId?:number) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const condition=notificationId
+    ? and(eq(customerNotifications.userId,userId),eq(customerNotifications.id,notificationId))
+    : and(eq(customerNotifications.userId,userId),sql`${customerNotifications.readAt} IS NULL`);
+  await db.update(customerNotifications).set({readAt:new Date()}).where(condition);
+  const readRows=await db.select({id:customerNotifications.id}).from(customerNotifications)
+    .where(and(eq(customerNotifications.userId,userId),sql`${customerNotifications.readAt} IS NOT NULL`));
+  const ids=readRows.map(row=>row.id);
+  if(ids.length) await db.update(notificationCampaignDeliveries).set({status:"read",readAt:new Date()})
+    .where(and(eq(notificationCampaignDeliveries.userId,userId),inArray(notificationCampaignDeliveries.notificationId,ids),eq(notificationCampaignDeliveries.status,"delivered")));
+  return listCustomerNotifications(userId);
+}
 export async function getCustomerWalletPreferences(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); let row=(await db.select().from(customerWalletPreferences).where(eq(customerWalletPreferences.userId,userId)).limit(1))[0]; if(!row){await db.insert(customerWalletPreferences).values({userId}); row=(await db.select().from(customerWalletPreferences).where(eq(customerWalletPreferences.userId,userId)).limit(1))[0];} return row; }
 export async function updateCustomerWalletPreferences(userId:number,input:{tradingCurrency?:string;swapCurrency?:string;autoTopUpEnabled?:boolean;withdrawalWhitelistEnabled?:boolean}) { const db=await getDb(); if(!db) throw new Error("Database is not available"); await getCustomerWalletPreferences(userId); const values:any={...input}; if(values.tradingCurrency) values.tradingCurrency=values.tradingCurrency.toUpperCase(); if(values.swapCurrency) values.swapCurrency=values.swapCurrency.toUpperCase(); await db.update(customerWalletPreferences).set(values).where(eq(customerWalletPreferences.userId,userId)); return getCustomerWalletPreferences(userId); }
 export async function getCustomerOpportunityRules(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); let row=(await db.select().from(customerOpportunityRules).where(eq(customerOpportunityRules.userId,userId)).limit(1))[0]; if(!row){await db.insert(customerOpportunityRules).values({userId}); row=(await db.select().from(customerOpportunityRules).where(eq(customerOpportunityRules.userId,userId)).limit(1))[0];} return row; }
