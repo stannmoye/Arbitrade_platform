@@ -72,7 +72,15 @@ async function postDueRewards(conn: Db, userId: number) {
       await conn.execute(`UPDATE customer_balances SET availableMinor=availableMinor+?, earnedMinor=earnedMinor+?, updatedAt=NOW() WHERE userId=? AND currency=?`, [reward, reward, userId, position.asset]);
       await conn.execute(`INSERT INTO stake_rewards (positionId,userId,amountMinor,asset,status,calculatedAt,postedAt,ledgerReference) VALUES (?,?,?,?, 'POSTED', NOW(), NOW(), ?)`, [position.id, userId, reward, position.asset, reference]);
       await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, position.id, "reward.posted", "REWARD_ACCRUING", "REWARD_ACCRUING", reward, position.asset, JSON.stringify({ ledgerReference: reference })]);
-      await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, "Reward credited", `A ${reward} minor-unit reward was posted to your ${position.asset} wallet.`]);
+      // Keep the notice atomic with the committed ledger reward and make retries idempotent per recipient.
+      await conn.execute(`INSERT INTO customer_notifications (userId,title,body,eventKey,category,priority) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE eventKey=VALUES(eventKey)`, [
+        userId,
+        "Stake & Earn reward credited",
+        `A ${reward} minor-unit reward was posted to your ${position.asset} wallet.`,
+        `u${userId}:stake-reward:${position.id}:${position.rewardCount + 1}`,
+        "trading_reward",
+        "normal",
+      ]);
     }
     await conn.execute(`UPDATE stake_positions SET rewardMinor=rewardMinor+?, rewardCount=rewardCount+1, status='REWARD_ACCRUING', nextRewardAt=?, updatedAt=NOW() WHERE id=?`, [reward, nextRewardAt(new Date(position.nextRewardAt), position.rewardFrequency), position.id]);
   }
@@ -88,7 +96,15 @@ async function settleDuePositions(conn: Db, userId: number) {
     await conn.execute(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=GREATEST(lockedMinor-?,0), updatedAt=NOW() WHERE userId=? AND currency=?`, [p.principalMinor, p.principalMinor, userId, p.asset]);
     await conn.execute(`UPDATE stake_positions SET status='COMPLETED', completedAt=NOW(), updatedAt=NOW() WHERE id=?`, [p.id]);
     await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, p.id, "position.completed", p.status, "COMPLETED", p.principalMinor, p.asset, JSON.stringify({ ledgerReference: reference })]);
-    await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, "Funds released", `Your Stake & Earn position ${p.positionCode} matured and principal was released to your wallet.`]);
+      // The principal-release notice shares the settlement transaction and stable position event key.
+      await conn.execute(`INSERT INTO customer_notifications (userId,title,body,eventKey,category,priority) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE eventKey=VALUES(eventKey)`, [
+        userId,
+        "Stake & Earn principal released",
+        `Your Stake & Earn position ${p.positionCode} matured and principal was released to your wallet.`,
+        `u${userId}:stake-settlement:${p.id}`,
+        "ledger_credit",
+        "normal",
+      ]);
   }
 }
 
