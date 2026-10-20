@@ -171,7 +171,7 @@ async function startServer() {
       return res.json({ uploadUrl: safeUploadUrl, storageKey: key, stableUrl: `/manus-storage/${key}` });
     } catch (error) {
       // Avoid returning internal provider URLs, tokens, or exception details.
-      console.error("[SupportAttachmentPresign] Unable to prepare upload", error instanceof Error ? error.message : "unknown error");
+      console.error("[SupportAttachmentPresign] Unable to prepare upload", error instanceof Error ? error.name : "UnknownError");
       return res.status(502).json({ error: "Unable to prepare managed upload. Please retry." });
     }
   });
