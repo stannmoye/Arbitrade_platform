@@ -56,8 +56,9 @@ export const appRouter = router({
     kycSubmitDocument: protectedProcedure.input(z.object({ documentType: z.string().min(2).max(80), countryCode: z.string().min(2).max(8), frontStorageKey: z.string().min(1).max(512), backStorageKey: z.string().max(512).optional(), documentNumber: z.string().max(120).optional(), fields: z.record(z.string(), z.unknown()).optional() })).mutation(({ ctx, input }) => submitDocument(ctx.user.id, input)),
     kycRecordFace: protectedProcedure.input(z.object({ sessionId: z.string().min(16).max(64), challenge: z.record(z.string(), z.unknown()).optional(), demo: z.boolean().optional(), demoOutcome: z.enum(["pass", "fail", "review"]).optional() })).mutation(({ ctx, input }) => recordFaceVerification(ctx.user.id, input)),
     session: protectedProcedure.input(z.object({ deviceLabel: z.string().max(160), countryCode: z.string().max(8).optional() })).mutation(async ({ ctx, input }) => {
-      const forwarded = ctx.req.headers["x-forwarded-for"];
-      const ipAddress = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : ctx.req.socket.remoteAddress;
+      // Express resolves the client IP using the explicitly configured trusted-proxy topology.
+      // Never trust a caller-supplied X-Forwarded-For value directly in audit records.
+      const ipAddress = ctx.req.ip || ctx.req.socket.remoteAddress;
       const deviceLabel = input.deviceLabel || "Authenticated browser";
       await upsertCustomerSession(ctx.user.id, { deviceLabel, ipAddress, countryCode: input.countryCode, userAgent: ctx.req.headers["user-agent"] });
       return listCustomerSessions(ctx.user.id);
