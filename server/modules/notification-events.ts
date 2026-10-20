@@ -77,6 +77,26 @@ export function normalizeNotificationText(value: string, maxLength: number, fiel
   return normalized;
 }
 
+export type NotificationPayloadIdentity = {
+  userId: number;
+  title: string;
+  body: string;
+  category: string | null;
+  priority: string | null;
+  href: string | null;
+};
+
+/** A reused event key may only acknowledge the exact same durable notification payload. */
+export function assertNotificationPayloadMatches(
+  existing: NotificationPayloadIdentity,
+  expected: NotificationPayloadIdentity,
+): void {
+  const fields: (keyof NotificationPayloadIdentity)[] = ["userId", "title", "body", "category", "priority", "href"];
+  if (fields.some(field => existing[field] !== expected[field])) {
+    throw new Error("Notification event key was already used with a different payload");
+  }
+}
+
 export function filterNotificationCategories<T extends { category?: string | null }>(
   rows: T[],
   visibility: Partial<Record<NotificationCategory, boolean>>,
