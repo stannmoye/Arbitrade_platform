@@ -12,7 +12,7 @@ import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
-import { buildNotificationEventKey, normalizeNotificationText, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
+import { buildNotificationEventKey, normalizeNotificationText, NOTIFICATION_CATEGORIES, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
@@ -284,17 +284,36 @@ export async function createNotification(userId:number,title:string,body:string,
     catch(error) { console.error("[Email] System notification enqueue failed:",error instanceof Error?error.name:"UnknownError"); }
   }
 }
-export async function broadcastCustomerNotification(adminId:number,input:{title:string;body:string;eventKey:string;category:"announcement"|"promotion"|"platform_update";priority:NotificationPriority;href?:string|null}) {
+export async function broadcastCustomerNotification(adminId:number,input:{title:string;body:string;eventKey:string;category:"announcement"|"promotion"|"platform_update";priority:NotificationPriority;href?:string|null;targetUserId?:number|null}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const title=normalizeNotificationText(input.title,200,"title");
   const body=normalizeNotificationText(input.body,10000,"body");
   const eventKey=normalizeNotificationText(input.eventKey,150,"event key");
   const href=input.href?.trim()||null;
   if(href && (!href.startsWith("/") || href.startsWith("//") || /[\\r\\n\\\\]/.test(href))) throw new Error("Notification link must be a safe internal path");
-  const recipients=await db.select({id:users.id}).from(users).where(eq(users.role,"user"));
+  const recipients=input.targetUserId
+    ? await db.select({id:users.id}).from(users).where(and(eq(users.id,input.targetUserId),eq(users.role,"user"))).limit(1)
+    : await db.select({id:users.id}).from(users).where(eq(users.role,"user"));
+  if(input.targetUserId && !recipients.length) throw new Error("Selected customer account was not found");
   await Promise.all(recipients.map(recipient=>createNotification(recipient.id,title,body,{eventKey:`admin-broadcast:${adminId}:${eventKey}`,category:input.category,priority:input.priority,href})));
-  return {recipientCount:recipients.length,eventKey};
+  return {recipientCount:recipients.length,eventKey,targetUserId:input.targetUserId??null};
  }
+export async function getNotificationCategoryVisibility():Promise<Record<NotificationCategory,boolean>> {
+  const defaults=Object.fromEntries(NOTIFICATION_CATEGORIES.map(category=>[category,true])) as Record<NotificationCategory,boolean>;
+  const raw=await getAppSetting("notification.categoryVisibility");
+  if(!raw)return defaults;
+  try { const parsed=JSON.parse(raw) as Record<string,unknown>; for(const category of NOTIFICATION_CATEGORIES) if(typeof parsed[category]==="boolean") defaults[category]=parsed[category] as boolean; } catch {}
+  return defaults;
+}
+export async function setNotificationCategoryVisibility(input:Record<NotificationCategory,boolean>,updatedBy:number) {
+  const normalized=Object.fromEntries(NOTIFICATION_CATEGORIES.map(category=>[category,input[category]!==false])) as Record<NotificationCategory,boolean>;
+  await setAppSetting("notification.categoryVisibility",JSON.stringify(normalized),updatedBy);
+  return normalized;
+}
+export async function listCustomerNotifications(userId:number) {
+  const [rows,visibility]=await Promise.all([listNotifications(userId),getNotificationCategoryVisibility()]);
+  return rows.filter(row=>visibility[((row.category||"account") as NotificationCategory)]!==false);
+}
 export async function listNotifications(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(customerNotifications).where(eq(customerNotifications.userId,userId)).orderBy(desc(customerNotifications.createdAt)); }
 export async function markCustomerNotificationsRead(userId:number, notificationId?:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const condition=notificationId ? and(eq(customerNotifications.userId,userId),eq(customerNotifications.id,notificationId)) : and(eq(customerNotifications.userId,userId),sql`${customerNotifications.readAt} IS NULL`); await db.update(customerNotifications).set({readAt:new Date()}).where(condition); return listNotifications(userId); }
 export async function getCustomerWalletPreferences(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); let row=(await db.select().from(customerWalletPreferences).where(eq(customerWalletPreferences.userId,userId)).limit(1))[0]; if(!row){await db.insert(customerWalletPreferences).values({userId}); row=(await db.select().from(customerWalletPreferences).where(eq(customerWalletPreferences.userId,userId)).limit(1))[0];} return row; }
