@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import Decimal from "decimal.js";
+import { createNotification } from "./db";
 import { calculateMiningConversion, calculateMiningDifficultyIndex, calculatePackageDailyRate, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow } from "./mining-rules";
 import {
   Db, MiningError, addUtcMonths, amountString, assertMiningAsset, assetScale, beginMiningIdempotency, createMiningLedgerTransaction,
@@ -828,9 +829,11 @@ async function calculateInterval(conn: Db, userId: number, start: Date, end: Dat
 
 async function accrueOneUser(conn: Db, userId: number, limit = 30) {
   let processed = 0;
+  const committedRewardNotices: Array<{rewardEventId:number;amount:string;symbol:string}> = [];
   const [controlRows] = await conn.query<any[]>(`SELECT accountStatus FROM customer_controls WHERE userId=? LIMIT 1`, [userId]);
   const accountActive = (controlRows[0]?.accountStatus || "active") === "active";
   for (let i=0;i<limit;i++) {
+    let committedRewardNotice: {rewardEventId:number;amount:string;symbol:string}|null = null;
     await conn.beginTransaction();
     try {
       const checkpoint = await ensureMiningCheckpoint(conn, userId);
@@ -862,6 +865,7 @@ async function accrueOneUser(conn: Db, userId: number, limit = 30) {
           (userId,intervalStart,intervalEnd,baseThs,boostThs,rewardTokensPerThsHour,tokenAmount,rewardAmountUsd,expectedDailyRewardCki,configVersion,calculationModel,packageSnapshotJson,idempotencyKey,ledgerTransactionId)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [userId,start,end,result.baseThs.toString(),result.boostThs.toString(),intervalConfig.rewardTokensPerThsHour,result.tokenAmount.toFixed(tokenScale),result.rewardAmountUsd.toFixed(18),result.expectedDailyRewardCki.toDecimalPlaces(18,Decimal.ROUND_DOWN).toFixed(18),result.configVersion,result.calculationModel,safeJson(result.segments),rewardKey,transaction?.id || null]);
         const rewardEventId = Number(eventResult.insertId);
+        if(transaction && immediateTokenAmount.gt(0)) committedRewardNotice={rewardEventId,amount:immediateTokenAmount.toFixed(tokenScale),symbol:intervalConfig.tokenSymbol};
         for(const allocation of result.allocations){
           await conn.execute(`INSERT INTO mining_reward_package_allocations
             (rewardEventId,userId,customerPackageId,packageId,packageVersionId,intervalStart,intervalEnd,expectedDailyRewardCkiSnapshot,rewardAmountCki,tokenUnitsPerUsdSnapshot,rewardAmountUsdSnapshot,calculationModel,calculationSegmentsJson)
@@ -881,11 +885,15 @@ async function accrueOneUser(conn: Db, userId: number, limit = 30) {
         }
       }
       await conn.execute(`UPDATE mining_checkpoints SET lastAccruedAt=?,workerVersion='1',updatedAt=UTC_TIMESTAMP(3) WHERE userId=?`,[end,userId]);
-      await conn.commit(); processed++;
+      await conn.commit(); processed++; if(committedRewardNotice) committedRewardNotices.push(committedRewardNotice);
     } catch (error) {
       await conn.rollback();
       throw error;
     }
+  }
+  for(const notice of committedRewardNotices){
+    try { await createNotification(userId,"Mining reward credited",`${notice.amount} ${notice.symbol} was posted to your mining reward balance. Reward event ${notice.rewardEventId}.`,{eventKey:`mining-reward:${notice.rewardEventId}`,category:"mining",priority:"normal"}); }
+    catch(error) { console.error("[Notifications] Mining reward notice failed after ledger commit:",error instanceof Error?error.name:"UnknownError"); }
   }
   return processed;
 }
