@@ -38,5 +38,10 @@ export function mergeSeenNotificationIds(
     throw new RangeError("Notification sound history limit must be between 1 and 5000");
   }
   const valid = (id: number) => Number.isSafeInteger(id) && id > 0;
-  return [...new Set([...persistedIds, ...currentIds].filter(valid))].slice(-maxEntries);
+  // Event cursors are returned newest-first. Sort by the monotonic database ID
+  // before taking the tail so a large cursor cannot accidentally retain only
+  // the oldest notifications and forget the newest ones.
+  return [...new Set([...persistedIds, ...currentIds].filter(valid))]
+    .sort((left, right) => left - right)
+    .slice(-maxEntries);
 }
