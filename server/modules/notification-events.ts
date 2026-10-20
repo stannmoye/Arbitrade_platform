@@ -54,3 +54,43 @@ export function filterNotificationCategories<T extends { category?: string | nul
   });
 }
 
+
+export type TradeSettlementNotice = {
+  title: string;
+  body: string;
+  eventKey: string;
+  category: "ledger_credit" | "trading_reward";
+  priority: "normal" | "high";
+};
+
+/** Build notices only for values returned after the settlement transaction commits. */
+export function buildTradeSettlementNotices(input: {
+  tradeId: number;
+  currency: string;
+  principalMinor: number;
+  rewardMinor: number;
+}): TradeSettlementNotice[] {
+  if (!Number.isSafeInteger(input.tradeId) || input.tradeId <= 0) {
+    throw new RangeError("Trade settlement requires a positive trade ID");
+  }
+  if (!Number.isSafeInteger(input.principalMinor) || input.principalMinor < 0 ||
+      !Number.isSafeInteger(input.rewardMinor) || input.rewardMinor < 0) {
+    throw new RangeError("Trade settlement amounts must be non-negative safe integers");
+  }
+  const currency = normalizeNotificationText(input.currency, 32, "currency").toUpperCase();
+  const notices: TradeSettlementNotice[] = [{
+    title: "Trade principal released",
+    body: `Trade ${input.tradeId} principal was released to your ${currency} wallet after settlement.`,
+    eventKey: `trade-settlement:${input.tradeId}:principal`,
+    category: "ledger_credit",
+    priority: "normal",
+  }];
+  if (input.rewardMinor > 0) notices.push({
+    title: "Trading reward credited",
+    body: `Trade ${input.tradeId} reward of ${input.rewardMinor} minor units was credited to your ${currency} wallet.`,
+    eventKey: `trade-settlement:${input.tradeId}:reward`,
+    category: "trading_reward",
+    priority: "high",
+  });
+  return notices;
+}
