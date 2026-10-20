@@ -9,6 +9,12 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 
 ## Latest consolidated batch (2026-10-20)
 
+- **New live-cursor visibility regression coverage:** commit `bfa3aaff18924848bd441181e24b56c76c99d26b` adds executable tests proving the live event cursor uses the same category filter as the inbox, keeps NULL/unknown categories visible by default, and restores records when a category is re-enabled.
+- **Exact-head validation for `bfa3aaff`:** [Stage 3 five-theme validation run 39501532090](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39501532090) passed application/theme-policy tests, TypeScript, production build, and Chromium viewport/five-theme smoke matrix. The browser workflow uploaded `stage-3-browser-acceptance` from this exact head.
+- [Installer validation run 39501532095](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39501532095) passed all jobs, including MySQL 8 compatibility/recovery, fresh MariaDB, application tests, TypeScript, production build/server smoke, migration regression, deployment packages, and Stage 1 validation dashboard. [Mining database regression run 39501532263](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39501532263) passed.
+- These results validate the application code at `bfa3aaff`; they do not close Stage 4 as a whole. The category-visibility helper is covered by unit tests, while end-to-end live reconnect, actual sound preference mapping/timing, and remaining real-event lifecycle coverage remain open.
+
+
 - Fixed the TypeScript failure in `listNotificationEventCursor` by guarding Drizzle's possibly-undefined `or()` result before adding it to the SQL predicate. This preserves visibility for legacy `NULL` categories while respecting disabled-category filtering.
 - Stake & Earn reward and maturity-release notifications carry recipient-scoped stable event keys, explicit `ledger_credit` categories, and priorities; notification rows remain in the same database transaction as their ledger entries. Contract coverage checks idempotency/category metadata and transaction ordering.
 - Added admin wallet-adjustment notification boundary contract coverage. CI exposed a brittle expected-title expression in that contract test; the assertion now matches the implementation's template-literal title.
@@ -123,7 +129,7 @@ Track these as six acceptance work areas within Stage 4, not as six separate top
 2. **Real event integration — OPEN:** verify persisted deposit/withdrawal lifecycles and the other real financial, trading, mining, swap, ticket, account and security event boundaries. Do not fake success for provider-gated deposit/withdrawal flows.
 3. **Browser sound behavior — PARTIAL:** the exact-head Chromium viewport/five-theme workflow passed 1,182/1,182 checks with zero failures ([run 39499137228](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39499137228)). This does not alone establish full preference, post-commit financial timing, volume/autoplay, or reconnect-deduplication acceptance.
 4. **Ticket lifecycle and attachments — OPEN:** verify assignment/status/reopen/reply flows, attachment ownership and authorization, and customer/admin regression behavior, including runtime concurrency and browser interactions.
-5. **Live-update transport — OPEN:** verify supported push delivery or explicitly accept and test bounded polling/reconnect as the hosting-compatible fallback.
+5. **Live-update transport — OPEN:** the category-visibility parity unit tests passed on `bfa3aaff` (inbox/live cursor use identical filtering, NULL/unknown categories remain visible by default, and re-enabled categories reappear). Still verify end-to-end bounded polling/reconnect, duplicate prevention, and prompt policy propagation.
 6. **Final acceptance and release — OPEN:** finish keyboard/screen-reader/reduced-motion/accessibility review, responsive/theme checks, verify the release ZIP corresponds to the validated source, and record limitations before release sign-off.
 
 ## Remaining before Stage 4 can be called complete
@@ -209,3 +215,5 @@ Track these as six acceptance work areas within Stage 4, not as six separate top
 
 
 - 2026-10-20: Corrected two edge cases during the consolidated Stage 4 review: scheduled-announcement lifecycle metrics now count the persisted outcome (so a campaign that expires between the expiry sweep and scheduled batch is not falsely reported as published), and the SQL sound/event cursor explicitly preserves legacy notifications with a NULL category when other categories are disabled. Added focused contract regressions for both. These changes are committed on the current draft branch; exact-head CI remains pending and earlier green runs do not certify these commits.
+
+- 2026-10-20: Added live event-cursor category visibility parity and re-enable regressions. Exact-head CI on `bfa3aaff` passed application/theme tests, TypeScript, production build, browser viewport/five-theme checks, installer/migration/package validation, and mining database regression. End-to-end transport and Stage 4 release acceptance remain open.
