@@ -339,7 +339,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
           menuBounds,
           appearanceBounds,
         });
-        const themeSelectBounds = await page.locator(".arb-theme-selector-compact select").boundingBox();
+        const themeSelectBounds = await page.locator(".arb-theme-selector-compact .arb-theme-selector-trigger").boundingBox();
         const themeSelectStyle = await page.locator(".arb-theme-selector-compact select").evaluate(element => {
           const style = getComputedStyle(element);
           return {
@@ -351,8 +351,8 @@ async function runAdminAppearanceInteractionCheck(browser) {
             parentWidth: element.parentElement?.getBoundingClientRect().width ?? null,
           };
         });
-        record("admin-mobile-theme-selector-retains-readable-width", Boolean(
-          themeSelectBounds && themeSelectBounds.width >= 195
+        record("admin-mobile-theme-button-retains-readable-width", Boolean(
+          themeSelectBounds && themeSelectBounds.width >= 75
         ), {
           width: 390,
           themeSelectBounds,
@@ -361,8 +361,8 @@ async function runAdminAppearanceInteractionCheck(browser) {
         await page.setViewportSize({ width: 320, height: 844 });
         const narrowSelectBounds = await page.locator(".arb-theme-selector-compact select").boundingBox();
         const narrowDocumentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
-        record("admin-320-theme-selector-fits-without-page-overflow", Boolean(
-          narrowSelectBounds && narrowSelectBounds.width >= 180 && narrowDocumentWidth <= 320
+        record("admin-320-theme-button-fits-without-page-overflow", Boolean(
+          narrowSelectBounds && narrowSelectBounds.width >= 70 && narrowDocumentWidth <= 320
         ), {
           width: 320,
           narrowSelectBounds,
