@@ -17,15 +17,18 @@ export function findNewNotificationSoundEvents<T extends NotificationSoundEvent>
 ): T[] {
   // Initial hydration must establish a baseline without playing historical sounds.
   if (previousIds === null) return [];
-  const previous = new Set(previousIds);
-  const persisted = new Set(persistedIds);
-  return rows.filter((row) => {
+  const seen = new Set([...previousIds, ...persistedIds]);
+  const newlyObserved: T[] = [];
+  for (const row of rows) {
+    // Treat malformed IDs as non-events, and mark each accepted ID immediately
+    // so duplicate rows in a cursor batch can never trigger duplicate sounds.
+    if (!Number.isSafeInteger(row.id) || row.id <= 0 || seen.has(row.id) || row.readAt) continue;
     const category = row.category || "account";
-    return !row.readAt
-      && !previous.has(row.id)
-      && !persisted.has(row.id)
-      && visibility?.[category] !== false;
-  });
+    if (visibility?.[category] === false) continue;
+    seen.add(row.id);
+    newlyObserved.push(row);
+  }
+  return newlyObserved;
 }
 
 /** Keep the browser-side deduplication ledger bounded and robust to bad storage data. */
