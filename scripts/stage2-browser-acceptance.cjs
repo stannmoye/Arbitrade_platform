@@ -227,6 +227,24 @@ async function runAdminAppearanceInteractionCheck(browser) {
     record("admin-appearance-screen-opened", appearanceLoaded);
     if (!appearanceLoaded) return checks;
 
+    // Wait for the accordion transition to settle, then ensure collapsed groups
+    // do not retain implicit grid rows or expose clipped navigation labels.
+    await page.waitForTimeout(300);
+    const collapsedNavigation = await page.locator(".admin-nav-group:not(.is-open) .admin-nav-group-items").evaluateAll(elements =>
+      elements.map(element => ({
+        id: element.id,
+        height: Math.round(element.getBoundingClientRect().height * 100) / 100,
+        scrollHeight: element.scrollHeight,
+        itemCount: element.querySelectorAll(".admin-nav-item-wrap").length,
+      }))
+    );
+    const collapsedNavigationHidden = collapsedNavigation.length > 0 &&
+      collapsedNavigation.every(group => group.height <= 1);
+    record("admin-collapsed-navigation-groups-hide-items", collapsedNavigationHidden, {
+      collapsedNavigation,
+      note: "Checks settled accordion geometry so hidden navigation items cannot overlap neighboring labels.",
+    });
+
     const previewButtons = page.locator(".arb-theme-preview-option");
     const previewCount = await previewButtons.count();
     const previewThemeLabels = {
