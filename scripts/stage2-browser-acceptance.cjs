@@ -1449,6 +1449,93 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
   return checks;
 }
 
+async function runNotificationSoundAssetPlaybackCheck(browser) {
+  const page = await browser.newPage({ viewport: { width: 900, height: 700 } });
+  page.setDefaultTimeout(10000);
+  const sounds = [
+    { id: "sound-01", name: "Soft Chime", src: "/sounds/notification-soft-chime.wav" },
+    { id: "sound-02", name: "Bright Bell", src: "/sounds/notification-bright-bell.wav" },
+    { id: "sound-03", name: "Double Ping", src: "/sounds/notification-double-ping.wav" },
+    { id: "sound-04", name: "Warm Tone", src: "/sounds/notification-warm-tone.wav" },
+    { id: "sound-05", name: "Urgent Pulse", src: "/sounds/notification-urgent-pulse.wav" },
+  ];
+  const checks = [];
+  try {
+    await page.goto(BASE_URL, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.evaluate(() => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Play notification sound test";
+      button.style.cssText = "position:fixed;top:8px;left:8px;z-index:999999;padding:12px;background:#fff;color:#111";
+      (window).__stage4SoundTestAudio = null;
+      (window).__stage4SoundTestResult = null;
+      button.addEventListener("click", async () => {
+        const audio = (window).__stage4SoundTestAudio;
+        if (!audio) {
+          (window).__stage4SoundTestResult = { ok: false, error: "audio-not-prepared" };
+          return;
+        }
+        try {
+          await audio.play();
+          (window).__stage4SoundTestResult = { ok: true, currentSrc: audio.currentSrc || audio.src };
+          audio.pause();
+          audio.currentTime = 0;
+        } catch (error) {
+          (window).__stage4SoundTestResult = {
+            ok: false,
+            error: error instanceof Error ? error.name : "UnknownError",
+          };
+        }
+      });
+      document.body.appendChild(button);
+    });
+
+    for (const sound of sounds) {
+      const response = await page.request.get(new URL(sound.src, BASE_URL).href);
+      if (!response.ok()) {
+        checks.push({ route: "/", routeName: "sound-assets", check: `audio-asset:${sound.id}`, passed: false, status: response.status() });
+        continue;
+      }
+      await page.evaluate(async ({ src }) => {
+        (window).__stage4SoundTestResult = null;
+        const audio = new Audio(src);
+        audio.preload = "auto";
+        audio.volume = 0.1;
+        (window).__stage4SoundTestAudio = audio;
+        await new Promise((resolve, reject) => {
+          if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) return resolve();
+          const timeout = window.setTimeout(() => reject(new Error("audio-load-timeout")), 8000);
+          audio.addEventListener("canplaythrough", () => { window.clearTimeout(timeout); resolve(); }, { once: true });
+          audio.addEventListener("error", () => { window.clearTimeout(timeout); reject(new Error("audio-decode-failed")); }, { once: true });
+          audio.load();
+        });
+      }, { src: sound.src });
+      await page.getByRole("button", { name: "Play notification sound test" }).click();
+      await page.waitForFunction(() => (window).__stage4SoundTestResult !== null, null, { timeout: 5000 });
+      const result = await page.evaluate(() => (window).__stage4SoundTestResult);
+      checks.push({
+        route: "/",
+        routeName: "sound-assets",
+        check: `browser-audio-playback:${sound.id}`,
+        sound: sound.name,
+        passed: result?.ok === true,
+        error: result?.error || null,
+      });
+    }
+  } catch (error) {
+    checks.push({
+      route: "/",
+      routeName: "sound-assets",
+      check: "browser-audio-playback-harness",
+      passed: false,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  } finally {
+    await page.close();
+  }
+  return checks;
+}
+
 async function main() {
   const browser = await chromium.launch({ headless: true });
   const results = [];
@@ -1794,6 +1881,9 @@ async function main() {
         }
       }
     }
+    const notificationSoundChecks = await runNotificationSoundAssetPlaybackCheck(browser);
+    results.push(...notificationSoundChecks);
+    failures.push(...notificationSoundChecks.filter(check => !check.passed));
     const customerFormChecks = await runCustomerAuthFormInteractionCheck(browser);
     results.push(...customerFormChecks);
     failures.push(...customerFormChecks.filter(check => !check.passed));
