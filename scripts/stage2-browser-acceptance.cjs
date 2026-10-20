@@ -1260,7 +1260,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
       });
 
       await page.goto(new URL("/customer", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
-      const selector = page.locator(".customer-portal > .arb-theme-selector-compact");
+      const selector = page.locator(".customer-portal .portal-session > .arb-theme-selector-compact");
       await selector.waitFor({ state: "visible", timeout: 15000 });
       const select = selector.locator("select");
       const editable = await select.count() === 1;
