@@ -244,25 +244,40 @@ export async function listAllTickets() { const db=await getDb(); if(!db) throw n
 export async function getCustomerTicket(userId:number,ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return (await db.select().from(supportTickets).where(and(eq(supportTickets.id,ticketId),eq(supportTickets.customerId,userId))).limit(1))[0] ?? null; }
 export async function addTicketMessage(actorId:number,ticketId:number,body:string,status?:"open"|"answered"|"resolved"|"closed") {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
-  const ticket=(await db.select().from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1))[0];
-  if(!ticket) throw new Error("Ticket not found");
-  const actor=(await db.select({role:users.role}).from(users).where(eq(users.id,actorId)).limit(1))[0];
-  if(!actor) throw new Error("Message author not found");
-  const isAdmin=actor.role==="admin";
-  if(!isAdmin && ticket.customerId!==actorId) throw new Error("You do not have access to this ticket");
-  const normalizedBody=normalizeNotificationText(body,20000,"ticket message");
-  if(!isAdmin && ticket.status==="closed") throw new Error("Closed tickets cannot receive customer replies; open a new ticket");
-  const inserted=await db.insert(supportMessages).values({ticketId,authorId:actorId,body:normalizedBody});
-  const messageId=Number(inserted[0].insertId);
-  const nextStatus=isAdmin ? (status||"answered") : "open";
-  await db.update(supportTickets).set({status:nextStatus,updatedAt:new Date()}).where(eq(supportTickets.id,ticketId));
-  if(isAdmin){
-    try { await createNotification(ticket.customerId,"Support replied to your ticket",`${ticket.ticketNumber}: ${normalizedBody.slice(0,240)}`,{eventKey:`support-ticket:${ticketId}:message:${messageId}`,category:"support",priority:"normal"}); } catch(error) { console.error("[Notifications] Ticket reply notice failed after message commit:",error instanceof Error?error.name:"UnknownError"); }
+  // Keep the message and ticket status in one transaction: a failed status
+  // update must not leave a committed reply with stale inbox state.
+  const committed=await db.transaction(async tx=>{
+    const ticket=(await tx.select().from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1))[0];
+    if(!ticket) throw new Error("Ticket not found");
+    const actor=(await tx.select({role:users.role}).from(users).where(eq(users.id,actorId)).limit(1))[0];
+    if(!actor) throw new Error("Message author not found");
+    const isAdmin=actor.role==="admin";
+    if(!isAdmin && ticket.customerId!==actorId) throw new Error("You do not have access to this ticket");
+    const normalizedBody=normalizeNotificationText(body,20000,"ticket message");
+    if(!isAdmin && ticket.status==="closed") throw new Error("Closed tickets cannot receive customer replies; open a new ticket");
+    const inserted=await tx.insert(supportMessages).values({ticketId,authorId:actorId,body:normalizedBody});
+    const messageId=Number(inserted[0].insertId);
+    const nextStatus=isAdmin ? (status||"answered") : "open";
+    await tx.update(supportTickets).set({status:nextStatus,updatedAt:new Date()}).where(eq(supportTickets.id,ticketId));
+    return {ticket,isAdmin,normalizedBody,messageId};
+  });
+  // Notifications are deliberately post-commit and best-effort: a notification
+  // outage must not make a successfully persisted reply appear to have failed.
+  if(committed.isAdmin){
+    try {
+      await createNotification(committed.ticket.customerId,"Support replied to your ticket",`${committed.ticket.ticketNumber}: ${committed.normalizedBody.slice(0,240)}`,{eventKey:`support-ticket:${ticketId}:message:${committed.messageId}`,category:"support",priority:"normal"});
+    } catch(error) {
+      console.error("[Notifications] Ticket reply notice failed after message commit:",error instanceof Error?error.name:"UnknownError");
+    }
   } else {
-    const admins=await db.select({id:users.id}).from(users).where(eq(users.role,"admin"));
-    await Promise.allSettled(admins.map(admin=>createNotification(admin.id,"Customer replied to a support ticket",`${ticket.ticketNumber}: ${normalizedBody.slice(0,240)}`,{eventKey:`support-ticket:${ticketId}:message:${messageId}`,category:"support",priority:ticket.priority==="urgent"?"urgent":ticket.priority==="high"?"high":"normal"})));
+    try {
+      const admins=await db.select({id:users.id}).from(users).where(eq(users.role,"admin"));
+      await Promise.allSettled(admins.map(admin=>createNotification(admin.id,"Customer replied to a support ticket",`${committed.ticket.ticketNumber}: ${committed.normalizedBody.slice(0,240)}`,{eventKey:`support-ticket:${ticketId}:message:${committed.messageId}`,category:"support",priority:committed.ticket.priority==="urgent"?"urgent":committed.ticket.priority==="high"?"high":"normal"})));
+    } catch(error) {
+      console.error("[Notifications] Customer reply notices failed after message commit:",error instanceof Error?error.name:"UnknownError");
+    }
   }
- }
+}
 export async function reopenSupportTicket(actorId:number,ticketId:number) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const ticket=(await db.select().from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1))[0];
