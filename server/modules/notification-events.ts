@@ -65,6 +65,9 @@ export function normalizeNotificationText(value: string, maxLength: number, fiel
   if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(normalized)) {
     throw new TypeError("Notification " + field + " contains unsupported control characters");
   }
+  if (field !== "body" && /[\r\n\t]/.test(normalized)) {
+    throw new TypeError("Notification " + field + " must be a single line");
+  }
   if (!Number.isSafeInteger(maxLength) || maxLength < 1) throw new RangeError("Notification text limit must be a positive safe integer");
   if (normalized.length > maxLength) throw new RangeError("Notification " + field + " exceeds " + maxLength + " characters");
   return normalized;
