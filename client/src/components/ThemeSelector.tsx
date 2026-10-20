@@ -1,12 +1,14 @@
 import { useId } from "react";
+import { Palette } from "lucide-react";
 import { ARBITRADE_THEME_LABELS, ARBITRADE_THEMES, type ArbitradeTheme, useTheme } from "@/contexts/ThemeContext";
 
 type ThemeSelectorProps = {
   compact?: boolean;
   readOnly?: boolean;
+  placement?: "default" | "header" | "sidebar";
 };
 
-export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelectorProps) {
+export function ThemeSelector({ compact = false, readOnly = false, placement = "default" }: ThemeSelectorProps) {
   const {
     theme,
     setTheme,
@@ -35,10 +37,11 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
   if (!switchable) return null;
 
   return (
-    <section className={`arb-theme-selector arb-page${compact ? " arb-theme-selector-compact" : ""}`} aria-label="Appearance settings" aria-busy={!policyReady}>
+    <section className={`arb-theme-selector arb-page${compact ? " arb-theme-selector-compact" : ""}${placement !== "default" ? ` arb-theme-selector-${placement}` : ""}`} aria-label="Appearance settings" aria-busy={!policyReady}>
+      {placement !== "default" && <Palette className="arb-theme-selector-icon" size={16} aria-hidden="true" />}
       <div className="arb-theme-selector-copy">
         {canChoose ? (
-          <label className="arb-theme-selector-title" htmlFor={selectId}>Appearance</label>
+          <label className="arb-theme-selector-title" htmlFor={selectId}>{placement === "header" ? "Theme" : "Appearance"}</label>
         ) : (
           <span className="arb-theme-selector-title">Workspace appearance</span>
         )}
@@ -59,6 +62,7 @@ export function ThemeSelector({ compact = false, readOnly = false }: ThemeSelect
           value={selectedTheme}
           onChange={(event) => setTheme(event.target.value as ArbitradeTheme)}
           aria-describedby={!compact ? `arb-theme-description-${selectorId}` : undefined}
+          aria-label={placement === "header" ? "Change customer theme" : placement === "sidebar" ? "Change appearance theme" : undefined}
         >
           {availableThemes.map((option) => (
             <option key={option} value={option}>{ARBITRADE_THEME_LABELS[option]}</option>
