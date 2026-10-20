@@ -41,6 +41,8 @@ export function normalizeAppearanceSettings(raw: string | null | undefined): App
   return {
     defaultTheme,
     enabledThemes: nonEmptyEnabled,
-    customerCanSelect: saved.customerCanSelect === true,
+    // Customer theme selection is now a supported customer capability. Administrators
+    // retain control over the allow-list and published default, not per-customer access.
+    customerCanSelect: true,
   };
 }
