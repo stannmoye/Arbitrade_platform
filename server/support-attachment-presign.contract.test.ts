@@ -17,6 +17,17 @@ describe("support attachment presign error logging", () => {
     expect(source).toContain('app.post("/api/support/attachments/presign", async (req, res) => {');
   });
 
+  it("rejects parser-normalized control characters before returning a bearer upload URL", () => {
+    expect(route).not.toBeNull();
+    const routeSource = route?.[0] ?? "";
+    const validationPosition = routeSource.indexOf("getSafePresignedUploadUrl(payload.url)");
+    const responsePosition = routeSource.indexOf("return res.json({ uploadUrl: safeUploadUrl");
+    expect(validationPosition).toBeGreaterThan(-1);
+    expect(responsePosition).toBeGreaterThan(validationPosition);
+    const helper = source.includes("value !== value.trim() || /[\\\\u0000-\\\\u001f\\\\u007f]/.test(value)");
+    expect(helper).toBe(true);
+  });
+
   it("does not log raw provider or network exception messages", () => {
     expect(route).not.toBeNull();
     expect(route?.[0]).toContain('error instanceof Error ? error.name : "UnknownError"');
