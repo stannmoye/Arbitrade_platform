@@ -39,3 +39,16 @@ export function normalizeNotificationText(value: string, maxLength: number, fiel
   if (normalized.length > maxLength) throw new RangeError(`Notification ${field} exceeds ${maxLength} characters`);
   return normalized;
 }
+
+export function filterNotificationCategories<T extends { category?: string | null }>(
+  rows: T[],
+  visibility: Partial<Record<NotificationCategory, boolean>>,
+): T[] {
+  // Unknown categories remain visible rather than silently hiding new event types.
+  return rows.filter(row => {
+    const category = row.category;
+    return !category || !(NOTIFICATION_CATEGORIES as readonly string[]).includes(category)
+      || visibility[category as NotificationCategory] !== false;
+  });
+}
+
