@@ -122,6 +122,9 @@ These are CI checks on the feature branch, not a production-host acceptance test
 
 ## Change log
 
+- 2026-10-20: CI review of the sound-policy extraction found the Vitest include list only covered the theme-policy client test, so the existing notification-sound deduplication tests and the newly added sound-policy table tests were not actually being executed by `pnpm test`. Expanded the include list to cover `client/src/notification-sound-*.test.ts`, ensuring both client sound-policy suites run in CI rather than relying on TypeScript/build alone. Exact-head CI for this test-discovery fix is pending.
+
+
 - 2026-10-20: Extracted the customer notification category-to-sound mapping into `client/src/notification-sound-policy.ts` and added table-driven coverage for deposit/withdrawal, ledger credit/debit, trading/mining rewards, support, announcements/promotions/platform updates, security, unknown future categories and missing categories. The header now uses the shared policy helper rather than an inline conditional chain. Previous exact head `6fd8b901652eaa5a9d470265daf89cdb37bb1d41` passed all three Stage 4 validation workflows (438 tests passed, 6 skipped; TypeScript/build; 1,177/1,177 browser checks; installer, disposable MariaDB/MySQL 8 recovery, and package validation). The new sound-policy extraction requires its own exact-head CI before acceptance.
 
 
