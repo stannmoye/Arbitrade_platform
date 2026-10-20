@@ -231,7 +231,11 @@ export async function createTicket(userId:number,input:{subject:string;body:stri
   const ticketId=Number(result[0].insertId);
   await db.insert(supportMessages).values({ticketId,authorId:userId,body});
   const admins=await db.select({id:users.id}).from(users).where(eq(users.role,"admin"));
-  await Promise.all(admins.map(admin=>createNotification(admin.id,"New customer support ticket",`${ticketNumber}: ${subject}`,{eventKey:`support-ticket-created:${ticketId}`,category:"support",priority:input.priority==="urgent"?"urgent":input.priority==="high"?"high":"normal"})));
+  const notificationResults=await Promise.allSettled([
+    ...admins.map(admin=>createNotification(admin.id,"New customer support ticket",`${ticketNumber}: ${subject}`,{eventKey:`support-ticket-created:${ticketId}`,category:"support",priority:input.priority==="urgent"?"urgent":input.priority==="high"?"high":"normal"})),
+    createNotification(userId,"Ticket created",`${ticketNumber}: ${subject}`,{eventKey:`support-ticket-created-customer:${ticketId}`,category:"support",priority:input.priority==="urgent"?"urgent":input.priority==="high"?"high":"normal"}),
+  ]);
+  if(notificationResults.some(result=>result.status==="rejected")) console.error("[Notifications] One or more ticket-created notices failed after ticket persistence.");
   return {ticketId,ticketNumber};
  }
 export async function listCustomerTickets(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(supportTickets).where(eq(supportTickets.customerId,userId)).orderBy(desc(supportTickets.updatedAt)); }
