@@ -353,6 +353,8 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
 function CustomerDashboard({push,sound,setSound,soundSettings,delivery,opportunityData}:{push:(x:string)=>void;sound:boolean;setSound:(x:boolean)=>void;soundSettings:SoundSettings;delivery?:{packageName:string;maxPopupsPerDay:number;maxVisibleOffers:number;autoTradeEnabled?:boolean;pausedUntilSettled?:boolean;outstandingTrades?:number};opportunityData?:any}) {
   const balances=trpc.customer.balances.useQuery(undefined,{refetchInterval:5000});
   const settings=trpc.customer.autoTradeSettings.useQuery(undefined,{refetchInterval:5000});
+  const recentTrades=trpc.customer.trades.useQuery(undefined,{refetchInterval:15000});
+  const accountNotices=trpc.customer.notifications.useQuery(undefined,{refetchInterval:15000});
   const money=(value:number)=>`$${Number(value||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
   const assetMoney=(minor:number,currency:string)=>{const scale=balances.data?.currencies.find((x:any)=>x.code===currency)?.scale??(currency==="BTC"||currency==="ETH"?8:2);return `${(Number(minor||0)/Math.pow(10,scale)).toLocaleString(undefined,{minimumFractionDigits:Math.min(scale,8),maximumFractionDigits:Math.min(scale,8)})} ${currency}`};
   const summary=balances.data?.summary; const offers=opportunityData?.offers||[]; const missed=opportunityData?.missed||[];
@@ -363,6 +365,37 @@ function CustomerDashboard({push,sound,setSound,soundSettings,delivery,opportuni
 
     <section className="customer-workspace-menu"><div className="customer-workspace-heading"><div><div className="eyebrow">TREASURY OPERATIONS</div><h2><span className="pulse"/> PRIMARY WORKSPACE</h2></div><span className="customer-workspace-online"><i/> Primary Workspace</span></div><div className="customer-workspace-card"><div className="customer-menu-label">FEATURED PRODUCTS</div><div className="customer-workspace-featured"><button onClick={()=>nav("opportunities")}><span className="feature-medal calculator-medal"><Calculator size={16}/></span><strong>Trade Calculator</strong></button><button onClick={()=>nav("yield")}><span className="feature-medal mint"><TrendingUp size={16}/></span><strong>Yield Strategies</strong></button></div><button className="customer-protected-note" onClick={()=>nav("security")}><ShieldCheck size={19}/><span><strong>Account protected</strong><small>Advanced fraud detection and secure management.</small></span><ChevronRight size={16}/></button></div></section>
     <section className="customer-ledger-panel"><div className="customer-ledger-heading"><div><h2>BALANCE SUMMARY</h2><p>Current account balances and investment performance are displayed below.</p></div><button className="portal-action" onClick={()=>push("Funding request opened · provider approval required")}><Plus size={15}/> Add funds</button></div><div className="customer-metric-grid"><div><span className="metric-icon"><WalletCards/></span><span>Total balance</span><strong>{money(summary?.totalUsd||0)}</strong><b>Available + locked, earning shown separately</b></div><div><span className="metric-icon green"><Coins/></span><span>Available balance</span><strong>{money(summary?.availableUsd||0)}</strong><b>Ready for allocation</b></div><div><span className="metric-icon"><TrendingUp/></span><span>Total earned</span><strong>{money(summary?.earnedUsd||0)}</strong><b>Posted ledger rewards</b></div><div><span className="metric-icon"><ShieldCheck/></span><span>Trade limit</span><strong>{money((settings.data?.dailyTradeLimitMinor||0)/100)}</strong><b>Administrator daily ceiling</b></div></div><div className="customer-columns"><div className="customer-panel"><div className="customer-panel-head"><div><div className="eyebrow">INSTANT FEED</div><h2>Opportunity notifications</h2></div><span className="admin-live-chip"><span className="pulse"/> {offers.length} OPEN</span></div>{offers.slice(0,5).map((x:any)=><button className="customer-opportunity" key={x.id} onClick={()=>push(`${x.symbol} opportunity opened · ${x.expectedRewardBps/100}% estimated reward`)}><div className="customer-coin">{x.symbol.slice(0,1)}</div><div><strong>{x.symbol}</strong><span>{x.venueFrom} → {x.venueTo}</span></div><b>+{(x.expectedRewardBps/100).toFixed(2)}%</b><em>{assetMoney(x.minimumMinor,x.currency)} minimum</em><span className="customer-risk">OPEN</span><ChevronRight size={15}/></button>)}{missed.slice(0,3).map((x:any)=><div className="customer-opportunity missed-opportunity-row" key={`missed-${x.id}`}><div className="customer-coin">!</div><div><strong>Missed {x.symbol}</strong><span>{String(x.reason||"Allocation was not completed").replaceAll("_"," ")}</span></div><b>+{assetMoney(x.potentialRewardMinor,x.currency)}</b><em>Potential reward</em></div>)}{!offers.length&&!missed.length&&<div className="empty-state"><Zap size={20}/><strong>No open opportunities yet.</strong><span>When an administrator publishes an opportunity, it will appear here.</span></div>}</div><div className="customer-panel notification-panel"><div className="eyebrow">EXECUTION PREFERENCES</div><h2>Automated transaction controls</h2><div className="preference-row"><div><strong>Automatic allocation</strong><span>Uses available capital based on strategy</span></div><span className={settings.data?.autoTradeEnabled&&settings.data?.tradingEnabled?"pref-on":"pref-off"}>{settings.data?.autoTradeEnabled&&settings.data?.tradingEnabled?"ON":"OFF"}</span></div><div className="preference-row"><div><strong>Per-opportunity amount</strong><span>Configured by administrator</span></div><b>${((settings.data?.autoTradeAmountMinor||0)/100).toFixed(2)}</b></div><div className="customer-safety"><ShieldCheck size={15}/><span>Missed-opportunity estimates never show your wallet and are calculated from each opportunity's configured minimum.</span></div></div></div></section>
+    <section className="customer-dashboard-feed-grid" aria-label="Recent account activity and account notices">
+      <div className="customer-panel customer-dashboard-feed">
+        <div className="customer-panel-head">
+          <div><div className="eyebrow">ACCOUNT ACTIVITY</div><h2>Recent activity</h2></div>
+          <button type="button" className="customer-dashboard-view-all" onClick={()=>nav("activity")}>View all <ChevronRight size={14}/></button>
+        </div>
+        {recentTrades.isLoading&&<div className="customer-dashboard-feed-state" role="status">Loading recent activity…</div>}
+        {recentTrades.isError&&<div className="customer-dashboard-feed-state" role="alert">Activity is temporarily unavailable. <button type="button" onClick={()=>recentTrades.refetch()}>Retry</button></div>}
+        {!recentTrades.isLoading&&!recentTrades.isError&&(recentTrades.data||[]).slice(0,4).map((trade:any)=><button type="button" className="customer-dashboard-feed-row" key={`trade-${trade.id}`} onClick={()=>nav("activity")} aria-label={`View activity for allocation ${trade.id}`}>
+          <span className="customer-dashboard-feed-icon"><Activity size={16}/></span>
+          <span className="customer-dashboard-feed-copy"><strong>Practice allocation #{trade.id}</strong><small>{trade.currency} · {String(trade.status||"recorded").replaceAll("_"," ")}</small></span>
+          <ChevronRight size={15}/>
+        </button>)}
+        {!recentTrades.isLoading&&!recentTrades.isError&&!(recentTrades.data||[]).length&&<div className="customer-dashboard-feed-state">Your recent account activity will appear here.</div>}
+      </div>
+      <div className="customer-panel customer-dashboard-feed">
+        <div className="customer-panel-head">
+          <div><div className="eyebrow">ACCOUNT NOTICES</div><h2>Important updates</h2></div>
+          <button type="button" className="customer-dashboard-view-all" onClick={()=>nav("notifications")}>View all <ChevronRight size={14}/></button>
+        </div>
+        {accountNotices.isLoading&&<div className="customer-dashboard-feed-state" role="status">Loading account notices…</div>}
+        {accountNotices.isError&&<div className="customer-dashboard-feed-state" role="alert">Notices are temporarily unavailable. <button type="button" onClick={()=>accountNotices.refetch()}>Retry</button></div>}
+        {!accountNotices.isLoading&&!accountNotices.isError&&(accountNotices.data||[]).slice(0,4).map((notice:any)=><button type="button" className={`customer-dashboard-feed-row customer-dashboard-notice-row ${notice.readAt?"":"is-unread"}`} key={`notice-${notice.id}`} onClick={()=>nav("notifications")} aria-label={`Open notification: ${notice.title}`}>
+          <span className="customer-dashboard-feed-icon"><Bell size={16}/></span>
+          <span className="customer-dashboard-feed-copy"><strong>{notice.title}</strong><small>{notice.body}</small></span>
+          {!notice.readAt&&<span className="customer-dashboard-unread-dot" aria-label="Unread"/>}
+          <ChevronRight size={15}/>
+        </button>)}
+        {!accountNotices.isLoading&&!accountNotices.isError&&!(accountNotices.data||[]).length&&<div className="customer-dashboard-feed-state">No account notices right now.</div>}
+      </div>
+    </section>
   </div>;
 }
 function CustomerOpportunities({push,sound,soundSettings,opportunityData}:{push:(x:string)=>void;sound:boolean;soundSettings:SoundSettings;opportunityData?:any}) {
