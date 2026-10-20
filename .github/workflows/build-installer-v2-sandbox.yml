@@ -67,6 +67,25 @@ jobs:
           # production bundles built above. Never package secrets or machine-local state.
           git archive HEAD -- . ':(exclude)database.sql' ':(exclude)**/database.sql' | tar -x -C "$package"
           cp -a dist "$package/dist"
+
+          # Bundle production runtime dependencies so this is a usable release package,
+          # not source that must be rebuilt after upload. Hoisted layout avoids the
+          # symlink-heavy node_modules structure produced by pnpm's isolated linker.
+          pnpm --dir "$package" install --prod --frozen-lockfile --config.node-linker=hoisted
+          node --input-type=module - "$package" <<'NODE'
+          import { createRequire } from "node:module";
+          import { readFile } from "node:fs/promises";
+          const root = process.argv[2];
+          const pkg = JSON.parse(await readFile(root + "/package.json", "utf8"));
+          const require = createRequire(root + "/package.json");
+          const missing = [];
+          for (const dependency of Object.keys(pkg.dependencies ?? {})) {
+            try { require.resolve(dependency); }
+            catch { missing.push(dependency); }
+          }
+          if (missing.length) throw new Error("Production dependencies not resolvable in release package: " + missing.join(", "));
+          console.log("Bundled and resolved " + Object.keys(pkg.dependencies ?? {}).length + " direct production dependencies.");
+          NODE
           printf 'Arbitrade installer version: %s\nBuild commit: %s\n' "$version" "$GITHUB_SHA" > "$package/INSTALLER-BUILD.txt"
 
           cat > "$package/DEPLOYMENT-README.txt" <<'EOF'
@@ -79,7 +98,8 @@ jobs:
           CPANEL / EXISTING DOMAIN
           1. Keep the application root private, preferably outside public_html.
           2. Configure a cPanel Node.js 20+ app (Node 22 recommended) with startup
-             file dist/index.js; enable pnpm 10.18.x in the private terminal.
+             file dist/index.js. Production node_modules are bundled in this ZIP, so
+             do not rebuild or reinstall dependencies just to start the app.
           3. Create a dedicated database/user. For a fresh install the database
              MUST be empty. Never use fresh-install mode on existing data.
           4. Open /installer/ over HTTPS and follow the browser wizard.
@@ -94,7 +114,8 @@ jobs:
           FRESH VPS
           1. Use a disposable supported Debian/Ubuntu VPS; do not run provisioning
              on a server with existing applications unless every host change is reviewed.
-          2. Extract into a private directory. Review installer/vps-preflight.sh and
+          2. Extract into a private directory. Production dependencies and dist/ are
+             already bundled. Review installer/vps-preflight.sh and
              installer/vps-setup.sh --help before using any sudo/root provisioning.
           3. Configure the private environment and database, then follow the wizard
              and matching CLI install mode above. Configure HTTPS and verify /api/health.
@@ -119,8 +140,8 @@ jobs:
           archive, version = sys.argv[1], sys.argv[2]
           required = {
               "package.json", "pnpm-lock.yaml", "dist/index.js",
-              "dist/public/index.html", "installer/index.php",
-              "installer/run-install.mjs", "installer/vps-setup.sh",
+              "dist/public/index.html", "node_modules/.modules.yaml",
+              "installer/index.php", "installer/run-install.mjs", "installer/vps-setup.sh",
               "installer/vps-preflight.sh", "installer/vps-rollback.sh",
               "INSTALLER-VERSION.txt", "INSTALLER-BUILD.txt",
               "DEPLOYMENT-README.txt",
@@ -145,9 +166,17 @@ jobs:
               ]
               if forbidden:
                   raise SystemExit("Forbidden secret/database/nested archive entries: " + ", ".join(forbidden))
+              if not any(name.startswith("node_modules/") for name in names):
+                  raise SystemExit("Production node_modules are missing from the release ZIP")
               if any(name.startswith("../") or name.startswith("/") for name in names):
                   raise SystemExit("Unsafe absolute or parent-relative ZIP path")
-          print(f"Validated {version} installer: {len(names)} entries, required files present, CRC valid, no database snapshots/secrets/nested ZIPs.")
+              import json
+              pkg = json.loads(z.read("package.json"))
+              missing_deps = [dep for dep in pkg.get("dependencies", {}) if not any(name.startswith("node_modules/" + dep + "/") for name in names)]
+              if missing_deps:
+                  raise SystemExit("Production dependency folders missing from ZIP: " + ", ".join(missing_deps))
+          import os
+          print(f"Validated {version} installer: {len(names)} entries, {os.path.getsize(archive):,} compressed bytes, production dependencies included, CRC valid, no database snapshots/secrets/nested ZIPs.")
           PY
       - name: Upload versioned installer artifact
         uses: actions/upload-artifact@v4
