@@ -221,11 +221,43 @@ export async function listRiskReports(userId: number) { const db=await getDb(); 
 export async function upsertCustomerSession(userId:number, data:{deviceLabel:string;ipAddress?:string;countryCode?:string;userAgent?:string}) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const existing=await db.select().from(customerSessions).where(and(eq(customerSessions.userId,userId),eq(customerSessions.deviceLabel,data.deviceLabel))).limit(1); if(existing[0]) { await db.update(customerSessions).set({ ...data, lastSeenAt:new Date(), isCurrent:true }).where(eq(customerSessions.id,existing[0].id)); return existing[0].id; } const result=await db.insert(customerSessions).values({userId,...data}); return Number(result[0].insertId); }
 export async function listCustomerSessions(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(customerSessions).where(eq(customerSessions.userId,userId)).orderBy(desc(customerSessions.lastSeenAt)); }
 export async function revokeCustomerSession(userId:number,id:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); await db.update(customerSessions).set({isCurrent:false}).where(and(eq(customerSessions.id,id),eq(customerSessions.userId,userId))); }
-export async function createTicket(userId:number,input:{subject:string;body:string;priority:"low"|"normal"|"high"|"urgent";category?:string}) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const ticketNumber=`ARB-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2,6).toUpperCase()}`; const result=await db.insert(supportTickets).values({ticketNumber,customerId:userId,subject:input.subject.trim(),category:input.category||"account",priority:input.priority}); const ticketId=Number(result[0].insertId); await db.insert(supportMessages).values({ticketId,authorId:userId,body:input.body.trim()}); return {ticketId,ticketNumber}; }
+export async function createTicket(userId:number,input:{subject:string;body:string;priority:"low"|"normal"|"high"|"urgent";category?:string}) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const subject=normalizeNotificationText(input.subject,200,"ticket subject");
+  const body=normalizeNotificationText(input.body,20000,"ticket message");
+  if(subject.length<3) throw new Error("Ticket subject must contain at least 3 characters");
+  const ticketNumber=`ARB-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+  const result=await db.insert(supportTickets).values({ticketNumber,customerId:userId,subject,category:input.category||"account",priority:input.priority});
+  const ticketId=Number(result[0].insertId);
+  await db.insert(supportMessages).values({ticketId,authorId:userId,body});
+  const admins=await db.select({id:users.id}).from(users).where(eq(users.role,"admin"));
+  await Promise.all(admins.map(admin=>createNotification(admin.id,"New customer support ticket",`${ticketNumber}: ${subject}`,{eventKey:`support-ticket-created:${ticketId}`,category:"support",priority:input.priority==="urgent"?"urgent":input.priority==="high"?"high":"normal"})));
+  return {ticketId,ticketNumber};
+ }
 export async function listCustomerTickets(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(supportTickets).where(eq(supportTickets.customerId,userId)).orderBy(desc(supportTickets.updatedAt)); }
 export async function listAllTickets() { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select({id:supportTickets.id,ticketNumber:supportTickets.ticketNumber,customerId:supportTickets.customerId,subject:supportTickets.subject,category:supportTickets.category,priority:supportTickets.priority,status:supportTickets.status,createdAt:supportTickets.createdAt,updatedAt:supportTickets.updatedAt,customerName:users.name,customerEmail:users.email}).from(supportTickets).leftJoin(users,eq(users.id,supportTickets.customerId)).orderBy(desc(supportTickets.updatedAt)); }
 export async function getCustomerTicket(userId:number,ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return (await db.select().from(supportTickets).where(and(eq(supportTickets.id,ticketId),eq(supportTickets.customerId,userId))).limit(1))[0] ?? null; }
-export async function addTicketMessage(actorId:number,ticketId:number,body:string,status?:"open"|"answered"|"resolved"|"closed") { const db=await getDb(); if(!db) throw new Error("Database is not available"); const ticket=(await db.select().from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1))[0]; if(!ticket) throw new Error("Ticket not found"); const actor=(await db.select({role:users.role}).from(users).where(eq(users.id,actorId)).limit(1))[0]; if(!actor) throw new Error("Message author not found"); const isAdmin=actor.role==="admin"; if(!isAdmin && ticket.customerId!==actorId) throw new Error("You do not have access to this ticket"); if(!body.trim()) throw new Error("Message cannot be empty"); if(!isAdmin && ticket.status==="closed") throw new Error("Closed tickets cannot receive customer replies; open a new ticket"); await db.insert(supportMessages).values({ticketId,authorId:actorId,body:body.trim()}); const nextStatus=isAdmin ? status : "open"; await db.update(supportTickets).set({status:nextStatus,updatedAt:new Date()}).where(eq(supportTickets.id,ticketId)); }
+export async function addTicketMessage(actorId:number,ticketId:number,body:string,status?:"open"|"answered"|"resolved"|"closed") {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const ticket=(await db.select().from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1))[0];
+  if(!ticket) throw new Error("Ticket not found");
+  const actor=(await db.select({role:users.role}).from(users).where(eq(users.id,actorId)).limit(1))[0];
+  if(!actor) throw new Error("Message author not found");
+  const isAdmin=actor.role==="admin";
+  if(!isAdmin && ticket.customerId!==actorId) throw new Error("You do not have access to this ticket");
+  const normalizedBody=normalizeNotificationText(body,20000,"ticket message");
+  if(!isAdmin && ticket.status==="closed") throw new Error("Closed tickets cannot receive customer replies; open a new ticket");
+  const inserted=await db.insert(supportMessages).values({ticketId,authorId:actorId,body:normalizedBody});
+  const messageId=Number(inserted[0].insertId);
+  const nextStatus=isAdmin ? (status||"answered") : "open";
+  await db.update(supportTickets).set({status:nextStatus,updatedAt:new Date()}).where(eq(supportTickets.id,ticketId));
+  if(isAdmin){
+    await createNotification(ticket.customerId,"Support replied to your ticket",`${ticket.ticketNumber}: ${normalizedBody.slice(0,240)}`,{eventKey:`support-ticket:${ticketId}:message:${messageId}`,category:"support",priority:"normal"});
+  } else {
+    const admins=await db.select({id:users.id}).from(users).where(eq(users.role,"admin"));
+    await Promise.all(admins.map(admin=>createNotification(admin.id,"Customer replied to a support ticket",`${ticket.ticketNumber}: ${normalizedBody.slice(0,240)}`,{eventKey:`support-ticket:${ticketId}:message:${messageId}`,category:"support",priority:ticket.priority==="urgent"?"urgent":ticket.priority==="high"?"high":"normal"})));
+  }
+ }
 export async function listTicketMessages(ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select({id:supportMessages.id,ticketId:supportMessages.ticketId,authorId:supportMessages.authorId,authorName:users.name,authorRole:users.role,body:supportMessages.body,createdAt:supportMessages.createdAt}).from(supportMessages).leftJoin(users,eq(users.id,supportMessages.authorId)).where(eq(supportMessages.ticketId,ticketId)).orderBy(supportMessages.createdAt); }
 export async function createNotification(userId:number,title:string,body:string,options:{eventKey?:string|null;category?:NotificationCategory;priority?:NotificationPriority;href?:string|null}={}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
@@ -252,6 +284,17 @@ export async function createNotification(userId:number,title:string,body:string,
     catch(error) { console.error("[Email] System notification enqueue failed:",error instanceof Error?error.name:"UnknownError"); }
   }
 }
+export async function broadcastCustomerNotification(adminId:number,input:{title:string;body:string;eventKey:string;category:"announcement"|"promotion"|"platform_update";priority:NotificationPriority;href?:string|null}) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const title=normalizeNotificationText(input.title,200,"title");
+  const body=normalizeNotificationText(input.body,10000,"body");
+  const eventKey=normalizeNotificationText(input.eventKey,150,"event key");
+  const href=input.href?.trim()||null;
+  if(href && (!href.startsWith("/") || href.startsWith("//") || /[\\r\\n\\\\]/.test(href))) throw new Error("Notification link must be a safe internal path");
+  const recipients=await db.select({id:users.id}).from(users).where(eq(users.role,"user"));
+  await Promise.all(recipients.map(recipient=>createNotification(recipient.id,title,body,{eventKey:`admin-broadcast:${adminId}:${eventKey}`,category:input.category,priority:input.priority,href})));
+  return {recipientCount:recipients.length,eventKey};
+ }
 export async function listNotifications(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(customerNotifications).where(eq(customerNotifications.userId,userId)).orderBy(desc(customerNotifications.createdAt)); }
 export async function markCustomerNotificationsRead(userId:number, notificationId?:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const condition=notificationId ? and(eq(customerNotifications.userId,userId),eq(customerNotifications.id,notificationId)) : and(eq(customerNotifications.userId,userId),sql`${customerNotifications.readAt} IS NULL`); await db.update(customerNotifications).set({readAt:new Date()}).where(condition); return listNotifications(userId); }
 export async function getCustomerWalletPreferences(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); let row=(await db.select().from(customerWalletPreferences).where(eq(customerWalletPreferences.userId,userId)).limit(1))[0]; if(!row){await db.insert(customerWalletPreferences).values({userId}); row=(await db.select().from(customerWalletPreferences).where(eq(customerWalletPreferences.userId,userId)).limit(1))[0];} return row; }
