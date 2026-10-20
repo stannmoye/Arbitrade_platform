@@ -92,6 +92,19 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
             })),
             violationCount: results.violations.length,
             incompleteCount: results.incomplete.length,
+            // Preserve axe's manual-review findings instead of reporting only a
+            // count; "incomplete" means axe could not decide automatically.
+            incomplete: results.incomplete.map(item => ({
+              id: item.id,
+              impact: item.impact,
+              help: item.help,
+              helpUrl: item.helpUrl,
+              nodeCount: item.nodes.length,
+              nodes: item.nodes.slice(0, 20).map(node => ({
+                target: node.target,
+                failureSummary: node.failureSummary,
+              })),
+            })),
             pageErrors,
           });
         } catch (error) {
@@ -120,9 +133,16 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
     scanCount: scans.length,
     scanErrors: scans.filter(scan => scan.scanError).length,
     totalViolations: scans.reduce((sum, scan) => sum + (scan.violationCount || 0), 0),
+    totalIncomplete: scans.reduce((sum, scan) => sum + (scan.incompleteCount || 0), 0),
     byImpact: scans.reduce((summary, scan) => {
       for (const violation of scan.violations || []) {
         summary[violation.impact || "unknown"] = (summary[violation.impact || "unknown"] || 0) + 1;
+      }
+      return summary;
+    }, {}),
+    byIncompleteRule: scans.reduce((summary, scan) => {
+      for (const item of scan.incomplete || []) {
+        summary[item.id] = (summary[item.id] || 0) + 1;
       }
       return summary;
     }, {}),
@@ -136,7 +156,9 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
     scanCount: report.scanCount,
     scanErrors: report.scanErrors,
     totalViolations: report.totalViolations,
+    totalIncomplete: report.totalIncomplete,
     byImpact: report.byImpact,
+    byIncompleteRule: report.byIncompleteRule,
   }, null, 2));
   const pageErrorCount = scans.reduce((sum, scan) => sum + (scan.pageErrors || []).length, 0);
   console.log(JSON.stringify({ pageErrorCount }, null, 2));
