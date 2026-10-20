@@ -1220,3 +1220,14 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - **Done:** code-head CI, responsive/theme browser matrix, axe diagnostics, sampled contrast review, and detailed evidence documentation.
 - **Blocked by external acceptance evidence:** human keyboard-only and screen-reader review, plus authenticated staging verification of server authorization, persisted preferences, and cross-account isolation. No staging URL/access has been confirmed; mocked static-preview interactions do not establish these gates.
 - **Next:** validate CI for this updated documentation checkpoint, then use the computed-style evidence to guide manual contrast review and complete the human/staging acceptance gates. Keep PR #73 draft/open/unmerged and do not deploy.
+
+
+## Stage 3 continuation checkpoint — Prompt 4/30 (2026-10-20)
+
+- Rechecked the actual PR head `e34af1cb215222da4aa66170766f72b5d797d023`. Workflow [#621](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39350891975) completed successfully; all four jobs passed (application/theme-policy tests, TypeScript, production build, and Chromium viewport/five-theme matrix).
+- Exact-head browser evidence: **1,175 checks passed, 0 failures** across gateway/customer/admin routes, ten widths (320–1920 px), and five themes. axe-core reported 15 scans, zero scan errors/confirmed violations/page errors, and 15 incomplete color-contrast findings caused by pseudo-element background uncertainty. The 1,800 rendered-text samples had no below-threshold results; the minimum measured ratio was 5.05:1.
+- Downloaded and inspected the exact-head artifact (53 files). A limited screenshot spot-check of gateway at 320 px and administrator Appearance at 320 px showed no obvious gateway overflow or clipped primary admin controls. Small secondary labels in the full-page admin capture still need human readability review; this visual spot-check is not a substitute for keyboard/screen-reader testing.
+- Updated `docs/ARBITRADE_STAGE_3_ACCEPTANCE.md` with the exact-head evidence, artifact reference, screenshot observations, and remaining limitations. Acceptance documentation commit: `886b028514d1bf939272f728bf5b3910c0a2ac4d`.
+- **Done:** exact-head CI, browser evidence review, selected screenshot spot-check, and recorded accessibility diagnostics.
+- **In progress / blocked by external evidence:** human keyboard-only and screen-reader review; authenticated staging checks for live authorization, preference persistence, and cross-account isolation. No staging URL/access has been confirmed. The static preview uses mocked responses for some interactions.
+- **Next bundled batch:** inspect the theme context/storage regression tests and acceptance workflow for any further locally verifiable gaps; continue reviewing incomplete contrast targets without suppressing axe findings or overstating sampled results. Keep PR #73 draft/open/unmerged; no deployment is authorized or claimed.
