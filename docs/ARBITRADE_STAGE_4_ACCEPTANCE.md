@@ -96,7 +96,9 @@ These are CI checks on the feature branch, not a production-host acceptance test
 - The admin router exposes a bounded announcement history with persisted delivered/read/failed/pending/expired counts.
 - Customer mark-read updates the matching campaign delivery record only for that authenticated recipient.
 - Migration `0055_notification_campaign_delivery_tracking.sql` is tracked by both the normal portal migration runner and read-only migration recovery diagnostics.
-- Scheduling/expiry execution, exact-head CI, disposable-schema migration testing, and UI integration remain release gates; do not treat the history API as proof of a background scheduler.
+- The admin composer supports optional schedule/expiry timestamps; a bounded server worker publishes due campaigns and expires overdue campaigns. Expired campaign notifications are suppressed from the customer inbox and sound/event cursor without deleting underlying records.
+- The admin communications screen shows persisted delivered/read/failed/pending/expired counts and can retry failed deliveries for a persisted campaign.
+- Exact-head CI and disposable-schema migration testing remain release gates; source-level contract tests are not proof of runtime correctness.
 
 ### Remaining before Stage 4 can be called complete
 - [x] Run exact-head checks and review CI status after the latest commits (14 check runs passed on `f2074c1fbdc3fb27542385c0eb214fde8f534a5c`; see evidence below).
