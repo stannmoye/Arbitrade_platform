@@ -1524,3 +1524,17 @@
 :root[data-arb-theme] .customer-portal .customer-notification-popover,:root[data-arb-theme] .customer-portal .customer-notification-popover-head{background:var(--arb-color-surface-raised)!important;border-color:var(--arb-color-border)!important;color:var(--arb-color-text)!important}
 :root[data-arb-theme] .customer-portal .customer-notification-preview{border-color:var(--arb-color-border)!important;color:var(--arb-color-text)!important}
 :root[data-arb-theme] .customer-portal .customer-notification-preview-copy p,:root[data-arb-theme] .customer-portal .customer-notification-preview small,:root[data-arb-theme] .customer-portal .customer-notification-popover-head small,:root[data-arb-theme] .customer-portal .customer-notification-empty{color:var(--arb-color-text-muted)!important}
+
+
+/* Stage 4 admin communications centre */
+.admin-notification-center{display:grid;gap:22px}
+.admin-announcement-form,.admin-notification-inbox{display:grid;gap:14px}
+.admin-announcement-form>label,.admin-announcement-form .form-two>label{display:grid;gap:7px;color:var(--arb-color-text);font-size:12px;font-weight:700}
+.admin-announcement-form input,.admin-announcement-form textarea,.admin-announcement-form select{width:100%;min-width:0;padding:11px 12px;border:1px solid var(--arb-color-border);border-radius:9px;background:var(--arb-color-surface);color:var(--arb-color-text);font:inherit;font-weight:500}
+.admin-announcement-form textarea{resize:vertical;line-height:1.55}
+.admin-announcement-form input:focus-visible,.admin-announcement-form textarea:focus-visible,.admin-announcement-form select:focus-visible{outline:2px solid var(--arb-color-accent);outline-offset:2px}
+.announcement-form-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.announcement-form-footer>small{max-width:560px;color:var(--arb-color-text-muted);font-size:11px;line-height:1.55}
+.admin-notification-inbox .portal-page-top{margin-bottom:4px}
+.admin-notification-inbox .inbox-item{border-top:1px solid var(--arb-color-border)}
+@media(max-width:680px){.announcement-form-footer{align-items:stretch;flex-direction:column}.announcement-form-footer .primary-button{width:100%;justify-content:center}.admin-notification-center .form-two{grid-template-columns:minmax(0,1fr)}}
