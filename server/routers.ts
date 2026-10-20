@@ -17,6 +17,7 @@ import { isEmailAdminConfigured, listEmailRecipients, publicEmailConfig, runDail
 import * as mining from "./mining";
 import * as miningAdmin from "./mining-admin";
 import { normalizeAppearanceSettings } from "./appearance-settings";
+import { buildTradeSettlementNotices } from "./modules/notification-events";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -159,7 +160,7 @@ export const appRouter = router({
     audit: adminProcedure.query(() => listAdminAuditEvents()),
     ledgerActivity: adminProcedure.query(() => listAdminRecentLedgerActivity()),
     pendingSettlements: adminProcedure.query(() => listPendingSettlements()),
-    confirmManualSettlement: adminProcedure.input(z.object({ tradeId: z.number().int().positive(), rewardMinor: z.number().int().nonnegative(), settlementReference: z.string().trim().min(3).max(160), notes: z.string().trim().max(2000).optional() })).mutation(async ({ ctx, input }) => { const result=await manuallySettleTrade(input.tradeId,ctx.user.id,input); try { await createNotification(result.userId,"Trade settlement confirmed",`Trade ${result.tradeId} was settled and its confirmed ledger credit was recorded.`,{eventKey:`trade-settlement:${result.tradeId}`,category:"ledger_credit",priority:"high"}); } catch(error) { console.error("[Notifications] Settlement notice failed after ledger commit:",error instanceof Error?error.name:"UnknownError"); } return result; }),
+    confirmManualSettlement: adminProcedure.input(z.object({ tradeId: z.number().int().positive(), rewardMinor: z.number().int().nonnegative(), settlementReference: z.string().trim().min(3).max(160), notes: z.string().trim().max(2000).optional() })).mutation(async ({ ctx, input }) => { const result=await manuallySettleTrade(input.tradeId,ctx.user.id,input); const notices=buildTradeSettlementNotices({tradeId:result.tradeId,currency:result.currency,principalMinor:result.principalMinor,rewardMinor:result.rewardMinor}); const outcomes=await Promise.allSettled(notices.map(notice=>createNotification(result.userId,notice.title,notice.body,{eventKey:notice.eventKey,category:notice.category,priority:notice.priority}))); if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] One or more trade settlement notices failed after ledger commit."); return result; }),
     autoTradePolicy: adminProcedure.query(() => getAutoTradePolicy()),
     updateAutoTradePolicy: adminProcedure.input(z.object({ globalEnabled: z.boolean() })).mutation(({ ctx, input }) => setAutoTradePolicy(input.globalEnabled, ctx.user.id)),
     customerBalances: adminProcedure.input(z.object({ userId: z.number().int().positive() })).query(({ input }) => listBalances(input.userId)),
