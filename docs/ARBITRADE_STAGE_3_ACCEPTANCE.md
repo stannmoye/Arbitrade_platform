@@ -102,3 +102,18 @@ The current PR head `e34af1cb215222da4aa66170766f72b5d797d023` passed [Stage 3 w
 - The artifact contains `report.json`, `axe-accessibility-report.json`, and screenshots. Its report records the mocked/static-preview limitations: it does not establish live server authorization, persisted database state, or cross-account isolation.
 
 **Exit gates remain open:** human keyboard-only and screen-reader review; authenticated staging verification of authorization, preference persistence, and cross-account isolation; and recorded final acceptance. Keep PR #73 draft/open/unmerged and do not deploy until these gates have evidence.
+
+
+## Run #622 current-head verification and additional audit (2026-10-20)
+
+The current PR head `90c3063bda255bff460595f85279e8438b4b2cd1` passed [Stage 3 workflow #622](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39379981705). All four jobs succeeded: application/theme-policy tests, TypeScript validation, production build, and Chromium responsive/five-theme acceptance.
+
+- Browser matrix: **1,175 checks passed, 0 failures**, covering gateway/customer/admin routes, ten viewport widths (320–1920 px), and five themes.
+- axe-core: **15 scans, 0 scan errors, 0 confirmed violations, 0 page errors**. Fifteen incomplete `color-contrast` findings remain because pseudo-element/background compositing prevents axe from deciding them automatically. They remain manual-review candidates.
+- Rendered-text contrast sampler: **1,800 samples, 0 below-threshold samples**, with a minimum measured ratio of **5.05:1**. Supplemental triage of the recorded axe-incomplete nodes covered **210 computed-style candidate comparisons**, none below the applicable threshold. This is not full pixel compositing or a complete WCAG audit.
+- The browser report includes keyboard focus-visible checks and focused interaction assertions for customer registration/recovery error states, customer navigation drawer focus trapping/escape restoration, admin theme-policy save/error behavior, keyboard navigation of the default-theme dropdown, quick-actions dialog focus handling, and keyboard scrolling of populated tables. These are automated browser checks, not human assistive-technology sign-off.
+- Inspected `admin-appearance-320-clean-light.png` from the [Run #622 browser artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39379981705/artifacts/12244647991). Primary theme controls and Save remain within the 320 px viewport; secondary/helper copy is visually small in the full-page capture and remains a human readability-review item.
+- Reviewed `client/src/contexts/ThemeContext.tsx`, `theme-storage.ts`, `theme-policy.ts`, and their storage/policy unit tests. The current implementation separates administrator previews from customer preferences, scopes keys to account IDs, filters storage events by active role/account, validates customer preferences against the published allow-list, and gates persistence until the active preference has been restored. This code review found no confirmed new defect to change without reproduction.
+- Evidence artifact includes `report.json`, `axe-accessibility-report.json`, and screenshots; artifact has not expired at the time of this checkpoint.
+
+**Exit gates remain open:** human keyboard-only and screen-reader review; authenticated staging verification of live server authorization, persisted preferences, and cross-account isolation; and recorded final acceptance. The workflow serves a static client preview and mocks some auth/API interactions, so it does not establish these live-system properties. Keep PR #73 draft/open/unmerged and do not deploy until the outstanding gates have evidence.
