@@ -327,7 +327,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       await page.evaluate(() => window.scrollTo(0, 0));
       if (screenshotTheme === "original") {
         const menuBounds = await page.locator(".admin-mobile-nav-trigger").boundingBox();
-        const appearanceBounds = await page.locator(".arb-theme-selector-title").boundingBox();
+        const appearanceBounds = await page.locator(".arb-theme-selector-compact .arb-theme-selector-trigger").boundingBox();
         const noOverlap = Boolean(menuBounds && appearanceBounds && (
           menuBounds.x + menuBounds.width <= appearanceBounds.x ||
           appearanceBounds.x + appearanceBounds.width <= menuBounds.x ||
@@ -370,7 +370,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
         });
         await page.setViewportSize({ width: 390, height: 844 });
       }
-      const selectorLabelColors = await page.locator(".arb-theme-selector-title").evaluate(element => ({
+      const selectorLabelColors = await page.locator(".arb-theme-selector-trigger-label").evaluate(element => ({
         labelColor: getComputedStyle(element).color,
         headerTextColor: getComputedStyle(document.querySelector(".portal-header .brand-lockup strong")).color,
       }));
@@ -1183,9 +1183,9 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
   const checks = [];
   const scenarios = [
     {
-      name: "customer-choice-disabled",
-      policy: { defaultTheme: "clean-light", enabledThemes: ["clean-light", "aurora-modern"], customerCanSelect: false },
-      expectedEditable: false,
+      name: "customer-choice-enabled-by-default",
+      policy: { defaultTheme: "clean-light", enabledThemes: ["clean-light", "aurora-modern"], customerCanSelect: true },
+      expectedEditable: true,
     },
     {
       name: "customer-choice-enabled",
@@ -1251,7 +1251,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
       });
 
       await page.goto(new URL("/customer", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
-      const selector = page.locator('section[aria-label="Appearance settings"]');
+      const selector = page.locator(".customer-portal > .arb-theme-selector-compact");
       await selector.waitFor({ state: "visible", timeout: 15000 });
       const select = selector.locator("select");
       const editable = await select.count() === 1;
@@ -1284,7 +1284,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
 
       // The customer navigation drawer must be inert while closed and must
       // preserve a complete keyboard focus loop when open.
-      if (scenario.name === "customer-choice-disabled") {
+      if (scenario.name === "customer-choice-enabled-by-default") {
         const trigger = page.getByRole("button", { name: "Open customer navigation" });
         const drawer = page.locator("#customer-navigation-drawer");
         const focusableSelector = 'a[href]:not([tabindex="-1"]):not([aria-disabled="true"]),button:not([tabindex="-1"]):not([disabled]),input:not([tabindex="-1"]):not([disabled]),select:not([tabindex="-1"]):not([disabled]),textarea:not([tabindex="-1"]):not([disabled]),[tabindex]:not([tabindex="-1"]):not([disabled]),[contenteditable="true"]';
