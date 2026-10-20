@@ -1,7 +1,7 @@
 # Arbitrade Master Development Roadmap
 
 **Repository:** `stannmoye/Arbitrade_platform`  
-**Active Stage 3 branch:** `feat/stage-3-theme-controls`  
+**Active Stage 4 branch:** `feat/stage-4-customer-dashboard`  
 **PR target branch:** `integration/auth-installer-vps-safety`  
 **Roadmap version:** 2.1  
 **Purpose:** The durable source of truth for the customer experience, themes, notifications, sounds, responsive layouts, administrator portal, quality assurance, and deployment-verification work.
@@ -47,6 +47,16 @@ These rules apply to every stage and override any workflow habit that causes rep
 - Never claim a six-minute effort, test pass, browser check, deployment, merge, or production validation unless it actually occurred.
 
 ## Current project checkpoint
+
+### Stage 4 implementation checkpoint — 2026-10-20 (Prompt 1/30)
+
+- **Stage 3:** Implementation remains closed for roadmap sequencing on its existing branch/PR; the five-theme automated evidence is retained and hosting-dependent/manual release gates remain deferred, not passed. Do not rerun the Stage 3 matrix without a specific code change or diagnostic reason.
+- **Active work:** Stage 4 — Customer Navigation and Dashboard Redesign, on `feat/stage-4-customer-dashboard`, stacked on Stage 3 head `e4eb0637143d633bd006de782d01c4a719675848`.
+- **Implemented in this batch:** The customer dashboard now reads recent activity from the authenticated customer trades query and account notices from the authenticated customer notifications query. Both panels include explicit loading, error/retry, and empty states; notices distinguish unread records; navigation links lead to the existing full activity and notification views. New styles use shared theme tokens and responsive single-column behavior for narrow screens.
+- **Safety and scope:** This is a presentation change only. It does not create financial records, infer transaction success, change authorization, or claim external settlement. The existing backend remains authoritative.
+- **Verification status:** Source transformation and diff checks are being completed in this batch. No test or build pass is claimed until CI reports it. Hosting remains unavailable; live release acceptance is deferred.
+- **Next bundled work:** Verify the diff and CI feedback; then continue Stage 4 navigation hierarchy, mobile/tablet/desktop layout consistency, and route-preserving interactions without repeating unrelated Stage 3 tests.
+
 
 ## Stage 3 closeout checkpoint — 2026-10-20
 
