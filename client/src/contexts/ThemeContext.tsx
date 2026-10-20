@@ -17,6 +17,7 @@ export const ARBITRADE_THEME_LABELS: Record<ArbitradeTheme, string> = {
   "clean-light": "Clean Light",
   "emerald-finance": "Emerald Finance",
   "aurora-modern": "Aurora Modern",
+  "gold-luxe": "Gold Luxe",
 };
 
 interface ThemeContextType {
