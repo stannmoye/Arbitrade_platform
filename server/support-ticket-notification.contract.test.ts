@@ -42,4 +42,31 @@ describe("support reply notification failure visibility", () => {
     expect(reopen).toContain("Ticket reopen notice failed after status commit:");
   });
 
+  it("keeps admin replies customer-scoped and post-commit with message-specific idempotency", () => {
+    const start = source.indexOf("export async function addTicketMessage(");
+    const end = source.indexOf("export async function reopenSupportTicket(", start);
+    const reply = source.slice(start, end);
+    const commit = reply.indexOf("const committed=await db.transaction(async tx=>");
+    const notice = reply.indexOf('createNotification(committed.ticket.customerId,"Support replied to your ticket"');
+    expect(commit).toBeGreaterThanOrEqual(0);
+    expect(notice).toBeGreaterThan(reply.indexOf("});", commit));
+    expect(reply).toContain("if(committed.isAdmin)");
+    expect(reply).toContain("eventKey:`support-ticket:${ticketId}:message:${committed.messageId}`");
+    expect(reply).toContain('category:"support",priority:"normal"');
+    expect(reply).toContain('console.error("[Notifications] Ticket reply notice failed after message commit:"');
+  });
+
+  it("fans customer replies out to admins with one stable event key and ticket urgency", () => {
+    const start = source.indexOf("export async function addTicketMessage(");
+    const end = source.indexOf("export async function reopenSupportTicket(", start);
+    const reply = source.slice(start, end);
+    const adminBranch = reply.indexOf("} else {", reply.indexOf("if(committed.isAdmin)"));
+    const adminDelivery = reply.slice(adminBranch);
+    expect(adminDelivery).toContain('from(users).where(eq(users.role,"admin"))');
+    expect(adminDelivery).toContain("Promise.allSettled(admins.map(admin=>createNotification(admin.id");
+    expect(adminDelivery).toContain("eventKey:`support-ticket:${ticketId}:message:${committed.messageId}`");
+    expect(adminDelivery).toContain('committed.ticket.priority==="urgent"?"urgent":committed.ticket.priority==="high"?"high":"normal"');
+    expect(adminDelivery).toContain('console.error("[Notifications] One or more customer-reply notices failed after message commit.")');
+  });
+
 });
