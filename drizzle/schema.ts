@@ -111,6 +111,10 @@ export const customerNotifications = mysqlTable("customer_notifications", {
   userId: int("userId").notNull(),
   title: varchar("title", { length: 200 }).notNull(),
   body: text("body").notNull(),
+  eventKey: varchar("eventKey", { length: 180 }).unique(),
+  category: varchar("category", { length: 40 }).default("account").notNull(),
+  priority: varchar("priority", { length: 20 }).default("normal").notNull(),
+  href: varchar("href", { length: 512 }),
   readAt: timestamp("readAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
