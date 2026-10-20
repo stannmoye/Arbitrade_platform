@@ -31,6 +31,9 @@ describe("customer theme selector integration", () => {
     expect(themeCss).toContain(".customer-primary-rail-theme-control");
     expect(themeCss).toContain(".customer-portal .portal-header .arb-theme-selector-compact");
     expect(themeCss).toContain("Stage 3.2: customer workspace visual polish and full theme-token adoption");
+    expect(themeCss).toContain("Customer surface background token coverage: override legacy hard-coded dark fills.");
+    expect(themeCss).toContain("background: var(--arb-color-surface) !important;");
+    expect(themeCss).toContain("background: var(--arb-color-surface-raised) !important;");
     expect(themeCss).toContain(".customer-slide-theme-control");
     expect(customerCss).toContain(':root[data-arb-theme] .customer-portal .portal-main');
     expect(customerCss).toContain(':root[data-arb-theme] .customer-portal .customer-primary-rail');
