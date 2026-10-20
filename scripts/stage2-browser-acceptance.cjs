@@ -370,7 +370,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
         });
         await page.setViewportSize({ width: 390, height: 844 });
       }
-      const selectorLabelColors = await page.locator(".arb-theme-selector-title").evaluate(element => ({
+      const selectorLabelColors = await page.locator(".arb-theme-selector-trigger-label").evaluate(element => ({
         labelColor: getComputedStyle(element).color,
         headerTextColor: getComputedStyle(document.querySelector(".portal-header .brand-lockup strong")).color,
       }));
@@ -1184,7 +1184,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
   const scenarios = [
     {
       name: "customer-choice-enabled-by-default",
-      policy: { defaultTheme: "clean-light", enabledThemes: ["clean-light", "aurora-modern"], customerCanSelect: false },
+      policy: { defaultTheme: "clean-light", enabledThemes: ["clean-light", "aurora-modern"], customerCanSelect: true },
       expectedEditable: true,
     },
     {
