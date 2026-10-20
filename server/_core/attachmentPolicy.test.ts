@@ -69,6 +69,21 @@ describe("support attachment request validation", () => {
       )).toBe(false);
     }
   });
+
+  it("fails closed when the attachment size policy is invalid", () => {
+    const request = { fileName: "report.pdf", mimeType: "application/pdf", sizeBytes: 100 };
+    for (const maxAttachmentMb of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      expect(isAllowedAttachmentRequest(request, { ...policy, maxAttachmentMb })).toBe(false);
+    }
+  });
+
+  it("fails closed when the allowed MIME configuration is malformed", () => {
+    const request = { fileName: "report.pdf", mimeType: "application/pdf", sizeBytes: 100 };
+    expect(isAllowedAttachmentRequest(request, { ...policy, allowedMimeTypes: [] })).toBe(false);
+    expect(isAllowedAttachmentRequest(request, { ...policy, allowedMimeTypes: null as unknown as string[] })).toBe(false);
+    expect(isAllowedAttachmentRequest(request, { ...policy, allowedMimeTypes: [""] })).toBe(false);
+    expect(isAllowedAttachmentRequest(request, { ...policy, allowedMimeTypes: [null as unknown as string] })).toBe(false);
+  });
 });
 
 describe("support attachment storage key validation", () => {
