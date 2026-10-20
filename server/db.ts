@@ -12,6 +12,7 @@ import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
+import { buildNotificationEventKey, normalizeNotificationText, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
@@ -226,7 +227,31 @@ export async function listAllTickets() { const db=await getDb(); if(!db) throw n
 export async function getCustomerTicket(userId:number,ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return (await db.select().from(supportTickets).where(and(eq(supportTickets.id,ticketId),eq(supportTickets.customerId,userId))).limit(1))[0] ?? null; }
 export async function addTicketMessage(actorId:number,ticketId:number,body:string,status?:"open"|"answered"|"resolved"|"closed") { const db=await getDb(); if(!db) throw new Error("Database is not available"); const ticket=(await db.select().from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1))[0]; if(!ticket) throw new Error("Ticket not found"); const actor=(await db.select({role:users.role}).from(users).where(eq(users.id,actorId)).limit(1))[0]; if(!actor) throw new Error("Message author not found"); const isAdmin=actor.role==="admin"; if(!isAdmin && ticket.customerId!==actorId) throw new Error("You do not have access to this ticket"); if(!body.trim()) throw new Error("Message cannot be empty"); if(!isAdmin && ticket.status==="closed") throw new Error("Closed tickets cannot receive customer replies; open a new ticket"); await db.insert(supportMessages).values({ticketId,authorId:actorId,body:body.trim()}); const nextStatus=isAdmin ? status : "open"; await db.update(supportTickets).set({status:nextStatus,updatedAt:new Date()}).where(eq(supportTickets.id,ticketId)); }
 export async function listTicketMessages(ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select({id:supportMessages.id,ticketId:supportMessages.ticketId,authorId:supportMessages.authorId,authorName:users.name,authorRole:users.role,body:supportMessages.body,createdAt:supportMessages.createdAt}).from(supportMessages).leftJoin(users,eq(users.id,supportMessages.authorId)).where(eq(supportMessages.ticketId,ticketId)).orderBy(supportMessages.createdAt); }
-export async function createNotification(userId:number,title:string,body:string) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const inserted=await db.insert(customerNotifications).values({userId,title,body}); try { const { enqueueSystemNotificationEmail }=await import("./emailQueue"); await enqueueSystemNotificationEmail(userId,title,body,`notification:${Number(inserted[0].insertId)}`); } catch(error) { console.error("[Email] System notification enqueue failed:",error instanceof Error?error.name:"UnknownError"); } }
+export async function createNotification(userId:number,title:string,body:string,options:{eventKey?:string|null;category?:NotificationCategory;priority?:NotificationPriority;href?:string|null}={}) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const safeTitle=normalizeNotificationText(title,200,"title");
+  const safeBody=normalizeNotificationText(body,10000,"body");
+  const eventKey=buildNotificationEventKey(userId,options.eventKey);
+  const values={userId,title:safeTitle,body:safeBody,eventKey,category:options.category||"account",priority:options.priority||"normal",href:options.href?.trim()||null};
+  let notificationId=0;
+  if(eventKey){
+    const inserted=await db.insert(customerNotifications).values(values).onDuplicateKeyUpdate({set:{eventKey}});
+    notificationId=Number(inserted[0].insertId)||0;
+    if(!notificationId){
+      const existing=(await db.select({id:customerNotifications.id}).from(customerNotifications).where(eq(customerNotifications.eventKey,eventKey)).limit(1))[0];
+      notificationId=existing?.id||0;
+    }
+  } else {
+    const inserted=await db.insert(customerNotifications).values(values);
+    notificationId=Number(inserted[0].insertId)||0;
+  }
+  // Email delivery is keyed by the persisted notification ID; duplicate event
+  // retries therefore reuse the same outbox idempotency key.
+  if(notificationId){
+    try { const { enqueueSystemNotificationEmail }=await import("./emailQueue"); await enqueueSystemNotificationEmail(userId,safeTitle,safeBody,`notification:${notificationId}`); }
+    catch(error) { console.error("[Email] System notification enqueue failed:",error instanceof Error?error.name:"UnknownError"); }
+  }
+}
 export async function listNotifications(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(customerNotifications).where(eq(customerNotifications.userId,userId)).orderBy(desc(customerNotifications.createdAt)); }
 export async function markCustomerNotificationsRead(userId:number, notificationId?:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const condition=notificationId ? and(eq(customerNotifications.userId,userId),eq(customerNotifications.id,notificationId)) : and(eq(customerNotifications.userId,userId),sql`${customerNotifications.readAt} IS NULL`); await db.update(customerNotifications).set({readAt:new Date()}).where(condition); return listNotifications(userId); }
 export async function getCustomerWalletPreferences(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); let row=(await db.select().from(customerWalletPreferences).where(eq(customerWalletPreferences.userId,userId)).limit(1))[0]; if(!row){await db.insert(customerWalletPreferences).values({userId}); row=(await db.select().from(customerWalletPreferences).where(eq(customerWalletPreferences.userId,userId)).limit(1))[0];} return row; }
