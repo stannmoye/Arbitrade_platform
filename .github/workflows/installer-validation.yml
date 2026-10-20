@@ -7,12 +7,14 @@ on:
       - main
       - feat/complete-installation-wizard
       - integration/auth-installer-vps-safety
+      - release/arbitrade-installer-v2-sandbox
   # Validate proposed changes before they merge.
   pull_request:
     branches:
       - main
       - feat/stage-46-controlled-migration-recovery
       - integration/auth-installer-vps-safety
+      - release/arbitrade-installer-v2-sandbox
   # Allow a maintainer to run the same non-production checks on demand.
   workflow_dispatch:
 
