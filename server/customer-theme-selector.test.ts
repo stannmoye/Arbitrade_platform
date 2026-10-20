@@ -17,7 +17,7 @@ describe("customer theme selector integration", () => {
   it("provides customer theme controls in the left rail and navigation drawer", () => {
     expect(menuSource).toContain('className="customer-theme-sidebar-control"');
     expect(menuSource).toContain('className="customer-slide-theme-control"');
-    expect(menuSource).toContain("<ThemeSelector compact readOnly={!open} />");
+    expect(menuSource).toContain("<ThemeSelector compact readOnly={!open} ariaLabel="Change theme from customer menu" />");
     expect(selectorSource).toContain('aria-label="Choose workspace theme"');
     expect(selectorSource).toContain("Palette");
   });
