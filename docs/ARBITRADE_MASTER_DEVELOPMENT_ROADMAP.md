@@ -257,19 +257,75 @@ Deliverables: five complete themes and administrator theme controls.
 
 Exit criteria: every customer route is themed correctly; settings persist and respect the chosen administrator policy.
 
-### Stage 4 — Customer Navigation and Dashboard Redesign
-**Objective:** Make the customer portal easier to understand and use.
+### Stage 4 — Customer Experience, Live Notifications, Support and Dashboard Redesign
+**Objective:** Deliver a coherent customer/admin communication loop while improving customer navigation and dashboard usability. This stage deliberately brings forward the notification, sound-management and support slices originally indexed as Stages 8–12; those roadmap entries must later be treated as follow-on hardening/expansion work, not as permission to duplicate the Stage 4 implementation.
 
-Tasks:
+**A. Dashboard and navigation**
 - Improve dashboard hierarchy, wallet overview, quick actions, recent activity and account notices.
-- Design compact mobile navigation, appropriate tablet layouts and efficient desktop navigation.
-- Improve spacing, readability, loading states and empty states.
-- Apply the theme system throughout.
+- Refine desktop navigation, tablet layouts and compact mobile navigation.
+- Improve spacing, readability, focus states, loading/error/retry/empty states and reduced-motion behaviour.
+- Preserve the five-theme system, administrator theme policy and all existing routes/actions.
+- Show only genuine backend-backed data; never fabricate activity or treat animation/audio as proof of a financial outcome.
 
-Deliverable: responsive customer dashboard and navigation.
+**B. Real notification centre and live unread status**
+- Replace hard-coded bell counts with a server-derived unread count scoped to the authenticated user.
+- Build a modern notification dropdown/centre with unread/read state, timestamps, categories, priority, relevant deep links, mark-one-read and mark-all-read actions, empty/loading/error states and accessible keyboard behaviour.
+- Cover verified application events where supported: deposit request/status/confirmed ledger credit; withdrawal request/status/approval/rejection/completion; ticket creation/reply/status changes; administrator announcements; promotions; product/platform updates; wallet ledger credit/debit; trading lifecycle; mining purchases/rewards/cycle outcomes; swap outcomes; security/account notices.
+- Publish notifications from authoritative backend service/event boundaries, not from frontend guesses or merely attempted operations.
+- Add stable event identifiers and idempotent deduplication; avoid duplicate notification creation on retries, polling, reconnects or repeated queries.
+- Provide prompt updates while a customer/admin portal is open. Prefer a deployment-compatible push transport when the existing server can safely support it; retain bounded polling/reconnect fallback so cPanel/shared hosting remains viable. Show connection/last-updated status honestly—do not label polling as a guaranteed instant push.
+- Preserve notification history when sound is disabled, the browser is muted, or the user is offline. Enforce per-user ownership on list/read actions and admin role checks on publishing.
 
-Exit criteria: dashboard is usable without clipping or unintended horizontal scrolling at supported widths; real data and actions remain correct.
+**C. Two-way customer/admin support tickets**
+- Review and improve the ticket form and ticket desk on both customer and admin sides.
+- Support clear subject, category, priority, description, optional permitted attachments, validation, progress/errors, ticket reference, status and last-updated information.
+- Provide threaded customer/admin replies with author identity/role and timestamps, plus lifecycle statuses such as open, in progress, awaiting customer, resolved and closed where the current schema/workflow can support them.
+- Allow authorized staff to reply, change status/priority and communicate resolution; notify the correct customer of replies/status changes.
+- Let customers reply, see admin responses and follow status changes. Apply access control so a customer can only read/reply to their own tickets; admins must use protected admin procedures.
+- Validate uploads server-side (size, MIME/content, generated names, storage access); do not expose private attachment paths. Add sensible duplicate-submit protections and audit important admin changes.
 
+**D. Real audio assets and centralized sound engine**
+- Replace synthetic oscillator tones as the notification sound library with at least five distinct, actual audio assets (short, browser-compatible files checked into the project or safely served from its controlled public assets). Keep audio playback centralized and reuse existing dependencies.
+- Give each asset a clear human-readable name; add admin preview and restore-default controls. The admin can choose the default customer notification sound and, where supported, event-specific overrides.
+- Add configurable event-to-sound mappings for general notifications, deposit/credit, withdrawal, debit, trading, mining, support replies, announcements/promotions and important account/security events. At minimum, make the default sound selectable globally and allow event-specific selection where the settings model supports it.
+- Include separate sound mappings for confirmed ledger credit and debit, trade lifecycle events and mining reward/cycle events. Only play success sounds after the server confirms the corresponding persisted event/ledger result; failures use a distinct non-success cue.
+- Respect browser autoplay/user-gesture rules, customer opt-in/mute preferences, volume controls where supported, reduced interruption, tab visibility and duplicate-event suppression. Never auto-play merely because the first page loaded.
+- Store admin sound policy persistently and audit actor/time/old/new values. A safe test-notification/preview action must never write a financial ledger entry or simulate a real deposit/withdrawal/trade.
+
+**E. Administrator communication controls**
+- Add a clear admin notification/announcement composer for audience, title, body, category, priority, publish time/status and optional expiry, using only fields the server validates and persists.
+- Support announcements, promotions and platform updates as distinct categories; clearly label promotional content and avoid presenting it as a financial event.
+- Display recipient delivery/read state where available. Do not imply that a notification was delivered/read solely because it was queued.
+- Provide sound policy controls and preview in the existing admin sound/settings area; enforce admin authorization and audit policy changes.
+- Add a safe event preview/test route distinct from actual financial-event handlers.
+
+**F. Live financial-event sound and display safeguards**
+- Derive credit/debit cues from persisted internal database-ledger events and transaction identifiers. Keep the ledger authoritative; no external payment APIs are to be introduced.
+- Distinguish requested, pending, failed, reversed and completed operations wherever the existing backend models those states.
+- Do not play a “credit successful” sound for a deposit request, estimate, simulated opportunity, failed operation, or uncommitted transaction.
+- Ensure polling/push reconnects and query refreshes do not replay old sounds. Keep the UI useful if audio is blocked or realtime transport disconnects.
+
+**G. Quality, responsive design and regression**
+- Test customer and admin flows, cross-account isolation, role boundaries, duplicate delivery, unread/read transitions, reconnect recovery, sound preference persistence, real audio loading, ticket threading and ticket attachments.
+- Test representative mobile/tablet/desktop viewports and supported themes, including Clean Light and Gold Luxe.
+- Preserve financial invariants, installer compatibility, cPanel/shared-host compatibility and the existing admin/customer routes.
+- Add focused automated tests for notification ownership/deduplication, ticket authorization, event-to-sound mapping and notification counts. Record actual CI/test results and known limitations; do not mark unrun host tests as passed.
+
+**Implementation sequence**
+1. Inspect the current integration branch, Stage 4 branch/PR, notification schema/router, ticket workflow, sound settings, assets and installer migrations.
+2. Implement live unread bell/count and notification centre using real existing records.
+3. Establish canonical backend event creation and idempotency for supported event types.
+4. Improve customer/admin ticket form, threading, status transitions and notifications.
+5. Add five real audio assets and central playback with admin sound policy and customer preferences.
+6. Add admin announcement/promotion/update publishing and delivery/read visibility.
+7. Implement realtime push where supported plus bounded polling/reconnect fallback.
+8. Complete accessibility, responsive, security and regression validation.
+9. Integrate the verified source into the correct installer/release branch and rebuild the versioned ZIP only after exact-head checks pass.
+
+**Deliverable:** A responsive customer dashboard and navigation, truthful live unread status, a persistent event-backed notification centre, two-way support tickets, admin announcement/sound controls, and a centralized real-audio engine for verified financial and platform events.
+
+**Exit criteria:** No hard-coded unread count; events are backend-authentic, user-scoped and deduplicated; admin/customer ticket threads work both ways with correct permissions; at least five real audio files are bundled and previewable; sound policies persist and do not misrepresent financial success; supported events notify promptly with recovery fallback; themes, critical workflows, tests and installer build remain healthy. Host validation is recorded separately from automated CI.
+ 
 ### Stage 5 — Wallet, Deposit, Withdrawal and Transaction History
 **Objective:** Improve core financial workflows.
 
