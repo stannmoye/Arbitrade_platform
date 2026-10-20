@@ -43,6 +43,16 @@ describe("Stage 4 announcement campaign delivery persistence", () => {
     expect(core).toContain("processNotificationCampaignLifecycle");
   });
 
+  it("counts scheduled lifecycle outcomes from the persisted campaign status", () => {
+    const lifecycleStart = db.indexOf("export async function processNotificationCampaignLifecycle");
+    const lifecycleEnd = db.indexOf("export async function listAdminNotificationCampaigns", lifecycleStart);
+    const lifecycle = db.slice(lifecycleStart, lifecycleEnd);
+    expect(lifecycle).toContain('if(result.status==="published") published++');
+    expect(lifecycle).toContain('else if(result.status==="expired") expiredDuringPublish++');
+    expect(lifecycle).toContain('return {expired:expired.length+expiredDuringPublish,published,failed}');
+    expect(lifecycle).not.toContain('}); published++;');
+  });
+
   it("registers the forward-only migration in both normal and recovery tooling", () => {
     expect(runner).toContain('"0055_notification_campaign_delivery_tracking.sql"');
     expect(recovery).toContain('"0055_notification_campaign_delivery_tracking.sql"');
