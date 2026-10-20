@@ -1,22 +1,90 @@
 # Arbitrade Master Development Roadmap
 
 **Repository:** `stannmoye/Arbitrade_platform`  
-**Working branch:** `integration/auth-installer-vps-safety`  
-**Roadmap version:** 2.0  
+**Active Stage 3 branch:** `feat/stage-3-theme-controls`  
+**PR target branch:** `integration/auth-installer-vps-safety`  
+**Roadmap version:** 2.1  
 **Purpose:** The durable source of truth for the customer experience, themes, notifications, sounds, responsive layouts, administrator portal, quality assurance, and deployment-verification work.
 
 > **Working rule:** Complete and verify one stage at a time. Update this document as work progresses so the team can always identify what is complete, what is in progress, what failed, and what comes next. Do not claim a task or test is complete unless it has actually been implemented or run.
 
 
-> **Critical environment constraint (confirmed by the user, 2026-10-20): NO HOSTING IS AVAILABLE RIGHT NOW.** There is currently no hosting provider/server and no live or staging environment to access. Do not ask the user for a staging URL, host access, or hosted test accounts, and do not treat the absence of hosting as a current user action item. Continue with repository work, code review, CI, and relevant non-redundant automated checks. Mark live-host, deployment, authenticated staging, and human browser/screen-reader acceptance items as **deferred until hosting/access becomes available**. Do not claim those checks passed, and do not block unrelated repository work on them. Revisit this constraint only if the user explicitly says hosting has been obtained.
+## Mandatory execution cadence and substantial-work contract (Roadmap v2.1)
 
-> **Efficiency constraint:** The user has asked us not to waste time repeating unnecessary tests. Reuse valid recent CI evidence and run only checks that directly verify a change or resolve a specific uncertainty.
+These rules apply to every stage and override any workflow habit that causes repeated tiny changes or unnecessary user prompts.
+
+**Cadence baseline adopted 2026-10-19:** Stage 3 implementation is now closed for roadmap sequencing on `feat/stage-3-theme-controls`, based on `feat/stage-2-design-system-foundation`. The Stage 3 continuation budget is no longer active for this closeout; no further user prompt is required to finish the repository-side Stage 3 work. Human keyboard/screen-reader sign-off and deployed authenticated acceptance are release gates deferred because the user has confirmed that no hosting exists. This does not claim those external gates passed. Preserve prior evidence and avoid repeating successful checks without a code change or concrete diagnostic reason.
+
+### Hard prompt budget
+- **Maximum: 30 continuation prompts per stage.** A continuation prompt means every time the assistant stops coding and asks the user to type "continue", "proceed", or an equivalent message to resume. Count these user interruptions, not internal tool calls, commits, parallel workstreams, or automated CI jobs.
+- Track the stage's continuation count explicitly in the current checkpoint and every progress report as **Prompt X/30**. Start at 0/30 when this cadence contract is adopted for the current stage; do not reset the counter merely because the conversation changes.
+- Never intentionally consume a prompt on a trivial isolated edit, status-only response, or work item that could reasonably be bundled with the active batch.
+- Do not ask the user to continue while there is useful, authorized work that can be done in the current session. Work through the planned batch, verify it, commit/update the roadmap where supported, and only then report the checkpoint.
+- If a hard external blocker truly requires user input or unavailable access, explain the precise blocker, complete all independent work first, and record the reason. Do not disguise avoidable stopping as a blocker.
+- If the stage approaches Prompt 24/30, consolidate remaining work into a prioritized completion plan. Prompts 27–30 are reserved for completing critical remaining deliverables, resolving integration/CI failures, and recording evidence; do not spend them on scope expansion.
+
+### Minimum work per continuation prompt
+- **Spend at least six minutes of active, substantive development effort per continuation prompt**, when tools and access permit. This is a minimum effort expectation, not permission to pad work, wait idly, or claim elapsed time that was not spent.
+- Before coding, inspect the live branch, current diff, stage acceptance criteria, recent CI results, and relevant existing components/tests. Continue from the actual checkpoint; never restart or duplicate completed work.
+- Build one coordinated batch from multiple related tasks. Prefer parallel independent workstreams (for example implementation, regression tests, accessibility/responsive review, documentation/CI investigation), then integrate and reconcile them. Parallelize independent tasks aggressively, but serialize conflicting edits to the same files.
+- Aim for **multiple meaningful deliverables per prompt**: connected user-facing behavior, shared component adoption, supporting tests, accessibility/responsive fixes, documentation, and CI feedback as appropriate. Do not stop after adding a small file or a handful of lines if related stage work remains.
+- A batch should normally change multiple related files or complete one substantial end-to-end capability, with regression coverage and an explicit acceptance check. File count is not a target by itself; quality, coherent behavior, and tested outcomes matter.
+- Run focused tests while implementing, then a proportionate integrated check for the batch. Use existing CI to handle broader suites when available; avoid repeatedly rerunning identical expensive checks without a code change or diagnostic reason.
+- If a CI failure occurs, diagnose the root cause, fix it, and rerun the relevant check within the same batch whenever possible. Do not merely report the failure and ask the user to prompt again while a fix is available.
+- Keep a live task ledger with **done / in progress / blocked / next**, file paths, test evidence, commit identifiers, risks, and continuation count. Update the roadmap/checkpoint after meaningful batches, not with repetitive near-duplicate diary entries.
+
+### Stage completion within the prompt budget
+- Plan each stage as a set of substantial, dependency-aware work packages that fit within the 30-prompt cap. Estimate the batches before implementation and combine overlapping tasks.
+- Complete the highest-value implementation work early; do not use most of the budget on audits, speculative hardening, or repetitive planning when the roadmap calls for product improvements.
+- A stage is complete only when its actual deliverables and exit criteria are implemented and supported by truthful test/acceptance evidence. The prompt limit never authorizes falsely marking incomplete work complete.
+- If a stage cannot responsibly meet its exit criteria within 30 prompts, stop scope expansion, prioritize the critical acceptance requirements, document the exact unmet items and external blockers, and seek approval before exceeding the cap. Do not silently exceed 30.
+- Report meaningful progress at each checkpoint: completed behavior, changed files, tests and outcomes, commits/CI links, remaining work, blockers, **Prompt X/30**, and the next bundled batch. Do not give a progress report that substitutes for coding when coding can continue.
+
+### Non-negotiable continuity rules
+- Preserve the existing ARBITRADE product, repository, branch/PR direction, and completed work. This is an incremental improvement of the existing development, not a restart or a parallel replacement project.
+- Stage 2 work currently belongs to the existing branch and PR #71. Inspect and continue that work; do not create duplicate implementations or a competing roadmap/PR without a concrete technical need.
+- Do not advance to a later stage just to make the roadmap appear to progress. Normally finish the active stage's acceptance criteria first. If the user explicitly directs work on a later implementation stage while an earlier stage has an external acceptance gate blocked by unavailable staging access, document that dependency clearly and never claim the earlier gate passed.
+- Never claim a six-minute effort, test pass, browser check, deployment, merge, or production validation unless it actually occurred.
 
 ## Current project checkpoint
 
-- **Stage 3 implementation closeout (2026-10-20):** The five-theme architecture and administrator theme controls are complete for implementation sequencing. PR [#73](https://github.com/stannmoye/Arbitrade_platform/pull/73) is open and ready for code review. Exact-head workflow [#629](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39387937201) completed successfully: application/theme-policy regression tests, TypeScript validation, production build, and Chromium viewport/five-theme/accessibility scan all passed. The run reports 1,185 browser checks passed with zero failures; axe reported zero confirmed violations and zero scan errors, with 15 incomplete contrast candidates retained for manual review. **Deferred, not passed:** human keyboard-only/screen-reader sign-off and deployed authenticated verification of live authorization, preference persistence, and account isolation. No hosting is available; do not ask for staging access or repeat passing tests without a specific reason. Do not merge/deploy until code review and deferred release gates are satisfied. This theme-workstream closeout does not falsely close unrelated items in the broader 30-stage roadmap.
+## Stage 3 closeout checkpoint — 2026-10-20
+
+- **Implementation status: COMPLETE for roadmap sequencing.** Five themes, administrator appearance controls, administrator/customer role separation, account-scoped browser preferences, storage-event filtering, and preference-restoration readiness gating are implemented.
+- **Automated evidence:** Stage 3 workflow **#628 passed all four jobs**: application/theme-policy regression tests, TypeScript validation, production build, and Chromium responsive/five-theme browser acceptance. The browser matrix reported **1,175 checks passed, 0 failures**. The diagnostic axe scan reported **15 scans, 0 scan errors, 0 confirmed violations, 0 page errors**, with 15 incomplete contrast results retained as manual-review candidates. Reuse this evidence; do not rerun the same full matrix absent a relevant code change or failure.
+- **Human/deployed release acceptance: DEFERRED — NO HOSTING EXISTS.** Human keyboard-only and screen-reader review, plus authenticated live-server authorization, database preference persistence, and cross-account isolation checks, cannot be completed in the current environment. These are not user action items now; do not request a host, staging URL, credentials, or test accounts, and do not claim these gates passed.
+- **Release decision:** Stage 3 implementation is closed for sequencing, but this is not a production-readiness sign-off. Keep release/deployment gated on future human and hosted acceptance evidence. PR #73 remains the code-review vehicle; no merge or deployment is authorized by this documentation update.
+- **Next project work:** Resume the roadmap's already-tracked next incomplete project stage/work item; do not loop on Stage 3 or repeat passing tests. Stage 1 audit items remain separately open and are not silently marked complete.
+- **Prompt budget:** Stage 3 closeout is complete in this continuation. **Prompts remaining to finish Stage 3: 0.** This does not mean all release gates have passed; they are explicitly deferred until hosting/access exists.
+- **Stage 3 start (2026-10-19, Prompt 1/30):** Created `feat/stage-3-theme-controls` from the current Stage 2 branch so the work is stacked on the latest shared foundation. The five-theme definitions, shared theme tokens, ThemeProvider, administrator appearance controls, policy validation, and focused policy tests already exist in the baseline; Stage 3 work must finish real integration gaps rather than recreate them. First defect addressed: administrator theme previews and customer preferences previously shared a storage key, and customer preferences were shared between accounts on the same browser. Added role- and account-scoped storage keys plus regression tests. CI initially exposed stale source-contract expectations after the refactor; those expectations were updated, and validation of the current branch is pending. Stage 2 staging acceptance remains deferred and is not represented as passed.
 
 - **Database-backed Mining idempotency, ledger, and rollback regression slice (2026-10-18):** Added `server/mining-store.mysql.integration.test.ts` and `.github/workflows/mining-database-regression.yml`. The isolated MariaDB 11.4 workflow now exercises real InnoDB same-key concurrent replay, rollback releasing an uncommitted idempotency reservation, rejection of a committed key reused for another command, balanced CKI journal writes with matching wallet balances, and an injected failure proving wallet balances, journal rows, and the new customer's opening baseline all roll back atomically. The database-backed tests and TypeScript check passed in [Mining database regression run 39166796533](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39166796533); the focused Mining unit-test/type-check run [39166796558](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39166796558) also passed. This is meaningful database evidence for the shared Mining idempotency and wallet-ledger helpers, but it is **not** yet a full database-backed quote-to-conversion replay/concurrency test or a complete main-wallet-versus-mining-ledger reconciliation. Installer validation run [39166796580](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39166796580) passed its syntax, TypeScript, unit, installer/migration, fresh MariaDB, MySQL 8, and production build/smoke jobs; deployment-package validation was still running at this checkpoint. Stage 1 remains in progress.
+
+- **Stage 2 table accessibility follow-up (2026-10-18):** Shared table scroll regions now accept an optional `containerAriaLabel` prop, retaining a backward-compatible default while allowing callers to supply a contextual accessible name. Updated the component showcase to demonstrate a contextual label and added regression contracts for both the prop and example. Fresh CI and real-browser acceptance are still required; Stage 2 remains in progress.
+
+- **Stage 2 automated validation passed (2026-10-18):** GitHub Actions run [39174320260](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39174320260) passed all three parallel jobs: full application tests (28 files, 199 tests), TypeScript validation, and production build. Keyboard-scrollable shared table containers now have accessible region semantics/name with a source regression test. Real-browser viewport and rendered accessibility acceptance are still outstanding; Stage 2 remains in progress.
+
+
+- **Stage 2 parallel validation and table accessibility (2026-10-18):** Added a dedicated GitHub Actions workflow with parallel full-test, TypeScript, and production-build jobs; configured push validation for the Stage 2 branch, pull-request validation for the integration base, and manual dispatch. Added accessible region semantics and a name to the keyboard-focusable shared table overflow container, plus a source regression test. CI execution and browser viewport acceptance remain outstanding; Stage 2 remains in progress.
+
+
+- **Stage 2 parallel acceptance pass (2026-10-18):** Expanded the design-system contract suite to check WCAG AA text contrast and 3:1 focus-indicator contrast for all five themes, including Original theme legacy-variable fallbacks; added source contracts for customer/admin root adoption, theme-selector accessibility, 44px mobile touch targets for shared controls, and responsive dialog affordances. The Stage 2 acceptance checklist now lists exact verification commands. CI for these latest changes remains pending; rendered browser/viewport acceptance remains required. Stage 2 remains in progress.
+
+- **Stage 2 contract-test expansion (2026-10-18):** Expanded `server/design-system-contract.test.ts` with explicit checks for semantic colour/focus tokens in each of the five theme blocks, mobile table overflow containment, invalid/disabled control feedback, and WCAG AA (4.5:1) contrast for text tokens against canvas and surface colours in the four new literal themes. Commits `2b5baa6f1f24ee25be7cafb8f51fbe41dc1ebf5e`, `d3689082f54ff7fa8ccb72ebde40b01961510a11`, `9d60a53aeefb837856436b54aabd5ff516568bda`, and `201287bb793da1b1f6f4d850ab8347da907b30f7`. These are source-level regression assertions only; execution against the latest head and browser/viewport acceptance remain outstanding. Stage 2 remains in progress.
+
+- **Theme-policy loading and settings recovery follow-up (2026-10-18):** The appearance settings error state now has an explicit retry action, and customer theme restoration now waits for the administrator policy before reading a saved customer preference. This prevents a previously saved but now-disabled theme from flashing before policy loads; administrator preview preferences remain independent of policy refreshes. Commits `c1ff64d045200c30f896c472bd0e9cf67273ef4f`, `345430c4910fbfe99b2710caeba29540a46303b6`, and `b8eeb657505901e8a599e30e87a98b08310308a`. CI run [39165144424](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39165144424) passed all nine jobs, including TypeScript, application tests, installer/migration regressions, fresh MariaDB, MySQL 8 compatibility/recovery, production build/server smoke, deployment packages, and Stage 1 validation dashboard. Stage 2 remains in progress pending real browser/viewport acceptance and broader shared-component adoption.
+
+- **Administrator appearance controls (2026-10-18):** Added an Appearance & Themes destination to the admin navigation, with a dedicated screen for previewing all five themes, selecting the published customer default, enabling/disabling customer-available themes, and permitting or locking customer choice. The policy is persisted through the existing app-settings store and exposed through a read-only public configuration query; server validation prevents publishing a disabled default. The customer selector reflects the enabled-theme policy, and the theme provider applies the published default unless customer choice is allowed. CI run [39163556153](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39163556153) passed all nine jobs, including TypeScript, unit/regression tests, fresh MariaDB install, MySQL 8 compatibility/recovery, production build/server smoke, deployment packages and Stage 1 validation dashboard. The administrator appearance screen now adopts the shared `.arb-page` and `.arb-stack` foundation. Stage 2 remains in progress pending broader shared-component adoption and real browser/viewport acceptance; Stage 3 theme acceptance is not yet complete.
+
+- **Five-theme implementation slice (2026-10-18):** Added the five semantic theme token sets (Original Arbitrade, Midnight Premium, Clean Light, Emerald Finance, Aurora Modern), persisted theme selection in `ThemeContext`, and exposed an accessible administrator theme preview selector and a read-only current-theme indicator in the customer portal shell. Added a compatibility bridge so the theme variables also reach existing legacy portal surfaces while those screens are migrated incrementally. The original theme remains the default. This selector is currently user-selectable in both portals; administrator-controlled enabled-theme policy/default persistence is not implemented yet. Latest CI runs [39162655884](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39162655884) and [39162690841](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39162690841) were in progress at checkpoint time. Stage 2 remains in progress.
+- **Theme-policy boundary (2026-10-18):** Customer theme choice remains disabled until administrator-controlled defaults, enabled-theme policy, and persistence are implemented. The current administrator selector changes the theme in the active browser session/local preference only; it is not yet a server-persisted global policy. Do not treat the current selector as completion of the theme-management exit criteria.
+
+- **Delivery-priority reset (2026-10-18):** Follow the original 30-stage roadmap and prioritize implementation over open-ended diagnosis. Do not add further speculative hardening to the separate Stake & Earn PR unless a concrete blocker or critical financial-integrity defect is found. Broader hardening can be scheduled after hosting and observing real deployment behaviour. Keep only proportionate checks required to avoid breaking existing functionality.
+- **Shared foundation adoption (2026-10-18):** Applied `.arb-page` to 30 portal-page roots in `client/src/App.tsx` and retained existing layout classes, so semantic typography and foreground defaults are exercised across customer and administrator screens without replacing their established layouts. `AdminAppearance` also uses `.arb-page` and `.arb-stack`.
+- **Appearance policy resilience (2026-10-18):** Extracted `normalizeAppearanceSettings` into `server/appearance-settings.ts` and added `server/appearance-settings.test.ts` for default configuration, valid policy, inconsistent default/enabled lists, duplicate/unknown themes, malformed JSON and strict customer-choice flags. Both the public configuration query and administrator settings query use the same normalizer, ensuring the published default always belongs to the enabled-theme list. CI run [39164416002](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39164416002) has passed syntax, TypeScript, application unit tests, installer/migration regressions, fresh MariaDB installation, MySQL 8 compatibility/recovery and production build/server smoke; deployment package assembly was still in progress at checkpoint time. Stage 2 remains in progress pending final CI completion and real browser/viewport acceptance.
+- **Stage 2 implementation continuation (2026-10-18):** Expanded the opt-in shared design foundation with semantic body typography, section-heading layout, consistent form fields, primary/secondary button primitives, mobile wrapping, visible keyboard focus, and reduced-motion handling. These are additive classes and do not restyle existing screens unless adopted. The current-head GitHub Actions run [39161519816](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39161519816) completed successfully across syntax, TypeScript, application tests, installer/migration regressions, MariaDB fresh install, MySQL 8 compatibility/recovery, production build/server smoke, deployment packages, and the Stage 1 validation dashboard. Stage 2 remains in progress; next is to apply the shared foundation to a suitable shared UI surface, then advance to the five-theme architecture.
+
+- **Stage 2 implementation started (2026-10-18):** Created `client/src/design-system.css` and imported it from `client/src/main.tsx`. The first slice establishes semantic ARBITRADE tokens mapped to the current Theme 1 palette, plus reusable responsive container/grid/stack/cluster/card primitives and a keyboard-visible focus ring. It is intended to preserve the current appearance while giving upcoming components a shared foundation. This is a first implementation slice, not a claim that Stage 2 is complete; CI validation is pending.
 
 - **Latest Stage 1 action:** Traced Mining purchase and swap flows and recorded a purchase-terms acknowledgement review item, alongside manual settlement and administrator balance-adjustment concurrency tests. Findings are source-based; no financial data was changed.
 - **Latest Stage 1 continuation (2026-10-18):** Extended the audit with swap-confirmation idempotency and customer-notification ownership findings. The router passes the authenticated user ID into swap confirmation; the service uses a user-scoped request key and transactional idempotency helpers. Notification listing and read updates are user-scoped. Still unverified: the complete swap quote-owner/expiry/one-time-consumption path, concurrent confirmation behaviour, ledger correspondence, notification replay/deduplication, and cross-account regression tests. Audit report section 15 records the scope and exact next verification.
@@ -26,13 +94,13 @@
 
 
 - **Roadmap:** Recorded in this document.
-- **Current stage:** Stage 1 — Complete Application Audit and Development Baseline.
+- **Current execution focus:** Stage 3 — Five-Theme Architecture and Administrator Theme Controls (user-directed implementation start on `feat/stage-3-theme-controls`). Stage 1 audit follow-ups remain tracked as project-wide open items and are not being silently marked complete.
 - **Stage 1 status:** In progress — the original application/installer baseline run 39121401277 passed its type-check, application/installer/recovery tests, build/bundle checks, no-database server smoke test, disposable MariaDB/MySQL 8 installer checks, and deployment ZIP validation. The focused Mining regression workflow also passed on test commit `ba5d7ab739d84c35c13c379987139aa0c18eff34` and the subsequent audit-doc commit `0425004b03022944c27393678a7bad3c6692d6b5`; its dependency install, Mining store Vitest suite, and TypeScript check all passed. Still outstanding: database-backed Mining quote/concurrency/rollback/reconciliation tests, route/API/access mapping, theme/event verification, and measured browser/viewport checks.
 - **Stage 1 audit report:** `docs/ARBITRADE_STAGE_1_AUDIT.md`.
 - **Latest Stage 1 action:** Read-traced the trade allocation and administrator financial service paths. Trade allocation uses a transaction with customer/wallet row locks and a delivery-event replay guard; manual settlement and administrator balance adjustment now have explicit concurrency/affected-row verification items in the audit. No financial data or runtime services were changed.
 - **CI result:** GitHub Actions Installer validation run [39121401277](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39121401277) completed successfully. TypeScript, application tests, installer/migration safety tests, migration recovery regression tests, production build, bundle/runtime-config budgets, no-database production-server smoke test, disposable fresh MariaDB, disposable MySQL 8 recovery guards, and universal deployment ZIP assembly/validation all passed.
 - **Important limitation:** CI success does not constitute a cPanel install, fresh-VPS install, or manual browser/responsive acceptance test. The ZIP must still be tested in each supported deployment environment.
-- **Next action:** Keep Stage 1 open and add isolated MySQL/MariaDB integration coverage for swap quote ownership/status/expiry, same-key replay and competing confirmations, Mining-ledger versus canonical main-wallet reconciliation, injected-failure rollback, and notification replay/ownership. The focused Mining unit suite and TypeScript check have passed in GitHub Actions, but mocks do not prove database locking or cross-store atomicity. In parallel, finish route-to-component/API/access-policy tracing, theme/provider mapping, sound-event semantics and route-manifest reconciliation; perform measured responsive/browser checks before considering Stage 1 complete.
+- **Next action:** Continue the active Stage 3 batch: validate account- and role-scoped theme preference storage, review theme CSS integration and administrator policy transitions, fix concrete defects, and record current CI results in `docs/ARBITRADE_STAGE_3_ACCEPTANCE.md`. Stage 1's database-backed Mining and route/API/access audit items remain open and must be resumed as separate tracked work; this Stage 3 start does not claim them complete.
 - **Regression-test change (2026-10-18):** Added `server/mining-store.test.ts` to cover stable, opaque idempotency request-key generation, customer and operation namespace isolation, whitespace normalization, and malformed-key rejection. Commit: `154613af230d74f5808920ae829672f61ff0d02a`. Test execution remains pending in this environment; no pass is claimed. The broader database-backed swap/notification scenarios and all remaining Stage 1 audit exit criteria remain open.
 - **Release status:** No implementation or production readiness is implied by the existence of this roadmap.
 - **Default theme decision:** Preserve the current/original Arbitrade theme as Theme 1 and keep it as the initial default.
@@ -710,13 +778,16 @@ Do not mark a stage complete while required exit criteria remain unverified.
 ## Resume instructions for future sessions
 
 When continuing this project:
-1. Read this roadmap first.
-2. Read the latest repository state and recent commits; do not assume the last conversation reflects the current code.
-3. Check the **Current project checkpoint** and the status of each stage.
-4. Continue from the first stage that is not complete, unless a documented blocker or dependency requires otherwise.
-5. Verify prior claims against actual files and test evidence.
-6. Update this document with stage status, completed work, tests, failures, commit references and next actions.
-7. Do not silently skip stages or mark unverified work complete.
+1. Read this roadmap and its **Mandatory execution cadence and substantial-work contract** first.
+2. Read the live repository state, active branch/PR, current diff, recent commits, and CI results; do not assume the last conversation reflects the current code.
+3. Check the current stage, its acceptance criteria, continuation count, completed tasks, in-progress tasks, and blockers.
+4. Continue from the actual unfinished checkpoint. Do not restart, repeat completed work, or create a duplicate implementation.
+5. Plan a substantial, dependency-aware batch that combines related implementation, tests, accessibility/responsive work, and documentation. Parallelize independent workstreams where safe.
+6. Spend at least six minutes of active development effort on the batch when tools and access permit. Do not stop for a trivial change or ask the user to type "continue" while useful authorized work remains.
+7. Enforce the hard maximum of 30 user-facing continuation prompts per stage. Track it as **Prompt X/30** and reserve the final prompts for critical completion, integration/CI corrections, and evidence.
+8. Run proportionate tests, fix actionable failures in the same batch where possible, and state honestly what was and was not verified.
+9. Update this document with substantial completed work, file paths, tests/results, failures, commit/CI references, remaining work, blockers, and the current prompt count.
+10. Do not silently skip stages or mark unverified work complete. If a stage cannot meet its exit criteria within 30 prompts, document the precise remaining critical work and obtain approval before exceeding the limit.
 
 - **Transaction wrapper test coverage (2026-10-18):** Added unit tests for `inMiningTransaction` success/commit and failure/rollback/rethrow paths in commit `13b2ea81f0885a06848cecbea4c2a2bf64c0853a`. These use a mock connection; current-commit execution is pending and they are not database-backed swap tests. Stage 1 remains in progress.
 
@@ -754,46 +825,452 @@ When continuing this project:
 
 - **Deduplication race remediation checkpoint (2026-10-18):** Transaction-console event recording now serializes same-customer/session/transaction-code requests using a bounded MySQL advisory lock; lock acquisition failure stops insertion, and release occurs in a `finally` block. Added focused unit tests for opaque lock scoping, acquire/release ordering, timeout behavior, and error cleanup. Awaiting CI verification and isolated MySQL/MariaDB concurrency tests; this does not close the Stage 1 database-acceptance gate.
 
-
-## Latest Stage 3 continuation — expanded accessibility scan (2026-10-20)
-
-- Current Stage 3 pull request: [PR #73](https://github.com/stannmoye/Arbitrade_platform/pull/73), head `04f94f76e2f91659d2f13cf9edfaa74d1d6580bb`; still open, draft, and unmerged.
-- Latest exact-head workflow [#629](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39387937201) completed successfully: all four jobs passed (application/theme-policy tests, TypeScript, production build, and Chromium browser/accessibility matrix).
-- Chromium matrix: **1,185 checks passed, 0 failures**, with zero recorded page errors.
-- Expanded axe diagnostic: **60 scans, 0 scan errors, 0 confirmed violations, 0 page errors**. There are **60 incomplete `color-contrast` results** (one per route/theme/viewport combination); these are axe manual-review candidates, not confirmed failures. The artifact includes selectors, failure summaries, computed styles, and ancestor/pseudo-element background details.
-- Browser evidence artifact: [run #629 artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39387937201/artifacts/12247719414).
-- Scope limitation remains: this is a static client preview, with mocked responses for some interactions. It does not prove live server authorization or production/database persistence.
-- **Environment constraint remains unchanged: no hosting is available.** Do not ask for a staging URL or hosted test accounts. Authenticated staging checks and deployment validation are deferred until the user explicitly says hosting is available. Human keyboard-only and screen-reader acceptance remains pending; do not represent automated axe results as a substitute.
-- Efficiency decision: reuse run #629 as the current baseline; do not rerun the full matrix unless code changes or a specific uncertainty requires it.
-- Next: review the 60 incomplete contrast candidates in the existing report/artifact, prioritizing any selectors with uncertain compositing; then make only evidence-backed fixes. Keep PR #73 draft and do not merge/deploy before remaining acceptance gates and sign-off.
+- **Stage 2 shared foundation continuation (2026-10-19):** Extended `.arb-page` adoption across legacy portal pages, customer/admin navigation drawers, settings surfaces, Mining operations status, AI chat, responsive dialog, and error fallback. Shared CSS now applies reduced-motion preferences across adopted pages and guards media/form-control widths and long identifiers. Mining status animation respects reduced-motion preference. Latest code commit: `f17f8289d4c3d7b3db84e35396efec0d3afd7308`; the shared reduced-motion rule covers the page root and descendants, and the CoinKi factory canvas honors system preference. No latest-head CI or browser tests have been run; Stage 2 remains in progress pending required CI and real-browser acceptance.
 
 
-### Follow-up triage of run #629 incomplete contrast results (2026-10-20)
-
-- Inspected the JSON report from artifact `12247719414` rather than rerunning CI. The 60 incomplete items are all axe `color-contrast` candidates; axe could not determine some backgrounds because pseudo-elements/complex backgrounds were present.
-- Compared each candidate's computed foreground color with its nearest fully opaque computed ancestor background as a conservative triage check. Across available comparisons, the lowest ratio was approximately **5.045:1**; no candidate comparison fell below **4.5:1**. This is not full pixel compositing across gradients, pseudo-elements, overlays, or interactive states, and it does not convert axe's incomplete findings into a full WCAG pass.
-- Spot-checked the existing 320 px Clean Light screenshots for gateway, customer registration, and administrator Appearance. No obvious horizontal clipping was visible in the gateway/customer views; administrator theme cards, customer defaults, and Save control remain visible in the captured full-page view. Small helper labels and the floating Quick Actions edge control remain candidates for human readability/keyboard review.
-- No code change is justified solely by these incomplete results. Keep the findings explicitly classified as **unconfirmed/manual review**, and reuse the existing evidence.
+- **Continuation batch follow-up — Prompt 1/30 (2026-10-19):** After the user correctly called out that the previous response stopped too early, resumed the same active batch rather than treating the progress report as work. Reviewed the current Stage 2 acceptance record, shared design-system stylesheet, theme token blocks, regression contracts, table component and PR head/CI metadata. The review found a broad responsive rule applying `height: auto` to iframes and canvases as well as images/video; this could override intended embed/canvas sizing. Restricted automatic height to images/video while preserving max-width bounds for all four media types, and added a source-level regression contract. Commits: `31437b1baff27164c0a5dc51be3b9f6ed615d4c9` (CSS), `fd3ac7fc5096209140bf824a2bdcba59c8448d59` (test), and `c8c1cff290970788e1206444db88ccc290637bc2` (acceptance record). Current-head CI and browser verification are pending; no pass is claimed. This remains the same Prompt 1/30 batch, not a new continuation count. Next within this batch: record the same checkpoint in the master roadmap and inspect the new head's workflow evidence.
 
 
-## Stage 3 closeout — 2026-10-20
+- **Responsive media regression follow-up — Prompt 1/30 (2026-10-19):** During verification of the new source contract, caught and fixed a selector mismatch in the test: the existing bounded-media rule includes SVG in addition to images, video, iframes and canvas. Updated the test to assert the actual selector rather than a guessed one. Commit: `ce0e8c3918c66e2c07d2f7fbc55a77e27e77ee6f`; acceptance correction recorded in `9d108508134a477bfe506de818441ee1bbe6532f`. This demonstrates a review correction, not a test pass; current-head CI and browser acceptance are still pending.
 
-**Decision: Stage 3 implementation and repository-based automated validation are complete. Hosting-dependent release acceptance is explicitly deferred, not failed and not falsely marked passed.** This closes the current implementation work so development can move forward without repeatedly asking the user for hosting or another prompt.
 
-### Delivered and verified
-- Five-theme architecture: Original Arbitrade remains the default; Midnight Premium, Clean Light, Emerald Finance, and Aurora Modern are included.
-- Administrator appearance controls: preview, default theme, enabled-theme policy, and customer-choice policy are part of the Stage 3 implementation.
-- Theme preference handling isolates role and account, filters cross-tab storage events to the active key, and guards writes until the active preference is restored.
-- Existing Stage 3 regression evidence includes policy/storage isolation tests, TypeScript validation, production build, and Chromium five-theme/responsive coverage.
-- Latest exact-head evidence recorded in the Stage 3 PR body: [workflow #622](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39379981705) passed all four jobs; 1,175 browser checks passed with zero failures; 15 axe scans had zero scan errors and zero confirmed violations. Fifteen incomplete contrast results remain manual-review candidates because pseudo-element backgrounds prevent automated certainty. The rendered-text sample reported 1,800 samples with none below threshold and a minimum sampled ratio of 5.05:1. These are bounded automated checks, not a complete WCAG certification.
+## Continuation batch — Prompt 2/30 (2026-10-19)
 
-### Explicitly deferred because no hosting is available
-- Deployed authenticated browser acceptance.
-- Live-server authorization and database-backed preference persistence/cross-account isolation in a deployed environment.
-- Human keyboard-only and screen-reader acceptance/sign-off, plus manual review of the axe-incomplete contrast candidates.
-- Merge and production deployment.
+- Fixed an administrator theme-policy recovery defect: when only one theme was enabled, every checkbox was disabled, which also prevented administrators from re-enabling any other theme. The last enabled theme remains protected, while unchecked themes remain available to restore the allow-list.
+- Extracted the enable/disable transition into the pure helper `client/src/components/appearance-policy.ts` and added focused unit coverage in `client/src/components/appearance-policy.test.ts` for adding a theme from a single-theme policy, protecting the last theme, removal/default ordering, and duplicate-free canonical ordering.
+- Updated `client/src/components/AdminAppearance.tsx` to use the helper and disable policy-editing controls while settings are loading, settings have failed, or a save is pending. Added a source-level regression assertion in `server/design-system-contract.test.ts`.
+- Commits: `6c59fa48e4ac33211436d74971516922a26cc554` (admin UI), `04898496d43edc769b792bf565f4d081cd3a573b` (pure helper), `e08b503d412ba3154c5bf0ea735fdfd3a24bdb0e` (unit tests), and `08fd9c8c050f28d81084443320255683ae4906f7` (design-system contract).
+- This is implementation plus test coverage, not a claimed test pass. Check the current-head GitHub Actions run before reporting validation. Real-browser viewport and rendered contrast acceptance remain open.
 
-These items require an accessible environment and/or a human reviewer. They are not reasons to repeat already-passing automated suites, and they must not be described as passed. Do not ask the user for a staging URL, hosting credentials, or hosted test accounts unless the user explicitly reports that hosting has become available.
+- Follow-up architecture refinement in the same Prompt 2/30 batch: moved the canonical five-theme list and `ArbitradeTheme` type into the pure `appearance-policy.ts` domain module, re-exporting them from `ThemeContext` to preserve existing consumers. The policy unit tests now import only the pure helper module and no longer load the React/trpc context just to test list transitions. Commits: `e6590a50828917844b4f4cbf7de8bd0edf0f50e9`, `96b7c03f9f3c16227f029de0d14f0c62b41c3f33`, and `d8da8431d22d1590b5866f2f4cd4e6c404ef259e`. CI is still unconfirmed.
 
-### Next-stage rule
-Stage 3 implementation is closed for roadmap sequencing. Move to the next planned repository task rather than asking for another continuation prompt. Reopen Stage 3 only for a concrete defect, failed check, or when deferred acceptance becomes possible.
+- Policy helper hardening and test review (same Prompt 2/30 batch): normalized enabled themes into canonical, unique order before applying toggles, so duplicate persisted input cannot undermine the final-enabled-theme guard. Expanded the unit suite to cover duplicate input and corrected a toggle expectation during review before claiming success. Commits: `8d8a7a2cc12b12e4bf6fb2dc52c8cc85510f7d9c`, `6815c66809163086eb750c49af98cfbedb358680`, and `d8a912b6455d941d64b2248bb95139ee1e87a23a`. Automated test execution is still pending/unavailable in the connected Actions result view.
+## Stage 2 close-out checkpoint — Prompt 3/30 (2026-10-19)
+
+- **Active batch:** finalization, not a restart. Latest PR #71 head before this checkpoint: 97c3b7363a9690a5e010c3712e3ff311960319ff; acceptance documentation records the exact code commits.
+- **Implementation:** administrator-loaded theme allow-lists now use the shared pure normalizer to remove duplicates/unknown values, restore canonical five-theme order, and fall back to a valid requested default when persisted input is empty or malformed. Interactive toggles use the same normalization invariant.
+- **Regression coverage:** client unit tests cover normalization, unknown/duplicate input, valid-default fallback, last-enabled-theme protection, and re-enabling from a single-theme policy. The server design-system contract checks that the admin UI calls the helper.
+- **Validation:** latest-head workflow lookup returned no run for 97c3b7363a9690a5e010c3712e3ff311960319ff. Earlier green runs apply only to their recorded commits; they do not validate this head. Do not claim tests/check/build passed for the latest code until a matching Actions run reports green.
+- **Browser gate:** the required 10-width real-browser matrix, actual page-overflow check, interaction states across all five themes, and rendered contrast audit remain unverified. The current connected GitHub tool surface does not expose an interactive browser, so no browser evidence is claimed.
+- **Done:** implementation and source-level regression additions described above.
+- **In progress:** latest-head CI evidence and Stage 2 acceptance verification.
+- **Blocked by available tooling:** actual interactive browser/viewport evidence. This is an evidence blocker, not authorization to mark the stage complete without proof.
+- **Next bundled work:** retrieve latest CI results; fix any failure in the same batch. Then run the customer/admin browser matrix and record measured outcomes. Do not advance to Stage 3 until these acceptance gates pass.
+
+## Stage 2 finalization follow-up — Prompt 4/30 (2026-10-19)
+
+- Continued the existing Stage 2 branch; did not restart or duplicate the theme implementation.
+- Hardened the pure appearance-policy normalizer against malformed runtime input and added exhaustive subset/toggle regression coverage. Changes are recorded in `client/src/components/appearance-policy.ts` and `client/src/components/appearance-policy.test.ts`.
+- Commits: `9065f21f717fd50857e87a4c42d123c682ae79f7`, `8caace927010b15be3e66e9d902e6417a1ae24a0`, `942ca65cf80e1bc3f0a4f48cf272807c4c956253`; acceptance record commit follows.
+- Status: source implementation and regression cases added; latest-head CI result is not yet confirmed. Required browser/viewport evidence remains outstanding and must not be fabricated.
+- Stage 2 continuation counter: Prompt 4/30. Next batch: verify the triggered workflow against the exact latest head, repair failures within the same batch where possible, then pursue the browser acceptance gate. Stage 2 remains open until all exit criteria have evidence.
+
+- Additional same-batch consistency fix: server-published enabled-theme lists now use the same canonical order as the administrator policy helper and customer selector. Added exhaustive server tests for all allow-list subsets and defaults. Commits: `c4742005e7a8a3f34b9157807e4cb7e8719fc2a5`, `a77d72b1343b4961e901a16f736828662ebf653b`. Fresh CI and browser acceptance remain unconfirmed; keep Stage 2 open until evidence is available.
+
+
+## Stage 2 close-out continuation — Prompt 5/30 (2026-10-19)
+
+- Continued from the live PR #71 head; no restart or duplicate implementation.
+- Hardened `normalizeEnabledThemes` against an invalid fallback supplied by a JavaScript/persisted-data boundary. Even if the fallback violates the TypeScript union at runtime, normalization now returns the known `original` theme rather than propagating an unsupported value.
+- Added focused regression cases for invalid fallback values while retaining exhaustive checks across all 32 theme subsets and each theme toggle.
+- Tightened administrator customer-choice hydration so only the literal boolean `true` enables customer theme selection; malformed truthy values such as the string `"false"` cannot be interpreted as consent.
+- Commits: `90bee53cabb731b1a859f35380ebe85cfc701974` (normalizer hardening), `174abc2bdbf30d8eb042fa5010c62d44fee8e768` (regression tests), `1e04765bcb62f4198df9b95db082ca3524d748a7` (strict administrator policy hydration).
+- Reviewed the dedicated workflow definition and current PR head. The connected workflow-run action only returns pull-request-triggered runs, and returned no run for the latest head; this is not proof that a push-triggered run does not exist. A direct confirmed latest-head check/test/build result remains outstanding.
+- Browser gate remains open: no interactive browser is available through the connected tool surface, so the 10-width viewport matrix, overflow, keyboard/dialog/form states, and rendered five-theme contrast have not been executed or claimed.
+- **Done:** runtime policy hardening, client regression cases, admin hydration hardening, current-head/workflow/acceptance review.
+- **In progress:** obtaining trustworthy latest-head CI evidence and executable browser acceptance.
+- **Blocked by available tooling:** interactive browser execution and a repository-wide Actions run listing beyond the exposed PR-run lookup. Do not infer failure or success from the empty lookup.
+- **Next bundled batch:** use a CI path that can report the exact head's test/typecheck/build results; then run and record the browser matrix with an actual browser runner. Do not close Stage 2 until both gates have evidence.
+- **Continuation budget:** Prompt 5/30.
+
+- **Same Prompt 5/30 — customer provider consistency review:** Found that `ThemeContext` independently deduplicated server-provided theme values while preserving arbitrary input order, rather than using the shared canonical normalizer. Replaced the duplicate implementation with `normalizeEnabledThemes` so the customer provider, administrator editor, and server settings agree on validation, fallback, uniqueness, and canonical order. Added a source-level integration contract to prevent the provider from reintroducing its own divergent normalization. Commits: `314d18efc59f5bca82679a52371c1cf85703514c` (provider) and `61a414592bd481a637196097e18f1058323224c0` (integration contract). Tests have been added but are not yet executed for this head.
+
+## Stage 2 continuation checkpoint — Prompt 6/30 (2026-10-19)
+
+This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI as unconfirmed. The previous Actions lookup was limited to PR-triggered runs; inspecting the repository's workflow-runs endpoint exposed the push-triggered Stage 2 run.
+
+- **Branch:** `feat/stage-2-design-system-foundation`
+- **PR:** [#71 — Stage 2: shared design-system foundation](https://github.com/stannmoye/Arbitrade_platform/pull/71), still draft and unmerged.
+- **Verified head before this documentation-only checkpoint:** `ad0ca8acc8c69cad6b9172d185d24f805a915cb1`.
+- **CI evidence:** [Stage 2 workflow run #130 / 39213971538](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39213971538) passed on that exact code SHA. Application and Stage 2 regression tests, TypeScript validation, and production build all passed.
+- **Documentation follow-up:** acceptance evidence recorded in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md` (commit `9aba6ad8001d6a06dd4b06a1a02218216f131684`).
+- **Done:** five-theme semantic foundation and policy normalization; source-level contrast/accessibility/responsive contracts; current-head automated validation; checkpoint and acceptance records reconciled.
+- **In progress / release gate:** actual browser acceptance on customer and administrator routes at 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px, including horizontal overflow, keyboard-scrolling tables, dialogs/forms/dropdowns, disabled/busy controls, visible focus, all five themes, and rendered contrast.
+- **Tooling blocker:** this connected execution has repository/CI tools but no interactive browser session. Do not fabricate screenshots or report rendered-browser acceptance as passed. Browser verification must be performed by an available browser runner before Stage 2 can close.
+- **Next:** record this checkpoint, keep PR #71 draft, and do not merge or advance to Stage 3 until browser evidence is available. Recheck CI after any subsequent code changes.
+- **Continuation counter:** Prompt 6/30. This was a substantive validation/documentation batch; the counter tracks user interruptions, not tool calls or commits.
+
+
+## Stage 2 finalization continuation — Prompt 7/30 (2026-10-19)
+
+- Continued the existing Stage 2 implementation and acceptance workflow without restarting the branch.
+- Hardened the keyboard-focusable shared table region so empty/whitespace labels and malformed runtime values resolve to the stable accessible name `Scrollable table`; non-empty caller labels are trimmed. Added a regression contract.
+- Implementation commit: `c84b46db965c6a817a67ca9a0bc0b30c43956417`; contract test: `e1d7a4fdaacf4b5d07ef9746695d10f54d5f2c46`; acceptance checkpoint: `fbaca09ccaa2ae42ae0cd1e3cd77e7fa3fd830ee`.
+- Latest-head CI is **unconfirmed**: the connected workflow lookup returned no PR-triggered run for the test commit, and that lookup does not enumerate every push-triggered run. Earlier green runs cannot be used as proof for this newer head.
+- Browser acceptance remains the blocking exit gate: ten required viewport widths (320, 360, 390, 430, 480, 768, 1024, 1280, 1440, 1920), customer/admin routes, overflow, table keyboard access, forms/dialogs/dropdowns, disabled/busy controls, focus visibility, all five themes, and rendered contrast. No interactive browser session is exposed by the current connected tool surface, so no browser pass or screenshots are claimed.
+- Keep PR #71 draft and unmerged; do not advance to Stage 3 until fresh current-head CI and actual browser evidence are recorded.
+- Continuation counter: Prompt 7/30.
+
+- Same Prompt 7/30 follow-up: extracted table-region accessible-name normalization to `client/src/components/ui/table-label.ts` and integrated it into the shared table component. The initial test was placed under `client/`, but repository review caught that Vitest only includes `server/**/*.test.ts` and `server/**/*.spec.ts`; that misplaced test was removed and equivalent cases were added at `server/table-label.test.ts`. Commits: `9354f2976a27ef538a51074c4608df14e7176b22` (helper), `2a5664d752a6779b0c528768308a5b3690683753` (component), `c0d62e32aba373f3b1596e35a6f52d74de40bbd7` (contract), `7d990fb2da474608e1bef2bb1e0070b179bb6f3b` (remove misplaced test), `da5242f02a5803f99d4aea9795b812ace718400f` (configured server test). Current-head CI remains unconfirmed; the browser acceptance gate remains open.
+
+## Stage 2 finalization continuation — Prompt 8/30 (2026-10-19)
+
+- Continued the existing Stage 2 branch and PR #71; no restart, merge, deployment, or Stage 3 transition.
+- Confirmed the exact pre-documentation branch head `f8df6a83179adcc55f4067dc2ece8aec54e903cc` using the repository Actions API.
+- [Stage 2 workflow run #146 / 39214975699](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39214975699) passed all three jobs on that exact SHA: application/Stage 2 tests, TypeScript validation, and production build. The test job log confirms **220 tests passed across 29 files**; TypeScript and build jobs also succeeded.
+- Reconciled `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md` with that evidence and documented that the docs commit creates a new head requiring its own CI result.
+- **Remaining release gate:** actual browser acceptance across customer/admin routes at 320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px; horizontal overflow; keyboard-scrollable tables; form/dialog/dropdown and disabled/busy states; visible focus; all five themes; and rendered contrast.
+- The current connected execution has repository/CI access but no interactive browser runner. Do not fabricate browser results or screenshots. Browser acceptance remains blocked on access to a real browser runner.
+- **Done:** exact-head CI evidence verified from Actions and job logs; acceptance document reconciled.
+- **In progress / blocked:** browser acceptance, followed by a fresh CI check for the latest documentation head.
+- **Decision:** keep PR #71 draft and unmerged. Stage 2 is not complete until browser evidence is captured; do not advance to Stage 3.
+- **Continuation counter:** Prompt 8/30.
+
+
+## Stage 2 finalization continuation — Prompt 9/30 (2026-10-19)
+
+- Added a repository-managed Chromium smoke matrix in `scripts/stage2-browser-acceptance.cjs` and wired it into `.github/workflows/stage-2-design-system.yml`. This supersedes the earlier statement that no browser runner was available: GitHub Actions now provides the browser runner.
+- Workflow run [#153 / 39226956079](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39226956079) passed all four jobs for exact head `143a0731e1f8f9802bf7778a2371fb2d2de0ae50`: 220 tests / 29 files, TypeScript validation, production build, and Chromium browser smoke.
+- Browser artifact: [screenshots and JSON report](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39226956079/artifacts/12173993076). The report records 210 checks passed and zero failures across the three route shells, ten viewport widths, five theme CSS selectors, document overflow, and the first keyboard-focus target.
+- The browser test runs the static client without authenticated live API data. Populated table keyboard scrolling, authenticated administrator policy saving, detailed form/dialog/dropdown/disabled states, and rendered WCAG contrast remain unverified. Do not interpret the smoke pass as full acceptance.
+- Acceptance record updated in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`; the documentation commit triggers a fresh workflow run, which must be checked against its exact resulting head.
+- **Decision:** Stage 2 remains open on authenticated interaction and rendered-contrast evidence. Keep PR #71 draft/unmerged and do not advance to Stage 3.
+- **Continuation counter:** Prompt 9/30.
+
+## Stage 2 finalization — Prompt 10/30 (2026-10-19)
+
+- Resolved the Stage 2 pull-request base conflict by integrating the current `integration/auth-installer-vps-safety` branch. The branch is now up to date with its base, and PR #71 is reported mergeable. Mergeability is not a substitute for acceptance.
+- Added computed semantic-token contrast checks and rendered text contrast sampling to `scripts/stage2-browser-acceptance.cjs`, including hex-token parsing, settled-style sampling, and separation of keyboard-focus/disabled states from default-state text contrast.
+- Added semantic-token theme bridges for the legacy gateway and customer/admin authentication surfaces. The expanded browser matrix exposed and helped fix contrast problems in the clean-light and emerald-finance entry screens.
+- **Exact validated code head:** `498644b78f43b75f4e9e25625c969d844e8a7ab4`.
+- **Fresh Stage 2 workflow:** [run #185 / 39232008725](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39232008725) passed all four jobs: application/regression tests, TypeScript validation, production build, and Chromium viewport/theme acceptance.
+- **Test result:** 222 tests passed across 29 passing test files; four individual tests and one file were skipped by the configured suite. TypeScript validation and production build passed.
+- **Browser result:** 1,110 checks passed, 0 failed. The matrix covers the three entry routes, ten required viewport widths, page-level overflow, keyboard-focus visibility, all five themes, semantic token contrast, and rendered text contrast. Screenshots and `report.json` are available in [the browser acceptance artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39232008725/artifacts/12178056263).
+- The Mining database regression workflow [run #21 / 39232008773](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39232008773) and installer validation [run #616 / 39232008769](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39232008769) also passed for this code head.
+- **Remaining Stage 2 exit gates:** authenticated administrator appearance-policy save; customer theme permissions and persistence; keyboard scrolling of populated financial tables; detailed authenticated form/dialog/dropdown and disabled/busy interaction states; human review of browser screenshots; and final acceptance sign-off. The browser job uses the built static client without authenticated live API data and does not prove those interactions.
+- **Decision:** Stage 2 remains open pending the remaining authenticated interaction evidence. Keep PR #71 draft and unmerged; do not advance to Stage 3 until the remaining exit gates are verified.
+- The roadmap/acceptance documentation update creates a new head, so fresh CI must be checked against that exact resulting SHA before claiming current-head validation.
+
+
+## Stage 2 continuation — Prompt 11/30 (2026-10-19)
+
+- Continued the existing Stage 2 branch and PR #71; no restart, merge, deployment, or Stage 3 transition.
+- Centralized customer theme preference resolution and selection authorization in `client/src/contexts/theme-policy.ts`. The provider now uses the same pure policy helpers when hydrating local preferences, handling cross-tab storage events, and accepting customer theme changes.
+- Added regression cases for explicitly disabled customer choice, valid allowed preferences, preferences removed from the administrator allow-list, malformed stored values, and attempts to select unknown or disabled themes.
+- Repository inspection confirmed Vitest is configured to include only `server/**/*.test.ts` and `server/**/*.spec.ts`; the new tests therefore live in `server/theme-policy.test.ts` and import the client policy helper. The test was deliberately moved out of the client folder so it will run in the configured suite.
+- Code commits: `cf85e96f6bdbe577bdf2afa3085e9a9578e1fe4c` (provider integration), `b2abd2c5364f6fbf1d3780e185088a3389b08214` (pure policy helper), `312106c9be00c552ef8a8e8f0cac1db8b0d7de5f` (remove misplaced test), and `519474487c533f9a24d46b6fb6e675bd50aaf119` (configured regression suite).
+- **Validation status:** CI for the new code head has not yet been confirmed. The earlier green Stage 2 run #189 / 39232454051 applies to the prior head only and must not be used as evidence for these changes.
+- **Done:** provider policy logic now shares a pure, directly testable decision layer; targeted regression tests are in the configured test path.
+- **In progress:** exact-head CI validation and browser-level authenticated policy save/customer persistence acceptance.
+- **Still required before Stage 2 sign-off:** verify the actual administrator save flow and server persistence, customer permission enforcement in an authenticated browser session, keyboard scrolling of populated financial tables, detailed authenticated form/dialog/dropdown/disabled/busy states, and review of the captured screenshots. Static-client browser smoke does not prove these workflows.
+- **Decision:** keep PR #71 draft and unmerged. Stage 2 remains open; do not advance to Stage 3 until the remaining acceptance gates have evidence.
+- **Continuation counter:** Prompt 11/30.
+
+
+## Stage 2 continuation checkpoint — Prompt 12/30 (2026-10-19)
+
+- Continued the existing Stage 2 branch and PR #71; no duplicate PR, merge, deployment, or Stage 3 transition.
+- **Bug found and fixed:** the active customer workspace passed `readOnly` to `ThemeSelector`, making customer theme selection unavailable even when the administrator policy explicitly allowed it. Removed the hardcoded prop so the shared selector can enforce the published policy and enabled-theme allow-list itself.
+- **Regression coverage:** added `server/customer-theme-selector.test.ts` to guard the active customer workspace integration against reintroducing hardcoded read-only behavior. Recorded the fix and remaining acceptance gates in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`.
+- **Commits:** `c84d59a5baa81931f05304c2c2f43f94096b84bf` (customer selector integration), `d75ac4834dc2f3c79da4f4c8543eee4caabf4f64` (regression test), and `625fac0b566bbeb2e4f403035f0487074fa2724f` (acceptance record).
+- **Previously verified CI:** run [39237373165](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39237373165) passed all four jobs on the previous head `6907d8ba9e67aeaa323a856f8c227894b727bab7`, including the 1,115-check Chromium matrix. That run predates the new selector fix and test; it is not evidence for the current head.
+- **Done:** policy-aware customer selector wiring and regression guard; acceptance notes updated.
+- **In progress:** verify the fresh workflow on the exact current head; add/execute browser checks for customer choice disabled/enabled, allow-list enforcement, and applied theme change.
+- **Still open:** live API/database persistence, populated financial-table keyboard scrolling, broader authenticated form/dialog/dropdown/disabled/busy states, human screenshot review, and final acceptance sign-off. The current browser interactions use mocked tRPC responses and cannot establish live authorization or database persistence.
+- **Decision:** keep PR #71 draft and unmerged. Stage 2 remains open; do not advance to Stage 3 until remaining gates have evidence.
+- **Continuation counter:** Prompt 12/30.
+
+- **Prompt 12/30 follow-up:** Added two Chromium customer-session scenarios to `scripts/stage2-browser-acceptance.cjs`: policy-disabled read-only display, and policy-enabled allow-list selection plus applied-theme/localStorage verification. The test explicitly records mocked API limitations. Corrected the route/procedure regexes during code review before recording the checkpoint. Acceptance documentation updated; fresh workflow result remains pending for the resulting head.
+
+
+## Stage 2 continuation checkpoint — Prompt 13/30 (2026-10-19)
+
+- Continued from current PR #71 head and reviewed the theme policy integration and Chromium scenario wiring.
+- Improved the disabled-customer-choice browser scenario: it now seeds a stale `aurora-modern` local preference while policy specifies `clean-light` and disallows customer choice, then asserts that the applied document theme remains `clean-light`. This covers a meaningful regression risk when policy changes after a preference was stored.
+- Commit: `01ea8c98003de6caa138835441efaef59efd8f5e`. Updated the acceptance record with the exact behavior and limitation.
+- Previous green Stage 2 run [#224 / 39237373165](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39237373165) predates the customer-selector integration, browser scenarios, and stale-preference regression. Current-head CI is still unconfirmed; do not interpret empty status/workflow lookups as a pass.
+- Remaining exit gates: obtain fresh current-head CI evidence; review any browser failures; verify live server authorization and database persistence; exercise populated financial-table keyboard scrolling and detailed authenticated controls; review screenshots and complete sign-off.
+- PR #71 stays draft and unmerged. Stage 2 remains open; Stage 3 remains blocked until all acceptance gates pass.
+- **Continuation counter:** Prompt 13/30.
+
+
+## Stage 2 continuation checkpoint — Prompt 14/30 (2026-10-19)
+
+- Added focused unit coverage in `client/src/contexts/theme-policy.test.ts` for disabled customer-choice behavior, allow-list enforcement, allowed stored preferences, malformed/unknown stored values, and selection permission checks.
+- Commit: `fdf455ba9b12d8131ab067ea330000f3f41d7390`; acceptance document updated to describe the new coverage.
+- Fresh CI had started for the previous documentation head `548171ded2304c0c407dbaf05b4b9122231e3ac5`: Stage 2 application tests, typecheck, and production build passed; Chromium matrix was still in progress when inspected. Installer workflow checks passed several jobs, with deployment package assembly still running. Those results predate the new unit-test commit and must not be represented as validation of the latest head.
+- Exact-head status/workflow lookup for `fdf455ba9b12d8131ab067ea330000f3f41d7390` returned no status entries or PR-triggered runs. This is not proof of success or failure; keep current-head validation pending.
+- Remaining exit gates: fresh CI on latest head, review customer-browser scenario results, verify live server authorization/database persistence, populated financial-table keyboard scrolling, detailed authenticated form/dialog/dropdown/disabled/busy states, screenshot review, final sign-off.
+- PR #71 remains draft and unmerged. Stage 2 stays open; Stage 3 is blocked until all gates have evidence.
+- **Continuation counter:** Prompt 14/30.
+
+
+## Stage 2 continuation checkpoint — Prompt 15/30 (2026-10-19)
+
+- Rechecked the current pull-request head: `3d9266f3c5a8588ad29d2e458238e39027f0d82f`. GitHub Actions has started a fresh set of checks for that head: Stage 2 validation run #261 (`39264320656`), installer validation #652 (`39264320496`), and mining database regression #57 (`39264320623`). These checks were queued/in progress when inspected; do not infer their outcome before completion.
+- Verified the prior completed Stage 2 run #257 (`39263152026`) was green across application/regression tests, TypeScript validation, production build, and Chromium viewport/theme acceptance. Its archived `report.json` confirms 1,117 checks passed and zero failures, using routes `/`, `/customer`, and `/ops-console-7f3a`, 10 viewport widths (320–1920 px), five themes, keyboard focus, contrast checks, and customer/admin theme-policy interactions.
+- Confirmed in the report that browser API/auth responses are mocked. It does not establish live API authorization or database persistence. Human visual screenshot sign-off is still open, along with populated financial-table keyboard scrolling and broader authenticated form/dialog/dropdown/disabled/busy state coverage.
+- Latest PR remains open, draft, and unmerged. Stage 2 stays in progress until current-head CI passes and the remaining acceptance evidence is addressed; Stage 3 remains blocked.
+- **Continuation counter:** Prompt 15/30.
+
+
+## Stage 2 continuation checkpoint — Prompt 16/30 (2026-10-19)
+
+- Reviewed generated screenshots at mobile and desktop sizes. Found the gateway title breaking the word `workspace` at 320px; corrected the narrow-screen font size and card padding in `client/src/design-system.css` and added the `gateway-heading-word-not-split` Chromium assertion at 320px and 360px.
+- Code commits: `b7a6aee63e52e3c2ea26fa6688368d2adabb38aa` (responsive typography fix) and `3d9266f3c5a8588ad29d2e458238e39027f0d82f` (browser regression check).
+- Stage 2 run #261 (`39264320656`) completed successfully on the code head: **1,119/1,119 browser checks passed, zero failures**. Its report confirms both gateway heading checks passed with one text rectangle each at 320px and 360px, both customer theme-policy scenarios passed, and the mocked administrator appearance save/refetch interaction passed. Application/regression tests, TypeScript validation, and production build passed as well.
+- Installer validation #652 (`39264320496`) and mining database regression #57 (`39264320623`) also passed. A later documentation-only head `1a2fc664fffca737357fcdee4c1dee6ff9099765` was validated by Stage 2 run #263 (`39264617422`), with all four jobs green and a fresh artifact confirming 1,119/1,119 checks passed.
+- Current screenshot review covers the gateway and unauthenticated customer/admin entry screens at mobile and desktop widths, including the fixed gateway title. It does not count as review of every authenticated screen.
+- Remaining gates: verify live API authorization and database persistence; exercise keyboard scrolling on populated financial tables; test broader authenticated forms/dialogs/dropdowns/disabled/busy states; complete broader authenticated visual review. Browser API responses remain mocked, so no live persistence claim is made.
+- PR #71 remains open, draft, and unmerged. Stage 2 stays open; Stage 3 remains blocked until the remaining acceptance gates have evidence.
+- **Continuation counter:** Prompt 16/30.
+
+
+## Stage 2 continuation checkpoint — Prompt 16/30 (2026-10-19)
+
+- Investigated a new Chromium regression in Stage 2 run #272 (`39265373433`) on commit `b5a6c5362fd20ac8eb9bf331552ac3ad10373493`. Application tests, TypeScript, build, installer validation and mining regression passed, but Chromium reported 1 failure out of 1,120 checks: a pointer click on the admin `Open Quick Actions` trigger was intercepted by the appearance settings card during the populated-table navigation check.
+- Fixed the test interaction in `scripts/stage2-browser-acceptance.cjs` to focus the quick-action trigger and open it with Enter, then wait for the Wallet & ledger action before continuing the populated financial-table keyboard-scroll checks. Commit: `d89abcd6227abfbc6baa7c32ab9595ba560cbdca`.
+- This change uses keyboard navigation instead of bypassing the browser's pointer-interception behavior with a forced click. It tests the intended accessible keyboard path. It does not claim the underlying pointer hit-target layering issue is resolved; that remains a visual/UI item to inspect during final screenshot review.
+- Fresh workflows for the new commit are pending; do not claim the Chromium regression is fixed until the next browser run passes.
+- **Continuation counter:** Prompt 16/30. Stage 2 remains open; Stage 3 blocked.
+
+
+## Stage 2 continuation — Prompt 17/30 (2026-10-19)
+
+- Reviewed failed current-head browser evidence rather than treating CI's earlier green jobs as sufficient. Run #282 (`39266381692`) reported 1,119 passes and 2 failures because populated settlement and wallet-ledger tables collapsed to the mobile wrapper width and could not keyboard-scroll horizontally.
+- Fixed the actual responsive behavior in `client/src/admin-operations.css` by enforcing a 640px minimum width on dense admin tables inside their scroll regions. Code commit: `cea65e452ea5fd0e947bd31ee0e632fcf4164567`.
+- Verified the fix on that code head: Stage 2 run #286 (`39267102795`) passed all jobs and **1,121/1,121 Chromium checks**. The settlement table scrolled 26px with 12 mocked rows; the ledger scrolled 34px with 24 mocked rows. Installer run #664 (`39267103014`) and mining regression run #69 (`39267102854`) also passed.
+- The acceptance report and PR discussion now document the root cause, fix, and evidence. The checks use mocked admin/customer data; they do not establish live server authorization or database persistence. Broader authenticated interaction review and full screenshot sign-off remain open. Keep Stage 2 in progress and Stage 3 blocked until all exit gates are satisfied.
+
+
+## Stage 2 continuation — Prompt 18/30 (2026-10-19)
+
+- Added a real-browser regression for the administrator appearance-policy pending-save state. The mocked settings mutation is intentionally delayed so the test verifies `Saving…`, a disabled save button, and disabled default/theme/customer-choice controls while saving.
+- Verified on code commit `bb86d021b300d2db23f5c6bfc62285cb4149154f`: Stage 2 run #292 (`39268470213`) passed **1,122/1,122 Chromium checks**, installer #667 (`39268470271`) passed including deployment package assembly, and mining regression #72 (`39268470158`) passed.
+- This increases client-flow coverage only. Live server authorization/database persistence, wider authenticated interaction coverage, human screenshot review, and final sign-off remain open; Stage 2 stays in progress and Stage 3 blocked.
+
+
+## Stage 2 continuation checkpoint — Prompt 22/30 (2026-10-19)
+
+- Added a Chromium regression for removing the currently published default theme from the enabled-theme list. It verifies the default falls back to the first remaining canonical theme and the removed theme disappears from the selector; the test re-enables the theme and continues the save interaction.
+- Code commit `86c047a8c2a4aa56f82f0a256977fa5203e8af26` passed Stage 2 run #297 (`39271047209`): **1,123/1,123 Chromium checks passed, zero failures**. Application/regression tests, TypeScript validation, and production build passed.
+- Installer validation #669 (`39271047221`) and mining database regression #74 (`39271047241`) also passed. The installer workflow included fresh MariaDB, MySQL 8 compatibility/recovery, installer/migration regressions, production build/server smoke, and deployment-package assembly.
+- Browser acceptance still uses mocked API/auth and financial table data. Live server authorization/database persistence, broader authenticated forms/dialogs/dropdowns/disabled/busy states, full authenticated screenshot review, and final acceptance sign-off remain open.
+- PR #71 remains open, draft, and unmerged. Stage 2 remains in progress; Stage 3 remains blocked.
+- **Continuation counter:** Prompt 22/30.
+
+### Stage 2 continuation — appearance-save error recovery (2026-10-19)
+
+- Added browser acceptance coverage for a rejected administrator appearance-policy mutation. The test verifies accessible error feedback and that the save button plus all policy controls are re-enabled after failure.
+- Code head `a8dd9cea7a081b5f458d93300da6120ee2f65b5b` passed Stage 2 run #303 with **1,124/1,124 Chromium checks passing**; application tests, TypeScript, and build passed. Installer run #672 and Mining database regression run #77 passed as well.
+- The report artifact was inspected directly and confirms the new error-recovery check passed. The scenario uses mocked tRPC responses; it does not close the live authorization/database-persistence or broader authenticated-screen acceptance gaps. PR #71 remains draft/unmerged; Stage 2 remains open and Stage 3 blocked.
+
+
+### Stage 2 continuation — CI concurrency correction (2026-10-19)
+
+- Investigated current-head runs for `b78912de09dad0d98277ea59dda1b563ed088d90`: Stage 2 run #332 (`39283862613`), installer #686 (`39283862855`), and mining database regression #91 (`39283862314`) were queued; their jobs were also all queued when inspected. The commit-status endpoint returned no completed statuses. This is pending validation, not a pass or failure.
+- Confirmed the Stage 2 workflow concurrency key used `${{ github.ref }}`, separating push refs from pull-request merge refs and allowing duplicate validation runs for the same branch update.
+- Updated `.github/workflows/stage-2-design-system.yml` so the concurrency group uses `${{ github.event.pull_request.head.ref || github.ref_name }}`. Push and pull-request events for the same branch now resolve to the same group, allowing `cancel-in-progress: true` to coalesce duplicate work.
+- Workflow change commit: `fbb617c86d284f23ec89e562e3ede454e5a27ef7`. Fresh CI must validate this workflow change and the current code head; the previous queued runs do not prove it works.
+- Remaining exit gates are unchanged: live API role enforcement and database persistence, broader authenticated forms/dialogs/dropdowns/disabled/busy states, human screenshot review, and final sign-off. Browser tests use mocked API/auth data. PR #71 remains draft/unmerged; Stage 2 remains open and Stage 3 blocked.
+- **Continuation counter:** Prompt 23/30.
+
+
+### Stage 2 continuation — CI queue and concurrency hardening (2026-10-19)
+
+- Corrected the Stage 2 workflow concurrency key so push and pull-request events for the same source branch share a group. Commit: `fbb617c86d284f23ec89e562e3ede454e5a27ef7`.
+- Added a contract regression assertion in `server/design-system-contract.test.ts` to protect that concurrency expression. Commit: `b4ea03e78d44cc7f7ab64b8d016479a88654b683`.
+- Added workflow-level concurrency to installer validation, keyed by pull-request number (or pushed ref), so superseded installer runs for the same PR/branch are cancelled. Commit: `28defce9cc37f08d3f936c0b3858ba3f20dc4951`.
+- Added a second contract assertion to prevent accidental removal of installer-run coalescing. Commit: `9af5fd8c900c1367683c392d315b0b55db80b8d1`.
+- Latest PR head before this roadmap note: `9af5fd8c900c1367683c392d315b0b55db80b8d1`; PR #71 remains open, draft, and unmerged.
+- Fresh Stage 2 run #341 (`39285859803`) was queued for the current code head when inspected. Installer and mining regression runs for the preceding commit were also queued; no current-head green result or failure is claimed. The commit-status endpoint returned no completed statuses.
+- The concurrency changes are intended to reduce duplicate runs; queued status alone does not prove the queue bottleneck is resolved. Recheck the newest runs and inspect actual job state before claiming improvement.
+- Remaining Stage 2 exit gates: fresh CI on the latest head; live server authorization and database persistence; broader authenticated form/dialog/dropdown/disabled/busy states; final authenticated screenshot review and acceptance sign-off. Existing browser API/auth and financial data are mocked and do not prove live persistence or role enforcement.
+- Stage 2 remains open and Stage 3 blocked. No merge, deployment, or production change is claimed.
+
+## Continuation update — 2026-10-19 (installer concurrency parity)
+
+- Reviewed the actual installer workflow and found its concurrency key used `github.event.pull_request.number || github.ref`. This separated pull-request and push events for the same branch, unlike the intended cross-event coalescing.
+- Updated `.github/workflows/installer-validation.yml` to use `github.event.pull_request.head.ref || github.ref_name`, matching the Stage 2 workflow's branch identity strategy.
+- Updated `server/design-system-contract.test.ts` to assert the corrected installer concurrency expression.
+- Commits: `7ac5b0f2573ead36954323d5cc01e06b9403c171` (workflow), `08f958e722ad87940826a047d2c2184ee6e6bd5c` (regression test).
+- The latest PR head after these changes is `08f958e722ad87940826a047d2c2184ee6e6bd5c`. Stage 2, installer, and mining-database workflows have been created for this head, but all are queued; no fresh pass/fail result is available.
+- Previous workflow jobs remain queued too. This indicates the queue bottleneck is not yet demonstrated to be resolved by concurrency grouping. Do not infer runner availability or cancellation success without completed run/job state.
+- Acceptance gates remain unchanged: fresh current-head CI; live authenticated appearance-policy authorization and database persistence; keyboard scrolling of populated financial tables; authenticated form/dialog/dropdown/disabled/busy interaction checks; screenshot review and explicit Stage 2 sign-off.
+- No merge, deployment, or production database change was made.
+
+## Follow-up hardening — repository-scoped CI concurrency
+
+- Further review identified a cross-fork collision risk in branch-only concurrency keys: a pull request from a fork could share a branch name with a branch in the upstream repository and cancel unrelated work.
+- Both Stage 2 and installer workflow groups now include the source repository identity and branch identity. Same-repository push and pull-request runs can coalesce; fork-originated runs remain isolated.
+- Updated the design-system contract test to assert both expressions.
+- Commits: `ef54b0809f6976b6f7e509b1ce57ec36a232e470`, `9e6231a9d750acebbc016f63ef761e68783a909d`, `ff4327f13dc7ccd4d97fe2ec8ac8693a6dc1184e`.
+- These are configuration/test changes only. Fresh CI is required to establish validity; all previously inspected workflow jobs had no started jobs while queued. The queue bottleneck remains unresolved.
+
+## CI concurrency audit — mining workflows
+
+- Audited all four workflows used by this Stage 2 validation path. The mining database and mining regression workflows also used `github.ref`, which distinguishes pull-request merge refs from pushed branch refs.
+- Updated both mining workflows to key concurrency by source repository and source branch, matching the Stage 2 and installer workflows. This also avoids cancelling a same-named branch from an unrelated fork.
+- Extended `server/design-system-contract.test.ts` to assert the mining workflow group expressions, cancellation policy, and rejection of the legacy `github.ref` grouping.
+- Commits: `a6b50c5aca20bcefdd668b4e568d11f3cf93e2ae`, `1e6987d08005bf4db966409b1f7732c660d50512`, `972a4ecef0c533377066590e9242ae3e9c73ea6f`.
+- The change is a CI scheduling hardening measure, not proof that GitHub runner queuing is resolved. Validate on the current head; do not infer success from queued status.
+
+## Duplicate Stage 2 trigger removal
+
+- The repository Actions run list showed separate `push` and `pull_request` Stage 2 runs being created for the same source branch and commit while the queue was stalled.
+- Removed the Stage 2 workflow's branch-specific `push` trigger. Automatic validation now runs for the open pull request; `workflow_dispatch` remains available for a maintainer to request a manual run.
+- Added a contract test that prevents the duplicate push trigger from being reintroduced.
+- Commits: `ab1efb69332ddd653fcb0a349f989f0f999cadfc`, `327a95c268d52ad9d78d96641156e807e6e22b0d`.
+- This avoids generating a second Stage 2 run for each pull-request update. It does not clear or explain the pre-existing queued runs; current-head validation is still pending.
+
+
+## Continuation update — Prompt 23/30 (2026-10-19)
+
+- Rechecked exact prior head `d5b1f0ba6856dd5a5c34b61965d02b6c9ea39b1b`: Stage 2 #376, installer #712, and mining regression #117 all passed. Inspected the Stage 2 artifact directly: **1,131 browser checks passed, zero failures**. The new mobile navigation geometry check and Quick Actions dialog focus/Escape checks passed.
+- Human screenshot review of the authenticated mocked administrator Appearance & Themes panel found the mobile header overlap fix effective, but the compact native theme selector displayed only “Original A”. This is now being addressed rather than treating a passing geometry test as sufficient visual acceptance.
+- Added a bounded mobile selector width rule in `client/src/design-system.css` and a 390px Chromium width assertion in `scripts/stage2-browser-acceptance.cjs`. Commits: `63e6d9b4d970ac68f5777b1486c4d748c5a5c7d5` and `bf6c85f964038c6eef4d482148caa702134d241c`. Acceptance evidence was recorded in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`.
+- Exact-head CI after these changes is still pending; the prior green results do not validate the selector width adjustment. Continue by checking the newest branch head and workflow runs, downloading its browser report/screenshots, and fixing any failure before expanding the next authenticated interaction batch.
+- Installer CI on the prior head includes passing disposable MariaDB appearance authorization/persistence checks and MySQL 8 migration recovery; this is not production database verification. Browser auth/API fixtures remain mocked.
+- Remaining Stage 2 exit gates: latest-head CI; broader authenticated form/dialog/dropdown/disabled/busy interactions; full screenshot review; final sign-off. PR #71 remains draft/open/unmerged. Stage 2 remains open and Stage 3 blocked. No production deployment or production database mutation occurred.
+
+
+## Prompt 23/30 — CI failure corrected, awaiting fresh run (2026-10-19)
+
+- Exact follow-up Stage 2 run #380 on `d128184731c246c2c24a136300d4a46af559faa1` found one expected regression failure: the new 390px theme-selector width assertion measured 140.77px because the flex item still shrank. The report recorded 1,131 passed / 1 failed of 1,132. Application tests, TypeScript, and production build passed; installer #716 and mining regression #121 also passed.
+- Corrected the selector flex basis to a non-shrinking responsive width in `efcaa28f84437133816d211cbe393c9c71e77d2e`. Updated acceptance documentation with the measured failure and fix. The fix is not considered verified until fresh Chromium CI passes.
+- Next: inspect exact current PR head, poll Stage 2/installer/mining runs, download the latest browser artifact, confirm the selector width and visual screenshot, and repair any remaining failure before expanding coverage.
+- Remaining exit gates: latest-head CI; broader authenticated form/dialog/dropdown/disabled/busy coverage; full screenshot review; final sign-off. PR #71 stays draft/open/unmerged; Stage 2 remains open and Stage 3 blocked.
+
+
+## Prompt 23/30 — exact-head browser acceptance confirmed (2026-10-19)
+
+- Current code head before this documentation update: `aeb837479b930e8e0c679e31ec6f1af97c5ca52a`. Stage 2 #391, installer #727, and mining regression #132 all completed successfully.
+- Inspected the exact-head browser artifact: **1,140/1,140 checks passed**. New mobile selector checks pass at 390px (200px selector) and 320px (192px selector, document width 320px). Appearance-label color matches the header text for all five themes.
+- Added Quick Actions dialog focus-trap coverage: 14 focusable elements, reverse and forward focus wrapping both passed. The trigger's center-point pointer hit test also passed, as did existing modal semantics, Escape-close, and focus restoration.
+- Visual review of Original and Clean Light authenticated mocked appearance panels confirms the complete “Original Arbitrade” selection label is now visible, the label remains readable across themes, and the mobile Menu trigger no longer overlaps the selector row. Full human review of all captured screenshots remains outstanding.
+- Installer validation passed disposable MariaDB authorization/persistence, MySQL 8 migration recovery, installer/migration tests, build/server smoke, and package assembly. Mining database idempotency/transaction checks passed.
+- Follow-up commits in this batch: compact selector CSS and width assertions (`63e6d9b4`, `bf6c85f9`, `efcaa28f`, `88a6b668`, `a132700b`, `7f82f6e6`, `8c586336`, `4decac8d`, `59d0ad78`, `8cc7a250`), Quick Actions focus trap (`c59c7860`), and pointer hit-target assertion (`aeb83747`). Acceptance evidence is recorded in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`.
+- This checkpoint supersedes earlier “selector width pending” notes. The exact code head above is green; fresh CI for the documentation-only follow-up head still must be checked before claiming that newest head is validated.
+- Remaining Stage 2 exit gates: broader authenticated forms/dialogs/dropdowns/disabled/busy interactions; full human screenshot review; final acceptance sign-off. PR #71 remains open/draft/unmerged; Stage 2 remains open and Stage 3 blocked. No production deployment or production database mutation occurred.
+
+
+## Prompt 23/30 — Quick Actions search coverage green (2026-10-19)
+
+- Exact code head `dfdd5702b2dbd5f996b2abdbef7fb4d4f0054e14` passed Stage 2 #395, installer #731, and mining regression #136.
+- The latest Stage 2 artifact records **1,141/1,141 checks passed**. Added search coverage for quick-create actions, assigned-work counters, recent destinations, and accessible no-results feedback. Updated the search's accessible name and placeholder to “Search actions and destinations” so it no longer implies customer-record search that was not implemented.
+- Earlier in this continuation, fixed the compact theme selector width/contrast, added 320px no-overflow and five-theme label-contrast checks, added Quick Actions focus-trap wrapping coverage, and verified the trigger's center-point pointer hit target. All those checks remain green in the latest artifact.
+- Latest implementation commits include `ec3ad816` (search behavior) and `dfdd5702` (search acceptance tests). The acceptance evidence is recorded in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`.
+- Remaining Stage 2 gates: broader authenticated form and disabled/busy-state coverage, complete human review of all captured screenshots, and final sign-off. Browser auth/API fixtures are mocked; installer persistence/auth tests use disposable CI databases. PR #71 remains open/draft/unmerged, Stage 2 remains open, and Stage 3 remains blocked.
+- The green runs above validate the code head. This documentation-only update creates a new PR head, so check fresh CI for the updated head before claiming the newest commit is validated.
+
+
+## Prompt 24/30 — closed Quick Actions tab order fixed and verified (2026-10-19)
+
+- Exact code head `b6b689f97c61ec8cdd8a757fed1d409db4a270f6` passed Stage 2 #399, installer #735, and mining regression #140.
+- The exact-head browser artifact reports **1,142/1,142 checks passed**. It confirms the closed Quick Actions drawer has no tab stops (`aria-hidden=true`, search input tab index -1, zero tabbable descendants), keyboard focus wraps in both directions while open, and Escape restores focus.
+- The compact selector now displays “Original Arbitrade” at 390px and keeps a 192px selector at 320px without horizontal page overflow. Appearance label contrast passed across all five themes.
+- Quick Actions search now filters quick-create actions, assigned-work counters, and recent destinations using one normalized query, and provides accessible feedback when no results match. Browser acceptance covers wallet/support queries and empty results.
+- Acceptance evidence is recorded in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`. Remaining exit gates: broader authenticated forms and disabled/busy states; full human review of captured screenshots; final sign-off.
+- CI used mocked browser authentication/API responses and disposable MariaDB/MySQL 8 fixtures. No production deployment or production database mutation is claimed. PR #71 remains draft/open/unmerged; Stage 2 remains open and Stage 3 blocked.
+- These green runs validate the code head above. The documentation-only follow-up creates a new head, so confirm fresh CI for the latest documentation commit before claiming that newest commit is validated.
+
+## Prompt 25/30 — 320px authenticated editor and administrator header verified (2026-10-19)
+
+- Expanded the administrator Appearance & Themes browser matrix to validate the complete editor at 320px across all five themes, in addition to the existing 390px and 1440px captures. The check asserts 320px document width, a readable 192px compact selector, visible save control, and zero visible editor controls outside the viewport.
+- Screenshot review caught the administrator brand wrapping across two lines at 320px. Added a max-360px header layout rule and a browser regression assertion that the brand name renders on exactly one line. Refreshed screenshots show the compact header and complete theme-policy form remain usable.
+- Exact validated code head before documentation follow-ups: 64f72a3ba81230666b94e98235d206fc644f8996. Stage 2 #470, installer #806, and mining regression #211 all passed. Browser artifact reports **1,172/1,172 checks passed**, zero failures, with 51 screenshots; the five-theme 320px editor bounds and brand assertions all passed.
+- Installer run #806 passed all nine jobs, including disposable MariaDB authorization/persistence integration, MySQL 8 recovery/compatibility, package validation, and Stage 1 validation dashboard. Mining database idempotency/transaction regression passed.
+- Acceptance evidence recorded in docs/ARBITRADE_STAGE_2_ACCEPTANCE.md. CSS and browser assertions are committed in 0a0e357f and 64f72a3b; acceptance documentation is in 8cf2a1e3. The roadmap update creates a new PR head, so exact-head CI must be checked again before claiming the latest documentation commit is green.
+- Remaining exit gates: deployed/staging browser-session acceptance (no staging URL documented), broader authenticated portal visual/interaction review, and final Stage 2 sign-off. Browser authentication/API fixtures remain mocked; installer database checks use disposable CI MariaDB/MySQL. PR #71 remains draft/open/unmerged; Stage 2 remains open and Stage 3 blocked. No production deployment or database mutation occurred.
+
+## Prompt 25/30 — final exact-head browser metadata check (2026-10-19)
+
+- Follow-up commit 53c125bf corrected the browser artifact's top-level viewport label for the 320px appearance-editor check. This is reporting accuracy only; no application behavior changed.
+- Exact code head 53c125bf7afd6946afb5fe57fb841cf3c5b71098 passed Stage 2 #473, installer #809, and mining regression #214. The browser artifact records **1,172/1,172 checks passed**, zero failures, and 51 screenshots. Each of the five 320px editor checks now correctly reports width=320; measured document width is 320, selector width 192, no controls are outside the viewport, and the brand remains on one line.
+- Updated acceptance evidence in docs/ARBITRADE_STAGE_2_ACCEPTANCE.md. This roadmap commit creates a new PR head, so check exact-head CI for the final documentation head before concluding.
+- Remaining exit gates are unchanged: no staging URL is documented for a deployed authenticated browser session; broader authenticated portal review and final Stage 2 sign-off remain outstanding. PR #71 remains draft/open/unmerged; Stage 2 is open and Stage 3 blocked.
+
+
+## Stage 2 continuation checkpoint — Prompt 30/30 (2026-10-19)
+
+- Added a Chromium regression scenario for transient administrator appearance-settings load failure and retry recovery, plus a source contract guarding the retry control and refetch behavior.
+- Code/test commits: `c5b5906dacc0e279e9b92b0de8697afdf37e1009` and `799638e50cc3577838fe3a1dff21cef780596d6f`. Acceptance evidence and limitations are recorded in `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`.
+- Prior exact-head validation for `f65166f4c5ed4762207737602ebb93b30b474c78` passed Stage 2, installer, and mining regression; the browser matrix reported 1,173/1,173 checks. Those results predate the retry change, so the new exact head must be validated separately.
+- **Done:** five-theme/responsive foundation, customer theme-policy browser cases, administrator save/pending/error/refetch checks, compact drawer geometry/scroll checks, populated financial-table keyboard scrolling, and disposable-database authorization/persistence integration.
+- **In progress:** exact-head validation of the new retry scenario and review of the latest browser artifact.
+- **Blocked by external environment/evidence:** deployed authenticated browser acceptance because no staging URL is documented; complete human review/sign-off of the broader authenticated portal.
+- **Next:** verify exact-head Stage 2, installer, and mining workflow results; fix any failure in the same batch if tooling permits; otherwise record the exact blocker and obtain the missing staging/sign-off evidence before any Stage 3 work. Keep PR #71 draft and unmerged; no production deployment or production database mutation is authorized or claimed.
+
+
+## Stage 2 continuation checkpoint — Prompt 31 (2026-10-19)
+
+- Made the administrator appearance-settings load-failure browser test deterministic: the mocked settings request continues to fail until the accessible error alert is observed, then the explicit retry is allowed to succeed.
+- Code commit: `8f6a653cc835b6c22cdf68c59168470793ca82b9`. Acceptance evidence and limitations: `docs/ARBITRADE_STAGE_2_ACCEPTANCE.md`.
+- Exact-head validation at that code commit passed all three workflows: Stage 2 design-system validation, installer validation, and mining database regression. Chromium reported **1,174/1,174 checks passed, zero failures**.
+- **Done:** five-theme/responsive foundation, theme-policy checks, administrator settings save/retry states, drawer geometry/scroll acceptance, financial-table keyboard scrolling, and disposable-database authorization/persistence integration.
+- **Still open:** deployed authenticated browser acceptance (no staging URL documented), broader authenticated portal review, and final human sign-off. Mocked-browser and disposable-database CI do not establish deployed production behavior.
+- This documentation checkpoint creates a new PR head; exact-head workflows must pass again before claiming the documentation head is fully verified. Keep PR #71 draft/open/unmerged, Stage 2 open, Stage 3 blocked, and do not claim production deployment or production database mutation.
+
+
+## Stage 2 exact-head validation checkpoint — 2026-10-19
+
+- Exact PR head `50e7ce246cac2d545053f1a4ad709d4eafd9484a` passed Stage 2 workflow [#488](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322737636), installer validation [#824](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322737743), and mining database regression [#229](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322738394).
+- Chromium acceptance: **1,174 passed, 0 failed**. Fresh disposable MariaDB appearance-policy authorization/persistence integration: **2 passed**, including signed-session role resolution, HTTP/tRPC role enforcement, persisted read-back, and rejected-write integrity. MySQL 8 compatibility/recovery, installer/migration checks, production build/smoke, TypeScript, and mining transaction/idempotency checks also passed.
+- Remaining Stage 2 exit items are not reasons to expand duplicate automated coverage: obtain a documented staging URL for deployed authenticated browser acceptance, finish human review of the broader portal screenshot/interaction evidence, and record final acceptance/sign-off. Browser API/auth fixtures remain mocked; CI database integration is isolated and makes no production changes.
+- Keep PR #71 draft/open/unmerged and Stage 3 blocked until the external review/sign-off gates are resolved.
+
+## Stage 3 continuation checkpoint — Prompt 2/30 (2026-10-20)
+
+- Latest code-only change `de9c25bf6778187b41d1e78b20422a3453ffd020` passed workflow [#616](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39349559437). All four jobs passed: application/theme-policy regression tests, TypeScript validation, production build, and Chromium viewport/five-theme acceptance. The subsequent documentation head `fee526757bb566794e9b06df37bc3be3b34a4feb` also passed all four jobs in [Run #618](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39349892204).
+- Browser acceptance reported **1,175 checks passed, 0 failures** across three routes, ten viewport widths (320–1920 px), and five themes. It measured 1,800 rendered-text contrast samples; none were below threshold, and the lowest measured ratio was **5.05:1**.
+- Diagnostic axe-core completed **15 route/theme scans, 0 scan errors, 0 confirmed violations, and 0 page errors**. The report records 15 `color-contrast` incomplete results (one per scan), because axe could not determine backgrounds due to pseudo-elements. These are manual-review candidates, not confirmed contrast failures. The report includes selectors, computed foreground/background, ancestor backgrounds, and ancestor `::before`/`::after` styles for review. [Run #618 evidence artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39349892204/artifacts/12233071065).
+- Code change: commit `de9c25bf6778187b41d1e78b20422a3453ffd020` extends `scripts/stage3-axe-accessibility.cjs` to preserve incomplete rule IDs, node targets, failure summaries, and computed style context. Acceptance ledger refreshed in `docs/ARBITRADE_STAGE_3_ACCEPTANCE.md`, commit `1cab35ddbd72540302fc3f12f406a66d8f16dd4d`.
+- **Done:** code-head CI, responsive/theme browser matrix, axe diagnostics, sampled contrast review, and detailed evidence documentation.
+- **Blocked by external acceptance evidence:** human keyboard-only and screen-reader review, plus authenticated staging verification of server authorization, persisted preferences, and cross-account isolation. No staging URL/access has been confirmed; mocked static-preview interactions do not establish these gates.
+- **Next:** validate CI for this updated documentation checkpoint, then use the computed-style evidence to guide manual contrast review and complete the human/staging acceptance gates. Keep PR #73 draft/open/unmerged and do not deploy.
+
+
+## Stage 3 continuation checkpoint — Prompt 4/30 (2026-10-20)
+
+- Rechecked the actual PR head `e34af1cb215222da4aa66170766f72b5d797d023`. Workflow [#621](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39350891975) completed successfully; all four jobs passed (application/theme-policy tests, TypeScript, production build, and Chromium viewport/five-theme matrix).
+- Exact-head browser evidence: **1,175 checks passed, 0 failures** across gateway/customer/admin routes, ten widths (320–1920 px), and five themes. axe-core reported 15 scans, zero scan errors/confirmed violations/page errors, and 15 incomplete color-contrast findings caused by pseudo-element background uncertainty. The 1,800 rendered-text samples had no below-threshold results; the minimum measured ratio was 5.05:1.
+- Downloaded and inspected the exact-head artifact (53 files). A limited screenshot spot-check of gateway at 320 px and administrator Appearance at 320 px showed no obvious gateway overflow or clipped primary admin controls. Small secondary labels in the full-page admin capture still need human readability review; this visual spot-check is not a substitute for keyboard/screen-reader testing.
+- Updated `docs/ARBITRADE_STAGE_3_ACCEPTANCE.md` with the exact-head evidence, artifact reference, screenshot observations, and remaining limitations. Acceptance documentation commit: `886b028514d1bf939272f728bf5b3910c0a2ac4d`.
+- **Done:** exact-head CI, browser evidence review, selected screenshot spot-check, and recorded accessibility diagnostics.
+- **In progress / blocked by external evidence:** human keyboard-only and screen-reader review; authenticated staging checks for live authorization, preference persistence, and cross-account isolation. No staging URL/access has been confirmed. The static preview uses mocked responses for some interactions.
+- **Next bundled batch:** inspect the theme context/storage regression tests and acceptance workflow for any further locally verifiable gaps; continue reviewing incomplete contrast targets without suppressing axe findings or overstating sampled results. Keep PR #73 draft/open/unmerged; no deployment is authorized or claimed.
+
+
+## Stage 3 continuation checkpoint — Prompt 5/30 (Stage 3 budget, 2026-10-20)
+
+- Verified PR #73 remains open, draft, and unmerged at documentation checkpoint `90c3063bda255bff460595f85279e8438b4b2cd1` before recording this update. Exact-head workflow [#622](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39379981705) passed all four jobs.
+- Browser evidence: **1,175/1,175 checks passed**, zero failures and zero recorded browser page errors; coverage spans gateway/customer/admin routes, ten widths (320–1920 px), and five themes. axe reports 15 scans, zero scan errors and confirmed violations, with 15 incomplete color-contrast candidates. The 1,800 rendered-text samples had no below-threshold results; minimum measured ratio was 5.05:1. The supplemental 210 computed-style contrast comparisons are triage, not full compositing or complete WCAG acceptance.
+- Inspected the exact-head 320 px Clean Light administrator Appearance screenshot: primary controls and Save remain in view; some secondary/helper labels look small in the full-page capture and remain a human readability-review item.
+- Reviewed theme context, account/role-scoped storage helpers, policy resolution, and storage/policy unit tests. No reproducible code defect was established by this review. Existing browser checks include focus-visible behavior, focus trapping/restoration, keyboard interaction with the administrator theme dropdown, save/error recovery, and keyboard scrolling of populated tables; these automated checks do not replace human keyboard/screen-reader testing.
+- Recorded the Run #622 findings and limitations in `docs/ARBITRADE_STAGE_3_ACCEPTANCE.md` in commit `5729b268968d71d6ce0cd60bb755d4b254cde42e`.
+- **Done:** exact-head CI/evidence review, theme storage/policy code review, and acceptance ledger update.
+- **Still blocked on external acceptance evidence:** human keyboard-only and screen-reader review; authenticated staging verification of live authorization, preference persistence, and cross-account isolation; final sign-off. No staging URL/access is confirmed. Keep PR #73 draft/open/unmerged and do not deploy.
+- **Next:** verify CI for the updated documentation head, inspect its browser evidence if the workflow reruns, and continue with locally verifiable acceptance gaps without weakening or suppressing accessibility diagnostics.
+
+## Merge-conflict resolution and current sandbox status — 2026-10-20
+
+This section preserves the integration-branch roadmap updates while keeping the newer Stage 2/Stage 3 roadmap content above. The integration branch's only file-level divergence from the Stage 2 branch was this roadmap; the application source changes are already represented by the Stage 2 branch, including the Stage 3 five-theme architecture.
+
+### Current environment and acceptance state
+
+- **Hosting is now available:** the user has reported that the application is hosted and wants to test it in their sandbox. Older roadmap statements saying no hosting is available are superseded by this update.
+- **Next acceptance task:** verify the actual hosted sandbox after merging; confirm that the administrator theme-management entry is visible, the five-theme preview works, the published default persists, and customer theme selection follows the saved policy.
+- Do not claim live behavior is verified until those checks have actually been performed. Automated CI evidence remains useful but is not a substitute for this hosted sandbox test.
+- Avoid repeating already-passing automated suites unless a merge, code change, or concrete failure requires a targeted rerun.
+
+### Preserved Stage 3 accessibility evidence from the integration branch
+
+- The recorded expanded axe diagnostic covered 60 route/theme/viewport scans with zero scan errors, zero confirmed violations, and zero page errors. It reported 60 incomplete `color-contrast` candidates for manual review; these are not confirmed failures.
+- A conservative computed-style triage recorded a lowest foreground-to-nearest-opaque-ancestor comparison of approximately 5.045:1. This does not prove full pixel compositing across gradients, pseudo-elements, overlays, and interactive states.
+- Existing 320 px Clean Light screenshots were spot-checked for the gateway, customer registration, and administrator Appearance page. No obvious horizontal clipping was observed in the gateway/customer views; small helper labels and the floating Quick Actions edge control remain readability/keyboard-review candidates.
+- The integration roadmap recorded Stage 3 implementation and repository-based automated validation as complete, with hosted authenticated verification and human keyboard-only/screen-reader acceptance still requiring direct review. The user's newly available hosted sandbox now makes the hosted verification task actionable.
+
+### Merge decision
+
+Keep the newer Stage 2/Stage 3 source and roadmap history, retain the relevant integration-branch acceptance evidence above, and proceed with sandbox verification after the branch merge. This update does not claim that the hosted test or human accessibility sign-off has already passed.
+
