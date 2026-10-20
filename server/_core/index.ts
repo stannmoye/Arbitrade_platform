@@ -154,9 +154,24 @@ async function startServer() {
         return res.status(502).json({ error: "Managed storage returned an invalid response" });
       }
       if (!upstream.ok || !payload.url) {
-        return res.status(502).json({ error: payload.error || "Unable to prepare managed upload" });
+        // Provider error text can contain internal details; expose only a stable,
+        // non-sensitive message to the customer.
+        console.error("[SupportAttachmentPresign] Storage provider rejected presign request", upstream.status);
+        return res.status(502).json({ error: "Unable to prepare managed upload. Please retry." });
       }
-      return res.json({ uploadUrl: payload.url, storageKey: key, stableUrl: `/manus-storage/${key}` });
+      let uploadUrl: URL;
+      try {
+        uploadUrl = new URL(payload.url);
+      } catch {
+        return res.status(502).json({ error: "Managed storage returned an invalid upload URL" });
+      }
+      // A presigned URL is handed directly to the customer's browser. Require
+      // HTTPS and reject credential-bearing URLs before returning it.
+      if (uploadUrl.protocol !== "https:" || uploadUrl.username || uploadUrl.password) {
+        console.error("[SupportAttachmentPresign] Storage provider returned an unsafe upload URL");
+        return res.status(502).json({ error: "Managed storage returned an unsafe upload URL" });
+      }
+      return res.json({ uploadUrl: uploadUrl.toString(), storageKey: key, stableUrl: `/manus-storage/${key}` });
     } catch (error) {
       // Avoid returning internal provider URLs, tokens, or exception details.
       console.error("[SupportAttachmentPresign] Unable to prepare upload", error instanceof Error ? error.message : "unknown error");
