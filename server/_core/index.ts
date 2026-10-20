@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import { randomBytes } from "node:crypto";
 import { createServer } from "http";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
@@ -143,7 +144,7 @@ async function startServer() {
         return res.status(400).json({ error: rejectionMessage });
       }
       const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
-      const key = `support/${Date.now()}-${Math.random().toString(36).slice(2,10)}-${safeName}`;
+      const key = `support/${Date.now()}-${randomBytes(24).toString("hex")}-${safeName}`;
       const base = process.env.MANUS_API_URL;
       const token = process.env.MANUS_API_KEY;
       if (!base || !token) return res.status(503).json({ error: "Managed storage is not configured" });
