@@ -10,10 +10,13 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 ## Latest consolidated batch (2026-10-20)
 
 - Fixed the TypeScript failure in `listNotificationEventCursor` by guarding Drizzle's possibly-undefined `or()` result before adding it to the SQL predicate. This preserves visibility for legacy `NULL` categories while respecting disabled-category filtering.
-- Stake & Earn reward and maturity-release notifications now carry recipient-scoped stable event keys, explicit `ledger_credit` categories, and priorities; notification rows remain in the same database transaction as their ledger entries.
-- Added contract coverage for Stake & Earn notification idempotency/category metadata and transaction ordering.
-- **Verification state:** earlier build and application tests passed on the preceding head, but TypeScript failed at `server/db.ts:522`; the fix above is committed and must be revalidated on the current exact head. Do not mark the relevant release gates complete until exact-head CI passes.
-
+- Stake & Earn reward and maturity-release notifications carry recipient-scoped stable event keys, explicit `ledger_credit` categories, and priorities; notification rows remain in the same database transaction as their ledger entries. Contract coverage checks idempotency/category metadata and transaction ordering.
+- Added admin wallet-adjustment notification boundary contract coverage. Wallet notices use the committed ledger reference as the event key and are best-effort after the ledger operation commits.
+- Added manual trade settlement notices for principal release and positive rewards. They use stable settlement-reference event keys, explicit `ledger_credit` / `trading_reward` categories, and best-effort delivery after settlement commit; zero/non-positive rewards do not generate reward notices. Contract tests cover commit ordering and notice failure handling.
+- Current branch head: `234978acd9acde91d98803bd2181abbfa3c5c87b` (`test(stage-4): cover post-commit settlement notices`).
+- Exact-head CI as of this tracker update: Mining database regression run [39500302337](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39500302337) passed, including database-backed idempotency/transaction tests and TypeScript validation. Stage 3 five-theme validation [39500302538](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39500302538) is still in progress; installer validation [39500302361](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39500302361) is pending. Do not treat the latest code as fully validated until both finish successfully.
+- Earlier successful CI on `f2d58f5a503ae1c91b5d6012195a3d48650a9b85` is useful historical evidence only, not verification of the latest commits.
+- **Verification state:** keep Stage 4 release acceptance open. These additions improve event-boundary coverage but do not close provider-gated deposit/withdrawal integration, broad real-event coverage, full browser sound preferences/reconnect acceptance, ticket assignment/runtime acceptance, transport, accessibility, or release sign-off.
 
 ## Product requirements
 
