@@ -7,7 +7,10 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { startLogin } from "./const";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import "./index.css";
+import "./design-system.css";
+import "./theme-system.css";
 import "./customer-reference.css";
 
 const queryClient = new QueryClient();
@@ -77,9 +80,11 @@ const trpcClient = trpc.createClient({
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>
     <QueryClientProvider client={queryClient}>
-      <Suspense fallback={<div role="status" aria-live="polite">Loading Arbitrade workspace…</div>}>
-        <App />
-      </Suspense>
+      <ThemeProvider defaultTheme="original" switchable>
+        <Suspense fallback={<div role="status" aria-live="polite">Loading Arbitrade workspace…</div>}>
+          <App />
+        </Suspense>
+      </ThemeProvider>
     </QueryClientProvider>
   </trpc.Provider>
 );

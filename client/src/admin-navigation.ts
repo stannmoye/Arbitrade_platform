@@ -11,6 +11,7 @@ import {
   Layers3,
   Mail,
   PackageCheck,
+  Palette,
   PlugZap,
   ReceiptText,
   Search,
@@ -87,6 +88,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "general-settings", target: "settings", label: "General Settings", detail: "Shared operational settings", icon: Settings2 },
     { id: "sound-notifications", target: "sound", label: "Sound & Notifications", detail: "Notification sound and preference controls", icon: Bell },
     { id: "branding-identity", target: "branding", label: "Branding & Identity", detail: "Brand and identity presentation", icon: Settings2 },
+    { id: "appearance-themes", target: "appearance", label: "Appearance & Themes", detail: "Default theme, previews and customer theme permissions", icon: Palette },
   ]},
   { id: "integrations", label: "Integrations", detail: "Providers and operational readiness", items: [
     { id: "provider-registry", target: "apis", label: "Provider Registry", detail: "API, market, payment and identity adapters", icon: PlugZap },

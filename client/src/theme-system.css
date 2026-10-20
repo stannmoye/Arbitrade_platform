@@ -1,0 +1,1381 @@
+/*
+ * ARBITRADE five-theme architecture.
+ * "original" is the default and deliberately preserves the current palette.
+ * Themes override semantic design-system tokens, not individual components.
+ */
+:root,
+:root[data-arb-theme="original"] {
+  color-scheme: dark;
+  --arb-color-canvas: var(--ux-ink, var(--bg, #0b1422));
+  --arb-color-surface: var(--ux-surface, var(--panel, #101d2d));
+  --arb-color-surface-raised: var(--ux-surface-2, var(--panel2, #142338));
+  --arb-color-border: var(--ux-line, var(--line, #22344a));
+  --arb-color-text: var(--ux-text, #e9f0f7);
+  --arb-color-text-soft: var(--ux-text-soft, var(--soft, #b7c4d1));
+  --arb-color-text-muted: var(--ux-muted, var(--muted, #8295aa));
+  --arb-color-accent: var(--ux-accent, var(--brand-accent, var(--mint, #7ce7c2)));
+  --arb-color-info: var(--ux-accent-2, var(--blue, #8eb7ff));
+  --arb-color-warning: var(--ux-warning, var(--amber, #f5c56b));
+  --arb-color-danger: var(--ux-negative, var(--coral, #fa8c87));
+  --arb-color-decorative: var(--ux-info, var(--violet, #c7a6ff));
+  --arb-focus-ring: var(--arb-color-accent);
+}
+
+:root[data-arb-theme="midnight-premium"] {
+  color-scheme: dark;
+  --arb-color-canvas: #070b18;
+  --arb-color-surface: #10172b;
+  --arb-color-surface-raised: #18223b;
+  --arb-color-border: #303d5c;
+  --arb-color-text: #f2f5ff;
+  --arb-color-text-soft: #c1cbe2;
+  --arb-color-text-muted: #8997b8;
+  --arb-color-accent: #b8a4ff;
+  --arb-color-info: #83b8ff;
+  --arb-color-warning: #ffd27a;
+  --arb-color-danger: #ff8eaa;
+  --arb-color-decorative: #d4b8ff;
+  --arb-focus-ring: #c7b7ff;
+}
+
+:root[data-arb-theme="clean-light"] {
+  color-scheme: light;
+  --arb-color-canvas: #f4f7fb;
+  --arb-color-surface: #ffffff;
+  --arb-color-surface-raised: #edf2f8;
+  --arb-color-border: #d5deea;
+  --arb-color-text: #172438;
+  --arb-color-text-soft: #35465d;
+  --arb-color-text-muted: #5f7087;
+  --arb-color-accent: #176bdb;
+  --arb-color-info: #2463d4;
+  --arb-color-warning: #8a5600;
+  --arb-color-danger: #b42335;
+  --arb-color-decorative: #7048c8;
+  --arb-focus-ring: #145fc4;
+}
+
+:root[data-arb-theme="emerald-finance"] {
+  color-scheme: dark;
+  --arb-color-canvas: #061711;
+  --arb-color-surface: #0c241b;
+  --arb-color-surface-raised: #123428;
+  --arb-color-border: #245542;
+  --arb-color-text: #effff7;
+  --arb-color-text-soft: #c3e5d3;
+  --arb-color-text-muted: #8ab8a1;
+  --arb-color-accent: #48e0a1;
+  --arb-color-info: #82d8e8;
+  --arb-color-warning: #f2cf77;
+  --arb-color-danger: #ff9288;
+  --arb-color-decorative: #9be7cf;
+  --arb-focus-ring: #65f0b5;
+}
+
+:root[data-arb-theme="aurora-modern"] {
+  color-scheme: dark;
+  --arb-color-canvas: #0b1025;
+  --arb-color-surface: #141b36;
+  --arb-color-surface-raised: #202747;
+  --arb-color-border: #3b4774;
+  --arb-color-text: #f5f5ff;
+  --arb-color-text-soft: #d1d3f0;
+  --arb-color-text-muted: #a0a5d0;
+  --arb-color-accent: #67e8f9;
+  --arb-color-info: #a5b4fc;
+  --arb-color-warning: #fcd68b;
+  --arb-color-danger: #fb9ab8;
+  --arb-color-decorative: #d8a7ff;
+  --arb-focus-ring: #8ff0ff;
+}
+
+
+/* Bridge the semantic themes to existing portal variables so legacy screens
+   visibly respond while they are progressively migrated to arb-* tokens. */
+:root[data-arb-theme="midnight-premium"] {
+  --ux-ink: #070b18; --ux-ink-2: #0b1020; --ux-surface: #10172b;
+  --ux-surface-2: #18223b; --ux-surface-3: #202b48;
+  --ux-line: rgba(160, 177, 219, .2); --ux-line-strong: rgba(160, 177, 219, .34);
+  --ux-text: #f2f5ff; --ux-text-soft: #c1cbe2; --ux-muted: #8997b8;
+  --ux-accent: #b8a4ff; --ux-accent-2: #83b8ff; --ux-warning: #ffd27a;
+  --ux-negative: #ff8eaa; --ux-info: #d4b8ff;
+  --bg: #070b18; --panel: #10172b; --panel2: #18223b; --line: #303d5c;
+  --muted: #8997b8; --soft: #c1cbe2; --mint: #b8a4ff; --blue: #83b8ff;
+  --coral: #ff8eaa; --violet: #d4b8ff; --brand-accent: #b8a4ff;
+}
+
+:root[data-arb-theme="clean-light"] {
+  --ux-ink: #f4f7fb; --ux-ink-2: #edf2f8; --ux-surface: #ffffff;
+  --ux-surface-2: #edf2f8; --ux-surface-3: #e3eaf4;
+  --ux-line: rgba(55, 76, 105, .2); --ux-line-strong: rgba(55, 76, 105, .32);
+  --ux-text: #172438; --ux-text-soft: #35465d; --ux-muted: #5f7087;
+  --ux-accent: #176bdb; --ux-accent-2: #2463d4; --ux-warning: #8a5600;
+  --ux-negative: #b42335; --ux-info: #7048c8;
+  --bg: #f4f7fb; --panel: #ffffff; --panel2: #edf2f8; --line: #d5deea;
+  --muted: #5f7087; --soft: #35465d; --mint: #176bdb; --blue: #2463d4;
+  --coral: #b42335; --violet: #7048c8; --brand-accent: #176bdb;
+}
+
+:root[data-arb-theme="emerald-finance"] {
+  --ux-ink: #061711; --ux-ink-2: #081e16; --ux-surface: #0c241b;
+  --ux-surface-2: #123428; --ux-surface-3: #184433;
+  --ux-line: rgba(130, 206, 165, .2); --ux-line-strong: rgba(130, 206, 165, .34);
+  --ux-text: #effff7; --ux-text-soft: #c3e5d3; --ux-muted: #8ab8a1;
+  --ux-accent: #48e0a1; --ux-accent-2: #82d8e8; --ux-warning: #f2cf77;
+  --ux-negative: #ff9288; --ux-info: #9be7cf;
+  --bg: #061711; --panel: #0c241b; --panel2: #123428; --line: #245542;
+  --muted: #8ab8a1; --soft: #c3e5d3; --mint: #48e0a1; --blue: #82d8e8;
+  --coral: #ff9288; --violet: #9be7cf; --brand-accent: #48e0a1;
+}
+
+:root[data-arb-theme="aurora-modern"] {
+  --ux-ink: #0b1025; --ux-ink-2: #101733; --ux-surface: #141b36;
+  --ux-surface-2: #202747; --ux-surface-3: #2a3359;
+  --ux-line: rgba(167, 176, 245, .22); --ux-line-strong: rgba(167, 176, 245, .36);
+  --ux-text: #f5f5ff; --ux-text-soft: #d1d3f0; --ux-muted: #a0a5d0;
+  --ux-accent: #67e8f9; --ux-accent-2: #a5b4fc; --ux-warning: #fcd68b;
+  --ux-negative: #fb9ab8; --ux-info: #d8a7ff;
+  --bg: #0b1025; --panel: #141b36; --panel2: #202747; --line: #3b4774;
+  --muted: #a0a5d0; --soft: #d1d3f0; --mint: #67e8f9; --blue: #a5b4fc;
+  --coral: #fb9ab8; --violet: #d8a7ff; --brand-accent: #67e8f9;
+}
+
+.arb-theme-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--arb-color-border);
+  background: var(--arb-color-surface);
+  color: var(--arb-color-text);
+}
+.arb-theme-selector-copy { display: grid; gap: 2px; min-width: 0; }
+.arb-theme-selector-copy > label { cursor: pointer; }
+.arb-theme-selector-title { font-size: 13px; font-weight: 650; }
+.arb-theme-selector-description { color: var(--arb-color-text-muted); font-size: 12px; }
+.arb-theme-selector select {
+  min-width: min(220px, 48vw);
+  max-width: 100%;
+  min-height: 44px;
+  padding: 6px 30px 6px 10px;
+  border: 1px solid var(--arb-color-border);
+  border-radius: var(--arb-radius-sm);
+  background: var(--arb-color-surface-raised);
+  color: var(--arb-color-text);
+  font: inherit;
+}
+.arb-theme-selector-compact { justify-content: flex-end; padding: 7px 16px; }
+.arb-theme-selector-compact .arb-theme-selector-copy { margin-right: auto; }
+.arb-theme-selector-compact select { min-width: min(230px, 52vw); }
+@media (max-width: 480px) {
+  .arb-theme-selector { align-items: flex-start; }
+  .arb-theme-selector:not(.arb-theme-selector-compact) { flex-wrap: wrap; }
+  .arb-theme-selector:not(.arb-theme-selector-compact) select,
+  .arb-theme-selector:not(.arb-theme-selector-compact) .arb-theme-selector-current {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .arb-theme-selector-compact { gap: 8px; padding: 8px 10px; }
+  .arb-theme-selector-compact select { min-width: 0; width: 56%; }
+}
+
+.arb-theme-selector-current {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  max-width: 56vw;
+  padding: 6px 10px;
+  border: 1px solid var(--arb-color-border);
+  border-radius: var(--arb-radius-sm);
+  background: var(--arb-color-surface-raised);
+  color: var(--arb-color-text-soft);
+  font-size: 13px;
+}
+
+
+/* Administrator theme-management surface */
+.arb-appearance-admin { gap: 18px; }
+.arb-appearance-admin .settings-card { padding: 22px; }
+.arb-appearance-admin .settings-card h2 { margin: 7px 0 8px; color: var(--arb-color-text); }
+.arb-appearance-admin .settings-card h3 { margin: 20px 0 10px; color: var(--arb-color-text); }
+.arb-appearance-admin .settings-card p { color: var(--arb-color-text-muted); }
+.arb-theme-preview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 16px; }
+.arb-theme-preview-option {
+  display: grid; gap: 9px; text-align: left; padding: 12px;
+  border: 1px solid var(--arb-color-border); border-radius: var(--arb-radius-md);
+  background: var(--arb-color-surface); color: var(--arb-color-text); cursor: pointer;
+}
+.arb-theme-preview-option.is-active { outline: 2px solid var(--arb-color-accent); outline-offset: 1px; }
+.arb-theme-preview-option strong { font-size: 13px; }
+.arb-theme-preview-option > span:last-child { color: var(--arb-color-text-muted); font-size: 12px; }
+.arb-theme-swatch { display: flex; align-items: end; gap: 7px; height: 42px; padding: 8px; border: 1px solid var(--arb-color-border); border-radius: 8px; background: var(--arb-color-canvas); }
+.arb-theme-swatch i { display: block; width: 22px; height: 20px; border-radius: 5px; background: var(--arb-color-accent); }
+.arb-theme-swatch i:nth-child(2) { height: 26px; background: var(--arb-color-info); }
+.arb-theme-swatch i:nth-child(3) { height: 15px; background: var(--arb-color-decorative); }
+.arb-theme-swatch-midnight-premium { background: #070b18; border-color: #303d5c; }
+.arb-theme-swatch-midnight-premium i:nth-child(1) { background: #b8a4ff; }
+.arb-theme-swatch-clean-light { background: #f4f7fb; border-color: #d5deea; }
+.arb-theme-swatch-clean-light i:nth-child(1) { background: #176bdb; }
+.arb-theme-swatch-emerald-finance { background: #061711; border-color: #245542; }
+.arb-theme-swatch-emerald-finance i:nth-child(1) { background: #48e0a1; }
+.arb-theme-swatch-aurora-modern { background: #0b1025; border-color: #3b4774; }
+.arb-theme-swatch-aurora-modern i:nth-child(1) { background: #67e8f9; }
+.arb-appearance-field { display: grid; gap: 7px; max-width: 460px; color: var(--arb-color-text-soft); }
+.arb-appearance-field select { min-height: 40px; border: 1px solid var(--arb-color-border); border-radius: 8px; padding: 8px 10px; background: var(--arb-color-surface-raised); color: var(--arb-color-text); font: inherit; }
+.arb-theme-enabled-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 9px; }
+.arb-theme-enabled-list label, .arb-appearance-policy-toggle { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--arb-color-border); border-radius: 10px; background: var(--arb-color-surface); color: var(--arb-color-text); cursor: pointer; }
+.arb-theme-enabled-list input, .arb-appearance-policy-toggle input { margin-top: 3px; accent-color: var(--arb-color-accent); }
+.arb-theme-enabled-list span, .arb-appearance-policy-toggle span { display: grid; gap: 4px; }
+.arb-theme-enabled-list small, .arb-appearance-policy-toggle small { color: var(--arb-color-text-muted); line-height: 1.45; }
+.arb-appearance-policy-toggle { margin-top: 14px; }
+.arb-appearance-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+.arb-appearance-actions p { margin: 0; font-size: 13px; }
+.arb-theme-selector-current { color: var(--arb-color-text-soft); font-size: 13px; }
+@media (max-width: 520px) {
+  .arb-appearance-admin .settings-card { padding: 15px; }
+  .arb-theme-preview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .arb-theme-enabled-list { grid-template-columns: 1fr; }
+  .arb-appearance-actions { align-items: stretch; flex-direction: column; }
+}
+
+
+/* Keep the administrator appearance editor itself faithful to the selected theme.
+   The legacy admin skin uses !important dark gradients, so token-only declarations
+   otherwise leave a dark page with light cards even when Clean Light is selected. */
+:root[data-arb-theme] .admin-portal .portal-main:has(.arb-appearance-admin) {
+  background: var(--arb-color-canvas) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin > .portal-page-top h1 {
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin > .portal-page-top p {
+  color: var(--arb-color-text-soft) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin > .portal-page-top .admin-live-chip {
+  border-color: var(--arb-color-border) !important;
+  background: var(--arb-color-surface-raised) !important;
+  color: var(--arb-color-accent) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .settings-card {
+  background: var(--arb-color-surface) !important;
+  background-image: none !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .settings-card :where(h2, h3, strong, label) {
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .settings-card :where(p, small, .eyebrow, .arb-theme-preview-option > span:last-child) {
+  color: var(--arb-color-text-muted) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .arb-theme-preview-option {
+  background: var(--arb-color-surface-raised) !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .arb-theme-enabled-list label,
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .arb-appearance-policy-toggle {
+  background: var(--arb-color-surface-raised) !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .arb-theme-enabled-list small,
+:root[data-arb-theme] .admin-portal .arb-appearance-admin .arb-appearance-policy-toggle small {
+  color: var(--arb-color-text-muted) !important;
+}
+
+
+/* Stage 2 adoption: apply semantic tokens to the shared portal building blocks.
+   These scoped rules let existing screens inherit the selected theme without
+   requiring each feature page to be rewritten individually. */
+:is(.arb-page, .customer-portal, .admin-portal) {
+  color: var(--arb-color-text);
+  background-color: transparent;
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(h1, h2, h3, h4, strong) {
+  color: var(--arb-color-text);
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(p, .settings-copy, .empty-state, .form-hint) {
+  color: var(--arb-color-text-soft);
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(.settings-card, .customer-panel, .intelligence-panel,
+  .advanced-feature-card, .customer-table, .customer-table-wrap,
+  .admin-table-wrap, .data-table-wrap, .smart-rules-panel) {
+  min-width: 0;
+  border-color: var(--arb-color-border);
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(.settings-card, .customer-panel, .intelligence-panel,
+  .advanced-feature-card, .smart-rules-panel) {
+  color: var(--arb-color-text);
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select, textarea) {
+  accent-color: var(--arb-color-accent);
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select, textarea):focus-visible {
+  outline-color: var(--arb-focus-ring);
+  outline-offset: 2px;
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(button, [role="button"]) {
+  -webkit-tap-highlight-color: transparent;
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(button:disabled, input:disabled, select:disabled, textarea:disabled) {
+  cursor: not-allowed;
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(table) {
+  width: 100%;
+  border-collapse: collapse;
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(th, td) {
+  border-color: var(--arb-color-border);
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(.customer-table-row, .intelligence-signal, .session-list > div) {
+  min-width: 0;
+  border-color: var(--arb-color-border);
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(.customer-table-row small, .session-list em, .empty-records) {
+  color: var(--arb-color-text-muted);
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(.test-notice, .auth-error, [role="status"]) {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 720px) {
+  :is(.arb-page, .customer-portal, .admin-portal) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  :is(.arb-page, .customer-portal, .admin-portal) :where(table) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  :is(.arb-page, .customer-portal, .admin-portal) :where(.portal-page-top, .customer-panel-head) {
+    gap: 12px;
+  }
+  :is(.arb-page, .customer-portal, .admin-portal) :where(.portal-page-top) {
+    flex-wrap: wrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.arb-page, .customer-portal, .admin-portal) *,
+  :is(.arb-page, .customer-portal, .admin-portal) *::before,
+  :is(.arb-page, .customer-portal, .admin-portal) *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* Theme-aware defaults for the most widely reused portal surfaces and actions. */
+:is(.arb-page, .customer-portal, .admin-portal) :where(.settings-card, .customer-panel, .intelligence-panel,
+  .advanced-feature-card, .smart-rules-panel) {
+  background-color: var(--arb-color-surface);
+  border: 1px solid var(--arb-color-border);
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(.primary-button, .portal-action) {
+  border-color: var(--arb-color-accent);
+  background-color: var(--arb-color-accent);
+  color: var(--arb-color-canvas);
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(.secondary-button, .text-button) {
+  border-color: var(--arb-color-border);
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(.secondary-button) {
+  background-color: var(--arb-color-surface-raised);
+  color: var(--arb-color-text);
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(.primary-button, .portal-action, .secondary-button, .text-button):focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+:is(.arb-page, .customer-portal, .admin-portal) :where(.settings-card, .customer-panel, .advanced-feature-card) > :first-child {
+  min-width: 0;
+}
+
+
+/* Stage 2: override the reference skin's fixed colors with active theme tokens.
+   The reference stylesheet uses !important, so these scoped integration rules do too. */
+:root[data-arb-theme] .customer-portal {
+  background: var(--arb-color-canvas) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-header,
+:root[data-arb-theme] .customer-portal .customer-primary-rail {
+  background: var(--arb-color-surface) !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main {
+  background: var(--arb-color-canvas) !important;
+}
+:root[data-arb-theme] .customer-portal :where(
+  .customer-balance-ribbon, .customer-balance-card, .customer-workspace-card,
+  .customer-ledger-panel, .customer-market-hero, .customer-hero-opportunity,
+  .customer-quick-actions button, .customer-workspace-categories button
+) {
+  background-color: var(--arb-color-surface) !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal :where(
+  .portal-header-context, .portal-session, .customer-balance-name,
+  .customer-workspace-heading h2, .customer-workspace-categories button
+) {
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme="clean-light"] .customer-portal :where(
+  .customer-market-hero, .customer-hero-opportunity, .customer-quick-actions button,
+  .customer-workspace-card, .customer-ledger-panel
+) {
+  box-shadow: 0 4px 16px rgba(20, 42, 72, .08) !important;
+}
+:root[data-arb-theme] .customer-portal :where(
+  .customer-hero-copy p, .customer-hero-opportunity small,
+  .customer-workspace-heading .eyebrow, .customer-workspace-online,
+  .customer-quick-feature small
+) {
+  color: var(--arb-color-text-soft) !important;
+}
+
+
+/* Stage 2: consistent semantic feedback treatments across adopted portal screens. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .auth-error, .form-error, .field-error, [data-status="error"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-danger) 42%, var(--arb-color-border));
+  color: var(--arb-color-danger);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-success, .success-notice, [data-status="success"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 42%, var(--arb-color-border));
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-warning, .warning-notice, [data-status="warning"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-warning) 42%, var(--arb-color-border));
+  color: var(--arb-color-warning);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .auth-error, .form-error, .field-error, .form-success, .success-notice,
+  .form-warning, .warning-notice, [role="alert"], [role="status"]
+) {
+  overflow-wrap: anywhere;
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"]
+) {
+  border-color: var(--arb-color-danger);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"]
+):focus-visible {
+  outline-color: var(--arb-color-danger);
+}
+
+
+/* Stage 2: finish shared interaction states for links, choice controls, and status chips. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) a:not(.primary-button):not(.portal-action) {
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) a:not(.primary-button):not(.portal-action):hover {
+  color: var(--arb-color-info);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input[type="checkbox"], input[type="radio"], input[type="range"], progress
+) {
+  accent-color: var(--arb-color-accent);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .arb-status, .status-badge, [data-status]
+) {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .arb-status-success, .status-badge.success, [data-status="success"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 50%, var(--arb-color-border));
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .arb-status-warning, .status-badge.warning, [data-status="warning"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-warning) 50%, var(--arb-color-border));
+  color: var(--arb-color-warning);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .arb-status-danger, .status-badge.danger, [data-status="danger"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-danger) 50%, var(--arb-color-border));
+  color: var(--arb-color-danger);
+}
+@media (prefers-reduced-motion: no-preference) {
+  :is(.arb-page, .customer-portal, .admin-portal) :where(a, button, [role="button"]) {
+    transition-property: color, background-color, border-color, box-shadow;
+    transition-duration: 140ms;
+    transition-timing-function: ease;
+  }
+}
+
+
+/* Stage 2: align form controls and disabled states with the active theme. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select, textarea
+) {
+  background-color: var(--arb-color-surface);
+  border-color: var(--arb-color-border);
+  color: var(--arb-color-text);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input, select, textarea
+)::placeholder {
+  color: var(--arb-color-text-soft);
+  opacity: 1;
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input, select, textarea
+):focus-visible {
+  border-color: var(--arb-color-accent);
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 2px;
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input, select, textarea, button
+):disabled,
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  [aria-disabled="true"]
+) {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+/* Stage 2: make validation and choice controls use semantic theme tokens. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input[type="checkbox"], input[type="radio"], input[type="range"]
+) {
+  accent-color: var(--arb-color-accent);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"],
+  .is-invalid input, .is-invalid select, .is-invalid textarea
+) {
+  border-color: var(--arb-color-danger);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"]
+):focus-visible {
+  outline-color: var(--arb-color-danger);
+  box-shadow: 0 0 0 1px var(--arb-color-danger);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .field-error, .form-error, .auth-error, [data-status="error"]
+) {
+  color: var(--arb-color-danger);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .field-hint, .form-hint, .help-text
+) {
+  color: var(--arb-color-text-muted);
+}
+
+
+/* Stage 2: honor operating-system requests for stronger visual contrast. */
+@media (prefers-contrast: more) {
+  :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+    input, select, textarea, button, [role="button"], a
+  ):focus-visible {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
+  :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+    input, select, textarea, .arb-theme-selector-current, .arb-status, .status-badge
+  ) {
+    border-width: 2px;
+  }
+  :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+    .field-error, .form-error, .auth-error, [data-status="error"],
+    .form-success, .success-notice, [data-status="success"],
+    .form-warning, .warning-notice, [data-status="warning"]
+  ) {
+    font-weight: 650;
+  }
+}
+
+
+/* Keep compact appearance loading feedback available to assistive technology. */
+.arb-theme-selector-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+
+/* Stage 2: give feedback messages a complete semantic surface, not color alone. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-success, .success-notice, [data-status="success"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 38%, var(--arb-color-border));
+  background-color: color-mix(in srgb, var(--arb-color-accent) 7%, var(--arb-color-surface));
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-warning, .warning-notice, [data-status="warning"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-warning) 42%, var(--arb-color-border));
+  background-color: color-mix(in srgb, var(--arb-color-warning) 7%, var(--arb-color-surface));
+  color: var(--arb-color-warning);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-info, .info-notice, [data-status="info"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-info) 40%, var(--arb-color-border));
+  background-color: color-mix(in srgb, var(--arb-color-info) 7%, var(--arb-color-surface));
+  color: var(--arb-color-info);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-success, .success-notice, .form-warning, .warning-notice, .form-info, .info-notice
+) {
+  border-style: solid;
+  border-width: 1px;
+  border-radius: var(--arb-radius-sm);
+}
+
+
+/* Stage 2: distinguish error feedback surfaces while preserving inline field errors. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-error, .auth-error, .error-notice, [data-status="error"]
+) {
+  border-color: color-mix(in srgb, var(--arb-color-danger) 42%, var(--arb-color-border));
+  background-color: color-mix(in srgb, var(--arb-color-danger) 7%, var(--arb-color-surface));
+  color: var(--arb-color-danger);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  .form-error, .auth-error, .error-notice
+) {
+  border-style: solid;
+  border-width: 1px;
+  border-radius: var(--arb-radius-sm);
+}
+
+
+/* Stage 2: make the appearance selector independently keyboard-accessible. */
+:root[data-arb-theme] .arb-theme-selector select:focus-visible {
+  border-color: var(--arb-color-accent);
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 2px;
+}
+:root[data-arb-theme] .arb-theme-selector select:disabled {
+  color: var(--arb-color-text-muted);
+  background: var(--arb-color-surface);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+:root[data-arb-theme] .arb-theme-selector-status {
+  color: var(--arb-color-text-muted);
+}
+:root[data-arb-theme] .arb-theme-selector-status[role="alert"] {
+  color: var(--arb-color-danger);
+}
+:root[data-arb-theme] .arb-theme-selector :where(select, .arb-theme-selector-current) {
+  overflow-wrap: anywhere;
+}
+:root[data-arb-theme] .arb-theme-selector :where(select, .arb-theme-selector-current):focus-visible {
+  outline-color: var(--arb-focus-ring);
+}
+@media (prefers-contrast: more) {
+  :root[data-arb-theme] .arb-theme-selector select:focus-visible {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
+}
+
+
+/* Keep status attributes visually consistent even when markup uses no named class. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  [data-status="success"], [data-status="warning"], [data-status="info"], [data-status="error"]
+) {
+  border-style: solid;
+  border-width: 1px;
+  border-radius: var(--arb-radius-sm);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) [data-status="success"] {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 52%, var(--arb-color-border));
+  color: var(--arb-color-accent);
+  background-color: color-mix(in srgb, var(--arb-color-accent) 8%, var(--arb-color-surface));
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) [data-status="warning"] {
+  border-color: color-mix(in srgb, var(--arb-color-warning) 52%, var(--arb-color-border));
+  color: var(--arb-color-warning);
+  background-color: color-mix(in srgb, var(--arb-color-warning) 8%, var(--arb-color-surface));
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) [data-status="info"] {
+  border-color: color-mix(in srgb, var(--arb-color-info) 52%, var(--arb-color-border));
+  color: var(--arb-color-info);
+  background-color: color-mix(in srgb, var(--arb-color-info) 8%, var(--arb-color-surface));
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) [data-status="error"] {
+  border-color: color-mix(in srgb, var(--arb-color-danger) 52%, var(--arb-color-border));
+  color: var(--arb-color-danger);
+  background-color: color-mix(in srgb, var(--arb-color-danger) 8%, var(--arb-color-surface));
+}
+
+/* Stage 2: keep text selection and browser autofill aligned with the active theme. */
+:root[data-arb-theme] ::selection {
+  color: var(--arb-color-text);
+  background: color-mix(in srgb, var(--arb-color-accent) 34%, var(--arb-color-surface));
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input, select, textarea
+) {
+  caret-color: var(--arb-color-accent);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input, textarea
+):-webkit-autofill,
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input, textarea
+):-webkit-autofill:hover,
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input, textarea
+):-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--arb-color-text);
+  caret-color: var(--arb-color-accent);
+  -webkit-box-shadow: 0 0 0 1000px var(--arb-color-surface) inset;
+  box-shadow: 0 0 0 1000px var(--arb-color-surface) inset;
+  border-color: var(--arb-color-border);
+  transition: background-color 9999s ease-out 0s;
+}
+
+/* Stage 2: retain visible focus when users navigate themed surfaces by keyboard. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  a, button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+@media (prefers-contrast: more) {
+  :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+    a, button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])
+  ):focus-visible {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
+}
+
+/* Stage 2: preserve meaningful controls and focus indicators in forced-colors mode. */
+@media (forced-colors: active) {
+  :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+    [data-status="success"], [data-status="warning"], [data-status="info"], [data-status="error"]
+  ) {
+    border: 1px solid CanvasText;
+    color: CanvasText;
+    background: Canvas;
+  }
+
+  :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+    a, button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])
+  ):focus-visible {
+    outline-color: Highlight;
+  }
+
+  :root[data-arb-theme] .arb-theme-selector select {
+    border: 1px solid ButtonText;
+    color: ButtonText;
+    background: ButtonFace;
+  }
+}
+
+/* Stage 2: ensure selector controls remain usable on touch screens and zoomed layouts. */
+:root[data-arb-theme] .arb-theme-selector {
+  min-width: 0;
+  max-width: 100%;
+}
+:root[data-arb-theme] .arb-theme-selector select {
+  max-width: 100%;
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  :root[data-arb-theme] .arb-theme-selector {
+    align-items: stretch;
+    gap: var(--arb-space-2);
+  }
+  :root[data-arb-theme] .arb-theme-selector select {
+    min-height: 44px;
+    width: 100%;
+  }
+}
+
+/* Stage 2: align native form widgets with the active theme without hiding browser affordances. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input[type="checkbox"], input[type="radio"], input[type="range"], progress
+) {
+  accent-color: var(--arb-color-accent);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) :where(
+  input[type="file"], input[type="date"], input[type="time"], input[type="datetime-local"], input[type="month"], input[type="week"]
+) {
+  color-scheme: inherit;
+  max-width: 100%;
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal) ::selection {
+  color: var(--arb-color-canvas);
+  background: var(--arb-color-accent);
+}
+
+
+/* Stage 2: keep appearance controls robust in narrow portal headers. */
+.arb-theme-selector > select {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--arb-color-text);
+  background-color: var(--arb-color-surface);
+  border-color: var(--arb-color-border);
+}
+.arb-theme-selector > select option {
+  color: var(--arb-color-text);
+  background-color: var(--arb-color-surface);
+}
+.arb-theme-selector-copy {
+  flex: 1 1 auto;
+}
+.arb-theme-selector-description,
+.arb-theme-selector-status {
+  overflow-wrap: anywhere;
+}
+.arb-theme-selector-current {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: end;
+}
+.arb-theme-selector select:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+@media (max-width: 600px) {
+  .arb-theme-selector:not(.arb-theme-selector-compact) {
+    align-items: stretch;
+  }
+  .arb-theme-selector:not(.arb-theme-selector-compact) > select,
+  .arb-theme-selector:not(.arb-theme-selector-compact) .arb-theme-selector-current {
+    flex: 0 1 100%;
+    text-align: start;
+  }
+  .arb-theme-selector-compact > select {
+    width: auto;
+    min-width: 0;
+    max-width: 56%;
+  }
+  .arb-theme-selector-status {
+    flex: 1 0 100%;
+  }
+}
+@media (forced-colors: active) {
+  .arb-theme-selector > select,
+  .arb-theme-selector-current {
+    border: 1px solid CanvasText;
+    color: CanvasText;
+  }
+  .arb-theme-selector > select:focus-visible {
+    outline: 2px solid Highlight;
+  }
+  .arb-theme-selector-status[role="alert"] {
+    border-inline-start: 3px solid Mark;
+  }
+}
+
+
+/* Stage 2: align native form feedback with the selected semantic theme. */
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal, .admin-ops-page)
+  :where(input, select, textarea, [role="combobox"]):focus-visible {
+  outline-color: var(--arb-color-accent);
+  outline-offset: 2px;
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal, .admin-ops-page)
+  :where(input, select, textarea)[aria-invalid="true"] {
+  border-color: var(--arb-color-danger);
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal, .admin-ops-page)
+  :where(input, select, textarea)::placeholder {
+  color: var(--arb-color-text-muted);
+  opacity: 1;
+}
+:root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal, .admin-ops-page)
+  :where(input, select, textarea):disabled {
+  cursor: not-allowed;
+}
+@media (forced-colors: active) {
+  :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal, .admin-ops-page)
+    :where(input, select, textarea)[aria-invalid="true"] {
+    border-color: Mark;
+  }
+  :root[data-arb-theme] :is(.arb-page, .customer-portal, .admin-portal, .admin-ops-page)
+    :where(input, select, textarea):focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+
+/* Theme preview cards remain distinguishable and keyboard-operable in every mode. */
+.arb-theme-preview-option {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  transition: border-color 140ms ease, background-color 140ms ease, outline-color 140ms ease;
+}
+.arb-theme-preview-option:hover {
+  border-color: var(--arb-color-accent);
+}
+.arb-theme-preview-option:focus-visible {
+  outline: 2px solid var(--arb-focus-ring, var(--arb-color-accent));
+  outline-offset: 3px;
+}
+.arb-theme-preview-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+.arb-theme-swatch-original {
+  background: #0b1422;
+  border-color: #22344a;
+}
+.arb-theme-swatch-original i:nth-child(1) { background: #7ce7c2; }
+.arb-theme-swatch-original i:nth-child(2) { background: #8eb7ff; }
+.arb-theme-swatch-original i:nth-child(3) { background: #c7a6ff; }
+@media (max-width: 420px) {
+  .arb-theme-preview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .arb-appearance-admin .settings-card {
+    padding: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arb-theme-preview-option {
+    transition: none;
+  }
+}
+@media (forced-colors: active) {
+  .arb-theme-preview-option {
+    border: 1px solid ButtonText;
+  }
+  .arb-theme-preview-option:focus-visible,
+  .arb-theme-preview-option.is-active {
+    outline: 2px solid Highlight;
+  }
+  .arb-theme-swatch,
+  .arb-theme-swatch i {
+    border: 1px solid CanvasText;
+  }
+}
+
+
+/* Keep appearance controls readable during loading, errors, and narrow layouts. */
+.arb-theme-selector :where(.arb-theme-selector-description, .arb-theme-selector-status) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.arb-theme-selector-status[role="alert"] {
+  color: var(--arb-color-danger);
+  font-weight: 600;
+}
+.arb-theme-selector :where(select, .arb-theme-selector-current):focus-visible {
+  outline: 2px solid var(--arb-focus-ring, var(--arb-color-accent));
+  outline-offset: 2px;
+}
+.arb-theme-selector select:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+@media (max-width: 480px) {
+  .arb-theme-selector-compact .arb-theme-selector-copy {
+    flex: 1 1 100%;
+    margin-right: 0;
+  }
+  .arb-theme-selector-compact select {
+    width: 100%;
+    min-width: 0;
+  }
+  .arb-theme-selector-compact .arb-theme-selector-current {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
+@media (forced-colors: active) {
+  .arb-theme-selector :where(select, .arb-theme-selector-current) {
+    border-color: ButtonText;
+  }
+  .arb-theme-selector :where(select, .arb-theme-selector-current):focus-visible {
+    outline-color: Highlight;
+  }
+  .arb-theme-selector-status[role="alert"] {
+    color: Mark;
+  }
+}
+
+
+/* Stage 2: resilient theme preview cards across touch, keyboard, and narrow layouts. */
+.arb-theme-preview-option {
+  min-width: 0;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+  transition: border-color 140ms ease, background-color 140ms ease, outline-color 140ms ease;
+}
+.arb-theme-preview-option:hover:not(:disabled) {
+  border-color: var(--arb-color-accent);
+  background: var(--arb-color-surface-raised);
+}
+.arb-theme-preview-option:focus-visible {
+  outline: 2px solid var(--arb-focus-ring, var(--arb-color-accent));
+  outline-offset: 3px;
+}
+.arb-theme-preview-option :where(strong, span) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.arb-theme-preview-option.is-active {
+  border-color: var(--arb-color-accent);
+  background: var(--arb-color-surface-raised);
+}
+.arb-theme-swatch {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+@media (max-width: 360px) {
+  .arb-theme-preview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .arb-theme-preview-option {
+    padding: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arb-theme-preview-option {
+    transition: none !important;
+  }
+}
+@media (forced-colors: active) {
+  .arb-theme-preview-option.is-active {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    border-color: Highlight;
+  }
+  .arb-theme-preview-option:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+
+/* Stage 2: keep appearance controls from widening navigation and settings rows. */
+.arb-theme-selector,
+.arb-theme-selector-copy,
+.arb-theme-selector :where(select, .arb-theme-selector-current, .arb-theme-selector-status) {
+  min-width: 0;
+  max-width: 100%;
+}
+.arb-theme-selector select,
+.arb-theme-selector-current {
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+.arb-theme-selector-status,
+.arb-theme-selector-description,
+.arb-theme-selector-current {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .arb-theme-selector-compact select,
+  .arb-theme-selector-compact .arb-theme-selector-current {
+    flex: 0 1 56%;
+    width: 56%;
+  }
+}
+@media (forced-colors: active) {
+  .arb-theme-selector select,
+  .arb-theme-selector-current {
+    border-color: ButtonText;
+  }
+  .arb-theme-selector select:focus-visible,
+  .arb-theme-selector-current:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
+
+/* Stage 2: preserve readable theme colors for browser-autofilled form fields. */
+:root[data-arb-theme] :where(input, textarea, select):-webkit-autofill,
+:root[data-arb-theme] :where(input, textarea, select):-webkit-autofill:hover,
+:root[data-arb-theme] :where(input, textarea, select):-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--arb-color-text);
+  caret-color: var(--arb-color-text);
+  box-shadow: 0 0 0 1000px var(--arb-color-surface-raised) inset;
+  border-color: var(--arb-color-border);
+}
+:root[data-arb-theme] ::selection {
+  background: var(--arb-color-selection, var(--arb-color-accent));
+  color: var(--arb-color-selection-text, var(--arb-color-canvas));
+}
+@media (forced-colors: active) {
+  :root[data-arb-theme] :where(input, textarea, select):-webkit-autofill {
+    -webkit-text-fill-color: FieldText;
+    box-shadow: none;
+  }
+  :root[data-arb-theme] ::selection {
+    background: Highlight;
+    color: HighlightText;
+  }
+}
+
+/*
+ * Stage 2 theme adoption for legacy entry and authentication screens.
+ * These surfaces predate the shared token system; explicitly bridge their
+ * hard-coded portal palette to semantic tokens so all five themes remain
+ * readable instead of changing only the page background.
+ */
+.portal-gateway,
+.auth-shell {
+  color: var(--arb-color-text);
+  background:
+    radial-gradient(circle at 15% 12%, color-mix(in srgb, var(--arb-color-accent) 12%, transparent), transparent 34%),
+    radial-gradient(circle at 86% 88%, color-mix(in srgb, var(--arb-color-decorative) 10%, transparent), transparent 36%),
+    var(--arb-color-canvas);
+}
+
+.gateway-card,
+.auth-card {
+  color: var(--arb-color-text) !important;
+  background: var(--arb-color-surface) !important;
+  border-color: var(--arb-color-border) !important;
+}
+
+.gateway-card > p,
+.auth-subtitle {
+  color: var(--arb-color-text-soft) !important;
+}
+
+.gateway-card h1,
+.auth-card h1,
+.gateway-brand strong,
+.auth-logo span {
+  color: var(--arb-color-text) !important;
+}
+
+.gateway-kicker {
+  color: var(--arb-color-accent) !important;
+  background: var(--arb-color-surface) !important;
+  border-color: var(--arb-color-border) !important;
+}
+
+.portal-choice {
+  color: var(--arb-color-text) !important;
+  background: var(--arb-color-surface-raised) !important;
+  border-color: var(--arb-color-border) !important;
+}
+
+.portal-choice span,
+.portal-choice small {
+  color: var(--arb-color-text-soft) !important;
+}
+
+.gateway-foot,
+.auth-demo-note {
+  color: var(--arb-color-text-muted) !important;
+}
+
+.auth-feature-strip div {
+  color: var(--arb-color-text-soft) !important;
+}
+
+.auth-tabs button {
+  color: var(--arb-color-text-soft) !important;
+}
+
+.auth-tabs {
+  background: var(--arb-color-surface-raised) !important;
+  border: 1px solid var(--arb-color-border) !important;
+}
+
+.auth-tabs button.active {
+  color: var(--arb-color-accent) !important;
+  background: var(--arb-color-canvas) !important;
+}
+
+.input-with-icon {
+  color: var(--arb-color-text-muted) !important;
+  background: var(--arb-color-canvas) !important;
+  border-color: var(--arb-color-border) !important;
+}
+
+.input-with-icon input,
+.auth-form-grid select {
+  color: var(--arb-color-text) !important;
+}
+
+.input-with-icon input::placeholder {
+  color: var(--arb-color-text-muted) !important;
+}
+
+.auth-form-grid label span,
+.auth-email-label > span {
+  color: var(--arb-color-text-soft) !important;
+}
+
+.auth-feature-strip {
+  border-color: var(--arb-color-border) !important;
+}
+
+.auth-demo-note {
+  border-color: var(--arb-color-border) !important;
+}
+
+.auth-demo-note strong {
+  color: var(--arb-color-text-soft) !important;
+}
+
+.auth-primary {
+  color: var(--arb-color-canvas) !important;
+  background: var(--arb-color-accent) !important;
+  background-image: none !important;
+}
+
+
+.auth-feature-strip {
+  background: var(--arb-color-surface-raised) !important;
+}
+
+.auth-card .secondary-button {
+  color: var(--arb-color-text-soft) !important;
+  background: var(--arb-color-surface-raised) !important;
+  border-color: var(--arb-color-border) !important;
+}
+
+.auth-safety-note {
+  color: var(--arb-color-text-soft) !important;
+  background: var(--arb-color-surface-raised) !important;
+  border-color: var(--arb-color-border) !important;
+}
+
+.input-with-icon input,
+.auth-form-grid input,
+.auth-form-grid select {
+  background: transparent !important;
+}
+
+:root[data-arb-theme="clean-light"] .gateway-kicker {
+  color: var(--arb-color-info);
+}
+
+:root[data-arb-theme="clean-light"] .auth-primary {
+  color: #ffffff !important;
+}
+
+:root[data-arb-theme="clean-light"] .auth-tabs button.active {
+  color: var(--arb-color-info) !important;
+}
+
+
+
+/* Stage 2 rendered-contrast remediation.
+   Keep legacy authentication and gateway controls legible when their older,
+   fixed-color rules compete with the semantic theme bridge. */
+:root[data-arb-theme="clean-light"] .portal-choice {
+  color: #172438 !important;
+  background: #ffffff !important;
+}
+:root[data-arb-theme="clean-light"] .portal-choice span,
+:root[data-arb-theme="clean-light"] .portal-choice small {
+  color: #35465d !important;
+}
+:root[data-arb-theme="emerald-finance"] .portal-choice {
+  color: #effff7 !important;
+  background: #0c241b !important;
+}
+:root[data-arb-theme="emerald-finance"] .portal-choice span,
+:root[data-arb-theme="emerald-finance"] .portal-choice small {
+  color: #effff7 !important;
+}
+:root[data-arb-theme="clean-light"] .customer-portal .auth-card .auth-primary,
+:root[data-arb-theme="clean-light"] .admin-portal .auth-card .auth-primary {
+  color: #ffffff !important;
+  background: #176bdb !important;
+  background-image: none !important;
+}
+:root[data-arb-theme="emerald-finance"] .customer-portal .auth-card .auth-primary,
+:root[data-arb-theme="emerald-finance"] .admin-portal .auth-card .auth-primary {
+  color: #06251b !important;
+  background: #48e0a1 !important;
+  background-image: none !important;
+}
+:root[data-arb-theme="clean-light"] .customer-portal .auth-card .auth-tabs button.active,
+:root[data-arb-theme="clean-light"] .admin-portal .auth-card .auth-tabs button.active {
+  color: #172438 !important;
+  background: #ffffff !important;
+  box-shadow: inset 0 -2px #176bdb !important;
+}
+:root[data-arb-theme="emerald-finance"] .customer-portal .auth-card .auth-tabs button.active,
+:root[data-arb-theme="emerald-finance"] .admin-portal .auth-card .auth-tabs button.active {
+  color: #effff7 !important;
+  background: #0c241b !important;
+  box-shadow: inset 0 -2px #48e0a1 !important;
+}
+:root[data-arb-theme="clean-light"] .customer-portal .auth-card .secondary-button,
+:root[data-arb-theme="clean-light"] .admin-portal .auth-card .secondary-button {
+  color: #35465d !important;
+  background: #ffffff !important;
+}
+:root[data-arb-theme="emerald-finance"] .customer-portal .auth-card .secondary-button,
+:root[data-arb-theme="emerald-finance"] .admin-portal .auth-card .secondary-button {
+  color: #effff7 !important;
+  background: #0c241b !important;
+}
+
+
+/* Auth entry points render before the authenticated portal shell exists, so
+   contrast rules must not depend on .customer-portal/.admin-portal ancestors. */
+:root[data-arb-theme="clean-light"] .auth-card .auth-primary {
+  color: #ffffff !important;
+  background: #145fc4 !important;
+  background-image: none !important;
+}
+:root[data-arb-theme="emerald-finance"] .auth-card .auth-primary {
+  color: #06251b !important;
+  background: #48e0a1 !important;
+  background-image: none !important;
+}
+:root[data-arb-theme="clean-light"] .auth-card .auth-tabs button.active {
+  color: #172438 !important;
+  background: #ffffff !important;
+  box-shadow: inset 0 -2px #145fc4 !important;
+}
+:root[data-arb-theme="emerald-finance"] .auth-card .auth-tabs button.active {
+  color: #effff7 !important;
+  background: #0c241b !important;
+  box-shadow: inset 0 -2px #48e0a1 !important;
+}
+:root[data-arb-theme="clean-light"] .auth-card .secondary-button {
+  color: #35465d !important;
+  background: #ffffff !important;
+  background-image: none !important;
+}
+:root[data-arb-theme="emerald-finance"] .auth-card .secondary-button {
+  color: #effff7 !important;
+  background: #0c241b !important;
+  background-image: none !important;
+}

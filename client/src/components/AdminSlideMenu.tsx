@@ -20,7 +20,19 @@ export function AdminSlideMenu({ section, onNavigate }: AdminSlideMenuProps) {
     { label: "Wallet & ledger", target: "transactionReview", icon: WalletCards },
     { label: "Provider readiness", target: "apis", icon: Database },
   ];
-  const filteredActions = quickActionItems.filter((item) => `${item.label} ${item.detail}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const matchesQuery = (item: { label: string; target: string; detail?: string; value?: string }) => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return true;
+    return [item.label, item.target, item.detail, item.value]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedQuery);
+  };
+  const filteredActions = quickActionItems.filter(matchesQuery);
+  const filteredCounters = counters.filter(matchesQuery);
+  const filteredRecent = recent.filter(matchesQuery);
+  const hasSearchResults = filteredActions.length + filteredCounters.length + filteredRecent.length > 0;
 
   useEffect(() => {
     if (!open) return;
@@ -29,7 +41,9 @@ export function AdminSlideMenu({ section, onNavigate }: AdminSlideMenuProps) {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); close(); return; }
       if (event.key !== "Tab") return;
-      const focusable = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('button:not([tabindex="-1"]),input:not([tabindex="-1"])') || []);
+      const focusable = Array.from(menuRef.current?.querySelectorAll<HTMLElement>(
+        'a[href]:not([tabindex="-1"]):not([aria-disabled="true"]),button:not([tabindex="-1"]):not([disabled]),input:not([tabindex="-1"]):not([disabled]),select:not([tabindex="-1"]):not([disabled]),textarea:not([tabindex="-1"]):not([disabled]),[tabindex]:not([tabindex="-1"]):not([disabled]),[contenteditable="true"]'
+      ) || []);
       if (!focusable.length) return;
       const first = focusable[0]; const last = focusable[focusable.length - 1];
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
@@ -43,7 +57,7 @@ export function AdminSlideMenu({ section, onNavigate }: AdminSlideMenuProps) {
   const close = () => { setOpen(false); window.requestAnimationFrame(() => triggerRef.current?.focus()); };
   const navigate = (target: string) => { onNavigate(target); close(); };
 
-  return <div className={`admin-slide-layer${open ? " is-open" : ""}`}>
+  return <div className={`admin-slide-layer arb-page${open ? " is-open" : ""}`}>
     <button ref={triggerRef} className="admin-slide-trigger" type="button" aria-label={open ? "Close Quick Actions" : "Open Quick Actions"} aria-controls="admin-navigation-drawer" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setOpen(true)}>
       <span className="admin-slide-trigger-icon"><Menu size={18} /></span><span className="admin-slide-trigger-copy">QUICK ACTIONS</span><span className="admin-slide-trigger-led" />
     </button>
@@ -52,11 +66,12 @@ export function AdminSlideMenu({ section, onNavigate }: AdminSlideMenuProps) {
       <div className="admin-slide-drawer-topline"><span><i /> COMMAND PANEL</span><span className="admin-slide-count">ROLE-AWARE</span></div>
       <div className="admin-slide-heading"><div className="admin-slide-mark"><img src="/arbitrade-mark.svg" alt="" /></div><div className="admin-slide-title"><span>CANONICAL DESTINATIONS</span><h2>Quick Actions</h2></div><button className="admin-slide-close" type="button" onClick={close} aria-label="Close Quick Actions" tabIndex={open ? 0 : -1}><X size={17} /></button></div>
       <div className="admin-slide-current"><span className="admin-slide-current-icon"><Activity size={15} /></span><span><small>YOU ARE IN</small><strong>{activeLabel}</strong></span><span className="admin-slide-current-dot" /></div>
-      <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Jump to a customer or record" aria-label="Global search and jump" /></div>
+      <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search actions and destinations" aria-label="Search actions and destinations" tabIndex={open ? 0 : -1} /></div>
       <nav className="admin-slide-nav quick-actions-nav" aria-label="Quick Actions command panel">
         <section className="admin-slide-group"><div className="admin-slide-group-title"><span>Quick-create</span><i /></div><div className="admin-slide-items">{filteredActions.map((item) => { const Icon = item.icon as LucideIcon; return <button key={item.label} type="button" className="admin-slide-item" tabIndex={open ? 0 : -1} onClick={() => navigate(item.target)}><span className="admin-slide-item-icon"><Icon size={17} /></span><span className="admin-slide-item-copy"><strong>{item.label}</strong><small>{item.detail}</small></span></button>; })}</div></section>
-        <section className="admin-slide-group"><div className="admin-slide-group-title"><span>Assigned work</span><i /></div><div className="quick-actions-counter-list">{counters.map((item) => { const Icon = item.icon; return <button key={item.label} type="button" className="quick-actions-counter" tabIndex={open ? 0 : -1} onClick={() => navigate(item.target)}><Icon size={15} /><span><strong>{item.label}</strong><small>{item.value}</small></span><span className="quick-actions-counter-arrow">→</span></button>; })}</div></section>
-        <section className="admin-slide-group"><div className="admin-slide-group-title"><span>Recent activity</span><i /></div><div className="quick-actions-recent-list">{recent.map((item) => { const Icon = item.icon; return <button key={item.label} type="button" className="quick-actions-recent" tabIndex={open ? 0 : -1} onClick={() => navigate(item.target)}><Icon size={14} /><span>{item.label}</span></button>; })}</div></section>
+        <section className="admin-slide-group"><div className="admin-slide-group-title"><span>Assigned work</span><i /></div><div className="quick-actions-counter-list">{filteredCounters.map((item) => { const Icon = item.icon; return <button key={item.label} type="button" className="quick-actions-counter" tabIndex={open ? 0 : -1} onClick={() => navigate(item.target)}><Icon size={15} /><span><strong>{item.label}</strong><small>{item.value}</small></span><span className="quick-actions-counter-arrow">→</span></button>; })}</div></section>
+        <section className="admin-slide-group"><div className="admin-slide-group-title"><span>Recent activity</span><i /></div><div className="quick-actions-recent-list">{filteredRecent.map((item) => { const Icon = item.icon; return <button key={item.label} type="button" className="quick-actions-recent" tabIndex={open ? 0 : -1} onClick={() => navigate(item.target)}><Icon size={14} /><span>{item.label}</span></button>; })}</div></section>
+        {!hasSearchResults && <p className="quick-actions-empty" role="status">No matching actions or destinations.</p>}
       </nav>
       <div className="admin-slide-footer"><div className="quick-actions-status"><span><span className="quick-actions-status-dot" /> System status</span><strong>Connected</strong><small>Database and portal runtime</small></div><button className="admin-slide-exit" type="button" tabIndex={open ? 0 : -1} onClick={() => window.location.reload()}><RefreshCw size={15} /> Refresh status</button><div className="admin-slide-footer-note">Counters and actions link to the canonical menu tree.</div></div>
     </aside>
