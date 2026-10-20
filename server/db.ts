@@ -351,8 +351,8 @@ export async function updateCustomerOpportunityRules(userId:number,input:{enable
 export async function addTicketAttachment(userId:number,input:{ticketId:number;fileName:string;mimeType:string;sizeBytes:number;storageKey:string}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const policy=await getTicketUploadPolicy();
-  if(!isAllowedAttachmentRequest({fileName:input.fileName,mimeType:input.mimeType,sizeBytes:input.sizeBytes},{maxAttachmentMb:Math.min(policy.maxAttachmentMb,25),allowedMimeTypes:policy.allowedMimeTypes})) throw new Error("Attachment does not meet the current upload policy");
-  if(typeof input.storageKey!=="string"||!input.storageKey.startsWith("support/")||input.storageKey.includes("..")||input.storageKey.includes("\\\\")) throw new Error("Invalid support attachment storage key");
+  if(!isAllowedAttachmentRequest({fileName:input.fileName,mimeType:input.mimeType,sizeBytes:input.sizeBytes},{maxAttachmentMb:policy.maxAttachmentMb,allowedMimeTypes:policy.allowedMimeTypes})) throw new Error("Attachment does not meet the current upload policy");
+  if(typeof input.storageKey!=="string"||!input.storageKey.startsWith("support/")||input.storageKey.includes("..")||input.storageKey.includes("\\")) throw new Error("Invalid support attachment storage key");
   const ticket=(await db.select().from(supportTickets).where(and(eq(supportTickets.id,input.ticketId),eq(supportTickets.customerId,userId))).limit(1))[0];
   if(!ticket) throw new Error("Ticket not found");
   await db.insert(supportAttachments).values({ticketId:input.ticketId,uploadedBy:userId,fileName:input.fileName.slice(0,255),mimeType:input.mimeType.slice(0,160),sizeBytes:input.sizeBytes,storageKey:input.storageKey.slice(0,512)});
