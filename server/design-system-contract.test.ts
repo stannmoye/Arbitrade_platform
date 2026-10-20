@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const designSystem = readFileSync(new URL("../client/src/design-system.css", import.meta.url), "utf8");
 const themes = readFileSync(new URL("../client/src/theme-system.css", import.meta.url), "utf8");
+const customerReference = readFileSync(new URL("../client/src/customer-theme-overrides.css", import.meta.url), "utf8");
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const adminAppearance = readFileSync(new URL("../client/src/components/AdminAppearance.tsx", import.meta.url), "utf8");
 const themeSelector = readFileSync(new URL("../client/src/components/ThemeSelector.tsx", import.meta.url), "utf8");
@@ -219,6 +220,17 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themeContext).toContain("themeIdentityReady && customerCanSelect && enabledThemes.includes(theme)");
     expect(themeContext).toContain(": !themeIdentityReady ? defaultTheme : theme;");
     expect(themeContext).toContain("setLoadedThemeStorageKey(storageKey)");
+  });
+
+  it("exposes customer theme selection in the header and left rail and themes legacy customer surfaces", () => {
+    expect(app).toContain('<ThemeSelector compact placement="header"/>');
+    expect(app).toContain('<ThemeSelector compact placement="sidebar"/>');
+    expect(themeSelector).toContain('placement?: "default" | "header" | "sidebar"');
+    expect(themeSelector).toContain('aria-label={placement === "header" ? "Change customer theme"');
+    expect(themeContext).toContain("const customerCanSelect = Boolean(policy && enabledThemes.length > 0);");
+    expect(customerReference).toContain(":root[data-arb-theme] .customer-portal");
+    expect(customerReference).toContain(".customer-portal .arb-theme-selector-header");
+    expect(customerReference).toContain(".customer-portal .arb-theme-selector-sidebar");
   });
 
   it("keeps theme controls exposed with accessible names, state, and announced loading errors", () => {
