@@ -122,6 +122,9 @@ These are CI checks on the feature branch, not a production-host acceptance test
 
 ## Change log
 
+- 2026-10-20: Tightened support attachment registration to require the presign route's full 48-character lowercase hex token (192 bits of randomness); short legacy-looking tokens are rejected because registration otherwise accepted a weaker key shape than the route currently generates. Updated regression tests for valid full-entropy keys, short tokens, uppercase tokens, traversal, and nested paths. Exact-head CI remains pending.
+
+
 - 2026-10-20: Presigned upload URL validation now returns the original provider URL unchanged after validating its HTTPS scheme and credential fields; it no longer serializes the parsed URL, which can normalize URL components. Added a regression for explicit default-port normalization. Expanded attachment-policy regressions for known-extension MIME mismatches with trailing dots/spaces and invalid configuration fail-closed behavior. Exact-head CI for these new tests is pending.
 
 
