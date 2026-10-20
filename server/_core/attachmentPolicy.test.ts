@@ -76,6 +76,10 @@ describe("support attachment storage key validation", () => {
     expect(isValidSupportAttachmentStorageKey("support/1729440000000-ab12cd34-report.pdf")).toBe(true);
   });
 
+  it("accepts cryptographically random 192-bit upload identifiers", () => {
+    expect(isValidSupportAttachmentStorageKey(`support/1729440000000-${"a".repeat(48)}-report.pdf`)).toBe(true);
+  });
+
   it("rejects arbitrary paths and malformed keys", () => {
     for (const key of [
       "",
