@@ -72,6 +72,72 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
               },
             });
           });
+          const incompleteDetails = await page.evaluate(items => {
+            const pseudoSummary = (element, pseudo) => {
+              const style = getComputedStyle(element, pseudo);
+              return {
+                content: style.content,
+                color: style.color,
+                backgroundColor: style.backgroundColor,
+                backgroundImage: style.backgroundImage,
+                opacity: style.opacity,
+              };
+            };
+            const elementSummary = element => {
+              const style = getComputedStyle(element);
+              const ancestors = [];
+              let current = element;
+              for (let depth = 0; current && depth < 5; depth += 1, current = current.parentElement) {
+                const ancestorStyle = getComputedStyle(current);
+                ancestors.push({
+                  tagName: current.tagName.toLowerCase(),
+                  id: current.id || null,
+                  className: typeof current.className === "string" ? current.className.slice(0, 160) : null,
+                  backgroundColor: ancestorStyle.backgroundColor,
+                  backgroundImage: ancestorStyle.backgroundImage,
+                  opacity: ancestorStyle.opacity,
+                  before: pseudoSummary(current, "::before"),
+                  after: pseudoSummary(current, "::after"),
+                });
+              }
+              return {
+                tagName: element.tagName.toLowerCase(),
+                color: style.color,
+                backgroundColor: style.backgroundColor,
+                backgroundImage: style.backgroundImage,
+                opacity: style.opacity,
+                fontSize: style.fontSize,
+                fontWeight: style.fontWeight,
+                before: pseudoSummary(element, "::before"),
+                after: pseudoSummary(element, "::after"),
+                ancestors,
+              };
+            };
+            return items.map(item => ({
+              ...item,
+              nodes: item.nodes.map(node => ({
+                ...node,
+                computedStyles: node.target.flatMap(selector => {
+                  try {
+                    return Array.from(document.querySelectorAll(selector)).slice(0, 3).map(elementSummary);
+                  } catch {
+                    return [];
+                  }
+                }),
+              })),
+            }));
+          }, results.incomplete.map(item => ({
+            id: item.id,
+            impact: item.impact,
+            help: item.help,
+            helpUrl: item.helpUrl,
+            nodeCount: item.nodes.length,
+            nodes: item.nodes.slice(0, 20).map(node => ({
+              target: node.target,
+              failureSummary: node.failureSummary,
+            })),
+          })));
+
           scans.push({
             route: route.path,
             routeName: route.name,
@@ -92,19 +158,9 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
             })),
             violationCount: results.violations.length,
             incompleteCount: results.incomplete.length,
-            // Preserve axe's manual-review findings instead of reporting only a
-            // count; "incomplete" means axe could not decide automatically.
-            incomplete: results.incomplete.map(item => ({
-              id: item.id,
-              impact: item.impact,
-              help: item.help,
-              helpUrl: item.helpUrl,
-              nodeCount: item.nodes.length,
-              nodes: item.nodes.slice(0, 20).map(node => ({
-                target: node.target,
-                failureSummary: node.failureSummary,
-              })),
-            })),
+            // Include selectors, failure summaries, and computed foreground /
+            // background / pseudo-element styles to make manual review actionable.
+            incomplete: incompleteDetails,
             pageErrors,
           });
         } catch (error) {
