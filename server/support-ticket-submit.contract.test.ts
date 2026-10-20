@@ -28,6 +28,8 @@ describe("Stage 4 support ticket submission security contract", () => {
 
   it("does not encourage duplicate ticket creation after a partial or uncertain failure", () => {
     expect(support).toContain("Do not submit the form again.");
+    expect(support).toContain("Contact support and reference this ticket.");
+    expect(support).not.toContain("try attaching the file again");
     expect(support).toContain("Refresh your inbox before retrying to avoid creating a duplicate.");
     expect(support).not.toContain("push(`Ticket could not be opened · ${e.message}`)");
   });
