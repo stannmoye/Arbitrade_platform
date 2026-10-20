@@ -1576,3 +1576,6 @@
     transform: none !important;
   }
 }
+
+/* Shared status badge used by administrator appearance-policy controls. */
+.arb-appearance-policy-status { display: grid !important; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; border-radius: 999px; background: color-mix(in srgb, var(--arb-color-accent) 16%, transparent); color: var(--arb-color-accent); font-size: 14px; font-weight: 800; }
