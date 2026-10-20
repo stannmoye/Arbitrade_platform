@@ -112,25 +112,25 @@ These are CI checks on the feature branch, not a production-host acceptance test
 
 ### Six remaining Stage 4 work areas
 
-Track these as six acceptance work areas within Stage 4, not as six separate top-level project stages. Close each only when its evidence is recorded:
+Track these as six acceptance work areas within Stage 4, not as six separate top-level project stages. Close each only when its evidence is recorded.
 
-1. **Database migration verification — COMPLETE:** on exact-head commit `473914a`, disposable MySQL 8 and MariaDB 11.4 both ran the migration assertion script, confirmed duplicate event keys are rejected, and passed installer migration/recovery checks. See [installer validation run 1441](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39498469827).
-2. **Real event integration:** verify persisted deposit/withdrawal lifecycles and the other real financial, trading, mining, swap, ticket, account and security event boundaries. Do not fake success for provider-gated deposit/withdrawal flows.
-3. **Browser sound behavior:** test all five sounds, admin mappings, customer preferences, autoplay/volume constraints, post-commit financial sound timing, and reconnect deduplication in a real browser.
-4. **Ticket lifecycle and attachments:** verify assignment/status/reopen/reply flows, attachment ownership and authorization, and customer/admin regression behavior.
-5. **Live-update transport:** verify supported push delivery or explicitly accept and test bounded polling/reconnect as the hosting-compatible fallback.
-6. **Final acceptance and release:** finish keyboard/screen-reader/reduced-motion/accessibility review, responsive/theme checks, verify the release ZIP corresponds to the validated source, and record limitations before release sign-off.
+1. **Database migration verification — COMPLETE:** exact-head commit `f2d58f5a503ae1c91b5d6012195a3d48650a9b85` passed installer validation, including disposable MariaDB 11.4 and MySQL 8 compatibility/recovery jobs. See [installer validation run 39499136545](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39499136545).
+2. **Real event integration — OPEN:** verify persisted deposit/withdrawal lifecycles and the other real financial, trading, mining, swap, ticket, account and security event boundaries. Do not fake success for provider-gated deposit/withdrawal flows.
+3. **Browser sound behavior — PARTIAL:** the exact-head Chromium viewport/five-theme workflow passed 1,182/1,182 checks with zero failures ([run 39499137228](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39499137228)). This does not alone establish full preference, post-commit financial timing, volume/autoplay, or reconnect-deduplication acceptance.
+4. **Ticket lifecycle and attachments — OPEN:** verify assignment/status/reopen/reply flows, attachment ownership and authorization, and customer/admin regression behavior, including runtime concurrency and browser interactions.
+5. **Live-update transport — OPEN:** verify supported push delivery or explicitly accept and test bounded polling/reconnect as the hosting-compatible fallback.
+6. **Final acceptance and release — OPEN:** finish keyboard/screen-reader/reduced-motion/accessibility review, responsive/theme checks, verify the release ZIP corresponds to the validated source, and record limitations before release sign-off.
 
 ## Remaining before Stage 4 can be called complete
-- [x] Run exact-head checks and review CI status after the latest commits (14 check runs passed on `f2074c1fbdc3fb27542385c0eb214fde8f534a5c`; see evidence below).
-- [x] Exercise migration 0054 with disposable MySQL 8 and MariaDB schemas, including rerun/idempotency and tracked recovery behavior (exact-head installer validation run 1441; see evidence above).
-- [ ] Verify all real event sources for deposit, withdrawal, ledger credit/debit, mining, swap, trading and account/security lifecycle. Customer session-revocation notification is now implemented, but overall event coverage remains incomplete.
-- [ ] Verify sound configuration end-to-end, including event mapping, actual browser playback, preferences, autoplay handling and reconnect deduplication.
-- [ ] Verify announcement persistence, scheduling/expiry and delivery/read reporting end-to-end against the latest commit; campaign/delivery ledger, bounded retries, history counts and the due/expiry worker are implemented, but source-level coverage alone is not runtime acceptance.
-- [ ] Finish ticket status/assignment/reopen/attachment authorization and customer/admin regression tests.
+- [x] Run exact-head validation workflows on `f2d58f5a503ae1c91b5d6012195a3d48650a9b85`: Stage 3 five-theme validation, installer validation, and mining database regression all passed.
+- [x] Exercise migration assertions/recovery with disposable MySQL 8 and MariaDB 11.4 on the exact head.
+- [ ] Verify all real event sources for deposit, withdrawal, ledger credit/debit, mining, swap, trading and account/security lifecycle. Customer session-revocation and signup-credit notifications are implemented, but overall event coverage remains incomplete.
+- [ ] Verify sound configuration end-to-end, including event mapping, actual browser playback, preferences, autoplay handling, post-commit timing and reconnect deduplication.
+- [ ] Verify announcement persistence, scheduling/expiry and delivery/read reporting end-to-end against the exact head; campaign/delivery ledger, bounded retries, history counts and the due/expiry worker are implemented, but source-level coverage alone is not runtime acceptance.
+- [ ] Finish ticket status/assignment/reopen/attachment authorization and customer/admin regression tests, including runtime concurrency.
 - [ ] Add and verify real-time push transport where supported, retaining bounded polling/reconnect fallback for cPanel/shared hosting.
 - [ ] Finish responsive/theme/accessibility regression checks and validate the release ZIP.
-- [ ] Keep PR #95 draft/unmerged until the above evidence is reviewed.
+- [ ] Keep PR #95 draft/unmerged until remaining acceptance evidence is reviewed.
 
 ## Change log
 
