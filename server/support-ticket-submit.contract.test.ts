@@ -104,9 +104,9 @@ describe("Stage 4 support ticket submission security contract", () => {
     const end = routers.indexOf("uploadPolicy: protectedProcedure", start);
     const registration = routers.slice(start, end);
     expect(registration).toContain("addTicketAttachment(ctx.user.id, input)");
-    expect(database).toContain("export async function addTicketAttachment(actorId:number,input:");
+    expect(database).toContain("export async function addTicketAttachment(userId:number,input:");
     const attachmentStart = database.indexOf("export async function addTicketAttachment");
-    const attachmentEnd = database.indexOf("export async function getTicketUploadPolicy", attachmentStart);
+    const attachmentEnd = database.indexOf("// Controlled opportunity engine", attachmentStart);
     const attachment = database.slice(attachmentStart, attachmentEnd);
     expect(attachment).toContain("eq(supportTickets.customerId,userId)");
     expect(attachment).toContain('throw new Error("You do not have access to this ticket")');
