@@ -37,8 +37,20 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
         const pageErrors = [];
         page.on("pageerror", error => pageErrors.push(error.message));
         try {
+          // Playwright init scripts can run before <html> exists. Defer the
+          // early theme hint safely; the explicit post-navigation assignment
+          // below remains authoritative for the scan.
           await page.addInitScript(value => {
-            document.documentElement.dataset.arbTheme = value;
+            const applyTheme = () => {
+              if (document.documentElement) {
+                document.documentElement.dataset.arbTheme = value;
+              }
+            };
+            if (document.readyState === "loading" && !document.documentElement) {
+              document.addEventListener("DOMContentLoaded", applyTheme, { once: true });
+            } else {
+              applyTheme();
+            }
           }, theme);
           const response = await page.goto(new URL(route.path, BASE_URL).href, {
             waitUntil: "domcontentloaded",
@@ -126,7 +138,9 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
     totalViolations: report.totalViolations,
     byImpact: report.byImpact,
   }, null, 2));
-  if (report.scanErrors > 0 || report.totalViolations > 0) process.exitCode = 1;
+  const pageErrorCount = scans.reduce((sum, scan) => sum + (scan.pageErrors || []).length, 0);
+  console.log(JSON.stringify({ pageErrorCount }, null, 2));
+  if (report.scanErrors > 0 || report.totalViolations > 0 || pageErrorCount > 0) process.exitCode = 1;
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;
