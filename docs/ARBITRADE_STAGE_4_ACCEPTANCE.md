@@ -122,6 +122,9 @@ These are CI checks on the feature branch, not a production-host acceptance test
 
 ## Change log
 
+- 2026-10-20: Presigned upload URL validation now returns the original provider URL unchanged after validating its HTTPS scheme and credential fields; it no longer serializes the parsed URL, which can normalize URL components. Added a regression for explicit default-port normalization. Expanded attachment-policy regressions for known-extension MIME mismatches with trailing dots/spaces and invalid configuration fail-closed behavior. Exact-head CI for these new tests is pending.
+
+
 - 2026-10-20: Hardened support upload URL validation against WHATWG URL parser normalization: reject surrounding whitespace and embedded ASCII control bytes before parsing, preventing a provider-supplied signed bearer URL from being silently changed by the parser. Added unit cases for embedded tabs/newlines, DEL, and leading/trailing whitespace, plus route-level contract assertions that validation occurs before the URL is returned. New commits `eddf07c`, `433a5ac`, `356242b`, and `af3f6ee`; exact-head CI is pending and this is not yet release-accepted.
 
 
