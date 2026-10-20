@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, NOTIFICATION_CATEGORIES, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients } from "./notification-events";
+import { buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, filterVisibleNotificationEventCursor, NOTIFICATION_CATEGORIES, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients } from "./notification-events";
 
 describe("admin broadcast recipient validation", () => {
   it("distinguishes a valid single-customer target from an explicit all-customer broadcast", () => {
@@ -69,6 +69,26 @@ describe("notification category visibility", () => {
     expect(visible.map(row => row.id)).toEqual([3, 4]);
     expect(rows).toHaveLength(4);
     expect(filterNotificationCategories(rows, {}).map(row => row.id)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("applies identical visibility rules to inbox rows and live event cursors", () => {
+    const rows = [
+      { id: 1, category: "mining" },
+      { id: 2, category: "deposit" },
+      { id: 3, category: "announcement" },
+      { id: 4, category: null },
+      { id: 5, category: "future_category" },
+      { id: 6 },
+    ];
+    const visibility = { mining: false, deposit: false } as const;
+    expect(filterVisibleNotificationEventCursor(rows, visibility)).toEqual(filterNotificationCategories(rows, visibility));
+    expect(filterVisibleNotificationEventCursor(rows, visibility).map(row => row.id)).toEqual([3, 4, 5, 6]);
+  });
+
+  it("re-enables previously hidden cursor events when category visibility changes", () => {
+    const rows = [{ id: 1, category: "mining" }, { id: 2, category: "deposit" }];
+    expect(filterVisibleNotificationEventCursor(rows, { mining: false, deposit: false })).toEqual([]);
+    expect(filterVisibleNotificationEventCursor(rows, { mining: true, deposit: true })).toEqual(rows);
   });
 });
 
