@@ -44,7 +44,7 @@ A follow-up review found that storage-key scoping and persistence gating prevent
 
 ## Current-head CI validation
 
-The latest code head validated is `deea3bce93d90f53ab5d43d4dc7baba389eaaa96`. Workflow [run #599](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39346374005) completed successfully with all four jobs passing. The PR's latest commit is a documentation-only refresh of this acceptance ledger (`375d0c2ed6ad8dc9b08096ac8d113705d30b1fe7`); no workflow run or status check is reported for that documentation-only commit.
+The latest code head validated is `deea3bce93d90f53ab5d43d4dc7baba389eaaa96`. Workflow [run #599](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39346374005) completed successfully with all four jobs passing. Subsequent commits only refresh this acceptance ledger; they do not change application code. No workflow run or status check is reported for those documentation-only commits.
 
 - Application and theme-policy regression tests: **passed**.
 - TypeScript validation: **passed**.
