@@ -1793,6 +1793,68 @@ async function main() {
                   renderedTextAudit,
                 };
               });
+              if (width === 320 && (route.name === "gateway" || route.name === "customer")) {
+                const helperTextAudit = await page.evaluate(routeName => {
+                  const targets = routeName === "gateway"
+                    ? [
+                        { selector: ".gateway-kicker", minimumFontSizePx: 10 },
+                        { selector: ".portal-choice span", minimumFontSizePx: 11 },
+                        { selector: ".portal-choice small", minimumFontSizePx: 10 },
+                        { selector: ".gateway-foot", minimumFontSizePx: 11 },
+                      ]
+                    : [
+                        { selector: ".auth-kicker", minimumFontSizePx: 10 },
+                        { selector: ".auth-email-label>span", minimumFontSizePx: 11 },
+                        { selector: ".auth-form-grid label>span", minimumFontSizePx: 11 },
+                        { selector: ".auth-divider", minimumFontSizePx: 11 },
+                        { selector: ".auth-footer-copy", minimumFontSizePx: 11 },
+                        { selector: ".auth-demo-note", minimumFontSizePx: 11 },
+                        { selector: ".auth-feature-strip div", minimumFontSizePx: 10 },
+                        { selector: ".auth-back", minimumFontSizePx: 11 },
+                        { selector: ".account-number-card span", minimumFontSizePx: 11 },
+                        { selector: ".auth-safety-note", minimumFontSizePx: 11 },
+                        { selector: ".forgot-link", minimumFontSizePx: 11 },
+                      ];
+                  const samples = targets.flatMap(target =>
+                    Array.from(document.querySelectorAll(target.selector))
+                      .filter(element => {
+                        const style = getComputedStyle(element);
+                        const rect = element.getBoundingClientRect();
+                        return style.display !== "none" &&
+                          style.visibility !== "hidden" &&
+                          Number(style.opacity) > 0 &&
+                          rect.width > 0 &&
+                          rect.height > 0;
+                      })
+                      .map(element => ({
+                        selector: target.selector,
+                        text: (element.innerText || element.textContent || "").trim().slice(0, 80),
+                        fontSizePx: Number.parseFloat(getComputedStyle(element).fontSize),
+                        minimumFontSizePx: target.minimumFontSizePx,
+                      })),
+                  );
+                  return {
+                    samples,
+                    belowMinimum: samples.filter(sample =>
+                      !Number.isFinite(sample.fontSizePx) ||
+                      sample.fontSizePx < sample.minimumFontSizePx
+                    ),
+                  };
+                }, route.name);
+                const helperTextItem = {
+                  route: route.path,
+                  routeName: route.name,
+                  width,
+                  theme,
+                  check: "helper-text-minimum-font-size",
+                  ...helperTextAudit,
+                  passed: helperTextAudit.samples.length > 0 &&
+                    helperTextAudit.belowMinimum.length === 0,
+                };
+                results.push(helperTextItem);
+                if (!helperTextItem.passed) failures.push(helperTextItem);
+              }
+
               const { contrastChecks, renderedTextAudit, ...visualSummary } = visual;
               const themeItem = {
                 route: route.path,
