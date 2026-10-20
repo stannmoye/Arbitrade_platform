@@ -357,10 +357,11 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
   const body=normalizeNotificationText(input.body,10000,"body");
   const eventKey=normalizeNotificationText(input.eventKey,120,"event key");
   const href=normalizeNotificationHref(input.href);
+  const activeCustomerCondition=or(isNull(customerControls.accountStatus),eq(customerControls.accountStatus,"active"));
   const recipients=targetUserId !== null
-    ? await db.select({id:users.id}).from(users).where(and(eq(users.id,targetUserId),eq(users.role,"user"))).limit(1)
-    : await db.select({id:users.id}).from(users).where(eq(users.role,"user"));
-  if(targetUserId !== null && !recipients.length) throw new Error("Selected customer account was not found");
+    ? await db.select({id:users.id}).from(users).leftJoin(customerControls,eq(customerControls.userId,users.id)).where(and(eq(users.id,targetUserId),eq(users.role,"user"),activeCustomerCondition)).limit(1)
+    : await db.select({id:users.id}).from(users).leftJoin(customerControls,eq(customerControls.userId,users.id)).where(and(eq(users.role,"user"),activeCustomerCondition));
+  if(targetUserId !== null && !recipients.length) throw new Error("Selected customer account was not found or is not active");
   let recipientCount=0;
   let failedCount=0;
   // Bound database writes and email-outbox enqueue attempts for large broadcasts.
