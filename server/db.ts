@@ -383,12 +383,12 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
     if(!matchesPayload(campaign))throw new Error("Announcement event key was already used with a different campaign payload");
   }
   if(campaign.status==="expired")throw new Error("Expired announcement campaigns cannot be republished");
-  if(campaign.expiresAt && new Date(campaign.expiresAt).getTime()<=now.getTime()) {
+  if(campaign.expiresAt && campaign.expiresAt.getTime()<=now.getTime()) {
     await db.update(notificationCampaigns).set({status:"expired"}).where(eq(notificationCampaigns.id,campaign.id));
     await db.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
     return {campaignId:campaign.id,recipientCount:0,totalRecipientCount:campaign.totalRecipientCount,readCount:0,failedCount:0,pendingCount:0,eventKey,targetUserId:targetUserId??null,status:"expired" as const};
   }
-  if(campaign.status==="scheduled" && campaign.scheduledAt && new Date(campaign.scheduledAt).getTime()>now.getTime()) {
+  if(campaign.status==="scheduled" && campaign.scheduledAt && campaign.scheduledAt.getTime()>now.getTime()) {
     const rows=await db.select({status:notificationCampaignDeliveries.status}).from(notificationCampaignDeliveries).where(eq(notificationCampaignDeliveries.campaignId,campaign.id));
     return {campaignId:campaign.id,recipientCount:0,totalRecipientCount:rows.length,readCount:0,failedCount:rows.filter(x=>x.status==="failed").length,pendingCount:rows.filter(x=>x.status==="pending").length,eventKey,targetUserId:targetUserId??null,status:"scheduled" as const};
   }
