@@ -96,3 +96,4 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - 2026-10-20: Updated customer header sound handling to use the persisted admin sound policy and respect local customer opt-in.
 - 2026-10-20: Added category badges and responsive states to the full customer inbox, and made Mining activity notices category-aware and idempotent with focused tests.
 - 2026-10-20: Added authorized ticket reopening on both portals with status-change notifications; deposit/withdrawal events remain gated on verified provider lifecycle records.
+- 2026-10-20: Added a sound-policy readiness guard so the customer bell does not play a category sound before the saved visibility policy has loaded.
