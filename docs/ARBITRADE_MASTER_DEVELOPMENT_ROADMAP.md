@@ -1251,3 +1251,26 @@ This checkpoint supersedes earlier Prompt 5 notes that reported latest-head CI a
 - **Done:** exact-head CI/evidence review, theme storage/policy code review, and acceptance ledger update.
 - **Still blocked on external acceptance evidence:** human keyboard-only and screen-reader review; authenticated staging verification of live authorization, preference persistence, and cross-account isolation; final sign-off. No staging URL/access is confirmed. Keep PR #73 draft/open/unmerged and do not deploy.
 - **Next:** verify CI for the updated documentation head, inspect its browser evidence if the workflow reruns, and continue with locally verifiable acceptance gaps without weakening or suppressing accessibility diagnostics.
+
+## Merge-conflict resolution and current sandbox status — 2026-10-20
+
+This section preserves the integration-branch roadmap updates while keeping the newer Stage 2/Stage 3 roadmap content above. The integration branch's only file-level divergence from the Stage 2 branch was this roadmap; the application source changes are already represented by the Stage 2 branch, including the Stage 3 five-theme architecture.
+
+### Current environment and acceptance state
+
+- **Hosting is now available:** the user has reported that the application is hosted and wants to test it in their sandbox. Older roadmap statements saying no hosting is available are superseded by this update.
+- **Next acceptance task:** verify the actual hosted sandbox after merging; confirm that the administrator theme-management entry is visible, the five-theme preview works, the published default persists, and customer theme selection follows the saved policy.
+- Do not claim live behavior is verified until those checks have actually been performed. Automated CI evidence remains useful but is not a substitute for this hosted sandbox test.
+- Avoid repeating already-passing automated suites unless a merge, code change, or concrete failure requires a targeted rerun.
+
+### Preserved Stage 3 accessibility evidence from the integration branch
+
+- The recorded expanded axe diagnostic covered 60 route/theme/viewport scans with zero scan errors, zero confirmed violations, and zero page errors. It reported 60 incomplete `color-contrast` candidates for manual review; these are not confirmed failures.
+- A conservative computed-style triage recorded a lowest foreground-to-nearest-opaque-ancestor comparison of approximately 5.045:1. This does not prove full pixel compositing across gradients, pseudo-elements, overlays, and interactive states.
+- Existing 320 px Clean Light screenshots were spot-checked for the gateway, customer registration, and administrator Appearance page. No obvious horizontal clipping was observed in the gateway/customer views; small helper labels and the floating Quick Actions edge control remain readability/keyboard-review candidates.
+- The integration roadmap recorded Stage 3 implementation and repository-based automated validation as complete, with hosted authenticated verification and human keyboard-only/screen-reader acceptance still requiring direct review. The user's newly available hosted sandbox now makes the hosted verification task actionable.
+
+### Merge decision
+
+Keep the newer Stage 2/Stage 3 source and roadmap history, retain the relevant integration-branch acceptance evidence above, and proceed with sandbox verification after the branch merge. This update does not claim that the hosted test or human accessibility sign-off has already passed.
+
