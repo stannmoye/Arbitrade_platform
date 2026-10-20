@@ -7,6 +7,14 @@ describe("presigned support upload URL validation", () => {
     expect(getSafePresignedUploadUrl(input)).toBe(input);
   });
 
+  it("returns the exact validated URL instead of serializing and normalizing it", () => {
+    // WHATWG URL serialization removes an explicit default port; keep provider-signed
+    // URL text intact after validation rather than silently rewriting the bearer URL.
+    const input = "https://uploads.example.test:443/object?signature=abc%2F123&expires=60";
+    expect(new URL(input).toString()).not.toBe(input);
+    expect(getSafePresignedUploadUrl(input)).toBe(input);
+  });
+
   it.each([
     ["plain HTTP", "http://uploads.example.test/object"],
     ["a javascript URL", "javascript:alert(1)"],
