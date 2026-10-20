@@ -297,12 +297,27 @@ export async function reopenSupportTicket(actorId:number,ticketId:number) {
   if(!isAdmin && ticket.customerId!==actorId) throw new Error("You do not have access to this ticket");
   if(ticket.status!=="closed" && ticket.status!=="resolved") return {success:true,changed:false,status:ticket.status};
   const previousUpdatedAt=new Date(ticket.updatedAt as any).getTime();
-  await db.update(supportTickets).set({status:"open",updatedAt:new Date()}).where(eq(supportTickets.id,ticketId));
+  // Conditional update prevents two concurrent reopen requests from both
+  // claiming that they changed the same closed/resolved ticket.
+  const changed=await db.update(supportTickets).set({status:"open",updatedAt:new Date()})
+    .where(and(eq(supportTickets.id,ticketId),or(eq(supportTickets.status,"closed"),eq(supportTickets.status,"resolved"))));
+  const affected=Number((changed as any)?.[0]?.affectedRows ?? (changed as any)?.affectedRows ?? 0);
+  if(affected!==1) {
+    const current=(await db.select({status:supportTickets.status}).from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1))[0];
+    return {success:true,changed:false,status:current?.status ?? "open"};
+  }
   const eventKey=`support-ticket:${ticketId}:reopened:${previousUpdatedAt}`;
-  const notice=isAdmin
-    ? createNotification(ticket.customerId,"Your support ticket was reopened",`${ticket.ticketNumber}: support has reopened this case and the conversation is available again.`,{eventKey,category:"support",priority:ticket.priority==="urgent"?"urgent":"normal"})
-    : (async()=>{const admins=await db.select({id:users.id}).from(users).where(eq(users.role,"admin"));await Promise.all(admins.map(admin=>createNotification(admin.id,"Customer reopened a support ticket",`${ticket.ticketNumber}: the customer reopened this case.`,{eventKey:`${eventKey}:admin:${admin.id}`,category:"support",priority:ticket.priority==="urgent"?"urgent":"normal"})));})();
-  try { await notice; } catch(error) { console.error("[Notifications] Ticket reopen notice failed after status commit:",error instanceof Error?error.name:"UnknownError"); }
+  try {
+    if(isAdmin) {
+      await createNotification(ticket.customerId,"Your support ticket was reopened",`${ticket.ticketNumber}: support has reopened this case and the conversation is available again.`,{eventKey,category:"support",priority:ticket.priority==="urgent"?"urgent":"normal"});
+    } else {
+      const admins=await db.select({id:users.id}).from(users).where(eq(users.role,"admin"));
+      const results=await Promise.allSettled(admins.map(admin=>createNotification(admin.id,"Customer reopened a support ticket",`${ticket.ticketNumber}: the customer reopened this case.`,{eventKey:`${eventKey}:admin:${admin.id}`,category:"support",priority:ticket.priority==="urgent"?"urgent":"normal"})));
+      if(results.some(result=>result.status==="rejected")) console.error("[Notifications] One or more reopen notices failed after status commit.");
+    }
+  } catch(error) {
+    console.error("[Notifications] Ticket reopen notice failed after status commit:",error instanceof Error?error.name:"UnknownError");
+  }
   return {success:true,changed:true,status:"open" as const};
 }
 export async function listTicketMessages(ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select({id:supportMessages.id,ticketId:supportMessages.ticketId,authorId:supportMessages.authorId,authorName:users.name,authorRole:users.role,body:supportMessages.body,createdAt:supportMessages.createdAt}).from(supportMessages).leftJoin(users,eq(users.id,supportMessages.authorId)).where(eq(supportMessages.ticketId,ticketId)).orderBy(supportMessages.createdAt); }
