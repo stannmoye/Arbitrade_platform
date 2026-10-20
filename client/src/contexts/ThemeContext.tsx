@@ -75,7 +75,9 @@ export function ThemeProvider({
   const policyDefault = enabledThemes.includes(requestedPolicyDefault)
     ? requestedPolicyDefault
     : enabledThemes[0];
-  const customerCanSelect = policy?.customerCanSelect === true;
+  // Customer theme choice is a core workspace preference. Administrators control
+  // which themes are offered; customers can choose any theme in that allow-list.
+  const customerCanSelect = Boolean(policy && enabledThemes.length > 0);
   const currentUserId = auth.data?.id ?? null;
   // Start from the published-safe default. Customer preferences are read only after policy loads,
   // preventing a previously stored but now-disabled theme from flashing during initial render.
