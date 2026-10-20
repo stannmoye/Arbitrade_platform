@@ -227,6 +227,24 @@ async function runAdminAppearanceInteractionCheck(browser) {
     record("admin-appearance-screen-opened", appearanceLoaded);
     if (!appearanceLoaded) return checks;
 
+    // Wait for the accordion transition to settle, then ensure collapsed groups
+    // do not retain implicit grid rows or expose clipped navigation labels.
+    await page.waitForTimeout(300);
+    const collapsedNavigation = await page.locator(".admin-nav-group:not(.is-open) .admin-nav-group-items").evaluateAll(elements =>
+      elements.map(element => ({
+        id: element.id,
+        height: Math.round(element.getBoundingClientRect().height * 100) / 100,
+        scrollHeight: element.scrollHeight,
+        itemCount: element.querySelectorAll(".admin-nav-item-wrap").length,
+      }))
+    );
+    const collapsedNavigationHidden = collapsedNavigation.length > 0 &&
+      collapsedNavigation.every(group => group.height <= 1);
+    record("admin-collapsed-navigation-groups-hide-items", collapsedNavigationHidden, {
+      collapsedNavigation,
+      note: "Checks settled accordion geometry so hidden navigation items cannot overlap neighboring labels.",
+    });
+
     const previewButtons = page.locator(".arb-theme-preview-option");
     const previewCount = await previewButtons.count();
     const previewThemeLabels = {
@@ -1186,8 +1204,8 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
     try {
       await page.addInitScript((storedTheme) => {
         try {
-          if (storedTheme) localStorage.setItem("arbitrade-theme", storedTheme);
-          else localStorage.removeItem("arbitrade-theme");
+          if (storedTheme) localStorage.setItem("arbitrade-theme:user:9002", storedTheme);
+          else localStorage.removeItem("arbitrade-theme:user:9002");
         } catch {}
       }, scenario.expectedEditable ? null : "aurora-modern");
       await page.route(/\/api\/trpc(?:\/|$)/, async route => {
@@ -1244,7 +1262,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           await select.selectOption("aurora-modern");
           await page.waitForFunction(() => document.documentElement.dataset.arbTheme === "aurora-modern");
           selectedTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || null);
-          persistedTheme = await page.evaluate(() => localStorage.getItem("arbitrade-theme"));
+          persistedTheme = await page.evaluate(() => localStorage.getItem("arbitrade-theme:user:9002"));
         }
       }
       appliedTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || null);
@@ -1775,6 +1793,68 @@ async function main() {
                   renderedTextAudit,
                 };
               });
+              if (width === 320 && (route.name === "gateway" || route.name === "customer")) {
+                const helperTextAudit = await page.evaluate(routeName => {
+                  const targets = routeName === "gateway"
+                    ? [
+                        { selector: ".gateway-kicker", minimumFontSizePx: 10 },
+                        { selector: ".portal-choice span", minimumFontSizePx: 11 },
+                        { selector: ".portal-choice small", minimumFontSizePx: 10 },
+                        { selector: ".gateway-foot", minimumFontSizePx: 11 },
+                      ]
+                    : [
+                        { selector: ".auth-kicker", minimumFontSizePx: 10 },
+                        { selector: ".auth-email-label>span", minimumFontSizePx: 11 },
+                        { selector: ".auth-form-grid label>span", minimumFontSizePx: 11 },
+                        { selector: ".auth-divider", minimumFontSizePx: 11 },
+                        { selector: ".auth-footer-copy", minimumFontSizePx: 11 },
+                        { selector: ".auth-demo-note", minimumFontSizePx: 11 },
+                        { selector: ".auth-feature-strip div", minimumFontSizePx: 10 },
+                        { selector: ".auth-back", minimumFontSizePx: 11 },
+                        { selector: ".account-number-card span", minimumFontSizePx: 11 },
+                        { selector: ".auth-safety-note", minimumFontSizePx: 11 },
+                        { selector: ".forgot-link", minimumFontSizePx: 11 },
+                      ];
+                  const samples = targets.flatMap(target =>
+                    Array.from(document.querySelectorAll(target.selector))
+                      .filter(element => {
+                        const style = getComputedStyle(element);
+                        const rect = element.getBoundingClientRect();
+                        return style.display !== "none" &&
+                          style.visibility !== "hidden" &&
+                          Number(style.opacity) > 0 &&
+                          rect.width > 0 &&
+                          rect.height > 0;
+                      })
+                      .map(element => ({
+                        selector: target.selector,
+                        text: (element.innerText || element.textContent || "").trim().slice(0, 80),
+                        fontSizePx: Number.parseFloat(getComputedStyle(element).fontSize),
+                        minimumFontSizePx: target.minimumFontSizePx,
+                      })),
+                  );
+                  return {
+                    samples,
+                    belowMinimum: samples.filter(sample =>
+                      !Number.isFinite(sample.fontSizePx) ||
+                      sample.fontSizePx < sample.minimumFontSizePx
+                    ),
+                  };
+                }, route.name);
+                const helperTextItem = {
+                  route: route.path,
+                  routeName: route.name,
+                  width,
+                  theme,
+                  check: "helper-text-minimum-font-size",
+                  ...helperTextAudit,
+                  passed: helperTextAudit.samples.length > 0 &&
+                    helperTextAudit.belowMinimum.length === 0,
+                };
+                results.push(helperTextItem);
+                if (!helperTextItem.passed) failures.push(helperTextItem);
+              }
+
               const { contrastChecks, renderedTextAudit, ...visualSummary } = visual;
               const themeItem = {
                 route: route.path,
