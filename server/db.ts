@@ -811,6 +811,27 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     return {tradeId, userId:trade.userId, offerId:trade.offerId, currency:trade.currency, principalMinor:principal, rewardMinor:input.rewardMinor, totalMinor:total, reference};
   });
   await updatePopupLifecycleForOffer(result.userId,result.offerId,"settled");
+  // Financial state is already committed. Notification failures must not misreport
+  // settlement or roll back the customer's wallet/ledger entries.
+  const settlementNotices=[{
+    title:"Trade principal released",
+    body:`Trade ${result.tradeId} principal was released to your ${result.currency} wallet after settlement.`,
+    eventKey:`trade-settlement:${result.reference}:principal`,
+    category:"ledger_credit" as const,
+    priority:"normal" as const,
+  },...(result.rewardMinor>0?[{
+    title:"Trading reward credited",
+    body:`Trade ${result.tradeId} reward of ${result.rewardMinor} minor units was credited to your ${result.currency} wallet.`,
+    eventKey:`trade-settlement:${result.reference}:reward`,
+    category:"trading_reward" as const,
+    priority:"high" as const,
+  }]:[])];
+  const noticeResults=await Promise.allSettled(settlementNotices.map(notice=>createNotification(
+    result.userId,notice.title,notice.body,notice,
+  )));
+  if(noticeResults.some(notice=>notice.status==="rejected")) {
+    console.error("[Notifications] One or more trade settlement notices failed after commit.");
+  }
   return result;
 }
 export async function createOpportunityOffer(input:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number}){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();const closesAt=new Date(now.getTime()+input.durationSeconds*1000);const result=await db.insert(opportunityOffers).values({...input,opensAt:now,closesAt,rewardAt:closesAt,status:"open"});return {id:Number(result[0].insertId),...input,opensAt:now,closesAt,rewardAt:closesAt};}
