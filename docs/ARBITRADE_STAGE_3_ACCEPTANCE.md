@@ -1,19 +1,13 @@
 # Stage 3 — Five-Theme Architecture and Administrator Theme Controls
 
-**Status:** Implementation complete; hosted/human release gates deferred  
-**Working branch:** `feat/stage-3-theme-controls`  
-**Base:** Current `feat/stage-2-design-system-foundation` branch  
+**Status:** Core implementation and account-switch guard validated by exact-head CI; formal accessibility and deployed-session acceptance remain in progress  
+**Working branch:** `feat/stage-3-five-theme-architecture`  
+**Base implementation checkpoint:** `22ca05ad65e20078775ca7956f121019fa6a966b`  
 **Started:** 2026-10-19
 
 ## Objective
 
 Finish and verify the existing five-theme implementation without duplicating Stage 2's shared design-system work. Preserve Original Arbitrade as the default and keep server-side administrator policy authoritative.
-
-## Final implementation decision — 2026-10-20
-
-**Stage 3 implementation is complete. Do not reopen it or repeat passing automated checks without a specific code change or concrete failure.** The existing exact-head CI evidence records successful application/theme-policy tests, TypeScript validation, production build, and the Chromium responsive/five-theme matrix (1,175 checks passed, 0 failures). The diagnostic axe scans recorded zero confirmed violations; 15 contrast nodes remain marked incomplete for human review.
-
-The remaining human keyboard/screen-reader review and authenticated live-server/database checks are release gates, not unfinished implementation tasks. They are deferred because no hosting/staging environment is available. Do not claim these gates passed, and do not block preparation of a build artifact on them. The next step is to assemble and verify the existing production build/deployment package so the owner can host it and inspect real progress. Hosting itself and any live acceptance must wait until an environment is available.
 
 ## Baseline implementation found
 
@@ -27,110 +21,156 @@ The remaining human keyboard/screen-reader review and authenticated live-server/
 ## Stage 3 work ledger
 
 - [x] Inspect the existing Stage 2 implementation and identify its active theme integration points.
-- [x] Fix cross-role preference leakage: administrator previews and customer preferences use separate browser-storage keys.
-- [x] Scope browser-stored preferences to the signed-in account to prevent theme crossover on shared devices.
-- [x] Add focused tests for role/account isolation and storage-event filtering.
-- [x] Update stale source-contract assertions to the new storage helper and Stage 3 workflow.
-- [x] Run the updated application/theme-policy tests and TypeScript validation on the implementation commit.
-- [x] Build the production client and server bundles on the implementation commit.
-- [x] Run the Chromium viewport/five-theme smoke matrix on the implementation commit and current documentation head.
-- [x] Inspect the downloaded browser report and selected mobile screenshots for the current PR head.
-- [x] Recheck the latest Stage 3 workflow run and review the theme context/storage isolation code.
-- [x] Inspect Run #597 administrator screenshots and identify collapsed navigation label overlap in Communications and Integrations.
-- [x] Fix collapsed navigation grid structure and add a settled-layout browser regression assertion; verify in Run #598 and revalidate on current head in Run #599.
-- [deferred — no hosting] Complete human keyboard-only and screen-reader review; requires a human reviewer and a suitable browser/device environment.
-- [deferred — no hosting] Verify live server authorization, database persistence, and cross-account isolation in authenticated staging; no host or staging environment exists.
-- [x] Record the implementation closeout and the explicit deferred-release-gate decision in this ledger and the master roadmap. Do not represent the deferred gates as passed.
+- [x] Fix cross-role preference leakage: administrator previews and customer preferences now use separate browser-storage keys.
+- [x] Add focused tests for role-specific theme storage and storage-event filtering.
+- [x] Gate both theme rendering and preference persistence until the active role/account's saved theme has been restored, preventing a previous account's theme from flashing or being written into the next account's storage key during an in-app account switch; added source regression contracts.
+- [x] Fix the browser acceptance script to inspect the account-scoped customer preference key (`arbitrade-theme:user:9002`) after selection; the earlier failure was a stale assertion reading the legacy key.
+- [x] Update the workflow source-contract test to match the intended branch-push and pull-request triggers.
+- [x] Re-run the application test suite, TypeScript validation, production build, and Chromium viewport/theme smoke matrix on commit `2f0c443346dd1fe0def0c81267c762f79c9ca390`; all CI jobs passed.
+- [x] Confirm the static browser matrix passed all 1,172 checks with zero failures, including theme/viewport rendering, interaction checks, and contrast assertions covered by the script.
+- [x] Verify the customer-selected theme is restored after a full browser-page reload when customer choice is enabled; the scenario seed now runs once per tab so it does not erase the stored preference on reload.
+- [x] Record the CI artifact containing screenshots and the browser report.
+- [x] Review the latest run #520 screenshot artifact for representative administrator Appearance & Themes screens at desktop (1440px) and narrow mobile (320px) widths across all five themes. The mobile controls stack vertically, the full theme labels and save action remain visible, and no obvious overlap/clipping was found in the reviewed captures.
+- [x] Complete a preliminary evidence-based accessibility pass over the exact-code-head browser report and representative desktop/mobile screenshots; record findings below. This is not a substitute for the remaining formal human accessibility review.
+- [x] Improve administrator theme-management semantics: group theme previews with an accessible name and expose available customer themes as a native fieldset with a legend; add source regression contracts and theme-aware fieldset styling.
+- [ ] Complete formal accessibility review of screen-reader semantics, full keyboard-only flows, and manual assistive-technology behavior; automated checks and screenshot review do not replace this audit.
+- [ ] Complete authenticated deployed-session acceptance when a staging URL is available.
+- [ ] Record any additional findings and remaining limitations before final Stage 3 acceptance.
 
 ## Current code change
 
-The shared `arbitrade-theme` key previously stored both administrator previews and customer preferences, and customer preferences were shared between accounts on the same browser. In a shared browser, an administrator's preview or another customer's preference could be mistaken for the active customer's choice when customer choice was enabled and the theme was allowed. The context now resolves a role- and account-specific storage key, and storage events are filtered to the active role/account key. Unit tests cover role separation, account isolation, and event filtering.
+The shared `arbitrade-theme` key previously stored both administrator previews and customer preferences, and customer preferences were shared between accounts on the same browser. In a shared browser, an administrator's preview or another customer's preference could be mistaken for the active customer's choice when customer choice was enabled and the theme was allowed. The context now resolves a role- and account-specific storage key, and storage events are filtered to the active role/account key. A follow-up review found a timing edge case during an in-app account switch: before restoration completed, the previous account's in-memory theme could be written to the new account's key and briefly rendered. The context now gates both persistence and account-specific theme rendering on the active storage key having been restored; until then it uses the safe default. Source regression contracts protect the guard. Commits `65bac9b0`, `891423eb`, `5e2e6e14`, and `9572f167` implement the rendering/persistence guard and align the regression contract with the active storage key. Exact code-head CI run #540 passed all four jobs.
 
-A follow-up review found that storage-key scoping and persistence gating prevented cross-account writes, but the document theme could still briefly render the previous account's in-memory theme between an identity/role change and the restoration effect. The provider now uses the safe default for the active role while `themePreferenceReadyKey !== activeStorageKey`, then applies the restored preference. A source-contract assertion protects this readiness gate. Commits: `eac324a9bf28e25323b42fa90eac65eb98a58852` and `2234da9fe475786373fd2c25360475b368569545`.
+## Validation record
 
-## Current-head CI validation
+Exact code-head GitHub Actions run [#540](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39334670742) for commit `9572f167f5ffce867d39bcee92201cc5c75a3785` completed successfully after the account-switch rendering/persistence guard and regression-contract fixes:
 
-The latest PR head `fee526757bb566794e9b06df37bc3be3b34a4feb` was validated by workflow [run #618](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39349892204), which completed successfully with all four jobs passing: application/theme-policy regression tests, TypeScript validation, production build, and the Chromium viewport/five-theme browser job. The latest code-only change is `de9c25bf6778187b41d1e78b20422a3453ffd020`, also validated by Run #616; commits after it only update acceptance/roadmap documentation.
-
-- Application and theme-policy regression tests: **passed**.
+- Application and theme-policy regression tests: **280 passed, 6 skipped**; 37 test files passed and 2 skipped.
 - TypeScript validation: **passed**.
 - Production build: **passed**.
-- Chromium viewport and five-theme smoke matrix: **passed** — **1,175 checks passed, 0 failures**, with no recorded page errors.
+- Chromium viewport and five-theme smoke matrix: **1,174 checks passed, 0 failures**.
+- Browser evidence artifact: [stage-3-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39334670742/artifacts/12225682366). Inspected `report.json`: **1,174 passed, 0 failed**, covering five themes across 10 viewport widths and three entry routes.
 
-The [Run #618 browser evidence artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39349892204/artifacts/12233071065) contains 53 files, including `report.json`, `axe-accessibility-report.json`, and screenshots. The browser job log confirms **1,175 checks passed, 0 failures**. The axe step confirms 15 scans, 0 scan errors, 0 violations, and 0 recorded page errors; it also records 15 manual-review items under `color-contrast`, detailed below. The matrix covers the gateway (`/`), customer (`/customer`), and admin (`/ops-console-7f3a`) routes; ten viewport widths (320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px); and five themes.
+Earlier runs exposed a stale workflow source-contract assertion and a browser check reading the retired storage key. Both were corrected. Run #540 validates the latest application-code commit before this documentation refresh; follow-up documentation commits trigger fresh CI. Do not treat the static browser run as proof of live server authorization or database persistence: the browser script uses mocked API responses for several interactions, while server-side behavior is covered separately by automated tests.
 
-The report contains 1,800 sampled rendered-text contrast measurements; no sampled cases fell below the test threshold, and the lowest measured rendered-text ratio was **5.05:1**. The lowest sampled semantic-token contrast ratios were:
+## Preliminary accessibility evidence review (2026-10-19)
 
-- Main text on canvas: **14.52:1**.
-- Main text on surface: **15.19:1**.
-- Soft text on canvas: **8.94:1**.
-- Muted text on canvas: **4.70:1**.
-- Focus ring on canvas: **5.64:1**.
+Reviewed the exact-code-head #540 `report.json` and the captured 320px Clean Light administrator Appearance screen in addition to the existing desktop/mobile screenshot review. The static report records:
 
-These are sampled results, not a guarantee for every rendered element and not a complete WCAG audit.
+- **150/150** rendered-text contrast checks passed; minimum measured ratio **5.05:1**.
+- **150/150** checks passed for each semantic token pair: text/canvas (minimum **14.52:1**), text/surface (**15.19:1**), soft text/canvas (**8.94:1**), muted text/canvas (**4.70:1**), and focus ring/canvas (**5.64:1**). The measured checks meet the thresholds encoded by the test (4.5:1 for text and 3:1 for focus indication).
+- **30/30** keyboard-focus-visible checks passed.
+- Customer navigation checks passed for closed-drawer tab-stop removal, empty-search announcement, forward/reverse focus trapping, and Escape-trigger focus restoration.
+- Quick Actions dialog checks passed for dialog semantics, forward/reverse focus wrapping, and Escape-close/focus restoration. Administrator default-theme dropdown keyboard navigation passed.
+- The 320px Clean Light administrator screenshot shows the full theme-management form, labels, customer policy controls, and save action within the narrow viewport; no obvious clipping or horizontal page overflow was observed in the inspected capture.
 
+**Scope limit:** these are automated browser assertions and a limited screenshot review, not a complete WCAG conformance audit. They do not fully establish screen-reader announcements, all interactive states, browser/assistive-technology combinations, or manual keyboard-only behavior. Keep the formal accessibility gate open until that review is completed.
 
-## Diagnostic axe accessibility scan
+## Source-level accessibility follow-up (2026-10-19)
 
-The current-head Run #618 workflow runs axe-core against all three static-preview routes under each of the five themes (15 route/theme scans), targeting WCAG 2.0 A/AA, WCAG 2.1 A/AA, WCAG 2.2 AA, and axe best-practice rules. The logged result is **15 scans, 0 scan errors, 0 violations, and 0 page errors**. It also records **15 incomplete `color-contrast` results** (one per route/theme scan). Each reports that axe could not determine the background because of a pseudo-element; these are manual-review candidates, not confirmed contrast failures. The report now includes each finding's selector, foreground/background styles, ancestor background layers, and ancestor `::before`/`::after` styles to make manual review more actionable. The browser matrix separately measured **1,800 rendered-text samples** across routes, viewport widths, and themes, with zero below its threshold and a lowest measured ratio of **5.05:1**. Sampling does not settle every incomplete node. The Run #618 JSON report and screenshots are included in the artifact above. These results are not full WCAG certification and do not replace human keyboard-only/screen-reader testing or authenticated staging checks.
+A source review found that the administrator's five preview buttons were visually grouped but not programmatically named as a group, and the customer-theme checkbox collection had a heading without native group semantics. Updated `client/src/components/AdminAppearance.tsx` to expose the preview choices as a named group and wrap the available-theme checkboxes in a native `fieldset` with a `legend`. Added theme-aware, zero-border fieldset styling in `client/src/theme-system.css` and regression contracts in `server/design-system-contract.test.ts`.
 
-## Collapsed administrator navigation follow-up
+This improves semantic structure for assistive technology but is **not** evidence of a completed screen-reader audit. Exact-code-head GitHub Actions run [#555](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39335677771) completed successfully for commit `be63c2d4a3b3211e44769a2b201951bd86715c8b`: application/theme-policy regression tests passed, TypeScript validation passed, production build passed, and the Chromium viewport/five-theme matrix passed. The four jobs are all green. Manual keyboard-only and assistive-technology review remains open.
 
-Review of Run #597 screenshots found overlapping/duplicated sidebar labels in the collapsed Communications and Integrations groups. The cause was the animated `grid-template-rows: 0fr` container receiving multiple direct grid children, which created implicit rows instead of a single collapsible content row.
+## Browser-level accessibility interaction follow-up (2026-10-19)
 
-The fix wraps each group's items in one `.admin-nav-group-items-inner` grid child, allowing the existing `0fr ↔ 1fr` accordion transition to collapse the content as a unit. The browser acceptance script now waits for the transition to settle and asserts that every collapsed group's content container has zero height.
+Added real Chromium checks to the existing administrator appearance acceptance flow for the recently improved semantics:
 
-Run #598 verified the new regression check passed. Its screenshots show the collapsed Communications and Integrations labels hidden without overlap. The change does not alter navigation destinations or administrator authorization behavior.
+- Resolve the administrator preview choices by their accessible group name and confirm all five preview buttons are exposed.
+- Resolve the customer-theme checkboxes by the native fieldset/legend accessible group name and confirm all five checkboxes are exposed.
+- Confirm the currently previewed theme exposes its pressed state.
+- Move keyboard focus to the first preview button and verify Tab advances to the next preview button in DOM order.
+- Use Space to uncheck and re-check the Original Arbitrade checkbox, confirming native keyboard interaction and state restoration.
+- Added source-contract coverage for the preview pressed state and customer selector's accessible status/current-theme labels.
 
-## Code review notes
+These are automated browser checks, not a screen-reader audit or a substitute for a manual keyboard-only review across supported browsers and assistive technologies. The browser acceptance script continues to mock authentication and tRPC responses; it cannot establish deployed authorization or database persistence. The added checks are validated by the successful exact-head CI run recorded below.
 
-Reviewed `ThemeContext.tsx`, `theme-storage.ts`, and `theme-storage.test.ts` for role/account key isolation, storage-event filtering, customer allow-list revalidation, and the preference-readiness gate. The collapsed-navigation fix was reviewed against the Run #597 screenshots and verified with the new Run #598 browser assertion and screenshots. The report was checked for totals, failed rows, page errors, route/theme/viewport coverage, the collapsed-group geometry result, and sampled contrast values. This source and automated review is not a substitute for human assistive-technology testing or account-transition testing against a live authenticated session.
+## Exact-head CI validation of browser accessibility interactions (2026-10-20)
 
-## External limitations
+GitHub Actions run [#566](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39336429308) completed successfully for the current code head `9a9bcdb163a6baf95f572e21fccb8c3228e54a68`. All four jobs passed: application and theme-policy regression tests, TypeScript validation, production build, and Chromium viewport/five-theme smoke matrix. The Chromium job completed its real-browser acceptance script and uploaded the `stage-3-browser-acceptance` artifact (artifact ID `12226349665`). I downloaded and inspected `report.json`: **1,177/1,177 checks passed, zero failures** across the ten configured viewport widths (320–1920px), gateway/customer/admin routes, and five themes. The report specifically confirms the administrator preview buttons follow native Tab order and the Aurora Modern customer-theme checkbox toggles with Space and restores its initial state. I also inspected the 320px Clean Light administrator appearance screenshot: the theme previews, published-default selector, five theme checkboxes, customer-choice policy control, and save action remain visible in the vertical layout; no obvious horizontal overflow or clipping is visible in this capture.
 
-The browser matrix uses a static client preview and mocked authentication/tRPC responses for some interactions. It does not prove live server authorization or database persistence. No staging URL or access has been confirmed. Human keyboard-only and screen-reader review, plus authenticated staging acceptance for authorization, persistence, and cross-account isolation, remain pending. Keep those limitations separate from source-level and CI validation; do not claim deployment or production readiness until the remaining acceptance gates are addressed.
+This validates the automated acceptance suite and a limited visual review at this code head. It does not constitute a complete WCAG conformance audit or a full manual keyboard/screen-reader review. The browser suite uses mocked authentication/API responses for several flows; it does not establish deployed authorization or real database persistence. Manual keyboard-only and screen-reader/assistive-technology review remain open.
 
-## Run #620 computed-style contrast triage
+## External limitations and release gates
 
-A follow-up review of the [Run #620 evidence artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39350233743/artifacts/12233390937) examined the computed foreground styles and the nearest fully opaque element/ancestor background recorded for each axe-incomplete text node. Across the 15 route/theme scans, this produced 210 element/theme contrast comparisons. The review applied WCAG 2.x text contrast thresholds of 4.5:1 for normal text and 3:1 for large text (24 CSS px, or at least 18.66 CSS px at bold weight). **No comparison fell below its applicable threshold; the lowest computed ratio was 5.05:1.**
-
-This triage helps explain why axe marked the nodes incomplete: their own background is transparent and the tool reports uncertainty around pseudo-element backgrounds, while the recorded ancestors provide a usable opaque surface for these sampled elements. It is a computed-style review of the recorded candidates, not pixel-level compositing for every gradient or state, not a full WCAG audit, and not human keyboard/screen-reader acceptance. Keep the 15 axe-incomplete findings explicitly recorded as manually triaged candidates rather than changing the axe report to claim zero incomplete findings.
-
-
-## Run #621 exact-head verification and visual spot-check (2026-10-20)
-
-The current PR head `e34af1cb215222da4aa66170766f72b5d797d023` passed [Stage 3 workflow #621](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39350891975). All four jobs completed successfully: application/theme-policy regression tests, TypeScript validation, production build, and Chromium viewport/five-theme acceptance.
-
-- Browser matrix: **1,175 checks passed, 0 failures**, across gateway, customer, and administrator routes; ten viewport widths (320–1920 px); and five themes.
-- axe-core: **15 route/theme scans, 0 scan errors, 0 confirmed violations, 0 page errors**. There are 15 incomplete `color-contrast` results, one per route/theme scan, because pseudo-element backgrounds prevent axe from deciding the contrast automatically. These remain documented manual-review candidates.
-- Rendered-text contrast sampler: **1,800 samples, 0 below threshold**, with a lowest measured ratio of **5.05:1**. The semantic-token sample minima remain 14.52:1 main text/canvas, 15.19:1 main text/surface, 8.94:1 soft text/canvas, 4.70:1 muted text/canvas, and 5.64:1 focus ring/canvas.
-- Inspected selected screenshots `gateway-320-original.png` and `admin-appearance-320-midnight-premium.png` from the [Run #621 evidence artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39350891975/artifacts/12233127555). The gateway screenshot shows no obvious horizontal overflow or clipped primary content at 320 px. The administrator appearance screen keeps the theme controls and save action within the viewport; several secondary/helper labels appear very small in the full-page capture, so their real-device readability should be included in human review rather than assumed acceptable from this screenshot alone. This is a limited visual spot-check, not full screenshot or assistive-technology acceptance.
-- The artifact contains `report.json`, `axe-accessibility-report.json`, and screenshots. Its report records the mocked/static-preview limitations: it does not establish live server authorization, persisted database state, or cross-account isolation.
-
-**Exit gates remain open:** human keyboard-only and screen-reader review; authenticated staging verification of authorization, preference persistence, and cross-account isolation; and recorded final acceptance. Keep PR #73 draft/open/unmerged and do not deploy until these gates have evidence.
+No staging URL was provided at Stage 3 start. Authenticated deployed-session acceptance is therefore not currently available. Representative administrator screenshots have been reviewed for all five themes at desktop and 320px widths; formal accessibility review and staging acceptance remain open. The browser report explicitly uses mocked auth/API responses for several flows and does not prove live server authorization or database persistence. Do not claim production readiness or deploy based solely on this CI result.
 
 
-## Run #622 current-head verification and additional audit (2026-10-20)
+## Continuation update — Prompt 8/30 (2026-10-20)
 
-The current PR head `90c3063bda255bff460595f85279e8438b4b2cd1` passed [Stage 3 workflow #622](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39379981705). All four jobs succeeded: application/theme-policy tests, TypeScript validation, production build, and Chromium responsive/five-theme acceptance.
+- Rechecked the exact pull-request head `2853c4b40589866a81f74cac29c895cd517b6315` through GitHub Actions run [#574](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39339138443). All four jobs completed successfully: application/theme-policy regression tests, TypeScript validation, production build, and Chromium viewport/five-theme acceptance.
+- Downloaded and inspected the current-head `stage-3-browser-acceptance` artifact (artifact ID `12228247969`). Its `report.json` records **1,177 checks passed, 0 failures**. Focused results confirm named administrator preview/customer-theme groups, five preview buttons and five checkboxes exposed, preview `aria-pressed` state, native Tab ordering, and Space toggling/restoration of a theme checkbox.
+- Reviewed the five administrator appearance screenshots at **320px** for Original Arbitrade, Midnight Premium, Clean Light, Emerald Finance, and Aurora Modern as a single visual comparison. All five show the full theme list and customer-policy controls in a vertical layout, with the save action visible; no obvious horizontal page overflow or clipping was found in these captures. This is a limited screenshot review, not a full human review of every artifact image.
+- Exact-head CI and screenshot review are now confirmed for the latest documentation head. The automated browser flow still uses mocked authentication/API responses for several interactions and does not establish live server authorization or database persistence.
+- Formal keyboard-only and screen-reader/assistive-technology review remains open. Authenticated deployed-session acceptance remains blocked because no staging URL has been provided. Keep PR #72 in draft; do not merge or deploy based solely on static browser acceptance.
 
-- Browser matrix: **1,175 checks passed, 0 failures**, covering gateway/customer/admin routes, ten viewport widths (320–1920 px), and five themes.
-- axe-core: **15 scans, 0 scan errors, 0 confirmed violations, 0 page errors**. Fifteen incomplete `color-contrast` findings remain because pseudo-element/background compositing prevents axe from deciding them automatically. They remain manual-review candidates.
-- Rendered-text contrast sampler: **1,800 samples, 0 below-threshold samples**, with a minimum measured ratio of **5.05:1**. Supplemental triage of the recorded axe-incomplete nodes covered **210 computed-style candidate comparisons**, none below the applicable threshold. This is not full pixel compositing or a complete WCAG audit.
-- The browser report includes keyboard focus-visible checks and focused interaction assertions for customer registration/recovery error states, customer navigation drawer focus trapping/escape restoration, admin theme-policy save/error behavior, keyboard navigation of the default-theme dropdown, quick-actions dialog focus handling, and keyboard scrolling of populated tables. These are automated browser checks, not human assistive-technology sign-off.
-- Inspected `admin-appearance-320-clean-light.png` from the [Run #622 browser artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39379981705/artifacts/12244647991). Primary theme controls and Save remain within the 320 px viewport; secondary/helper copy is visually small in the full-page capture and remains a human readability-review item.
-- Reviewed `client/src/contexts/ThemeContext.tsx`, `theme-storage.ts`, `theme-policy.ts`, and their storage/policy unit tests. The current implementation separates administrator previews from customer preferences, scopes keys to account IDs, filters storage events by active role/account, validates customer preferences against the published allow-list, and gates persistence until the active preference has been restored. This code review found no confirmed new defect to change without reproduction.
-- Evidence artifact includes `report.json`, `axe-accessibility-report.json`, and screenshots; artifact has not expired at the time of this checkpoint.
 
-**Exit gates remain open:** human keyboard-only and screen-reader review; authenticated staging verification of live server authorization, persisted preferences, and cross-account isolation; and recorded final acceptance. The workflow serves a static client preview and mocks some auth/API interactions, so it does not establish these live-system properties. Keep PR #73 draft/open/unmerged and do not deploy until the outstanding gates have evidence.
+## Continuation update — Prompt 9/30 (2026-10-20)
 
-## Stage 3 implementation closeout — 2026-10-20
+- Confirmed the exact latest pull-request head before this entry: `dbe5f77adf88e71559df4a0eeac73a7b8655f68c`. GitHub Actions run [#577](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39339593927) completed successfully on that commit. All four jobs are green: application/theme-policy regression tests, TypeScript validation, production build, and Chromium viewport/five-theme acceptance.
+- Audited the existing customer-theme policy and preference-storage unit tests rather than duplicating them. Coverage already verifies stale stored preferences are ignored when customer choice is disabled, themes outside the enabled allow-list fall back to the published default, malformed stored values are rejected, and preferences/storage events are scoped by role and account. These tests complement (but do not replace) deployed account-switch acceptance.
+- Reviewed the settings update path: the public appearance configuration is normalized on read; updates use the administrator-only procedure, validate theme identifiers and a non-empty enabled list, reject a default theme that is not enabled, and persist the appearance policy through the app-settings store. This is source-level review only; it is not evidence of live database integration or a deployed authorization test.
+- No additional code change was warranted by this focused audit; existing focused tests cover the reviewed policy boundaries. The next useful acceptance step is a real authenticated staging session, not another duplicate source-contract assertion.
+- Formal keyboard-only and screen-reader/assistive-technology review remains open. Authenticated deployed-session acceptance remains blocked because no staging URL has been provided. The browser suite uses mocked auth/API responses for several interactions and cannot prove live authorization or database persistence.
+- PR #72 remains open, draft, and unmerged. No merge, deployment, or production database mutation was performed.
 
-**Decision: implementation complete for roadmap sequencing; deployed release acceptance deferred.** The user has confirmed there is no hosting provider/server or live/staging environment at present. Do not ask for a staging URL, host access, credentials, or hosted test accounts, and do not leave Stage 3 implementation looping on those unavailable prerequisites.
 
-- Latest recorded automated baseline: workflow **#628**, all four jobs passed.
-- Chromium responsive/five-theme matrix: **1,175 checks passed, 0 failures**.
-- Diagnostic axe scan: **15 scans, 0 scan errors, 0 confirmed violations, 0 page errors**; 15 incomplete `color-contrast` findings remain explicitly identified as manual-review candidates.
-- **Deferred, not passed:** human keyboard-only review; human screen-reader review; authenticated live-server authorization; persisted preference verification; and cross-account isolation in a live authenticated session.
-- No extra full-matrix CI run is warranted for this documentation-only closeout. Re-run only after a relevant code change or a concrete failure.
-- Stage 3 is closed for sequencing, not certified production-ready. Do not infer merge or deployment approval from this status.
+## Continuation update — Prompt 10/30: exact-head CI status reconciled (2026-10-20)
+
+- Re-fetched PR #72 metadata and confirmed the current head is `1f94e3699cc81b8a475652c8069ec10c3b8088d9`; the PR remains open/draft/unmerged.
+- Inspected GitHub Actions run [#578](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39339876592). It was **cancelled**, not completed successfully: the application/theme-policy test job reached success, but TypeScript, production build, and Chromium acceptance were cancelled during dependency installation. Therefore #578 does not provide a full four-job green result for the latest head.
+- The prior exact-head run #577 remains green for commit `dbe5f77adf88e71559df4a0eeac73a7b8655f68c`; that evidence must not be presented as validation of later commits. A commit-filtered workflow lookup returned no PR-triggered run for the current head at the time of this check, so fresh exact-head validation remains unresolved.
+- Re-read `client/src/contexts/ThemeContext.tsx`, `client/src/contexts/theme-storage.ts`, and `client/src/contexts/theme-storage.test.ts`. The existing identity-ready guard prevents the previous account's in-memory theme from being persisted under the next account's storage key before that preference is restored. Existing helper tests cover role/account key isolation and storage-event filtering. No speculative application change was made from this source-only review.
+- Next action: verify a fresh workflow run for the latest branch head and inspect all four job conclusions. Do not treat cancellation or a green earlier head as current-head acceptance.
+- Remaining gates: manual keyboard-only and screen-reader/assistive-technology review; authenticated deployed-session verification of live authorization and real database persistence. No staging URL has been provided. Keep PR #72 draft; no merge or deployment.
+
+
+## Continuation update — Prompt 11/30: latest-head reconciliation and manual audit plan (2026-10-20)
+
+- Re-fetched PR #72 and confirmed the head is `29e77db3eabf19cc7e7d2fcb8858d2c03f40a2a6`, still open, draft, and unmerged.
+- Inspected GitHub Actions run [#581](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39340014336) and confirmed all four jobs completed successfully on that exact head: application/theme-policy regression tests, TypeScript validation, production build, and Chromium viewport/five-theme smoke matrix.
+- Inspected the job summaries and verified the browser evidence artifact [stage-3-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39340014336/artifacts/12228308967) exists and is not expired. The recorded browser result is 1,175 checks passed with zero failures.
+- Re-reviewed the administrator appearance component and theme CSS at the current branch head. Preview choices have a programmatic group name and `aria-pressed` state; customer-theme checkboxes use a native `fieldset`/`legend`; loading and failure messages use status/alert semantics; retry and save controls have disabled/loading states. This is source-level inspection, not a human assistive-technology test.
+- No new application source change was justified by this review. Avoid adding duplicate source-contract tests when the existing automated coverage already verifies these semantics and interactions.
+
+### Manual accessibility acceptance checklist — still not executed
+
+Record the tester, browser/OS, assistive technology, date, and outcome for each item before closing the formal accessibility gate:
+
+- [ ] Keyboard-only: navigate from page start through preview buttons, default selector, enabled-theme checkboxes, customer-choice toggle, retry/save controls; confirm logical order and no keyboard trap.
+- [ ] Keyboard-only: activate every preview with Enter/Space; verify pressed state and visible focus; toggle checkboxes with Space and confirm the last enabled theme cannot be removed.
+- [ ] Screen reader: confirm the preview group name, each theme button name and pressed state, and the customer-theme fieldset/legend and checked/disabled states are announced clearly.
+- [ ] Screen reader: confirm loading, load failure, save success, and save failure messages are announced at the appropriate time without requiring focus movement.
+- [ ] Visual/accessibility: inspect focus visibility and text/control contrast in each theme, including hover, focus, disabled, error, and success states at desktop and 320px widths.
+- [ ] Record any issue with severity, reproducible steps, expected/actual behavior, and a linked follow-up; rerun relevant automated tests after fixes.
+
+These checks require a human tester and actual browser/assistive-technology combination; they cannot be truthfully marked complete from source inspection or CI screenshots alone.
+
+### Current release gates
+
+- Exact-head automated CI: **green on commit `29e77db3eabf19cc7e7d2fcb8858d2c03f40a2a6`** at the time of this check.
+- Manual keyboard-only and screen-reader review: **open**.
+- Authenticated staging acceptance for live authorization and database persistence: **blocked; no staging URL provided**.
+- Keep PR #72 in draft and do not merge or deploy until the remaining gates are completed and documented.
+
+
+## Continuation update — Prompt 13/30: exact-head browser acceptance confirmed (2026-10-20)
+
+- Rechecked PR #72 and confirmed the exact head at the start of this verification was `0a03a7611534b294579e39ade412404dc4e77954`; the PR remains open, draft, and unmerged.
+- GitHub Actions run [#583](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39340624693) has now completed successfully on that exact head. All four jobs passed: application/theme-policy regression tests, TypeScript validation, production build, and Chromium viewport/five-theme acceptance.
+- Downloaded and inspected browser artifact [stage-3-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39340624693/artifacts/12228284925). Its `report.json` records **1,175 checks passed, 0 failures**. The report covers five themes, ten viewport widths (320–1920px), and gateway/customer/admin entry routes; it includes rendered-text and semantic-token contrast checks, keyboard focus checks, customer form/recovery interactions, theme-policy interactions, and administrator appearance controls.
+- The artifact includes the administrator appearance screenshots at desktop (1440px), mobile (390px), and narrow mobile (320px) for all five themes. The browser assertions confirm the theme surfaces track the selected palette, the narrow appearance controls fit the viewport, the preview group and checkbox fieldset are exposed by accessible names, native Tab order works, and Space toggles/restores the theme checkbox.
+- Reconciled the earlier stalled-run observation: run #582 was cancelled; run #583 subsequently completed successfully. The earlier checkpoint is superseded by this exact-head evidence.
+- Evidence scope remains limited: several authenticated flows use mocked auth/tRPC responses, so this artifact does not prove live authorization or database persistence. Automated contrast assertions and screenshot inspection are not a substitute for a formal manual accessibility review.
+- Remaining gates: formal keyboard-only and screen-reader/assistive-technology review; authenticated staging verification of live authorization and real database persistence. No staging URL has been provided. Keep PR #72 in draft; do not merge or deploy until these remaining gates are completed and recorded.
+
+## Continuation update — Prompt 14/30: expanded keyboard acceptance (2026-10-20)
+
+- Re-reviewed the latest browser report and source after the previous green exact-head run. The existing browser matrix verified preview Tab order and checkbox Space interaction, but did not explicitly exercise Enter and Space activation on the preview buttons or the invariant that the final enabled theme cannot be removed.
+- Added two real-Chromium checks to `scripts/stage2-browser-acceptance.cjs`: (1) activate Midnight Premium with Enter and Clean Light with Space and verify each button's `aria-pressed` state; (2) disable four customer themes, verify the only remaining theme stays checked and disabled, then restore the full list so subsequent save-policy assertions remain independent.
+- The first validation attempt exposed a test-only variable-reference error in the new loop. Corrected the loop to use the current theme name, then reran the full workflow rather than accepting the failed attempt.
+- Exact-head GitHub Actions run [#587](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39341663797) passed all four jobs on commit `521e726da2af3f2ae4942a468678c5fd040365a2`: application/theme-policy tests, TypeScript validation, production build, and Chromium acceptance.
+- Downloaded and inspected browser artifact [stage-3-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39341663797/artifacts/12228697628). `report.json` records **1,177 checks passed, 0 failures**. Both new checks passed: preview buttons activate with Enter/Space and expose the pressed state, and the last enabled customer theme cannot be unchecked. Existing Tab-order and checkbox-Space checks also passed.
+- Inspected the generated 320px administrator Appearance screenshots for Clean Light and Midnight Premium. The full theme list, customer policy controls, and save action remain in the vertical layout without obvious page-wide horizontal overflow or clipped controls in these captures. This is limited visual inspection, not a complete review of all interactive states.
+- Searched repository files for a configured staging URL and staging-specific environment setting; no usable staging URL was found. Authenticated live authorization/database-persistence acceptance remains blocked until the owner supplies the staging endpoint and appropriate test access.
+- Remaining gates: a human tester must complete keyboard-only and screen-reader/assistive-technology review, and authenticated staging acceptance must verify real authorization and persistence. Automated Chromium checks cannot be marked as a substitute for those gates. Keep PR #72 open/draft; do not merge or deploy.
