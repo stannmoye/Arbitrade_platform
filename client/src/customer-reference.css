@@ -1554,3 +1554,9 @@
 .admin-notification-row.read{opacity:.76}
 @media(max-width:640px){.notification-category-grid{grid-template-columns:1fr}.admin-notification-row{flex-direction:column}.admin-notification-row .secondary-button{align-self:flex-start}.admin-announcement-form .form-two{grid-template-columns:1fr}}
 
+
+.customer-notification-category-badge{display:inline-flex;align-items:center;width:max-content;max-width:100%;padding:3px 8px;border:1px solid var(--border,#dce5e1);border-radius:999px;font-size:.68rem;font-weight:750;letter-spacing:.035em;line-height:1.35;opacity:.9}
+.customer-notification-title-link{color:inherit;text-decoration:none}
+.customer-notification-title-link:hover{text-decoration:underline;text-underline-offset:3px}
+.customer-notification-preview-copy{min-width:0}
+.customer-notification-preview-copy strong{overflow-wrap:anywhere}
