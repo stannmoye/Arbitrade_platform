@@ -9,7 +9,7 @@ import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { sdk } from "./sdk";
-import { countOutstandingTrades, createLocalCustomer, getAppSetting, getUserByEmail, getUserById, runAutoTradeCycle } from "../db";
+import { countOutstandingTrades, createLocalCustomer, getAppSetting, getUserByEmail, getUserById, processNotificationCampaignLifecycle, runAutoTradeCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
@@ -195,7 +195,20 @@ async function startServer() {
   const port = Number(process.env.PORT || "3000");
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
   if (process.env.DATABASE_URL) {
-    startEmailWorkers();
+    startEmailWorkers();    let notificationCampaignCycleRunning = false;
+    const runNotificationCampaignCycle = async () => {
+      if(notificationCampaignCycleRunning)return;
+      notificationCampaignCycleRunning=true;
+      try {
+        const result=await processNotificationCampaignLifecycle();
+        if(result.expired||result.published||result.failed)console.log("[NotificationCampaigns] lifecycle",result);
+      } catch(error) {
+        console.error("[NotificationCampaigns]",error instanceof Error?error.name:"UnknownError");
+      } finally { notificationCampaignCycleRunning=false; }
+    };
+    const notificationCampaignTimer=setInterval(()=>{void runNotificationCampaignCycle();},30_000);
+    notificationCampaignTimer.unref();
+    void runNotificationCampaignCycle();
     let miningCycleRunning = false;
     const runMiningCycle = async () => {
       if (miningCycleRunning) return;
