@@ -1250,6 +1250,33 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
       await page.goto(new URL("/customer", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
       const selector = page.locator('section[aria-label="Appearance settings"]');
       await selector.waitFor({ state: "visible", timeout: 15000 });
+
+      // Stage 4: the customer dashboard must use the real customer query
+      // surfaces and render a truthful empty state when no records exist.
+      const recentActivityHeading = page.getByRole("heading", { name: "Recent activity", exact: true });
+      const noticesHeading = page.getByRole("heading", { name: "Important updates", exact: true });
+      await recentActivityHeading.waitFor({ state: "visible", timeout: 15000 });
+      await noticesHeading.waitFor({ state: "visible", timeout: 15000 });
+      const recentActivityEmpty = await page.getByText("Your recent account activity will appear here.", { exact: true }).isVisible();
+      const noticesEmpty = await page.getByText("No account notices right now.", { exact: true }).isVisible();
+      const activityQueryRequested = apiRequests.some(entry => entry.procedures.includes("customer.trades"));
+      const noticesQueryRequested = apiRequests.some(entry => entry.procedures.includes("customer.notifications"));
+      const noInventedActivity = await page.getByText(/Practice allocation #/).count() === 0;
+      checks.push({
+        route: "/customer",
+        routeName: "customer",
+        width: 1440,
+        theme: scenario.policy.defaultTheme,
+        check: "stage4-dashboard-activity-and-notices-empty-states",
+        passed: recentActivityEmpty && noticesEmpty && activityQueryRequested && noticesQueryRequested && noInventedActivity && pageErrors.length === 0,
+        recentActivityEmpty,
+        noticesEmpty,
+        activityQueryRequested,
+        noticesQueryRequested,
+        noInventedActivity,
+        pageErrors,
+        note: "Uses mocked empty authenticated customer query responses; validates honest empty states and does not claim live authorization or persistence.",
+      });
       const select = selector.locator("select");
       const editable = await select.count() === 1;
       let options = [];
