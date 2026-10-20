@@ -170,7 +170,7 @@ describe("ARBITRADE shared design-system contract", () => {
   });
 
   it("keeps theme selection accessible and touch-friendly on small screens", () => {
-    expect(themeSelector).toContain('aria-label="Appearance settings"');
+    expect(themeSelector).toContain('ariaLabel ?? (compact ? "Change workspace theme" : "Appearance settings")');
     expect(themeSelector).toContain('aria-busy={!policyReady}');
     expect(themeSelector).toContain('role={policyFailed ? "alert" : "status"}');
     expect(themeSelector).toContain('aria-describedby=');
