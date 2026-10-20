@@ -903,7 +903,7 @@ async function accrueOneUser(conn: Db, userId: number, limit = 30) {
     }
   }
   for(const notice of committedRewardNotices){
-    try { await createNotification(userId,"Mining reward credited",`${notice.amount} ${notice.symbol} was posted to your mining reward balance. Reward event ${notice.rewardEventId}.`,{eventKey:`mining-reward:${notice.rewardEventId}`,category:"mining",priority:"normal"}); }
+    try { await createNotification(userId,"Mining reward credited",`${notice.amount} ${notice.symbol} was posted to your mining reward balance. Reward event ${notice.rewardEventId}.`,{eventKey:`mining-reward:${notice.rewardEventId}`,category:"mining_reward",priority:"normal"}); }
     catch(error) { console.error("[Notifications] Mining reward notice failed after ledger commit:",error instanceof Error?error.name:"UnknownError"); }
   }
   return processed;
