@@ -86,6 +86,7 @@ These are CI checks on the feature branch, not a production-host acceptance test
 - Follow-up fix: customer notification API now applies the server-side category visibility policy, so disabled categories are hidden consistently in customer bell/inbox results.
 - Follow-up fix: the live customer header reads persisted administrator sound settings and checks the customer's local sound opt-in before playing a newly observed notification sound.
 - Follow-up fix: the full customer notification centre now shows the same category badges as the bell, safe internal links, and loading/error/retry states; responsive inbox styling was added.
+- Security lifecycle update: customer session revocation now verifies the session belongs to the authenticated customer, returns `NOT_FOUND` for unknown session IDs, and attempts a recipient-scoped high-priority security notification after the revocation succeeds. Notification delivery is best-effort and does not roll back or misreport the security action; a contract test covers ownership, ordering and failure handling.
 - Follow-up fix: Mining package/boost/swap/conversion notices now use the `mining` category and stable recipient-scoped event keys; unit tests cover category metadata, idempotency SQL, and input validation.
 
 ### Announcement delivery persistence update (2026-10-20)
@@ -103,7 +104,7 @@ These are CI checks on the feature branch, not a production-host acceptance test
 ### Remaining before Stage 4 can be called complete
 - [x] Run exact-head checks and review CI status after the latest commits (14 check runs passed on `f2074c1fbdc3fb27542385c0eb214fde8f534a5c`; see evidence below).
 - [ ] Exercise migration 0054 with disposable MySQL 8 and MariaDB schemas, including rerun/idempotency and tracked recovery behavior.
-- [ ] Verify all real event sources for deposit, withdrawal, ledger credit/debit, mining, swap, trading and account/security lifecycle; coverage is currently incomplete.
+- [ ] Verify all real event sources for deposit, withdrawal, ledger credit/debit, mining, swap, trading and account/security lifecycle. Customer session-revocation notification is now implemented, but overall event coverage remains incomplete.
 - [ ] Verify sound configuration end-to-end, including event mapping, actual browser playback, preferences, autoplay handling and reconnect deduplication.
 - [ ] Finish announcement persistence/scheduling/expiry and delivery/read reporting.
 - [ ] Finish ticket status/assignment/reopen/attachment authorization and customer/admin regression tests.
