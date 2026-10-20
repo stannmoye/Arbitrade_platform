@@ -1,0 +1,54 @@
+import { describe, expect, it } from "vitest";
+import {
+  isAllowedAttachmentRequest,
+  isValidSupportAttachmentStorageKey,
+} from "./_core/attachmentPolicy";
+
+const policy = {
+  maxAttachmentMb: 1,
+  allowedMimeTypes: ["image/*", "application/pdf", ".txt"],
+};
+
+describe("support attachment policy", () => {
+  it("accepts an allowed image within the configured size limit", () => {
+    expect(
+      isAllowedAttachmentRequest(
+        { fileName: "evidence.png", mimeType: "image/png", sizeBytes: 1_000_000 },
+        policy,
+      ),
+    ).toBe(true);
+  });
+
+  it("accepts extension-authorized files when the browser supplies a generic MIME type", () => {
+    expect(
+      isAllowedAttachmentRequest(
+        { fileName: "notes.txt", mimeType: "application/octet-stream", sizeBytes: 120 },
+        policy,
+      ),
+    ).toBe(true);
+  });
+
+  it.each([
+    { fileName: "", mimeType: "image/png", sizeBytes: 10 },
+    { fileName: "bad\u0000name.png", mimeType: "image/png", sizeBytes: 10 },
+    { fileName: "evidence.png", mimeType: "image/", sizeBytes: 10 },
+    { fileName: "evidence.png", mimeType: "image/png; charset=utf-8", sizeBytes: 10 },
+    { fileName: "evidence.png", mimeType: "image/png", sizeBytes: 0 },
+    { fileName: "evidence.png", mimeType: "image/png", sizeBytes: -1 },
+    { fileName: "evidence.png", mimeType: "image/png", sizeBytes: 1.5 },
+    { fileName: "evidence.png", mimeType: "image/png", sizeBytes: 1_000_001 },
+    { fileName: "evidence.png", mimeType: "application/x-executable", sizeBytes: 10 },
+    { fileName: 123, mimeType: "image/png", sizeBytes: 10 },
+  ])("rejects malformed or disallowed attachment metadata: $fileName / $mimeType / $sizeBytes", request => {
+    expect(isAllowedAttachmentRequest(request, policy)).toBe(false);
+  });
+
+  it("accepts only storage keys matching the presign route's generated shape", () => {
+    expect(isValidSupportAttachmentStorageKey("support/1760980000000/abc123-file.png")).toBe(false);
+    expect(isValidSupportAttachmentStorageKey("support/1760980000000-abc12345-file.png")).toBe(true);
+    expect(isValidSupportAttachmentStorageKey("support/1760980000000-abc12345-../private.txt")).toBe(false);
+    expect(isValidSupportAttachmentStorageKey("support/1760980000000-abc12345-folder/file.png")).toBe(false);
+    expect(isValidSupportAttachmentStorageKey("../support/1760980000000-abc12345-file.png")).toBe(false);
+    expect(isValidSupportAttachmentStorageKey(null)).toBe(false);
+  });
+});
