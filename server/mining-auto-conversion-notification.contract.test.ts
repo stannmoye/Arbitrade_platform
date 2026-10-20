@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./mining.ts", import.meta.url), "utf8");
-const start = source.indexOf("async function processMiningConversionJob(");
+const start = source.indexOf("async function processConversionJob(conn: Db, jobId: number)");
 const end = source.indexOf("async function settleDuePendingBoostRewards(", start);
 const job = source.slice(start, end);
 
