@@ -16,7 +16,7 @@ const connection = await mysql.createConnection({
   port: Number(url.port || 3306),
   user: decodeURIComponent(url.username),
   password: decodeURIComponent(url.password),
-  database: decodeURIComponent(url.pathname.replace(/^\\/+/, "")),
+  database: decodeURIComponent(url.pathname.replace(/^\/+/, "")),
   multipleStatements: true,
   connectTimeout: 10000,
 });
