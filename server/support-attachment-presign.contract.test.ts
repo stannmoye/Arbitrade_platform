@@ -5,6 +5,12 @@ const source = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8"
 const route = source.match(/app\.post\("\/api\/support\/attachments\/presign"[\s\S]*?registerOAuthRoutes\(app\);/);
 
 describe("support attachment presign error logging", () => {
+  it("applies a route-specific request limiter before managed storage work", () => {
+    expect(source).toContain('const supportAttachmentPresignRateLimit = createAuthRateLimiter({ windowMs: 60_000, max: 20');
+    expect(source).toContain('scope: "support-attachment-presign"');
+    expect(source).toContain('app.post("/api/support/attachments/presign", supportAttachmentPresignRateLimit, async (req, res) => {');
+  });
+
   it("does not log raw provider or network exception messages", () => {
     expect(route).not.toBeNull();
     expect(route?.[0]).toContain('error instanceof Error ? error.name : "UnknownError"');
