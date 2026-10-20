@@ -78,7 +78,7 @@ async function postDueRewards(conn: Db, userId: number) {
         "Stake & Earn reward credited",
         `A ${reward} minor-unit reward was posted to your ${position.asset} wallet.`,
         `u${userId}:stake-reward:${position.id}:${position.rewardCount + 1}`,
-        "trading_reward",
+        "ledger_credit",
         "normal",
       ]);
     }
