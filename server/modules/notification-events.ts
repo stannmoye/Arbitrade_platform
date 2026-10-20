@@ -44,6 +44,18 @@ export function normalizeBroadcastTargetUserId(value: number | null | undefined)
   return value;
 }
 
+/** Split fan-out work into bounded batches to avoid unbounded concurrent writes. */
+export function partitionNotificationRecipients<T>(items: readonly T[], batchSize = 50): T[][] {
+  if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 500) {
+    throw new RangeError("Notification batch size must be an integer between 1 and 500");
+  }
+  const batches: T[][] = [];
+  for (let offset = 0; offset < items.length; offset += batchSize) {
+    batches.push(items.slice(offset, offset + batchSize));
+  }
+  return batches;
+}
+
 export function normalizeNotificationText(value: string, maxLength: number, field: string): string {
   const normalized = value.trim();
   if (!normalized) throw new TypeError(`Notification ${field} cannot be empty`);
