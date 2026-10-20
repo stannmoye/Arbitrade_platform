@@ -25,6 +25,23 @@ describe("notification sound reconnect deduplication", () => {
       .toEqual([rows[1]]);
   });
 
+  it("plays at most once for duplicate IDs in one cursor batch", () => {
+    const duplicateBatch = [rows[0], { ...rows[0] }, rows[1]];
+    expect(findNewNotificationSoundEvents(duplicateBatch, [10, 9], [], { deposit: true, support: true }))
+      .toEqual([rows[0], rows[1]]);
+  });
+
+  it("treats missing categories as account and ignores malformed event IDs", () => {
+    const mixed = [
+      { id: 13, category: null, readAt: null },
+      { id: 0, category: "deposit", readAt: null },
+      { id: Number.NaN, category: "deposit", readAt: null },
+      { id: 14, category: "deposit", readAt: null },
+    ];
+    expect(findNewNotificationSoundEvents(mixed, [10, 9], [], { account: false, deposit: true }))
+      .toEqual([mixed[3]]);
+  });
+
   it("merges duplicate IDs and keeps only the newest bounded tail", () => {
     expect(mergeSeenNotificationIds([1, 2, 2], [2, 3, 4], 3)).toEqual([2, 3, 4]);
     expect(mergeSeenNotificationIds([], [1, -1, 1.5, Number.NaN, 2], 10)).toEqual([1, 2]);
