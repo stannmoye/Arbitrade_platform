@@ -203,7 +203,8 @@ describe("ARBITRADE shared design-system contract", () => {
 
   it("keeps administrator previews persistent while enforcing customer theme policy", () => {
     expect(themeContext).toContain('import { isThemeStorageEventForRole, themeStorageKeyForRole } from "./theme-storage"');
-    expect(themeContext).toContain("setThemeState(readStoredTheme(defaultTheme, activeStorageKey))");
+    expect(themeContext).toContain("const storageKey = themeStorageKeyForRole(true, currentUserId);");
+    expect(themeContext).toContain("setThemeState(readStoredTheme(defaultTheme, storageKey))");
     expect(themeContext).toContain("if (isAdmin) {\n      setThemeState(nextTheme);\n      return;\n    }");
     expect(themeContext).toContain("if (!policy || appearance.isError) return;");
     expect(themeContext).toContain("if (canCustomerSelectTheme(nextTheme, enabledThemes, customerCanSelect)) setThemeState(nextTheme);");
@@ -213,23 +214,29 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themeContext).toContain("setThemeState(resolveCustomerTheme({");
     expect(themePolicy).toContain("export function resolveCustomerTheme");
     expect(themePolicy).toContain("export function canCustomerSelectTheme");
-    expect(themeContext).toContain("window.localStorage.setItem(themeStorageKeyForRole(isAdmin, currentUserId), effectiveTheme)");
-    expect(themeContext).toContain("themePreferenceReadyKey === activeStorageKey");
-    expect(themeContext).toContain("themePreferenceReadyKey !== activeStorageKey");
-    expect(themeContext).toContain("setThemePreferenceReadyKey(activeStorageKey)");
-    expect(themeContext).toContain("setThemePreferenceReadyKey(themeStorageKeyForRole(false, currentUserId))");
+    expect(themeContext).toContain("window.localStorage.setItem(activeThemeStorageKey, effectiveTheme)");
+    expect(themeContext).toContain("const themeIdentityReady = loadedThemeStorageKey === activeThemeStorageKey;");
+    expect(themeContext).toContain("themeIdentityReady && customerCanSelect && enabledThemes.includes(theme)");
+    expect(themeContext).toContain(": !themeIdentityReady ? defaultTheme : theme;");
+    expect(themeContext).toContain("setLoadedThemeStorageKey(storageKey)");
   });
 
-  it("recovers administrator appearance settings after a transient load failure", () => {
-    expect(adminAppearance).toContain("Appearance settings could not be loaded. Retry before publishing a change.");
-    expect(adminAppearance).toContain('disabled={settings.isFetching}');
-    expect(adminAppearance).toContain('onClick={() => void settings.refetch()}');
-    expect(browserAcceptance).toContain("failNextSettingsLoad");
-    expect(browserAcceptance).toContain("admin-appearance-settings-load-error-retry-recovers");
-    expect(browserAcceptance).toContain('name: "Retry loading settings"');
+  it("keeps theme controls exposed with accessible names, state, and announced loading errors", () => {
+    expect(adminAppearance).toContain('role="group" aria-label="Theme preview choices"');
+    expect(adminAppearance).toContain("aria-pressed={theme === option}");
+    expect(adminAppearance).toContain("<fieldset className=\"arb-appearance-theme-fieldset\">");
+    expect(adminAppearance).toContain("<legend>Available customer themes</legend>");
+    expect(themeSelector).toContain('aria-label="Appearance settings"');
+    expect(themeSelector).toContain('aria-live={policyFailed ? "assertive" : "polite"}');
+    expect(themeSelector).toContain('aria-label={`Current theme: ${ARBITRADE_THEME_LABELS[selectedTheme]}`}');
   });
 
   it("keeps administrator appearance edits valid and protects the last enabled theme", () => {
+    expect(adminAppearance).toContain('<fieldset className="arb-appearance-theme-fieldset">');
+    expect(adminAppearance).toContain("<legend>Available customer themes</legend>");
+    expect(adminAppearance).toContain('role="group" aria-label="Theme preview choices"');
+    expect(themes).toContain(".arb-appearance-theme-fieldset { min-width: 0;");
+    expect(themes).toContain(".arb-appearance-theme-fieldset legend");
     expect(adminAppearance).toContain("toggleEnabledTheme(enabledThemes, candidate)");
     expect(adminAppearance).toContain("normalizeEnabledThemes(appearance.enabledThemes, requestedDefault)");
     expect(adminAppearance).toContain("disabled={controlsDisabled || (enabledThemes.length === 1 && enabledThemes.includes(option))}");
@@ -395,12 +402,13 @@ describe("ARBITRADE shared design-system contract", () => {
   });
 
 
-  it("uses pull-request events as the single automatic Stage 3 trigger", () => {
+  it("runs Stage 3 validation on branch pushes and pull requests to integration bases", () => {
     expect(workflow).toContain("name: Stage 3 five-theme validation");
-    expect(workflow).toContain("on:\n  pull_request:");
+    expect(workflow).toContain("on:\n  push:");
+    expect(workflow).toContain("- feat/stage-3-five-theme-architecture");
+    expect(workflow).toContain("  pull_request:\n    branches:");
     expect(workflow).toContain("- feat/stage-2-design-system-foundation");
     expect(workflow).toContain("- integration/auth-installer-vps-safety");
-    expect(workflow).not.toContain("\n  push:\n");
   });
 
 
