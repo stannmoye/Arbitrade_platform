@@ -133,7 +133,16 @@ export async function allocateStake(userId: number, input: { productId: number; 
       const positionId = Number(positionResult.insertId);
       await conn.execute(`INSERT INTO stake_transactions (transactionCode,userId,positionId,type,amountMinor,asset,status,ledgerReference,idempotencyKey) VALUES (?,?,?,?,?,?, 'COMPLETED', ?, ?)`, [`TX-${crypto.randomBytes(5).toString("hex").toUpperCase()}`, userId, positionId, "STAKE_ALLOCATION", input.amountMinor, product.asset, reference, key]);
       await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, positionId, "position.created", "PENDING", "ACTIVE", input.amountMinor, product.asset, JSON.stringify({ ledgerReference: reference, productId: product.id })]);
-      await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, "Allocation confirmed", `Your ${product.name} allocation is active. Funds were reserved through the wallet ledger.`]);
+      // Persist the debit notification in the same transaction as the ledger and position.
+      // Recipient-scoped event keys make retries safe without hiding another customer's event.
+      await conn.execute(`INSERT INTO customer_notifications (userId,title,body,eventKey,category,priority) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE eventKey=VALUES(eventKey)`, [
+        userId,
+        "Stake & Earn allocation confirmed",
+        `Your ${product.name} allocation is active. Funds were reserved through the wallet ledger.`,
+        `u${userId}:stake-allocation:${positionCode}`,
+        "ledger_debit",
+        "normal",
+      ]);
       const result = { positionId, positionCode, status: "ACTIVE", asset: product.asset, principalMinor: input.amountMinor, maturityAt: maturity.toISOString(), ledgerReference: reference };
       await conn.execute(`INSERT INTO v5_idempotency_keys (userId,keyValue,command,resultJson) VALUES (?,?,?,?)`, [userId, key, "stake.allocate", JSON.stringify(result)]);
       await conn.commit(); return result;
@@ -154,6 +163,15 @@ export async function cancelStake(userId: number, positionId: number, requestKey
       await conn.execute(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=GREATEST(lockedMinor-?,0), updatedAt=NOW() WHERE userId=? AND currency=?`, [p.principalMinor,p.principalMinor,userId,p.asset]);
       await conn.execute(`UPDATE stake_positions SET status='CANCELLED', completedAt=NOW(), updatedAt=NOW() WHERE id=?`, [p.id]);
       await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId,p.id,"position.cancelled",p.status,"CANCELLED",p.principalMinor,p.asset,JSON.stringify({ledgerReference:reference})]);
+      // Keep the release notice atomic with the cancellation ledger entry.
+      await conn.execute(`INSERT INTO customer_notifications (userId,title,body,eventKey,category,priority) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE eventKey=VALUES(eventKey)`, [
+        userId,
+        "Stake & Earn principal released",
+        `Position ${p.id} was cancelled and ${p.principalMinor} minor units of ${p.asset} principal were returned to your available wallet balance.`,
+        `u${userId}:stake-cancellation:${p.id}`,
+        "ledger_credit",
+        "normal",
+      ]);
       const result={positionId:p.id,status:"CANCELLED",ledgerReference:reference}; await conn.execute(`INSERT INTO v5_idempotency_keys (userId,keyValue,command,resultJson) VALUES (?,?,?,?)`,[userId,key,"stake.cancel",JSON.stringify(result)]); await conn.commit(); return result;
     } catch(e){await conn.rollback();throw e;}
   });
