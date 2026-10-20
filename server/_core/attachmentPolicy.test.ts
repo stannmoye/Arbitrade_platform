@@ -35,6 +35,14 @@ describe("support attachment request validation", () => {
       { fileName: "report.pdf", mimeType: "application/pdf", sizeBytes: "1000" },
       policy,
     )).toBe(false);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "", mimeType: "application/pdf", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.pdf", mimeType: " ", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
   });
 
   it("rejects unsupported types and invalid sizes", () => {
