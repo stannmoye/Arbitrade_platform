@@ -525,7 +525,7 @@ export async function listNotificationEventCursor(userId:number) {
     if(categoryVisibilityCondition) conditions.push(categoryVisibilityCondition);
   }
   if(expiredIds.length)conditions.push(notInArray(customerNotifications.id,expiredIds));
-  const rows=await db.select({id:customerNotifications.id,category:customerNotifications.category,readAt:customerNotifications.readAt}).from(customerNotifications).where(and(...conditions)).orderBy(desc(customerNotifications.createdAt)).limit(500);
+  const rows=await db.select({id:customerNotifications.id,category:customerNotifications.category,readAt:customerNotifications.readAt}).from(customerNotifications).where(and(...conditions)).orderBy(desc(customerNotifications.createdAt),desc(customerNotifications.id)).limit(500);
   return filterVisibleNotificationEventCursor(rows,visibility);
 }
 export async function markCustomerNotificationsRead(userId:number, notificationId?:number) {
