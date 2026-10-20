@@ -264,7 +264,7 @@ export async function addTicketMessage(actorId:number,ticketId:number,body:strin
     const isAdmin=actor.role==="admin";
     if(!isAdmin && ticket.customerId!==actorId) throw new Error("You do not have access to this ticket");
     const normalizedBody=normalizeNotificationText(body,20000,"ticket message");
-    if(!isAdmin && ticket.status==="closed") throw new Error("Closed tickets cannot receive customer replies; open a new ticket");
+    if(!isAdmin && (ticket.status==="closed" || ticket.status==="resolved")) throw new Error("Resolved or closed tickets must be reopened before a customer reply");
     const inserted=await tx.insert(supportMessages).values({ticketId,authorId:actorId,body:normalizedBody});
     const messageId=Number(inserted[0].insertId);
     const nextStatus=isAdmin ? (status||"answered") : "open";
