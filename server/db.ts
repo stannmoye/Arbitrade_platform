@@ -256,10 +256,10 @@ export async function addTicketMessage(actorId:number,ticketId:number,body:strin
   const nextStatus=isAdmin ? (status||"answered") : "open";
   await db.update(supportTickets).set({status:nextStatus,updatedAt:new Date()}).where(eq(supportTickets.id,ticketId));
   if(isAdmin){
-    await createNotification(ticket.customerId,"Support replied to your ticket",`${ticket.ticketNumber}: ${normalizedBody.slice(0,240)}`,{eventKey:`support-ticket:${ticketId}:message:${messageId}`,category:"support",priority:"normal"});
+    try { await createNotification(ticket.customerId,"Support replied to your ticket",`${ticket.ticketNumber}: ${normalizedBody.slice(0,240)}`,{eventKey:`support-ticket:${ticketId}:message:${messageId}`,category:"support",priority:"normal"}); } catch(error) { console.error("[Notifications] Ticket reply notice failed after message commit:",error instanceof Error?error.name:"UnknownError"); }
   } else {
     const admins=await db.select({id:users.id}).from(users).where(eq(users.role,"admin"));
-    await Promise.all(admins.map(admin=>createNotification(admin.id,"Customer replied to a support ticket",`${ticket.ticketNumber}: ${normalizedBody.slice(0,240)}`,{eventKey:`support-ticket:${ticketId}:message:${messageId}`,category:"support",priority:ticket.priority==="urgent"?"urgent":ticket.priority==="high"?"high":"normal"})));
+    await Promise.allSettled(admins.map(admin=>createNotification(admin.id,"Customer replied to a support ticket",`${ticket.ticketNumber}: ${normalizedBody.slice(0,240)}`,{eventKey:`support-ticket:${ticketId}:message:${messageId}`,category:"support",priority:ticket.priority==="urgent"?"urgent":ticket.priority==="high"?"high":"normal"})));
   }
  }
 export async function reopenSupportTicket(actorId:number,ticketId:number) {
