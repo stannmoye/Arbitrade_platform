@@ -1491,7 +1491,8 @@
 /* Catch customer panels introduced by individual feature modules so they cannot
    silently fall back to the legacy navy palette when a theme changes. */
 :root[data-arb-theme] .customer-portal .portal-main :where([class*="-card"], [class*="-panel"]) {
-  background-color: var(--arb-color-surface) !important;
+  background: var(--arb-color-surface) !important;
+  background-image: none !important;
   border-color: var(--arb-color-border) !important;
   color: var(--arb-color-text) !important;
 }
