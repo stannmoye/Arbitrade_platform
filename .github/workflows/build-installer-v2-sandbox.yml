@@ -94,10 +94,10 @@ jobs:
           (
             cd "$package"
             log_file="$RUNNER_TEMP/arbitrade-installer-package-smoke.log"
-            NODE_ENV=production PORT=3188 DATABASE_URL="" \\
-              SESSION_SECRET="ci-only-session-secret-not-for-production-000000" \\
-              PASSWORD_PEPPER="ci-only-password-pepper-not-for-production-000000" \\
-              PUBLIC_APP_URL="http://127.0.0.1:3188" \\
+            NODE_ENV=production PORT=3188 DATABASE_URL="" \
+              SESSION_SECRET="ci-only-session-secret-not-for-production-000000" \
+              PASSWORD_PEPPER="ci-only-password-pepper-not-for-production-000000" \
+              PUBLIC_APP_URL="http://127.0.0.1:3188" \
               node dist/index.js >"$log_file" 2>&1 &
             server_pid=$!
             cleanup() {
