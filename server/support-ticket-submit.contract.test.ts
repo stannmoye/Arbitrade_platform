@@ -8,6 +8,9 @@ const uploadSecurity = readFileSync(new URL("./support-upload-security.ts", impo
 const supportStart = app.indexOf("function CustomerSupportCenter(");
 const supportEnd = app.indexOf("\nfunction ", supportStart + 10);
 const support = app.slice(supportStart, supportEnd);
+const advancedStart = app.indexOf("function CustomerAdvanced(");
+const advancedEnd = app.indexOf("\nfunction PaperclipIcon", advancedStart);
+const advanced = app.slice(advancedStart, advancedEnd);
 const presignStart = server.indexOf('app.post("/api/support/attachments/presign"');
 const presignEnd = server.indexOf("registerOAuthRoutes(app);", presignStart);
 const presign = server.slice(presignStart, presignEnd);
@@ -33,6 +36,12 @@ describe("Stage 4 support ticket submission security contract", () => {
     expect(support).not.toContain("try attaching the file again");
     expect(support).toContain("Refresh your inbox before retrying to avoid creating a duplicate.");
     expect(support).not.toContain("push(`Ticket could not be opened · ${e.message}`)");
+  });
+
+  it("keeps the secondary customer ticket form submission lock in component scope", () => {
+    expect(advanced).toContain("const [ticketSubmitBusy,setTicketSubmitBusy]=useState(false)");
+    expect(advanced).toContain("if(!subject.trim()||!body.trim()||ticketSubmitBusy)return; setTicketSubmitBusy(true)");
+    expect(advanced).toContain("finally { setTicketSubmitBusy(false); }");
   });
 
   it("only returns safe HTTPS presigned URLs and avoids forwarding provider errors", () => {
