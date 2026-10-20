@@ -286,7 +286,8 @@ export async function createNotification(userId:number,title:string,body:string,
   const safeTitle=normalizeNotificationText(title,200,"title");
   const safeBody=normalizeNotificationText(body,10000,"body");
   const eventKey=buildNotificationEventKey(userId,options.eventKey);
-  const href=normalizeNotificationHref(options.href);\n  const values={userId,title:safeTitle,body:safeBody,eventKey,category:options.category||"account",priority:options.priority||"normal",href};
+  const href=normalizeNotificationHref(options.href);
+  const values={userId,title:safeTitle,body:safeBody,eventKey,category:options.category||"account",priority:options.priority||"normal",href};
   let notificationId=0;
   if(eventKey){
     const inserted=await db.insert(customerNotifications).values(values).onDuplicateKeyUpdate({set:{eventKey}});
@@ -311,8 +312,7 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
   const title=normalizeNotificationText(input.title,200,"title");
   const body=normalizeNotificationText(input.body,10000,"body");
   const eventKey=normalizeNotificationText(input.eventKey,120,"event key");
-  const href=input.href?.trim()||null;
-  if(href && (!href.startsWith("/") || href.startsWith("//") || /[\\r\\n\\\\]/.test(href))) throw new Error("Notification link must be a safe internal path");
+  const href=normalizeNotificationHref(input.href);
   const recipients=input.targetUserId
     ? await db.select({id:users.id}).from(users).where(and(eq(users.id,input.targetUserId),eq(users.role,"user"))).limit(1)
     : await db.select({id:users.id}).from(users).where(eq(users.role,"user"));
