@@ -2,6 +2,7 @@ export type NotificationSoundEvent = {
   id: number;
   readAt?: unknown;
   category?: string | null;
+  priority?: string | null;
 };
 
 /**
@@ -29,6 +30,28 @@ export function findNewNotificationSoundEvents<T extends NotificationSoundEvent>
     newlyObserved.push(row);
   }
   return newlyObserved;
+}
+
+
+/** Select the most important notification in a polling batch for a single sound. */
+export function selectMostImportantNotificationSoundEvent<T extends NotificationSoundEvent>(
+  rows: readonly T[],
+): T | null {
+  const priorityRank: Record<string, number> = { low: 0, normal: 1, high: 2, urgent: 3 };
+  let selected: T | null = null;
+  for (const row of rows) {
+    if (!selected) {
+      selected = row;
+      continue;
+    }
+    const rank = (value?: string | null) => priorityRank[value || "normal"] ?? 1;
+    const currentRank = rank(row.priority);
+    const selectedRank = rank(selected.priority);
+    if (currentRank > selectedRank || (currentRank === selectedRank && row.id > selected.id)) {
+      selected = row;
+    }
+  }
+  return selected;
 }
 
 /** Keep the browser-side deduplication ledger bounded and robust to bad storage data. */
