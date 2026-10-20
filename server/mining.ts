@@ -695,15 +695,13 @@ export async function confirmCustomerMiningSwap(userId: number, input: { quoteId
   }));
   // The main-wallet conversion and mining journal have committed before notices
   // are emitted. Notification failure must not make a successful swap appear failed.
-  try {
-    await Promise.all([
-      createNotification(userId,"Balance debited",`${result.sourceAmount} CKI was used for mining conversion ${result.conversionId}.`,{eventKey:`mining-swap-debit:${result.conversionId}`,category:"ledger_debit",priority:"normal"}),
-      createNotification(userId,"Balance credited",`${result.destinationAmount} ${result.destinationAsset} was credited from mining conversion ${result.conversionId}.`,{eventKey:`mining-swap-credit:${result.conversionId}`,category:"ledger_credit",priority:"normal"})
-,
-      createNotification(userId,"Mining swap completed",`${result.sourceAmount} CKI was converted to ${result.destinationAmount} ${result.destinationAsset} and credited to the main wallet. Reference ${result.receiptReference}.`,{eventKey:`mining-swap:${result.receiptReference}`,category:"mining",priority:"normal"})
-    ]);
-  } catch(error) {
-    console.error("[Notifications] Mining swap notices failed after commit:",error instanceof Error?error.name:"UnknownError");
+  const noticeResults = await Promise.allSettled([
+    createNotification(userId,"Balance debited",`${result.sourceAmount} CKI was used for mining conversion ${result.conversionId}.`,{eventKey:`mining-swap-debit:${result.conversionId}`,category:"ledger_debit",priority:"normal"}),
+    createNotification(userId,"Balance credited",`${result.destinationAmount} ${result.destinationAsset} was credited from mining conversion ${result.conversionId}.`,{eventKey:`mining-swap-credit:${result.conversionId}`,category:"ledger_credit",priority:"normal"}),
+    createNotification(userId,"Mining swap completed",`${result.sourceAmount} CKI was converted to ${result.destinationAmount} ${result.destinationAsset} and credited to the main wallet. Reference ${result.receiptReference}.`,{eventKey:`mining-swap:${result.receiptReference}`,category:"mining",priority:"normal"})
+  ]);
+  if (noticeResults.some(outcome => outcome.status === "rejected")) {
+    console.error("[Notifications] One or more mining swap notices failed after commit.");
   }
   return result;
 }
