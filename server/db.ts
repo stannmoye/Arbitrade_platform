@@ -13,7 +13,7 @@ import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./mod
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
 import { isAllowedAttachmentRequest, isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
-import { buildNotificationEventKey, filterNotificationCategories, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, NOTIFICATION_CATEGORIES, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
+import { buildNotificationEventKey, filterNotificationCategories, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
@@ -360,9 +360,15 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
     ? await db.select({id:users.id}).from(users).where(and(eq(users.id,targetUserId),eq(users.role,"user"))).limit(1)
     : await db.select({id:users.id}).from(users).where(eq(users.role,"user"));
   if(targetUserId !== null && !recipients.length) throw new Error("Selected customer account was not found");
-  const deliveries=await Promise.allSettled(recipients.map(recipient=>createNotification(recipient.id,title,body,{eventKey:`admin-broadcast:${adminId}:${eventKey}`,category:input.category,priority:input.priority,href})));
-  const recipientCount=deliveries.filter(result=>result.status==="fulfilled").length;
-  const failedCount=deliveries.length-recipientCount;
+  let recipientCount=0;
+  let failedCount=0;
+  // Bound database writes and email-outbox enqueue attempts for large broadcasts.
+  // A failed recipient remains visible in the aggregate result; other batches continue.
+  for(const batch of partitionNotificationRecipients(recipients,50)){
+    const deliveries=await Promise.allSettled(batch.map(recipient=>createNotification(recipient.id,title,body,{eventKey:`admin-broadcast:${adminId}:${eventKey}`,category:input.category,priority:input.priority,href})));
+    recipientCount+=deliveries.filter(result=>result.status==="fulfilled").length;
+    failedCount+=deliveries.filter(result=>result.status==="rejected").length;
+  }
   if(failedCount) console.error(`[Notifications] Admin broadcast ${eventKey} failed for ${failedCount} recipient(s).`);
   return {recipientCount,totalRecipientCount:recipients.length,failedCount,eventKey,targetUserId:input.targetUserId??null};
  }
