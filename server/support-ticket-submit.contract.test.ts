@@ -85,6 +85,34 @@ describe("Stage 4 support ticket submission security contract", () => {
     expect(routers).toContain('throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" })');
   });
 
+  it("keeps ticket reopening authorized, conditional, and notification-safe", () => {
+    const start = database.indexOf("export async function reopenSupportTicket");
+    const end = database.indexOf("export async function listTicketMessages", start);
+    const reopen = database.slice(start, end);
+    expect(reopen).toContain('if(!isAdmin && ticket.customerId!==actorId) throw new Error("You do not have access to this ticket")');
+    expect(reopen).toContain('if(ticket.status!=="closed" && ticket.status!=="resolved") return {success:true,changed:false,status:ticket.status}');
+    expect(reopen).toContain('or(eq(supportTickets.status,"closed"),eq(supportTickets.status,"resolved"))');
+    expect(reopen).toContain('const eventKey=`support-ticket:${ticketId}:reopened:${previousUpdatedAt}`');
+    expect(reopen).toContain('createNotification(ticket.customerId,"Your support ticket was reopened"');
+    expect(reopen).toContain('`support-ticket:${ticketId}:reopened:${previousUpdatedAt}:admin:${admin.id}`');
+    expect(reopen).toContain('console.error("[Notifications] One or more reopen notices failed after status commit.")');
+    expect(reopen).not.toContain("await db.transaction(async tx=>");
+  });
+
+  it("checks attachment ownership before listing a customer's ticket conversation", () => {
+    const start = routers.indexOf("addAttachment: protectedProcedure");
+    const end = routers.indexOf("uploadPolicy: protectedProcedure", start);
+    const registration = routers.slice(start, end);
+    expect(registration).toContain("addTicketAttachment(ctx.user.id, input)");
+    expect(database).toContain("export async function addTicketAttachment(actorId:number,input:");
+    const attachmentStart = database.indexOf("export async function addTicketAttachment");
+    const attachmentEnd = database.indexOf("export async function getTicketUploadPolicy", attachmentStart);
+    const attachment = database.slice(attachmentStart, attachmentEnd);
+    expect(attachment).toContain("getCustomerTicket(actorId,input.ticketId)");
+    expect(attachment).toContain('throw new Error("You do not have access to this ticket")');
+    expect(attachment).toContain("isValidSupportAttachmentStorageKey(input.storageKey)");
+  });
+
   it("keeps reply persistence serialized and requires reopening resolved or closed tickets", () => {
     const start = database.indexOf("export async function addTicketMessage");
     const end = database.indexOf("export async function reopenSupportTicket", start);
