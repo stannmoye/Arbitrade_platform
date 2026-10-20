@@ -370,12 +370,20 @@ async function runAdminAppearanceInteractionCheck(browser) {
         });
         await page.setViewportSize({ width: 390, height: 844 });
       }
-      const selectorLabelColors = await page.locator(".arb-theme-selector-trigger-label").evaluate(element => ({
-        labelColor: getComputedStyle(element).color,
-        headerTextColor: getComputedStyle(document.querySelector(".portal-header .brand-lockup strong")).color,
-      }));
-      record("admin-mobile-theme-selector-label-contrast",
-        selectorLabelColors.labelColor === selectorLabelColors.headerTextColor,
+      const selectorLabelColors = await page.locator(".arb-theme-selector-trigger-label").evaluate(element => {
+        const trigger = element.closest(".arb-theme-selector-trigger");
+        const labelColor = getComputedStyle(element).color;
+        const triggerStyle = trigger ? getComputedStyle(trigger) : null;
+        return {
+          labelColor,
+          triggerColor: triggerStyle?.color ?? null,
+          triggerBackgroundColor: triggerStyle?.backgroundColor ?? null,
+        };
+      });
+      record("admin-mobile-theme-button-contrast",
+        selectorLabelColors.labelColor === selectorLabelColors.triggerColor &&
+          selectorLabelColors.triggerBackgroundColor !== "rgba(0, 0, 0, 0)" &&
+          selectorLabelColors.triggerBackgroundColor !== "transparent",
         { width: 390, theme: screenshotTheme, ...selectorLabelColors });
       // Clear hover state before taking the mobile screenshot as well.
       await page.mouse.move(1, 1);
