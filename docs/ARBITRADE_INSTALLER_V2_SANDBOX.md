@@ -1,6 +1,6 @@
 # Arbitrade Installer v2 — Sandbox Release
 
-**Installer version:** 2.0.0-sandbox.1  
+**Installer version:** 2.0.0-stage3-sandbox.2  
 **Source branch:** `release/arbitrade-installer-v2-sandbox`  
 **Purpose:** Let the owner install and inspect the existing Arbitrade application after the first three development stages, using the existing universal installer design.
 
@@ -18,9 +18,9 @@ The package is built from the Stage 3 branch and includes the existing repositor
 
 After the package workflow completes, open the workflow run and download the artifact named:
 
-`arbitrade-installer-v2.0.0-sandbox.1`
+`arbitrade-installer-v2.0.0-stage3-sandbox.2`
 
-The downloaded artifact contains `arbitrade-installer-v2.0.0-sandbox.1.zip`.
+The downloaded artifact contains `arbitrade-installer-v2.0.0-stage3-sandbox.2.zip`.
 
 ## Safe sandbox test
 
