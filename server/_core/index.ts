@@ -195,7 +195,8 @@ async function startServer() {
   const port = Number(process.env.PORT || "3000");
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
   if (process.env.DATABASE_URL) {
-    startEmailWorkers();    let notificationCampaignCycleRunning = false;
+    startEmailWorkers();
+    let notificationCampaignCycleRunning = false;
     const runNotificationCampaignCycle = async () => {
       if(notificationCampaignCycleRunning)return;
       notificationCampaignCycleRunning=true;
