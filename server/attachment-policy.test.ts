@@ -29,6 +29,25 @@ describe("support attachment policy", () => {
   });
 
   it.each([
+    { fileName: "report.pdf.", mimeType: "image/png", sizeBytes: 100 },
+    { fileName: "report.pdf ", mimeType: "image/png", sizeBytes: 100 },
+    { fileName: "report.pdf.. ", mimeType: "image/png", sizeBytes: 100 },
+  ])("rejects known-extension MIME mismatches despite trailing dot/space normalization: $fileName", request => {
+    expect(isAllowedAttachmentRequest(request, policy)).toBe(false);
+  });
+
+  it("fails closed when attachment policy configuration is invalid", () => {
+    expect(isAllowedAttachmentRequest(
+      { fileName: "evidence.png", mimeType: "image/png", sizeBytes: 10 },
+      { maxAttachmentMb: Number.NaN, allowedMimeTypes: ["image/*"] },
+    )).toBe(false);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "evidence.png", mimeType: "image/png", sizeBytes: 10 },
+      { maxAttachmentMb: 1, allowedMimeTypes: [] },
+    )).toBe(false);
+  });
+
+  it.each([
     { fileName: "", mimeType: "image/png", sizeBytes: 10 },
     { fileName: "bad\u0000name.png", mimeType: "image/png", sizeBytes: 10 },
     { fileName: "evidence.png", mimeType: "image/", sizeBytes: 10 },
