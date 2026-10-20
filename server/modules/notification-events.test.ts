@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNotificationEventKey, normalizeNotificationText } from "./notification-events";
+import { buildNotificationEventKey, filterNotificationCategories, NOTIFICATION_CATEGORIES, normalizeNotificationText } from "./notification-events";
 
 describe("notification event identity", () => {
   it("scopes event keys to the recipient", () => {
@@ -21,5 +21,29 @@ describe("notification event identity", () => {
     expect(normalizeNotificationText("  Wallet credited  ", 200, "title")).toBe("Wallet credited");
     expect(() => normalizeNotificationText("  ", 200, "title")).toThrow(TypeError);
     expect(() => normalizeNotificationText("x".repeat(201), 200, "title")).toThrow(RangeError);
+  });
+});
+
+
+describe("notification category visibility", () => {
+  it("covers the customer-facing event types independently", () => {
+    expect(NOTIFICATION_CATEGORIES).toEqual(expect.arrayContaining([
+      "announcement", "support", "platform_update", "promotion", "deposit",
+      "withdrawal", "ledger_credit", "ledger_debit", "mining", "trading",
+    ]));
+    expect(new Set(NOTIFICATION_CATEGORIES).size).toBe(NOTIFICATION_CATEGORIES.length);
+  });
+
+  it("hides only disabled categories while retaining records for later re-enabling", () => {
+    const rows = [
+      { id: 1, category: "mining" },
+      { id: 2, category: "deposit" },
+      { id: 3, category: "announcement" },
+      { id: 4, category: "future_category" },
+    ];
+    const visible = filterNotificationCategories(rows, { mining: false, deposit: false });
+    expect(visible.map(row => row.id)).toEqual([3, 4]);
+    expect(rows).toHaveLength(4);
+    expect(filterNotificationCategories(rows, {}).map(row => row.id)).toEqual([1, 2, 3, 4]);
   });
 });
