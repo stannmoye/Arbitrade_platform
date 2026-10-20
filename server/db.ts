@@ -233,7 +233,7 @@ export async function createTicket(userId:number,input:{subject:string;body:stri
   const admins=await db.select({id:users.id}).from(users).where(eq(users.role,"admin"));
   const notificationResults=await Promise.allSettled([
     ...admins.map(admin=>createNotification(admin.id,"New customer support ticket",`${ticketNumber}: ${subject}`,{eventKey:`support-ticket-created:${ticketId}`,category:"support",priority:input.priority==="urgent"?"urgent":input.priority==="high"?"high":"normal"})),
-    createNotification(userId,"Ticket created",`${ticketNumber}: ${subject}`,{eventKey:`support-ticket-created-customer:${ticketId}`,category:"support",priority:input.priority==="urgent"?"urgent":input.priority==="high"?"high":"normal"}),
+    createNotification(userId,subject,`${ticketNumber}: Your support ticket was created and is now in the support centre.`,{eventKey:`support-ticket-created-customer:${ticketId}`,category:"support",priority:input.priority==="urgent"?"urgent":input.priority==="high"?"high":"normal"}),
   ]);
   if(notificationResults.some(result=>result.status==="rejected")) console.error("[Notifications] One or more ticket-created notices failed after ticket persistence.");
   return {ticketId,ticketNumber};
