@@ -2,8 +2,13 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
+const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 
 describe("financial notification delivery observability", () => {
+  it("does not count a notification as delivered when persistence cannot be confirmed", () => {
+    expect(dbSource).toContain('if(!notificationId) throw new Error("Notification persistence could not be confirmed");');
+  });
+
   it("reports failed allocation, settlement, and trade-allocation notices after commit", () => {
     expect(source).toContain('Automatic allocation notices failed after ledger commit.');
     expect(source).toContain('Automatic settlement notices failed after ledger commit.');

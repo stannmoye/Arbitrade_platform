@@ -342,6 +342,9 @@ export async function createNotification(userId:number,title:string,body:string,
     const inserted=await db.insert(customerNotifications).values(values);
     notificationId=Number(inserted[0].insertId)||0;
   }
+  // Do not let a broadcast count an attempt as successful unless its durable
+  // notification row can be identified (including on idempotent duplicate retries).
+  if(!notificationId) throw new Error("Notification persistence could not be confirmed");
   // Email delivery is keyed by the persisted notification ID; duplicate event
   // retries therefore reuse the same outbox idempotency key.
   if(notificationId){
