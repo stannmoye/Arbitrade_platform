@@ -201,6 +201,8 @@
 .arb-appearance-admin .settings-card { padding: 22px; }
 .arb-appearance-admin .settings-card h2 { margin: 7px 0 8px; color: var(--arb-color-text); }
 .arb-appearance-admin .settings-card h3 { margin: 20px 0 10px; color: var(--arb-color-text); }
+.arb-appearance-theme-fieldset { min-width: 0; margin: 20px 0 0; padding: 0; border: 0; }
+.arb-appearance-theme-fieldset legend { margin-bottom: 10px; color: var(--arb-color-text); font-size: 1rem; font-weight: 650; }
 .arb-appearance-admin .settings-card p { color: var(--arb-color-text-muted); }
 .arb-theme-preview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 16px; }
 .arb-theme-preview-option {
