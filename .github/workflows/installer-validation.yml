@@ -7,6 +7,7 @@ on:
       - main
       - feat/complete-installation-wizard
       - integration/auth-installer-vps-safety
+      - feat/stage-4-live-notifications-support
   # Validate proposed changes before they merge.
   pull_request:
     branches:
