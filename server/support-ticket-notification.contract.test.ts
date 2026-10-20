@@ -64,7 +64,7 @@ describe("support reply notification failure visibility", () => {
     const adminDelivery = reply.slice(adminBranch);
     expect(adminDelivery).toContain('from(users).where(eq(users.role,"admin"))');
     expect(adminDelivery).toContain("Promise.allSettled(admins.map(admin=>createNotification(admin.id");
-    expect(adminDelivery).toContain("eventKey:`support-ticket:${ticketId}:message:${committed.messageId}`");
+    expect(adminDelivery).toContain("eventKey:`support-ticket:${ticketId}:message:${committed.messageId}:admin:${admin.id}`");
     expect(adminDelivery).toContain('committed.ticket.priority==="urgent"?"urgent":committed.ticket.priority==="high"?"high":"normal"');
     expect(adminDelivery).toContain('console.error("[Notifications] One or more customer-reply notices failed after message commit.")');
   });
