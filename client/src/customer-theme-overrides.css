@@ -1,0 +1,274 @@
+/* Theme-aware customer workspace refinement (Stage 3 follow-up).
+   This final layer intentionally overrides legacy hard-coded reference colors
+   so every customer surface follows the same five semantic theme tokens. */
+:root[data-arb-theme] .customer-portal {
+  background:
+    radial-gradient(ellipse at 92% 0%, color-mix(in srgb, var(--arb-color-accent) 10%, transparent), transparent 34%),
+    radial-gradient(ellipse at 8% 30%, color-mix(in srgb, var(--arb-color-info) 7%, transparent), transparent 30%),
+    var(--arb-color-canvas) !important;
+  color: var(--arb-color-text) !important;
+  --ref-bg: var(--arb-color-canvas);
+  --ref-panel: var(--arb-color-surface);
+  --ref-panel-2: var(--arb-color-surface-raised);
+  --ref-line: var(--arb-color-border);
+  --ref-mint: var(--arb-color-accent);
+  --ref-blue: var(--arb-color-info);
+}
+
+:root[data-arb-theme] .customer-portal :is(
+  .portal-header, .portal-rail, .customer-top-workspace-menu, .customer-workspace-menu,
+  .customer-balance-ribbon, .customer-market-hero, .customer-panel, .customer-workspace-card,
+  .customer-ledger-panel, .customer-resource-hero, .customer-investment-hero,
+  .customer-quick-feature, .customer-quick-tile, .customer-balance-card,
+  .customer-metric-grid > div, .customer-home-page .customer-balance-card,
+  .customer-resource-panel-grid .customer-panel, .preference-hero, .preference-card,
+  .preference-card-secondary, .customer-console-panel, .customer-security-card,
+  .customer-activity-card, .customer-wallet-card, .customer-yield-card,
+  .customer-mining-card, .customer-opportunity-card, .rich-opportunity,
+  .customer-live-banner, .test-mode-banner, .trade-progress-banner,
+  .customer-protected-note, .customer-safety, .customer-rail-brand-note,
+  .customer-primary-rail .customer-rail-group, .customer-primary-rail .customer-rail-logout,
+  .customer-slide-drawer, .customer-resource-empty, .customer-toast
+) {
+  color: var(--arb-color-text) !important;
+  border-color: var(--arb-color-border) !important;
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--arb-color-surface-raised) 86%, var(--arb-color-accent) 14%),
+    var(--arb-color-surface)) !important;
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--arb-color-canvas) 55%, transparent),
+    inset 0 1px color-mix(in srgb, var(--arb-color-text) 5%, transparent) !important;
+}
+
+:root[data-arb-theme] .customer-portal .portal-header {
+  background: color-mix(in srgb, var(--arb-color-surface) 94%, transparent) !important;
+  border-bottom-color: var(--arb-color-border) !important;
+  box-shadow: 0 8px 26px color-mix(in srgb, var(--arb-color-canvas) 35%, transparent) !important;
+  backdrop-filter: blur(18px) saturate(145%);
+}
+:root[data-arb-theme] .customer-portal .portal-rail {
+  background: color-mix(in srgb, var(--arb-color-surface) 92%, transparent) !important;
+  border-right-color: var(--arb-color-border) !important;
+}
+:root[data-arb-theme] .customer-portal :is(
+  .customer-top-wallet-band .customer-balance-ribbon,
+  .customer-top-wallet-band .customer-balance-card,
+  .customer-balance-card,
+  .customer-rail-brand-note,
+  .customer-primary-rail .customer-rail-group button,
+  .customer-primary-rail .customer-rail-logout,
+  .customer-header-avatar,
+  .customer-resource-hero-icon,
+  .customer-quick-icon,
+  .customer-balance-icon,
+  .customer-investment-icon,
+  .customer-panel-head .sound-pill,
+  .customer-market-status,
+  .customer-workspace-online
+) {
+  background: color-mix(in srgb, var(--arb-color-surface-raised) 90%, var(--arb-color-accent) 10%) !important;
+  border-color: var(--arb-color-border) !important;
+  color: var(--arb-color-accent) !important;
+}
+
+:root[data-arb-theme] .customer-portal :is(
+  h1, h2, h3, h4, .customer-header-name, .customer-ledger-heading h2,
+  .customer-resource-hero h2, .customer-investment-hero h2,
+  .customer-workspace-heading, .customer-panel h2, .customer-panel h3,
+  .customer-quick-feature strong, .customer-quick-tile strong,
+  .customer-balance-name strong, .customer-metric-grid strong,
+  .customer-metric-grid b, .customer-opportunity strong,
+  .rich-opportunity strong, .preference-card strong, .preference-hero h2,
+  .customer-rail-brand-note strong, .customer-primary-rail .customer-rail-group-heading span
+) {
+  color: var(--arb-color-text) !important;
+}
+:root[data-arb-theme] .customer-portal :is(
+  p, .customer-header-context, .customer-header-name small,
+  .customer-ledger-heading p, .customer-resource-hero p,
+  .customer-investment-hero p, .customer-balance-name small,
+  .customer-balance-note, .customer-metric-grid span,
+  .customer-opportunity span, .rich-opportunity span,
+  .preference-card p, .preference-card small, .preference-hero p,
+  .customer-rail-brand-note span, .customer-primary-rail .customer-rail-group-heading small,
+  .customer-resource-group .admin-slide-group-title small,
+  .customer-panel .description, .customer-panel .muted
+) {
+  color: var(--arb-color-text-muted) !important;
+}
+
+:root[data-arb-theme] .customer-portal :is(
+  .customer-primary-rail .customer-rail-group button,
+  .customer-rail-logout, .customer-top-workspace-menu button,
+  .customer-workspace-menu button, .customer-resource-nav .admin-slide-item,
+  .customer-slide-drawer .admin-slide-close, .customer-header-profile,
+  .customer-header-bell, .customer-console-launch, .customer-balance-trigger,
+  .customer-balance-actions button, .customer-quick-actions button,
+  .customer-workspace-categories button, .customer-activity-card button,
+  .customer-wallet-card button, .customer-preference-nav button
+) {
+  color: var(--arb-color-text-soft) !important;
+  border-color: var(--arb-color-border) !important;
+}
+:root[data-arb-theme] .customer-portal :is(
+  .customer-primary-rail .customer-rail-group button:hover,
+  .customer-primary-rail .customer-rail-group button.active,
+  .customer-rail-logout:hover, .customer-top-workspace-menu button:hover,
+  .customer-workspace-menu button:hover, .customer-resource-nav .admin-slide-item:hover,
+  .customer-header-profile:hover, .customer-header-bell:hover,
+  .customer-console-launch:hover, .customer-balance-card:hover,
+  .customer-quick-actions button:hover, .customer-workspace-categories button:hover
+) {
+  color: var(--arb-color-accent) !important;
+  border-color: color-mix(in srgb, var(--arb-color-accent) 62%, var(--arb-color-border)) !important;
+  background: color-mix(in srgb, var(--arb-color-accent) 12%, var(--arb-color-surface-raised)) !important;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--arb-color-accent) 9%, transparent) !important;
+}
+:root[data-arb-theme] .customer-portal :is(.portal-action, .customer-quick-feature.is-primary, .customer-primary-action) {
+  color: var(--arb-color-canvas) !important;
+  background: var(--arb-color-accent) !important;
+  border-color: var(--arb-color-accent) !important;
+}
+
+:root[data-arb-theme] .customer-portal :is(input, select, textarea, [role="combobox"]) {
+  color: var(--arb-color-text) !important;
+  background-color: var(--arb-color-surface-raised) !important;
+  border-color: var(--arb-color-border) !important;
+}
+:root[data-arb-theme] .customer-portal :is(input, select, textarea)::placeholder {
+  color: var(--arb-color-text-muted) !important;
+}
+:root[data-arb-theme] .customer-portal :is(.customer-resource-hero, .customer-market-hero, .customer-ledger-panel, .customer-workspace-card):before,
+:root[data-arb-theme] .customer-portal :is(.customer-resource-hero, .customer-market-hero, .customer-ledger-panel, .customer-workspace-card):after {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 25%, transparent) !important;
+}
+:root[data-arb-theme] .customer-portal :is(.customer-market-status i, .customer-header-name small i, .customer-workspace-online i) {
+  background: var(--arb-color-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--arb-color-accent) 14%, transparent) !important;
+}
+
+/* Compact, consistent theme controls in the header and customer rail. */
+.customer-portal .arb-theme-selector-header,
+.customer-portal .arb-theme-selector-sidebar {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.customer-portal .arb-theme-selector-header {
+  flex: 0 0 auto;
+  margin: 0 2px 0 0;
+}
+.customer-portal .arb-theme-selector-header .arb-theme-selector-copy { display: none !important; }
+.customer-portal .arb-theme-selector-header .arb-theme-selector-icon { flex: 0 0 auto; color: var(--arb-color-accent) !important; }
+.customer-portal .arb-theme-selector-header select {
+  box-sizing: border-box;
+  width: clamp(112px, 11vw, 158px);
+  min-width: 0 !important;
+  min-height: 36px !important;
+  padding: 6px 22px 6px 10px !important;
+  border: 1px solid var(--arb-color-border) !important;
+  border-radius: 11px !important;
+  color: var(--arb-color-text) !important;
+  background: var(--arb-color-surface-raised) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  box-shadow: inset 0 1px color-mix(in srgb, var(--arb-color-text) 5%, transparent), 0 5px 14px color-mix(in srgb, var(--arb-color-canvas) 18%, transparent) !important;
+  cursor: pointer;
+}
+.customer-portal .arb-theme-selector-sidebar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 15px;
+  padding: 12px !important;
+  border: 1px solid var(--arb-color-border) !important;
+  border-radius: 14px !important;
+  background: color-mix(in srgb, var(--arb-color-surface-raised) 74%, var(--arb-color-surface)) !important;
+}
+.customer-portal .arb-theme-selector-sidebar .arb-theme-selector-icon { color: var(--arb-color-accent) !important; flex: 0 0 auto; }
+.customer-portal .arb-theme-selector-sidebar .arb-theme-selector-copy { flex: 1 1 calc(100% - 28px); }
+.customer-portal .arb-theme-selector-sidebar .arb-theme-selector-title { color: var(--arb-color-text) !important; font-size: 11px !important; font-weight: 800 !important; }
+.customer-portal .arb-theme-selector-sidebar select,
+.customer-portal .arb-theme-selector-sidebar .arb-theme-selector-current {
+  width: 100%;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  min-height: 40px !important;
+  flex: 1 0 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--arb-color-border) !important;
+  border-radius: 10px !important;
+  padding: 8px 10px !important;
+  color: var(--arb-color-text) !important;
+  background: var(--arb-color-surface) !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
+}
+.customer-portal .arb-theme-selector-header select:focus-visible,
+.customer-portal .arb-theme-selector-sidebar select:focus-visible {
+  outline: 2px solid var(--arb-focus-ring) !important;
+  outline-offset: 3px !important;
+}
+
+/* Responsive polish: retain the theme control beside the profile on small screens. */
+@media (max-width: 760px) {
+  .customer-portal .portal-session { gap: 5px !important; }
+  .customer-portal .arb-theme-selector-header { margin-right: 1px; }
+  .customer-portal .arb-theme-selector-header .arb-theme-selector-icon { display: none; }
+  .customer-portal .arb-theme-selector-header select { width: clamp(86px, 24vw, 116px); min-height: 33px !important; padding-inline: 7px 17px !important; font-size: 9px !important; }
+  .customer-portal .customer-header-bell { margin-right: 0 !important; }
+}
+@media (max-width: 380px) {
+  .customer-portal .portal-header { padding-inline: 8px !important; }
+  .customer-portal .portal-header .brand-lockup { gap: 5px !important; }
+  .customer-portal .portal-header .brand-lockup img { width: 29px !important; height: 29px !important; }
+  .customer-portal .portal-header .brand-lockup strong { font-size: 13px !important; }
+  .customer-portal .portal-header .brand-lockup span { display: none !important; }
+  .customer-portal .arb-theme-selector-header select { width: 82px; font-size: 8px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .customer-portal :is(.customer-panel, .customer-workspace-card, .customer-ledger-panel, .customer-quick-tile, .customer-balance-card) { transition: none !important; animation: none !important; }
+}
+
+/* Catch the remaining legacy dashboard cards that predate the semantic theme
+   system; this closes gaps where only the rail or top-level panels changed. */
+:root[data-arb-theme] .customer-portal :is(
+  [class*="customer-"][class*="-card"],
+  [class*="customer-"][class*="-panel"],
+  [class*="customer-"][class*="-hero"],
+  [class*="customer-"][class*="-tile"],
+  [class*="customer-"][class*="-ribbon"],
+  [class*="customer-"][class*="-metric"],
+  [class*="customer-"][class*="-workspace"],
+  [class*="customer-"][class*="-ledger"],
+  [class*="customer-"][class*="-section-card"],
+  [class*="preference-card"], [class*="preference-hero"], [class*="trade-progress-banner"]
+) {
+  color: var(--arb-color-text) !important;
+  border-color: var(--arb-color-border) !important;
+  background: linear-gradient(145deg,
+    color-mix(in srgb, var(--arb-color-surface-raised) 88%, var(--arb-color-accent) 12%),
+    var(--arb-color-surface)) !important;
+}
+:root[data-arb-theme] .customer-portal :is(
+  [class*="customer-"][class*="-icon"], [class*="customer-"][class*="-badge"],
+  [class*="customer-"][class*="-status"], [class*="customer-"][class*="-online"]
+) {
+  color: var(--arb-color-accent) !important;
+  border-color: color-mix(in srgb, var(--arb-color-accent) 34%, var(--arb-color-border)) !important;
+  background-color: color-mix(in srgb, var(--arb-color-accent) 12%, var(--arb-color-surface-raised)) !important;
+}
+:root[data-arb-theme] .customer-portal :is(
+  [class*="customer-"][class*="-heading"], [class*="customer-"][class*="-title"],
+  [class*="customer-"][class*="-name"], [class*="customer-"][class*="-value"]
+) { color: var(--arb-color-text) !important; }
+:root[data-arb-theme] .customer-portal :is(
+  [class*="customer-"][class*="-description"], [class*="customer-"][class*="-note"],
+  [class*="customer-"][class*="-detail"], [class*="customer-"][class*="-subtitle"]
+) { color: var(--arb-color-text-muted) !important; }
