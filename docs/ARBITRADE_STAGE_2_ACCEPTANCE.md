@@ -54,7 +54,7 @@ A dedicated workflow, `.github/workflows/stage-2-design-system.yml`, runs the fu
 
 ## Closeout decision
 
-Stage 2 implementation scope is closed by user direction. Existing automated evidence remains recorded above and should not be repeated without a code change or diagnostic reason. Authenticated staging acceptance, rendered contrast inspection, and human sign-off remain deferred because no deployed staging URL is available. This is an implementation closeout, not a claim that staging or production acceptance passed. Stage 3 theme-policy acceptance is tracked separately in `docs/ARBITRADE_STAGE_3_ACCEPTANCE.md`.
+Stage 2 implementation scope is closed by user direction. Existing automated evidence remains recorded above and should not be repeated without a code change or diagnostic reason. The following acceptance gates remain explicitly deferred because no deployed staging URL is available: authenticated keyboard scrolling, form/dialog/dropdown/save-flow inspection in a real authenticated session, rendered contrast measurement, and human sign-off. This is an implementation closeout, not a claim that staging or production acceptance passed. Stage 3 theme-policy acceptance is tracked separately in `docs/ARBITRADE_STAGE_3_ACCEPTANCE.md`.
 
 ## Continuation review — 2026-10-19
 
@@ -593,71 +593,3 @@ Stage 2 is NOT yet eligible to be marked complete. The remaining items are evide
 - Exact-head workflows all passed: Stage 2 validation [#473 / 39315633428](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39315633428), installer validation [#809 / 39315633411](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39315633411), and mining regression [#214 / 39315633447](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39315633447).
 - Final browser artifact [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39315633428/artifacts/12218000697) records **1,172 checks passed, 0 failures** and 51 screenshots. All five 320px editor checks now report width=320 and pass with documentWidth=320, selectorWidth=192, no visible controls outside the viewport, and brandNameLineCount=1.
 - This documentation follow-up creates a new PR head; verify fresh exact-head CI before claiming the latest documentation commit is green. Live deployed/staging browser acceptance, broader authenticated portal review, and final Stage 2 sign-off remain open. PR #71 remains draft/open/unmerged and Stage 3 remains blocked.
-
-## Prompt 26/30 — Compact customer-navigation acceptance
-
-- Added a Chromium regression check in `scripts/stage2-browser-acceptance.cjs` that keeps the customer navigation dialog open while switching from desktop to a **320×568** viewport.
-- The new check measures the rendered drawer bounds and verifies the modal semantics, close/search control visibility, navigation-region visibility, and absence of page-level horizontal overflow. It runs within the existing mocked customer session and does not claim live deployed-session acceptance.
-- Implementation commit: `f80dd372af5393ddac041afe5982667d369af132`.
-- Fresh exact-head Stage 2, installer, and mining-regression workflows must pass before this new assertion is considered verified. No test result is claimed in this update.
-- Remaining Stage 2 gates: deployed/staging browser-session acceptance, broader authenticated portal visual/interaction review, full screenshot review, and final human sign-off. No staging URL is documented in the repository. Keep PR #71 draft/unmerged and Stage 3 blocked until the evidence is complete; no production deployment or database change is claimed.
-
-## Prompt 27/30 — Compact customer drawer scroll acceptance (2026-10-19)
-
-- Strengthened `scripts/stage2-browser-acceptance.cjs` to assert that the open customer navigation drawer at **320×568** has a genuinely scrollable navigation region (`overflow-y: auto` and scroll height greater than client height), while the modal keeps body scrolling locked. Existing checks still verify drawer bounds, close/search visibility, modal semantics, and no page-level horizontal overflow.
-- Implementation commit: `d2bfc088af88ec47cae4d08dc5b5f740d60c8f46`.
-- Exact-head validation passed on that code commit:
-  - Stage 2 workflow [#478 / 39319657714](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39319657714): all four jobs passed; Chromium report records **1,173 checks passed, 0 failures**.
-  - Browser artifact: [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39319657714/artifacts/12219487395), including 52 files.
-  - Installer validation [#814 / 39319657678](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39319657678): passed all jobs, including disposable MariaDB/MySQL 8 validation and appearance-policy persistence/authorization checks.
-  - Mining database regression [#219 / 39319657594](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39319657594): passed.
-- This is mocked authenticated browser-flow evidence, not a live deployed session. Remaining exit gates are unchanged: deployed/staging browser-session acceptance (no staging URL is documented), broader authenticated portal visual/interaction review, full screenshot review, and final human sign-off. PR #71 remains draft/open/unmerged; Stage 2 stays open and Stage 3 blocked. No production deployment or production database mutation was made.
-
-## Prompt 28/30 — Synchronize compact drawer layout measurement
-
-- Reviewing the 1,173-check report on code head `d2bfc088af88ec47cae4d08dc5b5f740d60c8f46` showed the compact drawer measurement could run before its entrance transition finished: the sampled left/right edges were approximately 12.5px/320.5px at a 320px viewport. The existing check passed, but the timing made the geometry evidence weaker than intended.
-- Tightened the Playwright wait and bounds assertion to require the drawer to settle at its intended 6px inset (top/left within 8px, right at least 4px inside the viewport, and bottom at least 4px inside the viewport). The same check continues to require modal semantics, visible close/search controls, a scrollable navigation region, body scroll lock, and no page-wide overflow.
-- This follow-up is committed together with this acceptance note to avoid an intermediate documentation-only head. Fresh exact-head Stage 2, installer, and mining-regression CI must pass before the tightened assertion is accepted.
-- The previous code head `d2bfc088af88ec47cae4d08dc5b5f740d60c8f46` had green Stage 2, installer, and mining-regression workflows; this note does not transfer those results to the new head.
-- Remaining Stage 2 exit gates: deployed/staging browser-session acceptance, broader authenticated portal review, complete screenshot review, and final human sign-off. No staging URL is documented; PR #71 remains draft/unmerged and Stage 3 remains blocked.
-
-## Prompt 29/30 — Require settled, not near-settled, drawer geometry
-
-- The exact-head CI for `f65166f4c5ed4762207737602ebb93b30b474c78` passed Stage 2, installer, and mining regression. Its browser artifact reported **1,173/1,173 checks passed, 0 failures**.
-- The tightened measurement still captured the drawer at left/right **7.99px/315.99px**. This is safely within the viewport, but shows the wait could still finish just before the transition reaches its final 6px inset.
-- Tightened the synchronization threshold to left ≤6.5px and right ≤314.5px, then applied the same thresholds to the final assertion. This makes the report capture the fully settled drawer geometry rather than a near-final animation frame.
-- This update changes only browser-acceptance synchronization and its documented evidence. Fresh exact-head Stage 2, installer, and mining workflows must pass before the adjustment is verified.
-- Stage 2 remains open pending deployed/staging browser-session acceptance, broader authenticated portal review, complete screenshot review, and human sign-off. PR #71 stays draft/unmerged; Stage 3 remains blocked.
-
-
-## Prompt 30/30 — Administrator appearance-settings retry recovery
-
-- Extended `scripts/stage2-browser-acceptance.cjs` with a one-shot mocked failure for `adminOperations.settings`. The Chromium flow now verifies that a failed settings load exposes an enabled “Retry loading settings” action, keeps the default-theme control disabled while settings are unavailable, and recovers to an enabled, hydrated appearance editor after retry without a full page reload.
-- Added a design-system contract test in `server/design-system-contract.test.ts` to guard the retry affordance, refetch wiring, and browser regression assertion.
-- Commits: browser acceptance `c5b5906dacc0e279e9b92b0de8697afdf37e1009`; contract test `799638e50cc3577838fe3a1dff21cef780596d6f`.
-- The latest previously verified head `f65166f4c5ed4762207737602ebb93b30b474c78` passed Stage 2, installer, and mining-regression workflows (1,173 Chromium checks, zero failures). That result predates this new retry scenario. Exact-head CI and browser artifact review for `799638e50cc3577838fe3a1dff21cef780596d6f` remain unconfirmed; no pass is claimed for the new test.
-- Remaining acceptance gates: verify this new scenario on exact-head CI; obtain a safe staging URL and run a deployed authenticated browser session; complete broader authenticated portal visual review and final human sign-off. The mocked browser does not prove live deployment behavior. PR #71 remains draft/open/unmerged, Stage 2 remains open, Stage 3 remains blocked, and no production deployment or production database change is claimed.
-
-
-## Prompt 31 — Deterministic settings-load failure and exact-head validation
-
-- The first run exposed a real flaw in the test setup: the administrator shell can issue `adminOperations.settings` before the Appearance tab is visible, so consuming the mock failure on the first request made the expected alert nondeterministic.
-- Updated the mock to keep returning the simulated settings error until the browser has observed the accessible alert; only then is the explicit retry allowed to succeed. This tests the intended failure/recovery path instead of depending on query timing.
-- Exact-head commit: `8f6a653cc835b6c22cdf68c59168470793ca82b9`.
-- Exact-head Stage 2 workflow passed: **1,174/1,174 Chromium checks, zero failures**. Application/Stage 2 regression tests, TypeScript validation, and production build passed.
-- Exact-head installer validation passed, including syntax, application unit tests, TypeScript, production build/server smoke, migration regression, fresh MariaDB installation, MySQL 8 recovery/compatibility, deployment packages, and the Stage 1 validation dashboard.
-- Exact-head mining database regression passed.
-- Browser evidence artifact: [stage-2-browser-acceptance](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322323895/artifacts/12219784794) (retained until 2026-11-02).
-- Remaining gates are external to this mocked CI run: no staging URL is documented for a deployed authenticated browser session, broader authenticated portal review and final human sign-off remain outstanding. PR #71 remains draft/open/unmerged; Stage 2 stays open and Stage 3 blocked. No production deployment or production database change is claimed.
-
-
-## Exact-head closure checkpoint — 2026-10-19
-
-- Exact PR head `50e7ce246cac2d545053f1a4ad709d4eafd9484a` has all three required workflows green:
-  - Stage 2 validation [#488 / 39322737636](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322737636): all four jobs passed (application/regression suite, TypeScript, production build, and Chromium).
-  - Installer validation [#824 / 39322737743](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322737743): all jobs passed, including the disposable MariaDB authorization/persistence integration, MySQL 8 compatibility/recovery, installer/migration checks, server smoke test, and package assembly.
-  - Mining database regression [#229 / 39322738394](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39322738394): passed.
-- The exact-head Chromium artifact reports **1,174 checks passed, 0 failures**. The latest retry-recovery scenario, five-theme editor sizing, compact navigation drawer behavior, keyboard-scrollable populated financial tables, theme-policy cases, and pending/error save states are included in this matrix.
-- The fresh MariaDB integration ran with `RUN_APPEARANCE_SETTINGS_DB_INTEGRATION=1`: **2 integration tests passed**. It resolved signed sessions against database roles, exercised the production tRPC router through an isolated local HTTP adapter, rejected customer/anonymous settings access, persisted the administrator policy, read it back, and verified a rejected customer write did not change the committed value. Test data was cleaned up; this was a disposable CI database, not production.
-- Automated acceptance gates are now green on the exact PR head. **Still external/open:** deployed staging browser acceptance (no staging URL is documented), complete human review of the broader authenticated portal screenshots/interactions, and final human sign-off. The static Chromium flow uses mocked API/auth data; the database integration is real but runs in an isolated CI environment.
-- PR #71 remains draft/open/unmerged. Do not claim deployed behavior or production changes. Stage 2 can be proposed for review once the external review/sign-off decision is made; Stage 3 remains blocked until formal acceptance.
