@@ -83,3 +83,9 @@ Reviewed `ThemeContext.tsx`, `theme-storage.ts`, and `theme-storage.test.ts` for
 ## External limitations
 
 The browser matrix uses a static client preview and mocked authentication/tRPC responses for some interactions. It does not prove live server authorization or database persistence. No staging URL or access has been confirmed. Human keyboard-only and screen-reader review, plus authenticated staging acceptance for authorization, persistence, and cross-account isolation, remain pending. Keep those limitations separate from source-level and CI validation; do not claim deployment or production readiness until the remaining acceptance gates are addressed.
+
+## Run #620 computed-style contrast triage
+
+A follow-up review of the [Run #620 evidence artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39350233743/artifacts/12233390937) examined the computed foreground styles and the nearest fully opaque element/ancestor background recorded for each axe-incomplete text node. Across the 15 route/theme scans, this produced 210 element/theme contrast comparisons. The review applied WCAG 2.x text contrast thresholds of 4.5:1 for normal text and 3:1 for large text (24 CSS px, or at least 18.66 CSS px at bold weight). **No comparison fell below its applicable threshold; the lowest computed ratio was 5.05:1.**
+
+This triage helps explain why axe marked the nodes incomplete: their own background is transparent and the tool reports uncertainty around pseudo-element backgrounds, while the recorded ancestors provide a usable opaque surface for these sampled elements. It is a computed-style review of the recorded candidates, not pixel-level compositing for every gradient or state, not a full WCAG audit, and not human keyboard/screen-reader acceptance. Keep the 15 axe-incomplete findings explicitly recorded as manually triaged candidates rather than changing the axe report to claim zero incomplete findings.
