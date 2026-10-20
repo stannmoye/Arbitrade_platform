@@ -14,7 +14,7 @@ describe("appearance settings normalization", () => {
     expect(normalizeAppearanceSettings(undefined)).toEqual({
       defaultTheme: "original",
       enabledThemes: [...themes],
-      customerCanSelect: false,
+      customerCanSelect: true,
     });
   });
 
@@ -50,7 +50,7 @@ describe("appearance settings normalization", () => {
     }))).toEqual({
       defaultTheme: "clean-light",
       enabledThemes: ["clean-light"],
-      customerCanSelect: false,
+      customerCanSelect: true,
     });
 
     expect(normalizeAppearanceSettings(JSON.stringify({
