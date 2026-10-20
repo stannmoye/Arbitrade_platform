@@ -295,8 +295,26 @@ export async function postMiningLedgerEntries(conn: Db, transaction: { id: numbe
   return inserted;
 }
 
-export async function createMiningNotification(conn: Db, userId: number, title: string, body: string) {
-  await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, title.slice(0, 200), body.slice(0, 4000)]);
+export async function createMiningNotification(conn: Db, userId: number, title: string, body: string, eventKey?: string) {
+  const safeTitle = title.trim().slice(0, 200);
+  const safeBody = body.trim().slice(0, 4000);
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new MiningError("Notification recipient is invalid");
+  if (!safeTitle || !safeBody) throw new MiningError("Mining notification title and body are required");
+  const scopedEventKey = eventKey?.trim() ? `u${userId}:${eventKey.trim()}` : null;
+  if (scopedEventKey && scopedEventKey.length > 180) throw new MiningError("Mining notification event key is too long");
+  if (scopedEventKey) {
+    await conn.execute(
+      `INSERT INTO customer_notifications (userId,title,body,eventKey,category,priority)
+       VALUES (?,?,?,?,?,?)
+       ON DUPLICATE KEY UPDATE eventKey=VALUES(eventKey)`,
+      [userId, safeTitle, safeBody, scopedEventKey, "mining", "normal"],
+    );
+    return;
+  }
+  await conn.execute(
+    `INSERT INTO customer_notifications (userId,title,body,category,priority) VALUES (?,?,?,?,?)`,
+    [userId, safeTitle, safeBody, "mining", "normal"],
+  );
 }
 
 export async function quoteRatesDetails(conn: Db, sourceAsset: string, targetAsset: string, config: MiningConfig, now = new Date()) {
