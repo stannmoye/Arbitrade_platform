@@ -40,15 +40,15 @@ describe("customer theme selector integration", () => {
     expect(header).toContain('<ThemeSelector compact ariaLabel="Change customer theme"/>');
     expect(header.indexOf('<ThemeSelector compact ariaLabel="Change customer theme"/>')).toBeLessThan(header.indexOf('className="customer-header-bell"'));
     expect(appSource).toContain('<div className="customer-primary-rail-theme-control"><ThemeSelector compact ariaLabel="Change customer theme"/></div>');
-    expect(customerThemeOverrides).toContain(".portal-session > .arb-theme-selector-compact");
+    expect(customerThemeOverrides).toMatch(/\.portal-session\s*>\s*\.arb-theme-selector-compact/);
     expect(customerThemeOverrides).toContain("Customer workspace experience polish");
   });
 
   it("keeps customer layout and surfaces responsive and driven by the active theme tokens", () => {
-    expect(customerThemeOverrides).toContain("max-width: 1320px");
+    expect(customerThemeOverrides).toMatch(/max-width:\s*1320px/);
     expect(customerThemeOverrides).toContain("var(--arb-color-surface-raised)");
-    expect(customerThemeOverrides).toContain("@media (max-width: 760px)");
-    expect(customerThemeOverrides).toContain("prefers-reduced-motion: reduce");
+    expect(customerThemeOverrides).toMatch(/@media\s*\(max-width:\s*760px\)/);
+    expect(customerThemeOverrides).toMatch(/prefers-reduced-motion:\s*reduce/);
   });
 
 });
