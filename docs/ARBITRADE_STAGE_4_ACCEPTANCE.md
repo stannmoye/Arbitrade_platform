@@ -7,6 +7,14 @@
 
 This file is the durable acceptance checklist for Stage 4. Add new agreed requirements here rather than relying on chat history alone. Keep checkboxes open until supported by implementation and test evidence.
 
+## Latest consolidated batch (2026-10-20)
+
+- Fixed the TypeScript failure in `listNotificationEventCursor` by guarding Drizzle's possibly-undefined `or()` result before adding it to the SQL predicate. This preserves visibility for legacy `NULL` categories while respecting disabled-category filtering.
+- Stake & Earn reward and maturity-release notifications now carry recipient-scoped stable event keys, explicit `trading_reward` / `ledger_credit` categories, and priorities; notification rows remain in the same database transaction as their ledger entries.
+- Added contract coverage for Stake & Earn notification idempotency/category metadata and transaction ordering.
+- **Verification state:** earlier build and application tests passed on the preceding head, but TypeScript failed at `server/db.ts:522`; the fix above is committed and must be revalidated on the current exact head. Do not mark the relevant release gates complete until exact-head CI passes.
+
+
 ## Product requirements
 
 ### A. Customer notification centre
