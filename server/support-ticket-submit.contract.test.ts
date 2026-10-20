@@ -56,6 +56,16 @@ describe("Stage 4 support ticket submission security contract", () => {
     expect(presign).toContain('error: "Unable to prepare managed upload. Please retry."');
     expect(presign).not.toContain("payload.error ||");
   });
+  it("rejects arbitrary attachment storage keys before registering them", () => {
+    expect(routers).toContain('import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy"');
+    const start = routers.indexOf("addAttachment: protectedProcedure");
+    const end = routers.indexOf("uploadPolicy: protectedProcedure", start);
+    const registration = routers.slice(start, end);
+    expect(registration).toContain("isValidSupportAttachmentStorageKey(input.storageKey)");
+    expect(registration).toContain('code: "BAD_REQUEST", message: "Invalid support attachment storage key"');
+    expect(registration.indexOf("isValidSupportAttachmentStorageKey")).toBeLessThan(registration.indexOf("addTicketAttachment(ctx.user.id, input)"));
+  });
+
   it("keeps ticket reply failures safe and avoids a second admin reply notification", () => {
     expect(support).toContain("Your reply could not be confirmed. Refresh this ticket before retrying to avoid sending a duplicate.");
     expect(support).toContain("This ticket could not be reopened. Refresh the inbox and try again.");
