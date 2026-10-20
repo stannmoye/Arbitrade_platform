@@ -45,6 +45,12 @@ fs.mkdirSync(OUT_DIR, { recursive: true });
             timeout: 20000,
           });
           await page.waitForTimeout(400);
+          // The application may apply its stored/default theme after init scripts;
+          // force the requested selector again so each theme gets an actual scan.
+          await page.evaluate(value => {
+            document.documentElement.dataset.arbTheme = value;
+          }, theme);
+          await page.waitForTimeout(100);
           await page.addScriptTag({ content: axe.source });
           const results = await page.evaluate(async () => {
             return await window.axe.run(document, {
