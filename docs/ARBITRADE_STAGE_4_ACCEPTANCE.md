@@ -26,7 +26,7 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - [ ] Ensure announcements submitted from the agreed support/communications workflow reach the same notification pipeline; avoid maintaining unrelated duplicate publishing implementations.
 
 ### C. Admin category visibility policy
-- [ ] Persist independent switches for account, transaction, deposit, withdrawal, ledger credit, ledger debit, trading, mining, support/ticket, announcement, promotion, platform update/upgrade and security.
+- [ ] Persist independent switches for account, transaction, deposit, withdrawal, ledger credit, ledger debit, trading activity, trading reward, mining activity, mining reward, support/ticket, announcement, promotion, platform update/upgrade and security.
 - [ ] Apply policy server-side as well as in the UI so disabled categories are consistently hidden in the customer bell, unread count and inbox.
 - [ ] Policy changes take effect promptly on connected customer sessions.
 - [ ] Visibility changes must never disable, cancel, delay or falsify the underlying transaction, reward, ticket, ledger write or security event.
@@ -98,3 +98,4 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - 2026-10-20: Added authorized ticket reopening on both portals with status-change notifications; deposit/withdrawal events remain gated on verified provider lifecycle records.
 - 2026-10-20: Added a sound-policy readiness guard so the customer bell does not play a category sound before the saved visibility policy has loaded.
 - 2026-10-20: Matched customer category-policy refresh to the five-second notification poll interval so admin visibility changes propagate promptly.
+- 2026-10-20: Split Mining activity from Mining reward and Trading activity from Trading reward so administrators can hide rewards independently and customers receive accurate badges.
