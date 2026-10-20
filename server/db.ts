@@ -524,7 +524,8 @@ export async function markCustomerNotificationsRead(userId:number, notificationI
     : and(eq(customerNotifications.userId,userId),sql`${customerNotifications.readAt} IS NULL`);
   await db.update(customerNotifications).set({readAt:new Date()}).where(condition);
   const readRows=await db.select({id:customerNotifications.id}).from(customerNotifications)
-    .where(and(eq(customerNotifications.userId,userId),sql`${customerNotifications.readAt} IS NOT NULL`));
+    .innerJoin(notificationCampaignDeliveries,eq(notificationCampaignDeliveries.notificationId,customerNotifications.id))
+    .where(and(eq(customerNotifications.userId,userId),eq(notificationCampaignDeliveries.userId,userId),eq(notificationCampaignDeliveries.status,"delivered"),sql`${customerNotifications.readAt} IS NOT NULL`));
   const ids=readRows.map(row=>row.id);
   if(ids.length) await db.update(notificationCampaignDeliveries).set({status:"read",readAt:new Date()})
     .where(and(eq(notificationCampaignDeliveries.userId,userId),inArray(notificationCampaignDeliveries.notificationId,ids),eq(notificationCampaignDeliveries.status,"delivered")));
