@@ -70,6 +70,7 @@ export function isAllowedAttachmentRequest(
   );
   if (
     knownExtension &&
+    normalizedMimeType !== "application/octet-stream" &&
     !KNOWN_EXTENSION_MIME_TYPES[knownExtension].includes(normalizedMimeType)
   ) {
     return false;
