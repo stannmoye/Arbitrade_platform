@@ -7,10 +7,11 @@ const themes = [
   "clean-light",
   "emerald-finance",
   "aurora-modern",
+  "gold-luxe",
 ] as const;
 
 describe("appearance settings normalization", () => {
-  it("returns the five-theme default policy when no saved settings exist", () => {
+  it("returns the six-theme default policy when no saved settings exist", () => {
     expect(normalizeAppearanceSettings(undefined)).toEqual({
       defaultTheme: "original",
       enabledThemes: [...themes],
@@ -105,7 +106,7 @@ describe("appearance settings normalization", () => {
   });
 
   it("preserves the enabled-default invariant for every theme subset and requested default", () => {
-    // Exhaustively cover all 32 allow-list masks against every possible default.
+    // Exhaustively cover all 64 allow-list masks against every possible default.
     for (let mask = 0; mask < (1 << themes.length); mask += 1) {
       const subset = themes.filter((_, index) => (mask & (1 << index)) !== 0);
 
