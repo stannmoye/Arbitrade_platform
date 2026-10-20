@@ -28,6 +28,8 @@ describe("notification sound reconnect deduplication", () => {
   it("merges duplicate IDs and keeps only the newest bounded tail", () => {
     expect(mergeSeenNotificationIds([1, 2, 2], [2, 3, 4], 3)).toEqual([2, 3, 4]);
     expect(mergeSeenNotificationIds([], [1, -1, 1.5, Number.NaN, 2], 10)).toEqual([1, 2]);
+    // The API cursor is newest-first; bounded storage must retain the newest IDs.
+    expect(mergeSeenNotificationIds([], [1000, 999, 998, 997, 996], 3)).toEqual([998, 999, 1000]);
   });
 
   it("rejects unsafe history bounds", () => {
