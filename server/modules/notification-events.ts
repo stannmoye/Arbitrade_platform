@@ -103,7 +103,7 @@ export function normalizeNotificationHref(value?: string | null): string | null 
   if (!href) return null;
   // Reject protocol-relative URLs, backslashes (including encoded forms), and
   // control characters so browser/proxy URL normalization cannot escape origin.
-  if (!href.startsWith("/") || /^\/(?:\/|%2f)/i.test(href) || /[\\\\\\u0000-\\u001f\\u007f]/.test(href) || /%5c|%0[ad]/i.test(href)) {
+  if (!href.startsWith("/") || /^\/(?:\/|%2f)/i.test(href) || href.includes("\\") || /[\u0000-\u001f\u007f]/.test(href) || /%5c|%0[ad]/i.test(href)) {
     throw new TypeError("Notification link must be a safe internal path");
   }
   return href;
