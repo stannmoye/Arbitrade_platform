@@ -35,6 +35,12 @@ describe("Stage 4 notification safety and delivery helpers", () => {
     value => expect(() => normalizeNotificationText(value, 100, "body")).toThrow(),
   );
 
+  it("keeps titles and event keys single-line while allowing body line breaks", () => {
+    expect(() => normalizeNotificationText("subject\\nforged", 100, "title")).toThrow(/single line/);
+    expect(() => normalizeNotificationText("event\\tkey", 100, "event key")).toThrow(/single line/);
+    expect(normalizeNotificationText("line one\\nline two", 100, "body")).toBe("line one\\nline two");
+  });
+
   it("rejects non-text runtime values and invalid length bounds", () => {
     expect(() => normalizeNotificationText(null as unknown as string, 100, "body")).toThrow(TypeError);
     expect(() => normalizeNotificationText("message", 0, "body")).toThrow(RangeError);
