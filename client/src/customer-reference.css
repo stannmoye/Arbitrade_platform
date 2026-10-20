@@ -1502,3 +1502,25 @@
   border-color: var(--arb-color-border) !important;
   color: var(--arb-color-text) !important;
 }
+
+
+/* Stage 4: accessible, theme-aware customer notification popover. */
+.customer-portal .customer-notification-menu{position:relative;display:flex;align-items:center;flex:0 0 auto}
+.customer-portal .customer-notification-menu .customer-header-bell{cursor:pointer}
+.customer-portal .customer-notification-menu .customer-header-bell:focus-visible{outline:2px solid var(--arb-color-accent,#75e6c1);outline-offset:3px;border-radius:9px}
+.customer-portal .customer-notification-popover{position:absolute;z-index:1200;top:calc(100% + 12px);right:-8px;width:min(390px,calc(100vw - 24px));max-height:min(72vh,620px);overflow:auto;border:1px solid var(--arb-color-border,#34465a);border-radius:16px;background:var(--arb-color-surface-raised,#142234);color:var(--arb-color-text,#edf5fc);box-shadow:0 22px 70px rgba(0,0,0,.32);backdrop-filter:blur(18px);animation:customer-notification-enter .16s ease-out}
+.customer-notification-popover-head{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;border-bottom:1px solid var(--arb-color-border,#34465a);background:var(--arb-color-surface-raised,#142234)}
+.customer-notification-popover-head>div{display:grid;gap:4px}.customer-notification-popover-head strong{font-size:14px;font-weight:800}.customer-notification-popover-head small,.customer-notification-preview small{color:var(--arb-color-text-muted,#9baec0);font-size:11px}
+.customer-notification-popover-head button,.customer-notification-preview>button{border:0;background:transparent;color:var(--arb-color-accent,#75e6c1);font-size:11px;font-weight:750;cursor:pointer}.customer-notification-popover-head button:disabled,.customer-notification-preview>button:disabled{opacity:.45;cursor:not-allowed}
+.customer-notification-preview{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:start;gap:10px;padding:13px 15px;border-bottom:1px solid var(--arb-color-border,#34465a)}.customer-notification-preview.unread{background:color-mix(in srgb,var(--arb-color-accent,#75e6c1) 7%,transparent)}
+.customer-notification-status{width:7px;height:7px;margin-top:6px;border-radius:50%;background:transparent}.customer-notification-preview.unread .customer-notification-status{background:var(--arb-color-accent,#75e6c1);box-shadow:0 0 0 3px color-mix(in srgb,var(--arb-color-accent,#75e6c1) 15%,transparent)}
+.customer-notification-preview-copy{min-width:0}.customer-notification-preview-copy strong{display:block;overflow-wrap:anywhere;font-size:12px;font-weight:800;line-height:1.4}.customer-notification-preview-copy p{margin:5px 0 7px;overflow-wrap:anywhere;color:var(--arb-color-text-muted,#aab9c8);font-size:11px;line-height:1.55}.customer-notification-preview-copy small{display:block;font-size:10px}
+.customer-notification-empty{margin:0;padding:24px 18px;color:var(--arb-color-text-muted,#aab9c8);font-size:12px;line-height:1.6;text-align:center}
+.customer-notification-view-all{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:14px;border:0;background:transparent;color:var(--arb-color-accent,#75e6c1);font-size:12px;font-weight:800;cursor:pointer}.customer-notification-view-all:hover{background:color-mix(in srgb,var(--arb-color-accent,#75e6c1) 8%,transparent)}
+.customer-notification-popover button:focus-visible{outline:2px solid var(--arb-color-accent,#75e6c1);outline-offset:2px;border-radius:5px}
+@keyframes customer-notification-enter{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:760px){.customer-portal .customer-notification-popover{position:fixed;top:70px;right:12px;width:min(390px,calc(100vw - 24px));max-height:calc(100dvh - 90px)}}
+@media(prefers-reduced-motion:reduce){.customer-portal .customer-notification-popover{animation:none}}
+:root[data-arb-theme] .customer-portal .customer-notification-popover,:root[data-arb-theme] .customer-portal .customer-notification-popover-head{background:var(--arb-color-surface-raised)!important;border-color:var(--arb-color-border)!important;color:var(--arb-color-text)!important}
+:root[data-arb-theme] .customer-portal .customer-notification-preview{border-color:var(--arb-color-border)!important;color:var(--arb-color-text)!important}
+:root[data-arb-theme] .customer-portal .customer-notification-preview-copy p,:root[data-arb-theme] .customer-portal .customer-notification-preview small,:root[data-arb-theme] .customer-portal .customer-notification-popover-head small,:root[data-arb-theme] .customer-portal .customer-notification-empty{color:var(--arb-color-text-muted)!important}
