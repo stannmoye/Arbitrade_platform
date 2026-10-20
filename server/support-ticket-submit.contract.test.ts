@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const server = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
+const uploadSecurity = readFileSync(new URL("./support-upload-security.ts", import.meta.url), "utf8");
 
 const supportStart = app.indexOf("function CustomerSupportCenter(");
 const supportEnd = app.indexOf("\nfunction ", supportStart + 10);
@@ -35,8 +36,9 @@ describe("Stage 4 support ticket submission security contract", () => {
   });
 
   it("only returns safe HTTPS presigned URLs and avoids forwarding provider errors", () => {
-    expect(presign).toContain('uploadUrl.protocol !== "https:"');
-    expect(presign).toContain("uploadUrl.username || uploadUrl.password");
+    expect(presign).toContain("getSafePresignedUploadUrl(payload.url)");
+    expect(uploadSecurity).toContain('url.protocol !== "https:"');
+    expect(uploadSecurity).toContain("url.username || url.password");
     expect(presign).toContain('error: "Unable to prepare managed upload. Please retry."');
     expect(presign).not.toContain("payload.error ||");
   });
