@@ -21,6 +21,8 @@ export function isAllowedAttachmentRequest(
   if (
     typeof fileName !== "string" ||
     typeof mimeType !== "string" ||
+    fileName.trim().length === 0 ||
+    mimeType.trim().length === 0 ||
     typeof sizeBytes !== "number" ||
     !Number.isSafeInteger(sizeBytes) ||
     sizeBytes < 1 ||
