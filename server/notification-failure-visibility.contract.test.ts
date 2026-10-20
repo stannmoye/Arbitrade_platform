@@ -13,6 +13,10 @@ describe("financial notification delivery observability", () => {
     expect(dbSource).toContain("or(isNull(customerNotifications.category),notInArray(customerNotifications.category,disabled))");
   });
 
+  it("orders notification cursor ties by descending ID for deterministic polling windows", () => {
+    expect(dbSource).toContain("orderBy(desc(customerNotifications.createdAt),desc(customerNotifications.id)).limit(500)");
+  });
+
   it("reports failed allocation, settlement, and trade-allocation notices after commit", () => {
     expect(source).toContain('Automatic allocation notices failed after ledger commit.');
     expect(source).toContain('Automatic settlement notices failed after ledger commit.');
