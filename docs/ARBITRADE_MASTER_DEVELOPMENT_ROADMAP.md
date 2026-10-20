@@ -1371,3 +1371,13 @@ Keep the newer Stage 2/Stage 3 source and roadmap history, retain the relevant i
 - Financial notifications must follow the durable committed event; they must not substitute for ledger evidence.
 - Keep PR #95 Draft/Open/Unmerged until exact-head CI and remaining acceptance criteria are verified.
 
+### Stage 4 follow-up — central categories and confirmed mining reward events
+
+- Expanded the central admin form from announcement-only publishing to all supported notification categories. Admins can send a categorized informational notice to one customer or all customers; the form explicitly clarifies that a notice does not perform or alter a financial operation.
+- The customer bell now reads all notification IDs for sound deduplication, then filters only its visible items and unread badge using the saved category policy. The full notification history is not hidden when a category is disabled.
+- The customer notification centre also displays category badges and safe internal links.
+- Added a post-commit mining reward notice for each verified positive immediate reward credit. Pending boost rewards do not trigger a success notification before a ledger credit is committed.
+- Removed a duplicate customer ticket-reply notification emitted by the admin route; the shared ticket-message operation is the single source for the keyed notification.
+- Sound playback uses the administrator-selected event sound mapping; customer audio remains gated by the enabled sound policy and the customer's browser preference.
+- Exact-head validation is still outstanding. The GitHub connector has not returned workflow runs for the current draft commits, and no local checkout is available in this session; do not claim type-check, tests, build, browser playback, or migration validation passed until those checks are run.
+
