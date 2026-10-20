@@ -1,0 +1,158 @@
+name: Build Arbitrade Installer v2 Sandbox
+
+on:
+  push:
+    branches:
+      - release/arbitrade-installer-v2-sandbox
+    paths:
+      - 'INSTALLER-VERSION.txt'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'installer/**'
+      - 'cpanel/**'
+      - 'server/**'
+      - 'client/**'
+      - 'src/**'
+      - 'shared/**'
+      - 'migrations/**'
+      - 'drizzle/**'
+      - 'vite.config.*'
+      - 'tsconfig.json'
+      - '.github/workflows/build-installer-v2-sandbox.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arbitrade-installer-v2-sandbox-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-package:
+    name: Build production app and versioned installer ZIP
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out exact release candidate
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pinned pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.18.0 --activate
+      - name: Install locked dependencies and build production app
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+      - name: Assemble and validate versioned sandbox installer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          version="$(tr -d '\r\n' < INSTALLER-VERSION.txt)"
+          if [[ "$version" != "2.0.0-sandbox.1" ]]; then
+            echo "Unexpected installer version: $version" >&2
+            exit 1
+          fi
+          package="$RUNNER_TEMP/arbitrade-installer-v2"
+          artifacts="$RUNNER_TEMP/arbitrade-installer-artifacts"
+          archive_name="arbitrade-installer-v${version}.zip"
+          mkdir -p "$package" "$artifacts"
+
+          # Package repository source without database snapshots, then attach the exact
+          # production bundles built above. Never package secrets or machine-local state.
+          git archive HEAD -- . ':(exclude)database.sql' ':(exclude)**/database.sql' | tar -x -C "$package"
+          cp -a dist "$package/dist"
+          printf 'Arbitrade installer version: %s\nBuild commit: %s\n' "$version" "$GITHUB_SHA" > "$package/INSTALLER-BUILD.txt"
+
+          cat > "$package/DEPLOYMENT-README.txt" <<'EOF'
+          ARBITRADE — INSTALLER V2 SANDBOX PACKAGE
+          ========================================
+
+          This package includes the production build and the existing universal
+          cPanel/VPS installer. Test it in a disposable sandbox first.
+
+          CPANEL / EXISTING DOMAIN
+          1. Keep the application root private, preferably outside public_html.
+          2. Configure a cPanel Node.js 20+ app (Node 22 recommended) with startup
+             file dist/index.js; enable pnpm 10.18.x in the private terminal.
+          3. Create a dedicated database/user. For a fresh install the database
+             MUST be empty. Never use fresh-install mode on existing data.
+          4. Open /installer/ over HTTPS and follow the browser wizard.
+          5. Run exactly one matching command in the private application root:
+             Fresh empty database:
+               node installer/run-install.mjs --fresh-install
+             Existing database already imported from a verified backup:
+               node installer/run-install.mjs --existing-database --confirm-existing-migrations
+          6. Restart the Node app, then run pnpm installer:verify and
+             pnpm installer:diagnose. Deny public access to /installer/ afterward.
+
+          FRESH VPS
+          1. Use a disposable supported Debian/Ubuntu VPS; do not run provisioning
+             on a server with existing applications unless every host change is reviewed.
+          2. Extract into a private directory. Review installer/vps-preflight.sh and
+             installer/vps-setup.sh --help before using any sudo/root provisioning.
+          3. Configure the private environment and database, then follow the wizard
+             and matching CLI install mode above. Configure HTTPS and verify /api/health.
+
+          SAFETY
+          - The ZIP contains no database snapshot, .env, private keys, credentials,
+            database dumps, or nested ZIPs.
+          - Back up any database before existing-database migrations.
+          - Never delete installer locks to force a reinstall.
+          - Real-money execution remains blocked until an approved provider and
+            independently verified settlement mechanism are configured.
+          - After setup, remove or deny public access to /installer/.
+          EOF
+
+          find "$package" -type f \( -name '*.zip' -o -name '*.sql.gz' -o -name '*.dump' -o -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \) -delete
+          find "$package" -type f \( -name '.env' -o -name '.env.local' -o -name '.env.production' -o -name '.env.development.local' \) -delete
+          rm -f "$package/database.sql"
+          (cd "$package" && zip -X -qr "$artifacts/$archive_name" .)
+          unzip -t "$artifacts/$archive_name"
+          python3 - "$artifacts/$archive_name" "$version" <<'PY'
+          import sys, zipfile
+          archive, version = sys.argv[1], sys.argv[2]
+          required = {
+              "package.json", "pnpm-lock.yaml", "dist/index.js",
+              "dist/public/index.html", "installer/index.php",
+              "installer/run-install.mjs", "installer/vps-setup.sh",
+              "installer/vps-preflight.sh", "installer/vps-rollback.sh",
+              "INSTALLER-VERSION.txt", "INSTALLER-BUILD.txt",
+              "DEPLOYMENT-README.txt",
+          }
+          with zipfile.ZipFile(archive) as z:
+              bad = z.testzip()
+              if bad:
+                  raise SystemExit(f"Corrupt ZIP entry: {bad}")
+              names = set(z.namelist())
+              missing = sorted(required - names)
+              if missing:
+                  raise SystemExit("Missing required package entries: " + ", ".join(missing))
+              version_text = z.read("INSTALLER-VERSION.txt").decode().strip()
+              if version_text != version:
+                  raise SystemExit(f"Version marker mismatch: {version_text!r}")
+              forbidden = [
+                  name for name in names
+                  if name == "database.sql"
+                  or name.endswith((".sql.gz", ".dump", ".pem", ".key", ".p12", ".pfx", ".zip"))
+                  or name in {".env", ".env.local", ".env.production", ".env.development.local"}
+                  or "/.env" in name
+              ]
+              if forbidden:
+                  raise SystemExit("Forbidden secret/database/nested archive entries: " + ", ".join(forbidden))
+              if any(name.startswith("../") or name.startswith("/") for name in names):
+                  raise SystemExit("Unsafe absolute or parent-relative ZIP path")
+          print(f"Validated {version} installer: {len(names)} entries, required files present, CRC valid, no database snapshots/secrets/nested ZIPs.")
+          PY
+      - name: Upload versioned installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: arbitrade-installer-v2.0.0-sandbox.1
+          path: ${{ runner.temp }}/arbitrade-installer-artifacts/arbitrade-installer-v2.0.0-sandbox.1.zip
+          if-no-files-found: error
+          retention-days: 30
