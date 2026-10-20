@@ -12,6 +12,10 @@ export type AttachmentPolicy = {
 // Known extensions must agree with the declared content type. Without this
 // guard, a filename such as "payload.pdf" can pass an image/* policy because
 // extension and MIME rules are currently alternatives.
+// Reject executable/script-capable suffixes even when a client lies about MIME type
+// or appends an allowed-looking extension. Support attachments are untrusted content.
+const BLOCKED_ACTIVE_CONTENT_EXTENSION = /\\.(?:exe|dll|bat|cmd|com|msi|msp|scr|ps1|psm1|sh|bash|zsh|vbs|vbe|js|mjs|cjs|jar|html?|xhtml|svg|php|phtml|asp|aspx|jsp|jspx|wsf|hta)(?:\\.|$)/i;
+
 const KNOWN_EXTENSION_MIME_TYPES: Record<string, readonly string[]> = {
   ".pdf": ["application/pdf"],
   ".png": ["image/png"],
@@ -67,6 +71,7 @@ export function isAllowedAttachmentRequest(
   // ignored by some filesystems and can otherwise disguise a known extension.
   const normalizedName = fileName.trim().toLowerCase().replace(/[. ]+$/, "");
   const normalizedMimeType = mimeType.toLowerCase();
+  if (BLOCKED_ACTIVE_CONTENT_EXTENSION.test(normalizedName)) return false;
   const knownExtension = Object.keys(KNOWN_EXTENSION_MIME_TYPES).find(extension =>
     normalizedName.endsWith(extension),
   );
