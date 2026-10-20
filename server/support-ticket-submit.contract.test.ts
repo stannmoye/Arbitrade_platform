@@ -59,6 +59,8 @@ describe("Stage 4 support ticket submission security contract", () => {
     expect(support).toContain("This ticket could not be reopened. Refresh the inbox and try again.");
     expect(support).toContain('selectedTicket.status!=="closed"&&selectedTicket.status!=="resolved"&&<div className="support-reply-box">');
     expect(support).toContain('(selectedTicket.status==="closed"||selectedTicket.status==="resolved")&&<div className="support-closed-note">');
+    expect(support).toContain("disabled={!reply.trim()||send.isPending||messages.isLoading||messages.isError}");
+    expect(support).toContain('messages.isError?"Refresh conversation to reply":"Send reply"');
     const adminStart = routers.indexOf("replyTicket: adminProcedure");
     const adminEnd = routers.indexOf("reopenTicket: adminProcedure", adminStart);
     const adminReply = routers.slice(adminStart, adminEnd);
