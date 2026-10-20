@@ -519,7 +519,11 @@ export async function listNotificationEventCursor(userId:number) {
   const conditions=[eq(customerNotifications.userId,userId)];
   // Preserve legacy/unknown-category events exactly as the shared visibility filter does.
   // SQL NOT IN evaluates to UNKNOWN for NULL, which would otherwise hide these rows.
-  if(disabled.length)conditions.push(or(isNull(customerNotifications.category),notInArray(customerNotifications.category,disabled)));
+  if(disabled.length) {
+    const categoryVisibilityCondition = or(isNull(customerNotifications.category),notInArray(customerNotifications.category,disabled));
+    // Drizzle types `or()` as possibly undefined even with two arguments; only add a real predicate.
+    if(categoryVisibilityCondition) conditions.push(categoryVisibilityCondition);
+  }
   if(expiredIds.length)conditions.push(notInArray(customerNotifications.id,expiredIds));
   const rows=await db.select({id:customerNotifications.id,category:customerNotifications.category,readAt:customerNotifications.readAt}).from(customerNotifications).where(and(...conditions)).orderBy(desc(customerNotifications.createdAt)).limit(500);
   return filterVisibleNotificationEventCursor(rows,visibility);
