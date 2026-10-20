@@ -77,28 +77,35 @@ export function ThemeProvider({
     : enabledThemes[0];
   const customerCanSelect = policy?.customerCanSelect === true;
   const currentUserId = auth.data?.id ?? null;
-  const activeStorageKey = themeStorageKeyForRole(isAdmin, currentUserId);
   // Start from the published-safe default. Customer preferences are read only after policy loads,
   // preventing a previously stored but now-disabled theme from flashing during initial render.
   const [theme, setThemeState] = useState<ArbitradeTheme>(defaultTheme);
   // Avoid writing the initial fallback over an administrator's saved preview before
   // the authenticated role has been resolved and the stored theme has been restored.
-  const [themePreferenceReadyKey, setThemePreferenceReadyKey] = useState<string | null>(null);
+  const [adminThemeReady, setAdminThemeReady] = useState(false);
+  // Do not persist the previous account's in-memory theme under a newly active account key.
+  // The restoration effect marks the active role/account key ready only after reading its preference.
+  const [loadedThemeStorageKey, setLoadedThemeStorageKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (auth.isLoading) return;
-    if (auth.isError || !isAdmin) return;
+    if (auth.isError || !isAdmin) {
+      setAdminThemeReady(true);
+      return;
+    }
     // Administrators may keep a local preview independent of the published customer policy.
-    // Mark this account's key ready only after its own value has been restored.
-    setThemeState(readStoredTheme(defaultTheme, activeStorageKey));
-    setThemePreferenceReadyKey(activeStorageKey);
-  }, [auth.isLoading, auth.isError, isAdmin, defaultTheme, currentUserId, activeStorageKey]);
+    const storageKey = themeStorageKeyForRole(true, currentUserId);
+    setThemeState(readStoredTheme(defaultTheme, storageKey));
+    setLoadedThemeStorageKey(storageKey);
+    setAdminThemeReady(true);
+  }, [auth.isLoading, auth.isError, isAdmin, defaultTheme, currentUserId]);
 
   useEffect(() => {
     if (auth.isLoading || auth.isError || appearance.isError || isAdmin || !policy) return;
+    const storageKey = themeStorageKeyForRole(false, currentUserId);
     let storedTheme: string | null = null;
     try {
-      storedTheme = window.localStorage.getItem(themeStorageKeyForRole(false, currentUserId));
+      storedTheme = window.localStorage.getItem(storageKey);
     } catch {
       // Continue with the administrator-published default when storage is unavailable.
     }
@@ -108,9 +115,7 @@ export function ThemeProvider({
       enabledThemes,
       customerCanSelect,
     }));
-    // Prevent a previous account's in-memory theme from being written into this
-    // account's key before the saved preference has been restored.
-    setThemePreferenceReadyKey(themeStorageKeyForRole(false, currentUserId));
+    setLoadedThemeStorageKey(storageKey);
   }, [auth.isLoading, auth.isError, appearance.isError, isAdmin, currentUserId, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
 
   // Keep theme previews in sync across tabs while revalidating customer choices
@@ -151,29 +156,30 @@ export function ThemeProvider({
     if (canCustomerSelectTheme(nextTheme, enabledThemes, customerCanSelect)) setThemeState(nextTheme);
   };
 
+  const activeThemeStorageKey = themeStorageKeyForRole(isAdmin, currentUserId);
+  const themeIdentityReady = loadedThemeStorageKey === activeThemeStorageKey;
+
   useEffect(() => {
     const root = document.documentElement;
     // Apply the published default as soon as policy is available, even while
     // authentication is resolving; this prevents a stale initial theme flash.
     const effectiveTheme = auth.isError || (auth.isLoading && policy) || (!isAdmin && appearance.isError)
       ? policyDefault
-      : !auth.isLoading && themePreferenceReadyKey !== activeStorageKey
-        ? (isAdmin ? defaultTheme : policyDefault)
-        : !auth.isLoading && !isAdmin && policy
-          ? (customerCanSelect && enabledThemes.includes(theme) ? theme : policyDefault)
-          : theme;
+      : !auth.isLoading && !isAdmin && policy
+        ? (themeIdentityReady && customerCanSelect && enabledThemes.includes(theme) ? theme : policyDefault)
+        : !themeIdentityReady ? defaultTheme : theme;
     root.dataset.arbTheme = effectiveTheme;
     root.classList.toggle("dark", effectiveTheme !== "clean-light");
     root.style.colorScheme = effectiveTheme === "clean-light" ? "light" : "dark";
 
-    if (!auth.isLoading && !auth.isError && themePreferenceReadyKey === activeStorageKey && switchable && (isAdmin || (policy && customerCanSelect && enabledThemes.includes(effectiveTheme)))) {
+    if (!auth.isLoading && !auth.isError && themeIdentityReady && (!isAdmin || adminThemeReady) && switchable && (isAdmin || (policy && customerCanSelect && enabledThemes.includes(effectiveTheme)))) {
       try {
-        window.localStorage.setItem(themeStorageKeyForRole(isAdmin, currentUserId), effectiveTheme);
+        window.localStorage.setItem(activeThemeStorageKey, effectiveTheme);
       } catch {
         // Keep the selected theme active for this session when storage is unavailable.
       }
     }
-  }, [theme, switchable, auth.isLoading, auth.isError, appearance.isError, isAdmin, currentUserId, activeStorageKey, themePreferenceReadyKey, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
+  }, [theme, switchable, auth.isLoading, auth.isError, appearance.isError, isAdmin, currentUserId, adminThemeReady, loadedThemeStorageKey, themeIdentityReady, activeThemeStorageKey, defaultTheme, policy, policyDefault, customerCanSelect, enabledThemes.join("|")]);
 
   const selectableThemes: ArbitradeTheme[] = isAdmin
     ? [...ARBITRADE_THEMES]
