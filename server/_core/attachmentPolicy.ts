@@ -22,7 +22,19 @@ export function isAllowedAttachmentRequest(
     typeof fileName !== "string" ||
     typeof mimeType !== "string" ||
     fileName.trim().length === 0 ||
+    /[\\u0000-\\u001f\\u007f]/.test(fileName) ||
     mimeType.trim().length === 0 ||
+    // Require a syntactically valid bare MIME type before wildcard matching;
+    // values such as "image/" must not pass an "image/*" policy.
+    !/^[a-zA-Z0-9][a-zA-Z0-9!#    typeof fileName !== "string" ||
+    typeof mimeType !== "string" ||
+    fileName.trim().length === 0 ||
+    mimeType.trim().length === 0 ||
+    typeof sizeBytes !== "number" ||^_.+-]*\\/[a-zA-Z0-9][a-zA-Z0-9!#    typeof fileName !== "string" ||
+    typeof mimeType !== "string" ||
+    fileName.trim().length === 0 ||
+    mimeType.trim().length === 0 ||
+    typeof sizeBytes !== "number" ||^_.+-]*$/.test(mimeType) ||
     typeof sizeBytes !== "number" ||
     !Number.isSafeInteger(sizeBytes) ||
     sizeBytes < 1 ||
