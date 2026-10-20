@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, NOTIFICATION_CATEGORIES, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText } from "./notification-events";
+import { buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, NOTIFICATION_CATEGORIES, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients } from "./notification-events";
 
 describe("admin broadcast recipient validation", () => {
   it("distinguishes a valid single-customer target from an explicit all-customer broadcast", () => {
