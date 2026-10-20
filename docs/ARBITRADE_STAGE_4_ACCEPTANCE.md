@@ -101,6 +101,8 @@ These are CI checks on the feature branch, not a production-host acceptance test
 
 ## Change log
 
+- 2026-10-20: Hardened the customer attachment-registration API so it rejects storage keys that do not match the support presign route's generated-key format before persisting attachment metadata. Added a source-contract regression assertion that validation precedes database registration. Exact-head CI and authenticated ticket/attachment integration checks remain pending.
+
 - 2026-10-20: Tightened notification navigation validation to reject every percent-encoded ASCII control byte (`%00`–`%1F` and `%7F`), not only CR/LF and backslash. Added regression cases for encoded NUL, tab, vertical-tab, unit-separator and DEL. This is a security-focused source/test change; exact-head CI must verify it before release acceptance.
 - 2026-10-20: Consolidated the Stage 4 product and acceptance scope in a repository document.
 - 2026-10-20: Updated the customer notification router to enforce category visibility server-side.
