@@ -109,7 +109,7 @@ describe("Stage 4 support ticket submission security contract", () => {
     const attachmentEnd = database.indexOf("// Controlled opportunity engine", attachmentStart);
     const attachment = database.slice(attachmentStart, attachmentEnd);
     expect(attachment).toContain("eq(supportTickets.customerId,userId)");
-    expect(attachment).toContain('throw new Error("You do not have access to this ticket")');
+    expect(attachment).toContain('if(!ticket) throw new Error("Ticket not found")');
     expect(attachment).toContain("isValidSupportAttachmentStorageKey(input.storageKey)");
   });
 
