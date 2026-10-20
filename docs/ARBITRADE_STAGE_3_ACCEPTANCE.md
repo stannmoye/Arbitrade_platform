@@ -31,7 +31,7 @@ Finish and verify the existing five-theme implementation without duplicating Sta
 - [x] Inspect the downloaded browser report and selected mobile screenshots for the current PR head.
 - [x] Recheck the latest Stage 3 workflow run and review the theme context/storage isolation code.
 - [x] Inspect Run #597 administrator screenshots and identify collapsed navigation label overlap in Communications and Integrations.
-- [x] Fix collapsed navigation grid structure and add a settled-layout browser regression assertion; verify in Run #598.
+- [x] Fix collapsed navigation grid structure and add a settled-layout browser regression assertion; verify in Run #598 and revalidate on current head in Run #599.
 - [ ] Complete human keyboard-only and screen-reader review.
 - [ ] Verify live server authorization, database persistence, and cross-account isolation in authenticated staging.
 - [ ] Record human/staging evidence and remaining limitations before Stage 3 closeout.
@@ -44,14 +44,14 @@ A follow-up review found that storage-key scoping and persistence gating prevent
 
 ## Current-head CI validation
 
-The current PR head is `9ddd9689bd5207ab969e0c34e84bb885ba9e5e99`. Workflow [run #598](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39346036351) completed successfully with all four jobs passing:
+The current PR head is `deea3bce93d90f53ab5d43d4dc7baba389eaaa96`. Workflow [run #599](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39346374005) completed successfully with all four jobs passing:
 
 - Application and theme-policy regression tests: **passed**.
 - TypeScript validation: **passed**.
 - Production build: **passed**.
 - Chromium viewport and five-theme smoke matrix: **passed** — **1,175 checks passed, 0 failures**, with no recorded page errors.
 
-The [Run #598 browser evidence artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39346036351/artifacts/12230589103) contains 52 files, including `report.json` and screenshots. The matrix covers the gateway (`/`), customer (`/customer`), and admin (`/ops-console-7f3a`) routes; ten viewport widths (320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px); and five themes.
+The [Run #599 browser evidence artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39346374005/artifacts/12230704533) contains 52 files, including `report.json` and screenshots. I downloaded and inspected `report.json`: it records 1,175 checks passed, 0 failures, and no page errors. The matrix covers the gateway (`/`), customer (`/customer`), and admin (`/ops-console-7f3a`) routes; ten viewport widths (320, 360, 390, 430, 480, 768, 1024, 1280, 1440, and 1920 px); and five themes.
 
 The report contains 1,800 sampled rendered-text contrast measurements; no sampled cases fell below the test threshold, and the lowest measured rendered-text ratio was **5.05:1**. The lowest sampled semantic-token contrast ratios were:
 
