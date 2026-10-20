@@ -47,10 +47,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.18.0
           run_install: false
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
@@ -114,6 +110,12 @@ jobs:
       - name: Run real-browser viewport and theme smoke matrix
         run: |
           npx --yes --package=playwright -c 'PLAYWRIGHT_MODULES="$(dirname "$(dirname "$(command -v playwright)")")"; NODE_PATH="$PLAYWRIGHT_MODULES" node scripts/stage2-browser-acceptance.cjs'
+        shell: bash
+        env:
+          STAGE2_BASE_URL: http://127.0.0.1:4173
+      - name: Run diagnostic axe accessibility scan
+        run: |
+          npx --yes --package=playwright --package=axe-core -c 'PLAYWRIGHT_MODULES="$(dirname "$(dirname "$(command -v playwright)")")"; NODE_PATH="$PLAYWRIGHT_MODULES" node scripts/stage3-axe-accessibility.cjs'
         shell: bash
         env:
           STAGE2_BASE_URL: http://127.0.0.1:4173
