@@ -126,8 +126,15 @@ async function startServer() {
     res.set("Cache-Control", "no-store").type("application/javascript").send(publicPlatformScript());
   });
   app.post("/api/support/attachments/presign", async (req, res) => {
+    // Keep authentication failures separate from storage/provider failures. A
+    // storage outage must never be reported as an invalid customer session.
     try {
       await sdk.authenticateRequest(req);
+    } catch {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
       const { fileName, mimeType, sizeBytes } = req.body ?? {};
       const policy = await getTicketUploadPolicy();
       const rejectionMessage = `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}`;
@@ -140,10 +147,21 @@ async function startServer() {
       const token = process.env.MANUS_API_KEY;
       if (!base || !token) return res.status(503).json({ error: "Managed storage is not configured" });
       const upstream = await fetch(`${base}/v1/storage/presign/put?path=${encodeURIComponent(key)}`, { headers: { Authorization: `Bearer ${token}` } });
-      const payload = await upstream.json() as { url?: string; error?: string };
-      if (!upstream.ok || !payload.url) return res.status(502).json({ error: payload.error || "Unable to prepare managed upload" });
+      let payload: { url?: string; error?: string };
+      try {
+        payload = await upstream.json() as { url?: string; error?: string };
+      } catch {
+        return res.status(502).json({ error: "Managed storage returned an invalid response" });
+      }
+      if (!upstream.ok || !payload.url) {
+        return res.status(502).json({ error: payload.error || "Unable to prepare managed upload" });
+      }
       return res.json({ uploadUrl: payload.url, storageKey: key, stableUrl: `/manus-storage/${key}` });
-    } catch (error) { return res.status(401).json({ error: error instanceof Error ? error.message : "Authentication required" }); }
+    } catch (error) {
+      // Avoid returning internal provider URLs, tokens, or exception details.
+      console.error("[SupportAttachmentPresign] Unable to prepare upload", error instanceof Error ? error.message : "unknown error");
+      return res.status(502).json({ error: "Unable to prepare managed upload. Please retry." });
+    }
   });
   registerOAuthRoutes(app);
   registerProviderOAuthRoutes(app);
