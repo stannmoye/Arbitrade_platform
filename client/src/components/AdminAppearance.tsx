@@ -12,7 +12,6 @@ export function AdminAppearance() {
   const { theme, setTheme } = useTheme();
   const [defaultTheme, setDefaultTheme] = useState<ArbitradeTheme>("original");
   const [enabledThemes, setEnabledThemes] = useState<ArbitradeTheme[]>(DEFAULT_ENABLED);
-  const [customerCanSelect, setCustomerCanSelect] = useState(false);
   const [notice, setNotice] = useState("");
   const controlsDisabled = settings.isLoading || settings.isError || save.isPending;
 
@@ -24,9 +23,6 @@ export function AdminAppearance() {
     const nextEnabled = normalizeEnabledThemes(appearance.enabledThemes, requestedDefault);
     setEnabledThemes(nextEnabled);
     setDefaultTheme(nextEnabled.includes(requestedDefault) ? requestedDefault : nextEnabled[0]);
-    // Do not treat malformed truthy values (for example, the string "false")
-    // as an explicit customer opt-in if data is ever returned outside its schema.
-    setCustomerCanSelect(appearance.customerCanSelect === true);
   }, [settings.data]);
 
   // Keep the policy transition pure and testable. The last enabled theme cannot
@@ -40,9 +36,9 @@ export function AdminAppearance() {
   const persist = async () => {
     setNotice("");
     try {
-      await save.mutateAsync({ appearance: { defaultTheme, enabledThemes, customerCanSelect } });
+      await save.mutateAsync({ appearance: { defaultTheme, enabledThemes, customerCanSelect: true } });
       await Promise.all([settings.refetch(), utils.appearanceConfig.invalidate()]);
-      setNotice("Appearance policy saved. Customer workspaces will use the published default and selection policy.");
+      setNotice("Appearance policy saved. Customers can choose any enabled theme; the published default is used for new or reset preferences.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not save appearance settings.");
     }
@@ -54,7 +50,7 @@ export function AdminAppearance() {
         <div>
           <div className="eyebrow">Platform configuration · Appearance</div>
           <h1>Theme management</h1>
-          <p>Preview themes, publish the customer default, and control which themes customers may select.</p>
+          <p>Preview themes, publish the customer default, and choose which themes are available in customer workspaces.</p>
         </div>
         <span className="admin-live-chip"><span className="pulse" /> Administrator controls</span>
       </div>
@@ -110,10 +106,10 @@ export function AdminAppearance() {
             ))}
           </div>
         </fieldset>
-        <label className="arb-appearance-policy-toggle">
-          <input type="checkbox" checked={customerCanSelect} disabled={controlsDisabled} onChange={event => setCustomerCanSelect(event.target.checked)} />
-          <span><strong>Allow customers to choose their own theme</strong><small>When disabled, customers see the published default. When enabled, they may choose from the enabled themes.</small></span>
-        </label>
+        <div className="arb-appearance-policy-toggle" role="note">
+          <span aria-hidden="true">✓</span>
+          <span><strong>Customer theme choice is enabled</strong><small>Customers can select any theme enabled above. The published default applies when no valid personal preference is saved.</small></span>
+        </div>
         <div className="arb-appearance-actions">
           <button type="button" className="primary-button" disabled={save.isPending || settings.isLoading || settings.isError || !enabledThemes.length}
             onClick={() => void persist()}>{save.isPending ? "Saving…" : "Save appearance policy"}</button>
