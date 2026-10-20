@@ -13,7 +13,7 @@ import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./mod
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
 import { isAllowedAttachmentRequest, isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
-import { buildNotificationEventKey, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
+import { assertNotificationPayloadMatches, buildNotificationEventKey, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
@@ -332,12 +332,11 @@ export async function createNotification(userId:number,title:string,body:string,
   const values={userId,title:safeTitle,body:safeBody,eventKey,category:options.category||"account",priority:options.priority||"normal",href};
   let notificationId=0;
   if(eventKey){
-    const inserted=await db.insert(customerNotifications).values(values).onDuplicateKeyUpdate({set:{eventKey}});
-    notificationId=Number(inserted[0].insertId)||0;
-    if(!notificationId){
-      const existing=(await db.select({id:customerNotifications.id}).from(customerNotifications).where(eq(customerNotifications.eventKey,eventKey)).limit(1))[0];
-      notificationId=existing?.id||0;
-    }
+    await db.insert(customerNotifications).values(values).onDuplicateKeyUpdate({set:{eventKey}});
+    const existing=(await db.select({id:customerNotifications.id,userId:customerNotifications.userId,title:customerNotifications.title,body:customerNotifications.body,category:customerNotifications.category,priority:customerNotifications.priority,href:customerNotifications.href}).from(customerNotifications).where(eq(customerNotifications.eventKey,eventKey)).limit(1))[0];
+    if(!existing) throw new Error("Notification persistence could not be confirmed");
+    assertNotificationPayloadMatches(existing,{userId,title:safeTitle,body:safeBody,category:options.category||"account",priority:options.priority||"normal",href});
+    notificationId=existing.id;
   } else {
     const inserted=await db.insert(customerNotifications).values(values);
     notificationId=Number(inserted[0].insertId)||0;
