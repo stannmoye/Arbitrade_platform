@@ -20,6 +20,7 @@ describe("mining swap notification transaction boundary", () => {
     const postCommit = swap.slice(transactionEnd);
     expect(postCommit).toContain('createNotification(userId,"Mining swap completed"');
     expect(postCommit).toContain('eventKey:`mining-swap:${result.receiptReference}`');
-    expect(postCommit).toContain('console.error("[Notifications] Mining swap notices failed after commit:"');
+    expect(postCommit).toContain('Promise.allSettled([');
+    expect(postCommit).toContain('console.error("[Notifications] One or more mining swap notices failed after commit.");');
   });
 });
