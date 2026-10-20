@@ -111,3 +111,6 @@ These are CI checks on the feature branch, not a production-host acceptance test
 - 2026-10-20: Added partial broadcast delivery counts and same-event-key retries for unchanged drafts to avoid duplicate notices when a broadcast only partly succeeds.
 - 2026-10-20: Added a separately configurable administrator sound mapping for confirmed deposit notifications instead of reusing the generic wallet-credit sound; older saved sound policies fall back to the default until saved again.
 - 2026-10-20: Recorded exact-head CI evidence for the previously completed feature head; subsequent sound-policy changes are awaiting their own checks and must not inherit that earlier pass status.
+
+- 2026-10-20: Added a regression assertion that migration recovery diagnostics include portal migration `0054_notification_event_idempotency.sql`.
+- 2026-10-20: Moved customer-only reference and theme override styles out of the initial global CSS payload; customer routes now load both stylesheets before first render to reduce the admin/landing CSS bundle without changing customer styling scope.
