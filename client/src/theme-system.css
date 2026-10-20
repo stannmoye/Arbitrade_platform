@@ -1579,3 +1579,46 @@
 
 /* Shared status badge used by administrator appearance-policy controls. */
 .arb-appearance-policy-status { display: grid !important; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; border-radius: 999px; background: color-mix(in srgb, var(--arb-color-accent) 16%, transparent); color: var(--arb-color-accent); font-size: 14px; font-weight: 800; }
+
+
+/* Customer surface background token coverage: override legacy hard-coded dark fills. */
+:root[data-arb-theme] .customer-portal .portal-main :where(
+  [class*="-card"], [class*="-panel"], [class*="-tile"], [class*="-surface"],
+  .customer-balance-ribbon, .customer-quick-actions, .customer-workspace-menu,
+  .customer-balance-actions, .customer-activity-list, .customer-transaction-list,
+  .customer-notification-list, .customer-setting-group, .customer-table-wrap,
+  .customer-ledger-table, .customer-account-summary, .customer-insight-grid,
+  .customer-opportunity-list, .customer-resource-list, .customer-support-conversation,
+  .customer-chat-composer, .customer-data-table-wrap, .customer-preference-section,
+  .customer-history-list
+) {
+  background: var(--arb-color-surface) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(
+  .customer-home-page .customer-metric-grid > div,
+  .customer-home-page .customer-panel,
+  .customer-home-page .customer-balance-card,
+  .customer-home-page .customer-workspace-card,
+  .customer-home-page .customer-ledger-panel,
+  .customer-resource-panel-grid > .customer-panel,
+  .customer-account-card .customer-setting-group,
+  .customer-preference-section .customer-setting-group
+) {
+  background: var(--arb-color-surface-raised) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(
+  .customer-market-hero, .customer-hero-panel, .customer-console-panel,
+  .customer-welcome-panel, .customer-resource-hero
+) {
+  background:
+    radial-gradient(ellipse at 88% 0%, color-mix(in srgb, var(--arb-color-accent) 18%, transparent), transparent 48%),
+    linear-gradient(135deg, var(--arb-color-surface-raised), var(--arb-color-surface)) !important;
+}
+:root[data-arb-theme] .customer-portal .portal-main :where(
+  .customer-quick-feature.trade, .customer-quick-feature.stake,
+  .customer-protected-note, .customer-market-status, .customer-hero-opportunity
+) {
+  background: color-mix(in srgb, var(--arb-color-surface-raised) 82%, var(--arb-color-accent) 18%) !important;
+  border-color: color-mix(in srgb, var(--arb-color-border) 62%, var(--arb-color-accent) 38%) !important;
+  color: var(--arb-color-text) !important;
+}
