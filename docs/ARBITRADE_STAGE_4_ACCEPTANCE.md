@@ -107,6 +107,7 @@ These are CI checks on the feature branch, not a production-host acceptance test
 - 2026-10-20: Added authorized ticket reopening on both portals with status-change notifications; deposit/withdrawal events remain gated on verified provider lifecycle records.
 - 2026-10-20: Added a sound-policy readiness guard so the customer bell does not play a category sound before the saved visibility policy has loaded.
 - 2026-10-20: Matched customer category-policy refresh to the five-second notification poll interval so admin visibility changes propagate promptly.
+- 2026-10-20: Made Stake & Earn allocation/deallocation notifications category-aware and idempotent, persisted in the same transaction as their ledger and position state so committed debits/releases cannot silently miss the inbox notice.
 - 2026-10-20: Split Mining activity from Mining reward and Trading activity from Trading reward so administrators can hide rewards independently and customers receive accurate badges.
 - 2026-10-20: Added partial broadcast delivery counts and same-event-key retries for unchanged drafts to avoid duplicate notices when a broadcast only partly succeeds.
 - 2026-10-20: Added a separately configurable administrator sound mapping for confirmed deposit notifications instead of reusing the generic wallet-credit sound; older saved sound policies fall back to the default until saved again.
