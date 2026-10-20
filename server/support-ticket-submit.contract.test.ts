@@ -46,6 +46,7 @@ describe("Stage 4 support ticket submission security contract", () => {
 
   it("only returns safe HTTPS presigned URLs and avoids forwarding provider errors", () => {
     expect(presign).toContain("getSafePresignedUploadUrl(payload.url)");
+    expect(presign).toContain("signal: AbortSignal.timeout(10_000)");
     expect(uploadSecurity).toContain('url.protocol !== "https:"');
     expect(uploadSecurity).toContain("url.username || url.password");
     expect(presign).toContain('error: "Unable to prepare managed upload. Please retry."');
