@@ -310,7 +310,7 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const title=normalizeNotificationText(input.title,200,"title");
   const body=normalizeNotificationText(input.body,10000,"body");
-  const eventKey=normalizeNotificationText(input.eventKey,150,"event key");
+  const eventKey=normalizeNotificationText(input.eventKey,120,"event key");
   const href=input.href?.trim()||null;
   if(href && (!href.startsWith("/") || href.startsWith("//") || /[\\r\\n\\\\]/.test(href))) throw new Error("Notification link must be a safe internal path");
   const recipients=input.targetUserId
