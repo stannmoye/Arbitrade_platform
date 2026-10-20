@@ -43,21 +43,21 @@ try {
   }
 
   const [columns] = await connection.execute(
-    "SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='customer_notifications'",
+    "SELECT column_name AS columnName FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='customer_notifications'",
   );
-  const columnNames = new Set(columns.map(row => String(row.column_name)));
+  const columnNames = new Set(columns.map(row => String(row.columnName)));
   for (const column of ["eventKey", "category", "priority", "href", "userId", "readAt", "createdAt"]) {
     if (!columnNames.has(column)) throw new Error("Migration 0054 column is missing: " + column);
   }
 
   const [indexes] = await connection.execute(
-    "SELECT index_name,non_unique FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='customer_notifications'",
+    "SELECT index_name AS indexName, non_unique AS nonUnique FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='customer_notifications'",
   );
-  const eventKeyIndex = indexes.filter(row => row.index_name === "customer_notifications_event_key_uq");
-  if (!eventKeyIndex.length || eventKeyIndex.some(row => Number(row.non_unique) !== 0)) {
+  const eventKeyIndex = indexes.filter(row => row.indexName === "customer_notifications_event_key_uq");
+  if (!eventKeyIndex.length || eventKeyIndex.some(row => Number(row.nonUnique) !== 0)) {
     throw new Error("Migration 0054's event-key index is missing or not unique.");
   }
-  const userReadIndex = new Set(indexes.filter(row => row.index_name === "customer_notifications_user_read_created_idx").map(row => Number(row.non_unique)));
+  const userReadIndex = new Set(indexes.filter(row => row.indexName === "customer_notifications_user_read_created_idx").map(row => Number(row.nonUnique)));
   if (!userReadIndex.has(1)) throw new Error("Migration 0054's customer/read/time lookup index is missing.");
 
   const [beforeRows] = await connection.execute("SELECT COUNT(*) AS count FROM customer_notifications");
