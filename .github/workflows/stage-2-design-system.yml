@@ -5,6 +5,7 @@ on:
     branches:
       - integration/auth-installer-vps-safety
       - feat/stage-2-design-system-foundation
+      - feat/stage-3-theme-controls
   workflow_dispatch:
 
 permissions:
