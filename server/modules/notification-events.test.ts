@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNotificationEventKey, filterNotificationCategories, NOTIFICATION_CATEGORIES, normalizeNotificationText } from "./notification-events";
+import { buildNotificationEventKey, buildTradeSettlementNotices, filterNotificationCategories, NOTIFICATION_CATEGORIES, normalizeNotificationText } from "./notification-events";
 
 describe("notification event identity", () => {
   it("scopes event keys to the recipient", () => {
@@ -45,5 +45,26 @@ describe("notification category visibility", () => {
     expect(visible.map(row => row.id)).toEqual([3, 4]);
     expect(rows).toHaveLength(4);
     expect(filterNotificationCategories(rows, {}).map(row => row.id)).toEqual([1, 2, 3, 4]);
+  });
+});
+
+
+describe("trade settlement notification categories", () => {
+  it("separates principal credits from actual trading rewards", () => {
+    const notices = buildTradeSettlementNotices({ tradeId: 41, currency: "usd", principalMinor: 10000, rewardMinor: 250 });
+    expect(notices.map(notice => notice.category)).toEqual(["ledger_credit", "trading_reward"]);
+    expect(notices.map(notice => notice.eventKey)).toEqual(["trade-settlement:41:principal", "trade-settlement:41:reward"]);
+    expect(notices[1].title).toBe("Trading reward credited");
+  });
+
+  it("does not create a reward notification for a zero-reward settlement", () => {
+    const notices = buildTradeSettlementNotices({ tradeId: 42, currency: "EUR", principalMinor: 10000, rewardMinor: 0 });
+    expect(notices).toHaveLength(1);
+    expect(notices[0].category).toBe("ledger_credit");
+  });
+
+  it("rejects invalid settlement identities or amounts", () => {
+    expect(() => buildTradeSettlementNotices({ tradeId: 0, currency: "USD", principalMinor: 1, rewardMinor: 0 })).toThrow(RangeError);
+    expect(() => buildTradeSettlementNotices({ tradeId: 1, currency: "USD", principalMinor: -1, rewardMinor: 0 })).toThrow(RangeError);
   });
 });
