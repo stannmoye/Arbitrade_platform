@@ -24,4 +24,17 @@ describe("financial notification delivery observability", () => {
     expect(source).toContain('allocationNoticeResults.some(outcome=>outcome.status==="rejected")');
     expect(source).toContain('settlementNoticeResults.some(outcome=>outcome.status==="rejected")');
   });
+
+  it("scopes idempotency to the recipient and validates duplicate payloads before acknowledging delivery", () => {
+    const start = dbSource.indexOf("export async function createNotification(");
+    const end = dbSource.indexOf("export async function broadcastCustomerNotification(", start);
+    const create = dbSource.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(create).toContain("buildNotificationEventKey(userId,options.eventKey)");
+    expect(create).toContain("assertNotificationPayloadMatches(existing,{userId,title:safeTitle,body:safeBody,category:options.category||\"account\",priority:options.priority||\"normal\",href})");
+    expect(create.indexOf("assertNotificationPayloadMatches")).toBeLessThan(create.indexOf("enqueueSystemNotificationEmail"));
+    expect(create).toContain("`notification:${notificationId}`");
+  });
+
 });
