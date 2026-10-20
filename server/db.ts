@@ -249,7 +249,32 @@ export async function createTicket(userId:number,input:{subject:string;body:stri
   return {ticketId,ticketNumber};
  }
 export async function listCustomerTickets(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(supportTickets).where(eq(supportTickets.customerId,userId)).orderBy(desc(supportTickets.updatedAt)); }
-export async function listAllTickets() { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select({id:supportTickets.id,ticketNumber:supportTickets.ticketNumber,customerId:supportTickets.customerId,subject:supportTickets.subject,category:supportTickets.category,priority:supportTickets.priority,status:supportTickets.status,createdAt:supportTickets.createdAt,updatedAt:supportTickets.updatedAt,customerName:users.name,customerEmail:users.email}).from(supportTickets).leftJoin(users,eq(users.id,supportTickets.customerId)).orderBy(desc(supportTickets.updatedAt)); }
+export async function listAllTickets() { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select({id:supportTickets.id,ticketNumber:supportTickets.ticketNumber,customerId:supportTickets.customerId,assignedAdminId:supportTickets.assignedAdminId,subject:supportTickets.subject,category:supportTickets.category,priority:supportTickets.priority,status:supportTickets.status,createdAt:supportTickets.createdAt,updatedAt:supportTickets.updatedAt,customerName:users.name,customerEmail:users.email}).from(supportTickets).leftJoin(users,eq(users.id,supportTickets.customerId)).orderBy(desc(supportTickets.updatedAt)); }
+export async function listSupportAssignees() { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select({id:users.id,name:users.name,email:users.email}).from(users).where(eq(users.role,"admin")).orderBy(users.id); }
+export async function assignSupportTicket(actorId:number,ticketId:number,assignedAdminId:number|null) {
+ const db=await getDb(); if(!db) throw new Error("Database is not available");
+ const committed=await db.transaction(async tx=>{
+  const actor=(await tx.select({id:users.id,role:users.role}).from(users).where(eq(users.id,actorId)).limit(1))[0];
+  if(!actor||actor.role!=="admin") throw new Error("Only administrators can assign support tickets");
+  const ticket=(await tx.select().from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1).for("update"))[0];
+  if(!ticket) throw new Error("Ticket not found");
+  let assignee:{id:number;name:string|null;email:string|null}|null=null;
+  if(assignedAdminId!==null) {
+   assignee=(await tx.select({id:users.id,name:users.name,email:users.email}).from(users).where(and(eq(users.id,assignedAdminId),eq(users.role,"admin"))).limit(1))[0]??null;
+   if(!assignee) throw new Error("Assignee must be an existing administrator");
+  }
+  if((ticket.assignedAdminId??null)===assignedAdminId) return {changed:false,ticket,assignee};
+  const changedAt=new Date();
+  await tx.update(supportTickets).set({assignedAdminId,updatedAt:changedAt}).where(eq(supportTickets.id,ticketId));
+  await tx.insert(v5AuditEvents).values({actorUserId:actorId,action:assignedAdminId===null?"support.ticket.unassigned":"support.ticket.assigned",entityType:"support_ticket",entityId:String(ticketId),reason:assignedAdminId===null?"Support ticket returned to the unassigned queue":"Support ticket assigned to administrator",reference:ticket.ticketNumber,metadataJson:JSON.stringify({previousAssigneeId:ticket.assignedAdminId??null,assignedAdminId})});
+  return {changed:true,ticket,assignee,changedAt};
+ });
+ if(committed.changed&&committed.assignee) {
+  try { await createNotification(committed.assignee.id,"Support ticket assigned",`${committed.ticket.ticketNumber}: ${committed.ticket.subject}`,{eventKey:`support-ticket:${ticketId}:assignment:${committed.changedAt!.getTime()}`,category:"support",priority:committed.ticket.priority==="urgent"?"urgent":committed.ticket.priority==="high"?"high":"normal",href:"/admin"}); }
+  catch(error) { console.error("[Notifications] Support assignment notice failed after assignment commit:",error instanceof Error?error.name:"UnknownError"); }
+ }
+ return {success:true,changed:committed.changed,assignedAdminId:committed.assignee?.id??null};
+}
 export async function getCustomerTicket(userId:number,ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return (await db.select().from(supportTickets).where(and(eq(supportTickets.id,ticketId),eq(supportTickets.customerId,userId))).limit(1))[0] ?? null; }
 export async function getSupportTicketById(ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return (await db.select({id:supportTickets.id}).from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1))[0] ?? null; }
 export async function addTicketMessage(actorId:number,ticketId:number,body:string,status?:"open"|"answered"|"resolved"|"closed") {
