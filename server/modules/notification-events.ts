@@ -57,8 +57,15 @@ export function partitionNotificationRecipients<T>(items: readonly T[], batchSiz
 }
 
 export function normalizeNotificationText(value: string, maxLength: number, field: string): string {
-  const normalized = value.trim();
+  if (typeof value !== "string") throw new TypeError(`Notification ${field} must be text`);
+  // Normalize platform-specific line endings, while rejecting invisible control
+  // bytes that can corrupt logs, confuse operators, or render inconsistently.
+  const normalized = value.replace(/\\r\\n?/g, "\\n").trim();
   if (!normalized) throw new TypeError(`Notification ${field} cannot be empty`);
+  if (/[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]/.test(normalized)) {
+    throw new TypeError(`Notification ${field} contains unsupported control characters`);
+  }
+  if (!Number.isSafeInteger(maxLength) || maxLength < 1) throw new RangeError("Notification text limit must be a positive safe integer");
   if (normalized.length > maxLength) throw new RangeError(`Notification ${field} exceeds ${maxLength} characters`);
   return normalized;
 }
