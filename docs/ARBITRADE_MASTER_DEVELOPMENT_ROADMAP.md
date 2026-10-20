@@ -751,3 +751,16 @@ When continuing this project:
 
 
 - **Deduplication race remediation checkpoint (2026-10-18):** Transaction-console event recording now serializes same-customer/session/transaction-code requests using a bounded MySQL advisory lock; lock acquisition failure stops insertion, and release occurs in a `finally` block. Added focused unit tests for opaque lock scoping, acquire/release ordering, timeout behavior, and error cleanup. Awaiting CI verification and isolated MySQL/MariaDB concurrency tests; this does not close the Stage 1 database-acceptance gate.
+
+
+## Latest Stage 3 continuation — expanded accessibility scan (2026-10-20)
+
+- Current Stage 3 pull request: [PR #73](https://github.com/stannmoye/Arbitrade_platform/pull/73), head `04f94f76e2f91659d2f13cf9edfaa74d1d6580bb`; still open, draft, and unmerged.
+- Latest exact-head workflow [#629](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39387937201) completed successfully: all four jobs passed (application/theme-policy tests, TypeScript, production build, and Chromium browser/accessibility matrix).
+- Chromium matrix: **1,185 checks passed, 0 failures**, with zero recorded page errors.
+- Expanded axe diagnostic: **60 scans, 0 scan errors, 0 confirmed violations, 0 page errors**. There are **60 incomplete `color-contrast` results** (one per route/theme/viewport combination); these are axe manual-review candidates, not confirmed failures. The artifact includes selectors, failure summaries, computed styles, and ancestor/pseudo-element background details.
+- Browser evidence artifact: [run #629 artifact](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39387937201/artifacts/12247719414).
+- Scope limitation remains: this is a static client preview, with mocked responses for some interactions. It does not prove live server authorization or production/database persistence.
+- **Environment constraint remains unchanged: no hosting is available.** Do not ask for a staging URL or hosted test accounts. Authenticated staging checks and deployment validation are deferred until the user explicitly says hosting is available. Human keyboard-only and screen-reader acceptance remains pending; do not represent automated axe results as a substitute.
+- Efficiency decision: reuse run #629 as the current baseline; do not rerun the full matrix unless code changes or a specific uncertainty requires it.
+- Next: review the 60 incomplete contrast candidates in the existing report/artifact, prioritizing any selectors with uncertain compositing; then make only evidence-backed fixes. Keep PR #73 draft and do not merge/deploy before remaining acceptance gates and sign-off.
