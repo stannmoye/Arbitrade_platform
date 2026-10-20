@@ -73,6 +73,8 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - Five bundled WAV files and administrator sound policy fields.
 - Follow-up fix: customer notification API now applies the server-side category visibility policy, so disabled categories are hidden consistently in customer bell/inbox results.
 - Follow-up fix: the live customer header reads persisted administrator sound settings and checks the customer's local sound opt-in before playing a newly observed notification sound.
+- Follow-up fix: the full customer notification centre now shows the same category badges as the bell, safe internal links, and loading/error/retry states; responsive inbox styling was added.
+- Follow-up fix: Mining package/boost/swap/conversion notices now use the `mining` category and stable recipient-scoped event keys; unit tests cover category metadata, idempotency SQL, and input validation.
 
 ### Remaining before Stage 4 can be called complete
 - [ ] Run exact-head checks and review CI status after the latest commits.
@@ -89,3 +91,4 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - 2026-10-20: Consolidated the Stage 4 product and acceptance scope in a repository document.
 - 2026-10-20: Updated the customer notification router to enforce category visibility server-side.
 - 2026-10-20: Updated customer header sound handling to use the persisted admin sound policy and respect local customer opt-in.
+- 2026-10-20: Added category badges and responsive states to the full customer inbox, and made Mining activity notices category-aware and idempotent with focused tests.
