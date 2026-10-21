@@ -59,6 +59,12 @@ databaseDescribe("announcement expiry lifecycle through the application service"
       );
       campaignId = Number(campaignInsert.insertId);
       fixtureCampaignIds.push(campaignId);
+      const [storedCampaignRows] = await connection.execute<mysql.RowDataPacket[]>(
+        "SELECT expiresAt FROM notification_campaigns WHERE id=?",
+        [campaignId],
+      );
+      if (!storedCampaignRows[0]?.expiresAt) throw new Error("Expiry fixture did not persist its deadline");
+      var persistedExpiresAt = new Date(storedCampaignRows[0].expiresAt).toISOString();
       for (const [index, userId] of recipientIds.entries()) {
         const status = ["pending", "failed", "delivered", "read"][index];
         await connection.execute(
@@ -76,7 +82,7 @@ databaseDescribe("announcement expiry lifecycle through the application service"
       eventKey,
       category: "account" as const,
       priority: "normal" as const,
-      expiresAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      expiresAt: persistedExpiresAt,
     };
     const first = await broadcastCustomerNotification(adminId, input);
     expect(first.status).toBe("expired");
