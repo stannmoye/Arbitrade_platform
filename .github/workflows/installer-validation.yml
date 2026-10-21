@@ -148,14 +148,6 @@ jobs:
           pnpm install --frozen-lockfile
       - name: Installer and migration safety test suite
         run: pnpm exec vitest run --config vitest.installer.config.ts
-      - name: Explicit migration preflight and recovery regression tests
-        run: >-
-          pnpm exec vitest run --config vitest.installer.config.ts
-          installer/main-migration-preflight.test.mjs
-          installer/migration-recovery-status.test.mjs
-          scripts/mysql-compatible-migration-sql.test.mjs
-          scripts/apply-portal-migrations-safety.test.mjs
-          scripts/migrate-mining-token-to-cki.test.mjs
 
 
   production-build:
@@ -271,6 +263,14 @@ jobs:
           done
           echo "Production server did not become healthy within 60 seconds." >&2
           exit 1
+
+      - name: Upload validated production build for deployment packaging
+        uses: actions/upload-artifact@v4
+        with:
+          name: validated-production-dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
 
   installer-fresh-mariadb:
     runs-on: ubuntu-latest
@@ -677,12 +677,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Enable pinned pnpm and build production application
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
-          pnpm install --frozen-lockfile
-          pnpm build
+      - name: Download validated production build
+        uses: actions/download-artifact@v4
+        with:
+          name: validated-production-dist
+          path: dist
+
       - name: Assemble and validate one universal deployment ZIP
         shell: bash
         run: |
