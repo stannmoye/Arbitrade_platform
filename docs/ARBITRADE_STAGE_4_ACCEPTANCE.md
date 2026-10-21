@@ -417,19 +417,18 @@ On code/test SHA `2e0da5f05285965ebcc462b98dc20d6f7e544a11`, all three workflows
 The evidence-matrix refresh changed documentation only; application, test, and workflow source are unchanged from the validated implementation. All three workflows also passed on documentation head `1cd3e5d146236316b899b6d505c904a5c32338b6`: [Stage 3 39559895940](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39559895940), [Installer 39559895902](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39559895902), and [Mining DB 39559895891](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39559895891). Stage 3's browser artifact `12326639360` reported the successful 848-check viewport/theme matrix. Installer artifacts `12326932861` (`validated-production-dist`) and `12326619333` (`arbitrade-universal-installer`) are tied to the workflow's exact head. Checklist tally remains **37 checked / 11 unchecked**; this CI refresh does not close the remaining product/runtime or owner-level gates.
 
 
-### Notification audio rejection handling follow-up (pending CI and browser acceptance)
+### Notification audio rejection handling follow-up (PR #98 merged; browser acceptance open)
 
-- Branch: `stage4/sound-recovery-audit`.
-- The client now reports rejected `HTMLAudioElement.play()` attempts through an internal browser event consumed by the administrator Sound settings screen. The screen presents an accessible status message instructing the operator to interact with the page and retry with Preview; it does not bypass browser autoplay restrictions or replay a stale notification automatically.
-- A rejected playback attempt stops the repeating opportunity-sound timer so a blocked browser does not produce repeated errors every 1.5 seconds. The customer/admin sound preferences and selected sound policy remain the gates for normal event playback.
-- This is a source-level hardening change only. It has **not** yet passed TypeScript/build/CI or real-browser autoplay/reconnect acceptance; do not mark the corresponding acceptance checklist items complete until those results are available. Test disabled preferences, explicit Preview after user interaction, playback rejection, loop stop, reconnect deduplication and post-commit event timing.
-- No production deployment, production migration, or release ZIP rebuild was performed.
+- PR #98 is merged. The client reports rejected `HTMLAudioElement.play()` attempts through an internal browser event consumed by the administrator Sound settings screen. The screen presents an accessible status message instructing the operator to interact with the page and retry with Preview; it does not bypass browser autoplay restrictions or replay a stale notification automatically.
+- A rejected playback attempt stops the repeating opportunity-sound timer so a blocked browser does not produce repeated errors every 1.5 seconds. Customer/admin sound preferences and selected sound policy remain the gates for normal event playback.
+- PR #99 adds the corresponding customer-facing recovery status near the sound preference control. It explains how to allow future playback and states that blocked historical sounds are not replayed automatically.
+- Automated exact-head CI for PR #100 passed: Stage 3 validation (TypeScript, production build, app/theme regression and Chromium viewport/theme matrix), installer validation, and mining database regression. See [Stage 3 run 39643751539](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39643751539), [Installer run 39643751573](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39643751573), and [Mining DB run 39643751513](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39643751513). PR #100 was merged as `313ba1272235712056efda4243f5cd29c5beb0be`.
+- These CI results do **not** constitute real-browser acceptance of autoplay denial/retry, preference behavior, reconnect deduplication, or post-commit event timing. Keep the sound acceptance checklist open until those behaviors are exercised in a real browser.
 
 
-### Customer-facing blocked-audio recovery follow-up (pending CI and browser acceptance)
+### Customer-facing blocked-audio recovery and mobile dismissal
 
-- Branch: `stage4/customer-audio-recovery`.
-- Follow-up to merged PR #98: the customer portal now listens for rejected notification playback and displays an accessible status message near the sound preference control. This fixes the audience gap where administrator Sound settings could show the warning but an ordinary customer session could not.
-- The message explains how to interact with the page and toggle sound preference to permit future playback. It explicitly states that the blocked historical sound is not replayed automatically, avoiding stale/reconnected notifications and preference bypass.
-- This change is not accepted until exact-head CI passes and a browser run verifies both customer/admin surfaces, muted preference behavior, autoplay rejection, dismissal, and no replay on reconnect. The sound acceptance checklist remains open.
-- No production deployment, production migration, or full release ZIP rebuild was performed.
+- PR #99 is merged. The customer portal listens for rejected notification playback and displays an accessible status message near the sound preference control.
+- PR #100 is merged. It adds regression contracts for the rejection event, loop cleanup limited to failed opportunity sounds, accessible customer/admin recovery statuses, and no automatic replay of blocked historical sounds. It also constrains the customer warning to the viewport and overrides mobile header CSS that had hidden the Dismiss button.
+- Exact-head CI passed for PR #100; see the validation runs listed above. Automated contract checks do not replace manual browser verification of audio policy and reconnect timing.
+- Manual acceptance remains open for muted preferences, autoplay rejection and user-initiated retry, dismissal on mobile, reconnect deduplication, and post-commit timing. No production deployment, production migration, or full release ZIP rebuild was performed.
