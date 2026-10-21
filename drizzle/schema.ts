@@ -107,7 +107,9 @@ export const supportAttachments = mysqlTable("support_attachments", {
   sizeBytes: int("sizeBytes").notNull(),
   storageKey: varchar("storageKey", { length: 512 }).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, table => ({
+  storageKeyUnique: uniqueIndex("uq_support_attachment_storage_key").on(table.storageKey),
+}));
 
 export const customerNotifications = mysqlTable("customer_notifications", {
   id: int("id").autoincrement().primaryKey(),
