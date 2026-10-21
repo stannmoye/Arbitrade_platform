@@ -77,10 +77,15 @@ describe("manual payout request lifecycle contract", () => {
   });
 
   it("exposes only customer-owned requests and admin-only resolution in the router", () => {
+    expect(router).toContain("payoutEligibility: protectedProcedure.query(({ ctx }) => getCustomerPayoutEligibility(ctx.user.id))");
     expect(router).toContain("payoutRequests: protectedProcedure.query(({ ctx }) => listCustomerPayoutRequests(ctx.user.id))");
     expect(router).toContain("cancelCustomerPayoutRequest(ctx.user.id, input.requestId)");
     expect(router).toContain("payoutRequests: adminProcedure.query(() => listAdminPayoutRequests())");
     expect(router).toContain("resolveCustomerPayoutRequest(ctx.user.id, input)");
+    expect(customerUi).toContain("trpc.customer.payoutEligibility.useQuery");
+    expect(customerUi).toContain("eligibility.data?.allowed === true && !eligibility.isError");
+    expect(customerUi).toContain('className="payout-eligibility-alert" role="alert"');
+    expect(customerUi).toContain("!payoutAllowed || !amountValid");
     expect(customerUi).toContain("Never enter passwords, PINs, private keys, or seed phrases.");
     expect(adminUi).toContain("Reject and release");
     expect(adminUi).toContain("Mark paid");
