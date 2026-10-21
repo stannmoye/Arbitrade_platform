@@ -102,14 +102,18 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
-          pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: TypeScript validation
         run: pnpm check
 
@@ -121,14 +125,18 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
-          pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Application test suite
         run: pnpm test
 
@@ -139,14 +147,18 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
-          pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Installer and migration safety test suite
         run: pnpm exec vitest run --config vitest.installer.config.ts
 
@@ -157,14 +169,18 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
-          pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Build production application
         run: pnpm build
       - name: Enforce frontend bundle and runtime-config budgets
@@ -291,13 +307,16 @@ jobs:
           --health-retries=12
     steps:
       - uses: actions/checkout@v7
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Enable the pinned pnpm version
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies for installer preflight
         run: pnpm install --frozen-lockfile
       - name: Create isolated fresh-install bootstrap fixture
@@ -420,13 +439,16 @@ jobs:
           --health-retries=12
     steps:
       - uses: actions/checkout@v7
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Enable the pinned pnpm version
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies for installer preflight
         run: pnpm install --frozen-lockfile
       - name: Create isolated fresh-install bootstrap fixture
