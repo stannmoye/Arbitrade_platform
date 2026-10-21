@@ -475,7 +475,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       appearanceScreenshotPaths.length === THEMES.length * 3,
       { screenshotCount: appearanceScreenshotPaths.length, screenshots: appearanceScreenshotPaths.map(file => path.basename(file)) });
 
-    const previewButton = page.getByRole("button", { name: /Aurora Modern/ });
+    const previewButton = page.getByRole("button", { name: /Gold Luxe/ });
     await previewButton.click();
     await page.waitForTimeout(30);
     const previewTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || "");
