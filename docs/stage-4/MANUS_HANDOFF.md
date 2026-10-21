@@ -104,10 +104,10 @@ These are final integration/verification tasks, not permission to merge, deploy,
 
 The first ChatGPT integration batch was added after the Manus handoff. **This checkpoint records implementation only; its new code has not yet been validated by exact-head CI.**
 
-- Final code commit before this documentation refresh: `8745840c79527ec76d73dce80ca7b439045c0db3`.
+- Final code commit before this documentation refresh: `906ed377e78e8e8b791d9718c447a120c2479d56`.
 - Added authenticated customer notification history pagination with an opaque validated cursor, strict server page-size cap (default 50, maximum 100), stable descending `(createdAt,id)` ordering, and user-scoped SQL predicates on every page.
 - Added a separate database-backed unread-count endpoint that counts all eligible unread notifications independently of the current page, applying category visibility and expired-campaign suppression.
-- Bounded the existing customer notification list to 50 rows and the admin's legacy activity list to 100 rows.
+- Bounded the existing customer notification list to 50 rows; the separate admin operational activity list retains its prior full-list behavior and is not covered by this customer-history pagination batch.
 - Updated the customer inbox to load older pages and merge refreshed recent rows without duplicate IDs; the header unread badge now uses the global unread-count endpoint. Sound continues to use the separate bounded event cursor.
 - Added focused cursor/page-size tests in `server/modules/notification-pagination.test.ts`.
 - Added composite index `(userId, createdAt, id)` via `drizzle/0057_notification_history_pagination.sql`, declared it in `drizzle/schema.ts`, registered it in `scripts/apply-portal-migrations.mjs`, extended the migration-runner safety assertion, and updated `scripts/notification-migration-db-assertions.mjs` to verify the tracked 0057 checksum and exact index column order on disposable MySQL/MariaDB.
