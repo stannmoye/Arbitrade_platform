@@ -136,5 +136,7 @@ describe("notification sound header integration contract", () => {
     expect(app).toContain("className=\"test-notice customer-audio-warning\" role=\"status\" aria-live=\"polite\"");
     expect(app).toContain("className=\"test-notice\" role=\"status\" aria-live=\"polite\"");
     expect(app).toContain("this blocked sound will not be replayed automatically");
+    expect(css).toContain(".portal-session .customer-audio-warning{position:fixed");
+    expect(css).toContain("max-width:min(420px,calc(100vw - 32px))");
   });
 });
