@@ -448,8 +448,13 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
       try {
         const notificationId=await createNotification(delivery.userId,title,body,{eventKey:"admin-broadcast:"+adminId+":"+eventKey,category:input.category,priority:input.priority,href});
         // A campaign may be withdrawn or expired while this delivery is in flight.
-        // Update only a still-retryable row; never resurrect its terminal state.
-        await db.update(notificationCampaignDeliveries).set({notificationId,status:"delivered",attemptedAt,deliveredAt:new Date(),errorCode:null}).where(and(eq(notificationCampaignDeliveries.id,delivery.id),inArray(notificationCampaignDeliveries.status,["pending","failed"])));
+        // Transition only a still-retryable row; never resurrect a terminal state.
+        const deliveryUpdate=await db.update(notificationCampaignDeliveries).set({notificationId,status:"delivered",attemptedAt,deliveredAt:new Date(),errorCode:null}).where(and(eq(notificationCampaignDeliveries.id,delivery.id),inArray(notificationCampaignDeliveries.status,["pending","failed"])));
+        if(Number(deliveryUpdate[0]?.affectedRows||0)===0) {
+          // Link the created row for suppression/audit, but preserve withdrawn,
+          // expired, read, or already-delivered status and its error code.
+          await db.update(notificationCampaignDeliveries).set({notificationId,attemptedAt,deliveredAt:new Date()}).where(eq(notificationCampaignDeliveries.id,delivery.id));
+        }
       } catch(error) {
         try { await db.update(notificationCampaignDeliveries).set({status:"failed",attemptedAt,errorCode:"DELIVERY_FAILED"}).where(and(eq(notificationCampaignDeliveries.id,delivery.id),inArray(notificationCampaignDeliveries.status,["pending","failed"]))); } catch {}
         console.error("[Notifications] Announcement recipient delivery failed:",error instanceof Error?error.name:"UnknownError");
