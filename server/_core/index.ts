@@ -188,6 +188,7 @@ async function startServer() {
         console.error("[SupportAttachmentPresign] Storage provider returned an invalid or unsafe upload URL");
         return res.status(502).json({ error: "Managed storage returned an invalid or unsafe upload URL" });
       }
+      res.set("Cache-Control", "no-store, private");
       return res.json({ uploadUrl: safeUploadUrl, storageKey: key, stableUrl: `/manus-storage/${key}` });
     } catch (error) {
       // Avoid returning internal provider URLs, tokens, or exception details.
