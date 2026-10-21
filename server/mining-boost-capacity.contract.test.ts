@@ -10,35 +10,24 @@ const status = serviceSource.slice(statusStart, statusEnd);
 const activation = serviceSource.slice(statusEnd, activationEnd);
 
 describe("Mining boost capacity contract", () => {
-  it("does not advertise the boost as ready unless configured hash-power capacity is positive", () => {
+  it("allows configured boost cycles even when a package has zero extra TH/s", () => {
     expect(statusStart).toBeGreaterThanOrEqual(0);
     expect(statusEnd).toBeGreaterThan(statusStart);
+    expect(status).toContain("A package can intentionally provide a CKI reward boost without extra");
     expect(status).toContain(
-      "const boostCapacityConfigured = Boolean(eligiblePackage) && decimal(eligiblePackage.boostBonusThsSnapshot).gt(0)",
+      'const ready = config.boostsEnabled && accountStatus === "active" && Boolean(eligiblePackage) && !active && !coolingDown',
     );
-    expect(status).toContain(
-      "Boolean(eligiblePackage) && boostCapacityConfigured && !active && !coolingDown",
-    );
-    expect(status).toContain("Boost hash-power capacity is not configured for this package");
+    expect(status).not.toContain("boostCapacityConfigured");
+    expect(activation).not.toContain("Boost hash-power capacity is not configured for this package");
   });
 
-  it("rejects direct activation before creating a boost row when capacity is zero", () => {
-    expect(activationEnd).toBeGreaterThan(statusEnd);
-    const guardIndex = activation.indexOf("if (!decimal(candidate.boostBonusThsSnapshot).gt(0))");
-    const insertIndex = activation.indexOf("INSERT INTO mining_boost_activations");
-    expect(guardIndex).toBeGreaterThanOrEqual(0);
-    expect(insertIndex).toBeGreaterThan(guardIndex);
-    expect(activation).toContain(
-      'throw new MiningError("Boost hash-power capacity is not configured for this package")',
-    );
-  });
-
-  it("disables the customer action and explains why zero-capacity boosts cannot activate", () => {
+  it("shows the reward rate and actual extra hash-power amount as separate facts", () => {
+    expect(uiSource).toContain("<b>MINING REWARD BOOST</b>");
     expect(uiSource).toContain(
-      "const boostCapacityAvailable = Number.isFinite(Number(boost?.bonusThsAvailable)) && Number(boost?.bonusThsAvailable) > 0",
+      "+${fmt(boost?.boostRewardCkiPerDay, 6)} CKI / 24h while active · +${fmt(boost?.bonusThsAvailable, 3)} TH/s extra power",
     );
-    expect(uiSource).toContain("!boost?.ready || !boostCapacityAvailable");
-    expect(uiSource).toContain("Extra hash power is not configured for this package.");
-    expect(uiSource).toContain("Capacity Not Configured");
+    expect(uiSource).toContain('aria-label="Mining reward boost engine"');
+    expect(uiSource).toContain('aria-label="Activate Mining Reward Boost"');
+    expect(uiSource).toContain('disabled={boostMutation.isPending || !boost?.ready}');
   });
 });
