@@ -170,3 +170,20 @@ All exact-head PR workflows for `055eb0750d8aca2576f4f46753828e844f5cb9da` compl
 ## 13. Gesture-triggered audio unlock (2026-10-21)
 
 `unlockNotificationAudio()` is no longer a no-op. It now uses a shipped muted WAV asset, stops it immediately, memoizes successful unlock, and coalesces concurrent attempts. Added a focused contract test. Validation passed **87/87 focused tests** and `pnpm check`. Full browser sound acceptance remains open.
+
+
+## 14. Mandatory completeness audit and bundle fix (2026-10-21)
+
+The audit refreshed the actual live feature branch; starting head was `e5086dde4b7fc829908b1d2305b7623b2b80e987`, later than work-unit-14's recorded `9697be9…`. PR #95 remains open and draft against `integration/auth-installer-vps-safety`. The complete status/source/test/workflow map is in [`REQUIREMENT_EVIDENCE_MATRIX.md`](REQUIREMENT_EVIDENCE_MATRIX.md); acceptance, support inbox specification, combined verification batch, current progress/handoff, PR changed-file inventory and latest workflow/artifact state were reconciled. Do not use earlier green evidence as proof for a later SHA.
+
+### Safe fix implemented and locally verified
+
+Current pre-fix exact-head installer run `39532989435` failed the strict entry-JS raw-byte budget: `409,826` bytes against `409,600`; gzip `92,785` was below `225,280`. Stage 2 run `39532989387` passed TypeScript, app/theme tests, production build and Chromium viewport/five-theme smoke, uploading `stage-3-browser-acceptance` (`10,008,466` bytes); mining DB run `39532989642` passed. Installer MySQL 8 recovery, fresh MariaDB, migration regression, syntax and Stage 1 jobs passed; duplicate installer unit/type jobs and deployment-package job were skipped, so exact-head package provenance was not produced.
+
+A minimal safe split changed only `client/src/App.tsx`: admin-only `AdminAppearance` is now React-lazy-loaded (also represented by a `7.35 kB` emitted chunk). No budget threshold, financial rule or authorization changed. Local `pnpm build:static` measured entry JS `402,892` bytes raw / `91,279` gzip and entry CSS `521.20 kB` raw / `90.77 kB` gzip, each within unchanged limits. `pnpm check` passed; full `pnpm test` passed **63 files / 519 tests**, **8 skipped**; focused Stage 4 regressions passed **9 files / 108 tests**; the local JS/CSS budget assertion and `git diff --check` passed. These results are local and do not close the exact-head Actions gate.
+
+### Still open and exact resume actions
+
+Provider-backed deposit/withdrawal success is **BLOCKED** until an authoritative persisted provider/custody lifecycle exists. Push transport is **MISSING**; bounded polling/reconnect remains the current fallback. Exhaustive event-source/post-commit proof, real-browser customer sound preference/autoplay/reconnect behavior, authenticated announcement and ticket/attachment/concurrency E2E, complete manual accessibility, and current-head release package provenance remain incomplete or unverified. Full blockers/evidence are detailed in the matrix; do not invent success or mark these items complete based on source contracts.
+
+Resume from the audit changes in the worktree: inspect `git status`, commit and push normally to `feat/stage-4-live-notifications-support`, then wait for exact-head Stage 2, installer and mining Actions. Confirm the budget/server smoke, actual package job/artifact and source SHA. Follow the run results rather than assuming success; make only safe in-scope corrections and rerun affected checks. Keep PR #95 draft/open/unmerged. No production database migration, deployment, real provider transaction, balance change, merge or force-push occurred. Final production release build and owner-level verification remain explicitly open.

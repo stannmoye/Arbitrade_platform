@@ -6,6 +6,7 @@ import { notificationAudioVolume, normalizeNotificationVolume } from "./notifica
 import { notificationPollingInterval } from "./notification-polling-policy";
 import { ThemeSelector } from "@/components/ThemeSelector";
 const AdminSlideMenu = lazy(() => import("@/components/AdminSlideMenu").then((module) => ({ default: module.AdminSlideMenu })));
+const AdminAppearance = lazy(() => import("@/components/AdminAppearance").then((module) => ({ default: module.AdminAppearance })));
 const CustomerSlideMenu = lazy(() => import("@/components/CustomerSlideMenu").then((module) => ({ default: module.CustomerSlideMenu })));
 const CustomerMining = lazy(() => import("@/components/CustomerMining").then((module) => ({ default: module.CustomerMining })));
 const AdminMining = lazy(() => import("@/components/AdminMining").then((module) => ({ default: module.AdminMining })));
@@ -27,7 +28,6 @@ import { WiseBondButton } from "@/components/WiseBondButton";
 
 import "./mining-portal.css";
 import { adminNavigationGroups } from "./admin-navigation";
-import { AdminAppearance } from "@/components/AdminAppearance";
 
 
 
