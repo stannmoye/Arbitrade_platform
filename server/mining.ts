@@ -15,7 +15,7 @@ const floorAmount = (value: Decimal.Value, scale: number) => new Decimal(value).
 const safeJson = (value: unknown) => JSON.stringify(value, (_key, item) => item instanceof Decimal ? item.toString() : item);
 const MAIN_WALLET_ASSETS = new Set(["USD", "EUR", "GBP", "BTC", "ETH", "USDT"]);
 
-async function assertMiningQuoteIdempotencyReplay(
+export async function assertMiningQuoteIdempotencyReplay(
   conn: Db,
   userId: number,
   prior: any,
