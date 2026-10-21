@@ -506,10 +506,14 @@ export async function withdrawNotificationCampaign(adminId:number,campaignId:num
 export async function processNotificationCampaignLifecycle() {
   const db=await getDb(); if(!db)throw new Error("Database is not available");
   const now=new Date();
+  let expiredCount=0;
   const expired=await db.select().from(notificationCampaigns).where(and(inArray(notificationCampaigns.status,["draft","scheduled","published","failed"]),lte(notificationCampaigns.expiresAt,now))).limit(100);
   for(const campaign of expired) {
     const changed=await db.update(notificationCampaigns).set({status:"expired"}).where(and(eq(notificationCampaigns.id,campaign.id),inArray(notificationCampaigns.status,["draft","scheduled","published","failed"])));
-    if(Number(changed[0]?.affectedRows||0)>0) await db.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
+    if(Number(changed[0]?.affectedRows||0)>0) {
+      expiredCount++;
+      await db.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
+    }
   }
   const due=await db.select().from(notificationCampaigns).where(and(eq(notificationCampaigns.status,"scheduled"),lte(notificationCampaigns.scheduledAt,now))).limit(100);
   let published=0,failed=0,expiredDuringPublish=0;
@@ -522,7 +526,7 @@ export async function processNotificationCampaignLifecycle() {
       else if(result.status==="expired") expiredDuringPublish++;
     } catch(error) { failed++; console.error("[Notifications] Scheduled announcement lifecycle failed:",error instanceof Error?error.name:"UnknownError"); }
   }
-  return {expired:expired.length+expiredDuringPublish,published,failed};
+  return {expired:expiredCount+expiredDuringPublish,published,failed};
 }
 export async function listAdminNotificationCampaigns() {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
