@@ -34,6 +34,9 @@ export async function assertMiningPackagePurchaseIdempotencyReplay(
     originalPackageVersionId = rows[0]?.packageVersionId;
   }
 
+  if (originalPackageVersionId === null || originalPackageVersionId === undefined) {
+    throw new MiningError("Unable to verify the original Mining package for this idempotency key; start a new operation with a new idempotency key");
+  }
   if (!miningIdentifierMatches(originalPackageVersionId, requestedPackageVersionId)) {
     throw new MiningError("This idempotency key was already used for a different Mining package");
   }
