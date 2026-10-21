@@ -120,11 +120,13 @@ async function runAdminPayoutReview(browser) {
     const paidEnabled = await paidButton.isEnabled();
     await paidButton.click();
     await page.locator(".admin-payout-history-head").waitFor({ state: "visible" });
-    await page.getByText("BANK-TRANSFER-VERIFIED-001", { exact: true }).waitFor({ state: "visible", timeout: 10000 });
-    await page.locator("tr").filter({ hasText: "payout-admin-paid-1" }).getByText("paid", { exact: true }).waitFor({ state: "visible", timeout: 10000 });
+    const paidHistoryRow = page.locator("tr").filter({ hasText: "payout-admin-paid-1" }).filter({ hasText: "External: BANK-TRANSFER-VERIFIED-001" });
+    await paidHistoryRow.waitFor({ state: "visible", timeout: 10000 });
+    await paidHistoryRow.getByText("paid", { exact: true }).waitFor({ state: "visible", timeout: 10000 });
+    const paidReferenceVisible = await paidHistoryRow.getByText(/External: BANK-TRANSFER-VERIFIED-001/).isVisible().catch(() => false);
     record("admin paid resolution requires and records external transfer reference",
-      paidEnabled && requests[0].status === "paid" && requests[0].externalReference === "BANK-TRANSFER-VERIFIED-001", {
-        paidEnabled, persistedMockStatus: requests[0].status,
+      paidEnabled && paidReferenceVisible && requests[0].status === "paid" && requests[0].externalReference === "BANK-TRANSFER-VERIFIED-001", {
+        paidEnabled, paidReferenceVisible, persistedMockStatus: requests[0].status,
         externalReference: requests[0].externalReference,
       });
 
@@ -335,13 +337,14 @@ async function main() {
       const busyDisabled = await pendingButton.isDisabled();
       const recordedMessage = page.getByText(/Payout request payout-browser-1 was recorded/);
       await recordedMessage.waitFor({ state: "visible", timeout: 10000 });
-      await page.getByText("Pending manual review", { exact: true }).waitFor({ state: "visible", timeout: 10000 });
+      const pendingStatus = page.getByText("Pending manual review", { exact: true });
+      await pendingStatus.waitFor({ state: "visible", timeout: 10000 });
       const available70 = await page.getByText("Available for payout: USD 70.00").isVisible().catch(() => false);
+      const recordedFeedbackVisible = await recordedMessage.isVisible().catch(() => false);
+      const pendingStatusVisible = await pendingStatus.isVisible().catch(() => false);
       record("payout submission updates feedback, reservation display, and history",
-        busyDisabled && requestCount === 1 && available70 &&
-        await recordedMessage.isVisible().catch(() => false) &&
-        await page.getByText("Pending manual review").isVisible().catch(() => false), {
-          requestCount, busyDisabled, available70,
+        busyDisabled && requestCount === 1 && available70 && recordedFeedbackVisible && pendingStatusVisible, {
+          requestCount, busyDisabled, available70, recordedFeedbackVisible, pendingStatusVisible,
           recordedMessage: await recordedMessage.innerText().catch(() => null),
         });
 
