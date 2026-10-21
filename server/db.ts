@@ -395,7 +395,6 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
   const scheduledAt=parseDate(input.scheduledAt,"schedule time");
   const expiresAt=parseDate(input.expiresAt,"expiry time");
   const now=new Date();
-  if(expiresAt && expiresAt.getTime()<=now.getTime())throw new RangeError("Announcement expiry must be in the future");
   if(scheduledAt && expiresAt && expiresAt.getTime()<=scheduledAt.getTime())throw new RangeError("Announcement expiry must be later than its scheduled publish time");
   const sameDate=(left:Date|null|undefined,right:Date|null)=>left==null?right==null:right!=null&&left.getTime()===right.getTime();
   const activeCustomerCondition=or(isNull(customerControls.accountStatus),eq(customerControls.accountStatus,"active"));
@@ -406,6 +405,10 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
   const matchesPayload=(row:typeof campaign)=>Boolean(row && row.title===title && row.body===body && row.category===input.category && row.priority===input.priority && row.href===(href??null) && row.targetUserId===(targetUserId??null) && sameDate(row.scheduledAt,scheduledAt) && sameDate(row.expiresAt,expiresAt));
   if(campaign && !matchesPayload(campaign))throw new Error("Announcement event key was already used with a different campaign payload");
   if(!campaign) {
+    // Reject an already-expired deadline for new campaigns, but allow an idempotent
+    // retry of an existing campaign to persist its expiry transition and suppress
+    // pending/failed deliveries atomically.
+    if(expiresAt && expiresAt.getTime()<=now.getTime())throw new RangeError("Announcement expiry must be in the future");
     const recipients=await findRecipients();
     if(targetUserId!==null && !recipients.length)throw new Error("Selected customer account was not found or is not active");
     await db.insert(notificationCampaigns).values({createdBy:adminId,eventKey,title,body,category:input.category,priority:input.priority,href,targetUserId:targetUserId??null,status:"draft",scheduledAt,expiresAt,totalRecipientCount:recipients.length}).onDuplicateKeyUpdate({set:{eventKey}});
