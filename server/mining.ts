@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import Decimal from "decimal.js";
-import { calculateMiningConversion, calculateMiningDifficultyIndex, calculatePackageDailyRate, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, miningQuoteIdMatches } from "./mining-rules";
+import { calculateMiningConversion, calculateMiningDifficultyIndex, calculatePackageDailyRate, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, miningIdentifierMatches } from "./mining-rules";
 import {
   Db, MiningError, addUtcMonths, amountString, assertMiningAsset, assetScale, beginMiningIdempotency, createMiningLedgerTransaction,
   createMiningNotification, decimal, ensureMiningCheckpoint, finishMiningIdempotency, inMiningTransaction,
@@ -14,6 +14,30 @@ const ceilAmount = (value: Decimal.Value, scale: number) => new Decimal(value).t
 const floorAmount = (value: Decimal.Value, scale: number) => new Decimal(value).toDecimalPlaces(scale, Decimal.ROUND_DOWN);
 const safeJson = (value: unknown) => JSON.stringify(value, (_key, item) => item instanceof Decimal ? item.toString() : item);
 const MAIN_WALLET_ASSETS = new Set(["USD", "EUR", "GBP", "BTC", "ETH", "USDT"]);
+
+export async function assertMiningPackagePurchaseIdempotencyReplay(
+  conn: Db,
+  userId: number,
+  prior: any,
+  requestedPackageVersionId: number,
+) {
+  let originalPackageVersionId: unknown = prior?.packageVersionId;
+
+  // The convenience purchase endpoint may replay older cached results. Resolve
+  // their original package from the committed entitlement, never from UI input.
+  if (originalPackageVersionId === null || originalPackageVersionId === undefined) {
+    const purchaseId = Number(prior?.purchaseId);
+    if (!Number.isSafeInteger(purchaseId) || purchaseId <= 0) {
+      throw new MiningError("Unable to verify the original Mining package for this idempotency key; start a new operation with a new idempotency key");
+    }
+    const [rows] = await conn.query<any[]>(`SELECT packageVersionId FROM mining_customer_packages WHERE id=? AND userId=? LIMIT 1`, [purchaseId, userId]);
+    originalPackageVersionId = rows[0]?.packageVersionId;
+  }
+
+  if (!miningIdentifierMatches(originalPackageVersionId, requestedPackageVersionId)) {
+    throw new MiningError("This idempotency key was already used for a different Mining package");
+  }
+}
 
 export async function assertMiningQuoteIdempotencyReplay(
   conn: Db,
@@ -39,7 +63,7 @@ export async function assertMiningQuoteIdempotencyReplay(
   if (originalQuoteId === null || originalQuoteId === undefined) {
     throw new MiningError("Unable to verify the original quote for this idempotency key; start a new operation with a new idempotency key");
   }
-  if (!miningQuoteIdMatches(originalQuoteId, requestedQuoteId)) {
+  if (!miningIdentifierMatches(originalQuoteId, requestedQuoteId)) {
     throw new MiningError("This idempotency key was already used with a different quote");
   }
 }
@@ -427,7 +451,9 @@ export async function purchaseCustomerMiningPackage(userId: number, input: { pac
     const [rows] = await conn.query<any[]>(`SELECT command,resultJson FROM v5_idempotency_keys WHERE userId=? AND keyValue=? LIMIT 1`, [userId,key]);
     const row = rows[0];
     if (row && row.command !== "mining.package.purchase") throw new MiningError("This idempotency key was already used for a different Mining action");
-    return row?.resultJson ? JSON.parse(String(row.resultJson)) : null;
+    const result = row?.resultJson ? JSON.parse(String(row.resultJson)) : null;
+    if (result) await assertMiningPackagePurchaseIdempotencyReplay(conn, userId, result, input.packageVersionId);
+    return result;
   });
   const prior = await priorResult();
   if (prior) return prior;
