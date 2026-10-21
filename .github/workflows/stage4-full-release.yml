@@ -113,7 +113,13 @@ jobs:
           unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'public/sounds/notification-soft-chime.wav'
           unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'public/sounds/notification-urgent-pulse.wav'
           unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'public/sounds/notification-warm-tone.wav'
-          theme_bundle="$(unzip -Z1 arbitrade-stage4-full-application.zip | grep -E '^dist/public/assets/index-.*[.]js
+          theme_bundle="$(unzip -Z1 arbitrade-stage4-full-application.zip | grep -E '^dist/public/assets/index-.*[.]js$' | head -n 1)"
+          test -n "$theme_bundle"
+          unzip -p arbitrade-stage4-full-application.zip "$theme_bundle" | grep -Fq 'gold-luxe'
+          theme_css="$(unzip -Z1 arbitrade-stage4-full-application.zip | grep -E '^dist/public/assets/index-.*[.]css$' | head -n 1)"
+          test -n "$theme_css"
+          unzip -p arbitrade-stage4-full-application.zip "$theme_css" | grep -Fq 'gold-luxe'
+          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'BUILD_PROVENANCE.txt'
           if unzip -Z1 arbitrade-stage4-full-application.zip | grep -E '^\.env($|\.(local|production|development|test|.*\.local)$)'; then
             echo "Unexpected environment secret file in release ZIP" >&2
             exit 1
@@ -137,68 +143,6 @@ jobs:
             Corrected full installer package for the original Arbitrade application with Stages 1–4 integrated.
 
             Restores the Gold Luxe sixth theme and Stage 3 Clean Light customer contrast/responsive styling while retaining the Stage 4 notification, sound, campaign, two-way support, and migration work. Includes the browser installer and VPS/cPanel deployment files, production build, locked dependencies, and required assets. The workflow runs the full regression suite, TypeScript validation, production build, and archive-content checks. Environment secrets and Git metadata are excluded.
-          target_commitish: integration/auth-installer-vps-safety
-          files: arbitrade-stage4-full-application.zip
-          fail_on_unmatched_files: true
-          generate_release_notes: false
- | head -n 1)"
-          test -n "$theme_bundle"
-          unzip -p arbitrade-stage4-full-application.zip "$theme_bundle" | grep -Fq 'gold-luxe'
-          theme_css="$(unzip -Z1 arbitrade-stage4-full-application.zip | grep -E '^dist/public/assets/index-.*[.]css
-          if unzip -Z1 arbitrade-stage4-full-application.zip | grep -E '^\.env($|\.(local|production|development|test|.*\.local)$)'; then
-            echo "Unexpected environment secret file in release ZIP" >&2
-            exit 1
-          fi
-          sha256sum arbitrade-stage4-full-application.zip
-          ls -lh arbitrade-stage4-full-application.zip
-      - name: Save release ZIP on GitHub Actions
-        uses: actions/upload-artifact@v4
-        with:
-          name: arbitrade-stage4-full-application
-          path: arbitrade-stage4-full-application.zip
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 90
-      - name: Publish GitHub release with the full ZIP
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v2.0.0-stage4-full
-          name: Arbitrade Stage 4 — Full Application
-          body: |
-            Full installer package for the original Arbitrade application with Stages 1–4 integrated.
-
-            Includes the browser installer and VPS/cPanel deployment files, production build, locked dependencies, Stage 4 migrations and notification/support assets. The release workflow validates ZIP integrity and required installer/package files. Environment secrets and Git metadata are excluded.
-          target_commitish: integration/auth-installer-vps-safety
-          files: arbitrade-stage4-full-application.zip
-          fail_on_unmatched_files: true
-          generate_release_notes: false
- | head -n 1)"
-          test -n "$theme_css"
-          unzip -p arbitrade-stage4-full-application.zip "$theme_css" | grep -Fq 'gold-luxe'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'BUILD_PROVENANCE.txt'
-          if unzip -Z1 arbitrade-stage4-full-application.zip | grep -E '^\.env($|\.(local|production|development|test|.*\.local)$)'; then
-            echo "Unexpected environment secret file in release ZIP" >&2
-            exit 1
-          fi
-          sha256sum arbitrade-stage4-full-application.zip
-          ls -lh arbitrade-stage4-full-application.zip
-      - name: Save release ZIP on GitHub Actions
-        uses: actions/upload-artifact@v4
-        with:
-          name: arbitrade-stage4-full-application
-          path: arbitrade-stage4-full-application.zip
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 90
-      - name: Publish GitHub release with the full ZIP
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v2.0.0-stage4-full
-          name: Arbitrade Stage 4 — Full Application
-          body: |
-            Full installer package for the original Arbitrade application with Stages 1–4 integrated.
-
-            Includes the browser installer and VPS/cPanel deployment files, production build, locked dependencies, Stage 4 migrations and notification/support assets. The release workflow validates ZIP integrity and required installer/package files. Environment secrets and Git metadata are excluded.
           target_commitish: integration/auth-installer-vps-safety
           files: arbitrade-stage4-full-application.zip
           fail_on_unmatched_files: true
