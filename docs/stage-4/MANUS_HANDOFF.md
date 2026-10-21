@@ -147,3 +147,10 @@ This section supersedes earlier "remaining" notes where later commits have compl
 
 - Accessibility implementation/test: `83583cac8bfe92279f6f9ee9fe866ac8d52e4f12`.
 - Documentation preservation/correction: `d19e6b18daabfa438a8a4978146fcec39270dc19`. The full pre-existing handoff content was restored and the new section is appended; no prior evidence was intentionally removed.
+
+## 9. Source browser acceptance checkpoint (2026-10-21)
+
+- Exact source head tested: `126f3fb38829453e44d46c5f009b8200c3792fab`.
+- The existing Chromium harness `scripts/stage2-browser-acceptance.cjs` passed **848/848 checks with zero failures** against the source dev server. This covers the repository's current responsive/theme/focus/navigation smoke checks and browser audio asset playback checks. It is not hosted production acceptance.
+- The axe audit script was attempted but skipped because `axe-core` is not declared or installed in this repository. No axe result is claimed. Manual screen-reader, keyboard-only, reduced-motion, and assistive-technology review remain separate acceptance work.
+- No production build or deployment was performed; final production build and final verification remain reserved for ChatGPT.

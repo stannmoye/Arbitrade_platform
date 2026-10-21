@@ -313,3 +313,9 @@ Latest verified application code: `5b7db5abef6c6bc7fce17a47ebbec8d730092849`.
 
 
 - Implementation/test commit: `83583cac8bfe92279f6f9ee9fe866ac8d52e4f12`; documentation preservation commit: `d19e6b18daabfa438a8a4978146fcec39270dc19`. The checklist remains in progress; no full Stage 4 acceptance or completion claim is made.
+
+### 2026-10-21 source browser acceptance checkpoint
+
+- At source head `126f3fb38829453e44d46c5f009b8200c3792fab`, the existing Chromium `scripts/stage2-browser-acceptance.cjs` matrix passed **848/848 checks, 0 failures** against the source dev server. This provides fresh responsive/theme/focus/navigation and browser audio-asset evidence.
+- The existing axe audit was attempted but could not start because `axe-core` is not declared or installed; it is not counted as a pass. Manual screen-reader, keyboard-only, reduced-motion, and assistive-technology acceptance remains open.
+- No production build, deployment, provider configuration, or production data operation was performed. Stage 4 remains open pending the documented blockers and final owner/build verification.
