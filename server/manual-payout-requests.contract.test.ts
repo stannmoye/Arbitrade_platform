@@ -100,6 +100,7 @@ describe("manual payout request lifecycle contract", () => {
     expect(payoutBrowserAcceptance).toContain('procedure === "customer.requestPayout"');
     expect(payoutBrowserAcceptance).toContain('procedure === "customer.cancelPayoutRequest"');
     expect(payoutBrowserAcceptance).toContain("Available for payout: USD 80.00");
+    expect(payoutBrowserAcceptance).toContain("staleDestinationCleared");
     expect(payoutBrowserAcceptance).toContain("Cancelled · funds released");
     expect(payoutBrowserAcceptance).toContain("No external bank or blockchain transfer is initiated.");
   });
