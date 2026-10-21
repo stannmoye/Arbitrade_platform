@@ -671,6 +671,11 @@ export async function addTicketAttachment(userId:number,input:{ticketId:number;f
   if(!isSupportAttachmentStorageKeyForTicket(input.storageKey,input.ticketId)) throw new Error("Invalid support attachment storage key for this ticket");
   const ticket=(await db.select().from(supportTickets).where(and(eq(supportTickets.id,input.ticketId),eq(supportTickets.customerId,userId))).limit(1))[0];
   if(!ticket) throw new Error("Ticket not found");
+  // A storage key identifies one private object. Never allow a second ticket to
+  // claim an existing key, including a legacy-format key issued before the
+  // ticket-scoped key format was deployed.
+  const existingKey=(await db.select({id:supportAttachments.id}).from(supportAttachments).where(eq(supportAttachments.storageKey,input.storageKey)).limit(1))[0];
+  if(existingKey) throw new Error("Attachment storage key has already been registered");
   await db.insert(supportAttachments).values({ticketId:input.ticketId,uploadedBy:userId,fileName:input.fileName.slice(0,255),mimeType:input.mimeType.slice(0,160),sizeBytes:input.sizeBytes,storageKey:input.storageKey.slice(0,512)});
   return {success:true};
 }
