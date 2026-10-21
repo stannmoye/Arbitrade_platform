@@ -9,7 +9,7 @@ import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { sdk } from "./sdk";
-import { countOutstandingTrades, createLocalCustomer, getAppSetting, getUserByEmail, getUserById, processNotificationCampaignLifecycle, runAutoTradeCycle } from "../db";
+import { countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getUserByEmail, getUserById, processNotificationCampaignLifecycle, runAutoTradeCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
@@ -139,21 +139,24 @@ async function startServer() {
   app.post("/api/support/attachments/presign", async (req, res) => {
     // Keep authentication failures separate from storage/provider failures. A
     // storage outage must never be reported as an invalid customer session.
+    let authenticatedUser;
     try {
-      await sdk.authenticateRequest(req);
+      authenticatedUser = await sdk.authenticateRequest(req);
     } catch {
       return res.status(401).json({ error: "Authentication required" });
     }
 
     try {
-      const { fileName, mimeType, sizeBytes } = req.body ?? {};
+      const { ticketId, fileName, mimeType, sizeBytes } = req.body ?? {};
+      if (!Number.isSafeInteger(ticketId) || ticketId < 1) return res.status(400).json({ error: "A valid support ticket is required" });
+      if (!(await getCustomerTicket(authenticatedUser.id, ticketId))) return res.status(404).json({ error: "Ticket not found" });
       const policy = await getTicketUploadPolicy();
       const rejectionMessage = `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}`;
       if (!isAllowedAttachmentRequest({ fileName, mimeType, sizeBytes }, policy)) {
         return res.status(400).json({ error: rejectionMessage });
       }
       const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
-      const key = `support/${Date.now()}-${randomBytes(24).toString("hex")}-${safeName}`;
+      const key = `support/${ticketId}/${randomBytes(24).toString("hex")}-${safeName}`;
       const base = process.env.MANUS_API_URL;
       const token = process.env.MANUS_API_KEY;
       if (!base || !token) return res.status(503).json({ error: "Managed storage is not configured" });
