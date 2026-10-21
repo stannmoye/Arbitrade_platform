@@ -506,9 +506,9 @@ export async function withdrawNotificationCampaign(adminId:number,campaignId:num
 export async function processNotificationCampaignLifecycle() {
   const db=await getDb(); if(!db)throw new Error("Database is not available");
   const now=new Date();
-  const expired=await db.select().from(notificationCampaigns).where(and(or(eq(notificationCampaigns.status,"published"),eq(notificationCampaigns.status,"scheduled")),lte(notificationCampaigns.expiresAt,now))).limit(100);
+  const expired=await db.select().from(notificationCampaigns).where(and(inArray(notificationCampaigns.status,["draft","scheduled","published","failed"]),lte(notificationCampaigns.expiresAt,now))).limit(100);
   for(const campaign of expired) {
-    const changed=await db.update(notificationCampaigns).set({status:"expired"}).where(and(eq(notificationCampaigns.id,campaign.id),inArray(notificationCampaigns.status,["published","scheduled"])));
+    const changed=await db.update(notificationCampaigns).set({status:"expired"}).where(and(eq(notificationCampaigns.id,campaign.id),inArray(notificationCampaigns.status,["draft","scheduled","published","failed"])));
     if(Number(changed[0]?.affectedRows||0)>0) await db.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
   }
   const due=await db.select().from(notificationCampaigns).where(and(eq(notificationCampaigns.status,"scheduled"),lte(notificationCampaigns.scheduledAt,now))).limit(100);

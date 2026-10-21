@@ -231,8 +231,9 @@ describe("announcement lifecycle persistence contracts", () => {
     const lifecycle = db.slice(start, end);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    expect(lifecycle).toContain('eq(notificationCampaigns.status,"published"),eq(notificationCampaigns.status,"scheduled")');
+    expect(lifecycle).toContain('inArray(notificationCampaigns.status,["draft","scheduled","published","failed"])');
     expect(lifecycle).toContain('set({status:"expired"})');
+    expect(lifecycle).toContain('inArray(notificationCampaigns.status,["draft","scheduled","published","failed"])');
     expect(lifecycle).toContain("broadcastCustomerNotification(campaign.createdBy");
     expect(lifecycle).toContain('eq(notificationCampaigns.status,"scheduled"),lte(notificationCampaigns.scheduledAt,now)');
     expect(lifecycle).toContain('if(result.status==="published") published++');
