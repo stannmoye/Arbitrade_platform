@@ -6,7 +6,7 @@ import { appSettings, customerNotifications, notificationCampaignDeliveries, not
 import { createContext } from "./_core/context";
 import { createLocalSession } from "./_core/localAuth";
 import { appRouter } from "./routers";
-import { addTicketAttachment, getAppSetting, getDb, getTicketAttachmentAccess, getTicketUploadPolicy, getUserById, setAppSetting } from "./db";
+import { addTicketAttachment, getAppSetting, getDb, getTicketAttachmentAccess, getTicketUploadPolicy, getUserById, processNotificationCampaignLifecycle, setAppSetting } from "./db";
 import { isAllowedAttachmentRequest } from "./_core/attachmentPolicy";
 
 // This suite is intentionally opt-in: ordinary unit-test runs must never write
@@ -30,6 +30,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
   let temporaryTicketId: number | undefined;
   let temporaryTicketNumber: string | undefined;
   let temporaryCampaignId: number | undefined;
+  let temporaryExpiredCampaignId: number | undefined;
   let temporaryNotificationId: number | undefined;
 
   it("resolves signed browser sessions against database roles before authorizing settings", async () => {
@@ -359,6 +360,90 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
   });
 
 
+  it("expires a scheduled announcement exactly once through the database lifecycle", async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database is not available");
+    const unique = Date.now().toString() + "_" + Math.random().toString(36).slice(2, 9);
+    const insertedCustomer = await db.insert(users).values({
+      openId: "stage4:expiry:" + unique,
+      email: "stage4-expiry-" + unique + "@example.test",
+      name: "Stage 4 Expiry Customer",
+      loginMethod: "email",
+      role: "user",
+    });
+    const expiryCustomerId = Number(insertedCustomer[0].insertId);
+    temporaryCustomerIds.push(expiryCustomerId);
+    const adminUser = await getUserById(administratorId);
+    expect(adminUser?.role).toBe("admin");
+    if (!adminUser) throw new Error("Disposable database administrator fixture is missing");
+    const adminContext = await createContext({
+      req: { headers: { cookie: "webdev_app_session=" + createLocalSession(adminUser.id, Number(adminUser.authVersion || 0)) } } as never,
+      res: {} as never,
+    });
+    const adminCaller = appRouter.createCaller(adminContext);
+    const scheduledAt = new Date(Date.now() + 5 * 60_000);
+    const expiresAt = new Date(Date.now() + 10 * 60_000);
+    const eventKey = "stage4-expiry-" + unique;
+
+    const created = await adminCaller.adminOperations.publishAnnouncement({
+      title: "Disposable scheduled expiry " + unique,
+      body: "This scheduled announcement is used only by the disposable database integration test.",
+      eventKey,
+      category: "announcement",
+      priority: "normal",
+      targetUserId: expiryCustomerId,
+      scheduledAt: scheduledAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    });
+    temporaryExpiredCampaignId = created.campaignId;
+    expect(created).toMatchObject({
+      campaignId: temporaryExpiredCampaignId,
+      recipientCount: 0,
+      totalRecipientCount: 0,
+      readCount: 0,
+      failedCount: 0,
+      pendingCount: 0,
+      status: "scheduled",
+    });
+    const [createdCampaign] = await db.select().from(notificationCampaigns)
+      .where(eq(notificationCampaigns.id, temporaryExpiredCampaignId));
+    expect(createdCampaign?.status).toBe("scheduled");
+    expect(createdCampaign?.expiresAt).toBeTruthy();
+
+    // Move only this disposable fixture's lifecycle dates into the past; the
+    // lifecycle routine then owns and persists the terminal expiry transition.
+    await db.update(notificationCampaigns).set({
+      scheduledAt: new Date(Date.now() - 2 * 60_000),
+      expiresAt: new Date(Date.now() - 60_000),
+    }).where(eq(notificationCampaigns.id, temporaryExpiredCampaignId));
+
+    await expect(processNotificationCampaignLifecycle()).resolves.toMatchObject({
+      expired: 1,
+      published: 0,
+      failed: 0,
+    });
+    const [expiredCampaign] = await db.select().from(notificationCampaigns)
+      .where(eq(notificationCampaigns.id, temporaryExpiredCampaignId));
+    expect(expiredCampaign?.status).toBe("expired");
+    expect(await db.select().from(notificationCampaignDeliveries)
+      .where(eq(notificationCampaignDeliveries.campaignId, temporaryExpiredCampaignId))).toHaveLength(0);
+    expect(await db.select().from(customerNotifications).where(and(
+      eq(customerNotifications.userId, expiryCustomerId),
+      eq(customerNotifications.title, "Disposable scheduled expiry " + unique),
+    ))).toHaveLength(0);
+
+    // A subsequent scheduler run must not count or republish the already-expired
+    // campaign again.
+    await expect(processNotificationCampaignLifecycle()).resolves.toMatchObject({
+      expired: 0,
+      published: 0,
+      failed: 0,
+    });
+    const [stillExpired] = await db.select().from(notificationCampaigns)
+      .where(eq(notificationCampaigns.id, temporaryExpiredCampaignId));
+    expect(stillExpired?.status).toBe("expired");
+  });
+
   it("exercises authenticated support-ticket ownership and administrator assignment against the disposable database", async () => {
     const db = await getDb();
     if (!db) throw new Error("Database is not available");
@@ -504,6 +589,10 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       await db.delete(v5AuditEvents).where(and(eq(v5AuditEvents.action, "notification.campaign.withdrawn"), eq(v5AuditEvents.entityId, String(temporaryCampaignId))));
       await db.delete(notificationCampaignDeliveries).where(eq(notificationCampaignDeliveries.campaignId, temporaryCampaignId));
       await db.delete(notificationCampaigns).where(eq(notificationCampaigns.id, temporaryCampaignId));
+    }
+    if (db && temporaryExpiredCampaignId !== undefined) {
+      await db.delete(notificationCampaignDeliveries).where(eq(notificationCampaignDeliveries.campaignId, temporaryExpiredCampaignId));
+      await db.delete(notificationCampaigns).where(eq(notificationCampaigns.id, temporaryExpiredCampaignId));
     }
     if (db && temporaryTicketId !== undefined) {
       await db.delete(v5AuditEvents).where(and(
