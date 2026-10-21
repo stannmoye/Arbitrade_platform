@@ -927,22 +927,28 @@ export async function listPendingSettlements(){
 export async function manuallySettleTrade(tradeId:number, adminId:number, input:{rewardMinor:number; settlementReference:string; notes?:string}){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   if(!Number.isSafeInteger(input.rewardMinor)||input.rewardMinor<0) throw new Error("Manual reward must be a non-negative integer");
-  if(!input.settlementReference.trim()) throw new Error("A manual settlement reference is required");
+  const reference=input.settlementReference.trim();
+  // balance_ledger.reference is VARCHAR(80); leave room for the :principal/:reward suffixes.
+  if(!reference) throw new Error("A manual settlement reference is required");
+  if(reference.length>70) throw new Error("Manual settlement reference must be 70 characters or fewer");
   const result=await db.transaction(async tx=>{
-    const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,tradeId)).limit(1))[0];
+    const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,tradeId)).limit(1).for("update"))[0];
     if(!trade) throw new Error("Trade not found");
     if(trade.status!=="confirmed"||trade.settlementStatus!=="pending") throw new Error("Trade is not pending manual settlement");
     if(input.rewardMinor>Number(trade.rewardReservedMinor||0)) throw new Error("Manual reward exceeds the reserved package reward");
     const reference=input.settlementReference.trim();
     const duplicate=(await tx.select({id:tradePositions.id}).from(tradePositions).where(eq(tradePositions.settlementReference,reference)).limit(1))[0];
     if(duplicate) throw new Error("Settlement reference has already been used");
-    const wallet=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,trade.userId),eq(customerBalances.currency,trade.currency))).limit(1))[0];
+    const wallet=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,trade.userId),eq(customerBalances.currency,trade.currency))).limit(1).for("update"))[0];
     if(!wallet) throw new Error("Customer settlement wallet is not configured");
     const principal=Number(trade.principalMinor);
+    if(!Number.isSafeInteger(principal)||principal<=0) throw new Error("Trade principal is invalid");
+    if(!Number.isSafeInteger(Number(wallet.lockedMinor))||Number(wallet.lockedMinor)<principal) throw new Error("Customer locked balance is insufficient for trade settlement");
     const total=principal+input.rewardMinor;
+    if(!Number.isSafeInteger(total)) throw new Error("Manual settlement total exceeds the supported amount");
     await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:principal,entryType:"trade_principal_release",reference:`${reference}:principal`,withdrawable:false});
     if(input.rewardMinor>0) await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:input.rewardMinor,entryType:"trade_reward",reference:`${reference}:reward`,withdrawable:false});
-    const walletUpdate=await tx.update(customerBalances).set({availableMinor:sql`${customerBalances.availableMinor}+${total}`,lockedMinor:sql`GREATEST(${customerBalances.lockedMinor}-${principal},0)`,earnedMinor:sql`${customerBalances.earnedMinor}+${input.rewardMinor}`,updatedAt:new Date()}).where(eq(customerBalances.id,wallet.id));
+    const walletUpdate=await tx.update(customerBalances).set({availableMinor:sql`${customerBalances.availableMinor}+${total}`,lockedMinor:sql`${customerBalances.lockedMinor}-${principal}`,earnedMinor:sql`${customerBalances.earnedMinor}+${input.rewardMinor}`,updatedAt:new Date()}).where(eq(customerBalances.id,wallet.id));
     assertExactlyOneAffectedRow(walletUpdate,"Manual settlement wallet update");
     const settlementUpdate=await tx.update(tradePositions).set({status:"settled",settledAt:new Date(),lifecycleStage:"Trade Completed",settlementStatus:"completed",rewardCreditedMinor:input.rewardMinor,rewardReservedMinor:0,walletUpdatedAt:new Date(),completionAt:new Date(),transactionReference:reference,settlementReference:reference,settlementConfirmedAt:new Date(),settlementConfirmedBy:adminId,settlementNotes:input.notes?.trim()||null}).where(and(eq(tradePositions.id,tradeId),eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending")));
     // If another settlement won the race, throw inside the transaction so the
