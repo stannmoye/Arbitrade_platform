@@ -563,7 +563,6 @@ export async function listCustomerNotificationPage(userId:number,cursorValue?:st
     getNotificationCategoryVisibility(),
     getExpiredCampaignNotificationIds(userId),
   ]);
-  const totalUnread=await countUnreadWithFilters(userId,visibility,expiredIds);
   const conditions=await getVisibleNotificationConditions(userId,visibility,expiredIds);
   if(cursorValue) {
     const cursor=decodeNotificationCursor(cursorValue);
@@ -583,7 +582,6 @@ export async function listCustomerNotificationPage(userId:number,cursorValue?:st
     items,
     cursor:cursorValue??null,
     nextCursor:hasMore&&last?encodeNotificationCursor(last.createdAt,last.id):null,
-    totalUnread,
     pageSize:limit,
   };
 }
