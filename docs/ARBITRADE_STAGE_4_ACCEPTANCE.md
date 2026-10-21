@@ -470,3 +470,11 @@ The evidence-matrix refresh changed documentation only; application, test, and w
 - Exact-head workflows passed: [Stage 3 five-theme/Chromium validation 39652721697](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39652721697), [installer, fresh MariaDB, MySQL 8 recovery and package validation 39652721485](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39652721485), and [mining DB regression 39652721715](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39652721715).
 - **Acceptance boundary:** controlled Chromium simulation verifies the client unlock retry path; it does not prove all real-browser/device autoplay behavior or close owner-held reconnect deduplication and post-commit timing checks.
 - Announcement delivery/expiry/read reporting, support concurrency/lifecycle, manual keyboard/screen-reader/reduced-motion/responsive checks, and hosted acceptance remain open. No production deployment, production DB migration or published release ZIP replacement occurred.
+
+
+## Persisted notification-history normalization — PR #105 (2026-10-21)
+
+- **Merged:** [PR #105](https://github.com/stannmoye/Arbitrade_platform/pull/105), merge commit `e5ffdc4502820d3a74e9be768691c020d31d041d`; exact tested head `418624db3bf8de74376f165cceef1b980f191ac8`.
+- Persisted customer notification sound IDs now pass through the bounded-history normalization helper before deduplication, preventing arbitrary local-storage ordering and duplicate/malformed IDs from skewing the retained newest-500 window.
+- Exact-head CI passed: [five-theme/Chromium validation 39653440542](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39653440542), [installer validation 39653440483](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39653440483), and [mining DB regression 39653440522](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39653440522).
+- **Acceptance boundary:** the persisted-history fix is merged and verified, but the notification-reliability sub-stage remains open for reconnect/multi-session deduplication, event ordering/post-commit timing, and owner-held real-device acceptance. No production deployment, production database migration, or published release ZIP replacement occurred.
