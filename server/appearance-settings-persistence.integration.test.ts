@@ -413,6 +413,26 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     const messages = await ownerCaller.customer.ticketMessages({ ticketId: temporaryTicketId });
     expect(messages.map(message => message.body)).toContain("Administrator resolution response");
     expect(messages.map(message => message.body)).toContain("Customer reply after reopening");
+
+    // Repeated reopen cycles can share the same MySQL DATETIME value; each
+    // successful state transition must still produce a distinct notification.
+    const fixedUpdatedAt = new Date("2026-10-01T00:00:00.000Z");
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await db.update(supportTickets).set({ status: "resolved", updatedAt: fixedUpdatedAt })
+        .where(eq(supportTickets.id, temporaryTicketId));
+      await expect(adminCaller.adminOperations.reopenTicket({ ticketId: temporaryTicketId })).resolves.toMatchObject({
+        success: true,
+        changed: true,
+        status: "open",
+      });
+    }
+    const reopenNotices = await db.select().from(customerNotifications).where(and(
+      eq(customerNotifications.userId, ownerId),
+      eq(customerNotifications.title, "Your support ticket was reopened"),
+      like(customerNotifications.body, temporaryTicketNumber + ":%"),
+    ));
+    expect(reopenNotices).toHaveLength(2);
+    expect(new Set(reopenNotices.map(notification => notification.eventKey)).size).toBe(2);
   });
 
   afterAll(async () => {
@@ -433,6 +453,8 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
           and(eq(customerNotifications.title, "New customer support ticket"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
           and(eq(customerNotifications.title, "Support ticket assigned"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
           and(eq(customerNotifications.title, "Customer replied to a support ticket"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
+          and(eq(customerNotifications.title, "Your support ticket was reopened"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
+          and(eq(customerNotifications.title, "Customer reopened a support ticket"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
         ));
       }
       await db.delete(supportAttachments).where(eq(supportAttachments.ticketId, temporaryTicketId));
