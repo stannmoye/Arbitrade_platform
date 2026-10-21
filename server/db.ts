@@ -674,6 +674,14 @@ export async function addTicketAttachment(userId:number,input:{ticketId:number;f
   await db.insert(supportAttachments).values({ticketId:input.ticketId,uploadedBy:userId,fileName:input.fileName.slice(0,255),mimeType:input.mimeType.slice(0,160),sizeBytes:input.sizeBytes,storageKey:input.storageKey.slice(0,512)});
   return {success:true};
 }
+export async function getTicketAttachmentAccess(storageKey:string) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const row=(await db.select({ticketId:supportTickets.id,customerId:supportTickets.customerId})
+    .from(supportAttachments)
+    .innerJoin(supportTickets,eq(supportTickets.id,supportAttachments.ticketId))
+    .where(eq(supportAttachments.storageKey,storageKey)).limit(1))[0];
+  return row ?? null;
+}
 
 // Controlled opportunity engine: this is an internal paper-ledger boundary. Real execution requires licensed providers/custody.
 import { opportunityPackagePolicies } from "../drizzle/schema";
