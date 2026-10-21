@@ -56,6 +56,30 @@ This file is the resumable work log for PR #95. GitHub branch history is authori
 - This was an evidence-only bounded work unit; files changed in the unit: this progress document only. No tests were needed for source discovery.
 - Next: authenticated ticket/thread acceptance using the existing real support backend and an opt-in disposable-DB fixture; preserve the existing ticket ownership/status/attachment guards. Once executable, update acceptance/handoff with precise gaps rather than claiming browser sign-off.
 
+### Work unit 4 — authenticated support-ticket database lifecycle acceptance
+
+- Implementation/test commit range: `064553ce80f6912cefe73a0641d817833bf8e697` through `2a0ad336692f882c56f1a207a3fe2463e667f57a`.
+- Extended the opt-in disposable-database integration suite to exercise the real tRPC caller/context against persisted ticket records: ticket creation and opening message; owner-visible ticket/history; cross-account ticket-message and reply rejection; customer denial for admin assignment; administrator assignment and idempotent repeated assignment; assignment audit row; admin resolution reply; customer reply blocked until reopening; customer reopen and subsequent reply; persisted final status and conversation contents.
+- Fixed a test-fixture cleanup leak found during review: the earlier suite reused a single temporary customer ID across tests and only deleted the last assigned ID. Cleanup now tracks and deletes every temporary customer created by the suite, plus ticket messages, attachments, ticket-specific notifications and audit rows.
+- Exact-head validation on `5b7db5abef6c6bc7fce17a47ebbec8d730092849`: [Stage 3 five-theme validation run 39528023849](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39528023849) passed TypeScript, application/theme regression tests, production build, and Chromium viewport/five-theme smoke; [Installer validation run 39528023868](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39528023868) passed installer/migration tests, disposable MariaDB and MySQL 8 compatibility/recovery, fresh-install validation, the opt-in authenticated database integration suite, production server smoke, and deployment packaging; [Mining database regression run 39528023846](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39528023846) passed.
+- Installer validation intentionally skipped its duplicate application-unit and TypeScript jobs for this PR base; those checks passed in the five-theme workflow. The database integration test ran in the disposable MariaDB job with `RUN_APPEARANCE_SETTINGS_DB_INTEGRATION=1`.
+- Scope limitation: this is authenticated database/router integration coverage, not a claim of manual hosted acceptance or assistive-technology sign-off. Attachment ownership has existing source/contract coverage; complete browser-level attachment and concurrency acceptance remains open.
+
+### Work unit 5 — prevent announcement withdrawal/delivery race regressions
+
+- Implementation commits: `a1193164ba6da67ca32641ce8608f3d6d209fbcd` and `92c7e0cdba8524765e61f223c2fb21a7090ca7bb`; regression coverage in `5a0ebdabfcac8ee68676386f9d5dd2339503bc54` and `5b7db5abef6c6bc7fce17a47ebbec8d730092849`.
+- Delivery success/failure writes now transition only recipient rows still in `pending` or `failed`; a late in-flight worker cannot overwrite a terminal `withdrawn` or `expired` status.
+- If a successful notification is created while withdrawal wins the race, the worker still links the notification ID to its delivery record without changing the terminal status. This preserves the suppression join, so a late-created notification remains hidden from customer history, unread counts, and the sound event cursor.
+- Added a focused regression contract for the conditional transition and suppression linkage. The application regression suite passed on the exact code head; the authenticated MariaDB campaign-withdrawal integration test also passed as part of installer run 39528023868.
+- No external delivery was attempted and no production database was touched.
+
+### Exact-head status and remaining Stage 4 gates (2026-10-21)
+
+- Latest verified application code head: `5b7db5abef6c6bc7fce17a47ebbec8d730092849`.
+- All three exact-head workflow groups passed: [five-theme/browser + TypeScript + application tests](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39528023849), [installer + MySQL 8/MariaDB + database integration + deployment package](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39528023868), and [mining database regression](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39528023846).
+- Still blocked: provider-backed deposit/withdrawal success events because no authoritative persisted provider/custody lifecycle exists in the repository. Do not synthesize success events.
+- Still incomplete: persistent server push transport (bounded polling with backoff/reconnect remains the implemented fallback), full browser sound/autoplay preference acceptance, assistive-technology/accessibility sign-off, and final release review. Stage 4 is not complete or approved; PR #95 remains open/draft and unmerged.
+
 ## Update protocol
 
 For each meaningful work unit, append a section with actual changed behavior/files, actual test commands/results, resulting Git SHA, unresolved risks, and next action. Commit and push each coherent slice to the existing feature branch. After pushing, confirm remote branch SHA through GitHub. If interrupted, resume from this file plus `git log`, source and live CI; do not trust old conversation state.

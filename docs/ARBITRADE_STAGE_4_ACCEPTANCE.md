@@ -287,3 +287,18 @@ The following source inspection helps scope final acceptance. It is **not** a cl
 | Realtime push/reconnect | Current client behavior uses polling and a bounded event cursor; no persistent push transport is established. | **Incomplete.** Test polling/reconnect/deduplication and document push as an outstanding requirement. |
 
 Acceptance rule: each financial-success notification must be tied to the authoritative persisted business result and must not fire for a pending, failed, reversed or rolled-back operation. Best-effort notification delivery must not turn a committed business operation into an apparent failure.
+
+
+## Follow-on exact-head verification (2026-10-21)
+
+Latest verified application code: `5b7db5abef6c6bc7fce17a47ebbec8d730092849`.
+
+- [Stage 3 five-theme validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39528023849) passed TypeScript, application/theme regression tests, production build, and the Chromium viewport/five-theme smoke matrix.
+- [Installer validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39528023868) passed installer/migration safety, disposable MariaDB and MySQL 8 compatibility/recovery, authenticated database integration, production server smoke, and deployment packaging. The database integration step exercised ticket creation/ownership, cross-account denial, admin-only assignment, idempotent assignment/audit, resolution, reopening and customer reply against a disposable MariaDB schema.
+- [Mining database regression](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39528023846) passed.
+- Added a race guard so a concurrent in-flight campaign delivery cannot restore a withdrawn/expired recipient status; a created notification remains linked for campaign suppression even when withdrawal wins.
+- The opt-in database integration test now tracks and removes all temporary users and support-ticket fixtures, correcting a cleanup leak in the prior test suite.
+- This is exact-head CI and disposable database evidence, not hosted production acceptance.
+
+**Still open:** no authoritative persisted provider/custody deposit or withdrawal completion flow exists, so those financial-success notifications cannot be implemented safely from the current repository. Persistent server push is not present; bounded polling with backoff/reconnect is the current fallback. Full browser sound/autoplay preference behavior, assistive-technology accessibility, broader attachment/concurrency acceptance, and final release sign-off remain open. Keep all relevant checkboxes above open until the corresponding evidence is complete. PR #95 remains draft and unmerged.
+

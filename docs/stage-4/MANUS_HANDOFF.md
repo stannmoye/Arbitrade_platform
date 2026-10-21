@@ -114,3 +114,21 @@ The first ChatGPT integration batch was added after the Manus handoff. **This ch
 - Exact-head validation on code commit `f2712bf1bd615fd6ba076be783fdb9555c310886` passed: [Stage 3 five-theme validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39524335792) passed application/theme regression, TypeScript, production build and the Chromium smoke matrix (848 checks, 0 failures); [Installer validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39524335807) passed migration/installer safety, fresh MariaDB, MySQL 8 compatibility/recovery, build/server smoke and deployment-package validation; [Mining database regression](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39524335894) passed. The installer run explicitly verified migration 0057's tracker checksum and `(userId, createdAt, id)` index order on disposable MySQL 8 and MariaDB. These results validate this code SHA, not hosted production behavior or the complete authenticated Stage 4 user journeys.
 
 Remaining release blockers are unchanged: source-to-requirement event coverage and post-commit proof, provider-gated deposit/withdrawal lifecycle (blocked until authoritative persisted transitions exist), push/reconnect behavior, authenticated ticket/announcement browser acceptance, full accessibility review, and release provenance. PR #95 remains open and draft; no merge, deployment, or production database operation was performed.
+
+
+## Follow-on coding and verification checkpoint (2026-10-21)
+
+This section supersedes earlier "remaining" notes where later commits have completed the item. The original Manus handoff metadata above remains a historical snapshot.
+
+- **Latest verified application code head:** `5b7db5abef6c6bc7fce17a47ebbec8d730092849`.
+- Added resilient bounded notification polling after request failures, with explicit refetch on reconnect/focus; this remains polling, not server push.
+- Added administrator-controlled campaign withdrawal with forward-only migration `0058_withdrawable_notification_campaigns.sql`, audit logging, retry/republication guards, and customer visibility suppression.
+- Corrected an in-flight campaign delivery race: recipient status transitions are conditional on `pending/failed`; if withdrawal/expiry wins, the notification ID is still linked for suppression while the terminal delivery status and withdrawal/expiry error remain intact.
+- Added disposable-database authenticated ticket lifecycle coverage for ticket creation, owner isolation, admin-only assignment, idempotent assignment, audit persistence, admin resolution reply, customer reopen, and reply after reopening. Fixed integration-test cleanup to remove every temporary user and ticket fixture.
+- Exact-head CI passed:
+  - [Stage 3 five-theme validation 39528023849](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39528023849): TypeScript, application/theme regression, production build and Chromium viewport/five-theme smoke.
+  - [Installer validation 39528023868](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39528023868): syntax, installer/migration tests, fresh MariaDB, MySQL 8 compatibility/recovery, authenticated database integration, production server smoke and deployment packaging.
+  - [Mining database regression 39528023846](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39528023846): passed.
+- No merge, deployment, production database access, or real provider transaction was performed.
+- Remaining release gates: authoritative provider-backed deposit/withdrawal lifecycle, real push transport if supported by the deployment, complete browser sound/autoplay/reconnect acceptance, broader accessibility/assistive-technology review, and final release sign-off. Existing CI passing does not close these product/runtime gates.
+
