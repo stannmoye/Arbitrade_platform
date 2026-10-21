@@ -48,13 +48,87 @@ function idempotencyKey(input: string | undefined, userId: number) {
   return `stake:${userId}:${crypto.createHash("sha256").update(value).digest("hex")}`;
 }
 
+function allocationCommand(productId: number, amountMinor: number) {
+  const payload = JSON.stringify({ productId, amountMinor });
+  return `stake.allocate:${crypto.createHash("sha256").update(payload).digest("hex")}`;
+}
+
+function parseIdempotencyReplay(prior: { command: string; resultJson: string | null }, expectedCommand: string, expectedPositionId?: number) {
+  if (prior.command !== expectedCommand) {
+    throw new Error("This idempotency key was already used for a different Stake & Earn operation");
+  }
+
+  let result: unknown;
+  try {
+    result = JSON.parse(prior.resultJson ?? "");
+  } catch {
+    throw new Error("Stored Stake & Earn idempotency result is invalid; refusing replay");
+  }
+
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    throw new Error("Stored Stake & Earn idempotency result is invalid; refusing replay");
+  }
+  const replay = result as Record<string, unknown>;
+  const replayPositionId = Number(replay.positionId);
+  if (!Number.isInteger(replayPositionId) || replayPositionId <= 0) {
+    throw new Error("Stored Stake & Earn idempotency result has no valid position; refusing replay");
+  }
+  if (expectedPositionId !== undefined && replayPositionId !== expectedPositionId) {
+    throw new Error("This idempotency key was already used for a different stake position");
+  }
+  return replay as any;
+}
+
 function rewardFor(principal: number, annualRateBps: number, durationDays: number) {
   return Math.floor(principal * annualRateBps * durationDays / (10000 * 365));
 }
 
 function nextRewardAt(from: Date, frequency: string) {
-  const days = frequency === "DAILY" ? 1 : frequency === "WEEKLY" ? 7 : 30;
-  return new Date(from.getTime() + days * 86400000);
+  return new Date(from.getTime() + rewardIntervalMs(frequency));
+}
+
+const rewardIntervalMs = (frequency: string) => {
+  if (frequency === "DAILY") return 86400000;
+  if (frequency === "WEEKLY") return 604800000;
+  if (frequency === "MONTHLY") return 2592000000;
+  throw new Error(`Unsupported Stake & Earn reward frequency: ${frequency}`);
+};
+
+/**
+ * Calculate the number of reward periods due and the first scheduled period
+ * after `now`. Keeping these together prevents catch-up payouts from leaving
+ * nextRewardAt behind the current time after a multi-period reward is posted.
+ */
+export function calculateDueRewardSchedule(nextAt: Date, frequency: string, now = new Date()) {
+  const intervalMs = rewardIntervalMs(frequency);
+  const periodsDue = Math.max(1, Math.floor((now.getTime() - nextAt.getTime()) / intervalMs) + 1);
+  return {
+    periodsDue,
+    nextRewardAt: new Date(nextAt.getTime() + periodsDue * intervalMs),
+  };
+}
+
+/**
+ * Calculate the additional reward owed across the position's full elapsed
+ * schedule, less rewards already posted. rewardMinor is cumulative, so the
+ * target must also be cumulative rather than based only on this catch-up batch.
+ */
+export function calculateAdditionalStakeReward(
+  principalMinor: number,
+  annualRateBps: number,
+  openedAt: Date,
+  frequency: string,
+  rewardMinor: number,
+  now = new Date(),
+  maturityAt?: Date,
+) {
+  const intervalMs = rewardIntervalMs(frequency);
+  const periodDays = intervalMs / 86400000;
+  // Rewards stop accruing at maturity, even if the dashboard is first opened later.
+  const asOf = maturityAt ? new Date(Math.min(now.getTime(), maturityAt.getTime())) : now;
+  const elapsedPeriods = Math.max(0, Math.floor((asOf.getTime() - openedAt.getTime()) / intervalMs));
+  const cumulativeTarget = Math.floor(principalMinor * annualRateBps * elapsedPeriods * periodDays / (10000 * 365));
+  return Math.max(0, cumulativeTarget - rewardMinor);
 }
 
 async function postDueRewards(conn: Db, userId: number) {
@@ -62,31 +136,60 @@ async function postDueRewards(conn: Db, userId: number) {
     FROM stake_positions p JOIN stake_products sp ON sp.id=p.productId
     WHERE p.userId=? AND p.status IN ('ACTIVE','REWARD_ACCRUING') AND p.nextRewardAt IS NOT NULL AND p.nextRewardAt<=NOW() FOR UPDATE`, [userId]);
   for (const position of positions) {
-    const periods = Math.max(1, Math.floor((Date.now() - new Date(position.nextRewardAt).getTime()) / (position.rewardFrequency === "DAILY" ? 86400000 : position.rewardFrequency === "WEEKLY" ? 604800000 : 2592000000)) + 1);
-    const reward = Math.max(0, Math.floor(Number(position.principalMinor) * Number(position.annualRateBps) * ((position.rewardFrequency === "DAILY" ? periods : periods * (position.rewardFrequency === "WEEKLY" ? 7 : 30))) / (10000 * 365)) - Number(position.rewardMinor));
-    if (!reward) continue;
+    const schedule = calculateDueRewardSchedule(new Date(position.nextRewardAt), position.rewardFrequency);
+    const reward = calculateAdditionalStakeReward(
+      Number(position.principalMinor),
+      Number(position.annualRateBps),
+      new Date(position.openedAt),
+      position.rewardFrequency,
+      Number(position.rewardMinor),
+      new Date(),
+      new Date(position.maturityAt),
+    );
+    if (!reward) {
+      // Advance the schedule even when rounding produces no payable minor unit;
+      // otherwise the same overdue position is selected on every dashboard read.
+      await conn.execute(`UPDATE stake_positions SET nextRewardAt=?, updatedAt=NOW() WHERE id=?`, [schedule.nextRewardAt, position.id]);
+      continue;
+    }
     const reference = `stake-reward:${position.id}:${position.rewardCount + 1}`;
     const [existing] = await conn.query<any[]>(`SELECT id FROM balance_ledger WHERE reference=? LIMIT 1`, [reference]);
-    if (!existing.length) {
-      await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId, position.asset, reward, "stake_reward", reference]);
-      await conn.execute(`UPDATE customer_balances SET availableMinor=availableMinor+?, earnedMinor=earnedMinor+?, updatedAt=NOW() WHERE userId=? AND currency=?`, [reward, reward, userId, position.asset]);
-      await conn.execute(`INSERT INTO stake_rewards (positionId,userId,amountMinor,asset,status,calculatedAt,postedAt,ledgerReference) VALUES (?,?,?,?, 'POSTED', NOW(), NOW(), ?)`, [position.id, userId, reward, position.asset, reference]);
-      await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, position.id, "reward.posted", "REWARD_ACCRUING", "REWARD_ACCRUING", reward, position.asset, JSON.stringify({ ledgerReference: reference })]);
-      await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, "Reward credited", `A ${reward} minor-unit reward was posted to your ${position.asset} wallet.`]);
+    if (existing.length) {
+      // A ledger row without the matching position transition is an inconsistent
+      // partial posting. Do not advance the position or silently mask it.
+      throw new Error(`Stake reward invariant violation for ${reference}: ledger entry already exists before position reward count advanced.`);
     }
-    await conn.execute(`UPDATE stake_positions SET rewardMinor=rewardMinor+?, rewardCount=rewardCount+1, status='REWARD_ACCRUING', nextRewardAt=?, updatedAt=NOW() WHERE id=?`, [reward, nextRewardAt(new Date(position.nextRewardAt), position.rewardFrequency), position.id]);
+    await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId, position.asset, reward, "stake_reward", reference]);
+    const [walletUpdate] = await conn.execute<any>(`UPDATE customer_balances SET availableMinor=availableMinor+?, earnedMinor=earnedMinor+?, updatedAt=NOW() WHERE userId=? AND currency=?`, [reward, reward, userId, position.asset]);
+    if (Number(walletUpdate.affectedRows) !== 1) {
+      throw new Error(`Stake reward ${reference} must update exactly one wallet row; received ${Number(walletUpdate.affectedRows) || 0}.`);
+    }
+    await conn.execute(`INSERT INTO stake_rewards (positionId,userId,amountMinor,asset,status,calculatedAt,postedAt,ledgerReference) VALUES (?,?,?,?, 'POSTED', NOW(), NOW(), ?)`, [position.id, userId, reward, position.asset, reference]);
+    await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, position.id, "reward.posted", "REWARD_ACCRUING", "REWARD_ACCRUING", reward, position.asset, JSON.stringify({ ledgerReference: reference })]);
+    await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, "Reward credited", `A ${reward} minor-unit reward was posted to your ${position.asset} wallet.`]);
+    const [positionUpdate] = await conn.execute<any>(`UPDATE stake_positions SET rewardMinor=rewardMinor+?, rewardCount=rewardCount+1, status='REWARD_ACCRUING', nextRewardAt=?, updatedAt=NOW() WHERE id=? AND status IN ('ACTIVE','REWARD_ACCRUING')`, [reward, schedule.nextRewardAt, position.id]);
+    if (Number(positionUpdate.affectedRows) !== 1) {
+      throw new Error(`Stake reward ${reference} must update exactly one eligible position; received ${Number(positionUpdate.affectedRows) || 0}.`);
+    }
   }
 }
 
-async function settleDuePositions(conn: Db, userId: number) {
+export async function settleDuePositions(conn: Db, userId: number) {
   const [positions] = await conn.query<any[]>(`SELECT * FROM stake_positions WHERE userId=? AND status IN ('ACTIVE','REWARD_ACCRUING','SETTLING') AND maturityAt<=NOW() FOR UPDATE`, [userId]);
   for (const p of positions) {
     const reference = `stake-settlement:${p.id}`;
     const [existing] = await conn.query<any[]>(`SELECT id FROM balance_ledger WHERE reference=? LIMIT 1`, [reference]);
-    if (existing.length) continue;
+    if (existing.length) {
+      // A pending/matured position with a prior principal-release ledger entry
+      // is an inconsistent historical state. Never silently leave it active or
+      // credit the wallet again; roll back and require reconciliation.
+      throw new Error("Stake settlement invariant violation for " + reference + ": principal-release ledger already exists while position is not completed.");
+    }
     await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId, p.asset, p.principalMinor, "stake_principal_release", reference]);
-    await conn.execute(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=GREATEST(lockedMinor-?,0), updatedAt=NOW() WHERE userId=? AND currency=?`, [p.principalMinor, p.principalMinor, userId, p.asset]);
-    await conn.execute(`UPDATE stake_positions SET status='COMPLETED', completedAt=NOW(), updatedAt=NOW() WHERE id=?`, [p.id]);
+    const [walletUpdate] = await conn.execute<any>(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=lockedMinor-?, updatedAt=NOW() WHERE userId=? AND currency=? AND lockedMinor>=?`, [p.principalMinor, p.principalMinor, userId, p.asset, p.principalMinor]);
+    if (Number(walletUpdate.affectedRows) !== 1) throw new Error("Stake settlement " + reference + " requires exactly one wallet row with sufficient locked funds; updated " + (Number(walletUpdate.affectedRows) || 0) + ".");
+    const [positionUpdate] = await conn.execute<any>(`UPDATE stake_positions SET status='COMPLETED', completedAt=NOW(), updatedAt=NOW() WHERE id=? AND status IN ('ACTIVE','REWARD_ACCRUING','SETTLING')`, [p.id]);
+    if (Number(positionUpdate.affectedRows) !== 1) throw new Error("Stake settlement " + reference + " must complete exactly one eligible position; received " + (Number(positionUpdate.affectedRows) || 0) + ".");
     await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, p.id, "position.completed", p.status, "COMPLETED", p.principalMinor, p.asset, JSON.stringify({ ledgerReference: reference })]);
     await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, "Funds released", `Your Stake & Earn position ${p.positionCode} matured and principal was released to your wallet.`]);
   }
@@ -115,10 +218,11 @@ export async function getStakeDashboard(userId: number) {
 export async function allocateStake(userId: number, input: { productId: number; amountMinor: number; idempotencyKey: string }) {
   return withConnection(async conn => {
     const key = idempotencyKey(input.idempotencyKey, userId);
+    const command = allocationCommand(input.productId, input.amountMinor);
     await conn.beginTransaction();
     try {
-      const [prior] = await conn.query<any[]>(`SELECT resultJson FROM v5_idempotency_keys WHERE userId=? AND keyValue=? LIMIT 1 FOR UPDATE`, [userId, key]);
-      if (prior.length) { await conn.commit(); return JSON.parse(prior[0].resultJson); }
+      const [prior] = await conn.query<any[]>(`SELECT command, resultJson FROM v5_idempotency_keys WHERE userId=? AND keyValue=? LIMIT 1 FOR UPDATE`, [userId, key]);
+      if (prior.length) { const result = parseIdempotencyReplay(prior[0], command); await conn.commit(); return result; }
       const [productRows] = await conn.query<any[]>(`SELECT * FROM stake_products WHERE id=? AND status='AVAILABLE' FOR UPDATE`, [input.productId]);
       const product = productRows[0] as StakeProduct | undefined;
       if (!product) throw new Error("Stake product is not available");
@@ -128,14 +232,20 @@ export async function allocateStake(userId: number, input: { productId: number; 
       if (!balance || Number(balance.availableMinor) < input.amountMinor) throw new Error("Insufficient available wallet balance");
       const now = new Date(); const maturity = new Date(now.getTime() + product.durationDays * 86400000); const positionCode = `STK-${crypto.randomBytes(4).toString("hex").toUpperCase()}`; const reference = `stake-allocation:${positionCode}`;
       await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId, product.asset, -input.amountMinor, "stake_allocation", reference]);
-      await conn.execute(`UPDATE customer_balances SET availableMinor=availableMinor-?, lockedMinor=lockedMinor+?, updatedAt=NOW() WHERE id=?`, [input.amountMinor, input.amountMinor, balance.id]);
+      const [walletUpdate] = await conn.execute<any>(`UPDATE customer_balances SET availableMinor=availableMinor-?, lockedMinor=lockedMinor+?, updatedAt=NOW() WHERE id=? AND userId=? AND currency=? AND availableMinor>=?`, [input.amountMinor, input.amountMinor, balance.id, userId, product.asset, input.amountMinor]);
+      if (Number(walletUpdate.affectedRows) !== 1) {
+        throw new Error(`Stake allocation ${reference} must reserve funds from exactly one wallet row with sufficient available balance; updated ${Number(walletUpdate.affectedRows) || 0}.`);
+      }
       const [positionResult] = await conn.execute<any>(`INSERT INTO stake_positions (positionCode,userId,productId,asset,principalMinor,rewardMinor,status,openedAt,updatedAt,maturityAt,nextRewardAt,originalLedgerReference) VALUES (?,?,?,?,?,0,'ACTIVE',NOW(),NOW(),?,?,?)`, [positionCode, userId, product.id, product.asset, input.amountMinor, maturity, nextRewardAt(now, product.rewardFrequency), reference]);
       const positionId = Number(positionResult.insertId);
+      if (!Number.isInteger(positionId) || positionId <= 0) {
+        throw new Error(`Stake allocation ${reference} did not create a valid position record.`);
+      }
       await conn.execute(`INSERT INTO stake_transactions (transactionCode,userId,positionId,type,amountMinor,asset,status,ledgerReference,idempotencyKey) VALUES (?,?,?,?,?,?, 'COMPLETED', ?, ?)`, [`TX-${crypto.randomBytes(5).toString("hex").toUpperCase()}`, userId, positionId, "STAKE_ALLOCATION", input.amountMinor, product.asset, reference, key]);
       await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId, positionId, "position.created", "PENDING", "ACTIVE", input.amountMinor, product.asset, JSON.stringify({ ledgerReference: reference, productId: product.id })]);
       await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, "Allocation confirmed", `Your ${product.name} allocation is active. Funds were reserved through the wallet ledger.`]);
       const result = { positionId, positionCode, status: "ACTIVE", asset: product.asset, principalMinor: input.amountMinor, maturityAt: maturity.toISOString(), ledgerReference: reference };
-      await conn.execute(`INSERT INTO v5_idempotency_keys (userId,keyValue,command,resultJson) VALUES (?,?,?,?)`, [userId, key, "stake.allocate", JSON.stringify(result)]);
+      await conn.execute(`INSERT INTO v5_idempotency_keys (userId,keyValue,command,resultJson) VALUES (?,?,?,?)`, [userId, key, command, JSON.stringify(result)]);
       await conn.commit(); return result;
     } catch (e) { await conn.rollback(); throw e; }
   });
@@ -145,14 +255,19 @@ export async function cancelStake(userId: number, positionId: number, requestKey
   return withConnection(async conn => {
     const key = idempotencyKey(requestKey, userId); await conn.beginTransaction();
     try {
-      const [prior] = await conn.query<any[]>(`SELECT resultJson FROM v5_idempotency_keys WHERE userId=? AND keyValue=? LIMIT 1 FOR UPDATE`, [userId, key]);
-      if (prior.length) { await conn.commit(); return JSON.parse(prior[0].resultJson); }
+      const [prior] = await conn.query<any[]>(`SELECT command, resultJson FROM v5_idempotency_keys WHERE userId=? AND keyValue=? LIMIT 1 FOR UPDATE`, [userId, key]);
+      if (prior.length) { const result = parseIdempotencyReplay(prior[0], "stake.cancel", positionId); await conn.commit(); return result; }
       const [rows] = await conn.query<any[]>(`SELECT * FROM stake_positions WHERE id=? AND userId=? FOR UPDATE`, [positionId, userId]); const p=rows[0];
       if (!p || !["ACTIVE","REWARD_ACCRUING"].includes(p.status)) throw new Error("This position cannot be cancelled");
-      if (new Date(p.maturityAt).getTime() - Date.now() < 0) throw new Error("Matured positions must be settled");
-      const reference=`stake-cancellation:${p.id}`; await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId,p.asset,p.principalMinor,"stake_cancellation_release",reference]);
-      await conn.execute(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=GREATEST(lockedMinor-?,0), updatedAt=NOW() WHERE userId=? AND currency=?`, [p.principalMinor,p.principalMinor,userId,p.asset]);
-      await conn.execute(`UPDATE stake_positions SET status='CANCELLED', completedAt=NOW(), updatedAt=NOW() WHERE id=?`, [p.id]);
+      if (new Date(p.maturityAt).getTime() <= Date.now()) throw new Error("Matured positions must be settled");
+      const reference=`stake-cancellation:${p.id}`;
+      const [existing] = await conn.query<any[]>(`SELECT id FROM balance_ledger WHERE reference=? LIMIT 1`, [reference]);
+      if (existing.length) throw new Error(`Stake cancellation invariant violation for ${reference}: ledger entry already exists before position cancellation.`);
+      await conn.execute(`INSERT INTO balance_ledger (userId,currency,amountMinor,entryType,reference,withdrawable) VALUES (?,?,?,?,?,false)`, [userId,p.asset,p.principalMinor,"stake_cancellation_release",reference]);
+      const [walletUpdate] = await conn.execute<any>(`UPDATE customer_balances SET availableMinor=availableMinor+?, lockedMinor=lockedMinor-?, updatedAt=NOW() WHERE userId=? AND currency=? AND lockedMinor>=?`, [p.principalMinor,p.principalMinor,userId,p.asset,p.principalMinor]);
+      if (Number(walletUpdate.affectedRows) !== 1) throw new Error(`Stake cancellation ${reference} requires exactly one wallet row with sufficient locked funds; updated ${Number(walletUpdate.affectedRows) || 0}.`);
+      const [positionUpdate] = await conn.execute<any>(`UPDATE stake_positions SET status='CANCELLED', completedAt=NOW(), updatedAt=NOW() WHERE id=? AND userId=? AND status IN ('ACTIVE','REWARD_ACCRUING')`, [p.id,userId]);
+      if (Number(positionUpdate.affectedRows) !== 1) throw new Error(`Stake cancellation ${reference} must cancel exactly one eligible position; updated ${Number(positionUpdate.affectedRows) || 0}.`);
       await conn.execute(`INSERT INTO stake_events (userId,positionId,eventType,previousState,newState,amountMinor,asset,metadataJson) VALUES (?,?,?,?,?,?,?,?)`, [userId,p.id,"position.cancelled",p.status,"CANCELLED",p.principalMinor,p.asset,JSON.stringify({ledgerReference:reference})]);
       const result={positionId:p.id,status:"CANCELLED",ledgerReference:reference}; await conn.execute(`INSERT INTO v5_idempotency_keys (userId,keyValue,command,resultJson) VALUES (?,?,?,?)`,[userId,key,"stake.cancel",JSON.stringify(result)]); await conn.commit(); return result;
     } catch(e){await conn.rollback();throw e;}
@@ -166,3 +281,7 @@ export function projectStake(input: { amountMinor: number; annualRateBps: number
 }
 
 export function __testRewardFor(principal: number, rateBps: number, days: number) { return rewardFor(principal, rateBps, days); }
+export function __testAllocationCommand(productId: number, amountMinor: number) { return allocationCommand(productId, amountMinor); }
+export function __testParseIdempotencyReplay(prior: { command: string; resultJson: string }, expectedCommand: string, expectedPositionId?: number) {
+  return parseIdempotencyReplay(prior, expectedCommand, expectedPositionId);
+}
