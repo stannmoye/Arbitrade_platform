@@ -29,7 +29,7 @@ describe("manual trade settlement transaction contract", () => {
     );
     expect(settlementSource).toContain("if(!Number.isSafeInteger(principal)||principal<=0)");
     expect(settlementSource).toContain("if(!Number.isSafeInteger(total))");
-    expect(settlementSource).not.toContain("GREATEST(${customerBalances.lockedMinor}");
+    expect(settlementSource).not.toContain("GREATEST(");
   });
 
   it("keeps settlement references within the ledger column's supported length", () => {
