@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import Decimal from "decimal.js";
-import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, calculatePackageDailyRate, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, isQuoteFresh, isRateWithinDeviation, miningQuoteIdMatches, overlapSeconds } from "./mining-rules";
+import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, calculatePackageDailyRate, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, isQuoteFresh, isRateWithinDeviation, miningIdentifierMatches, overlapSeconds } from "./mining-rules";
 
 describe("mining reward rules", () => {
   it("uses the configured tokens per TH/s-hour formula with decimal precision", () => {
@@ -177,19 +177,19 @@ describe("mining time and quote guards", () => {
 });
 
 
-describe("mining quote idempotency binding", () => {
-  it("matches a persisted numeric or string quote ID only to that same positive safe ID", () => {
-    expect(miningQuoteIdMatches(42, 42)).toBe(true);
-    expect(miningQuoteIdMatches("42", 42)).toBe(true);
-    expect(miningQuoteIdMatches("0042", 42)).toBe(true);
+describe("mining idempotency identifier binding", () => {
+  it("matches a persisted numeric or string identifier only to that same positive safe ID", () => {
+    expect(miningIdentifierMatches(42, 42)).toBe(true);
+    expect(miningIdentifierMatches("42", 42)).toBe(true);
+    expect(miningIdentifierMatches("0042", 42)).toBe(true);
   });
 
   it("rejects a different quote, a missing ID, and invalid or unsafe identifiers", () => {
-    expect(miningQuoteIdMatches(43, 42)).toBe(false);
-    expect(miningQuoteIdMatches(undefined, 42)).toBe(false);
-    expect(miningQuoteIdMatches(null, 42)).toBe(false);
-    expect(miningQuoteIdMatches("not-a-quote", 42)).toBe(false);
-    expect(miningQuoteIdMatches(Number.MAX_SAFE_INTEGER + 1, 42)).toBe(false);
-    expect(miningQuoteIdMatches(42, 0)).toBe(false);
+    expect(miningIdentifierMatches(43, 42)).toBe(false);
+    expect(miningIdentifierMatches(undefined, 42)).toBe(false);
+    expect(miningIdentifierMatches(null, 42)).toBe(false);
+    expect(miningIdentifierMatches("not-a-quote", 42)).toBe(false);
+    expect(miningIdentifierMatches(Number.MAX_SAFE_INTEGER + 1, 42)).toBe(false);
+    expect(miningIdentifierMatches(42, 0)).toBe(false);
   });
 });
