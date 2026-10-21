@@ -7,6 +7,7 @@ import {
   loadMiningConfig, postMiningLedgerEntries, quoteRatesDetails, requestKey, requireActiveMiningAccount,
   withMiningConnection,
 } from "./mining-store";
+import { assertExactlyOneSettlementClaim } from "./mining-settlement-guards";
 
 const tokenScale = 8;
 const nowSql = () => new Date();
@@ -931,7 +932,7 @@ async function processConversionJob(conn: Db, jobId: number) {
   }
 }
 
-async function settleDuePendingBoostRewards(conn: Db) {
+export async function settleDuePendingBoostRewards(conn: Db) {
   await conn.beginTransaction();
   let settled = 0;
   try {
@@ -940,7 +941,9 @@ async function settleDuePendingBoostRewards(conn: Db) {
       const userId = Number(row.userId);
       const amount = decimal(row.amountCki).toDecimalPlaces(tokenScale, Decimal.ROUND_DOWN);
       if (!amount.gt(0)) {
-        await conn.execute(`UPDATE mining_pending_boost_rewards SET status='settled',settledAt=UTC_TIMESTAMP(3),settlementReference=? WHERE id=?`, [`mining-boost-settlement:${row.id}`, Number(row.id)]);
+        const reference = `mining-boost-settlement:${row.id}`;
+        const [claimed] = await conn.execute<any>(`UPDATE mining_pending_boost_rewards SET status='settled',settledAt=UTC_TIMESTAMP(3),settlementReference=? WHERE id=? AND status='pending'`, [reference, Number(row.id)]);
+        assertExactlyOneSettlementClaim(claimed.affectedRows, reference);
         continue;
       }
       const reference = `mining-boost-settlement:${row.id}`;
@@ -949,7 +952,8 @@ async function settleDuePendingBoostRewards(conn: Db) {
         { userId, asset: "CKI", amount, entryType: "mining_boost_daily_settlement" },
         { userId: 0, asset: "CKI", amount: amount.negated(), entryType: "mining_boost_daily_issuance" },
       ]);
-      await conn.execute(`UPDATE mining_pending_boost_rewards SET status='settled',settledAt=UTC_TIMESTAMP(3),settlementReference=? WHERE id=? AND status='pending'`, [reference, Number(row.id)]);
+      const [claimed] = await conn.execute<any>(`UPDATE mining_pending_boost_rewards SET status='settled',settledAt=UTC_TIMESTAMP(3),settlementReference=? WHERE id=? AND status='pending'`, [reference, Number(row.id)]);
+      assertExactlyOneSettlementClaim(claimed.affectedRows, reference);
       settled++;
     }
     await conn.commit();
