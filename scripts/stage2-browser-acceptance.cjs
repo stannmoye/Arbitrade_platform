@@ -1318,7 +1318,37 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         await page.evaluate(() => window.localStorage.setItem("wisebond-sound-effects", "off"));
         await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
         const soundToggle = page.locator(".customer-header-sound-toggle");
-        await soundToggle.waitFor({ state: "visible" });
+        try {
+          await soundToggle.waitFor({ state: "visible" });
+        } catch (error) {
+          // Preserve computed-style and ancestor evidence so a browser-only
+          // visibility regression can be fixed at its source rather than masked.
+          const visibilityDiagnostics = await page.evaluate(() => {
+            const button = document.querySelector(".customer-header-sound-toggle");
+            const ancestors = [];
+            let node = button;
+            while (node && ancestors.length < 8) {
+              const style = getComputedStyle(node);
+              const rect = node.getBoundingClientRect();
+              ancestors.push({
+                tag: node.tagName,
+                className: typeof node.className === "string" ? node.className : "",
+                display: style.display,
+                visibility: style.visibility,
+                opacity: style.opacity,
+                position: style.position,
+                rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+              });
+              node = node.parentElement;
+            }
+            return {
+              viewport: { width: window.innerWidth, height: window.innerHeight },
+              media: { max900: matchMedia("(max-width: 900px)").matches, max600: matchMedia("(max-width: 600px)").matches },
+              ancestors,
+            };
+          });
+          throw new Error(`${error instanceof Error ? error.message : String(error)}; sound-toggle visibility diagnostics=${JSON.stringify(visibilityDiagnostics)}`);
+        }
         await page.waitForFunction(() => {
           const button = document.querySelector(".customer-header-sound-toggle");
           return button?.getAttribute("aria-pressed") === "false" &&
