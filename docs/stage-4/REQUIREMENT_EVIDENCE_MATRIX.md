@@ -1,3 +1,5 @@
+> **Current status reconciliation (2026-10-21):** PR #95 is merged into `integration/auth-installer-vps-safety` at merge commit `7f35d4d018b5bb1da0515ee37b1211dc045a66fb`. Older entries in this historical matrix that say the PR must remain open/draft/unmerged describe the state at the time they were written and are superseded. The merge does **not** close the acceptance gaps listed here, approve production deployment, or authorize production migrations/financial operations. Stage 4 scope is closed for the supported release with bounded polling as fallback; browser sound/autoplay/reconnect, exhaustive event mapping, authenticated announcement/ticket/attachment/concurrency, and manual accessibility evidence remain outstanding. Provider-backed deposit/withdrawal success notices remain blocked until authoritative persisted lifecycle events exist.
+
 # Stage 4 requirement-to-evidence matrix
 
 **Repository:** `stannmoye/Arbitrade_platform`  
