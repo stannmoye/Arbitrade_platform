@@ -24,7 +24,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: stage4-full-release
+  group: stage4-full-release-publish
   cancel-in-progress: false
 
 jobs:
