@@ -21,6 +21,7 @@ on:
       - 'tsconfig.json'
       - 'drizzle.config.*'
       - 'components.json'
+      - 'DEPLOYMENT-README.txt'
   workflow_dispatch:
 
 permissions:
@@ -28,7 +29,7 @@ permissions:
 
 concurrency:
   group: stage4-full-release-publish
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   package:
@@ -65,21 +66,30 @@ jobs:
             echo "Installer entry points: installer/index.php, installer/install.sh, installer/vps-setup.sh"
             echo "cPanel guide: cpanel/README.md"
           } > BUILD_PROVENANCE.txt
+          echo "2.0.1-stage4-full" > INSTALLER-VERSION.txt
+          {
+            echo "Arbitrade installer version: 2.0.1-stage4-full"
+            echo "Build commit: $GITHUB_SHA"
+            echo "Build UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > INSTALLER-BUILD.txt
       - name: Assemble full application ZIP
         run: |
           test -f .env.example
+          test -f DEPLOYMENT-README.txt
+          test -s INSTALLER-VERSION.txt
+          test -s INSTALLER-BUILD.txt
           test -f installer/index.php
           test -f installer/install.sh
           test -f installer/vps-setup.sh
           test -f cpanel/README.md
           test -s dist/index.js
-          grep -F '"gold-luxe": "Gold Luxe"' client/src/contexts/ThemeContext.tsx
-          grep -F '"gold-luxe"' client/src/components/appearance-policy.ts
-          grep -F '"gold-luxe"' server/appearance-settings.ts
-          grep -F '"gold-luxe"' server/routers.ts
-          grep -F ':root[data-arb-theme="gold-luxe"]' client/src/theme-system.css
-          grep -F ':root[data-arb-theme="gold-luxe"]' client/src/customer-theme-overrides.css
-          grep -F 'notificationSoundKeyForCategory' client/src/App.tsx
+          grep -Fq '"gold-luxe": "Gold Luxe"' client/src/contexts/ThemeContext.tsx
+          grep -Fq '"gold-luxe"' client/src/components/appearance-policy.ts
+          grep -Fq '"gold-luxe"' server/appearance-settings.ts
+          grep -Fq '"gold-luxe"' server/routers.ts
+          grep -Fq ':root[data-arb-theme="gold-luxe"]' client/src/theme-system.css
+          grep -Fq ':root[data-arb-theme="gold-luxe"]' client/src/customer-theme-overrides.css
+          grep -Fq 'notificationSoundKeyForCategory' client/src/App.tsx
           test -f server/modules/notification-events.ts
           test -f server/notification-campaign-delivery.contract.test.ts
           test -f server/support-ticket-submit.contract.test.ts
@@ -99,6 +109,9 @@ jobs:
           test -s arbitrade-stage4-full-application.zip
           unzip -tq arbitrade-stage4-full-application.zip
           unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx '.env.example'
+          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'DEPLOYMENT-README.txt'
+          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'INSTALLER-VERSION.txt'
+          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'INSTALLER-BUILD.txt'
           unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'installer/index.php'
           unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'installer/install.sh'
           unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'installer/vps-setup.sh'
@@ -142,7 +155,7 @@ jobs:
           body: |
             Corrected full installer package for the original Arbitrade application with Stages 1–4 integrated.
 
-            Restores the Gold Luxe sixth theme and Stage 3 Clean Light customer contrast/responsive styling while retaining the Stage 4 notification, sound, campaign, two-way support, and migration work. Includes the browser installer and VPS/cPanel deployment files, production build, locked dependencies, and required assets. The workflow runs the full regression suite, TypeScript validation, production build, and archive-content checks. Environment secrets and Git metadata are excluded.
+            Restores the Gold Luxe sixth theme, Stage 3 Clean Light customer contrast/responsive styling, and deployment/version/build metadata while retaining the Stage 4 notification, sound, campaign, two-way support, and migration work. Includes the complete application, browser installer, VPS/cPanel deployment files, production build, locked dependencies, and required assets. The workflow runs the full regression suite, TypeScript validation, production build, and archive-content checks. Environment secrets and Git metadata are excluded.
           target_commitish: integration/auth-installer-vps-safety
           files: arbitrade-stage4-full-application.zip
           fail_on_unmatched_files: true
