@@ -106,8 +106,9 @@ async function runAdminPayoutReview(browser) {
     await page.getByRole("heading", { name: "Customer payout requests" }).waitFor({ state: "visible", timeout: 10000 });
 
     const pendingCount = page.getByText("2 pending", { exact: true });
-    const firstVisible = await page.getByText("payout-admin-paid-1", { exact: true }).isVisible().catch(() => false);
-    const secondVisible = await page.getByText("payout-admin-reject-1", { exact: true }).isVisible().catch(() => false);
+    const payoutQueue = page.getByRole("region", { name: "Customer payout requests" });
+    const firstVisible = await payoutQueue.getByText("payout-admin-paid-1", { exact: true }).isVisible().catch(() => false);
+    const secondVisible = await payoutQueue.getByText("payout-admin-reject-1", { exact: true }).isVisible().catch(() => false);
     record("admin transaction review loads pending payout queue",
       await pendingCount.isVisible().catch(() => false) && firstVisible && secondVisible, {
         pendingCountVisible: await pendingCount.isVisible().catch(() => false), firstVisible, secondVisible,
