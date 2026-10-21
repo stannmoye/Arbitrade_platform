@@ -416,7 +416,7 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
     if(!campaign)throw new Error("Announcement campaign persistence could not be confirmed");
     if(!matchesPayload(campaign))throw new Error("Announcement event key was already used with a different campaign payload");
   }
-  if(campaign.status==="expired")throw new Error("Expired announcement campaigns cannot be republished");
+  if(campaign.status==="expired")return {campaignId:campaign.id,recipientCount:0,totalRecipientCount:campaign.totalRecipientCount,readCount:0,failedCount:0,pendingCount:0,eventKey,targetUserId:targetUserId??null,status:"expired" as const};
   if(campaign.status==="withdrawn")throw new Error("Withdrawn announcement campaigns cannot be republished");
   if(campaign.expiresAt && campaign.expiresAt.getTime()<=now.getTime()) {
     // Keep campaign expiry and recipient suppression in one transaction so a
