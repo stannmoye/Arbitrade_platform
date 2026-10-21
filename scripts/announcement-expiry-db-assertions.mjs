@@ -36,8 +36,8 @@ try {
   for (const [index, userId] of recipientIds.entries()) {
     const status = ["pending", "failed", "delivered", "read"][index];
     await connection.execute(
-      "INSERT INTO notification_campaign_deliveries (campaignId,userId,status) VALUES (?,?,?)",
-      [campaignId, userId, status],
+      "INSERT INTO notification_campaign_deliveries (campaignId,userId,status,deliveredAt,readAt) VALUES (?,?,?,CASE WHEN ? IN ('delivered','read') THEN CURRENT_TIMESTAMP ELSE NULL END,CASE WHEN ?='read' THEN CURRENT_TIMESTAMP ELSE NULL END)",
+      [campaignId, userId, status, status, status],
     );
   }
 
@@ -105,7 +105,7 @@ try {
     [campaignId],
   );
   const [finalDeliveryRows] = await connection.execute(
-    "SELECT status,COUNT(*) AS count FROM notification_campaign_deliveries WHERE campaignId=? GROUP BY status",
+    "SELECT status,COUNT(*) AS count,SUM(deliveredAt IS NOT NULL) AS deliveredTimestamps,SUM(readAt IS NOT NULL) AS readTimestamps FROM notification_campaign_deliveries WHERE campaignId=? GROUP BY status",
     [campaignId],
   );
   if (finalCampaignRows.length !== 1 || finalCampaignRows[0].status !== "expired" ||
@@ -113,9 +113,13 @@ try {
     throw new Error("Successful retry produced an unexpected campaign status or recipient total.");
   }
   const finalCounts = Object.fromEntries(finalDeliveryRows.map(row => [row.status, Number(row.count)]));
+  const readRow = finalDeliveryRows.find(row => row.status === "read");
+  const deliveredRow = finalDeliveryRows.find(row => row.status === "delivered");
   if (finalCounts.expired !== 2 || finalCounts.delivered !== 1 || finalCounts.read !== 1 ||
-      finalDeliveryRows.reduce((sum, row) => sum + Number(row.count), 0) !== 4) {
-    throw new Error("Successful retry produced unexpected delivery states or lost read/delivery history.");
+      finalDeliveryRows.reduce((sum, row) => sum + Number(row.count), 0) !== 4 ||
+      Number(readRow?.readTimestamps) !== 1 || Number(readRow?.deliveredTimestamps) !== 1 ||
+      Number(deliveredRow?.deliveredTimestamps) !== 1 || Number(deliveredRow?.readTimestamps) !== 0) {
+    throw new Error("Successful retry produced unexpected delivery states or failed to preserve delivered/read timestamps.");
   }
 
   console.log("PASS: announcement expiry transaction rollback, retry, recipient totals, and read/delivery history.");
