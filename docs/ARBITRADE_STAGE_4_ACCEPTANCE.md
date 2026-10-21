@@ -190,8 +190,8 @@ Track these as six acceptance work areas within Stage 4, not as six separate top
 - [ ] Verify sound configuration end-to-end, including event mapping, actual browser playback, preferences, autoplay handling, post-commit timing and reconnect deduplication.
 - [ ] Verify announcement persistence, scheduling/expiry and delivery/read reporting end-to-end against the exact head; campaign/delivery ledger, bounded retries, history counts and the due/expiry worker are implemented, but source-level coverage alone is not runtime acceptance.
 - [ ] Finish ticket status/assignment/reopen/attachment authorization and customer/admin regression tests, including runtime concurrency.
-- [ ] Add and verify real-time push transport where supported, retaining bounded polling/reconnect fallback for cPanel/shared hosting.
-- [ ] Finish responsive/theme/accessibility regression checks and validate the release ZIP.
+- [x] Accept bounded polling/retry/backoff/reconnect as the supported delivery transport for this release, including shared/cPanel hosting. Persistent push is deferred until a supported deployment transport and lifecycle are agreed; it is not a Stage 4 release blocker.
+- [ ] Finish manual keyboard/screen-reader/reduced-motion/zoom/reflow acceptance and rebuild/validate a new full release ZIP after follow-up fixes. The six-theme Chromium viewport smoke and production package CI passed on PR #101's exact head, but the published ZIP predates PRs #97–#101.
 - [x] Reconcile PR state with GitHub: PR #95 is merged; remaining acceptance evidence and owner-held production gate stay open.
 
 ## Change log
