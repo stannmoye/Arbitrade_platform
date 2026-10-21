@@ -46,12 +46,20 @@ function payoutStatusLabel(status: string) {
 export function CustomerPayoutRequests() {
   const balances = trpc.customer.balances.useQuery(undefined, { refetchInterval: 10_000 });
   const requests = trpc.customer.payoutRequests.useQuery(undefined, { refetchInterval: 10_000 });
+  const eligibility = trpc.customer.payoutEligibility.useQuery(undefined, { refetchInterval: 30_000 });
   const [currency, setCurrency] = useState<PayoutAsset>("USD");
   const [amountText, setAmountText] = useState("");
   const [destinationType, setDestinationType] = useState<PayoutDestination>("bank_transfer");
   const [destinationDetails, setDestinationDetails] = useState("");
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey);
   const [feedback, setFeedback] = useState("");
+
+  const payoutAllowed = eligibility.data?.allowed === true && !eligibility.isError;
+  const eligibilityMessage = eligibility.isError
+    ? "Payout eligibility could not be verified. Requests are disabled until account status can be checked."
+    : eligibility.data?.allowed === false
+      ? eligibility.data.reason || "Payout requests are not available for this account."
+      : "";
 
   const requestMutation = trpc.customer.requestPayout.useMutation({
     onSuccess: (request) => {
@@ -61,6 +69,7 @@ export function CustomerPayoutRequests() {
       setIdempotencyKey(newIdempotencyKey());
       void requests.refetch();
       void balances.refetch();
+      void eligibility.refetch();
     },
     onError: (error) => setFeedback(error.message),
   });
@@ -88,6 +97,7 @@ export function CustomerPayoutRequests() {
   const amountMinor = parseMinorUnits(amountText, scale);
   const amountValid = amountMinor !== null && amountMinor > 0 && amountMinor <= eligibleMinor;
   const isBusy = requestMutation.isPending || cancelMutation.isPending;
+  const formDisabled = isBusy || !payoutAllowed;
 
   const changeFormValue = (change: () => void) => {
     if (isBusy) return;
@@ -98,7 +108,7 @@ export function CustomerPayoutRequests() {
 
   const submitRequest = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!amountValid || amountMinor === null || !destinationDetails.trim() || isBusy) return;
+    if (!payoutAllowed || !amountValid || amountMinor === null || !destinationDetails.trim() || isBusy) return;
     setFeedback("");
     requestMutation.mutate({
       currency,
@@ -123,22 +133,24 @@ export function CustomerPayoutRequests() {
           <h2 id="payout-requests-heading">Payout requests</h2>
           <p>Request payment from an eligible non-promotional wallet balance. Funds are reserved until an administrator marks the request paid or rejects it.</p>
         </div>
-        <button className="payout-refresh" type="button" onClick={() => { void requests.refetch(); void balances.refetch(); }} disabled={requests.isFetching || balances.isFetching}>
+        <button className="payout-refresh" type="button" onClick={() => { void requests.refetch(); void balances.refetch(); void eligibility.refetch(); }} disabled={requests.isFetching || balances.isFetching || eligibility.isFetching}>
           <RefreshCw size={14} /> Refresh
         </button>
       </header>
 
+      {eligibility.isLoading ? <div className="payout-eligibility-note" role="status"><Clock3 size={15} /> Checking payout eligibility…</div> : !payoutAllowed ? <div className="payout-eligibility-alert" role="alert"><AlertCircle size={15} /><span>{eligibilityMessage || "Payout requests are not available for this account."}</span>{eligibility.isError && <button type="button" onClick={() => void eligibility.refetch()}>Retry check</button>}</div> : null}
+
       <form className="payout-request-form" onSubmit={submitRequest}>
         <div className="payout-form-field">
           <label htmlFor="payout-currency">Payout currency</label>
-          <select id="payout-currency" value={currency} disabled={isBusy} onChange={(event) => changeFormValue(() => { const nextCurrency = event.target.value as PayoutAsset; setCurrency(nextCurrency); setAmountText(""); setDestinationType(["BTC", "ETH", "USDT"].includes(nextCurrency) ? "crypto_transfer" : "bank_transfer"); })}>
+          <select id="payout-currency" value={currency} disabled={formDisabled} onChange={(event) => changeFormValue(() => { const nextCurrency = event.target.value as PayoutAsset; setCurrency(nextCurrency); setAmountText(""); setDestinationType(["BTC", "ETH", "USDT"].includes(nextCurrency) ? "crypto_transfer" : "bank_transfer"); })}>
             {PAYOUT_ASSETS.map((asset) => <option key={asset} value={asset}>{asset}</option>)}
           </select>
           <small>CKI is not eligible for payout. Swap it into a supported wallet currency first.</small>
         </div>
         <div className="payout-form-field">
           <label htmlFor="payout-amount">Amount</label>
-          <input id="payout-amount" type="text" inputMode="decimal" autoComplete="off" placeholder={scale ? `0.${"0".repeat(Math.min(scale, 2))}` : "0"} value={amountText} disabled={isBusy} onChange={(event) => changeFormValue(() => setAmountText(event.target.value))} />
+          <input id="payout-amount" type="text" inputMode="decimal" autoComplete="off" placeholder={scale ? `0.${"0".repeat(Math.min(scale, 2))}` : "0"} value={amountText} disabled={formDisabled} onChange={(event) => changeFormValue(() => setAmountText(event.target.value))} />
           <small>Available for payout: {formatPayoutAmount(eligibleMinor, currency, scale)}</small>
           {amountText && !amountValid && <small className="payout-form-error">Enter a positive amount within the available balance, using at most {scale} decimal places.</small>}
         </div>
@@ -154,7 +166,7 @@ export function CustomerPayoutRequests() {
             rows={3}
             maxLength={1000}
             value={destinationDetails}
-            disabled={isBusy}
+            disabled={formDisabled}
             placeholder={destinationType === "bank_transfer" ? "Beneficiary name, bank, account number, and routing / SWIFT / IBAN details" : "Public wallet address and network name"}
             onChange={(event) => changeFormValue(() => setDestinationDetails(event.target.value))}
           />
@@ -165,7 +177,7 @@ export function CustomerPayoutRequests() {
         </div>
         {feedback && <div className={/was recorded|was cancelled/.test(feedback) ? "payout-feedback success" : "payout-feedback"} role="status">{feedback}</div>}
         <div className="payout-submit-row">
-          <button className="payout-submit" type="submit" disabled={!amountValid || !destinationDetails.trim() || isBusy || balances.isLoading}>
+          <button className="payout-submit" type="submit" disabled={!payoutAllowed || !amountValid || !destinationDetails.trim() || isBusy || balances.isLoading}>
             <Send size={15} /> {requestMutation.isPending ? "Submitting request…" : "Request payout"}
           </button>
           {balances.isError && <small className="payout-form-error">Wallet balances could not be loaded. Refresh before submitting.</small>}
