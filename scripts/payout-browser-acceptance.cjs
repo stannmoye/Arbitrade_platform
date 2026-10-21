@@ -157,14 +157,18 @@ async function main() {
       const currencySelect = page.getByLabel("Payout currency");
       await currencySelect.selectOption("BTC");
       const cryptoType = await page.locator(".payout-destination-type").innerText();
-      const cryptoLabel = await page.getByLabel("Public wallet address and network").isVisible().catch(() => false);
+      const cryptoDetails = page.getByLabel("Public wallet address and network");
+      const cryptoLabel = await cryptoDetails.isVisible().catch(() => false);
+      await cryptoDetails.fill("bc1q-public-test-destination");
       await currencySelect.selectOption("USD");
       const bankType = await page.locator(".payout-destination-type").innerText();
-      const bankLabel = await page.getByLabel("Beneficiary and bank details").isVisible().catch(() => false);
-      record("payout destination type follows selected currency",
+      const bankDetails = page.getByLabel("Beneficiary and bank details");
+      const bankLabel = await bankDetails.isVisible().catch(() => false);
+      const staleDestinationCleared = await bankDetails.inputValue().then(value => value === "").catch(() => false);
+      record("payout destination type follows currency and clears previous destination text",
         cryptoType === "Crypto wallet transfer" && cryptoLabel &&
-        bankType === "Bank transfer" && bankLabel, {
-          cryptoType, cryptoLabel, bankType, bankLabel,
+        bankType === "Bank transfer" && bankLabel && staleDestinationCleared, {
+          cryptoType, cryptoLabel, bankType, bankLabel, staleDestinationCleared,
         });
 
       const amount = page.getByLabel("Amount");
