@@ -1,13 +1,12 @@
 name: Installer validation
 
 on:
-  # Keep installer checks active on the production branch after changes land.
+  # Run full installer validation on maintained branches; feature PRs use pull_request checks.
   push:
     branches:
       - main
       - feat/complete-installation-wizard
       - integration/auth-installer-vps-safety
-      - feat/stage-4-live-notifications-support
   # Validate proposed changes before they merge.
   pull_request:
     branches:
