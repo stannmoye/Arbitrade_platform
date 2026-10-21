@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyPortalMigrationRecord } from "./portal-migration-tracker.mjs";
 import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
+import { preflightSupportAttachmentStorageKeyUniqueIndex } from "./support-attachment-storage-key-index.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const databaseUrl = process.env.DATABASE_URL;
@@ -175,7 +176,12 @@ try {
     );
 
     try {
-      await executeCompatibleMigrationSql(connection, sql);
+      if (filename === "0059_support_attachment_storage_key_unique.sql") {
+        const preflight = await preflightSupportAttachmentStorageKeyUniqueIndex(connection);
+        if (!preflight.indexExists) await executeCompatibleMigrationSql(connection, sql);
+      } else {
+        await executeCompatibleMigrationSql(connection, sql);
+      }
       if (filename === "0037_coinki_token_configuration.sql") {
         const { migrateMiningTokenToCki } = await import("./migrate-mining-token-to-cki.mjs");
         await migrateMiningTokenToCki(connection);
