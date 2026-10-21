@@ -45,6 +45,8 @@ describe("manual payout request lifecycle contract", () => {
     expect(requestService).toContain("Number.isSafeInteger(input.amountMinor)");
     expect(requestService).toContain("promotional > available");
     expect(requestService).toContain("input.amountMinor > available - promotional");
+    expect(requestService).toContain('const expectedDestinationType = cryptoCurrency ? "crypto_transfer" : "bank_transfer"');
+    expect(requestService).toContain("no conversion is performed.");
     expect(requestService).toContain("Payout wallet reservation");
     expect(requestService).toContain('entryType: "payout_reserve"');
     expect(requestService).toContain('status: "pending"');
