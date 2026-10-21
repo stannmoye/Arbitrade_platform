@@ -1,6 +1,6 @@
 # Arbitrade Stage 4 — Notifications, Communications & Support Acceptance
 
-**Status:** Implementation scope closed; corrected full-application package `v2.0.4-stage4-full` published and verified. Manual/deployed release-acceptance gates remain owner-held.  
+**Status (reconciled 2026-10-21):** Stage 4 implementation scope is closed for the supported release; full-application package `v2.0.4-stage4-full` is published and verified. PR #95 is now merged into `integration/auth-installer-vps-safety` (merge commit `7f35d4d018b5bb1da0515ee37b1211dc045a66fb`). This merge does not mean the outstanding manual/end-to-end acceptance gates have passed; those remain open and owner-held.  
 **Branch:** `feat/stage-4-live-notifications-support`  
 **Pull request:** [#95 — Stage 4: live notifications, two-way support and real sound controls](https://github.com/stannmoye/Arbitrade_platform/pull/95)  
 **Baseline:** Stages 1–3 and the hosting-required test were user-confirmed complete on 2026-10-20. Do not infer independent hosted verification from that report.
@@ -16,7 +16,7 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - **Full application package release:** completed and verified as [`v2.0.4-stage4-full`](https://github.com/stannmoye/Arbitrade_platform/releases/tag/v2.0.4-stage4-full). The release ZIP has 54,550 entries, passes ZIP integrity, contains all six themes in compiled JS/CSS, includes Stage 4 notification/support code, migrations 0054–0058, five notification sounds, and matching version/build/provenance markers. This package publication does not authorize production deployment, production migrations, or real financial operations.
 - **Existing implementation and CI:** the customer notification centre, category policy, sound controls/assets, campaign delivery persistence, two-way support, migrations, authorization/idempotency contracts, and CI build/test/browser/database checks are implemented and have passing exact-head workflows recorded below.
 - **Verification-only residuals:** real-browser sound preference/autoplay/post-commit/reconnect scenarios; exhaustive source-to-event mapping; authenticated announcement/ticket/attachment/concurrency journeys; and full manual keyboard/screen-reader/reduced-motion acceptance remain recorded as unverified. Do not mark those checks passed or claim evidence that does not exist. Track them as release follow-up/limitations rather than adding more Stage 4 implementation scope.
-- **Closure meaning:** Stage 4 can be treated as implementation-scope complete for planning and work tracking. The unchecked evidence items remain visible, and PR #95 must stay draft/unmerged until the owner decides whether the remaining release-only verification is satisfied or explicitly accepted as a release limitation.
+- **Closure meaning:** Stage 4 can be treated as implementation-scope complete for planning and work tracking. PR #95 has since been merged into `integration/auth-installer-vps-safety`; that repository state supersedes older notes below that described it as draft/unmerged. The unchecked evidence items remain open. Merge status does not imply end-to-end acceptance or production approval.
 
 ## Corrected full-application package release (2026-10-21)
 
@@ -181,7 +181,7 @@ Track these as six acceptance work areas within Stage 4, not as six separate top
 - [ ] Finish ticket status/assignment/reopen/attachment authorization and customer/admin regression tests, including runtime concurrency.
 - [ ] Add and verify real-time push transport where supported, retaining bounded polling/reconnect fallback for cPanel/shared hosting.
 - [ ] Finish responsive/theme/accessibility regression checks and validate the release ZIP.
-- [x] Keep PR #95 draft/unmerged until remaining acceptance evidence is reviewed.
+- [x] Reconcile PR state with GitHub: PR #95 is merged; remaining acceptance evidence and owner-held production gate stay open.
 
 ## Change log
 
