@@ -422,6 +422,11 @@ jobs:
           RUN_APPEARANCE_SETTINGS_DB_INTEGRATION: "1"
         run: pnpm exec vitest run server/appearance-settings-persistence.integration.test.ts
 
+      - name: Run announcement expiry transaction assertions on disposable MariaDB
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+        run: node scripts/announcement-expiry-db-assertions.mjs
+
   installer-mysql8-compatibility-and-recovery:
     runs-on: ubuntu-latest
     timeout-minutes: 30
