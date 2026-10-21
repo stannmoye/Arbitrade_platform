@@ -68,6 +68,11 @@ describe("manual payout request lifecycle contract", () => {
     expect(schema).toContain('externalReferenceUnique: uniqueIndex("payout_requests_external_reference_unique")');
     expect(resolveService).not.toContain("transferProvider");
     expect(resolveService).not.toContain("sendExternalTransfer");
+    const deleteStart = db.indexOf("export async function deleteAdminCustomer");
+    const deleteEnd = db.indexOf("\\nexport async function", deleteStart + 20);
+    const deleteService = db.slice(deleteStart, deleteEnd);
+    expect(deleteService).toContain("Resolve or cancel pending payout requests before deleting this customer.");
+    expect(deleteService).toContain('tx.delete(payoutRequests).where(eq(payoutRequests.userId,userId))');
   });
 
   it("exposes only customer-owned requests and admin-only resolution in the router", () => {
