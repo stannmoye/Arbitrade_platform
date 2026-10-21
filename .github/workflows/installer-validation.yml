@@ -415,6 +415,11 @@ jobs:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
         run: node scripts/notification-migration-db-assertions.mjs
 
+      - name: Exercise announcement expiry through the application service on disposable MariaDB
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+        run: pnpm exec vitest run server/notification-campaign-expiry.integration.test.ts
+
       - name: Verify appearance policy authorization and real database persistence
         env:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
@@ -545,6 +550,11 @@ jobs:
         env:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
         run: node scripts/notification-migration-db-assertions.mjs
+
+      - name: Exercise announcement expiry through the application service on disposable MySQL 8
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+        run: pnpm exec vitest run server/notification-campaign-expiry.integration.test.ts
 
       - name: Verify main migration guard refuses blind retry
         env:
