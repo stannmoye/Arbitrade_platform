@@ -238,7 +238,9 @@ describe("announcement lifecycle persistence contracts", () => {
     expect(lifecycle).toContain('eq(notificationCampaigns.status,"scheduled"),lte(notificationCampaigns.scheduledAt,now)');
     expect(lifecycle).toContain('if(result.status==="published") published++');
     expect(lifecycle).toContain('else if(result.status==="expired") expiredDuringPublish++');
-    expect(lifecycle).toContain("return {expired:expired.length+expiredDuringPublish,published,failed}");
+    expect(lifecycle).toContain("let expiredCount=0");
+    expect(lifecycle).toContain("if(Number(changed[0]?.affectedRows||0)>0) {\n      expiredCount++");
+    expect(lifecycle).toContain("return {expired:expiredCount+expiredDuringPublish,published,failed}");
   });
 
   it("withdraws campaigns transactionally, preserves terminal delivery states, and records an audit event", () => {
