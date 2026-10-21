@@ -37,6 +37,8 @@ describe("manual payout request lifecycle contract", () => {
     expect(db).toContain('controls.withdrawalsEnabled !== true');
     expect(db).toContain('profile?.overallStatus !== "VERIFIED"');
     expect(db).toContain("controls.emailVerified !== true");
+    expect(db).toContain("policy.twofa === true || controls.twoFactorRequired === true");
+    expect(db).toContain("payout verification is not available yet");
   });
 
   it("uses row locks and reserves only non-promotional funds atomically", () => {
