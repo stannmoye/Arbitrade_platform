@@ -116,6 +116,10 @@ describe("notification sound header integration contract", () => {
     expect(css).toContain(".portal-session .customer-header-sound-toggle");
   });
 
+  it("passes the persisted administrator volume into customer notification playback", () => {
+    expect(effect).toContain("playConfiguredSound(headerSoundSettings[soundKey],soundKey,false,true,headerSoundSettings.volume)");
+  });
+
   it("re-evaluates sound preferences without replaying the current polling window", () => {
     expect(effect).toContain("previousHeaderNotificationIds.current=rows.map(item=>item.id)");
     expect(effect).toContain("headerSoundSettingsQuery.data");
