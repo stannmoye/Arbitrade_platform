@@ -1,11 +1,22 @@
 # Arbitrade Stage 4 — Notifications, Communications & Support Acceptance
 
-**Status:** In progress — implementation branch only; not release-accepted.  
+**Status:** Implementation scope closed by explicit disposition; release acceptance and final production build remain owner-held gates.  
 **Branch:** `feat/stage-4-live-notifications-support`  
 **Pull request:** [#95 — Stage 4: live notifications, two-way support and real sound controls](https://github.com/stannmoye/Arbitrade_platform/pull/95)  
 **Baseline:** Stages 1–3 and the hosting-required test were user-confirmed complete on 2026-10-20. Do not infer independent hosted verification from that report.
 
 This file is the durable acceptance checklist for Stage 4. Add new agreed requirements here rather than relying on chat history alone. Keep checkboxes open until supported by implementation and test evidence.
+
+## Stage 4 implementation-scope closure decision (2026-10-21)
+
+**Decision:** close Stage 4 implementation work for the currently supported platform scope, while keeping release acceptance and the final production build as separate owner-held gates. This is a scope decision, not a claim that every unchecked acceptance scenario has passed.
+
+- **Real-time transport:** accept bounded polling, retry/backoff and reconnect as the supported delivery mechanism for this release, including shared/cPanel hosting. Persistent push is deferred; it is not a Stage 4 implementation blocker.
+- **Deposit/withdrawal success notices:** exclude provider-backed success integration until the platform has an authoritative persisted provider/custody completion lifecycle. Keep success notices blocked rather than inventing or inferring financial success.
+- **Final production build/release:** remains the explicitly reserved final build/owner gate. No production deployment, production migration or real financial operation is authorized by this decision.
+- **Existing implementation and CI:** the customer notification centre, category policy, sound controls/assets, campaign delivery persistence, two-way support, migrations, authorization/idempotency contracts, and CI build/test/browser/database checks are implemented and have passing exact-head workflows recorded below.
+- **Verification-only residuals:** real-browser sound preference/autoplay/post-commit/reconnect scenarios; exhaustive source-to-event mapping; authenticated announcement/ticket/attachment/concurrency journeys; and full manual keyboard/screen-reader/reduced-motion acceptance remain recorded as unverified. Do not mark those checks passed or claim evidence that does not exist. Track them as release follow-up/limitations rather than adding more Stage 4 implementation scope.
+- **Closure meaning:** Stage 4 can be treated as implementation-scope complete for planning and work tracking. The unchecked evidence items remain visible, and PR #95 must stay draft/unmerged until the owner decides whether the remaining release-only verification is satisfied or explicitly accepted as a release limitation.
 
 ## Latest completed CI checkpoint (2026-10-21; documentation update follows)
 
