@@ -8,6 +8,7 @@ describe("portal migration diagnostic privacy", () => {
     const source = await readFile(runnerPath, "utf8");
     expect(source).toContain('"0053_manual_settlement_lifecycle.sql"');
     expect(source).toContain('"0056_support_ticket_assignment.sql"');
+    expect(source).toContain('"0057_notification_history_pagination.sql"');
     expect(source).not.toContain('"opportunity_popup_events", "opportunity_delivery_events"');
     expect(source).toContain('import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";');
     expect(source).toContain("multipleStatements: true");
