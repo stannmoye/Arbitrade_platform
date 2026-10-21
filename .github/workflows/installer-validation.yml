@@ -410,7 +410,7 @@ jobs:
           console.log("Installation lock exists and temporary bootstrap/progress files were cleaned up.");
           NODE
 
-      - name: Verify notification migration 0054 on disposable MariaDB
+      - name: Verify notification migrations 0054 and 0057 on disposable MariaDB
         env:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
         run: node scripts/notification-migration-db-assertions.mjs
@@ -541,7 +541,7 @@ jobs:
           }
           console.log("Installation lock exists and temporary bootstrap/progress files were cleaned up.");
           NODE
-      - name: Verify notification migration 0054 on disposable MySQL 8
+      - name: Verify notification migrations 0054 and 0057 on disposable MySQL 8
         env:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
         run: node scripts/notification-migration-db-assertions.mjs
