@@ -82,6 +82,7 @@ export const payoutRequests = mysqlTable("payout_requests", {
 }, (table) => ({
   requestReferenceUnique: uniqueIndex("payout_requests_reference_unique").on(table.requestReference),
   idempotencyKeyUnique: uniqueIndex("payout_requests_idempotency_unique").on(table.idempotencyKey),
+  externalReferenceUnique: uniqueIndex("payout_requests_external_reference_unique").on(table.externalReference),
   userCreatedIdx: index("payout_requests_user_created_idx").on(table.userId, table.createdAt, table.id),
   statusCreatedIdx: index("payout_requests_status_created_idx").on(table.status, table.createdAt, table.id),
 }));
