@@ -25,6 +25,10 @@ const migrationPath = new URL("../drizzle/0054_notification_event_idempotency.sq
 const migrationSql = await readFile(migrationPath, "utf8");
 const migrationChecksum = createHash("sha256").update(migrationSql).digest("hex");
 const migrationName = "0054_notification_event_idempotency.sql";
+const paginationMigrationPath = new URL("../drizzle/0057_notification_history_pagination.sql", import.meta.url);
+const paginationMigrationSql = await readFile(paginationMigrationPath, "utf8");
+const paginationMigrationChecksum = createHash("sha256").update(paginationMigrationSql).digest("hex");
+const paginationMigrationName = "0057_notification_history_pagination.sql";
 const eventKey = "ci-migration-0054-" + randomUUID();
 let insertedId;
 
@@ -41,6 +45,13 @@ try {
   if (trackerRows.length !== 1 || trackerRows[0].status !== "applied" || trackerRows[0].checksum !== migrationChecksum) {
     throw new Error("Migration 0054 is not recorded as applied with the current migration checksum.");
   }
+  const [paginationTrackerRows] = await connection.execute(
+    "SELECT checksum,status FROM portal_schema_migrations WHERE migrationName=?",
+    [paginationMigrationName],
+  );
+  if (paginationTrackerRows.length !== 1 || paginationTrackerRows[0].status !== "applied" || paginationTrackerRows[0].checksum !== paginationMigrationChecksum) {
+    throw new Error("Migration 0057 is not recorded as applied with the current migration checksum.");
+  }
 
   const [columns] = await connection.execute(
     "SELECT column_name AS columnName FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='customer_notifications'",
@@ -51,7 +62,7 @@ try {
   }
 
   const [indexes] = await connection.execute(
-    "SELECT index_name AS indexName, non_unique AS nonUnique FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='customer_notifications'",
+    "SELECT index_name AS indexName, non_unique AS nonUnique, seq_in_index AS sequenceInIndex, column_name AS columnName FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='customer_notifications'",
   );
   const eventKeyIndex = indexes.filter(row => row.indexName === "customer_notifications_event_key_uq");
   if (!eventKeyIndex.length || eventKeyIndex.some(row => Number(row.nonUnique) !== 0)) {
@@ -59,6 +70,13 @@ try {
   }
   const userReadIndex = new Set(indexes.filter(row => row.indexName === "customer_notifications_user_read_created_idx").map(row => Number(row.nonUnique)));
   if (!userReadIndex.has(1)) throw new Error("Migration 0054's customer/read/time lookup index is missing.");
+  const paginationIndex = indexes.filter(row => row.indexName === "customer_notifications_user_created_id_idx")
+    .sort((a, b) => Number(a.sequenceInIndex) - Number(b.sequenceInIndex));
+  if (paginationIndex.length !== 3 ||
+      paginationIndex.map(row => row.columnName).join(",") !== "userId,createdAt,id" ||
+      paginationIndex.some(row => Number(row.nonUnique) !== 1)) {
+    throw new Error("Migration 0057's non-unique user/createdAt/id pagination index is missing or incorrectly ordered.");
+  }
 
   const [beforeRows] = await connection.execute("SELECT COUNT(*) AS count FROM customer_notifications");
   const beforeCount = Number(beforeRows[0].count);
@@ -89,6 +107,7 @@ try {
   if (!duplicateRejected) throw new Error("Database accepted a duplicate notification event key.");
 
   await executeCompatibleMigrationSql(connection, migrationSql);
+  await executeCompatibleMigrationSql(connection, paginationMigrationSql);
 
   const [afterRows] = await connection.execute("SELECT COUNT(*) AS count FROM customer_notifications");
   if (Number(afterRows[0].count) !== beforeCount + 1) {
@@ -106,9 +125,12 @@ try {
   console.log(JSON.stringify({
     status: "PASS",
     migration: migrationName,
+    paginationMigration: paginationMigrationName,
     trackerChecksumVerified: true,
+    paginationMigrationChecksumVerified: true,
     requiredColumnsVerified: 7,
     uniqueEventKeyConstraintVerified: true,
+    notificationHistoryPaginationIndexVerified: true,
     duplicateEventKeyRejected: true,
     migrationRerunSucceeded: true,
     notificationRowsPreserved: true,
