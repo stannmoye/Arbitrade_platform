@@ -1383,11 +1383,53 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           return button?.getAttribute("aria-pressed") === "false" &&
             window.localStorage.getItem("wisebond-sound-effects") === "off";
         });
+        // Simulate an autoplay denial followed by a successful user-gesture retry.
+        // This exercises the actual header toggle/unlock path rather than only checking
+        // the implementation source or dispatching a synthetic warning event.
+        await page.evaluate(() => {
+          const media = HTMLMediaElement.prototype;
+          window.__stage4OriginalMediaPlay = media.play;
+          window.__stage4UnlockPlay = { attempts: 0, resolved: 0 };
+          media.play = function () {
+            const state = window.__stage4UnlockPlay;
+            state.attempts += 1;
+            if (state.attempts === 1) {
+              return Promise.reject(new DOMException("Simulated autoplay denial", "NotAllowedError"));
+            }
+            return Promise.resolve().then(() => { state.resolved += 1; });
+          };
+        });
         await soundToggle.click();
         await page.waitForFunction(() => {
           const button = document.querySelector(".customer-header-sound-toggle");
           return button?.getAttribute("aria-pressed") === "true" &&
-            window.localStorage.getItem("wisebond-sound-effects") === "on";
+            window.localStorage.getItem("wisebond-sound-effects") === "on" &&
+            window.__stage4UnlockPlay?.attempts === 1;
+        });
+        await page.waitForTimeout(50);
+        await page.getByRole("button", { name: "Turn notification sounds off" }).click();
+        await page.waitForFunction(() => document.querySelector(".customer-header-sound-toggle")?.getAttribute("aria-pressed") === "false");
+        await soundToggle.click();
+        await page.waitForFunction(() => window.__stage4UnlockPlay?.attempts === 2 && window.__stage4UnlockPlay?.resolved === 1);
+        const unlockRetryState = await page.evaluate(() => ({
+          attempts: window.__stage4UnlockPlay?.attempts ?? 0,
+          resolved: window.__stage4UnlockPlay?.resolved ?? 0,
+          preference: window.localStorage.getItem("wisebond-sound-effects"),
+        }));
+        await page.evaluate(() => {
+          if (window.__stage4OriginalMediaPlay) HTMLMediaElement.prototype.play = window.__stage4OriginalMediaPlay;
+          delete window.__stage4OriginalMediaPlay;
+          delete window.__stage4UnlockPlay;
+        });
+        checks.push({
+          route: "/customer",
+          routeName: "customer",
+          width: 1440,
+          theme: scenario.policy.defaultTheme,
+          check: "customer-notification-audio-unlock-retries-after-autoplay-denial",
+          passed: unlockRetryState.attempts === 2 && unlockRetryState.resolved === 1 && unlockRetryState.preference === "on",
+          ...unlockRetryState,
+          note: "Simulates a rejected initial unlock and verifies a later explicit user gesture retries successfully.",
         });
         const soundEnabledState = await page.evaluate(() => ({
           label: document.querySelector(".customer-header-sound-toggle")?.textContent?.trim() || null,
