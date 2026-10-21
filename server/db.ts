@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, desc, eq, gt, gte, inArray, isNull, lte, notInArray, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool } from "mysql2/promise";
 import { InsertUser, appSettings, customerBalances, currencyRegistry, customerControls, customerNotifications, customerSessions, customerWalletPreferences, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPopupEvents, balanceLedger, tradePositions, tradeRewardReservations, tradeLifecycleEvents, users, missedOpportunities, v5AuditEvents } from "../drizzle/schema";
@@ -530,12 +530,63 @@ async function getExpiredCampaignNotificationIds(userId:number) {
     .where(and(eq(notificationCampaignDeliveries.userId,userId),eq(notificationCampaigns.status,"expired"),sql`${notificationCampaignDeliveries.notificationId} IS NOT NULL`));
   return rows.map(row=>row.notificationId).filter((id):id is number=>id!==null);
 }
-export async function listCustomerNotifications(userId:number) {
-  const [rows,visibility,expiredIds]=await Promise.all([listNotifications(userId),getNotificationCategoryVisibility(),getExpiredCampaignNotificationIds(userId)]);
-  const eligible=expiredIds.length?rows.filter(row=>!expiredIds.includes(row.id)):rows;
-  return filterNotificationCategories(eligible,visibility);
+import { decodeNotificationCursor, encodeNotificationCursor, normalizeNotificationPageSize } from "./modules/notification-pagination";
+
+async function getVisibleNotificationConditions(userId:number,visibility:Record<NotificationCategory,boolean>,expiredIds:number[]) {
+  const conditions=[eq(customerNotifications.userId,userId)];
+  const disabled=NOTIFICATION_CATEGORIES.filter(category=>visibility[category]===false);
+  if(disabled.length) {
+    const categoryVisibilityCondition=or(isNull(customerNotifications.category),notInArray(customerNotifications.category,disabled));
+    if(categoryVisibilityCondition)conditions.push(categoryVisibilityCondition);
+  }
+  if(expiredIds.length)conditions.push(notInArray(customerNotifications.id,expiredIds));
+  return conditions;
 }
-export async function listNotifications(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(customerNotifications).where(eq(customerNotifications.userId,userId)).orderBy(desc(customerNotifications.createdAt)); }
+
+export async function getCustomerNotificationUnreadCount(userId:number) {
+  const db=await getDb(); if(!db)throw new Error("Database is not available");
+  const [visibility,expiredIds]=await Promise.all([getNotificationCategoryVisibility(),getExpiredCampaignNotificationIds(userId)]);
+  const conditions=await getVisibleNotificationConditions(userId,visibility,expiredIds);
+  conditions.push(isNull(customerNotifications.readAt));
+  const [row]=await db.select({total:count()}).from(customerNotifications).where(and(...conditions));
+  return Number(row?.total)||0;
+}
+
+export async function listCustomerNotificationPage(userId:number,cursorValue?:string|null,requestedLimit?:number) {
+  const db=await getDb(); if(!db)throw new Error("Database is not available");
+  const limit=normalizeNotificationPageSize(requestedLimit);
+  const [visibility,expiredIds,totalUnread]=await Promise.all([
+    getNotificationCategoryVisibility(),
+    getExpiredCampaignNotificationIds(userId),
+    getCustomerNotificationUnreadCount(userId),
+  ]);
+  const conditions=await getVisibleNotificationConditions(userId,visibility,expiredIds);
+  if(cursorValue) {
+    const cursor=decodeNotificationCursor(cursorValue);
+    if(!cursor)throw new Error("Invalid notification history cursor");
+    const cursorCondition=or(
+      lt(customerNotifications.createdAt,cursor.createdAt),
+      and(eq(customerNotifications.createdAt,cursor.createdAt),lt(customerNotifications.id,cursor.id)),
+    );
+    if(cursorCondition)conditions.push(cursorCondition);
+  }
+  const rows=await db.select().from(customerNotifications).where(and(...conditions))
+    .orderBy(desc(customerNotifications.createdAt),desc(customerNotifications.id)).limit(limit+1);
+  const hasMore=rows.length>limit;
+  const items=filterNotificationCategories(rows.slice(0,limit),visibility);
+  const last=items[items.length-1];
+  return {
+    items,
+    nextCursor:hasMore&&last?encodeNotificationCursor(last.createdAt,last.id):null,
+    totalUnread,
+    pageSize:limit,
+  };
+}
+
+export async function listCustomerNotifications(userId:number) {
+  return (await listCustomerNotificationPage(userId,null,50)).items;
+}
+export async function listNotifications(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(customerNotifications).where(eq(customerNotifications.userId,userId)).orderBy(desc(customerNotifications.createdAt),desc(customerNotifications.id)); }
 export async function listNotificationEventCursor(userId:number) {
   const db=await getDb(); if(!db)throw new Error("Database is not available");
   const visibility=await getNotificationCategoryVisibility();
