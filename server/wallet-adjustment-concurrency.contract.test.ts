@@ -26,7 +26,7 @@ describe("administrator wallet adjustment concurrency contract", () => {
 
   it("acquires the customer serialization lock before reading the wallet balance", () => {
     const start = db.indexOf("export async function adjustCustomerBalance");
-    const end = db.indexOf("\\nexport async function listOpenOffers", start);
+    const end = db.indexOf("\nexport async function listOpenOffers", start);
     const implementation = db.slice(start, end);
     const customerLock = implementation.indexOf('.limit(1).for("update"))[0]');
     const balanceRead = implementation.indexOf("from(customerBalances)");
