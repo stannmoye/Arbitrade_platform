@@ -142,3 +142,11 @@ For each meaningful work unit, append a section with actual changed behavior/fil
 - Added `client/src/notification-audio-unlock.contract.test.ts` covering the shipped muted asset, no oscillator behavior, and in-flight deduplication.
 - Focused validation passed: **6 Vitest files / 87 tests**, `pnpm check`, and `git diff --check`.
 - This improves autoplay readiness and unlock deduplication but does not claim full browser preference, volume, post-commit, reconnect, or authenticated runtime acceptance. The broader sound checklist item remains open.
+
+### Work unit 14 — mandatory completeness audit start (2026-10-21)
+
+- Starting branch head: `9697be9cb95014835e171b97edfbc22db794aba5`. Working tree was clean and branch matched origin.
+- PR #95 remains open and draft on `feat/stage-4-live-notifications-support` targeting `integration/auth-installer-vps-safety`.
+- Current checklist scope was reviewed before edits; the exact unchecked items and historical handoff/progress gaps are being reconciled in a requirement-to-evidence matrix.
+- Mandatory historical failure under review: installer run `39532555024`, frontend entry bundle `409826` raw bytes against `409600` limit (gzip remained within limit); no budget limit will be raised or disabled.
+- No production deployment, production database migration, balance change, provider transaction, merge, or force-push performed.
