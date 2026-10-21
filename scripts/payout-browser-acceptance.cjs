@@ -334,7 +334,7 @@ async function main() {
       const busyDisabled = await pendingButton.isDisabled();
       const recordedMessage = page.getByText(/Payout request payout-browser-1 was recorded/);
       await recordedMessage.waitFor({ state: "visible", timeout: 10000 });
-      await page.getByText("Pending manual review").waitFor({ state: "visible", timeout: 10000 });
+      await page.getByText("Pending manual review", { exact: true }).waitFor({ state: "visible", timeout: 10000 });
       const available70 = await page.getByText("Available for payout: USD 70.00").isVisible().catch(() => false);
       record("payout submission updates feedback, reservation display, and history",
         busyDisabled && requestCount === 1 && available70 &&
