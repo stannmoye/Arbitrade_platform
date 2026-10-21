@@ -23,11 +23,17 @@ describe("expired announcement retry behavior", () => {
   });
 
   it("returns an already-expired campaign idempotently without entering delivery retry", () => {
-    const expiryGuard = broadcast.indexOf('if(campaign.status==="expired")return');
+    const expiryGuard = broadcast.indexOf('if(campaign.status==="expired") {');
+    const terminalReturn = broadcast.indexOf('status:"expired" as const', expiryGuard);
+    const cleanupTransaction = broadcast.indexOf("await db.transaction(async tx=>", expiryGuard);
+    const staleDeliveryCleanup = broadcast.indexOf('tx.update(notificationCampaignDeliveries).set({status:"expired"})', cleanupTransaction);
     const pendingDeliveryQuery = broadcast.indexOf("const pending=await db.select");
 
     expect(expiryGuard).toBeGreaterThanOrEqual(0);
-    expect(expiryGuard).toBeLessThan(pendingDeliveryQuery);
+    expect(cleanupTransaction).toBeGreaterThan(expiryGuard);
+    expect(staleDeliveryCleanup).toBeGreaterThan(cleanupTransaction);
+    expect(terminalReturn).toBeGreaterThan(staleDeliveryCleanup);
+    expect(terminalReturn).toBeLessThan(pendingDeliveryQuery);
     expect(broadcast).not.toContain('if(campaign.status==="expired")throw new Error("Expired announcement campaigns cannot be republished")');
   });
 
@@ -45,7 +51,8 @@ describe("expired announcement retry behavior", () => {
     expect(deliveryTransition).toBeGreaterThan(campaignTransition);
     expect(expiredReturn).toBeGreaterThan(deliveryTransition);
     expect(pendingDeliveryQuery).toBeGreaterThan(expiredReturn);
-    expect(broadcast).toContain("if(campaign.status===\"expired\")return");
+    expect(broadcast).toContain('if(campaign.status==="expired") {');
+    expect(broadcast).toContain('tx.update(notificationCampaignDeliveries).set({status:"expired"})');
   });
 
   it("keeps the periodic lifecycle worker as a retry path for campaigns whose expiry transaction rolls back", () => {
