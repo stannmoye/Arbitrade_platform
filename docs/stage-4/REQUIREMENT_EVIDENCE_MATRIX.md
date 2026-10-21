@@ -7,6 +7,20 @@
 **Historical budget failure reviewed:** run [39532555024](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39532555024), commit `9697be9cb95014835e171b97edfbc22db794aba5`  
 **Latest pre-fix exact-head workflows:** [Stage 3 validation 39532989387](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39532989387), [Installer 39532989435](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39532989435), [Mining DB 39532989642](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39532989642).
 
+## Latest exact-head verification checkpoint (2026-10-21)
+
+- **Verified PR head before this documentation update:** `a4a47e28aaab081d987b6d090ee7d09539864b4c`. PR #95 was open, draft, unmerged, and mergeable.
+- **Exact-head CI:** [Stage 3 five-theme validation, run 39560345787](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39560345787), [Installer validation, run 39560345786](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39560345786), and [Mining database regression, run 39560345809](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39560345809) all completed successfully on that head.
+- **Acceptance checklist:** independently recounted at 37 checked and 11 unchecked on that head.
+- **Evidence limits:** the 848-check browser artifact was generated on the prior documentation-only head, while the current-head Stage 3 Chromium workflow passed. Installer package generation passed on the current head. Neither result is production deployment or owner sign-off.
+- **Open gates:** authoritative provider/custody persistence for deposit/withdrawal success is blocked; persistent push remains missing pending an owner/platform release decision; sound browser acceptance, exhaustive event-source integration, authenticated announcement/ticket/attachment authorization and concurrency journeys remain unverified; comprehensive manual accessibility and owner-level production verification remain open.
+- **No production deployment, production migration, or financial operation was performed.** This checkpoint records CI/evidence status only; it does not change requirement statuses or close any open acceptance item.
+- This commit is documentation-only. The workflow evidence above is tied to the stated prior application/docs head; check new CI runs for this documentation commit before claiming exact-current-head workflow success.
+
+## Historical audit baseline
+
+The original audit baseline and historical workflow references below are retained for traceability; the checkpoint above summarizes the latest verified state.
+
 ## Status definitions
 
 - **VERIFIED** — the narrowly stated requirement has executable test or exact-head workflow evidence. This does not imply hosted production acceptance.
