@@ -442,10 +442,11 @@ export async function getCustomerMiningBoostStatus(userId: number) {
     const now = new Date();
     const config = await loadMiningConfig(conn, now);
     const packages = await activePackageRows(conn, userId, now);
-    // Boost timing and CKI rewards are account/package features. A package may
-    // intentionally have zero extra TH/s; that must not prevent the customer
-    // from using the configured boost cycle.
+    // A hash-power boost is unavailable until at least one active package has
+    // a positive, administrator-configured capacity. Do not consume a cooldown
+    // for a boost whose declared hash-power effect would be zero.
     const eligiblePackage = packages.sort((a,b)=>decimal(a.boostBonusThsSnapshot).cmp(decimal(b.boostBonusThsSnapshot))).at(-1);
+    const boostCapacityConfigured = Boolean(eligiblePackage) && decimal(eligiblePackage.boostBonusThsSnapshot).gt(0);
     const [activeRows] = await conn.query<any[]>(`SELECT id,startedAt,endsAt,bonusThs,packageVersionId,customerPackageId FROM mining_boost_activations WHERE userId=? AND status='active' AND endsAt>? ORDER BY startedAt DESC LIMIT 1`, [userId, now]);
     const [lastRows] = await conn.query<any[]>(`SELECT id,startedAt,endsAt,status FROM mining_boost_activations WHERE userId=? ORDER BY startedAt DESC,id DESC LIMIT 1`, [userId]);
     const lastStartedAt = lastRows[0] ? new Date(lastRows[0].startedAt) : null;
@@ -454,7 +455,7 @@ export async function getCustomerMiningBoostStatus(userId: number) {
     const accountStatus = account[0][0]?.accountStatus || "active";
     const active = activeRows[0];
     const coolingDown = !cycle.ready;
-    const ready = config.boostsEnabled && accountStatus === "active" && Boolean(eligiblePackage) && !active && !coolingDown;
+    const ready = config.boostsEnabled && accountStatus === "active" && Boolean(eligiblePackage) && boostCapacityConfigured && !active && !coolingDown;
     return {
       serverTime: now.toISOString(), cycleStart: cycle.start.toISOString(), eligibleAt: cycle.eligibleAt.toISOString(),
       cycleExpiresAt: cycle.expiresAt.toISOString(), nextEligibleAt: cycle.nextEligibleAt.toISOString(),
@@ -463,7 +464,7 @@ export async function getCustomerMiningBoostStatus(userId: number) {
       durationSeconds: config.boostDurationSeconds,
       boostRewardCkiPerDay: config.boostRewardCkiPerDay,
       cooldownSeconds: config.boostCycleSeconds,
-      reason: !config.boostsEnabled ? "Boosts are paused by an administrator" : accountStatus !== "active" ? "Account is restricted" : !eligiblePackage ? "An active purchased package is required" : active ? "A boost is currently active" : coolingDown ? `Boost recharges until ${cycle.nextEligibleAt.toISOString()}` : null,
+      reason: !config.boostsEnabled ? "Boosts are paused by an administrator" : accountStatus !== "active" ? "Account is restricted" : !eligiblePackage ? "An active purchased package is required" : !boostCapacityConfigured ? "Boost hash-power capacity is not configured for this package" : active ? "A boost is currently active" : coolingDown ? `Boost recharges until ${cycle.nextEligibleAt.toISOString()}` : null,
       policy: `A boost lasts ${config.boostDurationSeconds} seconds; each customer's cooldown begins at activation and lasts ${config.boostCycleSeconds} seconds.`,
     };
   });
@@ -482,6 +483,9 @@ export async function activateCustomerMiningBoost(userId: number, input: { idemp
     const packages = await activePackageRows(conn, userId, now);
     const candidate = packages.sort((a,b)=>decimal(a.boostBonusThsSnapshot).cmp(decimal(b.boostBonusThsSnapshot))).at(-1);
     if (!candidate) throw new MiningError("An active purchased package is required");
+    if (!decimal(candidate.boostBonusThsSnapshot).gt(0)) {
+      throw new MiningError("Boost hash-power capacity is not configured for this package");
+    }
     const [activeRows] = await conn.query<any[]>(`SELECT id FROM mining_boost_activations WHERE userId=? AND status='active' AND endsAt>? FOR UPDATE`, [userId, now]);
     if (activeRows.length) throw new MiningError("A boost is already active");
     const [lastRows] = await conn.query<any[]>(`SELECT id,startedAt FROM mining_boost_activations WHERE userId=? ORDER BY startedAt DESC,id DESC LIMIT 1 FOR UPDATE`, [userId]);
