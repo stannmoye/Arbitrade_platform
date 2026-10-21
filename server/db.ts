@@ -688,7 +688,14 @@ export async function addTicketAttachment(userId:number,input:{ticketId:number;f
   // ticket-scoped key format was deployed.
   const existingKey=(await db.select({id:supportAttachments.id}).from(supportAttachments).where(eq(supportAttachments.storageKey,input.storageKey)).limit(1))[0];
   if(existingKey) throw new Error("Attachment storage key has already been registered");
-  await db.insert(supportAttachments).values({ticketId:input.ticketId,uploadedBy:userId,fileName:input.fileName.slice(0,255),mimeType:input.mimeType.slice(0,160),sizeBytes:input.sizeBytes,storageKey:input.storageKey.slice(0,512)});
+  try {
+    await db.insert(supportAttachments).values({ticketId:input.ticketId,uploadedBy:userId,fileName:input.fileName.slice(0,255),mimeType:input.mimeType.slice(0,160),sizeBytes:input.sizeBytes,storageKey:input.storageKey.slice(0,512)});
+  } catch(error) {
+    const candidate=error as {code?:unknown;cause?:{code?:unknown;cause?:{code?:unknown}}};
+    const code=String(candidate?.code??candidate?.cause?.code??candidate?.cause?.cause?.code??"");
+    if(code==="ER_DUP_ENTRY") throw new Error("Attachment storage key has already been registered");
+    throw error;
+  }
   return {success:true};
 }
 export async function getTicketAttachmentAccess(storageKey:string) {
