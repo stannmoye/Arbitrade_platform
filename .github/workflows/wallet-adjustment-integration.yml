@@ -78,6 +78,6 @@ jobs:
       - name: Run current mining schema upgrader twice
         run: pnpm run db:mining-schema && pnpm run db:mining-schema
       - name: Test wallet unique-index migration preflight
-        run: pnpm exec vitest run scripts/wallet-unique-index-migration.test.mjs
+        run: pnpm exec vitest run --config vitest.installer.config.ts scripts/wallet-unique-index-migration.test.mjs
       - name: Test real wallet service concurrency, first-time creation, and overflow guards
         run: pnpm exec vitest run server/wallet-adjustment-concurrency.integration.test.ts
