@@ -127,7 +127,7 @@ async function runAdminPayoutReview(browser) {
         externalReference: requests[0].externalReference,
       });
 
-    const rejectRow = page.locator("tr").filter({ hasText: "payout-admin-reject-1" }).filter({ has: page.locator("button", { hasText: "Reject and release" }) });
+    const rejectRow = page.locator("tr").filter({ hasText: "payout-admin-reject-1" });
     await page.getByLabel("Resolution note for payout-admin-reject-1").fill("Rejected for browser acceptance; no transfer was initiated.");
     const rejectButton = rejectRow.getByRole("button", { name: "Reject and release" });
     const rejectEnabled = await rejectButton.isEnabled();
