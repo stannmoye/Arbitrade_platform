@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const db = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const routers = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
+const currentMiningSchema = readFileSync(new URL("../scripts/ensure-mining-current-schema.mjs", import.meta.url), "utf8");
 
 describe("administrator wallet adjustment concurrency contract", () => {
   it("locks the customer row before reading or creating a currency balance", () => {
@@ -83,6 +84,11 @@ describe("administrator wallet adjustment concurrency contract", () => {
 
 describe("wallet one-row-per-currency database invariant", () => {
   const migration = readFileSync(new URL("../scripts/apply-mining-migrations.mjs", import.meta.url), "utf8");
+
+  it("runs the wallet uniqueness preflight in the current schema upgrader", () => {
+    expect(currentMiningSchema).toContain('import { ensureCustomerBalanceUniqueIndex } from "./wallet-unique-index-migration.mjs"');
+    expect(currentMiningSchema).toContain("await ensureCustomerBalanceUniqueIndex(db)");
+  });
 
   it("checks for duplicate balances before adding the unique customer/currency index", () => {
     const duplicateCheck = migration.indexOf("SELECT userId,currency FROM customer_balances GROUP BY userId,currency HAVING COUNT(*)>1 LIMIT 1");
