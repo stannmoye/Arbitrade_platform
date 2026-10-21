@@ -39,3 +39,11 @@
 
 .payout-form-label{font-size:12px;font-weight:750}
 .payout-destination-type{box-sizing:border-box;min-height:38px;display:flex;align-items:center;padding:10px 11px;border:1px solid var(--input-border,rgba(128,150,172,.4));border-radius:9px;background:var(--input-bg,rgba(5,15,26,.6));color:var(--text-color,inherit);font-size:13px}
+
+.payout-eligibility-note,.payout-eligibility-alert{grid-column:1/-1;display:flex;align-items:flex-start;gap:9px;padding:11px 13px;border:1px solid var(--border-color,rgba(128,150,172,.3));border-radius:9px;font-size:12px;line-height:1.5}
+.payout-eligibility-note{color:var(--muted-text,#8ba0b4);background:var(--panel-bg,rgba(4,15,27,.25))}
+.payout-eligibility-alert{color:#d9ad55;background:rgba(150,105,20,.08);border-color:rgba(205,163,74,.35)}
+.payout-eligibility-note svg,.payout-eligibility-alert svg{flex:0 0 auto;margin-top:1px}
+.payout-eligibility-alert span{flex:1;min-width:0}
+.payout-eligibility-alert button{border:1px solid currentColor;border-radius:7px;padding:5px 9px;background:transparent;color:inherit;font:inherit;font-weight:800;cursor:pointer;flex:0 0 auto}
+.payout-request-form input:disabled,.payout-request-form select:disabled,.payout-request-form textarea:disabled{opacity:.6;cursor:not-allowed}
