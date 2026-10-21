@@ -323,3 +323,9 @@ Latest verified application code: `5b7db5abef6c6bc7fce17a47ebbec8d730092849`.
 - At source head `126f3fb38829453e44d46c5f009b8200c3792fab`, the existing Chromium `scripts/stage2-browser-acceptance.cjs` matrix passed **848/848 checks, 0 failures** against the source dev server. This provides fresh responsive/theme/focus/navigation and browser audio-asset evidence.
 - The existing axe audit was attempted but could not start because `axe-core` is not declared or installed; it is not counted as a pass. Manual screen-reader, keyboard-only, reduced-motion, and assistive-technology acceptance remains open.
 - No production build, deployment, provider configuration, or production data operation was performed. Stage 4 remains open pending the documented blockers and final owner/build verification.
+
+### 2026-10-21 mining-admin event-key fix
+
+- Fixed five administrative mining notification paths that previously omitted stable event keys, preventing retry-induced duplicate customer notifications.
+- Added `server/mining-admin-notification-idempotency.contract.test.ts`; focused notification/sound/idempotency validation passed **69/69 tests**, and `pnpm check` passed.
+- The exhaustive event-source checklist item remains open because this fix improves source coverage but does not replace full authenticated runtime acceptance across every event family.

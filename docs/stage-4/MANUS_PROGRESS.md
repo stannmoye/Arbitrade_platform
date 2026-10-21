@@ -120,3 +120,10 @@ For each meaningful work unit, append a section with actual changed behavior/fil
 - Reconciled the checklist conservatively: implementation/evidence-backed requirements are now checked; unresolved items remain open. The remaining 12 open entries cover real browser sound preference/autoplay/post-commit/reconnect acceptance, exhaustive event-source proof, full responsive/keyboard/screen-reader/reduced-motion acceptance, release ZIP/source verification, announcement/ticket runtime E2E and concurrency, persistent push transport, and final release gates.
 - No provider-backed deposit/withdrawal success path was invented. No code behavior changed in this work unit; this is an evidence/status correction only. `git diff --check` passed.
 - Next concrete action: keep the reconciled checklist as the source of truth, preserve the explicit blockers, and leave only the reserved final production build/final verification plus the listed genuinely unverified acceptance work outstanding.
+
+### Work unit 11 — mining-admin notification idempotency (2026-10-21)
+
+- Fixed five administrative mining notification paths in `server/mining-admin.ts` that called `createMiningNotification` without stable event keys: sandbox grant, posted adjustment, rejected adjustment, approved adjustment, and transaction reversal.
+- Added `server/mining-admin-notification-idempotency.contract.test.ts`, which asserts every mining-admin notification path carries its stable business identifier and prevents regression to bare calls.
+- Focused validation passed: **5 Vitest files / 69 tests**, including notification event safety, mining notification behavior, sound deduplication/polling policy, and the new mining-admin idempotency contract. `pnpm check` and `git diff --check` passed.
+- This closes a concrete duplicate-notification risk on administrative mining retries. The broader exhaustive event-source runtime audit remains open; provider-gated deposit/withdrawal success remains intentionally unimplemented.

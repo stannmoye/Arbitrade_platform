@@ -158,3 +158,7 @@ This section supersedes earlier "remaining" notes where later commits have compl
 ## 10. Acceptance checklist reconciliation (2026-10-21)
 
 The stale product checklist was reconciled against current evidence. It now marks implementation/evidence-backed notification, campaign, policy, ticket, migration, authorization, sound-asset, idempotency, CI, and documentation criteria as checked. Twelve entries remain open because they require additional runtime or external evidence: real browser sound preference/autoplay/post-commit/reconnect behavior, exhaustive event-source proof, full manual accessibility, release ZIP/source verification, authenticated announcement/ticket E2E and concurrency, persistent push transport, and final release gates. The checklist does not mark provider-gated deposit/withdrawal success as implemented.
+
+## 11. Mining-admin idempotency fix (2026-10-21)
+
+Added stable recipient-scoped event keys for all five previously bare `createMiningNotification` calls in `server/mining-admin.ts`, covering sandbox grants, adjustment posting/rejection/approval, and reversals. Added a source contract test to prevent future bare calls. Focused validation passed **69/69 tests** and `pnpm check`. The remaining exhaustive event-source and runtime acceptance gates are unchanged.
