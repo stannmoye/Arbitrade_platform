@@ -58,7 +58,7 @@ jobs:
         run: |
           {
             echo "Product: Arbitrade full application"
-            echo "Release tag: v2.0.2-stage4-full"
+            echo "Release tag: v2.0.3-stage4-full"
             echo "Included stages: original application + Stages 1, 2, 3, and 4"
             echo "Theme set: Original Arbitrade, Midnight Premium, Clean Light, Emerald Finance, Aurora Modern, Gold Luxe (6 total)"
             echo "Source branch: $GITHUB_REF_NAME"
@@ -67,9 +67,9 @@ jobs:
             echo "Installer entry points: installer/index.php, installer/install.sh, installer/vps-setup.sh"
             echo "cPanel guide: cpanel/README.md"
           } > BUILD_PROVENANCE.txt
-          echo "2.0.1-stage4-full" > INSTALLER-VERSION.txt
+          echo "2.0.3-stage4-full" > INSTALLER-VERSION.txt
           {
-            echo "Arbitrade installer version: 2.0.1-stage4-full"
+            echo "Arbitrade installer version: 2.0.3-stage4-full"
             echo "Build commit: $GITHUB_SHA"
             echo "Build UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           } > INSTALLER-BUILD.txt
@@ -79,6 +79,9 @@ jobs:
           test -f DEPLOYMENT-README.txt
           test -s INSTALLER-VERSION.txt
           test -s INSTALLER-BUILD.txt
+          test "$(cat INSTALLER-VERSION.txt)" = "2.0.3-stage4-full"
+          grep -Fq 'Arbitrade installer version: 2.0.3-stage4-full' INSTALLER-BUILD.txt
+          grep -Fq 'Release tag: v2.0.3-stage4-full' BUILD_PROVENANCE.txt
           test -f installer/index.php
           test -f installer/install.sh
           test -f installer/vps-setup.sh
@@ -113,6 +116,9 @@ jobs:
           unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'DEPLOYMENT-README.txt'
           unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'INSTALLER-VERSION.txt'
           unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'INSTALLER-BUILD.txt'
+          unzip -p arbitrade-stage4-full-application.zip INSTALLER-VERSION.txt | grep -Fx '2.0.3-stage4-full'
+          unzip -p arbitrade-stage4-full-application.zip INSTALLER-BUILD.txt | grep -Fq 'Arbitrade installer version: 2.0.3-stage4-full'
+          unzip -p arbitrade-stage4-full-application.zip BUILD_PROVENANCE.txt | grep -Fq 'Release tag: v2.0.3-stage4-full'
           unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'installer/index.php'
           unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'installer/install.sh'
           unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'installer/vps-setup.sh'
@@ -151,10 +157,10 @@ jobs:
       - name: Publish GitHub release with the full ZIP
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.0.2-stage4-full
+          tag_name: v2.0.3-stage4-full
           name: Arbitrade Stage 4 — Full Application (Six Themes, Corrected)
           body: |
-            Canonical corrected full installer package for the original Arbitrade application with Stages 1–4 integrated. This release supersedes v2.0.1-stage4-full because its Git tag pointed to an earlier commit than the corrected asset provenance.
+            Canonical corrected full installer package for the original Arbitrade application with Stages 1–4 integrated. This release supersedes v2.0.2-stage4-full because its installer version/build markers did not match the release tag; the workflow now asserts all three markers agree.
 
             Restores the Gold Luxe sixth theme, Stage 3 Clean Light customer contrast/responsive styling, and deployment/version/build metadata while retaining the Stage 4 notification, sound, campaign, two-way support, and migration work. Includes the complete application, browser installer, VPS/cPanel deployment files, production build, locked dependencies, and required assets. The workflow runs the full regression suite, TypeScript validation, production build, and archive-content checks. Environment secrets and Git metadata are excluded.
           target_commitish: integration/auth-installer-vps-safety
