@@ -12,7 +12,7 @@ import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
-import { isAllowedAttachmentRequest, isSupportAttachmentStorageKeyForTicket } from "./_core/attachmentPolicy";
+import { isAllowedAttachmentRequest, isSupportAttachmentStorageKeyForTicket, isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { assertNotificationPayloadMatches, buildNotificationEventKey, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
@@ -348,6 +348,12 @@ export async function reopenSupportTicket(actorId:number,ticketId:number) {
   return {success:true,changed:true,status:"open" as const};
 }
 export async function listTicketMessages(ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select({id:supportMessages.id,ticketId:supportMessages.ticketId,authorId:supportMessages.authorId,authorName:users.name,authorRole:users.role,body:supportMessages.body,createdAt:supportMessages.createdAt}).from(supportMessages).leftJoin(users,eq(users.id,supportMessages.authorId)).where(eq(supportMessages.ticketId,ticketId)).orderBy(supportMessages.createdAt); }
+export async function listTicketAttachments(ticketId:number) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const rows=await db.select({id:supportAttachments.id,fileName:supportAttachments.fileName,mimeType:supportAttachments.mimeType,sizeBytes:supportAttachments.sizeBytes,storageKey:supportAttachments.storageKey,createdAt:supportAttachments.createdAt})
+    .from(supportAttachments).where(eq(supportAttachments.ticketId,ticketId)).orderBy(supportAttachments.createdAt);
+  return rows.filter(row=>isValidSupportAttachmentStorageKey(row.storageKey)).map(({storageKey,...row})=>({...row,url:`/manus-storage/${storageKey}`}));
+}
 export async function createNotification(userId:number,title:string,body:string,options:{eventKey?:string|null;category?:NotificationCategory;priority?:NotificationPriority;href?:string|null}={}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const safeTitle=normalizeNotificationText(title,200,"title");
