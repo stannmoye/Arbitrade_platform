@@ -127,3 +127,10 @@ For each meaningful work unit, append a section with actual changed behavior/fil
 - Added `server/mining-admin-notification-idempotency.contract.test.ts`, which asserts every mining-admin notification path carries its stable business identifier and prevents regression to bare calls.
 - Focused validation passed: **5 Vitest files / 69 tests**, including notification event safety, mining notification behavior, sound deduplication/polling policy, and the new mining-admin idempotency contract. `pnpm check` and `git diff --check` passed.
 - This closes a concrete duplicate-notification risk on administrative mining retries. The broader exhaustive event-source runtime audit remains open; provider-gated deposit/withdrawal success remains intentionally unimplemented.
+
+### Work unit 12 — exact-head CI and release-package provenance (2026-10-21)
+
+- Reviewed every check for exact head `055eb0750d8aca2576f4f46753828e844f5cb9da`. Final result: **12 successful, 2 skipped, 0 failed, 0 pending**.
+- Successful exact-head evidence includes TypeScript, application/theme regression, production build/server smoke, installer and migration regression, fresh MariaDB, MySQL 8 compatibility/recovery, mining database regression, Chromium viewport/five-theme smoke, and deployment packaging.
+- Installer run `39532015607` published exact-head artifacts: `arbitrade-universal-installer` (`12315442491`, 2,816,168 bytes) and `validated-production-dist` (`12315837199`, 1,078,584 bytes). No production deployment occurred.
+- Closed the release-package provenance checkbox at CI level. Manual accessibility, authenticated runtime E2E, persistent push decision, provider-backed financial lifecycle, and final owner-level release verification remain open.

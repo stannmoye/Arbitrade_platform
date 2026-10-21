@@ -78,7 +78,7 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - [x] Add unit, router/authorization, migration, idempotency, and event-boundary tests.
 - [x] Run exact-head type-check, unit tests, production build, installer validation, migration tests on disposable MySQL/MariaDB schemas, and review every workflow result.
 - [ ] Perform responsive, keyboard, screen-reader, reduced-motion and theme/accessibility regression checks.
-- [ ] Verify the release ZIP is built from the verified source; do not deploy or apply migrations to the user's production host/database from this PR.
+- [x] Verify the release ZIP is built from the verified source; do not deploy or apply migrations to the user's production host/database from this PR.
 - [x] Record known limitations and honest evidence; CI passing alone is not hosted acceptance.
 
 ## Checklist reconciliation (2026-10-21)
@@ -329,3 +329,9 @@ Latest verified application code: `5b7db5abef6c6bc7fce17a47ebbec8d730092849`.
 - Fixed five administrative mining notification paths that previously omitted stable event keys, preventing retry-induced duplicate customer notifications.
 - Added `server/mining-admin-notification-idempotency.contract.test.ts`; focused notification/sound/idempotency validation passed **69/69 tests**, and `pnpm check` passed.
 - The exhaustive event-source checklist item remains open because this fix improves source coverage but does not replace full authenticated runtime acceptance across every event family.
+
+### 2026-10-21 exact-head CI completion and package provenance
+
+- Exact current head `055eb0750d8aca2576f4f46753828e844f5cb9da` completed all required PR workflows: **12 successful, 2 skipped, 0 failed, 0 pending**. This includes TypeScript, application regression, production build/server smoke, installer/migration regression, fresh MariaDB, MySQL 8 compatibility/recovery, mining database regression, Chromium viewport/five-theme smoke, and deployment packaging.
+- Installer workflow [39532015607](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39532015607) published the exact-head artifacts `arbitrade-universal-installer` (artifact `12315442491`, 2,816,168 bytes) and `validated-production-dist` (artifact `12315837199`, 1,078,584 bytes). These are CI provenance artifacts, not a production deployment.
+- This closes release-package provenance at the CI level. Manual accessibility review, authenticated runtime acceptance, persistent push decision, provider-backed deposit/withdrawal lifecycle, and final owner-level release verification remain open.

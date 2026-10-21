@@ -162,3 +162,7 @@ The stale product checklist was reconciled against current evidence. It now mark
 ## 11. Mining-admin idempotency fix (2026-10-21)
 
 Added stable recipient-scoped event keys for all five previously bare `createMiningNotification` calls in `server/mining-admin.ts`, covering sandbox grants, adjustment posting/rejection/approval, and reversals. Added a source contract test to prevent future bare calls. Focused validation passed **69/69 tests** and `pnpm check`. The remaining exhaustive event-source and runtime acceptance gates are unchanged.
+
+## 12. Exact-head CI completion and package provenance (2026-10-21)
+
+All exact-head PR workflows for `055eb0750d8aca2576f4f46753828e844f5cb9da` completed: 12 successful, 2 skipped, 0 failed, 0 pending. The installer run `39532015607` published `arbitrade-universal-installer` artifact `12315442491` and `validated-production-dist` artifact `12315837199`. The release-package checklist item is now closed at CI provenance level; this does not replace the reserved final production build or final owner verification.
