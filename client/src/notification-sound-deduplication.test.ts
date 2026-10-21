@@ -239,7 +239,10 @@ describe("announcement lifecycle persistence contracts", () => {
     expect(lifecycle).toContain('if(result.status==="published") published++');
     expect(lifecycle).toContain('else if(result.status==="expired") expiredDuringPublish++');
     expect(lifecycle).toContain("let expiredCount=0");
-    expect(lifecycle).toContain("if(Number(changed[0]?.affectedRows||0)>0) {\n      expiredCount++");
+    expect(lifecycle).toContain("const changed=await db.transaction(async tx=>");
+    expect(lifecycle).toContain("if(Number(result[0]?.affectedRows||0)===0)return false;");
+    expect(lifecycle).toContain("if(changed)expiredCount++");
+    expect(lifecycle).toContain("await tx.update(notificationCampaignDeliveries).set({status:\"expired\"})");
     expect(lifecycle).toContain("return {expired:expiredCount+expiredDuringPublish,published,failed}");
   });
 
