@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { transform } from "esbuild";
 
 const db = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
@@ -7,6 +8,7 @@ const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "u
 const migration = readFileSync(new URL("../drizzle/0059_manual_payout_requests.sql", import.meta.url), "utf8");
 const migrationRunner = readFileSync(new URL("../scripts/apply-portal-migrations.mjs", import.meta.url), "utf8");
 const customerUi = readFileSync(new URL("../client/src/components/PayoutRequests.tsx", import.meta.url), "utf8");
+const payoutBrowserAcceptance = readFileSync(new URL("../scripts/payout-browser-acceptance.cjs", import.meta.url), "utf8");
 const adminUi = readFileSync(new URL("../client/src/components/AdminOperationsPages.tsx", import.meta.url), "utf8");
 
 const requestStart = db.indexOf("export async function createCustomerPayoutRequest");
@@ -92,5 +94,14 @@ describe("manual payout request lifecycle contract", () => {
     expect(customerUi).toContain("Never enter passwords, PINs, private keys, or seed phrases.");
     expect(adminUi).toContain("Reject and release");
     expect(adminUi).toContain("Mark paid");
+  it("keeps the payout browser acceptance script parseable and focused on real user-visible flow states", async () => {
+    const parsed = await transform(payoutBrowserAcceptance, { loader: "js", target: "node22" });
+    expect(parsed.code).toContain("run customer payout browser acceptance");
+    expect(payoutBrowserAcceptance).toContain('procedure === "customer.requestPayout"');
+    expect(payoutBrowserAcceptance).toContain('procedure === "customer.cancelPayoutRequest"');
+    expect(payoutBrowserAcceptance).toContain("Available for payout: USD 80.00");
+    expect(payoutBrowserAcceptance).toContain("Cancelled · funds released");
+    expect(payoutBrowserAcceptance).toContain("No external bank or blockchain transfer is initiated.");
+  });
   });
 });
