@@ -128,7 +128,8 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
         "kyc_profiles",
         "users",
       ]) {
-        await pool.execute("DELETE FROM " + table + " WHERE userId IN (" + marks + ")", params);
+        const idColumn = table === "users" ? "id" : "userId";
+        await pool.execute("DELETE FROM " + table + " WHERE " + idColumn + " IN (" + marks + ")", params);
       }
     }
     if (policyExisted && previousPolicy !== null) {
