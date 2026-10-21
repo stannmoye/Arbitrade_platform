@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isAllowedAttachmentRequest,
   isValidSupportAttachmentStorageKey,
+  isSupportAttachmentStorageKeyForTicket,
 } from "./_core/attachmentPolicy";
 
 const policy = {
@@ -62,8 +63,7 @@ describe("support attachment policy", () => {
     expect(isAllowedAttachmentRequest(request, policy)).toBe(false);
   });
 
-  it("accepts ticket-scoped keys only for the matching ticket while retaining legacy-key compatibility", async () => {
-    const { isSupportAttachmentStorageKeyForTicket } = await import("./_core/attachmentPolicy");
+  it("accepts ticket-scoped keys only for the matching ticket while retaining legacy-key compatibility", () => {
     const token = "a".repeat(48);
     expect(isSupportAttachmentStorageKeyForTicket(`support/42/${token}-evidence.png`, 42)).toBe(true);
     expect(isSupportAttachmentStorageKeyForTicket(`support/42/${token}-evidence.png`, 43)).toBe(false);
