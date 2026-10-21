@@ -43,6 +43,7 @@ databaseDescribe("announcement expiry lifecycle through the application service"
     const connection = await pool!.getConnection();
     let adminId = 0;
     let campaignId = 0;
+    let persistedExpiresAt = "";
     const recipientIds = [2147483001, 2147483002, 2147483003, 2147483004];
     try {
       const [userInsert] = await connection.execute<mysql.ResultSetHeader>(
@@ -64,7 +65,7 @@ databaseDescribe("announcement expiry lifecycle through the application service"
         [campaignId],
       );
       if (!storedCampaignRows[0]?.expiresAt) throw new Error("Expiry fixture did not persist its deadline");
-      var persistedExpiresAt = new Date(storedCampaignRows[0].expiresAt).toISOString();
+      persistedExpiresAt = new Date(storedCampaignRows[0].expiresAt).toISOString();
       for (const [index, userId] of recipientIds.entries()) {
         const status = ["pending", "failed", "delivered", "read"][index];
         await connection.execute(
