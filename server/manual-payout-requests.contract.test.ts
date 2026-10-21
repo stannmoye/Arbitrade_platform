@@ -88,6 +88,7 @@ describe("manual payout request lifecycle contract", () => {
     expect(customerUi).toContain("eligibility.data?.allowed === true && !eligibility.isError");
     expect(customerUi).toContain('className="payout-eligibility-alert" role="alert"');
     expect(customerUi).toContain("!payoutAllowed || !amountValid");
+    expect(customerUi).toContain('setAmountText(""); setDestinationDetails(""); setDestinationType(["BTC", "ETH", "USDT"].includes(nextCurrency) ? "crypto_transfer" : "bank_transfer")');
     expect(customerUi).toContain("Never enter passwords, PINs, private keys, or seed phrases.");
     expect(adminUi).toContain("Reject and release");
     expect(adminUi).toContain("Mark paid");
