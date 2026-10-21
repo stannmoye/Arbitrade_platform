@@ -1,0 +1,101 @@
+# ARBITRADE Stage 1 automation task queue
+
+This queue is the source of truth for bounded development tasks. A task is complete only when its acceptance criteria are met and evidence is linked in the progress report. Do not infer completion from a green build alone.
+
+## Queue rules
+
+- Work one coherent task at a time unless tasks are demonstrably independent and touch disjoint files.
+- Prefer P0 financial correctness and security over cosmetic work.
+- Each task must include focused regression tests and record the exact commit and CI run.
+- Stop on unclear requirements, missing provider/business decisions, failing safety checks, or any need to touch production. The agreed ChatGPT-led path does not require separate API quota; the legacy API worker remains disabled/manual-only.
+- Never merge, deploy, access production systems, or mutate real financial data automatically.
+- An agent may not mark a task complete solely by editing this queue or the progress report.
+
+## Prioritized backlog
+
+### S1-A — Wallet mutation concurrency and ledger reconciliation
+**Priority:** P0 · **Status:** READY FOR REVIEW — implementation and CI validated; reviewer decision/merge pending · **Owner:** coding agent + reviewer
+
+**Scope**
+- Add database-backed concurrent credit/debit tests against disposable MariaDB and MySQL 8-compatible environments.
+- Prove competing debits cannot overspend and that accepted operations reconcile with ledger entries and final balances.
+- Exercise duplicate wallet rows and the unique `(userId, currency)` index across supported fresh-install and upgrade paths.
+- Verify a post-commit telemetry failure does not misreport a committed wallet mutation as failed.
+
+**Acceptance criteria**
+- Tests exercise actual database transactions, not only mocks.
+- Concurrent operations end with a non-negative balance and exact ledger/balance reconciliation.
+- Duplicate-wallet preflight fails closed with actionable diagnostics; it never silently deletes or merges financial rows.
+- Migration/install tests cover fresh install and upgrade paths supported by the project.
+- Evidence names the exact commit and successful CI run(s).
+
+**Current evidence:** PR [#62](https://github.com/stannmoye/Arbitrade_platform/pull/62), current head `97a8e5d7cd110ee1a282c05befa4adaf4bd99165`; wallet concurrency integration [run #29](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39157055454) passed on MySQL 8.0 and MariaDB 11.4, including database-backed concurrency/reconciliation, wallet uniqueness migration preflight, and the compatible migration SQL adapter replay test. Full installer validation [run #521](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39157055458) passed on the same head. Review/merge is still pending; broader representative existing-database/schema-drift upgrade testing remains open.
+
+### S1-B — Settlement single-winner, idempotency, and rollback
+**Priority:** P0 · **Status:** PARTIAL — daily Mining boost settlement guard and cross-database integration coverage validated; broader settlement paths still need review
+
+**Scope**
+- Audit settlement paths for duplicate delivery, simultaneous claims, retry behavior, and partial failure.
+- Add database-backed tests for exactly-once ledger effects, one winning settlement claim, and rollback of incomplete financial work.
+
+**Acceptance criteria**
+- Replaying the same source/idempotency reference cannot duplicate a credit/debit.
+- Competing settlement workers produce one accepted result.
+- Failures leave either a fully committed auditable transaction or no partial financial mutation.
+- Tests run against the supported disposable database matrix.
+
+**Current evidence:** Draft PR [#66](https://github.com/stannmoye/Arbitrade_platform/pull/66) adds a fail-closed row-transition guard for daily Mining boost settlement and database-backed competing-worker, retry/reconciliation, and rollback tests. Latest installer validation [run #530](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39157472223) **passed all three jobs** on the current PR #66 head. MySQL 8.0 and MariaDB 11.4 each passed 3 database-backed tests: competing-worker single-winner settlement with ledger reconciliation, zero-value closure without ledger credit, and rollback when ledger posting fails. Draft PR [#68](https://github.com/stannmoye/Arbitrade_platform/pull/68) adds a fail-closed Stake & Earn maturity settlement guard and database-backed concurrency/rollback tests; installer validation [run #523](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39157179474) **passed all jobs** on the latest PR #68 head. MySQL 8.0 and MariaDB 11.4 each passed 3 database-backed tests: single-winner maturity settlement, rollback on missing wallet, and fail-closed rollback for a prior ledger entry attached to a still-active position. Draft PR [#67](https://github.com/stannmoye/Arbitrade_platform/pull/67) addresses the manual trade settlement path: it locks the trade/wallet, checks reward/total bounds and reserved principal, requires a single reserved-reward transition, and adds MySQL/MariaDB concurrency/rollback plus settlement-reference migration tests. Its first integration runs failed before the trade tests because the disposable DB lacked the Mining base tables required by the existing schema upgrader. The workflow now applies `drizzle/0036_crypto_mining_portal.sql` before running the upgrader twice. After fixing the missing base-schema setup and correcting the rollback assertion to account for Drizzle's wrapped query error, settlement integration [run #7](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39157039940) **passed on MySQL 8.0 and MariaDB 11.4**. The matrix passed TypeScript validation, unit suite, production build, idempotent Mining schema upgrade, wallet concurrency/reconciliation, wallet-index migration preflight, manual settlement concurrency/rollback, and settlement-reference migration preflight. PR #67 remains a draft stacked on PR #62; reviewer/merge decision remains open. Reviewer decisions remain open; no production readiness is implied.
+
+### S1-C — Mining settlement allocation readiness
+**Priority:** P0 · **Status:** BLOCKED ON PRODUCT/PROVIDER INPUTS
+
+**Required inputs**
+- Third-party settlement source and evidence format/API.
+- Gross-versus-net costs and operator/customer revenue-share policy.
+- Allocation denominator and eligible purchased hash-time definition.
+- FX/CKI valuation source and timestamp policy.
+
+**Acceptance criteria**
+- No rewards are calculated or credited from hashrate alone.
+- Each posted period links to source settlement evidence and an idempotent ledger allocation.
+- Missing or inconsistent settlement evidence fails closed.
+
+### S1-D — Payout request reservation and audit
+**Priority:** P1 · **Status:** BLOCKED ON PRODUCT DECISION
+
+**Required decision**
+- Whether funds are reserved/locked when a payout ticket is requested, and the release behavior on rejection/cancellation.
+
+**Acceptance criteria**
+- Ticket state transitions and financial reservation are transactional and audited.
+- No external transfer is initiated automatically without an explicitly configured and tested provider.
+
+### S1-E — End-to-end staging acceptance
+**Priority:** P1 · **Status:** NOT STARTED
+
+**Scope**
+- Run browser-level customer/admin journeys against an isolated staging environment.
+- Validate authorization boundaries, wallet history, package purchase, reports, error states, and recovery.
+- Exercise backup/restore and deployment health checks.
+
+**Acceptance criteria**
+- Critical user journeys pass on a release candidate.
+- Staging is isolated from production accounts, secrets, and funds.
+- Evidence and known limitations are recorded before any production approval.
+
+### S1-F — Release and recovery evidence
+**Priority:** P1 · **Status:** NOT STARTED
+
+**Scope**
+- Verify release artifact reproducibility, migration ordering, health checks, rollback/recovery procedure, backup restore, monitoring, and alert routing.
+
+**Acceptance criteria**
+- A release checklist is signed off with links to exact CI, staging, migration, backup/restore, and security evidence.
+- Production deployment remains a separate human-authorized action.
+
+## Autonomous worker operating limits
+
+- The legacy GitHub Actions coding worker uses a separate OpenAI API credential and quota; it is not part of the agreed Option B path.
+- Keep that legacy worker manual-only. Do not enable scheduled or CI-triggered API-backed coding runs for this project workflow.
+- The agreed path is ChatGPT-led development during active sessions plus GitHub Actions validation. A green CI run proves only the configured checks passed; it does not mean an agent wrote or repaired code.
+- When using any separately authorized worker in the future, retries must be bounded and stop after validation failure, invalid patch, branch movement, empty patch, quota error, or exhausted retry budget.

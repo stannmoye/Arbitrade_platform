@@ -1,22 +1,26 @@
 # ARBITRADE autonomous coding worker setup
 
-The workflow in `.github/workflows/autonomous-coding-worker.yml` is a bounded, event-driven coding worker candidate. It is intentionally separate from the ordinary CI workflow.
+The workflow in `.github/workflows/autonomous-coding-worker.yml` is a bounded, event-driven coding worker. Its automatic trigger is deliberately dormant until an owner enables a repository variable. Keep it separate from ordinary CI validation.
 
 ## Activation requirements
 
-1. Review and merge the worker workflow into the repository's default branch. GitHub requires a `workflow_run` listener to exist on the default branch before it can react to completed CI runs.
-2. In **Settings → Secrets and variables → Actions**, add a repository secret named `OPENAI_API_KEY`. Never place the key in a workflow file, commit, issue, or log. API usage may incur charges; use an appropriately limited key and monitor its usage.
-3. Keep the existing `integration/auth-installer-vps-safety` branch and PR #58 as the worker's only target until its safety behavior has been reviewed.
+1. Review the changes in PR #65 and merge the workflow only after reviewing its permissions, target branch, task cap, patch allowlist, and failure-stop behavior. GitHub requires the `workflow_run` listener to exist on the default branch before it can react to completed CI runs.
+2. In **Settings → Secrets and variables → Actions**, configure a secret named `OPENAI_API_KEY`. Never place the key in a workflow file, commit, issue, or log. API usage may incur charges; use an appropriately limited key and monitor usage.
+3. Confirm the API project has available quota. The previous worker attempt failed with a quota-exceeded error; the existence of a secret alone does not mean the API can serve requests.
+4. Leave the repository variable `ARBITRADE_AUTONOMOUS_WORKER_ENABLED` unset or set to `false` for the supervised test. After that test succeeds, an authorized owner may set it to the string `true` under **Settings → Secrets and variables → Actions → Variables** to enable automatic follow-on runs.
+5. Keep `integration/auth-installer-vps-safety` as the worker's only target until the complete chain has been observed and reviewed. Do not point it at `main`.
 
 ## Execution model
 
-- The worker starts after a successful **Installer validation** run on the named work branch, or by an authorized manual dispatch on that branch.
+- An authorized manual dispatch can run on `integration/auth-installer-vps-safety` while the automatic-worker variable is disabled, allowing a supervised first run.
+- When the variable is exactly `true`, the worker can start after a completed **push- or worker-dispatched Installer validation** run on the named work branch. The publishing job explicitly dispatches validation using `GITHUB_TOKEN` with narrowly scoped `actions: write`; the listener accepts only `push` or `workflow_dispatch` validation events on the designated branch.
 - Each run asks Codex to select and implement at most one prioritized, test-backed Stage 1 task.
 - The agent works in a sandboxed workspace. A separate fresh job validates the patch's allowed paths, rejects deletions and stale revisions, then pushes the accepted-scope patch to the work branch.
-- That push triggers the normal validation workflow. Another worker run is eligible only after validation succeeds.
-- A commit marker caps one automatic chain at five task runs. If no patch is produced, a test fails, the branch moves, or the patch is outside the allowlist, the chain stops rather than guessing or retrying indefinitely.
-- Changes remain on the draft feature branch; the worker never merges a PR or deploys to production.
+- The publishing job explicitly dispatches the existing Installer validation workflow after pushing the accepted patch. Another task becomes eligible only after that validation completes; a failure routes to the bounded repair path, while a success permits the next task only if the owner-enabled repository variable is `true`.
+- Consecutive automatic commit markers cap a chain at five tasks. A normal human-authored commit starts a new chain. If no patch is produced, the branch moves, or the patch is outside the allowlist, the chain stops. A failed Installer validation may trigger at most two repair attempts for that task; if validation still fails, the chain stops for human review.
+- The progress dashboard writes an evidence summary to GitHub Actions job summaries. It reports progress; it does not author code or certify production readiness.
+- Changes remain on the feature branch; the worker never merges a PR or deploys to production.
 
 ## Current limits
 
-This workflow is a persistent **event-driven chain**, not an always-running server process. GitHub Actions still runs bounded jobs and can stop on quota, API, billing, or CI failures. The worker is not active until the workflow is reviewed/merged and the required secret is configured. The initial rollout should be observed closely before expanding its allowed paths or task limit.
+This is a persistent **event-driven chain**, not an always-running server process. GitHub Actions runs bounded jobs and can stop on quota, API, billing, runner, or CI failures. The worker is not active until the workflow is merged, the API credential/quota work, and the owner deliberately enables the repository variable. Do not paste API credentials into ChatGPT. The initial rollout should be observed closely before expanding its allowed paths or task limit.

@@ -1,0 +1,102 @@
+name: ARBITRADE autonomy progress dashboard
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - feat/arbitrade-autonomy-control-plane
+      - integration/auth-installer-vps-safety
+  workflow_dispatch:
+  # Once this workflow is merged to main, report every completed validation run.
+  workflow_run:
+    workflows:
+      - Installer validation
+      - Wallet concurrency integration
+      - Mining settlement integration
+      - Settlement idempotency integration
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arbitrade-progress-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  progress-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Publish evidence-based progress summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          queue="docs/ARBITRADE_STAGE1_AUTOMATION_QUEUE.md"
+          progress="docs/ARBITRADE_STAGE_1_PROGRESS_2026-10-18.md"
+          readiness="docs/ARBITRADE_AUTONOMY_READINESS.md"
+          report_sha="$GITHUB_SHA"
+          report_ref="$GITHUB_REF"
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
+            report_sha="$(jq -r '.workflow_run.head_sha // empty' "$GITHUB_EVENT_PATH")"
+            report_ref="$(jq -r '.workflow_run.head_branch // empty' "$GITHUB_EVENT_PATH")"
+            [[ -n "$report_sha" ]] || report_sha="$GITHUB_SHA"
+            [[ -n "$report_ref" ]] || report_ref="$GITHUB_REF"
+          fi
+
+          {
+            echo "# ARBITRADE autonomy progress"
+            echo
+            echo "- **Event:** \`${GITHUB_EVENT_NAME}\`"
+            echo "- **Ref:** \`${report_ref}\`"
+            echo "- **Commit:** [\`${report_sha:0:12}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${report_sha})"
+            echo "- **Run:** [View this run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+            if [[ "$GITHUB_EVENT_NAME" == "workflow_run" ]]; then
+              validation_conclusion="$(jq -r '.workflow_run.conclusion // "unknown"' "$GITHUB_EVENT_PATH")"
+              validation_url="$(jq -r '.workflow_run.html_url // empty' "$GITHUB_EVENT_PATH")"
+              validation_sha="$(jq -r '.workflow_run.head_sha // empty' "$GITHUB_EVENT_PATH")"
+              echo "- **Completed validation:** [${validation_conclusion}](${validation_url})"
+              echo "- **Validated commit:** \`${validation_sha}\`"
+            fi
+            echo
+            echo "## Task queue"
+            echo
+            if [[ -f "$queue" ]]; then
+              awk '/^### S1-/{task=$0; getline; print task " — " $0}' "$queue"
+            else
+              echo "Queue document is not present on this revision."
+            fi
+            echo
+            echo "## Readiness gates"
+            echo
+            if [[ -f "$readiness" ]]; then
+              grep -E '^\| [0-9]+\.' "$readiness" || true
+            else
+              echo "Readiness matrix is not present on this revision."
+            fi
+            echo
+            echo "## Automation status"
+            echo
+            echo "- This workflow reports repository evidence; it does not itself write application code or repair failures."
+            echo "- A green report job is not a production approval."
+            echo "- Agreed development path: ChatGPT-led edits through connected GitHub tools during active sessions; GitHub Actions validates changes. This path does not require a separate OpenAI API key."
+            echo "- Production merge/deploy and live financial operations remain human-authorized."
+            echo
+            if [[ -f "$progress" ]]; then
+              echo "Detailed status: \`$progress\`."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify required status documents exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s docs/ARBITRADE_STAGE1_AUTOMATION_QUEUE.md
+          test -s docs/ARBITRADE_STAGE_1_PROGRESS_2026-10-18.md
+          test -s docs/ARBITRADE_AUTONOMY_READINESS.md
