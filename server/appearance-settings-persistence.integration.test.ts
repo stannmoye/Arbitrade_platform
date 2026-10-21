@@ -6,7 +6,8 @@ import { appSettings, customerNotifications, notificationCampaignDeliveries, not
 import { createContext } from "./_core/context";
 import { createLocalSession } from "./_core/localAuth";
 import { appRouter } from "./routers";
-import { getAppSetting, getDb, getUserById, setAppSetting } from "./db";
+import { addTicketAttachment, getAppSetting, getDb, getTicketAttachmentAccess, getTicketUploadPolicy, getUserById, setAppSetting } from "./db";
+import { isAllowedAttachmentRequest } from "./_core/attachmentPolicy";
 
 // This suite is intentionally opt-in: ordinary unit-test runs must never write
 // to a developer's configured database. CI enables it only after provisioning
@@ -303,6 +304,41 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     });
     temporaryTicketId = created.ticketId;
     temporaryTicketNumber = created.ticketNumber;
+
+    // Exercise the persisted attachment-to-ticket ownership path against the
+    // disposable database without calling an external storage provider.
+    const uploadPolicy = await getTicketUploadPolicy();
+    const candidates = [
+      { fileName: "stage4-fixture.pdf", mimeType: "application/pdf" },
+      { fileName: "stage4-fixture.png", mimeType: "image/png" },
+      { fileName: "stage4-fixture.jpg", mimeType: "image/jpeg" },
+      { fileName: "stage4-fixture.txt", mimeType: "text/plain" },
+      { fileName: "stage4-fixture.csv", mimeType: "text/csv" },
+      { fileName: "stage4-fixture.json", mimeType: "application/json" },
+      { fileName: "stage4-fixture.gif", mimeType: "image/gif" },
+      { fileName: "stage4-fixture.webp", mimeType: "image/webp" },
+    ];
+    const attachmentCandidate = candidates.find(candidate =>
+      isAllowedAttachmentRequest({ ...candidate, sizeBytes: 1 }, uploadPolicy),
+    );
+    if (!attachmentCandidate) throw new Error("The disposable upload policy has no supported integration-test fixture type");
+    const storageKey = `support/${temporaryTicketId}/${"a".repeat(48)}-${attachmentCandidate.fileName}`;
+    await addTicketAttachment(ownerId, {
+      ticketId: temporaryTicketId,
+      ...attachmentCandidate,
+      sizeBytes: 1,
+      storageKey,
+    });
+    await expect(getTicketAttachmentAccess(storageKey)).resolves.toMatchObject({
+      ticketId: temporaryTicketId,
+      customerId: ownerId,
+    });
+    await expect(addTicketAttachment(otherId, {
+      ticketId: temporaryTicketId,
+      ...attachmentCandidate,
+      sizeBytes: 1,
+      storageKey: `support/${temporaryTicketId}/${"b".repeat(48)}-${attachmentCandidate.fileName}`,
+    })).rejects.toThrow("Ticket not found");
 
     expect((await ownerCaller.customer.tickets()).map(ticket => ticket.id)).toContain(temporaryTicketId);
     expect((await ownerCaller.customer.ticketMessages({ ticketId: temporaryTicketId })).map(message => message.body)).toContain("Disposable authenticated support-ticket integration fixture.");
