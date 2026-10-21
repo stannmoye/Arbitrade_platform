@@ -96,7 +96,7 @@ describe("manual payout request lifecycle contract", () => {
     expect(adminUi).toContain("Mark paid");
   it("keeps the payout browser acceptance script parseable and focused on real user-visible flow states", async () => {
     const parsed = await transform(payoutBrowserAcceptance, { loader: "js", target: "node22" });
-    expect(parsed.code).toContain("run customer payout browser acceptance");
+    expect(parsed.code).toContain('procedure === "customer.requestPayout"');
     expect(payoutBrowserAcceptance).toContain('procedure === "customer.requestPayout"');
     expect(payoutBrowserAcceptance).toContain('procedure === "customer.cancelPayoutRequest"');
     expect(payoutBrowserAcceptance).toContain("Available for payout: USD 80.00");
