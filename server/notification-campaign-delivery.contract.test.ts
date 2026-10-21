@@ -52,9 +52,24 @@ describe("Stage 4 announcement campaign delivery persistence", () => {
     expect(lifecycle).toContain('if(result.status==="published") published++');
     expect(lifecycle).toContain('else if(result.status==="expired") expiredDuringPublish++');
     expect(lifecycle).toContain('return {expired:expiredCount+expiredDuringPublish,published,failed}');
-    expect(lifecycle).toContain('if(Number(changed[0]?.affectedRows||0)>0)');
-    expect(lifecycle).toContain('expiredCount++');
+    expect(lifecycle).toContain('if(changed)expiredCount++');
+    expect(lifecycle).toContain('await db.transaction(async tx=>');
+    expect(lifecycle).toContain('await tx.update(notificationCampaignDeliveries).set({status:"expired"})');
     expect(lifecycle).not.toContain('}); published++;');
+  });
+
+  it("atomically expires campaigns and retryable recipient rows", () => {
+    const broadcastStart = db.indexOf("export async function broadcastCustomerNotification(");
+    const retryStart = db.indexOf("export async function retryNotificationCampaign(", broadcastStart);
+    const broadcast = db.slice(broadcastStart, retryStart);
+    const lifecycleStart = db.indexOf("export async function processNotificationCampaignLifecycle");
+    const lifecycleEnd = db.indexOf("export async function listAdminNotificationCampaigns", lifecycleStart);
+    const lifecycle = db.slice(lifecycleStart, lifecycleEnd);
+    expect(broadcast).toContain('const expiredTransition=await db.transaction(async tx=>');
+    expect(broadcast).toContain('await tx.update(notificationCampaignDeliveries).set({status:"expired"})');
+    expect(lifecycle).toContain('const changed=await db.transaction(async tx=>');
+    expect(lifecycle).toContain('await tx.update(notificationCampaignDeliveries).set({status:"expired"})');
+    expect(lifecycle).toContain('lte(notificationCampaigns.expiresAt,now)');
   });
 
   it("registers the forward-only migration in both normal and recovery tooling", () => {
