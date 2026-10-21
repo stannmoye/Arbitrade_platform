@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const db = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const routers = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 
 describe("administrator wallet adjustment concurrency contract", () => {
   it("locks the customer row before reading or creating a currency balance", () => {
@@ -49,6 +50,24 @@ describe("administrator wallet adjustment concurrency contract", () => {
     expect(implementation.indexOf('!Number.isSafeInteger(nextPromotional)')).toBeLessThan(implementation.indexOf('await tx.update(customerBalances)'));
     expect(implementation.indexOf('!Number.isSafeInteger(next)')).toBeLessThan(implementation.indexOf('await tx.update(customerBalances)'));
     expect(implementation.indexOf('!Number.isSafeInteger(next)')).toBeLessThan(implementation.indexOf('await tx.insert(customerBalances)'));
+  });
+
+  it("does not report a committed wallet adjustment as failed when console-event logging fails", () => {
+    const start = routers.indexOf("adjustCustomerBalance: adminProcedure");
+    const end = routers.indexOf("\n    settings:", start);
+    const mutation = routers.slice(start, end);
+    const commitCall = mutation.indexOf("await adjustCustomerBalance(ctx.user.id, input)");
+    const eventCall = mutation.indexOf("await recordTransactionConsoleEvent");
+    const errorHandler = mutation.indexOf('console.error("[Wallet] Admin transaction console event failed after ledger commit:");');
+    const resultReturn = mutation.lastIndexOf("return result");
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(eventCall).toBeGreaterThan(commitCall);
+    expect(mutation.slice(eventCall, resultReturn)).toContain("try {");
+    expect(mutation.slice(eventCall, resultReturn)).toContain("catch(error)");
+    expect(mutation.slice(eventCall, resultReturn)).toContain("Admin transaction console event failed after ledger commit");
+    expect(resultReturn).toBeGreaterThan(errorHandler);
   });
 
   it("uses the committed ledger reference for notification and email idempotency", () => {
