@@ -102,9 +102,13 @@ describe("manual payout request lifecycle contract", () => {
     expect(payoutBrowserAcceptance).toContain('procedure === "customer.requestPayout"');
     expect(payoutBrowserAcceptance).toContain('procedure === "customer.cancelPayoutRequest"');
     expect(payoutBrowserAcceptance).toContain("Available for payout: USD 80.00");
+    expect(payoutBrowserAcceptance).toContain('getByText("Pending manual review", { exact: true })');
     expect(payoutBrowserAcceptance).toContain("staleDestinationCleared");
     expect(payoutBrowserAcceptance).toContain("Cancelled · funds released");
     expect(payoutBrowserAcceptance).toContain("No external bank or blockchain transfer is initiated.");
+    expect(payoutBrowserAcceptance).toContain("async function runAdminPayoutReview(browser)");
+    expect(payoutBrowserAcceptance).toContain("External transfer reference for payout-admin-paid-1");
+    expect(payoutBrowserAcceptance).toContain("Resolution note for payout-admin-reject-1");
     expect(payoutBrowserAcceptance).toContain("async function runAdminPayoutReview(browser)");
     expect(payoutBrowserAcceptance).toContain("External transfer reference for payout-admin-paid-1");
     expect(payoutBrowserAcceptance).toContain("Resolution note for payout-admin-reject-1");
