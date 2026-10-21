@@ -319,7 +319,7 @@ describe("authenticated support lifecycle persistence contracts", () => {
     const reopen = db.slice(start, end);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    expect(reopen).toContain('eq(supportTickets.status,"closed"),eq(supportTickets.status,"resolved")');
+    expect(reopen).toContain('or(eq(supportTickets.status,"closed"),eq(supportTickets.status,"resolved"))');
     expect(reopen).toContain("if(affected!==1)");
     expect(routers).toContain("createTicket: protectedProcedure");
     expect(routers).toContain("replyTicket: protectedProcedure");
