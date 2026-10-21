@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS `payout_requests` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `payout_requests_reference_unique` (`requestReference`),
   UNIQUE KEY `payout_requests_idempotency_unique` (`idempotencyKey`),
+  UNIQUE KEY `payout_requests_external_reference_unique` (`externalReference`),
   KEY `payout_requests_user_created_idx` (`userId`,`createdAt`,`id`),
   KEY `payout_requests_status_created_idx` (`status`,`createdAt`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
