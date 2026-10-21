@@ -1,17 +1,21 @@
-# Stage 3 — Five-Theme Architecture and Administrator Theme Controls
+# Stage 3 — Six-Theme Architecture and Administrator Theme Controls
 
 **Status:** Core implementation and account-switch guard validated by exact-head CI; formal accessibility and deployed-session acceptance remain in progress  
 **Working branch:** `feat/stage-3-five-theme-architecture`  
 **Base implementation checkpoint:** `22ca05ad65e20078775ca7956f121019fa6a966b`  
 **Started:** 2026-10-19
 
+## Sixth-theme integration correction (2026-10-21)
+
+The full Stage 3 baseline ZIP contains the Gold Luxe theme, but the first published Stage 4 full-application ZIP omitted it from the current client/server theme registries, the administrator theme policy schema, and theme CSS. The five-theme CI evidence recorded below is historical evidence for the then-current five themes; it does not validate Gold Luxe. The release correction restores Gold Luxe and the Stage 3 Clean Light customer contrast/responsive overrides, updates the authoritative server allow-list to six themes, and adds six-theme regression/contrast coverage. A fresh exact-head test, typecheck, production build, and full-ZIP inspection are required before publishing the corrected release.
+
 ## Objective
 
-Finish and verify the existing five-theme implementation without duplicating Stage 2's shared design-system work. Preserve Original Arbitrade as the default and keep server-side administrator policy authoritative.
+Finish and verify the existing six-theme implementation without duplicating Stage 2's shared design-system work. Preserve Original Arbitrade as the default and keep server-side administrator policy authoritative.
 
 ## Baseline implementation found
 
-- Five semantic theme identifiers and labels exist: Original Arbitrade, Midnight Premium, Clean Light, Emerald Finance, and Aurora Modern.
+- Six semantic theme identifiers and labels are required: Original Arbitrade, Midnight Premium, Clean Light, Emerald Finance, Aurora Modern, and Gold Luxe.
 - `client/src/theme-system.css` defines semantic theme tokens and compatibility bridges for legacy portal styling.
 - `client/src/contexts/ThemeContext.tsx` loads the public appearance policy, distinguishes administrators from customers, validates customer choices against the enabled-theme allow-list, and applies the selected theme to the document root.
 - `client/src/components/AdminAppearance.tsx` exposes preview, default-theme, enabled-theme, and customer-choice controls.

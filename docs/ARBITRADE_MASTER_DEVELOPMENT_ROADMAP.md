@@ -6,6 +6,13 @@
 **Roadmap version:** 2.1  
 **Purpose:** The durable source of truth for the customer experience, themes, notifications, sounds, responsive layouts, administrator portal, quality assurance, and deployment-verification work.
 
+## Stage 4 full-release correction — 2026-10-21
+
+- **Confirmed defect:** the published `v2.0.0-stage4-full` archive omitted Gold Luxe, the sixth Stage 3 theme. The uploaded Stage 3 baseline registers `gold-luxe`; the released Stage 4 package had five-theme client/server allow-lists and omitted the Gold Luxe semantic tokens and customer overrides.
+- **Correction batch:** restore Gold Luxe in the client registry, administrator policy, authoritative server validation, CSS token/legacy bridge, and regression contracts; restore the Stage 3 Clean Light customer contrast/responsive CSS; retain the integrated Stage 4 notifications, two-way support, migrations, and bundled sounds.
+- **Replacement release target:** `v2.0.1-stage4-full` — publish only after exact-head tests, TypeScript validation, production build, and ZIP-content checks pass. The earlier release is retained as historical evidence and must not be overwritten.
+- **Status at checkpoint:** correction is being validated; do not describe the replacement as published until GitHub confirms the release asset and its checksum.
+
 ## Current user-accepted project checkpoint (2026-10-20)
 
 - **Stages 1, 2 and 3:** Accepted complete by the user.

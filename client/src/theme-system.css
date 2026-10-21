@@ -1,5 +1,5 @@
 /*
- * ARBITRADE five-theme architecture.
+ * ARBITRADE six-theme architecture.
  * "original" is the default and deliberately preserves the current palette.
  * Themes override semantic design-system tokens, not individual components.
  */
@@ -90,6 +90,23 @@
 }
 
 
+:root[data-arb-theme="gold-luxe"] {
+  color-scheme: dark;
+  --arb-color-canvas: #17120a;
+  --arb-color-surface: #211a0d;
+  --arb-color-surface-raised: #302411;
+  --arb-color-border: #6d5524;
+  --arb-color-text: #fff8e7;
+  --arb-color-text-soft: #eadbb7;
+  --arb-color-text-muted: #c0ad7c;
+  --arb-color-accent: #e7bd52;
+  --arb-color-info: #f4d98b;
+  --arb-color-warning: #ffd879;
+  --arb-color-danger: #ff9288;
+  --arb-color-decorative: #caa65a;
+  --arb-focus-ring: #f4d98b;
+}
+
 /* Bridge the semantic themes to existing portal variables so legacy screens
    visibly respond while they are progressively migrated to arb-* tokens. */
 :root[data-arb-theme="midnight-premium"] {
@@ -138,6 +155,18 @@
   --bg: #0b1025; --panel: #141b36; --panel2: #202747; --line: #3b4774;
   --muted: #a0a5d0; --soft: #d1d3f0; --mint: #67e8f9; --blue: #a5b4fc;
   --coral: #fb9ab8; --violet: #d8a7ff; --brand-accent: #67e8f9;
+}
+
+:root[data-arb-theme="gold-luxe"] {
+  --ux-ink: #17120a; --ux-ink-2: #1d170c; --ux-surface: #211a0d;
+  --ux-surface-2: #302411; --ux-surface-3: #3b2d15;
+  --ux-line: rgba(231, 189, 82, .24); --ux-line-strong: rgba(231, 189, 82, .4);
+  --ux-text: #fff8e7; --ux-text-soft: #eadbb7; --ux-muted: #c0ad7c;
+  --ux-accent: #e7bd52; --ux-accent-2: #f4d98b; --ux-warning: #ffd879;
+  --ux-negative: #ff9288; --ux-info: #caa65a;
+  --bg: #17120a; --panel: #211a0d; --panel2: #302411; --line: #6d5524;
+  --muted: #c0ad7c; --soft: #eadbb7; --mint: #e7bd52; --blue: #f4d98b;
+  --coral: #ff9288; --violet: #caa65a; --brand-accent: #e7bd52;
 }
 
 .arb-theme-selector {
@@ -225,6 +254,8 @@
 .arb-theme-swatch-emerald-finance i:nth-child(1) { background: #48e0a1; }
 .arb-theme-swatch-aurora-modern { background: #0b1025; border-color: #3b4774; }
 .arb-theme-swatch-aurora-modern i:nth-child(1) { background: #67e8f9; }
+.arb-theme-swatch-gold-luxe { background: #17120a; border-color: #6d5524; }
+.arb-theme-swatch-gold-luxe i:nth-child(1) { background: #e7bd52; }
 .arb-appearance-field { display: grid; gap: 7px; max-width: 460px; color: var(--arb-color-text-soft); }
 .arb-appearance-field select { min-height: 40px; border: 1px solid var(--arb-color-border); border-radius: 8px; padding: 8px 10px; background: var(--arb-color-surface-raised); color: var(--arb-color-text); font: inherit; }
 .arb-theme-enabled-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 9px; }
@@ -1148,7 +1179,7 @@
 /*
  * Stage 2 theme adoption for legacy entry and authentication screens.
  * These surfaces predate the shared token system; explicitly bridge their
- * hard-coded portal palette to semantic tokens so all five themes remain
+ * hard-coded portal palette to semantic tokens so all six themes remain
  * readable instead of changing only the page background.
  */
 .portal-gateway,

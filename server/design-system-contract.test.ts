@@ -43,6 +43,7 @@ describe("ARBITRADE shared design-system contract", () => {
       "clean-light",
       "emerald-finance",
       "aurora-modern",
+      "gold-luxe",
     ]) {
       expect(themes, `missing theme ${theme}`).toContain(`data-arb-theme="${theme}"`);
     }
@@ -80,6 +81,7 @@ describe("ARBITRADE shared design-system contract", () => {
       ':root[data-arb-theme="clean-light"]',
       ':root[data-arb-theme="emerald-finance"]',
       ':root[data-arb-theme="aurora-modern"]',
+      ':root[data-arb-theme="gold-luxe"]',
     ];
     for (const selector of themeSelectors) {
       const start = themes.indexOf(selector);
@@ -109,7 +111,7 @@ describe("ARBITRADE shared design-system contract", () => {
   });
 
 
-  const themeNames = ["original", "midnight-premium", "clean-light", "emerald-finance", "aurora-modern"];
+  const themeNames = ["original", "midnight-premium", "clean-light", "emerald-finance", "aurora-modern", "gold-luxe"];
   const themeBlock = (theme: string) => {
     const selector = theme === "original"
       ? /:root,\s*:root\[data-arb-theme="original"\]\s*\{([^}]+)\}/
@@ -142,7 +144,7 @@ describe("ARBITRADE shared design-system contract", () => {
     return (values[0] + 0.05) / (values[1] + 0.05);
   };
 
-  it("keeps text tokens at WCAG AA contrast against canvas and surfaces in all five themes", () => {
+  it("keeps text tokens at WCAG AA contrast against canvas and surfaces in all six themes", () => {
     for (const theme of themeNames) {
       const block = themeBlock(theme);
       const canvas = resolveHexToken(block, "--arb-color-canvas");
@@ -278,7 +280,7 @@ describe("ARBITRADE shared design-system contract", () => {
 
   it("keeps server-side appearance policy validation constrained to known themes", () => {
     expect(routers).toContain(
-      'enabledThemes: z.array(z.enum(["original","midnight-premium","clean-light","emerald-finance","aurora-modern"])).min(1).max(5)',
+      'enabledThemes: z.array(z.enum(["original","midnight-premium","clean-light","emerald-finance","aurora-modern","gold-luxe"])).min(1).max(6)',
     );
     expect(routers).toContain(
       'if (input.appearance && !input.appearance.enabledThemes.includes(input.appearance.defaultTheme)) throw new TRPCError({ code: "BAD_REQUEST", message: "The default theme must be enabled." });',

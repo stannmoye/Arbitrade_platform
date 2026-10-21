@@ -4,6 +4,7 @@ export const ARBITRADE_THEMES = [
   "clean-light",
   "emerald-finance",
   "aurora-modern",
+  "gold-luxe",
 ] as const;
 
 export type ArbitradeTheme = (typeof ARBITRADE_THEMES)[number];
