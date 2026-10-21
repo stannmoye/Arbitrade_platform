@@ -796,6 +796,11 @@ async function assertPayoutPolicyAllowsRequest(tx: any, userId: number) {
   if (controls.accountStatus !== "active") throw new Error("Payout requests are unavailable while the account is restricted.");
   if (controls.withdrawalsEnabled !== true) throw new Error("Withdrawals are not enabled for this customer account.");
 
+  // No payout-time second-factor challenge exists yet, so never bypass the policy.
+  if (policy.twofa === true || controls.twoFactorRequired === true) {
+    throw new Error("Complete two-factor verification before requesting a payout; payout verification is not available yet.");
+  }
+
   const kycRequired = policy.kyc === true || controls.kycRequired === true;
   if (kycRequired) {
     if (controls.emailVerified !== true) throw new Error("Verify the account email before requesting a payout.");
@@ -843,6 +848,9 @@ export async function getCustomerPayoutEligibility(userId: number) {
   }
   if (controls.withdrawalsEnabled !== true) {
     return { allowed: false, reason: "Withdrawals are not enabled for this customer account." };
+  }
+  if (policy.twofa === true || controls.twoFactorRequired === true) {
+    return { allowed: false, reason: "Complete two-factor verification before requesting a payout; payout verification is not available yet." };
   }
 
   const kycRequired = policy.kyc === true || controls.kycRequired === true;
