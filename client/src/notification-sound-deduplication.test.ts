@@ -339,3 +339,52 @@ describe("authenticated support lifecycle persistence contracts", () => {
     expect(db).toContain("isValidSupportAttachmentStorageKey(input.storageKey)");
   });
 });
+
+
+
+describe("administrator support and announcement route contracts", () => {
+  const routers = readFileSync(new URL("../../server/routers.ts", import.meta.url), "utf8");
+
+  it("keeps support administration endpoints behind administrator authorization", () => {
+    const adminStart = routers.indexOf("    tickets: adminProcedure.query(() => listAllTickets())");
+    const adminEnd = routers.indexOf("    miningDashboard:", adminStart);
+    const adminSupport = routers.slice(adminStart, adminEnd);
+    expect(adminStart).toBeGreaterThanOrEqual(0);
+    expect(adminEnd).toBeGreaterThan(adminStart);
+    expect(adminSupport).toContain("tickets: adminProcedure");
+    expect(adminSupport).toContain("supportAssignees: adminProcedure");
+    expect(adminSupport).toContain("assignTicket: adminProcedure");
+    expect(adminSupport).toContain("ticketMessages: adminProcedure");
+    expect(adminSupport).toContain("ticketAttachments: adminProcedure");
+    expect(adminSupport).toContain("replyTicket: adminProcedure");
+    expect(adminSupport).toContain("reopenTicket: adminProcedure");
+    expect(adminSupport).toContain("getSupportTicketById(input.ticketId)");
+  });
+
+  it("validates announcement lifecycle mutations at the administrator route boundary", () => {
+    const start = routers.indexOf("    publishAnnouncement: adminProcedure");
+    const end = routers.indexOf("    miningDashboard:", start);
+    const announcements = routers.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(announcements).toContain("publishAnnouncement: adminProcedure");
+    expect(announcements).toContain("scheduledAt:z.string().datetime().optional()");
+    expect(announcements).toContain("expiresAt:z.string().datetime().optional()");
+    expect(announcements).toContain("announcementHistory: adminProcedure");
+    expect(announcements).toContain("retryAnnouncement: adminProcedure");
+    expect(announcements).toContain("withdrawAnnouncement: adminProcedure");
+  });
+
+  it("protects customer notification reads and announcement delivery from untrusted route access", () => {
+    const customerStart = routers.indexOf("    createTicket: protectedProcedure");
+    const customerEnd = routers.indexOf("    balances: protectedProcedure", customerStart);
+    const customerRoutes = routers.slice(customerStart, customerEnd);
+    expect(customerStart).toBeGreaterThanOrEqual(0);
+    expect(customerEnd).toBeGreaterThan(customerStart);
+    expect(customerRoutes).toContain("tickets: protectedProcedure");
+    expect(customerRoutes).toContain("ticketMessages: protectedProcedure");
+    expect(customerRoutes).toContain("ticketAttachments: protectedProcedure");
+    expect(customerRoutes).toContain("addAttachment: protectedProcedure");
+    expect(customerRoutes).toContain("if (!(await getCustomerTicket(ctx.user.id,input.ticketId)))");
+  });
+});
