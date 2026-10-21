@@ -594,7 +594,7 @@ export async function listCustomerNotifications(userId:number) {
     .orderBy(desc(customerNotifications.createdAt),desc(customerNotifications.id)).limit(50);
   return filterNotificationCategories(rows,visibility);
 }
-export async function listNotifications(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(customerNotifications).where(eq(customerNotifications.userId,userId)).orderBy(desc(customerNotifications.createdAt),desc(customerNotifications.id)).limit(100); }
+export async function listNotifications(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(customerNotifications).where(eq(customerNotifications.userId,userId)).orderBy(desc(customerNotifications.createdAt),desc(customerNotifications.id)); }
 export async function listNotificationEventCursor(userId:number) {
   const db=await getDb(); if(!db)throw new Error("Database is not available");
   const visibility=await getNotificationCategoryVisibility();
