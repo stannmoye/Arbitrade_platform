@@ -18,6 +18,17 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 - **Verification-only residuals:** real-browser sound preference/autoplay/post-commit/reconnect scenarios; exhaustive source-to-event mapping; authenticated announcement/ticket/attachment/concurrency journeys; and full manual keyboard/screen-reader/reduced-motion acceptance remain recorded as unverified. Do not mark those checks passed or claim evidence that does not exist. Track them as release follow-up/limitations rather than adding more Stage 4 implementation scope.
 - **Closure meaning:** Stage 4 can be treated as implementation-scope complete for planning and work tracking. PR #95 has since been merged into `integration/auth-installer-vps-safety`; that repository state supersedes older notes below that described it as draft/unmerged. The unchecked evidence items remain open. Merge status does not imply end-to-end acceptance or production approval.
 
+## Follow-up implementation hardening and six-theme CI (2026-10-21)
+
+- **PR #97 merged:** [Stage 4 follow-up — secure support attachments and six-theme acceptance](https://github.com/stannmoye/Arbitrade_platform/pull/97).
+- **Merge commit:** `0e6ee4f072e35f143a2599703aa4fa29dccbe4c5`; tested source head before squash merge: `aff4b0134d5e8a793466c978ec7f89f31d49dba3`.
+- **Attachment implementation:** presigning requires an authenticated current session and customer-owned ticket; new keys are ticket-scoped; duplicate key registration is rejected; attachment downloads are authorized against saved ticket/attachment ownership; duplicate ownership rows fail closed; signed download URLs must be safe absolute HTTPS URLs; signed upload/download responses are non-cacheable; customer and admin ticket threads now list attachment links.
+- **Sound mapping:** failed/rejected/error transaction-console events use the configured failure sound while respecting local customer opt-in and the global administrator sound policy; existing event-ID deduplication is retained.
+- **Six-theme browser coverage:** the Chromium acceptance matrix now includes Gold Luxe and its final preview selection. The workflow name remains historical (“Stage 3 five-theme validation”), but the script matrix covers all six configured themes.
+- **Exact-head CI:** [Stage 3/browser/theme validation 39638356989](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39638356989), [installer validation 39638357162](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39638357162), and [mining database regression 39638356966](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39638356966) all passed on the PR head.
+- **Release-package qualification:** the published `v2.0.4-stage4-full` ZIP predates PR #97. Do not claim that ZIP contains these follow-up changes. Build and validate a new full-application release only after the remaining owner-held acceptance/release gates are resolved.
+- **Remaining gates:** manual sound autoplay/resume/reconnect behavior, exhaustive event-source coverage, full authenticated announcement/ticket/concurrency journeys, manual accessibility checks, and hosted-production acceptance remain open. No production deployment or migration was performed.
+
 ## Corrected full-application package release (2026-10-21)
 
 - **Release:** [Arbitrade Stage 4 — Full Application (Six Themes, Corrected)](https://github.com/stannmoye/Arbitrade_platform/releases/tag/v2.0.4-stage4-full).
