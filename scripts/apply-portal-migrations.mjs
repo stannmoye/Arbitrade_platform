@@ -27,6 +27,7 @@ const migrationFiles = [
   "0055_notification_campaign_delivery_tracking.sql",
   "0056_support_ticket_assignment.sql",
   "0057_notification_history_pagination.sql",
+  "0058_withdrawable_notification_campaigns.sql",
 ];
 // These tables are also created by the main Drizzle migration chain before this
 // portal-specific runner starts. Their presence alone therefore cannot prove that

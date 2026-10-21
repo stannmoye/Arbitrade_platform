@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, it } from "vitest";
 import express from "express";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { eq } from "drizzle-orm";
-import { appSettings, users } from "../drizzle/schema";
+import { and, eq } from "drizzle-orm";
+import { appSettings, customerNotifications, notificationCampaignDeliveries, notificationCampaigns, users, v5AuditEvents } from "../drizzle/schema";
 import { createContext } from "./_core/context";
 import { createLocalSession } from "./_core/localAuth";
 import { appRouter } from "./routers";
@@ -25,6 +25,8 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
 
   let previousValue: string | undefined;
   let temporaryCustomerId: number | undefined;
+  let temporaryCampaignId: number | undefined;
+  let temporaryNotificationId: number | undefined;
 
   it("resolves signed browser sessions against database roles before authorizing settings", async () => {
     const db = await getDb();
@@ -175,9 +177,88 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     expect(await getAppSetting("appearance.settings")).toBe(JSON.stringify(policy));
   });
 
+  it("withdraws a persisted campaign as admin and hides it from authenticated customer history, unread count and event cursor", async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database is not available");
+    const unique = Date.now().toString() + "_" + Math.random().toString(36).slice(2, 9);
+    const insertedCustomer = await db.insert(users).values({
+      openId: "stage4:withdraw:" + unique,
+      email: "stage4-withdraw-" + unique + "@example.test",
+      name: "Stage 4 Withdrawal Customer",
+      loginMethod: "email",
+      role: "user",
+    });
+    temporaryCustomerId = Number(insertedCustomer[0].insertId);
+    const adminUser = await getUserById(administratorId);
+    expect(adminUser?.role).toBe("admin");
+    if (!adminUser) throw new Error("Disposable database administrator fixture is missing");
+
+    const eventKey = "stage4-withdraw-" + unique;
+    const insertedCampaign = await db.insert(notificationCampaigns).values({
+      createdBy: adminUser.id,
+      eventKey,
+      title: "Disposable withdrawal test campaign",
+      body: "This campaign is created only in the disposable integration database.",
+      category: "announcement",
+      priority: "normal",
+      targetUserId: temporaryCustomerId,
+      status: "published",
+      totalRecipientCount: 1,
+    });
+    temporaryCampaignId = Number(insertedCampaign[0].insertId);
+    const insertedNotification = await db.insert(customerNotifications).values({
+      userId: temporaryCustomerId,
+      title: "Disposable campaign notice",
+      body: "Integration fixture",
+      eventKey: "stage4-withdraw-notice-" + unique,
+      category: "announcement",
+      priority: "normal",
+    });
+    temporaryNotificationId = Number(insertedNotification[0].insertId);
+    await db.insert(notificationCampaignDeliveries).values({
+      campaignId: temporaryCampaignId,
+      userId: temporaryCustomerId,
+      notificationId: temporaryNotificationId,
+      status: "delivered",
+    });
+
+    const signedCaller = async (userId: number) => {
+      const user = await getUserById(userId);
+      if (!user) throw new Error("Signed-session fixture user is missing");
+      const context = await createContext({
+        req: { headers: { cookie: "webdev_app_session=" + createLocalSession(user.id, Number(user.authVersion || 0)) } } as never,
+        res: {} as never,
+      });
+      return appRouter.createCaller(context);
+    };
+    const adminCaller = await signedCaller(adminUser.id);
+    const customerCaller = await signedCaller(temporaryCustomerId);
+    expect(await customerCaller.customer.notificationUnreadCount()).toBe(1);
+    expect((await customerCaller.customer.notificationHistory({ limit: 10 })).items.map(item => item.id)).toContain(temporaryNotificationId);
+    expect((await customerCaller.customer.notificationEventCursor()).map(item => item.id)).toContain(temporaryNotificationId);
+
+    await expect(customerCaller.adminOperations.withdrawAnnouncement({ campaignId: temporaryCampaignId })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(adminCaller.adminOperations.withdrawAnnouncement({ campaignId: temporaryCampaignId })).resolves.toMatchObject({ changed: true, status: "withdrawn" });
+    await expect(adminCaller.adminOperations.withdrawAnnouncement({ campaignId: temporaryCampaignId })).resolves.toMatchObject({ changed: false, status: "withdrawn" });
+    await expect(adminCaller.adminOperations.retryAnnouncement({ campaignId: temporaryCampaignId })).rejects.toThrow("Withdrawn announcement campaigns cannot be republished");
+    expect(await customerCaller.customer.notificationUnreadCount()).toBe(0);
+    expect((await customerCaller.customer.notificationHistory({ limit: 10 })).items.map(item => item.id)).not.toContain(temporaryNotificationId);
+    expect((await customerCaller.customer.notificationEventCursor()).map(item => item.id)).not.toContain(temporaryNotificationId);
+    const [delivery] = await db.select().from(notificationCampaignDeliveries).where(eq(notificationCampaignDeliveries.campaignId, temporaryCampaignId));
+    expect(delivery?.status).toBe("delivered");
+  });
+
   afterAll(async () => {
     if (!enabled) return;
     const db = await getDb();
+    if (db && temporaryCampaignId !== undefined) {
+      await db.delete(v5AuditEvents).where(and(eq(v5AuditEvents.action, "notification.campaign.withdrawn"), eq(v5AuditEvents.entityId, String(temporaryCampaignId))));
+      await db.delete(notificationCampaignDeliveries).where(eq(notificationCampaignDeliveries.campaignId, temporaryCampaignId));
+      await db.delete(notificationCampaigns).where(eq(notificationCampaigns.id, temporaryCampaignId));
+    }
+    if (db && temporaryNotificationId !== undefined) {
+      await db.delete(customerNotifications).where(eq(customerNotifications.id, temporaryNotificationId));
+    }
     if (temporaryCustomerId !== undefined && db) {
       await db.delete(users).where(eq(users.id, temporaryCustomerId));
     }

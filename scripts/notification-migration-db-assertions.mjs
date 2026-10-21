@@ -29,6 +29,9 @@ const paginationMigrationPath = new URL("../drizzle/0057_notification_history_pa
 const paginationMigrationSql = await readFile(paginationMigrationPath, "utf8");
 const paginationMigrationChecksum = createHash("sha256").update(paginationMigrationSql).digest("hex");
 const paginationMigrationName = "0057_notification_history_pagination.sql";
+const withdrawalMigrationName = "0058_withdrawable_notification_campaigns.sql";
+const withdrawalMigrationSql = await readFile(new URL("../drizzle/0058_withdrawable_notification_campaigns.sql", import.meta.url), "utf8");
+const withdrawalMigrationChecksum = createHash("sha256").update(withdrawalMigrationSql).digest("hex");
 const eventKey = "ci-migration-0054-" + randomUUID();
 let insertedId;
 
@@ -51,6 +54,13 @@ try {
   );
   if (paginationTrackerRows.length !== 1 || paginationTrackerRows[0].status !== "applied" || paginationTrackerRows[0].checksum !== paginationMigrationChecksum) {
     throw new Error("Migration 0057 is not recorded as applied with the current migration checksum.");
+  }
+  const [withdrawalTrackerRows] = await connection.execute(
+    "SELECT checksum,status FROM portal_schema_migrations WHERE migrationName=?",
+    [withdrawalMigrationName],
+  );
+  if (withdrawalTrackerRows.length !== 1 || withdrawalTrackerRows[0].status !== "applied" || withdrawalTrackerRows[0].checksum !== withdrawalMigrationChecksum) {
+    throw new Error("Migration 0058 is not recorded as applied with the current migration checksum.");
   }
 
   const [columns] = await connection.execute(
@@ -108,6 +118,21 @@ try {
 
   await executeCompatibleMigrationSql(connection, migrationSql);
   await executeCompatibleMigrationSql(connection, paginationMigrationSql);
+  await executeCompatibleMigrationSql(connection, withdrawalMigrationSql);
+  const [campaignStatusRows] = await connection.execute(
+    "SELECT column_type AS columnType FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='notification_campaigns' AND column_name='status'",
+  );
+  const [deliveryStatusRows] = await connection.execute(
+    "SELECT column_type AS columnType FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='notification_campaign_deliveries' AND column_name='status'",
+  );
+  const campaignEnum = String(campaignStatusRows[0]?.columnType || "").toLowerCase().replace(/\s/g, "");
+  const deliveryEnum = String(deliveryStatusRows[0]?.columnType || "").toLowerCase().replace(/\s/g, "");
+  if (campaignEnum !== "enum('draft','scheduled','published','expired','failed','withdrawn')") {
+    throw new Error("Migration 0058 campaign status enum is missing or incorrectly ordered.");
+  }
+  if (deliveryEnum !== "enum('pending','delivered','read','failed','expired','withdrawn')") {
+    throw new Error("Migration 0058 delivery status enum is missing or incorrectly ordered.");
+  }
 
   const [afterRows] = await connection.execute("SELECT COUNT(*) AS count FROM customer_notifications");
   if (Number(afterRows[0].count) !== beforeCount + 1) {
@@ -126,11 +151,13 @@ try {
     status: "PASS",
     migration: migrationName,
     paginationMigration: paginationMigrationName,
+    withdrawalMigration: withdrawalMigrationName,
     trackerChecksumVerified: true,
     paginationMigrationChecksumVerified: true,
     requiredColumnsVerified: 7,
     uniqueEventKeyConstraintVerified: true,
     notificationHistoryPaginationIndexVerified: true,
+    campaignWithdrawalEnumsVerified: true,
     duplicateEventKeyRejected: true,
     migrationRerunSucceeded: true,
     notificationRowsPreserved: true,

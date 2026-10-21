@@ -408,10 +408,16 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
     if(!matchesPayload(campaign))throw new Error("Announcement event key was already used with a different campaign payload");
   }
   if(campaign.status==="expired")throw new Error("Expired announcement campaigns cannot be republished");
+  if(campaign.status==="withdrawn")throw new Error("Withdrawn announcement campaigns cannot be republished");
   if(campaign.expiresAt && campaign.expiresAt.getTime()<=now.getTime()) {
-    await db.update(notificationCampaigns).set({status:"expired"}).where(eq(notificationCampaigns.id,campaign.id));
-    await db.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
-    return {campaignId:campaign.id,recipientCount:0,totalRecipientCount:campaign.totalRecipientCount,readCount:0,failedCount:0,pendingCount:0,eventKey,targetUserId:targetUserId??null,status:"expired" as const};
+    const expiredUpdate=await db.update(notificationCampaigns).set({status:"expired"}).where(and(eq(notificationCampaigns.id,campaign.id),inArray(notificationCampaigns.status,["draft","scheduled","published","failed"])));
+    if(Number(expiredUpdate[0]?.affectedRows||0)>0) {
+      await db.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
+      return {campaignId:campaign.id,recipientCount:0,totalRecipientCount:campaign.totalRecipientCount,readCount:0,failedCount:0,pendingCount:0,eventKey,targetUserId:targetUserId??null,status:"expired" as const};
+    }
+    campaign=(await db.select().from(notificationCampaigns).where(eq(notificationCampaigns.id,campaign.id)).limit(1))[0]!;
+    if(campaign.status==="withdrawn")throw new Error("Withdrawn announcement campaigns cannot be republished");
+    if(campaign.status==="expired")return {campaignId:campaign.id,recipientCount:0,totalRecipientCount:campaign.totalRecipientCount,readCount:0,failedCount:0,pendingCount:0,eventKey,targetUserId:targetUserId??null,status:"expired" as const};
   }
   if(campaign.status==="scheduled" && campaign.scheduledAt && campaign.scheduledAt.getTime()>now.getTime()) {
     const rows=await db.select({status:notificationCampaignDeliveries.status}).from(notificationCampaignDeliveries).where(eq(notificationCampaignDeliveries.campaignId,campaign.id));
@@ -465,13 +471,32 @@ export async function retryNotificationCampaign(adminId:number,campaignId:number
   return broadcastCustomerNotification(campaign.createdBy,{title:campaign.title,body:campaign.body,eventKey:campaign.eventKey,category:campaign.category as AdminBroadcastCategory,priority:campaign.priority as NotificationPriority,href:campaign.href,targetUserId:campaign.targetUserId,scheduledAt:campaign.scheduledAt?.toISOString()??null,expiresAt:campaign.expiresAt?.toISOString()??null});
 }
 
+export async function withdrawNotificationCampaign(adminId:number,campaignId:number) {
+  const db=await getDb(); if(!db)throw new Error("Database is not available");
+  if(!Number.isSafeInteger(adminId)||adminId<=0)throw new RangeError("Withdrawal administrator must be a positive integer user ID");
+  if(!Number.isSafeInteger(campaignId)||campaignId<=0)throw new RangeError("Campaign ID must be a positive integer");
+  return db.transaction(async tx=>{
+    const actor=(await tx.select({id:users.id,role:users.role}).from(users).where(eq(users.id,adminId)).limit(1).for("update"))[0];
+    if(!actor||actor.role!=="admin")throw new Error("Only administrators can withdraw announcement campaigns");
+    const campaign=(await tx.select().from(notificationCampaigns).where(eq(notificationCampaigns.id,campaignId)).limit(1).for("update"))[0];
+    if(!campaign)throw new Error("Announcement campaign not found");
+    if(campaign.status==="withdrawn")return {success:true,changed:false,status:"withdrawn" as const};
+    if(campaign.status==="expired")return {success:true,changed:false,status:"expired" as const};
+    if(!["draft","scheduled","published","failed"].includes(campaign.status))throw new Error("Announcement campaign cannot be withdrawn from its current state");
+    await tx.update(notificationCampaigns).set({status:"withdrawn",updatedAt:new Date()}).where(and(eq(notificationCampaigns.id,campaign.id),eq(notificationCampaigns.status,campaign.status)));
+    await tx.update(notificationCampaignDeliveries).set({status:"withdrawn",errorCode:"CAMPAIGN_WITHDRAWN"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
+    await tx.insert(v5AuditEvents).values({actorUserId:adminId,action:"notification.campaign.withdrawn",entityType:"notification_campaign",entityId:String(campaign.id),reason:"Administrator withdrew announcement campaign",reference:campaign.eventKey,metadataJson:JSON.stringify({previousStatus:campaign.status,totalRecipientCount:campaign.totalRecipientCount})});
+    return {success:true,changed:true,status:"withdrawn" as const};
+  });
+}
+
 export async function processNotificationCampaignLifecycle() {
   const db=await getDb(); if(!db)throw new Error("Database is not available");
   const now=new Date();
   const expired=await db.select().from(notificationCampaigns).where(and(or(eq(notificationCampaigns.status,"published"),eq(notificationCampaigns.status,"scheduled")),lte(notificationCampaigns.expiresAt,now))).limit(100);
   for(const campaign of expired) {
-    await db.update(notificationCampaigns).set({status:"expired"}).where(eq(notificationCampaigns.id,campaign.id));
-    await db.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
+    const changed=await db.update(notificationCampaigns).set({status:"expired"}).where(and(eq(notificationCampaigns.id,campaign.id),inArray(notificationCampaigns.status,["published","scheduled"])));
+    if(Number(changed[0]?.affectedRows||0)>0) await db.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
   }
   const due=await db.select().from(notificationCampaigns).where(and(eq(notificationCampaigns.status,"scheduled"),lte(notificationCampaigns.scheduledAt,now))).limit(100);
   let published=0,failed=0,expiredDuringPublish=0;
@@ -494,9 +519,9 @@ export async function listAdminNotificationCampaigns() {
     status:notificationCampaignDeliveries.status,
     count:sql<number>`COUNT(*)`,
   }).from(notificationCampaignDeliveries).where(inArray(notificationCampaignDeliveries.campaignId,campaigns.map(campaign=>campaign.id))).groupBy(notificationCampaignDeliveries.campaignId,notificationCampaignDeliveries.status);
-  const byCampaign=new Map<number,{total:number;delivered:number;read:number;failed:number;pending:number;expired:number}>();
+  const byCampaign=new Map<number,{total:number;delivered:number;read:number;failed:number;pending:number;expired:number;withdrawn:number}>();
   for(const row of counts) {
-    const summary=byCampaign.get(row.campaignId)??{total:0,delivered:0,read:0,failed:0,pending:0,expired:0};
+    const summary=byCampaign.get(row.campaignId)??{total:0,delivered:0,read:0,failed:0,pending:0,expired:0,withdrawn:0};
     const count=Number(row.count)||0;
     summary.total+=count;
     if(row.status==="delivered") summary.delivered+=count;
@@ -504,11 +529,12 @@ export async function listAdminNotificationCampaigns() {
     if(row.status==="failed") summary.failed+=count;
     if(row.status==="pending") summary.pending+=count;
     if(row.status==="expired") summary.expired+=count;
+    if(row.status==="withdrawn") summary.withdrawn+=count;
     byCampaign.set(row.campaignId,summary);
   }
   return campaigns.map(campaign=>({
     ...campaign,
-    delivery:byCampaign.get(campaign.id)??{total:0,delivered:0,read:0,failed:0,pending:0,expired:0},
+    delivery:byCampaign.get(campaign.id)??{total:0,delivered:0,read:0,failed:0,pending:0,expired:0,withdrawn:0},
   }));
 }
 export async function getNotificationCategoryVisibility():Promise<Record<NotificationCategory,boolean>> {
@@ -523,11 +549,11 @@ export async function setNotificationCategoryVisibility(input:Record<Notificatio
   await setAppSetting("notification.categoryVisibility",JSON.stringify(normalized),updatedBy);
   return normalized;
 }
-async function getExpiredCampaignNotificationIds(userId:number) {
+async function getSuppressedCampaignNotificationIds(userId:number) {
   const db=await getDb(); if(!db)throw new Error("Database is not available");
   const rows=await db.select({notificationId:notificationCampaignDeliveries.notificationId}).from(notificationCampaignDeliveries)
     .innerJoin(notificationCampaigns,eq(notificationCampaigns.id,notificationCampaignDeliveries.campaignId))
-    .where(and(eq(notificationCampaignDeliveries.userId,userId),eq(notificationCampaigns.status,"expired"),sql`${notificationCampaignDeliveries.notificationId} IS NOT NULL`));
+    .where(and(eq(notificationCampaignDeliveries.userId,userId),inArray(notificationCampaigns.status,["expired","withdrawn"]),sql`${notificationCampaignDeliveries.notificationId} IS NOT NULL`));
   return rows.map(row=>row.notificationId).filter((id):id is number=>id!==null);
 }
 import { decodeNotificationCursor, encodeNotificationCursor, normalizeNotificationPageSize } from "./modules/notification-pagination";
@@ -552,7 +578,7 @@ async function countUnreadWithFilters(userId:number,visibility:Record<Notificati
 }
 
 export async function getCustomerNotificationUnreadCount(userId:number) {
-  const [visibility,expiredIds]=await Promise.all([getNotificationCategoryVisibility(),getExpiredCampaignNotificationIds(userId)]);
+  const [visibility,expiredIds]=await Promise.all([getNotificationCategoryVisibility(),getSuppressedCampaignNotificationIds(userId)]);
   return countUnreadWithFilters(userId,visibility,expiredIds);
 }
 
@@ -561,7 +587,7 @@ export async function listCustomerNotificationPage(userId:number,cursorValue?:st
   const limit=normalizeNotificationPageSize(requestedLimit);
   const [visibility,expiredIds]=await Promise.all([
     getNotificationCategoryVisibility(),
-    getExpiredCampaignNotificationIds(userId),
+    getSuppressedCampaignNotificationIds(userId),
   ]);
   const conditions=await getVisibleNotificationConditions(userId,visibility,expiredIds);
   if(cursorValue!=null) {
@@ -588,7 +614,7 @@ export async function listCustomerNotificationPage(userId:number,cursorValue?:st
 
 export async function listCustomerNotifications(userId:number) {
   const db=await getDb(); if(!db)throw new Error("Database is not available");
-  const [visibility,expiredIds]=await Promise.all([getNotificationCategoryVisibility(),getExpiredCampaignNotificationIds(userId)]);
+  const [visibility,expiredIds]=await Promise.all([getNotificationCategoryVisibility(),getSuppressedCampaignNotificationIds(userId)]);
   const conditions=await getVisibleNotificationConditions(userId,visibility,expiredIds);
   const rows=await db.select().from(customerNotifications).where(and(...conditions))
     .orderBy(desc(customerNotifications.createdAt),desc(customerNotifications.id)).limit(50);
@@ -599,7 +625,7 @@ export async function listNotificationEventCursor(userId:number) {
   const db=await getDb(); if(!db)throw new Error("Database is not available");
   const visibility=await getNotificationCategoryVisibility();
   const disabled=NOTIFICATION_CATEGORIES.filter(category=>visibility[category]===false);
-  const expiredIds=await getExpiredCampaignNotificationIds(userId);
+  const expiredIds=await getSuppressedCampaignNotificationIds(userId);
   const conditions=[eq(customerNotifications.userId,userId)];
   // Preserve legacy/unknown-category events exactly as the shared visibility filter does.
   // SQL NOT IN evaluates to UNKNOWN for NULL, which would otherwise hide these rows.
