@@ -340,6 +340,28 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       storageKey: `support/${temporaryTicketId}/${"b".repeat(48)}-${attachmentCandidate.fileName}`,
     })).rejects.toThrow("Ticket not found");
 
+    const sharedKey = `support/${temporaryTicketId}/${"c".repeat(48)}-${attachmentCandidate.fileName}`;
+    const duplicateRegistrations = await Promise.allSettled([
+      addTicketAttachment(ownerId, {
+        ticketId: temporaryTicketId,
+        ...attachmentCandidate,
+        sizeBytes: 1,
+        storageKey: sharedKey,
+      }),
+      addTicketAttachment(ownerId, {
+        ticketId: temporaryTicketId,
+        ...attachmentCandidate,
+        sizeBytes: 1,
+        storageKey: sharedKey,
+      }),
+    ]);
+    expect(duplicateRegistrations.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(duplicateRegistrations.filter(result => result.status === "rejected")).toHaveLength(1);
+    await expect(getTicketAttachmentAccess(sharedKey)).resolves.toMatchObject({
+      ticketId: temporaryTicketId,
+      customerId: ownerId,
+    });
+
     expect((await ownerCaller.customer.tickets()).map(ticket => ticket.id)).toContain(temporaryTicketId);
     expect((await ownerCaller.customer.ticketMessages({ ticketId: temporaryTicketId })).map(message => message.body)).toContain("Disposable authenticated support-ticket integration fixture.");
     await expect(otherCaller.customer.ticketMessages({ ticketId: temporaryTicketId })).rejects.toMatchObject({ code: "NOT_FOUND" });
