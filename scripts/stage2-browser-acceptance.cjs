@@ -1313,9 +1313,18 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
       if (scenario.name === "customer-choice-enabled-by-default") {
         // Exercise the actual customer sound preference control in the mocked
         // authenticated portal, not just the standalone WAV asset playback harness.
-        const soundOn = page.getByRole("button", { name: "Turn notification sounds on" });
-        await soundOn.waitFor({ state: "visible" });
-        await soundOn.click();
+        // The same page can have a stored preference after a theme-policy
+        // reload, so reset the preference and reload before asserting the off -> on transition.
+        await page.evaluate(() => window.localStorage.setItem("wisebond-sound-effects", "off"));
+        await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+        const soundToggle = page.locator(".customer-header-sound-toggle");
+        await soundToggle.waitFor({ state: "visible" });
+        await page.waitForFunction(() => {
+          const button = document.querySelector(".customer-header-sound-toggle");
+          return button?.getAttribute("aria-pressed") === "false" &&
+            window.localStorage.getItem("wisebond-sound-effects") === "off";
+        });
+        await soundToggle.click();
         await page.waitForFunction(() => {
           const button = document.querySelector(".customer-header-sound-toggle");
           return button?.getAttribute("aria-pressed") === "true" &&
