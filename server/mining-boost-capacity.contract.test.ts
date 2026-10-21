@@ -24,7 +24,7 @@ describe("Mining boost capacity contract", () => {
   it("shows the reward rate and actual extra hash-power amount as separate facts", () => {
     expect(uiSource).toContain("<b>MINING REWARD BOOST</b>");
     expect(uiSource).toContain(
-      "+${fmt(boost?.boostRewardCkiPerDay, 6)} CKI / 24h while active · +${fmt(boost?.bonusThsAvailable, 3)} TH/s extra power",
+      "+{fmt(boost?.boostRewardCkiPerDay, 6)} CKI / 24h while active · +{fmt(boost?.bonusThsAvailable, 3)} TH/s extra power",
     );
     expect(uiSource).toContain('aria-label="Mining reward boost engine"');
     expect(uiSource).toContain('aria-label="Activate Mining Reward Boost"');
