@@ -4,7 +4,7 @@
 
 **Repository:** `stannmoye/Arbitrade_platform`  
 **Branch:** `feat/stage-4-live-notifications-support`  
-**PR:** [#95](https://github.com/stannmoye/Arbitrade_platform/pull/95), open and draft  
+**PR:** [#95](https://github.com/stannmoye/Arbitrade_platform/pull/95), merged into `integration/auth-installer-vps-safety` at `7f35d4d018b5bb1da0515ee37b1211dc045a66fb`  
 **Audit starting application head:** `e5086dde4b7fc829908b1d2305b7623b2b80e987`  
 **Historical budget failure reviewed:** run [39532555024](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39532555024), commit `9697be9cb95014835e171b97edfbc22db794aba5`  
 **Latest pre-fix exact-head workflows:** [Stage 3 validation 39532989387](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39532989387), [Installer 39532989435](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39532989435), [Mining DB 39532989642](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39532989642).
