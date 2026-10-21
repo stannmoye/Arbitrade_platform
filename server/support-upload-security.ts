@@ -26,7 +26,7 @@ export function getSafePresignedUploadUrl(value: unknown): string | null {
  */
 export function getSafePresignedDownloadUrl(value: unknown): string | null {
   if (typeof value !== "string" || value.length === 0) return null;
-  if (value !== value.trim() || /[\\u0000-\\u001f\\u007f]/.test(value)) return null;
+  if (value !== value.trim() || /[\u0000-\u001f\u007f]/.test(value)) return null;
   try {
     const url = new URL(value);
     if (url.protocol !== "https:" || !url.hostname || url.username || url.password) return null;
