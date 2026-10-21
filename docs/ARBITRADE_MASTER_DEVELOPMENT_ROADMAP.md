@@ -22,6 +22,30 @@
 > **Working rule:** Complete and verify one stage at a time. Update this document as work progresses so the team can always identify what is complete, what is in progress, what failed, and what comes next. Do not claim a task or test is complete unless it has actually been implemented or run.
 
 
+## Mandatory full-application release rule — every completed stage
+
+**Permanent rule: whenever a stage is completed and accepted, create a new FULL release of the entire Arbitrade application with that finished stage integrated.** This is not optional and must be followed for Stage 5 and every later stage, just as the intended Stage 4 full release process was followed.
+
+### What every stage release must contain
+1. Start from the latest verified full-application production baseline (the previous full release), not a stage-only ZIP, patch, GitHub source archive, or a partial repository export.
+2. Integrate the newly completed stage into that complete application while preserving the original application and every previously completed stage and feature.
+3. Include the complete deployable application and its required runtime/build assets, installer, VPS deployment scripts, cPanel guidance/files, migrations, locked dependencies, configuration examples, and other required production packaging files.
+4. Build the production application and assemble a single full-release ZIP that can be used as the complete application package. Do not ship only the changed files or only the new stage.
+5. Validate the assembled ZIP itself: archive integrity, required-file manifest, symlink/dependency handling, production build, and relevant installer/package checks. Where feasible, extract the exact final ZIP and test its contents rather than relying only on source-tree checks.
+6. Compare the new package against the previous full release and record both exact byte sizes, entry counts, SHA-256 checksums, commit SHA, and the reason for significant size or inventory changes. A smaller ZIP is not automatically wrong, but it must trigger an inventory/dependency comparison; never assume that a stage was included just because the build passed.
+7. Publish the verified full ZIP as a clearly named GitHub Release and keep the release asset, tag, commit, checksum, build evidence, and release notes linked from the roadmap. Use a consistent human-readable naming pattern, for example **“Arbitrade — Stage 5 Full Application”** with a tag such as `v2.0.0-stage5-full`, adjusted to the repository's actual versioning and existing tags. Never overwrite an existing release/tag without explicit authorization.
+8. Update the roadmap with the release URL, asset filename, tag, source commit, package size, checksum, CI run, comparison against the previous full release, and any remaining acceptance limitations.
+
+### Release gate and continuity
+- The release must contain the entire application plus all completed stages, not just the stage being finished.
+- Do not mark a release production-ready or describe acceptance as complete while required acceptance gates remain open. If a stage's implementation is done but a required gate remains blocked, build and clearly label the full package as a **release candidate** until the gate is satisfied; do not misrepresent it as accepted production.
+- Keep the previous verified full release available as the rollback/reference baseline. Never replace it with a partial build.
+- If the prior full-release ZIP is available, use it as the baseline and explicitly compare its inventory with the new package. If it is unavailable, recover it from the recorded GitHub release/CI artifact or request the actual ZIP; do not silently substitute a source archive and claim it is the same baseline.
+- A stage is not considered release-closed until the full-package build, archive validation, GitHub release publication (or a documented genuine blocker), and roadmap evidence update are complete.
+- This rule is durable and applies to every subsequent stage and future handoff. Every agent or contributor must read and follow it before beginning release packaging.
+
+
+
 ## Mandatory execution cadence and substantial-work contract (Roadmap v2.1)
 
 These rules apply to every stage and override any workflow habit that causes repeated tiny changes or unnecessary user prompts.
