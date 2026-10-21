@@ -415,3 +415,12 @@ On code/test SHA `2e0da5f05285965ebcc462b98dc20d6f7e544a11`, all three workflows
 ### Latest documentation-reconciliation head CI (1cd3e5d)
 
 The evidence-matrix refresh changed documentation only; application, test, and workflow source are unchanged from the validated implementation. All three workflows also passed on documentation head `1cd3e5d146236316b899b6d505c904a5c32338b6`: [Stage 3 39559895940](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39559895940), [Installer 39559895902](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39559895902), and [Mining DB 39559895891](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39559895891). Stage 3's browser artifact `12326639360` reported the successful 848-check viewport/theme matrix. Installer artifacts `12326932861` (`validated-production-dist`) and `12326619333` (`arbitrade-universal-installer`) are tied to the workflow's exact head. Checklist tally remains **37 checked / 11 unchecked**; this CI refresh does not close the remaining product/runtime or owner-level gates.
+
+
+### Notification audio rejection handling follow-up (pending CI and browser acceptance)
+
+- Branch: `stage4/sound-recovery-audit`.
+- The client now reports rejected `HTMLAudioElement.play()` attempts through an internal browser event consumed by the administrator Sound settings screen. The screen presents an accessible status message instructing the operator to interact with the page and retry with Preview; it does not bypass browser autoplay restrictions or replay a stale notification automatically.
+- A rejected playback attempt stops the repeating opportunity-sound timer so a blocked browser does not produce repeated errors every 1.5 seconds. The customer/admin sound preferences and selected sound policy remain the gates for normal event playback.
+- This is a source-level hardening change only. It has **not** yet passed TypeScript/build/CI or real-browser autoplay/reconnect acceptance; do not mark the corresponding acceptance checklist items complete until those results are available. Test disabled preferences, explicit Preview after user interaction, playback rejection, loop stop, reconnect deduplication and post-commit event timing.
+- No production deployment, production migration, or release ZIP rebuild was performed.
