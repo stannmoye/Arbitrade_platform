@@ -39,7 +39,7 @@ describe("administrator wallet adjustment concurrency contract", () => {
 
   it("rejects unsafe amounts and balance arithmetic before mutating the wallet", () => {
     const start = db.indexOf("export async function adjustCustomerBalance");
-    const end = db.indexOf("\\nexport async function listOpenOffers", start);
+    const end = db.indexOf("\nexport async function listOpenOffers", start);
     const implementation = db.slice(start, end);
     expect(implementation).toContain('!Number.isSafeInteger(input.amountMinor)||input.amountMinor<=0');
     expect(implementation).toContain('!Number.isSafeInteger(current)||current<0');
