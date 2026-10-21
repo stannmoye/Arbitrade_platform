@@ -447,9 +447,11 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
       const attemptedAt=new Date();
       try {
         const notificationId=await createNotification(delivery.userId,title,body,{eventKey:"admin-broadcast:"+adminId+":"+eventKey,category:input.category,priority:input.priority,href});
-        await db.insert(notificationCampaignDeliveries).values({campaignId:campaign!.id,userId:delivery.userId,notificationId,status:"delivered",attemptedAt,deliveredAt:new Date(),errorCode:null}).onDuplicateKeyUpdate({set:{notificationId,status:"delivered",attemptedAt,deliveredAt:new Date(),errorCode:null}});
+        // A campaign may be withdrawn or expired while this delivery is in flight.
+        // Update only a still-retryable row; never resurrect its terminal state.
+        await db.update(notificationCampaignDeliveries).set({notificationId,status:"delivered",attemptedAt,deliveredAt:new Date(),errorCode:null}).where(and(eq(notificationCampaignDeliveries.id,delivery.id),inArray(notificationCampaignDeliveries.status,["pending","failed"])));
       } catch(error) {
-        try { await db.insert(notificationCampaignDeliveries).values({campaignId:campaign!.id,userId:delivery.userId,status:"failed",attemptedAt,errorCode:"DELIVERY_FAILED"}).onDuplicateKeyUpdate({set:{status:"failed",attemptedAt,errorCode:"DELIVERY_FAILED"}}); } catch {}
+        try { await db.update(notificationCampaignDeliveries).set({status:"failed",attemptedAt,errorCode:"DELIVERY_FAILED"}).where(and(eq(notificationCampaignDeliveries.id,delivery.id),inArray(notificationCampaignDeliveries.status,["pending","failed"]))); } catch {}
         console.error("[Notifications] Announcement recipient delivery failed:",error instanceof Error?error.name:"UnknownError");
       }
     }));
