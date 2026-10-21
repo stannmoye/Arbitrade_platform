@@ -807,6 +807,59 @@ async function assertPayoutPolicyAllowsRequest(tx: any, userId: number) {
   }
 }
 
+export async function getCustomerPayoutEligibility(userId: number) {
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    return { allowed: false, reason: "A valid customer account is required." };
+  }
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const account = (await db.select({ id: users.id, role: users.role })
+    .from(users).where(eq(users.id, userId)).limit(1))[0];
+  if (!account || account.role !== "user") {
+    return { allowed: false, reason: "Customer account was not found." };
+  }
+
+  const policyRow = (await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, "policy.defaults")).limit(1))[0];
+  let policy: Record<string, unknown>;
+  try {
+    if (!policyRow) throw new Error("Policy is not configured");
+    const parsed = JSON.parse(String(policyRow.settingValue || "{}"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Invalid policy shape");
+    policy = parsed as Record<string, unknown>;
+  } catch {
+    return { allowed: false, reason: "Payout requests are unavailable until global withdrawal policy is explicitly configured." };
+  }
+  if (policy.withdrawals !== true) {
+    return { allowed: false, reason: "Withdrawals are disabled by the global policy." };
+  }
+
+  const controls = (await db.select().from(customerControls)
+    .where(eq(customerControls.userId, userId)).limit(1))[0];
+  if (!controls) return { allowed: false, reason: "Customer payout controls are not configured." };
+  if (controls.accountStatus !== "active") {
+    return { allowed: false, reason: "Payout requests are unavailable while the account is restricted." };
+  }
+  if (controls.withdrawalsEnabled !== true) {
+    return { allowed: false, reason: "Withdrawals are not enabled for this customer account." };
+  }
+
+  const kycRequired = policy.kyc === true || controls.kycRequired === true;
+  if (kycRequired) {
+    if (controls.emailVerified !== true) {
+      return { allowed: false, reason: "Verify the account email before requesting a payout." };
+    }
+    const profile = (await db.select({ overallStatus: kycProfiles.overallStatus })
+      .from(kycProfiles).where(eq(kycProfiles.userId, userId)).limit(1))[0];
+    if (profile?.overallStatus !== "VERIFIED") {
+      return { allowed: false, reason: "Complete the required identity verification before requesting a payout." };
+    }
+  }
+
+  return { allowed: true, reason: null };
+}
+
 async function notifyPayoutRequest(userId: number, title: string, body: string, eventKey: string) {
   try {
     await createNotification(userId, title, body, {
