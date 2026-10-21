@@ -79,6 +79,7 @@ export function CustomerPayoutRequests() {
   );
   const wallet = (balances.data?.balances || []).find((entry: any) => String(entry.currency).toUpperCase() === currency);
   const scale = Math.max(0, Math.min(8, Number(currencyInfo?.scale ?? 2)));
+  const isCryptoAsset = ["BTC", "ETH", "USDT"].includes(currency);
   const available = Number(wallet?.availableMinor ?? 0);
   const promotional = Number(wallet?.promotionalMinor ?? 0);
   const eligibleMinor = Number.isSafeInteger(available) && Number.isSafeInteger(promotional)
@@ -130,7 +131,7 @@ export function CustomerPayoutRequests() {
       <form className="payout-request-form" onSubmit={submitRequest}>
         <div className="payout-form-field">
           <label htmlFor="payout-currency">Payout currency</label>
-          <select id="payout-currency" value={currency} disabled={isBusy} onChange={(event) => changeFormValue(() => { setCurrency(event.target.value as PayoutAsset); setAmountText(""); })}>
+          <select id="payout-currency" value={currency} disabled={isBusy} onChange={(event) => changeFormValue(() => { const nextCurrency = event.target.value as PayoutAsset; setCurrency(nextCurrency); setAmountText(""); setDestinationType(["BTC", "ETH", "USDT"].includes(nextCurrency) ? "crypto_transfer" : "bank_transfer"); })}>
             {PAYOUT_ASSETS.map((asset) => <option key={asset} value={asset}>{asset}</option>)}
           </select>
           <small>CKI is not eligible for payout. Swap it into a supported wallet currency first.</small>
@@ -142,11 +143,9 @@ export function CustomerPayoutRequests() {
           {amountText && !amountValid && <small className="payout-form-error">Enter a positive amount within the available balance, using at most {scale} decimal places.</small>}
         </div>
         <div className="payout-form-field">
-          <label htmlFor="payout-destination-type">Destination type</label>
-          <select id="payout-destination-type" value={destinationType} disabled={isBusy} onChange={(event) => changeFormValue(() => setDestinationType(event.target.value as PayoutDestination))}>
-            <option value="bank_transfer">Bank transfer</option>
-            <option value="crypto_transfer">Crypto wallet transfer</option>
-          </select>
+          <span className="payout-form-label">Destination type</span>
+          <div className="payout-destination-type" id="payout-destination-type" role="status">{isCryptoAsset ? "Crypto wallet transfer" : "Bank transfer"}</div>
+          <small>The destination type follows the currency. No currency conversion is performed.</small>
         </div>
         <div className="payout-form-field payout-destination-details">
           <label htmlFor="payout-destination-details">{destinationType === "bank_transfer" ? "Beneficiary and bank details" : "Public wallet address and network"}</label>
