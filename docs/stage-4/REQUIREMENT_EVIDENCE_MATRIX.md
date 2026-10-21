@@ -144,3 +144,15 @@ Merged commit: `313ba1272235712056efda4243f5cd29c5beb0be`. PR #100 adds regressi
 - **Exact-head workflows passed:** [Stage 3 six-theme/Chromium validation run 39644490200](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39644490200), [Installer validation run 39644490192](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39644490192), and [Mining database regression run 39644490317](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39644490317). TypeScript, production build, application/theme-policy tests, Chromium viewport/theme smoke, installer syntax, disposable MariaDB and MySQL 8 migration/recovery, package validation, and mining idempotency checks passed.
 - **Acceptance boundary:** CI confirms this narrow fix and its regression coverage; it does not close real-browser sound preference/autoplay/retry/reconnect/post-commit acceptance, exhaustive event-source coverage, authenticated announcement/ticket/attachment/concurrency journeys, or manual accessibility acceptance.
 - **Release/safety:** the previously published `v2.0.4-stage4-full` ZIP predates PR #101 and does not contain this fix. No release ZIP rebuild, production deployment, or production database migration occurred in this follow-up. Rebuild and verify a new package when release gates permit; do not represent the older ZIP as containing this change.
+
+
+## Latest customer sound-toggle browser acceptance — PR #102
+
+PR #102 merged as `59f5f7209187b8a06651402afe49cb4d5e374046`; exact tested head was `b1b8957ac3288eecab3f221e6f5f96e6d2d85cf7`. The CSS root cause was confirmed: the customer portal's direct-child session-button hiding selector hid the sound toggle along with unrelated buttons. The selector now excludes `.customer-header-sound-toggle`.
+
+Exact-head checks passed:
+- [Stage 3 five-theme/Chromium validation 39651054660](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39651054660): application/theme-policy tests, TypeScript, production build, real-browser viewport/theme smoke.
+- [Installer validation 39651054582](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39651054582): installer syntax, disposable MariaDB and MySQL 8 fresh-install/migration recovery, production build/budgets/server smoke, deployment ZIP validation.
+- [Mining DB regression 39651054575](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39651054575): database-backed mining idempotency/transaction checks.
+
+The browser smoke covers sound preference on/off persistence and accessible blocked-audio warning dismissal. It does not close owner-held autoplay-denial/user-gesture retry, reconnect deduplication, or post-commit timing. Exhaustive event-source mapping, announcement/support lifecycle acceptance, manual accessibility/hosted acceptance, authoritative provider-backed deposit/withdrawal completion events, and final release ZIP rebuild remain open. Persistent push remains deferred under bounded-polling release scope. No production deployment, production migration, or published ZIP replacement occurred; the published `v2.0.4-stage4-full` archive predates PR #102.
