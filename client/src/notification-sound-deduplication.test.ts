@@ -167,8 +167,11 @@ describe("authoritative financial-event notification contracts", () => {
     expect(end).toBeGreaterThan(start);
     expect(adjustment).toContain("await db.transaction(async tx=>");
     expect(adjustment).toContain("await tx.insert(balanceLedger).values(");
-    expect(adjustment).toContain("await tx.insert(customerNotifications).values(");
     expect(adjustment).toContain("return {success:true,newAvailableMinor:next");
+    const transactionEnd = adjustment.indexOf("}); try { await createNotification(");
+    expect(transactionEnd).toBeGreaterThan(adjustment.indexOf("await tx.insert(balanceLedger).values("));
+    expect(transactionEnd).toBeLessThan(adjustment.indexOf("await createNotification("));
+    expect(adjustment).toContain("after ledger commit");
   });
 
   it("emits the administrator-session event only after the wallet adjustment service returns", () => {
