@@ -7,10 +7,11 @@
 **Historical budget failure reviewed:** run [39532555024](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39532555024), commit `9697be9cb95014835e171b97edfbc22db794aba5`  
 **Latest pre-fix exact-head workflows:** [Stage 3 validation 39532989387](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39532989387), [Installer 39532989435](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39532989435), [Mining DB 39532989642](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39532989642).
 
-## Latest exact-head verification checkpoint (2026-10-21)
+## Latest completed CI checkpoint (2026-10-21; documentation update follows)
 
-- **Verified PR head before this documentation update:** `a4a47e28aaab081d987b6d090ee7d09539864b4c`. PR #95 was open, draft, unmerged, and mergeable.
-- **Exact-head CI:** [Stage 3 five-theme validation, run 39560345787](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39560345787), [Installer validation, run 39560345786](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39560345786), and [Mining database regression, run 39560345809](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39560345809) all completed successfully on that head.
+- **Verified PR head:** `37ce349b052c0c513b9130c89d9a17c27287dfa3`. PR #95 was open, draft, unmerged, and mergeable.
+- **Exact-head CI:** [Mining database regression, run 39561522280](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39561522280), [Installer validation, run 39561522328](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39561522328), and [Stage 3 five-theme validation, run 39561522424](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39561522424) all completed successfully on this exact head.
+- These workflows passed on `37ce349`; because this checkpoint is being added in documentation-only commits, verify the resulting head's CI separately before describing it as exact-head green.
 - **Acceptance checklist:** independently recounted at 37 checked and 11 unchecked on that head.
 - **Evidence limits:** the 848-check browser artifact was generated on the prior documentation-only head, while the current-head Stage 3 Chromium workflow passed. Installer package generation passed on the current head. Neither result is production deployment or owner sign-off.
 - **Open gates:** authoritative provider/custody persistence for deposit/withdrawal success is blocked; persistent push remains missing pending an owner/platform release decision; sound browser acceptance, exhaustive event-source integration, authenticated announcement/ticket/attachment authorization and concurrency journeys remain unverified; comprehensive manual accessibility and owner-level production verification remain open.
