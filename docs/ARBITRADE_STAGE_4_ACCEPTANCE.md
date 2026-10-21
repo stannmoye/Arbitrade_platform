@@ -1,6 +1,6 @@
 # Arbitrade Stage 4 — Notifications, Communications & Support Acceptance
 
-**Status:** Implementation scope closed by explicit disposition; release acceptance and final production build remain owner-held gates.  
+**Status:** Implementation scope closed; corrected full-application package `v2.0.4-stage4-full` published and verified. Manual/deployed release-acceptance gates remain owner-held.  
 **Branch:** `feat/stage-4-live-notifications-support`  
 **Pull request:** [#95 — Stage 4: live notifications, two-way support and real sound controls](https://github.com/stannmoye/Arbitrade_platform/pull/95)  
 **Baseline:** Stages 1–3 and the hosting-required test were user-confirmed complete on 2026-10-20. Do not infer independent hosted verification from that report.
@@ -9,16 +9,27 @@ This file is the durable acceptance checklist for Stage 4. Add new agreed requir
 
 ## Stage 4 implementation-scope closure decision (2026-10-21)
 
-**Decision:** close Stage 4 implementation work for the currently supported platform scope, while keeping release acceptance and the final production build as separate owner-held gates. This is a scope decision, not a claim that every unchecked acceptance scenario has passed.
+**Decision:** close Stage 4 implementation work for the currently supported platform scope. The full-application package build and GitHub release are complete; manual/deployed acceptance remains separate and owner-held. This is a scope decision, not a claim that every unchecked acceptance scenario has passed.
 
 - **Real-time transport:** accept bounded polling, retry/backoff and reconnect as the supported delivery mechanism for this release, including shared/cPanel hosting. Persistent push is deferred; it is not a Stage 4 implementation blocker.
 - **Deposit/withdrawal success notices:** exclude provider-backed success integration until the platform has an authoritative persisted provider/custody completion lifecycle. Keep success notices blocked rather than inventing or inferring financial success.
-- **Final production build/release:** remains the explicitly reserved final build/owner gate. No production deployment, production migration or real financial operation is authorized by this decision.
+- **Full application package release:** completed and verified as [`v2.0.4-stage4-full`](https://github.com/stannmoye/Arbitrade_platform/releases/tag/v2.0.4-stage4-full). The release ZIP has 54,550 entries, passes ZIP integrity, contains all six themes in compiled JS/CSS, includes Stage 4 notification/support code, migrations 0054–0058, five notification sounds, and matching version/build/provenance markers. This package publication does not authorize production deployment, production migrations, or real financial operations.
 - **Existing implementation and CI:** the customer notification centre, category policy, sound controls/assets, campaign delivery persistence, two-way support, migrations, authorization/idempotency contracts, and CI build/test/browser/database checks are implemented and have passing exact-head workflows recorded below.
 - **Verification-only residuals:** real-browser sound preference/autoplay/post-commit/reconnect scenarios; exhaustive source-to-event mapping; authenticated announcement/ticket/attachment/concurrency journeys; and full manual keyboard/screen-reader/reduced-motion acceptance remain recorded as unverified. Do not mark those checks passed or claim evidence that does not exist. Track them as release follow-up/limitations rather than adding more Stage 4 implementation scope.
 - **Closure meaning:** Stage 4 can be treated as implementation-scope complete for planning and work tracking. The unchecked evidence items remain visible, and PR #95 must stay draft/unmerged until the owner decides whether the remaining release-only verification is satisfied or explicitly accepted as a release limitation.
 
-## Latest completed CI checkpoint (2026-10-21; documentation update follows)
+## Corrected full-application package release (2026-10-21)
+
+- **Release:** [Arbitrade Stage 4 — Full Application (Six Themes, Corrected)](https://github.com/stannmoye/Arbitrade_platform/releases/tag/v2.0.4-stage4-full).
+- **ZIP asset:** [`arbitrade-stage4-full-application.zip`](https://github.com/stannmoye/Arbitrade_platform/releases/download/v2.0.4-stage4-full/arbitrade-stage4-full-application.zip).
+- **Tag/source commit:** `v2.0.4-stage4-full` points to `13c8fb48b5a4d0b599edd0a23fa99df2029980aa`.
+- **Size/checksum:** 147,221,972 bytes; SHA-256 `b295b4634decad1618718efb9090c60461a72fbb76b776266dc10d4ffa3abd49`; 54,550 entries; ZIP integrity passed.
+- **Validation:** [release workflow 39607099022](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39607099022), [installer validation 39607099227](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39607099227), [mining DB regression 39607098952](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39607098952), and [mining regression 39607099007](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39607099007) all passed.
+- **Verified package contents:** six themes including Gold Luxe in compiled JS and CSS; Stage 4 notification/support features, migrations 0054–0058, five notification sounds, deployment guide, and matching installer version/build/provenance files.
+- **Baseline comparison:** Stage 3 baseline 177,853,153 bytes/49,863 entries; corrected release 147,221,972 bytes/54,550 entries. The ZIP is smaller but contains 4,687 more entries; required feature inventory and compiled assets were checked directly.
+- **Remaining gates:** historical browser evidence covered five themes, not Gold Luxe. Manual keyboard/screen-reader/reduced-motion acceptance, Gold Luxe-specific browser acceptance, broader Stage 4 event/source and sound/reconnect verification, and hosted production acceptance remain open. No production deployment or migration was performed by this release workflow.
+
+## Latest completed CI checkpoint (historical implementation checkpoint; 2026-10-21)
 
 - **Verified PR head:** `37ce349b052c0c513b9130c89d9a17c27287dfa3`. PR #95 is open, draft, unmerged, and mergeable.
 - **Exact-head CI:** [Mining database regression, run 39561522280](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39561522280), [Installer validation, run 39561522328](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39561522328), and [Stage 3 five-theme validation, run 39561522424](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39561522424) all completed successfully on this exact head.
