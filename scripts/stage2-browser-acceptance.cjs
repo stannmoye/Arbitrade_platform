@@ -20,6 +20,7 @@ const THEMES = [
   "clean-light",
   "emerald-finance",
   "aurora-modern",
+  "gold-luxe",
 ];
 const ARTIFACT_DIR = path.resolve("artifacts/stage2-browser");
 fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
@@ -280,6 +281,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       "clean-light": /Clean Light/i,
       "emerald-finance": /Emerald Finance/i,
       "aurora-modern": /Aurora Modern/i,
+      "gold-luxe": /Gold Luxe/i,
     };
     const appearanceScreenshotPaths = [];
     for (const screenshotTheme of THEMES) {
@@ -473,11 +475,11 @@ async function runAdminAppearanceInteractionCheck(browser) {
       appearanceScreenshotPaths.length === THEMES.length * 3,
       { screenshotCount: appearanceScreenshotPaths.length, screenshots: appearanceScreenshotPaths.map(file => path.basename(file)) });
 
-    const previewButton = page.getByRole("button", { name: /Aurora Modern/ });
+    const previewButton = page.getByRole("button", { name: /Gold Luxe/ });
     await previewButton.click();
     await page.waitForTimeout(30);
     const previewTheme = await page.evaluate(() => document.documentElement.dataset.arbTheme || "");
-    record("admin-theme-preview", previewCount === THEMES.length && previewTheme === "aurora-modern", {
+    record("admin-theme-preview", previewCount === THEMES.length && previewTheme === "gold-luxe", {
       previewCount,
       previewTheme,
     });
@@ -623,6 +625,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
       "clean-light": /Clean Light/i,
       "emerald-finance": /Emerald Finance/i,
       "aurora-modern": /Aurora Modern/i,
+      "gold-luxe": /Gold Luxe/i,
     };
     const reloadedThemeStates = await Promise.all(THEMES.map(async theme => ({
       theme,

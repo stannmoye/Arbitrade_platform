@@ -12,7 +12,7 @@ import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
-import { isAllowedAttachmentRequest, isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
+import { isAllowedAttachmentRequest, isSupportAttachmentStorageKeyForTicket, isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { assertNotificationPayloadMatches, buildNotificationEventKey, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
@@ -348,6 +348,12 @@ export async function reopenSupportTicket(actorId:number,ticketId:number) {
   return {success:true,changed:true,status:"open" as const};
 }
 export async function listTicketMessages(ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select({id:supportMessages.id,ticketId:supportMessages.ticketId,authorId:supportMessages.authorId,authorName:users.name,authorRole:users.role,body:supportMessages.body,createdAt:supportMessages.createdAt}).from(supportMessages).leftJoin(users,eq(users.id,supportMessages.authorId)).where(eq(supportMessages.ticketId,ticketId)).orderBy(supportMessages.createdAt); }
+export async function listTicketAttachments(ticketId:number) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const rows=await db.select({id:supportAttachments.id,fileName:supportAttachments.fileName,mimeType:supportAttachments.mimeType,sizeBytes:supportAttachments.sizeBytes,storageKey:supportAttachments.storageKey,createdAt:supportAttachments.createdAt})
+    .from(supportAttachments).where(eq(supportAttachments.ticketId,ticketId)).orderBy(supportAttachments.createdAt);
+  return rows.filter(row=>isValidSupportAttachmentStorageKey(row.storageKey)).map(({storageKey,...row})=>({...row,url:`/manus-storage/${storageKey}`}));
+}
 export async function createNotification(userId:number,title:string,body:string,options:{eventKey?:string|null;category?:NotificationCategory;priority?:NotificationPriority;href?:string|null}={}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const safeTitle=normalizeNotificationText(title,200,"title");
@@ -668,11 +674,27 @@ export async function addTicketAttachment(userId:number,input:{ticketId:number;f
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const policy=await getTicketUploadPolicy();
   if(!isAllowedAttachmentRequest({fileName:input.fileName,mimeType:input.mimeType,sizeBytes:input.sizeBytes},{maxAttachmentMb:policy.maxAttachmentMb,allowedMimeTypes:policy.allowedMimeTypes})) throw new Error("Attachment does not meet the current upload policy");
-  if(!isValidSupportAttachmentStorageKey(input.storageKey)) throw new Error("Invalid support attachment storage key");
+  if(!isSupportAttachmentStorageKeyForTicket(input.storageKey,input.ticketId)) throw new Error("Invalid support attachment storage key for this ticket");
   const ticket=(await db.select().from(supportTickets).where(and(eq(supportTickets.id,input.ticketId),eq(supportTickets.customerId,userId))).limit(1))[0];
   if(!ticket) throw new Error("Ticket not found");
+  // A storage key identifies one private object. Never allow a second ticket to
+  // claim an existing key, including a legacy-format key issued before the
+  // ticket-scoped key format was deployed.
+  const existingKey=(await db.select({id:supportAttachments.id}).from(supportAttachments).where(eq(supportAttachments.storageKey,input.storageKey)).limit(1))[0];
+  if(existingKey) throw new Error("Attachment storage key has already been registered");
   await db.insert(supportAttachments).values({ticketId:input.ticketId,uploadedBy:userId,fileName:input.fileName.slice(0,255),mimeType:input.mimeType.slice(0,160),sizeBytes:input.sizeBytes,storageKey:input.storageKey.slice(0,512)});
   return {success:true};
+}
+export async function getTicketAttachmentAccess(storageKey:string) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const rows=await db.select({ticketId:supportTickets.id,customerId:supportTickets.customerId})
+    .from(supportAttachments)
+    .innerJoin(supportTickets,eq(supportTickets.id,supportAttachments.ticketId))
+    .where(eq(supportAttachments.storageKey,storageKey));
+  // Fail closed if legacy data or a concurrent registration ever creates
+  // duplicate claims for the same object; never choose an arbitrary owner.
+  if(rows.length!==1) return null;
+  return rows[0] ?? null;
 }
 
 // Controlled opportunity engine: this is an internal paper-ledger boundary. Real execution requires licensed providers/custody.

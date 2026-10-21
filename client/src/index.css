@@ -472,3 +472,13 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
 }
 
 .portal-session .customer-header-sound-toggle{display:inline-flex;align-items:center;justify-content:center;min-height:32px;border:1px solid var(--ux-line-strong,#35536b);border-radius:7px;padding:6px 8px;margin-left:0!important;white-space:nowrap;font-size:10px!important}.portal-session .customer-header-sound-toggle[aria-pressed="true"]{color:var(--brand-accent,#7ce7c2)!important;border-color:var(--brand-accent,#7ce7c2)!important}
+
+
+/* Stage 4: accessible, same-origin attachment links for authorized support threads. */
+.support-attachments{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--ui-line,rgba(130,160,190,.18));}
+.support-attachments:empty{display:none;}
+.support-attachments>strong{flex:0 0 100%;font-size:12px;letter-spacing:.03em;color:var(--ui-muted,#8da3b8);}
+.support-attachments>a{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:7px 10px;border:1px solid var(--ui-line,rgba(130,160,190,.24));border-radius:8px;color:var(--ui-text,#e8f0f8);background:var(--ui-panel,rgba(20,35,50,.45));font-size:12px;text-decoration:none;overflow-wrap:anywhere;}
+.support-attachments>a:hover,.support-attachments>a:focus-visible{border-color:var(--brand-accent,#7ce7c2);outline-offset:2px;text-decoration:underline;}
+.support-attachments>a span{color:var(--ui-muted,#8da3b8);white-space:nowrap;font-size:11px;}
+.admin-support-attachments{margin:8px 0 4px;}

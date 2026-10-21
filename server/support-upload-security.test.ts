@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getSafePresignedUploadUrl } from "./support-upload-security";
+import { getSafePresignedDownloadUrl, getSafePresignedUploadUrl } from "./support-upload-security";
 
 describe("presigned support upload URL validation", () => {
   it("accepts absolute HTTPS URLs and preserves signed query parameters", () => {
     const input = "https://uploads.example.test/object?signature=abc%2F123&expires=60";
     expect(getSafePresignedUploadUrl(input)).toBe(input);
+    expect(getSafePresignedDownloadUrl(input)).toBe(input);
   });
 
   it("returns the exact validated URL instead of serializing and normalizing it", () => {
@@ -13,6 +14,7 @@ describe("presigned support upload URL validation", () => {
     const input = "https://uploads.example.test:443/object?signature=abc%2F123&expires=60";
     expect(new URL(input).toString()).not.toBe(input);
     expect(getSafePresignedUploadUrl(input)).toBe(input);
+    expect(getSafePresignedDownloadUrl(input)).toBe(input);
   });
 
   it.each([
@@ -31,5 +33,6 @@ describe("presigned support upload URL validation", () => {
     ["trailing whitespace", "https://uploads.example.test/object "],
   ])("rejects %s", (_label, input) => {
     expect(getSafePresignedUploadUrl(input)).toBeNull();
+    expect(getSafePresignedDownloadUrl(input)).toBeNull();
   });
 });

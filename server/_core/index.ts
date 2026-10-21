@@ -9,7 +9,7 @@ import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { sdk } from "./sdk";
-import { countOutstandingTrades, createLocalCustomer, getAppSetting, getUserByEmail, getUserById, processNotificationCampaignLifecycle, runAutoTradeCycle } from "../db";
+import { countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getUserByEmail, getUserById, processNotificationCampaignLifecycle, runAutoTradeCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
@@ -139,21 +139,32 @@ async function startServer() {
   app.post("/api/support/attachments/presign", async (req, res) => {
     // Keep authentication failures separate from storage/provider failures. A
     // storage outage must never be reported as an invalid customer session.
-    try {
-      await sdk.authenticateRequest(req);
-    } catch {
-      return res.status(401).json({ error: "Authentication required" });
+    let authenticatedUser;
+    const localSession = getLocalSessionFromRequest(req);
+    if (localSession) {
+      authenticatedUser = await getUserById(localSession.userId);
+      if (!authenticatedUser || Number(authenticatedUser.authVersion || 0) !== localSession.authVersion) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+    } else {
+      try {
+        authenticatedUser = await sdk.authenticateRequest(req);
+      } catch {
+        return res.status(401).json({ error: "Authentication required" });
+      }
     }
 
     try {
-      const { fileName, mimeType, sizeBytes } = req.body ?? {};
+      const { ticketId, fileName, mimeType, sizeBytes } = req.body ?? {};
+      if (!Number.isSafeInteger(ticketId) || ticketId < 1) return res.status(400).json({ error: "A valid support ticket is required" });
+      if (!(await getCustomerTicket(authenticatedUser.id, ticketId))) return res.status(404).json({ error: "Ticket not found" });
       const policy = await getTicketUploadPolicy();
       const rejectionMessage = `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}`;
       if (!isAllowedAttachmentRequest({ fileName, mimeType, sizeBytes }, policy)) {
         return res.status(400).json({ error: rejectionMessage });
       }
       const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
-      const key = `support/${Date.now()}-${randomBytes(24).toString("hex")}-${safeName}`;
+      const key = `support/${ticketId}/${randomBytes(24).toString("hex")}-${safeName}`;
       const base = process.env.MANUS_API_URL;
       const token = process.env.MANUS_API_KEY;
       if (!base || !token) return res.status(503).json({ error: "Managed storage is not configured" });
@@ -177,6 +188,7 @@ async function startServer() {
         console.error("[SupportAttachmentPresign] Storage provider returned an invalid or unsafe upload URL");
         return res.status(502).json({ error: "Managed storage returned an invalid or unsafe upload URL" });
       }
+      res.set("Cache-Control", "no-store, private");
       return res.json({ uploadUrl: safeUploadUrl, storageKey: key, stableUrl: `/manus-storage/${key}` });
     } catch (error) {
       // Avoid returning internal provider URLs, tokens, or exception details.
