@@ -143,7 +143,7 @@ export function CustomerPayoutRequests() {
       <form className="payout-request-form" onSubmit={submitRequest}>
         <div className="payout-form-field">
           <label htmlFor="payout-currency">Payout currency</label>
-          <select id="payout-currency" value={currency} disabled={formDisabled} onChange={(event) => changeFormValue(() => { const nextCurrency = event.target.value as PayoutAsset; setCurrency(nextCurrency); setAmountText(""); setDestinationType(["BTC", "ETH", "USDT"].includes(nextCurrency) ? "crypto_transfer" : "bank_transfer"); })}>
+          <select id="payout-currency" value={currency} disabled={formDisabled} onChange={(event) => changeFormValue(() => { const nextCurrency = event.target.value as PayoutAsset; setCurrency(nextCurrency); setAmountText(""); setDestinationDetails(""); setDestinationType(["BTC", "ETH", "USDT"].includes(nextCurrency) ? "crypto_transfer" : "bank_transfer"); })}>
             {PAYOUT_ASSETS.map((asset) => <option key={asset} value={asset}>{asset}</option>)}
           </select>
           <small>CKI is not eligible for payout. Swap it into a supported wallet currency first.</small>
