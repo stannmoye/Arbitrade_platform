@@ -182,14 +182,14 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     expect(await getAppSetting("appearance.settings")).toBe(JSON.stringify(policy));
   });
 
-  it("withdraws a persisted campaign as admin and hides it from authenticated customer history, unread count and event cursor", async () => {
+  it("publishes, retries, marks read, and withdraws an announcement through authenticated callers", async () => {
     const db = await getDb();
     if (!db) throw new Error("Database is not available");
     const unique = Date.now().toString() + "_" + Math.random().toString(36).slice(2, 9);
     const insertedCustomer = await db.insert(users).values({
-      openId: "stage4:withdraw:" + unique,
-      email: "stage4-withdraw-" + unique + "@example.test",
-      name: "Stage 4 Withdrawal Customer",
+      openId: "stage4:announcement:" + unique,
+      email: "stage4-announcement-" + unique + "@example.test",
+      name: "Stage 4 Announcement Customer",
       loginMethod: "email",
       role: "user",
     });
@@ -198,35 +198,6 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     const adminUser = await getUserById(administratorId);
     expect(adminUser?.role).toBe("admin");
     if (!adminUser) throw new Error("Disposable database administrator fixture is missing");
-
-    const eventKey = "stage4-withdraw-" + unique;
-    const insertedCampaign = await db.insert(notificationCampaigns).values({
-      createdBy: adminUser.id,
-      eventKey,
-      title: "Disposable withdrawal test campaign",
-      body: "This campaign is created only in the disposable integration database.",
-      category: "announcement",
-      priority: "normal",
-      targetUserId: temporaryCustomerId,
-      status: "published",
-      totalRecipientCount: 1,
-    });
-    temporaryCampaignId = Number(insertedCampaign[0].insertId);
-    const insertedNotification = await db.insert(customerNotifications).values({
-      userId: temporaryCustomerId,
-      title: "Disposable campaign notice",
-      body: "Integration fixture",
-      eventKey: "stage4-withdraw-notice-" + unique,
-      category: "announcement",
-      priority: "normal",
-    });
-    temporaryNotificationId = Number(insertedNotification[0].insertId);
-    await db.insert(notificationCampaignDeliveries).values({
-      campaignId: temporaryCampaignId,
-      userId: temporaryCustomerId,
-      notificationId: temporaryNotificationId,
-      status: "delivered",
-    });
 
     const signedCaller = async (userId: number) => {
       const user = await getUserById(userId);
@@ -239,19 +210,110 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     };
     const adminCaller = await signedCaller(adminUser.id);
     const customerCaller = await signedCaller(temporaryCustomerId);
+    const eventKey = "stage4-announcement-" + unique;
+    const title = "Disposable announcement " + unique;
+    const body = "This announcement is created only in the disposable integration database. " + unique;
+
+    // Publish through the real admin API: this creates the campaign, recipient
+    // delivery state, and customer notification using production code paths.
+    const published = await adminCaller.adminOperations.publishAnnouncement({
+      title,
+      body,
+      eventKey,
+      category: "announcement",
+      priority: "normal",
+      targetUserId: temporaryCustomerId,
+    });
+    temporaryCampaignId = published.campaignId;
+    expect(published).toMatchObject({
+      campaignId: temporaryCampaignId,
+      recipientCount: 1,
+      totalRecipientCount: 1,
+      readCount: 0,
+      failedCount: 0,
+      pendingCount: 0,
+      status: "published",
+    });
+
+    const [campaign] = await db.select().from(notificationCampaigns)
+      .where(eq(notificationCampaigns.id, temporaryCampaignId));
+    expect(campaign?.status).toBe("published");
+    const deliveredRows = await db.select().from(notificationCampaignDeliveries)
+      .where(eq(notificationCampaignDeliveries.campaignId, temporaryCampaignId));
+    expect(deliveredRows).toHaveLength(1);
+    expect(deliveredRows[0]?.userId).toBe(temporaryCustomerId);
+    expect(deliveredRows[0]?.status).toBe("delivered");
+    expect(deliveredRows[0]?.notificationId).toBeTruthy();
+    temporaryNotificationId = Number(deliveredRows[0].notificationId);
+
+    const notificationsBeforeRetry = await db.select().from(customerNotifications).where(and(
+      eq(customerNotifications.userId, temporaryCustomerId),
+      eq(customerNotifications.title, title),
+    ));
+    expect(notificationsBeforeRetry).toHaveLength(1);
+    expect(notificationsBeforeRetry[0]?.id).toBe(temporaryNotificationId);
+    expect(notificationsBeforeRetry[0]?.eventKey).toBeTruthy();
+
+    // Repeating the same admin action must reuse the same persisted delivery
+    // and notification instead of duplicating either record.
+    await expect(adminCaller.adminOperations.retryAnnouncement({
+      campaignId: temporaryCampaignId,
+    })).resolves.toMatchObject({
+      campaignId: temporaryCampaignId,
+      recipientCount: 1,
+      totalRecipientCount: 1,
+      readCount: 0,
+      failedCount: 0,
+      pendingCount: 0,
+      status: "published",
+    });
+    const deliveriesAfterRetry = await db.select().from(notificationCampaignDeliveries)
+      .where(eq(notificationCampaignDeliveries.campaignId, temporaryCampaignId));
+    const notificationsAfterRetry = await db.select().from(customerNotifications).where(and(
+      eq(customerNotifications.userId, temporaryCustomerId),
+      eq(customerNotifications.title, title),
+    ));
+    expect(deliveriesAfterRetry).toHaveLength(1);
+    expect(deliveriesAfterRetry[0]?.notificationId).toBe(temporaryNotificationId);
+    expect(deliveriesAfterRetry[0]?.status).toBe("delivered");
+    expect(notificationsAfterRetry).toHaveLength(1);
+
     expect(await customerCaller.customer.notificationUnreadCount()).toBe(1);
     expect((await customerCaller.customer.notificationHistory({ limit: 10 })).items.map(item => item.id)).toContain(temporaryNotificationId);
     expect((await customerCaller.customer.notificationEventCursor()).map(item => item.id)).toContain(temporaryNotificationId);
 
-    await expect(customerCaller.adminOperations.withdrawAnnouncement({ campaignId: temporaryCampaignId })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(adminCaller.adminOperations.withdrawAnnouncement({ campaignId: temporaryCampaignId })).resolves.toMatchObject({ changed: true, status: "withdrawn" });
-    await expect(adminCaller.adminOperations.withdrawAnnouncement({ campaignId: temporaryCampaignId })).resolves.toMatchObject({ changed: false, status: "withdrawn" });
-    await expect(adminCaller.adminOperations.retryAnnouncement({ campaignId: temporaryCampaignId })).rejects.toThrow("Withdrawn announcement campaigns cannot be republished");
+    // Marking the notification read must also persist the campaign delivery
+    // receipt, rather than merely flipping the UI/history item.
+    await customerCaller.customer.markNotificationsRead({ id: temporaryNotificationId });
+    expect(await customerCaller.customer.notificationUnreadCount()).toBe(0);
+    const [readDelivery] = await db.select().from(notificationCampaignDeliveries)
+      .where(eq(notificationCampaignDeliveries.campaignId, temporaryCampaignId));
+    expect(readDelivery?.status).toBe("read");
+    expect(readDelivery?.readAt).toBeTruthy();
+    const [readNotification] = await db.select().from(customerNotifications)
+      .where(eq(customerNotifications.id, temporaryNotificationId));
+    expect(readNotification?.readAt).toBeTruthy();
+
+    await expect(customerCaller.adminOperations.withdrawAnnouncement({
+      campaignId: temporaryCampaignId,
+    })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(adminCaller.adminOperations.withdrawAnnouncement({
+      campaignId: temporaryCampaignId,
+    })).resolves.toMatchObject({ changed: true, status: "withdrawn" });
+    await expect(adminCaller.adminOperations.withdrawAnnouncement({
+      campaignId: temporaryCampaignId,
+    })).resolves.toMatchObject({ changed: false, status: "withdrawn" });
+    await expect(adminCaller.adminOperations.retryAnnouncement({
+      campaignId: temporaryCampaignId,
+    })).rejects.toThrow("Withdrawn announcement campaigns cannot be republished");
+
     expect(await customerCaller.customer.notificationUnreadCount()).toBe(0);
     expect((await customerCaller.customer.notificationHistory({ limit: 10 })).items.map(item => item.id)).not.toContain(temporaryNotificationId);
     expect((await customerCaller.customer.notificationEventCursor()).map(item => item.id)).not.toContain(temporaryNotificationId);
-    const [delivery] = await db.select().from(notificationCampaignDeliveries).where(eq(notificationCampaignDeliveries.campaignId, temporaryCampaignId));
-    expect(delivery?.status).toBe("delivered");
+    const [finalDelivery] = await db.select().from(notificationCampaignDeliveries)
+      .where(eq(notificationCampaignDeliveries.campaignId, temporaryCampaignId));
+    expect(finalDelivery?.status).toBe("read");
+    expect(finalDelivery?.notificationId).toBe(temporaryNotificationId);
   });
 
 
