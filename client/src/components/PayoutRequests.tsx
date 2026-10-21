@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { AlertCircle, CheckCircle2, Clock3, RefreshCw, Send, XCircle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import "./payout-requests.css";
@@ -95,7 +95,7 @@ export function CustomerPayoutRequests() {
     setFeedback("");
   };
 
-  const submitRequest = (event: React.FormEvent<HTMLFormElement>) => {
+  const submitRequest = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!amountValid || amountMinor === null || !destinationDetails.trim() || isBusy) return;
     setFeedback("");
