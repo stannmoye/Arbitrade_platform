@@ -16,6 +16,7 @@ describe("customer Mining swap confirmation contract", () => {
     expect(quoteMutation).toContain("setSwapQuote(quote)");
     expect(quoteMutation).not.toContain("swapMutation.mutate");
     expect(uiSource).toContain("Boolean(swapQuote)");
+    expect(uiSource).toContain("disabled={swapMutation.isPending || swapQuoteMutation.isPending}");
   });
 
   it("requires an explicit confirmation action and rechecks quote expiry at click time", () => {
