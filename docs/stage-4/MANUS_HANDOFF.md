@@ -104,13 +104,13 @@ These are final integration/verification tasks, not permission to merge, deploy,
 
 The first ChatGPT integration batch was added after the Manus handoff. **This checkpoint records implementation only; its new code has not yet been validated by exact-head CI.**
 
-- Pre-documentation application commit: `e63643a3c90d4286aba69b61b382cd70214bbaa2`.
+- Final code commit before this documentation refresh: `8745840c79527ec76d73dce80ca7b439045c0db3`.
 - Added authenticated customer notification history pagination with an opaque validated cursor, strict server page-size cap (default 50, maximum 100), stable descending `(createdAt,id)` ordering, and user-scoped SQL predicates on every page.
 - Added a separate database-backed unread-count endpoint that counts all eligible unread notifications independently of the current page, applying category visibility and expired-campaign suppression.
 - Bounded the existing customer notification list to 50 rows and the admin's legacy activity list to 100 rows.
 - Updated the customer inbox to load older pages and merge refreshed recent rows without duplicate IDs; the header unread badge now uses the global unread-count endpoint. Sound continues to use the separate bounded event cursor.
 - Added focused cursor/page-size tests in `server/modules/notification-pagination.test.ts`.
-- Added composite index `(userId, createdAt, id)` via `drizzle/0057_notification_history_pagination.sql`, declared it in `drizzle/schema.ts`, registered it in `scripts/apply-portal-migrations.mjs`, and extended the migration-runner safety assertion.
+- Added composite index `(userId, createdAt, id)` via `drizzle/0057_notification_history_pagination.sql`, declared it in `drizzle/schema.ts`, registered it in `scripts/apply-portal-migrations.mjs`, extended the migration-runner safety assertion, and updated `scripts/notification-migration-db-assertions.mjs` to verify the tracked 0057 checksum and exact index column order on disposable MySQL/MariaDB.
 - Exact-head Actions runs and commit status were not returned by the GitHub workflow lookup at this checkpoint. Do not treat the earlier green runs on `6e594cae3db718f165a64fa6aff695d3ff93ac39` as validation of this new batch. Required next gates: focused pagination tests, full TypeScript check, production build, portal migration runner on disposable MySQL/MariaDB, and the relevant browser/theme acceptance workflow.
 
 Remaining release blockers are unchanged: source-to-requirement event coverage and post-commit proof, provider-gated deposit/withdrawal lifecycle (blocked until authoritative persisted transitions exist), push/reconnect behavior, authenticated ticket/announcement browser acceptance, full accessibility review, and release provenance. PR #95 remains open and draft; no merge, deployment, or production database operation was performed.
