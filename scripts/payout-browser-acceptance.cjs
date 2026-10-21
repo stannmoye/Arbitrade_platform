@@ -369,12 +369,11 @@ async function main() {
     } finally {
       await page.close();
     }
+    adminChecks = await runAdminPayoutReview(browser);
+    checks.push(...adminChecks);
   } finally {
     await browser.close();
   }
-
-  adminChecks = await runAdminPayoutReview(browser);
-  checks.push(...adminChecks);
 
   const report = {
     generatedAt: new Date().toISOString(),
