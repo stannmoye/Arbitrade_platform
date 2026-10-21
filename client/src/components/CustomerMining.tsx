@@ -307,6 +307,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
             <span>You'll convert<strong>{fmt(swapQuote.sourceAmount, 8)} CKI</strong></span>
             <span>You'll receive<strong>{fmt(swapQuote.destinationAmount, mainWalletScale(swapQuote.targetAsset))} {swapQuote.targetAsset}</strong></span>
             <span>Estimated fee<strong>{fmt(swapQuote.fee, mainWalletScale(swapQuote.feeAsset))} {swapQuote.feeAsset}</strong></span>
+            <span>Quote expires<strong>{new Date(swapQuote.expiresAt).toLocaleString()}</strong></span>
           </div>
           <small>{swapQuote.disclaimer}</small>
           {swapExpired && <p className="cm-swap-quote-expired">This quote has expired. Request a fresh quote before confirming.</p>}
