@@ -89,6 +89,8 @@ describe("Stage 4 announcement campaign delivery persistence", () => {
     expect(delivery).toContain('inArray(notificationCampaignDeliveries.status,["pending","failed"])');
     expect(delivery).toContain('set({notificationId,status:"delivered",attemptedAt,deliveredAt:new Date(),errorCode:null})');
     expect(delivery).toContain('set({status:"failed",attemptedAt,errorCode:"DELIVERY_FAILED"})');
+    expect(delivery).toContain('if(Number(deliveryUpdate[0]?.affectedRows||0)===0)');
+    expect(delivery).toContain('set({notificationId,attemptedAt,deliveredAt:new Date()})');
     expect(delivery).not.toContain('onDuplicateKeyUpdate({set:{notificationId,status:"delivered"');
     expect(delivery).not.toContain('onDuplicateKeyUpdate({set:{status:"failed",attemptedAt,errorCode:"DELIVERY_FAILED"}');
   });
