@@ -15,9 +15,9 @@ const integrationDescribe = databaseUrl ? describe : describe.skip;
 
 type WalletBalance = { availableMinor: number; lockedMinor: number; promotionalMinor: number };
 type PayoutInput = {
-  currency: "USD";
+  currency: "USD" | "EUR" | "GBP" | "BTC" | "ETH" | "USDT";
   amountMinor: number;
-  destinationType: "bank_transfer";
+  destinationType: "bank_transfer" | "crypto_transfer";
   destinationDetails: string;
   idempotencyKey: string;
 };
@@ -147,6 +147,12 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
     const userId = await createAccount();
     const key = unique("payout-idem");
     const input = requestInput(5000, key);
+
+    await expect(createCustomerPayoutRequest(userId, { ...requestInput(1000, unique("fiat-to-crypto")), destinationType: "crypto_transfer" }))
+      .rejects.toThrow("USD, EUR, and GBP payouts require a bank-transfer destination");
+    await expect(createCustomerPayoutRequest(userId, { ...requestInput(1000, unique("crypto-to-bank")), currency: "BTC", destinationType: "bank_transfer" }))
+      .rejects.toThrow("BTC, ETH, and USDT payouts require a crypto-wallet destination");
+    expect(await balance(userId)).toEqual({ availableMinor: 10000, lockedMinor: 0, promotionalMinor: 2000 });
 
     const created = await createCustomerPayoutRequest(userId, input);
     expect(created.status).toBe("pending");
