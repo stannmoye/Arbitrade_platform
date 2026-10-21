@@ -83,6 +83,17 @@ describe("Mining convenience purchase idempotency replay guard", () => {
     );
   });
 
+
+  it("fails clearly when a legacy result has no verifiable package entitlement", async () => {
+    const conn = fakePackageConnection();
+    await expect(assertMiningPackagePurchaseIdempotencyReplay(conn, 1900000123, { purchaseId: 300 }, 52))
+      .rejects.toThrow(/Unable to verify the original Mining package/);
+    expect(conn.query).toHaveBeenCalledWith(
+      expect.stringContaining("FROM mining_customer_packages"),
+      [300, 1900000123],
+    );
+  });
+
   it("rejects a legacy result when the committed entitlement belongs to another package version", async () => {
     const conn = fakePackageConnection(53);
     await expect(assertMiningPackagePurchaseIdempotencyReplay(conn, 1900000123, { purchaseId: 300 }, 52))
