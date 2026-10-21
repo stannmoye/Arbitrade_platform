@@ -226,7 +226,7 @@ export async function grantSandboxMiningPackage(adminId:number,input:{userId:num
     const entitlementId=Number(inserted.insertId);
     const grantReference=`SBX-GRANT-${input.userId}-${entitlementId}`;
     await writeMiningAudit(conn,{actorUserId:adminId,action:"mining.package.admin_granted",entityType:"mining_customer_package",entityId:String(entitlementId),reason,reference:grantReference,metadata:{userId:input.userId,email:String(target.email),packageId:Number(product.packageId),packageVersionId:Number(product.packageVersionId),packageCode:String(product.code),listedPrice:String(product.priceAmount),priceAsset:String(product.priceAsset),paymentAmount:"0",noCharge:true,simulationOnly:true,payoutsEnabled:false}});
-    await createMiningNotification(conn,input.userId,"Sandbox Mining package granted",`${packageNameSnapshot} is active under its saved package term as a no-charge simulation grant. No wallet debit or payout was made.`);
+    await createMiningNotification(conn,input.userId,"Sandbox Mining package granted",`${packageNameSnapshot} is active under its saved package term as a no-charge simulation grant. No wallet debit or payout was made.`,`mining-admin-grant:${entitlementId}`);
     const result={entitlementId,packageId:Number(product.packageId),packageVersionId:Number(product.packageVersionId),packageName:packageNameSnapshot,durationMonths:durationMonthsSnapshot,acquisitionType:"admin_grant",status:"active",paymentAmount:"0.00",paymentAsset:"USD",baseThs:String(product.baseThs),startsAt:now.toISOString(),expiresAt:expiresAt.toISOString(),grantReference,simulationOnly:true,noCharge:true,disclaimer:"Sandbox simulation only; no live mining, wallet debit, or cash payout."};
     await finishMiningIdempotency(conn,key,result);
     return result;
@@ -361,7 +361,7 @@ export async function createMiningAdjustment(adminId:number,input:{userId:number
       await postMiningLedgerEntries(conn,transaction,[{userId:input.userId,asset,amount:signed,entryType:`mining_adjustment_${input.direction}`},{userId:0,asset,amount:signed.negated(),entryType:"mining_adjustment_clearing"}]);
       ledgerId=transaction.id;reference=transaction.referenceCode;
       await conn.execute(`UPDATE mining_adjustment_requests SET ledgerTransactionId=?,resolvedAt=UTC_TIMESTAMP(3) WHERE id=?`,[ledgerId,requestId]);
-      await createMiningNotification(conn,input.userId,"Mining balance adjustment posted",`An administrator posted a simulated ${input.direction} of ${amount.toString()} ${asset}. Reference ${reference}.`);
+      await createMiningNotification(conn,input.userId,"Mining balance adjustment posted",`An administrator posted a simulated ${input.direction} of ${amount.toString()} ${asset}. Reference ${reference}.`,`mining-adjustment-posted:${requestId}`);
     }
     await writeMiningAudit(conn,{actorUserId:adminId,action:approvalRequired?"mining.adjustment.approval_requested":"mining.adjustment.posted",entityType:"mining_adjustment_request",entityId:String(requestId),reason,metadata:{userId:input.userId,asset,amount:amount.toString(),direction:input.direction,usdValue:usdValue?.toString()||null,dualApprovalThresholdUsd:config.dualApprovalThresholdUsd}});
     return {requestId,userId:input.userId,asset,amount:amount.toString(),direction:input.direction,status:approvalRequired?"pending":"posted",requiresSecondAdminApproval:approvalRequired,usdValue:usdValue?.toString()||null,ledgerTransactionId:ledgerId,reference};
@@ -378,7 +378,7 @@ export async function resolveMiningAdjustment(adminId:number,input:{requestId:nu
     if(!input.approve){
       await conn.execute(`UPDATE mining_adjustment_requests SET status='rejected',approvedBy=?,resolvedAt=UTC_TIMESTAMP(3) WHERE id=?`,[adminId,input.requestId]);
       await writeMiningAudit(conn,{actorUserId:adminId,action:"mining.adjustment.rejected",entityType:"mining_adjustment_request",entityId:String(input.requestId),reason,metadata:{userId:Number(row.userId),asset:row.assetCode,amount:String(row.amount),requestedBy:Number(row.requestedBy)}});
-      await createMiningNotification(conn,Number(row.userId),"Mining adjustment not approved",`A requested simulated balance adjustment was declined. Reference request ${input.requestId}.`);
+      await createMiningNotification(conn,Number(row.userId),"Mining adjustment not approved",`A requested simulated balance adjustment was declined. Reference request ${input.requestId}.`,`mining-adjustment-rejected:${input.requestId}`);
       return {requestId:input.requestId,status:"rejected"};
     }
     const amount=decimal(row.amount);const signed=row.direction==="credit"?amount:amount.negated();
@@ -386,7 +386,7 @@ export async function resolveMiningAdjustment(adminId:number,input:{requestId:nu
     await postMiningLedgerEntries(conn,transaction,[{userId:Number(row.userId),asset:String(row.assetCode),amount:signed,entryType:`mining_adjustment_${row.direction}`},{userId:0,asset:String(row.assetCode),amount:signed.negated(),entryType:"mining_adjustment_clearing"}]);
     await conn.execute(`UPDATE mining_adjustment_requests SET status='approved',approvedBy=?,ledgerTransactionId=?,resolvedAt=UTC_TIMESTAMP(3) WHERE id=?`,[adminId,transaction.id,input.requestId]);
     await writeMiningAudit(conn,{actorUserId:adminId,action:"mining.adjustment.approved_and_posted",entityType:"mining_adjustment_request",entityId:String(input.requestId),reason,metadata:{userId:Number(row.userId),asset:row.assetCode,amount:amount.toString(),direction:row.direction,ledgerTransactionId:transaction.id,reference:transaction.referenceCode,requestedBy:Number(row.requestedBy)}});
-    await createMiningNotification(conn,Number(row.userId),"Mining adjustment approved",`A simulated ${row.direction} of ${amount.toString()} ${row.assetCode} was posted after a second administrator approved it. Reference ${transaction.referenceCode}.`);
+    await createMiningNotification(conn,Number(row.userId),"Mining adjustment approved",`A simulated ${row.direction} of ${amount.toString()} ${row.assetCode} was posted after a second administrator approved it. Reference ${transaction.referenceCode}.`,`mining-adjustment-approved:${input.requestId}`);
     return {requestId:input.requestId,status:"approved",ledgerTransactionId:transaction.id,reference:transaction.referenceCode};
   }));
 }
@@ -407,7 +407,7 @@ export async function reverseMiningTransaction(adminId:number,input:{transaction
     await postMiningLedgerEntries(conn,reversal,deltas);
     await conn.execute(`UPDATE mining_ledger_transactions SET status='reversed' WHERE id=?`,[input.transactionId]);
     await writeMiningAudit(conn,{actorUserId:adminId,action:"mining.ledger.transaction.reversed",entityType:"mining_ledger_transaction",entityId:String(input.transactionId),reason,reference:reversal.referenceCode,metadata:{originalReference:original.referenceCode,reversalTransactionId:reversal.id,userId:Number(original.userId)}});
-    await createMiningNotification(conn,Number(original.userId),"Mining transaction reversed",`Transaction ${original.referenceCode} was reversed by an administrator. Reversal reference ${reversal.referenceCode}.`);
+    await createMiningNotification(conn,Number(original.userId),"Mining transaction reversed",`Transaction ${original.referenceCode} was reversed by an administrator. Reversal reference ${reversal.referenceCode}.`,`mining-reversal:${input.transactionId}`);
     return {transactionId:reversal.id,reference:reversal.referenceCode,status:"reversed",reversesTransactionId:input.transactionId};
   }));
 }

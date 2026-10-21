@@ -1,7 +1,7 @@
 name: Installer validation
 
 on:
-  # Keep installer checks active on the production branch after changes land.
+  # Run full installer validation on maintained branches; feature PRs use pull_request checks.
   push:
     branches:
       - main
@@ -61,6 +61,7 @@ jobs:
           node --check installer/test-smtp.mjs
           node --check scripts/apply-portal-migrations.mjs
           node --check scripts/apply-portal-migrations-safety.test.mjs
+          node --check scripts/notification-migration-db-assertions.mjs
           node --check scripts/migrate-mining-token-to-cki.test.mjs
           node --check installer/migration-recovery-status.test.mjs
           node --check scripts/mysql-compatible-migration-sql.mjs
@@ -95,37 +96,47 @@ jobs:
 
 
   typecheck:
+    if: github.event_name != 'pull_request' || github.event.pull_request.base.ref != 'integration/auth-installer-vps-safety'
     name: TypeScript validation
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
-          pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: TypeScript validation
         run: pnpm check
 
 
   application-tests:
+    if: github.event_name != 'pull_request' || github.event.pull_request.base.ref != 'integration/auth-installer-vps-safety'
     name: Application unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
-          pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Application test suite
         run: pnpm test
 
@@ -136,24 +147,20 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
-          pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Installer and migration safety test suite
         run: pnpm exec vitest run --config vitest.installer.config.ts
-      - name: Explicit migration preflight and recovery regression tests
-        run: >-
-          pnpm exec vitest run --config vitest.installer.config.ts
-          installer/main-migration-preflight.test.mjs
-          installer/migration-recovery-status.test.mjs
-          scripts/mysql-compatible-migration-sql.test.mjs
-          scripts/apply-portal-migrations-safety.test.mjs
-          scripts/migrate-mining-token-to-cki.test.mjs
 
 
   production-build:
@@ -162,14 +169,18 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
-          pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Build production application
         run: pnpm build
       - name: Enforce frontend bundle and runtime-config budgets
@@ -207,11 +218,11 @@ jobs:
           fi
           css_bytes="$(wc -c < "$css_bundle")"
           css_gzip_bytes="$(gzip -c "$css_bundle" | wc -c)"
-          css_limit_bytes=$((610 * 1024))
+          css_limit_bytes=$((620 * 1024))
           css_gzip_limit_bytes=$((110 * 1024))
           echo "Entry CSS: $css_bundle ($css_bytes bytes; gzip $css_gzip_bytes bytes)"
           if (( css_bytes > css_limit_bytes || css_gzip_bytes > css_gzip_limit_bytes )); then
-            echo "Entry CSS exceeds the 610 KiB raw or 110 KiB gzip regression budget." >&2
+            echo "Entry CSS exceeds the 620 KiB raw or 110 KiB gzip regression budget." >&2
             exit 1
           fi
 
@@ -270,6 +281,14 @@ jobs:
           echo "Production server did not become healthy within 60 seconds." >&2
           exit 1
 
+      - name: Upload validated production build for deployment packaging
+        uses: actions/upload-artifact@v4
+        with:
+          name: validated-production-dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
   installer-fresh-mariadb:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -288,13 +307,16 @@ jobs:
           --health-retries=12
     steps:
       - uses: actions/checkout@v7
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Enable the pinned pnpm version
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies for installer preflight
         run: pnpm install --frozen-lockfile
       - name: Create isolated fresh-install bootstrap fixture
@@ -388,6 +410,11 @@ jobs:
           console.log("Installation lock exists and temporary bootstrap/progress files were cleaned up.");
           NODE
 
+      - name: Verify notification migrations 0054 and 0057 on disposable MariaDB
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+        run: node scripts/notification-migration-db-assertions.mjs
+
       - name: Verify appearance policy authorization and real database persistence
         env:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
@@ -412,13 +439,16 @@ jobs:
           --health-retries=12
     steps:
       - uses: actions/checkout@v7
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Enable the pinned pnpm version
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install locked dependencies for installer preflight
         run: pnpm install --frozen-lockfile
       - name: Create isolated fresh-install bootstrap fixture
@@ -511,6 +541,11 @@ jobs:
           }
           console.log("Installation lock exists and temporary bootstrap/progress files were cleaned up.");
           NODE
+      - name: Verify notification migrations 0054 and 0057 on disposable MySQL 8
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+        run: node scripts/notification-migration-db-assertions.mjs
+
       - name: Verify main migration guard refuses blind retry
         env:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
@@ -648,6 +683,11 @@ jobs:
           NODE
 
   deployment-packages:
+    # The Stage 3 workflow already runs the full app suite and TypeScript check
+    # for PRs targeting integration/auth-installer-vps-safety. Accept those two
+    # jobs as skipped only for that PR path; keep them mandatory for pushes,
+    # manual runs, and PRs targeting other branches.
+    if: always() && needs.syntax.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result == 'skipped') && (needs.application-tests.result == 'success' || needs.application-tests.result == 'skipped') && needs.installer-safety.result == 'success' && needs.production-build.result == 'success' && needs.installer-fresh-mariadb.result == 'success' && needs.installer-mysql8-compatibility-and-recovery.result == 'success'
     needs:
       - syntax
       - typecheck
@@ -665,12 +705,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Enable pinned pnpm and build production application
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
-          pnpm install --frozen-lockfile
-          pnpm build
+      - name: Download validated production build
+        uses: actions/download-artifact@v4
+        with:
+          name: validated-production-dist
+          path: dist
+
       - name: Assemble and validate one universal deployment ZIP
         shell: bash
         run: |

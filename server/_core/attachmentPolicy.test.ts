@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAllowedAttachmentRequest } from "./attachmentPolicy";
+import { isAllowedAttachmentRequest, isValidSupportAttachmentStorageKey } from "./attachmentPolicy";
 
 const policy = {
   maxAttachmentMb: 5,
@@ -35,6 +35,74 @@ describe("support attachment request validation", () => {
       { fileName: "report.pdf", mimeType: "application/pdf", sizeBytes: "1000" },
       policy,
     )).toBe(false);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "", mimeType: "application/pdf", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.pdf", mimeType: " ", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.pdf", mimeType: "image/", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.pdf", mimeType: "image/png; charset=utf-8", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report\n.pdf", mimeType: "application/pdf", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
+  });
+
+  it("rejects known file extensions whose declared MIME type disagrees", () => {
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.pdf", mimeType: "image/png", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "photo.png", mimeType: "application/pdf", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.PDF", mimeType: "application/pdf", sizeBytes: 1000 },
+      policy,
+    )).toBe(true);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.pdf.. ", mimeType: "image/png", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
+    // Trailing dots/spaces must not bypass known-extension MIME consistency.
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.pdf.", mimeType: "image/png", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.pdf ", mimeType: "image/png", sizeBytes: 1000 },
+      policy,
+    )).toBe(false);
+  });
+
+  it("rejects active-content and executable suffixes despite an allowed declared MIME type", () => {
+    for (const fileName of [
+      "payload.exe",
+      "script.js",
+      "page.html",
+      "image.svg",
+      "payload.exe.png",
+      "report.pdf.html",
+    ]) {
+      expect(isAllowedAttachmentRequest(
+        { fileName, mimeType: "image/png", sizeBytes: 1000 },
+        policy,
+      )).toBe(false);
+    }
+    expect(isAllowedAttachmentRequest(
+      { fileName: "report.pdf", mimeType: "application/pdf", sizeBytes: 1000 },
+      policy,
+    )).toBe(true);
   });
 
   it("rejects unsupported types and invalid sizes", () => {
@@ -47,6 +115,44 @@ describe("support attachment request validation", () => {
         { fileName: "report.pdf", mimeType: "application/pdf", sizeBytes },
         policy,
       )).toBe(false);
+    }
+  });
+
+  it("fails closed when the attachment size policy is invalid", () => {
+    const request = { fileName: "report.pdf", mimeType: "application/pdf", sizeBytes: 100 };
+    for (const maxAttachmentMb of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      expect(isAllowedAttachmentRequest(request, { ...policy, maxAttachmentMb })).toBe(false);
+    }
+  });
+
+  it("fails closed when the allowed MIME configuration is malformed", () => {
+    const request = { fileName: "report.pdf", mimeType: "application/pdf", sizeBytes: 100 };
+    expect(isAllowedAttachmentRequest(request, { ...policy, allowedMimeTypes: [] })).toBe(false);
+    expect(isAllowedAttachmentRequest(request, { ...policy, allowedMimeTypes: null as unknown as string[] })).toBe(false);
+    expect(isAllowedAttachmentRequest(request, { ...policy, allowedMimeTypes: [""] })).toBe(false);
+    expect(isAllowedAttachmentRequest(request, { ...policy, allowedMimeTypes: [null as unknown as string] })).toBe(false);
+  });
+});
+
+describe("support attachment storage key validation", () => {
+  it("accepts only the current managed upload format with a full 192-bit identifier", () => {
+    expect(isValidSupportAttachmentStorageKey("support/1729440000000-ab12cd34-report.pdf")).toBe(false);
+    expect(isValidSupportAttachmentStorageKey(`support/1729440000000-${"a".repeat(48)}-report.pdf`)).toBe(true);
+  });
+
+  it("rejects arbitrary paths and malformed or weak identifiers", () => {
+    for (const key of [
+      "",
+      "../support/report.pdf",
+      "support/../private/file.pdf",
+      "support/report.pdf",
+      "support/1729440000000-ab12cd34-folder/report.pdf",
+      `support/1729440000000-${"A".repeat(48)}-report.pdf`,
+      `support/1729440000000-${"a".repeat(48)}-folder/report.pdf`,
+      null,
+      42,
+    ]) {
+      expect(isValidSupportAttachmentStorageKey(key)).toBe(false);
     }
   });
 });

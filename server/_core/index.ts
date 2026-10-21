@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import { randomBytes } from "node:crypto";
 import { createServer } from "http";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
@@ -8,12 +9,13 @@ import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { sdk } from "./sdk";
-import { countOutstandingTrades, createLocalCustomer, getAppSetting, getUserByEmail, getUserById, runAutoTradeCycle } from "../db";
+import { countOutstandingTrades, createLocalCustomer, getAppSetting, getUserByEmail, getUserById, processNotificationCampaignLifecycle, runAutoTradeCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
 import { resolveTrustedProxyHops } from "./trustedProxy";
 import { isAllowedAttachmentRequest } from "./attachmentPolicy";
+import { getSafePresignedUploadUrl } from "../support-upload-security";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
 import { getTicketUploadPolicy } from "../db";
 import { ensureMarketDrivenOpportunities, refreshMarketData } from "../marketSync";
@@ -29,6 +31,7 @@ import { runMiningWorkerCycle } from "../mining";
 const registrationRateLimit = createAuthRateLimiter({ windowMs: 60 * 60_000, max: 5, message: "Too many registration attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-register" });
 const customerLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many login attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-login" });
 const adminLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 8, message: "Too many administrator login attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "admin-login" });
+const supportAttachmentPresignRateLimit = createAuthRateLimiter({ windowMs: 60_000, max: 20, message: "Too many support attachment requests. Try again shortly.", store: configuredAuthRateLimitStore, scope: "support-attachment-presign" });
 const passwordResetRequestRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 5, message: "Too many password-reset requests. Try again later.", store: configuredAuthRateLimitStore, scope: "password-reset-request" });
 const passwordResetConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many password-reset attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "password-reset-confirm" });
 const emailVerificationRequestRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 5, message: "Too many email-verification requests. Try again later.", store: configuredAuthRateLimitStore, scope: "email-verification-request" });
@@ -42,6 +45,14 @@ async function startServer() {
   // Do not trust X-Forwarded-For unless the actual reverse-proxy hop count is configured.
   app.set("trust proxy", resolveTrustedProxyHops(process.env.TRUST_PROXY_HOPS));
   const server = createServer(app);
+  // Rate-limit support presign requests before JSON parsing so oversized request
+  // bodies cannot consume parser resources before the route limiter runs.
+  app.use((req, res, next) => {
+    if (req.method === "POST" && req.path === "/api/support/attachments/presign") {
+      return supportAttachmentPresignRateLimit(req, res, next);
+    }
+    return next();
+  });
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -126,8 +137,15 @@ async function startServer() {
     res.set("Cache-Control", "no-store").type("application/javascript").send(publicPlatformScript());
   });
   app.post("/api/support/attachments/presign", async (req, res) => {
+    // Keep authentication failures separate from storage/provider failures. A
+    // storage outage must never be reported as an invalid customer session.
     try {
       await sdk.authenticateRequest(req);
+    } catch {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    try {
       const { fileName, mimeType, sizeBytes } = req.body ?? {};
       const policy = await getTicketUploadPolicy();
       const rejectionMessage = `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}`;
@@ -135,15 +153,36 @@ async function startServer() {
         return res.status(400).json({ error: rejectionMessage });
       }
       const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
-      const key = `support/${Date.now()}-${Math.random().toString(36).slice(2,10)}-${safeName}`;
+      const key = `support/${Date.now()}-${randomBytes(24).toString("hex")}-${safeName}`;
       const base = process.env.MANUS_API_URL;
       const token = process.env.MANUS_API_KEY;
       if (!base || !token) return res.status(503).json({ error: "Managed storage is not configured" });
-      const upstream = await fetch(`${base}/v1/storage/presign/put?path=${encodeURIComponent(key)}`, { headers: { Authorization: `Bearer ${token}` } });
-      const payload = await upstream.json() as { url?: string; error?: string };
-      if (!upstream.ok || !payload.url) return res.status(502).json({ error: payload.error || "Unable to prepare managed upload" });
-      return res.json({ uploadUrl: payload.url, storageKey: key, stableUrl: `/manus-storage/${key}` });
-    } catch (error) { return res.status(401).json({ error: error instanceof Error ? error.message : "Authentication required" }); }
+      const upstream = await fetch(`${base}/v1/storage/presign/put?path=${encodeURIComponent(key)}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) });
+      let payload: { url?: string; error?: string };
+      try {
+        payload = await upstream.json() as { url?: string; error?: string };
+      } catch {
+        return res.status(502).json({ error: "Managed storage returned an invalid response" });
+      }
+      if (!upstream.ok || !payload.url) {
+        // Provider error text can contain internal details; expose only a stable,
+        // non-sensitive message to the customer.
+        console.error("[SupportAttachmentPresign] Storage provider rejected presign request", upstream.status);
+        return res.status(502).json({ error: "Unable to prepare managed upload. Please retry." });
+      }
+      // Presigned URLs are bearer credentials. Never send malformed, non-HTTPS,
+      // or credential-bearing URLs back to the customer's browser.
+      const safeUploadUrl = getSafePresignedUploadUrl(payload.url);
+      if (!safeUploadUrl) {
+        console.error("[SupportAttachmentPresign] Storage provider returned an invalid or unsafe upload URL");
+        return res.status(502).json({ error: "Managed storage returned an invalid or unsafe upload URL" });
+      }
+      return res.json({ uploadUrl: safeUploadUrl, storageKey: key, stableUrl: `/manus-storage/${key}` });
+    } catch (error) {
+      // Avoid returning internal provider URLs, tokens, or exception details.
+      console.error("[SupportAttachmentPresign] Unable to prepare upload", error instanceof Error ? error.name : "UnknownError");
+      return res.status(502).json({ error: "Unable to prepare managed upload. Please retry." });
+    }
   });
   registerOAuthRoutes(app);
   registerProviderOAuthRoutes(app);
@@ -166,6 +205,20 @@ async function startServer() {
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
   if (process.env.DATABASE_URL) {
     startEmailWorkers();
+    let notificationCampaignCycleRunning = false;
+    const runNotificationCampaignCycle = async () => {
+      if(notificationCampaignCycleRunning)return;
+      notificationCampaignCycleRunning=true;
+      try {
+        const result=await processNotificationCampaignLifecycle();
+        if(result.expired||result.published||result.failed)console.log("[NotificationCampaigns] lifecycle",result);
+      } catch(error) {
+        console.error("[NotificationCampaigns]",error instanceof Error?error.name:"UnknownError");
+      } finally { notificationCampaignCycleRunning=false; }
+    };
+    const notificationCampaignTimer=setInterval(()=>{void runNotificationCampaignCycle();},30_000);
+    notificationCampaignTimer.unref();
+    void runNotificationCampaignCycle();
     let miningCycleRunning = false;
     const runMiningCycle = async () => {
       if (miningCycleRunning) return;

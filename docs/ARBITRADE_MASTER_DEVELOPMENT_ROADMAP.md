@@ -6,6 +6,19 @@
 **Roadmap version:** 2.1  
 **Purpose:** The durable source of truth for the customer experience, themes, notifications, sounds, responsive layouts, administrator portal, quality assurance, and deployment-verification work.
 
+## Current user-accepted project checkpoint (2026-10-20)
+
+- **Stages 1, 2 and 3:** Accepted complete by the user.
+- **Final host-required test:** User-confirmed complete; the user tested the integrated application on their host and reported that it worked. This is user-reported host acceptance, separate from CI evidence.
+- **Current stage:** Stage 4 — Customer Experience, Live Notifications, Support and Dashboard Redesign.
+- **Active implementation branch:** `feat/stage-4-live-notifications-support`.
+- **Draft pull request:** [#95 — Stage 4: live notifications, two-way support and real sound controls](https://github.com/stannmoye/Arbitrade_platform/pull/95).
+- **Implemented first slice:** Customer header bell derives its unread badge from the authenticated user's database-backed notification query and includes a recent-notification popover with per-item and mark-all-read actions. The query refreshes every five seconds while the customer portal is active.
+- **Not yet complete:** Full backend event coverage and deduplication, admin announcements/promotions, complete ticket workflow upgrades, five bundled audio assets and expanded sound mapping, true push transport where supported, and exact-head tests/package validation. Stage 4 must not be marked complete until those acceptance criteria are met.
+
+- **Stage 4 implementation progress (2026-10-20):** Added notification metadata fields (`eventKey`, `category`, `priority`, `href`) with a nullable unique event key and user/read/time index; registered portal migration `0054_notification_event_idempotency.sql`; added pure event-key/text validation tests; added deduplicated notification creation and an admin-only announcement/promotion/platform-update broadcast API; added an administrator communications page and navigation entry; ticket creation/replies now emit notifications to the relevant administrator/customer audience; confirmed trade allocation and manual settlement now emit keyed notification events; replaced runtime oscillator playback with five bundled WAV audio assets and added global plus event-specific sound policy fields. These changes are committed on the Stage 4 draft branch. Automated validation is still pending and the migration has not been applied to the user's host.
+- **Compatibility guardrails:** Preserve the internal database ledger, the completed Stage 1–3 theme work, the existing installer/deployment paths, and cPanel compatibility. No external payment APIs are introduced.
+
 > **Working rule:** Complete and verify one stage at a time. Update this document as work progresses so the team can always identify what is complete, what is in progress, what failed, and what comes next. Do not claim a task or test is complete unless it has actually been implemented or run.
 
 
@@ -257,19 +270,75 @@ Deliverables: five complete themes and administrator theme controls.
 
 Exit criteria: every customer route is themed correctly; settings persist and respect the chosen administrator policy.
 
-### Stage 4 — Customer Navigation and Dashboard Redesign
-**Objective:** Make the customer portal easier to understand and use.
+### Stage 4 — Customer Experience, Live Notifications, Support and Dashboard Redesign
+**Objective:** Deliver a coherent customer/admin communication loop while improving customer navigation and dashboard usability. This stage deliberately brings forward the notification, sound-management and support slices originally indexed as Stages 8–12; those roadmap entries must later be treated as follow-on hardening/expansion work, not as permission to duplicate the Stage 4 implementation.
 
-Tasks:
+**A. Dashboard and navigation**
 - Improve dashboard hierarchy, wallet overview, quick actions, recent activity and account notices.
-- Design compact mobile navigation, appropriate tablet layouts and efficient desktop navigation.
-- Improve spacing, readability, loading states and empty states.
-- Apply the theme system throughout.
+- Refine desktop navigation, tablet layouts and compact mobile navigation.
+- Improve spacing, readability, focus states, loading/error/retry/empty states and reduced-motion behaviour.
+- Preserve the five-theme system, administrator theme policy and all existing routes/actions.
+- Show only genuine backend-backed data; never fabricate activity or treat animation/audio as proof of a financial outcome.
 
-Deliverable: responsive customer dashboard and navigation.
+**B. Real notification centre and live unread status**
+- Replace hard-coded bell counts with a server-derived unread count scoped to the authenticated user.
+- Build a modern notification dropdown/centre with unread/read state, timestamps, categories, priority, relevant deep links, mark-one-read and mark-all-read actions, empty/loading/error states and accessible keyboard behaviour.
+- Cover verified application events where supported: deposit request/status/confirmed ledger credit; withdrawal request/status/approval/rejection/completion; ticket creation/reply/status changes; administrator announcements; promotions; product/platform updates; wallet ledger credit/debit; trading lifecycle; mining purchases/rewards/cycle outcomes; swap outcomes; security/account notices.
+- Publish notifications from authoritative backend service/event boundaries, not from frontend guesses or merely attempted operations.
+- Add stable event identifiers and idempotent deduplication; avoid duplicate notification creation on retries, polling, reconnects or repeated queries.
+- Provide prompt updates while a customer/admin portal is open. Prefer a deployment-compatible push transport when the existing server can safely support it; retain bounded polling/reconnect fallback so cPanel/shared hosting remains viable. Show connection/last-updated status honestly—do not label polling as a guaranteed instant push.
+- Preserve notification history when sound is disabled, the browser is muted, or the user is offline. Enforce per-user ownership on list/read actions and admin role checks on publishing.
 
-Exit criteria: dashboard is usable without clipping or unintended horizontal scrolling at supported widths; real data and actions remain correct.
+**C. Two-way customer/admin support tickets**
+- Review and improve the ticket form and ticket desk on both customer and admin sides.
+- Support clear subject, category, priority, description, optional permitted attachments, validation, progress/errors, ticket reference, status and last-updated information.
+- Provide threaded customer/admin replies with author identity/role and timestamps, plus lifecycle statuses such as open, in progress, awaiting customer, resolved and closed where the current schema/workflow can support them.
+- Allow authorized staff to reply, change status/priority and communicate resolution; notify the correct customer of replies/status changes.
+- Let customers reply, see admin responses and follow status changes. Apply access control so a customer can only read/reply to their own tickets; admins must use protected admin procedures.
+- Validate uploads server-side (size, MIME/content, generated names, storage access); do not expose private attachment paths. Add sensible duplicate-submit protections and audit important admin changes.
 
+**D. Real audio assets and centralized sound engine**
+- Replace synthetic oscillator tones as the notification sound library with at least five distinct, actual audio assets (short, browser-compatible files checked into the project or safely served from its controlled public assets). Keep audio playback centralized and reuse existing dependencies.
+- Give each asset a clear human-readable name; add admin preview and restore-default controls. The admin can choose the default customer notification sound and, where supported, event-specific overrides.
+- Add configurable event-to-sound mappings for general notifications, deposit/credit, withdrawal, debit, trading, mining, support replies, announcements/promotions and important account/security events. At minimum, make the default sound selectable globally and allow event-specific selection where the settings model supports it.
+- Include separate sound mappings for confirmed ledger credit and debit, trade lifecycle events and mining reward/cycle events. Only play success sounds after the server confirms the corresponding persisted event/ledger result; failures use a distinct non-success cue.
+- Respect browser autoplay/user-gesture rules, customer opt-in/mute preferences, volume controls where supported, reduced interruption, tab visibility and duplicate-event suppression. Never auto-play merely because the first page loaded.
+- Store admin sound policy persistently and audit actor/time/old/new values. A safe test-notification/preview action must never write a financial ledger entry or simulate a real deposit/withdrawal/trade.
+
+**E. Administrator communication controls**
+- Add a clear admin notification/announcement composer for audience, title, body, category, priority, publish time/status and optional expiry, using only fields the server validates and persists.
+- Support announcements, promotions and platform updates as distinct categories; clearly label promotional content and avoid presenting it as a financial event.
+- Display recipient delivery/read state where available. Do not imply that a notification was delivered/read solely because it was queued.
+- Provide sound policy controls and preview in the existing admin sound/settings area; enforce admin authorization and audit policy changes.
+- Add a safe event preview/test route distinct from actual financial-event handlers.
+
+**F. Live financial-event sound and display safeguards**
+- Derive credit/debit cues from persisted internal database-ledger events and transaction identifiers. Keep the ledger authoritative; no external payment APIs are to be introduced.
+- Distinguish requested, pending, failed, reversed and completed operations wherever the existing backend models those states.
+- Do not play a “credit successful” sound for a deposit request, estimate, simulated opportunity, failed operation, or uncommitted transaction.
+- Ensure polling/push reconnects and query refreshes do not replay old sounds. Keep the UI useful if audio is blocked or realtime transport disconnects.
+
+**G. Quality, responsive design and regression**
+- Test customer and admin flows, cross-account isolation, role boundaries, duplicate delivery, unread/read transitions, reconnect recovery, sound preference persistence, real audio loading, ticket threading and ticket attachments.
+- Test representative mobile/tablet/desktop viewports and supported themes, including Clean Light and Gold Luxe.
+- Preserve financial invariants, installer compatibility, cPanel/shared-host compatibility and the existing admin/customer routes.
+- Add focused automated tests for notification ownership/deduplication, ticket authorization, event-to-sound mapping and notification counts. Record actual CI/test results and known limitations; do not mark unrun host tests as passed.
+
+**Implementation sequence**
+1. Inspect the current integration branch, Stage 4 branch/PR, notification schema/router, ticket workflow, sound settings, assets and installer migrations.
+2. Implement live unread bell/count and notification centre using real existing records.
+3. Establish canonical backend event creation and idempotency for supported event types.
+4. Improve customer/admin ticket form, threading, status transitions and notifications.
+5. Add five real audio assets and central playback with admin sound policy and customer preferences.
+6. Add admin announcement/promotion/update publishing and delivery/read visibility.
+7. Implement realtime push where supported plus bounded polling/reconnect fallback.
+8. Complete accessibility, responsive, security and regression validation.
+9. Integrate the verified source into the correct installer/release branch and rebuild the versioned ZIP only after exact-head checks pass.
+
+**Deliverable:** A responsive customer dashboard and navigation, truthful live unread status, a persistent event-backed notification centre, two-way support tickets, admin announcement/sound controls, and a centralized real-audio engine for verified financial and platform events.
+
+**Exit criteria:** No hard-coded unread count; events are backend-authentic, user-scoped and deduplicated; admin/customer ticket threads work both ways with correct permissions; at least five real audio files are bundled and previewable; sound policies persist and do not misrepresent financial success; supported events notify promptly with recovery fallback; themes, critical workflows, tests and installer build remain healthy. Host validation is recorded separately from automated CI.
+ 
 ### Stage 5 — Wallet, Deposit, Withdrawal and Transaction History
 **Objective:** Improve core financial workflows.
 
@@ -1273,4 +1342,42 @@ This section preserves the integration-branch roadmap updates while keeping the 
 ### Merge decision
 
 Keep the newer Stage 2/Stage 3 source and roadmap history, retain the relevant integration-branch acceptance evidence above, and proceed with sandbox verification after the branch merge. This update does not claim that the hosted test or human accessibility sign-off has already passed.
+
+## Stage 4 implementation checkpoint — 2026-10-20 (active work)
+
+**Prompt cadence:** Prompt 1/30. Stage 4 remains in progress; do not merge, deploy, or mark complete on this checkpoint.
+
+### Delivered in this work batch
+- Central communications form supports either **all customers** or one selected customer, with a subject, message, category, priority, and optional internal link.
+- Customer bell previews show a category badge (including **Announcement**, **Ticket**, **Update**, **Deposit**, **Withdrawal**, **Mining reward**, **Trading reward**, **Balance credit**, and **Balance debit**) and use a validated internal notification link when present.
+- Added persisted administrator controls for independent category visibility. Disabling a category filters it out of the customer bell and unread badge while preserving the underlying notification record and transaction/reward processing.
+- Notification history remains available independently from bell visibility, so turning a category back on does not delete history. Bell seen-ID tracking observes all notification IDs to avoid replaying old sounds when a category is re-enabled.
+- Added unit coverage for supported notification categories, event-key scoping, bounded text, category filtering, preservation of source records, and unknown-category forward compatibility.
+- Admin balance adjustments now create categorized, event-keyed credit/debit notices after the ledger commit; notification failure is logged without converting a committed ledger adjustment into a failed API response.
+- Customer trade allocation, automatic allocation, and settlement paths emit idempotent trading and ledger-category notices after their confirmed application event paths.
+- Added responsive styles for category controls and badge labels.
+
+### Still outstanding
+- Inspect and fix exact-head type/test/build/installer failures. This session has not yet produced a verified workflow result for the new commits; no test pass is claimed.
+- Finish event integration at verified deposit/withdrawal, mining reward, mining swap, and account/security lifecycle boundaries, and confirm failed/pending/reversed operations never trigger success sounds.
+- Complete announcement persistence, scheduling/expiry, per-recipient delivery/read reporting, and broadcast audit history.
+- Verify five WAV assets are valid and browser playback works; complete customer sound opt-in/volume policy, sound previews, and no-repeat/reconnect behavior.
+- Complete ticket attachment/status/authorization coverage, live push transport with bounded polling fallback, and dashboard/theme/accessibility regression tests.
+- Verify migration 0054 against disposable MySQL and MariaDB schemas and validate the final release package. Do not apply migrations to the user's host from this branch.
+- Preserve Stage 1–3 and the user's host acceptance checkpoint. User-reported hosting acceptance is not a claim of independent hosted verification in this session.
+
+### Guardrails
+- Category preferences affect notification visibility only, never wallet, ledger, deposit, withdrawal, mining, or trading execution.
+- Financial notifications must follow the durable committed event; they must not substitute for ledger evidence.
+- Keep PR #95 Draft/Open/Unmerged until exact-head CI and remaining acceptance criteria are verified.
+
+### Stage 4 follow-up — central categories and confirmed mining reward events
+
+- Expanded the central admin form from announcement-only publishing to all supported notification categories. Admins can send a categorized informational notice to one customer or all customers; the form explicitly clarifies that a notice does not perform or alter a financial operation.
+- The customer bell now reads all notification IDs for sound deduplication, then filters only its visible items and unread badge using the saved category policy. The full notification history is not hidden when a category is disabled.
+- The customer notification centre also displays category badges and safe internal links.
+- Added a post-commit mining reward notice for each verified positive immediate reward credit. Pending boost rewards do not trigger a success notification before a ledger credit is committed.
+- Removed a duplicate customer ticket-reply notification emitted by the admin route; the shared ticket-message operation is the single source for the keyed notification.
+- Sound playback uses the administrator-selected event sound mapping; customer audio remains gated by the enabled sound policy and the customer's browser preference.
+- Exact-head validation is still outstanding. The GitHub connector has not returned workflow runs for the current draft commits, and no local checkout is available in this session; do not claim type-check, tests, build, browser playback, or migration validation passed until those checks are run.
 

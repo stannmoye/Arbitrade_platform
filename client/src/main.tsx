@@ -11,8 +11,6 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import "./index.css";
 import "./design-system.css";
 import "./theme-system.css";
-import "./customer-reference.css";
-import "./customer-theme-overrides.css";
 
 const queryClient = new QueryClient();
 
@@ -78,7 +76,10 @@ const trpcClient = trpc.createClient({
   ],
 });
 
-createRoot(document.getElementById("root")!).render(
+const rootElement = document.getElementById("root");
+if (!rootElement) throw new Error("Missing application root element");
+
+const renderApp = () => createRoot(rootElement).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="original" switchable>
@@ -89,3 +90,16 @@ createRoot(document.getElementById("root")!).render(
     </QueryClientProvider>
   </trpc.Provider>
 );
+
+// Customer-only styles are scoped to .customer-portal. Keep them out of the
+// initial admin/landing CSS payload, and wait for them before first customer paint.
+if (window.location.pathname.startsWith("/customer")) {
+  void Promise.all([
+    import("./customer-reference.css"),
+    import("./customer-theme-overrides.css"),
+  ]).catch((error) => {
+    console.error("[Customer styles] Unable to load customer theme styles", error);
+  }).finally(renderApp);
+} else {
+  renderApp();
+}
