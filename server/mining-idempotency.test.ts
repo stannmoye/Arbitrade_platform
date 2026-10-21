@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { assertMiningQuoteIdempotencyReplay } from "./mining";
+import { assertMiningPackagePurchaseIdempotencyReplay, assertMiningQuoteIdempotencyReplay } from "./mining";
 
 function fakeConnection(persistedQuoteId?: number) {
   const rows = persistedQuoteId === undefined ? [] : [{ quoteId: persistedQuoteId }];
@@ -48,5 +48,44 @@ describe("Mining quote idempotency replay guard", () => {
       .rejects.toThrow(/Unable to verify the original quote/);
     await expect(assertMiningQuoteIdempotencyReplay(conn, 1900000123, {}, 42, "swap"))
       .rejects.toThrow(/Unable to verify the original quote/);
+  });
+});
+
+
+function fakePackageConnection(persistedPackageVersionId?: number) {
+  const rows = persistedPackageVersionId === undefined ? [] : [{ packageVersionId: persistedPackageVersionId }];
+  const query = vi.fn(async (_sql: string, _values?: unknown[]) => [rows, []] as any);
+  return { query } as any;
+}
+
+describe("Mining convenience purchase idempotency replay guard", () => {
+  it("returns the previous result only when the package version matches", async () => {
+    const conn = fakePackageConnection();
+    await expect(assertMiningPackagePurchaseIdempotencyReplay(conn, 1900000123, { packageVersionId: "52" }, 52))
+      .resolves.toBeUndefined();
+    expect(conn.query).not.toHaveBeenCalled();
+  });
+
+  it("rejects reusing the same idempotency key for a different package", async () => {
+    const conn = fakePackageConnection();
+    await expect(assertMiningPackagePurchaseIdempotencyReplay(conn, 1900000123, { packageVersionId: 53, purchaseId: 300 }, 52))
+      .rejects.toThrow(/different Mining package/);
+    expect(conn.query).not.toHaveBeenCalled();
+  });
+
+  it("checks the persisted entitlement for legacy responses without a package version", async () => {
+    const conn = fakePackageConnection(52);
+    await expect(assertMiningPackagePurchaseIdempotencyReplay(conn, 1900000123, { purchaseId: 300 }, 52))
+      .resolves.toBeUndefined();
+    expect(conn.query).toHaveBeenCalledWith(
+      expect.stringContaining("FROM mining_customer_packages"),
+      [300, 1900000123],
+    );
+  });
+
+  it("rejects a legacy result when the committed entitlement belongs to another package version", async () => {
+    const conn = fakePackageConnection(53);
+    await expect(assertMiningPackagePurchaseIdempotencyReplay(conn, 1900000123, { purchaseId: 300 }, 52))
+      .rejects.toThrow(/different Mining package/);
   });
 });
