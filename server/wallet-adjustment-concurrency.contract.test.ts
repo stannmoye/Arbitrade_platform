@@ -36,6 +36,16 @@ describe("administrator wallet adjustment concurrency contract", () => {
     expect(balanceLock).toBeGreaterThan(balanceRead);
     expect(implementation.indexOf("await db.transaction(async tx=>")).toBeGreaterThanOrEqual(0);
   });
+
+  it("uses the committed ledger reference for notification and email idempotency", () => {
+    const start = db.indexOf("export async function adjustCustomerBalance");
+    const end = db.indexOf("\\nexport async function listOpenOffers", start);
+    const implementation = db.slice(start, end);
+    expect(implementation).toContain("crypto.randomUUID()");
+    expect(implementation).toContain("eventKey:`wallet-adjustment:${result.ledgerReference}`");
+    expect(implementation).toContain("`admin-ledger:${result.ledgerReference}`");
+    expect(implementation).not.toContain("`admin-ledger:${adminId}:${input.userId}:${Date.now()}`");
+  });
 });
 
 describe("wallet one-row-per-currency database invariant", () => {
