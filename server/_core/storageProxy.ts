@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { ENV } from "./env";
 import { getTicketAttachmentAccess, getUserById } from "../db";
 import { getLocalSessionFromRequest } from "./localAuth";
+import { sdk } from "./sdk";
 
 export function registerStorageProxy(app: Express) {
   app.get("/manus-storage/*", async (req, res) => {
@@ -15,18 +16,21 @@ export function registerStorageProxy(app: Express) {
     // by the otherwise-public generated-media proxy without ownership checks.
     if (key === "support" || key.startsWith("support/")) {
       const session = getLocalSessionFromRequest(req);
-      if (!session) {
-        res.status(401).send("Authentication required");
-        return;
-      }
       try {
-        const user = await getUserById(session.userId);
-        if (!user || Number(user.authVersion || 0) !== session.authVersion) {
+        let user = session ? await getUserById(session.userId) : null;
+        if (session && (!user || Number(user.authVersion || 0) !== session.authVersion)) {
+          res.status(401).send("Authentication required");
+          return;
+        }
+        if (!user) {
+          try { user = await sdk.authenticateRequest(req); } catch { user = null; }
+        }
+        if (!user) {
           res.status(401).send("Authentication required");
           return;
         }
         const attachment = await getTicketAttachmentAccess(key);
-        if (!attachment || (user.role !== "admin" && attachment.customerId !== session.userId)) {
+        if (!attachment || (user.role !== "admin" && attachment.customerId !== Number(user.id))) {
           // Use the same response for unknown and foreign keys to avoid
           // disclosing whether another customer's attachment exists.
           res.status(404).send("Attachment not found");
