@@ -266,3 +266,24 @@ Track these as six acceptance work areas within Stage 4, not as six separate top
 - Added a composite `customer_notifications(userId, createdAt, id)` index through tracked portal migration `0057_notification_history_pagination.sql`. The disposable MySQL/MariaDB assertion script now checks the migration tracker checksum and exact index column order.
 - The inbox now supports loading older records while merging fresh first-page data by notification ID. The existing sound event cursor remains separate.
 - **Not yet accepted:** no exact-head CI result is available for the follow-on code at this checkpoint. Run focused pagination tests, TypeScript, build, disposable MySQL/MariaDB migration validation and the relevant browser/theme checks before closing these checklist items. All other Stage 4 release gates remain open.
+
+
+## Cross-feature notification source audit (2026-10-21 — source review, not runtime acceptance)
+
+The following source inspection helps scope final acceptance. It is **not** a claim that every browser path, database failure mode, or production event has passed end-to-end testing.
+
+| Event family | Current source boundary | Current assessment |
+|---|---|---|
+| Customer support ticket creation | `server/db.ts` creates the ticket before emitting customer/admin notices; keyed recipient-specific events are used. | Implemented at source level; ticket ownership, notification delivery and full customer/admin browser lifecycle still require authenticated E2E acceptance. |
+| Support replies, reopen and assignment | `server/db.ts` uses committed ticket/message results before best-effort notification delivery; assignment has an audit transaction. | Source and contract coverage exist; concurrency, recipient visibility and unread/reply parity still require runtime verification. |
+| Administrator wallet credit/debit | `server/db.ts` commits balance and ledger changes in a transaction, then attempts the notification best-effort. | Post-commit boundary is visible in source; test failures must not misreport a committed adjustment. |
+| Signup credit | `server/db.ts` persists the balance/ledger before a stable `signup-credit:<userId>` notice and retries the notice safely on repeated provisioning. | Idempotent notice path is present; full provisioning/retry acceptance remains open. |
+| Trade settlement/manual settlement | `server/db.ts` and `server/routers.ts` emit keyed notices after the settlement function returns; optional notification failures are logged without reversing the result. | Source contract tests exist; broader coverage across all supported trade/ledger transitions is not yet exhaustive. |
+| Mining package/boost | `server/mining.ts` uses `createMiningNotification(conn, ...)` at transaction-scoped paths. | Notice is coupled to the database transaction; validate rollback/commit behavior through disposable database tests. |
+| Mining swap/conversion and rewards | `server/mining.ts` emits swap notices after the committed conversion result and reward notices after reward posting; keyed events are used. | Focused contract tests exist; all worker retry and conversion failure paths are not proven by browser acceptance. |
+| Session revocation/security | `server/routers.ts` emits a security notice around the session-revocation procedure; a focused contract test exists. | Verify the exact persisted revocation boundary and authenticated customer visibility in the final acceptance pass. |
+| Announcement campaigns | `server/db.ts` records campaign/recipient delivery state and creates keyed in-app notification rows. | Persistence and retry contracts exist; “delivered” means persisted in-app notification row, not email/push or human viewing. Scheduling, expiry and read parity still need browser E2E checks. |
+| Deposit/withdrawal success | No authoritative persisted provider/custody completion transition was established in the audited implementation. | **Blocked.** Do not create financial-success notifications from request submission, mock status, or unverified callbacks. |
+| Realtime push/reconnect | Current client behavior uses polling and a bounded event cursor; no persistent push transport is established. | **Incomplete.** Test polling/reconnect/deduplication and document push as an outstanding requirement. |
+
+Acceptance rule: each financial-success notification must be tied to the authoritative persisted business result and must not fire for a pending, failed, reversed or rolled-back operation. Best-effort notification delivery must not turn a committed business operation into an apparent failure.
