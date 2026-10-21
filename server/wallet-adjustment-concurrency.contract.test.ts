@@ -23,4 +23,17 @@ describe("administrator wallet adjustment concurrency contract", () => {
     expect(implementation.indexOf("await tx.update(customerBalances)")).toBeGreaterThan(-1);
     expect(implementation.indexOf("await tx.insert(balanceLedger)")).toBeGreaterThan(implementation.indexOf("await tx.update(customerBalances)"));
   });
+
+  it("acquires the customer serialization lock before reading the wallet balance", () => {
+    const start = db.indexOf("export async function adjustCustomerBalance");
+    const end = db.indexOf("\\nexport async function listOpenOffers", start);
+    const implementation = db.slice(start, end);
+    const customerLock = implementation.indexOf('.limit(1).for("update"))[0]');
+    const balanceRead = implementation.indexOf("from(customerBalances)");
+    const balanceLock = implementation.indexOf('.limit(1).for("update"))[0]', customerLock + 1);
+    expect(customerLock).toBeGreaterThanOrEqual(0);
+    expect(balanceRead).toBeGreaterThan(customerLock);
+    expect(balanceLock).toBeGreaterThan(balanceRead);
+    expect(implementation.indexOf("await db.transaction(async tx=>")).toBeGreaterThanOrEqual(0);
+  });
 });
