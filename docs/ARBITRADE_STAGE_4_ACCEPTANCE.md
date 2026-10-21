@@ -432,3 +432,13 @@ The evidence-matrix refresh changed documentation only; application, test, and w
 - PR #100 is merged. It adds regression contracts for the rejection event, loop cleanup limited to failed opportunity sounds, accessible customer/admin recovery statuses, and no automatic replay of blocked historical sounds. It also constrains the customer warning to the viewport and overrides mobile header CSS that had hidden the Dismiss button.
 - Exact-head CI passed for PR #100; see the validation runs listed above. Automated contract checks do not replace manual browser verification of audio policy and reconnect timing.
 - Manual acceptance remains open for muted preferences, autoplay rejection and user-initiated retry, dismissal on mobile, reconnect deduplication, and post-commit timing. No production deployment, production migration, or full release ZIP rebuild was performed.
+
+
+## Latest Stage 4 notification-audio hardening — PR #101 (2026-10-21)
+
+- **PR #101 merged:** [Stop audio loops on synchronous playback errors](https://github.com/stannmoye/Arbitrade_platform/pull/101).
+- **Merged commit:** `1a34927b1850f4269bb21c44620e52414d417fff`; tested PR head: `b0141a8323afe72c167db435604ff4c0d3fb767b`.
+- **Fix:** centralized opportunity-loop cleanup so it runs for both rejected `audio.play()` promises and synchronous audio setup/start exceptions; added a regression contract for both failure paths.
+- **Exact-head workflows passed:** [Stage 3 six-theme/Chromium validation run 39644490200](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39644490200), [Installer validation run 39644490192](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39644490192), and [Mining database regression run 39644490317](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39644490317). TypeScript, production build, application/theme-policy tests, Chromium viewport/theme smoke, installer syntax, disposable MariaDB and MySQL 8 migration/recovery, package validation, and mining idempotency checks passed.
+- **Acceptance boundary:** CI confirms this narrow fix and its regression coverage; it does not close real-browser sound preference/autoplay/retry/reconnect/post-commit acceptance, exhaustive event-source coverage, authenticated announcement/ticket/attachment/concurrency journeys, or manual accessibility acceptance.
+- **Release/safety:** the previously published `v2.0.4-stage4-full` ZIP predates PR #101 and does not contain this fix. No release ZIP rebuild, production deployment, or production database migration occurred in this follow-up. Rebuild and verify a new package when release gates permit; do not represent the older ZIP as containing this change.
