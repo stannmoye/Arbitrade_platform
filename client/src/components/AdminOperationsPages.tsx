@@ -274,12 +274,12 @@ export function AdminTransactionReview() {
                 <tbody>{((payoutQuery.data || []) as any[]).filter((request) => request.status === "pending").map((request) => {
                   const draft = payoutDrafts[request.id] || { externalReference: "", note: "" };
                   return <tr key={request.id}>
-                    <td><strong>{request.customerName || request.customerEmail || \`Account \${request.userId}\`}</strong><small>{request.requestReference}</small><small>{request.destinationType === "bank_transfer" ? "Bank transfer" : "Crypto wallet transfer"}</small></td>
+                    <td><strong>{request.customerName || request.customerEmail || `Account ${request.userId}`}</strong><small>{request.requestReference}</small><small>{request.destinationType === "bank_transfer" ? "Bank transfer" : "Crypto wallet transfer"}</small></td>
                     <td>{formatAmount(Number(request.amountMinor), request.currency)}</td>
                     <td><div className="admin-payout-destination">{request.destinationDetails}</div></td>
                     <td>
-                      <input aria-label={\`External transfer reference for \${request.requestReference}\`} value={draft.externalReference} onChange={(event) => setPayoutDrafts((current) => ({ ...current, [request.id]: { ...draft, externalReference: event.target.value } }))} placeholder="External reference (required)" />
-                      <textarea aria-label={\`Resolution note for \${request.requestReference}\`} rows={2} value={draft.note} onChange={(event) => setPayoutDrafts((current) => ({ ...current, [request.id]: { ...draft, note: event.target.value } }))} placeholder="Note; required for rejection" />
+                      <input aria-label={`External transfer reference for ${request.requestReference}`} value={draft.externalReference} onChange={(event) => setPayoutDrafts((current) => ({ ...current, [request.id]: { ...draft, externalReference: event.target.value } }))} placeholder="External reference (required)" />
+                      <textarea aria-label={`Resolution note for ${request.requestReference}`} rows={2} value={draft.note} onChange={(event) => setPayoutDrafts((current) => ({ ...current, [request.id]: { ...draft, note: event.target.value } }))} placeholder="Note; required for rejection" />
                     </td>
                     <td><div className="admin-payout-actions">
                       <button className="admin-ops-button" type="button" disabled={resolvePayout.isPending || draft.externalReference.trim().length < 3} onClick={() => resolvePayout.mutate({ requestId: Number(request.id), action: "paid", externalReference: draft.externalReference.trim(), note: draft.note.trim() || undefined })}><CheckCircle2 size={14} /> Mark paid</button>
@@ -294,7 +294,7 @@ export function AdminTransactionReview() {
               <table className="admin-ops-table"><thead><tr><th>Created</th><th>Customer</th><th>Request</th><th>Amount</th><th>Status / external reference</th></tr></thead><tbody>
                 {((payoutQuery.data || []) as any[]).map((request) => <tr key={request.id}>
                   <td>{timestamp(request.createdAt)}</td>
-                  <td><strong>{request.customerName || "Customer"}</strong><small>{request.customerEmail || \`Account \${request.userId}\`}</small></td>
+                  <td><strong>{request.customerName || "Customer"}</strong><small>{request.customerEmail || `Account ${request.userId}`}</small></td>
                   <td><small>{request.requestReference}</small><small>{request.destinationType === "bank_transfer" ? "Bank transfer" : "Crypto transfer"}</small></td>
                   <td>{formatAmount(Number(request.amountMinor), request.currency)}</td>
                   <td><span className="admin-ops-entry-type">{request.status}</span>{request.externalReference && <small>External: {request.externalReference}</small>}{request.resolutionNote && <small>{request.resolutionNote}</small>}</td>
