@@ -35,6 +35,20 @@ describe("preflightSupportAttachmentStorageKeyUniqueIndex", () => {
     );
   });
 
+  it("rejects a prefix-only unique index because it cannot guarantee whole-key uniqueness", async () => {
+    const connection = {
+      async query(sql) {
+        if (sql.startsWith("SHOW INDEX")) {
+          return [[{ Key_name: SUPPORT_ATTACHMENT_STORAGE_KEY_INDEX_NAME, Non_unique: 0, Column_name: "storageKey", Sub_part: 255 }], []];
+        }
+        throw new Error("Unexpected query: " + sql);
+      },
+    };
+    await expect(preflightSupportAttachmentStorageKeyUniqueIndex(connection)).rejects.toThrow(
+      /incompatible definition/,
+    );
+  });
+
   it("blocks migration when historical duplicate storage keys exist", async () => {
     const statements = [];
     const connection = {
