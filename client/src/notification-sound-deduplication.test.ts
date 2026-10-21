@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { findNewNotificationSoundEvents, mergeSeenNotificationIds, selectMostImportantNotificationSoundEvent } from "./notification-sound-deduplication";
 
@@ -90,4 +91,25 @@ describe("notification sound reconnect deduplication", () => {
     expect(findNewNotificationSoundEvents([observed], [observed.id], persisted, { support: true })).toEqual([]);
   });
 
+});
+
+
+describe("notification sound header integration contract", () => {
+  const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+  const effectStart = app.indexOf("const previousHeaderNotificationIds=useRef<number[]|null>(null)");
+  const effectEnd = app.indexOf("const logout=trpc.auth.logout.useMutation", effectStart);
+  const effect = app.slice(effectStart, effectEnd);
+
+  it("persists every observed cursor ID even when category visibility suppresses playback", () => {
+    expect(effectStart).toBeGreaterThanOrEqual(0);
+    expect(effectEnd).toBeGreaterThan(effectStart);
+    expect(effect).toContain("previousHeaderNotificationIds.current=rows.map(item=>item.id)");
+    expect(effect).toContain("mergeSeenNotificationIds(persistedIds,rows.map(item=>item.id))");
+  });
+
+  it("re-evaluates sound preferences without replaying the current polling window", () => {
+    expect(effect).toContain("previousHeaderNotificationIds.current=rows.map(item=>item.id)");
+    expect(effect).toContain("headerSoundSettingsQuery.data");
+    expect(effect).toContain("findNewNotificationSoundEvents(rows,previousHeaderNotificationIds.current,persistedIds");
+  });
 });
