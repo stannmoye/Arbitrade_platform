@@ -120,7 +120,9 @@ export const customerNotifications = mysqlTable("customer_notifications", {
   href: varchar("href", { length: 512 }),
   readAt: timestamp("readAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  userCreatedIdIdx: index("customer_notifications_user_created_id_idx").on(table.userId, table.createdAt, table.id),
+}));
 
 export const notificationCampaigns = mysqlTable("notification_campaigns", {
   id: int("id").autoincrement().primaryKey(),
