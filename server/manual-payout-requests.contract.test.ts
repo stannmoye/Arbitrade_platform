@@ -105,5 +105,8 @@ describe("manual payout request lifecycle contract", () => {
     expect(payoutBrowserAcceptance).toContain("staleDestinationCleared");
     expect(payoutBrowserAcceptance).toContain("Cancelled · funds released");
     expect(payoutBrowserAcceptance).toContain("No external bank or blockchain transfer is initiated.");
+    expect(payoutBrowserAcceptance).toContain("async function runAdminPayoutReview(browser)");
+    expect(payoutBrowserAcceptance).toContain("External transfer reference for payout-admin-paid-1");
+    expect(payoutBrowserAcceptance).toContain("Resolution note for payout-admin-reject-1");
   });
 });
