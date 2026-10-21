@@ -112,13 +112,17 @@ async function startServer() {
   });
   app.post("/api/support/attachments/presign", async (req, res) => {
     const session = getLocalSessionFromRequest(req);
-    if (!session) return res.status(401).json({ error: "Authentication required" });
     try {
-      const user = await getUserById(session.userId);
-      if (!user || Number(user.authVersion || 0) !== session.authVersion) return res.status(401).json({ error: "Authentication required" });
+      let user = session ? await getUserById(session.userId) : null;
+      if (session && (!user || Number(user.authVersion || 0) !== session.authVersion)) return res.status(401).json({ error: "Authentication required" });
+      if (!user) {
+        try { user = await sdk.authenticateRequest(req); } catch { user = null; }
+      }
+      if (!user) return res.status(401).json({ error: "Authentication required" });
+      const actorId = Number(user.id);
       const { ticketId, fileName, mimeType, sizeBytes } = req.body ?? {};
       if (!Number.isSafeInteger(ticketId) || ticketId < 1) return res.status(400).json({ error: "A valid support ticket is required" });
-      if (!(await getCustomerTicket(session.userId, ticketId))) return res.status(404).json({ error: "Ticket not found" });
+      if (!(await getCustomerTicket(actorId, ticketId))) return res.status(404).json({ error: "Ticket not found" });
       if (typeof fileName !== "string" || !fileName.trim() || typeof mimeType !== "string" || !mimeType.trim() || !Number.isSafeInteger(sizeBytes) || sizeBytes < 1) return res.status(400).json({ error: "Invalid attachment metadata" });
       const policy = await getTicketUploadPolicy();
       const mimeAllowed = policy.allowedMimeTypes.some(rule => rule === mimeType || (rule.endsWith("/*") && mimeType.startsWith(rule.slice(0, -1))) || (rule.startsWith(".") && fileName.toLowerCase().endsWith(rule.toLowerCase())));
