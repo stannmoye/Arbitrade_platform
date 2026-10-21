@@ -7,7 +7,7 @@
 
 ## Sixth-theme integration correction (2026-10-21)
 
-The full Stage 3 baseline ZIP contains the Gold Luxe theme, but the first published Stage 4 full-application ZIP omitted it from the current client/server theme registries, the administrator theme policy schema, and theme CSS. The five-theme CI evidence recorded below is historical evidence for the then-current five themes; it does not validate Gold Luxe. The release correction restores Gold Luxe and the Stage 3 Clean Light customer contrast/responsive overrides, updates the authoritative server allow-list to six themes, and adds six-theme regression/contrast coverage. A fresh exact-head test, typecheck, production build, and full-ZIP inspection are required before publishing the corrected release.
+The full Stage 3 baseline ZIP contains the Gold Luxe theme, but the first published Stage 4 full-application ZIP omitted it from the current client/server theme registries, the administrator theme policy schema, and theme CSS. The five-theme CI evidence recorded below is historical evidence for the then-current five themes; it does not validate Gold Luxe. The release correction restores Gold Luxe and the Stage 3 Clean Light customer contrast/responsive overrides, updates the authoritative server allow-list to six themes, and adds six-theme regression/contrast coverage. Release v2.0.3 includes those files, but a legacy saved appearance policy that enabled all five previously available themes could still hide Gold Luxe. The v2.0.4 correction adds a tested compatibility upgrade for that all-five-enabled policy while preserving intentionally restricted allow-lists. Exact-head tests, typecheck, production build, and full-ZIP inspection must pass before accepting the replacement.
 
 ## Objective
 

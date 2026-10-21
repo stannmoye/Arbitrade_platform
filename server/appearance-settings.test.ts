@@ -19,6 +19,24 @@ describe("appearance settings normalization", () => {
     });
   });
 
+  it("upgrades the old all-five-themes policy to include the restored Gold Luxe theme", () => {
+    const normalized = normalizeAppearanceSettings(JSON.stringify({
+      defaultTheme: "original",
+      enabledThemes: ["original", "midnight-premium", "clean-light", "emerald-finance", "aurora-modern"],
+      customerCanSelect: true,
+    }));
+    expect(normalized.enabledThemes).toEqual([...themes]);
+  });
+
+  it("preserves deliberately restricted legacy theme allow-lists", () => {
+    const normalized = normalizeAppearanceSettings(JSON.stringify({
+      defaultTheme: "clean-light",
+      enabledThemes: ["original", "clean-light", "aurora-modern"],
+      customerCanSelect: true,
+    }));
+    expect(normalized.enabledThemes).toEqual(["original", "clean-light", "aurora-modern"]);
+  });
+
   it("keeps customer theme choice enabled even when a legacy policy saved it as disabled", () => {
     const normalized = normalizeAppearanceSettings(JSON.stringify({
       defaultTheme: "clean-light",

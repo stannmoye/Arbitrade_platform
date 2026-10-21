@@ -32,6 +32,17 @@ export function normalizeAppearanceSettings(raw: string | null | undefined): App
     ? saved.enabledThemes.filter((theme: unknown): theme is AppearanceTheme =>
         typeof theme === "string" && APPEARANCE_THEMES.includes(theme as AppearanceTheme))
     : [...APPEARANCE_THEMES];
+  // The previous release exposed exactly these five themes. If a saved policy
+  // enabled all five, Gold Luxe was unavailable to be deliberately disabled;
+  // add the restored sixth theme automatically. Preserve intentional restricted
+  // allow-lists so administrator choices are not broadened unexpectedly.
+  const previouslyAvailableThemes: readonly AppearanceTheme[] = [
+    "original", "midnight-premium", "clean-light", "emerald-finance", "aurora-modern",
+  ];
+  const hadAllPreviouslyAvailableThemes = previouslyAvailableThemes.every(theme => requestedEnabled.includes(theme));
+  if (hadAllPreviouslyAvailableThemes && !requestedEnabled.includes("gold-luxe")) {
+    requestedEnabled.push("gold-luxe");
+  }
   const enabledThemes = APPEARANCE_THEMES.filter(theme => requestedEnabled.includes(theme));
   const nonEmptyEnabled = enabledThemes.length ? enabledThemes : [requestedDefault];
   const defaultTheme = nonEmptyEnabled.includes(requestedDefault)
