@@ -22,6 +22,15 @@ describe("expired announcement retry behavior", () => {
     expect(deadlineGuard).toBeGreaterThan(createBranch);
   });
 
+  it("returns an already-expired campaign idempotently without entering delivery retry", () => {
+    const expiryGuard = broadcast.indexOf('if(campaign.status==="expired")return');
+    const pendingDeliveryQuery = broadcast.indexOf("const pending=await db.select");
+
+    expect(expiryGuard).toBeGreaterThanOrEqual(0);
+    expect(expiryGuard).toBeLessThan(pendingDeliveryQuery);
+    expect(broadcast).not.toContain('if(campaign.status==="expired")throw new Error("Expired announcement campaigns cannot be republished")');
+  });
+
   it("atomically expires an existing campaign and retryable deliveries before delivery retry begins", () => {
     const expiryBranch = broadcast.indexOf("if(campaign.expiresAt && campaign.expiresAt.getTime()<=now.getTime())");
     const transaction = broadcast.indexOf("const expiredTransition=await db.transaction(async tx=>", expiryBranch);
