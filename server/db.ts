@@ -543,23 +543,27 @@ async function getVisibleNotificationConditions(userId:number,visibility:Record<
   return conditions;
 }
 
-export async function getCustomerNotificationUnreadCount(userId:number) {
+async function countUnreadWithFilters(userId:number,visibility:Record<NotificationCategory,boolean>,expiredIds:number[]) {
   const db=await getDb(); if(!db)throw new Error("Database is not available");
-  const [visibility,expiredIds]=await Promise.all([getNotificationCategoryVisibility(),getExpiredCampaignNotificationIds(userId)]);
   const conditions=await getVisibleNotificationConditions(userId,visibility,expiredIds);
   conditions.push(isNull(customerNotifications.readAt));
   const [row]=await db.select({total:count()}).from(customerNotifications).where(and(...conditions));
   return Number(row?.total)||0;
 }
 
+export async function getCustomerNotificationUnreadCount(userId:number) {
+  const [visibility,expiredIds]=await Promise.all([getNotificationCategoryVisibility(),getExpiredCampaignNotificationIds(userId)]);
+  return countUnreadWithFilters(userId,visibility,expiredIds);
+}
+
 export async function listCustomerNotificationPage(userId:number,cursorValue?:string|null,requestedLimit?:number) {
   const db=await getDb(); if(!db)throw new Error("Database is not available");
   const limit=normalizeNotificationPageSize(requestedLimit);
-  const [visibility,expiredIds,totalUnread]=await Promise.all([
+  const [visibility,expiredIds]=await Promise.all([
     getNotificationCategoryVisibility(),
     getExpiredCampaignNotificationIds(userId),
-    getCustomerNotificationUnreadCount(userId),
   ]);
+  const totalUnread=await countUnreadWithFilters(userId,visibility,expiredIds);
   const conditions=await getVisibleNotificationConditions(userId,visibility,expiredIds);
   if(cursorValue) {
     const cursor=decodeNotificationCursor(cursorValue);
@@ -585,9 +589,14 @@ export async function listCustomerNotificationPage(userId:number,cursorValue?:st
 }
 
 export async function listCustomerNotifications(userId:number) {
-  return (await listCustomerNotificationPage(userId,null,50)).items;
+  const db=await getDb(); if(!db)throw new Error("Database is not available");
+  const [visibility,expiredIds]=await Promise.all([getNotificationCategoryVisibility(),getExpiredCampaignNotificationIds(userId)]);
+  const conditions=await getVisibleNotificationConditions(userId,visibility,expiredIds);
+  const rows=await db.select().from(customerNotifications).where(and(...conditions))
+    .orderBy(desc(customerNotifications.createdAt),desc(customerNotifications.id)).limit(50);
+  return filterNotificationCategories(rows,visibility);
 }
-export async function listNotifications(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(customerNotifications).where(eq(customerNotifications.userId,userId)).orderBy(desc(customerNotifications.createdAt),desc(customerNotifications.id)); }
+export async function listNotifications(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(customerNotifications).where(eq(customerNotifications.userId,userId)).orderBy(desc(customerNotifications.createdAt),desc(customerNotifications.id)).limit(100); }
 export async function listNotificationEventCursor(userId:number) {
   const db=await getDb(); if(!db)throw new Error("Database is not available");
   const visibility=await getNotificationCategoryVisibility();
