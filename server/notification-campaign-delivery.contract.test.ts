@@ -30,7 +30,8 @@ describe("Stage 4 announcement campaign delivery persistence", () => {
     expect(db).toContain('status:"failed"');
     expect(db).toContain("partitionNotificationRecipients(recipients,50)");
     expect(db).toContain("processNotificationCampaignLifecycle");
-    expect(db).toContain("Expired announcement campaigns cannot be republished");
+    expect(db).toContain('if(campaign.status==="expired")return');
+    expect(db).not.toContain("Expired announcement campaigns cannot be republished");
   });
 
   it("exposes bounded campaign history and synchronizes read receipts by recipient", () => {
