@@ -471,7 +471,7 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
   }
 }
 
-.portal-session .customer-header-sound-toggle{display:inline-flex;align-items:center;justify-content:center;min-height:32px;border:1px solid var(--ux-line-strong,#35536b);border-radius:7px;padding:6px 8px;margin-left:0!important;white-space:nowrap;font-size:10px!important}.portal-session .customer-header-sound-toggle[aria-pressed="true"]{color:var(--brand-accent,#7ce7c2)!important;border-color:var(--brand-accent,#7ce7c2)!important}
+.portal-session button.customer-header-sound-toggle{display:inline-flex!important;align-items:center;justify-content:center;min-height:32px;border:1px solid var(--ux-line-strong,#35536b);border-radius:7px;padding:6px 8px;margin-left:0!important;white-space:nowrap;font-size:10px!important}.portal-session .customer-header-sound-toggle[aria-pressed="true"]{color:var(--brand-accent,#7ce7c2)!important;border-color:var(--brand-accent,#7ce7c2)!important}
 
 
 /* Stage 4: accessible, same-origin attachment links for authorized support threads. */
