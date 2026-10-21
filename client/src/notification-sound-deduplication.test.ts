@@ -76,4 +76,18 @@ describe("notification sound reconnect deduplication", () => {
     expect(selectMostImportantNotificationSoundEvent(mixed)).toEqual(mixed[1]);
   });
 
+
+  it("does not replay an observed event when its category visibility is later enabled", () => {
+    const hiddenEvent = { id: 88, category: "deposit", readAt: null };
+    expect(findNewNotificationSoundEvents([hiddenEvent], [10, 9], [], { deposit: false })).toEqual([]);
+    // The live header records every cursor ID as observed, independently of visibility.
+    expect(findNewNotificationSoundEvents([hiddenEvent], [88], [88], { deposit: true })).toEqual([]);
+  });
+
+  it("does not replay previously observed events after sound preferences are reloaded", () => {
+    const observed = { id: 89, category: "support", readAt: null };
+    const persisted = mergeSeenNotificationIds([], [observed.id]);
+    expect(findNewNotificationSoundEvents([observed], [observed.id], persisted, { support: true })).toEqual([]);
+  });
+
 });
