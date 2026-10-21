@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { AlertCircle, CheckCircle2, Clock3, RefreshCw, Send, XCircle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import "./payout-requests.css";
+import "../payout-requests.css";
 
 const PAYOUT_ASSETS = ["USD", "EUR", "GBP", "BTC", "ETH", "USDT"] as const;
 type PayoutAsset = (typeof PAYOUT_ASSETS)[number];
