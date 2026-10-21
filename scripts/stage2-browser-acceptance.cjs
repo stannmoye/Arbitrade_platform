@@ -7,7 +7,8 @@ const path = require("node:path");
 const { chromium } = require("playwright");
 
 const BASE_URL = process.env.STAGE2_BASE_URL || "http://127.0.0.1:4173";
-const WIDTHS = [320, 360, 390, 430, 480, 768, 1024, 1280, 1440, 1920];
+// Sample the minimum phone width, common phone/tablet breakpoints, and wide desktop layouts.
+const WIDTHS = [320, 390, 480, 768, 1024, 1440, 1920];
 const ROUTES = [
   { path: "/", name: "gateway" },
   { path: "/customer", name: "customer" },

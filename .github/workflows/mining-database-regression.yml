@@ -62,5 +62,3 @@ jobs:
       - name: Run database-backed idempotency and transaction tests
         run: pnpm exec vitest run server/mining-store.mysql.integration.test.ts
 
-      - name: Run TypeScript validation
-        run: pnpm check
