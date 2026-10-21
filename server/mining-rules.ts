@@ -161,6 +161,15 @@ export function overlapSeconds(start: Date, end: Date, activeStart?: Date | null
   return Math.max(0, (to - from) / 1000);
 }
 
+/** Return true only when a stored idempotency result belongs to the requested quote. */
+export function miningQuoteIdMatches(savedQuoteId: unknown, requestedQuoteId: number) {
+  if (savedQuoteId === null || savedQuoteId === undefined) return false;
+  const saved = Number(savedQuoteId);
+  return Number.isSafeInteger(saved) && saved > 0
+    && Number.isSafeInteger(requestedQuoteId) && requestedQuoteId > 0
+    && saved === requestedQuoteId;
+}
+
 export function isQuoteFresh(observedAt: Date, now: Date, maxAgeSeconds: number) {
   return Number.isFinite(observedAt.getTime()) && Number.isInteger(maxAgeSeconds) && maxAgeSeconds > 0 && now.getTime() - observedAt.getTime() >= 0 && now.getTime() - observedAt.getTime() <= maxAgeSeconds * 1000;
 }
