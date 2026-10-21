@@ -97,3 +97,13 @@ export function isAllowedAttachmentRequest(
 export function isValidSupportAttachmentStorageKey(value: unknown): value is string {
   return typeof value === "string" && /^support\/(?:\d+-[a-f0-9]{48}-[a-zA-Z0-9._-]{1,120}|\d+\/[a-f0-9]{48}-[a-zA-Z0-9._-]{1,120})$/.test(value);
 }
+
+/** Ensure a new ticket-scoped key cannot be attached to a different ticket.
+ * Legacy keys remain accepted for already-issued uploads because their format
+ * does not contain a ticket identifier; their ownership is enforced by the DB row.
+ */
+export function isSupportAttachmentStorageKeyForTicket(value: unknown, ticketId: unknown): value is string {
+  if (!isValidSupportAttachmentStorageKey(value) || typeof ticketId !== "number" || !Number.isSafeInteger(ticketId) || ticketId < 1) return false;
+  const scoped = /^support\\/(\\d+)\\//.exec(value);
+  return !scoped || Number(scoped[1]) === ticketId;
+}
