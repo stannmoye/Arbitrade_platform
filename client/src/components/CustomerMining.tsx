@@ -37,6 +37,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
 
   const [now, setNow] = useState(Date.now());
   const [swapQuote, setSwapQuote] = useState<any | null>(null);
+  const [swapConfirmationKey, setSwapConfirmationKey] = useState<string | null>(null);
   const [swapTarget, setSwapTarget] = useState("");
   const [packageTab, setPackageTab] = useState("all");
   const [historyPage, setHistoryPage] = useState(0);
@@ -87,16 +88,17 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   });
   const swapMutation = trpc.customer.mining.confirmSwap.useMutation({
     onSuccess: result => {
-      setSwapQuote(null); void dashboard.refetch(); void mainWallet.refetch(); void history.refetch();
+      setSwapQuote(null); setSwapConfirmationKey(null); void dashboard.refetch(); void mainWallet.refetch(); void history.refetch();
       push(`CKI converted to ${result.destinationAsset} main wallet · ${result.receiptReference}`);
       setMessage(`${fmt(result.sourceAmount, 8)} CKI converted to ${fmt(result.destinationAmount, 8)} ${result.destinationAsset} and credited to your main wallet. This does not initiate a payout; CKI itself is not a payout currency.`);
     },
-    onError: error => { setSwapQuote(null); void dashboard.refetch(); void mainWallet.refetch(); setMessage(error.message); },
+    onError: error => { void dashboard.refetch(); void mainWallet.refetch(); setMessage(error.message); },
   });
   const swapQuoteMutation = trpc.customer.mining.quoteSwap.useMutation({
     onSuccess: quote => {
-      setSwapQuote(quote); setMessage("");
-      swapMutation.mutate({ quoteId: quote.quoteId, idempotencyKey: requestId() });
+      setSwapQuote(quote);
+      setSwapConfirmationKey(requestId());
+      setMessage("");
     },
     onError: error => setMessage(error.message),
   });
@@ -173,13 +175,36 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     return true;
   });
 
+  const confirmSwapQuote = () => {
+    if (!swapQuote || swapMutation.isPending) return;
+    if (new Date(swapQuote.expiresAt).getTime() <= Date.now()) {
+      setSwapQuote(null);
+      setSwapConfirmationKey(null);
+      setMessage("This swap quote has expired. Request a fresh quote before confirming.");
+      return;
+    }
+    const confirmationKey = swapConfirmationKey || requestId();
+    if (!swapConfirmationKey) setSwapConfirmationKey(confirmationKey);
+    swapMutation.mutate({ quoteId: Number(swapQuote.quoteId), idempotencyKey: confirmationKey });
+  };
+  const cancelSwapQuote = () => {
+    if (swapMutation.isPending) return;
+    setSwapQuote(null);
+    setSwapConfirmationKey(null);
+    setMessage("");
+  };
   const startFullBalanceSwap = () => {
     if (!canSwapAll) return;
     setSwapQuote(null);
+    setSwapConfirmationKey(null);
+    setMessage("");
     swapQuoteMutation.mutate({ tokenAmount: String(data?.balances?.CKI ?? data?.tokenBalance ?? "0"), targetAsset: swapTarget });
   };
   const selectSwapTarget = (asset: string) => {
     setSwapTarget(asset);
+    setSwapQuote(null);
+    setSwapConfirmationKey(null);
+    setMessage("");
     mainWalletPreferenceMutation.mutate({ swapCurrency: asset });
   };
   const activateBoost = () => { const audio = boostAudioRef.current || new Audio("/audio/boost/mixkit-1093.mp3"); boostAudioRef.current = audio; audio.loop = true; audio.volume = 0.55; void audio.play().catch(() => {}); boostMutation.mutate({ idempotencyKey: requestId() }); };
@@ -274,7 +299,22 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
       />
 
       <section className="cm-wallet-hash-grid" aria-label="Mining wallet and hash rate">
-        <article className="cm-glass cm-wallet-card"><div className="cm-wallet-total"><div className="cm-card-title"><span className="cm-icon-cyan"><WalletCards size={19}/></span><b>{tokenSymbol} WALLET BALANCE</b></div><div className="cm-wallet-value"><span className="cm-wallet-coin">₵</span><div><small>Total {tokenSymbol}</small><strong>{fmt(data?.balances?.CKI ?? data?.tokenBalance,6)} <small>{tokenSymbol}</small></strong><span className="cm-positive">Historical Mining ledger total</span></div></div></div><div className="cm-wallet-currencies"><div className="cm-currency-list">{TARGET_ASSETS.map(asset=><button type="button" key={asset} className={`cm-currency ${swapTarget===asset?"selected":""}`} onClick={()=>selectSwapTarget(asset)} aria-pressed={swapTarget===asset}><i className={`currency-${asset.toLowerCase()}`}>{currencyIcons[asset]}</i><small>{asset}</small></button>)}</div><small className="cm-swap-note">Selected main-wallet balance: {fmt(mainWalletAvailable(swapTarget),mainWalletScale(swapTarget))} {swapTarget||"—"}</small><button type="button" className="cm-glow-button cm-swap-all" disabled={!canSwapAll || swapQuoteMutation.isPending || swapMutation.isPending} onClick={startFullBalanceSwap}><ArrowDownUp size={15}/>{swapMutation.isPending?"Posting conversion…":`Swap All to ${swapTarget}`}</button>{!canSwapAll&&<small className="cm-swap-note">A positive available CKI balance and a selected main-wallet currency are required.</small>}</div></article>
+        <article className="cm-glass cm-wallet-card"><div className="cm-wallet-total"><div className="cm-card-title"><span className="cm-icon-cyan"><WalletCards size={19}/></span><b>{tokenSymbol} WALLET BALANCE</b></div><div className="cm-wallet-value"><span className="cm-wallet-coin">₵</span><div><small>Total {tokenSymbol}</small><strong>{fmt(data?.balances?.CKI ?? data?.tokenBalance,6)} <small>{tokenSymbol}</small></strong><span className="cm-positive">Historical Mining ledger total</span></div></div></div><div className="cm-wallet-currencies"><div className="cm-currency-list">{TARGET_ASSETS.map(asset=><button type="button" key={asset} className={`cm-currency ${swapTarget===asset?"selected":""}`} onClick={()=>selectSwapTarget(asset)} aria-pressed={swapTarget===asset}><i className={`currency-${asset.toLowerCase()}`}>{currencyIcons[asset]}</i><small>{asset}</small></button>)}</div><small className="cm-swap-note">Selected main-wallet balance: {fmt(mainWalletAvailable(swapTarget),mainWalletScale(swapTarget))} {swapTarget||"—"}</small><button type="button" className="cm-glow-button cm-swap-all" disabled={!canSwapAll || swapQuoteMutation.isPending || swapMutation.isPending || Boolean(swapQuote)} onClick={startFullBalanceSwap}><ArrowDownUp size={15}/>{swapQuoteMutation.isPending?"Loading quote…":`Swap All to ${swapTarget}`}</button>{!canSwapAll&&<small className="cm-swap-note">A positive available CKI balance and a selected main-wallet currency are required.</small>}</div></article>
+        {swapQuote && <div className="cm-swap-quote-panel" role="region" aria-label="Review Mining swap quote" aria-live="polite">
+          <div className="cm-swap-quote-heading">Review conversion</div>
+          <p>Confirm the amount and fee before converting your full available Mining balance.</p>
+          <div className="cm-swap-quote-details">
+            <span>You'll convert<strong>{fmt(swapQuote.sourceAmount, 8)} CKI</strong></span>
+            <span>You'll receive<strong>{fmt(swapQuote.destinationAmount, mainWalletScale(swapQuote.targetAsset))} {swapQuote.targetAsset}</strong></span>
+            <span>Estimated fee<strong>{fmt(swapQuote.fee, mainWalletScale(swapQuote.feeAsset))} {swapQuote.feeAsset}</strong></span>
+          </div>
+          <small>{swapQuote.disclaimer}</small>
+          {swapExpired && <p className="cm-swap-quote-expired">This quote has expired. Request a fresh quote before confirming.</p>}
+          <div className="cm-swap-quote-actions">
+            <button type="button" className="cm-glow-button cm-swap-all" disabled={swapExpired || swapMutation.isPending} onClick={confirmSwapQuote}>{swapMutation.isPending ? "Confirming conversion…" : "Confirm conversion"}</button>
+            <button type="button" className="cm-swap-cancel" disabled={swapMutation.isPending} onClick={swapExpired ? startFullBalanceSwap : cancelSwapQuote}>{swapExpired ? "Request fresh quote" : "Cancel"}</button>
+          </div>
+        </div>}
         <article className="cm-glass cm-hash-card"><div className="cm-card-title"><span className="cm-icon-cyan"><Zap size={19}/></span><b>CURRENT HASH RATE</b></div><div className="cm-hash-content"><div><strong>{fmt(data?.activeThs,3)} <small>TH/s</small></strong><span className="cm-positive">Base {fmt(data?.baseThs,3)} · Boost {fmt(data?.boostThs,3)} TH/s</span></div><div className="cm-hash-details"><small>Total Power</small><b>{fmt(data?.activeThs,3)} TH/s</b><small>Package</small><b>{activePackageNames}</b></div><svg className="cm-sparkline" viewBox="0 0 170 70" preserveAspectRatio="none" aria-label="Illustrative hash rate trace"><defs><linearGradient id="cm-hash-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#10d9ff" stopOpacity=".35"/><stop offset="1" stopColor="#10d9ff" stopOpacity="0"/></linearGradient></defs><path d="M0 54 C12 47 12 24 25 32 S42 54 52 39 S66 11 78 28 S94 49 105 35 S124 52 135 25 S153 32 170 5 L170 70 L0 70Z" fill="url(#cm-hash-fill)"/><path d="M0 54 C12 47 12 24 25 32 S42 54 52 39 S66 11 78 28 S94 49 105 35 S124 52 135 25 S153 32 170 5" fill="none" stroke="#18dfff" strokeWidth="2"/></svg></div></article>
       </section>
 
