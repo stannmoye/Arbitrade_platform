@@ -152,3 +152,40 @@ describe("notification sound header integration contract", () => {
     expect(css).toContain(".portal-session .customer-audio-warning button{display:inline-flex!important");
   });
 });
+
+
+describe("authoritative financial-event notification contracts", () => {
+  const routers = readFileSync(new URL("../../server/routers.ts", import.meta.url), "utf8");
+  const db = readFileSync(new URL("../../server/db.ts", import.meta.url), "utf8");
+  const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+
+  it("keeps admin wallet adjustment ledger writes and customer notification inside the database transaction", () => {
+    const start = db.indexOf("export async function adjustCustomerBalance(");
+    const end = db.indexOf("export async function listOpenOffers(", start);
+    const adjustment = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(adjustment).toContain("await db.transaction(async tx=>");
+    expect(adjustment).toContain("await tx.insert(balanceLedger).values(");
+    expect(adjustment).toContain("await tx.insert(customerNotifications).values(");
+    expect(adjustment).toContain("return {success:true,newAvailableMinor:next");
+  });
+
+  it("emits the administrator-session event only after the wallet adjustment service returns", () => {
+    const start = routers.indexOf("adjustCustomerBalance: adminProcedure");
+    const end = routers.indexOf("settings: adminProcedure", start);
+    const route = routers.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(route.indexOf("await adjustCustomerBalance(ctx.user.id, input)")).toBeGreaterThanOrEqual(0);
+    expect(route.indexOf("await adjustCustomerBalance(ctx.user.id, input)")).toBeLessThan(route.indexOf("await recordTransactionConsoleEvent"));
+    expect(route).toContain("eventType:`ADMIN_${input.mode.toUpperCase()}`");
+  });
+
+  it("does not present customer deposit submission or withdrawal initiation as confirmed payout", () => {
+    expect(app).toContain("Mock provider flow available for testing");
+    expect(app).toContain("Blocked until custody and execution providers are configured");
+    expect(app).not.toContain("Deposit completed successfully");
+    expect(app).not.toContain("Withdrawal paid successfully");
+  });
+});
