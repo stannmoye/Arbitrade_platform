@@ -31,6 +31,7 @@ const portalMigrationFiles = [
   "0056_support_ticket_assignment.sql",
   "0057_notification_history_pagination.sql",
   "0058_withdrawable_notification_campaigns.sql",
+  "0059_manual_payout_requests.sql",
 ];
 let journal;
 try {
