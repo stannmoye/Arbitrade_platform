@@ -104,6 +104,6 @@ export function isValidSupportAttachmentStorageKey(value: unknown): value is str
  */
 export function isSupportAttachmentStorageKeyForTicket(value: unknown, ticketId: unknown): value is string {
   if (!isValidSupportAttachmentStorageKey(value) || typeof ticketId !== "number" || !Number.isSafeInteger(ticketId) || ticketId < 1) return false;
-  const scoped = /^support\\/(\\d+)\\//.exec(value);
+  const scoped = /^support\/(\d+)\//.exec(value);
   return !scoped || Number(scoped[1]) === ticketId;
 }
