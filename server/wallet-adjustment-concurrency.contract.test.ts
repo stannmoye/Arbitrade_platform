@@ -44,6 +44,9 @@ describe("administrator wallet adjustment concurrency contract", () => {
     expect(implementation).toContain('!Number.isSafeInteger(input.amountMinor)||input.amountMinor<=0');
     expect(implementation).toContain('!Number.isSafeInteger(current)||current<0');
     expect(implementation).toContain('!Number.isSafeInteger(next)');
+    expect(implementation).toContain('!Number.isSafeInteger(promotionalCurrent)||promotionalCurrent<0');
+    expect(implementation).toContain('!Number.isSafeInteger(nextPromotional)');
+    expect(implementation.indexOf('!Number.isSafeInteger(nextPromotional)')).toBeLessThan(implementation.indexOf('await tx.update(customerBalances)'));
     expect(implementation.indexOf('!Number.isSafeInteger(next)')).toBeLessThan(implementation.indexOf('await tx.update(customerBalances)'));
     expect(implementation.indexOf('!Number.isSafeInteger(next)')).toBeLessThan(implementation.indexOf('await tx.insert(customerBalances)'));
   });
