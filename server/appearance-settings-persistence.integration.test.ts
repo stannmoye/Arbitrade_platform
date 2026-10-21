@@ -214,23 +214,43 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     const title = "Disposable announcement " + unique;
     const body = "This announcement is created only in the disposable integration database. " + unique;
 
-    // Publish through the real admin API: this creates the campaign, recipient
-    // delivery state, and customer notification using production code paths.
-    const published = await adminCaller.adminOperations.publishAnnouncement({
-      title,
-      body,
-      eventKey,
-      category: "announcement",
-      priority: "normal",
-      targetUserId: temporaryCustomerId,
-    });
-    temporaryCampaignId = published.campaignId;
-    expect(published).toMatchObject({
+    // Fail one specific recipient insert in the disposable DB so the real
+    // delivery service must persist a failure that can be retried.
+    const rawDb = (db as any).$client;
+    if (!rawDb || typeof rawDb.query !== "function") {
+      throw new Error("Disposable database driver does not expose the required test connection");
+    }
+    const triggerName = "trg_stage4_announce_" + unique.replace(/[^a-zA-Z0-9_]/g, "_");
+    const quotedTitle = title.replace(/'/g, "''");
+    await rawDb.query(`CREATE TRIGGER \`${triggerName}\` BEFORE INSERT ON \`customer_notifications\`
+      FOR EACH ROW BEGIN
+        IF NEW.\`title\` = '${quotedTitle}' THEN
+          SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'stage4 simulated recipient delivery failure';
+        END IF;
+      END`);
+
+    let publishedResult: Awaited<ReturnType<typeof adminCaller.adminOperations.publishAnnouncement>> | undefined;
+    try {
+      publishedResult = await adminCaller.adminOperations.publishAnnouncement({
+        title,
+        body,
+        eventKey,
+        category: "announcement",
+        priority: "normal",
+        targetUserId: temporaryCustomerId,
+      });
+    } finally {
+      await rawDb.query(`DROP TRIGGER IF EXISTS \`${triggerName}\``);
+    }
+    if (!publishedResult) throw new Error("Announcement publication did not return a result");
+    const firstAttempt = publishedResult;
+    temporaryCampaignId = firstAttempt.campaignId;
+    expect(firstAttempt).toMatchObject({
       campaignId: temporaryCampaignId,
-      recipientCount: 1,
+      recipientCount: 0,
       totalRecipientCount: 1,
       readCount: 0,
-      failedCount: 0,
+      failedCount: 1,
       pendingCount: 0,
       status: "published",
     });
@@ -238,24 +258,19 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     const [campaign] = await db.select().from(notificationCampaigns)
       .where(eq(notificationCampaigns.id, temporaryCampaignId));
     expect(campaign?.status).toBe("published");
-    const deliveredRows = await db.select().from(notificationCampaignDeliveries)
+    const failedRows = await db.select().from(notificationCampaignDeliveries)
       .where(eq(notificationCampaignDeliveries.campaignId, temporaryCampaignId));
-    expect(deliveredRows).toHaveLength(1);
-    expect(deliveredRows[0]?.userId).toBe(temporaryCustomerId);
-    expect(deliveredRows[0]?.status).toBe("delivered");
-    expect(deliveredRows[0]?.notificationId).toBeTruthy();
-    temporaryNotificationId = Number(deliveredRows[0].notificationId);
-
-    const notificationsBeforeRetry = await db.select().from(customerNotifications).where(and(
+    expect(failedRows).toHaveLength(1);
+    expect(failedRows[0]?.userId).toBe(temporaryCustomerId);
+    expect(failedRows[0]?.status).toBe("failed");
+    expect(failedRows[0]?.notificationId).toBeNull();
+    expect(await db.select().from(customerNotifications).where(and(
       eq(customerNotifications.userId, temporaryCustomerId),
       eq(customerNotifications.title, title),
-    ));
-    expect(notificationsBeforeRetry).toHaveLength(1);
-    expect(notificationsBeforeRetry[0]?.id).toBe(temporaryNotificationId);
-    expect(notificationsBeforeRetry[0]?.eventKey).toBeTruthy();
+    ))).toHaveLength(0);
 
-    // Repeating the same admin action must reuse the same persisted delivery
-    // and notification instead of duplicating either record.
+    // Retry the failed recipient through the same authenticated admin API after
+    // removing the one-shot test trigger; it should deliver exactly once.
     await expect(adminCaller.adminOperations.retryAnnouncement({
       campaignId: temporaryCampaignId,
     })).resolves.toMatchObject({
@@ -267,16 +282,43 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       pendingCount: 0,
       status: "published",
     });
-    const deliveriesAfterRetry = await db.select().from(notificationCampaignDeliveries)
+    const deliveriesAfterRecovery = await db.select().from(notificationCampaignDeliveries)
       .where(eq(notificationCampaignDeliveries.campaignId, temporaryCampaignId));
-    const notificationsAfterRetry = await db.select().from(customerNotifications).where(and(
+    expect(deliveriesAfterRecovery).toHaveLength(1);
+    expect(deliveriesAfterRecovery[0]?.status).toBe("delivered");
+    expect(deliveriesAfterRecovery[0]?.notificationId).toBeTruthy();
+    temporaryNotificationId = Number(deliveriesAfterRecovery[0].notificationId);
+    const notificationsAfterRecovery = await db.select().from(customerNotifications).where(and(
       eq(customerNotifications.userId, temporaryCustomerId),
       eq(customerNotifications.title, title),
     ));
-    expect(deliveriesAfterRetry).toHaveLength(1);
-    expect(deliveriesAfterRetry[0]?.notificationId).toBe(temporaryNotificationId);
-    expect(deliveriesAfterRetry[0]?.status).toBe("delivered");
-    expect(notificationsAfterRetry).toHaveLength(1);
+    expect(notificationsAfterRecovery).toHaveLength(1);
+    expect(notificationsAfterRecovery[0]?.id).toBe(temporaryNotificationId);
+    expect(notificationsAfterRecovery[0]?.eventKey).toBeTruthy();
+
+    // A repeated successful retry must preserve the exact same delivery and
+    // notification instead of creating duplicates.
+    await expect(adminCaller.adminOperations.retryAnnouncement({
+      campaignId: temporaryCampaignId,
+    })).resolves.toMatchObject({
+      campaignId: temporaryCampaignId,
+      recipientCount: 1,
+      totalRecipientCount: 1,
+      readCount: 0,
+      failedCount: 0,
+      pendingCount: 0,
+      status: "published",
+    });
+    const deliveriesAfterRepeatedRetry = await db.select().from(notificationCampaignDeliveries)
+      .where(eq(notificationCampaignDeliveries.campaignId, temporaryCampaignId));
+    const notificationsAfterRepeatedRetry = await db.select().from(customerNotifications).where(and(
+      eq(customerNotifications.userId, temporaryCustomerId),
+      eq(customerNotifications.title, title),
+    ));
+    expect(deliveriesAfterRepeatedRetry).toHaveLength(1);
+    expect(deliveriesAfterRepeatedRetry[0]?.notificationId).toBe(temporaryNotificationId);
+    expect(deliveriesAfterRepeatedRetry[0]?.status).toBe("delivered");
+    expect(notificationsAfterRepeatedRetry).toHaveLength(1);
 
     expect(await customerCaller.customer.notificationUnreadCount()).toBe(1);
     expect((await customerCaller.customer.notificationHistory({ limit: 10 })).items.map(item => item.id)).toContain(temporaryNotificationId);
