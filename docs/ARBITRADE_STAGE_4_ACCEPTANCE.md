@@ -263,6 +263,6 @@ Track these as six acceptance work areas within Stage 4, not as six separate top
 
 - Added keyset pagination for the authenticated customer notification history, ordered by `createdAt DESC, id DESC`, with validated opaque cursors and a hard maximum page size of 100 (UI requests 50).
 - Kept the global unread badge independent of the current page; category visibility and expired-campaign suppression apply to both history pages and unread counts.
-- Added a composite `customer_notifications(userId, createdAt, id)` index through tracked portal migration `0057_notification_history_pagination.sql`.
+- Added a composite `customer_notifications(userId, createdAt, id)` index through tracked portal migration `0057_notification_history_pagination.sql`. The disposable MySQL/MariaDB assertion script now checks the migration tracker checksum and exact index column order.
 - The inbox now supports loading older records while merging fresh first-page data by notification ID. The existing sound event cursor remains separate.
 - **Not yet accepted:** no exact-head CI result is available for the follow-on code at this checkpoint. Run focused pagination tests, TypeScript, build, disposable MySQL/MariaDB migration validation and the relevant browser/theme checks before closing these checklist items. All other Stage 4 release gates remain open.
