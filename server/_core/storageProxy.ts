@@ -3,6 +3,7 @@ import { ENV } from "./env";
 import { getTicketAttachmentAccess, getUserById } from "../db";
 import { getLocalSessionFromRequest } from "./localAuth";
 import { sdk } from "./sdk";
+import { getSafePresignedDownloadUrl } from "../support-upload-security";
 
 export function registerStorageProxy(app: Express) {
   app.get("/manus-storage/*", async (req, res) => {
@@ -65,14 +66,16 @@ export function registerStorageProxy(app: Express) {
         return;
       }
 
-      const { url } = (await forgeResp.json()) as { url: string };
-      if (!url) {
-        res.status(502).send("Empty signed URL from backend");
+      const { url } = (await forgeResp.json()) as { url?: unknown };
+      const safeDownloadUrl = getSafePresignedDownloadUrl(url);
+      if (!safeDownloadUrl) {
+        console.error("[StorageProxy] storage backend returned an invalid or unsafe signed URL");
+        res.status(502).send("Storage backend returned an invalid or unsafe signed URL");
         return;
       }
 
-      res.set("Cache-Control", "no-store");
-      res.redirect(307, url);
+      res.set("Cache-Control", "no-store, private");
+      res.redirect(307, safeDownloadUrl);
     } catch (err) {
       console.error("[StorageProxy] failed:", err);
       res.status(502).send("Storage proxy error");
