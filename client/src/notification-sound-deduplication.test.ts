@@ -233,7 +233,8 @@ describe("announcement lifecycle persistence contracts", () => {
     expect(end).toBeGreaterThan(start);
     expect(lifecycle).toContain('eq(notificationCampaigns.status,"published"),eq(notificationCampaigns.status,"scheduled")');
     expect(lifecycle).toContain('set({status:"expired"})');
-    expect(lifecycle).toContain('set({status:"published",publishedAt:now})');
+    expect(lifecycle).toContain("broadcastCustomerNotification(campaign.createdBy");
+    expect(lifecycle).toContain('eq(notificationCampaigns.status,"scheduled"),lte(notificationCampaigns.scheduledAt,now)');
     expect(lifecycle).toContain('if(result.status==="published") published++');
     expect(lifecycle).toContain('else if(result.status==="expired") expiredDuringPublish++');
     expect(lifecycle).toContain("return {expired:expired.length+expiredDuringPublish,published,failed}");
@@ -291,7 +292,7 @@ describe("authenticated support lifecycle persistence contracts", () => {
     const assignment = db.slice(start, end);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    expect(assignment).toContain("return db.transaction(async tx=>");
+    expect(assignment).toContain("const committed=await db.transaction(async tx=>");
     expect(assignment).toContain('.for("update")');
     expect(assignment).toContain('actor.role!=="admin"');
     expect(assignment).toContain('eq(users.role,"admin")');
@@ -305,7 +306,7 @@ describe("authenticated support lifecycle persistence contracts", () => {
     const reply = db.slice(start, end);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    expect(reply).toContain("return db.transaction(async tx=>");
+    expect(reply).toContain("const committed=await db.transaction(async tx=>");
     expect(reply).toContain('if(!isAdmin && ticket.customerId!==actorId)');
     expect(reply).toContain('ticket.status==="closed" || ticket.status==="resolved"');
     expect(reply).toContain("await tx.insert(supportMessages).values(");
@@ -336,7 +337,7 @@ describe("authenticated support lifecycle persistence contracts", () => {
     expect(route).toContain("isValidSupportAttachmentStorageKey(input.storageKey)");
     expect(db).toContain("export async function addTicketAttachment(");
     expect(db).toContain("You do not have access to this ticket");
-    expect(db).toContain("isValidSupportAttachmentStorageKey(input.storageKey)");
+    expect(db).toContain("isSupportAttachmentStorageKeyForTicket(input.storageKey,input.ticketId)");
   });
 });
 
