@@ -564,7 +564,7 @@ export async function listCustomerNotificationPage(userId:number,cursorValue?:st
     getExpiredCampaignNotificationIds(userId),
   ]);
   const conditions=await getVisibleNotificationConditions(userId,visibility,expiredIds);
-  if(cursorValue) {
+  if(cursorValue!=null) {
     const cursor=decodeNotificationCursor(cursorValue);
     if(!cursor)throw new Error("Invalid notification history cursor");
     const cursorCondition=or(
