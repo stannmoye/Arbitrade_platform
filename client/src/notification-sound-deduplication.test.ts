@@ -120,6 +120,11 @@ describe("notification sound header integration contract", () => {
     expect(effect).toContain("playConfiguredSound(headerSoundSettings[soundKey],soundKey,false,true,headerSoundSettings.volume)");
   });
 
+  it("normalizes persisted sound history before applying the bounded newest-ID window", () => {
+    expect(effect).toContain("if(Array.isArray(parsed))persistedIds=mergeSeenNotificationIds([],parsed as number[])");
+    expect(effect).not.toContain("parsed.filter((id):id is number=>Number.isSafeInteger(id)&&id>0).slice(-500)");
+  });
+
   it("re-evaluates sound preferences without replaying the current polling window", () => {
     expect(effect).toContain("previousHeaderNotificationIds.current=rows.map(item=>item.id)");
     expect(effect).toContain("headerSoundSettingsQuery.data");
