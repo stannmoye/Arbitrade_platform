@@ -45,6 +45,22 @@ describe("Stage 4 announcement campaign delivery persistence", () => {
     expect(core).toContain("processNotificationCampaignLifecycle");
   });
 
+  it("allows retry to persist an already-expired existing campaign before rejecting expired new campaigns", () => {
+    const start = db.indexOf("export async function broadcastCustomerNotification(");
+    const end = db.indexOf("export async function retryNotificationCampaign(", start);
+    const broadcast = db.slice(start, end);
+    const campaignLookup = broadcast.indexOf("let campaign=(await db.select().from(notificationCampaigns)");
+    const expiredDeadlineGuard = broadcast.indexOf('if(expiresAt && expiresAt.getTime()<=now.getTime())throw new RangeError("Announcement expiry must be in the future")');
+    const newCampaignBranch = broadcast.indexOf("if(!campaign) {", campaignLookup);
+    const recipientLookup = broadcast.indexOf("const recipients=await findRecipients()", newCampaignBranch);
+    expect(campaignLookup).toBeGreaterThanOrEqual(0);
+    expect(expiredDeadlineGuard).toBeGreaterThan(campaignLookup);
+    expect(newCampaignBranch).toBeGreaterThan(campaignLookup);
+    expect(expiredDeadlineGuard).toBeGreaterThan(newCampaignBranch);
+    expect(recipientLookup).toBeGreaterThan(expiredDeadlineGuard);
+    expect(broadcast).toContain("if(campaign.status===\"expired\")");
+  });
+
   it("counts scheduled lifecycle outcomes from the persisted campaign status", () => {
     const lifecycleStart = db.indexOf("export async function processNotificationCampaignLifecycle");
     const lifecycleEnd = db.indexOf("export async function listAdminNotificationCampaigns", lifecycleStart);
