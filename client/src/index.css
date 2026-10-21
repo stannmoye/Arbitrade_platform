@@ -487,3 +487,6 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
 .portal-session .customer-audio-warning{position:fixed;top:80px;right:16px;z-index:1000;width:max-content;max-width:min(420px,calc(100vw - 32px));background:var(--ux-panel,#0b1827);box-shadow:0 10px 30px rgba(0,0,0,.3);}
 .portal-session .customer-audio-warning>span{min-width:0;flex:1;overflow-wrap:anywhere;}
 @media(max-width:600px){.portal-session .customer-audio-warning{top:76px;right:8px;max-width:calc(100vw - 16px);}}
+
+/* Mobile portal rules hide most header buttons; keep the warning's dismiss action reachable. */
+.portal-session .customer-audio-warning button{display:inline-flex!important;flex:none;align-items:center;justify-content:center;min-height:30px;padding:5px 9px;border:1px solid var(--ux-line-strong,#35536b);border-radius:6px;}
