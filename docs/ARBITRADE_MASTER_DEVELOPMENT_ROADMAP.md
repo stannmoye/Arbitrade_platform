@@ -10,8 +10,8 @@
 
 - **Confirmed defect:** the published `v2.0.0-stage4-full` archive omitted Gold Luxe, the sixth Stage 3 theme. The uploaded Stage 3 baseline registers `gold-luxe`; the released Stage 4 package had five-theme client/server allow-lists and omitted the Gold Luxe semantic tokens and customer overrides.
 - **Correction batch:** restore Gold Luxe in the client registry, administrator policy, authoritative server validation, CSS token/legacy bridge, and regression contracts; restore the Stage 3 Clean Light customer contrast/responsive CSS; retain the integrated Stage 4 notifications, two-way support, migrations, and bundled sounds.
-- **Replacement release target:** `v2.0.1-stage4-full` — publish only after exact-head tests, TypeScript validation, production build, and ZIP-content checks pass. The earlier release is retained as historical evidence and must not be overwritten.
-- **Status at checkpoint:** correction is being validated; do not describe the replacement as published until GitHub confirms the release asset and its checksum.
+- **Replacement release target:** `v2.0.2-stage4-full` — the canonical corrected release must have its Git tag point to the exact source commit recorded in the ZIP provenance. The intermediate `v2.0.1-stage4-full` asset contains the corrected files, but its tag was created at the prior commit before the deployment metadata commit; supersede it rather than claiming its tag and asset are aligned.
+- **Status at checkpoint:** Gold Luxe and Stage 3 customer styling are restored, the deployment guide and generated version/build markers are included, and the exact-head CI build has passed. Publish/accept the canonical `v2.0.2-stage4-full` only after its tag SHA, release asset SHA-256, and final ZIP inventory are verified.
 
 ## Current user-accepted project checkpoint (2026-10-20)
 

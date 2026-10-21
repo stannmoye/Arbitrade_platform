@@ -58,6 +58,7 @@ jobs:
         run: |
           {
             echo "Product: Arbitrade full application"
+            echo "Release tag: v2.0.2-stage4-full"
             echo "Included stages: original application + Stages 1, 2, 3, and 4"
             echo "Theme set: Original Arbitrade, Midnight Premium, Clean Light, Emerald Finance, Aurora Modern, Gold Luxe (6 total)"
             echo "Source branch: $GITHUB_REF_NAME"
@@ -150,10 +151,10 @@ jobs:
       - name: Publish GitHub release with the full ZIP
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.0.1-stage4-full
-          name: Arbitrade Stage 4 — Full Application (Six Themes)
+          tag_name: v2.0.2-stage4-full
+          name: Arbitrade Stage 4 — Full Application (Six Themes, Corrected)
           body: |
-            Corrected full installer package for the original Arbitrade application with Stages 1–4 integrated.
+            Canonical corrected full installer package for the original Arbitrade application with Stages 1–4 integrated. This release supersedes v2.0.1-stage4-full because its Git tag pointed to an earlier commit than the corrected asset provenance.
 
             Restores the Gold Luxe sixth theme, Stage 3 Clean Light customer contrast/responsive styling, and deployment/version/build metadata while retaining the Stage 4 notification, sound, campaign, two-way support, and migration work. Includes the complete application, browser installer, VPS/cPanel deployment files, production build, locked dependencies, and required assets. The workflow runs the full regression suite, TypeScript validation, production build, and archive-content checks. Environment secrets and Git metadata are excluded.
           target_commitish: integration/auth-installer-vps-safety
