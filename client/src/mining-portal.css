@@ -191,6 +191,21 @@
 
 .cm-dashboard-frame .cm-swap-note{display:block;color:#91abc4;font-size:7px;line-height:1.3;text-align:center}
 
+.cm-dashboard-frame .cm-swap-quote-panel{grid-column:1/-1;min-width:0;margin-top:12px;padding:14px;border:1px solid rgba(52,194,220,.4);border-radius:13px;background:linear-gradient(135deg,rgba(5,23,39,.98),rgba(8,35,52,.98));color:#e8f7ff;box-shadow:inset 0 1px 0 rgba(185,236,255,.045)}
+.cm-dashboard-frame .cm-swap-quote-heading{font-size:12px;font-weight:900;letter-spacing:.02em;color:#e8fbff}
+.cm-dashboard-frame .cm-swap-quote-panel>p{margin:6px 0 10px;color:#9bb9cb;font-size:10px;line-height:1.5}
+.cm-dashboard-frame .cm-swap-quote-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:9px;margin:12px 0}
+.cm-dashboard-frame .cm-swap-quote-details span{display:block;min-width:0;padding:9px;border:1px solid rgba(76,144,176,.2);border-radius:9px;background:rgba(5,16,29,.48);color:#91abc4;font-size:9px;line-height:1.4}
+.cm-dashboard-frame .cm-swap-quote-details strong{display:block;margin-top:4px;overflow-wrap:anywhere;color:#dff9ff;font-size:12px;font-weight:800}
+.cm-dashboard-frame .cm-swap-quote-panel>small{display:block;color:#8eafc1;font-size:9px;line-height:1.5}
+.cm-dashboard-frame .cm-swap-quote-expired{color:#f2c77c!important}
+.cm-dashboard-frame .cm-swap-quote-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.cm-dashboard-frame .cm-swap-quote-actions .cm-swap-all{flex:1 1 170px;width:auto;margin:0}
+.cm-dashboard-frame .cm-swap-cancel{flex:0 0 auto;min-height:32px;padding:0 13px;border:1px solid rgba(126,173,198,.35);border-radius:8px;background:rgba(24,51,70,.65);color:#c8e1ee;font-size:10px;font-weight:800;cursor:pointer}
+.cm-dashboard-frame .cm-swap-cancel:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:410px){.cm-dashboard-frame .cm-swap-quote-panel{padding:11px}.cm-dashboard-frame .cm-swap-quote-details{grid-template-columns:1fr 1fr}.cm-dashboard-frame .cm-swap-quote-details span:first-child{grid-column:1/-1}.cm-dashboard-frame .cm-swap-quote-actions{flex-direction:column}.cm-dashboard-frame .cm-swap-quote-actions>*{width:100%;flex:auto}}
+
+
 
 /* End-to-end dummy-data mining flow; live balances remain read-only and ledger-backed. */
 .cm-flow-panel{position:relative;overflow:hidden;margin:14px 0 16px;padding:18px 20px;border:1px solid rgba(51,164,205,.42);border-radius:15px;background:radial-gradient(ellipse at 8% 0,rgba(0,198,255,.13),transparent 32%),linear-gradient(135deg,#061421,#081b2b 55%,#091827);color:#e8f7ff;box-shadow:0 15px 36px rgba(0,9,20,.26),inset 0 1px 0 rgba(185,236,255,.05)}
