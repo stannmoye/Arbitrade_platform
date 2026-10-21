@@ -37,6 +37,17 @@ describe("administrator wallet adjustment concurrency contract", () => {
     expect(implementation.indexOf("await db.transaction(async tx=>")).toBeGreaterThanOrEqual(0);
   });
 
+  it("rejects unsafe amounts and balance arithmetic before mutating the wallet", () => {
+    const start = db.indexOf("export async function adjustCustomerBalance");
+    const end = db.indexOf("\\nexport async function listOpenOffers", start);
+    const implementation = db.slice(start, end);
+    expect(implementation).toContain('!Number.isSafeInteger(input.amountMinor)||input.amountMinor<=0');
+    expect(implementation).toContain('!Number.isSafeInteger(current)||current<0');
+    expect(implementation).toContain('!Number.isSafeInteger(next)');
+    expect(implementation.indexOf('!Number.isSafeInteger(next)')).toBeLessThan(implementation.indexOf('await tx.update(customerBalances)'));
+    expect(implementation.indexOf('!Number.isSafeInteger(next)')).toBeLessThan(implementation.indexOf('await tx.insert(customerBalances)'));
+  });
+
   it("uses the committed ledger reference for notification and email idempotency", () => {
     const start = db.indexOf("export async function adjustCustomerBalance");
     const end = db.indexOf("\nexport async function listOpenOffers", start);
