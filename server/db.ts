@@ -416,9 +416,15 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
   if(campaign.status==="expired")throw new Error("Expired announcement campaigns cannot be republished");
   if(campaign.status==="withdrawn")throw new Error("Withdrawn announcement campaigns cannot be republished");
   if(campaign.expiresAt && campaign.expiresAt.getTime()<=now.getTime()) {
-    const expiredUpdate=await db.update(notificationCampaigns).set({status:"expired"}).where(and(eq(notificationCampaigns.id,campaign.id),inArray(notificationCampaigns.status,["draft","scheduled","published","failed"])));
-    if(Number(expiredUpdate[0]?.affectedRows||0)>0) {
-      await db.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
+    // Keep campaign expiry and recipient suppression in one transaction so a
+    // transient delivery-table failure cannot strand pending rows forever.
+    const expiredTransition=await db.transaction(async tx=>{
+      const changed=await tx.update(notificationCampaigns).set({status:"expired"}).where(and(eq(notificationCampaigns.id,campaign!.id),inArray(notificationCampaigns.status,["draft","scheduled","published","failed"]),lte(notificationCampaigns.expiresAt,now)));
+      if(Number(changed[0]?.affectedRows||0)===0)return false;
+      await tx.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign!.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
+      return true;
+    });
+    if(expiredTransition) {
       return {campaignId:campaign.id,recipientCount:0,totalRecipientCount:campaign.totalRecipientCount,readCount:0,failedCount:0,pendingCount:0,eventKey,targetUserId:targetUserId??null,status:"expired" as const};
     }
     campaign=(await db.select().from(notificationCampaigns).where(eq(notificationCampaigns.id,campaign.id)).limit(1))[0]!;
@@ -509,11 +515,15 @@ export async function processNotificationCampaignLifecycle() {
   let expiredCount=0;
   const expired=await db.select().from(notificationCampaigns).where(and(inArray(notificationCampaigns.status,["draft","scheduled","published","failed"]),lte(notificationCampaigns.expiresAt,now))).limit(100);
   for(const campaign of expired) {
-    const changed=await db.update(notificationCampaigns).set({status:"expired"}).where(and(eq(notificationCampaigns.id,campaign.id),inArray(notificationCampaigns.status,["draft","scheduled","published","failed"])));
-    if(Number(changed[0]?.affectedRows||0)>0) {
-      expiredCount++;
-      await db.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
-    }
+    // Expire the campaign and its retryable deliveries atomically. If the
+    // delivery update fails, the campaign transition rolls back and can retry.
+    const changed=await db.transaction(async tx=>{
+      const result=await tx.update(notificationCampaigns).set({status:"expired"}).where(and(eq(notificationCampaigns.id,campaign.id),inArray(notificationCampaigns.status,["draft","scheduled","published","failed"]),lte(notificationCampaigns.expiresAt,now)));
+      if(Number(result[0]?.affectedRows||0)===0)return false;
+      await tx.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
+      return true;
+    });
+    if(changed)expiredCount++;
   }
   const due=await db.select().from(notificationCampaigns).where(and(eq(notificationCampaigns.status,"scheduled"),lte(notificationCampaigns.scheduledAt,now))).limit(100);
   let published=0,failed=0,expiredDuringPublish=0;
