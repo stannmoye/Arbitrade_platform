@@ -166,3 +166,7 @@ Added stable recipient-scoped event keys for all five previously bare `createMin
 ## 12. Exact-head CI completion and package provenance (2026-10-21)
 
 All exact-head PR workflows for `055eb0750d8aca2576f4f46753828e844f5cb9da` completed: 12 successful, 2 skipped, 0 failed, 0 pending. The installer run `39532015607` published `arbitrade-universal-installer` artifact `12315442491` and `validated-production-dist` artifact `12315837199`. The release-package checklist item is now closed at CI provenance level; this does not replace the reserved final production build or final owner verification.
+
+## 13. Gesture-triggered audio unlock (2026-10-21)
+
+`unlockNotificationAudio()` is no longer a no-op. It now uses a shipped muted WAV asset, stops it immediately, memoizes successful unlock, and coalesces concurrent attempts. Added a focused contract test. Validation passed **87/87 focused tests** and `pnpm check`. Full browser sound acceptance remains open.

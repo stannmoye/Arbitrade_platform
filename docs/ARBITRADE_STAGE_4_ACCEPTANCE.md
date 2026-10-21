@@ -335,3 +335,9 @@ Latest verified application code: `5b7db5abef6c6bc7fce17a47ebbec8d730092849`.
 - Exact current head `055eb0750d8aca2576f4f46753828e844f5cb9da` completed all required PR workflows: **12 successful, 2 skipped, 0 failed, 0 pending**. This includes TypeScript, application regression, production build/server smoke, installer/migration regression, fresh MariaDB, MySQL 8 compatibility/recovery, mining database regression, Chromium viewport/five-theme smoke, and deployment packaging.
 - Installer workflow [39532015607](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39532015607) published the exact-head artifacts `arbitrade-universal-installer` (artifact `12315442491`, 2,816,168 bytes) and `validated-production-dist` (artifact `12315837199`, 1,078,584 bytes). These are CI provenance artifacts, not a production deployment.
 - This closes release-package provenance at the CI level. Manual accessibility review, authenticated runtime acceptance, persistent push decision, provider-backed deposit/withdrawal lifecycle, and final owner-level release verification remain open.
+
+### 2026-10-21 audio unlock fix
+
+- Fixed the no-op `unlockNotificationAudio()` path used before asynchronous wallet/trade sound playback. The implementation now performs a best-effort gesture-triggered unlock using a shipped muted WAV asset, immediately stops it, and deduplicates in-flight attempts.
+- Added `client/src/notification-audio-unlock.contract.test.ts`; focused sound/notification validation passed **87/87 tests**, and `pnpm check` passed.
+- This is an implementation improvement, not full browser acceptance. Preference persistence, autoplay behavior across browsers, post-commit timing, reconnect deduplication, and authenticated runtime evidence remain open.

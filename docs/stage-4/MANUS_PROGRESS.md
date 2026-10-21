@@ -134,3 +134,11 @@ For each meaningful work unit, append a section with actual changed behavior/fil
 - Successful exact-head evidence includes TypeScript, application/theme regression, production build/server smoke, installer and migration regression, fresh MariaDB, MySQL 8 compatibility/recovery, mining database regression, Chromium viewport/five-theme smoke, and deployment packaging.
 - Installer run `39532015607` published exact-head artifacts: `arbitrade-universal-installer` (`12315442491`, 2,816,168 bytes) and `validated-production-dist` (`12315837199`, 1,078,584 bytes). No production deployment occurred.
 - Closed the release-package provenance checkbox at CI level. Manual accessibility, authenticated runtime E2E, persistent push decision, provider-backed financial lifecycle, and final owner-level release verification remain open.
+
+### Work unit 13 — gesture-triggered audio unlock (2026-10-21)
+
+- Fixed the customer/admin sound lifecycle gap where `unlockNotificationAudio()` was a no-op even though wallet/trade actions invoked it before asynchronous success/error playback. It now attempts to play and immediately stop a shipped muted WAV asset from the user gesture, memoizes successful unlock, and coalesces concurrent unlock attempts.
+- No oscillator or synthetic tone generation was introduced; the existing five real audio assets remain the only sound sources.
+- Added `client/src/notification-audio-unlock.contract.test.ts` covering the shipped muted asset, no oscillator behavior, and in-flight deduplication.
+- Focused validation passed: **6 Vitest files / 87 tests**, `pnpm check`, and `git diff --check`.
+- This improves autoplay readiness and unlock deduplication but does not claim full browser preference, volume, post-commit, reconnect, or authenticated runtime acceptance. The broader sound checklist item remains open.

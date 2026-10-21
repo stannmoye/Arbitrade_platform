@@ -58,7 +58,15 @@ type SoundKey="default"|"opportunity"|"deposit"|"credit"|"debit"|"withdrawal"|"t
 type SoundSettings={default:string;opportunity:string;deposit:string;credit:string;debit:string;withdrawal:string;trading:string;mining:string;support:string;announcement:string;failure:string;enabled:boolean;loopOpportunity:boolean;volume:number};
 const defaultSoundSettings:SoundSettings={default:"sound-01",opportunity:"sound-01",deposit:"sound-02",credit:"sound-02",debit:"sound-03",withdrawal:"sound-05",trading:"sound-02",mining:"sound-04",support:"sound-03",announcement:"sound-01",failure:"sound-05",enabled:false,loopOpportunity:false,volume:80};
 let activeNotificationAudio:HTMLAudioElement|null=null;let opportunityLoopTimer:number|null=null;
-function unlockNotificationAudio(){/* Audio playback is initiated from a user gesture; no synthetic tone generator is used. */}
+let notificationAudioUnlocked=false;let notificationAudioUnlockInFlight:Promise<void>|null=null;
+function unlockNotificationAudio(){
+  if(notificationAudioUnlocked||notificationAudioUnlockInFlight)return notificationAudioUnlockInFlight;
+  if(typeof window==="undefined"||typeof Audio==="undefined")return null;
+  const audio=new Audio(SOUND_PRESETS[0].src);
+  audio.preload="auto";audio.muted=true;audio.volume=0;
+  notificationAudioUnlockInFlight=audio.play().then(()=>{audio.pause();audio.currentTime=0;notificationAudioUnlocked=true;}).catch(()=>{}).finally(()=>{notificationAudioUnlockInFlight=null;});
+  return notificationAudioUnlockInFlight;
+}
 function soundEffectsEnabled(){try{return typeof window!=="undefined"&&window.localStorage.getItem("wisebond-sound-effects")==="on"}catch{return false}}
 function playConfiguredSound(id:string,kind:SoundKey="default",loop=false,force=false,volume:number=defaultSoundSettings.volume){if(!force&&(!soundEffectsEnabled()||!defaultSoundSettings.enabled))return;try{const preset=SOUND_PRESETS.find(x=>x.id===id)||SOUND_PRESETS[0];const play=()=>{const audio=new Audio(preset.src);audio.preload="auto";audio.volume=notificationAudioVolume(volume,kind==="debit"||kind==="failure"?.9:1);activeNotificationAudio=audio;void audio.play().catch(()=>{});};play();if(loop){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=window.setInterval(play,1500)}}catch{}}
 function stopConfiguredSound(){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;if(activeNotificationAudio){activeNotificationAudio.pause();activeNotificationAudio.currentTime=0;activeNotificationAudio=null}}
