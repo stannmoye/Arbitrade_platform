@@ -140,10 +140,18 @@ async function startServer() {
     // Keep authentication failures separate from storage/provider failures. A
     // storage outage must never be reported as an invalid customer session.
     let authenticatedUser;
-    try {
-      authenticatedUser = await sdk.authenticateRequest(req);
-    } catch {
-      return res.status(401).json({ error: "Authentication required" });
+    const localSession = getLocalSessionFromRequest(req);
+    if (localSession) {
+      authenticatedUser = await getUserById(localSession.userId);
+      if (!authenticatedUser || Number(authenticatedUser.authVersion || 0) !== localSession.authVersion) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+    } else {
+      try {
+        authenticatedUser = await sdk.authenticateRequest(req);
+      } catch {
+        return res.status(401).json({ error: "Authentication required" });
+      }
     }
 
     try {
