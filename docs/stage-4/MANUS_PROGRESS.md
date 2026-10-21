@@ -35,6 +35,15 @@ This file is the resumable work log for PR #95. GitHub branch history is authori
 - Limitations: this is a resilient polling fallback, not server push. We did not add SSE/WebSockets because no existing authenticated push transport or deployment/runtime support was established in the recovered architecture. No external provider flow was exercised.
 - Next concrete task: keep this slice saved, inspect ticket list/thread server response bounds and campaign lifecycle parity for a code-level acceptance gap. Then add focused authenticated/ownership contract or browser regression coverage to the existing infrastructure. Continue tracking authenticated end-to-end, assistive-technology, and provider-dependent acceptance separately; update acceptance and handoff before final completion.
 
+### Work unit 2 — withdrawable announcement campaigns (in progress)
+
+- Starting code head: `51c9425d858c4c0abf0f41efe4016eb73d5a4705`.
+- Campaign inspection found a persisted `draft/scheduled/published/expired/failed` state machine, recipient delivery records, and admin publish/retry/history UI, but no withdrawal state or action. Customer visibility suppression currently covers expired campaign notices only. This leaves no way for an administrator to retract an erroneous scheduled/published message.
+- Planned slice: add an auditable, admin-only, idempotent campaign withdrawal transition; block retries/rescheduling of withdrawn campaigns; suppress withdrawn recipients from customer history, unread counts, and the sound event cursor; preserve already delivered/read delivery evidence while marking still-pending/failed recipients as withdrawn; surface status/count/action in admin UI. Add migration registration and focused tests.
+- Safety: an in-flight delivery may complete concurrently, but customer APIs must suppress the entire withdrawn campaign by campaign status; withdrawal must not delete user notification rows or financial records. No external broadcast or production data changes.
+- Tests for this work unit so far: source review only; no tests run yet.
+- Next: implement the transition and schema in a migration-compatible slice, then focused tests, TypeScript and build; checkpoint/push before any follow-on changes.
+
 ## Update protocol
 
 For each meaningful work unit, append a section with actual changed behavior/files, actual test commands/results, resulting Git SHA, unresolved risks, and next action. Commit and push each coherent slice to the existing feature branch. After pushing, confirm remote branch SHA through GitHub. If interrupted, resume from this file plus `git log`, source and live CI; do not trust old conversation state.
