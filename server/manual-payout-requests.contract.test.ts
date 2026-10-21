@@ -1,0 +1,82 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+const db = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
+const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
+const migration = readFileSync(new URL("../drizzle/0059_manual_payout_requests.sql", import.meta.url), "utf8");
+const migrationRunner = readFileSync(new URL("../scripts/apply-portal-migrations.mjs", import.meta.url), "utf8");
+const customerUi = readFileSync(new URL("../client/src/components/PayoutRequests.tsx", import.meta.url), "utf8");
+const adminUi = readFileSync(new URL("../client/src/components/AdminOperationsPages.tsx", import.meta.url), "utf8");
+
+const requestStart = db.indexOf("export async function createCustomerPayoutRequest");
+const cancelStart = db.indexOf("export async function cancelCustomerPayoutRequest");
+const resolveStart = db.indexOf("export async function resolveCustomerPayoutRequest");
+const requestService = db.slice(requestStart, cancelStart);
+const cancelService = db.slice(cancelStart, resolveStart);
+const resolveService = db.slice(resolveStart);
+
+describe("manual payout request lifecycle contract", () => {
+  it("limits payout currency to canonical main-wallet assets and tracks requests in a migration", () => {
+    expect(db).toContain('new Set(["USD", "EUR", "GBP", "BTC", "ETH", "USDT"])');
+    expect(router).toContain('z.enum(["USD", "EUR", "GBP", "BTC", "ETH", "USDT"])');
+    expect(customerUi).toContain('["USD", "EUR", "GBP", "BTC", "ETH", "USDT"] as const');
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS `payout_requests`");
+    expect(migration).toContain("payout_requests_external_reference_unique");
+    expect(schema).toContain('export const payoutRequests = mysqlTable("payout_requests"');
+    expect(migrationRunner).toContain('"0059_manual_payout_requests.sql"');
+    expect(migrationRunner).toContain('"payout_requests"');
+  });
+
+  it("requires the global and per-customer withdrawal gates and verified KYC when required", () => {
+    expect(requestStart).toBeGreaterThanOrEqual(0);
+    expect(cancelStart).toBeGreaterThan(requestStart);
+    expect(requestService).toContain("payoutIdempotencyKey(userId, input.idempotencyKey)");
+    expect(requestService).toContain("assertPayoutPolicyAllowsRequest(tx, userId)");
+    expect(db).toContain('policy.withdrawals !== true');
+    expect(db).toContain('controls.withdrawalsEnabled !== true');
+    expect(db).toContain('profile?.overallStatus !== "VERIFIED"');
+    expect(db).toContain("controls.emailVerified !== true");
+  });
+
+  it("uses row locks and reserves only non-promotional funds atomically", () => {
+    expect(requestService).toContain('from(users).where(eq(users.id, userId)).limit(1).for("update")');
+    expect(requestService).toContain("prior.destinationDetails === destinationDetails");
+    expect(requestService).toContain("Number.isSafeInteger(input.amountMinor)");
+    expect(requestService).toContain("promotional > available");
+    expect(requestService).toContain("input.amountMinor > available - promotional");
+    expect(requestService).toContain("Payout wallet reservation");
+    expect(requestService).toContain('entryType: "payout_reserve"');
+    expect(requestService).toContain('status: "pending"');
+  });
+
+  it("releases reserved funds on customer cancellation or admin rejection", () => {
+    expect(cancelService).toContain('eq(payoutRequests.userId, userId)');
+    expect(cancelService).toContain('request.status !== "pending"');
+    expect(cancelService).toContain("Payout cancellation wallet release");
+    expect(cancelService).toContain('status: "cancelled"');
+    expect(resolveService).toContain("Payout rejection wallet release");
+    expect(resolveService).toContain('entryType: "payout_release"');
+  });
+
+  it("requires a unique external reference for payout completion and never triggers an automatic transfer", () => {
+    expect(resolveService).toContain("externalReference.length < 3");
+    expect(resolveService).toContain("duplicateReference");
+    expect(resolveService).toContain("Payout paid wallet settlement");
+    expect(resolveService).toContain('entryType: "payout_paid"');
+    expect(resolveService).toContain('status: input.action');
+    expect(schema).toContain('externalReferenceUnique: uniqueIndex("payout_requests_external_reference_unique")');
+    expect(resolveService).not.toContain("transferProvider");
+    expect(resolveService).not.toContain("sendExternalTransfer");
+  });
+
+  it("exposes only customer-owned requests and admin-only resolution in the router", () => {
+    expect(router).toContain("payoutRequests: protectedProcedure.query(({ ctx }) => listCustomerPayoutRequests(ctx.user.id))");
+    expect(router).toContain("cancelCustomerPayoutRequest(ctx.user.id, input.requestId)");
+    expect(router).toContain("payoutRequests: adminProcedure.query(() => listAdminPayoutRequests())");
+    expect(router).toContain("resolveCustomerPayoutRequest(ctx.user.id, input)");
+    expect(customerUi).toContain("Never enter passwords, PINs, private keys, or seed phrases.");
+    expect(adminUi).toContain("Reject and release");
+    expect(adminUi).toContain("Mark paid");
+  });
+});
