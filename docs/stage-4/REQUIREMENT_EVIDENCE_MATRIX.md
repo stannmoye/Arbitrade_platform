@@ -156,3 +156,12 @@ Exact-head checks passed:
 - [Mining DB regression 39651054575](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39651054575): database-backed mining idempotency/transaction checks.
 
 The browser smoke covers sound preference on/off persistence and accessible blocked-audio warning dismissal. It does not close owner-held autoplay-denial/user-gesture retry, reconnect deduplication, or post-commit timing. Exhaustive event-source mapping, announcement/support lifecycle acceptance, manual accessibility/hosted acceptance, authoritative provider-backed deposit/withdrawal completion events, and final release ZIP rebuild remain open. Persistent push remains deferred under bounded-polling release scope. No production deployment, production migration, or published ZIP replacement occurred; the published `v2.0.4-stage4-full` archive predates PR #102.
+
+
+## Notification source-coverage contracts — PR #103
+
+PR #103 merged as `0ab6c60aacf34ffb00f9d8504326895cf96263ec`; exact tested head `5dd098294d6ee0df5d6d8192c74550e80ad9ba3b`. Added regression contracts for stable event identities spanning account/security, wallet adjustments, support ticket lifecycle, trade allocation and settlement, mining rewards, conversions and swaps.
+
+Exact-head workflows passed: [Stage 3 five-theme/Chromium validation 39652029432](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39652029432), [installer and MySQL/MariaDB migration/package validation 39652029443](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39652029443), and [mining DB regression 39652029931](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39652029931). These are source regression contracts, not proof of exhaustive live delivery.
+
+Remaining: owner-held audio autoplay/retry/reconnect/timing acceptance; full announcement end-to-end delivery/expiry/read reporting; support concurrency and lifecycle; manual accessibility/hosted acceptance; authoritative provider/custody deposit/withdrawal completion events; final release ZIP rebuild. Persistent push remains deferred under accepted bounded-polling scope. No production deployment, production DB migration or published ZIP replacement occurred.
