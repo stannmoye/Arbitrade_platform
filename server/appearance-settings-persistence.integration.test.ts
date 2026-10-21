@@ -329,6 +329,32 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     ));
     expect(auditRows).toHaveLength(1);
     expect((await adminCaller.adminOperations.tickets()).find(ticket => ticket.id === temporaryTicketId)?.assignedAdminId).toBe(administrator.id);
+
+    await expect(adminCaller.adminOperations.replyTicket({
+      ticketId: temporaryTicketId,
+      body: "Administrator resolution response",
+      status: "resolved",
+    })).resolves.toMatchObject({ success: true });
+    await expect(ownerCaller.customer.replyTicket({
+      ticketId: temporaryTicketId,
+      body: "Reply before reopening",
+    })).rejects.toThrow("Resolved or closed tickets must be reopened before a customer reply");
+
+    await expect(ownerCaller.customer.reopenTicket({ ticketId: temporaryTicketId })).resolves.toMatchObject({
+      success: true,
+      changed: true,
+      status: "open",
+    });
+    await expect(ownerCaller.customer.replyTicket({
+      ticketId: temporaryTicketId,
+      body: "Customer reply after reopening",
+    })).resolves.toMatchObject({ success: true });
+
+    const [reopenedTicket] = await db.select().from(supportTickets).where(eq(supportTickets.id, temporaryTicketId));
+    expect(reopenedTicket?.status).toBe("open");
+    const messages = await ownerCaller.customer.ticketMessages({ ticketId: temporaryTicketId });
+    expect(messages.map(message => message.body)).toContain("Administrator resolution response");
+    expect(messages.map(message => message.body)).toContain("Customer reply after reopening");
   });
 
   afterAll(async () => {
