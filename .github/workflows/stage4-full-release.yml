@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: stage4-full-release
@@ -52,7 +52,8 @@ jobs:
             -x './.git/*' \
                './.env' './.env.*' \
                './node_modules/.cache/*' \
-               './.github/*'
+               './.github/*' \
+               './arbitrade-stage4-full-application.zip'
           test -s arbitrade-stage4-full-application.zip
           unzip -tq arbitrade-stage4-full-application.zip
           sha256sum arbitrade-stage4-full-application.zip
@@ -65,3 +66,16 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 90
+      - name: Publish GitHub release with the full application ZIP
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.0.0-stage4-full
+          name: Arbitrade Stage 4 — Full Application
+          body: |
+            Full application package integrating Stages 1–4 from the integration/auth-installer-vps-safety branch.
+
+            The ZIP includes the repository source, locked dependencies, installer files, and production build output. Environment files and Git metadata are excluded.
+          target_commitish: integration/auth-installer-vps-safety
+          files: arbitrade-stage4-full-application.zip
+          fail_on_unmatched_files: true
+          generate_release_notes: false
