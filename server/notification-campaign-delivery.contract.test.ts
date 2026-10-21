@@ -81,6 +81,18 @@ describe("Stage 4 announcement campaign delivery persistence", () => {
     expect(withdrawalMigration).toContain("'failed','expired','withdrawn'");
   });
 
+  it("does not let an in-flight delivery overwrite withdrawn or expired recipient state", () => {
+    const start = db.indexOf("export async function broadcastCustomerNotification(");
+    const end = db.indexOf("export async function retryNotificationCampaign(", start);
+    const delivery = db.slice(start, end);
+    expect(delivery).toContain('eq(notificationCampaignDeliveries.id,delivery.id)');
+    expect(delivery).toContain('inArray(notificationCampaignDeliveries.status,["pending","failed"])');
+    expect(delivery).toContain('set({notificationId,status:"delivered",attemptedAt,deliveredAt:new Date(),errorCode:null})');
+    expect(delivery).toContain('set({status:"failed",attemptedAt,errorCode:"DELIVERY_FAILED"})');
+    expect(delivery).not.toContain('onDuplicateKeyUpdate({set:{notificationId,status:"delivered"');
+    expect(delivery).not.toContain('onDuplicateKeyUpdate({set:{status:"failed",attemptedAt,errorCode:"DELIVERY_FAILED"}');
+  });
+
   it("exposes withdrawal only in the admin router and gives operators a confirmed, status-scoped action", () => {
     expect(router).toContain("withdrawAnnouncement: adminProcedure.input");
     expect(router).toContain("withdrawNotificationCampaign(ctx.user.id,input.campaignId)");
