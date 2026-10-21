@@ -687,11 +687,14 @@ export async function addTicketAttachment(userId:number,input:{ticketId:number;f
 }
 export async function getTicketAttachmentAccess(storageKey:string) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
-  const row=(await db.select({ticketId:supportTickets.id,customerId:supportTickets.customerId})
+  const rows=await db.select({ticketId:supportTickets.id,customerId:supportTickets.customerId})
     .from(supportAttachments)
     .innerJoin(supportTickets,eq(supportTickets.id,supportAttachments.ticketId))
-    .where(eq(supportAttachments.storageKey,storageKey)).limit(1))[0];
-  return row ?? null;
+    .where(eq(supportAttachments.storageKey,storageKey));
+  // Fail closed if legacy data or a concurrent registration ever creates
+  // duplicate claims for the same object; never choose an arbitrary owner.
+  if(rows.length!==1) return null;
+  return rows[0] ?? null;
 }
 
 // Controlled opportunity engine: this is an internal paper-ledger boundary. Real execution requires licensed providers/custody.
