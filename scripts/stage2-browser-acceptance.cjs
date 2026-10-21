@@ -205,6 +205,12 @@ async function runAdminAppearanceInteractionCheck(browser) {
 
     await page.getByRole("button", { name: /Platform Configuration/ }).click();
     await page.getByRole("button", { name: /Appearance & Themes/ }).click();
+    // AdminAppearance is intentionally lazy-loaded to keep admin-only settings
+    // out of the customer-facing entry bundle. Wait for that async route chunk.
+    await page.getByRole("heading", { name: "Theme management" }).waitFor({
+      state: "visible",
+      timeout: 15000,
+    }).catch(() => undefined);
     const appearanceLoaded = await page.getByRole("heading", { name: "Theme management" }).isVisible().catch(() => false);
     record("admin-appearance-screen-opened", appearanceLoaded);
     if (!appearanceLoaded) return checks;
@@ -856,6 +862,11 @@ async function runAdminAppearanceInteractionCheck(browser) {
         rows: element.querySelectorAll("tbody tr").length,
       }));
       await region.focus();
+      const activeElementAfterFocus = await page.evaluate(() => ({
+        tag: document.activeElement?.tagName ?? null,
+        label: document.activeElement?.getAttribute("aria-label") ?? null,
+        regionFocused: document.activeElement?.getAttribute("aria-label") === "Trades awaiting manual settlement" || document.activeElement?.getAttribute("aria-label") === "Wallet activity ledger",
+      }));
       await page.keyboard.press("ArrowRight");
       await page.waitForTimeout(100);
       const after = await region.evaluate(element => ({
@@ -870,6 +881,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
         before.tabIndex === 0 &&
         before.role === "region" &&
         before.label === tableCase.label &&
+        activeElementAfterFocus.regionFocused &&
         after.scrollLeft > before.scrollLeft &&
         after.documentWidth <= after.viewportWidth + 1;
       record(tableCase.check, passed, {
@@ -882,6 +894,7 @@ async function runAdminAppearanceInteractionCheck(browser) {
         tabIndex: before.tabIndex,
         role: before.role,
         accessibleName: before.label,
+        activeElementAfterFocus,
         documentWidth: after.documentWidth,
         viewportWidth: after.viewportWidth,
         note: "Uses mocked administrator and ledger data; verifies the rendered table's keyboard scrolling and containment, not live ledger authorization or persistence.",

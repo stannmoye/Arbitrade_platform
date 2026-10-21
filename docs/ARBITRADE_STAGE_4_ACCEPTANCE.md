@@ -353,3 +353,10 @@ Latest verified application code: `5b7db5abef6c6bc7fce17a47ebbec8d730092849`.
 - No production host/database, provider transaction, balance, merge, or deployment was touched. The final production release build and owner-level verification remain open. No remaining product/runtime item has been closed based solely on this local run.
 
 At this audit checkpoint the checklist has **37 checked and 11 unchecked boxes**. The unchecked count includes repeated acceptance gates (for example, event integration appears in both the product and release sections); it is not a count of 11 independent defects. The matrix explains every open criterion.
+
+
+### Bundle fix exact-head CI and browser follow-up
+
+- Code/matrix commit `547a47ff6ceb466cd55dc794f3397b4ca9bc8275` fixes the strict 400 KiB entry-JS budget with a narrow admin-only `AdminAppearance` lazy load; no limits were changed. Installer run [39534877107](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39534877107) passed production build, budget, server smoke, migration tests, MySQL 8/MariaDB validation and package creation; artifacts `arbitrade-universal-installer` (2,829,572 bytes) and `validated-production-dist` (1,079,233 bytes) were uploaded. Mining regression [39534877108](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39534877108) passed.
+- Stage 3 run [39534877300](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39534877300) passed build, TypeScript and app/theme tests but failed the Chromium job on a synchronous browser-harness assertion immediately after navigating to the newly asynchronous lazy-loaded admin appearance screen. Its uploaded browser artifact was inspected; it reported this one failure. This run is not being counted as a pass.
+- Updated `scripts/stage2-browser-acceptance.cjs` to wait for that screen, observe focused table regions, and still require real keyboard horizontal scrolling. Local full Chromium acceptance then passed **848/848**. The updated harness still needs exact-head Actions. Checklist stays open until that run is green.

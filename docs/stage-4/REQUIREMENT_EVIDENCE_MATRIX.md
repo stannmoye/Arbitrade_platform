@@ -67,3 +67,18 @@ PR #95 contains 77 changed paths against `integration/auth-installer-vps-safety`
 5. **Push transport:** determine supported persistent transport and deployment lifecycle with owner/platform; until then record polling as fallback and push as MISSING.
 6. **Accessibility/manual:** complete documented keyboard-only, screen reader/manual assistive-technology, focus, reduced-motion, zoom/reflow and five-theme checks; install/use axe only if deliberately added as a declared development dependency.
 7. **Owner release gate:** owner verifies final production build and deployment/release package separately; production database/host remains untouched; PR #95 stays open and draft.
+
+
+## Audit follow-up — exact-head `547a47ff` workflows and browser diagnosis
+
+The lazy-load/budget code and first matrix commit `547a47ff6ceb466cd55dc794f3397b4ca9bc8275` triggered three exact-head workflows:
+
+| Workflow | Run and result | Job-level evidence / artifacts |
+|---|---|---|
+| Installer validation | [39534877107](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39534877107) — **SUCCESS** | Production build, strict bundle budget, production server smoke, fresh MariaDB, MySQL 8 compatibility/recovery, migration regression, syntax, deployment packaging and Stage 1 dashboard all succeeded. Duplicate installer app-unit and TypeScript jobs were skipped; equivalent jobs passed in Stage 3. Artifacts: `arbitrade-universal-installer` (2,829,572 bytes) and `validated-production-dist` (1,079,233 bytes), both unexpired. This is CI package provenance, not production deployment/final owner release. |
+| Mining database regression | [39534877108](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39534877108) — **SUCCESS** | MySQL/MariaDB mining idempotency transactions succeeded. |
+| Stage 3 five-theme validation | [39534877300](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39534877300) — **FAILURE** | Production build, TypeScript and app/theme tests succeeded; Chromium job alone failed. Downloaded `stage-3-browser-acceptance` artifact (6,467,556 bytes) confirmed one assertion failure: `admin-appearance-screen-opened` checked synchronously immediately after clicking a now-lazy admin panel. The same artifact contains browser report/screenshots; no other CI failure is recorded in the report. |
+
+The browser harness in `scripts/stage2-browser-acceptance.cjs` was updated to wait for the lazy-loaded `Theme management` heading. Local rerun initially exposed a timing-sensitive keyboard-scroll assertion on the first horizontally overflowed settlement table; the wallet ledger's analogous assertion passed. A focus-state diagnostic/yield was added, and the assertion now verifies the labeled scroll region actually owns focus before requiring ArrowRight to advance `scrollLeft`. With the updated source and existing built client, the complete local Chromium matrix passed **848/848, zero failures**; `node --check` and `git diff --check` passed. This identifies a test synchronization defect rather than disabling the product assertion. The harness correction still requires fresh exact-head Actions; 39534877300 remains a real failed run and is not counted as passed.
+
+The next pushed commit must receive fresh workflows. Do not claim current branch CI fully green until the new exact-head browser run passes; if it still fails, examine the new report and fix the application/test issue rather than suppressing the assertion.
