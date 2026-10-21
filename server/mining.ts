@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import Decimal from "decimal.js";
-import { calculateMiningConversion, calculateMiningDifficultyIndex, calculatePackageDailyRate, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow } from "./mining-rules";
+import { calculateMiningConversion, calculateMiningDifficultyIndex, calculatePackageDailyRate, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, miningIdentifierMatches } from "./mining-rules";
 import {
   Db, MiningError, addUtcMonths, amountString, assertMiningAsset, assetScale, beginMiningIdempotency, createMiningLedgerTransaction,
   createMiningNotification, decimal, ensureMiningCheckpoint, finishMiningIdempotency, inMiningTransaction,
@@ -14,6 +14,62 @@ const ceilAmount = (value: Decimal.Value, scale: number) => new Decimal(value).t
 const floorAmount = (value: Decimal.Value, scale: number) => new Decimal(value).toDecimalPlaces(scale, Decimal.ROUND_DOWN);
 const safeJson = (value: unknown) => JSON.stringify(value, (_key, item) => item instanceof Decimal ? item.toString() : item);
 const MAIN_WALLET_ASSETS = new Set(["USD", "EUR", "GBP", "BTC", "ETH", "USDT"]);
+
+export async function assertMiningPackagePurchaseIdempotencyReplay(
+  conn: Db,
+  userId: number,
+  prior: any,
+  requestedPackageVersionId: number,
+) {
+  let originalPackageVersionId: unknown = prior?.packageVersionId;
+
+  // The convenience purchase endpoint may replay older cached results. Resolve
+  // their original package from the committed entitlement, never from UI input.
+  if (originalPackageVersionId === null || originalPackageVersionId === undefined) {
+    const purchaseId = Number(prior?.purchaseId);
+    if (!Number.isSafeInteger(purchaseId) || purchaseId <= 0) {
+      throw new MiningError("Unable to verify the original Mining package for this idempotency key; start a new operation with a new idempotency key");
+    }
+    const [rows] = await conn.query<any[]>(`SELECT packageVersionId FROM mining_customer_packages WHERE id=? AND userId=? LIMIT 1`, [purchaseId, userId]);
+    originalPackageVersionId = rows[0]?.packageVersionId;
+  }
+
+  if (originalPackageVersionId === null || originalPackageVersionId === undefined) {
+    throw new MiningError("Unable to verify the original Mining package for this idempotency key; start a new operation with a new idempotency key");
+  }
+  if (!miningIdentifierMatches(originalPackageVersionId, requestedPackageVersionId)) {
+    throw new MiningError("This idempotency key was already used for a different Mining package");
+  }
+}
+
+export async function assertMiningQuoteIdempotencyReplay(
+  conn: Db,
+  userId: number,
+  prior: any,
+  requestedQuoteId: number,
+  operation: "purchase" | "swap",
+) {
+  let originalQuoteId: unknown = prior?.quoteId;
+
+  // Older idempotency records predate quoteId in the cached response. Resolve
+  // their authoritative quote from the already-committed transaction row.
+  if (originalQuoteId === null || originalQuoteId === undefined) {
+    const recordId = Number(operation === "purchase" ? prior?.purchaseId : prior?.conversionId);
+    if (!Number.isSafeInteger(recordId) || recordId <= 0) {
+      throw new MiningError("Unable to verify the original quote for this idempotency key; start a new operation with a new idempotency key");
+    }
+    const table = operation === "purchase" ? "mining_customer_packages" : "v5_conversions";
+    const [rows] = await conn.query<any[]>(`SELECT quoteId FROM ${table} WHERE id=? AND userId=? LIMIT 1`, [recordId, userId]);
+    originalQuoteId = rows[0]?.quoteId;
+  }
+
+  if (originalQuoteId === null || originalQuoteId === undefined) {
+    throw new MiningError("Unable to verify the original quote for this idempotency key; start a new operation with a new idempotency key");
+  }
+  if (!miningIdentifierMatches(originalQuoteId, requestedQuoteId)) {
+    throw new MiningError("This idempotency key was already used with a different quote");
+  }
+}
 
 function assertMainWalletAsset(value: string) {
   const asset = value.trim().toUpperCase();
@@ -290,7 +346,10 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
   const key = requestKey("mining-purchase", userId, input.idempotencyKey);
   const purchase = await withMiningConnection(async conn => inMiningTransaction(conn, async () => {
     const prior = await beginMiningIdempotency(conn, userId, key, "mining.package.purchase");
-    if (prior) return prior;
+    if (prior) {
+      await assertMiningQuoteIdempotencyReplay(conn, userId, prior, input.quoteId, "purchase");
+      return prior;
+    }
     const checkpoint = await ensureMiningCheckpoint(conn, userId);
     await requireActiveMiningAccount(conn, userId);
     const config = await loadMiningConfig(conn);
@@ -365,7 +424,7 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
     await conn.execute(`UPDATE v5_fx_quotes SET status='EXECUTED' WHERE id=?`, [input.quoteId]);
     const expectedDailyRewardCki = expectedDailyRewardCkiSnapshot;
     const rewardPostingReady = canStartMiningAccrual({ globalEnabled: config.globalEnabled, expectedDailyRewardCki });
-    const result = { purchaseId, packageId: Number(quote.packageId), packageVersionId: Number(quote.packageVersionId), packageName: packageNameSnapshot, status: "active", startsAt: now.toISOString(), entitlementStartedAt: now.toISOString(), expiresAt: expiresAt?.toISOString() || null, rewardPostingEnabled: Boolean(config.globalEnabled), rewardPostingReady, paymentAsset, paymentAmount: quotedTotal.toString(), baseThs: String(quote.baseThs), expectedDailyRewardCki, calculationModel:rewardMethodSnapshot, ckiPerThsPerDay:ckiPerThsPerDaySnapshot, boostBonusThs: String(quote.boostBonusThs), receiptReference: ledger.referenceCode, mainWalletReference: canonicalReference, disclaimer: "The package entitlement starts at purchase. Its reward method and daily CKI amount are snapshotted at purchase and accrue by eligible time when reward processing is enabled; rewards are internal estimates, not verified pool output or a cash payout." };
+    const result = { purchaseId, quoteId: input.quoteId, packageId: Number(quote.packageId), packageVersionId: Number(quote.packageVersionId), packageName: packageNameSnapshot, status: "active", startsAt: now.toISOString(), entitlementStartedAt: now.toISOString(), expiresAt: expiresAt?.toISOString() || null, rewardPostingEnabled: Boolean(config.globalEnabled), rewardPostingReady, paymentAsset, paymentAmount: quotedTotal.toString(), baseThs: String(quote.baseThs), expectedDailyRewardCki, calculationModel:rewardMethodSnapshot, ckiPerThsPerDay:ckiPerThsPerDaySnapshot, boostBonusThs: String(quote.boostBonusThs), receiptReference: ledger.referenceCode, mainWalletReference: canonicalReference, disclaimer: "The package entitlement starts at purchase. Its reward method and daily CKI amount are snapshotted at purchase and accrue by eligible time when reward processing is enabled; rewards are internal estimates, not verified pool output or a cash payout." };
     await finishMiningIdempotency(conn, key, result);
     await createMiningNotification(conn, userId, "Mining package entitlement activated", `${quote.name} is active from purchase time. The main-wallet charge and entitlement were recorded. Configured CKI rewards accrue automatically when operations has enabled reward processing. Receipt ${ledger.referenceCode}.`);
     return result;
@@ -395,7 +454,9 @@ export async function purchaseCustomerMiningPackage(userId: number, input: { pac
     const [rows] = await conn.query<any[]>(`SELECT command,resultJson FROM v5_idempotency_keys WHERE userId=? AND keyValue=? LIMIT 1`, [userId,key]);
     const row = rows[0];
     if (row && row.command !== "mining.package.purchase") throw new MiningError("This idempotency key was already used for a different Mining action");
-    return row?.resultJson ? JSON.parse(String(row.resultJson)) : null;
+    const result = row?.resultJson ? JSON.parse(String(row.resultJson)) : null;
+    if (result) await assertMiningPackagePurchaseIdempotencyReplay(conn, userId, result, input.packageVersionId);
+    return result;
   });
   const prior = await priorResult();
   if (prior) return prior;
@@ -637,14 +698,17 @@ async function executeTokenConversion(conn: Db, userId: number, input: {
   const [conversion] = await conn.execute<any>(`INSERT INTO v5_conversions (userId,quoteId,fundingPlanId,sourceAsset,destinationAsset,sourceAmount,destinationAmount,executionRate,fee,status)
     VALUES (?,?,?,?,?,?,?,?,?,'COMPLETED')`, [userId, input.quoteId, Number(plan.insertId), "CKI", targetAsset, sourceAmount.toString(), net.toString(), net.div(sourceAmount).toSignificantDigits(24).toString(), fee.toString()]);
   await conn.execute(`UPDATE v5_fx_quotes SET status='EXECUTED' WHERE id=?`, [input.quoteId]);
-  return { conversionId: Number(conversion.insertId), transactionId: transaction.id, receiptReference: transaction.referenceCode, mainWalletReference: canonicalReference, sourceAsset: "CKI", sourceAmount: sourceAmount.toString(), destinationAsset: targetAsset, destinationAmount: canonicalCredit.amount, fee: fee.toFixed(canonicalCredit.scale), feeAsset: targetAsset };
+  return { conversionId: Number(conversion.insertId), quoteId: input.quoteId, transactionId: transaction.id, receiptReference: transaction.referenceCode, mainWalletReference: canonicalReference, sourceAsset: "CKI", sourceAmount: sourceAmount.toString(), destinationAsset: targetAsset, destinationAmount: canonicalCredit.amount, fee: fee.toFixed(canonicalCredit.scale), feeAsset: targetAsset };
 }
 
 export async function confirmCustomerMiningSwap(userId: number, input: { quoteId: number; idempotencyKey: string }) {
   const key = requestKey("mining-swap", userId, input.idempotencyKey);
   return withMiningConnection(async conn => inMiningTransaction(conn, async () => {
     const prior = await beginMiningIdempotency(conn, userId, key, "mining.swap.confirm");
-    if (prior) return prior;
+    if (prior) {
+      await assertMiningQuoteIdempotencyReplay(conn, userId, prior, input.quoteId, "swap");
+      return prior;
+    }
     await ensureMiningCheckpoint(conn, userId);
     await requireActiveMiningAccount(conn, userId);
     const config = await loadMiningConfig(conn);
