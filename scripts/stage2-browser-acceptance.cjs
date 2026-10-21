@@ -1311,6 +1311,94 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
       // The customer navigation drawer must be inert while closed and must
       // preserve a complete keyboard focus loop when open.
       if (scenario.name === "customer-choice-enabled-by-default") {
+        // Exercise the actual customer sound preference control in the mocked
+        // authenticated portal, not just the standalone WAV asset playback harness.
+        const soundOn = page.getByRole("button", { name: "Turn notification sounds on" });
+        await soundOn.waitFor({ state: "visible" });
+        await soundOn.click();
+        await page.waitForFunction(() => {
+          const button = document.querySelector(".customer-header-sound-toggle");
+          return button?.getAttribute("aria-pressed") === "true" &&
+            window.localStorage.getItem("wisebond-sound-effects") === "on";
+        });
+        const soundEnabledState = await page.evaluate(() => ({
+          label: document.querySelector(".customer-header-sound-toggle")?.textContent?.trim() || null,
+          pressed: document.querySelector(".customer-header-sound-toggle")?.getAttribute("aria-pressed"),
+          preference: window.localStorage.getItem("wisebond-sound-effects"),
+        }));
+        checks.push({
+          route: "/customer",
+          routeName: "customer",
+          width: 1440,
+          theme: scenario.policy.defaultTheme,
+          check: "customer-notification-sound-preference-enables",
+          passed: soundEnabledState.pressed === "true" &&
+            soundEnabledState.preference === "on" &&
+            soundEnabledState.label === "Sound on",
+          ...soundEnabledState,
+          note: "Exercises the real header control and verifies the customer-local preference is written.",
+        });
+
+        await page.getByRole("button", { name: "Turn notification sounds off" }).click();
+        await page.waitForFunction(() => {
+          const button = document.querySelector(".customer-header-sound-toggle");
+          return button?.getAttribute("aria-pressed") === "false" &&
+            window.localStorage.getItem("wisebond-sound-effects") === "off";
+        });
+        const soundDisabledState = await page.evaluate(() => ({
+          label: document.querySelector(".customer-header-sound-toggle")?.textContent?.trim() || null,
+          pressed: document.querySelector(".customer-header-sound-toggle")?.getAttribute("aria-pressed"),
+          preference: window.localStorage.getItem("wisebond-sound-effects"),
+        }));
+        checks.push({
+          route: "/customer",
+          routeName: "customer",
+          width: 1440,
+          theme: scenario.policy.defaultTheme,
+          check: "customer-notification-sound-preference-disables",
+          passed: soundDisabledState.pressed === "false" &&
+            soundDisabledState.preference === "off" &&
+            soundDisabledState.label === "Sound off",
+          ...soundDisabledState,
+          note: "Verifies opting out updates the visible state and disables the persisted customer-local preference.",
+        });
+
+        await page.evaluate(() => window.dispatchEvent(new CustomEvent(
+          "arbitrade:notification-audio-blocked",
+          { detail: { kind: "deposit", presetId: "sound-02", occurredAt: Date.now() } },
+        )));
+        const soundWarning = page.locator(".customer-audio-warning");
+        await soundWarning.waitFor({ state: "visible" });
+        const soundWarningState = await soundWarning.evaluate(element => ({
+          text: element.textContent || "",
+          role: element.getAttribute("role"),
+          live: element.getAttribute("aria-live"),
+          dismissLabel: element.querySelector("button")?.getAttribute("aria-label") || null,
+        }));
+        checks.push({
+          route: "/customer",
+          routeName: "customer",
+          width: 1440,
+          theme: scenario.policy.defaultTheme,
+          check: "customer-notification-audio-blocked-warning-is-accessible",
+          passed: /browser blocked a deposit sound/i.test(soundWarningState.text) &&
+            soundWarningState.role === "status" &&
+            soundWarningState.live === "polite" &&
+            soundWarningState.dismissLabel === "Dismiss audio playback warning",
+          ...soundWarningState,
+          note: "Verifies the real customer recovery message semantics when the audio-blocked event is reported.",
+        });
+        await page.getByRole("button", { name: "Dismiss audio playback warning" }).click();
+        await soundWarning.waitFor({ state: "hidden" });
+        checks.push({
+          route: "/customer",
+          routeName: "customer",
+          width: 1440,
+          theme: scenario.policy.defaultTheme,
+          check: "customer-notification-audio-warning-can-be-dismissed",
+          passed: await soundWarning.count() === 0,
+        });
+
         const trigger = page.getByRole("button", { name: "Open customer navigation" });
         const drawer = page.locator("#customer-navigation-drawer");
         const focusableSelector = 'a[href]:not([tabindex="-1"]):not([aria-disabled="true"]),button:not([tabindex="-1"]):not([disabled]),input:not([tabindex="-1"]):not([disabled]),select:not([tabindex="-1"]):not([disabled]),textarea:not([tabindex="-1"]):not([disabled]),[tabindex]:not([tabindex="-1"]):not([disabled]),[contenteditable="true"]';
