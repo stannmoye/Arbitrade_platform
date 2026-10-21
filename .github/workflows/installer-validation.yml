@@ -97,6 +97,7 @@ jobs:
 
 
   typecheck:
+    if: github.event_name != 'pull_request' || github.event.pull_request.base.ref != 'integration/auth-installer-vps-safety'
     name: TypeScript validation
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -115,6 +116,7 @@ jobs:
 
 
   application-tests:
+    if: github.event_name != 'pull_request' || github.event.pull_request.base.ref != 'integration/auth-installer-vps-safety'
     name: Application unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -660,6 +662,11 @@ jobs:
           NODE
 
   deployment-packages:
+    # The Stage 3 workflow already runs the full app suite and TypeScript check
+    # for PRs targeting integration/auth-installer-vps-safety. Accept those two
+    # jobs as skipped only for that PR path; keep them mandatory for pushes,
+    # manual runs, and PRs targeting other branches.
+    if: always() && needs.syntax.result == 'success' && (needs.typecheck.result == 'success' || needs.typecheck.result == 'skipped') && (needs.application-tests.result == 'success' || needs.application-tests.result == 'skipped') && needs.installer-safety.result == 'success' && needs.production-build.result == 'success' && needs.installer-fresh-mariadb.result == 'success' && needs.installer-mysql8-compatibility-and-recovery.result == 'success'
     needs:
       - syntax
       - typecheck
