@@ -152,3 +152,240 @@ describe("notification sound header integration contract", () => {
     expect(css).toContain(".portal-session .customer-audio-warning button{display:inline-flex!important");
   });
 });
+
+
+describe("authoritative financial-event notification contracts", () => {
+  const routers = readFileSync(new URL("../../server/routers.ts", import.meta.url), "utf8");
+  const db = readFileSync(new URL("../../server/db.ts", import.meta.url), "utf8");
+  const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+
+  it("commits admin wallet ledger writes before attempting customer notification", () => {
+    const start = db.indexOf("export async function adjustCustomerBalance(");
+    const end = db.indexOf("export async function listOpenOffers(", start);
+    const adjustment = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(adjustment).toContain("await db.transaction(async tx=>");
+    expect(adjustment).toContain("await tx.insert(balanceLedger).values(");
+    expect(adjustment).toContain("return {success:true,newAvailableMinor:next");
+    const transactionEnd = adjustment.indexOf("}); try { await createNotification(");
+    expect(transactionEnd).toBeGreaterThan(adjustment.indexOf("await tx.insert(balanceLedger).values("));
+    expect(transactionEnd).toBeLessThan(adjustment.indexOf("await createNotification("));
+    expect(adjustment).toContain("after ledger commit");
+  });
+
+  it("emits the administrator-session event only after the wallet adjustment service returns", () => {
+    const start = routers.indexOf("adjustCustomerBalance: adminProcedure");
+    const end = routers.indexOf("settings: adminProcedure", start);
+    const route = routers.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(route.indexOf("await adjustCustomerBalance(ctx.user.id, input)")).toBeGreaterThanOrEqual(0);
+    expect(route.indexOf("await adjustCustomerBalance(ctx.user.id, input)")).toBeLessThan(route.indexOf("await recordTransactionConsoleEvent"));
+    expect(route).toContain("eventType:`ADMIN_${input.mode.toUpperCase()}`");
+  });
+
+  it("uses stable event keys for committed trade-settlement notices and keeps delivery best-effort", () => {
+    const settlementIndex = db.indexOf("const settlementNotices=[");
+    const settlementEnd = db.indexOf("return result;", settlementIndex);
+    const settlement = db.slice(settlementIndex, settlementEnd);
+    expect(settlementIndex).toBeGreaterThanOrEqual(0);
+    expect(settlementEnd).toBeGreaterThan(settlementIndex);
+    expect(settlement).toContain('eventKey:`trade-settlement:${result.reference}:principal`');
+    expect(settlement).toContain('eventKey:`trade-settlement:${result.reference}:reward`');
+    expect(settlement).toContain("result.rewardMinor>0");
+    expect(settlement).toContain("await Promise.allSettled(settlementNotices.map(notice=>createNotification(");
+    expect(settlement).toContain("after commit");
+  });
+
+  it("does not present customer deposit submission or withdrawal initiation as confirmed payout", () => {
+    expect(app).toContain("Mock provider flow available for testing");
+    expect(app).toContain("Blocked until custody and execution providers are configured");
+    expect(app).not.toContain("Deposit completed successfully");
+    expect(app).not.toContain("Withdrawal paid successfully");
+  });
+});
+
+
+
+describe("announcement lifecycle persistence contracts", () => {
+  const db = readFileSync(new URL("../../server/db.ts", import.meta.url), "utf8");
+
+  it("validates announcement schedule and expiry ordering before persistence", () => {
+    const start = db.indexOf("export async function broadcastCustomerNotification(");
+    const end = db.indexOf("export async function retryNotificationCampaign(", start);
+    const broadcast = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(broadcast).toContain('parseDate(input.scheduledAt,"schedule time")');
+    expect(broadcast).toContain('parseDate(input.expiresAt,"expiry time")');
+    expect(broadcast).toContain("if(expiresAt && expiresAt.getTime()<=now.getTime())");
+    expect(broadcast).toContain("if(scheduledAt && expiresAt && expiresAt.getTime()<=scheduledAt.getTime())");
+    expect(broadcast).toContain('status:"scheduled" as const');
+    expect(broadcast).toContain('const nextStatus=scheduledAt&&scheduledAt.getTime()>now.getTime()?"scheduled":"published"');
+  });
+
+  it("processes due and expired campaigns while counting persisted outcomes", () => {
+    const start = db.indexOf("export async function processNotificationCampaignLifecycle()");
+    const end = db.indexOf("export async function listAdminNotificationCampaigns()", start);
+    const lifecycle = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(lifecycle).toContain('eq(notificationCampaigns.status,"published"),eq(notificationCampaigns.status,"scheduled")');
+    expect(lifecycle).toContain('set({status:"expired"})');
+    expect(lifecycle).toContain("broadcastCustomerNotification(campaign.createdBy");
+    expect(lifecycle).toContain('eq(notificationCampaigns.status,"scheduled"),lte(notificationCampaigns.scheduledAt,now)');
+    expect(lifecycle).toContain('if(result.status==="published") published++');
+    expect(lifecycle).toContain('else if(result.status==="expired") expiredDuringPublish++');
+    expect(lifecycle).toContain("return {expired:expired.length+expiredDuringPublish,published,failed}");
+  });
+
+  it("withdraws campaigns transactionally, preserves terminal delivery states, and records an audit event", () => {
+    const start = db.indexOf("export async function withdrawNotificationCampaign(");
+    const end = db.indexOf("export async function processNotificationCampaignLifecycle()", start);
+    const withdrawal = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(withdrawal).toContain("return db.transaction(async tx=>");
+    expect(withdrawal).toContain('.for("update")');
+    expect(withdrawal).toContain('actor.role!=="admin"');
+    expect(withdrawal).toContain('set({status:"withdrawn",errorCode:"CAMPAIGN_WITHDRAWN"})');
+    expect(withdrawal).toContain('action:"notification.campaign.withdrawn"');
+    expect(withdrawal).toContain('status==="withdrawn"');
+    expect(withdrawal).toContain('status==="expired"');
+  });
+
+  it("reports announcement delivery and read counts from persisted delivery states", () => {
+    const start = db.indexOf("export async function listAdminNotificationCampaigns()");
+    const end = db.indexOf("export async function ", start + 30);
+    const history = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(history).toContain("notificationCampaignDeliveries.status");
+    expect(history).toContain('summary.read+=count');
+    expect(history).toContain('summary.failed+=count');
+    expect(history).toContain('summary.pending+=count');
+  });
+});
+
+
+
+describe("authenticated support lifecycle persistence contracts", () => {
+  const routers = readFileSync(new URL("../../server/routers.ts", import.meta.url), "utf8");
+  const db = readFileSync(new URL("../../server/db.ts", import.meta.url), "utf8");
+
+  it("persists ticket and opening message atomically before best-effort notifications", () => {
+    const start = db.indexOf("export async function createTicket(");
+    const end = db.indexOf("export async function listCustomerTickets(", start);
+    const create = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(create).toContain("await db.transaction(async tx=>");
+    expect(create).toContain("await tx.insert(supportTickets).values(");
+    expect(create).toContain("await tx.insert(supportMessages).values(");
+    expect(create.indexOf("await db.transaction(async tx=>")).toBeLessThan(create.indexOf("await Promise.allSettled("));
+    expect(create).toContain("support-ticket-created:");
+  });
+
+  it("locks ticket assignment, validates administrator roles, and audits changed assignments", () => {
+    const start = db.indexOf("export async function assignSupportTicket(");
+    const end = db.indexOf("export async function getCustomerTicket(", start);
+    const assignment = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(assignment).toContain("const committed=await db.transaction(async tx=>");
+    expect(assignment).toContain('.for("update")');
+    expect(assignment).toContain('actor.role!=="admin"');
+    expect(assignment).toContain('eq(users.role,"admin")');
+    expect(assignment).toContain('action:assignedAdminId===null?"support.ticket.unassigned":"support.ticket.assigned"');
+    expect(assignment).toContain("if(committed.changed&&committed.assignee)");
+  });
+
+  it("authorizes ticket replies against ownership and commits message/status together", () => {
+    const start = db.indexOf("export async function addTicketMessage(");
+    const end = db.indexOf("export async function reopenSupportTicket(", start);
+    const reply = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(reply).toContain("const committed=await db.transaction(async tx=>");
+    expect(reply).toContain('if(!isAdmin && ticket.customerId!==actorId)');
+    expect(reply).toContain('ticket.status==="closed" || ticket.status==="resolved"');
+    expect(reply).toContain("await tx.insert(supportMessages).values(");
+    expect(reply).toContain("await tx.update(supportTickets).set({status:nextStatus,updatedAt:new Date()})");
+    expect(reply).toContain("Notifications are deliberately post-commit and best-effort");
+  });
+
+  it("guards concurrent ticket reopen transitions and uses protected customer routes", () => {
+    const start = db.indexOf("export async function reopenSupportTicket(");
+    const end = db.indexOf("export async function listTicketMessages(", start);
+    const reopen = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(reopen).toContain('or(eq(supportTickets.status,"closed"),eq(supportTickets.status,"resolved"))');
+    expect(reopen).toContain("if(affected!==1)");
+    expect(routers).toContain("createTicket: protectedProcedure");
+    expect(routers).toContain("replyTicket: protectedProcedure");
+    expect(routers).toContain("reopenTicket: protectedProcedure");
+    expect(routers).toContain("if (!(await getCustomerTicket(ctx.user.id,input.ticketId)))");
+  });
+
+  it("validates attachment storage keys and scopes ticket attachments to an authorized customer", () => {
+    const start = routers.indexOf("addAttachment: protectedProcedure");
+    const end = routers.indexOf("uploadPolicy: protectedProcedure", start);
+    const route = routers.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(route).toContain("isValidSupportAttachmentStorageKey(input.storageKey)");
+    expect(db).toContain("export async function addTicketAttachment(");
+    expect(db).toContain("You do not have access to this ticket");
+    expect(db).toContain("isSupportAttachmentStorageKeyForTicket(input.storageKey,input.ticketId)");
+  });
+});
+
+
+
+describe("administrator support and announcement route contracts", () => {
+  const routers = readFileSync(new URL("../../server/routers.ts", import.meta.url), "utf8");
+
+  it("keeps support administration endpoints behind administrator authorization", () => {
+    const adminStart = routers.indexOf("    tickets: adminProcedure.query(() => listAllTickets())");
+    const adminEnd = routers.indexOf("  // TODO: add feature routers here", adminStart);
+    const adminSupport = routers.slice(adminStart, adminEnd);
+    expect(adminStart).toBeGreaterThanOrEqual(0);
+    expect(adminEnd).toBeGreaterThan(adminStart);
+    expect(adminSupport).toContain("tickets: adminProcedure");
+    expect(adminSupport).toContain("supportAssignees: adminProcedure");
+    expect(adminSupport).toContain("assignTicket: adminProcedure");
+    expect(adminSupport).toContain("ticketMessages: adminProcedure");
+    expect(adminSupport).toContain("ticketAttachments: adminProcedure");
+    expect(adminSupport).toContain("replyTicket: adminProcedure");
+    expect(adminSupport).toContain("reopenTicket: adminProcedure");
+    expect(adminSupport).toContain("getSupportTicketById(input.ticketId)");
+  });
+
+  it("validates announcement lifecycle mutations at the administrator route boundary", () => {
+    const start = routers.indexOf("    publishAnnouncement: adminProcedure");
+    const end = routers.indexOf("    miningDashboard:", start);
+    const announcements = routers.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(announcements).toContain("publishAnnouncement: adminProcedure");
+    expect(announcements).toContain("scheduledAt:z.string().datetime().optional()");
+    expect(announcements).toContain("expiresAt:z.string().datetime().optional()");
+    expect(announcements).toContain("announcementHistory: adminProcedure");
+    expect(announcements).toContain("retryAnnouncement: adminProcedure");
+    expect(announcements).toContain("withdrawAnnouncement: adminProcedure");
+  });
+
+  it("protects customer notification reads and announcement delivery from untrusted route access", () => {
+    const customerStart = routers.indexOf("    createTicket: protectedProcedure");
+    const customerEnd = routers.indexOf("    balances: protectedProcedure", customerStart);
+    const customerRoutes = routers.slice(customerStart, customerEnd);
+    expect(customerStart).toBeGreaterThanOrEqual(0);
+    expect(customerEnd).toBeGreaterThan(customerStart);
+    expect(customerRoutes).toContain("tickets: protectedProcedure");
+    expect(customerRoutes).toContain("ticketMessages: protectedProcedure");
+    expect(customerRoutes).toContain("ticketAttachments: protectedProcedure");
+    expect(customerRoutes).toContain("addAttachment: protectedProcedure");
+    expect(customerRoutes).toContain("if (!(await getCustomerTicket(ctx.user.id,input.ticketId)))");
+  });
+});
