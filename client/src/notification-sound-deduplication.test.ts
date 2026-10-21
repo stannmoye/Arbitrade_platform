@@ -159,7 +159,7 @@ describe("authoritative financial-event notification contracts", () => {
   const db = readFileSync(new URL("../../server/db.ts", import.meta.url), "utf8");
   const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
 
-  it("keeps admin wallet adjustment ledger writes and customer notification inside the database transaction", () => {
+  it("commits admin wallet ledger writes before attempting customer notification", () => {
     const start = db.indexOf("export async function adjustCustomerBalance(");
     const end = db.indexOf("export async function listOpenOffers(", start);
     const adjustment = db.slice(start, end);
