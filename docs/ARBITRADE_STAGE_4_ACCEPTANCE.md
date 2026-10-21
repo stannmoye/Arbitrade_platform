@@ -184,8 +184,8 @@ Track these as six acceptance work areas within Stage 4, not as six separate top
 6. **Final acceptance and release — OPEN:** finish keyboard/screen-reader/reduced-motion/accessibility review, responsive/theme checks, verify the release ZIP corresponds to the validated source, and record limitations before release sign-off.
 
 ## Remaining before Stage 4 can be called complete
-- [x] Run exact-head validation workflows on `f2d58f5a503ae1c91b5d6012195a3d48650a9b85`: Stage 3 five-theme validation, installer validation, and mining database regression all passed.
-- [x] Exercise migration assertions/recovery with disposable MySQL 8 and MariaDB 11.4 on the exact head.
+- [x] Run exact-head validation workflows on PR #101 head `b0141a8323afe72c167db435604ff4c0d3fb767b`: [Stage 3 six-theme/Chromium validation 39644490200](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39644490200), [installer validation 39644490192](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39644490192), and [mining database regression 39644490317](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39644490317) all passed. PR #101 is merged as `1a34927b1850f4269bb21c44620e52414d417fff`.
+- [x] Exercise migration assertions/recovery with disposable MySQL 8 and MariaDB on that exact head via installer validation run 39644490192; no production database was used.
 - [ ] Verify all real event sources for deposit, withdrawal, ledger credit/debit, mining, swap, trading and account/security lifecycle. Customer session-revocation and signup-credit notifications are implemented, but overall event coverage remains incomplete.
 - [ ] Verify sound configuration end-to-end, including event mapping, actual browser playback, preferences, autoplay handling, post-commit timing and reconnect deduplication.
 - [ ] Verify announcement persistence, scheduling/expiry and delivery/read reporting end-to-end against the exact head; campaign/delivery ledger, bounded retries, history counts and the due/expiry worker are implemented, but source-level coverage alone is not runtime acceptance.
