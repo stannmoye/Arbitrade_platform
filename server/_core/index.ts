@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { randomUUID } from "node:crypto";
 import express from "express";
 import { createServer } from "http";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
@@ -12,7 +13,7 @@ import { countOutstandingTrades, createLocalCustomer, getAppSetting, getUserByEm
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
-import { getTicketUploadPolicy } from "../db";
+import { getCustomerTicket, getTicketUploadPolicy } from "../db";
 import { ensureMarketDrivenOpportunities, refreshMarketData } from "../marketSync";
 import { serveStatic, setupVite } from "./vite";
 import { openTransactionConsoleSession } from "../transactionConsole";
@@ -110,14 +111,20 @@ async function startServer() {
     res.set("Cache-Control", "no-store").type("application/javascript").send(publicPlatformScript());
   });
   app.post("/api/support/attachments/presign", async (req, res) => {
+    const session = getLocalSessionFromRequest(req);
+    if (!session) return res.status(401).json({ error: "Authentication required" });
     try {
-      await sdk.authenticateRequest(req);
-      const { fileName, mimeType, sizeBytes } = req.body ?? {};
+      const user = await getUserById(session.userId);
+      if (!user || Number(user.authVersion || 0) !== session.authVersion) return res.status(401).json({ error: "Authentication required" });
+      const { ticketId, fileName, mimeType, sizeBytes } = req.body ?? {};
+      if (!Number.isSafeInteger(ticketId) || ticketId < 1) return res.status(400).json({ error: "A valid support ticket is required" });
+      if (!(await getCustomerTicket(session.userId, ticketId))) return res.status(404).json({ error: "Ticket not found" });
+      if (typeof fileName !== "string" || !fileName.trim() || typeof mimeType !== "string" || !mimeType.trim() || !Number.isSafeInteger(sizeBytes) || sizeBytes < 1) return res.status(400).json({ error: "Invalid attachment metadata" });
       const policy = await getTicketUploadPolicy();
       const mimeAllowed = policy.allowedMimeTypes.some(rule => rule === mimeType || (rule.endsWith("/*") && mimeType.startsWith(rule.slice(0, -1))) || (rule.startsWith(".") && fileName.toLowerCase().endsWith(rule.toLowerCase())));
-      if (typeof fileName !== "string" || typeof mimeType !== "string" || !Number.isInteger(sizeBytes) || sizeBytes < 1 || sizeBytes > policy.maxAttachmentMb * 1_000_000 || !mimeAllowed) return res.status(400).json({ error: `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}` });
+      if (sizeBytes > policy.maxAttachmentMb * 1_000_000 || !mimeAllowed) return res.status(400).json({ error: `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}` });
       const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
-      const key = `support/${Date.now()}-${Math.random().toString(36).slice(2,10)}-${safeName}`;
+      const key = `support/${ticketId}/${randomUUID()}-${safeName}`;
       const base = process.env.MANUS_API_URL;
       const token = process.env.MANUS_API_KEY;
       if (!base || !token) return res.status(503).json({ error: "Managed storage is not configured" });
@@ -125,7 +132,7 @@ async function startServer() {
       const payload = await upstream.json() as { url?: string; error?: string };
       if (!upstream.ok || !payload.url) return res.status(502).json({ error: payload.error || "Unable to prepare managed upload" });
       return res.json({ uploadUrl: payload.url, storageKey: key, stableUrl: `/manus-storage/${key}` });
-    } catch (error) { return res.status(401).json({ error: error instanceof Error ? error.message : "Authentication required" }); }
+    } catch (error) { return res.status(500).json({ error: error instanceof Error ? error.message : "Unable to prepare attachment upload" }); }
   });
   registerOAuthRoutes(app);
   registerProviderOAuthRoutes(app);
