@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const miningSource = readFileSync(new URL("./mining.ts", import.meta.url), "utf8");
+const notificationEventsSource = readFileSync(new URL("./modules/notification-events.ts", import.meta.url), "utf8");
 
 describe("financial notification delivery observability", () => {
   it("does not count a notification as delivered when persistence cannot be confirmed", () => {
@@ -52,7 +53,8 @@ describe("financial notification delivery observability", () => {
     expect(source).toContain("trade-reward:${settlement.tradeId}");
     expect(source).toContain("buildTradeSettlementNotices({tradeId:result.tradeId");
     expect(source).toContain("await manuallySettleTrade(input.tradeId,ctx.user.id,input)");
-    expect(dbSource).toContain("trade-settlement:${result.tradeId}:");
+    expect(notificationEventsSource).toContain("trade-settlement:${input.tradeId}:principal");
+    expect(notificationEventsSource).toContain("trade-settlement:${input.tradeId}:reward");
   });
 
   it("keeps mining reward, conversion, and swap notices anchored to persisted event or receipt IDs", () => {
