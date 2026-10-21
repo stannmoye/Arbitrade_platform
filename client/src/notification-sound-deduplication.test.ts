@@ -125,4 +125,16 @@ describe("notification sound header integration contract", () => {
     expect(effect).toContain("headerSoundSettingsQuery.data");
     expect(effect).toContain("findNewNotificationSoundEvents(rows,previousHeaderNotificationIds.current,persistedIds");
   });
+
+  it("reports rejected audio playback and stops only a failed opportunity loop", () => {
+    expect(app).toContain("arbitrade:notification-audio-blocked");
+    expect(app).toContain("audio.play().catch(reportBlocked)");
+    expect(app).toContain("if(kind===\"opportunity\"){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}");
+  });
+
+  it("shows accessible audio recovery guidance in both customer and admin settings", () => {
+    expect(app).toContain("className=\"test-notice customer-audio-warning\" role=\"status\" aria-live=\"polite\"");
+    expect(app).toContain("className=\"test-notice\" role=\"status\" aria-live=\"polite\"");
+    expect(app).toContain("this blocked sound will not be replayed automatically");
+  });
 });
