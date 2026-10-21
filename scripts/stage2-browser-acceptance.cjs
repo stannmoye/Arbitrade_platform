@@ -1341,9 +1341,38 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
               });
               node = node.parentElement;
             }
+            const matchingDisplayRules = [];
+            const visitRules = (rules, source, media = []) => {
+              for (const rule of Array.from(rules || [])) {
+                if (rule.cssRules) {
+                  const nextMedia = rule.conditionText ? [...media, rule.conditionText] : media;
+                  visitRules(rule.cssRules, source, nextMedia);
+                  continue;
+                }
+                if (!rule.selectorText || !rule.style || !button) continue;
+                const display = rule.style.getPropertyValue("display");
+                if (!display) continue;
+                let matches = false;
+                try { matches = button.matches(rule.selectorText); } catch {}
+                if (matches) matchingDisplayRules.push({
+                  source,
+                  selector: rule.selectorText,
+                  display,
+                  important: rule.style.getPropertyPriority("display") === "important",
+                  media,
+                });
+              }
+            };
+            for (const sheet of Array.from(document.styleSheets)) {
+              try { visitRules(sheet.cssRules, sheet.href || "inline stylesheet"); }
+              catch (error) { matchingDisplayRules.push({ source: sheet.href || "inline stylesheet", unreadable: String(error) }); }
+            }
             return {
               viewport: { width: window.innerWidth, height: window.innerHeight },
               media: { max900: matchMedia("(max-width: 900px)").matches, max600: matchMedia("(max-width: 600px)").matches },
+              buttonStyleAttribute: button?.getAttribute("style") ?? null,
+              buttonHiddenAttribute: button?.hasAttribute("hidden") ?? false,
+              matchingDisplayRules,
               ancestors,
             };
           });
