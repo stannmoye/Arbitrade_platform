@@ -23,6 +23,14 @@ This file is the resumable work log for PR #95. GitHub branch history is authori
 - Known remaining items from live docs/source inspection: authoritative provider-backed deposit/withdrawal transitions are absent (do not fabricate); persistent push transport is not present; fixed polling/reconnect/backoff and recovery need review; authenticated ticket/announcement end-to-end acceptance; audio autoplay/preferences/reconnect tests; accessibility beyond smoke matrix; final exact-head release/readiness checks.
 - Next concrete task: map current client polling/sound behavior and existing transport/dependency architecture; implement a small safe polling/reconnect improvement with deterministic tests if the repository provides a viable existing design. In parallel, inspect authenticated ticket/announcement tests for missing coverage. First save and push this checkpoint before code edits.
 
+### Work unit 1 — notification polling recovery (in progress)
+
+- Starting code head: `903bff1e5780b31aef66f92e116263e4b297154f`.
+- Inspection found that the existing app has no persistent push transport or WebSocket dependency; notifications use authenticated tRPC polling. TanStack Query v5 is the existing client cache. Customer header queries poll recent notifications, unread count and the sound event cursor every 5 seconds with background polling disabled; customer history and unread count also poll every 5 seconds. The existing event cursor and durable paginated history remain the source of truth.
+- Planned slice: apply tested bounded backoff to active notification polling after repeated failures and explicitly refetch notification data on network reconnection/window focus, preserving no-background polling and existing deduplication/sound behavior. No provider or push infrastructure will be invented in this slice.
+- Tests run for this work unit so far: source/test/architecture inspection only; no local tests yet.
+- Next: implement a small pure polling-policy helper and focused tests, apply it only to recent-notification, event-cursor, unread-count, and first-history-page queries; run focused Vitest and TypeScript; checkpoint and push. Then continue to an independent ticket/announcement or accessibility gap.
+
 ## Update protocol
 
 For each meaningful work unit, append a section with actual changed behavior/files, actual test commands/results, resulting Git SHA, unresolved risks, and next action. Commit and push each coherent slice to the existing feature branch. After pushing, confirm remote branch SHA through GitHub. If interrupted, resume from this file plus `git log`, source and live CI; do not trust old conversation state.
