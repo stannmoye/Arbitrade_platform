@@ -94,6 +94,8 @@ describe("manual payout request lifecycle contract", () => {
     expect(customerUi).toContain("Never enter passwords, PINs, private keys, or seed phrases.");
     expect(adminUi).toContain("Reject and release");
     expect(adminUi).toContain("Mark paid");
+  });
+
   it("keeps the payout browser acceptance script parseable and focused on real user-visible flow states", async () => {
     const parsed = await transform(payoutBrowserAcceptance, { loader: "js", target: "node22" });
     expect(parsed.code).toContain('procedure === "customer.requestPayout"');
@@ -103,6 +105,5 @@ describe("manual payout request lifecycle contract", () => {
     expect(payoutBrowserAcceptance).toContain("staleDestinationCleared");
     expect(payoutBrowserAcceptance).toContain("Cancelled · funds released");
     expect(payoutBrowserAcceptance).toContain("No external bank or blockchain transfer is initiated.");
-  });
   });
 });
