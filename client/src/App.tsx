@@ -59,7 +59,7 @@ const defaultSoundSettings:SoundSettings={default:"sound-01",opportunity:"sound-
 let activeNotificationAudio:HTMLAudioElement|null=null;let opportunityLoopTimer:number|null=null;
 function unlockNotificationAudio(){/* Audio playback is initiated from a user gesture; no synthetic tone generator is used. */}
 function soundEffectsEnabled(){try{return typeof window!=="undefined"&&window.localStorage.getItem("wisebond-sound-effects")==="on"}catch{return false}}
-function playConfiguredSound(id:string,kind:SoundKey="default",loop=false,force=false){if(!force&&(!soundEffectsEnabled()||!defaultSoundSettings.enabled))return;try{const preset=SOUND_PRESETS.find(x=>x.id===id)||SOUND_PRESETS[0];const play=()=>{const audio=new Audio(preset.src);audio.preload="auto";audio.volume=notificationAudioVolume(defaultSoundSettings.volume,kind==="debit"||kind==="failure"?.9:1);activeNotificationAudio=audio;void audio.play().catch(()=>{});};play();if(loop){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=window.setInterval(play,1500)}}catch{}}
+function playConfiguredSound(id:string,kind:SoundKey="default",loop=false,force=false,volume:number=defaultSoundSettings.volume){if(!force&&(!soundEffectsEnabled()||!defaultSoundSettings.enabled))return;try{const preset=SOUND_PRESETS.find(x=>x.id===id)||SOUND_PRESETS[0];const play=()=>{const audio=new Audio(preset.src);audio.preload="auto";audio.volume=notificationAudioVolume(volume,kind==="debit"||kind==="failure"?.9:1);activeNotificationAudio=audio;void audio.play().catch(()=>{});};play();if(loop){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=window.setInterval(play,1500)}}catch{}}
 function stopConfiguredSound(){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;if(activeNotificationAudio){activeNotificationAudio.pause();activeNotificationAudio.currentTime=0;activeNotificationAudio=null}}
 function playNotificationChime(){playConfiguredSound(defaultSoundSettings.default,"default",false)}
 function playTransactionSound(kind:"debit"|"credit"|"failure"){playConfiguredSound(defaultSoundSettings[kind],kind,false)}
@@ -494,7 +494,7 @@ function AdminSoundSettings(){
  const [form,setForm]=useState<SoundSettings>(defaultSoundSettings);const [saved,setSaved]=useState(false);
  useEffect(()=>{if(q.data?.sounds){const loaded={...defaultSoundSettings,...q.data.sounds};for(const key of Object.keys(defaultSoundSettings) as Array<keyof SoundSettings>){const value=(loaded as any)[key];if(typeof value==="string"&&!SOUND_PRESETS.some(x=>x.id===value))(loaded as any)[key]=defaultSoundSettings[key];}setForm(loaded as SoundSettings)}},[q.data]);
  const update=(key:keyof SoundSettings,value:string|boolean|number)=>setForm(x=>({...x,[key]:value}));
- const preview=(key:SoundKey)=>{unlockNotificationAudio();playConfiguredSound(form[key] as string,key,key==="opportunity"&&form.loopOpportunity,true)};
+ const preview=(key:SoundKey)=>{unlockNotificationAudio();playConfiguredSound(form[key] as string,key,key==="opportunity"&&form.loopOpportunity,true,normalizeNotificationVolume(form.volume))};
  const submit=async()=>{stopConfiguredSound();await save.mutateAsync({sounds:form});Object.assign(defaultSoundSettings,form);setSaved(true);window.setTimeout(()=>setSaved(false),1800)};
  const mappings:[SoundKey,string,string][]=[
  ["default","Default customer notification","Fallback sound for general account notices"],
