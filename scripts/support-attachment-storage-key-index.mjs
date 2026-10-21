@@ -10,7 +10,14 @@ export async function preflightSupportAttachmentStorageKeyUniqueIndex(connection
     "SHOW INDEX FROM support_attachments WHERE Key_name=?",
     [SUPPORT_ATTACHMENT_STORAGE_KEY_INDEX_NAME],
   );
-  if (indexes.length) return { indexExists: true, duplicateFound: false };
+  if (indexes.length) {
+    if (indexes.length !== 1 || Number(indexes[0].Non_unique) !== 0 || indexes[0].Column_name !== "storageKey") {
+      throw new Error(
+        "Cannot enforce unique support attachment storage keys: the expected index name exists with an incompatible definition.",
+      );
+    }
+    return { indexExists: true, duplicateFound: false };
+  }
 
   const [duplicates] = await connection.query(
     "SELECT storageKey,COUNT(*) AS count FROM support_attachments GROUP BY storageKey HAVING COUNT(*)>1 LIMIT 1",
