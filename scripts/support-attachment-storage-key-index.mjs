@@ -11,7 +11,7 @@ export async function preflightSupportAttachmentStorageKeyUniqueIndex(connection
     [SUPPORT_ATTACHMENT_STORAGE_KEY_INDEX_NAME],
   );
   if (indexes.length) {
-    if (indexes.length !== 1 || Number(indexes[0].Non_unique) !== 0 || indexes[0].Column_name !== "storageKey") {
+    if (indexes.length !== 1 || Number(indexes[0].Non_unique) !== 0 || indexes[0].Column_name !== "storageKey" || indexes[0].Sub_part != null) {
       throw new Error(
         "Cannot enforce unique support attachment storage keys: the expected index name exists with an incompatible definition.",
       );
