@@ -289,8 +289,31 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
     });
     await expect(createCustomerPayoutRequest(kycCustomer, requestInput(1000, unique("payout-kyc-required"))))
       .rejects.toThrow("Complete the required identity verification");
+    const twoFactorCustomer = await createAccount("user", { withdrawalsEnabled: true, kycRequired: false });
+    await pool!.execute("UPDATE customer_controls SET twoFactorRequired=1 WHERE userId=?", [twoFactorCustomer]);
+    expect(await getCustomerPayoutEligibility(twoFactorCustomer)).toEqual({
+      allowed: false,
+      reason: "Complete two-factor verification before requesting a payout; payout verification is not available yet.",
+    });
+    await expect(createCustomerPayoutRequest(twoFactorCustomer, requestInput(1000, unique("payout-customer-2fa"))))
+      .rejects.toThrow("payout verification is not available yet");
+
+    const globalTwoFactorCustomer = await createAccount("user", { withdrawalsEnabled: true, kycRequired: false });
+    await setPolicy({ kyc: false, withdrawals: true, twofa: true, facial: false });
+    try {
+      expect(await getCustomerPayoutEligibility(globalTwoFactorCustomer)).toMatchObject({
+        allowed: false,
+        reason: "Complete two-factor verification before requesting a payout; payout verification is not available yet.",
+      });
+      await expect(createCustomerPayoutRequest(globalTwoFactorCustomer, requestInput(1000, unique("payout-global-2fa"))))
+        .rejects.toThrow("payout verification is not available yet");
+    } finally {
+      await setPolicy({ kyc: false, withdrawals: true, twofa: false, facial: false });
+    }
     expect(await ledgerCount(blockedCustomer, "payout_reserve")).toBe(0);
     expect(await ledgerCount(enabledCustomer, "payout_reserve")).toBe(0);
     expect(await ledgerCount(kycCustomer, "payout_reserve")).toBe(0);
+    expect(await ledgerCount(twoFactorCustomer, "payout_reserve")).toBe(0);
+    expect(await ledgerCount(globalTwoFactorCustomer, "payout_reserve")).toBe(0);
   });
 });
