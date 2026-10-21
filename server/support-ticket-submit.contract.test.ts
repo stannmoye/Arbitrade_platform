@@ -110,7 +110,8 @@ describe("Stage 4 support ticket submission security contract", () => {
     const attachment = database.slice(attachmentStart, attachmentEnd);
     expect(attachment).toContain("eq(supportTickets.customerId,userId)");
     expect(attachment).toContain('if(!ticket) throw new Error("Ticket not found")');
-    expect(attachment).toContain("isValidSupportAttachmentStorageKey(input.storageKey)");
+    expect(attachment).toContain("isSupportAttachmentStorageKeyForTicket(input.storageKey,input.ticketId)");
+    expect(attachment).toContain("Attachment storage key has already been registered");
   });
 
   it("keeps reply persistence serialized and requires reopening resolved or closed tickets", () => {
