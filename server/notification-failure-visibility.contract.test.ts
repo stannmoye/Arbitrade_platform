@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const miningSource = readFileSync(new URL("./mining.ts", import.meta.url), "utf8");
 
 describe("financial notification delivery observability", () => {
   it("does not count a notification as delivered when persistence cannot be confirmed", () => {
@@ -35,6 +36,31 @@ describe("financial notification delivery observability", () => {
     expect(create).toContain("assertNotificationPayloadMatches(existing,{userId,title:safeTitle,body:safeBody,category:options.category||\"account\",priority:options.priority||\"normal\",href})");
     expect(create.indexOf("assertNotificationPayloadMatches")).toBeLessThan(create.indexOf("enqueueSystemNotificationEmail"));
     expect(create).toContain("`notification:${notificationId}`");
+  });
+
+  it("keeps security, signup-credit, wallet-adjustment, and support notification sources mapped to stable event identities", () => {
+    expect(source).toContain("security-session-revoked:${input.id}:${sessionCursor}");
+    expect(source).toContain('category: "security"');
+    expect(dbSource).toContain("eventKey:`signup-credit:${userId}`");
+    expect(dbSource).toContain("eventKey:`wallet-adjustment:${result.ledgerReference}`");
+    expect(dbSource).toContain("support-ticket-created-customer:${ticketId}");
+    expect(dbSource).toContain("support-ticket:${ticketId}:message:${committed.messageId}");
+  });
+
+  it("keeps trade allocation and settlement notices tied to committed trade identifiers", () => {
+    expect(source).toContain("auto-trade-allocation:${trade.tradeId}");
+    expect(source).toContain("trade-reward:${settlement.tradeId}");
+    expect(source).toContain("buildTradeSettlementNotices({tradeId:result.tradeId");
+    expect(source).toContain("await manuallySettleTrade(input.tradeId,ctx.user.id,input)");
+    expect(dbSource).toContain("trade-settlement:${result.tradeId}:");
+  });
+
+  it("keeps mining reward, conversion, and swap notices anchored to persisted event or receipt IDs", () => {
+    expect(miningSource).toContain("mining-reward:${notice.rewardEventId}");
+    expect(miningSource).toContain("mining-conversion:${conversion.receiptReference}");
+    expect(miningSource).toContain("mining-swap:${result.receiptReference}");
+    expect(miningSource).toContain('The main-wallet conversion and mining journal have committed');
+    expect(miningSource).toContain('await conn.commit();');
   });
 
 });
