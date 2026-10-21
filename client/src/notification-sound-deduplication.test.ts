@@ -205,3 +205,63 @@ describe("authoritative financial-event notification contracts", () => {
     expect(app).not.toContain("Withdrawal paid successfully");
   });
 });
+
+
+
+describe("announcement lifecycle persistence contracts", () => {
+  const db = readFileSync(new URL("../../server/db.ts", import.meta.url), "utf8");
+
+  it("validates announcement schedule and expiry ordering before persistence", () => {
+    const start = db.indexOf("export async function broadcastCustomerNotification(");
+    const end = db.indexOf("export async function retryNotificationCampaign(", start);
+    const broadcast = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(broadcast).toContain('parseDate(input.scheduledAt,"schedule time")');
+    expect(broadcast).toContain('parseDate(input.expiresAt,"expiry time")');
+    expect(broadcast).toContain("if(expiresAt && expiresAt.getTime()<=now.getTime())");
+    expect(broadcast).toContain("if(scheduledAt && expiresAt && expiresAt.getTime()<=scheduledAt.getTime())");
+    expect(broadcast).toContain('status:"scheduled" as const');
+    expect(broadcast).toContain('const nextStatus=scheduledAt&&scheduledAt.getTime()>now.getTime()?"scheduled":"published"');
+  });
+
+  it("processes due and expired campaigns while counting persisted outcomes", () => {
+    const start = db.indexOf("export async function processNotificationCampaignLifecycle()");
+    const end = db.indexOf("export async function listAdminNotificationCampaigns()", start);
+    const lifecycle = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(lifecycle).toContain('eq(notificationCampaigns.status,"published"),eq(notificationCampaigns.status,"scheduled")');
+    expect(lifecycle).toContain('set({status:"expired"})');
+    expect(lifecycle).toContain('set({status:"published",publishedAt:now})');
+    expect(lifecycle).toContain('if(result.status==="published") published++');
+    expect(lifecycle).toContain('else if(result.status==="expired") expiredDuringPublish++');
+    expect(lifecycle).toContain("return {expired:expired.length+expiredDuringPublish,published,failed}");
+  });
+
+  it("withdraws campaigns transactionally, preserves terminal delivery states, and records an audit event", () => {
+    const start = db.indexOf("export async function withdrawNotificationCampaign(");
+    const end = db.indexOf("export async function processNotificationCampaignLifecycle()", start);
+    const withdrawal = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(withdrawal).toContain("return db.transaction(async tx=>");
+    expect(withdrawal).toContain('.for("update")');
+    expect(withdrawal).toContain('actor.role!=="admin"');
+    expect(withdrawal).toContain('set({status:"withdrawn",errorCode:"CAMPAIGN_WITHDRAWN"})');
+    expect(withdrawal).toContain('action:"notification.campaign.withdrawn"');
+    expect(withdrawal).toContain('status==="withdrawn"');
+    expect(withdrawal).toContain('status==="expired"');
+  });
+
+  it("reports announcement delivery and read counts from persisted delivery states", () => {
+    const start = db.indexOf("export async function listAdminNotificationCampaigns()");
+    const end = db.indexOf("export async function ", start + 30);
+    const history = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(history).toContain("notificationCampaignDeliveries.status");
+    expect(history).toContain('summary.read+=count');
+    expect(history).toContain('summary.failed+=count');
+    expect(history).toContain('summary.pending+=count');
+  });
+});
