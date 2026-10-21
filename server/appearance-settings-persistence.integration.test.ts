@@ -374,6 +374,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
         await db.delete(customerNotifications).where(or(
           and(eq(customerNotifications.title, "New customer support ticket"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
           and(eq(customerNotifications.title, "Support ticket assigned"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
+          and(eq(customerNotifications.title, "Customer replied to a support ticket"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
         ));
       }
       await db.delete(supportAttachments).where(eq(supportAttachments.ticketId, temporaryTicketId));
