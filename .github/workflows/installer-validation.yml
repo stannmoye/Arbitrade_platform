@@ -421,6 +421,12 @@ jobs:
           RUN_APPEARANCE_SETTINGS_DB_INTEGRATION: "1"
         run: pnpm exec vitest run server/appearance-settings-persistence.integration.test.ts
 
+      - name: Verify support attachment key uniqueness on disposable MariaDB
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+          RUN_APPEARANCE_SETTINGS_DB_INTEGRATION: "1"
+        run: pnpm exec vitest run server/appearance-settings-persistence.integration.test.ts
+
   installer-mysql8-compatibility-and-recovery:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -545,6 +551,12 @@ jobs:
         env:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
         run: node scripts/notification-migration-db-assertions.mjs
+
+      - name: Verify support attachment key uniqueness on disposable MySQL 8
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+          RUN_APPEARANCE_SETTINGS_DB_INTEGRATION: "1"
+        run: pnpm exec vitest run server/appearance-settings-persistence.integration.test.ts
 
       - name: Verify main migration guard refuses blind retry
         env:
