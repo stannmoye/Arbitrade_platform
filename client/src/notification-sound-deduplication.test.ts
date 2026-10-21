@@ -347,7 +347,7 @@ describe("administrator support and announcement route contracts", () => {
 
   it("keeps support administration endpoints behind administrator authorization", () => {
     const adminStart = routers.indexOf("    tickets: adminProcedure.query(() => listAllTickets())");
-    const adminEnd = routers.indexOf("    miningDashboard:", adminStart);
+    const adminEnd = routers.indexOf("  // TODO: add feature routers here", adminStart);
     const adminSupport = routers.slice(adminStart, adminEnd);
     expect(adminStart).toBeGreaterThanOrEqual(0);
     expect(adminEnd).toBeGreaterThan(adminStart);
