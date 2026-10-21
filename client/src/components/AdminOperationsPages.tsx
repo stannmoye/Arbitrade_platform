@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Users,
+  XCircle,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useState, type ReactNode } from "react";
