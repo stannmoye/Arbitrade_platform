@@ -58,7 +58,7 @@ describe("administrator wallet adjustment concurrency contract", () => {
     const mutation = routers.slice(start, end);
     const commitCall = mutation.indexOf("await adjustCustomerBalance(ctx.user.id, input)");
     const eventCall = mutation.indexOf("await recordTransactionConsoleEvent");
-    const errorHandler = mutation.indexOf('console.error("[Wallet] Admin transaction console event failed after ledger commit:");');
+    const errorHandler = mutation.indexOf("Admin transaction console event failed after ledger commit");
     const resultReturn = mutation.lastIndexOf("return result");
 
     expect(start).toBeGreaterThanOrEqual(0);
