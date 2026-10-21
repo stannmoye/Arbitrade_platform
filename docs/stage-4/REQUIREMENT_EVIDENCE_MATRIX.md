@@ -181,3 +181,19 @@ Exact-head workflows passed: [Stage 3 five-theme/Chromium 39652721697](https://g
 - **Exact-head workflows passed:** [Stage 3 five-theme/Chromium 39653440542](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39653440542), including TypeScript, application/theme policy, production build, and Chromium viewport/theme smoke; [installer validation 39653440483](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39653440483), including fresh MariaDB, MySQL 8 migration/recovery, installer syntax, build/smoke, and package validation; [mining DB regression 39653440522](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39653440522).
 - **Acceptance boundary:** this closes the persisted-history normalization change, not the entire notification-reliability sub-stage. Reconnect and multi-session deduplication, event ordering and post-commit timing, and owner-held real-device acceptance remain open. Source contracts do not prove end-to-end notification delivery.
 - No production deployment, production database migration, or published release ZIP replacement occurred.
+
+
+## Acceptance evidence refresh — PR #106 keyboard-scroll fix and lifecycle contracts (2026-10-21)
+
+- PR [#106](https://github.com/stannmoye/Arbitrade_platform/pull/106) merged into `integration/auth-installer-vps-safety` as `29792e8f482c23c7682b79e684379d7cc03e8f1b`.
+- The change adds source-contract regression coverage for authoritative financial notification boundaries, announcement lifecycle state/reporting, and authenticated support lifecycle contracts. It also adds left/right keyboard scrolling to the admin settlement and wallet-ledger overflow regions.
+- Exact tested PR head: `ed46335a0c03ca57d16741824a090b10077d2f69`.
+- Exact-head workflows passed:
+  - [Stage 3 five-theme/Chromium validation, run 39657692406](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39657692406): Chromium viewport and five-theme matrix **1,004 checks passed, zero failures**; application/theme-policy tests, production build, and TypeScript passed.
+  - [Installer validation, run 39657692038](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39657692038): installer/migration regressions, fresh MariaDB, MySQL 8 compatibility/recovery, build/bundle budgets/server smoke, and deployment-package generation passed.
+  - [Mining database regression, run 39657692468](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39657692468): passed.
+- **Closed narrow sub-stage:** admin settlement-table keyboard scrolling. This is a browser-matrix result, not proof of complete admin ledger correctness or financial settlement.
+- **Still open:** real-device/owner notification sound and reconnect/post-commit timing; exhaustive mapping of persisted financial events to notifications; authenticated announcement scheduling/delivery/expiry/read end-to-end; support attachment storage and ticket lifecycle/concurrency end-to-end; manual keyboard-only, screen-reader, zoom/reflow, and reduced-motion acceptance; hosted owner acceptance; and final full-release ZIP rebuild/verification.
+- Deposit/withdrawal success notifications remain blocked pending authoritative persisted provider/custody completion events. Do not represent initiation or simulated ledger adjustments as completed cash movement.
+- Release boundary unchanged: the published `v2.0.4-stage4-full` ZIP has not been replaced; no production deployment or production database migration was performed. The successful CI deployment-package job is not a published release.
+- Scope decision: defer security-only hardening that does not affect supported functionality. Continue to address defects that can break user workflows, corrupt financial state, or cause data loss.
