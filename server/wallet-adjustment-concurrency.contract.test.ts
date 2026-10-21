@@ -59,15 +59,19 @@ describe("administrator wallet adjustment concurrency contract", () => {
     const mutation = routers.slice(start, end);
     const commitCall = mutation.indexOf("await adjustCustomerBalance(ctx.user.id, input)");
     const eventCall = mutation.indexOf("await recordTransactionConsoleEvent");
+    const eventTry = mutation.lastIndexOf("try {", eventCall);
+    const eventCatch = mutation.indexOf("catch(error)", eventCall);
     const errorHandler = mutation.indexOf("Admin transaction console event failed after ledger commit");
     const resultReturn = mutation.lastIndexOf("return result");
 
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
     expect(eventCall).toBeGreaterThan(commitCall);
-    expect(mutation.slice(eventCall, resultReturn)).toContain("try {");
-    expect(mutation.slice(eventCall, resultReturn)).toContain("catch(error)");
+    expect(eventTry).toBeGreaterThan(commitCall);
+    expect(eventTry).toBeLessThan(eventCall);
+    expect(eventCatch).toBeGreaterThan(eventCall);
     expect(mutation.slice(eventCall, resultReturn)).toContain("Admin transaction console event failed after ledger commit");
+    expect(resultReturn).toBeGreaterThan(eventCatch);
     expect(resultReturn).toBeGreaterThan(errorHandler);
   });
 
