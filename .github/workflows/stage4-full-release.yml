@@ -1,0 +1,67 @@
+name: Stage 4 full application release package
+
+on:
+  push:
+    branches:
+      - integration/auth-installer-vps-safety
+    paths:
+      - '.github/workflows/stage4-full-release.yml'
+      - 'src/**'
+      - 'client/**'
+      - 'server/**'
+      - 'shared/**'
+      - 'installer/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'vite.config.*'
+      - 'tsconfig.json'
+      - 'drizzle.config.*'
+      - 'components.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage4-full-release
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out integrated Stage 1–4 application
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.18.0 --activate
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build production application
+        run: pnpm build
+      - name: Assemble full application ZIP
+        run: |
+          zip -qr arbitrade-stage4-full-application.zip . \
+            -x './.git/*' \
+               './.env' './.env.*' \
+               './node_modules/.cache/*' \
+               './.github/*'
+          test -s arbitrade-stage4-full-application.zip
+          unzip -tq arbitrade-stage4-full-application.zip
+          sha256sum arbitrade-stage4-full-application.zip
+          ls -lh arbitrade-stage4-full-application.zip
+      - name: Save release ZIP on GitHub Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: arbitrade-stage4-full-application
+          path: arbitrade-stage4-full-application.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
