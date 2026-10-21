@@ -7,6 +7,19 @@
 
 This file is the durable acceptance checklist for Stage 4. Add new agreed requirements here rather than relying on chat history alone. Keep checkboxes open until supported by implementation and test evidence.
 
+## Latest exact-head verification checkpoint (2026-10-21)
+
+- **Verified PR head at audit:** `a4a47e28aaab081d987b6d090ee7d09539864b4c`. PR #95 is open, draft, unmerged, and mergeable.
+- **Exact-head CI:** [Stage 3 five-theme validation, run 39560345787](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39560345787), [Installer validation, run 39560345786](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39560345786), and [Mining database regression, run 39560345809](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39560345809) all completed successfully on that head.
+- **Checklist count independently recounted:** 37 checked; 11 unchecked. Do not close remaining gates merely because CI is green.
+- **Important evidence qualification:** the downloaded 848-check browser report with 848 passed and zero failures came from the prior documentation-only head; the Stage 3 Chromium workflow also succeeded on the exact head above. The installer generated its validation package on the exact head. CI artifacts are not production deployment or owner sign-off.
+- **Remaining gates:** provider-backed deposit/withdrawal success is blocked pending an authoritative persisted provider/custody lifecycle; persistent push is missing pending an owner/platform release decision; dedicated sound, exhaustive event-source, authenticated announcement/ticket/attachment authorization and concurrency journeys remain unverified; comprehensive manual accessibility and owner-level production verification remain open.
+- **Safety boundary:** no production deployment, production migration, or financial operation was performed. Keep this PR draft and unmerged until required acceptance and owner release gates are resolved.
+
+## Historical consolidated batches
+
+The dated checkpoints below are retained as historical evidence; the latest-head checkpoint above governs current status.
+
 ## Latest consolidated batch (2026-10-20)
 
 - **New live-cursor visibility regression coverage:** commit `bfa3aaff18924848bd441181e24b56c76c99d26b` adds executable tests proving the live event cursor uses the same category filter as the inbox, keeps NULL/unknown categories visible by default, and restores records when a category is re-enabled.
