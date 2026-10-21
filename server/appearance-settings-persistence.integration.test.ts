@@ -382,7 +382,9 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     });
     const adminCaller = appRouter.createCaller(adminContext);
     const scheduledAt = new Date(Date.now() + 5 * 60_000);
+    scheduledAt.setMilliseconds(0);
     const expiresAt = new Date(Date.now() + 10 * 60_000);
+    expiresAt.setMilliseconds(0);
     const eventKey = "stage4-expiry-" + unique;
 
     const created = await adminCaller.adminOperations.publishAnnouncement({
