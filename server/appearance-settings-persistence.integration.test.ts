@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, it } from "vitest";
 import express from "express";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { and, eq } from "drizzle-orm";
-import { appSettings, customerNotifications, notificationCampaignDeliveries, notificationCampaigns, users, v5AuditEvents } from "../drizzle/schema";
+import { and, eq, like, or } from "drizzle-orm";
+import { appSettings, customerNotifications, notificationCampaignDeliveries, notificationCampaigns, supportAttachments, supportMessages, supportTickets, users, v5AuditEvents } from "../drizzle/schema";
 import { createContext } from "./_core/context";
 import { createLocalSession } from "./_core/localAuth";
 import { appRouter } from "./routers";
@@ -25,6 +25,9 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
 
   let previousValue: string | undefined;
   let temporaryCustomerId: number | undefined;
+  const temporaryCustomerIds: number[] = [];
+  let temporaryTicketId: number | undefined;
+  let temporaryTicketNumber: string | undefined;
   let temporaryCampaignId: number | undefined;
   let temporaryNotificationId: number | undefined;
 
@@ -41,6 +44,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       role: "user",
     });
     temporaryCustomerId = Number(insert[0].insertId);
+    temporaryCustomerIds.push(temporaryCustomerId);
 
     const administrator = await getUserById(administratorId);
     expect(administrator?.role).toBe("admin");
@@ -189,6 +193,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       role: "user",
     });
     temporaryCustomerId = Number(insertedCustomer[0].insertId);
+    temporaryCustomerIds.push(temporaryCustomerId);
     const adminUser = await getUserById(administratorId);
     expect(adminUser?.role).toBe("admin");
     if (!adminUser) throw new Error("Disposable database administrator fixture is missing");
@@ -248,6 +253,84 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     expect(delivery?.status).toBe("delivered");
   });
 
+
+  it("exercises authenticated support-ticket ownership and administrator assignment against the disposable database", async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database is not available");
+    const unique = Date.now().toString() + "_" + Math.random().toString(36).slice(2, 9);
+    const insertedOwner = await db.insert(users).values({
+      openId: "stage4:ticket-owner:" + unique,
+      email: "stage4-ticket-owner-" + unique + "@example.test",
+      name: "Stage 4 Ticket Owner",
+      loginMethod: "email",
+      role: "user",
+    });
+    const ownerId = Number(insertedOwner[0].insertId);
+    temporaryCustomerId = ownerId;
+    temporaryCustomerIds.push(ownerId);
+    const insertedOther = await db.insert(users).values({
+      openId: "stage4:ticket-other:" + unique,
+      email: "stage4-ticket-other-" + unique + "@example.test",
+      name: "Stage 4 Other Customer",
+      loginMethod: "email",
+      role: "user",
+    });
+    const otherId = Number(insertedOther[0].insertId);
+    temporaryCustomerIds.push(otherId);
+
+    const administrator = await getUserById(administratorId);
+    expect(administrator?.role).toBe("admin");
+    if (!administrator) throw new Error("Disposable database administrator fixture is missing");
+
+    const signedCaller = async (userId: number) => {
+      const user = await getUserById(userId);
+      if (!user) throw new Error("Signed-session fixture user is missing");
+      const context = await createContext({
+        req: { headers: { cookie: "webdev_app_session=" + createLocalSession(user.id, Number(user.authVersion || 0)) } } as never,
+        res: {} as never,
+      });
+      return appRouter.createCaller(context);
+    };
+    const ownerCaller = await signedCaller(ownerId);
+    const otherCaller = await signedCaller(otherId);
+    const adminCaller = await signedCaller(administrator.id);
+
+    const created = await ownerCaller.customer.createTicket({
+      subject: "Stage 4 assignment integration " + unique,
+      body: "Disposable authenticated support-ticket integration fixture.",
+      category: "technical",
+      priority: "high",
+    });
+    temporaryTicketId = created.ticketId;
+    temporaryTicketNumber = created.ticketNumber;
+
+    expect((await ownerCaller.customer.tickets()).map(ticket => ticket.id)).toContain(temporaryTicketId);
+    expect((await ownerCaller.customer.ticketMessages({ ticketId: temporaryTicketId })).map(message => message.body)).toContain("Disposable authenticated support-ticket integration fixture.");
+    await expect(otherCaller.customer.ticketMessages({ ticketId: temporaryTicketId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(otherCaller.customer.replyTicket({ ticketId: temporaryTicketId, body: "Unauthorized cross-account reply" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(ownerCaller.adminOperations.assignTicket({ ticketId: temporaryTicketId, assignedAdminId: administrator.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    await expect(adminCaller.adminOperations.assignTicket({ ticketId: temporaryTicketId, assignedAdminId: administrator.id })).resolves.toMatchObject({
+      success: true,
+      changed: true,
+      assignedAdminId: administrator.id,
+    });
+    await expect(adminCaller.adminOperations.assignTicket({ ticketId: temporaryTicketId, assignedAdminId: administrator.id })).resolves.toMatchObject({
+      success: true,
+      changed: false,
+      assignedAdminId: administrator.id,
+    });
+
+    const [persistedTicket] = await db.select().from(supportTickets).where(eq(supportTickets.id, temporaryTicketId));
+    expect(persistedTicket?.assignedAdminId).toBe(administrator.id);
+    const auditRows = await db.select().from(v5AuditEvents).where(and(
+      eq(v5AuditEvents.action, "support.ticket.assigned"),
+      eq(v5AuditEvents.entityId, String(temporaryTicketId)),
+    ));
+    expect(auditRows).toHaveLength(1);
+    expect((await adminCaller.adminOperations.tickets()).find(ticket => ticket.id === temporaryTicketId)?.assignedAdminId).toBe(administrator.id);
+  });
+
   afterAll(async () => {
     if (!enabled) return;
     const db = await getDb();
@@ -256,11 +339,27 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       await db.delete(notificationCampaignDeliveries).where(eq(notificationCampaignDeliveries.campaignId, temporaryCampaignId));
       await db.delete(notificationCampaigns).where(eq(notificationCampaigns.id, temporaryCampaignId));
     }
+    if (db && temporaryTicketId !== undefined) {
+      await db.delete(v5AuditEvents).where(and(
+        eq(v5AuditEvents.entityType, "support_ticket"),
+        eq(v5AuditEvents.entityId, String(temporaryTicketId)),
+      ));
+      if (temporaryTicketNumber) {
+        await db.delete(customerNotifications).where(or(
+          and(eq(customerNotifications.title, "New customer support ticket"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
+          and(eq(customerNotifications.title, "Support ticket assigned"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
+        ));
+      }
+      await db.delete(supportAttachments).where(eq(supportAttachments.ticketId, temporaryTicketId));
+      await db.delete(supportMessages).where(eq(supportMessages.ticketId, temporaryTicketId));
+      await db.delete(supportTickets).where(eq(supportTickets.id, temporaryTicketId));
+    }
     if (db && temporaryNotificationId !== undefined) {
       await db.delete(customerNotifications).where(eq(customerNotifications.id, temporaryNotificationId));
     }
-    if (temporaryCustomerId !== undefined && db) {
-      await db.delete(users).where(eq(users.id, temporaryCustomerId));
+    if (db && temporaryCustomerIds.length) {
+      await db.delete(customerNotifications).where(or(...temporaryCustomerIds.map(userId => eq(customerNotifications.userId, userId))));
+      await db.delete(users).where(or(...temporaryCustomerIds.map(userId => eq(users.id, userId))));
     }
     if (previousValue !== undefined) {
       if (previousValue === missingValue) {
