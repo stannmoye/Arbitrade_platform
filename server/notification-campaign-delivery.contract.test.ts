@@ -51,7 +51,9 @@ describe("Stage 4 announcement campaign delivery persistence", () => {
     const lifecycle = db.slice(lifecycleStart, lifecycleEnd);
     expect(lifecycle).toContain('if(result.status==="published") published++');
     expect(lifecycle).toContain('else if(result.status==="expired") expiredDuringPublish++');
-    expect(lifecycle).toContain('return {expired:expired.length+expiredDuringPublish,published,failed}');
+    expect(lifecycle).toContain('return {expired:expiredCount+expiredDuringPublish,published,failed}');
+    expect(lifecycle).toContain('if(Number(changed[0]?.affectedRows||0)>0)');
+    expect(lifecycle).toContain('expiredCount++');
     expect(lifecycle).not.toContain('}); published++;');
   });
 
