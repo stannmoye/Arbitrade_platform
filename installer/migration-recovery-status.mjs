@@ -29,6 +29,7 @@ const portalMigrationFiles = [
   "0054_notification_event_idempotency.sql",
   "0055_notification_campaign_delivery_tracking.sql",
   "0056_support_ticket_assignment.sql",
+  "0057_notification_history_pagination.sql",
 ];
 let journal;
 try {
