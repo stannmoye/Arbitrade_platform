@@ -357,6 +357,8 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     ]);
     expect(duplicateRegistrations.filter(result => result.status === "fulfilled")).toHaveLength(1);
     expect(duplicateRegistrations.filter(result => result.status === "rejected")).toHaveLength(1);
+    const rejectedRegistration = duplicateRegistrations.find(result => result.status === "rejected");
+    expect(String((rejectedRegistration as PromiseRejectedResult | undefined)?.reason?.message)).toMatch(/Attachment storage key has already been registered/);
     await expect(getTicketAttachmentAccess(sharedKey)).resolves.toMatchObject({
       ticketId: temporaryTicketId,
       customerId: ownerId,
