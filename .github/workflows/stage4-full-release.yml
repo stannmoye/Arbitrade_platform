@@ -11,7 +11,10 @@ on:
       - 'server/**'
       - 'shared/**'
       - 'installer/**'
+      - 'cpanel/**'
       - 'scripts/**'
+      - 'drizzle/**'
+      - 'public/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'vite.config.*'
@@ -46,16 +49,51 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build production application
         run: pnpm build
+      - name: Record release provenance
+        run: |
+          {
+            echo "Product: Arbitrade full application"
+            echo "Included stages: original application + Stages 1, 2, 3, and 4"
+            echo "Source branch: $GITHUB_REF_NAME"
+            echo "Source commit: $GITHUB_SHA"
+            echo "Build UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Installer entry points: installer/index.php, installer/install.sh, installer/vps-setup.sh"
+            echo "cPanel guide: cpanel/README.md"
+          } > BUILD_PROVENANCE.txt
       - name: Assemble full application ZIP
         run: |
-          zip -qr arbitrade-stage4-full-application.zip . \
+          test -f .env.example
+          test -f installer/index.php
+          test -f installer/install.sh
+          test -f installer/vps-setup.sh
+          test -f cpanel/README.md
+          test -s dist/index.js
+          test -f drizzle/0054_notification_event_idempotency.sql
+          test -f drizzle/0058_withdrawable_notification_campaigns.sql
+          test -f public/sounds/notification-warm-tone.wav
+
+          # Keep pnpm's relative symlinks intact instead of expanding linked
+          # dependencies into duplicate copies and inflating the release ZIP.
+          zip -qry arbitrade-stage4-full-application.zip . \
             -x './.git/*' \
-               './.env' './.env.*' \
+               './.env' './.env.local' './.env.production' './.env.development' './.env.test' './.env.*.local' \
                './node_modules/.cache/*' \
                './.github/*' \
                './arbitrade-stage4-full-application.zip'
+
           test -s arbitrade-stage4-full-application.zip
           unzip -tq arbitrade-stage4-full-application.zip
+          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx '.env.example'
+          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'installer/index.php'
+          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'installer/install.sh'
+          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'installer/vps-setup.sh'
+          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'cpanel/README.md'
+          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'dist/index.js'
+          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'BUILD_PROVENANCE.txt'
+          if unzip -Z1 arbitrade-stage4-full-application.zip | grep -E '^\.env($|\.(local|production|development|test|.*\.local)$)'; then
+            echo "Unexpected environment secret file in release ZIP" >&2
+            exit 1
+          fi
           sha256sum arbitrade-stage4-full-application.zip
           ls -lh arbitrade-stage4-full-application.zip
       - name: Save release ZIP on GitHub Actions
@@ -66,15 +104,15 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 90
-      - name: Publish GitHub release with the full application ZIP
+      - name: Publish GitHub release with the full ZIP
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v2.0.0-stage4-full
           name: Arbitrade Stage 4 — Full Application
           body: |
-            Full application package integrating Stages 1–4 from the integration/auth-installer-vps-safety branch.
+            Full installer package for the original Arbitrade application with Stages 1–4 integrated.
 
-            The ZIP includes the repository source, locked dependencies, installer files, and production build output. Environment files and Git metadata are excluded.
+            Includes the browser installer and VPS/cPanel deployment files, production build, locked dependencies, Stage 4 migrations and notification/support assets. The release workflow validates ZIP integrity and required installer/package files. Environment secrets and Git metadata are excluded.
           target_commitish: integration/auth-installer-vps-safety
           files: arbitrade-stage4-full-application.zip
           fail_on_unmatched_files: true
