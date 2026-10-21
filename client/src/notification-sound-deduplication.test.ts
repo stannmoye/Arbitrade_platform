@@ -96,6 +96,7 @@ describe("notification sound reconnect deduplication", () => {
 
 describe("notification sound header integration contract", () => {
   const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("./index.css", import.meta.url), "utf8");
   const effectStart = app.indexOf("const previousHeaderNotificationIds=useRef<number[]|null>(null)");
   const effectEnd = app.indexOf("const logout=trpc.auth.logout.useMutation", effectStart);
   const effect = app.slice(effectStart, effectEnd);
@@ -105,6 +106,14 @@ describe("notification sound header integration contract", () => {
     expect(effectEnd).toBeGreaterThan(effectStart);
     expect(effect).toContain("previousHeaderNotificationIds.current=rows.map(item=>item.id)");
     expect(effect).toContain("mergeSeenNotificationIds(persistedIds,rows.map(item=>item.id))");
+  });
+
+  it("exposes a customer sound opt-in control that persists preference and unlocks audio from a user gesture", () => {
+    expect(app).toContain('className="secondary-button customer-header-sound-toggle"');
+    expect(app).toContain("aria-pressed={customerSoundsEnabled}");
+    expect(app).toContain('window.localStorage.setItem("wisebond-sound-effects",next?"on":"off")');
+    expect(app).toContain("if(next)void unlockNotificationAudio()");
+    expect(css).toContain(".portal-session .customer-header-sound-toggle");
   });
 
   it("re-evaluates sound preferences without replaying the current polling window", () => {
