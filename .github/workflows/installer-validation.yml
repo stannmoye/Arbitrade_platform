@@ -552,6 +552,11 @@ jobs:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
         run: node scripts/notification-migration-db-assertions.mjs
 
+      - name: Run announcement expiry transaction assertions on disposable MySQL 8
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+        run: node scripts/announcement-expiry-db-assertions.mjs
+
       - name: Verify main migration guard refuses blind retry
         env:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
