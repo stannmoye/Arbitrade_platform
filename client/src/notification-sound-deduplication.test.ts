@@ -132,6 +132,12 @@ describe("notification sound header integration contract", () => {
     expect(app).toContain("if(kind===\"opportunity\"){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}");
   });
 
+  it("stops an opportunity loop for both rejected promises and synchronous audio errors", () => {
+    expect(app).toContain("const stopOpportunityLoop=()=>{if(kind===\"opportunity\"){if(opportunityLoopTimer)window.clearInterval(opportunityLoopTimer);opportunityLoopTimer=null;}};");
+    expect(app).toContain("audio.play().catch(reportBlocked)");
+    expect(app).toContain("}catch{stopOpportunityLoop();try{if(typeof window!==\"undefined\")window.dispatchEvent");
+  });
+
   it("shows accessible audio recovery guidance in both customer and admin settings", () => {
     expect(app).toContain("className=\"test-notice customer-audio-warning\" role=\"status\" aria-live=\"polite\"");
     expect(app).toContain("className=\"test-notice\" role=\"status\" aria-live=\"polite\"");
