@@ -185,6 +185,19 @@ describe("authoritative financial-event notification contracts", () => {
     expect(route).toContain("eventType:`ADMIN_${input.mode.toUpperCase()}`");
   });
 
+  it("uses stable event keys for committed trade-settlement notices and keeps delivery best-effort", () => {
+    const settlementIndex = db.indexOf("const settlementNotices=[");
+    const settlementEnd = db.indexOf("return result;", settlementIndex);
+    const settlement = db.slice(settlementIndex, settlementEnd);
+    expect(settlementIndex).toBeGreaterThanOrEqual(0);
+    expect(settlementEnd).toBeGreaterThan(settlementIndex);
+    expect(settlement).toContain('eventKey:`trade-settlement:${result.reference}:principal`');
+    expect(settlement).toContain('eventKey:`trade-settlement:${result.reference}:reward`');
+    expect(settlement).toContain("result.rewardMinor>0");
+    expect(settlement).toContain("await Promise.allSettled(settlementNotices.map(notice=>createNotification(");
+    expect(settlement).toContain("after commit");
+  });
+
   it("does not present customer deposit submission or withdrawal initiation as confirmed payout", () => {
     expect(app).toContain("Mock provider flow available for testing");
     expect(app).toContain("Blocked until custody and execution providers are configured");
