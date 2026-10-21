@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   cancelCustomerPayoutRequest,
   createCustomerPayoutRequest,
+  getCustomerPayoutEligibility,
   deleteAdminCustomer,
   getDb,
   listCustomerPayoutRequests,
@@ -261,12 +262,20 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
 
   it("fails closed when customer withdrawal permission, global policy, or required KYC is missing", async () => {
     const blockedCustomer = await createAccount("user", { withdrawalsEnabled: false, kycRequired: false });
+    expect(await getCustomerPayoutEligibility(blockedCustomer)).toEqual({
+      allowed: false,
+      reason: "Withdrawals are not enabled for this customer account.",
+    });
     await expect(createCustomerPayoutRequest(blockedCustomer, requestInput(1000, unique("payout-disabled-customer"))))
       .rejects.toThrow("Withdrawals are not enabled for this customer account");
 
     const enabledCustomer = await createAccount("user", { withdrawalsEnabled: true, kycRequired: false });
     await setPolicy({ kyc: false, withdrawals: false, twofa: false, facial: false });
     try {
+      expect(await getCustomerPayoutEligibility(enabledCustomer)).toEqual({
+        allowed: false,
+        reason: "Withdrawals are disabled by the global policy.",
+      });
       await expect(createCustomerPayoutRequest(enabledCustomer, requestInput(1000, unique("payout-disabled-global"))))
         .rejects.toThrow("Withdrawals are disabled by the global policy");
     } finally {
@@ -274,6 +283,10 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
     }
 
     const kycCustomer = await createAccount("user", { withdrawalsEnabled: true, kycRequired: true });
+    expect(await getCustomerPayoutEligibility(kycCustomer)).toEqual({
+      allowed: false,
+      reason: "Complete the required identity verification before requesting a payout.",
+    });
     await expect(createCustomerPayoutRequest(kycCustomer, requestInput(1000, unique("payout-kyc-required"))))
       .rejects.toThrow("Complete the required identity verification");
     expect(await ledgerCount(blockedCustomer, "payout_reserve")).toBe(0);
