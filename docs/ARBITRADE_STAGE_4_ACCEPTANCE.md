@@ -424,3 +424,12 @@ The evidence-matrix refresh changed documentation only; application, test, and w
 - A rejected playback attempt stops the repeating opportunity-sound timer so a blocked browser does not produce repeated errors every 1.5 seconds. The customer/admin sound preferences and selected sound policy remain the gates for normal event playback.
 - This is a source-level hardening change only. It has **not** yet passed TypeScript/build/CI or real-browser autoplay/reconnect acceptance; do not mark the corresponding acceptance checklist items complete until those results are available. Test disabled preferences, explicit Preview after user interaction, playback rejection, loop stop, reconnect deduplication and post-commit event timing.
 - No production deployment, production migration, or release ZIP rebuild was performed.
+
+
+### Customer-facing blocked-audio recovery follow-up (pending CI and browser acceptance)
+
+- Branch: `stage4/customer-audio-recovery`.
+- Follow-up to merged PR #98: the customer portal now listens for rejected notification playback and displays an accessible status message near the sound preference control. This fixes the audience gap where administrator Sound settings could show the warning but an ordinary customer session could not.
+- The message explains how to interact with the page and toggle sound preference to permit future playback. It explicitly states that the blocked historical sound is not replayed automatically, avoiding stale/reconnected notifications and preference bypass.
+- This change is not accepted until exact-head CI passes and a browser run verifies both customer/admin surfaces, muted preference behavior, autoplay rejection, dismissal, and no replay on reconnect. The sound acceptance checklist remains open.
+- No production deployment, production migration, or full release ZIP rebuild was performed.
