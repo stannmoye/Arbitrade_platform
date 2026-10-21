@@ -108,7 +108,7 @@ export function CustomerPayoutRequests() {
     });
   };
 
-  const cancelRequest = (requestId: number, reference: string) => {
+  const cancelRequest = (requestId: number) => {
     if (isBusy || !globalThis.confirm?.("Cancel this pending payout request and return its reserved funds to your available wallet?")) return;
     setFeedback("");
     cancelMutation.mutate({ requestId });
@@ -192,7 +192,7 @@ export function CustomerPayoutRequests() {
               </div>
               {request.externalReference && <p>External reference: <strong>{request.externalReference}</strong></p>}
               {request.resolutionNote && <p>Administrator note: {request.resolutionNote}</p>}
-              {request.status === "pending" && <button className="payout-cancel" type="button" disabled={isBusy} onClick={() => cancelRequest(Number(request.id), String(request.requestReference))}><XCircle size={14} /> {cancelMutation.isPending ? "Cancelling…" : "Cancel request"}</button>}
+              {request.status === "pending" && <button className="payout-cancel" type="button" disabled={isBusy} onClick={() => cancelRequest(Number(request.id))}><XCircle size={14} /> {cancelMutation.isPending ? "Cancelling…" : "Cancel request"}</button>}
             </article>;
           })}
         </div>
