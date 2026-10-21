@@ -39,7 +39,7 @@ describe("administrator wallet adjustment concurrency contract", () => {
 
   it("uses the committed ledger reference for notification and email idempotency", () => {
     const start = db.indexOf("export async function adjustCustomerBalance");
-    const end = db.indexOf("\\nexport async function listOpenOffers", start);
+    const end = db.indexOf("\nexport async function listOpenOffers", start);
     const implementation = db.slice(start, end);
     expect(implementation).toContain("crypto.randomUUID()");
     expect(implementation).toContain("eventKey:`wallet-adjustment:${result.ledgerReference}`");
