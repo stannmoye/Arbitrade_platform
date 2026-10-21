@@ -165,3 +165,10 @@ PR #103 merged as `0ab6c60aacf34ffb00f9d8504326895cf96263ec`; exact tested head 
 Exact-head workflows passed: [Stage 3 five-theme/Chromium validation 39652029432](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39652029432), [installer and MySQL/MariaDB migration/package validation 39652029443](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39652029443), and [mining DB regression 39652029931](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39652029931). These are source regression contracts, not proof of exhaustive live delivery.
 
 Remaining: owner-held audio autoplay/retry/reconnect/timing acceptance; full announcement end-to-end delivery/expiry/read reporting; support concurrency and lifecycle; manual accessibility/hosted acceptance; authoritative provider/custody deposit/withdrawal completion events; final release ZIP rebuild. Persistent push remains deferred under accepted bounded-polling scope. No production deployment, production DB migration or published ZIP replacement occurred.
+
+
+## Customer audio-unlock retry — PR #104
+
+Merged as `c417e0afabe88b47660d2c0ee19cdb5de0d2fdc9`; exact tested head `8b7fa6d00eba206e8abe8e0abc16cbe0edfe8a75`. The Chromium customer portal acceptance path now simulates rejected audio unlock, toggles the real sound preference off/on, and checks successful retry plus persisted preference.
+
+Exact-head workflows passed: [Stage 3 five-theme/Chromium 39652721697](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39652721697), [installer/MySQL 8/MariaDB/package 39652721485](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39652721485), and [mining DB 39652721715](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39652721715). This controlled Chromium scenario does not replace owner-held real-device acceptance or close reconnect deduplication/post-commit timing, announcement end-to-end, support concurrency, manual accessibility, or hosted acceptance gates. No production deployment, production DB migration, or published ZIP replacement occurred.
