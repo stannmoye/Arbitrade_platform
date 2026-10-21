@@ -4,7 +4,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { assignSupportTicket, listSupportAssignees, addTicketAttachment, addTicketMessage, adjustCustomerBalance, broadcastCustomerNotification, listAdminNotificationCampaigns, retryNotificationCampaign, withdrawNotificationCampaign, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, createTrade, deleteAdminCustomer, getCustomerAutoTradeSettings, getCustomerTicket, getSupportTicketById, getAppSetting, getAutoTradePolicy, getTradeSettlementPolicy, getCustomerBalanceSummary, getCustomerWalletPreferences, getCustomerOpportunityRules, manuallySettleTrade, listPendingSettlements, markCustomerNotificationsRead, updateCustomerWalletPreferences, updateCustomerOpportunityRules, getTicketUploadPolicy, setTradeSettlementPolicy, getNotificationCategoryVisibility, getCustomerNotificationUnreadCount, listCustomerNotificationPage, setNotificationCategoryVisibility, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listCustomerNotifications, listNotifications, listNotificationEventCursor, listOpenOffers, listOpportunityPackagePolicies, listRiskReports, listTicketAttachments, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, reopenSupportTicket, setAppSetting, setAutoTradePolicy, setCustomerPackage, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
+import { assignSupportTicket, listSupportAssignees, addTicketAttachment, addTicketMessage, adjustCustomerBalance, broadcastCustomerNotification, listAdminNotificationCampaigns, retryNotificationCampaign, withdrawNotificationCampaign, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, createTrade, deleteAdminCustomer, getCustomerAutoTradeSettings, getCustomerTicket, getSupportTicketById, getAppSetting, getAutoTradePolicy, getTradeSettlementPolicy, getCustomerBalanceSummary, getCustomerWalletPreferences, getCustomerOpportunityRules, createCustomerPayoutRequest, listCustomerPayoutRequests, cancelCustomerPayoutRequest, listAdminPayoutRequests, resolveCustomerPayoutRequest, manuallySettleTrade, listPendingSettlements, markCustomerNotificationsRead, updateCustomerWalletPreferences, updateCustomerOpportunityRules, getTicketUploadPolicy, setTradeSettlementPolicy, getNotificationCategoryVisibility, getCustomerNotificationUnreadCount, listCustomerNotificationPage, setNotificationCategoryVisibility, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listCustomerNotifications, listNotifications, listNotificationEventCursor, listOpenOffers, listOpportunityPackagePolicies, listRiskReports, listTicketAttachments, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, reopenSupportTicket, setAppSetting, setAutoTradePolicy, setCustomerPackage, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
 import { allocateStake, cancelStake, getStakeDashboard, projectStake } from "./stakeEarn";
 import { closeTransactionConsoleSession, listTransactionConsoleEvents, recordTransactionConsoleEvent, recordTransactionConsolePulse } from "./transactionConsole";
 import { getOpportunityLifecycleSummary, runOpportunityRetention, updatePopupLifecycle, updatePopupDeliveryStatus } from "./opportunityLifecycle";
@@ -98,6 +98,16 @@ export const appRouter = router({
     addAttachment: protectedProcedure.input(z.object({ ticketId: z.number().int().positive(), fileName: z.string().max(255), mimeType: z.string().max(160), sizeBytes: z.number().int().positive().max(25_000_000), storageKey: z.string().max(512) })).mutation(({ ctx, input }) => { if (!isValidSupportAttachmentStorageKey(input.storageKey)) throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid support attachment storage key" }); return addTicketAttachment(ctx.user.id, input); }),
     uploadPolicy: protectedProcedure.query(() => getTicketUploadPolicy()),
     balances: protectedProcedure.query(({ ctx }) => getCustomerBalanceSummary(ctx.user.id)),
+    payoutRequests: protectedProcedure.query(({ ctx }) => listCustomerPayoutRequests(ctx.user.id)),
+    requestPayout: protectedProcedure.input(z.object({
+      currency: z.enum(["USD", "EUR", "GBP", "BTC", "ETH", "USDT"]),
+      amountMinor: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+      destinationType: z.enum(["bank_transfer", "crypto_transfer"]),
+      destinationDetails: z.string().trim().min(8).max(1000),
+      idempotencyKey: z.string().trim().min(8).max(160),
+    })).mutation(({ ctx, input }) => createCustomerPayoutRequest(ctx.user.id, input)),
+    cancelPayoutRequest: protectedProcedure.input(z.object({ requestId: z.number().int().positive() }))
+      .mutation(({ ctx, input }) => cancelCustomerPayoutRequest(ctx.user.id, input.requestId)),
     walletPreferences: protectedProcedure.query(({ ctx }) => getCustomerWalletPreferences(ctx.user.id)),
     updateWalletPreferences: protectedProcedure.input(z.object({ tradingCurrency: z.string().min(2).max(32).optional(), swapCurrency: z.string().min(2).max(32).optional(), autoTopUpEnabled: z.boolean().optional(), withdrawalWhitelistEnabled: z.boolean().optional() })).mutation(({ ctx, input }) => updateCustomerWalletPreferences(ctx.user.id, input)),
     opportunityRules: protectedProcedure.query(({ ctx }) => getCustomerOpportunityRules(ctx.user.id)),
@@ -143,6 +153,13 @@ export const appRouter = router({
   }),
 
   adminOperations: router({
+    payoutRequests: adminProcedure.query(() => listAdminPayoutRequests()),
+    resolvePayoutRequest: adminProcedure.input(z.object({
+      requestId: z.number().int().positive(),
+      action: z.enum(["paid", "rejected"]),
+      externalReference: z.string().trim().max(160).optional(),
+      note: z.string().trim().max(1000).optional(),
+    })).mutation(({ ctx, input }) => resolveCustomerPayoutRequest(ctx.user.id, input)),
     notifications: adminProcedure.query(({ctx})=>listNotifications(ctx.user.id)),
     markNotificationsRead: adminProcedure.input(z.object({id:z.number().int().positive().optional()}).optional()).mutation(({ctx,input})=>markCustomerNotificationsRead(ctx.user.id,input?.id)),
     notificationCategoryVisibility: adminProcedure.query(() => getNotificationCategoryVisibility()),
