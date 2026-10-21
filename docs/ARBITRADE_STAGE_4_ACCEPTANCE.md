@@ -7,10 +7,11 @@
 
 This file is the durable acceptance checklist for Stage 4. Add new agreed requirements here rather than relying on chat history alone. Keep checkboxes open until supported by implementation and test evidence.
 
-## Latest exact-head verification checkpoint (2026-10-21)
+## Latest completed CI checkpoint (2026-10-21; documentation update follows)
 
-- **Verified PR head at audit:** `a4a47e28aaab081d987b6d090ee7d09539864b4c`. PR #95 is open, draft, unmerged, and mergeable.
-- **Exact-head CI:** [Stage 3 five-theme validation, run 39560345787](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39560345787), [Installer validation, run 39560345786](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39560345786), and [Mining database regression, run 39560345809](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39560345809) all completed successfully on that head.
+- **Verified PR head:** `37ce349b052c0c513b9130c89d9a17c27287dfa3`. PR #95 is open, draft, unmerged, and mergeable.
+- **Exact-head CI:** [Mining database regression, run 39561522280](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39561522280), [Installer validation, run 39561522328](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39561522328), and [Stage 3 five-theme validation, run 39561522424](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39561522424) all completed successfully on this exact head.
+- These workflows passed on `37ce349`; because this checkpoint is being added in a documentation-only commit, verify the resulting head's CI separately before describing it as exact-head green.
 - **Checklist count independently recounted:** 37 checked; 11 unchecked. Do not close remaining gates merely because CI is green.
 - **Important evidence qualification:** the downloaded 848-check browser report with 848 passed and zero failures came from the prior documentation-only head; the Stage 3 Chromium workflow also succeeded on the exact head above. The installer generated its validation package on the exact head. CI artifacts are not production deployment or owner sign-off.
 - **Remaining gates:** provider-backed deposit/withdrawal success is blocked pending an authoritative persisted provider/custody lifecycle; persistent push is missing pending an owner/platform release decision; dedicated sound, exhaustive event-source, authenticated announcement/ticket/attachment authorization and concurrency journeys remain unverified; comprehensive manual accessibility and owner-level production verification remain open.
