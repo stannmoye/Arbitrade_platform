@@ -154,3 +154,7 @@ This section supersedes earlier "remaining" notes where later commits have compl
 - The existing Chromium harness `scripts/stage2-browser-acceptance.cjs` passed **848/848 checks with zero failures** against the source dev server. This covers the repository's current responsive/theme/focus/navigation smoke checks and browser audio asset playback checks. It is not hosted production acceptance.
 - The axe audit script was attempted but skipped because `axe-core` is not declared or installed in this repository. No axe result is claimed. Manual screen-reader, keyboard-only, reduced-motion, and assistive-technology review remain separate acceptance work.
 - No production build or deployment was performed; final production build and final verification remain reserved for ChatGPT.
+
+## 10. Acceptance checklist reconciliation (2026-10-21)
+
+The stale product checklist was reconciled against current evidence. It now marks implementation/evidence-backed notification, campaign, policy, ticket, migration, authorization, sound-asset, idempotency, CI, and documentation criteria as checked. Twelve entries remain open because they require additional runtime or external evidence: real browser sound preference/autoplay/post-commit/reconnect behavior, exhaustive event-source proof, full manual accessibility, release ZIP/source verification, authenticated announcement/ticket E2E and concurrency, persistent push transport, and final release gates. The checklist does not mark provider-gated deposit/withdrawal success as implemented.

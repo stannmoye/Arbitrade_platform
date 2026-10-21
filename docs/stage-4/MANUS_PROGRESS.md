@@ -113,3 +113,10 @@ For each meaningful work unit, append a section with actual changed behavior/fil
 - Attempted the repository's `scripts/stage3-axe-accessibility.cjs` audit. It could not start because `axe-core` is not declared or installed in the repository; this is recorded as skipped tooling evidence, not a pass or application failure. Full manual screen-reader and assistive-technology acceptance remains open.
 - No source code changed in this work unit. Disposable browser artifacts were removed rather than committed. No production build, deployment, provider configuration, or production data operation was performed.
 - Next task: review whether any further safe implementation defect remains; otherwise keep provider-backed deposit/withdrawal success blocked, retain polling as the documented fallback, and leave only final production build/verification and owner-level release acceptance outstanding.
+
+### Work unit 10 — acceptance checklist reconciliation (2026-10-21)
+
+- The uploaded audit correctly identified stale checklist state. `docs/ARBITRADE_STAGE_4_ACCEPTANCE.md` previously showed 46 unchecked entries even though later source, test, disposable-database, CI, and browser evidence had implemented or verified many of them.
+- Reconciled the checklist conservatively: implementation/evidence-backed requirements are now checked; unresolved items remain open. The remaining 12 open entries cover real browser sound preference/autoplay/post-commit/reconnect acceptance, exhaustive event-source proof, full responsive/keyboard/screen-reader/reduced-motion acceptance, release ZIP/source verification, announcement/ticket runtime E2E and concurrency, persistent push transport, and final release gates.
+- No provider-backed deposit/withdrawal success path was invented. No code behavior changed in this work unit; this is an evidence/status correction only. `git diff --check` passed.
+- Next concrete action: keep the reconciled checklist as the source of truth, preserve the explicit blockers, and leave only the reserved final production build/final verification plus the listed genuinely unverified acceptance work outstanding.
