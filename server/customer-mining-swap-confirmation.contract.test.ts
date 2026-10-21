@@ -42,5 +42,6 @@ describe("customer Mining swap confirmation contract", () => {
     expect(uiSource).toContain("{fmt(swapQuote.destinationAmount, mainWalletScale(swapQuote.targetAsset))} {swapQuote.targetAsset}");
     expect(uiSource).toContain("{fmt(swapQuote.fee, mainWalletScale(swapQuote.feeAsset))} {swapQuote.feeAsset}");
     expect(uiSource).toContain("{swapQuote.disclaimer}");
+    expect(uiSource).toContain("Quote expires<strong>{new Date(swapQuote.expiresAt).toLocaleString()}</strong>");
   });
 });
