@@ -265,3 +265,77 @@ describe("announcement lifecycle persistence contracts", () => {
     expect(history).toContain('summary.pending+=count');
   });
 });
+
+
+
+describe("authenticated support lifecycle persistence contracts", () => {
+  const routers = readFileSync(new URL("../../server/routers.ts", import.meta.url), "utf8");
+  const db = readFileSync(new URL("../../server/db.ts", import.meta.url), "utf8");
+
+  it("persists ticket and opening message atomically before best-effort notifications", () => {
+    const start = db.indexOf("export async function createTicket(");
+    const end = db.indexOf("export async function listCustomerTickets(", start);
+    const create = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(create).toContain("await db.transaction(async tx=>");
+    expect(create).toContain("await tx.insert(supportTickets).values(");
+    expect(create).toContain("await tx.insert(supportMessages).values(");
+    expect(create.indexOf("await db.transaction(async tx=>")).toBeLessThan(create.indexOf("await Promise.allSettled("));
+    expect(create).toContain("support-ticket-created:");
+  });
+
+  it("locks ticket assignment, validates administrator roles, and audits changed assignments", () => {
+    const start = db.indexOf("export async function assignSupportTicket(");
+    const end = db.indexOf("export async function getCustomerTicket(", start);
+    const assignment = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(assignment).toContain("return db.transaction(async tx=>");
+    expect(assignment).toContain('.for("update")');
+    expect(assignment).toContain('actor.role!=="admin"');
+    expect(assignment).toContain('eq(users.role,"admin")');
+    expect(assignment).toContain('action:assignedAdminId===null?"support.ticket.unassigned":"support.ticket.assigned"');
+    expect(assignment).toContain("if(committed.changed&&committed.assignee)");
+  });
+
+  it("authorizes ticket replies against ownership and commits message/status together", () => {
+    const start = db.indexOf("export async function addTicketMessage(");
+    const end = db.indexOf("export async function reopenSupportTicket(", start);
+    const reply = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(reply).toContain("return db.transaction(async tx=>");
+    expect(reply).toContain('if(!isAdmin && ticket.customerId!==actorId)');
+    expect(reply).toContain('ticket.status==="closed" || ticket.status==="resolved"');
+    expect(reply).toContain("await tx.insert(supportMessages).values(");
+    expect(reply).toContain("await tx.update(supportTickets).set({status:nextStatus,updatedAt:new Date()})");
+    expect(reply).toContain("Notifications are deliberately post-commit and best-effort");
+  });
+
+  it("guards concurrent ticket reopen transitions and uses protected customer routes", () => {
+    const start = db.indexOf("export async function reopenSupportTicket(");
+    const end = db.indexOf("export async function listTicketMessages(", start);
+    const reopen = db.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(reopen).toContain('eq(supportTickets.status,"closed"),eq(supportTickets.status,"resolved")');
+    expect(reopen).toContain("if(affected!==1)");
+    expect(routers).toContain("createTicket: protectedProcedure");
+    expect(routers).toContain("replyTicket: protectedProcedure");
+    expect(routers).toContain("reopenTicket: protectedProcedure");
+    expect(routers).toContain("if (!(await getCustomerTicket(ctx.user.id,input.ticketId)))");
+  });
+
+  it("validates attachment storage keys and scopes ticket attachments to an authorized customer", () => {
+    const start = routers.indexOf("addAttachment: protectedProcedure");
+    const end = routers.indexOf("uploadPolicy: protectedProcedure", start);
+    const route = routers.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(route).toContain("isValidSupportAttachmentStorageKey(input.storageKey)");
+    expect(db).toContain("export async function addTicketAttachment(");
+    expect(db).toContain("You do not have access to this ticket");
+    expect(db).toContain("isValidSupportAttachmentStorageKey(input.storageKey)");
+  });
+});
