@@ -773,7 +773,7 @@ function normalizePayoutDestinationDetails(value: string) {
 function payoutIdempotencyKey(userId: number, rawKey: string) {
   const value = String(rawKey ?? "").trim();
   if (!/^[A-Za-z0-9._:-]{8,160}$/.test(value)) throw new Error("A valid payout idempotency key is required.");
-  return \`payout:\${userId}:\${crypto.createHash("sha256").update(value).digest("hex")}\`;
+  return `payout:${userId}:${crypto.createHash("sha256").update(value).digest("hex")}`;
 }
 
 async function assertPayoutPolicyAllowsRequest(tx: any, userId: number) {
@@ -898,7 +898,7 @@ export async function createCustomerPayoutRequest(userId: number, input: Custome
     await assertPayoutPolicyAllowsRequest(tx, userId);
     const currency = (await tx.select().from(currencyRegistry)
       .where(and(eq(currencyRegistry.code, currencyCode), eq(currencyRegistry.enabled, true))).limit(1))[0];
-    if (!currency) throw new Error(\`Payout currency \${currencyCode} is not enabled.\`);
+    if (!currency) throw new Error(`Payout currency ${currencyCode} is not enabled.`);
     if (!Number.isInteger(Number(currency.scale)) || Number(currency.scale) < 0 || Number(currency.scale) > 8) {
       throw new Error("Payout currency precision is not configured correctly.");
     }
@@ -906,7 +906,7 @@ export async function createCustomerPayoutRequest(userId: number, input: Custome
     const wallet = (await tx.select().from(customerBalances)
       .where(and(eq(customerBalances.userId, userId), eq(customerBalances.currency, currencyCode)))
       .limit(1).for("update"))[0];
-    if (!wallet) throw new Error(\`The \${currencyCode} wallet is not configured.\`);
+    if (!wallet) throw new Error(`The ${currencyCode} wallet is not configured.`);
     const available = Number(wallet.availableMinor);
     const locked = Number(wallet.lockedMinor);
     const promotional = Number(wallet.promotionalMinor);
@@ -919,10 +919,10 @@ export async function createCustomerPayoutRequest(userId: number, input: Custome
     }
     if (!Number.isSafeInteger(locked + input.amountMinor)) throw new Error("Payout reservation exceeds the supported balance amount.");
 
-    const requestReference = \`payout-\${crypto.randomUUID()}\`;
+    const requestReference = `payout-${crypto.randomUUID()}`;
     const walletUpdate = await tx.update(customerBalances).set({
-      availableMinor: sql\`\${customerBalances.availableMinor} - \${input.amountMinor}\`,
-      lockedMinor: sql\`\${customerBalances.lockedMinor} + \${input.amountMinor}\`,
+      availableMinor: sql`${customerBalances.availableMinor} - ${input.amountMinor}`,
+      lockedMinor: sql`${customerBalances.lockedMinor} + ${input.amountMinor}`,
       updatedAt: now,
     }).where(eq(customerBalances.id, wallet.id));
     assertExactlyOneAffectedRow(walletUpdate, "Payout wallet reservation");
@@ -957,8 +957,8 @@ export async function createCustomerPayoutRequest(userId: number, input: Custome
     await notifyPayoutRequest(
       userId,
       "Payout request received",
-      \`Your \${currencyCode} payout request \${outcome.request.requestReference} is pending manual review. Funds have been reserved; no transfer has been sent.\`,
-      \`payout-request:\${outcome.request.requestReference}\`,
+      `Your ${currencyCode} payout request ${outcome.request.requestReference} is pending manual review. Funds have been reserved; no transfer has been sent.`,
+      `payout-request:${outcome.request.requestReference}`,
     );
   }
   return outcome.request;
@@ -991,8 +991,8 @@ export async function cancelCustomerPayoutRequest(userId: number, requestId: num
     if (!Number.isSafeInteger(available + amount)) throw new Error("Releasing this payout would exceed the supported balance amount.");
 
     const walletUpdate = await tx.update(customerBalances).set({
-      availableMinor: sql\`\${customerBalances.availableMinor} + \${amount}\`,
-      lockedMinor: sql\`\${customerBalances.lockedMinor} - \${amount}\`,
+      availableMinor: sql`${customerBalances.availableMinor} + ${amount}`,
+      lockedMinor: sql`${customerBalances.lockedMinor} - ${amount}`,
       updatedAt: now,
     }).where(eq(customerBalances.id, wallet.id));
     assertExactlyOneAffectedRow(walletUpdate, "Payout cancellation wallet release");
@@ -1002,7 +1002,7 @@ export async function cancelCustomerPayoutRequest(userId: number, requestId: num
       currency: request.currency,
       amountMinor: amount,
       entryType: "payout_release",
-      reference: \`\${request.requestReference}:release\`,
+      reference: `${request.requestReference}:release`,
       withdrawable: true,
     });
     const stateUpdate = await tx.update(payoutRequests).set({
@@ -1019,8 +1019,8 @@ export async function cancelCustomerPayoutRequest(userId: number, requestId: num
   await notifyPayoutRequest(
     userId,
     "Payout request cancelled",
-    \`Your payout request \${result.requestReference} was cancelled. Reserved funds have been returned to your available balance.\`,
-    \`payout:\${result.requestReference}:cancelled\`,
+    `Your payout request ${result.requestReference} was cancelled. Reserved funds have been returned to your available balance.`,
+    `payout:${result.requestReference}:cancelled`,
   );
   return result;
 }
@@ -1065,7 +1065,7 @@ export async function resolveCustomerPayoutRequest(adminId: number, input: Payou
         throw new Error("This external transfer reference is already assigned to another payout.");
       }
       const walletUpdate = await tx.update(customerBalances).set({
-        lockedMinor: sql\`\${customerBalances.lockedMinor} - \${amount}\`,
+        lockedMinor: sql`${customerBalances.lockedMinor} - ${amount}`,
         updatedAt: now,
       }).where(eq(customerBalances.id, wallet.id));
       assertExactlyOneAffectedRow(walletUpdate, "Payout paid wallet settlement");
@@ -1074,14 +1074,14 @@ export async function resolveCustomerPayoutRequest(adminId: number, input: Payou
         currency: request.currency,
         amountMinor: 0,
         entryType: "payout_paid",
-        reference: \`\${request.requestReference}:paid\`,
+        reference: `${request.requestReference}:paid`,
         withdrawable: false,
       });
     } else {
       if (!Number.isSafeInteger(available + amount)) throw new Error("Releasing this payout would exceed the supported balance amount.");
       const walletUpdate = await tx.update(customerBalances).set({
-        availableMinor: sql\`\${customerBalances.availableMinor} + \${amount}\`,
-        lockedMinor: sql\`\${customerBalances.lockedMinor} - \${amount}\`,
+        availableMinor: sql`${customerBalances.availableMinor} + ${amount}`,
+        lockedMinor: sql`${customerBalances.lockedMinor} - ${amount}`,
         updatedAt: now,
       }).where(eq(customerBalances.id, wallet.id));
       assertExactlyOneAffectedRow(walletUpdate, "Payout rejection wallet release");
@@ -1090,7 +1090,7 @@ export async function resolveCustomerPayoutRequest(adminId: number, input: Payou
         currency: request.currency,
         amountMinor: amount,
         entryType: "payout_release",
-        reference: \`\${request.requestReference}:release\`,
+        reference: `${request.requestReference}:release`,
         withdrawable: true,
       });
     }
@@ -1111,15 +1111,15 @@ export async function resolveCustomerPayoutRequest(adminId: number, input: Payou
     await notifyPayoutRequest(
       result.userId,
       "Payout marked paid",
-      \`Your \${result.currency} payout request \${result.requestReference} was marked paid by an administrator. Reference: \${result.externalReference}. This record reflects a manual confirmation; no transfer was initiated by Arbitrade.\`,
-      \`payout:\${result.requestReference}:paid\`,
+      `Your ${result.currency} payout request ${result.requestReference} was marked paid by an administrator. Reference: ${result.externalReference}. This record reflects a manual confirmation; no transfer was initiated by Arbitrade.`,
+      `payout:${result.requestReference}:paid`,
     );
   } else {
     await notifyPayoutRequest(
       result.userId,
       "Payout request rejected",
-      \`Your payout request \${result.requestReference} was rejected. The reserved funds have been returned to your available balance. Reason: \${note}\`,
-      \`payout:\${result.requestReference}:rejected\`,
+      `Your payout request ${result.requestReference} was rejected. The reserved funds have been returned to your available balance. Reason: ${note}`,
+      `payout:${result.requestReference}:rejected`,
     );
   }
   return result;
