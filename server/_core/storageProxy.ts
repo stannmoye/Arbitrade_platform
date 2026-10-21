@@ -1,5 +1,7 @@
 import type { Express } from "express";
 import { ENV } from "./env";
+import { getTicketAttachmentAccess, getUserById } from "../db";
+import { getLocalSessionFromRequest } from "./localAuth";
 
 export function registerStorageProxy(app: Express) {
   app.get("/manus-storage/*", async (req, res) => {
@@ -7,6 +9,34 @@ export function registerStorageProxy(app: Express) {
     if (!key) {
       res.status(400).send("Missing storage key");
       return;
+    }
+
+    // Support attachments contain customer evidence and must never be served
+    // by the otherwise-public generated-media proxy without ownership checks.
+    if (key === "support" || key.startsWith("support/")) {
+      const session = getLocalSessionFromRequest(req);
+      if (!session) {
+        res.status(401).send("Authentication required");
+        return;
+      }
+      try {
+        const user = await getUserById(session.userId);
+        if (!user || Number(user.authVersion || 0) !== session.authVersion) {
+          res.status(401).send("Authentication required");
+          return;
+        }
+        const attachment = await getTicketAttachmentAccess(key);
+        if (!attachment || (user.role !== "admin" && attachment.customerId !== session.userId)) {
+          // Use the same response for unknown and foreign keys to avoid
+          // disclosing whether another customer's attachment exists.
+          res.status(404).send("Attachment not found");
+          return;
+        }
+      } catch (err) {
+        console.error("[StorageProxy] support attachment authorization failed:", err);
+        res.status(500).send("Unable to authorize attachment");
+        return;
+      }
     }
 
     if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
@@ -17,7 +47,7 @@ export function registerStorageProxy(app: Express) {
     try {
       const forgeUrl = new URL(
         "v1/storage/presign/get",
-        ENV.forgeApiUrl.replace(/\/+$/, "") + "/",
+        ENV.forgeApiUrl.replace(/\\/+$/, "") + "/",
       );
       forgeUrl.searchParams.set("path", key);
 
