@@ -340,6 +340,30 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       storageKey: `support/${temporaryTicketId}/${"b".repeat(48)}-${attachmentCandidate.fileName}`,
     })).rejects.toThrow("Ticket not found");
 
+    const sharedKey = `support/${temporaryTicketId}/${"c".repeat(48)}-${attachmentCandidate.fileName}`;
+    const duplicateRegistrations = await Promise.allSettled([
+      addTicketAttachment(ownerId, {
+        ticketId: temporaryTicketId,
+        ...attachmentCandidate,
+        sizeBytes: 1,
+        storageKey: sharedKey,
+      }),
+      addTicketAttachment(ownerId, {
+        ticketId: temporaryTicketId,
+        ...attachmentCandidate,
+        sizeBytes: 1,
+        storageKey: sharedKey,
+      }),
+    ]);
+    expect(duplicateRegistrations.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(duplicateRegistrations.filter(result => result.status === "rejected")).toHaveLength(1);
+    const rejectedRegistration = duplicateRegistrations.find(result => result.status === "rejected");
+    expect(String((rejectedRegistration as PromiseRejectedResult | undefined)?.reason?.message)).toMatch(/Attachment storage key has already been registered/);
+    await expect(getTicketAttachmentAccess(sharedKey)).resolves.toMatchObject({
+      ticketId: temporaryTicketId,
+      customerId: ownerId,
+    });
+
     expect((await ownerCaller.customer.tickets()).map(ticket => ticket.id)).toContain(temporaryTicketId);
     expect((await ownerCaller.customer.ticketMessages({ ticketId: temporaryTicketId })).map(message => message.body)).toContain("Disposable authenticated support-ticket integration fixture.");
     await expect(otherCaller.customer.ticketMessages({ ticketId: temporaryTicketId })).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -391,6 +415,26 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     const messages = await ownerCaller.customer.ticketMessages({ ticketId: temporaryTicketId });
     expect(messages.map(message => message.body)).toContain("Administrator resolution response");
     expect(messages.map(message => message.body)).toContain("Customer reply after reopening");
+
+    // Repeated reopen cycles can share the same MySQL DATETIME value; each
+    // successful state transition must still produce a distinct notification.
+    const fixedUpdatedAt = new Date("2026-10-01T00:00:00.000Z");
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await db.update(supportTickets).set({ status: "resolved", updatedAt: fixedUpdatedAt })
+        .where(eq(supportTickets.id, temporaryTicketId));
+      await expect(adminCaller.adminOperations.reopenTicket({ ticketId: temporaryTicketId })).resolves.toMatchObject({
+        success: true,
+        changed: true,
+        status: "open",
+      });
+    }
+    const reopenNotices = await db.select().from(customerNotifications).where(and(
+      eq(customerNotifications.userId, ownerId),
+      eq(customerNotifications.title, "Your support ticket was reopened"),
+      like(customerNotifications.body, temporaryTicketNumber + ":%"),
+    ));
+    expect(reopenNotices).toHaveLength(2);
+    expect(new Set(reopenNotices.map(notification => notification.eventKey)).size).toBe(2);
   });
 
   afterAll(async () => {
@@ -411,6 +455,8 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
           and(eq(customerNotifications.title, "New customer support ticket"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
           and(eq(customerNotifications.title, "Support ticket assigned"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
           and(eq(customerNotifications.title, "Customer replied to a support ticket"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
+          and(eq(customerNotifications.title, "Your support ticket was reopened"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
+          and(eq(customerNotifications.title, "Customer reopened a support ticket"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
         ));
       }
       await db.delete(supportAttachments).where(eq(supportAttachments.ticketId, temporaryTicketId));
