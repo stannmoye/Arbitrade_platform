@@ -37,3 +37,15 @@ describe("administrator wallet adjustment concurrency contract", () => {
     expect(implementation.indexOf("await db.transaction(async tx=>")).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe("wallet one-row-per-currency database invariant", () => {
+  const migration = readFileSync(new URL("../scripts/apply-mining-migrations.mjs", import.meta.url), "utf8");
+
+  it("checks for duplicate balances before adding the unique customer/currency index", () => {
+    const duplicateCheck = migration.indexOf("SELECT userId,currency FROM customer_balances GROUP BY userId,currency HAVING COUNT(*)>1 LIMIT 1");
+    const uniqueIndex = migration.indexOf("ALTER TABLE customer_balances ADD UNIQUE INDEX uq_customer_balance_user_currency (userId,currency)");
+    expect(migration).toContain("SHOW INDEX FROM customer_balances WHERE Key_name='uq_customer_balance_user_currency'");
+    expect(duplicateCheck).toBeGreaterThanOrEqual(0);
+    expect(uniqueIndex).toBeGreaterThan(duplicateCheck);
+  });
+});
