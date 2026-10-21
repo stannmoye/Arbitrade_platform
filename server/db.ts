@@ -873,6 +873,13 @@ export async function createCustomerPayoutRequest(userId: number, input: Custome
   if (!PAYOUT_ASSET_CODES.has(currencyCode)) throw new Error("Choose an eligible payout currency. CKI must be swapped before requesting a payout.");
   if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0) throw new Error("Payout amount must be a positive safe integer in the currency's minor units.");
   if (input.destinationType !== "bank_transfer" && input.destinationType !== "crypto_transfer") throw new Error("Choose a supported manual payout destination.");
+  const cryptoCurrency = ["BTC", "ETH", "USDT"].includes(currencyCode);
+  const expectedDestinationType = cryptoCurrency ? "crypto_transfer" : "bank_transfer";
+  if (input.destinationType !== expectedDestinationType) {
+    throw new Error(cryptoCurrency
+      ? "BTC, ETH, and USDT payouts require a crypto-wallet destination; no conversion is performed."
+      : "USD, EUR, and GBP payouts require a bank-transfer destination; no conversion is performed.");
+  }
   const destinationDetails = normalizePayoutDestinationDetails(input.destinationDetails);
   const persistedKey = payoutIdempotencyKey(userId, input.idempotencyKey);
   const now = new Date();
