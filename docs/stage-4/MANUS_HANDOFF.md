@@ -141,3 +141,9 @@ This section supersedes earlier "remaining" notes where later commits have compl
 - Added `server/customer-notifications-accessibility.contract.test.ts` covering these semantics. No notification query, persistence, authorization, pagination, polling, or sound logic was changed.
 - Validation: after `pnpm install --frozen-lockfile` restored the clean checkout's declared dependencies, the focused Vitest run passed 6 files / 42 tests, including notification polling, sound policy/deduplication/volume, pagination, and the new accessibility contract. `pnpm check` and `git diff --check` passed. No production build was claimed or run for this slice.
 - Limitation: source-contract and TypeScript evidence do not constitute full keyboard-only, screen-reader, reduced-motion, hosted browser, or manual assistive-technology acceptance. Those remain open. Deposit/withdrawal lifecycle notifications remain blocked on an authoritative provider/custody lifecycle; no synthetic financial event was added.
+
+
+### Final commit references for this checkpoint
+
+- Accessibility implementation/test: `83583cac8bfe92279f6f9ee9fe866ac8d52e4f12`.
+- Documentation preservation/correction: `d19e6b18daabfa438a8a4978146fcec39270dc19`. The full pre-existing handoff content was restored and the new section is appended; no prior evidence was intentionally removed.

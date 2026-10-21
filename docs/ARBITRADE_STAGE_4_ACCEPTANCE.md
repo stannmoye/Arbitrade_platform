@@ -310,3 +310,6 @@ Latest verified application code: `5b7db5abef6c6bc7fce17a47ebbec8d730092849`.
 - Added `server/customer-notifications-accessibility.contract.test.ts`.
 - Focused verification passed: 6 Vitest files / 42 tests covering notification polling, sound deduplication/policy/volume, pagination, and the accessibility contract; `pnpm check` passed; `git diff --check` passed after `pnpm install --frozen-lockfile` restored the declared dependencies.
 - This closes the concrete source-level semantics gap for the customer notification centre, but the broader accessibility criterion remains open for keyboard-only, screen-reader, reduced-motion, hosted browser, and manual assistive-technology evidence. No full Stage 4 completion claim is made.
+
+
+- Implementation/test commit: `83583cac8bfe92279f6f9ee9fe866ac8d52e4f12`; documentation preservation commit: `d19e6b18daabfa438a8a4978146fcec39270dc19`. The checklist remains in progress; no full Stage 4 acceptance or completion claim is made.
