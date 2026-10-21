@@ -10,7 +10,7 @@ describe("preflightSupportAttachmentStorageKeyUniqueIndex", () => {
     const connection = {
       async query(sql, values) {
         statements.push({ sql, values });
-        if (sql.startsWith("SHOW INDEX")) return [[{ Key_name: SUPPORT_ATTACHMENT_STORAGE_KEY_INDEX_NAME }], []];
+        if (sql.startsWith("SHOW INDEX")) return [[{ Key_name: SUPPORT_ATTACHMENT_STORAGE_KEY_INDEX_NAME, Non_unique: 0, Column_name: "storageKey" }], []];
         throw new Error("Unexpected query: " + sql);
       },
     };
@@ -19,6 +19,20 @@ describe("preflightSupportAttachmentStorageKeyUniqueIndex", () => {
       duplicateFound: false,
     });
     expect(statements).toHaveLength(1);
+  });
+
+  it("rejects a same-named index that is not unique on storageKey alone", async () => {
+    const connection = {
+      async query(sql) {
+        if (sql.startsWith("SHOW INDEX")) {
+          return [[{ Key_name: SUPPORT_ATTACHMENT_STORAGE_KEY_INDEX_NAME, Non_unique: 1, Column_name: "storageKey" }], []];
+        }
+        throw new Error("Unexpected query: " + sql);
+      },
+    };
+    await expect(preflightSupportAttachmentStorageKeyUniqueIndex(connection)).rejects.toThrow(
+      /incompatible definition/,
+    );
   });
 
   it("blocks migration when historical duplicate storage keys exist", async () => {
