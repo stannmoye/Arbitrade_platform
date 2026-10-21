@@ -577,6 +577,7 @@ export async function listCustomerNotificationPage(userId:number,cursorValue?:st
   const last=items[items.length-1];
   return {
     items,
+    cursor:cursorValue??null,
     nextCursor:hasMore&&last?encodeNotificationCursor(last.createdAt,last.id):null,
     totalUnread,
     pageSize:limit,
