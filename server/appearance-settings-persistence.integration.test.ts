@@ -399,10 +399,10 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     expect(created).toMatchObject({
       campaignId: temporaryExpiredCampaignId,
       recipientCount: 0,
-      totalRecipientCount: 0,
+      totalRecipientCount: 1,
       readCount: 0,
       failedCount: 0,
-      pendingCount: 0,
+      pendingCount: 1,
       status: "scheduled",
     });
     const [createdCampaign] = await db.select().from(notificationCampaigns)
@@ -425,8 +425,10 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     const [expiredCampaign] = await db.select().from(notificationCampaigns)
       .where(eq(notificationCampaigns.id, temporaryExpiredCampaignId));
     expect(expiredCampaign?.status).toBe("expired");
-    expect(await db.select().from(notificationCampaignDeliveries)
-      .where(eq(notificationCampaignDeliveries.campaignId, temporaryExpiredCampaignId))).toHaveLength(0);
+    const expiredDeliveries = await db.select().from(notificationCampaignDeliveries)
+      .where(eq(notificationCampaignDeliveries.campaignId, temporaryExpiredCampaignId));
+    expect(expiredDeliveries).toHaveLength(1);
+    expect(expiredDeliveries[0]?.status).toBe("expired");
     expect(await db.select().from(customerNotifications).where(and(
       eq(customerNotifications.userId, expiryCustomerId),
       eq(customerNotifications.title, "Disposable scheduled expiry " + unique),
