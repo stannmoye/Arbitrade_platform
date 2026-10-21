@@ -62,6 +62,7 @@ jobs:
           node --check scripts/apply-portal-migrations.mjs
           node --check scripts/apply-portal-migrations-safety.test.mjs
           node --check scripts/notification-migration-db-assertions.mjs
+          node --check scripts/announcement-expiry-db-assertions.mjs
           node --check scripts/migrate-mining-token-to-cki.test.mjs
           node --check installer/migration-recovery-status.test.mjs
           node --check scripts/mysql-compatible-migration-sql.mjs
