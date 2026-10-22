@@ -177,7 +177,7 @@ export function CustomerPayoutRequests() {
         </div>
         {authenticatorStatus.data?.enabled && <div className="payout-form-field">
           <label htmlFor="payout-totp-code">Authenticator code</label>
-          <input id="payout-totp-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={totpCode} disabled={formDisabled} onChange={(event) => changeFormValue(() => setTotpCode(event.target.value.replace(/\\D/g, "").slice(0, 6)))} />
+          <input id="payout-totp-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={totpCode} disabled={formDisabled} onChange={(event) => changeFormValue(() => setTotpCode(event.target.value.replace(/\D/g, "").slice(0, 6)))} />
           <small>Enter a current code. Each code can authorize only one new payout request.</small>
         </div>}
         <div className="payout-request-warning">
@@ -186,7 +186,7 @@ export function CustomerPayoutRequests() {
         </div>
         {feedback && <div className={/was recorded|was cancelled/.test(feedback) ? "payout-feedback success" : "payout-feedback"} role="status">{feedback}</div>}
         <div className="payout-submit-row">
-          <button className="payout-submit" type="submit" disabled={!payoutAllowed || !amountValid || !destinationDetails.trim() || (authenticatorStatus.data?.enabled === true && !/^\\d{6}$/.test(totpCode)) || isBusy || balances.isLoading}>
+          <button className="payout-submit" type="submit" disabled={!payoutAllowed || !amountValid || !destinationDetails.trim() || (authenticatorStatus.data?.enabled === true && !/^\d{6}$/.test(totpCode)) || isBusy || balances.isLoading}>
             <Send size={15} /> {requestMutation.isPending ? "Submitting request…" : "Request payout"}
           </button>
           {balances.isError && <small className="payout-form-error">Wallet balances could not be loaded. Refresh before submitting.</small>}
