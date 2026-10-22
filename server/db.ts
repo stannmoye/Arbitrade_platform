@@ -810,12 +810,14 @@ export async function confirmCustomerAuthenticatorEnrollment(userId: number, cod
   });
 }
 
-async function consumePayoutAuthenticatorCode(tx: any, userId: number, code: string) {
-  if (!/^\d{6}$/.test(code)) throw new Error("Enter the current six-digit authenticator code to request a payout.");
+async function consumePayoutAuthenticatorCode(tx: any, userId: number, code: string | undefined) {
   const row = (await tx.select().from(customerTotpAuthenticators)
     .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
   if (!row?.confirmedAt || !row.secretCiphertext) {
     throw new Error("Set up and confirm an authenticator before requesting a payout.");
+  }
+  if (typeof code !== "string" || !/^\d{6}$/.test(code)) {
+    throw new Error("Enter the current six-digit authenticator code to request a payout.");
   }
   const secret = decryptTotpSecret(row.secretCiphertext);
   const step = verifyTotpCode(secret, code, Date.now(), Number(row.lastUsedStep ?? -1));
@@ -874,7 +876,8 @@ async function assertPayoutPolicyAllowsRequest(tx: any, userId: number, totpCode
   if (controls.withdrawalsEnabled !== true) throw new Error("Withdrawals are not enabled for this customer account.");
 
   if (policy.twofa === true || controls.twoFactorRequired === true) {
-    if (!totpCode) throw new Error("Enter the current six-digit authenticator code to request a payout.");
+    // Check enrollment before asking for a code, so accounts without an authenticator
+    // receive the actionable setup reason rather than a misleading missing-code error.
     await consumePayoutAuthenticatorCode(tx, userId, totpCode);
   }
 
