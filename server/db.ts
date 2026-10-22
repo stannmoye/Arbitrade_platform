@@ -785,7 +785,7 @@ export async function startCustomerAuthenticatorEnrollment(userId: number) {
 }
 
 export async function confirmCustomerAuthenticatorEnrollment(userId: number, code: string) {
-  if (!/^\\d{6}$/.test(code)) throw new Error("Enter the six-digit code from your authenticator app.");
+  if (!/^\d{6}$/.test(code)) throw new Error("Enter the six-digit code from your authenticator app.");
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   return db.transaction(async (tx) => {
@@ -811,7 +811,7 @@ export async function confirmCustomerAuthenticatorEnrollment(userId: number, cod
 }
 
 async function consumePayoutAuthenticatorCode(tx: any, userId: number, code: string) {
-  if (!/^\\d{6}$/.test(code)) throw new Error("Enter the current six-digit authenticator code to request a payout.");
+  if (!/^\d{6}$/.test(code)) throw new Error("Enter the current six-digit authenticator code to request a payout.");
   const row = (await tx.select().from(customerTotpAuthenticators)
     .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
   if (!row?.confirmedAt || !row.secretCiphertext) {
@@ -927,7 +927,8 @@ export async function getCustomerPayoutEligibility(userId: number) {
     return { allowed: false, reason: "Withdrawals are not enabled for this customer account." };
   }
   if (policy.twofa === true || controls.twoFactorRequired === true) {
-    const authenticator = (await db.select({ confirmedAt: customerTotpAuthenticators.confirmedAt }).from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, userId)).limit(1))[0];\n    return { allowed: false, reason: authenticator?.confirmedAt ? "Enter your current authenticator code when submitting the payout request." : "Set up and confirm an authenticator before requesting a payout." };
+    const authenticator = (await db.select({ confirmedAt: customerTotpAuthenticators.confirmedAt }).from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, userId)).limit(1))[0];
+    return { allowed: false, reason: authenticator?.confirmedAt ? "Enter your current authenticator code when submitting the payout request." : "Set up and confirm an authenticator before requesting a payout." };
   }
 
   const kycRequired = policy.kyc === true || controls.kycRequired === true;
