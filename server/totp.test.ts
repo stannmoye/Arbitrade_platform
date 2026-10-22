@@ -6,6 +6,9 @@ const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const routerSource = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const schemaSource = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
 const migrationSource = readFileSync(new URL("../drizzle/0060_customer_totp_authenticators.sql", import.meta.url), "utf8");
+const recoveryMigrationSource = readFileSync(new URL("../drizzle/0061_customer_totp_recovery_codes.sql", import.meta.url), "utf8");
+const migrationRunnerSource = readFileSync(new URL("../scripts/apply-portal-migrations.mjs", import.meta.url), "utf8");
+const recoveryStatusSource = readFileSync(new URL("../installer/migration-recovery-status.mjs", import.meta.url), "utf8");
 const customerSettingsUi = readFileSync(new URL("../client/src/components/CustomerAuthenticatorSettings.tsx", import.meta.url), "utf8");
 const payoutUi = readFileSync(new URL("../client/src/components/PayoutRequests.tsx", import.meta.url), "utf8");
 
@@ -79,6 +82,10 @@ describe("customer TOTP integration contract", () => {
     expect(schemaSource).toContain('mysqlTable("customer_totp_authenticators"');
     expect(migrationSource).toContain("pendingSecretCiphertext");
     expect(migrationSource).toContain("lastUsedStep");
+    expect(recoveryMigrationSource).toContain("recoveryCodesHash");
+    expect(migrationRunnerSource).toContain('"0061_customer_totp_recovery_codes.sql"');
+    expect(recoveryStatusSource).toContain('"0061_customer_totp_recovery_codes.sql"');
+    expect(schemaSource).toContain('recoveryCodesHash: text("recoveryCodesHash")');
     expect(dbSource).toContain("encryptTotpSecret(secret)");
     expect(dbSource).toContain("decryptTotpSecret(row.secretCiphertext)");
     expect(dbSource).toContain("lastUsedStep: step");
@@ -99,5 +106,13 @@ describe("customer TOTP integration contract", () => {
     expect(customerSettingsUi).toContain("The existing authenticator remains active until you confirm the replacement.");
     expect(dbSource).toContain("startCustomerAuthenticatorReplacement");
     expect(dbSource).toContain("confirmCustomerAuthenticatorReplacement");
+    expect(routerSource).toContain("generateAuthenticatorRecoveryCodes: protectedProcedure");
+    expect(routerSource).toContain("startAuthenticatorRecovery: protectedProcedure");
+    expect(dbSource).toContain("generateCustomerAuthenticatorRecoveryCodes");
+    expect(dbSource).toContain("startCustomerAuthenticatorRecoveryReplacement");
+    expect(dbSource).toContain("consumeTotpRecoveryCode(recoveryCode, storedHashes)");
+    expect(dbSource).toContain("recoveryCodesRemaining");
+    expect(customerSettingsUi).toContain("Lost your device? Use a recovery code");
+    expect(customerSettingsUi).toContain("Save the one-time recovery codes shown below");
   });
 });
