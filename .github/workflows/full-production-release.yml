@@ -158,11 +158,13 @@ jobs:
           zip -qry "$ARCHIVE" . \
             -x './.git/*' \
                './.github/*' \
-               './.env' './.env.local' './.env.production' './.env.development' \
-               './.env.test' './.env.*.local' \
+               './.env' './.env.*' '*/.env' '*/.env.*' \
                './node_modules/.cache/*' \
                './arbitrade-full-application-*.zip' \
                './arbitrade-full-application-*.zip.sha256'
+
+          # Re-add only the documented, secret-free environment template.
+          zip -q "$ARCHIVE" .env.example
 
           test -s "$ARCHIVE"
           unzip -tq "$ARCHIVE"
@@ -180,7 +182,48 @@ jobs:
           grep -Fx '.env.example' archive-files.txt
           grep -m 1 -E '^node_modules/' archive-files.txt
           grep -m 1 -E '^dist/public/assets/index-.*[.]js$' archive-files.txt
-          if grep -E '(^|/)\.env($|\.(local|production|development|test|.*\.local)$)' archive-files.txt; then
+          if grep -E '(^|/)\.env(\..+)?
+            echo "::error::Unexpected environment secret file in release ZIP"
+            exit 1
+          fi
+
+          sha256sum "$ARCHIVE" | tee "$ARCHIVE.sha256"
+          ls -lh "$ARCHIVE" "$ARCHIVE.sha256"
+
+      - name: Store the full application archive and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: arbitrade-full-application-${{ inputs.release_tag }}
+          path: |
+            arbitrade-full-application-*.zip
+            arbitrade-full-application-*.zip.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+
+      - name: Publish the verified full-application GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: Arbitrade Full Application — Stage 5 Integrated
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          generate_release_notes: false
+          body: |
+            Full integrated application package built from the verified main commit shown in BUILD_PROVENANCE.txt.
+
+            Includes the original application, Stages 1–5, all six themes, customer/admin portals, TOTP enrollment and recovery, manual payout request workflow, portal render recovery, ordered migrations, source, production build output, dependency tree, installer/deployment assets, tests, and documentation.
+
+            The ZIP and detached SHA-256 checksum are attached. Actual environment secrets, credentials, production data, and Git metadata are excluded.
+
+            Important: hosted Stage 5 acceptance remains a separate gate. A successful build does not certify a live deployment or external money transfer. Manual payout status changes do not themselves move funds.
+          files: |
+            arbitrade-full-application-*.zip
+            arbitrade-full-application-*.zip.sha256
+ archive-files.txt | grep -Fxv '.env.example'; then
             echo "::error::Unexpected environment secret file in release ZIP"
             exit 1
           fi
