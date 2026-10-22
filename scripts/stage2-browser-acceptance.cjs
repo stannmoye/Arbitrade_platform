@@ -192,6 +192,26 @@ async function runAdminAppearanceInteractionCheck(browser) {
     record("mock-authenticated-admin-route", adminLoaded, {
       note: "Uses mocked auth.me and tRPC responses; this is client-flow evidence, not live API authentication.",
     });
+    if (adminLoaded) {
+      const mainSurface = await page.locator(".admin-portal .portal-main").evaluate(element => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        const text = (element.innerText || "").trim();
+        return {
+          display: style.display,
+          visibility: style.visibility,
+          opacity: Number(style.opacity),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          textLength: text.length,
+          textPreview: text.slice(0, 120),
+        };
+      });
+      const mainVisible = mainSurface.display !== "none" &&
+        mainSurface.visibility !== "hidden" && mainSurface.opacity > 0 &&
+        mainSurface.width > 0 && mainSurface.height > 0 && mainSurface.textLength > 0;
+      record("admin-main-workspace-visible", mainVisible, mainSurface);
+    }
 
     if (!adminLoaded) {
       record("admin-appearance-screen-opened", false, {
@@ -1279,6 +1299,33 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
       await page.goto(new URL("/customer", BASE_URL).href, { waitUntil: "domcontentloaded", timeout: 30000 });
       const selector = page.locator(".customer-portal .portal-session > .arb-theme-selector-compact");
       await selector.waitFor({ state: "visible", timeout: 15000 });
+      const customerMainSurface = await page.locator(".customer-portal .portal-main").evaluate(element => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        const text = (element.innerText || "").trim();
+        return {
+          display: style.display,
+          visibility: style.visibility,
+          opacity: Number(style.opacity),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          textLength: text.length,
+          textPreview: text.slice(0, 120),
+        };
+      });
+      const customerMainVisible = customerMainSurface.display !== "none" &&
+        customerMainSurface.visibility !== "hidden" && customerMainSurface.opacity > 0 &&
+        customerMainSurface.width > 0 && customerMainSurface.height > 0 &&
+        customerMainSurface.textLength > 0;
+      checks.push({
+        route: "/customer",
+        routeName: "customer",
+        width: 1440,
+        theme: document?.theme || "runtime-default",
+        check: "customer-main-workspace-visible",
+        ...customerMainSurface,
+        passed: customerMainVisible,
+      });
       const select = selector.locator("select");
       const editable = await select.count() === 1;
       let options = [];
