@@ -209,6 +209,10 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
         totpAtStep(setup.secret, replacementStartStep + 1),
       );
       expect(await getCustomerAuthenticatorStatus(userId)).toMatchObject({ enabled: true, replacementPending: true });
+      await expect(startCustomerAuthenticatorReplacement(
+        userId,
+        totpAtStep(setup.secret, replacementStartStep + 1),
+      )).rejects.toThrow("invalid, expired, or has already been used");
       await confirmCustomerAuthenticatorReplacement(
         userId,
         totpAtStep(replacement.secret, replacementStartStep),
