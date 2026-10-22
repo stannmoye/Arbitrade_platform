@@ -47,3 +47,11 @@
 .payout-eligibility-alert span{flex:1;min-width:0}
 .payout-eligibility-alert button{border:1px solid currentColor;border-radius:7px;padding:5px 9px;background:transparent;color:inherit;font:inherit;font-weight:800;cursor:pointer;flex:0 0 auto}
 .payout-request-form input:disabled,.payout-request-form select:disabled,.payout-request-form textarea:disabled{opacity:.6;cursor:not-allowed}
+
+.authenticator-recovery-codes{margin-top:16px;padding:14px;border:1px solid var(--border-color,rgba(128,150,172,.35));border-radius:10px;background:var(--panel-bg,rgba(4,15,27,.25))}
+.authenticator-recovery-codes h3{margin:0 0 8px;font-size:14px;color:var(--text-color,inherit)}
+.authenticator-recovery-codes p{margin:0 0 12px;color:var(--muted-text,#8ba0b4);font-size:12px;line-height:1.55}
+.authenticator-recovery-codes-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-bottom:12px}
+.authenticator-recovery-codes-list code{display:block;padding:8px 6px;border:1px solid var(--input-border,rgba(128,150,172,.35));border-radius:7px;text-align:center;font-size:11px;font-weight:800;letter-spacing:.03em;overflow-wrap:anywhere;background:var(--input-bg,rgba(5,15,26,.4));color:var(--text-color,inherit)}
+.authenticator-recovery-codes .secondary-button{margin:4px 6px 0 0}
+@media(max-width:480px){.authenticator-recovery-codes-list{grid-template-columns:1fr}}
