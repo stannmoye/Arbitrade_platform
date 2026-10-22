@@ -8,6 +8,8 @@ import {
   getCustomerPayoutEligibility,
   startCustomerAuthenticatorEnrollment,
   confirmCustomerAuthenticatorEnrollment,
+  startCustomerAuthenticatorReplacement,
+  confirmCustomerAuthenticatorReplacement,
   deleteAdminCustomer,
   getDb,
   listCustomerPayoutRequests,
@@ -198,8 +200,23 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
       await confirmCustomerAuthenticatorEnrollment(userId, totpAtStep(setup.secret, enrollmentStep));
       expect((await getCustomerPayoutEligibility(userId)).allowed).toBe(true);
 
+      // Replacing a key requires a fresh code from the existing authenticator. The
+      // previous key stays enabled until the new key is explicitly confirmed.
+      const replacementStartStep = Math.floor(Date.now() / 30_000);
+      const replacement = await startCustomerAuthenticatorReplacement(
+        userId,
+        totpAtStep(setup.secret, replacementStartStep + 1),
+      );
+      expect(await getCustomerAuthenticatorStatus(userId)).toMatchObject({ enabled: true, replacementPending: true });
+      await confirmCustomerAuthenticatorReplacement(
+        userId,
+        totpAtStep(replacement.secret, replacementStartStep),
+      );
+      expect(await getCustomerAuthenticatorStatus(userId)).toMatchObject({ enabled: true, replacementPending: false });
+      expect((await getCustomerPayoutEligibility(userId)).allowed).toBe(true);
+
       const payoutStep = Math.floor(Date.now() / 30_000) + 1;
-      const code = totpAtStep(setup.secret, payoutStep);
+      const code = totpAtStep(replacement.secret, payoutStep);
       const request = await createCustomerPayoutRequest(userId, { ...requestInput(1000, unique("payout-totp")), totpCode: code });
       expect(request.status).toBe("pending");
       expect(await balance(userId)).toEqual({ availableMinor: 9000, lockedMinor: 1000, promotionalMinor: 2000 });
