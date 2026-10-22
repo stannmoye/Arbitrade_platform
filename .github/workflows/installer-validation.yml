@@ -62,6 +62,8 @@ jobs:
           node --check scripts/apply-portal-migrations.mjs
           node --check scripts/apply-portal-migrations-safety.test.mjs
           node --check scripts/notification-migration-db-assertions.mjs
+          node --check scripts/support-attachment-storage-key-index.mjs
+          node --check scripts/support-attachment-storage-key-index.test.mjs
           node --check scripts/migrate-mining-token-to-cki.test.mjs
           node --check installer/migration-recovery-status.test.mjs
           node --check scripts/mysql-compatible-migration-sql.mjs
@@ -381,6 +383,23 @@ jobs:
              if (settlementMigration.length !== 1 || settlementMigration[0].status !== "applied") {
                throw new Error("Manual settlement lifecycle migration is not recorded as applied.");
              }
+
+             const [attachmentMigration] = await db.execute(
+               "SELECT status FROM portal_schema_migrations WHERE migrationName=?",
+               ["0062_support_attachment_storage_key_unique.sql"]
+             );
+             const [attachmentIndex] = await db.query(
+               "SHOW INDEX FROM support_attachments WHERE Key_name='uq_support_attachment_storage_key'"
+             );
+             if (
+               attachmentMigration.length !== 1 ||
+               attachmentMigration[0].status !== "applied" ||
+               attachmentIndex.length !== 1 ||
+               Number(attachmentIndex[0].Non_unique) !== 0 ||
+               attachmentIndex[0].Column_name !== "storageKey"
+             ) {
+               throw new Error("Support attachment storage-key uniqueness migration is not applied correctly.");
+             }
             const [drizzle] = await db.query("SELECT COUNT(*) AS count FROM __drizzle_migrations");
             const journal = JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8"));
             if (Number(drizzle[0].count) !== journal.entries.length) throw new Error("Drizzle migration tracker count does not match the complete journal.");
@@ -420,7 +439,7 @@ jobs:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
         run: pnpm exec vitest run server/notification-campaign-expiry.integration.test.ts
 
-      - name: Verify appearance policy authorization and real database persistence
+      - name: Verify appearance policy persistence and support attachment key uniqueness
         env:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
           RUN_APPEARANCE_SETTINGS_DB_INTEGRATION: "1"
@@ -524,6 +543,23 @@ jobs:
              if (settlementMigration.length !== 1 || settlementMigration[0].status !== "applied") {
                throw new Error("Manual settlement lifecycle migration is not recorded as applied.");
              }
+
+             const [attachmentMigration] = await db.execute(
+               "SELECT status FROM portal_schema_migrations WHERE migrationName=?",
+               ["0062_support_attachment_storage_key_unique.sql"]
+             );
+             const [attachmentIndex] = await db.query(
+               "SHOW INDEX FROM support_attachments WHERE Key_name='uq_support_attachment_storage_key'"
+             );
+             if (
+               attachmentMigration.length !== 1 ||
+               attachmentMigration[0].status !== "applied" ||
+               attachmentIndex.length !== 1 ||
+               Number(attachmentIndex[0].Non_unique) !== 0 ||
+               attachmentIndex[0].Column_name !== "storageKey"
+             ) {
+               throw new Error("Support attachment storage-key uniqueness migration is not applied correctly.");
+             }
             const [drizzle] = await db.query("SELECT COUNT(*) AS count FROM __drizzle_migrations");
             const journal = JSON.parse(await readFile("drizzle/meta/_journal.json", "utf8"));
             if (Number(drizzle[0].count) !== journal.entries.length) throw new Error("Drizzle migration tracker count does not match the complete journal.");
@@ -567,6 +603,12 @@ jobs:
         env:
           DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
         run: pnpm exec vitest run server/notification-campaign-expiry.integration.test.ts
+
+      - name: Verify support attachment key uniqueness on disposable MySQL 8
+        env:
+          DATABASE_URL: mysql://root:ci-root-password@127.0.0.1:3306/arbitrade_ci
+          RUN_APPEARANCE_SETTINGS_DB_INTEGRATION: "1"
+        run: pnpm exec vitest run server/appearance-settings-persistence.integration.test.ts
 
       - name: Verify main migration guard refuses blind retry
         env:
