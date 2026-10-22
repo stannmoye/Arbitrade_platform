@@ -82,3 +82,8 @@ Keep OAuth client secrets and SMTP credentials server-side. Configure SPF, DKIM,
 ## Recovery
 
 Back up MySQL before migrations. Restore the database first, run forward migrations only, reconcile stored balances against the immutable ledger, retry incomplete jobs idempotently, and then restart the Node application.
+
+
+## Canonical build and release instructions
+
+All CI and external deployment tools should use the repository-root `Dockerfile` and build from the verified `main` commit. See [`BUILD_AND_RELEASE.md`](BUILD_AND_RELEASE.md) for the standard build commands, required runtime configuration, release gates, and source-of-truth policy. Do not deploy from an unmerged release branch or ZIP archive.
