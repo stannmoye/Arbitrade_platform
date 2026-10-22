@@ -330,20 +330,20 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
     await pool!.execute("UPDATE customer_controls SET twoFactorRequired=1 WHERE userId=?", [twoFactorCustomer]);
     expect(await getCustomerPayoutEligibility(twoFactorCustomer)).toEqual({
       allowed: false,
-      reason: "Complete two-factor verification before requesting a payout; payout verification is not available yet.",
+      reason: "Set up and confirm an authenticator before requesting a payout.",
     });
     await expect(createCustomerPayoutRequest(twoFactorCustomer, requestInput(1000, unique("payout-customer-2fa"))))
-      .rejects.toThrow("payout verification is not available yet");
+      .rejects.toThrow("Set up and confirm an authenticator");
 
     const globalTwoFactorCustomer = await createAccount("user", { withdrawalsEnabled: true, kycRequired: false });
     await setPolicy({ kyc: false, withdrawals: true, twofa: true, facial: false });
     try {
       expect(await getCustomerPayoutEligibility(globalTwoFactorCustomer)).toMatchObject({
         allowed: false,
-        reason: "Complete two-factor verification before requesting a payout; payout verification is not available yet.",
+        reason: "Set up and confirm an authenticator before requesting a payout.",
       });
       await expect(createCustomerPayoutRequest(globalTwoFactorCustomer, requestInput(1000, unique("payout-global-2fa"))))
-        .rejects.toThrow("payout verification is not available yet");
+        .rejects.toThrow("Set up and confirm an authenticator");
     } finally {
       await setPolicy({ kyc: false, withdrawals: true, twofa: false, facial: false });
     }
