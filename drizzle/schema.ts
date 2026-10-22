@@ -87,6 +87,18 @@ export const payoutRequests = mysqlTable("payout_requests", {
   statusCreatedIdx: index("payout_requests_status_created_idx").on(table.status, table.createdAt, table.id),
 }));
 
+export const customerTotpAuthenticators = mysqlTable("customer_totp_authenticators", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  secretCiphertext: varchar("secretCiphertext", { length: 512 }),
+  pendingSecretCiphertext: varchar("pendingSecretCiphertext", { length: 512 }),
+  pendingExpiresAt: timestamp("pendingExpiresAt"),
+  confirmedAt: timestamp("confirmedAt"),
+  lastUsedStep: bigint("lastUsedStep", { mode: "number" }).default(-1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export const customerSessions = mysqlTable("customer_sessions", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
