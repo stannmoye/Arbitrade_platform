@@ -34,13 +34,13 @@ describe("manual payout request lifecycle contract", () => {
     expect(requestStart).toBeGreaterThanOrEqual(0);
     expect(cancelStart).toBeGreaterThan(requestStart);
     expect(requestService).toContain("payoutIdempotencyKey(userId, input.idempotencyKey)");
-    expect(requestService).toContain("assertPayoutPolicyAllowsRequest(tx, userId)");
+    expect(requestService).toContain("assertPayoutPolicyAllowsRequest(tx, userId, input.totpCode)");
     expect(db).toContain('policy.withdrawals !== true');
     expect(db).toContain('controls.withdrawalsEnabled !== true');
     expect(db).toContain('profile?.overallStatus !== "VERIFIED"');
     expect(db).toContain("controls.emailVerified !== true");
     expect(db).toContain("policy.twofa === true || controls.twoFactorRequired === true");
-    expect(db).toContain("payout verification is not available yet");
+    expect(db).toContain("await consumePayoutAuthenticatorCode(tx, userId, totpCode)");
   });
 
   it("uses row locks and reserves only non-promotional funds atomically", () => {
