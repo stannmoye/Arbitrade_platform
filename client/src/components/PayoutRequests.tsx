@@ -47,10 +47,12 @@ export function CustomerPayoutRequests() {
   const balances = trpc.customer.balances.useQuery(undefined, { refetchInterval: 10_000 });
   const requests = trpc.customer.payoutRequests.useQuery(undefined, { refetchInterval: 10_000 });
   const eligibility = trpc.customer.payoutEligibility.useQuery(undefined, { refetchInterval: 30_000 });
+  const authenticatorStatus = trpc.customer.authenticatorStatus.useQuery(undefined, { refetchInterval: 30_000 });
   const [currency, setCurrency] = useState<PayoutAsset>("USD");
   const [amountText, setAmountText] = useState("");
   const [destinationType, setDestinationType] = useState<PayoutDestination>("bank_transfer");
   const [destinationDetails, setDestinationDetails] = useState("");
+  const [totpCode, setTotpCode] = useState("");
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey);
   const [feedback, setFeedback] = useState("");
 
@@ -66,6 +68,7 @@ export function CustomerPayoutRequests() {
       setFeedback(`Payout request ${request.requestReference} was recorded. Funds are reserved pending manual review; no transfer has been sent.`);
       setAmountText("");
       setDestinationDetails("");
+      setTotpCode("");
       setIdempotencyKey(newIdempotencyKey());
       void requests.refetch();
       void balances.refetch();
@@ -116,6 +119,7 @@ export function CustomerPayoutRequests() {
       destinationType,
       destinationDetails: destinationDetails.trim(),
       idempotencyKey,
+      totpCode: totpCode || undefined,
     });
   };
 
@@ -171,13 +175,18 @@ export function CustomerPayoutRequests() {
             onChange={(event) => changeFormValue(() => setDestinationDetails(event.target.value))}
           />
         </div>
+        {authenticatorStatus.data?.enabled && <div className="payout-form-field">
+          <label htmlFor="payout-totp-code">Authenticator code</label>
+          <input id="payout-totp-code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={totpCode} disabled={formDisabled} onChange={(event) => changeFormValue(() => setTotpCode(event.target.value.replace(/\\D/g, "").slice(0, 6)))} />
+          <small>Enter a current code. Each code can authorize only one new payout request.</small>
+        </div>}
         <div className="payout-request-warning">
           <AlertCircle size={16} />
           <span>Never enter passwords, PINs, private keys, or seed phrases. The destination is recorded for administrator review; this form does not send funds.</span>
         </div>
         {feedback && <div className={/was recorded|was cancelled/.test(feedback) ? "payout-feedback success" : "payout-feedback"} role="status">{feedback}</div>}
         <div className="payout-submit-row">
-          <button className="payout-submit" type="submit" disabled={!payoutAllowed || !amountValid || !destinationDetails.trim() || isBusy || balances.isLoading}>
+          <button className="payout-submit" type="submit" disabled={!payoutAllowed || !amountValid || !destinationDetails.trim() || (authenticatorStatus.data?.enabled === true && !/^\\d{6}$/.test(totpCode)) || isBusy || balances.isLoading}>
             <Send size={15} /> {requestMutation.isPending ? "Submitting request…" : "Request payout"}
           </button>
           {balances.isError && <small className="payout-form-error">Wallet balances could not be loaded. Refresh before submitting.</small>}
