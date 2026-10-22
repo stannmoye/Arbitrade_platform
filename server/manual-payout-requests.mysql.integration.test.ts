@@ -221,6 +221,7 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
         userId,
         totpAtStep(setup.secret, replacementStartStep + 1),
       );
+      expect(replacement.expiresAt.getMilliseconds()).toBe(0);
       expect(await getCustomerAuthenticatorStatus(userId)).toMatchObject({ enabled: true, replacementPending: true });
       await expect(startCustomerAuthenticatorReplacement(
         userId,
@@ -255,6 +256,7 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
       expect((rejectedRecoveries[0] as PromiseRejectedResult).reason.message)
         .toContain("invalid or has already been used");
       const recovery = successfulRecoveries[0].value;
+      expect(recovery.expiresAt.getMilliseconds()).toBe(0);
       expect(await getCustomerAuthenticatorStatus(userId)).toMatchObject({ enabled: true, replacementPending: true, recoveryCodesRemaining: 9 });
       await confirmCustomerAuthenticatorReplacement(
         userId,
