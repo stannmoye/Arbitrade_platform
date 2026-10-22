@@ -1,10 +1,13 @@
 import crypto from "node:crypto";
 import mysql from "mysql2/promise";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { totpAtStep } from "./modules/totp";
 import {
   cancelCustomerPayoutRequest,
   createCustomerPayoutRequest,
   getCustomerPayoutEligibility,
+  startCustomerAuthenticatorEnrollment,
+  confirmCustomerAuthenticatorEnrollment,
   deleteAdminCustomer,
   getDb,
   listCustomerPayoutRequests,
@@ -21,6 +24,7 @@ type PayoutInput = {
   destinationType: "bank_transfer" | "crypto_transfer";
   destinationDetails: string;
   idempotencyKey: string;
+  totpCode?: string;
 };
 
 integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", () => {
@@ -123,6 +127,7 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
       const params = [...fixtureUserIds];
       for (const table of [
         "customer_notifications",
+        "customer_totp_authenticators",
         "payout_requests",
         "balance_ledger",
         "customer_balances",
@@ -176,6 +181,38 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
     expect(await ledgerCount(userId, "payout_release")).toBe(1);
     const history = await listCustomerPayoutRequests(userId);
     expect(history.map((item: any) => Number(item.id))).toContain(Number(created.id));
+  });
+
+  it("requires an enrolled authenticator under the default 2FA policy and rejects replayed codes", async () => {
+    const userId = await createAccount();
+    const previousEncryptionKey = process.env.TOTP_ENCRYPTION_KEY;
+    process.env.TOTP_ENCRYPTION_KEY = "a".repeat(64);
+    try {
+      await setPolicy({ kyc: false, withdrawals: true, twofa: true, facial: false });
+      const blocked = await getCustomerPayoutEligibility(userId);
+      expect(blocked.allowed).toBe(false);
+      expect(blocked.reason).toContain("Set up and confirm an authenticator");
+
+      const setup = await startCustomerAuthenticatorEnrollment(userId);
+      const enrollmentStep = Math.floor(Date.now() / 30_000);
+      await confirmCustomerAuthenticatorEnrollment(userId, totpAtStep(setup.secret, enrollmentStep));
+      expect((await getCustomerPayoutEligibility(userId)).allowed).toBe(true);
+
+      const payoutStep = Math.floor(Date.now() / 30_000) + 1;
+      const code = totpAtStep(setup.secret, payoutStep);
+      const request = await createCustomerPayoutRequest(userId, { ...requestInput(1000, unique("payout-totp")), totpCode: code });
+      expect(request.status).toBe("pending");
+      expect(await balance(userId)).toEqual({ availableMinor: 9000, lockedMinor: 1000, promotionalMinor: 2000 });
+
+      await expect(createCustomerPayoutRequest(userId, { ...requestInput(1000, unique("payout-totp-replay")), totpCode: code }))
+        .rejects.toThrow("invalid, expired, or has already been used");
+      expect(await balance(userId)).toEqual({ availableMinor: 9000, lockedMinor: 1000, promotionalMinor: 2000 });
+      await cancelCustomerPayoutRequest(userId, Number(request.id));
+    } finally {
+      if (previousEncryptionKey === undefined) delete process.env.TOTP_ENCRYPTION_KEY;
+      else process.env.TOTP_ENCRYPTION_KEY = previousEncryptionKey;
+      await setPolicy({ kyc: false, withdrawals: true, twofa: false, facial: false });
+    }
   });
 
   it("marks a request paid only with a unique manual reference and releases rejected requests", async () => {
