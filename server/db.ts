@@ -324,9 +324,11 @@ export async function reopenSupportTicket(actorId:number,ticketId:number) {
   const isAdmin=actor.role==="admin";
   if(!isAdmin && ticket.customerId!==actorId) throw new Error("You do not have access to this ticket");
   if(ticket.status!=="closed" && ticket.status!=="resolved") return {success:true,changed:false,status:ticket.status};
-  const previousUpdatedAt=new Date(ticket.updatedAt as any).getTime();
+  const reopenEventId=crypto.randomUUID();
   // Conditional update prevents two concurrent reopen requests from both
-  // claiming that they changed the same closed/resolved ticket.
+  // claiming that they changed the same closed/resolved ticket. The event ID
+  // is independent of updatedAt because MySQL timestamp precision can collapse
+  // distinct close/reopen cycles into the same second.
   const changed=await db.update(supportTickets).set({status:"open",updatedAt:new Date()})
     .where(and(eq(supportTickets.id,ticketId),or(eq(supportTickets.status,"closed"),eq(supportTickets.status,"resolved"))));
   const affected=Number((changed as any)?.[0]?.affectedRows ?? (changed as any)?.affectedRows ?? 0);
@@ -334,7 +336,7 @@ export async function reopenSupportTicket(actorId:number,ticketId:number) {
     const current=(await db.select({status:supportTickets.status}).from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1))[0];
     return {success:true,changed:false,status:current?.status ?? "open"};
   }
-  const eventKey=`support-ticket:${ticketId}:reopened:${previousUpdatedAt}`;
+  const eventKey=`support-ticket:${ticketId}:reopened:${reopenEventId}`;
   try {
     if(isAdmin) {
       await createNotification(ticket.customerId,"Your support ticket was reopened",`${ticket.ticketNumber}: support has reopened this case and the conversation is available again.`,{eventKey,category:"support",priority:ticket.priority==="urgent"?"urgent":"normal"});
@@ -707,7 +709,14 @@ export async function addTicketAttachment(userId:number,input:{ticketId:number;f
   // ticket-scoped key format was deployed.
   const existingKey=(await db.select({id:supportAttachments.id}).from(supportAttachments).where(eq(supportAttachments.storageKey,input.storageKey)).limit(1))[0];
   if(existingKey) throw new Error("Attachment storage key has already been registered");
-  await db.insert(supportAttachments).values({ticketId:input.ticketId,uploadedBy:userId,fileName:input.fileName.slice(0,255),mimeType:input.mimeType.slice(0,160),sizeBytes:input.sizeBytes,storageKey:input.storageKey.slice(0,512)});
+  try {
+    await db.insert(supportAttachments).values({ticketId:input.ticketId,uploadedBy:userId,fileName:input.fileName.slice(0,255),mimeType:input.mimeType.slice(0,160),sizeBytes:input.sizeBytes,storageKey:input.storageKey.slice(0,512)});
+  } catch(error) {
+    const candidate=error as {code?:unknown;cause?:{code?:unknown;cause?:{code?:unknown}}};
+    const code=String(candidate?.code??candidate?.cause?.code??candidate?.cause?.cause?.code??"");
+    if(code==="ER_DUP_ENTRY") throw new Error("Attachment storage key has already been registered");
+    throw error;
+  }
   return {success:true};
 }
 export async function getTicketAttachmentAccess(storageKey:string) {

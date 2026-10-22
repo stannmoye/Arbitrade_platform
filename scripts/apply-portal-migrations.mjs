@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyPortalMigrationRecord } from "./portal-migration-tracker.mjs";
 import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
+import { preflightSupportAttachmentStorageKeyUniqueIndex } from "./support-attachment-storage-key-index.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const databaseUrl = process.env.DATABASE_URL;
@@ -31,6 +32,7 @@ const migrationFiles = [
   "0059_manual_payout_requests.sql",
   "0060_customer_totp_authenticators.sql",
   "0061_customer_totp_recovery_codes.sql",
+  "0062_support_attachment_storage_key_unique.sql",
 ];
 // These tables are also created by the main Drizzle migration chain before this
 // portal-specific runner starts. Their presence alone therefore cannot prove that
@@ -178,7 +180,12 @@ try {
     );
 
     try {
-      await executeCompatibleMigrationSql(connection, sql);
+      if (filename === "0062_support_attachment_storage_key_unique.sql") {
+        const preflight = await preflightSupportAttachmentStorageKeyUniqueIndex(connection);
+        if (!preflight.indexExists) await executeCompatibleMigrationSql(connection, sql);
+      } else {
+        await executeCompatibleMigrationSql(connection, sql);
+      }
       if (filename === "0037_coinki_token_configuration.sql") {
         const { migrateMiningTokenToCki } = await import("./migrate-mining-token-to-cki.mjs");
         await migrateMiningTokenToCki(connection);
