@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { decodeBase32, encodeBase32, totpAtStep, verifyTotpCode, totpProvisioningUri, encryptTotpSecret, decryptTotpSecret } from "./modules/totp";
+import { decodeBase32, encodeBase32, totpAtStep, verifyTotpCode, totpProvisioningUri, encryptTotpSecret, decryptTotpSecret, generateTotpRecoveryCodes, hashTotpRecoveryCode, consumeTotpRecoveryCode } from "./modules/totp";
 
 const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const routerSource = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
@@ -54,6 +54,24 @@ describe("TOTP primitives", () => {
       else process.env.TOTP_ENCRYPTION_KEY = previousKey;
     }
   });
+
+  it("generates high-entropy one-time recovery codes and consumes them exactly once", () => {
+    const codes = generateTotpRecoveryCodes();
+    expect(codes).toHaveLength(10);
+    expect(new Set(codes).size).toBe(10);
+    expect(codes.every((code) => /^[A-F0-9]{4}(-[A-F0-9]{4}){4}$/.test(code))).toBe(true);
+
+    const hashes = codes.map(hashTotpRecoveryCode);
+    expect(hashes.every((hash) => typeof hash === "string" && /^[a-f0-9]{64}$/.test(hash))).toBe(true);
+    expect(hashes).not.toContain(codes[0]);
+    const afterUse = consumeTotpRecoveryCode(codes[0], hashes as string[]);
+    expect(afterUse).toHaveLength(9);
+    expect(consumeTotpRecoveryCode(codes[0], afterUse)).toBeNull();
+    expect(consumeTotpRecoveryCode(codes[1].toLowerCase().replace(/-/g, " "), hashes as string[])).toHaveLength(9);
+    expect(hashTotpRecoveryCode("not-a-recovery-code")).toBeNull();
+    expect(consumeTotpRecoveryCode(codes[0], ["malformed-hash"])).toBeNull();
+  });
+
 });
 
 describe("customer TOTP integration contract", () => {
