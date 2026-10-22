@@ -1,169 +1,18 @@
-name: Stage 4 full application release package
+name: Retired Stage 4-only release (intentionally disabled)
 
 on:
-  push:
-    branches:
-      - integration/auth-installer-vps-safety
-    paths:
-      - '.github/workflows/stage4-full-release.yml'
-      - 'src/**'
-      - 'client/**'
-      - 'server/**'
-      - 'shared/**'
-      - 'installer/**'
-      - 'cpanel/**'
-      - 'scripts/**'
-      - 'drizzle/**'
-      - 'public/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'vite.config.*'
-      - 'tsconfig.json'
-      - 'drizzle.config.*'
-      - 'components.json'
-      - 'DEPLOYMENT-README.txt'
   workflow_dispatch:
 
 permissions:
-  contents: write
-
-concurrency:
-  group: stage4-full-release-publish
-  cancel-in-progress: true
+  contents: read
 
 jobs:
-  package:
+  retired:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     steps:
-      - name: Check out integrated Stage 1–4 application
-        uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Enable pnpm
+      - name: Explain the canonical release path
         run: |
-          corepack enable
-          corepack prepare pnpm@10.18.0 --activate
-      - name: Install locked dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Run full regression suite and TypeScript validation
-        run: |
-          pnpm test
-          pnpm check
-      - name: Build production application
-        run: pnpm build
-      - name: Record release provenance
-        run: |
-          {
-            echo "Product: Arbitrade full application"
-            echo "Release tag: v2.0.4-stage4-full"
-            echo "Included stages: original application + Stages 1, 2, 3, and 4"
-            echo "Theme set: Original Arbitrade, Midnight Premium, Clean Light, Emerald Finance, Aurora Modern, Gold Luxe (6 total)"
-            echo "Source branch: $GITHUB_REF_NAME"
-            echo "Source commit: $GITHUB_SHA"
-            echo "Build UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            echo "Installer entry points: installer/index.php, installer/install.sh, installer/vps-setup.sh"
-            echo "cPanel guide: cpanel/README.md"
-          } > BUILD_PROVENANCE.txt
-          echo "2.0.4-stage4-full" > INSTALLER-VERSION.txt
-          {
-            echo "Arbitrade installer version: 2.0.4-stage4-full"
-            echo "Build commit: $GITHUB_SHA"
-            echo "Build UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          } > INSTALLER-BUILD.txt
-      - name: Assemble full application ZIP
-        run: |
-          test -f .env.example
-          test -f DEPLOYMENT-README.txt
-          test -s INSTALLER-VERSION.txt
-          test -s INSTALLER-BUILD.txt
-          test "$(cat INSTALLER-VERSION.txt)" = "2.0.4-stage4-full"
-          grep -Fq 'Arbitrade installer version: 2.0.4-stage4-full' INSTALLER-BUILD.txt
-          grep -Fq 'Release tag: v2.0.4-stage4-full' BUILD_PROVENANCE.txt
-          test -f installer/index.php
-          test -f installer/install.sh
-          test -f installer/vps-setup.sh
-          test -f cpanel/README.md
-          test -s dist/index.js
-          grep -Fq '"gold-luxe": "Gold Luxe"' client/src/contexts/ThemeContext.tsx
-          grep -Fq '"gold-luxe"' client/src/components/appearance-policy.ts
-          grep -Fq '"gold-luxe"' server/appearance-settings.ts
-          grep -Fq '"gold-luxe"' server/routers.ts
-          grep -Fq ':root[data-arb-theme="gold-luxe"]' client/src/theme-system.css
-          grep -Fq ':root[data-arb-theme="gold-luxe"]' client/src/customer-theme-overrides.css
-          grep -Fq 'notificationSoundKeyForCategory' client/src/App.tsx
-          test -f server/modules/notification-events.ts
-          test -f server/notification-campaign-delivery.contract.test.ts
-          test -f server/support-ticket-submit.contract.test.ts
-          test -f drizzle/0054_notification_event_idempotency.sql
-          test -f drizzle/0058_withdrawable_notification_campaigns.sql
-          test -f public/sounds/notification-warm-tone.wav
-
-          # Keep pnpm's relative symlinks intact instead of expanding linked
-          # dependencies into duplicate copies and inflating the release ZIP.
-          zip -qry arbitrade-stage4-full-application.zip . \
-            -x './.git/*' \
-               './.env' './.env.local' './.env.production' './.env.development' './.env.test' './.env.*.local' \
-               './node_modules/.cache/*' \
-               './.github/*' \
-               './arbitrade-stage4-full-application.zip'
-
-          test -s arbitrade-stage4-full-application.zip
-          unzip -tq arbitrade-stage4-full-application.zip
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx '.env.example'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'DEPLOYMENT-README.txt'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'INSTALLER-VERSION.txt'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'INSTALLER-BUILD.txt'
-          unzip -p arbitrade-stage4-full-application.zip INSTALLER-VERSION.txt | grep -Fx '2.0.4-stage4-full'
-          unzip -p arbitrade-stage4-full-application.zip INSTALLER-BUILD.txt | grep -Fq 'Arbitrade installer version: 2.0.4-stage4-full'
-          unzip -p arbitrade-stage4-full-application.zip BUILD_PROVENANCE.txt | grep -Fq 'Release tag: v2.0.4-stage4-full'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'installer/index.php'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'installer/install.sh'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'installer/vps-setup.sh'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'cpanel/README.md'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'dist/index.js'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'drizzle/0055_notification_campaign_delivery_tracking.sql'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'drizzle/0056_support_ticket_assignment.sql'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'drizzle/0057_notification_history_pagination.sql'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'drizzle/0058_withdrawable_notification_campaigns.sql'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'public/sounds/notification-bright-bell.wav'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'public/sounds/notification-double-ping.wav'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'public/sounds/notification-soft-chime.wav'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'public/sounds/notification-urgent-pulse.wav'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'public/sounds/notification-warm-tone.wav'
-          theme_bundle="$(unzip -Z1 arbitrade-stage4-full-application.zip | grep -E '^dist/public/assets/index-.*[.]js$' | head -n 1)"
-          test -n "$theme_bundle"
-          unzip -p arbitrade-stage4-full-application.zip "$theme_bundle" | grep -Fq 'gold-luxe'
-          theme_css="$(unzip -Z1 arbitrade-stage4-full-application.zip | grep -E '^dist/public/assets/index-.*[.]css$' | head -n 1)"
-          test -n "$theme_css"
-          unzip -p arbitrade-stage4-full-application.zip "$theme_css" | grep -Fq 'gold-luxe'
-          unzip -Z1 arbitrade-stage4-full-application.zip | grep -Fx 'BUILD_PROVENANCE.txt'
-          if unzip -Z1 arbitrade-stage4-full-application.zip | grep -E '^\.env($|\.(local|production|development|test|.*\.local)$)'; then
-            echo "Unexpected environment secret file in release ZIP" >&2
-            exit 1
-          fi
-          sha256sum arbitrade-stage4-full-application.zip
-          ls -lh arbitrade-stage4-full-application.zip
-      - name: Save release ZIP on GitHub Actions
-        uses: actions/upload-artifact@v4
-        with:
-          name: arbitrade-stage4-full-application
-          path: arbitrade-stage4-full-application.zip
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 90
-      - name: Publish GitHub release with the full ZIP
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v2.0.4-stage4-full
-          name: Arbitrade Stage 4 — Full Application (Six Themes, Corrected)
-          body: |
-            Canonical corrected full installer package for the original Arbitrade application with Stages 1–4 integrated. This release supersedes v2.0.3-stage4-full because existing databases with all five previously available themes enabled would otherwise continue to hide the restored Gold Luxe option. The server now upgrades that exact legacy all-enabled policy to six themes and preserves intentionally restricted allow-lists.
-
-            Restores the Gold Luxe sixth theme, Stage 3 Clean Light customer contrast/responsive styling, and deployment/version/build metadata; automatically upgrades legacy all-five-enabled theme policies to include Gold Luxe while preserving restricted administrator allow-lists; and retains the Stage 4 notification, sound, campaign, two-way support, and migration work. Includes the complete application, browser installer, VPS/cPanel deployment files, production build, locked dependencies, and required assets. The workflow runs the full regression suite, TypeScript validation, production build, and archive-content checks. Environment secrets and Git metadata are excluded.
-          target_commitish: integration/auth-installer-vps-safety
-          files: arbitrade-stage4-full-application.zip
-          fail_on_unmatched_files: true
-          generate_release_notes: false
+          echo "::error::This Stage 4-only release workflow is retired."
+          echo "Use .github/workflows/full-production-release.yml from refs/heads/main."
+          echo "The canonical workflow packages the integrated application and verifies Stage 5 migrations."
+          exit 1
