@@ -8,9 +8,11 @@ import superjson from "superjson";
 import App from "./App";
 import { startLogin } from "./const";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import PortalRenderBoundary from "./components/PortalRenderBoundary";
 import "./index.css";
 import "./design-system.css";
 import "./theme-system.css";
+import "./portal-render-recovery.css";
 
 const queryClient = new QueryClient();
 
@@ -83,9 +85,11 @@ const renderApp = () => createRoot(rootElement).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="original" switchable>
-        <Suspense fallback={<div role="status" aria-live="polite">Loading Arbitrade workspace…</div>}>
-          <App />
-        </Suspense>
+        <PortalRenderBoundary portal="application">
+          <Suspense fallback={<div role="status" aria-live="polite">Loading Arbitrade workspace…</div>}>
+            <App />
+          </Suspense>
+        </PortalRenderBoundary>
       </ThemeProvider>
     </QueryClientProvider>
   </trpc.Provider>
