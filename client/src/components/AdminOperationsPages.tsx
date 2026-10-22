@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Users,
+  XCircle,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useState, type ReactNode } from "react";
@@ -236,6 +237,9 @@ export function AdminTransactionReview() {
   const ledgerQuery = trpc.adminOperations.ledgerActivity.useQuery(undefined, { refetchInterval: 10_000 });
   const pendingQuery = trpc.adminOperations.pendingSettlements.useQuery(undefined, { refetchInterval: 5_000 });
   const confirmSettlement = trpc.adminOperations.confirmManualSettlement.useMutation({ onSuccess: () => { pendingQuery.refetch(); ledgerQuery.refetch(); } });
+  const payoutQuery = trpc.adminOperations.payoutRequests.useQuery(undefined, { refetchInterval: 5_000 });
+  const resolvePayout = trpc.adminOperations.resolvePayoutRequest.useMutation({ onSuccess: () => { payoutQuery.refetch(); ledgerQuery.refetch(); } });
+  const [payoutDrafts, setPayoutDrafts] = useState<Record<number, { externalReference: string; note: string }>>({});
   const [drafts, setDrafts] = useState<Record<number, { rewardMinor: string; reference: string }>>({});
   const currencyQuery = trpc.adminOperations.currencies.useQuery(undefined, { staleTime: 60_000 });
   const rows = (ledgerQuery.data ?? []) as unknown as LedgerRecord[];
@@ -249,7 +253,7 @@ export function AdminTransactionReview() {
   };
 
   return (
-    <ToolPage eyebrow="Append-only balance ledger" title="Transaction review" description="Review wallet ledger entries and confirm manually settled trades. Elapsed time never credits a reward or releases principal." icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { ledgerQuery.refetch(); pendingQuery.refetch(); }} disabled={ledgerQuery.isFetching || pendingQuery.isFetching}><RefreshCw size={14} /> Refresh</button>}>
+    <ToolPage eyebrow="Append-only balance ledger" title="Transaction review" description="Review wallet ledger entries and confirm manually settled trades. Elapsed time never credits a reward or releases principal." icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { ledgerQuery.refetch(); pendingQuery.refetch(); payoutQuery.refetch(); }} disabled={ledgerQuery.isFetching || pendingQuery.isFetching || payoutQuery.isFetching}><RefreshCw size={14} /> Refresh</button>}>
       {ledgerQuery.isLoading ? <LoadingState /> : ledgerQuery.isError ? <div className="admin-ops-empty error">The balance ledger could not be loaded.</div> : <>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Manual settlement queue</span><h2>Trades awaiting administrator confirmation</h2></div><span className="admin-ops-subtle">{pendingQuery.data?.length ?? 0} pending</span></div>
@@ -257,6 +261,49 @@ export function AdminTransactionReview() {
             {(pendingQuery.data as any[]).map((trade) => { const draft = drafts[trade.id] || { rewardMinor: String(trade.rewardReservedMinor ?? 0), reference: `manual-${trade.id}` }; return <tr key={trade.id}><td><strong>Trade {trade.id} · {trade.symbol || "Opportunity"}</strong><small>{trade.customerName || trade.customerEmail || `Account ${trade.userId}`} · {trade.currency}</small></td><td>{trade.principalMinor}</td><td>{trade.rewardReservedMinor}</td><td><input value={draft.reference} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, reference: event.target.value } }))} placeholder="External/manual reference" /><input value={draft.rewardMinor} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, rewardMinor: event.target.value } }))} inputMode="numeric" aria-label={`Reward minor units for trade ${trade.id}`} /></td><td><button className="admin-ops-button" type="button" disabled={confirmSettlement.isPending} onClick={() => confirmSettlement.mutate({ tradeId: trade.id, rewardMinor: Number(draft.rewardMinor), settlementReference: draft.reference })}><CheckCircle2 size={14} /> Confirm manual settlement</button></td></tr>; })}
           </tbody></table></div>}
           <div className="admin-ops-note"><ShieldCheck size={16} /><span>The administrator enters the externally confirmed result and payment reference. This action atomically releases principal, credits the reward once, updates the wallet, and records lifecycle events.</span></div>
+        </section>
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head">
+            <div><span className="admin-ops-kicker">Manual payout processing</span><h2>Customer payout requests</h2></div>
+            <span className="admin-ops-subtle">{((payoutQuery.data || []) as any[]).filter((request) => request.status === "pending").length} pending</span>
+          </div>
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span>Funds were reserved when the request was created. Mark a request paid only after independently confirming the external transfer and entering its reference. Arbitrade does not send transfers from this screen.</span></div>
+          {resolvePayout.error && <div className="admin-ops-empty error">{resolvePayout.error.message}</div>}
+          {payoutQuery.isLoading ? <LoadingState /> : payoutQuery.isError ? <div className="admin-ops-empty error">Payout requests could not be loaded.</div> : <>
+            {!(payoutQuery.data || []).some((request: any) => request.status === "pending") ? <div className="admin-ops-empty compact">No payout requests are awaiting review.</div> : <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Customer payout requests">
+              <table className="admin-ops-table"><thead><tr><th>Customer / reference</th><th>Requested amount</th><th>Destination details</th><th>External reference / note</th><th>Resolution</th></tr></thead>
+                <tbody>{((payoutQuery.data || []) as any[]).filter((request) => request.status === "pending").map((request) => {
+                  const draft = payoutDrafts[request.id] || { externalReference: "", note: "" };
+                  return <tr key={request.id}>
+                    <td><strong>{request.customerName || request.customerEmail || `Account ${request.userId}`}</strong><small>{request.requestReference}</small><small>{request.destinationType === "bank_transfer" ? "Bank transfer" : "Crypto wallet transfer"}</small></td>
+                    <td>{formatAmount(Number(request.amountMinor), request.currency)}</td>
+                    <td><div className="admin-payout-destination">{request.destinationDetails}</div></td>
+                    <td>
+                      <input aria-label={`External transfer reference for ${request.requestReference}`} value={draft.externalReference} onChange={(event) => setPayoutDrafts((current) => ({ ...current, [request.id]: { ...draft, externalReference: event.target.value } }))} placeholder="External reference (required)" />
+                      <textarea aria-label={`Resolution note for ${request.requestReference}`} rows={2} value={draft.note} onChange={(event) => setPayoutDrafts((current) => ({ ...current, [request.id]: { ...draft, note: event.target.value } }))} placeholder="Note; required for rejection" />
+                    </td>
+                    <td><div className="admin-payout-actions">
+                      <button className="admin-ops-button" type="button" disabled={resolvePayout.isPending || draft.externalReference.trim().length < 3} onClick={() => resolvePayout.mutate({ requestId: Number(request.id), action: "paid", externalReference: draft.externalReference.trim(), note: draft.note.trim() || undefined })}><CheckCircle2 size={14} /> Mark paid</button>
+                      <button className="admin-ops-button" type="button" disabled={resolvePayout.isPending || !draft.note.trim()} onClick={() => resolvePayout.mutate({ requestId: Number(request.id), action: "rejected", note: draft.note.trim() })}><XCircle size={14} /> Reject and release</button>
+                    </div></td>
+                  </tr>;
+                })}</tbody>
+              </table>
+            </div>}
+            <div className="admin-ops-panel-head admin-payout-history-head"><div><span className="admin-ops-kicker">Recent outcomes</span><h2>Payout history</h2></div></div>
+            <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Payout request history">
+              <table className="admin-ops-table"><thead><tr><th>Created</th><th>Customer</th><th>Request</th><th>Amount</th><th>Status / external reference</th></tr></thead><tbody>
+                {((payoutQuery.data || []) as any[]).map((request) => <tr key={request.id}>
+                  <td>{timestamp(request.createdAt)}</td>
+                  <td><strong>{request.customerName || "Customer"}</strong><small>{request.customerEmail || `Account ${request.userId}`}</small></td>
+                  <td><small>{request.requestReference}</small><small>{request.destinationType === "bank_transfer" ? "Bank transfer" : "Crypto transfer"}</small></td>
+                  <td>{formatAmount(Number(request.amountMinor), request.currency)}</td>
+                  <td><span className="admin-ops-entry-type">{request.status}</span>{request.externalReference && <small>External: {request.externalReference}</small>}{request.resolutionNote && <small>{request.resolutionNote}</small>}</td>
+                </tr>)}
+                {!(payoutQuery.data || []).length && <tr><td colSpan={5} className="admin-ops-table-empty">No payout history is available.</td></tr>}
+              </tbody></table>
+            </div>
+          </>}
         </section>
         <section className="admin-ops-metrics compact-metrics">
           <Metric label="Entries shown" value={rows.length} icon={FileText} />

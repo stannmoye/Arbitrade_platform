@@ -114,6 +114,12 @@ jobs:
           done
           cat /tmp/stage2-vite-preview.log
           exit 1
+      - name: Run customer payout browser acceptance
+        run: |
+          npx --yes --package=playwright -c 'PLAYWRIGHT_MODULES="$(dirname "$(dirname "$(command -v playwright)")")"; NODE_PATH="$PLAYWRIGHT_MODULES" node scripts/payout-browser-acceptance.cjs'
+        shell: bash
+        env:
+          STAGE2_BASE_URL: http://127.0.0.1:4173
       - name: Run real-browser viewport and theme smoke matrix
         run: |
           npx --yes --package=playwright -c 'PLAYWRIGHT_MODULES="$(dirname "$(dirname "$(command -v playwright)")")"; NODE_PATH="$PLAYWRIGHT_MODULES" node scripts/stage2-browser-acceptance.cjs'

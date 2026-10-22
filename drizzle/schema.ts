@@ -51,6 +51,55 @@ export const customerControls = mysqlTable("customer_controls", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+// Maps the KYC profile table created by drizzle/0033_kyc_v2.sql for payout policy checks.
+export const kycProfiles = mysqlTable("kyc_profiles", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  overallStatus: varchar("overallStatus", { length: 32 }).default("NOT_STARTED").notNull(),
+  currentLevel: varchar("currentLevel", { length: 16 }).default("L0").notNull(),
+  riskLevel: varchar("riskLevel", { length: 32 }).default("LOW_RISK").notNull(),
+  grandfathered: boolean("grandfathered").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const payoutRequests = mysqlTable("payout_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  requestReference: varchar("requestReference", { length: 72 }).notNull(),
+  idempotencyKey: varchar("idempotencyKey", { length: 180 }).notNull(),
+  currency: varchar("currency", { length: 12 }).notNull(),
+  amountMinor: bigint("amountMinor", { mode: "number" }).notNull(),
+  destinationType: mysqlEnum("destinationType", ["bank_transfer", "crypto_transfer"]).notNull(),
+  destinationDetails: text("destinationDetails").notNull(),
+  status: mysqlEnum("status", ["pending", "paid", "rejected", "cancelled"]).default("pending").notNull(),
+  externalReference: varchar("externalReference", { length: 160 }),
+  resolutionNote: varchar("resolutionNote", { length: 1000 }),
+  resolvedBy: int("resolvedBy"),
+  resolvedAt: timestamp("resolvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  requestReferenceUnique: uniqueIndex("payout_requests_reference_unique").on(table.requestReference),
+  idempotencyKeyUnique: uniqueIndex("payout_requests_idempotency_unique").on(table.idempotencyKey),
+  externalReferenceUnique: uniqueIndex("payout_requests_external_reference_unique").on(table.externalReference),
+  userCreatedIdx: index("payout_requests_user_created_idx").on(table.userId, table.createdAt, table.id),
+  statusCreatedIdx: index("payout_requests_status_created_idx").on(table.status, table.createdAt, table.id),
+}));
+
+export const customerTotpAuthenticators = mysqlTable("customer_totp_authenticators", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  secretCiphertext: varchar("secretCiphertext", { length: 512 }),
+  pendingSecretCiphertext: varchar("pendingSecretCiphertext", { length: 512 }),
+  pendingExpiresAt: timestamp("pendingExpiresAt"),
+  confirmedAt: timestamp("confirmedAt"),
+  lastUsedStep: bigint("lastUsedStep", { mode: "number" }).default(-1).notNull(),
+  recoveryCodesHash: text("recoveryCodesHash"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export const customerSessions = mysqlTable("customer_sessions", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),

@@ -495,3 +495,10 @@
 :root[data-arb-theme] .admin-ops-page .admin-ops-table {
   min-width: 620px;
 }
+
+.admin-payout-destination{max-width:260px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.45;color:var(--muted-text,#8ba0b4)}
+.admin-payout-actions{display:flex;flex-direction:column;align-items:stretch;gap:7px;min-width:130px}
+.admin-payout-actions .admin-ops-button{justify-content:center;white-space:nowrap}
+.admin-payout-history-head{margin-top:20px}
+.admin-ops-table td input[aria-label^="External transfer reference"],.admin-ops-table td textarea[aria-label^="Resolution note"]{box-sizing:border-box;width:100%;min-width:150px;margin:0 0 7px;padding:8px 9px;border:1px solid var(--border-color,rgba(128,150,172,.35));border-radius:7px;background:var(--input-bg,rgba(4,15,27,.4));color:inherit;font:inherit;font-size:11px}
+@media(max-width:760px){.admin-payout-destination{max-width:180px}.admin-payout-actions{min-width:116px}}
