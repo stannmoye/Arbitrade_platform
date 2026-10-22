@@ -95,6 +95,7 @@ export const customerTotpAuthenticators = mysqlTable("customer_totp_authenticato
   pendingExpiresAt: timestamp("pendingExpiresAt"),
   confirmedAt: timestamp("confirmedAt"),
   lastUsedStep: bigint("lastUsedStep", { mode: "number" }).default(-1).notNull(),
+  recoveryCodesHash: text("recoveryCodesHash"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
