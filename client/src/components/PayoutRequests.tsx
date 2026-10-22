@@ -111,7 +111,7 @@ export function CustomerPayoutRequests() {
 
   const submitRequest = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!payoutAllowed || !amountValid || amountMinor === null || !destinationDetails.trim() || isBusy) return;
+    if (!payoutAllowed || !amountValid || amountMinor === null || !destinationDetails.trim() || (authenticatorStatus.data?.enabled === true && !/^\\d{6}$/.test(totpCode)) || isBusy) return;
     setFeedback("");
     requestMutation.mutate({
       currency,
