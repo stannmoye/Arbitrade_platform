@@ -849,7 +849,7 @@ export async function startCustomerAuthenticatorReplacement(userId: number, curr
 }
 
 export async function confirmCustomerAuthenticatorReplacement(userId: number, code: string) {
-  if (!/^\\d{6}$/.test(code)) throw new Error("Enter the six-digit code from your new authenticator app.");
+  if (!/^\d{6}$/.test(code)) throw new Error("Enter the six-digit code from your new authenticator app.");
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
 
