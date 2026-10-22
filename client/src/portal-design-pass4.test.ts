@@ -24,3 +24,14 @@ describe("portal design pass 4 theme bridge", () => {
     expect(css).toContain("prefers-reduced-motion");
   });
 });
+
+
+describe("mobile navigation drawer visibility", () => {
+  it("keeps customer and admin destination lists visible and independently scrollable on mobile", () => {
+    expect(css).toContain('.admin-slide-layer.is-open .admin-slide-drawer .admin-slide-nav');
+    expect(css).toContain('overflow-y: auto !important');
+    expect(css).toContain('display: flex !important');
+    expect(css).toContain('visibility: visible !important');
+    expect(css).toContain('env(safe-area-inset-bottom)');
+  });
+});
