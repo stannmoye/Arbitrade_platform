@@ -9,4 +9,6 @@ RUN pnpm build
 ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
-CMD ["node", "dist/index.js"]
+# Use pnpm's command resolver; node_modules/.bin/drizzle-kit is a shell shim, not JavaScript.
+# Stop startup if migrations fail rather than launching against an incomplete schema.
+CMD ["sh", "-c", "pnpm db:migrate && node dist/index.js"]
