@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest";
 
 const css = readFileSync(new URL("./portal-design-pass4.css", import.meta.url), "utf8");
 const entry = readFileSync(new URL("./main.tsx", import.meta.url), "utf8");
+const layoutCss = readFileSync(new URL("./index.css", import.meta.url), "utf8");
+const adminSlideMenu = readFileSync(new URL("./components/AdminSlideMenu.tsx", import.meta.url), "utf8");
+const customerSlideMenu = readFileSync(new URL("./components/CustomerSlideMenu.tsx", import.meta.url), "utf8");
+const adminDrawerRule = layoutCss.match(/\.admin-slide-drawer\{([^}]*)\}/)?.[1] ?? "";
+const customerDrawerRule = layoutCss.match(/\.customer-slide-drawer\{([^}]*)\}/)?.[1] ?? "";
 
 describe("portal design pass 4 theme bridge", () => {
   it("loads the final cross-portal styling layer after semantic theme tokens", () => {
@@ -25,13 +30,27 @@ describe("portal design pass 4 theme bridge", () => {
   });
 });
 
+describe("navigation drawer grid layout", () => {
+  it("reserves the flexible grid row for admin destinations instead of the search field", () => {
+    expect(adminDrawerRule).toContain("grid-template-rows:auto auto auto auto minmax(0,1fr) auto;");
+    expect(adminSlideMenu.indexOf('className="quick-actions-search"')).toBeLessThan(
+      adminSlideMenu.indexOf('<nav className="admin-slide-nav quick-actions-nav"')
+    );
+    expect(adminSlideMenu.indexOf('<nav className="admin-slide-nav quick-actions-nav"')).toBeLessThan(
+      adminSlideMenu.indexOf('<div className="admin-slide-footer"')
+    );
+  });
 
-describe("mobile navigation drawer visibility", () => {
-  it("keeps customer and admin destination lists visible and independently scrollable on mobile", () => {
-    expect(css).toContain('.admin-slide-layer.is-open .admin-slide-drawer .admin-slide-nav');
-    expect(css).toContain('overflow-y: auto !important');
-    expect(css).toContain('display: flex !important');
-    expect(css).toContain('visibility: visible !important');
-    expect(css).toContain('env(safe-area-inset-bottom)');
+  it("allocates separate theme and search rows before the customer destination list", () => {
+    expect(customerDrawerRule).toContain("grid-template-rows:auto auto auto auto auto minmax(0,1fr) auto");
+    expect(customerSlideMenu.indexOf('className="customer-slide-theme-control"')).toBeLessThan(
+      customerSlideMenu.indexOf('className="quick-actions-search"')
+    );
+    expect(customerSlideMenu.indexOf('className="quick-actions-search"')).toBeLessThan(
+      customerSlideMenu.indexOf('<nav className="admin-slide-nav quick-actions-nav customer-resource-nav"')
+    );
+    expect(customerSlideMenu.indexOf('<nav className="admin-slide-nav quick-actions-nav customer-resource-nav"')).toBeLessThan(
+      customerSlideMenu.indexOf('<div className="admin-slide-footer"')
+    );
   });
 });
