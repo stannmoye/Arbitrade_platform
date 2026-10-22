@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { decodeBase32, encodeBase32, totpAtStep, verifyTotpCode, totpProvisioningUri } from "./modules/totp";
+
+const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const routerSource = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
+const schemaSource = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
+const migrationSource = readFileSync(new URL("../drizzle/0060_customer_totp_authenticators.sql", import.meta.url), "utf8");
+const customerSettingsUi = readFileSync(new URL("../client/src/components/CustomerAuthenticatorSettings.tsx", import.meta.url), "utf8");
+const payoutUi = readFileSync(new URL("../client/src/components/PayoutRequests.tsx", import.meta.url), "utf8");
 
 describe("TOTP primitives", () => {
   it("round-trips base32 secrets", () => {
@@ -20,5 +28,27 @@ describe("TOTP primitives", () => {
     expect(uri).toContain("otpauth://totp/");
     expect(uri).toContain("secret=JBSWY3DPEHPK3PXP");
     expect(uri).toContain("issuer=Arbitrade");
+  });
+});
+
+describe("customer TOTP integration contract", () => {
+  it("stores only encrypted authenticator secrets and tracks a monotonic replay counter", () => {
+    expect(schemaSource).toContain('mysqlTable("customer_totp_authenticators"');
+    expect(migrationSource).toContain("pendingSecretCiphertext");
+    expect(migrationSource).toContain("lastUsedStep");
+    expect(dbSource).toContain("encryptTotpSecret(secret)");
+    expect(dbSource).toContain("decryptTotpSecret(row.secretCiphertext)");
+    expect(dbSource).toContain("lastUsedStep: step");
+    expect(dbSource).toContain("await consumePayoutAuthenticatorCode(tx, userId, totpCode)");
+  });
+
+  it("exposes protected enrollment endpoints and collects a code with each protected payout", () => {
+    expect(routerSource).toContain("startAuthenticatorEnrollment: protectedProcedure");
+    expect(routerSource).toContain("confirmAuthenticatorEnrollment: protectedProcedure");
+    expect(routerSource).toContain("totpCode: z.string().regex(/^\\d{6}$/).optional()");
+    expect(customerSettingsUi).toContain("Confirm authenticator");
+    expect(customerSettingsUi).toContain("result.secret");
+    expect(payoutUi).toContain('id="payout-totp-code"');
+    expect(payoutUi).toContain("totpCode: totpCode || undefined");
   });
 });
