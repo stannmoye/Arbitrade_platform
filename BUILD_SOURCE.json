@@ -30,19 +30,22 @@
     "secrets_policy": "Set secrets in deployment environment; never commit .env, production credentials, or production database dumps."
   },
   "feature_scope": {
-    "admin_customer_theme_system": "Included; shared semantic theme system plus final theme-aware surface bridge and automated contract test.",
-    "stage_4": "Core notification, support and related release source included. Some live-browser and owner acceptance remains a separate release gate.",
-    "stage_5_authenticator_and_manual_payout": "Added to the integration candidate: TOTP enrollment/verification, single-use recovery-code handling, reserved manual-payout requests and corresponding migrations/tests.",
-    "portal_render_recovery": "Added to the integration candidate for visible recovery UI when a customer/admin workspace fails to render.",
-    "production_acceptance": "Pending combined candidate CI and hosted exact-commit acceptance; do not infer production certification from source inclusion."
+    "admin_customer_theme_system": "Included; semantic theme tokens plus final theme-aware portal surface bridge and automated contract test.",
+    "stage_4_core": "Core Stage 4 notification/support and portal source included through PR #128. The Stage 4 acceptance document retains unresolved live-browser/owner gates; follow-up branches must be reviewed separately before claiming all follow-up work is included.",
+    "stage_5_authenticator_manual_payout": "Included through PR #129: TOTP enrollment/verification and recovery codes, reserved manual payout requests, admin/customer UI, migrations 0059-0061, and tests.",
+    "portal_render_recovery": "Included through PR #129 for customer/admin workspace render recovery.",
+    "production_acceptance": "Source integration is complete; confirm latest main CI and Blitz SHA, configure TOTP_ENCRYPTION_KEY, and complete hosted acceptance before production certification."
   },
-  "release_state": "integration-candidate; exact-head validation pending",
-  "candidate_branch": "integration/stage4-stage5-payout-render-recovery",
+  "release_state": "source-integrated; hosted acceptance pending",
+  "application_integration_commit": "9615ac138e78424d48c00bcbd70bec5e70657460",
   "validation": {
-    "last_merged_baseline": "213f06ee82e00f705bdfff47e1b6ba40f6910f87",
-    "candidate_ci": "pending",
-    "production_deployment": "pending exact-main-sha confirmation",
+    "integrated_feature_head": "2fdea84e6705ee77b01f31806b6e96fe369af7c1",
+    "feature_head_build_tests": "passed",
+    "feature_head_mining_regression": "passed",
+    "feature_head_installer_migration_validation": "passed",
+    "main_commit_checks": "running; verify latest main SHA",
+    "blitz_production_build": "pending confirmation for latest main SHA",
     "stage_5_hosted_acceptance": "pending"
   },
-  "note": "External deployment platforms should read this manifest and BUILD_AND_RELEASE.md, then deploy only a merged, CI-passing main commit (or its immutable release tag)."
+  "note": "Connected app platforms should read this manifest and BUILD_AND_RELEASE.md, then build merged main (or an immutable release tag), not an unmerged feature/release branch."
 }
