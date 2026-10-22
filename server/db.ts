@@ -830,6 +830,7 @@ type CustomerPayoutInput = {
   destinationType: "bank_transfer" | "crypto_transfer";
   destinationDetails: string;
   idempotencyKey: string;
+  totpCode?: string;
 };
 
 type PayoutResolutionInput = {
@@ -872,9 +873,9 @@ async function assertPayoutPolicyAllowsRequest(tx: any, userId: number, totpCode
   if (controls.accountStatus !== "active") throw new Error("Payout requests are unavailable while the account is restricted.");
   if (controls.withdrawalsEnabled !== true) throw new Error("Withdrawals are not enabled for this customer account.");
 
-  // No payout-time second-factor challenge exists yet, so never bypass the policy.
   if (policy.twofa === true || controls.twoFactorRequired === true) {
-    throw new Error("Complete two-factor verification before requesting a payout; payout verification is not available yet.");
+    if (!totpCode) throw new Error("Enter the current six-digit authenticator code to request a payout.");
+    await consumePayoutAuthenticatorCode(tx, userId, totpCode);
   }
 
   const kycRequired = policy.kyc === true || controls.kycRequired === true;
