@@ -61,7 +61,7 @@ export function generateTotpRecoveryCodes(): string[] {
 
 /** Hash a formatted recovery code for storage. Invalid input returns null. */
 export function hashTotpRecoveryCode(code: string): string | null {
-  const normalized = String(code ?? "").toUpperCase().replace(/[\\s-]/g, "");
+  const normalized = String(code ?? "").toUpperCase().replace(/[\s-]/g, "");
   if (!/^[A-F0-9]{20}$/.test(normalized)) return null;
   return crypto.createHash("sha256").update(normalized, "utf8").digest("hex");
 }
