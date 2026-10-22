@@ -928,7 +928,9 @@ export async function getCustomerPayoutEligibility(userId: number) {
   }
   if (policy.twofa === true || controls.twoFactorRequired === true) {
     const authenticator = (await db.select({ confirmedAt: customerTotpAuthenticators.confirmedAt }).from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, userId)).limit(1))[0];
-    return { allowed: false, reason: authenticator?.confirmedAt ? "Enter your current authenticator code when submitting the payout request." : "Set up and confirm an authenticator before requesting a payout." };
+    if (!authenticator?.confirmedAt) {
+      return { allowed: false, reason: "Set up and confirm an authenticator before requesting a payout." };
+    }
   }
 
   const kycRequired = policy.kyc === true || controls.kycRequired === true;
