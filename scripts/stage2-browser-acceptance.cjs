@@ -1321,7 +1321,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         route: "/customer",
         routeName: "customer",
         width: 1440,
-        theme: document?.theme || "runtime-default",
+        theme: "runtime-default",
         check: "customer-main-workspace-visible",
         ...customerMainSurface,
         passed: customerMainVisible,
