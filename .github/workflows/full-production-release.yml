@@ -182,7 +182,7 @@ jobs:
           grep -Fx '.env.example' archive-files.txt
           grep -m 1 -E '^node_modules/' archive-files.txt
           grep -m 1 -E '^dist/public/assets/index-.*[.]js$' archive-files.txt
-          if grep -E '(^|/)\.env(\..+)?
+          if grep -E '(^|/)\.env' archive-files.txt | grep -Fxv '.env.example'; then
             echo "::error::Unexpected environment secret file in release ZIP"
             exit 1
           fi
