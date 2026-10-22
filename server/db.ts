@@ -4,7 +4,7 @@ import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool } from "mysql2/promise";
 import { InsertUser, appSettings, customerBalances, currencyRegistry, customerControls, customerNotifications, customerSessions, customerWalletPreferences, kycProfiles, payoutRequests, customerTotpAuthenticators, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPopupEvents, balanceLedger, tradePositions, tradeRewardReservations, tradeLifecycleEvents, users, missedOpportunities, v5AuditEvents } from "../drizzle/schema";
 import { ENV } from './_core/env';
-import { decryptTotpSecret, encryptTotpSecret, generateTotpSecret, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
+import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
@@ -749,16 +749,40 @@ export async function getCustomerBalanceSummary(userId:number){const currencies=
 
 const PAYOUT_ASSET_CODES = new Set(["USD", "EUR", "GBP", "BTC", "ETH", "USDT"]);
 
+function parseTotpRecoveryHashes(serialized: string | null | undefined): string[] | null {
+  if (!serialized) return null;
+  try {
+    const parsed: unknown = JSON.parse(serialized);
+    if (!Array.isArray(parsed) || parsed.length > 10) return null;
+    if (!parsed.every((hash) => typeof hash === "string" && /^[a-f0-9]{64}$/i.test(hash))) return null;
+    if (new Set(parsed).size !== parsed.length) return null;
+    return parsed as string[];
+  } catch {
+    return null;
+  }
+}
+
+function createTotpRecoveryCodeSet() {
+  const codes = generateTotpRecoveryCodes();
+  const hashes = codes.map((code) => hashTotpRecoveryCode(code));
+  if (hashes.some((hash) => hash === null)) throw new Error("Could not generate valid authenticator recovery codes.");
+  return { codes, hashes: hashes as string[] };
+}
+
 export async function getCustomerAuthenticatorStatus(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const row = (await db.select({ confirmedAt: customerTotpAuthenticators.confirmedAt, pendingExpiresAt: customerTotpAuthenticators.pendingExpiresAt })
-    .from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, userId)).limit(1))[0];
+  const row = (await db.select({
+    confirmedAt: customerTotpAuthenticators.confirmedAt,
+    pendingExpiresAt: customerTotpAuthenticators.pendingExpiresAt,
+    recoveryCodesHash: customerTotpAuthenticators.recoveryCodesHash,
+  }).from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, userId)).limit(1))[0];
   const pendingIsActive = Boolean(row?.pendingExpiresAt && new Date(row.pendingExpiresAt).getTime() > Date.now());
   return {
     enabled: Boolean(row?.confirmedAt),
     enrollmentPending: pendingIsActive && !row?.confirmedAt,
     replacementPending: pendingIsActive && Boolean(row?.confirmedAt),
+    recoveryCodesRemaining: parseTotpRecoveryHashes(row?.recoveryCodesHash)?.length ?? 0,
   };
 }
 
@@ -800,15 +824,70 @@ export async function confirmCustomerAuthenticatorEnrollment(userId: number, cod
     const secret = decryptTotpSecret(row.pendingSecretCiphertext);
     const step = verifyTotpCode(secret, code, Date.now(), -1);
     if (step === null) throw new Error("The authenticator code is invalid or expired. Check your device time and try again.");
+    const recovery = createTotpRecoveryCodeSet();
     await tx.update(customerTotpAuthenticators).set({
       secretCiphertext: row.pendingSecretCiphertext,
       pendingSecretCiphertext: null,
       pendingExpiresAt: null,
       confirmedAt: new Date(),
       lastUsedStep: step,
+      recoveryCodesHash: JSON.stringify(recovery.hashes),
       updatedAt: new Date(),
     }).where(eq(customerTotpAuthenticators.userId, userId));
-    return { enabled: true };
+    return { enabled: true, recoveryCodes: recovery.codes };
+  });
+}
+
+export async function generateCustomerAuthenticatorRecoveryCodes(userId: number, currentCode: string) {
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("A valid customer account is required.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async (tx) => {
+    const user = (await tx.select({ id: users.id, role: users.role })
+      .from(users).where(eq(users.id, userId)).limit(1).for("update"))[0];
+    if (!user || user.role !== "user") throw new Error("Customer account was not found.");
+    const row = (await tx.select().from(customerTotpAuthenticators)
+      .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+    if (!row?.confirmedAt || !row.secretCiphertext) throw new Error("Set up and confirm an authenticator before generating recovery codes.");
+    const step = verifyTotpCode(decryptTotpSecret(row.secretCiphertext), currentCode, Date.now(), Number(row.lastUsedStep ?? -1));
+    if (step === null) throw new Error("The current authenticator code is invalid, expired, or has already been used.");
+    const recovery = createTotpRecoveryCodeSet();
+    await tx.update(customerTotpAuthenticators).set({
+      lastUsedStep: step,
+      recoveryCodesHash: JSON.stringify(recovery.hashes),
+      updatedAt: new Date(),
+    }).where(eq(customerTotpAuthenticators.userId, userId));
+    return { recoveryCodes: recovery.codes };
+  });
+}
+
+export async function startCustomerAuthenticatorRecoveryReplacement(userId: number, recoveryCode: string) {
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("A valid customer account is required.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async (tx) => {
+    const user = (await tx.select({ id: users.id, role: users.role, email: users.email })
+      .from(users).where(eq(users.id, userId)).limit(1).for("update"))[0];
+    if (!user || user.role !== "user") throw new Error("Customer account was not found.");
+    const row = (await tx.select().from(customerTotpAuthenticators)
+      .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+    if (!row?.confirmedAt || !row.secretCiphertext) throw new Error("No enabled authenticator is available to recover.");
+    const storedHashes = parseTotpRecoveryHashes(row.recoveryCodesHash);
+    const remainingHashes = consumeTotpRecoveryCode(recoveryCode, storedHashes);
+    if (!remainingHashes) throw new Error("The recovery code is invalid or has already been used. Use a saved unused recovery code.");
+    const secret = generateTotpSecret();
+    const pendingExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await tx.update(customerTotpAuthenticators).set({
+      pendingSecretCiphertext: encryptTotpSecret(secret),
+      pendingExpiresAt,
+      recoveryCodesHash: JSON.stringify(remainingHashes),
+      updatedAt: new Date(),
+    }).where(eq(customerTotpAuthenticators.userId, userId));
+    return {
+      secret,
+      provisioningUri: totpProvisioningUri(secret, user.email || \`customer-\${userId}\`),
+      expiresAt: pendingExpiresAt,
+    };
   });
 }
 
