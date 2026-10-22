@@ -6,6 +6,7 @@ import {
   cancelCustomerPayoutRequest,
   createCustomerPayoutRequest,
   getCustomerPayoutEligibility,
+  getCustomerAuthenticatorStatus,
   startCustomerAuthenticatorEnrollment,
   confirmCustomerAuthenticatorEnrollment,
   startCustomerAuthenticatorReplacement,
