@@ -455,7 +455,8 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
   return { ...purchase, initialAccrualIntervals, immediateAccrualStatus };
 }
 
-export async function purchaseCustomerMiningPackage(userId: number, input: { packageVersionId: number; idempotencyKey: string }) {
+export async function purchaseCustomerMiningPackage(userId: number, input: { packageVersionId: number; idempotencyKey: string; acceptedTerms: boolean }) {
+  if (input.acceptedTerms !== true) throw new MiningError("Review and accept the current package terms before purchasing");
   if (!Number.isInteger(input.packageVersionId) || input.packageVersionId < 1) throw new MiningError("Choose a valid Mining package");
   const key = requestKey("mining-purchase", userId, input.idempotencyKey);
   const priorResult = async () => withMiningConnection(async conn => {
@@ -468,7 +469,7 @@ export async function purchaseCustomerMiningPackage(userId: number, input: { pac
   if (prior) return prior;
   try {
     const quote = await createCustomerMiningPurchaseQuote(userId, { packageVersionId: input.packageVersionId });
-    return await confirmCustomerMiningPurchase(userId, { quoteId: Number(quote.quoteId), idempotencyKey: input.idempotencyKey, acceptedTerms: true });
+    return await confirmCustomerMiningPurchase(userId, { quoteId: Number(quote.quoteId), idempotencyKey: input.idempotencyKey, acceptedTerms: input.acceptedTerms });
   } catch (error) {
     const completed = await priorResult();
     if (completed) return completed;
