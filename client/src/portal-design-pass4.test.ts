@@ -6,6 +6,8 @@ const entry = readFileSync(new URL("./main.tsx", import.meta.url), "utf8");
 const layoutCss = readFileSync(new URL("./index.css", import.meta.url), "utf8");
 const adminSlideMenu = readFileSync(new URL("./components/AdminSlideMenu.tsx", import.meta.url), "utf8");
 const customerSlideMenu = readFileSync(new URL("./components/CustomerSlideMenu.tsx", import.meta.url), "utf8");
+const adminDrawerRule = layoutCss.match(/\.admin-slide-drawer\{([^}]*)\}/)?.[1] ?? "";
+const customerDrawerRule = layoutCss.match(/\.customer-slide-drawer\{([^}]*)\}/)?.[1] ?? "";
 
 describe("portal design pass 4 theme bridge", () => {
   it("loads the final cross-portal styling layer after semantic theme tokens", () => {
@@ -30,7 +32,7 @@ describe("portal design pass 4 theme bridge", () => {
 
 describe("navigation drawer grid layout", () => {
   it("reserves the flexible grid row for admin destinations instead of the search field", () => {
-    expect(layoutCss).toMatch(/\\.admin-slide-drawer\\{[^}]*grid-template-rows:auto auto auto auto minmax\\(0,1fr\\) auto;/);
+    expect(adminDrawerRule).toContain("grid-template-rows:auto auto auto auto minmax(0,1fr) auto;");
     expect(adminSlideMenu.indexOf('className="quick-actions-search"')).toBeLessThan(
       adminSlideMenu.indexOf('<nav className="admin-slide-nav quick-actions-nav"')
     );
@@ -40,7 +42,7 @@ describe("navigation drawer grid layout", () => {
   });
 
   it("allocates separate theme and search rows before the customer destination list", () => {
-    expect(layoutCss).toMatch(/\\.customer-slide-drawer\\{[^}]*grid-template-rows:auto auto auto auto auto minmax\\(0,1fr\\) auto/);
+    expect(customerDrawerRule).toContain("grid-template-rows:auto auto auto auto auto minmax(0,1fr) auto");
     expect(customerSlideMenu.indexOf('className="customer-slide-theme-control"')).toBeLessThan(
       customerSlideMenu.indexOf('className="quick-actions-search"')
     );
