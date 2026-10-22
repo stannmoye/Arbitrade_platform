@@ -62,7 +62,7 @@ export function CustomerAuthenticatorSettings({ push }: { push?: (message: strin
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!/^\\d{6}$/.test(code)) return;
+    if (!/^\d{6}$/.test(code)) return;
     if (mode === "replace") {
       if (!confirmReplacement.isPending) confirmReplacement.mutate({ code });
     } else if (!confirm.isPending) {
@@ -71,7 +71,7 @@ export function CustomerAuthenticatorSettings({ push }: { push?: (message: strin
   };
   const submitReplacementStart = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!/^\\d{6}$/.test(currentCode) || startReplacement.isPending) return;
+    if (!/^\d{6}$/.test(currentCode) || startReplacement.isPending) return;
     setMessage("");
     startReplacement.mutate({ currentCode });
   };
@@ -97,8 +97,8 @@ export function CustomerAuthenticatorSettings({ push }: { push?: (message: strin
       {!secret && !replacementRequested && <button className="secondary-button" type="button" disabled={status.isError} onClick={() => { setMessage(""); setReplacementRequested(true); }}>{status.data.replacementPending ? "Restart authenticator replacement" : "Replace authenticator"}</button>}
       {replacementRequested && !secret && <form onSubmit={submitReplacementStart}>
         <label htmlFor="authenticator-current-code">Current six-digit authenticator code</label>
-        <input id="authenticator-current-code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={currentCode} onChange={(event) => setCurrentCode(event.target.value.replace(/\\D/g, "").slice(0, 6))} required/>
-        <button className="primary-button" type="submit" disabled={!/^\\d{6}$/.test(currentCode) || startReplacement.isPending}>{startReplacement.isPending ? "Verifying current code…" : "Verify and prepare replacement"}</button>
+        <input id="authenticator-current-code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={currentCode} onChange={(event) => setCurrentCode(event.target.value.replace(/\D/g, "").slice(0, 6))} required/>
+        <button className="primary-button" type="submit" disabled={!/^\d{6}$/.test(currentCode) || startReplacement.isPending}>{startReplacement.isPending ? "Verifying current code…" : "Verify and prepare replacement"}</button>
         <button className="secondary-button" type="button" onClick={() => { setReplacementRequested(false); setCurrentCode(""); setMessage(""); }}>Cancel</button>
       </form>}
     </> : <>
@@ -113,8 +113,8 @@ export function CustomerAuthenticatorSettings({ push }: { push?: (message: strin
       <textarea id="authenticator-provisioning-uri" rows={3} readOnly value={uri}/>
       <form onSubmit={submit}>
         <label htmlFor="authenticator-confirm-code">Six-digit code from the {mode === "replace" ? "new" : ""} authenticator</label>
-        <input id="authenticator-confirm-code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\\D/g, "").slice(0, 6))} required/>
-        <button className="primary-button" type="submit" disabled={!/^\\d{6}$/.test(code) || confirmationPending}>{confirmationPending ? "Confirming…" : mode === "replace" ? "Confirm replacement" : "Confirm authenticator"}</button>
+        <input id="authenticator-confirm-code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} required/>
+        <button className="primary-button" type="submit" disabled={!/^\d{6}$/.test(code) || confirmationPending}>{confirmationPending ? "Confirming…" : mode === "replace" ? "Confirm replacement" : "Confirm authenticator"}</button>
       </form>
       <button className="secondary-button" type="button" onClick={clearSetup}>Cancel setup</button>
     </>}
