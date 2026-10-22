@@ -2,8 +2,9 @@ import crypto from "node:crypto";
 import { and, count, desc, eq, gt, gte, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool } from "mysql2/promise";
-import { InsertUser, appSettings, customerBalances, currencyRegistry, customerControls, customerNotifications, customerSessions, customerWalletPreferences, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPopupEvents, balanceLedger, tradePositions, tradeRewardReservations, tradeLifecycleEvents, users, missedOpportunities, v5AuditEvents } from "../drizzle/schema";
+import { InsertUser, appSettings, customerBalances, currencyRegistry, customerControls, customerNotifications, customerSessions, customerWalletPreferences, kycProfiles, payoutRequests, customerTotpAuthenticators, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPopupEvents, balanceLedger, tradePositions, tradeRewardReservations, tradeLifecycleEvents, users, missedOpportunities, v5AuditEvents } from "../drizzle/schema";
 import { ENV } from './_core/env';
+import { decryptTotpSecret, encryptTotpSecret, generateTotpSecret, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
@@ -748,6 +749,81 @@ export async function getCustomerBalanceSummary(userId:number){const currencies=
 
 const PAYOUT_ASSET_CODES = new Set(["USD", "EUR", "GBP", "BTC", "ETH", "USDT"]);
 
+export async function getCustomerAuthenticatorStatus(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const row = (await db.select({ confirmedAt: customerTotpAuthenticators.confirmedAt, pendingExpiresAt: customerTotpAuthenticators.pendingExpiresAt })
+    .from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, userId)).limit(1))[0];
+  return {
+    enabled: Boolean(row?.confirmedAt),
+    enrollmentPending: Boolean(row?.pendingExpiresAt && new Date(row.pendingExpiresAt).getTime() > Date.now() && !row?.confirmedAt),
+  };
+}
+
+export async function startCustomerAuthenticatorEnrollment(userId: number) {
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("A valid customer account is required.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const user = (await db.select({ id: users.id, role: users.role, email: users.email }).from(users).where(eq(users.id, userId)).limit(1))[0];
+  if (!user || user.role !== "user") throw new Error("Customer account was not found.");
+  const existing = (await db.select().from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, userId)).limit(1))[0];
+  if (existing?.confirmedAt) throw new Error("An authenticator is already enabled. Contact support for the verified account-recovery process.");
+  const secret = generateTotpSecret();
+  const pendingExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  const pendingSecretCiphertext = encryptTotpSecret(secret);
+  if (existing) {
+    await db.update(customerTotpAuthenticators).set({ pendingSecretCiphertext, pendingExpiresAt, updatedAt: new Date() })
+      .where(eq(customerTotpAuthenticators.userId, userId));
+  } else {
+    await db.insert(customerTotpAuthenticators).values({ userId, pendingSecretCiphertext, pendingExpiresAt, lastUsedStep: -1 });
+  }
+  return {
+    secret,
+    provisioningUri: totpProvisioningUri(secret, user.email || `customer-${userId}`),
+    expiresAt: pendingExpiresAt,
+  };
+}
+
+export async function confirmCustomerAuthenticatorEnrollment(userId: number, code: string) {
+  if (!/^\\d{6}$/.test(code)) throw new Error("Enter the six-digit code from your authenticator app.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async (tx) => {
+    const row = (await tx.select().from(customerTotpAuthenticators)
+      .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+    if (!row?.pendingSecretCiphertext || !row.pendingExpiresAt || new Date(row.pendingExpiresAt).getTime() <= Date.now()) {
+      throw new Error("Authenticator setup has expired. Start setup again.");
+    }
+    if (row.confirmedAt) throw new Error("An authenticator is already enabled.");
+    const secret = decryptTotpSecret(row.pendingSecretCiphertext);
+    const step = verifyTotpCode(secret, code, Date.now(), -1);
+    if (step === null) throw new Error("The authenticator code is invalid or expired. Check your device time and try again.");
+    await tx.update(customerTotpAuthenticators).set({
+      secretCiphertext: row.pendingSecretCiphertext,
+      pendingSecretCiphertext: null,
+      pendingExpiresAt: null,
+      confirmedAt: new Date(),
+      lastUsedStep: step,
+      updatedAt: new Date(),
+    }).where(eq(customerTotpAuthenticators.userId, userId));
+    return { enabled: true };
+  });
+}
+
+async function consumePayoutAuthenticatorCode(tx: any, userId: number, code: string) {
+  if (!/^\\d{6}$/.test(code)) throw new Error("Enter the current six-digit authenticator code to request a payout.");
+  const row = (await tx.select().from(customerTotpAuthenticators)
+    .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+  if (!row?.confirmedAt || !row.secretCiphertext) {
+    throw new Error("Set up and confirm an authenticator before requesting a payout.");
+  }
+  const secret = decryptTotpSecret(row.secretCiphertext);
+  const step = verifyTotpCode(secret, code, Date.now(), Number(row.lastUsedStep ?? -1));
+  if (step === null) throw new Error("The authenticator code is invalid, expired, or has already been used.");
+  await tx.update(customerTotpAuthenticators).set({ lastUsedStep: step, updatedAt: new Date() })
+    .where(eq(customerTotpAuthenticators.userId, userId));
+}
+
 type CustomerPayoutInput = {
   currency: "USD" | "EUR" | "GBP" | "BTC" | "ETH" | "USDT";
   amountMinor: number;
@@ -776,7 +852,7 @@ function payoutIdempotencyKey(userId: number, rawKey: string) {
   return `payout:${userId}:${crypto.createHash("sha256").update(value).digest("hex")}`;
 }
 
-async function assertPayoutPolicyAllowsRequest(tx: any, userId: number) {
+async function assertPayoutPolicyAllowsRequest(tx: any, userId: number, totpCode?: string) {
   const policyRow = (await tx.select({ settingValue: appSettings.settingValue })
     .from(appSettings).where(eq(appSettings.settingKey, "policy.defaults")).limit(1).for("update"))[0];
   let policy: Record<string, unknown>;
@@ -850,7 +926,7 @@ export async function getCustomerPayoutEligibility(userId: number) {
     return { allowed: false, reason: "Withdrawals are not enabled for this customer account." };
   }
   if (policy.twofa === true || controls.twoFactorRequired === true) {
-    return { allowed: false, reason: "Complete two-factor verification before requesting a payout; payout verification is not available yet." };
+    const authenticator = (await db.select({ confirmedAt: customerTotpAuthenticators.confirmedAt }).from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, userId)).limit(1))[0];\n    return { allowed: false, reason: authenticator?.confirmedAt ? "Enter your current authenticator code when submitting the payout request." : "Set up and confirm an authenticator before requesting a payout." };
   }
 
   const kycRequired = policy.kyc === true || controls.kycRequired === true;
@@ -963,7 +1039,7 @@ export async function createCustomerPayoutRequest(userId: number, input: Custome
       return { request: prior, created: false };
     }
 
-    await assertPayoutPolicyAllowsRequest(tx, userId);
+    await assertPayoutPolicyAllowsRequest(tx, userId, input.totpCode);
     const currency = (await tx.select().from(currencyRegistry)
       .where(and(eq(currencyRegistry.code, currencyCode), eq(currencyRegistry.enabled, true))).limit(1))[0];
     if (!currency) throw new Error(`Payout currency ${currencyCode} is not enabled.`);
