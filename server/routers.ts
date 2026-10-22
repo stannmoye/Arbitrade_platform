@@ -47,7 +47,7 @@ export const appRouter = router({
   customer: router({
     authenticatorStatus: protectedProcedure.query(({ ctx }) => getCustomerAuthenticatorStatus(ctx.user.id)),
     startAuthenticatorEnrollment: protectedProcedure.mutation(({ ctx }) => startCustomerAuthenticatorEnrollment(ctx.user.id)),
-    confirmAuthenticatorEnrollment: protectedProcedure.input(z.object({ code: z.string().regex(/^\\d{6}$/) })).mutation(({ ctx, input }) => confirmCustomerAuthenticatorEnrollment(ctx.user.id, input.code)),
+    confirmAuthenticatorEnrollment: protectedProcedure.input(z.object({ code: z.string().regex(/^\d{6}$/) })).mutation(({ ctx, input }) => confirmCustomerAuthenticatorEnrollment(ctx.user.id, input.code)),
     kycCenter: protectedProcedure.query(({ ctx }) => getCenter(ctx.user.id)),
     kycStartStage: protectedProcedure.input(z.object({ stage: z.enum(["EMAIL", "PHONE", "ADDRESS", "IDENTITY_DOCUMENT", "FACE_LIVENESS"]), idempotencyKey: z.string().min(8).max(160), deviceMetadata: z.record(z.string(), z.unknown()).optional() })).mutation(async ({ ctx, input }) => { try { return await startStage(ctx.user.id, input.stage, input.idempotencyKey, input.deviceMetadata); } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "This KYC stage is not available yet." }); } }),
     kycIssueEmail: protectedProcedure.mutation(({ ctx }) => issueEmail(ctx.user.id)),
@@ -109,7 +109,7 @@ export const appRouter = router({
       destinationType: z.enum(["bank_transfer", "crypto_transfer"]),
       destinationDetails: z.string().trim().min(8).max(1000),
       idempotencyKey: z.string().trim().min(8).max(160),
-      totpCode: z.string().regex(/^\\d{6}$/).optional(),
+      totpCode: z.string().regex(/^\d{6}$/).optional(),
     })).mutation(({ ctx, input }) => createCustomerPayoutRequest(ctx.user.id, input)),
     cancelPayoutRequest: protectedProcedure.input(z.object({ requestId: z.number().int().positive() }))
       .mutation(({ ctx, input }) => cancelCustomerPayoutRequest(ctx.user.id, input.requestId)),
