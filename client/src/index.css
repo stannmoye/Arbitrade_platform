@@ -485,6 +485,37 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
 .support-attachments>a span{color:var(--ui-muted,#8da3b8);white-space:nowrap;font-size:11px;}
 .admin-support-attachments{margin:8px 0 4px;}
 
+
+/*
+ * Mobile WebView drawer paint recovery.
+ * The 3D transform used for the desktop slide-in can leave descendants unpainted
+ * on some mobile browsers. Use a non-transformed, opacity/visibility transition
+ * on touch/narrow viewports so the drawer and its menu contents share one stable
+ * paint layer. Keep the backdrop separate so taps on the panel cannot close it.
+ */
+@media (max-width:900px), (pointer:coarse) {
+  .admin-slide-drawer {
+    transform:none!important;
+    visibility:hidden;
+    opacity:0;
+    pointer-events:none;
+    will-change:auto!important;
+    backface-visibility:visible!important;
+    transition:opacity .16s ease,visibility 0s linear .16s!important;
+  }
+  .admin-slide-layer.is-open .admin-slide-drawer {
+    transform:none!important;
+    visibility:visible!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+    transition:opacity .16s ease,visibility 0s linear 0s!important;
+  }
+  .admin-slide-drawer > * {
+    position:relative;
+    z-index:1;
+  }
+}
+
 /* Keep the customer audio recovery notice out of the header flex row, especially on narrow screens. */
 .portal-session .customer-audio-warning{position:fixed;top:80px;right:16px;z-index:1000;width:max-content;max-width:min(420px,calc(100vw - 32px));background:var(--ux-panel,#0b1827);box-shadow:0 10px 30px rgba(0,0,0,.3);}
 .portal-session .customer-audio-warning>span{min-width:0;flex:1;overflow-wrap:anywhere;}
