@@ -1,14 +1,22 @@
 {
-  "name": "Arbitrade",
-  "manifest_version": 1,
+  "name": "Arbitrade Platform",
+  "manifest_version": 2,
+  "repository": {
+    "full_name": "stannmoye/Arbitrade_platform",
+    "browser_url": "https://github.com/stannmoye/Arbitrade_platform"
+  },
   "source_of_truth": {
     "repository": "stannmoye/Arbitrade_platform",
     "branch": "main",
-    "deployment_ref": "refs/heads/main"
+    "deployment_ref": "refs/heads/main",
+    "resolution_policy": "Resolve the current main head when a build starts, then record and build that exact 40-character commit SHA. Do not use cached branch SHAs, unmerged pull-request branches, or legacy stage-only tags as the source for a new build.",
+    "immutable_build_identity": "The full Git commit SHA, not the branch name, ZIP filename, or release label."
   },
   "build": {
-    "node": "22",
+    "working_directory": ".",
+    "node": "22.x",
     "package_manager": "pnpm@10.18.0",
+    "lockfile": "pnpm-lock.yaml",
     "install": "pnpm install --frozen-lockfile",
     "typecheck": "pnpm check",
     "test": "pnpm test",
@@ -19,7 +27,7 @@
   "runtime": {
     "port_environment_variable": "PORT",
     "start_command": "sh -c 'pnpm db:migrate && node dist/index.js'",
-    "database": "MySQL 8 or compatible MariaDB",
+    "database": "MySQL 8-compatible or MariaDB",
     "required_secrets": [
       "DATABASE_URL",
       "SESSION_SECRET",
@@ -27,25 +35,54 @@
       "TOTP_ENCRYPTION_KEY"
     ],
     "optional_environment_reference": ".env.example",
-    "secrets_policy": "Set secrets in deployment environment; never commit .env, production credentials, or production database dumps."
+    "secrets_policy": "Provide secrets through the deployment platform or a protected server-side environment. Never commit .env files containing secrets, production credentials, authenticator encryption keys, or production database exports."
+  },
+  "release": {
+    "workflow": ".github/workflows/full-production-release.yml",
+    "dispatch_policy": "Run from refs/heads/main only. The workflow fails closed on any other ref.",
+    "release_tag_pattern": "vMAJOR.MINOR.PATCH-stage5-full",
+    "archive_pattern": "arbitrade-full-application-v*-stage5-full.zip",
+    "includes": [
+      "Complete integrated application source",
+      "Production dist/ build output",
+      "pnpm-lock.yaml and installed node_modules dependency tree",
+      "Database migrations and application schema files",
+      "Browser installer, VPS scripts, and cPanel deployment guides",
+      "Tests, documentation, and public assets",
+      "Exact commit/build provenance and a detached SHA-256 checksum"
+    ],
+    "excludes": [
+      ".git metadata",
+      "GitHub Actions workflow metadata",
+      "Actual .env and environment-specific secret files",
+      "Production credentials, authenticator encryption keys, production user data, and production database backups"
+    ]
   },
   "feature_scope": {
-    "admin_customer_theme_system": "Included; semantic theme tokens plus final theme-aware portal surface bridge and automated contract test.",
-    "stage_4_core": "Core Stage 4 notification/support and portal source included through PR #128. The Stage 4 acceptance document retains unresolved live-browser/owner gates; follow-up branches must be reviewed separately before claiming all follow-up work is included.",
-    "stage_5_authenticator_manual_payout": "Included through PR #129: TOTP enrollment/verification and recovery codes, reserved manual payout requests, admin/customer UI, migrations 0059-0061, and tests.",
-    "portal_render_recovery": "Included through PR #129 for customer/admin workspace render recovery.",
-    "production_acceptance": "Source integration is complete; confirm latest main CI and Blitz SHA, configure TOTP_ENCRYPTION_KEY, and complete hosted acceptance before production certification."
+    "original_application_and_stages_1_to_3": "Integrated in the canonical application source.",
+    "admin_customer_theme_system": "Six themes are integrated: Original Arbitrade, Midnight Premium, Clean Light, Emerald Finance, Aurora Modern, and Gold Luxe. Shared semantic tokens and final portal surface styling apply to customer and administrator portals.",
+    "stage_4_core": "Notification, notification sound/campaign, support, and related portal features are integrated.",
+    "stage_5_authenticator_manual_payout": "TOTP authenticator enrollment and verification, recovery codes, admin/customer UI, manual payout requests, and migrations 0059-0061 are integrated.",
+    "portal_render_recovery": "Customer and administrator workspaces include render-recovery UI.",
+    "payout_boundary": "Payout requests are manual records and administrative status changes; they do not themselves transfer funds through a bank or blockchain provider."
   },
-  "release_state": "source-integrated; hosted acceptance pending",
-  "application_integration_commit": "9615ac138e78424d48c00bcbd70bec5e70657460",
-  "validation": {
-    "integrated_feature_head": "2fdea84e6705ee77b01f31806b6e96fe369af7c1",
-    "feature_head_build_tests": "passed",
-    "feature_head_mining_regression": "passed",
-    "feature_head_installer_migration_validation": "passed",
-    "main_commit_checks": "running; verify latest main SHA",
-    "blitz_production_build": "pending confirmation for latest main SHA",
-    "stage_5_hosted_acceptance": "pending"
+  "acceptance": {
+    "source_integration": "complete",
+    "exact_commit_validation": "Check the GitHub Actions results for the resolved main SHA before packaging or deploying.",
+    "hosted_stage_5_acceptance": "pending",
+    "production_certified": false,
+    "qualification": "Passing a source build is not proof of hosted acceptance, financial-provider integration, or production deployment."
   },
-  "note": "Connected app platforms should read this manifest and BUILD_AND_RELEASE.md, then build merged main (or an immutable release tag), not an unmerged feature/release branch."
+  "validation_policy": {
+    "exact_sha_required": true,
+    "required_checks": [
+      "pnpm install --frozen-lockfile",
+      "pnpm check",
+      "pnpm test",
+      "pnpm build"
+    ],
+    "evidence_location": "GitHub Actions runs attached to the exact source commit; older branch runs do not certify a newer main commit.",
+    "manifest_is_not_validation_attestation": true
+  },
+  "note": "Connected coding agents and deployment platforms should read AGENTS.md, BUILD_SOURCE.json, and BUILD_AND_RELEASE.md; resolve refs/heads/main at build time; and use the root Dockerfile for container builds."
 }
