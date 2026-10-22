@@ -1,0 +1,222 @@
+name: Full production application package
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Unique full-application tag (vMAJOR.MINOR.PATCH-stage5-full)
+        required: true
+        default: v2.0.6-stage5-full
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: full-application-release-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Verify and package the integrated application
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out the selected source
+        uses: actions/checkout@v4
+
+      - name: Require canonical main and a new Stage 5 release tag
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Release packaging must be dispatched from refs/heads/main; received $GITHUB_REF"
+            exit 1
+          fi
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-stage5-full$ ]]; then
+            echo "::error::Release tag must match vMAJOR.MINOR.PATCH-stage5-full"
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::Git tag $RELEASE_TAG already exists. Choose a new version; releases are immutable."
+            exit 1
+          else
+            tag_check_status=$?
+            if [[ "$tag_check_status" -ne 2 ]]; then
+              echo "::error::Could not verify that $RELEASE_TAG is unused."
+              exit "$tag_check_status"
+            fi
+          fi
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $RELEASE_TAG already exists. Choose a new version; do not overwrite a release."
+            exit 1
+          fi
+          echo "Preparing $RELEASE_TAG from $GITHUB_SHA"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Validate machine-readable source contract
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFileSync } from "node:fs";
+          const manifest = JSON.parse(readFileSync("BUILD_SOURCE.json", "utf8"));
+          assert.equal(manifest.manifest_version, 2, "Update the release workflow for the manifest schema.");
+          assert.equal(manifest.source_of_truth.repository, "stannmoye/Arbitrade_platform");
+          assert.equal(manifest.source_of_truth.branch, "main");
+          assert.equal(manifest.source_of_truth.deployment_ref, "refs/heads/main");
+          assert.equal(manifest.build.container_definition, "Dockerfile");
+          assert.equal(manifest.build.lockfile, "pnpm-lock.yaml");
+          assert.equal(manifest.release.workflow, ".github/workflows/full-production-release.yml");
+          assert.equal(typeof manifest.acceptance.production_certified, "boolean");
+          assert.equal(typeof manifest.acceptance.hosted_stage_5_acceptance, "string");
+          console.log("Machine-readable source contract is valid.");
+          NODE
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check, test, and build
+        run: |
+          pnpm check
+          pnpm test
+          pnpm build
+
+      - name: Verify all integrated release components
+        run: |
+          set -euo pipefail
+          test -s .env.example
+          test -s BUILD_SOURCE.json
+          test -s BUILD_AND_RELEASE.md
+          test -s AGENTS.md
+          test -s DEPLOYMENT-README.txt
+          test -s dist/index.js
+          test -d node_modules/.pnpm
+          test -f client/src/portal-design-pass4.css
+          test -f client/src/portal-render-recovery.css
+          test -f drizzle/0059_manual_payout_requests.sql
+          test -f drizzle/0060_customer_totp_authenticators.sql
+          test -f drizzle/0061_customer_totp_recovery_codes.sql
+          grep -Fq 'TOTP_ENCRYPTION_KEY' .env.example
+          grep -Fq 'gold-luxe' client/src/theme-system.css
+          grep -Fq 'gold-luxe' client/src/customer-theme-overrides.css
+          grep -Fq 'stage_5_authenticator_manual_payout' BUILD_SOURCE.json
+          grep -Fq 'full-production-release.yml' BUILD_AND_RELEASE.md
+
+      - name: Write exact source/build provenance
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "Product: Arbitrade full application"
+            echo "Release tag: $RELEASE_TAG"
+            echo "Source repository: $GITHUB_REPOSITORY"
+            echo "Source branch: $GITHUB_REF_NAME"
+            echo "Source commit: $GITHUB_SHA"
+            echo "Workflow run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "Build UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Integrated scope: original application + Stages 1-5 + six themes"
+            echo "Included: source, dist, node_modules, migrations, installer, tests, docs and assets"
+            echo "Validated: pnpm install --frozen-lockfile; pnpm check; pnpm test; pnpm build"
+            echo "Hosted Stage 5 acceptance: pending; this archive is not a certification claim"
+            echo "Payout boundary: manual payout records/status changes do not move external funds"
+          } > BUILD_PROVENANCE.txt
+          printf '%s\n' "$RELEASE_TAG" > INSTALLER-VERSION.txt
+          {
+            echo "Arbitrade full-application build"
+            echo "Release tag: $RELEASE_TAG"
+            echo "Build commit: $GITHUB_SHA"
+            echo "Build UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > INSTALLER-BUILD.txt
+
+      - name: Assemble and verify the complete application ZIP
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARCHIVE="arbitrade-full-application-$RELEASE_TAG.zip"
+          test "$(cat INSTALLER-VERSION.txt)" = "$RELEASE_TAG"
+          grep -Fq "Release tag: $RELEASE_TAG" BUILD_PROVENANCE.txt
+
+          # Package the integrated application, compiled production output, and
+          # complete pnpm dependency tree. Keep relative dependency symlinks intact.
+          zip -qry "$ARCHIVE" . \
+            -x './.git/*' \
+               './.env' './.env.local' './.env.production' './.env.development' \
+               './.env.test' './.env.*.local' \
+               './node_modules/.cache/*' \
+               './arbitrade-full-application-*.zip' \
+               './arbitrade-full-application-*.zip.sha256'
+
+          test -s "$ARCHIVE"
+          unzip -tq "$ARCHIVE"
+          unzip -Z1 "$ARCHIVE" > archive-files.txt
+          grep -Fx 'BUILD_SOURCE.json' archive-files.txt
+          grep -Fx 'BUILD_AND_RELEASE.md' archive-files.txt
+          grep -Fx 'AGENTS.md' archive-files.txt
+          grep -Fx 'BUILD_PROVENANCE.txt' archive-files.txt
+          grep -Fx 'INSTALLER-VERSION.txt' archive-files.txt
+          grep -Fx 'INSTALLER-BUILD.txt' archive-files.txt
+          grep -Fx 'dist/index.js' archive-files.txt
+          grep -Fx 'drizzle/0059_manual_payout_requests.sql' archive-files.txt
+          grep -Fx 'drizzle/0060_customer_totp_authenticators.sql' archive-files.txt
+          grep -Fx 'drizzle/0061_customer_totp_recovery_codes.sql' archive-files.txt
+          grep -Fx '.env.example' archive-files.txt
+          grep -m 1 -E '^node_modules/' archive-files.txt
+          grep -m 1 -E '^dist/public/assets/index-.*[.]js$' archive-files.txt
+          if grep -E '(^|/)\.env($|\.(local|production|development|test|.*\.local)$)' archive-files.txt; then
+            echo "::error::Unexpected environment secret file in release ZIP"
+            exit 1
+          fi
+
+          sha256sum "$ARCHIVE" | tee "$ARCHIVE.sha256"
+          ls -lh "$ARCHIVE" "$ARCHIVE.sha256"
+
+      - name: Store the full application archive and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: arbitrade-full-application-${{ inputs.release_tag }}
+          path: |
+            arbitrade-full-application-*.zip
+            arbitrade-full-application-*.zip.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+
+      - name: Publish the verified full-application GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: Arbitrade Full Application — Stage 5 Integrated
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          generate_release_notes: false
+          body: |
+            Full integrated application package built from the verified main commit shown in BUILD_PROVENANCE.txt.
+
+            Includes the original application, Stages 1–5, all six themes, customer/admin portals, TOTP enrollment and recovery, manual payout request workflow, portal render recovery, ordered migrations, source, production build output, dependency tree, installer/deployment assets, tests, and documentation.
+
+            The ZIP and detached SHA-256 checksum are attached. Actual environment secrets, credentials, production data, and Git metadata are excluded.
+
+            Important: hosted Stage 5 acceptance remains a separate gate. A successful build does not certify a live deployment or external money transfer. Manual payout status changes do not themselves move funds.
+          files: |
+            arbitrade-full-application-*.zip
+            arbitrade-full-application-*.zip.sha256

@@ -1,15 +1,17 @@
 # Canonical Build and Release Guide
 
-## One source of truth
+## Authoritative source
 
-- The production source branch is `main` in this repository: `stannmoye/Arbitrade_platform`.
-- Deploy only code merged into `main` that has passed the checks for its exact commit.
-- Do not build production from the older `release/arbitrade-v5-production-pass4` branch, an uploaded ZIP, a stale image, or an unmerged feature branch.
-- Record the full commit SHA used by each deployment. A branch name alone is not a reproducible release identifier.
+- Repository: [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrade_platform)
+- Canonical application branch: `main` (`refs/heads/main`).
+- Machine-readable build contract: [`BUILD_SOURCE.json`](BUILD_SOURCE.json).
+- Repository map and coding-agent rules: [`docs/REPOSITORY_GUIDE.md`](docs/REPOSITORY_GUIDE.md) and [`AGENTS.md`](AGENTS.md).
 
-## Standard build
+Resolve the current `main` HEAD immediately before each build and record its full 40-character commit SHA. A branch name alone is not a reproducible build identifier. Do not build the newest application from unmerged feature branches, old integration branches, stale ZIP files, or historical Stage 4-only release tags.
 
-Requirements: Node.js 22, pnpm 10.18.0, and MySQL 8 or compatible MariaDB.
+## Build from source
+
+Requirements: Node.js 22, pnpm 10.18.0, and MySQL 8-compatible MySQL/MariaDB for runtime use.
 
 ```sh
 corepack enable
@@ -20,52 +22,48 @@ pnpm test
 pnpm build
 ```
 
-The production container build is defined by the root `Dockerfile`. Use that Dockerfile on Blitz.cloud and compatible container hosts. The container installs from the lockfile, builds the Vite client and Express server, runs the guarded Drizzle migrations, and starts `dist/index.js`. The health endpoint is `/api/health`.
+The root `Dockerfile` is the canonical container build definition. Configure the connected build platform to use this repository, branch `main`, repository root as the build context, and `Dockerfile` as the container definition. Do not replace its start command with a competing command. At runtime it applies guarded migrations and starts `dist/index.js`; health is checked at `/api/health`.
 
-## Required runtime configuration
+## Runtime configuration
 
-Set values in the deployment platform's secret/environment configuration, not in Git:
+Set the values below using the host's protected environment/secret manager, not source files:
 
 - `DATABASE_URL`
 - `SESSION_SECRET`
 - `PASSWORD_PEPPER`
-- `TOTP_ENCRYPTION_KEY`: stable 32-byte key (64 hex characters or base64) used to encrypt customer authenticator secrets. Generate once, back it up securely, and do not rotate it without a verified migration plan.
-- `TRUST_PROXY_HOPS`: set to the actual trusted reverse-proxy hop count; use `0` for direct access rather than guessing.
-- SMTP and provider credentials only for integrations that have been configured and approved.
+- `TOTP_ENCRYPTION_KEY`: a stable key for encrypted authenticator secrets. Use a 32-byte key (64 hexadecimal characters or base64), back it up in a separate protected location, and do not rotate it without a reviewed migration/recovery plan.
+- `TRUST_PROXY_HOPS`: set to the actual trusted reverse-proxy hop count; use `0` for direct access instead of guessing.
+- SMTP and provider credentials only for integrations that have been approved and configured.
 
-The full variable reference is `.env.example`. Never commit real credentials, production database exports, or a populated `.env` file. Do not share the value of `TOTP_ENCRYPTION_KEY` in chat or logs.
+See `.env.example` for the environment reference. Never commit populated `.env` files, production credentials, the TOTP encryption key, production data, or production database dumps. Do not paste secret values into chat, source code, test fixtures, logs, or release artifacts.
 
-## Identity and account provisioning
+## Full application package
 
-There are no default production credentials. Provision or reset accounts only with the documented `pnpm accounts:provision` workflow and the explicit environment variables it requires. Make sure the provisioning command uses the same production database as the running service. Do not paste secrets into logs or commit them.
+The authoritative packaging workflow is [`.github/workflows/full-production-release.yml`](.github/workflows/full-production-release.yml). It is manually dispatched from `main`, runs the full lockfile install, type check, test suite, and production build, verifies required Stage 5 files, and packages the integrated application—not a stage-only patch.
+
+The workflow creates an archive named like `arbitrade-full-application-v2.0.6-stage5-full.zip`, includes source, `dist/`, `node_modules/`, migrations, installers, docs, tests, and assets, and publishes a detached SHA-256 checksum. It excludes Git metadata, GitHub workflow metadata, and actual environment secrets. The workflow records the exact source commit SHA and build run in release provenance.
+
+Use a new tag matching `vMAJOR.MINOR.PATCH-stage5-full`. The workflow refuses to publish from a branch other than `main` or reuse a tag already attached to a release. The archive is a full deployable application bundle; it does not certify the deployment, live provider execution, or hosted acceptance.
+
+The former `stage4-full-release.yml` workflow is retired because its fixed Stage 4 version and legacy integration-branch target could mislead tools into selecting an obsolete package. Do not use an old Stage 4-only ZIP as the latest source.
+
+## Feature and acceptance status
+
+The canonical source includes the customer/admin portals, six theme variants, Stage 4 notification and support features, Stage 5 authenticator enrollment/recovery, manual payout requests, and portal-render recovery. See `docs/ARBITRADE_STAGE_5_ACCEPTANCE.md` for the exact hosted acceptance checklist.
+
+**Source integration is complete; Stage 5 hosted acceptance remains pending.** Verify current GitHub Actions results against the exact resolved `main` SHA before deployment. Prior tests on a different branch or commit must not be treated as evidence that a later commit passed. The source build also does not prove that the live service was updated or that external money movement is configured.
+
+Manual payout tickets and an administrator marking a request paid are records of status, not a bank or blockchain transfer. Do not represent configured estimates as verified real returns or simulated balances as withdrawable funds.
 
 ## Release procedure
 
-1. Review and merge the complete intended change set into `main`.
-2. Confirm that the exact `main` commit has passed the repository's build/test, installer/migration, and relevant browser/theme acceptance workflows.
-3. In Blitz.cloud, select this repository, branch `main`, repository root, and the root `Dockerfile`. Remove any custom start command that overrides the Dockerfile entry point unless it is exactly equivalent and intentionally required.
-4. Confirm the build logs identify the intended commit SHA. Do not assume a healthy service means it built the latest source.
-5. Back up the production database and verify a recovery path before applying migrations. Then deploy the exact passing commit and verify `/api/health`, administrator login, customer login, key page contents, and theme switching.
-6. Follow `docs/ARBITRADE_STAGE_5_ACCEPTANCE.md` for authenticator/manual-payout hosted checks. Do not consider Stage 5 production acceptance complete until those checks have passed.
-7. Tag the verified commit and publish release notes with its SHA, checks run, migrations included, required secrets, and known limitations.
-8. Keep an immutable rollback target. Do not roll back schema changes blindly.
+1. Resolve and record the current `main` commit SHA.
+2. Confirm the GitHub Actions build, type-check, and test results correspond to that exact SHA.
+3. Back up the database and verify a recovery path before applying any migration.
+4. Dispatch the full application packaging workflow from `main` with a new Stage 5 full-release tag.
+5. Verify the release asset, included migrations, provenance file, and SHA-256 checksum.
+6. On an isolated staging host and dedicated test database, follow `docs/ARBITRADE_STAGE_5_ACCEPTANCE.md` and the VPS/cPanel deployment guide.
+7. Verify customer/admin login, TOTP enrollment/recovery, payout request lifecycle, nested theme surfaces, and `/api/health`.
+8. Record hosted acceptance separately before describing the application as production-certified.
 
-## Release integrity
-
-- `BUILD_SOURCE.json` is the machine-readable source/build manifest for connected application platforms and automation.
-- `.github/workflows/build-test-production.yml` runs lockfile install, type checking, automated tests, and a production build for pull requests into and pushes to `main`.
-- Keep dependencies reproducible with `pnpm-lock.yaml`; do not check in `node_modules` or generated build directories.
-- Do not claim a stage is complete just because a build succeeds or a login works. Code inclusion, automated validation, hosted acceptance, and owner release approval are separate checkpoints.
-
-## Current source status
-
-The canonical theme/Stage 4 source integration was merged through [PR #128](https://github.com/stannmoye/Arbitrade_platform/pull/128). The follow-up containing TOTP authenticator enrollment/recovery, reserved manual payout requests, migrations `0059`–`0061`, and portal render recovery was merged through [PR #129](https://github.com/stannmoye/Arbitrade_platform/pull/129).
-
-PR #129's exact head passed:
-- [Build, TypeScript, automated tests, and production build](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39867795292)
-- [Mining regression](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39867795310)
-- [Installer and migration validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39867795425)
-
-The GitHub Actions checks are also being rerun on the resulting `main` commit. The hosted Blitz build must be checked separately and must show the latest `main` SHA. The source is integrated, but Stage 5 hosted acceptance remains pending; see `docs/ARBITRADE_STAGE_5_ACCEPTANCE.md`.
-
-PR #127 is the older divergent release candidate and is closed for history only. Do not build from that branch instead of `main`.
+Never use fresh-install mode against a database containing customer or business data. Preserve an immutable rollback target and do not roll back schema changes blindly.
