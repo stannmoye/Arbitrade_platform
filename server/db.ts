@@ -396,7 +396,6 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
   const scheduledAt=parseDate(input.scheduledAt,"schedule time");
   const expiresAt=parseDate(input.expiresAt,"expiry time");
   const now=new Date();
-  if(expiresAt && expiresAt.getTime()<=now.getTime())throw new RangeError("Announcement expiry must be in the future");
   if(scheduledAt && expiresAt && expiresAt.getTime()<=scheduledAt.getTime())throw new RangeError("Announcement expiry must be later than its scheduled publish time");
   const sameDate=(left:Date|null|undefined,right:Date|null)=>left==null?right==null:right!=null&&left.getTime()===right.getTime();
   const activeCustomerCondition=or(isNull(customerControls.accountStatus),eq(customerControls.accountStatus,"active"));
@@ -407,6 +406,10 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
   const matchesPayload=(row:typeof campaign)=>Boolean(row && row.title===title && row.body===body && row.category===input.category && row.priority===input.priority && row.href===(href??null) && row.targetUserId===(targetUserId??null) && sameDate(row.scheduledAt,scheduledAt) && sameDate(row.expiresAt,expiresAt));
   if(campaign && !matchesPayload(campaign))throw new Error("Announcement event key was already used with a different campaign payload");
   if(!campaign) {
+    // Reject an already-expired deadline for new campaigns, but allow an idempotent
+    // retry of an existing campaign to persist its expiry transition and suppress
+    // pending/failed deliveries atomically.
+    if(expiresAt && expiresAt.getTime()<=now.getTime())throw new RangeError("Announcement expiry must be in the future");
     const recipients=await findRecipients();
     if(targetUserId!==null && !recipients.length)throw new Error("Selected customer account was not found or is not active");
     await db.insert(notificationCampaigns).values({createdBy:adminId,eventKey,title,body,category:input.category,priority:input.priority,href,targetUserId:targetUserId??null,status:"draft",scheduledAt,expiresAt,totalRecipientCount:recipients.length}).onDuplicateKeyUpdate({set:{eventKey}});
@@ -414,12 +417,25 @@ export async function broadcastCustomerNotification(adminId:number,input:{title:
     if(!campaign)throw new Error("Announcement campaign persistence could not be confirmed");
     if(!matchesPayload(campaign))throw new Error("Announcement event key was already used with a different campaign payload");
   }
-  if(campaign.status==="expired")throw new Error("Expired announcement campaigns cannot be republished");
+  if(campaign.status==="expired") {
+    // Repair retryable delivery rows left by older non-atomic expiry attempts,
+    // while preserving terminal delivered/read receipts.
+    await db.transaction(async tx=>{
+      await tx.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign!.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
+    });
+    return {campaignId:campaign.id,recipientCount:0,totalRecipientCount:campaign.totalRecipientCount,readCount:0,failedCount:0,pendingCount:0,eventKey,targetUserId:targetUserId??null,status:"expired" as const};
+  }
   if(campaign.status==="withdrawn")throw new Error("Withdrawn announcement campaigns cannot be republished");
   if(campaign.expiresAt && campaign.expiresAt.getTime()<=now.getTime()) {
-    const expiredUpdate=await db.update(notificationCampaigns).set({status:"expired"}).where(and(eq(notificationCampaigns.id,campaign.id),inArray(notificationCampaigns.status,["draft","scheduled","published","failed"])));
-    if(Number(expiredUpdate[0]?.affectedRows||0)>0) {
-      await db.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
+    // Keep campaign expiry and recipient suppression in one transaction so a
+    // transient delivery-table failure cannot strand pending rows forever.
+    const expiredTransition=await db.transaction(async tx=>{
+      const changed=await tx.update(notificationCampaigns).set({status:"expired"}).where(and(eq(notificationCampaigns.id,campaign!.id),inArray(notificationCampaigns.status,["draft","scheduled","published","failed"]),lte(notificationCampaigns.expiresAt,now)));
+      if(Number(changed[0]?.affectedRows||0)===0)return false;
+      await tx.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign!.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
+      return true;
+    });
+    if(expiredTransition) {
       return {campaignId:campaign.id,recipientCount:0,totalRecipientCount:campaign.totalRecipientCount,readCount:0,failedCount:0,pendingCount:0,eventKey,targetUserId:targetUserId??null,status:"expired" as const};
     }
     campaign=(await db.select().from(notificationCampaigns).where(eq(notificationCampaigns.id,campaign.id)).limit(1))[0]!;
@@ -510,11 +526,15 @@ export async function processNotificationCampaignLifecycle() {
   let expiredCount=0;
   const expired=await db.select().from(notificationCampaigns).where(and(inArray(notificationCampaigns.status,["draft","scheduled","published","failed"]),lte(notificationCampaigns.expiresAt,now))).limit(100);
   for(const campaign of expired) {
-    const changed=await db.update(notificationCampaigns).set({status:"expired"}).where(and(eq(notificationCampaigns.id,campaign.id),inArray(notificationCampaigns.status,["draft","scheduled","published","failed"])));
-    if(Number(changed[0]?.affectedRows||0)>0) {
-      expiredCount++;
-      await db.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
-    }
+    // Expire the campaign and its retryable deliveries atomically. If the
+    // delivery update fails, the campaign transition rolls back and can retry.
+    const changed=await db.transaction(async tx=>{
+      const result=await tx.update(notificationCampaigns).set({status:"expired"}).where(and(eq(notificationCampaigns.id,campaign.id),inArray(notificationCampaigns.status,["draft","scheduled","published","failed"]),lte(notificationCampaigns.expiresAt,now)));
+      if(Number(result[0]?.affectedRows||0)===0)return false;
+      await tx.update(notificationCampaignDeliveries).set({status:"expired"}).where(and(eq(notificationCampaignDeliveries.campaignId,campaign.id),or(eq(notificationCampaignDeliveries.status,"pending"),eq(notificationCampaignDeliveries.status,"failed"))));
+      return true;
+    });
+    if(changed)expiredCount++;
   }
   const due=await db.select().from(notificationCampaigns).where(and(eq(notificationCampaigns.status,"scheduled"),lte(notificationCampaigns.scheduledAt,now))).limit(100);
   let published=0,failed=0,expiredDuringPublish=0;
