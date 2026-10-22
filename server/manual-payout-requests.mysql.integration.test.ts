@@ -230,12 +230,23 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
       expect(regenerated.recoveryCodes).toHaveLength(10);
       expect(await getCustomerAuthenticatorStatus(userId)).toMatchObject({ recoveryCodesRemaining: 10 });
 
-      // A lost-device recovery consumes one code atomically and requires confirming
-      // the new authenticator within ten minutes; a replay of that code must fail.
-      const recovery = await startCustomerAuthenticatorRecoveryReplacement(userId, regenerated.recoveryCodes[0]);
+      // Race two lost-device recovery attempts with the same one-time code.
+      // Exactly one transaction may consume it and create the pending authenticator.
+      const recoveryAttempts = await Promise.allSettled([
+        startCustomerAuthenticatorRecoveryReplacement(userId, regenerated.recoveryCodes[0]),
+        startCustomerAuthenticatorRecoveryReplacement(userId, regenerated.recoveryCodes[0]),
+      ]);
+      const successfulRecoveries = recoveryAttempts.filter(
+        (attempt): attempt is PromiseFulfilledResult<Awaited<ReturnType<typeof startCustomerAuthenticatorRecoveryReplacement>>> =>
+          attempt.status === "fulfilled",
+      );
+      const rejectedRecoveries = recoveryAttempts.filter((attempt) => attempt.status === "rejected");
+      expect(successfulRecoveries).toHaveLength(1);
+      expect(rejectedRecoveries).toHaveLength(1);
+      expect((rejectedRecoveries[0] as PromiseRejectedResult).reason.message)
+        .toContain("invalid or has already been used");
+      const recovery = successfulRecoveries[0].value;
       expect(await getCustomerAuthenticatorStatus(userId)).toMatchObject({ enabled: true, replacementPending: true, recoveryCodesRemaining: 9 });
-      await expect(startCustomerAuthenticatorRecoveryReplacement(userId, regenerated.recoveryCodes[0]))
-        .rejects.toThrow("invalid or has already been used");
       await confirmCustomerAuthenticatorReplacement(
         userId,
         totpAtStep(recovery.secret, Math.floor(Date.now() / 30_000)),
