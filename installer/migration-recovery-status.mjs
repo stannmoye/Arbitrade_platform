@@ -33,6 +33,7 @@ const portalMigrationFiles = [
   "0058_withdrawable_notification_campaigns.sql",
   "0059_manual_payout_requests.sql",
   "0060_customer_totp_authenticators.sql",
+  "0061_customer_totp_recovery_codes.sql",
 ];
 let journal;
 try {
