@@ -50,6 +50,10 @@ Provision accounts only with the documented `pnpm accounts:provision` command an
 - Keep dependency caches and `node_modules` out of release archives and Git history; use the lockfile for reproducible installs.
 - Use immutable commit SHAs/tags for release identification. `main` is the current integration target, not an immutable release identifier.
 
-## Current recovery note
+## Current source status
 
-A release candidate PR titled **Release/arbitrade v5 production pass4** is open as PR #127. It is not merged and must not be treated as the production source. Review its diff and repository history before integrating it: its current metadata shows a very large deletion count and a non-mergeable state. The exact complete Stage 4/Stage 5 source set must be reconciled into the canonical branch before claiming a unified release.
+The complete source integration was merged through PR [#128](https://github.com/stannmoye/Arbitrade_platform/pull/128). The integrated commit contains the theme-aware customer/admin portal source, Stage 4 release changes, migration/installer safeguards, a final theme-surface bridge, and a CI workflow that runs type-checks, tests, and a production build.
+
+The integration head `97b725571495690dad9d2c8acfa4a99de0ada2f1` passed the production build/test workflow, mining regression checks, and installer/migration validation. Use the current `main` HEAD SHA for each actual deployment and confirm the corresponding CI result before rollout.
+
+PR #127 is an older divergent release candidate and is not the canonical deployment source. Do not build from that branch as a substitute for `main`. Stage 5 production acceptance must be verified against the specific Stage 5 acceptance checklist before claiming full production certification.
