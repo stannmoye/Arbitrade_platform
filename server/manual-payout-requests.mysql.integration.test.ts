@@ -9,6 +9,8 @@ import {
   getCustomerAuthenticatorStatus,
   startCustomerAuthenticatorEnrollment,
   confirmCustomerAuthenticatorEnrollment,
+  generateCustomerAuthenticatorRecoveryCodes,
+  startCustomerAuthenticatorRecoveryReplacement,
   startCustomerAuthenticatorReplacement,
   confirmCustomerAuthenticatorReplacement,
   deleteAdminCustomer,
@@ -198,7 +200,9 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
 
       const setup = await startCustomerAuthenticatorEnrollment(userId);
       const enrollmentStep = Math.floor(Date.now() / 30_000);
-      await confirmCustomerAuthenticatorEnrollment(userId, totpAtStep(setup.secret, enrollmentStep));
+      const enrolled = await confirmCustomerAuthenticatorEnrollment(userId, totpAtStep(setup.secret, enrollmentStep));
+      expect(enrolled.recoveryCodes).toHaveLength(10);
+      expect(await getCustomerAuthenticatorStatus(userId)).toMatchObject({ enabled: true, recoveryCodesRemaining: 10 });
       expect((await getCustomerPayoutEligibility(userId)).allowed).toBe(true);
 
       // Replacing a key requires a fresh code from the existing authenticator. The
@@ -217,11 +221,30 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
         userId,
         totpAtStep(replacement.secret, replacementStartStep),
       );
-      expect(await getCustomerAuthenticatorStatus(userId)).toMatchObject({ enabled: true, replacementPending: false });
+      expect(await getCustomerAuthenticatorStatus(userId)).toMatchObject({ enabled: true, replacementPending: false, recoveryCodesRemaining: 10 });
+      expect((await getCustomerPayoutEligibility(userId)).allowed).toBe(true);
+
+      // Regenerating codes requires an unused current TOTP and invalidates the old set.
+      const recoveryCodeStep = Math.floor(Date.now() / 30_000) + 1;
+      const regenerated = await generateCustomerAuthenticatorRecoveryCodes(userId, totpAtStep(replacement.secret, recoveryCodeStep));
+      expect(regenerated.recoveryCodes).toHaveLength(10);
+      expect(await getCustomerAuthenticatorStatus(userId)).toMatchObject({ recoveryCodesRemaining: 10 });
+
+      // A lost-device recovery consumes one code atomically and requires confirming
+      // the new authenticator within ten minutes; a replay of that code must fail.
+      const recovery = await startCustomerAuthenticatorRecoveryReplacement(userId, regenerated.recoveryCodes[0]);
+      expect(await getCustomerAuthenticatorStatus(userId)).toMatchObject({ enabled: true, replacementPending: true, recoveryCodesRemaining: 9 });
+      await expect(startCustomerAuthenticatorRecoveryReplacement(userId, regenerated.recoveryCodes[0]))
+        .rejects.toThrow("invalid or has already been used");
+      await confirmCustomerAuthenticatorReplacement(
+        userId,
+        totpAtStep(recovery.secret, Math.floor(Date.now() / 30_000)),
+      );
+      expect(await getCustomerAuthenticatorStatus(userId)).toMatchObject({ enabled: true, replacementPending: false, recoveryCodesRemaining: 9 });
       expect((await getCustomerPayoutEligibility(userId)).allowed).toBe(true);
 
       const payoutStep = Math.floor(Date.now() / 30_000) + 1;
-      const code = totpAtStep(replacement.secret, payoutStep);
+      const code = totpAtStep(recovery.secret, payoutStep);
       const request = await createCustomerPayoutRequest(userId, { ...requestInput(1000, unique("payout-totp")), totpCode: code });
       expect(request.status).toBe("pending");
       expect(await balance(userId)).toEqual({ availableMinor: 9000, lockedMinor: 1000, promotionalMinor: 2000 });
