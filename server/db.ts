@@ -754,9 +754,11 @@ export async function getCustomerAuthenticatorStatus(userId: number) {
   if (!db) throw new Error("Database is not available");
   const row = (await db.select({ confirmedAt: customerTotpAuthenticators.confirmedAt, pendingExpiresAt: customerTotpAuthenticators.pendingExpiresAt })
     .from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, userId)).limit(1))[0];
+  const pendingIsActive = Boolean(row?.pendingExpiresAt && new Date(row.pendingExpiresAt).getTime() > Date.now());
   return {
     enabled: Boolean(row?.confirmedAt),
-    enrollmentPending: Boolean(row?.pendingExpiresAt && new Date(row.pendingExpiresAt).getTime() > Date.now() && !row?.confirmedAt),
+    enrollmentPending: pendingIsActive && !row?.confirmedAt,
+    replacementPending: pendingIsActive && Boolean(row?.confirmedAt),
   };
 }
 
@@ -798,6 +800,75 @@ export async function confirmCustomerAuthenticatorEnrollment(userId: number, cod
     const secret = decryptTotpSecret(row.pendingSecretCiphertext);
     const step = verifyTotpCode(secret, code, Date.now(), -1);
     if (step === null) throw new Error("The authenticator code is invalid or expired. Check your device time and try again.");
+    await tx.update(customerTotpAuthenticators).set({
+      secretCiphertext: row.pendingSecretCiphertext,
+      pendingSecretCiphertext: null,
+      pendingExpiresAt: null,
+      confirmedAt: new Date(),
+      lastUsedStep: step,
+      updatedAt: new Date(),
+    }).where(eq(customerTotpAuthenticators.userId, userId));
+    return { enabled: true };
+  });
+}
+
+export async function startCustomerAuthenticatorReplacement(userId: number, currentCode: string) {
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("A valid customer account is required.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  return db.transaction(async (tx) => {
+    const user = (await tx.select({ id: users.id, role: users.role, email: users.email })
+      .from(users).where(eq(users.id, userId)).limit(1).for("update"))[0];
+    if (!user || user.role !== "user") throw new Error("Customer account was not found.");
+    const row = (await tx.select().from(customerTotpAuthenticators)
+      .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+    if (!row?.confirmedAt || !row.secretCiphertext) {
+      throw new Error("Set up and confirm an authenticator before replacing it.");
+    }
+
+    const currentSecret = decryptTotpSecret(row.secretCiphertext);
+    const usedStep = verifyTotpCode(currentSecret, currentCode, Date.now(), Number(row.lastUsedStep ?? -1));
+    if (usedStep === null) throw new Error("The current authenticator code is invalid, expired, or has already been used.");
+
+    const secret = generateTotpSecret();
+    const pendingExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await tx.update(customerTotpAuthenticators).set({
+      lastUsedStep: usedStep,
+      pendingSecretCiphertext: encryptTotpSecret(secret),
+      pendingExpiresAt,
+      updatedAt: new Date(),
+    }).where(eq(customerTotpAuthenticators.userId, userId));
+
+    return {
+      secret,
+      provisioningUri: totpProvisioningUri(secret, user.email || `customer-${userId}`),
+      expiresAt: pendingExpiresAt,
+    };
+  });
+}
+
+export async function confirmCustomerAuthenticatorReplacement(userId: number, code: string) {
+  if (!/^\\d{6}$/.test(code)) throw new Error("Enter the six-digit code from your new authenticator app.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  return db.transaction(async (tx) => {
+    const row = (await tx.select().from(customerTotpAuthenticators)
+      .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+    if (!row?.confirmedAt || !row.secretCiphertext) {
+      throw new Error("No enabled authenticator is available to replace.");
+    }
+    if (!row.pendingSecretCiphertext || !row.pendingExpiresAt || new Date(row.pendingExpiresAt).getTime() <= Date.now()) {
+      throw new Error("Authenticator replacement has expired. Start replacement again.");
+    }
+
+    const newSecret = decryptTotpSecret(row.pendingSecretCiphertext);
+    // The pending key is a new credential, so its confirmation counter is independent
+    // of counters previously consumed by the old authenticator.
+    const step = verifyTotpCode(newSecret, code, Date.now(), -1);
+    if (step === null) throw new Error("The new authenticator code is invalid or expired. Check your device time and try again.");
+
     await tx.update(customerTotpAuthenticators).set({
       secretCiphertext: row.pendingSecretCiphertext,
       pendingSecretCiphertext: null,
