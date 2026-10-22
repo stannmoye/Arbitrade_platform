@@ -42,7 +42,7 @@ describe("customer TOTP integration contract", () => {
     expect(dbSource).toContain("await consumePayoutAuthenticatorCode(tx, userId, totpCode)");
   });
 
-  it("exposes protected enrollment endpoints and collects a code with each protected payout", () => {
+  it("exposes protected enrollment and replacement endpoints and collects a code with each protected payout", () => {
     expect(routerSource).toContain("startAuthenticatorEnrollment: protectedProcedure");
     expect(routerSource).toContain("confirmAuthenticatorEnrollment: protectedProcedure");
     expect(routerSource).toContain("totpCode: z.string().regex(/^\\d{6}$/).optional()");
@@ -50,5 +50,11 @@ describe("customer TOTP integration contract", () => {
     expect(customerSettingsUi).toContain("result.secret");
     expect(payoutUi).toContain('id="payout-totp-code"');
     expect(payoutUi).toContain("totpCode: totpCode || undefined");
+    expect(routerSource).toContain("startAuthenticatorReplacement: protectedProcedure");
+    expect(routerSource).toContain("confirmAuthenticatorReplacement: protectedProcedure");
+    expect(customerSettingsUi).toContain("Replace authenticator");
+    expect(customerSettingsUi).toContain("The existing authenticator remains active until you confirm the replacement.");
+    expect(dbSource).toContain("startCustomerAuthenticatorReplacement");
+    expect(dbSource).toContain("confirmCustomerAuthenticatorReplacement");
   });
 });
