@@ -1,0 +1,66 @@
+name: Mining database regression checks
+
+on:
+  push:
+    branches:
+      - integration/auth-installer-vps-safety
+  pull_request:
+    branches:
+      - integration/auth-installer-vps-safety
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mining-database-regression-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  mysql-idempotency:
+    name: MySQL/MariaDB Mining idempotency transactions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: test-password
+          MARIADB_DATABASE: arbitrade_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      MINING_TEST_DATABASE_URL: mysql://root:test-password@127.0.0.1:3306/arbitrade_test
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Verify toolchain
+        run: |
+          node --version
+          pnpm --version
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run database-backed idempotency and transaction tests
+        run: pnpm exec vitest run server/mining-store.mysql.integration.test.ts
+

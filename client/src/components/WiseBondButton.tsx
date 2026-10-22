@@ -30,7 +30,12 @@ export function WiseBondButton({
   const isLoading = status === "loading";
   const label = status === "loading" ? loadingLabel : status === "success" ? successLabel : status === "error" ? errorLabel : undefined;
   const content = label ?? children;
-  const hasAccessibleName = Boolean(props["aria-label"] || props["aria-labelledby"] || (typeof content === "string" && content.trim()));
+  const hasAccessibleName = Boolean(
+    props["aria-label"] ||
+    props["aria-labelledby"] ||
+    props.title ||
+    ((typeof content === "string" || typeof content === "number") && String(content).trim())
+  );
 
   return (
     <>
@@ -50,7 +55,7 @@ export function WiseBondButton({
           {isLoading ? <LoaderCircle className="wb-button-spinner" size={16} /> : status === "success" ? <Check size={16} /> : status === "error" ? <CircleAlert size={16} /> : null}
         </span>
         <span className="wb-button-label">{content}</span>
-        {!hasAccessibleName && <span className="sr-only">Action</span>}
+        {!hasAccessibleName && iconOnly && <span className="sr-only">Action</span>}
       </button>
       {label && <span className="wb-live-region" role="status" aria-live="polite">{label}</span>}
     </>

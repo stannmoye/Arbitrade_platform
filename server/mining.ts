@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import Decimal from "decimal.js";
+import { createNotification } from "./db";
 import { calculateMiningConversion, calculateMiningDifficultyIndex, calculatePackageDailyRate, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow } from "./mining-rules";
 import {
   Db, MiningError, addUtcMonths, amountString, assertMiningAsset, assetScale, beginMiningIdempotency, createMiningLedgerTransaction,
@@ -36,11 +37,29 @@ function walletMinor(value: Decimal.Value, scale: number) {
   return minor.toNumber();
 }
 
+export function parseMainWalletMinor(value: unknown): number {
+  let minor: bigint;
+  if (typeof value === "bigint") {
+    minor = value;
+  } else if (typeof value === "number" && Number.isSafeInteger(value)) {
+    minor = BigInt(value);
+  } else if (typeof value === "string" && /^-?\d+$/.test(value)) {
+    minor = BigInt(value);
+  } else {
+    throw new MiningError("The stored main-wallet balance is invalid or exceeds the supported precision");
+  }
+
+  if (minor < 0n || minor > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new MiningError("The stored main-wallet balance is invalid or exceeds the supported precision");
+  }
+  return Number(minor);
+}
+
 async function readMainWalletBalance(conn: Db, userId: number, assetInput: string, lock = false) {
   const asset = assertMainWalletAsset(assetInput);
   const scale = await getMainWalletScale(conn, asset);
   const [rows] = await conn.query<any[]>(`SELECT id,availableMinor FROM customer_balances WHERE userId=? AND currency=? ORDER BY id LIMIT 1${lock ? " FOR UPDATE" : ""}`, [userId, asset]);
-  const availableMinor = Number(rows[0]?.availableMinor || 0);
+  const availableMinor = parseMainWalletMinor(rows[0]?.availableMinor ?? 0);
   const available = new Decimal(availableMinor).div(new Decimal(10).pow(scale));
   return { asset, scale, rowId: rows[0] ? Number(rows[0].id) : null, availableMinor, available: available.toFixed(scale) };
 }
@@ -367,7 +386,7 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
     const rewardPostingReady = canStartMiningAccrual({ globalEnabled: config.globalEnabled, expectedDailyRewardCki });
     const result = { purchaseId, packageId: Number(quote.packageId), packageVersionId: Number(quote.packageVersionId), packageName: packageNameSnapshot, status: "active", startsAt: now.toISOString(), entitlementStartedAt: now.toISOString(), expiresAt: expiresAt?.toISOString() || null, rewardPostingEnabled: Boolean(config.globalEnabled), rewardPostingReady, paymentAsset, paymentAmount: quotedTotal.toString(), baseThs: String(quote.baseThs), expectedDailyRewardCki, calculationModel:rewardMethodSnapshot, ckiPerThsPerDay:ckiPerThsPerDaySnapshot, boostBonusThs: String(quote.boostBonusThs), receiptReference: ledger.referenceCode, mainWalletReference: canonicalReference, disclaimer: "The package entitlement starts at purchase. Its reward method and daily CKI amount are snapshotted at purchase and accrue by eligible time when reward processing is enabled; rewards are internal estimates, not verified pool output or a cash payout." };
     await finishMiningIdempotency(conn, key, result);
-    await createMiningNotification(conn, userId, "Mining package entitlement activated", `${quote.name} is active from purchase time. The main-wallet charge and entitlement were recorded. Configured CKI rewards accrue automatically when operations has enabled reward processing. Receipt ${ledger.referenceCode}.`);
+    await createMiningNotification(conn, userId, "Mining package entitlement activated", `${quote.name} is active from purchase time. The main-wallet charge and entitlement were recorded. Configured CKI rewards accrue automatically when operations has enabled reward processing. Receipt ${ledger.referenceCode}.`, `mining-purchase:${ledger.referenceCode}`);
     return result;
   }));
   let initialAccrualIntervals = 0;
@@ -478,7 +497,7 @@ export async function activateCustomerMiningBoost(userId: number, input: { idemp
     const clickBonus = decimal(config.boostActivationBonusCki);
     const response = { activationId, status: "active", bonusThs: String(candidate.boostBonusThsSnapshot), boostActivationBonusCki: clickBonus.toFixed(tokenScale), startedAt: now.toISOString(), endsAt: endsAt.toISOString(), cycleExpiresAt: cooldownEndsAt.toISOString(), nextEligibleAt: cooldownEndsAt.toISOString(), packageVersionId: Number(candidate.packageVersionId), policy: `The boost runs for ${durationSeconds} seconds; the four-hour customer cooldown starts at activation.` };
     await finishMiningIdempotency(conn, key, response);
-    await createMiningNotification(conn, userId, "Mining boost activated", `A ${candidate.boostBonusThsSnapshot} TH/s package boost is active until ${endsAt.toISOString()}. Next availability: ${cooldownEndsAt.toISOString()}.`);
+    await createMiningNotification(conn, userId, "Mining boost activated", `A ${candidate.boostBonusThsSnapshot} TH/s package boost is active until ${endsAt.toISOString()}. Next availability: ${cooldownEndsAt.toISOString()}.`, `mining-boost:${key}`);
     return response;
   }));
 }
@@ -642,7 +661,7 @@ async function executeTokenConversion(conn: Db, userId: number, input: {
 
 export async function confirmCustomerMiningSwap(userId: number, input: { quoteId: number; idempotencyKey: string }) {
   const key = requestKey("mining-swap", userId, input.idempotencyKey);
-  return withMiningConnection(async conn => inMiningTransaction(conn, async () => {
+  const result = await withMiningConnection(async conn => inMiningTransaction(conn, async () => {
     const prior = await beginMiningIdempotency(conn, userId, key, "mining.swap.confirm");
     if (prior) return prior;
     await ensureMiningCheckpoint(conn, userId);
@@ -672,9 +691,19 @@ export async function confirmCustomerMiningSwap(userId: number, input: { quoteId
       tokenName: config.tokenName, tokenSymbol: config.tokenSymbol, tokenUnitsPerUsd: config.tokenUnitsPerUsd,
     });
     await finishMiningIdempotency(conn, key, result);
-    await createMiningNotification(conn, userId, "Mining swap completed", `${result.sourceAmount} CKI was converted to ${result.destinationAmount} ${targetAsset} and credited to the main wallet. Reference ${result.receiptReference}.`);
     return result;
   }));
+  // The main-wallet conversion and mining journal have committed before notices
+  // are emitted. Notification failure must not make a successful swap appear failed.
+  const noticeResults = await Promise.allSettled([
+    createNotification(userId,"Balance debited",`${result.sourceAmount} CKI was used for mining conversion ${result.conversionId}.`,{eventKey:`mining-swap-debit:${result.conversionId}`,category:"ledger_debit",priority:"normal"}),
+    createNotification(userId,"Balance credited",`${result.destinationAmount} ${result.destinationAsset} was credited from mining conversion ${result.conversionId}.`,{eventKey:`mining-swap-credit:${result.conversionId}`,category:"ledger_credit",priority:"normal"}),
+    createNotification(userId,"Mining swap completed",`${result.sourceAmount} CKI was converted to ${result.destinationAmount} ${result.destinationAsset} and credited to the main wallet. Reference ${result.receiptReference}.`,{eventKey:`mining-swap:${result.receiptReference}`,category:"mining",priority:"normal"})
+  ]);
+  if (noticeResults.some(outcome => outcome.status === "rejected")) {
+    console.error("[Notifications] One or more mining swap notices failed after commit.");
+  }
+  return result;
 }
 
 function normalizeMiningHistoryDetails(value: any): any {
@@ -810,9 +839,11 @@ async function calculateInterval(conn: Db, userId: number, start: Date, end: Dat
 
 async function accrueOneUser(conn: Db, userId: number, limit = 30) {
   let processed = 0;
+  const committedRewardNotices: Array<{rewardEventId:number;amount:string;symbol:string}> = [];
   const [controlRows] = await conn.query<any[]>(`SELECT accountStatus FROM customer_controls WHERE userId=? LIMIT 1`, [userId]);
   const accountActive = (controlRows[0]?.accountStatus || "active") === "active";
   for (let i=0;i<limit;i++) {
+    let committedRewardNotice: {rewardEventId:number;amount:string;symbol:string}|null = null;
     await conn.beginTransaction();
     try {
       const checkpoint = await ensureMiningCheckpoint(conn, userId);
@@ -844,6 +875,7 @@ async function accrueOneUser(conn: Db, userId: number, limit = 30) {
           (userId,intervalStart,intervalEnd,baseThs,boostThs,rewardTokensPerThsHour,tokenAmount,rewardAmountUsd,expectedDailyRewardCki,configVersion,calculationModel,packageSnapshotJson,idempotencyKey,ledgerTransactionId)
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [userId,start,end,result.baseThs.toString(),result.boostThs.toString(),intervalConfig.rewardTokensPerThsHour,result.tokenAmount.toFixed(tokenScale),result.rewardAmountUsd.toFixed(18),result.expectedDailyRewardCki.toDecimalPlaces(18,Decimal.ROUND_DOWN).toFixed(18),result.configVersion,result.calculationModel,safeJson(result.segments),rewardKey,transaction?.id || null]);
         const rewardEventId = Number(eventResult.insertId);
+        if(transaction && immediateTokenAmount.gt(0)) committedRewardNotice={rewardEventId,amount:immediateTokenAmount.toFixed(tokenScale),symbol:intervalConfig.tokenSymbol};
         for(const allocation of result.allocations){
           await conn.execute(`INSERT INTO mining_reward_package_allocations
             (rewardEventId,userId,customerPackageId,packageId,packageVersionId,intervalStart,intervalEnd,expectedDailyRewardCkiSnapshot,rewardAmountCki,tokenUnitsPerUsdSnapshot,rewardAmountUsdSnapshot,calculationModel,calculationSegmentsJson)
@@ -863,11 +895,15 @@ async function accrueOneUser(conn: Db, userId: number, limit = 30) {
         }
       }
       await conn.execute(`UPDATE mining_checkpoints SET lastAccruedAt=?,workerVersion='1',updatedAt=UTC_TIMESTAMP(3) WHERE userId=?`,[end,userId]);
-      await conn.commit(); processed++;
+      await conn.commit(); processed++; if(committedRewardNotice) committedRewardNotices.push(committedRewardNotice);
     } catch (error) {
       await conn.rollback();
       throw error;
     }
+  }
+  for(const notice of committedRewardNotices){
+    try { await createNotification(userId,"Mining reward credited",`${notice.amount} ${notice.symbol} was posted to your mining reward balance. Reward event ${notice.rewardEventId}.`,{eventKey:`mining-reward:${notice.rewardEventId}`,category:"mining_reward",priority:"normal"}); }
+    catch(error) { console.error("[Notifications] Mining reward notice failed after ledger commit:",error instanceof Error?error.name:"UnknownError"); }
   }
   return processed;
 }
@@ -909,8 +945,13 @@ async function processConversionJob(conn: Db, jobId: number) {
       tokenName:config.tokenName,tokenSymbol:config.tokenSymbol,tokenUnitsPerUsd:config.tokenUnitsPerUsd,
     });
     await conn.execute(`UPDATE mining_conversion_jobs SET status='completed',conversionId=?,lastError=NULL,updatedAt=UTC_TIMESTAMP(3) WHERE id=?`,[conversion.conversionId,jobId]);
-    await createMiningNotification(conn,userId,"Automatic Mining conversion completed",`${conversion.sourceAmount} CKI was converted to ${conversion.destinationAmount} simulated ${targetAsset}. Reference ${conversion.receiptReference}.`);
-    await conn.commit(); return "completed";
+    await conn.commit();
+    try {
+      await createNotification(userId,"Automatic Mining conversion completed",`${conversion.sourceAmount} CKI was converted to ${conversion.destinationAmount} simulated ${targetAsset}. Reference ${conversion.receiptReference}.`,{eventKey:`mining-conversion:${conversion.receiptReference}`,category:"mining",priority:"normal"});
+    } catch (notificationError) {
+      console.error("[Notifications] Automatic mining conversion notice failed after commit:",notificationError instanceof Error?notificationError.name:"UnknownError");
+    }
+    return "completed";
   } catch (error) {
     await conn.rollback();
     const message = error instanceof MiningError ? error.message : "Conversion could not be completed; the CKI balance was left unchanged";
@@ -923,7 +964,7 @@ async function processConversionJob(conn: Db, jobId: number) {
         const terminal = attempts>=20;
         const notify = attempts>=5 && !job.lastNotifiedAt;
         await conn.execute(`UPDATE mining_conversion_jobs SET status=?,attempts=?,lastError=?,availableAt=DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 60 SECOND),lastNotifiedAt=IF(?,UTC_TIMESTAMP(3),lastNotifiedAt),updatedAt=UTC_TIMESTAMP(3) WHERE id=?`,[terminal?"failed":"retrying",attempts,message.slice(0,500),notify?1:0,jobId]);
-        if(notify) await createMiningNotification(conn,Number(job.userId),"Mining conversion pending",`An automatic conversion quote was unavailable. Your simulated CKI remains in the CKI balance and will be retried. ${message}`);
+        if(notify) await createMiningNotification(conn,Number(job.userId),"Mining conversion pending",`An automatic conversion quote was unavailable. Your simulated CKI remains in the CKI balance and will be retried. ${message}`,`mining-conversion-pending:${jobId}:${attempts}`);
       }
       await conn.commit();
     } catch (updateError) { await conn.rollback(); throw updateError; }

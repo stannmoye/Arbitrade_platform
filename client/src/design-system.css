@@ -1,0 +1,1169 @@
+/*
+ * ARBITRADE shared design-system foundation.
+ *
+ * Theme 1 deliberately maps to the current portal palette so this layer can
+ * be adopted incrementally without redesigning existing screens.
+ * Future themes should override these semantic tokens rather than duplicate
+ * component styles.
+ */
+:root {
+  color-scheme: dark;
+  --arb-color-canvas: var(--ux-ink, var(--bg, #0b1422));
+  --arb-color-surface: var(--ux-surface, var(--panel, #101d2d));
+  --arb-color-surface-raised: var(--ux-surface-2, var(--panel2, #142338));
+  --arb-color-border: var(--ux-line, var(--line, #22344a));
+  --arb-color-text: var(--ux-text, #e9f0f7);
+  --arb-color-text-soft: var(--ux-text-soft, var(--soft, #b7c4d1));
+  --arb-color-text-muted: var(--ux-muted, var(--muted, #8295aa));
+  --arb-color-accent: var(--ux-accent, var(--brand-accent, var(--mint, #7ce7c2)));
+  --arb-color-info: var(--ux-accent-2, var(--blue, #8eb7ff));
+  --arb-color-warning: var(--ux-warning, var(--amber, #f5c56b));
+  --arb-color-danger: var(--ux-negative, var(--coral, #fa8c87));
+  --arb-color-decorative: var(--ux-info, var(--violet, #c7a6ff));
+  --arb-focus-ring: var(--arb-color-accent);
+  --arb-content-max: 1480px;
+  --arb-font-body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --arb-line-height: 1.5;
+  --arb-space-1: 4px;
+  --arb-space-2: 8px;
+  --arb-space-3: 12px;
+  --arb-space-4: 16px;
+  --arb-space-5: 24px;
+  --arb-space-6: 32px;
+  --arb-radius-sm: var(--ux-radius-sm, 6px);
+  --arb-radius-md: var(--ux-radius-md, 10px);
+  --arb-radius-lg: var(--ux-radius-lg, 14px);
+  --arb-shadow-card: var(--ux-shadow-1, 0 13px 36px rgb(0 0 0 / 11%));
+}
+
+/* Shared layout primitives for new and refactored screens. */
+.arb-container {
+  width: min(100% - 2 * var(--arb-space-4), var(--arb-content-max));
+  margin-inline: auto;
+}
+
+.arb-page {
+  width: 100%;
+  min-width: 0;
+  color: var(--arb-color-text);
+  font-family: var(--arb-font-body);
+  line-height: var(--arb-line-height);
+}
+
+.arb-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--arb-space-3);
+}
+
+.arb-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--arb-space-2);
+}
+
+.arb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: var(--arb-space-3);
+}
+
+.arb-card {
+  min-width: 0;
+  border: 1px solid var(--arb-color-border);
+  border-radius: var(--arb-radius-md);
+  background: var(--arb-color-surface);
+  box-shadow: var(--arb-shadow-card);
+}
+
+.arb-section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--arb-space-2);
+}
+
+.arb-muted {
+  color: var(--arb-color-text-muted);
+}
+
+/* Opt-in form controls keep sizing and focus treatment consistent. */
+.arb-field {
+  display: grid;
+  gap: var(--arb-space-1);
+  min-width: 0;
+  color: var(--arb-color-text-soft);
+  font: inherit;
+}
+
+.arb-field input,
+.arb-field select,
+.arb-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: var(--arb-space-2) var(--arb-space-3);
+  border: 1px solid var(--arb-color-border);
+  border-radius: var(--arb-radius-sm);
+  background: var(--arb-color-surface-raised);
+  color: var(--arb-color-text);
+  font: inherit;
+}
+
+.arb-field textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.arb-field input::placeholder,
+.arb-field textarea::placeholder {
+  color: var(--arb-color-text-muted);
+  opacity: 1;
+}
+
+.arb-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--arb-space-2);
+  min-height: 40px;
+  max-width: 100%;
+  padding: var(--arb-space-2) var(--arb-space-4);
+  border: 1px solid var(--arb-color-border);
+  border-radius: var(--arb-radius-sm);
+  background: var(--arb-color-surface-raised);
+  color: var(--arb-color-text);
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+}
+
+.arb-button:hover:not(:disabled) {
+  border-color: var(--arb-color-accent);
+}
+
+.arb-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.arb-button-primary {
+  border-color: transparent;
+  background: var(--arb-color-accent);
+  color: var(--arb-color-canvas);
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .arb-container {
+    width: min(100% - 2 * var(--arb-space-3), var(--arb-content-max));
+  }
+
+  .arb-button {
+    max-width: 100%;
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arb-reduce-motion,
+  .arb-reduce-motion * {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .arb-button {
+    transition: none;
+  }
+}
+
+
+/* Consistent feedback states for forms introduced during progressive adoption. */
+.arb-field [aria-invalid="true"],
+.arb-field input[aria-invalid="true"],
+.arb-field select[aria-invalid="true"],
+.arb-field textarea[aria-invalid="true"] {
+  border-color: var(--arb-color-danger);
+}
+
+.arb-field [aria-invalid="true"]:focus-visible,
+.arb-field input[aria-invalid="true"]:focus-visible,
+.arb-field select[aria-invalid="true"]:focus-visible,
+.arb-field textarea[aria-invalid="true"]:focus-visible {
+  outline-color: var(--arb-color-danger);
+}
+
+.arb-field-hint {
+  margin: 0;
+  color: var(--arb-color-text-muted);
+  font-size: 0.875em;
+}
+
+.arb-field-error {
+  margin: 0;
+  color: var(--arb-color-danger);
+  font-size: 0.875em;
+}
+
+.arb-field input:disabled,
+.arb-field select:disabled,
+.arb-field textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.arb-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.arb-button-secondary {
+  background: transparent;
+}
+
+.arb-button-danger {
+  border-color: transparent;
+  background: var(--arb-color-danger);
+  color: var(--arb-color-canvas);
+}
+
+.arb-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--arb-space-1);
+  max-width: 100%;
+  padding: 2px var(--arb-space-2);
+  border: 1px solid var(--arb-color-border);
+  border-radius: 999px;
+  color: var(--arb-color-text-soft);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.arb-status-success {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 55%, var(--arb-color-border));
+  color: var(--arb-color-accent);
+  background-color: color-mix(in srgb, var(--arb-color-accent) 8%, var(--arb-color-surface));
+}
+
+.arb-status-info {
+  border-color: color-mix(in srgb, var(--arb-color-info) 55%, var(--arb-color-border));
+  color: var(--arb-color-info);
+  background-color: color-mix(in srgb, var(--arb-color-info) 8%, var(--arb-color-surface));
+}
+
+.arb-status-warning {
+  border-color: color-mix(in srgb, var(--arb-color-warning) 55%, var(--arb-color-border));
+  color: var(--arb-color-warning);
+  background-color: color-mix(in srgb, var(--arb-color-warning) 8%, var(--arb-color-surface));
+}
+
+.arb-status-danger,
+.arb-status-error {
+  border-color: color-mix(in srgb, var(--arb-color-danger) 55%, var(--arb-color-border));
+  color: var(--arb-color-danger);
+  background-color: color-mix(in srgb, var(--arb-color-danger) 8%, var(--arb-color-surface));
+}
+
+/* Avoid narrow-screen overflow in data-heavy portal sections. */
+.arb-overflow-x {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+
+.arb-overflow-x > table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arb-button:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+
+/* Stage 2 component primitives: consistent interaction and feedback states. */
+.arb-field [aria-invalid="true"] {
+  border-color: var(--arb-color-danger);
+}
+
+.arb-field [aria-invalid="true"]:focus-visible {
+  outline-color: var(--arb-color-danger);
+}
+
+.arb-field-hint,
+.arb-field-error {
+  margin: 0;
+  font-size: 0.875em;
+}
+
+.arb-field-hint {
+  color: var(--arb-color-text-muted);
+}
+
+.arb-field-error {
+  color: var(--arb-color-danger);
+}
+
+.arb-field :is(input, select, textarea):disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.arb-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.arb-button-secondary {
+  background: transparent;
+}
+
+.arb-button-danger {
+  border-color: transparent;
+  background: var(--arb-color-danger);
+  color: var(--arb-color-canvas);
+}
+
+.arb-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--arb-space-1);
+  max-width: 100%;
+  padding: 2px var(--arb-space-2);
+  border: 1px solid var(--arb-color-border);
+  border-radius: 999px;
+  color: var(--arb-color-text-soft);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.arb-status-success {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 55%, var(--arb-color-border));
+  color: var(--arb-color-accent);
+}
+
+.arb-status-warning {
+  border-color: color-mix(in srgb, var(--arb-color-warning) 55%, var(--arb-color-border));
+  color: var(--arb-color-warning);
+}
+
+.arb-status-danger {
+  border-color: color-mix(in srgb, var(--arb-color-danger) 55%, var(--arb-color-border));
+  color: var(--arb-color-danger);
+}
+
+/* Keep wide financial tables usable on phones without breaking page layout. */
+.arb-overflow-x {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+
+.arb-overflow-x > table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arb-button:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* Stage 2: make the shared primitives resilient in Windows high-contrast modes. */
+@media (forced-colors: active) {
+  .arb-card,
+  .arb-field input,
+  .arb-field select,
+  .arb-field textarea,
+  .arb-button,
+  .arb-status {
+    border: 1px solid CanvasText;
+  }
+
+  .arb-button-primary,
+  .arb-button-danger {
+    border: 1px solid ButtonText;
+    background: ButtonFace;
+    color: ButtonText;
+  }
+
+  .arb-button:disabled,
+  .arb-field :is(input, select, textarea):disabled {
+    border-color: GrayText;
+    color: GrayText;
+  }
+
+  :where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid Highlight;
+  }
+}
+
+/* Touch targets stay comfortable without forcing desktop layouts to expand. */
+@media (max-width: 600px) {
+  .arb-button {
+    min-height: 44px;
+  }
+
+  .arb-field :is(input, select, textarea) {
+    min-height: 44px;
+  }
+
+  .arb-cluster > .arb-button {
+    flex: 1 1 auto;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .arb-card,
+  .arb-field :is(input, select, textarea),
+  .arb-button,
+  .arb-status {
+    border-width: 2px;
+  }
+
+  .arb-muted,
+  .arb-field-hint {
+    color: var(--arb-color-text-soft);
+  }
+}
+
+/* Invalid controls expose a clear state without relying on color alone. */
+.arb-field :is(input, select, textarea)[aria-invalid="true"] {
+  border-width: 2px;
+}
+.arb-field :is(input, select, textarea)[aria-invalid="true"]:focus-visible {
+  outline-color: var(--arb-color-danger);
+}
+.arb-field :is(input, select, textarea)[aria-invalid="true"]:disabled {
+  border-color: var(--arb-color-danger);
+  opacity: 0.72;
+}
+
+/* Keep the scrollable table region discoverable to keyboard users. */
+.arb-overflow-x:focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+@media (prefers-contrast: more) {
+  .arb-field :is(input, select, textarea)[aria-invalid="true"] {
+    border-width: 3px;
+  }
+}
+
+/* Stage 2: normalize native choice controls and file inputs within shared fields. */
+.arb-field :is(input[type="checkbox"], input[type="radio"]) {
+  width: 1.125rem;
+  min-width: 1.125rem;
+  min-height: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--arb-color-accent);
+  vertical-align: middle;
+}
+.arb-field input[type="file"] {
+  height: auto;
+  min-height: 44px;
+  padding: var(--arb-space-2);
+  background: var(--arb-color-surface);
+}
+.arb-field :is(input, select, textarea):read-only {
+  background: var(--arb-color-surface);
+  border-style: dashed;
+}
+.arb-field :is(input, select, textarea):disabled {
+  cursor: not-allowed;
+  border-color: var(--arb-color-border);
+  color: var(--arb-color-text-muted);
+  opacity: 0.72;
+}
+.arb-field :is(input, select, textarea):focus-visible,
+.arb-button:focus-visible,
+.arb-overflow-x:focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 2px;
+}
+.arb-field :is(input, select, textarea):disabled:focus-visible {
+  outline-color: var(--arb-color-text-muted);
+}
+.arb-field-hint {
+  color: var(--arb-color-text-soft);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+.arb-field-error {
+  color: var(--arb-color-danger);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.arb-card :where(h1, h2, h3, h4, p):first-child {
+  margin-top: 0;
+}
+.arb-card :where(h1, h2, h3, h4, p):last-child {
+  margin-bottom: 0;
+}
+.arb-overflow-x table :where(th, td) {
+  overflow-wrap: anywhere;
+}
+@media (forced-colors: active) {
+  .arb-field :is(input[type="checkbox"], input[type="radio"]) {
+    accent-color: auto;
+  }
+}
+
+/* Stage 2: give shared data tables a consistent, readable baseline. */
+.arb-overflow-x > table {
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--arb-color-text);
+}
+.arb-overflow-x > table :where(th, td) {
+  padding: var(--arb-space-3) var(--arb-space-4);
+  border-bottom: 1px solid var(--arb-color-border);
+  text-align: start;
+  vertical-align: middle;
+}
+.arb-overflow-x > table th {
+  color: var(--arb-color-text-soft);
+  background: var(--arb-color-surface-raised);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+.arb-overflow-x > table caption {
+  padding: var(--arb-space-2) var(--arb-space-4);
+  color: var(--arb-color-text-soft);
+  text-align: start;
+  caption-side: bottom;
+}
+.arb-overflow-x > table tbody tr:hover {
+  background: color-mix(in srgb, var(--arb-color-accent) 5%, var(--arb-color-surface));
+}
+.arb-overflow-x > table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+@media (max-width: 600px) {
+  .arb-overflow-x > table :where(th, td) {
+    padding: var(--arb-space-2) var(--arb-space-3);
+  }
+}
+@media (forced-colors: active) {
+  .arb-overflow-x > table :where(th, td) {
+    border-bottom-color: CanvasText;
+  }
+  .arb-overflow-x > table tbody tr:hover {
+    outline: 1px solid Highlight;
+  }
+}
+
+
+/* Stage 2 integration: apply the foundation to the shared UI primitives too. */
+[data-slot="button"],
+[data-wb-button="true"] {
+  -webkit-tap-highlight-color: transparent;
+}
+[data-slot="input"],
+[data-slot="textarea"],
+[data-slot="select-trigger"] {
+  max-width: 100%;
+  min-width: 0;
+}
+[data-slot="input"][aria-invalid="true"],
+[data-slot="textarea"][aria-invalid="true"],
+[data-slot="select-trigger"][aria-invalid="true"] {
+  border-width: 2px;
+  border-color: var(--arb-color-danger, #ff7777);
+}
+[data-slot="input"]:read-only,
+[data-slot="textarea"]:read-only {
+  border-style: dashed;
+}
+[data-slot="button"]:focus-visible,
+[data-slot="input"]:focus-visible,
+[data-slot="textarea"]:focus-visible,
+[data-slot="select-trigger"]:focus-visible {
+  outline: 2px solid var(--arb-focus-ring, #8eafff);
+  outline-offset: 2px;
+}
+@media (max-width: 600px) {
+  [data-slot="button"]:not([data-size="sm"]):not([data-size="icon-sm"]),
+  [data-slot="input"],
+  [data-slot="textarea"],
+  [data-slot="select-trigger"] {
+    min-height: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="button"],
+  [data-slot="input"],
+  [data-slot="textarea"],
+  [data-slot="select-trigger"] {
+    scroll-behavior: auto;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+@media (forced-colors: active) {
+  [data-slot="button"],
+  [data-slot="input"],
+  [data-slot="textarea"],
+  [data-slot="select-trigger"] {
+    border-color: ButtonText;
+    forced-color-adjust: auto;
+  }
+  [data-slot="input"][aria-invalid="true"],
+  [data-slot="textarea"][aria-invalid="true"],
+  [data-slot="select-trigger"][aria-invalid="true"] {
+    border: 2px solid Mark;
+  }
+  [data-slot="button"]:focus-visible,
+  [data-slot="input"]:focus-visible,
+  [data-slot="textarea"]:focus-visible,
+  [data-slot="select-trigger"]:focus-visible {
+    outline: 2px solid Highlight;
+  }
+  [data-slot="button"]:disabled,
+  [data-slot="input"]:disabled,
+  [data-slot="textarea"]:disabled {
+    border-color: GrayText;
+    color: GrayText;
+  }
+}
+
+
+/* Stage 2: normalize Radix-backed choice controls alongside native controls. */
+[data-slot="checkbox"],
+[data-slot="radio-group-item"],
+[data-slot="switch"] {
+  flex-shrink: 0;
+  outline-offset: 3px;
+}
+[data-slot="checkbox"]:focus-visible,
+[data-slot="radio-group-item"]:focus-visible,
+[data-slot="switch"]:focus-visible {
+  outline: 2px solid var(--arb-focus-ring, #8eafff);
+}
+[data-slot="checkbox"][aria-invalid="true"],
+[data-slot="radio-group-item"][aria-invalid="true"],
+[data-slot="switch"][aria-invalid="true"] {
+  box-shadow: 0 0 0 1px var(--arb-color-danger, #ff7777);
+}
+[data-slot="radio-group"] {
+  min-width: 0;
+}
+[data-slot="radio-group-item"] + [data-slot="label"],
+[data-slot="checkbox"] + [data-slot="label"],
+[data-slot="switch"] + [data-slot="label"] {
+  cursor: pointer;
+}
+@media (max-width: 600px) {
+  [data-slot="checkbox"],
+  [data-slot="radio-group-item"] {
+    min-width: 1.25rem;
+    min-height: 1.25rem;
+  }
+  [data-slot="switch"] {
+    position: relative;
+    min-height: 1.25rem;
+    min-width: 2.25rem;
+    justify-content: flex-start;
+  }
+  [data-slot="switch"]::before {
+    content: "";
+    position: absolute;
+    inset: -10px;
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="checkbox"],
+  [data-slot="radio-group-item"],
+  [data-slot="switch"],
+  [data-slot="switch-thumb"] {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+@media (forced-colors: active) {
+  [data-slot="checkbox"],
+  [data-slot="radio-group-item"],
+  [data-slot="switch"] {
+    border: 1px solid ButtonText;
+    forced-color-adjust: auto;
+  }
+  [data-slot="checkbox"]:focus-visible,
+  [data-slot="radio-group-item"]:focus-visible,
+  [data-slot="switch"]:focus-visible {
+    outline: 2px solid Highlight;
+  }
+  [data-slot="checkbox"][data-state="checked"],
+  [data-slot="radio-group-item"][data-state="checked"],
+  [data-slot="switch"][data-state="checked"] {
+    background: Highlight;
+    color: HighlightText;
+  }
+  [data-slot="checkbox"]:disabled,
+  [data-slot="radio-group-item"]:disabled,
+  [data-slot="switch"]:disabled {
+    border-color: GrayText;
+    opacity: 1;
+  }
+}
+
+
+/* Shared validation and descriptive-text relationships across portal forms. */
+[data-slot="input"][aria-describedby],
+[data-slot="textarea"][aria-describedby],
+[data-slot="select-trigger"][aria-describedby] {
+  scroll-margin-block: 5rem;
+}
+[data-slot="input"][aria-invalid="true"]:focus-visible,
+[data-slot="textarea"][aria-invalid="true"]:focus-visible,
+[data-slot="select-trigger"][aria-invalid="true"]:focus-visible {
+  outline-color: var(--arb-color-danger, #ff7777);
+}
+.arb-field-hint,
+.arb-field-error,
+[data-field-hint],
+[data-field-error] {
+  max-width: 70ch;
+  overflow-wrap: anywhere;
+}
+.arb-field-error,
+[data-field-error] {
+  color: var(--arb-color-danger, #ff7777);
+}
+.arb-field-hint,
+[data-field-hint] {
+  color: var(--arb-color-text-muted, #8295aa);
+}
+[data-slot="input"]::file-selector-button {
+  max-width: 100%;
+}
+[data-slot="select-content"] {
+  max-width: min( calc(100vw - 1rem), var(--radix-select-content-available-width, 32rem));
+}
+[data-slot="select-item"] {
+  overflow-wrap: anywhere;
+}
+@media (forced-colors: active) {
+  .arb-field-error,
+  [data-field-error] {
+    color: Mark;
+    font-weight: 700;
+  }
+  .arb-field-hint,
+  [data-field-hint] {
+    color: CanvasText;
+  }
+  [data-slot="input"][aria-invalid="true"]:focus-visible,
+  [data-slot="textarea"][aria-invalid="true"]:focus-visible,
+  [data-slot="select-trigger"][aria-invalid="true"]:focus-visible {
+    outline-color: Mark;
+  }
+}
+
+
+/* Shared interaction states for asynchronous actions and dense data tables. */
+[data-wb-button="true"][data-wb-state="loading"] {
+  cursor: progress;
+}
+[data-wb-button="true"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+.arb-overflow-x {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+.arb-overflow-x :where(table, pre) {
+  max-width: 100%;
+}
+.arb-overflow-x :where(th, td) {
+  overflow-wrap: anywhere;
+}
+.arb-overflow-x :where(code, pre) {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-wb-button="true"][data-wb-state="loading"] {
+    scroll-behavior: auto;
+  }
+}
+@media (forced-colors: active) {
+  [data-wb-button="true"][data-wb-state="loading"],
+  [data-wb-button="true"][aria-disabled="true"] {
+    border: 1px solid GrayText;
+  }
+  .arb-overflow-x :where(th, td) {
+    border-color: CanvasText;
+  }
+}
+
+
+/* Stage 2: keep dialogs usable on short screens, zoom and mobile keyboards. */
+[data-slot="dialog-content"] {
+  box-sizing: border-box;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+[data-slot="dialog-content"] :where(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+[data-slot="dialog-title"],
+[data-slot="dialog-description"] {
+  overflow-wrap: anywhere;
+}
+[data-slot="dialog-footer"] > :where(button, [role="button"]) {
+  min-width: 0;
+}
+[data-slot="table-container"] {
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+[data-slot="table-container"]:focus-visible {
+  outline: 2px solid var(--arb-color-accent, currentColor);
+  outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  [data-slot="dialog-content"] {
+    padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+      max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  }
+  [data-slot="dialog-footer"] {
+    flex-wrap: wrap;
+  }
+  [data-slot="dialog-footer"] > :where(button, [role="button"]) {
+    max-width: 100%;
+  }
+}
+@media (forced-colors: active) {
+  [data-slot="table-container"]:focus-visible {
+    outline-color: Highlight;
+  }
+  [data-slot="dialog-content"] {
+    border-color: CanvasText;
+    scrollbar-color: CanvasText Canvas;
+  }
+}
+
+
+
+/* Keep all common controls comfortable to use on touch-first devices,
+   including controls supplied by the existing component library. */
+@media (pointer: coarse) {
+  button:not([hidden]):not([data-touch-size="compact"]),
+  [role="button"]:not([hidden]):not([data-touch-size="compact"]),
+  input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+  select:not([hidden]):not([multiple]),
+  textarea:not([hidden]):not([data-touch-size="compact"]),
+  summary:not([hidden]):not([data-touch-size="compact"]),
+  [data-slot="select-trigger"]:not([hidden]),
+  [data-slot="dropdown-menu-trigger"]:not([hidden]) {
+    min-height: 44px;
+  }
+
+  :where(input[type="checkbox"], input[type="radio"]) {
+    min-width: 20px;
+    min-height: 20px;
+  }
+}
+
+/* Stage 2: maintain comfortable dialog controls without enlarging their icons. */
+[data-slot="dialog-close"] {
+  display: inline-grid;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  place-items: center;
+}
+[data-slot="dialog-close"]:focus-visible {
+  outline: 2px solid var(--arb-color-accent, currentColor);
+  outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  [data-slot="dialog-footer"] > :where(button, [role="button"]) {
+    min-height: 2.75rem;
+  }
+}
+@media (forced-colors: active) {
+  [data-slot="dialog-close"]:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+
+/* Respect reduced-motion preferences for shared Radix dialog and select surfaces. */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"],
+  [data-slot="select-content"] {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto;
+  }
+}
+
+
+/* Keyboard users can reach and identify horizontally scrollable data tables. */
+[data-slot="table-container"]:focus {
+  outline: none;
+}
+[data-slot="table-container"]:focus-visible {
+  outline: 2px solid var(--arb-color-accent, currentColor);
+  outline-offset: 2px;
+}
+[data-slot="table"] {
+  max-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+[data-slot="table-head"],
+[data-slot="table-cell"] {
+  overflow-wrap: anywhere;
+}
+[data-slot="table-caption"] {
+  max-width: 70ch;
+  overflow-wrap: anywhere;
+}
+@media (forced-colors: active) {
+  [data-slot="table-container"]:focus-visible {
+    outline-color: Highlight;
+  }
+  [data-slot="table-head"],
+  [data-slot="table-cell"] {
+    border-color: CanvasText;
+  }
+}
+
+
+/* Improve option selection on touch devices while preserving compact desktop menus. */
+[data-slot="select-item"] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  [data-slot="select-item"] {
+    min-height: 2.75rem;
+    white-space: normal;
+  }
+  [data-slot="select-trigger"] {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+  }
+}
+@media (forced-colors: active) {
+  [data-slot="select-item"][data-highlighted] {
+    outline: 1px solid Highlight;
+    outline-offset: -1px;
+  }
+}
+
+
+/* Stage 2: clarify busy and unavailable states in shared buttons. */
+[data-slot="button"][aria-busy="true"],
+[data-wb-button="true"][aria-busy="true"] {
+  cursor: progress;
+}
+[data-slot="button"][aria-disabled="true"]:not(:disabled),
+[data-wb-button="true"][aria-disabled="true"]:not(:disabled) {
+  cursor: not-allowed;
+}
+@media (forced-colors: active) {
+  [data-slot="button"][aria-busy="true"],
+  [data-wb-button="true"][aria-busy="true"] {
+    border-style: dashed;
+  }
+}
+
+
+/* Stage 2: keep select popups and long option labels within the viewport. */
+[data-slot="select-content"] {
+  max-width: calc(100vw - 1rem);
+  overscroll-behavior: contain;
+}
+[data-slot="select-viewport"] {
+  min-width: 0;
+  max-width: 100%;
+}
+[data-slot="select-item"] {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+[data-slot="select-item"]:focus-visible {
+  outline: 2px solid var(--arb-focus-ring, #8eafff);
+  outline-offset: -2px;
+}
+[data-slot="select-item"][data-disabled] {
+  cursor: not-allowed;
+}
+@media (forced-colors: active) {
+  [data-slot="select-item"]:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+
+/* Stage 2: maintain usable touch targets for shared controls on narrow screens. */
+@media (max-width: 640px) {
+  :is(
+    [data-slot="button"],
+    [data-slot="select-trigger"],
+    [data-slot="input"],
+    [data-slot="textarea"],
+    [data-wb-button="true"],
+    .arb-button,
+    .arb-field input,
+    .arb-field select,
+    .arb-field textarea
+  ) {
+    min-height: 44px;
+    max-width: 100%;
+  }
+
+  [data-slot="button"].size-8,
+  [data-slot="button"].size-9,
+  [data-slot="button"].size-10,
+  [data-wb-button="true"][data-wb-icon-only="true"],
+  .arb-button {
+    min-width: 44px;
+  }
+}
+
+/* The shared theme selector remains comfortably tappable in both portal shells. */
+.arb-theme-selector {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.arb-theme-selector select {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+}
+
+/* Preserve the full theme name and header-label contrast in compact portal headers. */
+.arb-theme-selector-compact .arb-theme-selector-title {
+  color: var(--wb-text, #e9f0f7) !important;
+}
+
+.arb-theme-selector-compact select {
+  width: min(12.5rem, 60vw) !important;
+  min-width: min(12.5rem, 60vw) !important;
+  flex: 0 0 min(12.5rem, 60vw) !important;
+  flex-shrink: 0 !important;
+}
+
+/* Stage 2 accessibility: honor reduced-motion preferences throughout adopted pages. */
+@media (prefers-reduced-motion: reduce) {
+  .arb-page,
+  .arb-page *,
+  .arb-page *::before,
+  .arb-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Keep embedded media, long identifiers, and native form controls inside page bounds. */
+.arb-page :where(img, video, iframe, canvas, svg) {
+  max-width: 100%;
+}
+
+.arb-page :where(input, select, textarea) {
+  max-width: 100%;
+}
+
+.arb-page :where(pre, code) {
+  overflow-wrap: anywhere;
+}
+
+
+/* Stage 2 responsive safeguards: prevent adopted layouts and data grids from widening the viewport. */
+.arb-page {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.arb-page :where(main, section, article, aside, header, footer, form, fieldset, .grid, [class*="grid-cols-"]) {
+  min-width: 0;
+}
+
+.arb-page :where(p, li, dd, dt, th, td, label, a, button) {
+  overflow-wrap: anywhere;
+}
+
+/* Preserve authored/intrinsic heights for embeds and drawing surfaces. */
+.arb-page :where(img, video) {
+  height: auto;
+}
+
+.arb-page :where(input, select, textarea, button) {
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .arb-page :where(table) {
+    font-size: 0.875rem;
+  }
+
+  .arb-page :where(pre) {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .arb-page :where(.arb-overflow-x) {
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+
+/* Stage 2 mobile typography fix: keep the gateway headline's final word intact. */
+.portal-gateway .gateway-card h1 {
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+@media (max-width: 380px) {
+  .portal-gateway .gateway-card {
+    padding: 24px 20px;
+  }
+  .portal-gateway .gateway-card h1 {
+    font-size: 1.875rem;
+    letter-spacing: -0.045em !important;
+  }
+}

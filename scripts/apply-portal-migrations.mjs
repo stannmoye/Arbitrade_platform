@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyPortalMigrationRecord } from "./portal-migration-tracker.mjs";
+import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const databaseUrl = process.env.DATABASE_URL;
@@ -21,30 +22,64 @@ const migrationFiles = [
   "0043_wallet_minor_units_bigint.sql",
   "0051_advanced_auto_trading.sql",
   "0052_delivery_diagnostics.sql",
+  "0053_manual_settlement_lifecycle.sql",
+  "0054_notification_event_idempotency.sql",
+  "0055_notification_campaign_delivery_tracking.sql",
+  "0056_support_ticket_assignment.sql",
+  "0057_notification_history_pagination.sql",
+  "0058_withdrawable_notification_campaigns.sql",
 ];
+// These tables are also created by the main Drizzle migration chain before this
+// portal-specific runner starts. Their presence alone therefore cannot prove that
+// portal migrations were partially applied without a tracker.
 const targetTables = [
   "kyc_settings", "kyc_profiles", "password_reset_tokens", "admin_email_messages",
   "mining_economics_versions", "mining_packages", "mining_customer_packages",
-  "opportunity_popup_events", "opportunity_delivery_events",
 ];
 const baselineReviewed = process.argv.includes("--baseline-reviewed");
-const url = new URL(databaseUrl);
+let url;
+try {
+  url = new URL(databaseUrl);
+} catch {
+  console.error("DATABASE_URL is malformed. Check private configuration; its value is not displayed.");
+  process.exit(1);
+}
 if (!["mysql:", "mariadb:"].includes(url.protocol) || !url.pathname.replace(/^\/+/, "")) {
-  throw new Error("DATABASE_URL must identify a MySQL/MariaDB database. No portal migrations were run.");
+  console.error("DATABASE_URL must identify a MySQL/MariaDB database. No portal migrations were run.");
+  process.exit(1);
 }
 if (url.protocol === "mariadb:") url.protocol = "mysql:";
 url.searchParams.set("multipleStatements", "true");
 url.searchParams.set("timezone", "Z");
-const databaseName = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
-const connection = await mysql.createConnection({
-  host: url.hostname,
-  port: Number(url.port || 3306),
-  user: decodeURIComponent(url.username),
-  password: decodeURIComponent(url.password),
-  database: databaseName,
-  ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
-  connectTimeout: 10000,
-});
+let databaseName;
+let databaseUser;
+let databasePassword;
+try {
+  databaseName = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+  databaseUser = decodeURIComponent(url.username);
+  databasePassword = decodeURIComponent(url.password);
+} catch {
+  console.error("DATABASE_URL contains malformed database-name or credential encoding. The configured value is not displayed.");
+  process.exit(1);
+}
+let connection;
+try {
+  connection = await mysql.createConnection({
+    host: url.hostname,
+    port: Number(url.port || 3306),
+    user: databaseUser,
+    password: databasePassword,
+    database: databaseName,
+    ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
+    // Portal migration files contain multiple trusted SQL statements; set the mysql2 option explicitly.
+    multipleStatements: true,
+    connectTimeout: 10000,
+  });
+} catch (error) {
+  const errorCode = String(error?.code || "UNAVAILABLE").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+  console.error(`Could not connect to the configured portal database (code: ${errorCode || "UNAVAILABLE"}). Check private connection settings; credentials are not displayed.`);
+  process.exit(1);
+}
 
 async function tableExists(tableName) {
   const [rows] = await connection.query(
@@ -140,7 +175,7 @@ try {
     );
 
     try {
-      await connection.query(sql);
+      await executeCompatibleMigrationSql(connection, sql);
       if (filename === "0037_coinki_token_configuration.sql") {
         const { migrateMiningTokenToCki } = await import("./migrate-mining-token-to-cki.mjs");
         await migrateMiningTokenToCki(connection);
@@ -158,14 +193,17 @@ try {
       ).catch(() => {});
       console.error(`Migration ${filename} failed (code: ${errorCode || "UNKNOWN"}).`);
       console.error("MySQL may have committed some DDL before the failure. This migration is marked failed and will not be automatically rerun.");
-      throw error;
+      throw new Error("Portal migration failed; use the sanitized migration code above and complete manual recovery review before retrying.");
     }
   }
 } catch (error) {
   if (error?.baselineRecorded) {
     // Expected control flow after writing the explicit baseline.
   } else {
-    console.error(error?.message || "Portal migration runner stopped.");
+    const safeMessage = error && typeof error.message === "string" && !error.code
+      ? error.message
+      : "Portal migration runner stopped after an unexpected database or file error. Review the sanitized diagnostics above and complete manual recovery before retrying.";
+    console.error(safeMessage);
     process.exitCode = 1;
   }
 } finally {

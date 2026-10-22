@@ -68,8 +68,29 @@ export async function withMiningConnection<T>(fn: (conn: Db) => Promise<T>): Pro
 
 export async function inMiningTransaction<T>(conn: Db, fn: () => Promise<T>) {
   await conn.beginTransaction();
-  try { const result = await fn(); await conn.commit(); return result; }
-  catch (error) { await conn.rollback(); throw error; }
+  try {
+    const result = await fn();
+    await conn.commit();
+    return result;
+  } catch (error) {
+    try {
+      await conn.rollback();
+    } catch (rollbackError) {
+      // Preserve the original operation/commit failure while retaining rollback
+      // diagnostics when the thrown value allows metadata to be attached.
+      if (error instanceof Error) {
+        try {
+          Object.defineProperty(error, "rollbackError", {
+            value: rollbackError,
+            configurable: true,
+          });
+        } catch {
+          // A frozen error must not cause the original failure to be replaced.
+        }
+      }
+    }
+    throw error;
+  }
 }
 
 export async function loadMiningConfig(conn: Db, at: Date = new Date()): Promise<MiningConfig> {
@@ -120,16 +141,28 @@ export async function requireActiveMiningAccount(conn: Db, userId: number) {
 }
 
 export async function beginMiningIdempotency(conn: Db, userId: number, key: string, command: string) {
-  await conn.execute(`INSERT IGNORE INTO v5_idempotency_keys (userId,keyValue,command,resultJson) VALUES (?,?,?,NULL)`, [userId, key, command]);
+  const [insertResult] = await conn.execute<any>(
+    `INSERT IGNORE INTO v5_idempotency_keys (userId,keyValue,command,resultJson) VALUES (?,?,?,NULL)`,
+    [userId, key, command],
+  );
+  const inserted = Number(insertResult.affectedRows) > 0;
   const [rows] = await conn.query<any[]>(`SELECT command,resultJson FROM v5_idempotency_keys WHERE keyValue=? FOR UPDATE`, [key]);
   const row = rows[0];
   if (!row) throw new MiningError("Unable to reserve this operation; please retry once");
   if (row.command !== command) throw new MiningError("This idempotency key was already used for a different Mining action");
-  return row.resultJson ? JSON.parse(String(row.resultJson)) : null;
+  if (row.resultJson) return JSON.parse(String(row.resultJson));
+  if (!inserted) throw new MiningError("This operation is already in progress; retry shortly");
+  return null;
 }
 
 export async function finishMiningIdempotency(conn: Db, key: string, result: unknown) {
-  await conn.execute(`UPDATE v5_idempotency_keys SET resultJson=? WHERE keyValue=?`, [JSON.stringify(result), key]);
+  const [updateResult] = await conn.execute<any>(
+    `UPDATE v5_idempotency_keys SET resultJson=? WHERE keyValue=? AND resultJson IS NULL`,
+    [JSON.stringify(result), key],
+  );
+  if (Number(updateResult.affectedRows) !== 1) {
+    throw new MiningError("Unable to persist the Mining idempotency result; the transaction must be retried");
+  }
 }
 
 export async function getMiningAssetRate(conn: Db, assetInput: string, config: MiningConfig, now = new Date()): Promise<AssetRate> {
@@ -262,8 +295,26 @@ export async function postMiningLedgerEntries(conn: Db, transaction: { id: numbe
   return inserted;
 }
 
-export async function createMiningNotification(conn: Db, userId: number, title: string, body: string) {
-  await conn.execute(`INSERT INTO customer_notifications (userId,title,body) VALUES (?,?,?)`, [userId, title.slice(0, 200), body.slice(0, 4000)]);
+export async function createMiningNotification(conn: Db, userId: number, title: string, body: string, eventKey?: string) {
+  const safeTitle = title.trim().slice(0, 200);
+  const safeBody = body.trim().slice(0, 4000);
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new MiningError("Notification recipient is invalid");
+  if (!safeTitle || !safeBody) throw new MiningError("Mining notification title and body are required");
+  const scopedEventKey = eventKey?.trim() ? `u${userId}:${eventKey.trim()}` : null;
+  if (scopedEventKey && scopedEventKey.length > 180) throw new MiningError("Mining notification event key is too long");
+  if (scopedEventKey) {
+    await conn.execute(
+      `INSERT INTO customer_notifications (userId,title,body,eventKey,category,priority)
+       VALUES (?,?,?,?,?,?)
+       ON DUPLICATE KEY UPDATE eventKey=VALUES(eventKey)`,
+      [userId, safeTitle, safeBody, scopedEventKey, "mining", "normal"],
+    );
+    return;
+  }
+  await conn.execute(
+    `INSERT INTO customer_notifications (userId,title,body,category,priority) VALUES (?,?,?,?,?)`,
+    [userId, safeTitle, safeBody, "mining", "normal"],
+  );
 }
 
 export async function quoteRatesDetails(conn: Db, sourceAsset: string, targetAsset: string, config: MiningConfig, now = new Date()) {

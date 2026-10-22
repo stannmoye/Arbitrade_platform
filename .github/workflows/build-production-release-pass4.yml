@@ -1,0 +1,188 @@
+name: Build Arbitrade full production Pass 4 release
+
+on:
+  push:
+    branches:
+      - release/arbitrade-v5-production-pass4
+    paths:
+      - 'INSTALLER-VERSION.txt'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'installer/**'
+      - 'cpanel/**'
+      - 'server/**'
+      - 'client/**'
+      - 'src/**'
+      - 'shared/**'
+      - 'migrations/**'
+      - 'drizzle/**'
+      - 'vite.config.*'
+      - 'tsconfig.json'
+      - '.github/workflows/build-production-release-pass4.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arbitrade-v5-production-pass4-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-production-zip:
+    name: Build and validate full production ZIP
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact release candidate
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
+
+      - name: Install locked dependencies and build production app
+        run: |
+          set -Eeuo pipefail
+          pnpm install --frozen-lockfile
+          pnpm check
+          pnpm test
+          pnpm build
+
+      - name: Assemble full application, built bundles, and runtime dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          version="$(tr -d '\r\n' < INSTALLER-VERSION.txt)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9.-]+$ ]]; then
+            echo "Invalid release version marker: $version" >&2
+            exit 1
+          fi
+
+          package="$RUNNER_TEMP/arbitrade-v5-production-pass4"
+          artifacts="$RUNNER_TEMP/arbitrade-v5-production-artifacts"
+          archive_name="arbitrade-v5-production-pass4-${GITHUB_SHA:0:10}.zip"
+          mkdir -p "$package" "$artifacts"
+
+          # Package the entire tracked application source while leaving out
+          # database snapshots, nested ZIPs, and database export dumps.
+          git archive HEAD -- . \
+            ':(exclude)Database1/**' \
+            ':(exclude)database.sql' \
+            ':(exclude)**/database.sql' \
+            ':(exclude)**/*.sql.gz' \
+            ':(exclude)**/*.dump' \
+            ':(exclude)**/*.zip' | tar -x -C "$package"
+
+          # Attach the exact client and server bundles created by pnpm build.
+          cp -a dist "$package/dist"
+
+          cat > "$package/INSTALLER-BUILD.txt" <<EOF
+          Arbitrade full production Pass 4 build
+          Version: $version
+          Source revision: $GITHUB_SHA
+          Source branch: $GITHUB_REF_NAME
+          Build time (UTC): $(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          Included: integrated application source, installer, client/server production bundles, runtime dependencies
+          Excluded: database snapshots, credentials, private keys, and nested archives
+          EOF
+
+          cat > "$package/BUILD_PROVENANCE.txt" <<EOF
+          Product: Arbitrade
+          Release: $version
+          Repository: $GITHUB_REPOSITORY
+          Git commit: $GITHUB_SHA
+          Git ref: $GITHUB_REF
+          Build workflow: $GITHUB_WORKFLOW
+          Run ID: $GITHUB_RUN_ID
+          Run attempt: $GITHUB_RUN_ATTEMPT
+          EOF
+
+          # Keep sample environment templates but remove real local env files.
+          find "$package" -type f \
+            \( -name '.env' -o -name '.env.local' -o -name '.env.production' \
+               -o -name '.env.development.local' -o -name '.env.test.local' \) -delete
+          find "$package" -type f \
+            \( -name '*.zip' -o -name '*.sql.gz' -o -name '*.dump' \
+               -o -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' \) -delete
+          rm -f "$package/database.sql"
+
+          # This package is intended to run on the VPS without a separate
+          # dependency install. Use a hoisted node_modules layout for portability.
+          pnpm --dir "$package" install --frozen-lockfile --config.node-linker=hoisted
+
+          (cd "$package" && zip -X -qr "$artifacts/$archive_name" .)
+          unzip -t "$artifacts/$archive_name"
+
+          python3 - "$artifacts/$archive_name" "$version" <<'PY'
+          import json, os, sys, zipfile
+          archive, version = sys.argv[1], sys.argv[2]
+          required = {
+              "package.json", "pnpm-lock.yaml", "dist/index.js",
+              "dist/public/index.html", "node_modules/.modules.yaml",
+              "installer/index.php", "installer/run-install.mjs",
+              "installer/vps-setup.sh", "installer/vps-preflight.sh",
+              "installer/vps-rollback.sh", "INSTALLER-VERSION.txt",
+              "INSTALLER-BUILD.txt", "BUILD_PROVENANCE.txt",
+              "DEPLOYMENT-README.txt",
+          }
+          with zipfile.ZipFile(archive) as z:
+              bad = z.testzip()
+              if bad:
+                  raise SystemExit(f"Corrupt ZIP entry: {bad}")
+              infos = z.infolist()
+              names = {item.filename for item in infos}
+              missing = sorted(required - names)
+              if missing:
+                  raise SystemExit("Missing required entries: " + ", ".join(missing))
+              if z.read("INSTALLER-VERSION.txt").decode().strip() != version:
+                  raise SystemExit("Release version marker mismatch")
+              forbidden = [
+                  name for name in names
+                  if name.startswith("Database1/")
+                  or name in {"database.sql", ".env", ".env.local", ".env.production",
+                              ".env.development.local", ".env.test.local"}
+                  or name.endswith((".sql.gz", ".dump", ".pem", ".key", ".p12", ".pfx", ".zip"))
+                  or "/.env.local" in name or "/.env.production" in name
+              ]
+              if forbidden:
+                  raise SystemExit("Forbidden snapshots, local secrets, or nested archives: " +
+                                   ", ".join(forbidden[:30]))
+              if not any(name.startswith("node_modules/") for name in names):
+                  raise SystemExit("Portable node_modules directory is missing")
+              package_json = json.loads(z.read("package.json"))
+              missing_deps = []
+              for dep in package_json.get("dependencies", {}):
+                  prefix = "node_modules/" + dep + "/"
+                  if not any(name.startswith(prefix) for name in names):
+                      missing_deps.append(dep)
+              if missing_deps:
+                  raise SystemExit("Runtime dependency folders missing: " +
+                                   ", ".join(missing_deps))
+              if any(name.startswith("/") or name.startswith("../") for name in names):
+                  raise SystemExit("Unsafe absolute or parent-relative ZIP path")
+          print(
+              f"Validated {version}: {len(names)} entries, "
+              f"{os.path.getsize(archive):,} compressed bytes, "
+              "full application + production bundles + runtime dependencies; ZIP CRC valid."
+          )
+          PY
+
+          echo "RELEASE_ZIP=$artifacts/$archive_name" >> "$GITHUB_ENV"
+          echo "RELEASE_NAME=$archive_name" >> "$GITHUB_ENV"
+
+      - name: Upload complete production ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: arbitrade-v5-production-pass4
+          path: ${{ env.RELEASE_ZIP }}
+          if-no-files-found: error
+          retention-days: 30

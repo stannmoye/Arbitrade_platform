@@ -1,0 +1,140 @@
+/* Final semantic-token bridge for customer containers outside the legacy card/panel rules. */
+:root[data-arb-theme] .customer-portal {
+  background:radial-gradient(ellipse at 92% 0%,color-mix(in srgb,var(--arb-color-accent) 10%,transparent),transparent 34%),var(--arb-color-canvas)!important;
+  color:var(--arb-color-text)!important;
+  --ref-bg:var(--arb-color-canvas);--ref-panel:var(--arb-color-surface);--ref-panel-2:var(--arb-color-surface-raised);--ref-line:var(--arb-color-border);--ref-mint:var(--arb-color-accent);--ref-blue:var(--arb-color-info);
+}
+:root[data-arb-theme] .customer-portal :is(
+  .customer-top-workspace-menu,.customer-workspace-menu,.customer-balance-ribbon,.customer-market-hero,
+  .customer-quick-feature,.customer-quick-tile,.customer-metric-grid>div,.customer-live-banner,
+  .test-mode-banner,.trade-progress-banner,.customer-protected-note,.customer-safety,
+  .customer-rail-brand-note,.customer-primary-rail .customer-rail-group,.customer-resource-empty,
+  .customer-toast,[class*="customer-"][class*="-hero"],[class*="customer-"][class*="-tile"],
+  [class*="customer-"][class*="-ribbon"],[class*="customer-"][class*="-metric"],
+  [class*="customer-"][class*="-workspace"],[class*="customer-"][class*="-ledger"]
+) {
+  color:var(--arb-color-text)!important;border-color:var(--arb-color-border)!important;
+  background:linear-gradient(145deg,color-mix(in srgb,var(--arb-color-surface-raised) 88%,var(--arb-color-accent) 12%),var(--arb-color-surface))!important;
+}
+:root[data-arb-theme] .customer-portal .portal-header {
+  background:color-mix(in srgb,var(--arb-color-surface) 94%,transparent)!important;border-bottom-color:var(--arb-color-border)!important;
+  box-shadow:0 8px 26px color-mix(in srgb,var(--arb-color-canvas) 35%,transparent)!important;backdrop-filter:blur(18px) saturate(145%);
+}
+:root[data-arb-theme] .customer-portal .portal-rail {
+  background:color-mix(in srgb,var(--arb-color-surface) 92%,transparent)!important;border-right-color:var(--arb-color-border)!important;
+}
+:root[data-arb-theme] .customer-portal :is(
+  [class*="customer-"][class*="-icon"],[class*="customer-"][class*="-badge"],
+  [class*="customer-"][class*="-status"],[class*="customer-"][class*="-online"],.sound-pill
+) {
+  color:var(--arb-color-accent)!important;border-color:color-mix(in srgb,var(--arb-color-accent) 34%,var(--arb-color-border))!important;
+  background:color-mix(in srgb,var(--arb-color-accent) 12%,var(--arb-color-surface-raised))!important;
+}
+:root[data-arb-theme] .customer-portal :is(
+  .customer-header-name,.customer-balance-name strong,.customer-metric-grid strong,.customer-metric-grid b,
+  .customer-opportunity strong,.rich-opportunity strong,.customer-rail-brand-note strong,
+  [class*="customer-"][class*="-heading"],[class*="customer-"][class*="-title"],
+  [class*="customer-"][class*="-name"],[class*="customer-"][class*="-value"]
+) {color:var(--arb-color-text)!important}
+:root[data-arb-theme] .customer-portal :is(
+  .customer-header-name small,.customer-balance-name small,.customer-balance-note,.customer-metric-grid span,
+  .customer-opportunity span,.rich-opportunity span,.customer-rail-brand-note span,
+  [class*="customer-"][class*="-description"],[class*="customer-"][class*="-note"],
+  [class*="customer-"][class*="-detail"],[class*="customer-"][class*="-subtitle"]
+) {color:var(--arb-color-text-muted)!important}
+:root[data-arb-theme] .customer-portal :is(
+  .customer-primary-rail .customer-rail-group button,.customer-rail-logout,.customer-top-workspace-menu button,
+  .customer-workspace-menu button,.customer-header-profile,.customer-header-bell,.customer-console-launch,
+  .customer-balance-trigger,.customer-balance-actions button,.customer-quick-actions button,.customer-workspace-categories button
+) {color:var(--arb-color-text-soft)!important;border-color:var(--arb-color-border)!important}
+:root[data-arb-theme] .customer-portal :is(
+  .customer-primary-rail .customer-rail-group button:hover,.customer-primary-rail .customer-rail-group button.active,
+  .customer-rail-logout:hover,.customer-top-workspace-menu button:hover,.customer-workspace-menu button:hover,
+  .customer-header-profile:hover,.customer-header-bell:hover,.customer-console-launch:hover,
+  .customer-quick-actions button:hover,.customer-workspace-categories button:hover
+) {
+  color:var(--arb-color-accent)!important;border-color:color-mix(in srgb,var(--arb-color-accent) 62%,var(--arb-color-border))!important;
+  background:color-mix(in srgb,var(--arb-color-accent) 12%,var(--arb-color-surface-raised))!important;
+}
+:root[data-arb-theme] .customer-portal :is(input,select,textarea,[role="combobox"]) {
+  color:var(--arb-color-text)!important;background-color:var(--arb-color-surface-raised)!important;border-color:var(--arb-color-border)!important;
+}
+:root[data-arb-theme] .customer-portal :is(.customer-market-status i,.customer-header-name small i,.customer-workspace-online i) {
+  background:var(--arb-color-accent)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--arb-color-accent) 14%,transparent)!important;
+}
+/* Keep the additional chooser inside the actual left account rail; the drawer selector stays separate. */
+.customer-portal .customer-primary-rail-theme-control {position:static!important;inset:auto!important;z-index:auto!important;display:block!important;width:100%!important;max-width:100%!important;margin:12px 0 15px!important;padding:0 2px!important}
+.customer-portal .customer-primary-rail-theme-control .arb-theme-selector {position:static!important;display:flex!important;width:100%!important;max-width:100%!important;justify-content:stretch!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important}
+.customer-portal .customer-primary-rail-theme-control .arb-theme-selector-control {width:100%!important}
+.customer-portal .customer-primary-rail-theme-control .arb-theme-selector-trigger {
+  width:100%!important;min-width:0!important;justify-content:flex-start!important;border-color:var(--arb-color-border)!important;
+  background:color-mix(in srgb,var(--arb-color-surface-raised) 88%,var(--arb-color-accent) 12%)!important;color:var(--arb-color-text)!important;
+}
+.customer-portal .customer-primary-rail-theme-control .arb-theme-selector-trigger-label {flex:1;text-align:left}
+.customer-portal .customer-primary-rail-theme-control .arb-theme-selector-control select {width:100%!important}
+.customer-portal>.arb-theme-selector-compact .arb-theme-selector-trigger {
+  border-color:var(--arb-color-border)!important;background:color-mix(in srgb,var(--arb-color-surface-raised) 88%,var(--arb-color-accent) 12%)!important;color:var(--arb-color-text)!important;
+}
+.customer-portal>.arb-theme-selector-compact .arb-theme-selector-trigger:hover {border-color:var(--arb-color-accent)!important}
+@media(max-width:760px) {
+  .customer-portal .customer-primary-rail-theme-control {margin:8px 0 10px!important}
+  .customer-portal .customer-primary-rail-theme-control .arb-theme-selector-trigger {min-height:38px!important;padding-inline:9px!important}
+}
+
+
+/* Customer workspace experience polish: semantic colors, calmer density, and responsive hierarchy. */
+:root[data-arb-theme] .customer-portal .portal-main{background:radial-gradient(ellipse at 88% 0%,color-mix(in srgb,var(--arb-color-accent) 7%,transparent),transparent 38%),var(--arb-color-canvas)!important}
+:root[data-arb-theme] .customer-portal .portal-page{box-sizing:border-box;width:100%!important;max-width:1320px!important;padding:clamp(16px,2vw,28px)!important}
+:root[data-arb-theme] .customer-portal .portal-page-top{gap:16px;margin-bottom:20px}
+:root[data-arb-theme] .customer-portal .portal-page-top h1,:root[data-arb-theme] .customer-portal .portal-page>h1{font-size:clamp(25px,2.6vw,34px)!important;line-height:1.12!important;letter-spacing:-.035em!important}
+:root[data-arb-theme] .customer-portal :is(.customer-market-hero,.customer-resource-hero,.customer-welcome-panel,.customer-hero-panel,.customer-console-panel){border:1px solid var(--arb-color-border)!important;border-radius:20px!important;background:radial-gradient(ellipse at 88% 0%,color-mix(in srgb,var(--arb-color-accent) 14%,transparent),transparent 45%),linear-gradient(135deg,var(--arb-color-surface-raised),var(--arb-color-surface))!important;box-shadow:0 14px 34px color-mix(in srgb,var(--arb-color-canvas) 78%,#000 22%),inset 0 1px color-mix(in srgb,var(--arb-color-text) 5%,transparent)!important}
+:root[data-arb-theme] .customer-portal :is(.customer-wallet-panel,.customer-ledger-panel,.customer-activity-panel,.customer-resource-card,.customer-intelligence-card,.customer-support-card,.customer-account-card,.customer-investment-card,.customer-package-card,.customer-opportunity,.customer-balance-card,.customer-metric-grid>div,.customer-panel){min-width:0;border-radius:16px!important;box-shadow:0 10px 28px color-mix(in srgb,var(--arb-color-canvas) 82%,#000 18%)!important}
+:root[data-arb-theme] .customer-portal .customer-quick-actions{gap:12px!important;margin-block:16px!important}
+:root[data-arb-theme] .customer-portal .customer-primary-rail nav button{min-height:42px!important;border-radius:10px!important;font-size:12px!important}
+:root[data-arb-theme] .customer-portal .customer-primary-rail nav button.active{background:color-mix(in srgb,var(--arb-color-accent) 13%,var(--arb-color-surface-raised))!important;box-shadow:inset 3px 0 var(--arb-color-accent)!important}
+:root[data-arb-theme] .customer-portal :where(input,select,textarea){border-radius:10px!important}
+:root[data-arb-theme] .customer-portal :where(button,a,input,select,textarea,[role="button"]):focus-visible{outline:2px solid var(--arb-focus-ring)!important;outline-offset:3px!important}
+:root[data-arb-theme] .customer-portal .portal-session>.arb-theme-selector-compact{flex:0 0 auto;width:auto;margin:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important}
+:root[data-arb-theme] .customer-portal .portal-session>.arb-theme-selector-compact .arb-theme-selector-control{position:relative;display:inline-flex;min-width:0}
+:root[data-arb-theme] .customer-portal .portal-session>.arb-theme-selector-compact .arb-theme-selector-trigger{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:8px 10px;border:1px solid var(--arb-color-border)!important;border-radius:10px;background:var(--arb-color-surface-raised)!important;color:var(--arb-color-text)!important;font-size:11px;font-weight:700;white-space:nowrap;pointer-events:none}
+:root[data-arb-theme] .customer-portal .portal-session>.arb-theme-selector-compact .arb-theme-selector-control select{position:absolute!important;inset:0!important;z-index:2;width:100%!important;min-width:0!important;height:100%!important;padding:0!important;border:0!important;opacity:.01;cursor:pointer}
+:root[data-arb-theme] .customer-portal .portal-session>.arb-theme-selector-compact .arb-theme-selector-control:focus-within .arb-theme-selector-trigger{outline:2px solid var(--arb-focus-ring);outline-offset:3px}
+@media(max-width:760px){:root[data-arb-theme] .customer-portal .portal-page{padding:16px 12px 30px!important}:root[data-arb-theme] .customer-portal .portal-session{gap:6px!important}:root[data-arb-theme] .customer-portal .portal-session>.arb-theme-selector-compact .arb-theme-selector-trigger{min-height:34px;padding:7px!important;gap:5px;font-size:10px}:root[data-arb-theme] .customer-portal .customer-quick-actions{gap:9px!important}}
+@media(max-width:420px){:root[data-arb-theme] .customer-portal .portal-session>.arb-theme-selector-compact .arb-theme-selector-trigger-label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}:root[data-arb-theme] .customer-portal .portal-session>.arb-theme-selector-compact .arb-theme-selector-trigger{width:34px;justify-content:center}}
+@media(hover:hover){:root[data-arb-theme] .customer-portal :is(.customer-quick-actions>button,.customer-investment-card,.customer-package-card,.customer-opportunity):hover{transform:translateY(-2px);border-color:var(--arb-color-accent)!important}}
+@media(prefers-reduced-motion:reduce){:root[data-arb-theme] .customer-portal *,:root[data-arb-theme] .customer-portal *:before,:root[data-arb-theme] .customer-portal *:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+ 
+
+/* Theme-isolated Clean Light contrast and customer responsive layout. */
+:root[data-arb-theme="clean-light"] .customer-portal{--arb-customer-card-shadow:0 8px 24px rgba(28,45,70,.07);background:#f3f6fb!important;color:#172438!important}
+:root[data-arb-theme="clean-light"] .customer-portal .portal-page{padding:clamp(16px,2.4vw,30px) clamp(12px,2.5vw,30px) 36px!important}
+:root[data-arb-theme="clean-light"] .customer-portal :is(.customer-panel,.customer-ledger-panel,.customer-investment-card,.customer-package-card,.customer-opportunity,.rich-opportunity,.customer-table-wrap,.customer-table-card,.customer-activity-panel,.customer-form-card,.customer-settings-card,.customer-empty-state,.customer-balance-ribbon,.customer-market-hero,.customer-quick-feature,.customer-quick-tile,.customer-metric-grid>div,.customer-live-banner,.customer-top-workspace-menu,.customer-workspace-menu,.customer-resource-empty,[class*="customer-"][class*="-card"],[class*="customer-"][class*="-panel"],[class*="customer-"][class*="-tile"],[class*="customer-"][class*="-hero"],[class*="customer-"][class*="-workspace"]){background:#fff!important;color:#172438!important;border:1px solid #d5deea!important;box-shadow:var(--arb-customer-card-shadow)!important}
+:root[data-arb-theme="clean-light"] .customer-portal :is(.customer-panel h1,.customer-panel h2,.customer-panel h3,.customer-ledger-panel h1,.customer-ledger-panel h2,.customer-ledger-panel h3,.customer-investment-card strong,.customer-package-card strong,.customer-opportunity strong,.rich-opportunity strong,[class*="customer-"][class*="-title"],[class*="customer-"][class*="-heading"],[class*="customer-"][class*="-value"],.customer-metric-grid strong,.customer-metric-grid b){color:#172438!important}
+:root[data-arb-theme="clean-light"] .customer-portal :is(.customer-panel p,.customer-panel small,.customer-panel label,.customer-ledger-panel p,.customer-ledger-panel small,.customer-investment-card span,.customer-package-card span,.customer-opportunity span,.rich-opportunity span,[class*="customer-"][class*="-description"],[class*="customer-"][class*="-note"],[class*="customer-"][class*="-detail"],[class*="customer-"][class*="-subtitle"],.customer-metric-grid span){color:#5b6b81!important}
+:root[data-arb-theme="clean-light"] .customer-portal :is(input,select,textarea,[role="combobox"]){background:#fff!important;color:#172438!important;border:1px solid #c6d2e2!important;box-shadow:inset 0 1px 2px rgba(28,45,70,.04)!important}
+:root[data-arb-theme="clean-light"] .customer-portal :is(input,select,textarea)::placeholder{color:#687a91!important;opacity:1!important}
+:root[data-arb-theme="clean-light"] .customer-portal :is(.portal-action.primary,.customer-primary-action,.customer-quick-actions button.primary,.customer-balance-actions button.primary,.customer-quick-tile .primary,.customer-workspace-categories button.active,.customer-primary-rail nav button.active,.customer-primary-rail .customer-rail-group button.active){background:#176bdb!important;border-color:#145fc4!important;color:#fff!important}
+:root[data-arb-theme="clean-light"] .customer-portal :is(.customer-primary-rail,.customer-rail-group,.portal-rail,.customer-slide-menu){background:#fff!important;color:#172438!important;border-color:#d5deea!important}
+:root[data-arb-theme="clean-light"] .customer-portal :is(.customer-primary-rail nav button,.customer-rail-group button,.customer-rail-logout,.customer-top-workspace-menu button,.customer-workspace-menu button,.customer-header-profile,.customer-header-bell,.customer-quick-actions button){color:#35465d!important;border-color:#e0e7f0!important}
+:root[data-arb-theme="clean-light"] .customer-portal :is(.customer-primary-rail nav button:hover,.customer-rail-group button:hover,.customer-rail-logout:hover,.customer-top-workspace-menu button:hover,.customer-workspace-menu button:hover,.customer-quick-actions button:hover){background:#edf3fb!important;color:#174f9c!important}
+:root[data-arb-theme="clean-light"] .customer-portal .portal-header{background:rgba(255,255,255,.97)!important;color:#172438!important;border-bottom:1px solid #d5deea!important;box-shadow:0 5px 18px rgba(28,45,70,.07)!important}
+:root[data-arb-theme="clean-light"] .customer-portal :is(table,thead,tbody,tr,th,td){border-color:#dbe3ee!important}
+:root[data-arb-theme="clean-light"] .customer-portal tbody tr:nth-child(even){background:#f7f9fc!important}
+:root[data-arb-theme="clean-light"] .customer-portal :is(th,td){color:#35465d!important}
+:root[data-arb-theme="gold-luxe"] .customer-portal{background:radial-gradient(ellipse at 88% 0%,rgba(231,189,82,.12),transparent 38%),#17120a!important;color:#fff8e7!important}
+:root[data-arb-theme="gold-luxe"] .customer-portal :is(.customer-panel,.customer-ledger-panel,.customer-investment-card,.customer-package-card,.customer-opportunity,.rich-opportunity,.customer-table-wrap,.customer-table-card,.customer-activity-panel,.customer-form-card,.customer-settings-card,[class*="customer-"][class*="-card"],[class*="customer-"][class*="-panel"],[class*="customer-"][class*="-tile"],[class*="customer-"][class*="-hero"]){background:linear-gradient(145deg,#302411,#211a0d)!important;color:#fff8e7!important;border-color:rgba(231,189,82,.3)!important;box-shadow:0 10px 28px rgba(0,0,0,.2),inset 0 1px rgba(255,248,231,.035)!important}
+:root[data-arb-theme="gold-luxe"] .customer-portal :is(.customer-panel h1,.customer-panel h2,.customer-panel h3,[class*="customer-"][class*="-title"],[class*="customer-"][class*="-heading"],[class*="customer-"][class*="-value"],.customer-metric-grid strong,.customer-metric-grid b){color:#fff8e7!important}
+:root[data-arb-theme="gold-luxe"] .customer-portal :is(.customer-panel p,.customer-panel small,[class*="customer-"][class*="-note"],[class*="customer-"][class*="-detail"],[class*="customer-"][class*="-subtitle"]){color:#c0ad7c!important}
+:root[data-arb-theme="gold-luxe"] .customer-portal :is(input,select,textarea,[role="combobox"]){background:#302411!important;color:#fff8e7!important;border-color:#6d5524!important}
+:root[data-arb-theme="gold-luxe"] .customer-portal .portal-header,:root[data-arb-theme="gold-luxe"] .customer-portal :is(.customer-primary-rail,.portal-rail,.customer-slide-menu){background:#211a0d!important;color:#fff8e7!important;border-color:#6d5524!important}
+:root[data-arb-theme="gold-luxe"] .customer-portal :is(.portal-action.primary,.customer-primary-action,.customer-primary-rail nav button.active,.customer-rail-group button.active,.customer-quick-actions button.primary){background:#e7bd52!important;color:#211a0d!important;border-color:#f4d98b!important}
+:root[data-arb-theme] .customer-portal{min-width:0;overflow-x:clip}
+:root[data-arb-theme] .customer-portal :is(.portal-page,.portal-main,.portal-content,.customer-panel,.customer-ledger-panel,.customer-investment-card,.customer-package-card){min-width:0;max-width:100%;overflow-wrap:anywhere}
+:root[data-arb-theme] .customer-portal :is(table,.customer-table-wrap){max-width:100%}
+:root[data-arb-theme] .customer-portal .customer-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+:root[data-arb-theme] .customer-portal :is(button,a,[role="button"]){touch-action:manipulation}
+:root[data-arb-theme] .customer-portal :is(.customer-metric-grid,.customer-quick-actions,.customer-kpi-grid,.customer-card-grid){min-width:0;gap:clamp(10px,1.4vw,18px)!important}
+@media(max-width:900px){:root[data-arb-theme] .customer-portal .portal-page{padding:18px 16px 30px!important}:root[data-arb-theme] .customer-portal .portal-header{padding-inline:14px!important;gap:10px!important}:root[data-arb-theme] .customer-portal .portal-session{min-width:0;gap:7px!important}:root[data-arb-theme] .customer-portal .customer-primary-rail{z-index:80!important}:root[data-arb-theme] .customer-portal :is(.customer-metric-grid,.customer-kpi-grid,.customer-card-grid){grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:600px){:root[data-arb-theme] .customer-portal .portal-header{height:auto!important;min-height:60px;padding:8px 10px!important}:root[data-arb-theme] .customer-portal .portal-header-context{display:none!important}:root[data-arb-theme] .customer-portal .portal-session{gap:5px!important}:root[data-arb-theme] .customer-portal .portal-session button{padding:6px 8px!important}:root[data-arb-theme] .customer-portal .portal-page{padding:14px 10px 24px!important}:root[data-arb-theme] .customer-portal :is(.customer-metric-grid,.customer-kpi-grid,.customer-card-grid,.customer-quick-actions){grid-template-columns:minmax(0,1fr)!important}:root[data-arb-theme] .customer-portal :is(.customer-panel,.customer-ledger-panel,.customer-investment-card,.customer-package-card){border-radius:12px!important;padding:14px!important}:root[data-arb-theme] .customer-portal .arb-theme-selector-compact .arb-theme-selector-trigger-label{display:none!important}}
+@media(max-width:380px){:root[data-arb-theme] .customer-portal .portal-header .brand-lockup strong{font-size:14px!important}:root[data-arb-theme] .customer-portal .portal-session{max-width:calc(100vw - 125px)}:root[data-arb-theme] .customer-portal .portal-session button{padding:5px 6px!important}:root[data-arb-theme] .customer-portal .portal-page{padding-inline:8px!important}}

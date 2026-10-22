@@ -32,6 +32,7 @@
 .admin-ops-note strong{color:#d7eee9}
 .admin-ops-table-wrap{width:100%;overflow:auto;border:1px solid rgba(132,164,177,.11);border-radius:12px}
 .admin-ops-table{width:100%;border-collapse:collapse;text-align:left;font-size:10px}
+.admin-ops-table-wrap > .admin-ops-table{min-width:640px}
 .admin-ops-table th{padding:11px 12px;border-bottom:1px solid rgba(132,164,177,.15);color:#77919d;background:rgba(255,255,255,.018);font-size:9px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
 .admin-ops-table td{padding:11px 12px;border-bottom:1px solid rgba(132,164,177,.085);color:#b8c9cd;vertical-align:middle;white-space:nowrap}
 .admin-ops-table tbody tr:last-child td{border-bottom:0}
@@ -80,3 +81,417 @@
 .am-engine-error{margin:0 0 12px;padding:10px 12px;border:1px solid rgba(245,126,126,.24);border-radius:10px;color:#ffaaa6;background:rgba(120,37,43,.12);font-size:10px}
 @media(max-width:860px){.am-engine-preview-grid{grid-template-columns:minmax(0,1fr)}.am-engine-visual{min-height:270px}}
 @media(max-width:520px){.am-personal-engine .am-panel-heading{flex-direction:column}.am-engine-visual{min-height:230px;aspect-ratio:1.2}.am-engine-readout{padding:13px}}
+
+
+/* Stage 2: make the administrator operations workspace follow the published theme. */
+:root[data-arb-theme] .admin-ops-page {
+  color: var(--arb-color-text);
+  background: var(--arb-color-canvas);
+}
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-metric, .admin-ops-panel, .admin-ops-export-card,
+  .am-engine-readout, .am-engine-visual
+) {
+  border-color: var(--arb-color-border);
+  background: var(--arb-color-surface);
+  color: var(--arb-color-text);
+}
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-panel-head h2, .admin-ops-metric strong,
+  .admin-ops-table td:first-child strong, .admin-ops-export-card strong,
+  .am-engine-readout > strong
+) {
+  color: var(--arb-color-text);
+}
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-metric-label, .admin-ops-metric small, .admin-ops-subtle,
+  .admin-ops-table td, .admin-ops-table th, .admin-ops-export-card p,
+  .admin-ops-export-card small, .am-engine-power-label, .am-engine-readout dt
+) {
+  color: var(--arb-color-text-soft);
+}
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-table-wrap, .admin-ops-table th, .admin-ops-table td,
+  .admin-ops-panel, .admin-ops-metric, .admin-ops-export-card
+) {
+  border-color: var(--arb-color-border);
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-button, button:focus-visible) {
+  outline-color: var(--arb-focus-ring);
+}
+:root[data-arb-theme="clean-light"] .admin-ops-page :where(
+  .admin-ops-metric, .admin-ops-panel, .admin-ops-export-card,
+  .am-engine-readout, .am-engine-visual
+) {
+  box-shadow: 0 4px 16px rgba(20, 42, 72, .07);
+}
+
+
+/* Stage 2 refinement: theme semantic accents for operations status and data visuals. */
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-metric-icon, .admin-ops-bar-column i,
+  .admin-ops-export-icon, .am-engine-readout > strong small
+) {
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-bar-column i {
+  border-color: var(--arb-color-accent);
+  background: var(--arb-color-accent);
+  box-shadow: none;
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-status.good, .amount-positive) {
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-status.watch) {
+  color: var(--arb-color-warning);
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-status.high, .amount-negative) {
+  color: var(--arb-color-danger);
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-note, .admin-ops-export-icon) {
+  border-color: var(--arb-color-border);
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-note > svg, .admin-ops-export-icon) {
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-table tbody tr:hover td) {
+  background: color-mix(in srgb, var(--arb-color-accent) 5%, var(--arb-color-surface));
+}
+
+
+/* Stage 2 responsive and keyboard-accessibility pass for operations workspace. */
+.admin-ops-page,
+.admin-ops-page * {
+  min-width: 0;
+}
+.admin-ops-page .admin-ops-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.admin-ops-page .admin-ops-table {
+  min-width: 620px;
+}
+.admin-ops-page :where(a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+.admin-ops-page .admin-ops-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.admin-ops-page :where(.admin-ops-button, .admin-ops-export-card) {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .admin-ops-page .admin-ops-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .admin-ops-page .admin-ops-actions {
+    width: 100%;
+  }
+  .admin-ops-page .admin-ops-actions > * {
+    max-width: 100%;
+  }
+  .admin-ops-page .admin-ops-metrics,
+  .admin-ops-page .admin-ops-export-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-ops-page .admin-ops-panel {
+    padding-inline: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-ops-page *,
+  .admin-ops-page *::before,
+  .admin-ops-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* Stage 2: ensure operations data tables remain readable in every published theme. */
+:root[data-arb-theme] .admin-ops-page .admin-ops-table {
+  border-color: var(--arb-color-border);
+  color: var(--arb-color-text);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table :where(th, td) {
+  border-color: var(--arb-color-border);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table thead th {
+  background: var(--arb-color-surface);
+  color: var(--arb-color-text-soft);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--arb-color-text) 2%, var(--arb-color-surface));
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--arb-color-accent) 7%, var(--arb-color-surface));
+}
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-panel, .admin-ops-metric, .admin-ops-export-card
+) {
+  border-color: var(--arb-color-border);
+}
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-panel, .admin-ops-metric, .admin-ops-export-card
+) :where(h2, h3, strong, label) {
+  color: var(--arb-color-text);
+}
+
+/* Stage 2: complete theme-token coverage for operations controls and data states. */
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-kicker, .admin-ops-metric-icon) {
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-button {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 34%, var(--arb-color-border));
+  color: var(--arb-color-text);
+  background: color-mix(in srgb, var(--arb-color-accent) 9%, var(--arb-color-surface));
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-button:hover:not(:disabled) {
+  border-color: var(--arb-color-accent);
+  background: color-mix(in srgb, var(--arb-color-accent) 15%, var(--arb-color-surface));
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-button:focus-visible,
+:root[data-arb-theme] .admin-ops-page .admin-ops-table :where(a, button, [tabindex]):focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table tbody tr:focus-within td {
+  background: color-mix(in srgb, var(--arb-color-accent) 10%, var(--arb-color-surface));
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-bar-column i {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 48%, var(--arb-color-border));
+  background: linear-gradient(180deg, var(--arb-color-accent), color-mix(in srgb, var(--arb-color-accent) 28%, var(--arb-color-surface)));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--arb-color-accent) 12%, transparent);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table :where(.amount-positive, .amount-negative) {
+  font-variant-numeric: tabular-nums;
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table .amount-positive {
+  color: var(--arb-color-accent);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table .amount-negative,
+:root[data-arb-theme] .admin-ops-page .admin-ops-empty.error {
+  color: var(--arb-color-danger);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-status.good {
+  border-color: color-mix(in srgb, var(--arb-color-accent) 38%, var(--arb-color-border));
+  color: var(--arb-color-accent);
+  background: color-mix(in srgb, var(--arb-color-accent) 8%, var(--arb-color-surface));
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-status.watch {
+  border-color: color-mix(in srgb, var(--arb-color-warning) 38%, var(--arb-color-border));
+  color: var(--arb-color-warning);
+  background: color-mix(in srgb, var(--arb-color-warning) 8%, var(--arb-color-surface));
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-status.high {
+  border-color: color-mix(in srgb, var(--arb-color-danger) 38%, var(--arb-color-border));
+  color: var(--arb-color-danger);
+  background: color-mix(in srgb, var(--arb-color-danger) 8%, var(--arb-color-surface));
+}
+
+
+/* Stage 2: consistent keyboard and disabled states across the operations workspace. */
+:root[data-arb-theme] .admin-ops-page .admin-ops-button:focus-visible,
+:root[data-arb-theme] .admin-ops-page .admin-ops-actions :where(a, button, input, select):focus-visible,
+:root[data-arb-theme] .admin-ops-page .admin-ops-export-card :where(a, button):focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-button:disabled,
+:root[data-arb-theme] .admin-ops-page .admin-ops-actions [aria-disabled="true"] {
+  transform: none;
+  border-color: var(--arb-color-border);
+  background: var(--arb-color-surface);
+  color: var(--arb-color-text-muted);
+  box-shadow: none;
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+@media (prefers-contrast: more) {
+  :root[data-arb-theme] .admin-ops-page :where(.admin-ops-button, .admin-ops-status, .admin-ops-metric, .admin-ops-panel) {
+    border-width: 2px;
+  }
+}
+
+
+/* Stage 2: finish semantic text and interactive states for themed operations panels. */
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-heading p, .admin-ops-meta-line, .admin-ops-metric-label,
+  .admin-ops-panel-head p, .admin-ops-empty, .admin-ops-table td
+) {
+  color: var(--arb-color-text-soft);
+}
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-panel-head, .admin-ops-meta-line, .admin-ops-table th, .admin-ops-table td
+) {
+  border-color: var(--arb-color-border);
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table :where(a, button) {
+  color: var(--arb-color-info);
+  text-underline-offset: 3px;
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-table :where(a, button):hover {
+  color: var(--arb-color-accent);
+}
+@media (max-width: 640px) {
+  :root[data-arb-theme] .admin-ops-page .admin-ops-actions .admin-ops-button,
+  :root[data-arb-theme] .admin-ops-page .admin-ops-export-card .admin-ops-button {
+    min-height: 44px;
+  }
+}
+
+/* Stage 2: respect reduced-motion preferences in the standalone operations workspace. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-arb-theme] .admin-ops-page *,
+  :root[data-arb-theme] .admin-ops-page *::before,
+  :root[data-arb-theme] .admin-ops-page *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+  :root[data-arb-theme] .admin-ops-page .admin-ops-button:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* Stage 2: keep keyboard focus visible on data-table actions as well as panel controls. */
+:root[data-arb-theme] .admin-ops-page .admin-ops-table :where(a, button, input, select):focus-visible,
+:root[data-arb-theme] .admin-ops-page :where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--arb-focus-ring);
+  outline-offset: 3px;
+}
+@media (prefers-contrast: more) {
+  :root[data-arb-theme] .admin-ops-page :where(a, button, input, select, textarea, summary):focus-visible {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
+}
+
+/* Stage 2: preserve table and action affordances in system high-contrast themes. */
+@media (forced-colors: active) {
+  :root[data-arb-theme] .admin-ops-page :where(.admin-ops-panel, .admin-ops-metric, .admin-ops-export-card, .admin-ops-status) {
+    border-color: CanvasText;
+  }
+
+  :root[data-arb-theme] .admin-ops-page .admin-ops-table :where(th, td) {
+    border-color: CanvasText;
+  }
+
+  :root[data-arb-theme] .admin-ops-page .admin-ops-button {
+    border: 1px solid ButtonText;
+    background: ButtonFace;
+    color: ButtonText;
+  }
+
+  :root[data-arb-theme] .admin-ops-page .admin-ops-table tbody tr:hover td,
+  :root[data-arb-theme] .admin-ops-page .admin-ops-table tbody tr:focus-within td {
+    outline: 1px solid Highlight;
+  }
+
+  :root[data-arb-theme] .admin-ops-page :where(a, button, input, select, textarea, summary):focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+/* Stage 2: clarify non-editable values and validation feedback in operations forms. */
+:root[data-arb-theme] .admin-ops-page :where(input, select, textarea)[aria-invalid="true"] {
+  border-width: 2px;
+  border-color: var(--arb-color-danger);
+}
+:root[data-arb-theme] .admin-ops-page :where(input, select, textarea):read-only {
+  border-style: dashed;
+  background: var(--arb-color-surface);
+}
+:root[data-arb-theme] .admin-ops-page :where(input, select, textarea):disabled {
+  cursor: not-allowed;
+  color: var(--arb-color-text-muted);
+}
+:root[data-arb-theme] .admin-ops-page :where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--arb-color-accent);
+}
+
+
+/* Stage 2: keep operational forms legible and predictable at narrow widths. */
+:root[data-arb-theme] .admin-ops-page :where(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+:root[data-arb-theme] .admin-ops-page :where(label, .admin-ops-help, .admin-ops-error) {
+  overflow-wrap: anywhere;
+}
+:root[data-arb-theme] .admin-ops-page .admin-ops-error {
+  color: var(--arb-color-danger);
+}
+:root[data-arb-theme] .admin-ops-page :where(input, select, textarea)[aria-invalid="true"]:focus-visible {
+  outline: 2px solid var(--arb-color-danger);
+  outline-offset: 2px;
+}
+:root[data-arb-theme] .admin-ops-page :where(button, input, select, textarea):disabled {
+  cursor: not-allowed;
+}
+@media (max-width: 640px) {
+  :root[data-arb-theme] .admin-ops-page :where(input, select, textarea) {
+    font-size: max(16px, 1em);
+  }
+  :root[data-arb-theme] .admin-ops-page .admin-ops-table {
+    max-width: 100%;
+  }
+}
+@media (forced-colors: active) {
+  :root[data-arb-theme] .admin-ops-page :where(input, select, textarea)[aria-invalid="true"] {
+    border-color: Mark;
+  }
+  :root[data-arb-theme] .admin-ops-page .admin-ops-error {
+    color: Mark;
+    font-weight: 700;
+  }
+}
+
+
+/* Stage 2: prevent long operational identifiers from forcing page-wide overflow. */
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-panel,
+  .admin-ops-metric,
+  .admin-ops-export-card,
+  .admin-ops-status,
+  .admin-ops-table,
+  .admin-ops-table th,
+  .admin-ops-table td
+) {
+  min-width: 0;
+}
+:root[data-arb-theme] .admin-ops-page :where(
+  .admin-ops-metric,
+  .admin-ops-status,
+  .admin-ops-table th,
+  .admin-ops-table td,
+  .admin-ops-export-card
+) {
+  overflow-wrap: anywhere;
+}
+:root[data-arb-theme] .admin-ops-page :where(.admin-ops-button, button) {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 420px) {
+  :root[data-arb-theme] .admin-ops-page :where(.admin-ops-panel, .admin-ops-export-card) {
+    padding-inline: 12px;
+  }
+}
+
+
+/* Keep the operations table's intrinsic width after the theme-token reset so
+   the focusable wrapper can provide real horizontal keyboard scrolling. */
+:root[data-arb-theme] .admin-ops-page .admin-ops-table {
+  min-width: 620px;
+}
