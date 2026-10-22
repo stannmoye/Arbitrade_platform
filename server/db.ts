@@ -900,7 +900,7 @@ export async function startCustomerAuthenticatorRecoveryReplacement(userId: numb
     const remainingHashes = consumeTotpRecoveryCode(recoveryCode, storedHashes);
     if (!remainingHashes) throw new Error("The recovery code is invalid or has already been used. Use a saved unused recovery code.");
     const secret = generateTotpSecret();
-    const pendingExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const pendingExpiresAt = new Date((Math.floor(Date.now() / 1000) + 10 * 60) * 1000);
     await tx.update(customerTotpAuthenticators).set({
       pendingSecretCiphertext: encryptTotpSecret(secret),
       pendingExpiresAt,
@@ -935,7 +935,7 @@ export async function startCustomerAuthenticatorReplacement(userId: number, curr
     if (usedStep === null) throw new Error("The current authenticator code is invalid, expired, or has already been used.");
 
     const secret = generateTotpSecret();
-    const pendingExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const pendingExpiresAt = new Date((Math.floor(Date.now() / 1000) + 10 * 60) * 1000);
     await tx.update(customerTotpAuthenticators).set({
       lastUsedStep: usedStep,
       pendingSecretCiphertext: encryptTotpSecret(secret),
