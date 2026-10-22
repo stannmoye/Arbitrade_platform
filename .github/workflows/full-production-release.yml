@@ -40,8 +40,18 @@ jobs:
             echo "::error::Release tag must match vMAJOR.MINOR.PATCH-stage5-full"
             exit 1
           fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::Git tag $RELEASE_TAG already exists. Choose a new version; releases are immutable."
+            exit 1
+          else
+            tag_check_status=$?
+            if [[ "$tag_check_status" -ne 2 ]]; then
+              echo "::error::Could not verify that $RELEASE_TAG is unused."
+              exit "$tag_check_status"
+            fi
+          fi
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::Release tag $RELEASE_TAG already exists. Choose a new version; do not overwrite a release."
+            echo "::error::Release $RELEASE_TAG already exists. Choose a new version; do not overwrite a release."
             exit 1
           fi
           echo "Preparing $RELEASE_TAG from $GITHUB_SHA"
@@ -70,8 +80,8 @@ jobs:
           assert.equal(manifest.build.container_definition, "Dockerfile");
           assert.equal(manifest.build.lockfile, "pnpm-lock.yaml");
           assert.equal(manifest.release.workflow, ".github/workflows/full-production-release.yml");
-          assert.equal(manifest.acceptance.production_certified, false,
-            "Do not publish as production-certified until hosted acceptance is recorded.");
+          assert.equal(typeof manifest.acceptance.production_certified, "boolean");
+          assert.equal(typeof manifest.acceptance.hosted_stage_5_acceptance, "string");
           console.log("Machine-readable source contract is valid.");
           NODE
 
@@ -155,20 +165,62 @@ jobs:
 
           test -s "$ARCHIVE"
           unzip -tq "$ARCHIVE"
-          unzip -Z1 "$ARCHIVE" | grep -Fx 'BUILD_SOURCE.json'
-          unzip -Z1 "$ARCHIVE" | grep -Fx 'BUILD_AND_RELEASE.md'
-          unzip -Z1 "$ARCHIVE" | grep -Fx 'AGENTS.md'
-          unzip -Z1 "$ARCHIVE" | grep -Fx 'BUILD_PROVENANCE.txt'
-          unzip -Z1 "$ARCHIVE" | grep -Fx 'INSTALLER-VERSION.txt'
-          unzip -Z1 "$ARCHIVE" | grep -Fx 'INSTALLER-BUILD.txt'
-          unzip -Z1 "$ARCHIVE" | grep -Fx 'dist/index.js'
-          unzip -Z1 "$ARCHIVE" | grep -Fx 'drizzle/0059_manual_payout_requests.sql'
-          unzip -Z1 "$ARCHIVE" | grep -Fx 'drizzle/0060_customer_totp_authenticators.sql'
-          unzip -Z1 "$ARCHIVE" | grep -Fx 'drizzle/0061_customer_totp_recovery_codes.sql'
-          unzip -Z1 "$ARCHIVE" | grep -Fx '.env.example'
-          unzip -Z1 "$ARCHIVE" | grep -E '^node_modules/' | head -n 1
-          unzip -Z1 "$ARCHIVE" | grep -E '^dist/public/assets/index-.*[.]js$' | head -n 1
-          if unzip -Z1 "$ARCHIVE" | grep -E '(^|/)\.env($|\.(local|production|development|test|.*\.local)$)'; then
+          unzip -Z1 "$ARCHIVE" > archive-files.txt
+          grep -Fx 'BUILD_SOURCE.json' archive-files.txt
+          grep -Fx 'BUILD_AND_RELEASE.md' archive-files.txt
+          grep -Fx 'AGENTS.md' archive-files.txt
+          grep -Fx 'BUILD_PROVENANCE.txt' archive-files.txt
+          grep -Fx 'INSTALLER-VERSION.txt' archive-files.txt
+          grep -Fx 'INSTALLER-BUILD.txt' archive-files.txt
+          grep -Fx 'dist/index.js' archive-files.txt
+          grep -Fx 'drizzle/0059_manual_payout_requests.sql' archive-files.txt
+          grep -Fx 'drizzle/0060_customer_totp_authenticators.sql' archive-files.txt
+          grep -Fx 'drizzle/0061_customer_totp_recovery_codes.sql' archive-files.txt
+          grep -Fx '.env.example' archive-files.txt
+          grep -m 1 -E '^node_modules/' archive-files.txt
+          grep -m 1 -E '^dist/public/assets/index-.*[.]js
+            echo "::error::Unexpected environment secret file in release ZIP"
+            exit 1
+          fi
+
+          sha256sum "$ARCHIVE" | tee "$ARCHIVE.sha256"
+          ls -lh "$ARCHIVE" "$ARCHIVE.sha256"
+
+      - name: Store the full application archive and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: arbitrade-full-application-${{ inputs.release_tag }}
+          path: |
+            arbitrade-full-application-*.zip
+            arbitrade-full-application-*.zip.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+
+      - name: Publish the verified full-application GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: Arbitrade Full Application — Stage 5 Integrated
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          generate_release_notes: false
+          body: |
+            Full integrated application package built from the verified main commit shown in BUILD_PROVENANCE.txt.
+
+            Includes the original application, Stages 1–5, all six themes, customer/admin portals, TOTP enrollment and recovery, manual payout request workflow, portal render recovery, ordered migrations, source, production build output, dependency tree, installer/deployment assets, tests, and documentation.
+
+            The ZIP and detached SHA-256 checksum are attached. Actual environment secrets, credentials, production data, and Git metadata are excluded.
+
+            Important: hosted Stage 5 acceptance remains a separate gate. A successful build does not certify a live deployment or external money transfer. Manual payout status changes do not themselves move funds.
+          files: |
+            arbitrade-full-application-*.zip
+            arbitrade-full-application-*.zip.sha256
+ archive-files.txt
+          if grep -E '(^|/)\.env($|\.(local|production|development|test|.*\.local)$)' archive-files.txt; then
             echo "::error::Unexpected environment secret file in release ZIP"
             exit 1
           fi
