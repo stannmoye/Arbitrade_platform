@@ -27,7 +27,7 @@ pnpm test
 pnpm dev
 ```
 
-Set `DATABASE_URL`, `SESSION_SECRET`, and `PASSWORD_PEPPER` before using authentication. Do not commit `.env`.
+Set `DATABASE_URL`, `SESSION_SECRET`, and `PASSWORD_PEPPER` before using authentication. Configure `TOTP_ENCRYPTION_KEY` as a stable 32-byte key (64 hex characters or base64) before customer authenticator enrollment; losing or rotating it makes enrolled authenticator secrets unreadable. Do not commit `.env` or encryption keys.
 
 ## Production build
 
