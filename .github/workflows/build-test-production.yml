@@ -45,6 +45,8 @@ jobs:
           NODE
       - name: Install from lockfile
         run: pnpm install --frozen-lockfile
+      - name: Validate canonical release workflow YAML syntax
+        run: pnpm exec prettier .github/workflows/full-production-release.yml --parser yaml > /dev/null
       - name: TypeScript check
         run: pnpm check
       - name: Automated tests

@@ -45,7 +45,7 @@ The workflow creates an archive named like `arbitrade-full-application-v2.0.6-st
 
 Use a new tag matching `vMAJOR.MINOR.PATCH-stage5-full`. The workflow refuses to publish from a branch other than `main` or reuse a tag already attached to a release. The archive is a full deployable application bundle; it does not certify the deployment, live provider execution, or hosted acceptance.
 
-The former `stage4-full-release.yml` workflow is retired because its fixed Stage 4 version and legacy integration-branch target could mislead tools into selecting an obsolete package. Do not use an old Stage 4-only ZIP as the latest source.
+The legacy `stage4-full-release.yml` and `build-production-release-pass4.yml` publishers are intentionally disabled because their fixed stage-specific outputs and non-canonical branch targets could mislead connected tools. Do not use old Stage 4/Pass 4 ZIPs or artifacts as the latest source.
 
 ## Feature and acceptance status
 

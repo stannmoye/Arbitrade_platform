@@ -157,11 +157,14 @@ jobs:
           # complete pnpm dependency tree. Keep relative dependency symlinks intact.
           zip -qry "$ARCHIVE" . \
             -x './.git/*' \
-               './.env' './.env.local' './.env.production' './.env.development' \
-               './.env.test' './.env.*.local' \
+               './.github/*' \
+               './.env' './.env.*' '*/.env' '*/.env.*' \
                './node_modules/.cache/*' \
                './arbitrade-full-application-*.zip' \
                './arbitrade-full-application-*.zip.sha256'
+
+          # Re-add only the documented, secret-free environment template.
+          zip -q "$ARCHIVE" .env.example
 
           test -s "$ARCHIVE"
           unzip -tq "$ARCHIVE"
@@ -179,7 +182,7 @@ jobs:
           grep -Fx '.env.example' archive-files.txt
           grep -m 1 -E '^node_modules/' archive-files.txt
           grep -m 1 -E '^dist/public/assets/index-.*[.]js$' archive-files.txt
-          if grep -E '(^|/)\.env($|\.(local|production|development|test|.*\.local)$)' archive-files.txt; then
+          if grep -E '(^|/)\.env' archive-files.txt | grep -Fxv '.env.example'; then
             echo "::error::Unexpected environment secret file in release ZIP"
             exit 1
           fi
