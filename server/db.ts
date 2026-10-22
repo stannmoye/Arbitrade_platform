@@ -885,7 +885,7 @@ export async function startCustomerAuthenticatorRecoveryReplacement(userId: numb
     }).where(eq(customerTotpAuthenticators.userId, userId));
     return {
       secret,
-      provisioningUri: totpProvisioningUri(secret, user.email || \`customer-\${userId}\`),
+      provisioningUri: totpProvisioningUri(secret, user.email || `customer-${userId}`),
       expiresAt: pendingExpiresAt,
     };
   });
