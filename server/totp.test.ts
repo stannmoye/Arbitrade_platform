@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { decodeBase32, encodeBase32, totpAtStep, verifyTotpCode, totpProvisioningUri } from "./modules/totp";
+import { decodeBase32, encodeBase32, totpAtStep, verifyTotpCode, totpProvisioningUri, encryptTotpSecret, decryptTotpSecret } from "./modules/totp";
 
 const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const routerSource = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
@@ -28,6 +28,31 @@ describe("TOTP primitives", () => {
     expect(uri).toContain("otpauth://totp/");
     expect(uri).toContain("secret=JBSWY3DPEHPK3PXP");
     expect(uri).toContain("issuer=Arbitrade");
+  });
+
+  it("encrypts authenticator secrets and fails closed on invalid keys or modified ciphertext", () => {
+    const previousKey = process.env.TOTP_ENCRYPTION_KEY;
+    try {
+      process.env.TOTP_ENCRYPTION_KEY = "ab".repeat(32);
+      const secret = "TEST-ONLY-AUTHENTICATOR-SECRET";
+      const encrypted = encryptTotpSecret(secret);
+      expect(encrypted).not.toContain(secret);
+      expect(decryptTotpSecret(encrypted)).toBe(secret);
+
+      const parts = encrypted.split(":");
+      const tagText = parts[2];
+      if (!tagText) throw new Error("Expected AES-GCM authentication tag");
+      const tag = Buffer.from(tagText, "base64url");
+      tag.writeUInt8(tag.readUInt8(0) ^ 0xff, 0);
+      parts[2] = tag.toString("base64url");
+      expect(() => decryptTotpSecret(parts.join(":"))).toThrow();
+
+      process.env.TOTP_ENCRYPTION_KEY = "invalid";
+      expect(() => encryptTotpSecret(secret)).toThrow("must be configured as a 32-byte");
+    } finally {
+      if (previousKey === undefined) delete process.env.TOTP_ENCRYPTION_KEY;
+      else process.env.TOTP_ENCRYPTION_KEY = previousKey;
+    }
   });
 });
 
