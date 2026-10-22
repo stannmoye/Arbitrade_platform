@@ -28,7 +28,7 @@ export function encodeBase32(bytes: Buffer): string {
 }
 
 export function decodeBase32(value: string): Buffer {
-  const normalized = value.toUpperCase().replace(/=+$/g, "").replace(/\\s/g, "");
+  const normalized = value.toUpperCase().replace(/=+$/g, "").replace(/\s/g, "");
   let bits = 0;
   let buffer = 0;
   const bytes: number[] = [];
@@ -75,7 +75,7 @@ export function totpAtStep(secret: string, step: number): string {
 
 /** Returns the matched 30-second counter, rejecting counters already consumed. */
 export function verifyTotpCode(secret: string, code: string, nowMs = Date.now(), lastUsedStep = -1): number | null {
-  if (!/^\\d{6}$/.test(code) || !Number.isFinite(nowMs) || !Number.isSafeInteger(lastUsedStep)) return null;
+  if (!/^\d{6}$/.test(code) || !Number.isFinite(nowMs) || !Number.isSafeInteger(lastUsedStep)) return null;
   const currentStep = Math.floor(nowMs / 1000 / STEP_SECONDS);
   for (const step of [currentStep + 1, currentStep, currentStep - 1]) {
     if (step <= lastUsedStep || step < 0) continue;
