@@ -77,6 +77,7 @@ describe("manual payout request lifecycle contract", () => {
     const deleteStart = db.indexOf("export async function deleteAdminCustomer");
     const deleteService = db.slice(deleteStart);
     expect(deleteService).toContain("Resolve or cancel pending payout requests before deleting this customer.");
+    expect(deleteService).toContain("tx.delete(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId,userId))");
     expect(deleteService).toContain('tx.delete(payoutRequests).where(eq(payoutRequests.userId,userId))');
   });
 
