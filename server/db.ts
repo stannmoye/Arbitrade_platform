@@ -818,7 +818,7 @@ export async function startCustomerAuthenticatorEnrollment(userId: number) {
     }
 
     const secret = generateTotpSecret();
-    const pendingExpiresAt = new Date(now + 10 * 60 * 1000);
+    const pendingExpiresAt = new Date((Math.floor(now / 1000) + 10 * 60) * 1000);
     const pendingSecretCiphertext = encryptTotpSecret(secret);
     if (existing) {
       await tx.update(customerTotpAuthenticators).set({ pendingSecretCiphertext, pendingExpiresAt, updatedAt: new Date(now) })
