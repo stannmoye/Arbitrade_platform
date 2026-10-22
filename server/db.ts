@@ -2,8 +2,9 @@ import crypto from "node:crypto";
 import { and, count, desc, eq, gt, gte, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool } from "mysql2/promise";
-import { InsertUser, appSettings, customerBalances, currencyRegistry, customerControls, customerNotifications, customerSessions, customerWalletPreferences, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPopupEvents, balanceLedger, tradePositions, tradeRewardReservations, tradeLifecycleEvents, users, missedOpportunities, v5AuditEvents } from "../drizzle/schema";
+import { InsertUser, appSettings, customerBalances, currencyRegistry, customerControls, customerNotifications, customerSessions, customerWalletPreferences, kycProfiles, payoutRequests, customerTotpAuthenticators, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPopupEvents, balanceLedger, tradePositions, tradeRewardReservations, tradeLifecycleEvents, users, missedOpportunities, v5AuditEvents } from "../drizzle/schema";
 import { ENV } from './_core/env';
+import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
@@ -745,6 +746,716 @@ export async function upsertCurrency(input:{code:string;name:string;symbol:strin
 export async function listBalances(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");const currencies=await listCurrencies();const existing=await db.select().from(customerBalances).where(eq(customerBalances.userId,userId));const byCode=new Map(existing.map(x=>[x.currency,x]));return currencies.map(c=>byCode.get(c.code)||{id:0,userId,currency:c.code,availableMinor:0,lockedMinor:0,promotionalMinor:0,earnedMinor:0,updatedAt:null});}
 export async function getCustomerBalanceSummary(userId:number){const currencies=await listCurrencies();const balances=await listBalances(userId);const byCode=new Map(balances.map(x=>[x.currency,x]));let availableUsd=0,lockedUsd=0,promotionalUsd=0,earnedUsd=0;for(const c of currencies){const b=byCode.get(c.code);const factor=Math.pow(10,c.scale);const rate=Number(c.usdRate)||0;availableUsd+=(Number(b?.availableMinor||0)/factor)*rate;lockedUsd+=(Number(b?.lockedMinor||0)/factor)*rate;promotionalUsd+=(Number(b?.promotionalMinor||0)/factor)*rate;earnedUsd+=(Number(b?.earnedMinor||0)/factor)*rate;}return {balances,currencies,summary:{availableUsd,lockedUsd,promotionalUsd,earnedUsd,totalUsd:availableUsd+lockedUsd}};}
 
+
+const PAYOUT_ASSET_CODES = new Set(["USD", "EUR", "GBP", "BTC", "ETH", "USDT"]);
+
+function parseTotpRecoveryHashes(serialized: string | null | undefined): string[] | null {
+  if (!serialized) return null;
+  try {
+    const parsed: unknown = JSON.parse(serialized);
+    if (!Array.isArray(parsed) || parsed.length > 10) return null;
+    if (!parsed.every((hash) => typeof hash === "string" && /^[a-f0-9]{64}$/i.test(hash))) return null;
+    if (new Set(parsed).size !== parsed.length) return null;
+    return parsed as string[];
+  } catch {
+    return null;
+  }
+}
+
+function createTotpRecoveryCodeSet() {
+  const codes = generateTotpRecoveryCodes();
+  const hashes = codes.map((code) => hashTotpRecoveryCode(code));
+  if (hashes.some((hash) => hash === null)) throw new Error("Could not generate valid authenticator recovery codes.");
+  return { codes, hashes: hashes as string[] };
+}
+
+export async function getCustomerAuthenticatorStatus(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const row = (await db.select({
+    confirmedAt: customerTotpAuthenticators.confirmedAt,
+    pendingExpiresAt: customerTotpAuthenticators.pendingExpiresAt,
+    recoveryCodesHash: customerTotpAuthenticators.recoveryCodesHash,
+  }).from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, userId)).limit(1))[0];
+  const pendingIsActive = Boolean(row?.pendingExpiresAt && new Date(row.pendingExpiresAt).getTime() > Date.now());
+  return {
+    enabled: Boolean(row?.confirmedAt),
+    enrollmentPending: pendingIsActive && !row?.confirmedAt,
+    replacementPending: pendingIsActive && Boolean(row?.confirmedAt),
+    recoveryCodesRemaining: parseTotpRecoveryHashes(row?.recoveryCodesHash)?.length ?? 0,
+  };
+}
+
+export async function startCustomerAuthenticatorEnrollment(userId: number) {
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("A valid customer account is required.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  return db.transaction(async (tx) => {
+    // Serialize enrollment starts for the account before reading or creating its
+    // authenticator row. This also makes repeated requests safe under double-clicks.
+    const user = (await tx.select({ id: users.id, role: users.role, email: users.email })
+      .from(users).where(eq(users.id, userId)).limit(1).for("update"))[0];
+    if (!user || user.role !== "user") throw new Error("Customer account was not found.");
+
+    const existing = (await tx.select().from(customerTotpAuthenticators)
+      .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+    if (existing?.confirmedAt) {
+      throw new Error("An authenticator is already enabled. Contact support for the verified account-recovery process.");
+    }
+
+    const now = Date.now();
+    const existingExpiry = existing?.pendingExpiresAt ? new Date(existing.pendingExpiresAt).getTime() : 0;
+    if (existing?.pendingSecretCiphertext && existingExpiry > now) {
+      // Keep the same credential during the active setup window so concurrent tabs
+      // cannot invalidate one another's QR code or provisioning URI.
+      const secret = decryptTotpSecret(existing.pendingSecretCiphertext);
+      return {
+        secret,
+        provisioningUri: totpProvisioningUri(secret, user.email || `customer-${userId}`),
+        expiresAt: existing.pendingExpiresAt!,
+      };
+    }
+
+    const secret = generateTotpSecret();
+    const pendingExpiresAt = new Date((Math.floor(now / 1000) + 10 * 60) * 1000);
+    const pendingSecretCiphertext = encryptTotpSecret(secret);
+    if (existing) {
+      await tx.update(customerTotpAuthenticators).set({ pendingSecretCiphertext, pendingExpiresAt, updatedAt: new Date(now) })
+        .where(eq(customerTotpAuthenticators.userId, userId));
+    } else {
+      await tx.insert(customerTotpAuthenticators).values({ userId, pendingSecretCiphertext, pendingExpiresAt, lastUsedStep: -1 });
+    }
+    return {
+      secret,
+      provisioningUri: totpProvisioningUri(secret, user.email || `customer-${userId}`),
+      expiresAt: pendingExpiresAt,
+    };
+  });
+}
+
+export async function confirmCustomerAuthenticatorEnrollment(userId: number, code: string) {
+  if (!/^\d{6}$/.test(code)) throw new Error("Enter the six-digit code from your authenticator app.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async (tx) => {
+    const row = (await tx.select().from(customerTotpAuthenticators)
+      .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+    if (!row?.pendingSecretCiphertext || !row.pendingExpiresAt || new Date(row.pendingExpiresAt).getTime() <= Date.now()) {
+      throw new Error("Authenticator setup has expired. Start setup again.");
+    }
+    if (row.confirmedAt) throw new Error("An authenticator is already enabled.");
+    const secret = decryptTotpSecret(row.pendingSecretCiphertext);
+    const step = verifyTotpCode(secret, code, Date.now(), -1);
+    if (step === null) throw new Error("The authenticator code is invalid or expired. Check your device time and try again.");
+    const recovery = createTotpRecoveryCodeSet();
+    await tx.update(customerTotpAuthenticators).set({
+      secretCiphertext: row.pendingSecretCiphertext,
+      pendingSecretCiphertext: null,
+      pendingExpiresAt: null,
+      confirmedAt: new Date(),
+      lastUsedStep: step,
+      recoveryCodesHash: JSON.stringify(recovery.hashes),
+      updatedAt: new Date(),
+    }).where(eq(customerTotpAuthenticators.userId, userId));
+    return { enabled: true, recoveryCodes: recovery.codes };
+  });
+}
+
+export async function generateCustomerAuthenticatorRecoveryCodes(userId: number, currentCode: string) {
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("A valid customer account is required.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async (tx) => {
+    const user = (await tx.select({ id: users.id, role: users.role })
+      .from(users).where(eq(users.id, userId)).limit(1).for("update"))[0];
+    if (!user || user.role !== "user") throw new Error("Customer account was not found.");
+    const row = (await tx.select().from(customerTotpAuthenticators)
+      .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+    if (!row?.confirmedAt || !row.secretCiphertext) throw new Error("Set up and confirm an authenticator before generating recovery codes.");
+    const step = verifyTotpCode(decryptTotpSecret(row.secretCiphertext), currentCode, Date.now(), Number(row.lastUsedStep ?? -1));
+    if (step === null) throw new Error("The current authenticator code is invalid, expired, or has already been used.");
+    const recovery = createTotpRecoveryCodeSet();
+    await tx.update(customerTotpAuthenticators).set({
+      lastUsedStep: step,
+      recoveryCodesHash: JSON.stringify(recovery.hashes),
+      updatedAt: new Date(),
+    }).where(eq(customerTotpAuthenticators.userId, userId));
+    return { recoveryCodes: recovery.codes };
+  });
+}
+
+export async function startCustomerAuthenticatorRecoveryReplacement(userId: number, recoveryCode: string) {
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("A valid customer account is required.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async (tx) => {
+    const user = (await tx.select({ id: users.id, role: users.role, email: users.email })
+      .from(users).where(eq(users.id, userId)).limit(1).for("update"))[0];
+    if (!user || user.role !== "user") throw new Error("Customer account was not found.");
+    const row = (await tx.select().from(customerTotpAuthenticators)
+      .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+    if (!row?.confirmedAt || !row.secretCiphertext) throw new Error("No enabled authenticator is available to recover.");
+    const storedHashes = parseTotpRecoveryHashes(row.recoveryCodesHash);
+    const remainingHashes = consumeTotpRecoveryCode(recoveryCode, storedHashes);
+    if (!remainingHashes) throw new Error("The recovery code is invalid or has already been used. Use a saved unused recovery code.");
+    const secret = generateTotpSecret();
+    const pendingExpiresAt = new Date((Math.floor(Date.now() / 1000) + 10 * 60) * 1000);
+    await tx.update(customerTotpAuthenticators).set({
+      pendingSecretCiphertext: encryptTotpSecret(secret),
+      pendingExpiresAt,
+      recoveryCodesHash: JSON.stringify(remainingHashes),
+      updatedAt: new Date(),
+    }).where(eq(customerTotpAuthenticators.userId, userId));
+    return {
+      secret,
+      provisioningUri: totpProvisioningUri(secret, user.email || `customer-${userId}`),
+      expiresAt: pendingExpiresAt,
+    };
+  });
+}
+
+export async function startCustomerAuthenticatorReplacement(userId: number, currentCode: string) {
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("A valid customer account is required.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  return db.transaction(async (tx) => {
+    const user = (await tx.select({ id: users.id, role: users.role, email: users.email })
+      .from(users).where(eq(users.id, userId)).limit(1).for("update"))[0];
+    if (!user || user.role !== "user") throw new Error("Customer account was not found.");
+    const row = (await tx.select().from(customerTotpAuthenticators)
+      .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+    if (!row?.confirmedAt || !row.secretCiphertext) {
+      throw new Error("Set up and confirm an authenticator before replacing it.");
+    }
+
+    const currentSecret = decryptTotpSecret(row.secretCiphertext);
+    const usedStep = verifyTotpCode(currentSecret, currentCode, Date.now(), Number(row.lastUsedStep ?? -1));
+    if (usedStep === null) throw new Error("The current authenticator code is invalid, expired, or has already been used.");
+
+    const secret = generateTotpSecret();
+    const pendingExpiresAt = new Date((Math.floor(Date.now() / 1000) + 10 * 60) * 1000);
+    await tx.update(customerTotpAuthenticators).set({
+      lastUsedStep: usedStep,
+      pendingSecretCiphertext: encryptTotpSecret(secret),
+      pendingExpiresAt,
+      updatedAt: new Date(),
+    }).where(eq(customerTotpAuthenticators.userId, userId));
+
+    return {
+      secret,
+      provisioningUri: totpProvisioningUri(secret, user.email || `customer-${userId}`),
+      expiresAt: pendingExpiresAt,
+    };
+  });
+}
+
+export async function confirmCustomerAuthenticatorReplacement(userId: number, code: string) {
+  if (!/^\d{6}$/.test(code)) throw new Error("Enter the six-digit code from your new authenticator app.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  return db.transaction(async (tx) => {
+    const row = (await tx.select().from(customerTotpAuthenticators)
+      .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+    if (!row?.confirmedAt || !row.secretCiphertext) {
+      throw new Error("No enabled authenticator is available to replace.");
+    }
+    if (!row.pendingSecretCiphertext || !row.pendingExpiresAt || new Date(row.pendingExpiresAt).getTime() <= Date.now()) {
+      throw new Error("Authenticator replacement has expired. Start replacement again.");
+    }
+
+    const newSecret = decryptTotpSecret(row.pendingSecretCiphertext);
+    // The pending key is a new credential, so its confirmation counter is independent
+    // of counters previously consumed by the old authenticator.
+    const step = verifyTotpCode(newSecret, code, Date.now(), -1);
+    if (step === null) throw new Error("The new authenticator code is invalid or expired. Check your device time and try again.");
+
+    await tx.update(customerTotpAuthenticators).set({
+      secretCiphertext: row.pendingSecretCiphertext,
+      pendingSecretCiphertext: null,
+      pendingExpiresAt: null,
+      confirmedAt: new Date(),
+      lastUsedStep: step,
+      updatedAt: new Date(),
+    }).where(eq(customerTotpAuthenticators.userId, userId));
+    return { enabled: true };
+  });
+}
+
+async function consumePayoutAuthenticatorCode(tx: any, userId: number, code: string | undefined) {
+  const row = (await tx.select().from(customerTotpAuthenticators)
+    .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+  if (!row?.confirmedAt || !row.secretCiphertext) {
+    throw new Error("Set up and confirm an authenticator before requesting a payout.");
+  }
+  if (typeof code !== "string" || !/^\d{6}$/.test(code)) {
+    throw new Error("Enter the current six-digit authenticator code to request a payout.");
+  }
+  const secret = decryptTotpSecret(row.secretCiphertext);
+  const step = verifyTotpCode(secret, code, Date.now(), Number(row.lastUsedStep ?? -1));
+  if (step === null) throw new Error("The authenticator code is invalid, expired, or has already been used.");
+  await tx.update(customerTotpAuthenticators).set({ lastUsedStep: step, updatedAt: new Date() })
+    .where(eq(customerTotpAuthenticators.userId, userId));
+}
+
+type CustomerPayoutInput = {
+  currency: "USD" | "EUR" | "GBP" | "BTC" | "ETH" | "USDT";
+  amountMinor: number;
+  destinationType: "bank_transfer" | "crypto_transfer";
+  destinationDetails: string;
+  idempotencyKey: string;
+  totpCode?: string;
+};
+
+type PayoutResolutionInput = {
+  requestId: number;
+  action: "paid" | "rejected";
+  externalReference?: string;
+  note?: string;
+};
+
+function normalizePayoutDestinationDetails(value: string) {
+  const normalized = String(value ?? "").replace(/\0/g, "").trim();
+  if (normalized.length < 8) throw new Error("Enter the required bank beneficiary details or public wallet address and network.");
+  if (normalized.length > 1000) throw new Error("Payout destination details must be 1,000 characters or fewer.");
+  return normalized;
+}
+
+function payoutIdempotencyKey(userId: number, rawKey: string) {
+  const value = String(rawKey ?? "").trim();
+  if (!/^[A-Za-z0-9._:-]{8,160}$/.test(value)) throw new Error("A valid payout idempotency key is required.");
+  return `payout:${userId}:${crypto.createHash("sha256").update(value).digest("hex")}`;
+}
+
+async function assertPayoutPolicyAllowsRequest(tx: any, userId: number, totpCode?: string) {
+  const policyRow = (await tx.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, "policy.defaults")).limit(1).for("update"))[0];
+  let policy: Record<string, unknown>;
+  try {
+    if (!policyRow) throw new Error("Policy is not configured");
+    const parsed = JSON.parse(String(policyRow.settingValue || "{}"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Invalid policy shape");
+    policy = parsed as Record<string, unknown>;
+  } catch {
+    throw new Error("Payout requests are unavailable until global withdrawal policy is explicitly configured.");
+  }
+  if (policy.withdrawals !== true) throw new Error("Withdrawals are disabled by the global policy.");
+
+  const controls = (await tx.select().from(customerControls)
+    .where(eq(customerControls.userId, userId)).limit(1).for("update"))[0];
+  if (!controls) throw new Error("Customer payout controls are not configured.");
+  if (controls.accountStatus !== "active") throw new Error("Payout requests are unavailable while the account is restricted.");
+  if (controls.withdrawalsEnabled !== true) throw new Error("Withdrawals are not enabled for this customer account.");
+
+  if (policy.twofa === true || controls.twoFactorRequired === true) {
+    // Check enrollment before asking for a code, so accounts without an authenticator
+    // receive the actionable setup reason rather than a misleading missing-code error.
+    await consumePayoutAuthenticatorCode(tx, userId, totpCode);
+  } else {
+    // The customer UI treats an enabled authenticator as a payout step-up even when
+    // two-factor enrollment is optional globally. Keep server enforcement consistent.
+    const authenticator = (await tx.select({ confirmedAt: customerTotpAuthenticators.confirmedAt })
+      .from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+    if (authenticator?.confirmedAt) await consumePayoutAuthenticatorCode(tx, userId, totpCode);
+  }
+
+  const kycRequired = policy.kyc === true || controls.kycRequired === true;
+  if (kycRequired) {
+    if (controls.emailVerified !== true) throw new Error("Verify the account email before requesting a payout.");
+    const profile = (await tx.select({ overallStatus: kycProfiles.overallStatus })
+      .from(kycProfiles).where(eq(kycProfiles.userId, userId)).limit(1).for("update"))[0];
+    if (profile?.overallStatus !== "VERIFIED") {
+      throw new Error("Complete the required identity verification before requesting a payout.");
+    }
+  }
+}
+
+export async function getCustomerPayoutEligibility(userId: number) {
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    return { allowed: false, reason: "A valid customer account is required." };
+  }
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const account = (await db.select({ id: users.id, role: users.role })
+    .from(users).where(eq(users.id, userId)).limit(1))[0];
+  if (!account || account.role !== "user") {
+    return { allowed: false, reason: "Customer account was not found." };
+  }
+
+  const policyRow = (await db.select({ settingValue: appSettings.settingValue })
+    .from(appSettings).where(eq(appSettings.settingKey, "policy.defaults")).limit(1))[0];
+  let policy: Record<string, unknown>;
+  try {
+    if (!policyRow) throw new Error("Policy is not configured");
+    const parsed = JSON.parse(String(policyRow.settingValue || "{}"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Invalid policy shape");
+    policy = parsed as Record<string, unknown>;
+  } catch {
+    return { allowed: false, reason: "Payout requests are unavailable until global withdrawal policy is explicitly configured." };
+  }
+  if (policy.withdrawals !== true) {
+    return { allowed: false, reason: "Withdrawals are disabled by the global policy." };
+  }
+
+  const controls = (await db.select().from(customerControls)
+    .where(eq(customerControls.userId, userId)).limit(1))[0];
+  if (!controls) return { allowed: false, reason: "Customer payout controls are not configured." };
+  if (controls.accountStatus !== "active") {
+    return { allowed: false, reason: "Payout requests are unavailable while the account is restricted." };
+  }
+  if (controls.withdrawalsEnabled !== true) {
+    return { allowed: false, reason: "Withdrawals are not enabled for this customer account." };
+  }
+  if (policy.twofa === true || controls.twoFactorRequired === true) {
+    const authenticator = (await db.select({ confirmedAt: customerTotpAuthenticators.confirmedAt }).from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, userId)).limit(1))[0];
+    if (!authenticator?.confirmedAt) {
+      return { allowed: false, reason: "Set up and confirm an authenticator before requesting a payout." };
+    }
+  }
+
+  const kycRequired = policy.kyc === true || controls.kycRequired === true;
+  if (kycRequired) {
+    if (controls.emailVerified !== true) {
+      return { allowed: false, reason: "Verify the account email before requesting a payout." };
+    }
+    const profile = (await db.select({ overallStatus: kycProfiles.overallStatus })
+      .from(kycProfiles).where(eq(kycProfiles.userId, userId)).limit(1))[0];
+    if (profile?.overallStatus !== "VERIFIED") {
+      return { allowed: false, reason: "Complete the required identity verification before requesting a payout." };
+    }
+  }
+
+  return { allowed: true, reason: null };
+}
+
+async function notifyPayoutRequest(userId: number, title: string, body: string, eventKey: string) {
+  try {
+    await createNotification(userId, title, body, {
+      eventKey,
+      category: "withdrawal",
+      priority: "normal",
+      href: "/customer",
+    });
+  } catch (error) {
+    console.error("[Notifications] Payout state notice failed after commit:", error instanceof Error ? error.name : "UnknownError");
+  }
+}
+
+export async function listCustomerPayoutRequests(userId: number) {
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("A valid customer account is required.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select({
+    id: payoutRequests.id,
+    requestReference: payoutRequests.requestReference,
+    currency: payoutRequests.currency,
+    amountMinor: payoutRequests.amountMinor,
+    destinationType: payoutRequests.destinationType,
+    destinationDetails: payoutRequests.destinationDetails,
+    status: payoutRequests.status,
+    externalReference: payoutRequests.externalReference,
+    resolutionNote: payoutRequests.resolutionNote,
+    resolvedAt: payoutRequests.resolvedAt,
+    createdAt: payoutRequests.createdAt,
+    updatedAt: payoutRequests.updatedAt,
+  }).from(payoutRequests).where(eq(payoutRequests.userId, userId))
+    .orderBy(desc(payoutRequests.createdAt), desc(payoutRequests.id)).limit(50);
+}
+
+export async function listAdminPayoutRequests() {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select({
+    id: payoutRequests.id,
+    userId: payoutRequests.userId,
+    customerName: users.name,
+    customerEmail: users.email,
+    requestReference: payoutRequests.requestReference,
+    currency: payoutRequests.currency,
+    amountMinor: payoutRequests.amountMinor,
+    destinationType: payoutRequests.destinationType,
+    destinationDetails: payoutRequests.destinationDetails,
+    status: payoutRequests.status,
+    externalReference: payoutRequests.externalReference,
+    resolutionNote: payoutRequests.resolutionNote,
+    resolvedBy: payoutRequests.resolvedBy,
+    resolvedAt: payoutRequests.resolvedAt,
+    createdAt: payoutRequests.createdAt,
+    updatedAt: payoutRequests.updatedAt,
+  }).from(payoutRequests).leftJoin(users, eq(users.id, payoutRequests.userId))
+    .orderBy(desc(payoutRequests.createdAt), desc(payoutRequests.id)).limit(100);
+}
+
+export async function createCustomerPayoutRequest(userId: number, input: CustomerPayoutInput) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("A valid customer account is required.");
+  const currencyCode = String(input.currency || "").trim().toUpperCase();
+  if (!PAYOUT_ASSET_CODES.has(currencyCode)) throw new Error("Choose an eligible payout currency. CKI must be swapped before requesting a payout.");
+  if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0) throw new Error("Payout amount must be a positive safe integer in the currency's minor units.");
+  if (input.destinationType !== "bank_transfer" && input.destinationType !== "crypto_transfer") throw new Error("Choose a supported manual payout destination.");
+  const cryptoCurrency = ["BTC", "ETH", "USDT"].includes(currencyCode);
+  const expectedDestinationType = cryptoCurrency ? "crypto_transfer" : "bank_transfer";
+  if (input.destinationType !== expectedDestinationType) {
+    throw new Error(cryptoCurrency
+      ? "BTC, ETH, and USDT payouts require a crypto-wallet destination; no conversion is performed."
+      : "USD, EUR, and GBP payouts require a bank-transfer destination; no conversion is performed.");
+  }
+  const destinationDetails = normalizePayoutDestinationDetails(input.destinationDetails);
+  const persistedKey = payoutIdempotencyKey(userId, input.idempotencyKey);
+  const now = new Date();
+
+  const outcome = await db.transaction(async (tx) => {
+    const user = (await tx.select({ id: users.id, role: users.role })
+      .from(users).where(eq(users.id, userId)).limit(1).for("update"))[0];
+    if (!user || user.role !== "user") throw new Error("Customer account was not found.");
+
+    // Lock the account row first so concurrent requests with the same key serialize.
+    const prior = (await tx.select().from(payoutRequests)
+      .where(eq(payoutRequests.idempotencyKey, persistedKey)).limit(1).for("update"))[0];
+    if (prior) {
+      const matches = Number(prior.userId) === userId
+        && String(prior.currency).toUpperCase() === currencyCode
+        && Number(prior.amountMinor) === input.amountMinor
+        && prior.destinationType === input.destinationType
+        && prior.destinationDetails === destinationDetails;
+      if (!matches) throw new Error("This payout idempotency key was already used for a different request.");
+      return { request: prior, created: false };
+    }
+
+    await assertPayoutPolicyAllowsRequest(tx, userId, input.totpCode);
+    const currency = (await tx.select().from(currencyRegistry)
+      .where(and(eq(currencyRegistry.code, currencyCode), eq(currencyRegistry.enabled, true))).limit(1))[0];
+    if (!currency) throw new Error(`Payout currency ${currencyCode} is not enabled.`);
+    if (!Number.isInteger(Number(currency.scale)) || Number(currency.scale) < 0 || Number(currency.scale) > 8) {
+      throw new Error("Payout currency precision is not configured correctly.");
+    }
+
+    const wallet = (await tx.select().from(customerBalances)
+      .where(and(eq(customerBalances.userId, userId), eq(customerBalances.currency, currencyCode)))
+      .limit(1).for("update"))[0];
+    if (!wallet) throw new Error(`The ${currencyCode} wallet is not configured.`);
+    const available = Number(wallet.availableMinor);
+    const locked = Number(wallet.lockedMinor);
+    const promotional = Number(wallet.promotionalMinor);
+    if (![available, locked, promotional].every((value) => Number.isSafeInteger(value) && value >= 0)) {
+      throw new Error("Wallet balance values are inconsistent; no payout was reserved.");
+    }
+    if (promotional > available) throw new Error("The promotional balance exceeds available funds; contact support before requesting a payout.");
+    if (input.amountMinor > available - promotional) {
+      throw new Error("Payout amount exceeds the available non-promotional balance.");
+    }
+    if (!Number.isSafeInteger(locked + input.amountMinor)) throw new Error("Payout reservation exceeds the supported balance amount.");
+
+    const requestReference = `payout-${crypto.randomUUID()}`;
+    const walletUpdate = await tx.update(customerBalances).set({
+      availableMinor: sql`${customerBalances.availableMinor} - ${input.amountMinor}`,
+      lockedMinor: sql`${customerBalances.lockedMinor} + ${input.amountMinor}`,
+      updatedAt: now,
+    }).where(eq(customerBalances.id, wallet.id));
+    assertExactlyOneAffectedRow(walletUpdate, "Payout wallet reservation");
+
+    await tx.insert(balanceLedger).values({
+      userId,
+      currency: currencyCode,
+      amountMinor: -input.amountMinor,
+      entryType: "payout_reserve",
+      reference: requestReference,
+      withdrawable: false,
+    });
+    await tx.insert(payoutRequests).values({
+      userId,
+      requestReference,
+      idempotencyKey: persistedKey,
+      currency: currencyCode,
+      amountMinor: input.amountMinor,
+      destinationType: input.destinationType,
+      destinationDetails,
+      status: "pending",
+      createdAt: now,
+      updatedAt: now,
+    });
+    const request = (await tx.select().from(payoutRequests)
+      .where(eq(payoutRequests.requestReference, requestReference)).limit(1))[0];
+    if (!request) throw new Error("Payout request could not be confirmed after reservation.");
+    return { request, created: true };
+  });
+
+  if (outcome.created) {
+    await notifyPayoutRequest(
+      userId,
+      "Payout request received",
+      `Your ${currencyCode} payout request ${outcome.request.requestReference} is pending manual review. Funds have been reserved; no transfer has been sent.`,
+      `payout-request:${outcome.request.requestReference}`,
+    );
+  }
+  return outcome.request;
+}
+
+export async function cancelCustomerPayoutRequest(userId: number, requestId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (!Number.isSafeInteger(userId) || userId <= 0 || !Number.isSafeInteger(requestId) || requestId <= 0) {
+    throw new Error("A valid payout request is required.");
+  }
+  const now = new Date();
+  const result = await db.transaction(async (tx) => {
+    const request = (await tx.select().from(payoutRequests)
+      .where(and(eq(payoutRequests.id, requestId), eq(payoutRequests.userId, userId)))
+      .limit(1).for("update"))[0];
+    if (!request) throw new Error("Payout request was not found.");
+    if (request.status !== "pending") throw new Error("Only a pending payout request can be cancelled.");
+
+    const wallet = (await tx.select().from(customerBalances)
+      .where(and(eq(customerBalances.userId, userId), eq(customerBalances.currency, request.currency)))
+      .limit(1).for("update"))[0];
+    if (!wallet) throw new Error("The payout wallet could not be found.");
+    const available = Number(wallet.availableMinor);
+    const locked = Number(wallet.lockedMinor);
+    const amount = Number(request.amountMinor);
+    if (![available, locked, amount].every((value) => Number.isSafeInteger(value) && value >= 0) || amount <= 0 || locked < amount) {
+      throw new Error("The reserved payout funds could not be reconciled; the request was not cancelled.");
+    }
+    if (!Number.isSafeInteger(available + amount)) throw new Error("Releasing this payout would exceed the supported balance amount.");
+
+    const walletUpdate = await tx.update(customerBalances).set({
+      availableMinor: sql`${customerBalances.availableMinor} + ${amount}`,
+      lockedMinor: sql`${customerBalances.lockedMinor} - ${amount}`,
+      updatedAt: now,
+    }).where(eq(customerBalances.id, wallet.id));
+    assertExactlyOneAffectedRow(walletUpdate, "Payout cancellation wallet release");
+
+    await tx.insert(balanceLedger).values({
+      userId,
+      currency: request.currency,
+      amountMinor: amount,
+      entryType: "payout_release",
+      reference: `${request.requestReference}:release`,
+      withdrawable: true,
+    });
+    const stateUpdate = await tx.update(payoutRequests).set({
+      status: "cancelled",
+      resolutionNote: "Cancelled by customer",
+      resolvedBy: userId,
+      resolvedAt: now,
+      updatedAt: now,
+    }).where(and(eq(payoutRequests.id, requestId), eq(payoutRequests.status, "pending")));
+    assertExactlyOneAffectedRow(stateUpdate, "Payout cancellation state transition");
+    return (await tx.select().from(payoutRequests).where(eq(payoutRequests.id, requestId)).limit(1))[0];
+  });
+
+  await notifyPayoutRequest(
+    userId,
+    "Payout request cancelled",
+    `Your payout request ${result.requestReference} was cancelled. Reserved funds have been returned to your available balance.`,
+    `payout:${result.requestReference}:cancelled`,
+  );
+  return result;
+}
+
+export async function resolveCustomerPayoutRequest(adminId: number, input: PayoutResolutionInput) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (!Number.isSafeInteger(adminId) || adminId <= 0 || !Number.isSafeInteger(input.requestId) || input.requestId <= 0) {
+    throw new Error("A valid administrator and payout request are required.");
+  }
+  if (input.action !== "paid" && input.action !== "rejected") throw new Error("Choose whether to mark the request paid or reject it.");
+  const externalReference = String(input.externalReference || "").trim();
+  const note = String(input.note || "").replace(/\0/g, "").trim();
+  if (input.action === "paid" && (externalReference.length < 3 || externalReference.length > 160)) {
+    throw new Error("Enter the external transfer reference before marking a payout paid.");
+  }
+  if (input.action === "rejected" && !note) throw new Error("A rejection reason is required so the customer can understand the decision.");
+  if (note.length > 1000) throw new Error("Payout resolution note must be 1,000 characters or fewer.");
+  const now = new Date();
+
+  const result = await db.transaction(async (tx) => {
+    const request = (await tx.select().from(payoutRequests)
+      .where(eq(payoutRequests.id, input.requestId)).limit(1).for("update"))[0];
+    if (!request) throw new Error("Payout request was not found.");
+    if (request.status !== "pending") throw new Error("Only a pending payout request can be resolved.");
+
+    const wallet = (await tx.select().from(customerBalances)
+      .where(and(eq(customerBalances.userId, request.userId), eq(customerBalances.currency, request.currency)))
+      .limit(1).for("update"))[0];
+    if (!wallet) throw new Error("The payout wallet could not be found.");
+    const available = Number(wallet.availableMinor);
+    const locked = Number(wallet.lockedMinor);
+    const amount = Number(request.amountMinor);
+    if (![available, locked, amount].every((value) => Number.isSafeInteger(value) && value >= 0) || amount <= 0 || locked < amount) {
+      throw new Error("The reserved payout funds could not be reconciled; the request was not resolved.");
+    }
+
+    if (input.action === "paid") {
+      const duplicateReference = (await tx.select({ id: payoutRequests.id }).from(payoutRequests)
+        .where(eq(payoutRequests.externalReference, externalReference)).limit(1))[0];
+      if (duplicateReference && Number(duplicateReference.id) !== Number(request.id)) {
+        throw new Error("This external transfer reference is already assigned to another payout.");
+      }
+      const walletUpdate = await tx.update(customerBalances).set({
+        lockedMinor: sql`${customerBalances.lockedMinor} - ${amount}`,
+        updatedAt: now,
+      }).where(eq(customerBalances.id, wallet.id));
+      assertExactlyOneAffectedRow(walletUpdate, "Payout paid wallet settlement");
+      await tx.insert(balanceLedger).values({
+        userId: request.userId,
+        currency: request.currency,
+        amountMinor: 0,
+        entryType: "payout_paid",
+        reference: `${request.requestReference}:paid`,
+        withdrawable: false,
+      });
+    } else {
+      if (!Number.isSafeInteger(available + amount)) throw new Error("Releasing this payout would exceed the supported balance amount.");
+      const walletUpdate = await tx.update(customerBalances).set({
+        availableMinor: sql`${customerBalances.availableMinor} + ${amount}`,
+        lockedMinor: sql`${customerBalances.lockedMinor} - ${amount}`,
+        updatedAt: now,
+      }).where(eq(customerBalances.id, wallet.id));
+      assertExactlyOneAffectedRow(walletUpdate, "Payout rejection wallet release");
+      await tx.insert(balanceLedger).values({
+        userId: request.userId,
+        currency: request.currency,
+        amountMinor: amount,
+        entryType: "payout_release",
+        reference: `${request.requestReference}:release`,
+        withdrawable: true,
+      });
+    }
+
+    const stateUpdate = await tx.update(payoutRequests).set({
+      status: input.action,
+      externalReference: input.action === "paid" ? externalReference : null,
+      resolutionNote: note || null,
+      resolvedBy: adminId,
+      resolvedAt: now,
+      updatedAt: now,
+    }).where(and(eq(payoutRequests.id, input.requestId), eq(payoutRequests.status, "pending")));
+    assertExactlyOneAffectedRow(stateUpdate, "Payout resolution state transition");
+    return (await tx.select().from(payoutRequests).where(eq(payoutRequests.id, input.requestId)).limit(1))[0];
+  });
+
+  if (input.action === "paid") {
+    await notifyPayoutRequest(
+      result.userId,
+      "Payout marked paid",
+      `Your ${result.currency} payout request ${result.requestReference} was marked paid by an administrator. Reference: ${result.externalReference}. This record reflects a manual confirmation; no transfer was initiated by Arbitrade.`,
+      `payout:${result.requestReference}:paid`,
+    );
+  } else {
+    await notifyPayoutRequest(
+      result.userId,
+      "Payout request rejected",
+      `Your payout request ${result.requestReference} was rejected. The reserved funds have been returned to your available balance. Reason: ${note}`,
+      `payout:${result.requestReference}:rejected`,
+    );
+  }
+  return result;
+}
+
 export async function ensureCustomerControls(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");let row=(await db.select().from(customerControls).where(eq(customerControls.userId,userId)).limit(1))[0];if(!row){await db.insert(customerControls).values({userId,autoTradeEnabled:true,autoTradeAmountMinor:10000,autoTradeMinRewardBps:0,autoTradeDailyLimit:5});row=(await db.select().from(customerControls).where(eq(customerControls.userId,userId)).limit(1))[0];}return row;}
 export async function getCustomerAutoTradeSettings(userId:number){const c=await ensureCustomerControls(userId);const policy=await getAutoTradePolicy();const autoTradeEnabled=c.autoTradeMode==="enabled"||(c.autoTradeMode==="inherit"&&policy.globalEnabled);return {autoTradeEnabled,autoTradeMode:c.autoTradeMode,globalAutoTradeEnabled:policy.globalEnabled,autoTradeAmountMinor:c.autoTradeAmountMinor,autoTradeMinRewardBps:c.autoTradeMinRewardBps,autoTradeDailyLimit:c.autoTradeDailyLimit,tradingEnabled:c.tradingEnabled,opportunitiesEnabled:c.opportunitiesEnabled,accountStatus:c.accountStatus,dailyTradeLimitMinor:c.dailyTradeLimitMinor};}
 export async function updateCustomerAutoTradeSettings(userId:number,input:{autoTradeEnabled?:boolean;autoTradeAmountMinor?:number;autoTradeMinRewardBps?:number;autoTradeDailyLimit?:number}){const db=await getDb();if(!db)throw new Error("Database is not available");await ensureCustomerControls(userId);const values:any={...input};if(input.autoTradeEnabled!==undefined) values.autoTradeMode=input.autoTradeEnabled?"enabled":"disabled";await db.update(customerControls).set(values).where(eq(customerControls.userId,userId));return getCustomerAutoTradeSettings(userId);}
@@ -758,7 +1469,15 @@ export async function listAdminCustomers(){
 export async function createAdminCustomer(input:{name:string;email:string;password:string;packageName:string}){const db=await getDb();if(!db)throw new Error("Database is not available");const email=input.email.trim().toLowerCase();if(!(await listOpportunityPackagePolicies()).some(p=>p.packageName===input.packageName&&p.enabled))throw new Error("Package is not configured or enabled");if(input.password.length<10)throw new Error("Customer password must be at least 10 characters");const existing=(await db.select({id:users.id}).from(users).where(eq(users.email,email)).limit(1))[0];if(existing)throw new Error("A customer with this email already exists");const salt=crypto.randomBytes(16).toString("hex");const digest=crypto.scryptSync(input.password,salt,32).toString("hex");const result=await db.insert(users).values({openId:`local:customer:${crypto.randomUUID()}`,name:input.name.trim(),email,loginMethod:"password",role:"user",passwordHash:`scrypt$${salt}$${digest}`,packageName:input.packageName});const id=Number(result[0].insertId);await db.insert(customerControls).values({userId:id});return {id,email,name:input.name.trim(),packageName:input.packageName};}
 export async function updateAdminCustomer(input:{id:number;name:string;email:string;packageName:string}){const db=await getDb();if(!db)throw new Error("Database is not available");const email=input.email.trim().toLowerCase();if(!(await listOpportunityPackagePolicies()).some(p=>p.packageName===input.packageName&&p.enabled))throw new Error("Package is not configured or enabled");const existing=(await db.select({id:users.id}).from(users).where(eq(users.email,email)).limit(1))[0];if(existing&&existing.id!==input.id)throw new Error("That email is already used by another account");await db.update(users).set({name:input.name.trim(),email,packageName:input.packageName}).where(and(eq(users.id,input.id),eq(users.role,"user")));return {success:true};}
 export async function updateCustomerControls(adminId:number,input:{userId:number;accountStatus?:"active"|"suspended"|"restricted";tradingEnabled?:boolean;opportunitiesEnabled?:boolean;autoTradeEnabled?:boolean;autoTradeMode?:"inherit"|"enabled"|"disabled";autoTradeAmountMinor?:number;autoTradeMinRewardBps?:number;autoTradeDailyLimit?:number;withdrawalsEnabled?:boolean;kycRequired?:boolean;twoFactorRequired?:boolean;emailVerified?:boolean;riskTier?:string;dailyTradeLimitMinor?:number;adminNote?:string}){const db=await getDb();if(!db)throw new Error("Database is not available");const existing=(await db.select().from(customerControls).where(eq(customerControls.userId,input.userId)).limit(1))[0];const values:any={...input};delete values.userId;if(values.autoTradeEnabled!==undefined&&values.autoTradeMode===undefined) values.autoTradeMode=values.autoTradeEnabled?"enabled":"disabled";if(existing)await db.update(customerControls).set({...values,updatedBy:adminId}).where(eq(customerControls.userId,input.userId));else await db.insert(customerControls).values({userId:input.userId,updatedBy:adminId,...values});return {success:true};}
-export async function deleteAdminCustomer(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");await db.transaction(async tx=>{await tx.delete(customerControls).where(eq(customerControls.userId,userId));await tx.delete(customerBalances).where(eq(customerBalances.userId,userId));await tx.delete(balanceLedger).where(eq(balanceLedger.userId,userId));await tx.delete(tradePositions).where(eq(tradePositions.userId,userId));await tx.delete(customerNotifications).where(eq(customerNotifications.userId,userId));await tx.delete(customerSessions).where(eq(customerSessions.userId,userId));await tx.delete(customerWalletPreferences).where(eq(customerWalletPreferences.userId,userId));await tx.delete(customerOpportunityRules).where(eq(customerOpportunityRules.userId,userId));await tx.delete(users).where(and(eq(users.id,userId),eq(users.role,"user")));});return {success:true};}
+export async function deleteAdminCustomer(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");await db.transaction(async tx=>{
+  // Serialize account deletion against payout creation, which locks this same user row.
+  await tx.select({id:users.id}).from(users).where(eq(users.id,userId)).limit(1).for("update");
+  const pendingPayout=(await tx.select({id:payoutRequests.id}).from(payoutRequests).where(and(eq(payoutRequests.userId,userId),eq(payoutRequests.status,"pending"))).limit(1).for("update"))[0];
+  if(pendingPayout)throw new Error("Resolve or cancel pending payout requests before deleting this customer.");
+  await tx.delete(payoutRequests).where(eq(payoutRequests.userId,userId));
+  await tx.delete(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId,userId));
+  await tx.delete(customerControls).where(eq(customerControls.userId,userId));await tx.delete(customerBalances).where(eq(customerBalances.userId,userId));await tx.delete(balanceLedger).where(eq(balanceLedger.userId,userId));await tx.delete(tradePositions).where(eq(tradePositions.userId,userId));await tx.delete(customerNotifications).where(eq(customerNotifications.userId,userId));await tx.delete(customerSessions).where(eq(customerSessions.userId,userId));await tx.delete(customerWalletPreferences).where(eq(customerWalletPreferences.userId,userId));await tx.delete(customerOpportunityRules).where(eq(customerOpportunityRules.userId,userId));await tx.delete(kycProfiles).where(eq(kycProfiles.userId,userId));await tx.delete(users).where(and(eq(users.id,userId),eq(users.role,"user")));
+});return {success:true};}
 export async function adjustCustomerBalance(adminId:number,input:{userId:number;currency:string;amountMinor:number;mode:"credit"|"debit";reason:string}){const db=await getDb();if(!db)throw new Error("Database is not available");if(input.amountMinor<=0)throw new Error("Amount must be positive");const ledgerReference=`admin-${adminId}-${input.userId}-${crypto.randomUUID()}`;const result=await db.transaction(async tx=>{const user=(await tx.select({id:users.id,role:users.role}).from(users).where(input.userId===adminId?eq(users.id,input.userId):and(eq(users.id,input.userId),eq(users.role,"user"))).limit(1))[0];if(!user)throw new Error("Customer account not found");if(user.role==="admin"&&user.id!==adminId)throw new Error("Administrators may adjust only their own wallet");const currency=(await tx.select().from(currencyRegistry).where(and(eq(currencyRegistry.code,input.currency.toUpperCase()),eq(currencyRegistry.enabled,true))).limit(1))[0];if(!currency)throw new Error(`Currency ${input.currency} is not enabled. Add it in Currency registry first.`);const balance=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,input.userId),eq(customerBalances.currency,currency.code))).limit(1))[0];const current=balance?.availableMinor||0;const next=input.mode==="credit"?current+input.amountMinor:current-input.amountMinor;if(next<0)throw new Error("Debit exceeds available wallet balance");if(balance)await tx.update(customerBalances).set({availableMinor:next,promotionalMinor:input.mode==="credit"?balance.promotionalMinor+input.amountMinor:balance.promotionalMinor}).where(eq(customerBalances.id,balance.id));else await tx.insert(customerBalances).values({userId:input.userId,currency:currency.code,availableMinor:input.amountMinor,promotionalMinor:input.mode==="credit"?input.amountMinor:0,earnedMinor:0});await tx.insert(balanceLedger).values({userId:input.userId,currency:currency.code,amountMinor:input.mode==="credit"?input.amountMinor:-input.amountMinor,entryType:`admin_${input.mode}`,reference:ledgerReference,withdrawable:false});return {success:true,newAvailableMinor:next,currency:currency.code,amountMinor:input.amountMinor,ledgerReference,rateUsd:Number(currency.usdRate),rateUpdatedAt:currency.updatedAt,amountUsd:nativeMinorToUsd(input.amountMinor,Number(currency.scale),Number(currency.usdRate))};}); try { await createNotification(input.userId,`Wallet ${input.mode==="credit"?"credited":"debited"}`,`An administrator ${input.mode}ed ${input.amountMinor} native ledger units to your ${input.currency.toUpperCase()} wallet. Reason: ${input.reason}`,{eventKey:`wallet-adjustment:${result.ledgerReference}`,category:input.mode==="credit"?"ledger_credit":"ledger_debit",priority:"normal"}); } catch(error) { console.error("[Notifications] Wallet adjustment notice failed after ledger commit:",error instanceof Error?error.name:"UnknownError"); } try { const { enqueueWalletAdjustmentEmail } = await import("./emailQueue"); await enqueueWalletAdjustmentEmail(input.userId,input.mode,input.amountMinor,input.currency,`admin-ledger:${adminId}:${input.userId}:${Date.now()}`); } catch(error) { console.error("[Email] Wallet alert enqueue failed:",error instanceof Error?error.name:"UnknownError"); } return result; }
 export async function listOpenOffers(){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();return db.select().from(opportunityOffers).where(and(eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt);}
 const TRADE_MATH_METHODS = ["session entropy", "amount elasticity", "route volatility", "liquidity depth", "customer risk curve", "rotation index", "weighted ensemble"] as const;
