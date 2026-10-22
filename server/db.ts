@@ -790,24 +790,48 @@ export async function startCustomerAuthenticatorEnrollment(userId: number) {
   if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("A valid customer account is required.");
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const user = (await db.select({ id: users.id, role: users.role, email: users.email }).from(users).where(eq(users.id, userId)).limit(1))[0];
-  if (!user || user.role !== "user") throw new Error("Customer account was not found.");
-  const existing = (await db.select().from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, userId)).limit(1))[0];
-  if (existing?.confirmedAt) throw new Error("An authenticator is already enabled. Contact support for the verified account-recovery process.");
-  const secret = generateTotpSecret();
-  const pendingExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  const pendingSecretCiphertext = encryptTotpSecret(secret);
-  if (existing) {
-    await db.update(customerTotpAuthenticators).set({ pendingSecretCiphertext, pendingExpiresAt, updatedAt: new Date() })
-      .where(eq(customerTotpAuthenticators.userId, userId));
-  } else {
-    await db.insert(customerTotpAuthenticators).values({ userId, pendingSecretCiphertext, pendingExpiresAt, lastUsedStep: -1 });
-  }
-  return {
-    secret,
-    provisioningUri: totpProvisioningUri(secret, user.email || `customer-${userId}`),
-    expiresAt: pendingExpiresAt,
-  };
+
+  return db.transaction(async (tx) => {
+    // Serialize enrollment starts for the account before reading or creating its
+    // authenticator row. This also makes repeated requests safe under double-clicks.
+    const user = (await tx.select({ id: users.id, role: users.role, email: users.email })
+      .from(users).where(eq(users.id, userId)).limit(1).for("update"))[0];
+    if (!user || user.role !== "user") throw new Error("Customer account was not found.");
+
+    const existing = (await tx.select().from(customerTotpAuthenticators)
+      .where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+    if (existing?.confirmedAt) {
+      throw new Error("An authenticator is already enabled. Contact support for the verified account-recovery process.");
+    }
+
+    const now = Date.now();
+    const existingExpiry = existing?.pendingExpiresAt ? new Date(existing.pendingExpiresAt).getTime() : 0;
+    if (existing?.pendingSecretCiphertext && existingExpiry > now) {
+      // Keep the same credential during the active setup window so concurrent tabs
+      // cannot invalidate one another's QR code or provisioning URI.
+      const secret = decryptTotpSecret(existing.pendingSecretCiphertext);
+      return {
+        secret,
+        provisioningUri: totpProvisioningUri(secret, user.email || `customer-${userId}`),
+        expiresAt: existing.pendingExpiresAt!,
+      };
+    }
+
+    const secret = generateTotpSecret();
+    const pendingExpiresAt = new Date(now + 10 * 60 * 1000);
+    const pendingSecretCiphertext = encryptTotpSecret(secret);
+    if (existing) {
+      await tx.update(customerTotpAuthenticators).set({ pendingSecretCiphertext, pendingExpiresAt, updatedAt: new Date(now) })
+        .where(eq(customerTotpAuthenticators.userId, userId));
+    } else {
+      await tx.insert(customerTotpAuthenticators).values({ userId, pendingSecretCiphertext, pendingExpiresAt, lastUsedStep: -1 });
+    }
+    return {
+      secret,
+      provisioningUri: totpProvisioningUri(secret, user.email || `customer-${userId}`),
+      expiresAt: pendingExpiresAt,
+    };
+  });
 }
 
 export async function confirmCustomerAuthenticatorEnrollment(userId: number, code: string) {
