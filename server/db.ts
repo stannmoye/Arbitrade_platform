@@ -1053,6 +1053,12 @@ async function assertPayoutPolicyAllowsRequest(tx: any, userId: number, totpCode
     // Check enrollment before asking for a code, so accounts without an authenticator
     // receive the actionable setup reason rather than a misleading missing-code error.
     await consumePayoutAuthenticatorCode(tx, userId, totpCode);
+  } else {
+    // The customer UI treats an enabled authenticator as a payout step-up even when
+    // two-factor enrollment is optional globally. Keep server enforcement consistent.
+    const authenticator = (await tx.select({ confirmedAt: customerTotpAuthenticators.confirmedAt })
+      .from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, userId)).limit(1).for("update"))[0];
+    if (authenticator?.confirmedAt) await consumePayoutAuthenticatorCode(tx, userId, totpCode);
   }
 
   const kycRequired = policy.kyc === true || controls.kycRequired === true;

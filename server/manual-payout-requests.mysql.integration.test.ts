@@ -282,6 +282,49 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
     }
   });
 
+  it("enforces payout TOTP when the customer enabled an authenticator even if global 2FA is optional", async () => {
+    const userId = await createAccount();
+    const previousEncryptionKey = process.env.TOTP_ENCRYPTION_KEY;
+    process.env.TOTP_ENCRYPTION_KEY = "b".repeat(64);
+    try {
+      await setPolicy({ kyc: false, withdrawals: true, twofa: false, facial: false });
+      const setup = await startCustomerAuthenticatorEnrollment(userId);
+      await confirmCustomerAuthenticatorEnrollment(
+        userId,
+        totpAtStep(setup.secret, Math.floor(Date.now() / 30_000)),
+      );
+
+      // The customer interface asks for a code once an authenticator is enabled.
+      // The backend must validate and consume it even when global 2FA is optional.
+      await expect(createCustomerPayoutRequest(
+        userId,
+        requestInput(1000, unique("payout-enabled-totp-missing")),
+      )).rejects.toThrow("Enter the current six-digit authenticator code");
+      expect(await balance(userId)).toEqual({ availableMinor: 10000, lockedMinor: 0, promotionalMinor: 2000 });
+      expect(await ledgerCount(userId, "payout_reserve")).toBe(0);
+
+      const code = totpAtStep(setup.secret, Math.floor(Date.now() / 30_000) + 1);
+      const request = await createCustomerPayoutRequest(userId, {
+        ...requestInput(1000, unique("payout-enabled-totp-valid")),
+        totpCode: code,
+      });
+      expect(request.status).toBe("pending");
+      expect(await balance(userId)).toEqual({ availableMinor: 9000, lockedMinor: 1000, promotionalMinor: 2000 });
+
+      await expect(createCustomerPayoutRequest(userId, {
+        ...requestInput(1000, unique("payout-enabled-totp-replay")),
+        totpCode: code,
+      })).rejects.toThrow("invalid, expired, or has already been used");
+      expect(await ledgerCount(userId, "payout_reserve")).toBe(1);
+      await cancelCustomerPayoutRequest(userId, Number(request.id));
+      expect(await balance(userId)).toEqual({ availableMinor: 10000, lockedMinor: 0, promotionalMinor: 2000 });
+    } finally {
+      if (previousEncryptionKey === undefined) delete process.env.TOTP_ENCRYPTION_KEY;
+      else process.env.TOTP_ENCRYPTION_KEY = previousEncryptionKey;
+      await setPolicy({ kyc: false, withdrawals: true, twofa: false, facial: false });
+    }
+  });
+
   it("marks a request paid only with a unique manual reference and releases rejected requests", async () => {
     const userId = await createAccount();
     const paidRequest = await createCustomerPayoutRequest(userId, requestInput(2500, unique("payout-paid")));
