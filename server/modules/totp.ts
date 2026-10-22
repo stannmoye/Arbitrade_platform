@@ -49,6 +49,39 @@ export function generateTotpSecret(): string {
   return encodeBase32(crypto.randomBytes(20));
 }
 
+const RECOVERY_CODE_COUNT = 10;
+
+/** Generate one-time high-entropy recovery codes. Plaintext values are returned only once. */
+export function generateTotpRecoveryCodes(): string[] {
+  return Array.from({ length: RECOVERY_CODE_COUNT }, () => {
+    const raw = crypto.randomBytes(10).toString("hex").toUpperCase();
+    return raw.match(/.{4}/g)!.join("-");
+  });
+}
+
+/** Hash a formatted recovery code for storage. Invalid input returns null. */
+export function hashTotpRecoveryCode(code: string): string | null {
+  const normalized = String(code ?? "").toUpperCase().replace(/[\\s-]/g, "");
+  if (!/^[A-F0-9]{20}$/.test(normalized)) return null;
+  return crypto.createHash("sha256").update(normalized, "utf8").digest("hex");
+}
+
+/** Return the stored hashes with exactly one matching recovery code consumed. */
+export function consumeTotpRecoveryCode(code: string, storedHashes: readonly string[] | null | undefined): string[] | null {
+  const hashedCode = hashTotpRecoveryCode(code);
+  if (!hashedCode || !Array.isArray(storedHashes) || storedHashes.length === 0) return null;
+  const candidate = Buffer.from(hashedCode, "hex");
+  let matchIndex = -1;
+  for (let index = 0; index < storedHashes.length; index++) {
+    const storedHash = storedHashes[index];
+    if (typeof storedHash !== "string" || !/^[a-f0-9]{64}$/i.test(storedHash)) return null;
+    const stored = Buffer.from(storedHash, "hex");
+    if (crypto.timingSafeEqual(candidate, stored)) matchIndex = index;
+  }
+  if (matchIndex < 0) return null;
+  return storedHashes.filter((_, index) => index !== matchIndex);
+}
+
 export function encryptTotpSecret(secret: string): string {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", encryptionKey(), iv);
