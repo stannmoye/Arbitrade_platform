@@ -26,6 +26,23 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+      - name: Validate machine-readable source contract
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFileSync } from "node:fs";
+          const manifest = JSON.parse(readFileSync("BUILD_SOURCE.json", "utf8"));
+          assert.equal(manifest.manifest_version, 2, "Unexpected BUILD_SOURCE.json schema.");
+          assert.equal(manifest.source_of_truth.repository, "stannmoye/Arbitrade_platform");
+          assert.equal(manifest.source_of_truth.branch, "main");
+          assert.equal(manifest.source_of_truth.deployment_ref, "refs/heads/main");
+          assert.equal(manifest.build.container_definition, "Dockerfile");
+          assert.equal(manifest.build.lockfile, "pnpm-lock.yaml");
+          assert.equal(manifest.release.workflow, ".github/workflows/full-production-release.yml");
+          assert.equal(manifest.acceptance.production_certified, false,
+            "Update the acceptance manifest only after hosted sign-off is recorded.");
+          console.log("BUILD_SOURCE.json contract validated.");
+          NODE
       - name: Install from lockfile
         run: pnpm install --frozen-lockfile
       - name: TypeScript check
