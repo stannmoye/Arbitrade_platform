@@ -198,7 +198,16 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
       expect(blocked.allowed).toBe(false);
       expect(blocked.reason).toContain("Set up and confirm an authenticator");
 
-      const setup = await startCustomerAuthenticatorEnrollment(userId);
+      // Two tabs may start setup together. Both responses must describe the same
+      // persisted pending secret, rather than invalidating the first tab's QR code.
+      const [setup, repeatedSetup] = await Promise.all([
+        startCustomerAuthenticatorEnrollment(userId),
+        startCustomerAuthenticatorEnrollment(userId),
+      ]);
+      expect(repeatedSetup.secret).toBe(setup.secret);
+      expect(repeatedSetup.provisioningUri).toBe(setup.provisioningUri);
+      expect(repeatedSetup.expiresAt).toEqual(setup.expiresAt);
+
       const enrollmentStep = Math.floor(Date.now() / 30_000);
       const enrolled = await confirmCustomerAuthenticatorEnrollment(userId, totpAtStep(setup.secret, enrollmentStep));
       expect(enrolled.recoveryCodes).toHaveLength(10);
