@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
+import "../factory-cockpit.css";
 import { MiningCoreCanvas } from "./MiningCoreCanvas";
 import { MiningOperationsFlow } from "./MiningOperationsFlow";
 import { CustomerSlideMenu } from "./CustomerSlideMenu";
@@ -192,7 +193,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     else void document.exitFullscreen?.();
   };
 
-  return <div className="cm-dashboard-frame">
+  return <div className="cm-dashboard-frame arb-page">
     <CustomerSlideMenu section="crypto-mining" onNavigate={goTo} />
     <header className="cm-topbar">
       <a className="cm-brand" href="#mining-dashboard" onClick={e=>e.preventDefault()} aria-label="CoinKi mining dashboard home">

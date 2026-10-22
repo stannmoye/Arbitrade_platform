@@ -46,6 +46,14 @@ function Dialog({
     []
   );
 
+  React.useEffect(() => {
+    return () => {
+      if (endTimerRef.current) {
+        clearTimeout(endTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
     <DialogCompositionContext.Provider value={contextValue}>
       <DialogPrimitive.Root data-slot="dialog" {...props} />

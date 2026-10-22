@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { usePersistFn } from "./usePersistFn";
 
 export interface UseCompositionReturn<
@@ -33,12 +33,21 @@ export function useComposition<
   const timer = useRef<TimerResponse | null>(null);
   const timer2 = useRef<TimerResponse | null>(null);
 
+  // Composition can end immediately before a component unmounts (for example,
+  // when a dialog closes). Do not leave delayed state work behind after unmount.
+  useEffect(() => {
+    return () => {
+      if (timer.current !== null) clearTimeout(timer.current);
+      if (timer2.current !== null) clearTimeout(timer2.current);
+    };
+  }, []);
+
   const onCompositionStart = usePersistFn((e: React.CompositionEvent<T>) => {
-    if (timer.current) {
+    if (timer.current !== null) {
       clearTimeout(timer.current);
       timer.current = null;
     }
-    if (timer2.current) {
+    if (timer2.current !== null) {
       clearTimeout(timer2.current);
       timer2.current = null;
     }
@@ -49,7 +58,9 @@ export function useComposition<
   const onCompositionEnd = usePersistFn((e: React.CompositionEvent<T>) => {
     // 使用两层 setTimeout 来处理 Safari 浏览器中 compositionEnd 先于 onKeyDown 触发的问题
     timer.current = setTimeout(() => {
+      timer.current = null;
       timer2.current = setTimeout(() => {
+        timer2.current = null;
         c.current = false;
       });
     });

@@ -5,6 +5,7 @@ import { access, readFile, stat } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { safeDisplayText } from "./recovery-utils.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 config({ path: resolve(root, ".env"), override: false });
@@ -85,7 +86,7 @@ if (!url) {
   let db;
   try {
     const parsed = new URL(url);
-    if (!["mysql:", "mariadb:"].includes(parsed.protocol)) throw new Error("DATABASE_URL must use mysql:// or mariadb://.");
+    if (!["mysql:", "mariadb:"].includes(parsed.protocol)) throw new Error("Unsupported database protocol.");
     if (parsed.protocol === "mariadb:") parsed.protocol = "mysql:";
     parsed.searchParams.set("timezone", "Z");
     db = await mysql.createConnection(parsed.toString());
@@ -114,9 +115,25 @@ if (!url) {
       report("Mining migration tracking", false, "The mining_schema_migrations table is missing; review the mining migration workflow.");
     }
   } catch (error) {
-    report("Database connection", false, error?.code || error?.message || "Connection failed.");
+    const errorCode = String(error?.code || "unavailable").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+    report(
+      "Database connection",
+      false,
+      `Connection failed (code: ${errorCode || "unavailable"}). Check private DATABASE_URL configuration and database availability; details are not displayed.`,
+    );
   } finally {
-    if (db) await db.end();
+    if (db) {
+      try {
+        await db.end();
+      } catch (error) {
+        const errorCode = String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+        report(
+          "Database connection cleanup",
+          false,
+          "Could not close the database connection cleanly (code: " + (errorCode || "unknown") + "). Database details are not displayed.",
+        );
+      }
+    }
   }
 }
 
@@ -153,7 +170,7 @@ try {
   report(
     "Interrupted installation",
     false,
-    `An incomplete installation marker remains (stage: ${String(progress.stage || "unknown")}, started: ${String(progress.startedAt || "unknown")}). Review private logs, backup/migration state, and recover deliberately before removing the marker.`,
+    `An incomplete installation marker remains (stage: ${safeDisplayText(progress.stage)}, started: ${safeDisplayText(progress.startedAt)}). Review private logs, backup/migration state, and recover deliberately before removing the marker.`,
   );
 } catch (error) {
   if (error?.code === "ENOENT") {
@@ -178,7 +195,8 @@ if (!appUrl) {
 } else {
   try {
     parsedAppUrl = new URL(appUrl);
-    const valid = ["https:", "http:"].includes(parsedAppUrl.protocol) && Boolean(parsedAppUrl.hostname);
+    const valid = ["https:", "http:"].includes(parsedAppUrl.protocol) && Boolean(parsedAppUrl.hostname) &&
+      !parsedAppUrl.username && !parsedAppUrl.password;
     const secure = parsedAppUrl.protocol === "https:";
     report(
       "Public application URL",
@@ -207,8 +225,8 @@ if (!appUrl) {
         ? `GET /api/health returned status=ok in ${elapsedMs} ms.`
         : `Health endpoint returned HTTP ${response.status} in ${elapsedMs} ms; inspect application logs and startup configuration.`,
     );
-  } catch (error) {
-    report("Application health", false, error?.message || "Health endpoint could not be reached. Start/restart the application and rerun.");
+  } catch {
+    report("Application health", false, "Health endpoint could not be reached within the allowed time or rejected the request. Check the configured public URL and application logs; connection details are not displayed.");
   }
 }
 
@@ -231,7 +249,8 @@ if (process.env.MAIL_PROVIDER === "smtp") {
       await transporter.verify();
       report("SMTP connection/authentication", true, "SMTP transport verified. Run pnpm installer:test-smtp --to=you@example.com to send a test message.");
     } catch (error) {
-      report("SMTP connection/authentication", false, "SMTP verification failed (" + String(error?.code || "unknown") + "). Check host, port, TLS, credentials, and outbound SMTP restrictions.");
+      const errorCode = String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+      report("SMTP connection/authentication", false, "SMTP verification failed (code: " + (errorCode || "unknown") + "). Check host, port, TLS, credentials, and outbound SMTP restrictions; raw error details are not displayed.");
     } finally {
       transporter.close();
     }

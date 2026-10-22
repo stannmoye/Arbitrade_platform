@@ -70,7 +70,7 @@ function writeToLogFile(source: LogSource, entries: unknown[]) {
 
 /**
  * Vite plugin to collect browser debug logs
- * - POST /__manus__/logs: Browser sends logs, written directly to files
+ * - POST /__manus__/logs: Browser sends logs, written to files
  * - Files: browserConsole.log, networkRequests.log, sessionReplay.log
  * - Auto-trimmed when exceeding 1MB (keeps newest entries)
  */
@@ -168,7 +168,52 @@ function vitePluginPublicPlatformConfig(): Plugin {
   };
 }
 
-const plugins = [vitePluginPublicPlatformConfig(), react(), tailwindcss(), jsxLocPlugin(), vitePluginManusDebugCollector()];
+const STAGE4_NOTIFICATION_SOUND_FILES = [
+  "notification-bright-bell.wav",
+  "notification-double-ping.wav",
+  "notification-soft-chime.wav",
+  "notification-urgent-pulse.wav",
+  "notification-warm-tone.wav",
+] as const;
+
+// Stage 4 sound assets live in the repository-level public/sounds directory,
+// while Vite's regular publicDir is client/public. Serve them in dev and emit
+// them into the production bundle explicitly so /sounds/*.wav never falls back
+// to the SPA index.html with a misleading 200 response.
+function vitePluginNotificationSoundAssets(): Plugin {
+  const soundDirectory = path.resolve(PROJECT_ROOT, "public", "sounds");
+  return {
+    name: "arbitrade-notification-sound-assets",
+    configureServer(server) {
+      server.middlewares.use("/sounds", (req, res, next) => {
+        const requestPath = (req.url || "/").split("?")[0];
+        const filename = requestPath.startsWith("/") ? requestPath.slice(1) : requestPath;
+        if (!STAGE4_NOTIFICATION_SOUND_FILES.includes(filename as (typeof STAGE4_NOTIFICATION_SOUND_FILES)[number])) return next();
+        if (req.method !== "GET" && req.method !== "HEAD") return next();
+        try {
+          const bytes = fs.readFileSync(path.join(soundDirectory, filename));
+          res.statusCode = 200;
+          res.setHeader("Content-Type", "audio/wav");
+          res.setHeader("Content-Length", String(bytes.length));
+          res.setHeader("Cache-Control", "public, max-age=86400");
+          if (req.method === "HEAD") return res.end();
+          return res.end(bytes);
+        } catch {
+          return next();
+        }
+      });
+    },
+    generateBundle() {
+      for (const filename of STAGE4_NOTIFICATION_SOUND_FILES) {
+        const sourcePath = path.join(soundDirectory, filename);
+        if (!fs.existsSync(sourcePath)) throw new Error(`Missing Stage 4 notification sound asset: ${filename}`);
+        this.emitFile({ type: "asset", fileName: `sounds/${filename}`, source: fs.readFileSync(sourcePath) });
+      }
+    },
+  };
+}
+
+const plugins = [vitePluginPublicPlatformConfig(), vitePluginNotificationSoundAssets(), react(), tailwindcss(), jsxLocPlugin(), vitePluginManusDebugCollector()];
 
 export default defineConfig({
   plugins,
@@ -185,6 +230,31 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // Keep large optional libraries in separate cacheable files rather than
+        // shipping every vendor dependency in the initial application bundle.
+        manualChunks(id) {
+          if (!id.includes("/node_modules/")) return undefined;
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
+            return "vendor-react";
+          }
+          if (/[\\/]node_modules[\\/](recharts|d3-[^\\/]+|victory-vendor)[\\/]/.test(id)) {
+            return "vendor-charts";
+          }
+          if (/[\\/]node_modules[\\/](framer-motion|motion-[^\\/]+)[\\/]/.test(id)) {
+            return "vendor-motion";
+          }
+          if (/[\\/]node_modules[\\/]lucide-react[\\/]/.test(id)) {
+            return "vendor-icons";
+          }
+          if (/[\\/]node_modules[\\/](@tanstack|@trpc|superjson)[\\/]/.test(id)) {
+            return "vendor-api";
+          }
+          return undefined;
+        },
+      },
+    },
   },
   server: {
     host: true,

@@ -1,0 +1,108 @@
+/* Final theme bridge for legacy portal panels that retained fixed colors after theme switching. */
+:root[data-arb-theme] {
+  --arb-color-success-soft: color-mix(in srgb, var(--arb-color-success, #4bd7a0) 13%, var(--arb-color-surface, #101d2d));
+  --arb-color-danger-soft: color-mix(in srgb, var(--arb-color-danger, #fa8c87) 13%, var(--arb-color-surface, #101d2d));
+  --arb-color-warning-soft: color-mix(in srgb, var(--arb-color-warning, #f5c56b) 13%, var(--arb-color-surface, #101d2d));
+  --arb-border-card: color-mix(in srgb, var(--arb-color-border, #22344a) 82%, transparent);
+  --arb-shadow-elevated: 0 14px 34px color-mix(in srgb, var(--arb-color-canvas, #0b1422) 32%, transparent), inset 0 1px color-mix(in srgb, var(--arb-color-text, #e9f0f7) 4%, transparent);
+}
+:root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page) :is(
+  .customer-top-welcome-band,.customer-top-wallet-band,.customer-market-hero,.customer-investment-hero,
+  .customer-resource-hero,.customer-hero,.page-hero,.portal-choice-hero,.am-hero,.admin-ops-head,
+  .report-hero,.wallet-hero,.wallet-portfolio-card,.customer-workspace-card,.customer-workspace-menu
+) {
+  color:var(--arb-color-text)!important;
+  border-color:color-mix(in srgb,var(--arb-color-accent) 29%,var(--arb-color-border))!important;
+  background-color:var(--arb-color-surface)!important;
+  background-image:linear-gradient(135deg,color-mix(in srgb,var(--arb-color-surface-raised) 70%,var(--arb-color-surface)),var(--arb-color-surface) 76%)!important;
+  box-shadow:var(--arb-shadow-elevated)!important;
+}
+:root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(
+  .customer-metric-grid,.customer-balance-cards,.admin-kpi-grid,.admin-ops-metrics,.am-kpis,.cm-metrics,
+  .cm-balance-grid,.report-grid,.support-inbox-summary,.activity-summary,.customer-quick-actions,
+  .wallet-quick-actions,.system-grid
+)>* {
+  box-sizing:border-box;min-width:0;color:var(--arb-color-text)!important;
+  border-color:var(--arb-border-card)!important;background-color:var(--arb-color-surface)!important;
+  background-image:linear-gradient(145deg,color-mix(in srgb,var(--arb-color-accent) 5%,var(--arb-color-surface-raised)),var(--arb-color-surface) 72%)!important;
+  box-shadow:var(--arb-shadow-elevated)!important;
+}
+:root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(
+  .customer-metric-grid,.customer-balance-cards,.admin-kpi-grid,.admin-ops-metrics,.am-kpis,.cm-metrics,
+  .cm-balance-grid,.report-grid,.support-inbox-summary,.activity-summary,.customer-quick-actions,
+  .wallet-quick-actions,.system-grid
+)>* :is(small,.muted,.description,.metric-label,.kpi-label,.card-label,label) {color:var(--arb-color-text-muted)!important}
+:root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page) :is(
+  .support-summary-card,.support-ticket-list,.support-thread,.support-reply-box,.support-next-step,
+  .support-closed-note,.customer-workspace-featured button,.customer-protected-note,.wallet-assets-panel,
+  .wallet-control-panel,.wallet-insight-panel,.wallet-lock-state,.wallet-signal,.wallet-asset-row,
+  .admin-alert,.admin-note,.admin-ops-note,.customer-total-card,.customer-live-banner,.customer-balance-trigger,
+  .customer-activity-row,.customer-table-row,.asset-row,.yield-strategy-card,.product-card,.support-toolbar,
+  .customer-section-card,.customer-panel,.customer-ledger-panel,.admin-control-card,.admin-table-card,
+  .admin-ops-panel,.am-panel,.settings-card,.connector-card
+) {
+  color:var(--arb-color-text)!important;border-color:var(--arb-border-card)!important;
+  background-color:var(--arb-color-surface)!important;
+  background-image:linear-gradient(145deg,color-mix(in srgb,var(--arb-color-accent) 3%,var(--arb-color-surface-raised)),var(--arb-color-surface) 74%)!important;
+}
+:root[data-arb-theme] :is(.customer-portal,.admin-portal) :is(.portal-rail,.customer-primary-rail,.admin-rail) {
+  color:var(--arb-color-text)!important;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--arb-color-surface-raised) 35%,var(--arb-color-surface)),var(--arb-color-surface))!important;
+  border-color:var(--arb-border-card)!important;
+}
+:root[data-arb-theme] :is(.customer-portal,.admin-portal) :is(
+  .portal-rail button,.customer-primary-rail nav button,.admin-nav-item-wrap button,.customer-workspace-categories button
+) {color:var(--arb-color-text-soft)!important}
+:root[data-arb-theme] :is(.customer-portal,.admin-portal) :is(
+  .portal-rail button:hover,.customer-primary-rail nav button:hover,.admin-nav-item-wrap button:hover,
+  .portal-rail button.active,.customer-primary-rail nav button.active,.admin-nav-item-wrap button.active,
+  .customer-workspace-categories button:hover,.customer-workspace-categories button.active
+) {
+  color:var(--arb-color-text)!important;
+  background:color-mix(in srgb,var(--arb-color-accent) 14%,var(--arb-color-surface))!important;
+  border-color:color-mix(in srgb,var(--arb-color-accent) 42%,var(--arb-color-border))!important;
+}
+:root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(
+  .table-wrap,.table-responsive,.admin-table-wrap,.customer-table-wrap,.table-container,.table-scroll,.data-table-wrap
+) {max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;border-color:var(--arb-border-card)!important}
+:root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(
+  .search-row,.search-bar,.table-toolbar,.filter-row,.filter-bar,.admin-search,.customer-search,.am-search,
+  .quick-actions-search,.filter-search,.portal-search,.command-search,.support-toolbar,.kyc-admin-directory-tools
+) {display:flex;flex-wrap:wrap;gap:10px;min-width:0;max-width:100%;align-items:center}
+:root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page) :is(input:not([type=checkbox]):not([type=radio]),select,textarea) {
+  color:var(--arb-color-text)!important;border-color:var(--arb-color-border)!important;
+  background-color:var(--arb-color-surface-raised)!important;caret-color:var(--arb-color-accent);
+}
+:root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page) :is(input,select,textarea)::placeholder {color:var(--arb-color-text-muted)!important;opacity:1}
+:root[data-arb-theme] :is([role=dialog],[role=alertdialog],[data-radix-dialog-content],[data-radix-popover-content],[data-radix-dropdown-menu-content],[data-radix-select-content]) {
+  color:var(--arb-color-text);border-color:var(--arb-border-card);
+}
+:root[data-arb-theme] .admin-portal .kyc-admin-page :is(
+  .kyc-admin-header,.kyc-admin-panel,.kyc-admin-kpi,.kyc-admin-funnel-card,.kyc-admin-workflow-step,
+  .kyc-admin-provider,.kyc-admin-signal-rail,.kyc-admin-signal-grid article,.kyc-admin-posture-card,
+  .kyc-admin-region-card,.kyc-admin-command-panel,.kyc-admin-table-panel,.kyc-admin-directory-panel,
+  .kyc-admin-review-card,.kyc-admin-settings-panel,.kyc-admin-audit-panel,.kyc-admin-tabs,.kyc-admin-safety-note
+) {
+  color:var(--arb-color-text)!important;border-color:var(--arb-border-card)!important;
+  background:linear-gradient(145deg,color-mix(in srgb,var(--arb-color-accent) 4%,var(--arb-color-surface-raised)),var(--arb-color-surface) 76%)!important;
+}
+:root[data-arb-theme] .admin-portal .kyc-admin-page :is(.kyc-admin-header h1,.kyc-admin-panel-head h2,.kyc-admin-kpi strong,.kyc-admin-provider strong) {color:var(--arb-color-text)!important}
+:root[data-arb-theme] .admin-portal .kyc-admin-page :is(.kyc-admin-header p,.kyc-admin-panel-head p,.kyc-admin-kpi-label,.kyc-admin-kpi small,.kyc-admin-provider small) {color:var(--arb-color-text-muted)!important}
+:root[data-arb-theme] .admin-portal .kyc-admin-page :is(input,select,textarea) {color:var(--arb-color-text)!important;border-color:var(--arb-color-border)!important;background:var(--arb-color-surface-raised)!important}
+:root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page) :is(.positive-text,.text-success,.success-text,.status-success,.status-pill.green,.status-badge.success,[data-status=success],[data-status=settled],[data-status=completed]) {color:var(--arb-color-success)!important}
+:root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page) :is(.negative-text,.text-danger,.danger-text,.status-danger,.status-badge.danger,[data-status=failed],[data-status=rejected]) {color:var(--arb-color-danger)!important}
+:root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page) :is(button,a,input,select,textarea,[role=button]):focus-visible {
+  outline:3px solid color-mix(in srgb,var(--arb-color-accent) 82%,var(--arb-color-text))!important;outline-offset:3px;
+}
+@media(max-width:900px) {
+  :root[data-arb-theme] :is(.admin-portal,.customer-portal) .portal-main {padding-inline:clamp(12px,2.6vw,22px)!important}
+  :root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(.support-toolbar,.table-toolbar,.filter-bar,.search-row,.admin-search,.customer-search) {align-items:stretch}
+}
+@media(max-width:600px) {
+  :root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(.search-row,.search-bar,.table-toolbar,.filter-bar,.admin-search,.customer-search)>* {min-width:0;max-width:100%}
+  :root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(.support-summary-card,.customer-panel,.customer-ledger-panel,.admin-control-card,.admin-table-card,.admin-ops-panel,.settings-card,.report-card,.connector-card) {padding:clamp(12px,3vw,16px)!important}
+  :root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(.customer-metric-grid,.customer-balance-cards,.admin-kpi-grid,.admin-ops-metrics,.report-grid,.support-inbox-summary,.activity-summary) {min-width:0;gap:10px!important}
+}
+@media(prefers-reduced-motion:reduce) {
+  :root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page) *,:root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page)::before,:root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page)::after {animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}

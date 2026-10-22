@@ -11,6 +11,7 @@ import {
   Layers3,
   Mail,
   PackageCheck,
+  Palette,
   PlugZap,
   ReceiptText,
   Search,
@@ -80,6 +81,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "smtp-transport", target: "smtpCenter", label: "SMTP Transport", detail: "Transport, sender metadata and delivery test", icon: Mail },
     { id: "compose-email", target: "smtpCenter", label: "Compose Email", detail: "Recipients, rich text and attachments", icon: Mail },
     { id: "support-tickets", target: "suiteTickets", label: "Support Tickets", detail: "Canonical customer support queue", icon: TicketCheck },
+    { id: "customer-notifications", target: "notificationCenter", label: "Announcements & Notifications", detail: "Publish customer updates and review operational alerts", icon: Bell },
   ]},
   { id: "platform-configuration", label: "Platform Configuration", detail: "Signup, security and shared preferences", items: [
     { id: "signup-onboarding", target: "signup", label: "Signup & Onboarding", detail: "Signup rules, gates and jurisdiction matrix", icon: Globe2 },
@@ -87,6 +89,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "general-settings", target: "settings", label: "General Settings", detail: "Shared operational settings", icon: Settings2 },
     { id: "sound-notifications", target: "sound", label: "Sound & Notifications", detail: "Notification sound and preference controls", icon: Bell },
     { id: "branding-identity", target: "branding", label: "Branding & Identity", detail: "Brand and identity presentation", icon: Settings2 },
+    { id: "appearance-themes", target: "appearance", label: "Appearance & Themes", detail: "Default theme, previews and customer theme permissions", icon: Palette },
   ]},
   { id: "integrations", label: "Integrations", detail: "Providers and operational readiness", items: [
     { id: "provider-registry", target: "apis", label: "Provider Registry", detail: "API, market, payment and identity adapters", icon: PlugZap },

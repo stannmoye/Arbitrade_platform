@@ -1,0 +1,32 @@
+{
+  "name": "Arbitrade",
+  "manifest_version": 1,
+  "source_of_truth": {
+    "repository": "stannmoye/Arbitrade_platform",
+    "branch": "main",
+    "deployment_ref": "refs/heads/main"
+  },
+  "build": {
+    "node": "22",
+    "package_manager": "pnpm@10.18.0",
+    "install": "pnpm install --frozen-lockfile",
+    "typecheck": "pnpm check",
+    "test": "pnpm test",
+    "production": "pnpm build",
+    "container_definition": "Dockerfile",
+    "health_endpoint": "/api/health"
+  },
+  "runtime": {
+    "port_environment_variable": "PORT",
+    "start_command": "sh -c 'pnpm db:migrate && node dist/index.js'",
+    "database": "MySQL 8 or compatible MariaDB",
+    "secrets_policy": "Set secrets in deployment environment; never commit .env or production credentials."
+  },
+  "feature_scope": {
+    "customer_admin_theme_system": "Included in integrated production source",
+    "stage_4_source_and_tests": "Included from release candidate; CI validation required",
+    "stage_5_acceptance": "Must be verified against the project's Stage 5 acceptance criteria before claiming final production certification"
+  },
+  "release_state": "integration-candidate-pending-ci",
+  "note": "Deploy an immutable passing commit or tagged release, not an unpinned branch snapshot, for production."
+}

@@ -1,7 +1,9 @@
 import mysql from "mysql2/promise";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
 
+async function main() {
 const migrationKey = "0039_mining_database_driven_packages";
 const rawDatabaseUrl = process.env.DATABASE_URL;
 if (!rawDatabaseUrl) throw new Error("DATABASE_URL is required; load the private application environment first.");
@@ -26,7 +28,7 @@ const terms = "This package provides a simulated package-based Mining entitlemen
 
 try {
   const migrationSql = await readFile(resolve("drizzle", "0039_mining_database_driven_packages.sql"), "utf8");
-  await connection.query(migrationSql);
+  await executeCompatibleMigrationSql(connection, migrationSql);
   await connection.beginTransaction();
   try {
     const [markers] = await connection.query("SELECT migrationKey FROM mining_schema_migrations WHERE migrationKey=? FOR UPDATE", [migrationKey]);
@@ -103,7 +105,7 @@ try {
   }
   const rewardMigrationKey = "0040_mining_package_daily_rewards";
   const rewardSchema = await readFile(resolve("drizzle", "0040_mining_package_daily_rewards.sql"), "utf8");
-  await connection.query(rewardSchema);
+  await executeCompatibleMigrationSql(connection, rewardSchema);
   await connection.beginTransaction();
   try {
     const [markers] = await connection.query("SELECT migrationKey FROM mining_schema_migrations WHERE migrationKey=? FOR UPDATE", [rewardMigrationKey]);
@@ -177,7 +179,7 @@ try {
   }
   const purchaseBoostMigrationKey = "0041_mining_purchase_claims_and_boost_cooldown";
   const purchaseBoostSchema = await readFile(resolve("drizzle", "0041_mining_purchase_claims_and_boost_cooldown.sql"), "utf8");
-  await connection.query(purchaseBoostSchema);
+  await executeCompatibleMigrationSql(connection, purchaseBoostSchema);
   const [walletIndexes] = await connection.query("SHOW INDEX FROM customer_balances WHERE Key_name='uq_customer_balance_user_currency'");
   if (!walletIndexes.length) {
     const [duplicates] = await connection.query("SELECT userId,currency FROM customer_balances GROUP BY userId,currency HAVING COUNT(*)>1 LIMIT 1");
@@ -257,7 +259,7 @@ try {
   }
   const purchaseGateMigrationKey = "0042_mining_independent_package_purchases";
   const purchaseGateSchema = await readFile(resolve("drizzle", "0042_mining_independent_package_purchases.sql"), "utf8");
-  await connection.query(purchaseGateSchema);
+  await executeCompatibleMigrationSql(connection, purchaseGateSchema);
   await connection.beginTransaction();
   try {
     const [markers] = await connection.query("SELECT migrationKey FROM mining_schema_migrations WHERE migrationKey=? FOR UPDATE", [purchaseGateMigrationKey]);
@@ -300,7 +302,7 @@ try {
   }
   const engineActivityMigrationKey = "0043_mining_engine_activity";
   const engineActivitySchema = await readFile(resolve("drizzle", "0043_mining_engine_activity.sql"), "utf8");
-  await connection.query(engineActivitySchema);
+  await executeCompatibleMigrationSql(connection, engineActivitySchema);
   await connection.beginTransaction();
   try {
     const [markers] = await connection.query("SELECT migrationKey FROM mining_schema_migrations WHERE migrationKey=? FOR UPDATE", [engineActivityMigrationKey]);
@@ -326,7 +328,7 @@ try {
   }
   const rewardMethodsMigrationKey = "0045_mining_reward_calculation_methods";
   const rewardMethodsSchema = await readFile(resolve("drizzle", "0045_mining_reward_calculation_methods.sql"), "utf8");
-  await connection.query(rewardMethodsSchema);
+  await executeCompatibleMigrationSql(connection, rewardMethodsSchema);
   await connection.beginTransaction();
   try {
     const [markers] = await connection.query("SELECT migrationKey FROM mining_schema_migrations WHERE migrationKey=? FOR UPDATE", [rewardMethodsMigrationKey]);
@@ -354,3 +356,14 @@ try {
 } finally {
   await connection.end();
 }
+}
+
+main().catch((error) => {
+  if (error?.code) {
+    const code = String(error.code).replace(/[^A-Z0-9_]/gi, "").slice(0, 40) || "UNKNOWN";
+    console.error("[mining-migrate] ERROR: Migration stopped (code: " + code + "). Raw database diagnostics are suppressed; inspect the sanitized migration state before recovery.");
+  } else {
+    console.error("[mining-migrate] ERROR: " + String(error?.message || "Mining migration failed.").slice(0, 240));
+  }
+  process.exitCode = 1;
+});

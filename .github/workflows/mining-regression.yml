@@ -1,0 +1,54 @@
+name: Mining regression checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+      - integration/auth-installer-vps-safety
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mining-regression-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  mining-regression:
+    name: Mining unit tests and TypeScript check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Do not enable setup-node's pnpm cache here: setup-node tries to
+      # resolve pnpm before it exists on PATH, causing the workflow to fail.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+          run_install: false
+
+      - name: Verify toolchain
+        run: |
+          node --version
+          pnpm --version
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Mining and transaction-console regression tests
+        run: pnpm test -- server/mining-store.test.ts server/transactionConsole.test.ts
+
+      - name: Run TypeScript check
+        run: pnpm check

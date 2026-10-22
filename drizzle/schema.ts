@@ -78,13 +78,16 @@ export const supportTickets = mysqlTable("support_tickets", {
   id: int("id").autoincrement().primaryKey(),
   ticketNumber: varchar("ticketNumber", { length: 32 }).notNull().unique(),
   customerId: int("customerId").notNull(),
+  assignedAdminId: int("assignedAdminId"),
   subject: varchar("subject", { length: 200 }).notNull(),
   category: varchar("category", { length: 40 }).default("account").notNull(),
   priority: mysqlEnum("priority", ["low", "normal", "high", "urgent"]).default("normal").notNull(),
   status: mysqlEnum("status", ["open", "answered", "resolved", "closed"]).default("open").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+  assignedAdminIndex: index("support_tickets_assigned_admin_idx").on(table.assignedAdminId),
+}));
 
 export const supportMessages = mysqlTable("support_messages", {
   id: int("id").autoincrement().primaryKey(),
@@ -111,9 +114,56 @@ export const customerNotifications = mysqlTable("customer_notifications", {
   userId: int("userId").notNull(),
   title: varchar("title", { length: 200 }).notNull(),
   body: text("body").notNull(),
+  eventKey: varchar("eventKey", { length: 180 }).unique(),
+  category: varchar("category", { length: 40 }).default("account").notNull(),
+  priority: varchar("priority", { length: 20 }).default("normal").notNull(),
+  href: varchar("href", { length: 512 }),
   readAt: timestamp("readAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  userCreatedIdIdx: index("customer_notifications_user_created_id_idx").on(table.userId, table.createdAt, table.id),
+}));
+
+export const notificationCampaigns = mysqlTable("notification_campaigns", {
+  id: int("id").autoincrement().primaryKey(),
+  createdBy: int("createdBy").notNull(),
+  eventKey: varchar("eventKey", { length: 120 }).notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  body: text("body").notNull(),
+  category: varchar("category", { length: 40 }).notNull(),
+  priority: varchar("priority", { length: 20 }).notNull(),
+  href: varchar("href", { length: 512 }),
+  targetUserId: int("targetUserId"),
+  status: mysqlEnum("status", ["draft", "scheduled", "published", "expired", "failed", "withdrawn"]).default("draft").notNull(),
+  scheduledAt: timestamp("scheduledAt"),
+  expiresAt: timestamp("expiresAt"),
+  publishedAt: timestamp("publishedAt"),
+  totalRecipientCount: int("totalRecipientCount").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  creatorEventUnique: uniqueIndex("notification_campaign_creator_event_uq").on(table.createdBy, table.eventKey),
+  statusScheduledIndex: index("notification_campaign_status_scheduled_idx").on(table.status, table.scheduledAt),
+  expiryIndex: index("notification_campaign_expiry_idx").on(table.expiresAt),
+}));
+
+export const notificationCampaignDeliveries = mysqlTable("notification_campaign_deliveries", {
+  id: int("id").autoincrement().primaryKey(),
+  campaignId: int("campaignId").notNull(),
+  userId: int("userId").notNull(),
+  notificationId: int("notificationId"),
+  status: mysqlEnum("status", ["pending", "delivered", "read", "failed", "expired", "withdrawn"]).default("pending").notNull(),
+  errorCode: varchar("errorCode", { length: 80 }),
+  attemptedAt: timestamp("attemptedAt"),
+  deliveredAt: timestamp("deliveredAt"),
+  readAt: timestamp("readAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  campaignRecipientUnique: uniqueIndex("notification_campaign_delivery_recipient_uq").on(table.campaignId, table.userId),
+  campaignStatusIndex: index("notification_campaign_delivery_status_idx").on(table.campaignId, table.status),
+  userStatusIndex: index("notification_campaign_delivery_user_status_idx").on(table.userId, table.status),
+}));
 
 export const opportunityDeliveryEvents = mysqlTable("opportunity_delivery_events", {
   id: int("id").autoincrement().primaryKey(),

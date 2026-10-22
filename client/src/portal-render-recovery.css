@@ -1,0 +1,132 @@
+/*
+ * Portal recovery layer.
+ * These rules make the main customer/admin content surface resilient to
+ * accidental visibility overrides and ensure render exceptions are visible.
+ * Component-specific layout remains owned by the existing portal stylesheets.
+ */
+.customer-portal .portal-main,
+.admin-portal .portal-main {
+  display: block !important;
+  min-width: 0 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: var(--arb-color-text, #e9f0f7) !important;
+  background-color: var(--arb-color-canvas, #0b1422) !important;
+}
+
+.customer-portal .portal-main > *,
+.admin-portal .portal-main > * {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.portal-render-error {
+  box-sizing: border-box;
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  width: min(100% - 32px, 760px);
+  margin: clamp(18px, 4vw, 48px) auto;
+  padding: clamp(20px, 3vw, 32px);
+  border: 1px solid color-mix(in srgb, var(--arb-color-danger, #f87171) 48%, var(--arb-color-border, #334155));
+  border-radius: 18px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--arb-color-surface-raised, #142338) 94%, var(--arb-color-danger, #f87171) 6%),
+    var(--arb-color-surface, #101d2d)
+  );
+  color: var(--arb-color-text, #e9f0f7);
+  box-shadow: 0 18px 46px rgb(0 0 0 / 18%);
+  font-family: var(--arb-font-body, system-ui, sans-serif);
+  line-height: 1.55;
+}
+
+.portal-render-error__icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--arb-color-danger, #f87171) 50%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--arb-color-danger, #f87171) 12%, transparent);
+  color: var(--arb-color-danger, #f87171);
+}
+
+.portal-render-error__eyebrow {
+  margin: 0;
+  color: var(--arb-color-danger, #f87171);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.portal-render-error h2 {
+  margin: 0;
+  color: var(--arb-color-text, #e9f0f7);
+  font-size: clamp(1.2rem, 2.4vw, 1.6rem);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.portal-render-error__description {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--arb-color-text-soft, #b7c4d1);
+  font-size: 0.95rem;
+}
+
+.portal-render-error__details {
+  width: 100%;
+  min-width: 0;
+  color: var(--arb-color-text-soft, #b7c4d1);
+}
+
+.portal-render-error__details summary {
+  width: fit-content;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.portal-render-error__details pre {
+  max-width: 100%;
+  max-height: 220px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--arb-color-border, #334155);
+  border-radius: 10px;
+  background: var(--arb-color-canvas, #0b1422);
+  color: var(--arb-color-text, #e9f0f7);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 0.78rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.portal-render-error__reload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 10px 16px;
+  border: 1px solid var(--arb-color-accent, #7ce7c2);
+  border-radius: 10px;
+  background: var(--arb-color-accent, #7ce7c2);
+  color: var(--arb-color-canvas, #0b1422);
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.portal-render-error__reload:focus-visible {
+  outline: 3px solid var(--arb-focus-ring, #7ce7c2);
+  outline-offset: 3px;
+}
+
+@media (max-width: 480px) {
+  .portal-render-error {
+    width: calc(100% - 20px);
+    margin: 12px auto;
+    border-radius: 14px;
+  }
+}
