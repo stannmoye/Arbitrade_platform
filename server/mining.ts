@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import Decimal from "decimal.js";
 import { createNotification } from "./db";
-import { calculateMiningConversion, calculateMiningDifficultyIndex, calculatePackageDailyRate, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow } from "./mining-rules";
+import { calculateMiningConversion, calculateMiningDifficultyIndex, calculatePackageDailyRate, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, miningIdentifierMatches } from "./mining-rules";
 import {
   Db, MiningError, addUtcMonths, amountString, assertMiningAsset, assetScale, beginMiningIdempotency, createMiningLedgerTransaction,
   createMiningNotification, decimal, ensureMiningCheckpoint, finishMiningIdempotency, inMiningTransaction,
@@ -15,6 +15,54 @@ const ceilAmount = (value: Decimal.Value, scale: number) => new Decimal(value).t
 const floorAmount = (value: Decimal.Value, scale: number) => new Decimal(value).toDecimalPlaces(scale, Decimal.ROUND_DOWN);
 const safeJson = (value: unknown) => JSON.stringify(value, (_key, item) => item instanceof Decimal ? item.toString() : item);
 const MAIN_WALLET_ASSETS = new Set(["USD", "EUR", "GBP", "BTC", "ETH", "USDT"]);
+
+export async function assertMiningPackagePurchaseIdempotencyReplay(
+  conn: Db,
+  userId: number,
+  prior: any,
+  requestedPackageVersionId: number,
+) {
+  let originalPackageVersionId: unknown = prior?.packageVersionId;
+  if (originalPackageVersionId === null || originalPackageVersionId === undefined) {
+    const purchaseId = Number(prior?.purchaseId);
+    if (!Number.isSafeInteger(purchaseId) || purchaseId <= 0) {
+      throw new MiningError("Unable to verify the original Mining package for this idempotency key; start a new operation with a new idempotency key");
+    }
+    const [rows] = await conn.query<any[]>(`SELECT packageVersionId FROM mining_customer_packages WHERE id=? AND userId=? LIMIT 1`, [purchaseId, userId]);
+    originalPackageVersionId = rows[0]?.packageVersionId;
+  }
+  if (originalPackageVersionId === null || originalPackageVersionId === undefined) {
+    throw new MiningError("Unable to verify the original Mining package for this idempotency key; start a new operation with a new idempotency key");
+  }
+  if (!miningIdentifierMatches(originalPackageVersionId, requestedPackageVersionId)) {
+    throw new MiningError("This idempotency key was already used for a different Mining package");
+  }
+}
+
+export async function assertMiningQuoteIdempotencyReplay(
+  conn: Db,
+  userId: number,
+  prior: any,
+  requestedQuoteId: number,
+  operation: "purchase" | "swap",
+) {
+  let originalQuoteId: unknown = prior?.quoteId;
+  if (originalQuoteId === null || originalQuoteId === undefined) {
+    const recordId = Number(operation === "purchase" ? prior?.purchaseId : prior?.conversionId);
+    if (!Number.isSafeInteger(recordId) || recordId <= 0) {
+      throw new MiningError("Unable to verify the original quote for this idempotency key; start a new operation with a new idempotency key");
+    }
+    const table = operation === "purchase" ? "mining_customer_packages" : "v5_conversions";
+    const [rows] = await conn.query<any[]>(`SELECT quoteId FROM ${table} WHERE id=? AND userId=? LIMIT 1`, [recordId, userId]);
+    originalQuoteId = rows[0]?.quoteId;
+  }
+  if (originalQuoteId === null || originalQuoteId === undefined) {
+    throw new MiningError("Unable to verify the original quote for this idempotency key; start a new operation with a new idempotency key");
+  }
+  if (!miningIdentifierMatches(originalQuoteId, requestedQuoteId)) {
+    throw new MiningError("This idempotency key was already used with a different quote");
+  }
+}
 
 function assertMainWalletAsset(value: string) {
   const asset = value.trim().toUpperCase();
@@ -309,7 +357,7 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
   const key = requestKey("mining-purchase", userId, input.idempotencyKey);
   const purchase = await withMiningConnection(async conn => inMiningTransaction(conn, async () => {
     const prior = await beginMiningIdempotency(conn, userId, key, "mining.package.purchase");
-    if (prior) return prior;
+    if (prior) { await assertMiningQuoteIdempotencyReplay(conn, userId, prior, input.quoteId, "purchase"); return prior; }
     const checkpoint = await ensureMiningCheckpoint(conn, userId);
     await requireActiveMiningAccount(conn, userId);
     const config = await loadMiningConfig(conn);
@@ -414,7 +462,7 @@ export async function purchaseCustomerMiningPackage(userId: number, input: { pac
     const [rows] = await conn.query<any[]>(`SELECT command,resultJson FROM v5_idempotency_keys WHERE userId=? AND keyValue=? LIMIT 1`, [userId,key]);
     const row = rows[0];
     if (row && row.command !== "mining.package.purchase") throw new MiningError("This idempotency key was already used for a different Mining action");
-    return row?.resultJson ? JSON.parse(String(row.resultJson)) : null;
+    const result = row?.resultJson ? JSON.parse(String(row.resultJson)) : null; if (result) await assertMiningPackagePurchaseIdempotencyReplay(conn, userId, result, input.packageVersionId); return result;
   });
   const prior = await priorResult();
   if (prior) return prior;
@@ -663,7 +711,7 @@ export async function confirmCustomerMiningSwap(userId: number, input: { quoteId
   const key = requestKey("mining-swap", userId, input.idempotencyKey);
   const result = await withMiningConnection(async conn => inMiningTransaction(conn, async () => {
     const prior = await beginMiningIdempotency(conn, userId, key, "mining.swap.confirm");
-    if (prior) return prior;
+    if (prior) { await assertMiningQuoteIdempotencyReplay(conn, userId, prior, input.quoteId, "swap"); return prior; }
     await ensureMiningCheckpoint(conn, userId);
     await requireActiveMiningAccount(conn, userId);
     const config = await loadMiningConfig(conn);
