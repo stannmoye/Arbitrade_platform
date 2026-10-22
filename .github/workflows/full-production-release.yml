@@ -157,6 +157,7 @@ jobs:
           # complete pnpm dependency tree. Keep relative dependency symlinks intact.
           zip -qry "$ARCHIVE" . \
             -x './.git/*' \
+               './.github/*' \
                './.env' './.env.local' './.env.production' './.env.development' \
                './.env.test' './.env.*.local' \
                './node_modules/.cache/*' \
