@@ -31,7 +31,7 @@
 
 A connected app platform should select this repository, resolve the current `main` SHA, use repository root as its build context, and use the root `Dockerfile`. The lockfile must be installed with `pnpm install --frozen-lockfile`. Verify `pnpm check`, `pnpm test`, and `pnpm build` against the same source SHA.
 
-Do not build from historical stage/integration branches or assume the newest-looking ZIP or old release is the newest source. Use the current full-application release workflow when a self-contained ZIP is required.
+Do not build from historical stage/integration branches or assume the newest-looking ZIP or old release is the newest source. Use the current full-application release workflow when a self-contained ZIP is required. The legacy `stage4-full-release.yml` and `build-production-release-pass4.yml` stage-specific publishers are disabled.
 
 ## Integrated scope and limits
 
