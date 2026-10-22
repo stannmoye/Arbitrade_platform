@@ -54,3 +54,21 @@ describe("navigation drawer grid layout", () => {
     );
   });
 });
+
+describe("mobile drawer compositing recovery", () => {
+  it("avoids transformed drawer layers on touch and narrow viewports", () => {
+    expect(layoutCss).toContain("@media (max-width:900px), (pointer:coarse)");
+    expect(layoutCss).toContain("transform:none!important");
+    expect(layoutCss).toContain("visibility:hidden");
+    expect(layoutCss).toContain(".admin-slide-layer.is-open .admin-slide-drawer");
+    expect(layoutCss).toContain("visibility:visible!important");
+    expect(layoutCss).toContain("opacity:1!important");
+  });
+
+  it("keeps drawer content in an explicit paint layer above the panel background", () => {
+    expect(layoutCss).toContain(".admin-slide-drawer > *");
+    expect(layoutCss).toContain("z-index:1");
+    expect(adminSlideMenu).toContain('aria-hidden={!open}');
+    expect(customerSlideMenu).toContain('aria-hidden={!open}');
+  });
+});
