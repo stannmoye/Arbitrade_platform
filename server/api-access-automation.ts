@@ -37,6 +37,7 @@ type PreferenceInput = {
   inAppEnabled: boolean;
   dailySummaryEnabled: boolean;
   dailyStatementEnabled: boolean;
+  dailyTaxReportEnabled: boolean;
   feeSummaryEnabled: boolean;
   securityAlertsEnabled: boolean;
   timezone: string;
@@ -49,6 +50,7 @@ const DEFAULT_PREFERENCES: PreferenceInput = {
   inAppEnabled: true,
   dailySummaryEnabled: false,
   dailyStatementEnabled: false,
+  dailyTaxReportEnabled: false,
   feeSummaryEnabled: false,
   securityAlertsEnabled: true,
   timezone: "Africa/Lagos",
@@ -75,6 +77,7 @@ function preferenceView(row: typeof customerApiNotificationPreferences.$inferSel
     inAppEnabled: row.inAppEnabled,
     dailySummaryEnabled: row.dailySummaryEnabled,
     dailyStatementEnabled: row.dailyStatementEnabled,
+    dailyTaxReportEnabled: row.dailyTaxReportEnabled,
     feeSummaryEnabled: row.feeSummaryEnabled,
     securityAlertsEnabled: row.securityAlertsEnabled,
     timezone: row.timezone,
@@ -121,6 +124,7 @@ export async function saveCustomerApiNotificationPreferences(userId: number, inp
     inAppEnabled: input.inAppEnabled,
     dailySummaryEnabled: input.dailySummaryEnabled,
     dailyStatementEnabled: input.dailyStatementEnabled,
+    dailyTaxReportEnabled: input.dailyTaxReportEnabled,
     feeSummaryEnabled: input.feeSummaryEnabled,
     securityAlertsEnabled: input.securityAlertsEnabled,
     timezone: input.timezone,
@@ -139,6 +143,7 @@ export async function saveCustomerApiNotificationPreferences(userId: number, inp
       inAppEnabled: values.inAppEnabled,
       dailySummaryEnabled: values.dailySummaryEnabled,
       dailyStatementEnabled: values.dailyStatementEnabled,
+      dailyTaxReportEnabled: values.dailyTaxReportEnabled,
       feeSummaryEnabled: values.feeSummaryEnabled,
       securityAlertsEnabled: values.securityAlertsEnabled,
       timezone: values.timezone,
@@ -404,6 +409,7 @@ export async function enqueueCustomerApiEvent(userId: number, eventKey: ApiAutom
   if (prefs.inAppEnabled) await insertDelivery(userId, eventKey, "in_app", envelope, eventId);
   const specialEnabled = eventKey === "daily.activity" ? prefs.dailySummaryEnabled
     : eventKey === "daily.statement" ? prefs.dailyStatementEnabled
+    : eventKey === "tax.report.ready" ? prefs.dailyTaxReportEnabled
     : eventKey === "fee.summary" ? prefs.feeSummaryEnabled
     : eventKey === "security.alert" ? prefs.securityAlertsEnabled : false;
   if (prefs.whatsappOptIn && prefs.whatsappVerified && prefs.whatsappNumber
@@ -615,7 +621,8 @@ async function enqueueDailySchedules() {
           ? and(eq(customerApiNotificationPreferences.id, row.id), eq(customerApiNotificationPreferences.lastDailyReportDate, row.lastDailyReportDate))
           : and(eq(customerApiNotificationPreferences.id, row.id), isNull(customerApiNotificationPreferences.lastDailyReportDate)));
       if (row.dailySummaryEnabled) await enqueueCustomerApiEvent(row.userId, "daily.activity", { reportDate: localDate, message: "Your daily account activity summary is ready. Sign in to review the latest activity." }, "daily-activity:" + localDate);
-      if (row.dailyStatementEnabled) await enqueueCustomerApiEvent(row.userId, "daily.statement", { reportDate: localDate, message: "Your daily account statement is ready. Sign in to review your statement." }, "daily-statement:" + localDate);
+      if (row.dailyStatementEnabled) await enqueueCustomerApiEvent(row.userId, "daily.statement", { reportDate: localDate, message: "Your available daily statement data is ready to query. Coverage is partial until deposit and fee records are connected." }, "daily-statement:" + localDate);
+      if (row.dailyTaxReportEnabled) await enqueueCustomerApiEvent(row.userId, "tax.report.ready", { reportDate: localDate, message: "Your daily tax-support summary is available from stored trade records. It is not a tax calculation or tax advice." }, "tax-report:" + localDate);
       // Fee-summary schedules stay dormant until a verified authoritative fee ledger is connected.
       if (row.feeSummaryEnabled && settings.feeLedgerConnected === true) await enqueueCustomerApiEvent(row.userId, "fee.summary", { reportDate: localDate, message: "Your fee summary is ready. Sign in to review available fee records." }, "fee-summary:" + localDate);
     } catch (error) {
