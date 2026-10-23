@@ -11,6 +11,20 @@ describe("installer worker schema inventory", () => {
     expect(required).toContain("users");
     expect(required).toContain("customer_notifications");
     for (const table of [
+      "kyc_settings",
+      "kyc_levels",
+      "kyc_stages",
+      "kyc_stage_requirements",
+      "kyc_stage_dependencies",
+      "kyc_verification_sessions",
+      "kyc_attempts",
+      "kyc_documents",
+      "kyc_liveness_checks",
+      "kyc_provider_configs",
+      "kyc_audit_logs",
+      "password_reset_tokens",
+      "admin_email_messages",
+      "opportunity_schedule_decisions",
       "mining_economics_versions",
       "mining_packages",
       "mining_package_versions",
