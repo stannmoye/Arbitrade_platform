@@ -11,8 +11,8 @@ const server = read("./_core/index.ts");
 const migrationRunner = read("../scripts/apply-portal-migrations.mjs");
 const recovery = read("../installer/migration-recovery-status.mjs");
 const customerUi = read("../client/src/components/CustomerApiAccessPanel.tsx");
-const adminUi = read("../client/src/App.tsx");
 const adminCentre = read("../client/src/components/AdminApiAccessCentre.tsx");
+const adminUi = read("../client/src/App.tsx") + adminCentre;
 
 describe("customer API access foundation", () => {
   it("declares the key table and registers the additive migration in both portal migration paths", () => {
