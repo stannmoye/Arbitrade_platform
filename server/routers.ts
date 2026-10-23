@@ -45,7 +45,15 @@ export const appRouter = router({
           await invalidateLocalAuthSessions(ctx.user.id);
         }
         if (ctx.user) {
-          await closeTransactionConsoleSession(ctx.req, ctx.res, ctx.user.id);
+          try {
+            await closeTransactionConsoleSession(ctx.req, ctx.res, ctx.user.id);
+          } catch (error) {
+            // Console-feed cleanup is auxiliary; it must not undo a successful revocation.
+            console.error(
+              "[Auth] Transaction-console cleanup failed after logout",
+              error instanceof Error ? error.name : "UnknownError",
+            );
+          }
         }
         return { success: true } as const;
       } finally {
