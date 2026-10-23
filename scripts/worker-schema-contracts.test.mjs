@@ -87,9 +87,14 @@ describe("worker schema contracts", () => {
     ]);
     const journal = JSON.parse(journalText);
     expect(journal.entries.some((entry) => entry.tag === "0062_worker_runtime_tables")).toBe(true);
-    // Do not backfill 0048 into the historic journal after newer entries: 0062 is
-    // the forward-only bridge for this worker table and preserves upgrade ordering.
-    expect(journal.entries.some((entry) => entry.tag === "0048_pending_boost_rewards")).toBe(false);
+    // The standalone 0048 SQL is now an explicit forward-only journal entry at
+    // the tail. Do not insert it back at its historical number: databases may
+    // already have recorded 0062, and main migration recovery requires a prefix.
+    const last = journal.entries.at(-1);
+    const previous = journal.entries.at(-2);
+    expect(last.tag).toBe("0048_pending_boost_rewards");
+    expect(last.idx).toBe(previous.idx + 1);
+    expect(last.when).toBeGreaterThan(previous.when);
     expect(portalRunner).toContain('"0055_notification_campaign_delivery_tracking.sql"');
     expect(portalRunner).toContain('"0058_withdrawable_notification_campaigns.sql"');
 
