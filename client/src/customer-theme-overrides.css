@@ -138,3 +138,32 @@
 @media(max-width:900px){:root[data-arb-theme] .customer-portal .portal-page{padding:18px 16px 30px!important}:root[data-arb-theme] .customer-portal .portal-header{padding-inline:14px!important;gap:10px!important}:root[data-arb-theme] .customer-portal .portal-session{min-width:0;gap:7px!important}:root[data-arb-theme] .customer-portal .customer-primary-rail{z-index:80!important}:root[data-arb-theme] .customer-portal :is(.customer-metric-grid,.customer-kpi-grid,.customer-card-grid){grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(max-width:600px){:root[data-arb-theme] .customer-portal .portal-header{height:auto!important;min-height:60px;padding:8px 10px!important}:root[data-arb-theme] .customer-portal .portal-header-context{display:none!important}:root[data-arb-theme] .customer-portal .portal-session{gap:5px!important}:root[data-arb-theme] .customer-portal .portal-session button{padding:6px 8px!important}:root[data-arb-theme] .customer-portal .portal-page{padding:14px 10px 24px!important}:root[data-arb-theme] .customer-portal :is(.customer-metric-grid,.customer-kpi-grid,.customer-card-grid,.customer-quick-actions){grid-template-columns:minmax(0,1fr)!important}:root[data-arb-theme] .customer-portal :is(.customer-panel,.customer-ledger-panel,.customer-investment-card,.customer-package-card){border-radius:12px!important;padding:14px!important}:root[data-arb-theme] .customer-portal .arb-theme-selector-compact .arb-theme-selector-trigger-label{display:none!important}}
 @media(max-width:380px){:root[data-arb-theme] .customer-portal .portal-header .brand-lockup strong{font-size:14px!important}:root[data-arb-theme] .customer-portal .portal-session{max-width:calc(100vw - 125px)}:root[data-arb-theme] .customer-portal .portal-session button{padding:5px 6px!important}:root[data-arb-theme] .customer-portal .portal-page{padding-inline:8px!important}}
+
+/* Final authority for the mobile account rail.
+   The general themed rail rule above uses z-index:80!important; without this
+   higher-specificity open-state rule it paints below the z-index:81 scrim. */
+@media (max-width: 900px) {
+  :root[data-arb-theme] .customer-portal .portal-body:not(.customer-primary-menu-open) .customer-primary-rail {
+    z-index: 80 !important;
+    transform: translateX(-105%) !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  :root[data-arb-theme] .customer-portal .portal-body.customer-primary-menu-open .customer-primary-rail {
+    z-index: 82 !important;
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+  }
+
+  :root[data-arb-theme] .customer-portal .customer-primary-menu-scrim {
+    z-index: 81 !important;
+  }
+}
