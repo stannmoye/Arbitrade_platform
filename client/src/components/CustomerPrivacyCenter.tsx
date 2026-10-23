@@ -73,7 +73,7 @@ export function CustomerPrivacyCenter() {
     if (type) setRequestType(type);
     setFormOpen(true);
     setNotice("");
-    window.setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+    window.setTimeout(() => formRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }), 0);
   };
 
   const downloadPolicy = () => {
