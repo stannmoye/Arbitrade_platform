@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { getDb } from "./db";
-import { customerApiKeys, users } from "../drizzle/schema";
+import { customerApiKeys, users, v5AuditEvents } from "../drizzle/schema";
 
 export const CUSTOMER_API_SCOPES = [
   "balances:read",
@@ -97,28 +97,25 @@ export async function createCustomerApiKey(userId: number, name: string, request
     const row = (await tx.select().from(customerApiKeys)
       .where(and(eq(customerApiKeys.id, id), eq(customerApiKeys.userId, userId))).limit(1))[0];
     if (!row) throw new Error("The API key could not be loaded after creation.");
+    await tx.insert(v5AuditEvents).values({ actorUserId: userId, action: "api.key.created", entityType: "customer_api_key", entityId: String(id), reason: "Customer created a scoped API credential", reference: prefix, metadataJson: JSON.stringify({ name: normalizedName, scopes }) });
     return { key: safeKeyRecord(row), secret, warning: "Copy this secret now. It cannot be displayed again." };
   });
 }
 export async function revokeCustomerApiKey(userId: number, keyId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const changed = await db.update(customerApiKeys)
-    .set({ revokedAt: new Date() })
-    .where(and(
-      eq(customerApiKeys.id, keyId),
-      eq(customerApiKeys.userId, userId),
-      isNull(customerApiKeys.revokedAt),
-    ));
-  if (Number(changed[0]?.affectedRows ?? 0) !== 1) {
-    const exists = (await db.select({ id: customerApiKeys.id }).from(customerApiKeys)
-      .where(and(eq(customerApiKeys.id, keyId), eq(customerApiKeys.userId, userId))).limit(1))[0];
-    if (!exists) throw new Error("API key not found for this customer.");
-    return { success: true, alreadyRevoked: true };
-  }
-  return { success: true, alreadyRevoked: false };
+  return db.transaction(async (tx) => {
+    const row = (await tx.select().from(customerApiKeys)
+      .where(and(eq(customerApiKeys.id, keyId), eq(customerApiKeys.userId, userId))).limit(1).for("update"))[0];
+    if (!row) throw new Error("API key not found for this customer.");
+    if (row.revokedAt) return { success: true, alreadyRevoked: true };
+    const revokedAt = new Date();
+    await tx.update(customerApiKeys).set({ revokedAt })
+      .where(and(eq(customerApiKeys.id, keyId), eq(customerApiKeys.userId, userId), isNull(customerApiKeys.revokedAt)));
+    await tx.insert(v5AuditEvents).values({ actorUserId: userId, action: "api.key.revoked", entityType: "customer_api_key", entityId: String(keyId), reason: "Customer revoked an API credential", reference: row.keyPrefix, metadataJson: JSON.stringify({ name: row.name, scopes: parseScopes(row.scopesJson) }) });
+    return { success: true, alreadyRevoked: false };
+  });
 }
-
 export async function authenticateCustomerApiKey(rawKey: string) {
   if (!/^arb_live_[A-Za-z0-9_-]{43}$/.test(rawKey)) return null;
   const db = await getDb();
