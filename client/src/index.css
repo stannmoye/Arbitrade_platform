@@ -495,6 +495,9 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
  */
 @media (max-width:900px), (pointer:coarse) {
   .admin-slide-drawer {
+    box-sizing:border-box;
+    max-height:calc(100vh - 12px)!important;
+    max-height:calc(100dvh - 12px)!important;
     transform:none!important;
     visibility:hidden;
     opacity:0;
@@ -513,6 +516,14 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
   .admin-slide-drawer > * {
     position:relative;
     z-index:1;
+  }
+  .admin-slide-nav {
+    min-height:0!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-y:contain;
+    touch-action:pan-y;
   }
 }
 
