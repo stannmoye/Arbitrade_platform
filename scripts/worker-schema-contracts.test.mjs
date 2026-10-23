@@ -76,6 +76,9 @@ describe("worker schema contracts", () => {
     ]);
     const journal = JSON.parse(journalText);
     expect(journal.entries.some((entry) => entry.tag === "0062_worker_runtime_tables")).toBe(true);
+    // Do not backfill 0048 into the historic journal after newer entries: 0062 is
+    // the forward-only bridge for this worker table and preserves upgrade ordering.
+    expect(journal.entries.some((entry) => entry.tag === "0048_pending_boost_rewards")).toBe(false);
     expect(portalRunner).toContain('"0055_notification_campaign_delivery_tracking.sql"');
     expect(portalRunner).toContain('"0058_withdrawable_notification_campaigns.sql"');
 
@@ -101,5 +104,35 @@ describe("worker schema contracts", () => {
       expect(portalSql).toContain(column);
       expect(mainSql).toContain(column);
     }
+  });
+
+  it("gates migration success on actual worker-table schema contracts", async () => {
+    const root = new URL("../", import.meta.url);
+    const [mainRunner, miningRunner, miningRepair, runtimeRepair, verifier] = await Promise.all([
+      readFile(new URL("scripts/guarded-main-migrate.mjs", root), "utf8"),
+      readFile(new URL("scripts/apply-mining-migrations.mjs", root), "utf8"),
+      readFile(new URL("scripts/ensure-mining-current-schema.mjs", root), "utf8"),
+      readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
+      readFile(new URL("scripts/verify-worker-schema.mjs", root), "utf8"),
+    ]);
+
+    const mainVerification = mainRunner.indexOf("const verified = await assertWorkerSchemaContracts(connection);");
+    const mainSuccess = mainRunner.indexOf("SET status='completed'");
+    expect(mainVerification).toBeGreaterThan(-1);
+    expect(mainVerification).toBeLessThan(mainSuccess);
+
+    const portalVerification = portalRunner.indexOf("const verified = await assertWorkerSchemaContracts(connection);");
+    expect(portalVerification).toBeGreaterThan(portalRunner.indexOf("Applied and recorded ${filename}"));
+    expect(portalRunner).toContain("[portal-migrate] PASS: verified");
+
+    const miningVerification = miningRunner.indexOf("const verified = await assertWorkerSchemaContracts(connection);");
+    expect(miningVerification).toBeGreaterThan(miningRunner.indexOf("const rewardMethodsMigrationKey"));
+    expect(miningVerification).toBeGreaterThan(miningRunner.indexOf("await connection.commit();"));
+    expect(miningRunner).toContain("[mining-migrate] PASS: verified");
+
+    expect(miningRepair).toContain('assertWorkerSchemaContracts(db, ["mining_pending_boost_rewards"])');
+    expect(miningRepair.indexOf("assertWorkerSchemaContracts")).toBeLessThan(miningRepair.indexOf('message: "Current mining schema is ready"'));
+    expect(runtimeRepair).toContain("const verified = await assertWorkerSchemaContracts(db);");
+    expect(verifier).toContain("const verified = await assertWorkerSchemaContracts(db);");
   });
 });
