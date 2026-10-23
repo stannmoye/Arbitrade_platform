@@ -42,8 +42,8 @@ function displayDateTime(value: Date | string | null | undefined): string {
 }
 
 export function CustomerPrivacyCenter() {
-  const policy = trpc.privacy.currentPolicy.useQuery(undefined, { retry: 1 });
-  const history = trpc.privacy.policyHistory.useQuery(undefined, { retry: 1 });
+  const policy = trpc.privacy.currentPolicy.useQuery(undefined, { retry: 1, refetchInterval: 60000 });
+  const history = trpc.privacy.policyHistory.useQuery(undefined, { retry: 1, refetchInterval: 60000 });
   const requests = trpc.privacy.myRequests.useQuery(undefined, { refetchInterval: 30000 });
   const utils = trpc.useUtils();
   const createRequest = trpc.privacy.createRequest.useMutation();
