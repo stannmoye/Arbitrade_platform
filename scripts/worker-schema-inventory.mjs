@@ -60,7 +60,7 @@ export const RAW_WORKER_TABLES = [
   "notification_campaign_deliveries",
 ];
 
-export function getRequiredWorkerTables(schemaSource) {
+export function getRequiredWorkerTables(schemaSource, migrationSqlSources = []) {
   if (typeof schemaSource !== "string") {
     throw new TypeError("Drizzle schema source must be a string.");
   }
@@ -69,7 +69,17 @@ export function getRequiredWorkerTables(schemaSource) {
   if (schemaTables.length === 0) {
     throw new Error("No MySQL table declarations were found in drizzle/schema.ts.");
   }
-  return [...new Set([...schemaTables, ...RAW_WORKER_TABLES])].sort();
+  if (!Array.isArray(migrationSqlSources) || migrationSqlSources.some(source => typeof source !== "string")) {
+    throw new TypeError("Migration SQL sources must be an array of strings.");
+  }
+  const migratedTables = migrationSqlSources.flatMap(source => {
+    // Exclude comments before discovering CREATE TABLE declarations so examples
+    // and human-readable notes never become fictitious required table names.
+    const sql = source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*--.*$/gm, " ");
+    return [...sql.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([a-zA-Z0-9_]+)`?/gi)]
+      .map(match => match[1]);
+  });
+  return [...new Set([...schemaTables, ...migratedTables, ...RAW_WORKER_TABLES])].sort();
 }
 
 export function findMissingWorkerTables(requiredTables, existingTables) {
