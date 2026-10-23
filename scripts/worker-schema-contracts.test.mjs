@@ -108,8 +108,9 @@ describe("worker schema contracts", () => {
 
   it("gates migration success on actual worker-table schema contracts", async () => {
     const root = new URL("../", import.meta.url);
-    const [mainRunner, miningRunner, miningRepair, runtimeRepair, verifier] = await Promise.all([
+    const [mainRunner, portalRunner, miningRunner, miningRepair, runtimeRepair, verifier] = await Promise.all([
       readFile(new URL("scripts/guarded-main-migrate.mjs", root), "utf8"),
+      readFile(new URL("scripts/apply-portal-migrations.mjs", root), "utf8"),
       readFile(new URL("scripts/apply-mining-migrations.mjs", root), "utf8"),
       readFile(new URL("scripts/ensure-mining-current-schema.mjs", root), "utf8"),
       readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
@@ -127,7 +128,7 @@ describe("worker schema contracts", () => {
 
     const miningVerification = miningRunner.indexOf("const verified = await assertWorkerSchemaContracts(connection);");
     expect(miningVerification).toBeGreaterThan(miningRunner.indexOf("const rewardMethodsMigrationKey"));
-    expect(miningVerification).toBeGreaterThan(miningRunner.indexOf("await connection.commit();"));
+    expect(miningVerification).toBeLessThan(miningRunner.indexOf("} finally {\n  await connection.end();"));
     expect(miningRunner).toContain("[mining-migrate] PASS: verified");
 
     expect(miningRepair).toContain('assertWorkerSchemaContracts(db, ["mining_pending_boost_rewards"])');
