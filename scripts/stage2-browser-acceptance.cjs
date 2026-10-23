@@ -1333,6 +1333,66 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         ...customerMainSurface,
         passed: customerMainVisible,
       });
+
+      // The left-side SETTINGS rail is a separate component from the right-side
+      // customer resources drawer. Test its actual mobile opening/rendering path.
+      await page.setViewportSize({ width: 390, height: 844 });
+      const customerLeftSettingsTrigger = page.getByRole("button", { name: "Open Settings" });
+      await customerLeftSettingsTrigger.waitFor({ state: "visible", timeout: 10000 });
+      await customerLeftSettingsTrigger.click();
+      await page.waitForFunction(() => {
+        const host = document.querySelector("#customer-left-menu-portal-host");
+        const layer = host?.querySelector(".portal-body.customer-primary-menu-open");
+        const rail = layer?.querySelector(".customer-primary-rail");
+        if (!(host instanceof HTMLElement) || !(rail instanceof HTMLElement)) return false;
+        const rect = rail.getBoundingClientRect();
+        const style = getComputedStyle(rail);
+        return host.parentElement === document.body &&
+          style.visibility === "visible" && style.pointerEvents !== "none" &&
+          rect.width > 0 && rect.height > 0 && rect.left >= -1 &&
+          rect.right <= window.innerWidth + 1;
+      }, { timeout: 10000 });
+      const customerLeftMenuPaint = await page.evaluate(() => {
+        const host = document.querySelector("#customer-left-menu-portal-host");
+        const layer = host?.querySelector(".portal-body.customer-primary-menu-open");
+        const rail = layer?.querySelector(".customer-primary-rail");
+        const firstButton = rail?.querySelector('nav[aria-label="Account preferences navigation"] button');
+        if (!(host instanceof HTMLElement) || !(layer instanceof HTMLElement) ||
+            !(rail instanceof HTMLElement) || !(firstButton instanceof HTMLElement)) {
+          return { attachedDirectlyToBody: false, railVisible: false, firstItemHitTest: false, themeBackground: "" };
+        }
+        const rect = firstButton.getBoundingClientRect();
+        const topmost = document.elementFromPoint(rect.left + Math.min(20, rect.width / 2), rect.top + rect.height / 2);
+        const railStyle = getComputedStyle(rail);
+        return {
+          attachedDirectlyToBody: host.parentElement === document.body,
+          railVisible: railStyle.visibility === "visible" &&
+            Number(railStyle.opacity) > 0 && rail.getBoundingClientRect().width > 0,
+          railRect: (() => { const r = rail.getBoundingClientRect(); return { left:r.left, top:r.top, right:r.right, bottom:r.bottom }; })(),
+          firstItemHitTest: topmost === firstButton || firstButton.contains(topmost),
+          themeBackground: railStyle.backgroundColor,
+          portalZIndex: getComputedStyle(host).zIndex,
+        };
+      });
+      const customerLeftMenuWorks = customerLeftMenuPaint.attachedDirectlyToBody &&
+        customerLeftMenuPaint.railVisible && customerLeftMenuPaint.firstItemHitTest &&
+        customerLeftMenuPaint.themeBackground !== "rgba(0, 0, 0, 0)";
+      checks.push({
+        route: "/customer",
+        routeName: "customer",
+        width: 390,
+        theme: "runtime-default",
+        check: "customer-left-settings-menu-paints-above-its-panel",
+        passed: customerLeftMenuWorks,
+        ...customerLeftMenuPaint,
+        note: "Opens the actual left SETTINGS rail, checks the body-level portal, viewport bounds, active theme surface and hit testing of the first navigation item.",
+      });
+      await page.locator("#customer-left-menu-portal-host .customer-primary-menu-scrim").evaluate(element => {
+        if (element instanceof HTMLButtonElement) element.click();
+      });
+      await page.waitForFunction(() => !document.querySelector("#customer-left-menu-portal-host .portal-body.customer-primary-menu-open"));
+      await page.setViewportSize({ width: 1440, height: 900 });
+
       const select = selector.locator("select");
       const editable = await select.count() === 1;
       let options = [];
