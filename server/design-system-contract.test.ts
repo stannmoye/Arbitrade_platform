@@ -224,12 +224,12 @@ describe("ARBITRADE shared design-system contract", () => {
     expect(themeContext).toContain("setLoadedThemeStorageKey(storageKey)");
   });
 
-  it("exposes customer theme selection in the header and primary left rail and themes legacy customer surfaces", () => {
-    expect(app).toContain('<ThemeSelector compact ariaLabel="Change customer theme"/>');
-    expect(app).toContain('<div className="customer-primary-rail-theme-control"><ThemeSelector compact ariaLabel="Change customer theme"/></div>');
+  it("exposes customer theme selection only in the header and themes legacy customer surfaces", () => {
+    expect(app.match(/<ThemeSelector compact ariaLabel="Change customer theme"\/>/g) || []).toHaveLength(1);
+    expect(app).not.toContain("customer-primary-rail-theme-control");
     expect(themeContext).toContain("const customerCanSelect = Boolean(policy && enabledThemes.length > 0);");
     expect(customerReference).toContain(":root[data-arb-theme] .customer-portal");
-    expect(customerReference).toContain(".customer-primary-rail-theme-control");
+    expect(customerReference).toContain(":root[data-arb-theme] .customer-portal .customer-primary-rail");
   });
 
   it("keeps theme controls exposed with accessible names, state, and announced loading errors", () => {
