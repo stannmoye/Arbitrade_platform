@@ -1,5 +1,4 @@
 import { lazy, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { trpc } from "@/lib/trpc";
 import { findNewNotificationSoundEvents, mergeSeenNotificationIds, selectMostImportantNotificationSoundEvent } from "./notification-sound-deduplication";
 import { notificationSoundKeyForCategory } from "./notification-sound-policy";
