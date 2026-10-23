@@ -153,6 +153,8 @@ export async function savePrivacyPolicyDraft(
   }
 
   return db.transaction(async (tx) => {
+    // Lock the already-seeded policy row set so two administrators cannot create/publish competing versions concurrently.
+    await tx.select({ id: privacyPolicyVersions.id }).from(privacyPolicyVersions).orderBy(privacyPolicyVersions.id).for("update");
     const draft = input.draftId
       ? (await tx.select().from(privacyPolicyVersions).where(and(eq(privacyPolicyVersions.id, input.draftId), eq(privacyPolicyVersions.status, "draft"))).limit(1).for("update"))[0]
       : (await tx.select().from(privacyPolicyVersions).where(eq(privacyPolicyVersions.status, "draft")).orderBy(desc(privacyPolicyVersions.updatedAt)).limit(1).for("update"))[0];
@@ -189,6 +191,8 @@ export async function publishPrivacyPolicy(adminId: number, draftId: number) {
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The privacy notice could not be published." });
   return db.transaction(async (tx) => {
+    // Serialize publications with draft saves and with other administrators publishing at the same time.
+    await tx.select({ id: privacyPolicyVersions.id }).from(privacyPolicyVersions).orderBy(privacyPolicyVersions.id).for("update");
     const draft = (await tx.select().from(privacyPolicyVersions).where(and(eq(privacyPolicyVersions.id, draftId), eq(privacyPolicyVersions.status, "draft"))).limit(1).for("update"))[0];
     if (!draft) throw new TRPCError({ code: "NOT_FOUND", message: "The selected draft is no longer available." });
     const sections = normalizeSections(parseSections(draft.sectionsJson));
@@ -247,6 +251,11 @@ export async function createPrivacyRequest(
   }
 
   return db.transaction(async (tx) => {
+    // Serialize customer request creation against itself and account closure, keeping the active-request limit reliable.
+    const account = (await tx.select({ id: users.id, role: users.role, loginMethod: users.loginMethod }).from(users).where(eq(users.id, userId)).limit(1).for("update"))[0];
+    if (!account || account.role !== "user" || account.loginMethod === "closed") {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Your customer account is not available for this request." });
+    }
     const prior = (await tx.select().from(privacyRequests).where(and(eq(privacyRequests.userId, userId), eq(privacyRequests.idempotencyKey, idempotencyKey))).limit(1))[0];
     if (prior) return { id: prior.id, requestReference: prior.requestReference, status: prior.status, duplicate: true };
     const active = (await tx.select({ value: count() }).from(privacyRequests).where(and(
