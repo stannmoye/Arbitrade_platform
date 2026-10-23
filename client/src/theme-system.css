@@ -1447,3 +1447,13 @@
   .customer-portal .portal-header .brand-lockup { gap: 8px !important; }
   .customer-portal .portal-header .brand-lockup strong { font-size: 14px !important; }
 }
+
+
+/* Keep customer theme selection in the header only, including narrow-screen navigation states.
+   The slide menu uses a body portal, so its guard is intentionally not scoped to .customer-portal. */
+.customer-portal .customer-primary-rail .arb-theme-selector,
+.customer-portal .customer-slide-layer .arb-theme-selector,
+.customer-slide-portal .arb-theme-selector,
+.customer-slide-drawer .arb-theme-selector {
+  display: none !important;
+}

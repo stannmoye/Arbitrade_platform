@@ -1362,6 +1362,51 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         selectorInHeader: mobileCustomerSelectorVisible,
         passed: mobileCustomerSelectorCount === 1 && mobileCustomerSelectorVisible,
       });
+      // Open the separate customer resource drawer on mobile. A selector that
+      // only appears while a portal drawer is open must not escape this check.
+      await page.locator(".customer-resource-peek-trigger").click();
+      await page.locator(".customer-slide-portal.is-open #customer-navigation-drawer").waitFor({ state: "visible", timeout: 15000 });
+      const mobileDrawerSelectorCount = await page.locator(".customer-slide-portal .arb-theme-selector").count();
+      const mobileNavigationSelectorCount = await page.locator(
+        ".customer-portal .customer-primary-rail .arb-theme-selector, .customer-slide-portal .arb-theme-selector"
+      ).count();
+      const mobileHeaderSelectorCountWithDrawerOpen = await page.locator(".customer-portal .arb-theme-selector-compact").count();
+      checks.push({
+        route: "/customer",
+        routeName: "customer",
+        width: 390,
+        theme: "runtime-default",
+        check: "customer-theme-selector-header-only-when-mobile-drawer-open",
+        headerSelectorCount: mobileHeaderSelectorCountWithDrawerOpen,
+        navigationSelectorCount: mobileNavigationSelectorCount,
+        drawerSelectorCount: mobileDrawerSelectorCount,
+        passed: mobileHeaderSelectorCountWithDrawerOpen === 1 &&
+          mobileNavigationSelectorCount === 0 && mobileDrawerSelectorCount === 0,
+      });
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(() => !document.querySelector(".customer-slide-portal")?.classList.contains("is-open"), undefined, { timeout: 15000 });
+
+      // Tablet layouts use the same single-header rule; no selector may be
+      // rendered inside the account rail or the separately portalled drawer.
+      await page.setViewportSize({ width: 768, height: 1024 });
+      const tabletHeaderSelectorCount = await page.locator(".customer-portal .arb-theme-selector-compact").count();
+      const tabletHeaderSelectorVisible = await selector.isVisible();
+      const tabletNavigationSelectorCount = await page.locator(
+        ".customer-portal .customer-primary-rail .arb-theme-selector, .customer-slide-portal .arb-theme-selector"
+      ).count();
+      checks.push({
+        route: "/customer",
+        routeName: "customer",
+        width: 768,
+        theme: "runtime-default",
+        check: "customer-theme-selector-single-location-tablet",
+        headerSelectorCount: tabletHeaderSelectorCount,
+        navigationSelectorCount: tabletNavigationSelectorCount,
+        selectorInHeader: tabletHeaderSelectorVisible,
+        passed: tabletHeaderSelectorCount === 1 && tabletHeaderSelectorVisible && tabletNavigationSelectorCount === 0,
+      });
+      await page.setViewportSize({ width: 390, height: 844 });
+
       // Customer styles are dynamically imported so the app can render even if a
       // style chunk is slow. Wait for the actual closed-state rail CSS before
       // evaluating menu visibility; otherwise this assertion races the stylesheet.

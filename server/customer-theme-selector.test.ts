@@ -39,6 +39,10 @@ describe("customer theme selector integration", () => {
     expect(themeCss).not.toContain(".customer-theme-sidebar-control");
     expect(themeCss).not.toContain(".customer-slide-theme-control");
     expect(themeCss).not.toContain(".customer-portal > .arb-theme-selector-compact");
+    expect(themeCss).toContain(".customer-portal .customer-primary-rail .arb-theme-selector");
+    expect(themeCss).toContain(".customer-slide-portal .arb-theme-selector");
+    expect(themeCss).toContain(".customer-slide-drawer .arb-theme-selector");
+    expect(themeCss).toContain("Keep customer theme selection in the header only");
     expect(customerThemeOverrides).not.toContain("customer-primary-rail-theme-control");
     expect(customerThemeOverrides).not.toContain(".customer-portal>.arb-theme-selector-compact");
     expect(customerCss).toContain(':root[data-arb-theme] .customer-portal .portal-main');
