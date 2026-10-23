@@ -94,7 +94,7 @@ function normalizeSections(sections: PrivacyPolicySection[]): PrivacyPolicySecti
   return sections.map((section) => {
     const id = cleanText(section.id.toLowerCase(), 48);
     const title = cleanText(section.title, 160);
-    const body = section.body.replace(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]/g, "").trim();
+    const body = section.body.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim();
     if (!/^[a-z0-9-]{2,48}$/.test(id) || ids.has(id)) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Each policy section needs a unique, valid identifier." });
     }
@@ -146,7 +146,7 @@ export async function getAdminPrivacyPolicyState() {
 
 export async function savePrivacyPolicyDraft(
   adminId: number,
-  input: { draftId?: number; title: string; summary: string; controllerName: string; controllerAddress: string; privacyContact: string; applicableJurisdiction: string; sections: PrivacyPolicySection[]; htmlContent: string },
+  input: { draftId?: number; title: string; summary: string; controllerName: string; controllerAddress: string; privacyContact: string; applicableJurisdiction: string; sections: PrivacyPolicySection[]; htmlContent?: string },
 ) {
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Privacy changes could not be saved." });
@@ -156,8 +156,8 @@ export async function savePrivacyPolicyDraft(
   const controllerAddress = cleanText(input.controllerAddress, 500);
   const privacyContact = cleanText(input.privacyContact, 320);
   const applicableJurisdiction = cleanText(input.applicableJurisdiction, 180);
-  const htmlContent = input.htmlContent.replace(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]/g, "").trim();
-  const sections = htmlContent ? input.sections.map((section) => ({ ...section, body: section.body.replace(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]/g, "").trim() })) : normalizeSections(input.sections);
+  const htmlContent = (input.htmlContent || "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim();
+  const sections = htmlContent ? input.sections.map((section) => ({ ...section, body: section.body.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim() })) : normalizeSections(input.sections);
   if (title.length < 5 || summary.length < 20 || controllerName.length < 3 || privacyContact.length < 5) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a descriptive notice title and summary, a responsible organization, and a privacy contact channel before saving." });
   }
