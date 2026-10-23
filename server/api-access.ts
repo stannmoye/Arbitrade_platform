@@ -13,6 +13,7 @@ export const CUSTOMER_API_SCOPES = [
   "tax-support:read",
   "notifications:read",
   "analytics:read",
+  "usage:read",
   "exchange-rates:read",
   "platform:status",
   "incidents:read",
