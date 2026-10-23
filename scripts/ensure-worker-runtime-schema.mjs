@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
+import { assertWorkerSchemaContracts } from "./worker-schema-contracts.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 config({ path: resolve(root, ".env"), override: false });
@@ -89,9 +90,9 @@ async function main() {
   const db = await mysql.createConnection(url.toString());
   let repairs = 0;
   try {
-    // Idempotent CREATE TABLE IF NOT EXISTS statements are also in the main
-    // journal. This startup guard covers hosts that invoke a different migration
-    // entry point and ensures workers never query these tables before they exist.
+    // This journaled bridge deliberately duplicates the worker-table DDL from the
+    // standalone mining and portal migration files. It covers hosts that invoke a
+    // different migration entry point; contract checks below detect shape drift.
     const workerMigration = await readFile(resolve(root, "drizzle/0062_worker_runtime_tables.sql"), "utf8");
     await executeCompatibleMigrationSql(db, workerMigration);
 
@@ -127,9 +128,10 @@ async function main() {
       "ENUM('pending','delivered','read','failed','expired','withdrawn') NOT NULL DEFAULT 'pending'",
     )) repairs++;
 
+    const verified = await assertWorkerSchemaContracts(db);
     console.log(repairs
-      ? `[worker-schema] PASS: applied ${repairs} additive, non-destructive runtime schema repair(s).`
-      : "[worker-schema] PASS: runtime worker tables and notification columns are present.");
+      ? `[worker-schema] PASS: applied ${repairs} additive, non-destructive runtime repair(s); verified ${verified.checkedTables} worker-critical table contracts.`
+      : `[worker-schema] PASS: verified ${verified.checkedTables} worker-critical table contracts and notification schema repairs.`);
   } finally {
     await db.end();
   }

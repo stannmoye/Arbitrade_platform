@@ -1,4 +1,5 @@
 import mysql from "mysql2/promise";
+import { assertWorkerSchemaContracts } from "./worker-schema-contracts.mjs";
 
 const raw = process.env.DATABASE_URL;
 if (!raw) throw new Error("DATABASE_URL is required");
@@ -136,7 +137,12 @@ try {
   await db.query(`UPDATE mining_economics_versions SET tokenSymbol='CKI' WHERE tokenSymbol IS NULL OR tokenSymbol=''`);
   await db.query(`UPDATE mining_customer_packages cp JOIN mining_packages p ON p.id=cp.packageId JOIN mining_package_versions v ON v.id=p.currentVersionId SET cp.expectedDailyRewardCkiSnapshot=v.expectedDailyRewardCki, cp.calculationModelSnapshot='package_daily' WHERE cp.expectedDailyRewardCkiSnapshot IS NULL AND v.expectedDailyRewardCki IS NOT NULL`);
 
-  console.log(JSON.stringify({ status: "ok", message: "Current mining schema is ready" }));
+  const verified = await assertWorkerSchemaContracts(db, ["mining_pending_boost_rewards"]);
+  console.log(JSON.stringify({
+    status: "ok",
+    message: "Current mining schema is ready",
+    verifiedWorkerTableContracts: verified.checkedTables,
+  }));
 } finally {
   await db.end();
 }
