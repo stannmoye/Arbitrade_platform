@@ -13,7 +13,7 @@ type ApiEvent =
   | "report.ready" | "platform.status" | "security.alert" | "api.key.created" | "api.key.revoked";
 type PreferenceDraft = {
   whatsappNumber: string; whatsappOptIn: boolean; whatsappEvents: ApiEvent[];
-  inAppEnabled: boolean; dailySummaryEnabled: boolean; dailyStatementEnabled: boolean;
+  inAppEnabled: boolean; dailySummaryEnabled: boolean; dailyStatementEnabled: boolean; dailyTaxReportEnabled: boolean;
   feeSummaryEnabled: boolean; securityAlertsEnabled: boolean; timezone: string; dailyReportTime: string;
 };
 const eventOptions: Array<{id:ApiEvent;label:string;description:string}> = [
@@ -65,12 +65,12 @@ const endpoints = [
 ];
 const initialPreferences:PreferenceDraft = {
   whatsappNumber:"",whatsappOptIn:false,whatsappEvents:[],inAppEnabled:true,dailySummaryEnabled:false,
-  dailyStatementEnabled:false,feeSummaryEnabled:false,securityAlertsEnabled:true,timezone:"Africa/Lagos",dailyReportTime:"08:00",
+  dailyStatementEnabled:false,dailyTaxReportEnabled:false,feeSummaryEnabled:false,securityAlertsEnabled:true,timezone:"Africa/Lagos",dailyReportTime:"08:00",
 };
 const booleanPreferenceOptions: Array<{key:"inAppEnabled"|"dailySummaryEnabled"|"dailyStatementEnabled"|"feeSummaryEnabled"|"securityAlertsEnabled";label:string}> = [
   {key:"inAppEnabled",label:"In-app notifications"},
   {key:"dailySummaryEnabled",label:"Daily account activity notice"},
-  {key:"dailyStatementEnabled",label:"Daily statement notice"},
+  {key:"dailyStatementEnabled",label:"Daily statement notice"},\n  {key:"dailyTaxReportEnabled",label:"Daily tax-support summary"},
   {key:"feeSummaryEnabled",label:"Fee summary notice"},
   {key:"securityAlertsEnabled",label:"Security alerts"},
 ];
@@ -108,6 +108,7 @@ export default function CustomerApiAccessPanel() {
       inAppEnabled:prefsQuery.data.inAppEnabled,
       dailySummaryEnabled:prefsQuery.data.dailySummaryEnabled,
       dailyStatementEnabled:prefsQuery.data.dailyStatementEnabled,
+      dailyTaxReportEnabled:prefsQuery.data.dailyTaxReportEnabled,
       feeSummaryEnabled:prefsQuery.data.feeSummaryEnabled,
       securityAlertsEnabled:prefsQuery.data.securityAlertsEnabled,
       timezone:prefsQuery.data.timezone,
