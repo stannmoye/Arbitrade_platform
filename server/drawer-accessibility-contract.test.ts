@@ -5,6 +5,7 @@ const adminDrawer = readFileSync(new URL("../client/src/components/AdminSlideMen
 const customerDrawer = readFileSync(new URL("../client/src/components/CustomerSlideMenu.tsx", import.meta.url), "utf8");
 const drawerStyles = readFileSync(new URL("../client/src/index.css", import.meta.url), "utf8");
 const recoveryStyles = readFileSync(new URL("../client/src/portal-render-recovery.css", import.meta.url), "utf8");
+const customerThemeOverrides = readFileSync(new URL("../client/src/customer-theme-overrides.css", import.meta.url), "utf8");
 
 describe("navigation drawer keyboard accessibility contracts", () => {
   it("announces empty customer navigation search results politely", () => {
@@ -49,6 +50,39 @@ describe("navigation drawer keyboard accessibility contracts", () => {
   it("paints the open mobile account rail above its scrim", () => {
     expect(recoveryStyles).toMatch(/\.customer-portal \.portal-body\.customer-primary-menu-open \.customer-primary-rail\s*\{[^}]*z-index:\s*82\s*!important;/s);
     expect(recoveryStyles).toMatch(/\.customer-portal \.customer-primary-menu-scrim\s*\{[^}]*z-index:\s*81\s*!important;/s);
+  });
+
+  it("overrides the themed z-index so the open mobile rail stays above its scrim", () => {
+    const rule = (selector: string) => {
+      const start = customerThemeOverrides.indexOf(selector);
+      if (start < 0) return "";
+      const end = customerThemeOverrides.indexOf("}", start);
+      return end < 0 ? "" : customerThemeOverrides.slice(start, end + 1);
+    };
+    const closedRailRule = rule(":root[data-arb-theme] .customer-portal .portal-body:not(.customer-primary-menu-open) .customer-primary-rail {");
+    const openRailRule = rule(":root[data-arb-theme] .customer-portal .portal-body.customer-primary-menu-open .customer-primary-rail {");
+    const scrimRule = rule(":root[data-arb-theme] .customer-portal .customer-primary-menu-scrim {");
+
+    expect(closedRailRule).toContain("z-index: 80 !important;");
+    expect(closedRailRule).toContain("visibility: hidden !important;");
+    expect(closedRailRule).toContain("transform: translateX(-105%) !important;");
+    expect(openRailRule).toContain("z-index: 82 !important;");
+    expect(openRailRule).toContain("visibility: visible !important;");
+    expect(openRailRule).toContain("transform: translateX(0) !important;");
+    expect(scrimRule).toContain("z-index: 81 !important;");
+  });
+
+  it("disables Android-problematic clipping and filtering on the open account rail", () => {
+    const openRailRule = recoveryStyles.match(/\.customer-portal \.portal-body\.customer-primary-menu-open \.customer-primary-rail\s*\{([^}]*)\}/s)?.[1] ?? "";
+    expect(openRailRule).toMatch(/clip-path:\s*none\s*!important;/);
+    expect(openRailRule).toMatch(/-webkit-clip-path:\s*none\s*!important;/);
+    expect(openRailRule).toMatch(/filter:\s*none\s*!important;/);
+    expect(openRailRule).toMatch(/-webkit-filter:\s*none\s*!important;/);
+  });
+
+  it("keeps the portaled customer drawer in a layer above page overlays", () => {
+    expect(drawerStyles).toContain(".admin-slide-portal-layer{z-index:2147483000!important;isolation:isolate!important}");
+    expect(drawerStyles).toContain(".admin-slide-portal-layer .admin-slide-drawer{z-index:2!important}");
   });
 
   it("hides the redundant left Settings handle when the desktop rail is present", () => {
