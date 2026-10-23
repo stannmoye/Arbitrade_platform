@@ -44,11 +44,11 @@ describe("navigation drawer grid layout", () => {
     );
   });
 
-  it("allocates separate theme and search rows before the customer destination list", () => {
-    expect(customerDrawerRule).toContain("grid-template-rows:auto auto auto auto auto minmax(0,1fr) auto");
-    expect(customerSlideMenu.indexOf('className="customer-slide-theme-control"')).toBeLessThan(
-      customerSlideMenu.indexOf('className="quick-actions-search"')
-    );
+  it("keeps the customer drawer search and destinations in the grid after removing its theme row", () => {
+    expect(customerDrawerRule).toBe("");
+    expect(customerSlideMenu).not.toContain("customer-slide-theme-control");
+    expect(customerSlideMenu).not.toContain("customer-theme-sidebar-control");
+    expect(customerSlideMenu).not.toContain("ThemeSelector");
     expect(customerSlideMenu.indexOf('className="quick-actions-search"')).toBeLessThan(
       customerSlideMenu.indexOf('<nav className="admin-slide-nav quick-actions-nav customer-resource-nav"')
     );
