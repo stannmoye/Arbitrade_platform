@@ -35,6 +35,7 @@ const migrationFiles = [
   "0062_privacy_center.sql",
   "0063_privacy_notice_html.sql",
   "0064_customer_api_keys.sql",
+  "0064_customer_api_keys.sql",
 ];
 // These tables are schema-baseline indicators for first-time portal migration tracking.
 // Some also belong to the main Drizzle chain; none of them alone proves that a
