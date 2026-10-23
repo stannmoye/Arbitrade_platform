@@ -23,6 +23,7 @@ import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { invalidateUserSessions } from "./authSessions";
 import { getLocalSessionFromRequest } from "./_core/localAuth";
 import * as privacyService from "./privacy";
+import { CUSTOMER_API_SCOPES, createCustomerApiKey, listCustomerApiKeys, revokeCustomerApiKey } from "./api-access";
 import { sdk } from "./_core/sdk";
 
 export const appRouter = router({
@@ -149,6 +150,23 @@ export const appRouter = router({
   }),
 
   customer: router({
+    apiKeys: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "API keys are available to customer accounts only." });
+      return listCustomerApiKeys(ctx.user.id);
+    }),
+    createApiKey: protectedProcedure.input(z.object({
+      name: z.string().trim().min(3).max(80),
+      scopes: z.array(z.enum(CUSTOMER_API_SCOPES)).min(1).max(CUSTOMER_API_SCOPES.length),
+    })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "API keys are available to customer accounts only." });
+      try { return await createCustomerApiKey(ctx.user.id, input.name, input.scopes); }
+      catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not create API key." }); }
+    }),
+    revokeApiKey: protectedProcedure.input(z.object({ keyId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "API keys are available to customer accounts only." });
+      try { return await revokeCustomerApiKey(ctx.user.id, input.keyId); }
+      catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not revoke API key." }); }
+    }),
     authenticatorStatus: protectedProcedure.query(({ ctx }) => getCustomerAuthenticatorStatus(ctx.user.id)),
     startAuthenticatorEnrollment: protectedProcedure.mutation(({ ctx }) => startCustomerAuthenticatorEnrollment(ctx.user.id)),
     confirmAuthenticatorEnrollment: protectedProcedure.input(z.object({ code: z.string().regex(/^\d{6}$/) })).mutation(({ ctx, input }) => confirmCustomerAuthenticatorEnrollment(ctx.user.id, input.code)),
