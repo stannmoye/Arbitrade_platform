@@ -372,14 +372,31 @@ export const appRouter = router({
         maintenanceMessage: "",
         feeScheduleJson: "",
         templates: {
-          deposit_confirmed: "Hello {{customer_name}}, your deposit {{reference}} has been confirmed.",
+          deposit_confirmed: "Hello {{customer_name}}, a deposit status update is available for reference {{reference}}. Sign in to review your account.",
+          deposit_delayed: "Hello {{customer_name}}, a deposit status update is available for reference {{reference}}. Sign in for details.",
+          deposit_failed: "Hello {{customer_name}}, a deposit status update is available for reference {{reference}}. Sign in for details.",
           withdrawal_status: "Hello {{customer_name}}, your withdrawal request {{reference}} status is now {{status}}.",
-          daily_statement: "Hello {{customer_name}}, your daily account statement is ready: {{secure_link}}",
-          daily_activity: "Hello {{customer_name}}, your daily account activity summary is ready: {{secure_link}}",
-          fee_summary: "Hello {{customer_name}}, your fee summary is ready: {{secure_link}}",
-          platform_status: "Arbitrade platform status update: {{status}}. Details: {{status_url}}",
+          trade_completed: "Hello {{customer_name}}, an account activity update is available. Sign in to review your trade history.",
+          daily_statement: "Hello {{customer_name}}, your daily statement data for {{report_date}} can be requested at {{report_endpoint}} using your API key.",
+          daily_activity: "Hello {{customer_name}}, your daily activity summary for {{report_date}} can be requested at {{report_endpoint}} using your API key.",
+          fee_recorded: "Hello {{customer_name}}, a fee record update is available. Sign in to review available details.",
+          fee_summary: "Hello {{customer_name}}, a fee summary notice for {{report_date}} is available. Sign in to review the published fee information.",
+          platform_status: "Arbitrade platform status update: {{status}}. {{event}}",
           security_alert: "Security notice for your Arbitrade account: {{event}}. If this was not you, sign in and review your security settings.",
-          report_ready: "Hello {{customer_name}}, your requested report is ready: {{secure_link}}",
+          api_key_created: "Security notice: {{event}} Sign in to review your API key settings.",
+          api_key_revoked: "Security notice: {{event}} Sign in to review your API key settings.",
+          tax_report_ready: "Hello {{customer_name}}, your tax-support data for {{report_date}} can be requested at {{report_endpoint}}. This is not tax advice.",
+          report_ready: "Hello {{customer_name}}, a report update is available. Sign in to review reports supported by your account.",
+        },
+        whatsappMetaTemplates: {
+          deposit_confirmed: { name: "", language: "en" }, deposit_delayed: { name: "", language: "en" },
+          deposit_failed: { name: "", language: "en" }, withdrawal_status: { name: "", language: "en" },
+          trade_completed: { name: "", language: "en" }, daily_statement: { name: "", language: "en" },
+          daily_activity: { name: "", language: "en" }, fee_recorded: { name: "", language: "en" },
+          fee_summary: { name: "", language: "en" }, platform_status: { name: "", language: "en" },
+          security_alert: { name: "", language: "en" }, api_key_created: { name: "", language: "en" },
+          api_key_revoked: { name: "", language: "en" }, tax_report_ready: { name: "", language: "en" },
+          report_ready: { name: "", language: "en" },
         },
         walletProviderName: "",
         walletProviderBaseUrl: "",
@@ -387,7 +404,8 @@ export const appRouter = router({
       };
       try {
         const stored = JSON.parse((await getAppSetting("apiAccess.settings")) || "{}");
-        return { ...defaults, ...stored, templates: { ...defaults.templates, ...(stored.templates || {}) } };
+        return { ...defaults, ...stored, templates: { ...defaults.templates, ...(stored.templates || {}) },
+          whatsappMetaTemplates: { ...defaults.whatsappMetaTemplates, ...(stored.whatsappMetaTemplates || {}) } };
       } catch {
         return defaults;
       }
@@ -404,6 +422,10 @@ export const appRouter = router({
       maintenanceMessage: z.string().max(1000),
       feeScheduleJson: z.string().max(10000),
       templates: z.record(z.string().min(1).max(64), z.string().max(2000)).refine((value) => Object.keys(value).length <= 20, "At most 20 message templates are allowed."),
+      whatsappMetaTemplates: z.record(z.string().min(1).max(64), z.object({
+        name: z.string().trim().max(512),
+        language: z.string().trim().regex(/^[a-z]{2,3}(?:_[A-Z]{2})?$/),
+      })).optional(),
       walletProviderName: z.string().trim().max(120),
       walletProviderBaseUrl: z.string().trim().max(500),
       walletWebhookUrl: z.string().trim().max(500),
