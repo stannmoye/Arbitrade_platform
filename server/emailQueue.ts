@@ -4,7 +4,7 @@ import { getDb } from "./db";
 import { sendRenderedEmail, isEmailDeliveryConfigured, renderEmail, isValidEmailAddress, type EmailPayload, type EmailTemplate } from "./email";
 import { authEmailTokens, customerControls, customerEmailPreferences, customerNotifications, emailOutbox, balanceLedger, users } from "../drizzle/schema";
 
-function encryptionKey(secret = process.env.SESSION_SECRET || process.env.MANUS_JWT_SECRET): Buffer {
+function encryptionKey(secret = process.env.SESSION_SECRET): Buffer {
   if (!secret && process.env.NODE_ENV === "production") throw new Error("SESSION_SECRET is required to encrypt queued email payloads");
   return crypto.createHash("sha256").update(`wisebond-email-outbox:${secret || "development-only-email-key"}`).digest();
 }
