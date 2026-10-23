@@ -1,5 +1,5 @@
 import { mkdir, open } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 
 export function getLocalStorageRoot(env: NodeJS.ProcessEnv = process.env): string {
