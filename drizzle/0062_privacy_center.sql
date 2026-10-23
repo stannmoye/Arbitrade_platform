@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS `privacy_requests` (
   `updatedAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `privacy_request_reference_uq` (`requestReference`),
-  UNIQUE KEY `privacy_request_idempotency_uq` (`idempotencyKey`),
+  UNIQUE KEY `privacy_request_idempotency_uq` (`userId`, `idempotencyKey`),
   KEY `privacy_requests_user_created_idx` (`userId`, `createdAt`, `id`),
   KEY `privacy_requests_status_created_idx` (`status`, `createdAt`)
 ) ENGINE=InnoDB;
