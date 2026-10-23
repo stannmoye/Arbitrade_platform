@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)));
+process.chdir(root);
 const env = { ...process.env, NODE_ENV: "production" };
 
 console.log("[startup] Applying main, portal and mining migrations before server workers start.");
