@@ -56,9 +56,9 @@ describe("installer worker schema inventory", () => {
     const required = getRequiredWorkerTables(
       'export const users = mysqlTable("users", {});',
       [
-        "-- CREATE TABLE \`comment_only\` (id INT);",
-        "CREATE TABLE IF NOT EXISTS \`kyc_settings\` (id INT);",
-        "CREATE TABLE \`worker_runtime_state\` (id INT);",
+        "-- CREATE TABLE `comment_only` (id INT);",
+        "CREATE TABLE IF NOT EXISTS `kyc_settings` (id INT);",
+        "CREATE TABLE `worker_runtime_state` (id INT);",
       ],
     );
     expect(required).toContain("users");
