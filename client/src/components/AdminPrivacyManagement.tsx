@@ -139,6 +139,28 @@ export function AdminPrivacyManagement() {
     }
   };
 
+  const handleReloadSavedVersion = async () => {
+    setNotice("");
+    setError("");
+    const refreshed = await policyState.refetch();
+    const source = refreshed.data?.draft || refreshed.data?.current;
+    if (!source) {
+      setError("No saved draft or published notice could be loaded. Your current edits have been left unchanged.");
+      return;
+    }
+    setDraftId(refreshed.data?.draft?.id);
+    setTitle(source.title);
+    setSummary(source.summary);
+    setControllerName(source.controllerName || "Not configured");
+    setControllerAddress(source.controllerAddress || "");
+    setPrivacyContact(source.privacyContact || "");
+    setApplicableJurisdiction(source.applicableJurisdiction || "");
+    setSections(source.sections.map((section) => ({ ...section })));
+    setExpandedSection(source.sections[0]?.id || null);
+    setPublicationReviewed(false);
+    setNotice("Loaded the latest saved version. Unsaved editor changes have been discarded.");
+  };
+
   const handlePublish = async () => {
     setNotice("");
     setError("");
@@ -275,7 +297,7 @@ export function AdminPrivacyManagement() {
             <div className="privacy-admin-editor-footer">
               <div className="privacy-publish-warning"><LockKeyhole size={15} /><span>Complete the responsible organization and privacy contact details, then review the notice for accuracy, actual provider relationships, applicable jurisdictions and the effective date. Publication does not itself certify legal compliance.</span></div>\n              <label className="privacy-review-acknowledgement"><input type="checkbox" checked={publicationReviewed} onChange={(event) => setPublicationReviewed(event.target.checked)} disabled={saveDraft.isPending || publishPolicy.isPending} /><span><strong>Publication review confirmed</strong><small>I have reviewed the notice, confirmed the responsible legal organization and privacy contact, and checked the services described, applicable jurisdictions, and effective date.</small></span></label>
               <div className="privacy-form-actions">
-                <button type="button" className="privacy-secondary-button" onClick={() => policyState.refetch()} disabled={saveDraft.isPending || publishPolicy.isPending}><History size={14} /> Reload saved version</button>
+                <button type="button" className="privacy-secondary-button" onClick={() => void handleReloadSavedVersion()} disabled={policyState.isFetching || saveDraft.isPending || publishPolicy.isPending}><History size={14} /> Reload saved version</button>
                 <button type="button" className="privacy-secondary-button" onClick={() => void handleSaveDraft()} disabled={!canPublish || saveDraft.isPending || publishPolicy.isPending}><Save size={15} /> {saveDraft.isPending ? "Saving…" : "Save draft"}</button>
                 <button type="button" className="privacy-primary-button" onClick={() => void handlePublish()} disabled={!canPublish || !publicationReviewed || saveDraft.isPending || publishPolicy.isPending}><Send size={15} /> {publishPolicy.isPending ? "Publishing…" : "Publish notice"}</button>
               </div>
