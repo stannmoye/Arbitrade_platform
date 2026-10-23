@@ -19,8 +19,7 @@ import * as miningAdmin from "./mining-admin";
 import { normalizeAppearanceSettings } from "./appearance-settings";
 import { ADMIN_BROADCAST_CATEGORIES, buildTradeSettlementNotices } from "./modules/notification-events";
 import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
-import { getLocalSessionFromRequest } from "./_core/localAuth";
-import { invalidateLocalAuthSessions } from "./authSessions";
+import { invalidateUserSessions } from "./authSessions";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -39,12 +38,9 @@ export const appRouter = router({
     logout: publicProcedure.mutation(async ({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       try {
-        const localSession = getLocalSessionFromRequest(ctx.req);
-        if (ctx.user && localSession?.userId === ctx.user.id) {
-          // Invalidate the signed local-auth token server-side before reporting success.
-          await invalidateLocalAuthSessions(ctx.user.id);
-        }
         if (ctx.user) {
+          // Revoke the account version so both cookies and app-signed Bearer tokens fail.
+          await invalidateUserSessions(ctx.user.id);
           try {
             await closeTransactionConsoleSession(ctx.req, ctx.res, ctx.user.id);
           } catch (error) {
@@ -115,7 +111,50 @@ export const appRouter = router({
     }),
     requestRiskReport: protectedProcedure.input(z.object({ title: z.string().min(3).max(200), requestedFor: z.string().max(200).optional() })).mutation(({ ctx, input }) => createRiskReport(ctx.user.id, input.title, input.requestedFor)),
     riskReports: protectedProcedure.query(({ ctx }) => listRiskReports(ctx.user.id)),
-    createTicket: protectedProcedure.input(z.object({ subject: z.string().min(3).max(200), body: z.string().min(1).max(20000), category: z.enum(["account","wallet","opportunity","security","technical"]).default("account"), priority: z.enum(["low", "normal", "high", "urgent"]) })).mutation(async ({ ctx, input }) => { const created=await createTicket(ctx.user.id,input); return created; }),
+    requestAccountClosure: protectedProcedure.input(z.object({
+      reasons: z.array(z.enum(["not-using", "experience", "fees", "privacy", "support"]))
+        .min(3, "Select at least three closure reasons.")
+        .max(5)
+        .refine(reasons => new Set(reasons).size === reasons.length, "Each closure reason can only be selected once."),
+      acknowledged: z.literal(true),
+    })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Only customer accounts can request closure." });
+      const subject = "Account closure request — administrator review required";
+      const existingTickets = await listCustomerTickets(ctx.user.id);
+      const pending = existingTickets.find(ticket =>
+        ticket.subject === subject && (ticket.status === "open" || ticket.status === "answered")
+      );
+      if (pending) return { ticketId: pending.id, ticketNumber: pending.ticketNumber, alreadyPending: true };
+
+      const labels: Record<"not-using" | "experience" | "fees" | "privacy" | "support", string> = {
+        "not-using": "I no longer use the platform",
+        experience: "The platform experience did not meet my expectations",
+        fees: "Costs, fees, or available features",
+        privacy: "Privacy or account-security concerns",
+        support: "Customer support or another reason",
+      };
+      const body = [
+        "ACCOUNT CLOSURE REQUEST — CUSTOMER SUBMISSION",
+        "",
+        "The customer is requesting account closure. This ticket requests administrator review only and does not close or delete the account.",
+        "",
+        "Selected reasons:",
+        ...input.reasons.map(reason => `- ${labels[reason]}`),
+        "",
+        "Customer acknowledgments:",
+        "- I understand that my account remains active until an authorized administrator reviews and approves this request.",
+        "- I understand that personal information eligible for deletion may be deleted or anonymized, while records may be retained where required for legal, regulatory, security, accounting, fraud-prevention, audit, dispute-resolution, or financial-recordkeeping obligations.",
+        "- I understand that closure may be irreversible and can remove access to account services and eligible account history.",
+        "",
+        "The customer explicitly acknowledged the closure disclosure. The administrator must record an explicit approve/reject decision. Ticket creation alone must never trigger deletion.",
+      ].join("\n");
+      const created = await createTicket(ctx.user.id, { subject, body, category: "account", priority: "high" });
+      return { ...created, alreadyPending: false };
+    }),
+    createTicket: protectedProcedure.input(z.object({ subject: z.string().min(3).max(200), body: z.string().min(1).max(20000), category: z.enum(["account","wallet","opportunity","security","technical"]).default("account"), priority: z.enum(["low", "normal", "high", "urgent"]) })).mutation(async ({ ctx, input }) => {
+      if (/^\s*account closure request\b/i.test(input.subject)) throw new TRPCError({ code: "BAD_REQUEST", message: "Use the dedicated account-closure request form." });
+      const created=await createTicket(ctx.user.id,input); return created;
+    }),
     tickets: protectedProcedure.query(({ ctx }) => listCustomerTickets(ctx.user.id)),
     ticketMessages: protectedProcedure.input(z.object({ ticketId: z.number().int().positive() })).query(async ({ ctx, input }) => { if (!(await getCustomerTicket(ctx.user.id,input.ticketId))) throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" }); return listTicketMessages(input.ticketId); }),
     ticketAttachments: protectedProcedure.input(z.object({ ticketId: z.number().int().positive() })).query(async ({ ctx, input }) => { if (!(await getCustomerTicket(ctx.user.id,input.ticketId))) throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" }); return listTicketAttachments(input.ticketId); }),

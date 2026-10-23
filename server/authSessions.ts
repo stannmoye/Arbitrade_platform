@@ -3,12 +3,12 @@ import { users } from "../drizzle/schema";
 import { getDb } from "./db";
 
 /**
- * Revoke stateless local-auth cookies by advancing the user's auth version.
- * Existing signed cookies carry the old version and are rejected by createContext.
- * This intentionally invalidates all local-auth sessions for the account because
- * the current token format has no per-device session identifier.
+ * Revoke every application-issued session for an account by advancing its version.
+ * Both local-auth cookies and app-signed OAuth/preview tokens are checked against
+ * this version on authenticated requests. The format has no per-device identifier,
+ * so a successful logout invalidates sessions for this account on all devices.
  */
-export async function invalidateLocalAuthSessions(userId: number): Promise<void> {
+export async function invalidateUserSessions(userId: number): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error("Authentication storage is unavailable");
 
@@ -17,3 +17,6 @@ export async function invalidateLocalAuthSessions(userId: number): Promise<void>
     .set({ authVersion: sql`${users.authVersion} + 1` })
     .where(eq(users.id, userId));
 }
+
+/** @deprecated Use invalidateUserSessions for every application-issued session type. */
+export const invalidateLocalAuthSessions = invalidateUserSessions;

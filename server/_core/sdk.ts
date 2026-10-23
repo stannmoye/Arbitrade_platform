@@ -22,6 +22,8 @@ export type SessionPayload = {
   openId: string;
   appId: string;
   name: string;
+  /** Monotonically increasing account version used to revoke every app-issued session. */
+  authVersion?: number;
 };
 
 const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
@@ -167,11 +169,15 @@ class SDKServer {
     openId: string,
     options: { expiresInMs?: number; name?: string } = {}
   ): Promise<string> {
+    // The token version must match the persisted account version so logout can
+    // invalidate replayed cookies and preview Bearer tokens, not just the browser cookie.
+    const account = await db.getUserByOpenId(openId);
     return this.signSession(
       {
         openId,
         appId: ENV.appId,
         name: options.name || "",
+        authVersion: Number(account?.authVersion ?? 0),
       },
       options
     );
@@ -190,6 +196,7 @@ class SDKServer {
       openId: payload.openId,
       appId: payload.appId,
       name: payload.name,
+      authVersion: Number(payload.authVersion ?? 0),
     })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
       .setExpirationTime(expirationSeconds)
@@ -198,7 +205,7 @@ class SDKServer {
 
   async verifySession(
     cookieValue: string | undefined | null
-  ): Promise<{ openId: string; appId: string; name: string } | null> {
+  ): Promise<{ openId: string; appId: string; name: string; authVersion?: number } | null> {
     if (!cookieValue) {
       console.warn("[Auth] Missing session cookie");
       return null;
@@ -209,12 +216,13 @@ class SDKServer {
       const { payload } = await jwtVerify(cookieValue, secretKey, {
         algorithms: ["HS256"],
       });
-      const { openId, appId, name } = payload as Record<string, unknown>;
+      const { openId, appId, name, authVersion } = payload as Record<string, unknown>;
 
       if (
         !isNonEmptyString(openId) ||
         (!isNonEmptyString(appId) || appId !== ENV.appId) ||
-        typeof name !== "string"
+        typeof name !== "string" ||
+        (authVersion !== undefined && (typeof authVersion !== "number" || !Number.isSafeInteger(authVersion) || authVersion < 0))
       ) {
         console.warn("[Auth] Session payload missing required fields");
         return null;
@@ -224,6 +232,7 @@ class SDKServer {
         openId,
         appId,
         name,
+        ...(typeof authVersion === "number" ? { authVersion } : {}),
       };
     } catch (error) {
       console.warn("[Auth] Session verification failed", String(error));
@@ -314,6 +323,12 @@ class SDKServer {
 
     if (!user) {
       throw ForbiddenError("User not found");
+    }
+
+    // Old signed tokens remain cryptographically valid until expiry; compare
+    // their embedded account version against the current database value on every request.
+    if (Number(session.authVersion ?? 0) !== Number(user.authVersion ?? 0)) {
+      throw ForbiddenError("Session has been revoked. Please sign in again.");
     }
 
     await db.upsertUser({

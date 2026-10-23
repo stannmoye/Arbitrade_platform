@@ -300,11 +300,12 @@ const customerPreferenceItems = customerPreferenceGroups.flatMap(group => group.
 function CustomerPreferencePanel({itemId,push}:{itemId:string;push:(message:string)=>void}) {
   const item = customerPreferenceItems.find(x => x.id === itemId) || customerPreferenceItems[0];
   const Icon = item.icon;
-  const [closureReasons,setClosureReasons]=useState<string[]>([]);
+  type ClosureReasonId = "not-using" | "experience" | "fees" | "privacy" | "support";
+  const [closureReasons,setClosureReasons]=useState<ClosureReasonId[]>([]);
   const [closureAcknowledged,setClosureAcknowledged]=useState(false);
   const [closureMessage,setClosureMessage]=useState("");
   const [closureSubmitted,setClosureSubmitted]=useState(false);
-  const createClosureTicket=trpc.customer.createTicket.useMutation({
+  const createClosureTicket=trpc.customer.requestAccountClosure.useMutation({
     onSuccess:(result)=>{
       setClosureSubmitted(true);
       setClosureMessage(`Your account-closure request has been sent to the administration team. Reference: ${result.ticketNumber}. Your account remains active while the request is reviewed.`);
@@ -312,7 +313,7 @@ function CustomerPreferencePanel({itemId,push}:{itemId:string;push:(message:stri
     },
     onError:(error)=>setClosureMessage(error.message||"We could not submit your request. Please try again.")
   });
-  const closureOptions=[
+  const closureOptions: {id:ClosureReasonId;label:string;detail:string}[] = [
     {id:"not-using",label:"I no longer use the platform",detail:"My needs or circumstances have changed."},
     {id:"experience",label:"The platform experience did not meet my expectations",detail:"Navigation, features, reliability, or ease of use."},
     {id:"fees",label:"Costs, fees, or available features",detail:"The service no longer fits my expectations."},
@@ -324,24 +325,8 @@ function CustomerPreferencePanel({itemId,push}:{itemId:string;push:(message:stri
   const submitClosureRequest=(event:React.FormEvent)=> {
     event.preventDefault();
     if(closureReasons.length<3||!closureAcknowledged||createClosureTicket.isPending||closureSubmitted)return;
-    const selected=closureOptions.filter(option=>closureReasons.includes(option.id)).map(option=>option.label);
-    const body=[
-      "ACCOUNT CLOSURE REQUEST — CUSTOMER SUBMISSION",
-      "",
-      "The customer is requesting account closure. This is a request for administrator review, not an instruction to immediately close or delete the account.",
-      "",
-      "Selected reasons:",
-      ...selected.map(reason=>`- ${reason}`),
-      "",
-      "Customer acknowledgments:",
-      "- I understand that my account remains active until an authorized administrator reviews and approves this request.",
-      "- I understand that, if approved, personal information eligible for deletion will be deleted or anonymized where applicable, but records may be retained where required for legal, regulatory, security, accounting, fraud-prevention, dispute-resolution, or financial-recordkeeping obligations.",
-      "- I understand that deletion may be irreversible and could prevent account recovery or access to historical account features.",
-      "",
-      "Requested action: Review this closure request and record an explicit approve/reject decision. Do not delete the account solely because this ticket was created."
-    ].join("\n");
     setClosureMessage("");
-    createClosureTicket.mutate({subject:"Account closure request — administrator review required",body,category:"account",priority:"high"});
+    createClosureTicket.mutate({reasons:closureReasons,acknowledged:true});
   };
   const action = item.id === "close-account" ? "Review closure requirements" : item.id === "api-access" ? "Review API permissions" : item.id === "statements" ? "Open statements centre" : "Save preference";
   return <div className="arb-page portal-page settings-page customer-preference-page">
