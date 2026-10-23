@@ -85,7 +85,6 @@ export function createPrivacyNoticePdf(policy: PrivacyPolicyDocument): ArrayBuff
 
   const pages: string[][] = [[]];
   let y = 786;
-  const left = 56;
   const bottom = 66;
   const addRaw = (command: string) => pages[pages.length - 1].push(command);
   const newPage = () => {
