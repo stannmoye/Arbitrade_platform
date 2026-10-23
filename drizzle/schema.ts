@@ -954,7 +954,7 @@ export const privacyRequests = mysqlTable("privacy_requests", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
   requestReferenceUnique: uniqueIndex("privacy_request_reference_uq").on(table.requestReference),
-  idempotencyUnique: uniqueIndex("privacy_request_idempotency_uq").on(table.idempotencyKey),
+  idempotencyUnique: uniqueIndex("privacy_request_idempotency_uq").on(table.userId, table.idempotencyKey),
   userCreatedIndex: index("privacy_requests_user_created_idx").on(table.userId, table.createdAt, table.id),
   statusCreatedIndex: index("privacy_requests_status_created_idx").on(table.status, table.createdAt),
 }));
