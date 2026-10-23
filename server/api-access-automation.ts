@@ -188,6 +188,115 @@ async function validateWebhookUrl(rawUrl: string) {
   return parsed.toString();
 }
 
+
+function verificationHash(userId: number, code: string) {
+  const pepper = process.env.API_ACCESS_ENCRYPTION_KEY;
+  if (!pepper || pepper.trim().length < 32) throw new Error("The API access secret vault is not configured on the server.");
+  return crypto.createHash("sha256").update(userId + ":" + code + ":" + pepper, "utf8").digest("hex");
+}
+
+async function sendMetaWhatsAppTemplate(recipient: string, templateName: string, languageCode: string, code: string) {
+  const credentials = await readApiProviderCredential("whatsapp_meta");
+  if (!credentials?.accessToken || !credentials.phoneNumberId) throw new Error("WHATSAPP_PROVIDER_NOT_CONFIGURED");
+  if (!/^[a-z0-9_]{3,512}$/i.test(templateName) || !/^[a-z]{2,3}(?:_[A-Z]{2})?$/.test(languageCode)) {
+    throw new Error("WHATSAPP_VERIFICATION_TEMPLATE_NOT_CONFIGURED");
+  }
+  const settings = jsonSetting(await getAppSetting("apiAccess.settings"), {});
+  if (settings.whatsappEnabled !== true) throw new Error("WHATSAPP_POLICY_DISABLED");
+  const version = /^v\\d+\\.\\d+$/.test(credentials.graphApiVersion || "") ? credentials.graphApiVersion! : "v22.0";
+  const response = await fetch("https://graph.facebook.com/" + version + "/" + encodeURIComponent(credentials.phoneNumberId) + "/messages", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + credentials.accessToken, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: recipient.replace(/\\D/g, ""),
+      type: "template",
+      template: {
+        name: templateName,
+        language: { code: languageCode },
+        components: [{ type: "body", parameters: [{ type: "text", text: code }] }],
+      },
+    }),
+    signal: AbortSignal.timeout(12_000),
+    redirect: "error",
+  });
+  if (!response.ok) throw new Error(response.status >= 500 ? "WHATSAPP_PROVIDER_TEMPORARY_ERROR" : "WHATSAPP_TEMPLATE_REJECTED");
+}
+
+export async function requestCustomerWhatsAppVerification(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available.");
+  const row = (await db.select().from(customerApiNotificationPreferences)
+    .where(eq(customerApiNotificationPreferences.userId, userId)).limit(1))[0];
+  if (!row?.whatsappNumber || !row.whatsappOptIn) throw new Error("Save a WhatsApp number and enable WhatsApp notifications first.");
+  if (row.whatsappVerifiedAt) return { success: true, alreadyVerified: true };
+  if (row.whatsappVerificationSentAt && Date.now() - row.whatsappVerificationSentAt.getTime() < 60_000) {
+    throw new Error("Wait at least 60 seconds before requesting another verification code.");
+  }
+  if (row.whatsappVerificationAttempts >= 5) throw new Error("Verification is temporarily locked after too many attempts. Contact support or try again later.");
+  const credentials = await readApiProviderCredential("whatsapp_meta");
+  if (!credentials?.accessToken || !credentials.phoneNumberId || !credentials.verificationTemplateName) {
+    throw new Error("WhatsApp verification is not configured yet. An administrator must connect the WhatsApp provider and its approved verification template.");
+  }
+  const code = String(crypto.randomInt(100000, 1000000));
+  const expiresAt = new Date(Date.now() + 10 * 60_000);
+  await db.update(customerApiNotificationPreferences).set({
+    whatsappVerificationCodeHash: verificationHash(userId, code),
+    whatsappVerificationExpiresAt: expiresAt,
+    whatsappVerificationSentAt: new Date(),
+    whatsappVerificationAttempts: 0,
+  }).where(eq(customerApiNotificationPreferences.userId, userId));
+  try {
+    await sendMetaWhatsAppTemplate(
+      row.whatsappNumber,
+      credentials.verificationTemplateName,
+      credentials.verificationTemplateLanguage || "en",
+      code,
+    );
+  } catch (error) {
+    await db.update(customerApiNotificationPreferences).set({
+      whatsappVerificationCodeHash: null,
+      whatsappVerificationExpiresAt: null,
+    }).where(eq(customerApiNotificationPreferences.userId, userId));
+    throw new Error(error instanceof Error && error.message.startsWith("WHATSAPP_")
+      ? "The WhatsApp provider could not send the verification message. Check the approved verification template and provider configuration."
+      : "The WhatsApp verification message could not be sent.");
+  }
+  return { success: true, expiresInSeconds: 600, message: "A verification code was sent to your WhatsApp number." };
+}
+
+export async function verifyCustomerWhatsAppNumber(userId: number, code: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available.");
+  if (!/^\\d{6}$/.test(code)) throw new Error("Enter the six-digit verification code.");
+  return db.transaction(async (tx) => {
+    const row = (await tx.select().from(customerApiNotificationPreferences)
+      .where(eq(customerApiNotificationPreferences.userId, userId)).limit(1).for("update"))[0];
+    if (!row?.whatsappNumber || !row.whatsappOptIn) throw new Error("Save and enable a WhatsApp number before verifying it.");
+    if (row.whatsappVerifiedAt) return { success: true, alreadyVerified: true };
+    if (!row.whatsappVerificationCodeHash || !row.whatsappVerificationExpiresAt
+      || row.whatsappVerificationExpiresAt.getTime() <= Date.now()) {
+      throw new Error("The code is missing or expired. Request a new verification code.");
+    }
+    if (row.whatsappVerificationAttempts >= 5) throw new Error("Too many attempts. Request a fresh code later.");
+    const expected = Buffer.from(row.whatsappVerificationCodeHash, "hex");
+    const actual = Buffer.from(verificationHash(userId, code), "hex");
+    if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
+      await tx.update(customerApiNotificationPreferences).set({
+        whatsappVerificationAttempts: row.whatsappVerificationAttempts + 1,
+      }).where(eq(customerApiNotificationPreferences.id, row.id));
+      throw new Error("The verification code is incorrect.");
+    }
+    await tx.update(customerApiNotificationPreferences).set({
+      whatsappVerifiedAt: new Date(),
+      whatsappVerificationCodeHash: null,
+      whatsappVerificationExpiresAt: null,
+      whatsappVerificationAttempts: 0,
+    }).where(eq(customerApiNotificationPreferences.id, row.id));
+    return { success: true, alreadyVerified: false, verifiedAt: new Date().toISOString() };
+  });
+}
+
 export async function listCustomerApiWebhooks(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available.");
