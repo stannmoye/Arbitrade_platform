@@ -26,7 +26,7 @@ describe("support attachment presign error logging", () => {
     const responsePosition = routeSource.indexOf("return res.json({");
     expect(keyPosition).toBeGreaterThan(-1);
     expect(responsePosition).toBeGreaterThan(keyPosition);
-    expect(routeSource).not.toContain("MANUS_API_URL");
+    expect(routeSource).not.toContain("process.env.");
     expect(routeSource).not.toContain("fetch(");
     expect(attachmentPolicy).toContain("isValidSupportAttachmentStorageKey");
     expect(localStorage).toContain("relativeTarget.startsWith(\"..\")");
@@ -40,6 +40,6 @@ describe("support attachment presign error logging", () => {
     expect(route).not.toBeNull();
     expect(route?.[0]).toContain('error instanceof Error ? error.name : "UnknownError"');
     expect(route?.[0]).not.toContain("error.message");
-    expect(route?.[0]).not.toContain("MANUS_API_KEY");
+    expect(route?.[0]).not.toContain("process.env.");
   });
 });
