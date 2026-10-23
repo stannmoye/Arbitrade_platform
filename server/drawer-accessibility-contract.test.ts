@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const adminDrawer = readFileSync(new URL("../client/src/components/AdminSlideMenu.tsx", import.meta.url), "utf8");
 const customerDrawer = readFileSync(new URL("../client/src/components/CustomerSlideMenu.tsx", import.meta.url), "utf8");
 const drawerStyles = readFileSync(new URL("../client/src/index.css", import.meta.url), "utf8");
+const recoveryStyles = readFileSync(new URL("../client/src/portal-render-recovery.css", import.meta.url), "utf8");
 
 describe("navigation drawer keyboard accessibility contracts", () => {
   it("announces empty customer navigation search results politely", () => {
@@ -43,5 +44,14 @@ describe("navigation drawer keyboard accessibility contracts", () => {
     expect(drawerStyles).toContain("-webkit-overflow-scrolling:touch");
     expect(drawerStyles).toContain("touch-action:pan-y");
     expect(drawerStyles).toContain("overscroll-behavior-y:contain");
+  });
+
+  it("paints the open mobile account rail above its scrim", () => {
+    expect(recoveryStyles).toMatch(/\.customer-portal \.portal-body\.customer-primary-menu-open \.customer-primary-rail\s*\{[^}]*z-index:\s*82\s*!important;/s);
+    expect(recoveryStyles).toMatch(/\.customer-portal \.customer-primary-menu-scrim\s*\{[^}]*z-index:\s*81\s*!important;/s);
+  });
+
+  it("hides the redundant left Settings handle when the desktop rail is present", () => {
+    expect(recoveryStyles).toMatch(/@media\s*\(min-width:\s*901px\)\s*\{\s*\.customer-portal \.customer-settings-trigger\s*\{\s*display:\s*none\s*!important;/s);
   });
 });
