@@ -67,6 +67,6 @@ describe("customer API access foundation", () => {
     expect(adminCentre).toContain("WhatsApp Business destination");
     expect(adminCentre).toContain("Wallet / deposit provider");
     expect(adminCentre).toContain("Secret keys are not stored in these fields");
-    expect(adminUi).toContain("Encrypted provider credentials");
+    expect(adminCentre).toContain("Encrypted provider credentials");
   });
 });
