@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const server = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
-const uploadSecurity = readFileSync(new URL("./support-upload-security.ts", import.meta.url), "utf8");
+const attachmentPolicy = readFileSync(new URL("./_core/attachmentPolicy.ts", import.meta.url), "utf8");
+const localStorage = readFileSync(new URL("./local-storage.ts", import.meta.url), "utf8");
 const routers = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 
@@ -14,7 +15,7 @@ const advancedStart = app.indexOf("function CustomerAdvanced(");
 const advancedEnd = app.indexOf("\nfunction PaperclipIcon", advancedStart);
 const advanced = app.slice(advancedStart, advancedEnd);
 const presignStart = server.indexOf('app.post("/api/support/attachments/presign"');
-const presignEnd = server.indexOf("registerOAuthRoutes(app);", presignStart);
+const presignEnd = server.indexOf("registerProviderOAuthRoutes(app);", presignStart);
 const presign = server.slice(presignStart, presignEnd);
 
 describe("Stage 4 support ticket submission security contract", () => {
@@ -46,15 +47,24 @@ describe("Stage 4 support ticket submission security contract", () => {
     expect(advanced).toContain("finally { setTicketSubmitBusy(false); }");
   });
 
-  it("only returns safe HTTPS presigned URLs and avoids forwarding provider errors", () => {
-    expect(presign).toContain("getSafePresignedUploadUrl(payload.url)");
-    expect(presign).toContain("signal: AbortSignal.timeout(10_000)");
+  it("uses self-hosted private local storage and never calls a third-party upload service", () => {
+    expect(presign).toContain("isSupportAttachmentStorageKeyForTicket(key, ticketId)");
+    expect(presign).toContain("/api/support/attachments/upload?");
+    expect(presign).toContain("/api/support/attachments/file?key=");
     expect(presign).toContain('randomBytes(24).toString("hex")');
-    expect(presign).not.toContain("Math.random()");
-    expect(uploadSecurity).toContain('url.protocol !== "https:"');
-    expect(uploadSecurity).toContain("url.username || url.password");
-    expect(presign).toContain('error: "Unable to prepare managed upload. Please retry."');
-    expect(presign).not.toContain("payload.error ||");
+    expect(presign).not.toContain("fetch(");
+    expect(presign).not.toContain("MANUS_API_URL");
+    const uploadStart = server.indexOf('app.put("/api/support/attachments/upload"');
+    const uploadEnd = server.indexOf("app.use(express.json", uploadStart);
+    const upload = server.slice(uploadStart, uploadEnd);
+    expect(upload).toContain("express.raw({ type: \"*/*\", limit: \"25mb\" })");
+    expect(upload).toContain("getCustomerTicket(user.id, ticketId)");
+    expect(upload).toContain("saveLocalStorageFile(key, bytes)");
+    expect(upload).toContain("incomingMimeType !== mimeType");
+    expect(attachmentPolicy).toContain("isSupportAttachmentStorageKeyForTicket");
+    expect(localStorage).toContain('open(target, "wx", 0o600)');
+    expect(localStorage).toContain("UPLOAD_DIR");
+    expect(localStorage).toContain("dist");
   });
   it("rejects arbitrary attachment storage keys before registering them", () => {
     expect(routers).toContain('import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy"');
