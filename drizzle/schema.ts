@@ -396,6 +396,24 @@ export const apiProviderEvents = mysqlTable("api_provider_events", {
   typeReceivedIndex: index("api_provider_event_type_idx").on(table.eventType, table.receivedAt),
 }));
 
+export const customerApiUsageDaily = mysqlTable("customer_api_usage_daily", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  keyId: int("keyId").notNull(),
+  usageDate: varchar("usageDate", { length: 10 }).notNull(),
+  requestCount: bigint("requestCount", { mode: "number" }).default(0).notNull(),
+  successCount: bigint("successCount", { mode: "number" }).default(0).notNull(),
+  errorCount: bigint("errorCount", { mode: "number" }).default(0).notNull(),
+  totalLatencyMs: bigint("totalLatencyMs", { mode: "number" }).default(0).notNull(),
+  lastRequestAt: timestamp("lastRequestAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  keyDateUniqueIndex: uniqueIndex("customer_api_usage_key_date_uq").on(table.keyId, table.usageDate),
+  userDateIndex: index("customer_api_usage_user_date_idx").on(table.userId, table.usageDate),
+  dateIndex: index("customer_api_usage_date_idx").on(table.usageDate),
+}));
+
 export const appSettings = mysqlTable("app_settings", {
   id: int("id").autoincrement().primaryKey(),
   settingKey: varchar("settingKey", { length: 120 }).notNull().unique(),
