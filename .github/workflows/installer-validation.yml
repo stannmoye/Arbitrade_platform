@@ -226,16 +226,12 @@ jobs:
             exit 1
           fi
 
-          if [[ ! -s dist/public/api/platform/config.js ]] ||
-             ! grep -q 'window.__MANUS_CONFIG__=' dist/public/api/platform/config.js; then
-            echo "Expected public runtime configuration asset was not emitted." >&2
+          if [[ -e dist/public/api/platform/config.js ]] ||
+             grep -q '/api/platform/config.js\|__MANUS_CONFIG__' dist/public/index.html; then
+            echo "Legacy third-party runtime configuration must not be shipped." >&2
             exit 1
           fi
-          if ! grep -q '/api/platform/config.js' dist/public/index.html; then
-            echo "Production HTML no longer loads the public runtime configuration script." >&2
-            exit 1
-          fi
-          echo "Frontend JS/CSS budgets, lazy chunks, and runtime-config asset checks passed."
+          echo "Frontend JS/CSS budgets, lazy chunks, and provider-free HTML checks passed."
       - name: Smoke-test production server without a database
         env:
           NODE_ENV: production
@@ -261,15 +257,11 @@ jobs:
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:3187/api/health | grep -q '"status":"ok"'; then
               echo "Production server health endpoint returned status=ok."
-              if grep -Fq '[OAuth] ERROR: MANUS_OAUTH_API_URL' "$log_file"; then
-                echo "Missing optional OAuth configuration is still logged as an error." >&2
+              if grep -Eiq 'MANUS_OAUTH_API_URL|MANUS_API_URL is not configured|Manus login is not configured|__MANUS_CONFIG__' "$log_file"; then
+                echo "Legacy third-party provider integration was still accessed during startup." >&2
                 exit 1
               fi
-              if ! grep -Fq '[OAuth] MANUS_OAUTH_API_URL is not configured; OAuth sign-in will be unavailable until it is set.' "$log_file"; then
-                echo "Expected actionable OAuth configuration warning was not logged." >&2
-                exit 1
-              fi
-              echo "OAuth startup diagnostic correctly distinguishes missing configuration from a startup failure."
+              echo "Production startup is healthy without legacy provider configuration."
               exit 0
             fi
             if ! kill -0 "$server_pid" 2>/dev/null; then
