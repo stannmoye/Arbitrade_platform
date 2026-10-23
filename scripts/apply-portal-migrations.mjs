@@ -44,7 +44,7 @@ const targetTables = [
   "kyc_settings", "kyc_profiles", "password_reset_tokens", "admin_email_messages",
   "mining_economics_versions", "mining_packages", "mining_customer_packages", "payout_requests", "customer_totp_authenticators",
   "privacy_policy_versions", "privacy_requests", "privacy_request_events", "privacy_audit_events", "customer_api_keys",
-  "customer_api_notification_preferences", "customer_api_webhooks", "api_provider_credentials", "api_notification_deliveries", "api_platform_incidents", "api_provider_events",
+  "customer_api_notification_preferences", "customer_api_webhooks", "api_provider_credentials", "api_notification_deliveries", "api_platform_incidents", "api_provider_events", "customer_api_usage_daily",
 ];
 const baselineReviewed = process.argv.includes("--baseline-reviewed");
 let url;
