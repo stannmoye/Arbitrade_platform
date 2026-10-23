@@ -42,9 +42,10 @@ export function AdminAccountClosureDecisionPanel({
       <h3 id={`closure-review-title-${ticketId}`}>Account-closure decision</h3>
       <p>
         Review the customer's reasons. Approval is refused while balances, pending payouts,
-        active trading or staking positions, active subscriptions, or other open support cases
-        remain. Approval anonymizes direct profile fields and revokes access; financial and
-        audit history is retained.
+        active or replaced Mining packages, unsettled Mining rewards or conversions, pending
+        Mining adjustments, active trading or staking positions, active subscriptions, or other
+        open support cases remain. Approval anonymizes direct profile fields and revokes access;
+        financial and audit history is retained.
       </p>
       <label htmlFor={`closure-review-reason-${ticketId}`}>Required administrative decision note</label>
       <textarea

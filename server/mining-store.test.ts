@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { parseMainWalletMinor } from "./mining";
 import {
   addUtcMonths,
@@ -10,6 +10,7 @@ import {
   inMiningTransaction,
   postMiningLedgerEntries,
   requestKey,
+  requireActiveMiningAccount,
   type Db,
 } from "./mining-store";
 
@@ -55,6 +56,37 @@ describe("Mining amount and asset normalization", () => {
   it("rejects non-finite decimal input", () => {
     expect(() => decimal("NaN")).toThrow(/invalid decimal/i);
     expect(() => decimal("Infinity")).toThrow(/invalid decimal/i);
+  });
+});
+
+describe("Mining account lifecycle locking", () => {
+  it("locks the customer row before checking Mining restrictions", async () => {
+    const query = vi.fn()
+      .mockResolvedValueOnce([[{ id: 42, loginMethod: "email" }], []])
+      .mockResolvedValueOnce([[{ accountStatus: "active" }], []]);
+    const conn = { query } as unknown as Db;
+
+    await expect(requireActiveMiningAccount(conn, 42)).resolves.toBe("active");
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls[0]?.[0]).toMatch(/FROM users WHERE id=\? LIMIT 1 FOR UPDATE/i);
+    expect(query.mock.calls[0]?.[1]).toEqual([42]);
+    expect(query.mock.calls[1]?.[0]).toContain("FROM customer_controls");
+  });
+
+  it("rejects closed accounts before reading customer controls", async () => {
+    const query = vi.fn().mockResolvedValueOnce([[{ id: 42, loginMethod: "closed" }], []]);
+    const conn = { query } as unknown as Db;
+
+    await expect(requireActiveMiningAccount(conn, 42)).rejects.toThrow(/closed or missing account/i);
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects missing account records", async () => {
+    const query = vi.fn().mockResolvedValueOnce([[], []]);
+    const conn = { query } as unknown as Db;
+
+    await expect(requireActiveMiningAccount(conn, 42)).rejects.toThrow(/closed or missing account/i);
+    expect(query).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -1849,7 +1849,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         });
 
         await customerSearch.fill("no-such-customer-destination-xyz");
-        const emptySearchStatus = drawer.getByRole("status");
+        const emptySearchStatus = drawer.getByRole("status").filter({ hasText: /No pages or resources match/ });
         await emptySearchStatus.waitFor({ state: "visible" });
         const emptySearchText = await emptySearchStatus.innerText();
         const emptySearchLiveMode = await emptySearchStatus.getAttribute("aria-live");
@@ -1868,7 +1868,9 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         });
 
         await customerSearch.fill("");
-        await drawer.getByRole("button", { name: /Dashboard/ }).waitFor({ state: "visible" });
+        // Main-page destinations such as Wallet and Dashboard are search-only in this drawer.
+        // Verify an ordinary drawer destination returns when the query is cleared.
+        await drawer.getByRole("button", { name: /Account Settings/ }).waitFor({ state: "visible" });
         await drawer.evaluate((element, selector) => element.querySelectorAll(selector)[0]?.focus(), focusableSelector);
         await page.keyboard.press("Shift+Tab");
         const focusTrapWorks = await drawer.evaluate((element, selector) => {

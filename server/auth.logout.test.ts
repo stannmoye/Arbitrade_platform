@@ -157,7 +157,7 @@ describe("auth.logout", () => {
     const { ctx, clearedCookies } = createAuthContext(`${COOKIE_NAME}=${token}`, "user", false);
 
     await expect(appRouter.createCaller(ctx).auth.logout()).rejects.toThrow("Authentication storage is unavailable");
-    expect(clearedCookies).toHaveLength(1);
+    expect(clearedCookies).toHaveLength(0);
   });
 
   it("does not report logout success if server-side revocation fails", async () => {
@@ -165,7 +165,7 @@ describe("auth.logout", () => {
     const { ctx, clearedCookies } = createAuthContext();
 
     await expect(appRouter.createCaller(ctx).auth.logout()).rejects.toThrow();
-    expect(clearedCookies).toHaveLength(1);
+    expect(clearedCookies).toHaveLength(0);
   });
 
   it("rejects account-closure requests with fewer than three reasons", async () => {

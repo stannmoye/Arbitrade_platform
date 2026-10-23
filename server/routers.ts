@@ -40,68 +40,62 @@ export const appRouter = router({
     confirmEmailVerification: protectedProcedure.input(z.object({ code: z.string().regex(/^\d{8}$/) })).mutation(({ ctx, input }) => confirmEmailVerification(ctx.user.id, input.code)),
     logout: publicProcedure.mutation(async ({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
-      try {
-        let user = ctx.user;
-        let shouldRevoke = Boolean(ctx.user);
+      let user = ctx.user;
+      let shouldRevoke = Boolean(ctx.user);
 
-        // Public logout also needs to work when context creation could not attach a user,
-        // otherwise a database/authentication lookup error could be reported as success
-        // while a still-valid preview Bearer token remains reusable.
-        if (!user) {
-          const localSession = getLocalSessionFromRequest(ctx.req);
-          if (localSession) {
-            const localUser = await getUserById(localSession.userId);
-            if (localUser) {
-              user = localUser;
-              shouldRevoke = localUser.loginMethod !== "closed" &&
-                Number(localSession.authVersion) === Number(localUser.authVersion ?? 0);
-            }
-          } else {
-            const cookies = parseCookieHeader(ctx.req.headers.cookie ?? "");
-            const cookieToken = cookies[COOKIE_NAME];
-            const authHeader = ctx.req.headers.authorization;
-            const bearerToken = typeof authHeader === "string" && authHeader.startsWith("Bearer ")
-              ? authHeader.slice(7)
-              : undefined;
-            let session = await sdk.verifySession(cookieToken);
-            if (!session && bearerToken && bearerToken !== cookieToken) {
-              session = await sdk.verifySession(bearerToken);
-            }
+      // Recover a valid token when context construction could not attach its user.
+      if (!user) {
+        const localSession = getLocalSessionFromRequest(ctx.req);
+        if (localSession) {
+          const localUser = await getUserById(localSession.userId);
+          if (localUser) {
+            user = localUser;
+            shouldRevoke = localUser.loginMethod !== "closed" &&
+              Number(localSession.authVersion) === Number(localUser.authVersion ?? 0);
+          }
+        } else {
+          const cookies = parseCookieHeader(ctx.req.headers.cookie ?? "");
+          const cookieToken = cookies[COOKIE_NAME];
+          const authHeader = ctx.req.headers.authorization;
+          const bearerToken = typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+            ? authHeader.slice(7)
+            : undefined;
+          let session = await sdk.verifySession(cookieToken);
+          if (!session && bearerToken && bearerToken !== cookieToken) {
+            session = await sdk.verifySession(bearerToken);
+          }
 
-            if (session) {
-              // Strict lookup must fail if storage is unavailable and must never
-              // auto-provision an OAuth identity merely because logout was requested.
-              const sessionUser = await getUserForSessionRevocation(session.openId);
-              if (!sessionUser) {
-                throw new Error("Could not verify the account associated with this session. Retry logout.");
-              }
-              user = sessionUser;
-              shouldRevoke = sessionUser.loginMethod !== "closed" &&
-                !sessionUser.openId.startsWith("closed:") &&
-                Number(session.authVersion ?? 0) === Number(sessionUser.authVersion ?? 0);
+          if (session) {
+            // Never auto-provision an OAuth identity just because logout was requested.
+            const sessionUser = await getUserForSessionRevocation(session.openId);
+            if (!sessionUser) {
+              throw new Error("Could not verify the account associated with this session. Retry logout.");
             }
+            user = sessionUser;
+            shouldRevoke = sessionUser.loginMethod !== "closed" &&
+              !sessionUser.openId.startsWith("closed:") &&
+              Number(session.authVersion ?? 0) === Number(sessionUser.authVersion ?? 0);
           }
         }
-
-        if (user) {
-          // A current token is revoked before returning success. An already stale or
-          // closed token is already invalid, so do not increment its version again.
-          if (shouldRevoke) await invalidateUserSessions(user.id);
-          try {
-            await closeTransactionConsoleSession(ctx.req, ctx.res, user.id);
-          } catch (error) {
-            // Console-feed cleanup is auxiliary; it must not undo successful revocation.
-            console.error(
-              "[Auth] Transaction-console cleanup failed after logout",
-              error instanceof Error ? error.name : "UnknownError",
-            );
-          }
-        }
-        return { success: true } as const;
-      } finally {
-        // Always expire the browser cookie, even if revocation or cleanup fails.
-        ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       }
+
+      if (user) {
+        // A stale or closed token is already invalid. If lookup or revocation fails,
+        // do not clear the cookie; the customer's retry action needs the current token.
+        if (shouldRevoke) await invalidateUserSessions(user.id);
+        try {
+          await closeTransactionConsoleSession(ctx.req, ctx.res, user.id);
+        } catch (error) {
+          // Auxiliary console cleanup must not undo successful revocation.
+          console.error(
+            "[Auth] Transaction-console cleanup failed after logout",
+            error instanceof Error ? error.name : "UnknownError",
+          );
+        }
+      }
+
+      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      return { success: true } as const;
     }),
   }),
 
