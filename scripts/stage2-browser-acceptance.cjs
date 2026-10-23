@@ -1333,12 +1333,35 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         ...customerMainSurface,
         passed: customerMainVisible,
       });
+      const customerThemeSelectorCount = await page.locator(".customer-portal .arb-theme-selector-compact").count();
+      checks.push({
+        route: "/customer",
+        routeName: "customer",
+        width: 1440,
+        theme: "runtime-default",
+        check: "customer-theme-selector-single-location",
+        selectorCount: customerThemeSelectorCount,
+        selectorInHeader: await selector.isVisible(),
+        passed: customerThemeSelectorCount === 1 && await selector.isVisible(),
+      });
 
       // The left-side SETTINGS rail is intentionally inside the customer shell.
       // Verify that the rail is off-canvas/inert while closed, then visible and
       // hit-testable above its scrim when opened. Do not expect the removed
       // customer-left-menu-portal-host wrapper.
       await page.setViewportSize({ width: 390, height: 844 });
+      const mobileCustomerSelectorCount = await page.locator(".customer-portal .arb-theme-selector-compact").count();
+      const mobileCustomerSelectorVisible = await selector.isVisible();
+      checks.push({
+        route: "/customer",
+        routeName: "customer",
+        width: 390,
+        theme: "runtime-default",
+        check: "customer-theme-selector-single-location-mobile",
+        selectorCount: mobileCustomerSelectorCount,
+        selectorInHeader: mobileCustomerSelectorVisible,
+        passed: mobileCustomerSelectorCount === 1 && mobileCustomerSelectorVisible,
+      });
       // Customer styles are dynamically imported so the app can render even if a
       // style chunk is slow. Wait for the actual closed-state rail CSS before
       // evaluating menu visibility; otherwise this assertion races the stylesheet.

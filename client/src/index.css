@@ -138,8 +138,6 @@ input,select,textarea{border-color:var(--ux-line-strong)!important;background:rg
 .admin-slide-backdrop{position:fixed;inset:0;z-index:0;width:100%;height:100%;padding:0;border:0;background:rgba(3,10,19,.48);backdrop-filter:blur(5px);opacity:0;pointer-events:none;transition:opacity .42s ease}
 .admin-slide-layer.is-open .admin-slide-backdrop{opacity:1;pointer-events:auto}
 .admin-slide-drawer{position:fixed;z-index:2;top:14px;right:14px;bottom:14px;width:min(430px,calc(100vw - 24px));display:grid;grid-template-rows:auto auto auto auto minmax(0,1fr) auto;overflow:hidden;padding:18px 17px 14px;border:1px solid rgba(146,191,202,.2);border-radius:22px;color:#edf7f6;background:radial-gradient(ellipse at 100% 0%,rgba(68,202,173,.14),transparent 34%),linear-gradient(165deg,rgba(14,32,49,.985),rgba(7,17,30,.99) 58%,rgba(7,22,32,.99));box-shadow:0 28px 90px rgba(0,0,0,.48),inset 0 1px rgba(255,255,255,.045);transform:translate3d(calc(100% + 32px),0,0);transition:transform .62s cubic-bezier(.22,.84,.22,1),box-shadow .3s ease;pointer-events:none}
-/* Customer drawer has a theme-control row before the search row. */
-.customer-slide-drawer{grid-template-rows:auto auto auto auto auto minmax(0,1fr) auto}
 .admin-slide-layer.is-open .admin-slide-drawer{transform:translate3d(0,0,0);pointer-events:auto;box-shadow:0 34px 100px rgba(0,0,0,.55),inset 0 1px rgba(255,255,255,.06)}
 .admin-slide-drawer:before{content:"";position:absolute;top:0;right:34px;width:180px;height:1px;background:linear-gradient(90deg,transparent,rgba(124,231,194,.8),transparent);opacity:.8}
 .admin-slide-drawer-topline{display:flex;align-items:center;justify-content:space-between;padding:2px 3px 13px;color:#93b4c2;font-size:9px;font-weight:800;letter-spacing:.19em}
