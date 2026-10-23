@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
-const uploadSecurity = readFileSync(new URL("./support-upload-security.ts", import.meta.url), "utf8");
-const route = source.match(/app\.post\("\/api\/support\/attachments\/presign"[\s\S]*?registerOAuthRoutes\(app\);/);
+const attachmentPolicy = readFileSync(new URL("./_core/attachmentPolicy.ts", import.meta.url), "utf8");
+const localStorage = readFileSync(new URL("./local-storage.ts", import.meta.url), "utf8");
+const route = source.match(/app\.post\("\/api\/support\/attachments\/presign"[\s\S]*?registerProviderOAuthRoutes\(app\);/);
 
 describe("support attachment presign error logging", () => {
   it("rate-limits support presign requests before parsing potentially oversized JSON bodies", () => {
@@ -18,21 +19,27 @@ describe("support attachment presign error logging", () => {
     expect(source).toContain('app.post("/api/support/attachments/presign", async (req, res) => {');
   });
 
-  it("rejects parser-normalized control characters before returning a bearer upload URL", () => {
+  it("validates private local storage paths, ticket scope, and attachment ownership", () => {
     expect(route).not.toBeNull();
     const routeSource = route?.[0] ?? "";
-    const validationPosition = routeSource.indexOf("getSafePresignedUploadUrl(payload.url)");
-    const responsePosition = routeSource.indexOf("return res.json({ uploadUrl: safeUploadUrl");
-    expect(validationPosition).toBeGreaterThan(-1);
-    expect(responsePosition).toBeGreaterThan(validationPosition);
-    expect(uploadSecurity).toContain("value !== value.trim()");
-    expect(uploadSecurity).toContain(".test(value)");
-    expect(uploadSecurity).toContain("u007f]/.test(value)");
+    const keyPosition = routeSource.indexOf("isSupportAttachmentStorageKeyForTicket(key, ticketId)");
+    const responsePosition = routeSource.indexOf("return res.json({");
+    expect(keyPosition).toBeGreaterThan(-1);
+    expect(responsePosition).toBeGreaterThan(keyPosition);
+    expect(routeSource).not.toContain("process.env.");
+    expect(routeSource).not.toContain("fetch(");
+    expect(attachmentPolicy).toContain("isValidSupportAttachmentStorageKey");
+    expect(localStorage).toContain("relativeTarget.startsWith(\"..\")");
+    expect(localStorage).toContain("relativeFromPublic");
+    expect(source).toContain('app.get("/api/support/attachments/file"');
+    expect(source).toContain("getTicketAttachmentAccess(key)");
+    expect(source).toContain('user.role !== "admin" && attachment.customerId !== Number(user.id)');
   });
 
   it("does not log raw provider or network exception messages", () => {
     expect(route).not.toBeNull();
     expect(route?.[0]).toContain('error instanceof Error ? error.name : "UnknownError"');
     expect(route?.[0]).not.toContain("error.message");
+    expect(route?.[0]).not.toContain("process.env.");
   });
 });
