@@ -20,6 +20,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { buildPrivacyHtmlDocument } from "@/lib/privacyHtml";
 import { createPrivacyNoticePdf } from "@/lib/privacyNoticePdf";
 import {
   PRIVACY_REQUEST_TYPES,
@@ -46,7 +47,7 @@ function displayDateTime(value: Date | string | null | undefined): string {
 }
 
 export function CustomerPrivacyCenter() {
-  const policy = trpc.privacy.currentPolicy.useQuery(undefined, { retry: 1, refetchInterval: 60000 });
+  const policy = trpc.privacy.currentPolicy.useQuery(undefined, { retry: 3, staleTime: 15000, refetchInterval: 60000, refetchOnWindowFocus: false });
   const history = trpc.privacy.policyHistory.useQuery(undefined, { retry: 1, refetchInterval: 60000 });
   const requests = trpc.privacy.myRequests.useQuery(undefined, { refetchInterval: 30000 });
   const utils = trpc.useUtils();
@@ -247,7 +248,9 @@ export function CustomerPrivacyCenter() {
                   <span><CalendarDays size={13} /> Effective {displayDate(viewedPolicy.effectiveAt)}</span>
                   <span><Clock3 size={13} /> Published {displayDate(viewedPolicy.publishedAt)}</span>
                 </div>
-                <div className="privacy-document-sections">
+                {viewedPolicy.htmlContent?.trim() ? (
+                  <iframe className="privacy-html-notice-frame" title={"Privacy Notice version " + viewedPolicy.versionLabel} sandbox="" srcDoc={buildPrivacyHtmlDocument(viewedPolicy.htmlContent)} />
+                ) : <div className="privacy-document-sections">
                   {viewedPolicy.sections.map((section, index) => (
                     <details className="privacy-policy-section" key={section.id} open={index === 0}>
                       <summary>
@@ -258,7 +261,7 @@ export function CustomerPrivacyCenter() {
                       <div className="privacy-policy-body"><p>{section.body}</p></div>
                     </details>
                   ))}
-                </div>
+                </div>}
               </>
             )}
           </section>
