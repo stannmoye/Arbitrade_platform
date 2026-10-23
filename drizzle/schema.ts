@@ -308,6 +308,7 @@ export const customerApiNotificationPreferences = mysqlTable("customer_api_notif
   inAppEnabled: boolean("inAppEnabled").default(true).notNull(),
   dailySummaryEnabled: boolean("dailySummaryEnabled").default(false).notNull(),
   dailyStatementEnabled: boolean("dailyStatementEnabled").default(false).notNull(),
+  dailyTaxReportEnabled: boolean("dailyTaxReportEnabled").default(false).notNull(),
   feeSummaryEnabled: boolean("feeSummaryEnabled").default(false).notNull(),
   securityAlertsEnabled: boolean("securityAlertsEnabled").default(true).notNull(),
   timezone: varchar("timezone", { length: 80 }).default("Africa/Lagos").notNull(),
