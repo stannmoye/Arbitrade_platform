@@ -1710,6 +1710,17 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           passed: await soundWarning.count() === 0,
         });
 
+        // The customer resources slider is intentionally hidden on desktop where the
+        // permanent account rail is visible. Validate this separate drawer at mobile width.
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.waitForFunction(() => {
+          const trigger = document.querySelector(".customer-slide-layer .customer-resource-peek-trigger");
+          if (!(trigger instanceof HTMLElement)) return false;
+          const style = getComputedStyle(trigger);
+          const rect = trigger.getBoundingClientRect();
+          return style.display !== "none" && style.visibility === "visible" &&
+            style.pointerEvents !== "none" && rect.width > 0 && rect.height > 0;
+        }, undefined, { timeout: 15000 });
         const trigger = page.getByRole("button", { name: "Open customer navigation" });
         const drawer = page.locator("#customer-navigation-drawer");
         const focusableSelector = 'a[href]:not([tabindex="-1"]):not([aria-disabled="true"]),button:not([tabindex="-1"]):not([disabled]),input:not([tabindex="-1"]):not([disabled]),select:not([tabindex="-1"]):not([disabled]),textarea:not([tabindex="-1"]):not([disabled]),[tabindex]:not([tabindex="-1"]):not([disabled]),[contenteditable="true"]';
@@ -1724,7 +1735,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         checks.push({
           route: "/customer",
           routeName: "customer",
-          width: 1440,
+          width: 390,
           theme: scenario.policy.defaultTheme,
           check: "customer-navigation-closed-drawer-has-no-tab-stops",
           passed: closedDrawerSafe,
@@ -1746,7 +1757,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         checks.push({
           route: "/customer",
           routeName: "customer",
-          width: 1440,
+          width: 390,
           theme: scenario.policy.defaultTheme,
           check: "customer-navigation-uses-body-level-portal",
           passed: customerPortalPlacement.layerClassPresent && customerPortalPlacement.attachedDirectlyToBody,
@@ -1760,7 +1771,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         checks.push({
           route: "/customer",
           routeName: "customer",
-          width: 1440,
+          width: 390,
           theme: scenario.policy.defaultTheme,
           check: "customer-navigation-search-filters-destinations",
           passed: walletSearchVisible && dashboardHiddenForWallet,
@@ -1779,7 +1790,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         checks.push({
           route: "/customer",
           routeName: "customer",
-          width: 1440,
+          width: 390,
           theme: scenario.policy.defaultTheme,
           check: "customer-navigation-empty-search-announced",
           passed: emptySearchAnnounced,
@@ -1799,7 +1810,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         checks.push({
           route: "/customer",
           routeName: "customer",
-          width: 1440,
+          width: 390,
           theme: scenario.policy.defaultTheme,
           check: "customer-navigation-focus-trap-wraps-backward",
           passed: focusTrapWorks,
@@ -1815,7 +1826,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         checks.push({
           route: "/customer",
           routeName: "customer",
-          width: 1440,
+          width: 390,
           theme: scenario.policy.defaultTheme,
           check: "customer-navigation-focus-trap-wraps-forward",
           passed: forwardFocusTrapWorks,
@@ -1833,12 +1844,15 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         checks.push({
           route: "/customer",
           routeName: "customer",
-          width: 1440,
+          width: 390,
           theme: scenario.policy.defaultTheme,
           check: "customer-navigation-escape-restores-trigger-focus",
           passed: focusRestored,
           focusRestored,
         });
+        // Restore the desktop viewport before the remaining policy assertions.
+        await page.setViewportSize({ width: 1440, height: 900 });
+
       }
 
       checks.push({
