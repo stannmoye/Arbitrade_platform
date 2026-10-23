@@ -54,19 +54,24 @@ describe("customer API access foundation", () => {
     expect(apiRoutes).toContain('"/api/v1/platform/status"');
     expect(server).toContain("registerCustomerApiAccessRoutes(app)");
     expect(apiRoutes).toContain('app.post("/api/v1/webhooks"');
-    expect(apiRoutes).not.toContain('app.post("/api/v1/account/withdrawals');
-    expect(apiRoutes).not.toContain('app.post("/api/v1/account/withdrawal-requests');
+    expect(apiRoutes).toContain('app.post("/api/v1/account/withdrawals"');
+    expect(apiRoutes).toContain('apiHandler("withdrawals:create"');
+    expect(apiRoutes).toContain("WITHDRAWAL_API_DISABLED");
+    expect(apiRoutes).toContain("TOTP_REQUIRED");
+    expect(apiRoutes).toContain("createCustomerPayoutRequest(identity.userId");
+    expect(apiRoutes).toContain("requiresManualReview: true");
   });
 
   it("provides customer key controls and admin-editable integration policy and message templates", () => {
     expect(customerUi).toContain("Copy now · shown once");
     expect(customerUi).toContain("Revoke");
-    expect(customerUi).toContain("Read permissions only. No key can initiate a withdrawal.");
+    expect(customerUi).toContain("The separate withdrawal-request scope requires an authenticator code and manual review");
     expect(adminCentre).toContain("saveApiAccessSettings");
     expect(adminCentre).toContain("Message template studio");
     expect(adminCentre).toContain("WhatsApp Business destination");
     expect(adminCentre).toContain("Wallet / deposit provider");
     expect(adminCentre).toContain("Secret keys are not stored in these fields");
     expect(adminCentre).toContain("Encrypted provider credentials");
+    expect(adminCentre).toContain("Allow protected API withdrawal requests");
   });
 });
