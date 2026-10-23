@@ -10,6 +10,26 @@ function formatDate(value: Date | string | null | undefined): string {
     : date.toLocaleDateString("en", { year: "numeric", month: "short", day: "numeric" });
 }
 
+function htmlToText(value: string): string {
+  return value
+    .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script\\s*>/gi, " ")
+    .replace(/<style\\b[^>]*>[\\s\\S]*?<\\/style\\s*>/gi, " ")
+    .replace(/<(br|hr)\\b[^>]*>/gi, "\\n")
+    .replace(/<\\/(p|div|section|article|h[1-6]|li|tr|table|blockquote)\\s*>/gi, "\\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\\d+);/g, (_, number: string) => String.fromCodePoint(Number(number) || 32))
+    .replace(/\\n[ \\t]+/g, "\\n")
+    .replace(/[ \\t]{2,}/g, " ")
+    .replace(/\\n{3,}/g, "\\n\\n")
+    .trim();
+}
+
 function wrapText(value: string, maxLength: number): string[] {
   const paragraphs = value.replace(/\r\n?/g, "\n").split("\n");
   const lines: string[] = [];
@@ -75,12 +95,19 @@ export function createPrivacyNoticePdf(policy: PrivacyPolicyDocument): ArrayBuff
     { text: "Privacy contact: " + (policy.privacyContact || "Use the authenticated Support Centre"), size: 9, gapAfter: 2 },
     ...(policy.applicableJurisdiction ? [{ text: "Applicable jurisdiction: " + policy.applicableJurisdiction, size: 9, gapAfter: 2 }] : []),
     { text: "", size: 5, gapAfter: 6 },
-    { text: "SUMMARY", size: 11, bold: true, gapAfter: 5 },
-    { text: policy.summary || "", size: 9.5, gapAfter: 12 },
-    ...policy.sections.flatMap((section) => [
-      { text: section.title, size: 12, bold: true, gapBefore: 6, gapAfter: 5 },
-      { text: section.body, size: 9.5, gapAfter: 10 },
-    ]),
+    ...(policy.htmlContent?.trim()
+      ? [
+          { text: "PUBLISHED HTML NOTICE CONTENT", size: 11, bold: true, gapAfter: 5 },
+          { text: htmlToText(policy.htmlContent), size: 9.5, gapAfter: 12 },
+        ]
+      : [
+          { text: "SUMMARY", size: 11, bold: true, gapAfter: 5 },
+          { text: policy.summary || "", size: 9.5, gapAfter: 12 },
+          ...policy.sections.flatMap((section) => [
+            { text: section.title, size: 12, bold: true, gapBefore: 6, gapAfter: 5 },
+            { text: section.body, size: 9.5, gapAfter: 10 },
+          ]),
+        ]),
   ];
 
   const pages: string[][] = [[]];
