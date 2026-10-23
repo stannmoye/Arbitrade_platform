@@ -1,6 +1,6 @@
 import mysql from "mysql2/promise";
 import { config } from "dotenv";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { findMissingWorkerTables, getRequiredWorkerTables } from "./worker-schema-inventory.mjs";
@@ -13,7 +13,14 @@ async function main() {
   if (!raw) throw new Error("DATABASE_URL is required; load the private application environment first.");
 
   const schema = await readFile(resolve(root, "drizzle/schema.ts"), "utf8");
-  const required = getRequiredWorkerTables(schema);
+  const migrationFiles = (await readdir(resolve(root, "drizzle"), { withFileTypes: true }))
+    .filter(entry => entry.isFile() && entry.name.endsWith(".sql"))
+    .map(entry => entry.name)
+    .sort();
+  const migrationSqlSources = await Promise.all(
+    migrationFiles.map(file => readFile(resolve(root, "drizzle", file), "utf8")),
+  );
+  const required = getRequiredWorkerTables(schema, migrationSqlSources);
   const url = new URL(raw);
   if (![ "mysql:", "mariadb:" ].includes(url.protocol)) {
     throw new Error("DATABASE_URL must use mysql:// or mariadb://.");
