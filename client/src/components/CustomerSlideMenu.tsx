@@ -54,6 +54,25 @@ const destinationGroups: CustomerDestinationGroup[] = [
 ];
 
 const destinations = destinationGroups.flatMap((group) => group.items);
+const mainPageSearchDestinations: CustomerDestination[] = [
+  { label: "Home", detail: "Main customer dashboard", target: "dashboard", icon: Home },
+  { label: "Wallet", detail: "Balances, funding and transaction history", target: "wallet", icon: WalletCards },
+  { label: "Opportunities", detail: "Published customer opportunities", target: "opportunities", icon: ArrowDownUp },
+  { label: "Activity", detail: "Account activity and transactions", target: "activity", icon: Activity },
+  { label: "Crypto Mining", detail: "Mining packages and activity", target: "crypto-mining", icon: Coins },
+  { label: "Yield Strategies", detail: "Yield and staking products", target: "yield", icon: Sparkles },
+  { label: "Support", detail: "Customer support and tickets", target: "support", icon: Headphones },
+  { label: "Treasury Bond", detail: "Treasury bond investment section", target: "treasury-bond", icon: FileText },
+  { label: "Cooperate Dept", detail: "Corporate opportunities section", target: "cooperate-dept", icon: FileText },
+  { label: "Litigation Funds", detail: "Litigation fund opportunities", target: "litigation-funds", icon: Scale },
+  { label: "IP Royalties", detail: "Intellectual property royalty opportunities", target: "ip-royalties", icon: FileText },
+  { label: "Music Royalties", detail: "Music royalty opportunities", target: "music-royalties", icon: FileText },
+  { label: "Agro Investment", detail: "Agricultural investment opportunities", target: "agro-investment", icon: FileText },
+  { label: "Carbon Credit", detail: "Carbon credit opportunities", target: "carbon-credit", icon: FileText },
+  { label: "Green Energy", detail: "Green energy opportunities", target: "green-energy", icon: FileText },
+];
+const menuTargets = new Set(destinations.map((item) => item.target));
+const mainPageOnlySearchDestinations = mainPageSearchDestinations.filter((item) => !menuTargets.has(item.target));
 const primaryLabels: Record<string, string> = {
   dashboard: "Dashboard", opportunities: "Opportunities", yield: "Yield Strategies", wallet: "Wallet",
   activity: "Activity", support: "Support", account: "Account Settings", security: "Security",
@@ -80,6 +99,9 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
     ...group,
     items: group.items.filter((item) => `${item.label} ${item.detail}`.toLowerCase().includes(normalizedQuery)),
   })).filter((group) => group.items.length > 0);
+  const mainPageMatches = normalizedQuery.length >= 1
+    ? mainPageOnlySearchDestinations.filter((item) => `${item.label} ${item.detail} ${item.target}`.toLowerCase().includes(normalizedQuery)).slice(0, 6)
+    : [];
   const recordMatches = useMemo(() => {
     if (normalizedQuery.length < 2) return [];
     const collections: Array<{ kind: string; rows: any[]; target: string }> = [
@@ -143,7 +165,11 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
       <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search pages and resources" aria-label="Search customer pages and resources" tabIndex={open ? 0 : -1} /></div>
       <nav className="admin-slide-nav quick-actions-nav customer-resource-nav" aria-label="Customer pages and resources">
         {filteredGroups.map((group) => <section className="admin-slide-group customer-resource-group" key={group.label}><div className="admin-slide-group-title"><span>{group.label}</span><small>{group.detail}</small><i /></div><div className="admin-slide-items">{group.items.map(renderItem)}</div></section>)}
-        {!filteredGroups.length && <div className="customer-resource-empty" role="status" aria-live="polite">No pages or resources match “{query}”.</div>}
+        {mainPageMatches.length > 0 && <section className="admin-slide-group customer-resource-group" aria-label="Main menu page matches">
+          <div className="admin-slide-group-title"><span>Main menu pages</span><small>Destinations already available on the main page</small><i /></div>
+          <div className="admin-slide-items">{mainPageMatches.map((item) => { const Icon = item.icon; return <button key={item.target} type="button" className="admin-slide-item customer-search-result" tabIndex={open ? 0 : -1} onClick={() => navigate(item.target)}><span className="admin-slide-item-icon"><Icon size={16} /></span><span className="admin-slide-item-copy"><strong>{item.label}</strong><small>{item.detail}</small></span><span className="admin-slide-item-arrow">→</span></button>; })}</div>
+        </section>}
+        {!filteredGroups.length && !mainPageMatches.length && normalizedQuery.length > 0 && <div className="customer-resource-empty" role="status" aria-live="polite">No pages or resources match “{query}”.</div>}
         {normalizedQuery.length >= 2 && <section className="customer-resource-group customer-search-records" aria-label="Matching account records">
           <div className="admin-slide-group-title"><span>Account records</span><small>Private records for your signed-in account</small><i /></div>
           {recordSearchLoading && <div className="customer-resource-empty" role="status">Searching account records…</div>}
