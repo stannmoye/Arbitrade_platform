@@ -285,6 +285,10 @@ export const appRouter = router({
       draftId: z.number().int().positive().optional(),
       title: z.string().trim().min(5).max(200),
       summary: z.string().trim().min(20).max(700),
+      controllerName: z.string().trim().min(3).max(200),
+      controllerAddress: z.string().max(500),
+      privacyContact: z.string().trim().min(5).max(320),
+      applicableJurisdiction: z.string().max(180),
       sections: z.array(z.object({
         id: z.string().min(2).max(48),
         title: z.string().min(3).max(160),
