@@ -48,7 +48,7 @@ import {
   CircleHelp, CreditCard, Database, Gauge, Globe2, Gift, Headphones, Layers3, LayoutDashboard,
   Landmark, Lock, Menu, Pause, Plus, RefreshCw, Search, Settings2, ShieldCheck,
   Sparkles, Target, TrendingUp, ToggleLeft, ToggleRight, Unlock, Users, WalletCards,
-  X, Zap, Check, KeyRound, FileText, PlugZap, Wrench, BarChart3, Bot, Building2, SlidersHorizontal, Mail, UserRound, MapPin, Smartphone, Eye, EyeOff, CheckCircle2, LogIn, ArrowLeft, Play, Server, Code2, UserRoundX
+  X, Zap, Check, KeyRound, FileText, PlugZap, Wrench, BarChart3, Bot, Building2, SlidersHorizontal, Mail, UserRound, MapPin, Smartphone, Eye, EyeOff, CheckCircle2, LogIn, ArrowLeft, Play, Server, Code2, UserRoundX, MessageCircle, AlertTriangle, LockKeyhole
 } from "lucide-react";
 
 type View = "overview" | "opportunities" | "wallet" | "earn" | "activity" | "insights" | "reports" | "admin" | "integrations" | "installer";
