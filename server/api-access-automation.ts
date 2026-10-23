@@ -208,7 +208,7 @@ async function sendMetaWhatsAppTemplate(recipient: string, templateName: string,
   }
   const settings = jsonSetting(await getAppSetting("apiAccess.settings"), {});
   if (settings.whatsappEnabled !== true) throw new Error("WHATSAPP_POLICY_DISABLED");
-  const version = /^v\d+\.\d+$/.test(credentials.graphApiVersion || "") ? credentials.graphApiVersion! : "v22.0";
+  const version = /^v\d+\.\d+$/.test(credentials.graphApiVersion || "") ? credentials.graphApiVersion! : "v26.0";
   const template: Record<string, unknown> = {
     name: templateName,
     language: { code: languageCode },
@@ -463,7 +463,7 @@ async function sendMetaWhatsApp(recipient: string, message: string) {
   if (!credentials?.accessToken || !credentials.phoneNumberId) throw new Error("WHATSAPP_PROVIDER_NOT_CONFIGURED");
   const settings = jsonSetting(await getAppSetting("apiAccess.settings"), {});
   if (settings.whatsappEnabled !== true) throw new Error("WHATSAPP_POLICY_DISABLED");
-  const version = /^v\d+\.\d+$/.test(credentials.graphApiVersion || "") ? credentials.graphApiVersion! : "v22.0";
+  const version = /^v\d+\.\d+$/.test(credentials.graphApiVersion || "") ? credentials.graphApiVersion! : "v26.0";
   const response = await fetch("https://graph.facebook.com/" + version + "/" + encodeURIComponent(credentials.phoneNumberId) + "/messages", {
     method: "POST",
     headers: { Authorization: "Bearer " + credentials.accessToken, "Content-Type": "application/json" },
