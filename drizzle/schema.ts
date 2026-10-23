@@ -282,12 +282,13 @@ export const customerApiKeys = mysqlTable("customer_api_keys", {
   userId: int("userId").notNull(),
   name: varchar("name", { length: 80 }).notNull(),
   keyPrefix: varchar("keyPrefix", { length: 24 }).notNull(),
-  keyHash: varchar("keyHash", { length: 64 }).notNull().unique(),
+  keyHash: varchar("keyHash", { length: 64 }).notNull(),
   scopesJson: text("scopesJson").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   lastUsedAt: timestamp("lastUsedAt"),
   revokedAt: timestamp("revokedAt"),
 }, (table) => ({
+  keyHashUniqueIndex: uniqueIndex("customer_api_keys_hash_uq").on(table.keyHash),
   userCreatedIndex: index("customer_api_keys_user_created_idx").on(table.userId, table.createdAt, table.id),
   userRevokedIndex: index("customer_api_keys_user_revoked_idx").on(table.userId, table.revokedAt),
 }));
