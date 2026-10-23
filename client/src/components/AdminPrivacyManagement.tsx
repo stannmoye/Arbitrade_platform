@@ -278,6 +278,7 @@ export function AdminPrivacyManagement() {
         {policyState.isLoading && <div className="privacy-loading-panel" role="status"><LoaderCircle size={17} className="privacy-loading-icon" /> Loading current policy state… Your editor remains available.</div>}
         {policyState.isError && !policyState.data && <div className="privacy-inline-notice is-error" role="alert"><AlertCircle size={16} /><span>The saved policy state could not be loaded. Your editor contents are preserved. Retry before saving or publishing.</span><button type="button" className="privacy-secondary-button" onClick={() => void policyState.refetch()} disabled={policyState.isFetching}>{policyState.isFetching ? "Retrying…" : "Retry loading"}</button></div>}
         <>
+          <fieldset className="privacy-editor-fieldset" disabled={!policyState.data && (policyState.isLoading || policyState.isError)}>
             <div className="privacy-editor-metadata">
               <label>Notice title<input value={title} onChange={(event) => { setTitle(event.target.value); setPublicationReviewed(false); }} maxLength={200} required /></label>
               <label>Customer-facing summary<textarea value={summary} onChange={(event) => { setSummary(event.target.value); setPublicationReviewed(false); }} maxLength={700} rows={3} required /></label>
@@ -317,7 +318,8 @@ export function AdminPrivacyManagement() {
                 <button type="button" className="privacy-primary-button" onClick={() => void handlePublish()} disabled={!canPublish || !publicationReviewed || (!policyState.data && (policyState.isLoading || policyState.isError)) || saveDraft.isPending || publishPolicy.isPending}><Send size={15} /> {publishPolicy.isPending ? "Publishing…" : "Publish notice"}</button>
               </div>
             </div>
-          </>
+          </fieldset>
+        </>
       </section>
 
       <section className="privacy-admin-panel" aria-labelledby="privacy-admin-queue">
