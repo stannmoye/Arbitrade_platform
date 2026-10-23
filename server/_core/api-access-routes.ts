@@ -4,7 +4,7 @@ import { authenticateCustomerApiKey, type CustomerApiScope } from "../api-access
 import { createCustomerPayoutRequest, getAppSetting, getDb, listBalances, listCurrencies, listCustomerPayoutRequests, listTrades } from "../db";
 import { API_AUTOMATION_EVENTS, createCustomerApiWebhook, enqueueCustomerApiEvent, listApiPlatformIncidents, listCustomerApiNotificationHistory, listCustomerApiWebhooks, revokeCustomerApiWebhook } from "../api-access-automation";
 import { listCustomerApiUsage, recordCustomerApiUsage } from "../api-access-usage";
-import { opportunityOffers, tradePositions } from "../../drizzle/schema";
+import { customerTotpAuthenticators, opportunityOffers, tradePositions } from "../../drizzle/schema";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
 
 type ApiIdentity = { userId: number; keyId: number; scopes: CustomerApiScope[] };
@@ -189,6 +189,17 @@ export function registerCustomerApiAccessRoutes(app: Express) {
     }
     if (typeof totpCode !== "string" || !/^\\d{6}$/.test(totpCode)) {
       res.status(400).json({ error: "A six-digit authenticator verification code is required for API withdrawal requests.", code: "TOTP_REQUIRED" });
+      return;
+    }
+    const db = await getDb();
+    if (!db) {
+      res.status(503).json({ error: "Account verification service is temporarily unavailable.", code: "VERIFICATION_UNAVAILABLE" });
+      return;
+    }
+    const authenticator = (await db.select({ confirmedAt: customerTotpAuthenticators.confirmedAt })
+      .from(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, identity.userId)).limit(1))[0];
+    if (!authenticator?.confirmedAt) {
+      res.status(403).json({ error: "Set up and confirm an authenticator in your account security settings before enabling API withdrawal requests.", code: "AUTHENTICATOR_NOT_ENROLLED" });
       return;
     }
     let request;
