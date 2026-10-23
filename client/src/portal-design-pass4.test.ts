@@ -46,6 +46,7 @@ describe("navigation drawer grid layout", () => {
 
   it("keeps the customer drawer search and destinations in the grid after removing its theme row", () => {
     expect(customerDrawerRule).toBe("");
+    expect(adminDrawerRule).toContain("grid-template-rows:auto auto auto auto minmax(0,1fr) auto;");
     expect(customerSlideMenu).not.toContain("customer-slide-theme-control");
     expect(customerSlideMenu).not.toContain("customer-theme-sidebar-control");
     expect(customerSlideMenu).not.toContain("ThemeSelector");
