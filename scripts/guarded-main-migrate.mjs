@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
 import { classifyMainMigrationPreflight, loadExpectedMainMigrationHistory, validateMainMigrationHistory } from "../installer/main-migration-preflight.mjs";
+import { assertWorkerSchemaContracts } from "./worker-schema-contracts.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const databaseUrl = process.env.DATABASE_URL;
@@ -169,11 +170,12 @@ async function main() {
       console.log("[main-migrate] Applied " + entry.tag + ".sql");
     }
 
+    const verified = await assertWorkerSchemaContracts(connection);
     await connection.execute(
       `UPDATE \`${guardTable}\` SET status='completed',finishedAt=CURRENT_TIMESTAMP,failureCode=NULL WHERE id=1`,
     );
     runStarted = false;
-    console.log("[main-migrate] Main migrations completed; " + appliedCount + " migration file(s) applied.");
+    console.log("[main-migrate] Main migrations completed; " + appliedCount + " migration file(s) applied. Verified " + verified.checkedTables + " worker-critical table contracts.");
   } catch (error) {
     const code = safeCode(error);
     if (connection && runStarted) {
