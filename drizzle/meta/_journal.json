@@ -239,6 +239,13 @@
       "when": 1791535401065,
       "tag": "0033_email_delivery_flows",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792771200000,
+      "tag": "0062_worker_runtime_tables",
+      "breakpoints": false
     }
   ]
 }
