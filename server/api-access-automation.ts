@@ -543,7 +543,7 @@ async function processOneDelivery(id: number) {
       const template = typeof templates[templateKey] === "string" && templates[templateKey].trim() ? templates[templateKey] : defaultText;
       const reportDate = typeof data.reportDate === "string" ? data.reportDate : new Date().toISOString().slice(0, 10);
       const reportEndpoint = row.eventKey === "daily.statement" ? "/api/v1/account/statements/daily?date=" + reportDate
-        : row.eventKey === "daily.activity" ? "/api/v1/account/trades"
+        : row.eventKey === "daily.activity" ? "/api/v1/account/trades?date=" + reportDate
         : row.eventKey === "tax.report.ready" ? "/api/v1/account/tax-support?year=" + reportDate.slice(0, 4)
         : "/api/v1/account/notification-history";
       const enriched: Record<string, unknown> = {
