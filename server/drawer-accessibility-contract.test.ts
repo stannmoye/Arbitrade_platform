@@ -5,6 +5,7 @@ const adminDrawer = readFileSync(new URL("../client/src/components/AdminSlideMen
 const customerDrawer = readFileSync(new URL("../client/src/components/CustomerSlideMenu.tsx", import.meta.url), "utf8");
 const drawerStyles = readFileSync(new URL("../client/src/index.css", import.meta.url), "utf8");
 const recoveryStyles = readFileSync(new URL("../client/src/portal-render-recovery.css", import.meta.url), "utf8");
+const customerThemeOverrides = readFileSync(new URL("../client/src/customer-theme-overrides.css", import.meta.url), "utf8");
 
 describe("navigation drawer keyboard accessibility contracts", () => {
   it("announces empty customer navigation search results politely", () => {
@@ -49,6 +50,20 @@ describe("navigation drawer keyboard accessibility contracts", () => {
   it("paints the open mobile account rail above its scrim", () => {
     expect(recoveryStyles).toMatch(/\.customer-portal \.portal-body\.customer-primary-menu-open \.customer-primary-rail\s*\{[^}]*z-index:\s*82\s*!important;/s);
     expect(recoveryStyles).toMatch(/\.customer-portal \.customer-primary-menu-scrim\s*\{[^}]*z-index:\s*81\s*!important;/s);
+  });
+
+  it("overrides the themed z-index so the open mobile rail stays above its scrim", () => {
+    const closedRailRule = customerThemeOverrides.match(/:root\\[data-arb-theme\\] \\.customer-portal \\.portal-body:not\\(\\.customer-primary-menu-open\\) \\.customer-primary-rail\\s*\\{([^}]*)\\}/s)?.[1] ?? "";
+    const openRailRule = customerThemeOverrides.match(/:root\\[data-arb-theme\\] \\.customer-portal \\.portal-body\\.customer-primary-menu-open \\.customer-primary-rail\\s*\\{([^}]*)\\}/s)?.[1] ?? "";
+    const scrimRule = customerThemeOverrides.match(/:root\\[data-arb-theme\\] \\.customer-portal \\.customer-primary-menu-scrim\\s*\\{([^}]*)\\}/s)?.[1] ?? "";
+
+    expect(closedRailRule).toMatch(/z-index:\\s*80\\s*!important;/);
+    expect(closedRailRule).toMatch(/visibility:\\s*hidden\\s*!important;/);
+    expect(closedRailRule).toMatch(/transform:\\s*translateX\\(-105%\\)\\s*!important;/);
+    expect(openRailRule).toMatch(/z-index:\\s*82\\s*!important;/);
+    expect(openRailRule).toMatch(/visibility:\\s*visible\\s*!important;/);
+    expect(openRailRule).toMatch(/transform:\\s*translateX\\(0\\)\\s*!important;/);
+    expect(scrimRule).toMatch(/z-index:\\s*81\\s*!important;/);
   });
 
   it("disables Android-problematic clipping and filtering on the open account rail", () => {
