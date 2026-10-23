@@ -431,7 +431,7 @@ export const appRouter = router({
       walletWebhookUrl: z.string().trim().max(500),
     })).mutation(async ({ ctx, input }) => {
       const number = input.whatsappNumber.trim();
-      if (number && !/^\\+?[0-9 ()-]{7,32}$/.test(number)) {
+      if (number && !/^\+?[0-9 ()-]{7,32}$/.test(number)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid WhatsApp business number using digits and an optional leading +." });
       }
       for (const [label, value] of [["Wallet provider base URL", input.walletProviderBaseUrl], ["Wallet webhook URL", input.walletWebhookUrl]] as const) {
