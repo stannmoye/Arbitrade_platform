@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
 const attachmentPolicy = readFileSync(new URL("./_core/attachmentPolicy.ts", import.meta.url), "utf8");
 const localStorage = readFileSync(new URL("./local-storage.ts", import.meta.url), "utf8");
-const route = source.match(/app\.post\("\/api\/support\/attachments\/presign"[\s\S]*?registerOAuthRoutes\(app\);/);
+const route = source.match(/app\.post\("\/api\/support\/attachments\/presign"[\s\S]*?registerProviderOAuthRoutes\(app\);/);
 
 describe("support attachment presign error logging", () => {
   it("rate-limits support presign requests before parsing potentially oversized JSON bodies", () => {
