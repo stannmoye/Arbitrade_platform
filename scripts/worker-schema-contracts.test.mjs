@@ -148,8 +148,9 @@ describe("worker schema contracts", () => {
     expect(miningVerification).toBeLessThan(miningRunner.indexOf("} finally {\n  await connection.end();"));
     expect(miningRunner).toContain("[mining-migrate] PASS: verified");
 
-    expect(miningRepair).toContain('assertWorkerSchemaContracts(db, ["mining_pending_boost_rewards"])');
-    expect(miningRepair.indexOf("assertWorkerSchemaContracts")).toBeLessThan(miningRepair.indexOf('message: "Current mining schema is ready"'));
+    const miningRepairVerification = miningRepair.indexOf('const verified = await assertWorkerSchemaContracts(db, ["mining_pending_boost_rewards"]);');
+    expect(miningRepairVerification).toBeGreaterThan(-1);
+    expect(miningRepairVerification).toBeLessThan(miningRepair.indexOf('message: "Current mining schema is ready"'));
     expect(runtimeRepair).toContain("const verified = await assertWorkerSchemaContracts(db);");
     expect(verifier).toContain("const verified = await assertWorkerSchemaContracts(db);");
     expect(installerVerifier).toContain("const verified = await assertWorkerSchemaContracts(db);");
