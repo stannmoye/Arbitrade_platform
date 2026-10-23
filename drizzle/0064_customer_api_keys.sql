@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS `customer_api_keys` (
   `userId` int NOT NULL,
   `name` varchar(80) NOT NULL,
   `keyPrefix` varchar(24) NOT NULL,
-  `keyHash` char(64) NOT NULL,
+  `keyHash` varchar(64) NOT NULL,
   `scopesJson` text NOT NULL,
   `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `lastUsedAt` timestamp NULL DEFAULT NULL,
