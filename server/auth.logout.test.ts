@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { appRouter } from "./routers";
 import { COOKIE_NAME } from "../shared/const";
 import type { TrpcContext } from "./_core/context";
-import { createLocalSession } from "./_core/localAuth";
 import { invalidateUserSessions } from "./authSessions";
 import { createTicket, listCustomerTickets } from "./db";
 
