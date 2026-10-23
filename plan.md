@@ -10,7 +10,7 @@ The live-money gate is mandatory: until a verifiable broker/exchange/provider ex
 - **API:** Express + tRPC, with server-authoritative validation for packages, opportunities, funding, FX quotes, Automatic Swap, purchases, investments, settlements, reports, exports and admin actions.
 - **Database:** MySQL-compatible Drizzle schema with additive migrations, immutable ledger entries, stored wallet balances updated in the same transaction, idempotency keys, audit events and reconciliation records.
 - **Money:** fixed-precision decimal arithmetic using a decimal library; asset/currency precision, minimum units and rounding modes are stored in the database and captured in calculation snapshots.
-- **Authentication:** preserve `webdev_app_session` / Manus OAuth compatibility; add application roles, permissions, admin 2FA readiness, customer security settings and server-side authorization.
+- **Authentication:** use application-owned signed session cookies for local email/password accounts and optional configured Google/Microsoft OAuth; add application roles, permissions, admin 2FA readiness, customer security settings and server-side authorization.
 - **Jobs:** database-backed queue plus `/api/scheduled/*` handlers for daily reports, email delivery, FX refresh, settlement simulation and reconciliation. Jobs are retryable and idempotent.
 - **Hosting:** container deployment with `/api/health`, API-before-static routing, runtime-only secrets, and a cPanel/shared-hosting recovery guide. Live-money providers remain disabled unless explicitly configured.
 
