@@ -22,6 +22,7 @@ import { ADMIN_BROADCAST_CATEGORIES, buildTradeSettlementNotices } from "./modul
 import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { invalidateUserSessions } from "./authSessions";
 import { getLocalSessionFromRequest } from "./_core/localAuth";
+import * as privacyService from "./privacy";
 import { sdk } from "./_core/sdk";
 
 export const appRouter = router({
@@ -30,6 +31,54 @@ export const appRouter = router({
   appearanceConfig: publicProcedure.query(async () =>
     normalizeAppearanceSettings(await getAppSetting("appearance.settings"))
   ),
+
+  privacy: router({
+    currentPolicy: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Privacy Centre customer views require a customer account." });
+      return privacyService.getCurrentPrivacyPolicy();
+    }),
+    policyHistory: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Privacy Centre customer views require a customer account." });
+      return privacyService.getPrivacyPolicyHistory();
+    }),
+    myRequests: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Privacy requests are available to customer accounts." });
+      return privacyService.listMyPrivacyRequests(ctx.user.id);
+    }),
+    createRequest: protectedProcedure.input(z.object({
+      requestType: z.enum(["access", "correction", "deletion", "restriction", "objection", "other"]),
+      subject: z.string().trim().min(5).max(180),
+      details: z.string().max(3000).optional(),
+      idempotencyKey: z.string().trim().min(8).max(80),
+    })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Only customer accounts can submit privacy requests." });
+      const result = await privacyService.createPrivacyRequest(ctx.user.id, input);
+      if (!result.duplicate) {
+        try {
+          const admins = await privacyService.listAdminPrivacyRequesters();
+          await Promise.allSettled(admins.map((admin) => createNotification(
+            admin.id,
+            "New privacy request",
+            "A customer submitted privacy request " + result.requestReference + ". Open Privacy Management to review it.",
+            {
+              eventKey: "privacy-request-received:" + result.requestReference + ":" + admin.id,
+              category: "account",
+              priority: "normal",
+              href: "/ops-console-7f3a",
+            },
+          )));
+        } catch (error) {
+          console.error("[Privacy] Administrator notification failed after request persistence:", error instanceof Error ? error.name : "UnknownError");
+        }
+      }
+      return result;
+    }),
+    cancelRequest: protectedProcedure.input(z.object({ requestId: z.number().int().positive() })).mutation(({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Only the customer can cancel their privacy request." });
+      return privacyService.cancelMyPrivacyRequest(ctx.user.id, input.requestId);
+    }),
+  }),
+
   auth: router({
     me: publicProcedure.query(opts => {
       if (!opts.ctx.user) return null;
@@ -230,6 +279,51 @@ export const appRouter = router({
   }),
 
   adminOperations: router({
+
+    privacyPolicyState: adminProcedure.query(() => privacyService.getAdminPrivacyPolicyState()),
+    savePrivacyPolicyDraft: adminProcedure.input(z.object({
+      draftId: z.number().int().positive().optional(),
+      title: z.string().trim().min(5).max(200),
+      summary: z.string().trim().min(20).max(700),
+      controllerName: z.string().trim().min(3).max(200),
+      controllerAddress: z.string().max(500),
+      privacyContact: z.string().trim().min(5).max(320),
+      applicableJurisdiction: z.string().max(180),
+      sections: z.array(z.object({
+        id: z.string().min(2).max(48),
+        title: z.string().min(3).max(160),
+        body: z.string().min(40).max(8000),
+      })).min(6).max(16),
+    })).mutation(({ ctx, input }) => privacyService.savePrivacyPolicyDraft(ctx.user.id, input)),
+    publishPrivacyPolicy: adminProcedure.input(z.object({ draftId: z.number().int().positive(), reviewAcknowledged: z.literal(true) }))
+      .mutation(({ ctx, input }) => privacyService.publishPrivacyPolicy(ctx.user.id, input.draftId, input.reviewAcknowledged)),
+    privacyRequests: adminProcedure.input(z.object({
+      status: z.enum(["submitted", "identity_check", "in_review", "awaiting_customer", "completed", "declined", "cancelled"]).optional(),
+    }).optional()).query(({ input }) => privacyService.listAdminPrivacyRequests(input?.status)),
+    privacyRequestDetail: adminProcedure.input(z.object({ requestId: z.number().int().positive() }))
+      .query(({ input }) => privacyService.getAdminPrivacyRequestDetail(input.requestId)),
+    updatePrivacyRequest: adminProcedure.input(z.object({
+      requestId: z.number().int().positive(),
+      status: z.enum(["submitted", "identity_check", "in_review", "awaiting_customer", "completed", "declined", "cancelled"]),
+      customerMessage: z.string().max(1500).optional(),
+      internalNote: z.string().max(3000).optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const result = await privacyService.updatePrivacyRequest(ctx.user.id, input);
+      if (result.customerMessage) {
+        try {
+          await createNotification(result.userId, "Privacy request update",
+            result.requestReference + ": " + result.customerMessage, {
+              eventKey: "privacy-request-update:" + result.requestReference + ":" + Date.now(),
+              category: "account",
+              priority: "normal",
+              href: "/customer",
+            });
+        } catch (error) {
+          console.error("[Privacy] Customer update notice failed after request persistence:", error instanceof Error ? error.name : "UnknownError");
+        }
+      }
+      return result;
+    }),
     payoutRequests: adminProcedure.query(() => listAdminPayoutRequests()),
     resolvePayoutRequest: adminProcedure.input(z.object({
       requestId: z.number().int().positive(),

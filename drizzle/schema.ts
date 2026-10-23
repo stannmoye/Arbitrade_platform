@@ -1,4 +1,4 @@
-import { bigint, int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, index, uniqueIndex } from "drizzle-orm/mysql-core";
+import { bigint, int, longtext, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, index, uniqueIndex } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -916,3 +916,77 @@ export const consoleActivityPhrases = mysqlTable("console_activity_phrases", {
   enabled: boolean("enabled").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+
+
+/** Versioned privacy notice content controlled through the administrator workflow. */
+export const privacyPolicyVersions = mysqlTable("privacy_policy_versions", {
+  id: int("id").autoincrement().primaryKey(),
+  versionLabel: varchar("versionLabel", { length: 40 }).notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  summary: varchar("summary", { length: 700 }).notNull().default(""),
+  controllerName: varchar("controllerName", { length: 200 }).notNull().default("Not configured"),
+  controllerAddress: varchar("controllerAddress", { length: 500 }).notNull().default(""),
+  privacyContact: varchar("privacyContact", { length: 320 }).notNull().default("Use the Privacy Centre request form or authenticated Support Centre"),
+  applicableJurisdiction: varchar("applicableJurisdiction", { length: 180 }).notNull().default(""),
+  sectionsJson: longtext("sectionsJson").notNull(),
+  status: mysqlEnum("status", ["draft", "published", "archived"]).default("draft").notNull(),
+  effectiveAt: timestamp("effectiveAt"),
+  publishedAt: timestamp("publishedAt"),
+  publishedBy: int("publishedBy"),
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  versionLabelUnique: uniqueIndex("privacy_policy_version_label_uq").on(table.versionLabel),
+  statusPublishedIndex: index("privacy_policy_status_published_idx").on(table.status, table.publishedAt),
+}));
+
+/** Customer-submitted information rights and privacy concerns; not account-closure tickets. */
+export const privacyRequests = mysqlTable("privacy_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  requestReference: varchar("requestReference", { length: 48 }).notNull(),
+  idempotencyKey: varchar("idempotencyKey", { length: 80 }).notNull(),
+  userId: int("userId").notNull(),
+  requestType: mysqlEnum("requestType", ["access", "correction", "deletion", "restriction", "objection", "other"]).notNull(),
+  subject: varchar("subject", { length: 180 }).notNull(),
+  details: text("details"),
+  status: mysqlEnum("status", ["submitted", "identity_check", "in_review", "awaiting_customer", "completed", "declined", "cancelled"]).default("submitted").notNull(),
+  assignedAdminId: int("assignedAdminId"),
+  reviewedBy: int("reviewedBy"),
+  reviewedAt: timestamp("reviewedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  requestReferenceUnique: uniqueIndex("privacy_request_reference_uq").on(table.requestReference),
+  idempotencyUnique: uniqueIndex("privacy_request_idempotency_uq").on(table.userId, table.idempotencyKey),
+  userCreatedIndex: index("privacy_requests_user_created_idx").on(table.userId, table.createdAt, table.id),
+  statusCreatedIndex: index("privacy_requests_status_created_idx").on(table.status, table.createdAt),
+}));
+
+export const privacyRequestEvents = mysqlTable("privacy_request_events", {
+  id: int("id").autoincrement().primaryKey(),
+  requestId: int("requestId").notNull(),
+  actorType: mysqlEnum("actorType", ["customer", "admin", "system"]).notNull(),
+  actorUserId: int("actorUserId"),
+  eventType: varchar("eventType", { length: 48 }).notNull(),
+  previousStatus: varchar("previousStatus", { length: 32 }),
+  newStatus: varchar("newStatus", { length: 32 }),
+  customerMessage: text("customerMessage"),
+  internalNote: text("internalNote"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  requestCreatedIndex: index("privacy_request_events_request_created_idx").on(table.requestId, table.createdAt, table.id),
+}));
+
+export const privacyAuditEvents = mysqlTable("privacy_audit_events", {
+  id: int("id").autoincrement().primaryKey(),
+  actorUserId: int("actorUserId").notNull(),
+  action: varchar("action", { length: 80 }).notNull(),
+  entityType: varchar("entityType", { length: 64 }).notNull(),
+  entityId: varchar("entityId", { length: 80 }),
+  metadataJson: text("metadataJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  actorCreatedIndex: index("privacy_audit_actor_created_idx").on(table.actorUserId, table.createdAt, table.id),
+  actionCreatedIndex: index("privacy_audit_action_created_idx").on(table.action, table.createdAt),
+}));
