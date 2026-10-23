@@ -27,6 +27,7 @@ import { confirmEmailVerification, requestEmailVerification, requestPasswordRese
 import { startEmailWorkers } from "../emailQueue";
 import { refreshMiningPriceFeeds } from "../mining-admin";
 import { runMiningWorkerCycle } from "../mining";
+import { registerCustomerApiAccessRoutes } from "./api-access-routes";
 
 const registrationRateLimit = createAuthRateLimiter({ windowMs: 60 * 60_000, max: 5, message: "Too many registration attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-register" });
 const customerLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many login attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-login" });
@@ -57,6 +58,7 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
+  registerCustomerApiAccessRoutes(app);
   const setLocalSession = (req: express.Request, res: express.Response, user: { id: number; authVersion?: number }) => {
     res.cookie(COOKIE_NAME, createLocalSession(user.id, user.authVersion || 0), { ...getSessionCookieOptions(req), maxAge: 30 * 24 * 60 * 60 * 1000 });
   };
