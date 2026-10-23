@@ -8,6 +8,13 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
       "status", "settledAt", "settlementReference", "createdAt",
     ],
     dataTypes: { rewardDay: "date", amountCki: "decimal", status: "varchar" },
+    exactColumnTypes: {
+      amountCki: "decimal(36,18)",
+      status: "varchar(24)",
+      settledAt: "datetime(3)",
+      settlementReference: "varchar(120)",
+      createdAt: "datetime(3)",
+    },
     nullable: { rewardEventId: true, settledAt: true, settlementReference: true },
     indexes: {
       PRIMARY: { unique: true, columns: ["id"] },
@@ -172,7 +179,7 @@ export async function assertWorkerSchemaContracts(db, selectedTables = Object.ke
   );
   const failures = findWorkerSchemaContractFailures(columnRows, indexRows, tables);
   if (failures.length) {
-    throw new Error("Required mining/notification worker schema contract failed: " + failures.slice(0, 12).join("; "));
+    throw new Error("Required worker schema contract failed: " + failures.slice(0, 12).join("; "));
   }
   return { checkedTables: tables.length, failures: [] };
 }
