@@ -289,10 +289,11 @@ export const appRouter = router({
       controllerAddress: z.string().max(500),
       privacyContact: z.string().trim().min(5).max(320),
       applicableJurisdiction: z.string().max(180),
+      htmlContent: z.string(),
       sections: z.array(z.object({
         id: z.string().min(2).max(48),
         title: z.string().min(3).max(160),
-        body: z.string().min(40).max(8000),
+        body: z.string(),
       })).min(6).max(16),
     })).mutation(({ ctx, input }) => privacyService.savePrivacyPolicyDraft(ctx.user.id, input)),
     publishPrivacyPolicy: adminProcedure.input(z.object({ draftId: z.number().int().positive(), reviewAcknowledged: z.literal(true) }))
