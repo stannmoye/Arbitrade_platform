@@ -7,7 +7,7 @@ function formatDate(value: Date | string | null | undefined): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? "Not available"
-    : date.toLocaleDateString("en", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+    : date.toLocaleDateString("en", { year: "numeric", month: "short", day: "numeric" });
 }
 
 function wrapText(value: string, maxLength: number): string[] {
