@@ -347,7 +347,8 @@ export async function createMiningAdjustment(adminId:number,input:{userId:number
   return withMiningConnection(async conn=>inMiningTransaction(conn,async()=>{
     const [existing]=await conn.query<any[]>(`SELECT id,userId,assetCode,amount,direction,status,ledgerTransactionId FROM mining_adjustment_requests WHERE idempotencyKey=? LIMIT 1`,[key]);
     if(existing[0])return {requestId:Number(existing[0].id),userId:Number(existing[0].userId),asset:existing[0].assetCode,amount:String(existing[0].amount),direction:existing[0].direction,status:existing[0].status,ledgerTransactionId:existing[0].ledgerTransactionId?Number(existing[0].ledgerTransactionId):null,idempotent:true};
-    const [users]=await conn.query<any[]>(`SELECT id,role FROM users WHERE id=? LIMIT 1`,[input.userId]);if(!users[0]||users[0].role!=="user")throw new MiningError("Customer was not found");
+    const [users]=await conn.query<any[]>(`SELECT id,role,loginMethod FROM users WHERE id=? LIMIT 1 FOR UPDATE`,[input.userId]);
+    if(!users[0]||users[0].role!=="user"||users[0].loginMethod==="closed")throw new MiningError("Customer was not found or is closed");
     await ensureMiningCheckpoint(conn,input.userId);
     const config=await loadMiningConfig(conn);
     let usdValue:Decimal|null=null;let approvalRequired=false;
@@ -371,10 +372,17 @@ export async function createMiningAdjustment(adminId:number,input:{userId:number
 export async function resolveMiningAdjustment(adminId:number,input:{requestId:number;approve:boolean;reason:string}) {
   const reason=requiredReason(input.reason,input.approve?"Approval reason":"Rejection reason");
   return withMiningConnection(async conn=>inMiningTransaction(conn,async()=>{
+    // Discover the owner without locking the request first; closure uses account-first locking.
+    const [ownerRows]=await conn.query<any[]>(`SELECT userId FROM mining_adjustment_requests WHERE id=? LIMIT 1`,[input.requestId]);
+    const targetId=Number(ownerRows[0]?.userId);
+    if(!Number.isSafeInteger(targetId)||targetId<=0)throw new MiningError("This adjustment is no longer awaiting approval");
+    const [customerRows]=await conn.query<any[]>(`SELECT id,role,loginMethod FROM users WHERE id=? LIMIT 1 FOR UPDATE`,[targetId]);
+    if(!customerRows[0]||customerRows[0].role!=="user")throw new MiningError("Customer was not found");
+    if(customerRows[0].loginMethod==="closed"&&input.approve)throw new MiningError("Cannot approve a Mining adjustment for a closed account; reject the request after review");
     const [rows]=await conn.query<any[]>(`SELECT * FROM mining_adjustment_requests WHERE id=? FOR UPDATE`,[input.requestId]);const row=rows[0];
-    if(!row||row.status!=="pending")throw new MiningError("This adjustment is no longer awaiting approval");
+    if(!row||Number(row.userId)!==targetId||row.status!=="pending")throw new MiningError("This adjustment is no longer awaiting approval");
     if(Number(row.requestedBy)===adminId)throw new MiningError("A different administrator must review this adjustment");
-    await ensureMiningCheckpoint(conn,Number(row.userId));
+    await ensureMiningCheckpoint(conn,targetId);
     if(!input.approve){
       await conn.execute(`UPDATE mining_adjustment_requests SET status='rejected',approvedBy=?,resolvedAt=UTC_TIMESTAMP(3) WHERE id=?`,[adminId,input.requestId]);
       await writeMiningAudit(conn,{actorUserId:adminId,action:"mining.adjustment.rejected",entityType:"mining_adjustment_request",entityId:String(input.requestId),reason,metadata:{userId:Number(row.userId),asset:row.assetCode,amount:String(row.amount),requestedBy:Number(row.requestedBy)}});
@@ -394,9 +402,15 @@ export async function resolveMiningAdjustment(adminId:number,input:{requestId:nu
 export async function reverseMiningTransaction(adminId:number,input:{transactionId:number;reason:string}) {
   const reason=requiredReason(input.reason,"Reversal reason");
   return withMiningConnection(async conn=>inMiningTransaction(conn,async()=>{
+    // Lock the account before the transaction row, so reversal cannot race closure.
+    const [ownerRows]=await conn.query<any[]>(`SELECT userId FROM mining_ledger_transactions WHERE id=? LIMIT 1`,[input.transactionId]);
+    const ownerId=Number(ownerRows[0]?.userId);
+    if(!Number.isSafeInteger(ownerId)||ownerId<=0)throw new MiningError("Only a posted customer Mining transaction can be reversed");
+    const [accountRows]=await conn.query<any[]>(`SELECT loginMethod FROM users WHERE id=? LIMIT 1 FOR UPDATE`,[ownerId]);
+    if(!accountRows[0]||accountRows[0].loginMethod==="closed")throw new MiningError("Transactions for a closed or missing account cannot be reversed through the customer wallet");
     const [rows]=await conn.query<any[]>(`SELECT * FROM mining_ledger_transactions WHERE id=? FOR UPDATE`,[input.transactionId]);const original=rows[0];
-    if(!original||original.status!=="posted"||!original.userId)throw new MiningError("Only a posted customer Mining transaction can be reversed");
-    await ensureMiningCheckpoint(conn,Number(original.userId));
+    if(!original||original.status!=="posted"||!original.userId||Number(original.userId)!==ownerId)throw new MiningError("Only a posted customer Mining transaction can be reversed");
+    await ensureMiningCheckpoint(conn,ownerId);
     const [existing]=await conn.query<any[]>(`SELECT id,referenceCode FROM mining_ledger_transactions WHERE reversalOfId=? LIMIT 1`,[input.transactionId]);
     if(existing[0])return {transactionId:Number(existing[0].id),reference:existing[0].referenceCode,status:"already_reversed"};
     const [entries]=await conn.query<any[]>(`SELECT l.id,l.walletId,l.amount,l.assetCode,l.entryType,w.userId FROM v5_wallet_ledger l JOIN v5_wallets w ON w.id=l.walletId WHERE l.referenceType='mining_transaction' AND l.referenceId=? ORDER BY l.id`,[String(input.transactionId)]);
