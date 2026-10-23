@@ -6,19 +6,13 @@ import "./CustomerApiAccessPanel.css";
 type ApiScope =
   | "balances:read"
   | "transactions:read"
-  | "deposits:read"
   | "withdrawals:read"
-  | "fees:read"
-  | "reports:read"
   | "platform:status";
 
 const scopeOptions: Array<{ id: ApiScope; label: string; description: string }> = [
   { id: "balances:read", label: "Wallet balances", description: "Read balances and balance availability." },
   { id: "transactions:read", label: "Transaction history", description: "Read account activity and transaction records." },
-  { id: "deposits:read", label: "Deposit status", description: "Read deposit records and confirmation status when a provider is connected." },
   { id: "withdrawals:read", label: "Withdrawal status", description: "Read withdrawal requests and their current status." },
-  { id: "fees:read", label: "Fees", description: "Read available fee schedules and fee records." },
-  { id: "reports:read", label: "Statements and reports", description: "Access reports made available to your account." },
   { id: "platform:status", label: "Platform status", description: "Read public service status and maintenance information." },
 ];
 
@@ -117,6 +111,8 @@ export default function CustomerApiAccessPanel() {
         {key.status === "active" && <button className="api-access-revoke" type="button" disabled={revoke.isPending} onClick={() => { if (window.confirm(`Revoke “${key.name}”? Any integration using this key will lose access.`)) revoke.mutate({ keyId: key.id }); }}><Trash2 size={14}/> Revoke</button>}
       </article>)}
     </section>
+
+    <section className="api-access-planned-features settings-card"><div className="eyebrow">Next integrations</div><h2>Additional permissions will unlock as data sources are verified</h2><div className="api-access-planned-grid"><span><strong>Deposit monitoring</strong><small>Requires a verified deposit provider lifecycle</small></span><span><strong>Fees and statements</strong><small>Requires authoritative fee records and report generation</small></span><span><strong>WhatsApp delivery</strong><small>Requires an approved messaging provider and verified recipient</small></span></div></section>
 
     <section className="api-access-docs-grid">
       <article className="settings-card"><div className="api-access-doc-icon"><Code2 size={18}/></div><div className="eyebrow">Quick start</div><h2>How API access works</h2><ol><li>Create a key and copy the secret once.</li><li>Store it in your app's server-side secret store or environment configuration.</li><li>Send it in the HTTP <code>Authorization: Bearer</code> header when using a supported API endpoint.</li><li>Grant only the permissions your integration needs and revoke keys you no longer use.</li></ol></article>
