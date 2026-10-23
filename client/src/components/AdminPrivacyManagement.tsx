@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   Archive,
@@ -79,6 +79,18 @@ export function AdminPrivacyManagement() {
   const [sections, setSections] = useState<PrivacyPolicySection[]>(DEFAULT_PRIVACY_POLICY_SECTIONS);
   const [htmlContent, setHtmlContent] = useState("");
   const [editorInitialized, setEditorInitialized] = useState(false);
+  const [editorTouched, setEditorTouched] = useState(false);
+  const editorTouchedFields = useRef(new Set<string>());
+
+  const markEditorFieldTouched = (field: string) => {
+    editorTouchedFields.current.add(field);
+    setEditorTouched(true);
+  };
+
+  const resetEditorTouched = () => {
+    editorTouchedFields.current.clear();
+    setEditorTouched(false);
+  };
   const [publicationReviewed, setPublicationReviewed] = useState(false);
   const [customerMessage, setCustomerMessage] = useState("");
   const [internalNote, setInternalNote] = useState("");
@@ -92,6 +104,32 @@ export function AdminPrivacyManagement() {
     const draft = policyState.data?.draft;
     const current = policyState.data?.current;
     const source = draft || current;
+
+    // Keep edits typed while the saved policy request was recovering. Populate
+    // untouched fields from the server once the state becomes available.
+    if (editorTouched) {
+      if (policyState.data) {
+        setDraftId(draft?.id);
+        if (source) {
+          if (!editorTouchedFields.current.has("title")) setTitle(source.title);
+          if (!editorTouchedFields.current.has("summary")) setSummary(source.summary);
+          if (!editorTouchedFields.current.has("controllerName")) setControllerName(source.controllerName || "Not configured");
+          if (!editorTouchedFields.current.has("controllerAddress")) setControllerAddress(source.controllerAddress || "");
+          if (!editorTouchedFields.current.has("privacyContact")) setPrivacyContact(source.privacyContact || "");
+          if (!editorTouchedFields.current.has("applicableJurisdiction")) setApplicableJurisdiction(source.applicableJurisdiction || "");
+          if (!editorTouchedFields.current.has("sections")) setSections(source.sections.map((section) => ({ ...section })));
+          if (!editorTouchedFields.current.has("htmlContent")) setHtmlContent(source.htmlContent || "");
+        } else if (!editorTouchedFields.current.has("sections")) {
+          setSections(DEFAULT_PRIVACY_POLICY_SECTIONS.map((section) => ({ ...section })));
+        }
+        setPublicationReviewed(false);
+        setEditorInitialized(true);
+        setError("");
+        setNotice("Saved policy state loaded. Local edits were preserved; review them before publishing.");
+      }
+      return;
+    }
+
     if (source) {
       setDraftId(draft?.id);
       setTitle(source.title);
@@ -102,12 +140,14 @@ export function AdminPrivacyManagement() {
       setApplicableJurisdiction(source.applicableJurisdiction || "");
       setSections(source.sections.map((section) => ({ ...section })));
       setHtmlContent(source.htmlContent || "");
+      setPublicationReviewed(false);
       setEditorInitialized(true);
-    } else if (!editorInitialized && policyState.isSuccess) {
+    } else if (policyState.isSuccess) {
       setSections(DEFAULT_PRIVACY_POLICY_SECTIONS.map((section) => ({ ...section })));
+      setPublicationReviewed(false);
       setEditorInitialized(true);
     }
-  }, [editorInitialized, policyState.data, policyState.isSuccess]);
+  }, [editorInitialized, editorTouched, policyState.data, policyState.isSuccess]);
 
   useEffect(() => {
     const detail = requestDetail.data;
@@ -137,6 +177,7 @@ export function AdminPrivacyManagement() {
         htmlContent,
       });
       setDraftId(result.draftId);
+      resetEditorTouched();
       await refreshPolicy();
       setNotice("Draft saved. It remains unpublished until an administrator explicitly publishes it.");
     } catch (failure) {
@@ -163,6 +204,8 @@ export function AdminPrivacyManagement() {
     setSections(source.sections.map((section) => ({ ...section })));
     setHtmlContent(source.htmlContent || "");
     setExpandedSection(source.sections[0]?.id || null);
+    setEditorInitialized(true);
+    resetEditorTouched();
     setPublicationReviewed(false);
     setNotice("Loaded the latest saved version. Unsaved editor changes have been discarded.");
   };
@@ -185,6 +228,7 @@ export function AdminPrivacyManagement() {
       setDraftId(saved.draftId);
       const result = await publishPolicy.mutateAsync({ draftId: saved.draftId, reviewAcknowledged: true });
       setPublicationReviewed(false);
+      resetEditorTouched();
       setDraftId(undefined);
       await refreshPolicy();
       setNotice("Privacy Notice v" + result.versionLabel + " is published. The previous published version has been archived for historical reference.");
@@ -197,6 +241,7 @@ export function AdminPrivacyManagement() {
     if (sections.length >= 16) return;
     const suffix = globalThis.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     const id = "custom-" + suffix.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 40);
+    markEditorFieldTouched("sections");
     setSections((existing) => [...existing, { id, title: "", body: "" }]);
     setExpandedSection(id);
     setPublicationReviewed(false);
@@ -207,12 +252,14 @@ export function AdminPrivacyManagement() {
       setError("A published notice needs at least six sections. Add reviewed content before removing another section.");
       return;
     }
+    markEditorFieldTouched("sections");
     setSections((existing) => existing.filter((section) => section.id !== sectionId));
     if (expandedSection === sectionId) setExpandedSection(null);
     setPublicationReviewed(false);
   };
 
   const updateSection = (sectionId: string, patch: Partial<PrivacyPolicySection>) => {
+    markEditorFieldTouched("sections");
     setPublicationReviewed(false);
     setSections((existing) => existing.map((section) => section.id === sectionId ? { ...section, ...patch } : section));
   };
@@ -275,21 +322,21 @@ export function AdminPrivacyManagement() {
           <div className="privacy-admin-heading-icon"><FileText size={19} /></div>
           <div><span className="eyebrow">CONTROLLED PUBLICATION</span><h2 id="privacy-admin-editor">Privacy Notice editor</h2><p>Edits are saved as a draft. Publication creates a new immutable version and archives the previous published notice.</p></div>
         </div>
-        {policyState.isLoading && <div className="privacy-loading-panel" role="status"><LoaderCircle size={17} className="privacy-loading-icon" /> Loading current policy state… Your editor remains available.</div>}
-        {policyState.isError && !policyState.data && <div className="privacy-inline-notice is-error" role="alert"><AlertCircle size={16} /><span>The saved policy state could not be loaded. Your editor contents are preserved. Retry before saving or publishing.</span><button type="button" className="privacy-secondary-button" onClick={() => void policyState.refetch()} disabled={policyState.isFetching}>{policyState.isFetching ? "Retrying…" : "Retry loading"}</button></div>}
+        {policyState.isLoading && <div className="privacy-loading-panel" role="status"><LoaderCircle size={17} className="privacy-loading-icon" /> Loading current policy state… You can edit fields while loading; local changes will be preserved.</div>}
+        {policyState.isError && !policyState.data && <div className="privacy-inline-notice is-error" role="alert"><AlertCircle size={16} /><span>The saved policy state could not be loaded. You can keep editing, but saving and publishing stay disabled until the state loads. Retry to load it.</span><button type="button" className="privacy-secondary-button" onClick={() => void policyState.refetch()} disabled={policyState.isFetching}>{policyState.isFetching ? "Retrying…" : "Retry loading"}</button></div>}
         <>
-          <fieldset className="privacy-editor-fieldset" disabled={!policyState.data && (policyState.isLoading || policyState.isError)}>
+          <fieldset className="privacy-editor-fieldset">
             <div className="privacy-editor-metadata">
-              <label>Notice title<input value={title} onChange={(event) => { setTitle(event.target.value); setPublicationReviewed(false); }} maxLength={200} required /></label>
-              <label>Customer-facing summary<textarea value={summary} onChange={(event) => { setSummary(event.target.value); setPublicationReviewed(false); }} maxLength={700} rows={3} required /></label>
-              <label>Responsible legal organization<input value={controllerName} onChange={(event) => { setControllerName(event.target.value); setPublicationReviewed(false); }} maxLength={200} minLength={3} required placeholder="Registered legal entity name" /><small>Use the responsible legal entity name, not only a product or workspace name.</small></label>
-              <label>Registered address <span className="privacy-optional-label">Optional</span><textarea value={controllerAddress} onChange={(event) => { setControllerAddress(event.target.value); setPublicationReviewed(false); }} maxLength={500} rows={2} placeholder="Registered address or official correspondence address" /></label>
-              <label>Privacy contact channel<input value={privacyContact} onChange={(event) => { setPrivacyContact(event.target.value); setPublicationReviewed(false); }} maxLength={320} minLength={5} required placeholder="Privacy email or authorized contact channel" /><small>Provide a monitored channel where privacy-related enquiries can be sent.</small></label>
-              <label>Applicable jurisdiction <span className="privacy-optional-label">Optional</span><input value={applicableJurisdiction} onChange={(event) => { setApplicableJurisdiction(event.target.value); setPublicationReviewed(false); }} maxLength={180} placeholder="Applicable jurisdiction or jurisdictions" /></label>
+              <label>Notice title<input value={title} onChange={(event) => { setTitle(event.target.value); markEditorFieldTouched("title"); setPublicationReviewed(false); }} maxLength={200} required /></label>
+              <label>Customer-facing summary<textarea value={summary} onChange={(event) => { setSummary(event.target.value); markEditorFieldTouched("summary"); setPublicationReviewed(false); }} maxLength={700} rows={3} required /></label>
+              <label>Responsible legal organization<input value={controllerName} onChange={(event) => { setControllerName(event.target.value); markEditorFieldTouched("controllerName"); setPublicationReviewed(false); }} maxLength={200} minLength={3} required placeholder="Registered legal entity name" /><small>Use the responsible legal entity name, not only a product or workspace name.</small></label>
+              <label>Registered address <span className="privacy-optional-label">Optional</span><textarea value={controllerAddress} onChange={(event) => { setControllerAddress(event.target.value); markEditorFieldTouched("controllerAddress"); setPublicationReviewed(false); }} maxLength={500} rows={2} placeholder="Registered address or official correspondence address" /></label>
+              <label>Privacy contact channel<input value={privacyContact} onChange={(event) => { setPrivacyContact(event.target.value); markEditorFieldTouched("privacyContact"); setPublicationReviewed(false); }} maxLength={320} minLength={5} required placeholder="Privacy email or authorized contact channel" /><small>Provide a monitored channel where privacy-related enquiries can be sent.</small></label>
+              <label>Applicable jurisdiction <span className="privacy-optional-label">Optional</span><input value={applicableJurisdiction} onChange={(event) => { setApplicableJurisdiction(event.target.value); markEditorFieldTouched("applicableJurisdiction"); setPublicationReviewed(false); }} maxLength={180} placeholder="Applicable jurisdiction or jurisdictions" /></label>
             </div>
             <div className="privacy-html-editor-block">
               <label>Raw HTML notice content <span className="privacy-optional-label">Optional · overrides structured sections when provided</span>
-                <textarea className="privacy-html-source" value={htmlContent} onChange={(event) => { setHtmlContent(event.target.value); setPublicationReviewed(false); }} rows={16} spellCheck={false} placeholder={"Paste a complete HTML document or an HTML fragment with embedded CSS. Example:\n<style>.notice-card{background:#10243a;color:#fff;padding:24px;border-radius:16px}</style>\n<section class=\"notice-card\"><h1>Privacy Notice</h1><p>Your notice content...</p></section>"} />
+                <textarea className="privacy-html-source" value={htmlContent} onChange={(event) => { setHtmlContent(event.target.value); markEditorFieldTouched("htmlContent"); setPublicationReviewed(false); }} rows={16} spellCheck={false} placeholder={"Paste a complete HTML document or an HTML fragment with embedded CSS. Example:\n<style>.notice-card{background:#10243a;color:#fff;padding:24px;border-radius:16px}</style>\n<section class=\"notice-card\"><h1>Privacy Notice</h1><p>Your notice content...</p></section>"} />
                 <small>HTML and CSS are saved without an application word-count limit. Scripts and external resources are blocked in preview and on the customer page for security. Use embedded CSS and self-contained assets.</small>
               </label>
               {hasHtmlNotice && <div className="privacy-html-preview-wrap"><div className="privacy-section-editor-heading"><strong>HTML preview</strong><span>Sandboxed preview · scripts disabled</span></div><iframe className="privacy-html-preview-frame" title="Privacy notice HTML preview" sandbox="" srcDoc={buildPrivacyHtmlDocument(htmlContent)} /></div>}
@@ -311,11 +358,12 @@ export function AdminPrivacyManagement() {
               })}
             </div>
             <div className="privacy-admin-editor-footer">
-              <div className="privacy-publish-warning"><LockKeyhole size={15} /><span>Complete the responsible organization and privacy contact details, then review the notice for accuracy, actual provider relationships, applicable jurisdictions and the effective date. Publication does not itself certify legal compliance.</span></div>\n              <label className="privacy-review-acknowledgement"><input type="checkbox" checked={publicationReviewed} onChange={(event) => setPublicationReviewed(event.target.checked)} disabled={saveDraft.isPending || publishPolicy.isPending} /><span><strong>Publication review confirmed</strong><small>I have reviewed the notice, confirmed the responsible legal organization and privacy contact, and checked the services described, applicable jurisdictions, and effective date.</small></span></label>
+              <div className="privacy-publish-warning"><LockKeyhole size={15} /><span>Complete the responsible organization and privacy contact details, then review the notice for accuracy, actual provider relationships, applicable jurisdictions and the effective date. Publication does not itself certify legal compliance.</span></div>
+              <label className="privacy-review-acknowledgement"><input type="checkbox" checked={publicationReviewed} onChange={(event) => setPublicationReviewed(event.target.checked)} disabled={saveDraft.isPending || publishPolicy.isPending} /><span><strong>Publication review confirmed</strong><small>I have reviewed the notice, confirmed the responsible legal organization and privacy contact, and checked the services described, applicable jurisdictions, and effective date.</small></span></label>
               <div className="privacy-form-actions">
-                <button type="button" className="privacy-secondary-button" onClick={() => void handleReloadSavedVersion()} disabled={policyState.isFetching || saveDraft.isPending || publishPolicy.isPending}><History size={14} /> Reload saved version</button>
-                <button type="button" className="privacy-secondary-button" onClick={() => void handleSaveDraft()} disabled={!canPublish || (!policyState.data && (policyState.isLoading || policyState.isError)) || saveDraft.isPending || publishPolicy.isPending}><Save size={15} /> {saveDraft.isPending ? "Saving…" : "Save draft"}</button>
-                <button type="button" className="privacy-primary-button" onClick={() => void handlePublish()} disabled={!canPublish || !publicationReviewed || (!policyState.data && (policyState.isLoading || policyState.isError)) || saveDraft.isPending || publishPolicy.isPending}><Send size={15} /> {publishPolicy.isPending ? "Publishing…" : "Publish notice"}</button>
+                <button type="button" className="privacy-secondary-button" onClick={() => void handleReloadSavedVersion()} disabled={!policyState.data || policyState.isFetching || saveDraft.isPending || publishPolicy.isPending}><History size={14} /> Reload saved version</button>
+                <button type="button" className="privacy-secondary-button" onClick={() => void handleSaveDraft()} disabled={!policyState.data || !canPublish || saveDraft.isPending || publishPolicy.isPending}><Save size={15} /> {saveDraft.isPending ? "Saving…" : "Save draft"}</button>
+                <button type="button" className="privacy-primary-button" onClick={() => void handlePublish()} disabled={!policyState.data || !canPublish || !publicationReviewed || saveDraft.isPending || publishPolicy.isPending}><Send size={15} /> {publishPolicy.isPending ? "Publishing…" : "Publish notice"}</button>
               </div>
             </div>
           </fieldset>
