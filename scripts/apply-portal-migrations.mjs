@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyPortalMigrationRecord } from "./portal-migration-tracker.mjs";
 import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
+import { assertWorkerSchemaContracts } from "./worker-schema-contracts.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const databaseUrl = process.env.DATABASE_URL;
@@ -199,6 +200,8 @@ try {
       throw new Error("Portal migration failed; use the sanitized migration code above and complete manual recovery review before retrying.");
     }
   }
+  const verified = await assertWorkerSchemaContracts(connection);
+  console.log(`[portal-migrate] PASS: verified ${verified.checkedTables} worker-critical table contracts after portal migrations.`);
 } catch (error) {
   if (error?.baselineRecorded) {
     // Expected control flow after writing the explicit baseline.
