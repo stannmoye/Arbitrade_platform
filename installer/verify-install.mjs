@@ -55,11 +55,11 @@ report(
 const startCommand = String(packageJson?.scripts?.start || "");
 report(
   "Production startup command",
-  startCommand.includes("NODE_ENV=production") && startCommand.includes("node dist/index.js"),
+  startCommand.includes("NODE_ENV=production") && startCommand.includes("server-start.mjs"),
   startCommand
-    ? startCommand.includes("NODE_ENV=production") && startCommand.includes("node dist/index.js")
-      ? "package.json start script launches dist/index.js in production mode."
-      : "The start script does not match the expected production entry point (NODE_ENV=production node dist/index.js)."
+    ? startCommand.includes("NODE_ENV=production") && startCommand.includes("server-start.mjs")
+      ? "package.json start script verifies all database migrations and required worker tables before launching the server."
+      : "The start script must launch server-start.mjs in production mode so migrations run before workers."
     : "package.json has no start script.",
 );
 
