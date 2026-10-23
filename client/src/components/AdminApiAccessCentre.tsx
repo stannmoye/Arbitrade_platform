@@ -11,7 +11,7 @@ function AdminApis(){
  const [tab,setTab]=useState<"overview"|"whatsapp"|"templates"|"wallet"|"status">("overview");
  const [message,setMessage]=useState("");
  const [draft,setDraft]=useState<any>({apiEnabled:false,requestsPerMinute:60,whatsappEnabled:false,whatsappNumber:"",webhooksEnabled:false,dailyReportDeliveryEnabled:false,withdrawalApiEnabled:false,walletProviderEnabled:false,platformStatus:"not-configured",maintenanceMessage:"",feeScheduleJson:"",templates:{}});
- const [wa,setWa]=useState({accessToken:"",phoneNumberId:"",graphApiVersion:"v22.0",verificationTemplateName:"",verificationTemplateLanguage:"en"});
+ const [wa,setWa]=useState({accessToken:"",phoneNumberId:"",graphApiVersion:"v26.0",verificationTemplateName:"",verificationTemplateLanguage:"en"});
  const [wallet,setWallet]=useState({apiToken:"",apiSecret:"",webhookSecret:""});
  const [incident,setIncident]=useState({status:"maintenance" as "operational"|"degraded"|"maintenance"|"offline",title:"",message:"",affectedServices:"API"});
  useEffect(()=>{if(q.data)setDraft({...q.data,templates:{...q.data.templates}})},[q.data]);
@@ -27,7 +27,7 @@ function AdminApis(){
   ["report_ready","Requested report","{{customer_name}}, {{secure_link}}"],
  ];
  const save=trpc.adminOperations.saveApiAccessSettings.useMutation({onSuccess:async()=>{await q.refetch();setMessage("API Access configuration saved.")},onError:e=>setMessage(e.message)});
- const saveWa=trpc.adminOperations.saveWhatsAppProviderCredentials.useMutation({onSuccess:async()=>{setWa({accessToken:"",phoneNumberId:"",graphApiVersion:"v22.0",verificationTemplateName:"",verificationTemplateLanguage:"en"});await providers.refetch();setMessage("WhatsApp provider credentials encrypted and saved. Provider delivery still requires a successful real-world connection check.")},onError:e=>setMessage(e.message)});
+ const saveWa=trpc.adminOperations.saveWhatsAppProviderCredentials.useMutation({onSuccess:async()=>{setWa({accessToken:"",phoneNumberId:"",graphApiVersion:"v26.0",verificationTemplateName:"",verificationTemplateLanguage:"en"});await providers.refetch();setMessage("WhatsApp provider credentials encrypted and saved. Provider delivery still requires a successful real-world connection check.")},onError:e=>setMessage(e.message)});
  const saveWallet=trpc.adminOperations.saveWalletProviderCredentials.useMutation({onSuccess:async()=>{setWallet({apiToken:"",apiSecret:"",webhookSecret:""});await providers.refetch();setMessage("Wallet credentials encrypted and stored. A provider-specific adapter is still required before deposits can be processed.")},onError:e=>setMessage(e.message)});
  const remove=trpc.adminOperations.removeApiProviderCredentials.useMutation({onSuccess:async()=>{await providers.refetch();setMessage("Provider credentials removed.")},onError:e=>setMessage(e.message)});
  const createIncident=trpc.adminOperations.createApiPlatformIncident.useMutation({onSuccess:async()=>{await incidents.refetch();setIncident({status:"maintenance",title:"",message:"",affectedServices:"API"});setMessage("Incident published. Eligible notification subscribers have been queued.")},onError:e=>setMessage(e.message)});
