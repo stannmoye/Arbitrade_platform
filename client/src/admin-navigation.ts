@@ -86,6 +86,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
   { id: "platform-configuration", label: "Platform Configuration", detail: "Signup, security and shared preferences", items: [
     { id: "signup-onboarding", target: "signup", label: "Signup & Onboarding", detail: "Signup rules, gates and jurisdiction matrix", icon: Globe2 },
     { id: "security-policies", target: "policies", label: "Security Policies", detail: "KYC, withdrawals, 2FA and facial defaults", icon: ShieldCheck },
+    { id: "privacy-management", target: "privacyManagement", label: "Privacy Management", detail: "Publish privacy notices and review customer privacy requests", icon: ShieldCheck },
     { id: "general-settings", target: "settings", label: "General Settings", detail: "Shared operational settings", icon: Settings2 },
     { id: "sound-notifications", target: "sound", label: "Sound & Notifications", detail: "Notification sound and preference controls", icon: Bell },
     { id: "branding-identity", target: "branding", label: "Branding & Identity", detail: "Brand and identity presentation", icon: Settings2 },
