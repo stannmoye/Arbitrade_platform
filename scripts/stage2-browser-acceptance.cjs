@@ -1849,7 +1849,7 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         });
 
         await customerSearch.fill("no-such-customer-destination-xyz");
-        const emptySearchStatus = drawer.getByRole("status");
+        const emptySearchStatus = drawer.getByRole("status").filter({ hasText: /No pages or resources match/ });
         await emptySearchStatus.waitFor({ state: "visible" });
         const emptySearchText = await emptySearchStatus.innerText();
         const emptySearchLiveMode = await emptySearchStatus.getAttribute("aria-live");
