@@ -86,6 +86,7 @@ function AdminApis(){
     <label>Provider name<input value={draft.walletProviderName||""} onChange={e=>update("walletProviderName",e.target.value)} maxLength={120} placeholder="Provider name"/></label>
     <label>Provider API base URL<input value={draft.walletProviderBaseUrl||""} onChange={e=>update("walletProviderBaseUrl",e.target.value)} maxLength={500} placeholder="https://api.provider.example"/></label>
     <label>Provider webhook URL<input value={draft.walletWebhookUrl||""} onChange={e=>update("walletWebhookUrl",e.target.value)} maxLength={500} placeholder="https://your-domain.example/api/providers/webhook"/></label>
+    <p>Secret keys are not stored in these fields. Use the encrypted credentials section below; saved credentials alone do not activate a provider integration.</p>
     <div className="admin-toggle-row"><div><strong>Provider enable policy</strong><span>Records administrator intent only; does not activate unsupported endpoints.</span></div><button className={draft.walletProviderEnabled?"toggle-switch on":"toggle-switch"} onClick={()=>update("walletProviderEnabled",!draft.walletProviderEnabled)}>{draft.walletProviderEnabled?<ToggleRight size={28}/>:<ToggleLeft size={28}/>}</button></div>
    </section>
    <section className="settings-card admin-api-editor"><div className="eyebrow">Encrypted credentials</div><h2>Store wallet provider credentials</h2><p>The vault prepares these values for a later provider adapter. Different wallet providers use different authentication and callback contracts.</p>
