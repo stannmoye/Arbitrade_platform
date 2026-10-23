@@ -10,7 +10,7 @@
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
-    "db:push": "drizzle-kit generate --config=drizzle.config.ts && node scripts/guarded-main-migrate.mjs",
+    "db:push": "drizzle-kit generate --config=drizzle.config.ts && node scripts/migrate-all.mjs",
     "db:migrate": "node scripts/migrate-all.mjs",
     "db:portal-migrate": "node scripts/apply-portal-migrations.mjs",
     "db:mining-schema": "node scripts/ensure-mining-current-schema.mjs",
