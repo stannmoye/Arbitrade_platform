@@ -193,6 +193,7 @@ export const appRouter = router({
       inAppEnabled: z.boolean(),
       dailySummaryEnabled: z.boolean(),
       dailyStatementEnabled: z.boolean(),
+      dailyTaxReportEnabled: z.boolean(),
       feeSummaryEnabled: z.boolean(),
       securityAlertsEnabled: z.boolean(),
       timezone: z.string().min(1).max(80),
