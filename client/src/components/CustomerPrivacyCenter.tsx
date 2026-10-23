@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import {
   ArrowDownToLine,
   ArrowRight,
@@ -94,7 +94,7 @@ export function CustomerPrivacyCenter() {
     URL.revokeObjectURL(url);
   };
 
-  const submitRequest = async (event: React.FormEvent<HTMLFormElement>) => {
+  const submitRequest = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setRequestError("");
     setNotice("");
