@@ -929,6 +929,7 @@ export const privacyPolicyVersions = mysqlTable("privacy_policy_versions", {
   privacyContact: varchar("privacyContact", { length: 320 }).notNull().default("Use the Privacy Centre request form or authenticated Support Centre"),
   applicableJurisdiction: varchar("applicableJurisdiction", { length: 180 }).notNull().default(""),
   sectionsJson: longtext("sectionsJson").notNull(),
+  htmlContent: longtext("htmlContent"),
   status: mysqlEnum("status", ["draft", "published", "archived"]).default("draft").notNull(),
   effectiveAt: timestamp("effectiveAt"),
   publishedAt: timestamp("publishedAt"),
