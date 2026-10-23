@@ -187,7 +187,8 @@ export async function savePrivacyPolicyDraft(
   });
 }
 
-export async function publishPrivacyPolicy(adminId: number, draftId: number) {
+export async function publishPrivacyPolicy(adminId: number, draftId: number, reviewAcknowledged: boolean) {
+  if (!reviewAcknowledged) throw new TRPCError({ code: "BAD_REQUEST", message: "Confirm that the notice has received its required review before publishing." });
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The privacy notice could not be published." });
   return db.transaction(async (tx) => {
@@ -213,7 +214,7 @@ export async function publishPrivacyPolicy(adminId: number, draftId: number) {
       action: "policy.published",
       entityType: "privacy_policy_version",
       entityId: String(draftId),
-      metadataJson: JSON.stringify({ versionLabel: nextVersion, sectionCount: sections.length }),
+      metadataJson: JSON.stringify({ versionLabel: nextVersion, sectionCount: sections.length, reviewAcknowledged }),
     });
     return { success: true, versionLabel: nextVersion, publishedAt: now };
   });
