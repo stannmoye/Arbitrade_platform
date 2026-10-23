@@ -486,12 +486,14 @@ async function deliverWebhook(payload: Record<string, unknown>) {
   const envelope = { id: payload.id, type: payload.type, createdAt: payload.createdAt, data: payload.data };
   const body = JSON.stringify(envelope);
   const secret = decryptVaultValue(hook.secretCiphertext);
-  const signature = crypto.createHmac("sha256", secret).update(body).digest("hex");
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const signature = crypto.createHmac("sha256", secret).update(timestamp + "." + body).digest("hex");
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Arbitrade-Event": String(payload.type || "unknown"),
+      "X-Arbitrade-Timestamp": timestamp,
       "X-Arbitrade-Signature": "sha256=" + signature,
       "Idempotency-Key": String(payload.id || ""),
     },
@@ -576,7 +578,7 @@ async function processOneDelivery(id: number) {
         await sendMetaWhatsApp(prefs.whatsappNumber, rendered);
       }
     } else if (row.channel === "webhook") {
-      await deliverWebhook(payload);
+      await deliverWebhook({ ...payload, deliveryId: row.dedupeKey });
     }
     await db.update(apiNotificationDeliveries).set({ status: "sent", sentAt: new Date(), errorCode: null })
       .where(eq(apiNotificationDeliveries.id, row.id));
