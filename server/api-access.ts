@@ -7,7 +7,16 @@ export const CUSTOMER_API_SCOPES = [
   "balances:read",
   "transactions:read",
   "withdrawals:read",
+  "deposits:read",
+  "fees:read",
+  "statements:read",
+  "tax-support:read",
+  "notifications:read",
+  "analytics:read",
+  "exchange-rates:read",
   "platform:status",
+  "incidents:read",
+  "webhooks:manage",
 ] as const;
 export type CustomerApiScope = typeof CUSTOMER_API_SCOPES[number];
 
