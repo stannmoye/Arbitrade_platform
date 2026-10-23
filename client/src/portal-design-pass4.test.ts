@@ -97,26 +97,20 @@ describe("body-level navigation drawer portals", () => {
 });
 
 
-describe("customer left Settings navigation body-level portal", () => {
-  it("moves the actual left settings rail and scrim out of the workspace page body", () => {
-    expect(appSource).toContain('import { createPortal } from "react-dom";');
-    expect(appSource).toContain('id="customer-left-menu-portal-host"');
-    expect(appSource).toContain('className="customer-left-menu-portal-host"');
-    expect(appSource).not.toContain('className="customer-portal customer-left-menu-portal-host"');
-    expect(appSource).toContain('createPortal(');
-    expect(appSource).toContain('document.body');
+describe("customer left Settings navigation layout recovery", () => {
+  it("keeps the customer Settings rail and scrim inside the customer portal shell", () => {
+    expect(appSource).not.toContain('id="customer-left-menu-portal-host"');
     expect(appSource).toContain('className="portal-rail customer-primary-rail"');
     expect(appSource).toContain('className="customer-primary-menu-scrim"');
-    expect(appSource).toContain('className="portal-body"><main key={section} className="portal-main">');
     expect(appSource).toContain('className={`portal-body ${mobilePrimaryMenuOpen?"customer-primary-menu-open":""}`}');
+    expect(appSource).toContain('<main key={section} className="portal-main">');
   });
 
-  it("keeps current theme tokens while isolating the left rail from clipped/composited workspace ancestors", () => {
-    expect(customerReferenceCss).toContain('.customer-left-menu-portal-host {');
-    expect(customerReferenceCss).toContain('z-index: 2147483001 !important');
-    expect(customerReferenceCss).toContain('.customer-left-menu-portal-host .portal-body');
-    expect(customerReferenceCss).toContain('pointer-events: auto !important');
-    expect(themeCss).toContain(':root[data-arb-theme] .customer-left-menu-portal-host .customer-primary-rail');
+  it("uses the existing responsive customer rail rules instead of a viewport-sized body portal", () => {
+    expect(customerReferenceCss).toContain('.customer-portal .portal-body .customer-primary-rail');
+    expect(customerReferenceCss).toContain('.customer-portal .portal-body.customer-primary-menu-open .customer-primary-rail');
+    expect(customerReferenceCss).not.toContain('.customer-left-menu-portal-host {');
+    expect(themeCss).toContain(':root[data-arb-theme] .customer-portal .customer-primary-rail');
     expect(themeCss).toContain('var(--arb-color-surface)');
   });
 });
