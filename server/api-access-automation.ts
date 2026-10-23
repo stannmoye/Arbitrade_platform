@@ -401,11 +401,14 @@ export async function enqueueCustomerApiEvent(userId: number, eventKey: ApiAutom
       && (prefs.whatsappEvents.includes(eventKey) || specialEnabled)) {
     await insertDelivery(userId, eventKey, "whatsapp", envelope, eventId);
   }
-  const hooks = await db.select().from(customerApiWebhooks)
-    .where(and(eq(customerApiWebhooks.userId, userId), isNull(customerApiWebhooks.revokedAt))).limit(20);
-  for (const hook of hooks) {
-    if (!parseEvents(hook.eventsJson).includes(eventKey)) continue;
-    await insertDelivery(userId, eventKey, "webhook", { ...envelope, webhookId: hook.id }, eventId + ":webhook:" + hook.id);
+  const settings = jsonSetting(await getAppSetting("apiAccess.settings"), {});
+  if (settings.webhooksEnabled === true) {
+    const hooks = await db.select().from(customerApiWebhooks)
+      .where(and(eq(customerApiWebhooks.userId, userId), isNull(customerApiWebhooks.revokedAt))).limit(20);
+    for (const hook of hooks) {
+      if (!parseEvents(hook.eventsJson).includes(eventKey)) continue;
+      await insertDelivery(userId, eventKey, "webhook", { ...envelope, webhookId: hook.id }, eventId + ":webhook:" + hook.id);
+    }
   }
   return { eventId, queued: true };
 }
@@ -462,6 +465,8 @@ async function sendMetaWhatsApp(recipient: string, message: string) {
 }
 
 async function deliverWebhook(payload: Record<string, unknown>) {
+  const setting = jsonSetting(await getAppSetting("apiAccess.settings"), {});
+  if (setting.webhooksEnabled !== true) throw new Error("WEBHOOKS_POLICY_DISABLED");
   const webhookId = Number(payload.webhookId);
   if (!Number.isSafeInteger(webhookId) || webhookId <= 0) throw new Error("WEBHOOK_CONFIGURATION_MISSING");
   const db = await getDb();
@@ -544,6 +549,8 @@ async function processOneDelivery(id: number) {
 }
 
 async function enqueueDailySchedules() {
+  const settings = jsonSetting(await getAppSetting("apiAccess.settings"), {});
+  if (settings.dailyReportDeliveryEnabled !== true) return;
   const db = await getDb();
   if (!db) return;
   const rows = await db.select().from(customerApiNotificationPreferences).limit(5000);
