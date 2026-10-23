@@ -1616,7 +1616,6 @@ export async function assertNoOutstandingMiningOperations(tx: any, userId: numbe
     {
       query: sql`SELECT id FROM mining_customer_packages
         WHERE userId=${userId} AND status IN ('active','replaced')
-          AND startsAt<=UTC_TIMESTAMP(3)
           AND (expiresAt IS NULL OR expiresAt>UTC_TIMESTAMP(3))
           AND (endedAt IS NULL OR endedAt>UTC_TIMESTAMP(3))
         LIMIT 1 FOR UPDATE`,
