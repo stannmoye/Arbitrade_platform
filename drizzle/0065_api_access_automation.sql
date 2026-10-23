@@ -104,3 +104,21 @@ CREATE TABLE IF NOT EXISTS `api_provider_events` (
   KEY `api_provider_event_user_idx` (`userId`, `receivedAt`),
   KEY `api_provider_event_type_idx` (`eventType`, `receivedAt`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `customer_api_usage_daily` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `userId` int NOT NULL,
+  `keyId` int NOT NULL,
+  `usageDate` varchar(10) NOT NULL,
+  `requestCount` bigint NOT NULL DEFAULT 0,
+  `successCount` bigint NOT NULL DEFAULT 0,
+  `errorCount` bigint NOT NULL DEFAULT 0,
+  `totalLatencyMs` bigint NOT NULL DEFAULT 0,
+  `lastRequestAt` timestamp NULL DEFAULT NULL,
+  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `customer_api_usage_key_date_uq` (`keyId`, `usageDate`),
+  KEY `customer_api_usage_user_date_idx` (`userId`, `usageDate`),
+  KEY `customer_api_usage_date_idx` (`usageDate`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
