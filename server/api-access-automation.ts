@@ -195,34 +195,39 @@ function verificationHash(userId: number, code: string) {
   return crypto.createHash("sha256").update(userId + ":" + code + ":" + pepper, "utf8").digest("hex");
 }
 
-async function sendMetaWhatsAppTemplate(recipient: string, templateName: string, languageCode: string, code: string) {
+async function sendMetaWhatsAppTemplate(recipient: string, templateName: string, languageCode: string, parameters: string[]) {
   const credentials = await readApiProviderCredential("whatsapp_meta");
   if (!credentials?.accessToken || !credentials.phoneNumberId) throw new Error("WHATSAPP_PROVIDER_NOT_CONFIGURED");
   if (!/^[a-z0-9_]{3,512}$/i.test(templateName) || !/^[a-z]{2,3}(?:_[A-Z]{2})?$/.test(languageCode)) {
-    throw new Error("WHATSAPP_VERIFICATION_TEMPLATE_NOT_CONFIGURED");
+    throw new Error("WHATSAPP_TEMPLATE_NOT_CONFIGURED");
   }
   const settings = jsonSetting(await getAppSetting("apiAccess.settings"), {});
   if (settings.whatsappEnabled !== true) throw new Error("WHATSAPP_POLICY_DISABLED");
-  const version = /^v\\d+\\.\\d+$/.test(credentials.graphApiVersion || "") ? credentials.graphApiVersion! : "v22.0";
+  const version = /^v\d+\.\d+$/.test(credentials.graphApiVersion || "") ? credentials.graphApiVersion! : "v22.0";
+  const template: Record<string, unknown> = {
+    name: templateName,
+    language: { code: languageCode },
+  };
+  if (parameters.length) {
+    template.components = [{
+      type: "body",
+      parameters: parameters.slice(0, 10).map((value) => ({ type: "text", text: value.slice(0, 1024) })),
+    }];
+  }
   const response = await fetch("https://graph.facebook.com/" + version + "/" + encodeURIComponent(credentials.phoneNumberId) + "/messages", {
     method: "POST",
     headers: { Authorization: "Bearer " + credentials.accessToken, "Content-Type": "application/json" },
     body: JSON.stringify({
       messaging_product: "whatsapp",
-      to: recipient.replace(/\\D/g, ""),
+      to: recipient.replace(/\D/g, ""),
       type: "template",
-      template: {
-        name: templateName,
-        language: { code: languageCode },
-        components: [{ type: "body", parameters: [{ type: "text", text: code }] }],
-      },
+      template,
     }),
     signal: AbortSignal.timeout(12_000),
     redirect: "error",
   });
   if (!response.ok) throw new Error(response.status >= 500 ? "WHATSAPP_PROVIDER_TEMPORARY_ERROR" : "WHATSAPP_TEMPLATE_REJECTED");
 }
-
 export async function requestCustomerWhatsAppVerification(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available.");
@@ -251,7 +256,7 @@ export async function requestCustomerWhatsAppVerification(userId: number) {
       row.whatsappNumber,
       credentials.verificationTemplateName,
       credentials.verificationTemplateLanguage || "en",
-      code,
+      [code],
     );
   } catch (error) {
     await db.update(customerApiNotificationPreferences).set({
@@ -534,8 +539,42 @@ async function processOneDelivery(id: number) {
       const templateKey = row.eventKey.replace(/[^a-z0-9]+/gi, "_");
       const defaultText = eventTitle(row.eventKey) + ". Sign in to your secure account to review details.";
       const template = typeof templates[templateKey] === "string" && templates[templateKey].trim() ? templates[templateKey] : defaultText;
-      const enriched = { ...data, customer_name: typeof data.customer_name === "string" ? data.customer_name : "Customer", event: eventTitle(row.eventKey), status_url: "", secure_link: "" };
-      await sendMetaWhatsApp(prefs.whatsappNumber, interpolateTemplate(template, enriched));
+      const reportDate = typeof data.reportDate === "string" ? data.reportDate : new Date().toISOString().slice(0, 10);
+      const reportEndpoint = row.eventKey === "daily.statement" ? "/api/v1/account/statements/daily?date=" + reportDate
+        : row.eventKey === "daily.activity" ? "/api/v1/account/trades"
+        : row.eventKey === "tax.report.ready" ? "/api/v1/account/tax-support?year=" + reportDate.slice(0, 4)
+        : "/api/v1/account/notification-history";
+      const enriched: Record<string, unknown> = {
+        ...data,
+        customer_name: typeof data.customer_name === "string" ? data.customer_name : "Customer",
+        event: typeof data.event === "string" ? data.event : eventTitle(row.eventKey),
+        status: typeof data.status === "string" ? data.status : "updated",
+        reference: typeof data.reference === "string" ? data.reference : "",
+        report_date: reportDate,
+        report_endpoint: reportEndpoint,
+        status_url: typeof data.status_url === "string" ? data.status_url : "",
+        secure_link: typeof data.secure_link === "string" ? data.secure_link : "",
+      };
+      const rendered = interpolateTemplate(template, enriched);
+      const mappings = setting.whatsappMetaTemplates && typeof setting.whatsappMetaTemplates === "object"
+        ? setting.whatsappMetaTemplates as Record<string, { name?: string; language?: string }> : {};
+      const mapping = mappings[templateKey];
+      const parameterKeys: Record<string, string[]> = {
+        deposit_confirmed: ["customer_name", "reference"], deposit_delayed: ["customer_name", "reference"],
+        deposit_failed: ["customer_name", "reference"], withdrawal_status: ["customer_name", "reference", "status"],
+        trade_completed: ["customer_name", "reference"], daily_statement: ["customer_name", "report_date", "report_endpoint"],
+        daily_activity: ["customer_name", "report_date", "report_endpoint"], fee_recorded: ["customer_name", "reference"],
+        fee_summary: ["customer_name", "report_date", "report_endpoint"], platform_status: ["status", "event"],
+        security_alert: ["event"], api_key_created: ["event", "keyName"], api_key_revoked: ["event", "keyId"],
+        tax_report_ready: ["customer_name", "report_date", "report_endpoint"], report_ready: ["customer_name", "report_endpoint"],
+      };
+      if (mapping?.name?.trim()) {
+        const keys = parameterKeys[templateKey] || ["event"];
+        await sendMetaWhatsAppTemplate(prefs.whatsappNumber, mapping.name.trim(), mapping.language || "en",
+          keys.map((key) => String(enriched[key] ?? "").slice(0, 1024)));
+      } else {
+        await sendMetaWhatsApp(prefs.whatsappNumber, rendered);
+      }
     } else if (row.channel === "webhook") {
       await deliverWebhook(payload);
     }
