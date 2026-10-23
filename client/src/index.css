@@ -555,3 +555,55 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
 :root[data-arb-theme] .customer-slide-portal :where(p,small,.eyebrow){color:var(--arb-color-text-muted)!important}
 :root[data-arb-theme] .customer-slide-portal :where(input,textarea,select){background-color:var(--arb-color-surface-raised)!important;border-color:var(--arb-color-border)!important;color:var(--arb-color-text)!important}
 :root[data-arb-theme] .customer-slide-portal :where(button,a,[role="button"],input,select,textarea):focus-visible{outline-color:var(--arb-focus-ring)!important;outline-offset:3px}
+
+/*
+ * Customer navigation responsive visibility:
+ * the desktop customer rail is already present, so its floating menu triggers
+ * must not cover the workspace. Touch/narrow devices retain the slide trigger
+ * and paint the portaled drawer contents explicitly above the panel surface.
+ */
+@media (min-width:1101px) and (hover:hover) and (pointer:fine) {
+  .customer-portal .customer-settings-trigger,
+  .customer-slide-layer .customer-resource-peek-trigger {
+    display:none!important;
+    visibility:hidden!important;
+    pointer-events:none!important;
+  }
+  .customer-slide-portal {display:none!important}
+}
+@media (max-width:1100px), (pointer:coarse) {
+  .customer-portal .customer-settings-trigger {
+    display:flex!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+  }
+  .customer-slide-portal {
+    position:fixed!important;
+    inset:0!important;
+    overflow:visible!important;
+    clip-path:none!important;
+    filter:none!important;
+    contain:none!important;
+  }
+  .customer-slide-portal .customer-slide-drawer,
+  .customer-slide-portal .admin-slide-drawer {
+    display:grid!important;
+    grid-template-rows:auto auto auto auto auto minmax(0,1fr) auto!important;
+    color:var(--arb-color-text,var(--wb-text,#edf7f6))!important;
+  }
+  .customer-slide-portal.is-open .admin-slide-drawer {
+    visibility:visible!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+  }
+  .customer-slide-portal.is-open .admin-slide-drawer > * {
+    visibility:visible!important;
+    opacity:1!important;
+  }
+  .customer-slide-portal .admin-slide-nav {
+    min-height:0!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+}
