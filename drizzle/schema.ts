@@ -1,4 +1,4 @@
-import { bigint, int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, index, uniqueIndex } from "drizzle-orm/mysql-core";
+import { bigint, int, longtext, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, index, uniqueIndex } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -924,7 +924,7 @@ export const privacyPolicyVersions = mysqlTable("privacy_policy_versions", {
   versionLabel: varchar("versionLabel", { length: 40 }).notNull(),
   title: varchar("title", { length: 200 }).notNull(),
   summary: varchar("summary", { length: 700 }).notNull().default(""),
-  sectionsJson: text("sectionsJson").notNull(),
+  sectionsJson: longtext("sectionsJson").notNull(),
   status: mysqlEnum("status", ["draft", "published", "archived"]).default("draft").notNull(),
   effectiveAt: timestamp("effectiveAt"),
   publishedAt: timestamp("publishedAt"),
