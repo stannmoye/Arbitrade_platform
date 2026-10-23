@@ -9,6 +9,10 @@ export type PrivacyPolicyDocument = {
   versionLabel: string;
   title: string;
   summary: string;
+  controllerName: string;
+  controllerAddress: string;
+  privacyContact: string;
+  applicableJurisdiction: string;
   sections: PrivacyPolicySection[];
   status: "draft" | "published" | "archived";
   effectiveAt: Date | string | null;
@@ -41,7 +45,7 @@ export const DEFAULT_PRIVACY_POLICY_SECTIONS: PrivacyPolicySection[] = [
   {
     "id": "overview",
     "title": "Our privacy commitment",
-    "body": "This Privacy Notice explains how Arbitrade handles information associated with your account and your use of the platform. We aim to use information for defined purposes, restrict access according to responsibility, and keep our practices understandable. This notice should be reviewed against the laws and services applicable to the operator before production publication. Applicable law takes precedence where it provides additional rights or requirements."
+    "body": "This Privacy Notice explains how information is handled in connection with your account and your use of this platform. Our approach is designed to use information for defined service, security and recordkeeping purposes, restrict access according to responsibility, and keep our practices understandable. The information and choices described below depend on the services available to your account and the requirements that apply to your circumstances. Where applicable privacy law provides additional rights, those rights remain available in accordance with that law."
   },
   {
     "id": "information",
@@ -86,12 +90,12 @@ export const DEFAULT_PRIVACY_POLICY_SECTIONS: PrivacyPolicySection[] = [
   {
     "id": "transfers",
     "title": "Service providers and processing locations",
-    "body": "Information may be processed in locations where the platform operator or its authorized service providers operate. Where cross-border transfer requirements apply, the operator should use appropriate safeguards and provide any notices required by law. The current operator, provider list, applicable jurisdictions, and contact details must be kept accurate in the published notice."
+    "body": "Information may be processed in locations where the platform operator or its authorized service providers operate. Where cross-border transfer requirements apply, the operator should use appropriate safeguards and provide any notices required by law. To ask which service providers or processing locations may apply to your account, submit a request through this Centre."
   },
   {
     "id": "updates-contact",
     "title": "Policy updates and privacy contact",
-    "body": "This Notice may be revised when services, safeguards, or applicable requirements change. The published version, effective date, and revision history are shown above. Material changes should be communicated through an appropriate channel, and consent or renewed acknowledgement should be obtained where legally required. For questions or requests, use the Privacy Centre request form or the authenticated Support Centre. Do not include passwords, authentication codes, or unnecessary sensitive documents in ordinary messages."
+    "body": "This Notice may be revised when services, safeguards, or applicable requirements change. The published version, effective date, and revision history are shown in this Centre. Where required by applicable law, we will provide notice of material changes and request any necessary consent or renewed acknowledgement through the relevant process. For questions or requests, use the Privacy Centre request form or the authenticated Support Centre. Do not include passwords, authentication codes, or unnecessary sensitive documents in ordinary messages."
   }
 ];
 
