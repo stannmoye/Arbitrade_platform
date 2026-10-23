@@ -1816,3 +1816,19 @@
     pointer-events: none !important;
   }
 }
+
+
+/*
+ * Mobile WebView reliability: do not defer the Settings rail's open state
+ * behind an opacity transition. Closed state is hidden immediately above;
+ * open state is fully painted in the same frame.
+ */
+@media (max-width: 900px), (pointer: coarse) {
+  .customer-left-menu-portal-host .portal-body.customer-primary-menu-open .customer-primary-rail {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
