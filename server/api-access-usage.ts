@@ -1,4 +1,4 @@
-import { desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { customerApiKeys, customerApiUsageDaily } from "../drizzle/schema";
 import { getDb } from "./db";
 
@@ -45,7 +45,7 @@ export async function listCustomerApiUsage(userId: number) {
     lastRequestAt: customerApiUsageDaily.lastRequestAt,
   }).from(customerApiUsageDaily)
     .innerJoin(customerApiKeys, eq(customerApiKeys.id, customerApiUsageDaily.keyId))
-    .where(gte(customerApiUsageDaily.usageDate, since))
+    .where(and(eq(customerApiUsageDaily.userId, userId), gte(customerApiUsageDaily.usageDate, since)))
     .orderBy(desc(customerApiUsageDaily.usageDate), desc(customerApiUsageDaily.id))
     .limit(500);
   return rows.filter((row) => Number(row.keyId) > 0 && row.keyName !== undefined)
