@@ -15,7 +15,7 @@ describe("Privacy Centre migration and installation contract", () => {
     const sql = await readFile(migrationPath, "utf8");
     const htmlSql = await readFile(htmlMigrationPath, "utf8");
     expect(htmlSql).toContain("ADD COLUMN `htmlContent` LONGTEXT NULL");
-    expect(htmlSql).not.toMatch(/\\bDROP\\s+TABLE\\b/i);
+    expect(htmlSql).not.toMatch(/\bDROP\s+TABLE\b/i);
     for (const table of ["privacy_policy_versions", "privacy_requests", "privacy_request_events", "privacy_audit_events"]) {
       expect(sql).toContain("CREATE TABLE IF NOT EXISTS `" + table + "`");
     }
