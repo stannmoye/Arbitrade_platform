@@ -44,7 +44,7 @@ export async function listCustomerApiUsage(userId: number) {
     totalLatencyMs: customerApiUsageDaily.totalLatencyMs,
     lastRequestAt: customerApiUsageDaily.lastRequestAt,
   }).from(customerApiUsageDaily)
-    .innerJoin(customerApiKeys, eq(customerApiKeys.id, customerApiUsageDaily.keyId))
+    .innerJoin(customerApiKeys, and(eq(customerApiKeys.id, customerApiUsageDaily.keyId), eq(customerApiKeys.userId, customerApiUsageDaily.userId)))
     .where(and(eq(customerApiUsageDaily.userId, userId), gte(customerApiUsageDaily.usageDate, since)))
     .orderBy(desc(customerApiUsageDaily.usageDate), desc(customerApiUsageDaily.id))
     .limit(500);
