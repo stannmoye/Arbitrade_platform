@@ -1390,8 +1390,8 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         const rect = rail.getBoundingClientRect();
         const style = getComputedStyle(rail);
         return host.parentElement === document.body &&
-          style.visibility === "visible" && style.pointerEvents !== "none" &&
-          rect.width > 0 && rect.height > 0 && rect.left >= -1 &&
+          style.visibility === "visible" && Number(style.opacity) > 0.95 &&
+          style.pointerEvents !== "none" && rect.width > 0 && rect.height > 0 && rect.left >= -1 &&
           rect.right <= window.innerWidth + 1;
       }, { timeout: 10000 });
       const customerLeftMenuPaint = await page.evaluate(() => {
