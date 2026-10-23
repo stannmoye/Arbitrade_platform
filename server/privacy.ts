@@ -42,6 +42,10 @@ function asCustomerPolicy(row: typeof privacyPolicyVersions.$inferSelect) {
     versionLabel: row.versionLabel,
     title: row.title,
     summary: row.summary,
+    controllerName: row.controllerName,
+    controllerAddress: row.controllerAddress,
+    privacyContact: row.privacyContact,
+    applicableJurisdiction: row.applicableJurisdiction,
     sections: parseSections(row.sectionsJson),
     status: row.status,
     effectiveAt: row.effectiveAt,
@@ -141,15 +145,19 @@ export async function getAdminPrivacyPolicyState() {
 
 export async function savePrivacyPolicyDraft(
   adminId: number,
-  input: { draftId?: number; title: string; summary: string; sections: PrivacyPolicySection[] },
+  input: { draftId?: number; title: string; summary: string; controllerName: string; controllerAddress: string; privacyContact: string; applicableJurisdiction: string; sections: PrivacyPolicySection[] },
 ) {
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Privacy changes could not be saved." });
   const title = cleanText(input.title, 200);
   const summary = cleanText(input.summary, 700);
+  const controllerName = cleanText(input.controllerName, 200);
+  const controllerAddress = cleanText(input.controllerAddress, 500);
+  const privacyContact = cleanText(input.privacyContact, 320);
+  const applicableJurisdiction = cleanText(input.applicableJurisdiction, 180);
   const sections = normalizeSections(input.sections);
-  if (title.length < 5 || summary.length < 20) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a descriptive notice title and summary before saving." });
+  if (title.length < 5 || summary.length < 20 || controllerName.length < 3 || privacyContact.length < 5) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a descriptive notice title and summary, a responsible organization, and a privacy contact channel before saving." });
   }
 
   return db.transaction(async (tx) => {
@@ -164,13 +172,17 @@ export async function savePrivacyPolicyDraft(
     let draftId: number;
     if (draft) {
       draftId = draft.id;
-      await tx.update(privacyPolicyVersions).set({ title, summary, sectionsJson: JSON.stringify(sections), createdBy: draft.createdBy || adminId })
+      await tx.update(privacyPolicyVersions).set({ title, summary, controllerName, controllerAddress, privacyContact, applicableJurisdiction, sectionsJson: JSON.stringify(sections), createdBy: draft.createdBy || adminId })
         .where(and(eq(privacyPolicyVersions.id, draftId), eq(privacyPolicyVersions.status, "draft")));
     } else {
       draftId = Number((await tx.insert(privacyPolicyVersions).values({
         versionLabel: "DRAFT-" + randomBytes(7).toString("hex"),
         title,
         summary,
+        controllerName,
+        controllerAddress,
+        privacyContact,
+        applicableJurisdiction,
         sectionsJson: JSON.stringify(sections),
         status: "draft",
         createdBy: adminId,
@@ -199,8 +211,10 @@ export async function publishPrivacyPolicy(adminId: number, draftId: number, rev
     const sections = normalizeSections(parseSections(draft.sectionsJson));
     const title = cleanText(draft.title, 200);
     const summary = cleanText(draft.summary, 700);
-    if (title.length < 5 || summary.length < 20 || sections.length < 6) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "The draft is incomplete. Save a valid title, summary, and at least six sections before publication." });
+    if (title.length < 5 || summary.length < 20 || sections.length < 6 ||
+        draft.controllerName.trim().length < 3 || draft.controllerName.trim().toLowerCase() === "not configured" ||
+        draft.privacyContact.trim().length < 5) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "The draft is incomplete. Confirm the responsible organization and privacy contact, and save a valid title, summary, and at least six sections before publication." });
     }
     const latest = (await tx.select().from(privacyPolicyVersions).where(inArray(privacyPolicyVersions.status, ["published", "archived"]))
       .orderBy(desc(privacyPolicyVersions.publishedAt), desc(privacyPolicyVersions.id)).limit(1))[0];
