@@ -114,3 +114,21 @@ describe("customer left Settings navigation layout recovery", () => {
     expect(themeCss).toContain('var(--arb-color-surface)');
   });
 });
+
+describe("customer menu responsive visibility", () => {
+  it("hides floating customer menu triggers on desktop where the navigation rail is already visible", () => {
+    expect(layoutCss).toContain(".customer-portal .customer-settings-trigger");
+    expect(layoutCss).toContain(".customer-slide-layer .customer-resource-peek-trigger");
+    expect(layoutCss).toContain("display:none!important");
+    expect(layoutCss).toContain("@media (min-width:1101px) and (hover:hover) and (pointer:fine)");
+  });
+
+  it("keeps the mobile customer drawer and its contents visible and scrollable when opened", () => {
+    expect(layoutCss).toContain(".customer-slide-portal.is-open .admin-slide-drawer");
+    expect(layoutCss).toContain(".customer-slide-portal.is-open .admin-slide-drawer > *");
+    expect(layoutCss).toContain("visibility:visible!important");
+    expect(layoutCss).toContain("overflow-y:auto!important");
+    expect(customerSlideMenu).toContain('createPortal(');
+    expect(customerSlideMenu).toContain("customer-slide-portal");
+  });
+});
