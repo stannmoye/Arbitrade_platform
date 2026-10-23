@@ -18,7 +18,7 @@ describe("customer API access foundation", () => {
     expect(schema).toContain('mysqlTable("customer_api_keys"');
     expect(schema).toContain('uniqueIndex("customer_api_keys_hash_uq")');
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS `customer_api_keys`");
-    expect(migration).toContain("`keyHash` char(64) NOT NULL");
+    expect(migration).toContain("`keyHash` varchar(64) NOT NULL");
     expect(migrationRunner).toContain('"0064_customer_api_keys.sql"');
     expect(recovery).toContain('"0064_customer_api_keys.sql"');
   });
@@ -28,7 +28,7 @@ describe("customer API access foundation", () => {
     expect(apiKeys).toContain('crypto.randomBytes(32).toString("base64url")');
     expect(apiKeys).toContain("MAX_ACTIVE_KEYS_PER_CUSTOMER = 5");
     expect(apiKeys).toContain(".where(eq(customerApiKeys.userId, userId))");
-    expect(apiKeys).toContain("for (\"update\")");
+    expect(apiKeys).toContain('.for("update")');
     expect(apiKeys).toContain("keyHash: hashApiKey(secret)");
     expect(apiKeys).toContain("warning: \"Copy this secret now. It cannot be displayed again.\"");
     expect(apiKeys).not.toContain("keyHash: secret");
