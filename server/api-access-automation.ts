@@ -614,7 +614,8 @@ async function enqueueDailySchedules() {
           : and(eq(customerApiNotificationPreferences.id, row.id), isNull(customerApiNotificationPreferences.lastDailyReportDate)));
       if (row.dailySummaryEnabled) await enqueueCustomerApiEvent(row.userId, "daily.activity", { reportDate: localDate, message: "Your daily account activity summary is ready. Sign in to review the latest activity." }, "daily-activity:" + localDate);
       if (row.dailyStatementEnabled) await enqueueCustomerApiEvent(row.userId, "daily.statement", { reportDate: localDate, message: "Your daily account statement is ready. Sign in to review your statement." }, "daily-statement:" + localDate);
-      if (row.feeSummaryEnabled) await enqueueCustomerApiEvent(row.userId, "fee.summary", { reportDate: localDate, message: "Your fee summary is ready. Sign in to review available fee records." }, "fee-summary:" + localDate);
+      // Fee-summary schedules stay dormant until a verified authoritative fee ledger is connected.
+      if (row.feeSummaryEnabled && settings.feeLedgerConnected === true) await enqueueCustomerApiEvent(row.userId, "fee.summary", { reportDate: localDate, message: "Your fee summary is ready. Sign in to review available fee records." }, "fee-summary:" + localDate);
     } catch (error) {
       console.error("[API automation] Daily schedule skipped:", error instanceof Error ? error.name : "UnknownError");
     }
@@ -630,6 +631,16 @@ export async function processApiNotificationOutbox() {
     const db = await getDb();
     if (!db) return;
     const now = new Date();
+    // Requeue outbox deliveries interrupted by a process crash or deployment restart.
+    const staleSendingBefore = new Date(now.getTime() - 5 * 60_000);
+    await db.update(apiNotificationDeliveries).set({
+      status: "queued",
+      nextAttemptAt: now,
+      errorCode: "DELIVERY_INTERRUPTED",
+    }).where(and(
+      eq(apiNotificationDeliveries.status, "sending"),
+      lte(apiNotificationDeliveries.lastAttemptAt, staleSendingBefore),
+    ));
     const due = await db.select({ id: apiNotificationDeliveries.id })
       .from(apiNotificationDeliveries)
       .where(and(eq(apiNotificationDeliveries.status, "queued"), lte(apiNotificationDeliveries.nextAttemptAt, now)))
