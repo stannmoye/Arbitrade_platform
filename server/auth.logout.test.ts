@@ -3,7 +3,10 @@ import { appRouter } from "./routers";
 import { COOKIE_NAME } from "../shared/const";
 import type { TrpcContext } from "./_core/context";
 import { invalidateUserSessions } from "./authSessions";
-import { applyAccountClosureDecision, createAccountClosureTicket } from "./db";
+import { applyAccountClosureDecision, createAccountClosureTicket, getUserById, getUserForSessionRevocation } from "./db";
+import { createLocalSession } from "./_core/localAuth";
+import { sdk } from "./_core/sdk";
+import { ENV } from "./_core/env";
 
 vi.mock("./authSessions", () => ({
   invalidateUserSessions: vi.fn().mockResolvedValue(undefined),
@@ -21,6 +24,8 @@ vi.mock("./db", async (importOriginal) => {
     ...actual,
     applyAccountClosureDecision: vi.fn().mockResolvedValue({ success: true, decision: "approve", ticketId: 123, ticketNumber: "ARB-TEST-123", customerId: 1 }),
     createAccountClosureTicket: vi.fn().mockResolvedValue({ ticketId: 123, ticketNumber: "ARB-TEST-123", alreadyPending: false }),
+    getUserById: vi.fn(),
+    getUserForSessionRevocation: vi.fn(),
   };
 });
 
@@ -31,7 +36,7 @@ type CookieCall = {
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
-function createAuthContext(cookie?: string, role: "user" | "admin" = "user"): { ctx: TrpcContext; clearedCookies: CookieCall[] } {
+function createAuthContext(cookie?: string, role: "user" | "admin" = "user", authenticated = true): { ctx: TrpcContext; clearedCookies: CookieCall[] } {
   const clearedCookies: CookieCall[] = [];
 
   const user: AuthenticatedUser = {
@@ -47,7 +52,7 @@ function createAuthContext(cookie?: string, role: "user" | "admin" = "user"): { 
   };
 
   const ctx: TrpcContext = {
-    user,
+    user: authenticated ? user : null,
     req: {
       protocol: "https",
       headers: cookie ? { cookie } : {},
@@ -90,6 +95,66 @@ describe("auth.logout", () => {
     expect(invalidateUserSessions).toHaveBeenCalledOnce();
     expect(invalidateUserSessions).toHaveBeenCalledWith(1);
     expect(result).toEqual({ success: true });
+  });
+
+  it("recovers a valid local session when context construction did not attach the user", async () => {
+    const token = createLocalSession(1, 0);
+    vi.mocked(getUserById).mockResolvedValue({
+      id: 1, openId: "sample-user", email: "sample@example.com", name: "Sample User",
+      loginMethod: "email", role: "user", authVersion: 0,
+      createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
+    } as never);
+    vi.mocked(invalidateUserSessions).mockClear();
+    const { ctx, clearedCookies } = createAuthContext(`${COOKIE_NAME}=${token}`, "user", false);
+
+    const result = await appRouter.createCaller(ctx).auth.logout();
+
+    expect(result).toEqual({ success: true });
+    expect(invalidateUserSessions).toHaveBeenCalledWith(1);
+    expect(clearedCookies.map(call => call.name)).toContain(COOKIE_NAME);
+  });
+
+  it("does not increment an already-revoked local session a second time", async () => {
+    const token = createLocalSession(1, 0);
+    vi.mocked(getUserById).mockResolvedValue({
+      id: 1, openId: "sample-user", email: "sample@example.com", name: "Sample User",
+      loginMethod: "email", role: "user", authVersion: 1,
+      createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
+    } as never);
+    vi.mocked(invalidateUserSessions).mockClear();
+    const { ctx } = createAuthContext(`${COOKIE_NAME}=${token}`, "user", false);
+
+    const result = await appRouter.createCaller(ctx).auth.logout();
+
+    expect(result).toEqual({ success: true });
+    expect(invalidateUserSessions).not.toHaveBeenCalled();
+  });
+
+  it("recovers a valid Bearer session when context did not attach the user", async () => {
+    const token = await sdk.signSession({ openId: "sample-user", appId: ENV.appId, name: "Sample User", authVersion: 0 });
+    vi.mocked(getUserForSessionRevocation).mockResolvedValue({
+      id: 1, openId: "sample-user", email: "sample@example.com", name: "Sample User",
+      loginMethod: "manus", role: "user", authVersion: 0,
+      createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
+    } as never);
+    vi.mocked(invalidateUserSessions).mockClear();
+    const { ctx } = createAuthContext(undefined, "user", false);
+    ctx.req.headers.authorization = `Bearer ${token}`;
+
+    const result = await appRouter.createCaller(ctx).auth.logout();
+
+    expect(result).toEqual({ success: true });
+    expect(invalidateUserSessions).toHaveBeenCalledWith(1);
+    expect(getUserForSessionRevocation).toHaveBeenCalledWith("sample-user");
+  });
+
+  it("does not report logout success if session storage cannot be verified", async () => {
+    vi.mocked(getUserById).mockRejectedValueOnce(new Error("Authentication storage is unavailable"));
+    const token = createLocalSession(1, 0);
+    const { ctx, clearedCookies } = createAuthContext(`${COOKIE_NAME}=${token}`, "user", false);
+
+    await expect(appRouter.createCaller(ctx).auth.logout()).rejects.toThrow("Authentication storage is unavailable");
+    expect(clearedCookies).toHaveLength(1);
   });
 
   it("does not report logout success if server-side revocation fails", async () => {

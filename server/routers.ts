@@ -4,7 +4,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { ACCOUNT_CLOSURE_TICKET_SUBJECT, AccountClosureDecisionError, applyAccountClosureDecision, assignSupportTicket, createAccountClosureTicket, listSupportAssignees, addTicketAttachment, addTicketMessage, adjustCustomerBalance, broadcastCustomerNotification, listAdminNotificationCampaigns, retryNotificationCampaign, withdrawNotificationCampaign, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, createTrade, deleteAdminCustomer, getCustomerAutoTradeSettings, getCustomerTicket, getSupportTicketById, getAppSetting, getAutoTradePolicy, getTradeSettlementPolicy, getCustomerBalanceSummary, getCustomerWalletPreferences, getCustomerOpportunityRules, getCustomerPayoutEligibility, getCustomerAuthenticatorStatus, startCustomerAuthenticatorEnrollment, confirmCustomerAuthenticatorEnrollment, generateCustomerAuthenticatorRecoveryCodes, startCustomerAuthenticatorRecoveryReplacement, startCustomerAuthenticatorReplacement, confirmCustomerAuthenticatorReplacement, createCustomerPayoutRequest, listCustomerPayoutRequests, cancelCustomerPayoutRequest, listAdminPayoutRequests, resolveCustomerPayoutRequest, manuallySettleTrade, listPendingSettlements, markCustomerNotificationsRead, updateCustomerWalletPreferences, updateCustomerOpportunityRules, getTicketUploadPolicy, setTradeSettlementPolicy, getNotificationCategoryVisibility, getCustomerNotificationUnreadCount, listCustomerNotificationPage, setNotificationCategoryVisibility, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listCustomerNotifications, listNotifications, listNotificationEventCursor, listOpenOffers, listOpportunityPackagePolicies, listRiskReports, listTicketAttachments, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, reopenSupportTicket, setAppSetting, setAutoTradePolicy, setCustomerPackage, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
+import { ACCOUNT_CLOSURE_TICKET_SUBJECT, AccountClosureDecisionError, applyAccountClosureDecision, assignSupportTicket, createAccountClosureTicket, listSupportAssignees, addTicketAttachment, addTicketMessage, adjustCustomerBalance, broadcastCustomerNotification, listAdminNotificationCampaigns, retryNotificationCampaign, withdrawNotificationCampaign, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, createTrade, deleteAdminCustomer, getCustomerAutoTradeSettings, getCustomerTicket, getSupportTicketById, getAppSetting, getAutoTradePolicy, getTradeSettlementPolicy, getCustomerBalanceSummary, getCustomerWalletPreferences, getCustomerOpportunityRules, getCustomerPayoutEligibility, getCustomerAuthenticatorStatus, startCustomerAuthenticatorEnrollment, confirmCustomerAuthenticatorEnrollment, generateCustomerAuthenticatorRecoveryCodes, startCustomerAuthenticatorRecoveryReplacement, startCustomerAuthenticatorReplacement, confirmCustomerAuthenticatorReplacement, createCustomerPayoutRequest, listCustomerPayoutRequests, cancelCustomerPayoutRequest, listAdminPayoutRequests, resolveCustomerPayoutRequest, manuallySettleTrade, listPendingSettlements, markCustomerNotificationsRead, updateCustomerWalletPreferences, updateCustomerOpportunityRules, getTicketUploadPolicy, setTradeSettlementPolicy, getNotificationCategoryVisibility, getCustomerNotificationUnreadCount, listCustomerNotificationPage, setNotificationCategoryVisibility, getUserById, getUserForSessionRevocation, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listCustomerNotifications, listNotifications, listNotificationEventCursor, listOpenOffers, listOpportunityPackagePolicies, listRiskReports, listTicketAttachments, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, reopenSupportTicket, setAppSetting, setAutoTradePolicy, setCustomerPackage, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
 import { allocateStake, cancelStake, getStakeDashboard, projectStake } from "./stakeEarn";
 import { closeTransactionConsoleSession, listTransactionConsoleEvents, recordTransactionConsoleEvent, recordTransactionConsolePulse } from "./transactionConsole";
 import { getOpportunityLifecycleSummary, runOpportunityRetention, updatePopupLifecycle, updatePopupDeliveryStatus } from "./opportunityLifecycle";
@@ -20,6 +20,8 @@ import { normalizeAppearanceSettings } from "./appearance-settings";
 import { ADMIN_BROADCAST_CATEGORIES, buildTradeSettlementNotices } from "./modules/notification-events";
 import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { invalidateUserSessions } from "./authSessions";
+import { getLocalSessionFromRequest } from "./_core/localAuth";
+import { sdk } from "./_core/sdk";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -38,13 +40,56 @@ export const appRouter = router({
     logout: publicProcedure.mutation(async ({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       try {
-        if (ctx.user) {
-          // Revoke the account version so both cookies and app-signed Bearer tokens fail.
-          await invalidateUserSessions(ctx.user.id);
+        let user = ctx.user;
+        let shouldRevoke = Boolean(ctx.user);
+
+        // Public logout also needs to work when context creation could not attach a user,
+        // otherwise a database/authentication lookup error could be reported as success
+        // while a still-valid preview Bearer token remains reusable.
+        if (!user) {
+          const localSession = getLocalSessionFromRequest(ctx.req);
+          if (localSession) {
+            const localUser = await getUserById(localSession.userId);
+            if (localUser) {
+              user = localUser;
+              shouldRevoke = localUser.loginMethod !== "closed" &&
+                Number(localSession.authVersion) === Number(localUser.authVersion ?? 0);
+            }
+          } else {
+            const cookies = sdk.parseCookies(ctx.req.headers.cookie);
+            const cookieToken = cookies.get(COOKIE_NAME);
+            const authHeader = ctx.req.headers.authorization;
+            const bearerToken = typeof authHeader === "string" && authHeader.startsWith("Bearer ")
+              ? authHeader.slice(7)
+              : undefined;
+            let session = await sdk.verifySession(cookieToken);
+            if (!session && bearerToken && bearerToken !== cookieToken) {
+              session = await sdk.verifySession(bearerToken);
+            }
+
+            if (session) {
+              // Strict lookup must fail if storage is unavailable and must never
+              // auto-provision an OAuth identity merely because logout was requested.
+              const sessionUser = await getUserForSessionRevocation(session.openId);
+              if (!sessionUser) {
+                throw new Error("Could not verify the account associated with this session. Retry logout.");
+              }
+              user = sessionUser;
+              shouldRevoke = sessionUser.loginMethod !== "closed" &&
+                !sessionUser.openId.startsWith("closed:") &&
+                Number(session.authVersion ?? 0) === Number(sessionUser.authVersion ?? 0);
+            }
+          }
+        }
+
+        if (user) {
+          // A current token is revoked before returning success. An already stale or
+          // closed token is already invalid, so do not increment its version again.
+          if (shouldRevoke) await invalidateUserSessions(user.id);
           try {
-            await closeTransactionConsoleSession(ctx.req, ctx.res, ctx.user.id);
+            await closeTransactionConsoleSession(ctx.req, ctx.res, user.id);
           } catch (error) {
-            // Console-feed cleanup is auxiliary; it must not undo a successful revocation.
+            // Console-feed cleanup is auxiliary; it must not undo successful revocation.
             console.error(
               "[Auth] Transaction-console cleanup failed after logout",
               error instanceof Error ? error.name : "UnknownError",

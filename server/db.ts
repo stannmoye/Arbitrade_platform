@@ -219,6 +219,24 @@ export async function createLocalCustomer(input: { email: string; passwordHash: 
   return (await db.select().from(users).where(eq(users.id, Number(result[0].insertId))).limit(1))[0];
 }
 
+/**
+ * Resolve a signed session identity for logout without performing OAuth auto-provisioning.
+ * Unlike getUserByOpenId, this helper fails closed when the database is unavailable.
+ */
+export async function getUserForSessionRevocation(openId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Authentication storage is unavailable");
+  const direct = (await db.select().from(users).where(eq(users.openId, openId)).limit(1))[0];
+  if (direct) return direct;
+
+  const tombstoneKey = closedAccountIdentityKey(openId);
+  if (tombstoneKey) {
+    const tombstone = (await db.select().from(users).where(eq(users.openId, tombstoneKey)).limit(1))[0];
+    if (tombstone?.loginMethod === "closed") return tombstone;
+  }
+  return null;
+}
+
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) {
