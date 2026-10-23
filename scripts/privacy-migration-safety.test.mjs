@@ -32,6 +32,7 @@ describe("Privacy Centre migration and installation contract", () => {
       expect(schema).toContain("export const " + table + " = mysqlTable(");
     }
     expect(portalRunner).toContain('"0062_privacy_center.sql"');
+    expect(portalRunner).toContain('"privacy_policy_versions", "privacy_requests", "privacy_request_events", "privacy_audit_events"');
     expect(recovery).toContain('"0062_privacy_center.sql"');
     for (const table of ["privacy_policy_versions", "privacy_requests", "privacy_request_events", "privacy_audit_events"]) {
       expect(portalRunner).toContain('"' + table + '"');
