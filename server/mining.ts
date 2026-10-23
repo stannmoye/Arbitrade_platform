@@ -592,6 +592,8 @@ export async function updateCustomerMiningConversionPreference(userId: number, i
   if (threshold.isNegative() || threshold.gt("1000000000000")) throw new MiningError("Minimum conversion threshold is outside the supported range");
   if (!floorAmount(threshold, tokenScale).eq(threshold)) throw new MiningError("The token threshold supports up to eight decimal places");
   return withMiningConnection(async conn => inMiningTransaction(conn, async () => {
+    // Serialize preference changes with closure; never recreate conversion settings on a closed account.
+    await requireActiveMiningAccount(conn, userId);
     const checkpoint = await ensureMiningCheckpoint(conn, userId);
     void checkpoint;
     const [rows] = await conn.query<any[]>(`SELECT version FROM mining_conversion_preferences WHERE userId=? FOR UPDATE`, [userId]);
