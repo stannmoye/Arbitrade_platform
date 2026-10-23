@@ -12,7 +12,7 @@ export function buildPrivacyHtmlDocument(content: string): string {
     .replace(/<(iframe|object|embed|form)\b[^>]*\/?>/gi, "")
     .replace(/<meta\b(?=[^>]*http-equiv\s*=\s*["']?refresh)[^>]*>/gi, "")
     .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/(href|src|action)\s*=\s*(["']?)\s*javascript:[^"'\s>]\2/gi, '$1="#"');
+    .replace(/(href|src|action)\s*=\s*(["']?)\s*javascript:[^"'\s>]+\2/gi, '$1="#"');
   if (/<html[\s>]/i.test(source)) {
     if (/<head[\s>]/i.test(source)) return source.replace(/<head([^>]*)>/i, (match) => match + NOTICE_CSP + '<meta name="viewport" content="width=device-width, initial-scale=1">');
     return source.replace(/<html([^>]*)>/i, (match) => match + "<head>" + NOTICE_CSP + '<meta name="viewport" content="width=device-width, initial-scale=1"></head>');
