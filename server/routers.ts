@@ -24,6 +24,8 @@ import { invalidateUserSessions } from "./authSessions";
 import { getLocalSessionFromRequest } from "./_core/localAuth";
 import * as privacyService from "./privacy";
 import { CUSTOMER_API_SCOPES, createCustomerApiKey, listCustomerApiKeys, revokeCustomerApiKey } from "./api-access";
+import { API_AUTOMATION_EVENTS, createApiPlatformIncident, createCustomerApiWebhook, getCustomerApiNotificationPreferences, listApiPlatformIncidents, listCustomerApiNotificationHistory, listCustomerApiWebhooks, requestCustomerWhatsAppVerification, resolveApiPlatformIncident, revokeCustomerApiWebhook, saveCustomerApiNotificationPreferences, verifyCustomerWhatsAppNumber } from "./api-access-automation";
+import { apiProviderCredentialStatus, removeApiProviderCredential, saveApiProviderCredential } from "./api-access-vault";
 import { sdk } from "./_core/sdk";
 
 export const appRouter = router({
@@ -167,6 +169,58 @@ export const appRouter = router({
       try { return await revokeCustomerApiKey(ctx.user.id, input.keyId); }
       catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not revoke API key." }); }
     }),
+    apiAutomationPreferences: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Notification preferences are available to customer accounts only." });
+      return getCustomerApiNotificationPreferences(ctx.user.id);
+    }),
+    saveApiAutomationPreferences: protectedProcedure.input(z.object({
+      whatsappNumber: z.string().trim().max(32),
+      whatsappOptIn: z.boolean(),
+      whatsappEvents: z.array(z.enum(API_AUTOMATION_EVENTS)).max(API_AUTOMATION_EVENTS.length),
+      inAppEnabled: z.boolean(),
+      dailySummaryEnabled: z.boolean(),
+      dailyStatementEnabled: z.boolean(),
+      feeSummaryEnabled: z.boolean(),
+      securityAlertsEnabled: z.boolean(),
+      timezone: z.string().min(1).max(80),
+      dailyReportTime: z.string().regex(/^([01]\\d|2[0-3]):[0-5]\\d$/),
+    })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Notification preferences are available to customer accounts only." });
+      try { return await saveCustomerApiNotificationPreferences(ctx.user.id, input); }
+      catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not save notification preferences." }); }
+    }),
+    requestWhatsAppVerification: protectedProcedure.mutation(async ({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "WhatsApp verification is available to customer accounts only." });
+      try { return await requestCustomerWhatsAppVerification(ctx.user.id); }
+      catch (error) { throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Could not send a WhatsApp verification code." }); }
+    }),
+    verifyWhatsAppNumber: protectedProcedure.input(z.object({ code: z.string().regex(/^\\d{6}$/) })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "WhatsApp verification is available to customer accounts only." });
+      try { return await verifyCustomerWhatsAppNumber(ctx.user.id, input.code); }
+      catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not verify WhatsApp number." }); }
+    }),
+    apiWebhooks: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Webhooks are available to customer accounts only." });
+      return listCustomerApiWebhooks(ctx.user.id);
+    }),
+    createApiWebhook: protectedProcedure.input(z.object({
+      name: z.string().trim().min(3).max(80),
+      endpointUrl: z.string().url().max(500),
+      events: z.array(z.enum(API_AUTOMATION_EVENTS)).min(1).max(API_AUTOMATION_EVENTS.length),
+    })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Webhooks are available to customer accounts only." });
+      try { return await createCustomerApiWebhook(ctx.user.id, input.name, input.endpointUrl, input.events); }
+      catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not create webhook." }); }
+    }),
+    revokeApiWebhook: protectedProcedure.input(z.object({ webhookId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Webhooks are available to customer accounts only." });
+      try { return await revokeCustomerApiWebhook(ctx.user.id, input.webhookId); }
+      catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not revoke webhook." }); }
+    }),
+    apiNotificationHistory: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Notification history is available to customer accounts only." });
+      return listCustomerApiNotificationHistory(ctx.user.id);
+    }),
     authenticatorStatus: protectedProcedure.query(({ ctx }) => getCustomerAuthenticatorStatus(ctx.user.id)),
     startAuthenticatorEnrollment: protectedProcedure.mutation(({ ctx }) => startCustomerAuthenticatorEnrollment(ctx.user.id)),
     confirmAuthenticatorEnrollment: protectedProcedure.input(z.object({ code: z.string().regex(/^\d{6}$/) })).mutation(({ ctx, input }) => confirmCustomerAuthenticatorEnrollment(ctx.user.id, input.code)),
@@ -303,6 +357,12 @@ export const appRouter = router({
         requestsPerMinute: 60,
         whatsappEnabled: false,
         whatsappNumber: "",
+        webhooksEnabled: false,
+        dailyReportDeliveryEnabled: false,
+        walletProviderEnabled: false,
+        platformStatus: "not-configured",
+        maintenanceMessage: "",
+        feeScheduleJson: "",
         templates: {
           deposit_confirmed: "Hello {{customer_name}}, your deposit {{reference}} has been confirmed.",
           withdrawal_status: "Hello {{customer_name}}, your withdrawal request {{reference}} status is now {{status}}.",
@@ -329,6 +389,12 @@ export const appRouter = router({
       requestsPerMinute: z.number().int().min(10).max(600),
       whatsappEnabled: z.boolean(),
       whatsappNumber: z.string().trim().max(32),
+      webhooksEnabled: z.boolean().default(false),
+      dailyReportDeliveryEnabled: z.boolean().default(false),
+      walletProviderEnabled: z.boolean().default(false),
+      platformStatus: z.enum(["not-configured", "operational", "degraded", "maintenance", "offline"]),
+      maintenanceMessage: z.string().max(1000),
+      feeScheduleJson: z.string().max(10000),
       templates: z.record(z.string().min(1).max(64), z.string().max(2000)).refine((value) => Object.keys(value).length <= 20, "At most 20 message templates are allowed."),
       walletProviderName: z.string().trim().max(120),
       walletProviderBaseUrl: z.string().trim().max(500),
@@ -344,15 +410,65 @@ export const appRouter = router({
         try { parsed = new URL(value); } catch { throw new TRPCError({ code: "BAD_REQUEST", message: label + " must be a valid HTTPS URL." }); }
         if (parsed.protocol !== "https:") throw new TRPCError({ code: "BAD_REQUEST", message: label + " must use HTTPS." });
       }
-      const allowedTemplates = new Set(["deposit_confirmed","withdrawal_status","daily_statement","daily_activity","fee_summary","platform_status","security_alert","report_ready"]);
+      const allowedTemplates = new Set(["deposit_confirmed","deposit_delayed","deposit_failed","withdrawal_status","trade_completed","daily_statement","daily_activity","fee_recorded","fee_summary","platform_status","security_alert","api_key_created","api_key_revoked","tax_report_ready","report_ready"]);
       if (Object.keys(input.templates).some((key) => !allowedTemplates.has(key))) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "One or more message template identifiers are not supported." });
+      }
+      if (input.feeScheduleJson.trim()) {
+        let feeSchedule: unknown;
+        try { feeSchedule = JSON.parse(input.feeScheduleJson); } catch { throw new TRPCError({ code: "BAD_REQUEST", message: "Fee schedule must be valid JSON." }); }
+        if (!Array.isArray(feeSchedule) || feeSchedule.length > 100 || feeSchedule.some((fee) =>
+          !fee || typeof fee !== "object" || Array.isArray(fee) ||
+          typeof (fee as Record<string, unknown>).code !== "string" ||
+          typeof (fee as Record<string, unknown>).name !== "string" ||
+          !["fixed", "percent", "tier"].includes(String((fee as Record<string, unknown>).type)))) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Fee schedule must be an array of up to 100 items with code, name and supported type (fixed, percent or tier)." });
+        }
       }
       const settings = { ...input, whatsappNumber: number, templates: input.templates };
       await setAppSetting("apiAccess.settings", JSON.stringify(settings), ctx.user.id);
       return { success: true, settings };
     }),
 
+
+    apiProviderCredentialStatus: adminProcedure.query(() => apiProviderCredentialStatus()),
+    saveWhatsAppProviderCredentials: adminProcedure.input(z.object({
+      accessToken: z.string().trim().min(20).max(4096),
+      phoneNumberId: z.string().trim().regex(/^\\d{5,30}$/),
+      graphApiVersion: z.string().trim().regex(/^v\\d+\\.\\d+$/).default("v22.0"),
+      verificationTemplateName: z.string().trim().regex(/^[a-z0-9_]{3,512}$/i),
+      verificationTemplateLanguage: z.string().trim().regex(/^[a-z]{2,3}(?:_[A-Z]{2})?$/).default("en"),
+    })).mutation(async ({ ctx, input }) => {
+      try { return await saveApiProviderCredential("whatsapp_meta", input, ctx.user.id); }
+      catch (error) { throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Could not save WhatsApp credentials." }); }
+    }),
+    saveWalletProviderCredentials: adminProcedure.input(z.object({
+      apiToken: z.string().trim().min(8).max(4096),
+      apiSecret: z.string().max(4096).optional().default(""),
+      webhookSecret: z.string().max(4096).optional().default(""),
+    })).mutation(async ({ ctx, input }) => {
+      try { return await saveApiProviderCredential("wallet_generic", input, ctx.user.id); }
+      catch (error) { throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Could not save wallet provider credentials." }); }
+    }),
+    removeApiProviderCredentials: adminProcedure.input(z.object({ provider: z.enum(["whatsapp_meta", "wallet_generic"]) }))
+      .mutation(({ input }) => removeApiProviderCredential(input.provider)),
+    apiPlatformIncidents: adminProcedure.query(() => listApiPlatformIncidents()),
+    createApiPlatformIncident: adminProcedure.input(z.object({
+      status: z.enum(["operational", "degraded", "maintenance", "offline"]),
+      title: z.string().trim().min(3).max(200),
+      message: z.string().trim().min(1).max(4000),
+      affectedServices: z.array(z.string().trim().min(1).max(80)).max(20),
+      startsAt: z.string().datetime().optional(),
+      endsAt: z.string().datetime().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      try { return await createApiPlatformIncident(ctx.user.id, { ...input, startsAt: input.startsAt ? new Date(input.startsAt) : null, endsAt: input.endsAt ? new Date(input.endsAt) : null }); }
+      catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not publish platform incident." }); }
+    }),
+    resolveApiPlatformIncident: adminProcedure.input(z.object({ incidentId: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        try { return await resolveApiPlatformIncident(input.incidentId); }
+        catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not resolve platform incident." }); }
+      }),
     privacyPolicyState: adminProcedure.query(() => privacyService.getAdminPrivacyPolicyState()),
     savePrivacyPolicyDraft: adminProcedure.input(z.object({
       draftId: z.number().int().positive().optional(),
