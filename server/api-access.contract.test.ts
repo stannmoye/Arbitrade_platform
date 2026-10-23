@@ -30,6 +30,8 @@ describe("customer API access foundation", () => {
     expect(apiKeys).toContain(".where(eq(customerApiKeys.userId, userId))");
     expect(apiKeys).toContain('.for("update")');
     expect(apiKeys).toContain("keyHash: hashApiKey(secret)");
+    expect(apiKeys).toContain('action: "api.key.created"');
+    expect(apiKeys).toContain('action: "api.key.revoked"');
     expect(apiKeys).toContain("warning: \"Copy this secret now. It cannot be displayed again.\"");
     expect(apiKeys).not.toContain("keyHash: secret");
   });
@@ -44,6 +46,9 @@ describe("customer API access foundation", () => {
     expect(apiRoutes).toContain("identity.scopes.includes(scope)");
     expect(apiRoutes).toContain('"/api/v1/account/balances"');
     expect(apiRoutes).toContain('"/api/v1/account/trades"');
+    expect(apiRoutes).toContain("requestedLimit > 100");
+    expect(apiRoutes).toContain("nextBeforeId");
+    expect(apiRoutes).toContain("apiIpRateLimit");
     expect(apiRoutes).toContain('"/api/v1/account/withdrawals"');
     expect(apiRoutes).toContain('"/api/v1/platform/status"');
     expect(server).toContain("registerCustomerApiAccessRoutes(app)");
