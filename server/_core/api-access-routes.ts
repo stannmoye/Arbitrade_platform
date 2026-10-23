@@ -1,6 +1,8 @@
 import type { Express, Request, Response } from "express";
+import { and, desc, eq, lt } from "drizzle-orm";
 import { authenticateCustomerApiKey, type CustomerApiScope } from "../api-access";
-import { getAppSetting, listBalances, listCurrencies, listCustomerPayoutRequests, listTrades } from "../db";
+import { getAppSetting, getDb, listBalances, listCurrencies, listCustomerPayoutRequests } from "../db";
+import { opportunityOffers, tradePositions } from "../../drizzle/schema";
 import { configuredAuthRateLimitStore } from "./authRateLimit";
 
 type ApiIdentity = { userId: number; keyId: number; scopes: CustomerApiScope[] };
@@ -90,11 +92,45 @@ export function registerCustomerApiAccessRoutes(app: Express) {
     });
   }));
 
-  app.get("/api/v1/account/trades", apiHandler("transactions:read", async (_req, res, identity) => {
-    const rows = await listTrades(identity.userId);
+  app.get("/api/v1/account/trades", apiHandler("transactions:read", async (req, res, identity) => {
+    const requestedLimit = req.query.limit === undefined ? 50 : Number(req.query.limit);
+    const beforeId = req.query.beforeId === undefined ? undefined : Number(req.query.beforeId);
+    if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 100) {
+      res.status(400).json({ error: "limit must be an integer between 1 and 100.", code: "INVALID_LIMIT" });
+      return;
+    }
+    if (beforeId !== undefined && (!Number.isSafeInteger(beforeId) || beforeId < 1)) {
+      res.status(400).json({ error: "beforeId must be a positive integer.", code: "INVALID_CURSOR" });
+      return;
+    }
+    const db = await getDb();
+    if (!db) throw new Error("Database is not available");
+    const filters = [eq(tradePositions.userId, identity.userId)];
+    if (beforeId !== undefined) filters.push(lt(tradePositions.id, beforeId));
+    const rows = await db.select({
+      id: tradePositions.id,
+      offerId: tradePositions.offerId,
+      currency: tradePositions.currency,
+      principalMinor: tradePositions.principalMinor,
+      expectedRewardMinor: tradePositions.expectedRewardMinor,
+      status: tradePositions.status,
+      confirmedAt: tradePositions.confirmedAt,
+      settlesAt: tradePositions.settlesAt,
+      creditAt: tradePositions.creditAt,
+      settledAt: tradePositions.settledAt,
+      symbol: opportunityOffers.symbol,
+      venueFrom: opportunityOffers.venueFrom,
+      venueTo: opportunityOffers.venueTo,
+    }).from(tradePositions)
+      .leftJoin(opportunityOffers, eq(opportunityOffers.id, tradePositions.offerId))
+      .where(and(...filters))
+      .orderBy(desc(tradePositions.id))
+      .limit(requestedLimit + 1);
+    const hasMore = rows.length > requestedLimit;
+    const page = hasMore ? rows.slice(0, requestedLimit) : rows;
     res.json({
-      data: rows.map(({ userId: _userId, ...trade }) => trade),
-      meta: { accountScope: "authenticated-customer", count: rows.length, checkedAt: new Date().toISOString() },
+      data: page,
+      meta: { accountScope: "authenticated-customer", count: page.length, limit: requestedLimit, nextBeforeId: hasMore ? page[page.length - 1]?.id ?? null : null, checkedAt: new Date().toISOString() },
     });
   }));
 
