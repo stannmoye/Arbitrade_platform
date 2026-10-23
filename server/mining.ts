@@ -308,10 +308,10 @@ export async function confirmCustomerMiningPurchase(userId: number, input: { quo
   if (!input.acceptedTerms) throw new MiningError("Accept the current package terms before purchasing");
   const key = requestKey("mining-purchase", userId, input.idempotencyKey);
   const purchase = await withMiningConnection(async conn => inMiningTransaction(conn, async () => {
+    await requireActiveMiningAccount(conn, userId);
     const prior = await beginMiningIdempotency(conn, userId, key, "mining.package.purchase");
     if (prior) return prior;
     const checkpoint = await ensureMiningCheckpoint(conn, userId);
-    await requireActiveMiningAccount(conn, userId);
     const config = await loadMiningConfig(conn);
     if (!config.packagePurchasesEnabled) throw new MiningError("Package purchases are paused by operations; no debit was made");
     const [quotes] = await conn.query<any[]>(`SELECT q.*,s.*,p.id packageId,p.code,p.name,p.status packageStatus,p.currentVersionId,
@@ -472,10 +472,10 @@ export async function getCustomerMiningBoostStatus(userId: number) {
 export async function activateCustomerMiningBoost(userId: number, input: { idempotencyKey: string }) {
   const key = requestKey("mining-boost", userId, input.idempotencyKey);
   return withMiningConnection(async conn => inMiningTransaction(conn, async () => {
+    await requireActiveMiningAccount(conn, userId);
     const prior = await beginMiningIdempotency(conn, userId, key, "mining.boost.activate");
     if (prior) return prior;
     await ensureMiningCheckpoint(conn, userId);
-    await requireActiveMiningAccount(conn, userId);
     const now = new Date();
     const config = await loadMiningConfig(conn, now);
     if (!config.boostsEnabled) throw new MiningError("Boost activation is paused by an administrator");
@@ -662,10 +662,10 @@ async function executeTokenConversion(conn: Db, userId: number, input: {
 export async function confirmCustomerMiningSwap(userId: number, input: { quoteId: number; idempotencyKey: string }) {
   const key = requestKey("mining-swap", userId, input.idempotencyKey);
   const result = await withMiningConnection(async conn => inMiningTransaction(conn, async () => {
+    await requireActiveMiningAccount(conn, userId);
     const prior = await beginMiningIdempotency(conn, userId, key, "mining.swap.confirm");
     if (prior) return prior;
     await ensureMiningCheckpoint(conn, userId);
-    await requireActiveMiningAccount(conn, userId);
     const config = await loadMiningConfig(conn);
     const [rows] = await conn.query<any[]>(`SELECT q.*,s.* FROM v5_fx_quotes q JOIN mining_quote_snapshots s ON s.quoteId=q.id
       WHERE q.id=? AND s.userId=? AND s.purpose='manual_swap' FOR UPDATE`, [input.quoteId, userId]);
@@ -840,12 +840,18 @@ async function calculateInterval(conn: Db, userId: number, start: Date, end: Dat
 async function accrueOneUser(conn: Db, userId: number, limit = 30) {
   let processed = 0;
   const committedRewardNotices: Array<{rewardEventId:number;amount:string;symbol:string}> = [];
-  const [controlRows] = await conn.query<any[]>(`SELECT accountStatus FROM customer_controls WHERE userId=? LIMIT 1`, [userId]);
-  const accountActive = (controlRows[0]?.accountStatus || "active") === "active";
   for (let i=0;i<limit;i++) {
     let committedRewardNotice: {rewardEventId:number;amount:string;symbol:string}|null = null;
     await conn.beginTransaction();
     try {
+      // Share the account lock with closure and refresh account state inside each transaction.
+      const [userRows] = await conn.query<any[]>(`SELECT id,loginMethod FROM users WHERE id=? LIMIT 1 FOR UPDATE`, [userId]);
+      if (!userRows[0] || userRows[0].loginMethod === "closed") {
+        await conn.commit();
+        break;
+      }
+      const [controlRows] = await conn.query<any[]>(`SELECT accountStatus FROM customer_controls WHERE userId=? LIMIT 1`, [userId]);
+      const accountActive = (controlRows[0]?.accountStatus || "active") === "active";
       const checkpoint = await ensureMiningCheckpoint(conn, userId);
       const start = asDate(checkpoint.lastAccruedAt);
       const cutoff = minuteFloor(new Date());
