@@ -315,10 +315,26 @@ export const appRouter = router({
       destinationType: z.enum(["bank_transfer", "crypto_transfer"]),
       destinationDetails: z.string().trim().min(8).max(1000),
       idempotencyKey: z.string().trim().min(8).max(160),
-      totpCode: z.string().regex(/^\d{6}$/).optional(),
-    })).mutation(({ ctx, input }) => createCustomerPayoutRequest(ctx.user.id, input)),
+      totpCode: z.string().regex(/^\\d{6}$/).optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const result = await createCustomerPayoutRequest(ctx.user.id, input);
+      void enqueueCustomerApiEvent(ctx.user.id, "withdrawal.status", {
+        reference: result.requestReference, status: result.status,
+        event: "Your withdrawal request was created with status " + result.status + ".",
+      }, "withdrawal-status:" + result.requestReference + ":" + result.status)
+        .catch((error) => console.error("[API automation] Withdrawal request event could not be queued:", error instanceof Error ? error.name : "UnknownError"));
+      return result;
+    }),
     cancelPayoutRequest: protectedProcedure.input(z.object({ requestId: z.number().int().positive() }))
-      .mutation(({ ctx, input }) => cancelCustomerPayoutRequest(ctx.user.id, input.requestId)),
+      .mutation(async ({ ctx, input }) => {
+        const result = await cancelCustomerPayoutRequest(ctx.user.id, input.requestId);
+        void enqueueCustomerApiEvent(ctx.user.id, "withdrawal.status", {
+          reference: result.requestReference, status: result.status,
+          event: "Your withdrawal request status changed to " + result.status + ".",
+        }, "withdrawal-status:" + result.requestReference + ":" + result.status)
+          .catch((error) => console.error("[API automation] Withdrawal cancellation event could not be queued:", error instanceof Error ? error.name : "UnknownError"));
+        return result;
+      }),
     walletPreferences: protectedProcedure.query(({ ctx }) => getCustomerWalletPreferences(ctx.user.id)),
     updateWalletPreferences: protectedProcedure.input(z.object({ tradingCurrency: z.string().min(2).max(32).optional(), swapCurrency: z.string().min(2).max(32).optional(), autoTopUpEnabled: z.boolean().optional(), withdrawalWhitelistEnabled: z.boolean().optional() })).mutation(({ ctx, input }) => updateCustomerWalletPreferences(ctx.user.id, input)),
     opportunityRules: protectedProcedure.query(({ ctx }) => getCustomerOpportunityRules(ctx.user.id)),
@@ -611,7 +627,7 @@ export const appRouter = router({
     audit: adminProcedure.query(() => listAdminAuditEvents()),
     ledgerActivity: adminProcedure.query(() => listAdminRecentLedgerActivity()),
     pendingSettlements: adminProcedure.query(() => listPendingSettlements()),
-    confirmManualSettlement: adminProcedure.input(z.object({ tradeId: z.number().int().positive(), rewardMinor: z.number().int().nonnegative(), settlementReference: z.string().trim().min(3).max(160), notes: z.string().trim().max(2000).optional() })).mutation(async ({ ctx, input }) => { const result=await manuallySettleTrade(input.tradeId,ctx.user.id,input); const notices=buildTradeSettlementNotices({tradeId:result.tradeId,currency:result.currency,principalMinor:result.principalMinor,rewardMinor:result.rewardMinor}); const outcomes=await Promise.allSettled(notices.map(notice=>createNotification(result.userId,notice.title,notice.body,{eventKey:notice.eventKey,category:notice.category,priority:notice.priority}))); if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] One or more trade settlement notices failed after ledger commit."); return result; }),
+    confirmManualSettlement: adminProcedure.input(z.object({ tradeId: z.number().int().positive(), rewardMinor: z.number().int().nonnegative(), settlementReference: z.string().trim().min(3).max(160), notes: z.string().trim().max(2000).optional() })).mutation(async ({ ctx, input }) => { const result=await manuallySettleTrade(input.tradeId,ctx.user.id,input); const notices=buildTradeSettlementNotices({tradeId:result.tradeId,currency:result.currency,principalMinor:result.principalMinor,rewardMinor:result.rewardMinor}); const outcomes=await Promise.allSettled(notices.map(notice=>createNotification(result.userId,notice.title,notice.body,{eventKey:notice.eventKey,category:notice.category,priority:notice.priority}))); if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] One or more trade settlement notices failed after ledger commit."); void enqueueCustomerApiEvent(result.userId, "trade.completed", { reference: result.settlementReference, currency: result.currency, principalMinor: result.principalMinor, rewardMinor: result.rewardMinor, event: "A trade settlement was confirmed." }, "trade-settlement:" + result.tradeId).catch((error) => console.error("[API automation] Trade completion event could not be queued:", error instanceof Error ? error.name : "UnknownError")); return result; }),
     autoTradePolicy: adminProcedure.query(() => getAutoTradePolicy()),
     updateAutoTradePolicy: adminProcedure.input(z.object({ globalEnabled: z.boolean() })).mutation(({ ctx, input }) => setAutoTradePolicy(input.globalEnabled, ctx.user.id)),
     customerBalances: adminProcedure.input(z.object({ userId: z.number().int().positive() })).query(({ input }) => listBalances(input.userId)),
