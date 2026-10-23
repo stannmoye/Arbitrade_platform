@@ -25,7 +25,7 @@ Authorization: Bearer arb_live_<secret>
 | `GET /api/v1/account/withdrawals` | `withdrawals:read` | Returns status and references without destination details. |
 | `GET /api/v1/platform/status` | `platform:status` | Reports API availability; full multi-service health and maintenance status are not yet configured. |
 
-All endpoints remain disabled until the administrator enables the global API policy. Unknown, revoked, closed-account, or insufficient-scope keys are rejected. Per-key rate limiting uses the configured shared Redis rate-limit store when available and a bounded process-local fallback otherwise; multi-instance production deployments should configure the shared store.
+Only the scopes backed by implemented endpoints are selectable; deposit, fee and report scopes remain unavailable until their source data and endpoints are ready. All endpoints remain disabled until the administrator enables the global API policy. Unknown, revoked, closed-account, or insufficient-scope keys are rejected. Per-key rate limiting uses the configured shared Redis rate-limit store when available and a bounded process-local fallback otherwise; multi-instance production deployments should configure the shared store.
 
 ## Explicitly not active yet
 
