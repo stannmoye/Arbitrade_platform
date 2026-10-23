@@ -20,6 +20,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { buildPrivacyHtmlDocument } from "@/lib/privacyHtml";
+import { createPrivacyNoticePdf } from "@/lib/privacyNoticePdf";
 import {
   PRIVACY_REQUEST_TYPES,
   privacyRequestStatusLabel,
@@ -45,7 +47,7 @@ function displayDateTime(value: Date | string | null | undefined): string {
 }
 
 export function CustomerPrivacyCenter() {
-  const policy = trpc.privacy.currentPolicy.useQuery(undefined, { retry: 1, refetchInterval: 60000 });
+  const policy = trpc.privacy.currentPolicy.useQuery(undefined, { retry: 3, staleTime: 15000, refetchInterval: 60000, refetchOnWindowFocus: false });
   const history = trpc.privacy.policyHistory.useQuery(undefined, { retry: 1, refetchInterval: 60000 });
   const requests = trpc.privacy.myRequests.useQuery(undefined, { refetchInterval: 30000 });
   const utils = trpc.useUtils();
@@ -77,29 +79,30 @@ export function CustomerPrivacyCenter() {
   };
 
   const downloadPolicy = () => {
-    if (!viewedPolicy) return;
-    const text = [
-      viewedPolicy.title,
-      "Version " + viewedPolicy.versionLabel,
-      "Effective: " + displayDate(viewedPolicy.effectiveAt),
-      "Published: " + displayDate(viewedPolicy.publishedAt),
-      "Responsible organization: " + (viewedPolicy.controllerName || "Not configured"),
-      ...(viewedPolicy.controllerAddress ? ["Registered address: " + viewedPolicy.controllerAddress] : []),
-      "Privacy contact: " + (viewedPolicy.privacyContact || "Use the authenticated Support Centre"),
-      ...(viewedPolicy.applicableJurisdiction ? ["Applicable jurisdiction: " + viewedPolicy.applicableJurisdiction] : []),
-      "",
-      viewedPolicy.summary,
-      "",
-      ...viewedPolicy.sections.flatMap((section) => [section.title, section.body, ""]),
-    ].join("\n");
-    const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "privacy-notice-" + viewedPolicy.versionLabel.replace(/[^a-z0-9.-]/gi, "-") + ".txt";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (!viewedPolicy) {
+      setNoticeTone("error");
+      setNotice("The published Privacy Notice is not available to download right now. Please retry after it has loaded.");
+      return;
+    }
+
+    try {
+      const pdf = createPrivacyNoticePdf(viewedPolicy);
+      const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
+      const anchor = document.createElement("a");
+      const version = viewedPolicy.versionLabel.replace(/[^a-z0-9.-]/gi, "-") || "published";
+      anchor.href = url;
+      anchor.download = "privacy-notice-" + version + ".pdf";
+      anchor.style.display = "none";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setNoticeTone("success");
+      setNotice("Your published Privacy Notice (version " + viewedPolicy.versionLabel + ") has been prepared as a PDF.");
+    } catch {
+      setNoticeTone("error");
+      setNotice("The PDF could not be generated. Please retry, or contact support if the problem continues.");
+    }
   };
 
   const submitRequest = async (event: FormEvent<HTMLFormElement>) => {
@@ -245,7 +248,9 @@ export function CustomerPrivacyCenter() {
                   <span><CalendarDays size={13} /> Effective {displayDate(viewedPolicy.effectiveAt)}</span>
                   <span><Clock3 size={13} /> Published {displayDate(viewedPolicy.publishedAt)}</span>
                 </div>
-                <div className="privacy-document-sections">
+                {viewedPolicy.htmlContent?.trim() ? (
+                  <iframe className="privacy-html-notice-frame" title={"Privacy Notice version " + viewedPolicy.versionLabel} sandbox="" srcDoc={buildPrivacyHtmlDocument(viewedPolicy.htmlContent)} />
+                ) : <div className="privacy-document-sections">
                   {viewedPolicy.sections.map((section, index) => (
                     <details className="privacy-policy-section" key={section.id} open={index === 0}>
                       <summary>
@@ -256,7 +261,7 @@ export function CustomerPrivacyCenter() {
                       <div className="privacy-policy-body"><p>{section.body}</p></div>
                     </details>
                   ))}
-                </div>
+                </div>}
               </>
             )}
           </section>

@@ -47,6 +47,7 @@ function asCustomerPolicy(row: typeof privacyPolicyVersions.$inferSelect) {
     privacyContact: row.privacyContact,
     applicableJurisdiction: row.applicableJurisdiction,
     sections: parseSections(row.sectionsJson),
+    htmlContent: row.htmlContent || "",
     status: row.status,
     effectiveAt: row.effectiveAt,
     publishedAt: row.publishedAt,
@@ -93,7 +94,7 @@ function normalizeSections(sections: PrivacyPolicySection[]): PrivacyPolicySecti
   return sections.map((section) => {
     const id = cleanText(section.id.toLowerCase(), 48);
     const title = cleanText(section.title, 160);
-    const body = cleanText(section.body, 8000);
+    const body = section.body.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim();
     if (!/^[a-z0-9-]{2,48}$/.test(id) || ids.has(id)) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Each policy section needs a unique, valid identifier." });
     }
@@ -145,7 +146,7 @@ export async function getAdminPrivacyPolicyState() {
 
 export async function savePrivacyPolicyDraft(
   adminId: number,
-  input: { draftId?: number; title: string; summary: string; controllerName: string; controllerAddress: string; privacyContact: string; applicableJurisdiction: string; sections: PrivacyPolicySection[] },
+  input: { draftId?: number; title: string; summary: string; controllerName: string; controllerAddress: string; privacyContact: string; applicableJurisdiction: string; sections: PrivacyPolicySection[]; htmlContent?: string },
 ) {
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Privacy changes could not be saved." });
@@ -155,7 +156,8 @@ export async function savePrivacyPolicyDraft(
   const controllerAddress = cleanText(input.controllerAddress, 500);
   const privacyContact = cleanText(input.privacyContact, 320);
   const applicableJurisdiction = cleanText(input.applicableJurisdiction, 180);
-  const sections = normalizeSections(input.sections);
+  const htmlContent = (input.htmlContent || "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim();
+  const sections = htmlContent ? input.sections.map((section) => ({ ...section, body: section.body.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim() })) : normalizeSections(input.sections);
   if (title.length < 5 || summary.length < 20 || controllerName.length < 3 || privacyContact.length < 5) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a descriptive notice title and summary, a responsible organization, and a privacy contact channel before saving." });
   }
@@ -172,7 +174,7 @@ export async function savePrivacyPolicyDraft(
     let draftId: number;
     if (draft) {
       draftId = draft.id;
-      await tx.update(privacyPolicyVersions).set({ title, summary, controllerName, controllerAddress, privacyContact, applicableJurisdiction, sectionsJson: JSON.stringify(sections), createdBy: draft.createdBy || adminId })
+      await tx.update(privacyPolicyVersions).set({ title, summary, controllerName, controllerAddress, privacyContact, applicableJurisdiction, sectionsJson: JSON.stringify(sections), htmlContent, createdBy: draft.createdBy || adminId })
         .where(and(eq(privacyPolicyVersions.id, draftId), eq(privacyPolicyVersions.status, "draft")));
     } else {
       draftId = Number((await tx.insert(privacyPolicyVersions).values({
@@ -184,6 +186,7 @@ export async function savePrivacyPolicyDraft(
         privacyContact,
         applicableJurisdiction,
         sectionsJson: JSON.stringify(sections),
+        htmlContent,
         status: "draft",
         createdBy: adminId,
       }))[0].insertId);
@@ -193,7 +196,7 @@ export async function savePrivacyPolicyDraft(
       action: "policy.draft.saved",
       entityType: "privacy_policy_version",
       entityId: String(draftId),
-      metadataJson: JSON.stringify({ sectionCount: sections.length }),
+      metadataJson: JSON.stringify({ sectionCount: sections.length, htmlContentLength: htmlContent.length }),
     });
     return { success: true, draftId, sectionCount: sections.length };
   });
@@ -208,13 +211,14 @@ export async function publishPrivacyPolicy(adminId: number, draftId: number, rev
     await tx.select({ id: privacyPolicyVersions.id }).from(privacyPolicyVersions).orderBy(privacyPolicyVersions.id).for("update");
     const draft = (await tx.select().from(privacyPolicyVersions).where(and(eq(privacyPolicyVersions.id, draftId), eq(privacyPolicyVersions.status, "draft"))).limit(1).for("update"))[0];
     if (!draft) throw new TRPCError({ code: "NOT_FOUND", message: "The selected draft is no longer available." });
-    const sections = normalizeSections(parseSections(draft.sectionsJson));
+    const htmlContent = draft.htmlContent || "";
+    const sections = htmlContent.trim() ? parseSections(draft.sectionsJson) : normalizeSections(parseSections(draft.sectionsJson));
     const title = cleanText(draft.title, 200);
     const summary = cleanText(draft.summary, 700);
-    if (title.length < 5 || summary.length < 20 || sections.length < 6 ||
+    if (title.length < 5 || summary.length < 20 || (!htmlContent.trim() && sections.length < 6) ||
         draft.controllerName.trim().length < 3 || draft.controllerName.trim().toLowerCase() === "not configured" ||
-        draft.privacyContact.trim().length < 5) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "The draft is incomplete. Confirm the responsible organization and privacy contact, and save a valid title, summary, and at least six sections before publication." });
+        draft.privacyContact.trim().length < 5 || (!htmlContent.trim() && sections.some((section) => section.title.trim().length < 3 || section.body.trim().length < 40))) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "The draft is incomplete. Confirm the responsible organization and privacy contact, then provide either complete HTML notice content or at least six complete structured sections before publication." });
     }
     const latest = (await tx.select().from(privacyPolicyVersions).where(inArray(privacyPolicyVersions.status, ["published", "archived"]))
       .orderBy(desc(privacyPolicyVersions.publishedAt), desc(privacyPolicyVersions.id)).limit(1))[0];
@@ -228,7 +232,7 @@ export async function publishPrivacyPolicy(adminId: number, draftId: number, rev
       action: "policy.published",
       entityType: "privacy_policy_version",
       entityId: String(draftId),
-      metadataJson: JSON.stringify({ versionLabel: nextVersion, sectionCount: sections.length, reviewAcknowledged }),
+      metadataJson: JSON.stringify({ versionLabel: nextVersion, sectionCount: sections.length, htmlContentLength: htmlContent.length, reviewAcknowledged }),
     });
     return { success: true, versionLabel: nextVersion, publishedAt: now };
   });

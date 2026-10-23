@@ -14,6 +14,7 @@ export type PrivacyPolicyDocument = {
   privacyContact: string;
   applicableJurisdiction: string;
   sections: PrivacyPolicySection[];
+  htmlContent?: string;
   status: "draft" | "published" | "archived";
   effectiveAt: Date | string | null;
   publishedAt: Date | string | null;

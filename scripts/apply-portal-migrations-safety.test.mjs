@@ -11,6 +11,7 @@ describe("portal migration diagnostic privacy", () => {
     expect(source).toContain('"0057_notification_history_pagination.sql"');
     expect(source).toContain('"0058_withdrawable_notification_campaigns.sql"');
     expect(source).toContain('"0062_privacy_center.sql"');
+    expect(source).toContain('"0063_privacy_notice_html.sql"');
     expect(source).toContain('"privacy_policy_versions", "privacy_requests", "privacy_request_events", "privacy_audit_events"');
     expect(source).not.toContain('"opportunity_popup_events", "opportunity_delivery_events"');
     expect(source).toContain('import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";');
