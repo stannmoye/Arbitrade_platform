@@ -47,7 +47,7 @@ export async function listCustomerApiKeys(userId: number) {
   if (!db) throw new Error("Database is not available");
   const owner = (await db.select({ id: users.id, role: users.role, loginMethod: users.loginMethod, accountStatus: customerControls.accountStatus })
     .from(users).leftJoin(customerControls, eq(customerControls.userId, users.id)).where(eq(users.id, userId)).limit(1))[0];
-  if (!owner || owner.role !== "user" || owner.loginMethod === "closed" || owner.accountStatus === "suspended") {
+  if (!owner || owner.role !== "user" || owner.loginMethod === "closed") {
     throw new Error("An active customer account is required.");
   }
   const rows = await db.select().from(customerApiKeys)
@@ -71,7 +71,7 @@ export async function createCustomerApiKey(userId: number, name: string, request
     // Serialize key creation for this account so concurrent tabs cannot exceed the active-key cap.
     const owner = (await tx.select({ id: users.id, role: users.role, loginMethod: users.loginMethod, accountStatus: customerControls.accountStatus })
       .from(users).leftJoin(customerControls, eq(customerControls.userId, users.id)).where(eq(users.id, userId)).limit(1).for("update"))[0];
-    if (!owner || owner.role !== "user" || owner.loginMethod === "closed" || owner.accountStatus !== "active") {
+    if (!owner || owner.role !== "user" || owner.loginMethod === "closed" || (owner.accountStatus !== null && owner.accountStatus !== "active")) {
       throw new Error("An active customer account is required.");
     }
     const activeRows = await tx.select({ count: sql<number>`count(*)` }).from(customerApiKeys)
