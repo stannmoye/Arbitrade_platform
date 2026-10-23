@@ -65,7 +65,7 @@ const field = (row, camel, upper) => row?.[camel] ?? row?.[upper];
  * notification workers query. This function only reports discrepancies; callers
  * must not auto-drop indexes, coerce column types, or rewrite existing data.
  */
-export function findWorkerSchemaContractFailures(columnRows, indexRows) {
+export function findWorkerSchemaContractFailures(columnRows, indexRows, selectedTables = Object.keys(WORKER_SCHEMA_CONTRACTS)) {
   const failures = [];
   const columnsByTable = new Map();
   for (const row of columnRows ?? []) {
@@ -87,7 +87,12 @@ export function findWorkerSchemaContractFailures(columnRows, indexRows) {
     byName.get(index).push(row);
   }
 
-  for (const [table, contract] of Object.entries(WORKER_SCHEMA_CONTRACTS)) {
+  for (const table of selectedTables) {
+    const contract = WORKER_SCHEMA_CONTRACTS[table];
+    if (!contract) {
+      failures.push(`unknown worker schema contract: ${table}`);
+      continue;
+    }
     const tableColumns = columnsByTable.get(table);
     if (!tableColumns) {
       failures.push(`${table}: table is missing or has no visible columns`);
@@ -145,8 +150,15 @@ export function findWorkerSchemaContractFailures(columnRows, indexRows) {
   return failures;
 }
 
-export async function assertWorkerSchemaContracts(db) {
-  const tables = Object.keys(WORKER_SCHEMA_CONTRACTS);
+export async function assertWorkerSchemaContracts(db, selectedTables = Object.keys(WORKER_SCHEMA_CONTRACTS)) {
+  if (!Array.isArray(selectedTables) || selectedTables.length === 0) {
+    throw new TypeError("At least one worker schema contract must be selected.");
+  }
+  const tables = [...new Set(selectedTables)];
+  const unknownTables = tables.filter((table) => !Object.hasOwn(WORKER_SCHEMA_CONTRACTS, table));
+  if (unknownTables.length) {
+    throw new Error("Unknown worker schema contract(s): " + unknownTables.join(", "));
+  }
   const placeholders = tables.map(() => "?").join(",");
   const [columnRows] = await db.query(
     "SELECT table_name AS tableName, column_name AS columnName, data_type AS dataType, column_type AS columnType, is_nullable AS isNullable " +
@@ -158,7 +170,7 @@ export async function assertWorkerSchemaContracts(db) {
     "FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name IN (" + placeholders + ")",
     tables,
   );
-  const failures = findWorkerSchemaContractFailures(columnRows, indexRows);
+  const failures = findWorkerSchemaContractFailures(columnRows, indexRows, tables);
   if (failures.length) {
     throw new Error("Required mining/notification worker schema contract failed: " + failures.slice(0, 12).join("; "));
   }
