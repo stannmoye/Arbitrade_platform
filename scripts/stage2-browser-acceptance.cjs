@@ -1339,6 +1339,18 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
       // hit-testable above its scrim when opened. Do not expect the removed
       // customer-left-menu-portal-host wrapper.
       await page.setViewportSize({ width: 390, height: 844 });
+      // Customer styles are dynamically imported so the app can render even if a
+      // style chunk is slow. Wait for the actual closed-state rail CSS before
+      // evaluating menu visibility; otherwise this assertion races the stylesheet.
+      await page.waitForFunction(() => {
+        const rail = document.querySelector(".customer-portal .portal-body .customer-primary-rail");
+        if (!(rail instanceof HTMLElement) || !matchMedia("(max-width: 900px)").matches) return false;
+        const style = getComputedStyle(rail);
+        return style.visibility === "hidden" &&
+          Number(style.opacity) === 0 &&
+          style.pointerEvents === "none" &&
+          rail.getBoundingClientRect().right <= 0;
+      }, undefined, { timeout: 15000 });
       const customerOverlayIsolation = await page.evaluate(() => {
         const shell = document.querySelector(".customer-portal");
         const layer = shell?.querySelector(".portal-body");
