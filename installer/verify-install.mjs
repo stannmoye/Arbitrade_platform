@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { safeDisplayText } from "./recovery-utils.mjs";
+import { getRequiredWorkerTables } from "../scripts/worker-schema-inventory.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 config({ path: resolve(root, ".env"), override: false });
@@ -93,8 +94,15 @@ if (!url) {
     const [tables] = await db.query("SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE()");
     const names = new Set(tables.map((row) => String(row.TABLE_NAME ?? row.table_name)));
     report("Database connection", true, `Connected; ${names.size} table(s) found.`);
-    for (const required of ["users", "app_settings", "mining_packages"]) {
-      report("Required table: " + required, names.has(required), names.has(required) ? "Table exists." : "Expected table is missing; review migrations.");
+    const schemaSource = await readFile(resolve(root, "drizzle/schema.ts"), "utf8");
+    for (const required of getRequiredWorkerTables(schemaSource)) {
+      report(
+        "Required runtime table: " + required,
+        names.has(required),
+        names.has(required)
+          ? "Table exists; zero rows are allowed."
+          : "Table is missing; run the main, portal and mining migrations before starting workers.",
+      );
     }
     if (names.has("users")) {
       const [admins] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='admin'");
