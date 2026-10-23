@@ -6,10 +6,7 @@ import { customerApiKeys, users, v5AuditEvents } from "../drizzle/schema";
 export const CUSTOMER_API_SCOPES = [
   "balances:read",
   "transactions:read",
-  "deposits:read",
   "withdrawals:read",
-  "fees:read",
-  "reports:read",
   "platform:status",
 ] as const;
 export type CustomerApiScope = typeof CUSTOMER_API_SCOPES[number];
