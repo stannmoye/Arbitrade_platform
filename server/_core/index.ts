@@ -28,6 +28,7 @@ import { startEmailWorkers } from "../emailQueue";
 import { refreshMiningPriceFeeds } from "../mining-admin";
 import { runMiningWorkerCycle } from "../mining";
 import { registerCustomerApiAccessRoutes } from "./api-access-routes";
+import { processApiNotificationOutbox } from "../api-access-automation";
 
 const registrationRateLimit = createAuthRateLimiter({ windowMs: 60 * 60_000, max: 5, message: "Too many registration attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-register" });
 const customerLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many login attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-login" });
@@ -219,6 +220,11 @@ async function startServer() {
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
   if (process.env.DATABASE_URL) {
     startEmailWorkers();
+    // Durable API notifications are processed from the database outbox. The worker
+    // is idempotent, skips unconfigured providers, and does not keep the process alive.
+    const apiAutomationWorker = setInterval(() => { void processApiNotificationOutbox(); }, 15_000);
+    apiAutomationWorker.unref();
+    void processApiNotificationOutbox();
     let notificationCampaignCycleRunning = false;
     const runNotificationCampaignCycle = async () => {
       if(notificationCampaignCycleRunning)return;
