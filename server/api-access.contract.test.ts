@@ -58,6 +58,9 @@ describe("customer API access foundation", () => {
     expect(apiRoutes).toContain('apiHandler("withdrawals:create"');
     expect(apiRoutes).toContain("WITHDRAWAL_API_DISABLED");
     expect(apiRoutes).toContain("TOTP_REQUIRED");
+    expect(apiRoutes).toContain("AUTHENTICATOR_NOT_ENROLLED");
+    expect(apiRoutes).toContain("withdrawalApiEnabled !== true");
+    expect(apiRoutes).toContain("amountMinor");
     expect(apiRoutes).toContain("createCustomerPayoutRequest(identity.userId");
     expect(apiRoutes).toContain("requiresManualReview: true");
   });
