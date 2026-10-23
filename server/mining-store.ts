@@ -134,6 +134,11 @@ export async function ensureMiningCheckpoint(conn: Db, userId: number, initialAt
 }
 
 export async function requireActiveMiningAccount(conn: Db, userId: number) {
+  // Share the customer-row mutex with closure so Mining writes cannot race approval.
+  const [userRows] = await conn.query<any[]>(`SELECT id,loginMethod FROM users WHERE id=? LIMIT 1 FOR UPDATE`, [userId]);
+  if (!userRows[0] || userRows[0].loginMethod === "closed") {
+    throw new MiningError("Mining actions are unavailable for a closed or missing account");
+  }
   const [rows] = await conn.query<any[]>(`SELECT accountStatus FROM customer_controls WHERE userId=? LIMIT 1`, [userId]);
   const status = rows[0]?.accountStatus || "active";
   if (status !== "active") throw new MiningError("Mining actions are unavailable while this account is suspended or restricted");
