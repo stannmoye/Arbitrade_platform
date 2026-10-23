@@ -51,6 +51,19 @@ describe("navigation drawer keyboard accessibility contracts", () => {
     expect(recoveryStyles).toMatch(/\.customer-portal \.customer-primary-menu-scrim\s*\{[^}]*z-index:\s*81\s*!important;/s);
   });
 
+  it("disables Android-problematic clipping and filtering on the open account rail", () => {
+    const openRailRule = recoveryStyles.match(/\.customer-portal \.portal-body\.customer-primary-menu-open \.customer-primary-rail\s*\{([^}]*)\}/s)?.[1] ?? "";
+    expect(openRailRule).toMatch(/clip-path:\s*none\s*!important;/);
+    expect(openRailRule).toMatch(/-webkit-clip-path:\s*none\s*!important;/);
+    expect(openRailRule).toMatch(/filter:\s*none\s*!important;/);
+    expect(openRailRule).toMatch(/-webkit-filter:\s*none\s*!important;/);
+  });
+
+  it("keeps the portaled customer drawer in a layer above page overlays", () => {
+    expect(drawerStyles).toMatch(/\.admin-slide-portal-layer\s*\{[^}]*z-index:\s*2147483000!important;[^}]*isolation:\s*isolate!important;/s);
+    expect(drawerStyles).toMatch(/\.admin-slide-portal-layer \.admin-slide-drawer\s*\{\s*z-index:\s*2!important;\s*\}/);
+  });
+
   it("hides the redundant left Settings handle when the desktop rail is present", () => {
     expect(recoveryStyles).toMatch(/@media\s*\(min-width:\s*901px\)\s*\{\s*\.customer-portal \.customer-settings-trigger\s*\{\s*display:\s*none\s*!important;/s);
   });
