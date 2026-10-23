@@ -52,7 +52,9 @@ describe("customer API access foundation", () => {
     expect(apiRoutes).toContain('"/api/v1/account/withdrawals"');
     expect(apiRoutes).toContain('"/api/v1/platform/status"');
     expect(server).toContain("registerCustomerApiAccessRoutes(app)");
-    expect(apiRoutes).not.toContain('app.post("/api/v1/');
+    expect(apiRoutes).toContain('app.post("/api/v1/webhooks"');
+    expect(apiRoutes).not.toContain('app.post("/api/v1/account/withdrawals');
+    expect(apiRoutes).not.toContain('app.post("/api/v1/account/withdrawal-requests');
   });
 
   it("provides customer key controls and admin-editable integration policy and message templates", () => {
@@ -64,5 +66,6 @@ describe("customer API access foundation", () => {
     expect(adminUi).toContain("WhatsApp Business destination");
     expect(adminUi).toContain("Wallet / deposit provider");
     expect(adminUi).toContain("Secret keys are not stored in these fields");
+    expect(adminUi).toContain("Encrypted provider credentials");
   });
 });
