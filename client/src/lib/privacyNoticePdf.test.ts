@@ -37,13 +37,13 @@ describe("createPrivacyNoticePdf", () => {
     };
     const source = new TextDecoder().decode(createPrivacyNoticePdf(longPolicy));
     expect(source).toMatch(/\/Count [2-9]\d*/);
-    expect(source).toContain("Page 1 of ");
+    expect(source).toContain("506167652031206F66");
   });
 
   it("safely encodes common punctuation and avoids raw PDF delimiters in text strings", () => {
     const punctuatedPolicy = { ...policy, title: "Privacy — Customer’s Information (2026)" };
     const source = new TextDecoder().decode(createPrivacyNoticePdf(punctuatedPolicy));
     expect(source).toContain("PDF-1.4");
-    expect(source).toContain("/Title (Privacy ? Customer?s Information (2026))");
+    expect(source).toContain("/Title (Privacy \\? Customer\\?s Information \\(2026\\))");
   });
 });
