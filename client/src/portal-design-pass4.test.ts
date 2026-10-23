@@ -135,6 +135,9 @@ describe("original customer left Settings menu recovery", () => {
     expect(recoveryCss).toContain("transform: none !important;");
     expect(recoveryCss).toContain("clip-path: none !important;");
     expect(recoveryCss).toContain("filter: none !important;");
+    expect(recoveryCss).toContain(":root[data-arb-theme] .customer-portal .portal-body .customer-primary-rail");
+    expect(recoveryCss).toContain("z-index: 82 !important;");
+    expect(recoveryCss).toContain("left: 0 !important;");
     expect(recoveryCss).toContain("visibility: hidden !important;");
     expect(recoveryCss).toContain("visibility: visible !important;");
   });
