@@ -374,7 +374,7 @@ export async function assignSupportTicket(actorId:number,ticketId:number,assigne
  return {success:true,changed:committed.changed,assignedAdminId:committed.assignee?.id??null};
 }
 export async function getCustomerTicket(userId:number,ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return (await db.select().from(supportTickets).where(and(eq(supportTickets.id,ticketId),eq(supportTickets.customerId,userId))).limit(1))[0] ?? null; }
-export async function getSupportTicketById(ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return (await db.select({id:supportTickets.id}).from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1))[0] ?? null; }
+export async function getSupportTicketById(ticketId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return (await db.select({id:supportTickets.id,subject:supportTickets.subject,category:supportTickets.category,customerId:supportTickets.customerId,status:supportTickets.status}).from(supportTickets).where(eq(supportTickets.id,ticketId)).limit(1))[0] ?? null; }
 export async function addTicketMessage(actorId:number,ticketId:number,body:string,status?:"open"|"answered"|"resolved"|"closed") {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   // Keep the message and ticket status in one transaction: a failed status
