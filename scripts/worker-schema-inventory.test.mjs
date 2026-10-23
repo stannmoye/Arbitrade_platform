@@ -10,10 +10,32 @@ describe("installer worker schema inventory", () => {
     `);
     expect(required).toContain("users");
     expect(required).toContain("customer_notifications");
-    expect(required).toContain("mining_pending_boost_rewards");
-    expect(required).toContain("notification_campaigns");
-    expect(required).toContain("notification_campaign_deliveries");
-    expect(required).toContain("__drizzle_migrations");
+    for (const table of [
+      "mining_economics_versions",
+      "mining_packages",
+      "mining_package_versions",
+      "mining_customer_packages",
+      "mining_checkpoints",
+      "mining_ledger_transactions",
+      "mining_reward_events",
+      "mining_boost_activations",
+      "mining_conversion_preferences",
+      "mining_conversion_preference_versions",
+      "mining_conversion_jobs",
+      "mining_quote_snapshots",
+      "mining_adjustment_requests",
+      "mining_wallet_baselines",
+      "mining_package_purchase_claims",
+      "mining_reward_package_allocations",
+      "mining_engine_activity",
+      "mining_pending_boost_rewards",
+      "notification_campaigns",
+      "notification_campaign_deliveries",
+      "__drizzle_migrations",
+      "main_migration_run_guard",
+      "portal_schema_migrations",
+      "mining_schema_migrations",
+    ]) expect(required).toContain(table);
   });
 
   it("reports missing tables deterministically and accepts empty-but-present tables", () => {
