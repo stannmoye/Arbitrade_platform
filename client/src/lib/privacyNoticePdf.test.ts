@@ -40,6 +40,17 @@ describe("createPrivacyNoticePdf", () => {
     expect(source).toContain("506167652031206F66");
   });
 
+  it("includes text from the published HTML notice in the downloadable PDF", () => {
+    const htmlPolicy = {
+      ...policy,
+      htmlContent: '<style>.hidden{display:none}</style><section><h1>Custom notice heading</h1><p>Styled financial privacy content.</p><script>secretScript()</script></section>',
+    };
+    const source = new TextDecoder().decode(createPrivacyNoticePdf(htmlPolicy));
+    expect(source).toContain("Custom notice heading");
+    expect(source).toContain("Styled financial privacy content.");
+    expect(source).not.toContain("secretScript");
+  });
+
   it("safely encodes common punctuation and avoids raw PDF delimiters in text strings", () => {
     const punctuatedPolicy = { ...policy, title: "Privacy — Customer’s Information (2026)" };
     const source = new TextDecoder().decode(createPrivacyNoticePdf(punctuatedPolicy));
