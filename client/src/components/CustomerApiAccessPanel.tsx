@@ -41,7 +41,8 @@ const scopeOptions: Array<{id:ApiScope;label:string;description:string}> = [
   {id:"fees:read",label:"Fees and published fee schedule",description:"Published schedule; customer fee history needs a fee ledger."},
   {id:"statements:read",label:"Daily statement data",description:"Read-only partial data summary for a date."},
   {id:"tax-support:read",label:"Tax-support summary",description:"Available records only; not a tax calculation."},
-  {id:"notifications:read",label:"Notification history",description:"See notification delivery status."},\n  {id:"usage:read",label:"API usage and performance",description:"Read aggregated daily request counts and latency for your keys."},
+  {id:"notifications:read",label:"Notification history",description:"See notification delivery status."},
+  {id:"usage:read",label:"API usage and performance",description:"Read aggregated daily request counts and latency for your keys."},
   {id:"analytics:read",label:"Account analytics",description:"Summaries derived from your own stored account data."},
   {id:"exchange-rates:read",label:"Stored exchange rates",description:"Read currency rates available in the application."},
   {id:"platform:status",label:"Platform status",description:"Read declared status and maintenance information."},
@@ -61,16 +62,18 @@ const endpoints = [
   {label:"Exchange rates",path:"/api/v1/account/exchange-rates"},
   {label:"Platform status",path:"/api/v1/platform/status"},
   {label:"Incident history",path:"/api/v1/platform/incidents"},
-  {label:"Notification history",path:"/api/v1/account/notification-history"},\n  {label:"API usage and performance",path:"/api/v1/account/api-usage"},
+  {label:"Notification history",path:"/api/v1/account/notification-history"},
+  {label:"API usage and performance",path:"/api/v1/account/api-usage"},
 ];
 const initialPreferences:PreferenceDraft = {
   whatsappNumber:"",whatsappOptIn:false,whatsappEvents:[],inAppEnabled:true,dailySummaryEnabled:false,
   dailyStatementEnabled:false,dailyTaxReportEnabled:false,feeSummaryEnabled:false,securityAlertsEnabled:true,timezone:"Africa/Lagos",dailyReportTime:"08:00",
 };
-const booleanPreferenceOptions: Array<{key:"inAppEnabled"|"dailySummaryEnabled"|"dailyStatementEnabled"|"feeSummaryEnabled"|"securityAlertsEnabled";label:string}> = [
+const booleanPreferenceOptions: Array<{key:"inAppEnabled"|"dailySummaryEnabled"|"dailyStatementEnabled"|"dailyTaxReportEnabled"|"feeSummaryEnabled"|"securityAlertsEnabled";label:string}> = [
   {key:"inAppEnabled",label:"In-app notifications"},
   {key:"dailySummaryEnabled",label:"Daily account activity notice"},
-  {key:"dailyStatementEnabled",label:"Daily statement notice"},\n  {key:"dailyTaxReportEnabled",label:"Daily tax-support summary"},
+  {key:"dailyStatementEnabled",label:"Daily statement notice"},
+  {key:"dailyTaxReportEnabled",label:"Daily tax-support summary"},
   {key:"feeSummaryEnabled",label:"Fee summary notice"},
   {key:"securityAlertsEnabled",label:"Security alerts"},
 ];
@@ -79,7 +82,8 @@ export default function CustomerApiAccessPanel() {
   const keys=trpc.customer.apiKeys.useQuery(undefined,{refetchOnWindowFocus:true});
   const prefsQuery=trpc.customer.apiAutomationPreferences.useQuery(undefined,{refetchOnWindowFocus:true});
   const webhooks=trpc.customer.apiWebhooks.useQuery(undefined,{refetchOnWindowFocus:true});
-  const history=trpc.customer.apiNotificationHistory.useQuery(undefined,{refetchInterval:30000});\n  const usage=trpc.customer.apiUsage.useQuery(undefined,{refetchInterval:30000});
+  const history=trpc.customer.apiNotificationHistory.useQuery(undefined,{refetchInterval:30000});
+  const usage=trpc.customer.apiUsage.useQuery(undefined,{refetchInterval:30000});
   const utils=trpc.useUtils();
   const [name,setName]=useState("");
   const [scopes,setScopes]=useState<ApiScope[]>(["balances:read","transactions:read","platform:status"]);
