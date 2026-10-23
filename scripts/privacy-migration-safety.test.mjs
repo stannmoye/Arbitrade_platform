@@ -5,6 +5,8 @@ const migrationPath = new URL("../drizzle/0062_privacy_center.sql", import.meta.
 const schemaPath = new URL("../drizzle/schema.ts", import.meta.url);
 const portalRunnerPath = new URL("./apply-portal-migrations.mjs", import.meta.url);
 const recoveryPath = new URL("../installer/migration-recovery-status.mjs", import.meta.url);
+const privacyServicePath = new URL("../server/privacy.ts", import.meta.url);
+const privacyRouterPath = new URL("../server/routers.ts", import.meta.url);
 const installPath = new URL("../installer/run-install.mjs", import.meta.url);
 
 describe("Privacy Centre migration and installation contract", () => {
@@ -16,17 +18,20 @@ describe("Privacy Centre migration and installation contract", () => {
     expect(sql).toContain("WHERE NOT EXISTS");
     expect(sql).toContain("'published'");
     expect(sql).toContain("'1.0'");
+    for (const column of ["controllerName", "controllerAddress", "privacyContact", "applicableJurisdiction"]) expect(sql).toContain("`" + column + "`");
     expect(sql).not.toMatch(/\bDROP\s+TABLE\b/i);
     expect(sql).not.toMatch(/\bTRUNCATE\b/i);
     expect(sql).not.toMatch(/\bDELETE\s+FROM\b/i);
   });
 
   it("keeps table declarations, migration registration, recovery reporting and installer flow aligned", async () => {
-    const [schema, portalRunner, recovery, installer] = await Promise.all([
+    const [schema, portalRunner, recovery, installer, privacyService, privacyRouter] = await Promise.all([
       readFile(schemaPath, "utf8"),
       readFile(portalRunnerPath, "utf8"),
       readFile(recoveryPath, "utf8"),
       readFile(installPath, "utf8"),
+      readFile(privacyServicePath, "utf8"),
+      readFile(privacyRouterPath, "utf8"),
     ]);
     for (const table of ["privacyPolicyVersions", "privacyRequests", "privacyRequestEvents", "privacyAuditEvents"]) {
       expect(schema).toContain("export const " + table + " = mysqlTable(");
@@ -38,5 +43,11 @@ describe("Privacy Centre migration and installation contract", () => {
       expect(portalRunner).toContain('"' + table + '"');
     }
     expect((installer.match(/db:portal-migrate/g) || []).length).toBeGreaterThanOrEqual(2);
+    expect(privacyService).toContain("controllerName");
+    expect(privacyService).toContain("controllerAddress");
+    expect(privacyService).toContain("privacyContact");
+    expect(privacyService).toContain("applicableJurisdiction");
+    expect(privacyService).toContain("if (!reviewAcknowledged)");
+    expect(privacyRouter).toContain("reviewAcknowledged: z.literal(true)");
   });
 });
