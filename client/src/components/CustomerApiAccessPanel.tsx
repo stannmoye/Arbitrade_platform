@@ -6,7 +6,7 @@ import "./CustomerApiAccessPanel.css";
 type ApiScope =
   | "balances:read" | "transactions:read" | "withdrawals:read" | "deposits:read" | "fees:read"
   | "statements:read" | "tax-support:read" | "notifications:read" | "analytics:read"
-  | "exchange-rates:read" | "platform:status" | "incidents:read" | "webhooks:manage";
+  | "exchange-rates:read" | "platform:status" | "incidents:read" | "webhooks:manage" | "usage:read";
 type ApiEvent =
   | "deposit.confirmed" | "deposit.delayed" | "deposit.failed" | "withdrawal.status" | "trade.completed"
   | "daily.activity" | "daily.statement" | "tax.report.ready" | "fee.recorded" | "fee.summary"
@@ -41,7 +41,7 @@ const scopeOptions: Array<{id:ApiScope;label:string;description:string}> = [
   {id:"fees:read",label:"Fees and published fee schedule",description:"Published schedule; customer fee history needs a fee ledger."},
   {id:"statements:read",label:"Daily statement data",description:"Read-only partial data summary for a date."},
   {id:"tax-support:read",label:"Tax-support summary",description:"Available records only; not a tax calculation."},
-  {id:"notifications:read",label:"Notification history",description:"See notification delivery status."},
+  {id:"notifications:read",label:"Notification history",description:"See notification delivery status."},\n  {id:"usage:read",label:"API usage and performance",description:"Read aggregated daily request counts and latency for your keys."},
   {id:"analytics:read",label:"Account analytics",description:"Summaries derived from your own stored account data."},
   {id:"exchange-rates:read",label:"Stored exchange rates",description:"Read currency rates available in the application."},
   {id:"platform:status",label:"Platform status",description:"Read declared status and maintenance information."},
@@ -61,7 +61,7 @@ const endpoints = [
   {label:"Exchange rates",path:"/api/v1/account/exchange-rates"},
   {label:"Platform status",path:"/api/v1/platform/status"},
   {label:"Incident history",path:"/api/v1/platform/incidents"},
-  {label:"Notification history",path:"/api/v1/account/notification-history"},
+  {label:"Notification history",path:"/api/v1/account/notification-history"},\n  {label:"API usage and performance",path:"/api/v1/account/api-usage"},
 ];
 const initialPreferences:PreferenceDraft = {
   whatsappNumber:"",whatsappOptIn:false,whatsappEvents:[],inAppEnabled:true,dailySummaryEnabled:false,
@@ -79,7 +79,7 @@ export default function CustomerApiAccessPanel() {
   const keys=trpc.customer.apiKeys.useQuery(undefined,{refetchOnWindowFocus:true});
   const prefsQuery=trpc.customer.apiAutomationPreferences.useQuery(undefined,{refetchOnWindowFocus:true});
   const webhooks=trpc.customer.apiWebhooks.useQuery(undefined,{refetchOnWindowFocus:true});
-  const history=trpc.customer.apiNotificationHistory.useQuery(undefined,{refetchInterval:30000});
+  const history=trpc.customer.apiNotificationHistory.useQuery(undefined,{refetchInterval:30000});\n  const usage=trpc.customer.apiUsage.useQuery(undefined,{refetchInterval:30000});
   const utils=trpc.useUtils();
   const [name,setName]=useState("");
   const [scopes,setScopes]=useState<ApiScope[]>(["balances:read","transactions:read","platform:status"]);
@@ -213,6 +213,10 @@ export default function CustomerApiAccessPanel() {
       <button className="primary-button" onClick={()=>void testEndpoint()} disabled={!testerKey.trim()}>Run GET request</button>
       {testerError&&<div className="api-access-inline-error" role="alert">{testerError}</div>}
       {testerStatus!==null&&<div className={testerStatus>=200&&testerStatus<300?"api-access-test-result":"api-access-test-result api-access-test-failed"} role="status"><strong>HTTP {testerStatus}</strong><pre>{testerResult}</pre></div>}
+    </section>
+
+    <section className="settings-card api-access-panel"><div className="api-access-doc-icon"><Activity size={18}/></div><div className="eyebrow">API telemetry</div><h2>Usage and performance</h2><p>Daily aggregate metrics for requests authenticated with your own keys. Raw request bodies and API secrets are not stored in these metrics; usage is retained for up to 90 days.</p>
+      {usage.isLoading?<p>Loading usage metrics…</p>:usage.isError?<button className="secondary-button" onClick={()=>void usage.refetch()}>Retry usage metrics</button>:!usage.data?.length?<p>No API usage has been recorded yet. Run a successful request with a key that includes the <code>usage:read</code> scope to inspect metrics through the API, or make requests and refresh this panel.</p>:<div className="api-access-history-wrap"><table className="api-access-history"><thead><tr><th>Key</th><th>UTC date</th><th>Requests</th><th>Errors</th><th>Average latency</th><th>Last request</th></tr></thead><tbody>{usage.data.map(item=><tr key={item.id}><td>{item.keyName}<small>{item.keyPrefix}</small></td><td>{item.usageDate}</td><td>{item.requestCount}</td><td>{item.errorCount}</td><td>{item.averageLatencyMs} ms</td><td>{item.lastRequestAt?new Date(item.lastRequestAt).toLocaleString():"—"}</td></tr>)}</tbody></table></div>}
     </section>
 
     <section className="settings-card api-access-panel"><div className="api-access-doc-icon"><Activity size={18}/></div><div className="eyebrow">Delivery history</div><h2>Recent notifications</h2><p>Review queued, sent, failed or skipped deliveries. Provider-dependent events stay unavailable until their real data source is connected.</p>
