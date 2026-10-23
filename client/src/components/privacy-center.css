@@ -256,3 +256,10 @@
 .privacy-review-acknowledgement>span{display:grid;gap:4px}
 .privacy-review-acknowledgement strong{font-size:10px;color:var(--privacy-text)}
 .privacy-review-acknowledgement small{font-size:9px;color:var(--privacy-muted);line-height:1.6;font-weight:450}
+
+.privacy-section-editor-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.privacy-add-section{min-height:32px;padding:7px 10px;font-size:10px}
+.privacy-editor-section-actions{display:flex;align-items:center;justify-content:space-between;gap:9px;flex-wrap:wrap;color:var(--privacy-muted);font-size:8px}
+.privacy-remove-section{display:inline-flex;align-items:center;gap:5px;padding:4px 0;margin:0;color:#d97878;text-decoration:none}
+.privacy-remove-section:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:560px){.privacy-section-editor-actions{width:100%;justify-content:flex-start}.privacy-section-editor-actions .privacy-version-preview{white-space:normal}}
