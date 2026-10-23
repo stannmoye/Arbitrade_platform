@@ -257,11 +257,11 @@ jobs:
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:3187/api/health | grep -q '"status":"ok"'; then
               echo "Production server health endpoint returned status=ok."
-              if grep -Eiq 'MANUS_OAUTH_API_URL|MANUS_API_URL is not configured|Manus login is not configured|__MANUS_CONFIG__' "$log_file"; then
-                echo "Legacy third-party provider integration was still accessed during startup." >&2
+              if grep -Fq '[OAuth]' "$log_file"; then
+                echo "Optional sign-in provider configuration should not emit a startup warning." >&2
                 exit 1
               fi
-              echo "Production startup is healthy without legacy provider configuration."
+              echo "Production startup is healthy without optional provider configuration."
               exit 0
             fi
             if ! kill -0 "$server_pid" 2>/dev/null; then
@@ -743,7 +743,7 @@ jobs:
              configuration, logs, lock files, SQL dumps and package metadata cannot
              be downloaded over HTTP. Never leave .env or bootstrap files public.
           3. Extract the ZIP, create a cPanel Node.js application (Node.js 20+;
-             Node 22 recommended) with startup file dist/index.js, and install the
+             Node 22 recommended) with startup file server-start.mjs, and install the
              locked dependencies from the private application terminal:
                  corepack enable
                  corepack prepare pnpm@10.18.0 --activate
