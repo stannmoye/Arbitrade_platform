@@ -263,3 +263,8 @@
 .privacy-remove-section{display:inline-flex;align-items:center;gap:5px;padding:4px 0;margin:0;color:#d97878;text-decoration:none}
 .privacy-remove-section:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:560px){.privacy-section-editor-actions{width:100%;justify-content:flex-start}.privacy-section-editor-actions .privacy-version-preview{white-space:normal}}
+
+.privacy-contact-detail{display:flex;align-items:flex-start;gap:9px;margin-top:13px;padding-top:12px;border-top:1px solid var(--privacy-border);color:var(--privacy-text-soft);font-size:10px;line-height:1.65;overflow-wrap:anywhere}
+.privacy-contact-detail>svg{flex:0 0 auto;margin-top:2px;color:var(--privacy-accent)}
+.privacy-contact-detail>span{display:grid;gap:3px;min-width:0}
+.privacy-contact-detail strong{font-size:9px;color:var(--privacy-muted);letter-spacing:.04em}
