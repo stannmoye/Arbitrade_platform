@@ -489,7 +489,7 @@ export const appRouter = router({
     saveWhatsAppProviderCredentials: adminProcedure.input(z.object({
       accessToken: z.string().trim().min(20).max(4096),
       phoneNumberId: z.string().trim().regex(/^\\d{5,30}$/),
-      graphApiVersion: z.string().trim().regex(/^v\\d+\\.\\d+$/).default("v22.0"),
+      graphApiVersion: z.string().trim().regex(/^v\\d+\\.\\d+$/).default("v26.0"),
       verificationTemplateName: z.string().trim().regex(/^[a-z0-9_]{3,512}$/i),
       verificationTemplateLanguage: z.string().trim().regex(/^[a-z]{2,3}(?:_[A-Z]{2})?$/).default("en"),
     })).mutation(async ({ ctx, input }) => {
