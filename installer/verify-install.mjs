@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 import mysql from "mysql2/promise";
 import nodemailer from "nodemailer";
-import { access, readFile, stat } from "node:fs/promises";
+import { access, readFile, readdir, stat } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -95,7 +95,14 @@ if (!url) {
     const names = new Set(tables.map((row) => String(row.TABLE_NAME ?? row.table_name)));
     report("Database connection", true, `Connected; ${names.size} table(s) found.`);
     const schemaSource = await readFile(resolve(root, "drizzle/schema.ts"), "utf8");
-    for (const required of getRequiredWorkerTables(schemaSource)) {
+    const migrationFiles = (await readdir(resolve(root, "drizzle"), { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".sql"))
+      .map((entry) => entry.name)
+      .sort();
+    const migrationSqlSources = await Promise.all(
+      migrationFiles.map((file) => readFile(resolve(root, "drizzle", file), "utf8")),
+    );
+    for (const required of getRequiredWorkerTables(schemaSource, migrationSqlSources)) {
       report(
         "Required runtime table: " + required,
         names.has(required),
