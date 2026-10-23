@@ -1616,6 +1616,7 @@
 
 /* Keep the customer rail clear of the fixed header on desktop and touch layouts. */
 .customer-portal .customer-primary-rail {
+  top: 74px !important;
   padding-top: 26px !important;
 }
 @media (max-width: 900px), (pointer: coarse) {
