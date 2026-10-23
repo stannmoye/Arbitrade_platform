@@ -4,7 +4,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { assignSupportTicket, listSupportAssignees, addTicketAttachment, addTicketMessage, adjustCustomerBalance, broadcastCustomerNotification, listAdminNotificationCampaigns, retryNotificationCampaign, withdrawNotificationCampaign, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, createTrade, deleteAdminCustomer, getCustomerAutoTradeSettings, getCustomerTicket, getSupportTicketById, getAppSetting, getAutoTradePolicy, getTradeSettlementPolicy, getCustomerBalanceSummary, getCustomerWalletPreferences, getCustomerOpportunityRules, getCustomerPayoutEligibility, getCustomerAuthenticatorStatus, startCustomerAuthenticatorEnrollment, confirmCustomerAuthenticatorEnrollment, generateCustomerAuthenticatorRecoveryCodes, startCustomerAuthenticatorRecoveryReplacement, startCustomerAuthenticatorReplacement, confirmCustomerAuthenticatorReplacement, createCustomerPayoutRequest, listCustomerPayoutRequests, cancelCustomerPayoutRequest, listAdminPayoutRequests, resolveCustomerPayoutRequest, manuallySettleTrade, listPendingSettlements, markCustomerNotificationsRead, updateCustomerWalletPreferences, updateCustomerOpportunityRules, getTicketUploadPolicy, setTradeSettlementPolicy, getNotificationCategoryVisibility, getCustomerNotificationUnreadCount, listCustomerNotificationPage, setNotificationCategoryVisibility, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listCustomerNotifications, listNotifications, listNotificationEventCursor, listOpenOffers, listOpportunityPackagePolicies, listRiskReports, listTicketAttachments, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, reopenSupportTicket, setAppSetting, setAutoTradePolicy, setCustomerPackage, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
+import { ACCOUNT_CLOSURE_TICKET_SUBJECT, AccountClosureDecisionError, applyAccountClosureDecision, assignSupportTicket, createAccountClosureTicket, listSupportAssignees, addTicketAttachment, addTicketMessage, adjustCustomerBalance, broadcastCustomerNotification, listAdminNotificationCampaigns, retryNotificationCampaign, withdrawNotificationCampaign, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, createTrade, deleteAdminCustomer, getCustomerAutoTradeSettings, getCustomerTicket, getSupportTicketById, getAppSetting, getAutoTradePolicy, getTradeSettlementPolicy, getCustomerBalanceSummary, getCustomerWalletPreferences, getCustomerOpportunityRules, getCustomerPayoutEligibility, getCustomerAuthenticatorStatus, startCustomerAuthenticatorEnrollment, confirmCustomerAuthenticatorEnrollment, generateCustomerAuthenticatorRecoveryCodes, startCustomerAuthenticatorRecoveryReplacement, startCustomerAuthenticatorReplacement, confirmCustomerAuthenticatorReplacement, createCustomerPayoutRequest, listCustomerPayoutRequests, cancelCustomerPayoutRequest, listAdminPayoutRequests, resolveCustomerPayoutRequest, manuallySettleTrade, listPendingSettlements, markCustomerNotificationsRead, updateCustomerWalletPreferences, updateCustomerOpportunityRules, getTicketUploadPolicy, setTradeSettlementPolicy, getNotificationCategoryVisibility, getCustomerNotificationUnreadCount, listCustomerNotificationPage, setNotificationCategoryVisibility, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listCustomerNotifications, listNotifications, listNotificationEventCursor, listOpenOffers, listOpportunityPackagePolicies, listRiskReports, listTicketAttachments, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, reopenSupportTicket, setAppSetting, setAutoTradePolicy, setCustomerPackage, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
 import { allocateStake, cancelStake, getStakeDashboard, projectStake } from "./stakeEarn";
 import { closeTransactionConsoleSession, listTransactionConsoleEvents, recordTransactionConsoleEvent, recordTransactionConsolePulse } from "./transactionConsole";
 import { getOpportunityLifecycleSummary, runOpportunityRetention, updatePopupLifecycle, updatePopupDeliveryStatus } from "./opportunityLifecycle";
@@ -119,37 +119,7 @@ export const appRouter = router({
       acknowledged: z.literal(true),
     })).mutation(async ({ ctx, input }) => {
       if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Only customer accounts can request closure." });
-      const subject = "Account closure request — administrator review required";
-      const existingTickets = await listCustomerTickets(ctx.user.id);
-      const pending = existingTickets.find(ticket =>
-        ticket.subject === subject && (ticket.status === "open" || ticket.status === "answered")
-      );
-      if (pending) return { ticketId: pending.id, ticketNumber: pending.ticketNumber, alreadyPending: true };
-
-      const labels: Record<"not-using" | "experience" | "fees" | "privacy" | "support", string> = {
-        "not-using": "I no longer use the platform",
-        experience: "The platform experience did not meet my expectations",
-        fees: "Costs, fees, or available features",
-        privacy: "Privacy or account-security concerns",
-        support: "Customer support or another reason",
-      };
-      const body = [
-        "ACCOUNT CLOSURE REQUEST — CUSTOMER SUBMISSION",
-        "",
-        "The customer is requesting account closure. This ticket requests administrator review only and does not close or delete the account.",
-        "",
-        "Selected reasons:",
-        ...input.reasons.map(reason => `- ${labels[reason]}`),
-        "",
-        "Customer acknowledgments:",
-        "- I understand that my account remains active until an authorized administrator reviews and approves this request.",
-        "- I understand that personal information eligible for deletion may be deleted or anonymized, while records may be retained where required for legal, regulatory, security, accounting, fraud-prevention, audit, dispute-resolution, or financial-recordkeeping obligations.",
-        "- I understand that closure may be irreversible and can remove access to account services and eligible account history.",
-        "",
-        "The customer explicitly acknowledged the closure disclosure. The administrator must record an explicit approve/reject decision. Ticket creation alone must never trigger deletion.",
-      ].join("\n");
-      const created = await createTicket(ctx.user.id, { subject, body, category: "account", priority: "high" });
-      return { ...created, alreadyPending: false };
+      return createAccountClosureTicket(ctx.user.id, input.reasons);
     }),
     createTicket: protectedProcedure.input(z.object({ subject: z.string().min(3).max(200), body: z.string().min(1).max(20000), category: z.enum(["account","wallet","opportunity","security","technical"]).default("account"), priority: z.enum(["low", "normal", "high", "urgent"]) })).mutation(async ({ ctx, input }) => {
       if (/^\s*account closure request\b/i.test(input.subject)) throw new TRPCError({ code: "BAD_REQUEST", message: "Use the dedicated account-closure request form." });
@@ -300,8 +270,32 @@ export const appRouter = router({
     assignTicket: adminProcedure.input(z.object({ ticketId: z.number().int().positive(), assignedAdminId: z.number().int().positive().nullable() })).mutation(({ ctx, input }) => assignSupportTicket(ctx.user.id, input.ticketId, input.assignedAdminId)),
     ticketMessages: adminProcedure.input(z.object({ ticketId: z.number().int().positive() })).query(({ input }) => listTicketMessages(input.ticketId)),
     ticketAttachments: adminProcedure.input(z.object({ ticketId: z.number().int().positive() })).query(async ({ input }) => { if (!(await getSupportTicketById(input.ticketId))) throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" }); return listTicketAttachments(input.ticketId); }),
-    replyTicket: adminProcedure.input(z.object({ ticketId: z.number().int().positive(), body: z.string().trim().min(1).max(20000), status: z.enum(["answered", "resolved", "closed"]) })).mutation(async ({ ctx, input }) => { const ticket=await getSupportTicketById(input.ticketId); if(!ticket) throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" }); await addTicketMessage(ctx.user.id,input.ticketId,input.body,input.status); return { success:true }; }),
-    reopenTicket: adminProcedure.input(z.object({ ticketId: z.number().int().positive() })).mutation(({ ctx, input }) => reopenSupportTicket(ctx.user.id,input.ticketId)),
+    decideAccountClosure: adminProcedure.input(z.object({
+      ticketId: z.number().int().positive(),
+      decision: z.enum(["approve", "reject"]),
+      reason: z.string().trim().min(10, "Enter a review reason of at least 10 characters.").max(2000),
+    })).mutation(async ({ ctx, input }) => {
+      try {
+        const result = await applyAccountClosureDecision(ctx.user.id, input);
+        if (result.decision === "reject") {
+          try {
+            await createNotification(result.customerId, "Account closure request reviewed", `${result.ticketNumber}: The administration team declined this closure request. Please open the ticket to read the review note.`, {
+              eventKey: `account-closure-decision:${result.ticketId}:rejected`, category: "support", priority: "high",
+            });
+          } catch (error) {
+            console.error("[AccountClosure] Rejection notice failed after decision:", error instanceof Error ? error.name : "UnknownError");
+          }
+        }
+        return result;
+      } catch (error) {
+        if (error instanceof AccountClosureDecisionError) {
+          throw new TRPCError({ code: "PRECONDITION_FAILED", message: error.message });
+        }
+        throw error;
+      }
+    }),
+    replyTicket: adminProcedure.input(z.object({ ticketId: z.number().int().positive(), body: z.string().trim().min(1).max(20000), status: z.enum(["answered", "resolved", "closed"]) })).mutation(async ({ ctx, input }) => { const ticket=await getSupportTicketById(input.ticketId); if(!ticket) throw new TRPCError({ code: "NOT_FOUND", message: "Ticket not found" }); if(ticket.subject === ACCOUNT_CLOSURE_TICKET_SUBJECT) throw new TRPCError({code:"BAD_REQUEST",message:"Use the explicit account-closure decision controls for this request."}); await addTicketMessage(ctx.user.id,input.ticketId,input.body,input.status); return { success:true }; }),
+    reopenTicket: adminProcedure.input(z.object({ ticketId: z.number().int().positive() })).mutation(async ({ ctx, input }) => { const ticket=await getSupportTicketById(input.ticketId); if(ticket?.subject === ACCOUNT_CLOSURE_TICKET_SUBJECT) throw new TRPCError({code:"BAD_REQUEST",message:"Account-closure requests cannot be reopened from generic support controls."}); return reopenSupportTicket(ctx.user.id,input.ticketId); }),
   }),
 
   // TODO: add feature routers here, e.g.

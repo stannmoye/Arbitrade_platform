@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { and, count, desc, eq, gt, gte, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool } from "mysql2/promise";
-import { InsertUser, appSettings, customerBalances, currencyRegistry, customerControls, customerNotifications, customerSessions, customerWalletPreferences, kycProfiles, payoutRequests, customerTotpAuthenticators, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPopupEvents, balanceLedger, tradePositions, tradeRewardReservations, tradeLifecycleEvents, users, missedOpportunities, v5AuditEvents } from "../drizzle/schema";
+import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPopupEvents, balanceLedger, stakePositions, tradePositions, tradeRewardReservations, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
@@ -120,6 +120,14 @@ export async function getTicketUploadPolicy() {
   );
 }
 
+/** Stable, non-reversible account tombstone key. It stores no external OAuth identifier. */
+function closedAccountIdentityKey(openId: string): string | null {
+  const secret = ENV.cookieSecret;
+  if (!secret) return null;
+  const digest = crypto.createHmac("sha256", secret).update(openId).digest("hex").slice(0, 57);
+  return `closed:${digest}`;
+}
+
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
     throw new Error("User openId is required for upsert");
@@ -169,8 +177,22 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
-      set: updateSet,
+    const tombstoneKey = closedAccountIdentityKey(user.openId);
+    await db.transaction(async (tx) => {
+      // Serialize OAuth upserts against account closure and block recreation after closure.
+      if (tombstoneKey) {
+        const closedIdentity = (await tx.select({ id: users.id, loginMethod: users.loginMethod })
+          .from(users).where(eq(users.openId, tombstoneKey)).limit(1).for("update"))[0];
+        if (closedIdentity?.loginMethod === "closed") {
+          throw new Error("This account has been permanently closed and cannot be recreated.");
+        }
+      }
+      const existing = (await tx.select({ id: users.id, loginMethod: users.loginMethod })
+        .from(users).where(eq(users.openId, user.openId)).limit(1).for("update"))[0];
+      if (existing?.loginMethod === "closed") {
+        throw new Error("This account has been permanently closed and cannot be recreated.");
+      }
+      await tx.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
     });
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
@@ -205,8 +227,13 @@ export async function getUserByOpenId(openId: string) {
   }
 
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  if (result.length > 0) return result[0];
 
-  return result.length > 0 ? result[0] : undefined;
+  // Resolve a closed identity to its anonymized tombstone so OAuth cannot auto-provision it again.
+  const tombstoneKey = closedAccountIdentityKey(openId);
+  if (!tombstoneKey) return undefined;
+  const tombstone = await db.select().from(users).where(eq(users.openId, tombstoneKey)).limit(1);
+  return tombstone[0]?.loginMethod === "closed" ? tombstone[0] : undefined;
 }
 
 // TODO: add feature queries here as your schema grows.
@@ -250,6 +277,76 @@ export async function createTicket(userId:number,input:{subject:string;body:stri
   return {ticketId,ticketNumber};
  }
 export async function listCustomerTickets(userId:number) { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(supportTickets).where(eq(supportTickets.customerId,userId)).orderBy(desc(supportTickets.updatedAt)); }
+export const ACCOUNT_CLOSURE_TICKET_SUBJECT = "Account closure request — administrator review required";
+export type AccountClosureReason = "not-using" | "experience" | "fees" | "privacy" | "support";
+
+export async function createAccountClosureTicket(userId: number, reasons: AccountClosureReason[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const labels: Record<AccountClosureReason, string> = {
+    "not-using": "I no longer use the platform",
+    experience: "The platform experience did not meet my expectations",
+    fees: "Costs, fees, or available features",
+    privacy: "Privacy or account-security concerns",
+    support: "Customer support or another reason",
+  };
+  const body = [
+    "ACCOUNT CLOSURE REQUEST — CUSTOMER SUBMISSION", "",
+    "The customer is requesting account closure. This ticket requests administrator review only and does not close or delete the account.", "",
+    "Selected reasons:",
+    ...reasons.map((reason) => `- ${labels[reason]}`), "",
+    "Customer acknowledgments:",
+    "- I understand that my account remains active until an authorized administrator reviews and approves this request.",
+    "- I understand that personal information eligible for deletion may be deleted or anonymized, while records may be retained where required for legal, regulatory, security, accounting, fraud-prevention, audit, dispute-resolution, or financial-recordkeeping obligations.",
+    "- I understand that closure may be irreversible and can remove access to account services and eligible account history.", "",
+    "The customer explicitly acknowledged the closure disclosure. The administrator must record an explicit approve/reject decision. Ticket creation alone must never trigger deletion.",
+  ].join("\n");
+  const created = await db.transaction(async (tx) => {
+    // Lock the account row so multiple tabs cannot create duplicate pending cases.
+    const user = (await tx.select({ id: users.id, role: users.role, loginMethod: users.loginMethod })
+      .from(users).where(eq(users.id, userId)).limit(1).for("update"))[0];
+    if (!user || user.role !== "user" || user.loginMethod === "closed") {
+      throw new Error("Only an active customer account can request closure.");
+    }
+    const pending = (await tx.select({
+      id: supportTickets.id, ticketNumber: supportTickets.ticketNumber,
+    }).from(supportTickets).where(and(
+      eq(supportTickets.customerId, userId),
+      eq(supportTickets.subject, ACCOUNT_CLOSURE_TICKET_SUBJECT),
+      inArray(supportTickets.status, ["open", "answered"]),
+    )).limit(1).for("update"))[0];
+    if (pending) return { ...pending, alreadyPending: true };
+
+    const ticketNumber = `ARB-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+    const inserted = await tx.insert(supportTickets).values({
+      ticketNumber, customerId: userId, subject: ACCOUNT_CLOSURE_TICKET_SUBJECT,
+      category: "account", priority: "high",
+    });
+    const ticketId = Number(inserted[0].insertId);
+    await tx.insert(supportMessages).values({ ticketId, authorId: userId, body });
+    return { ticketId, ticketNumber, alreadyPending: false };
+  });
+  if (created.alreadyPending) return created;
+
+  // Notifications are best-effort after commit; they cannot lose the persisted request.
+  try {
+    const admins = await db.select({ id: users.id }).from(users).where(eq(users.role, "admin"));
+    const results = await Promise.allSettled([
+      ...admins.map((admin) => createNotification(admin.id, "Account closure request", `${created.ticketNumber}: A customer requested account closure and needs an explicit review decision.`, {
+        eventKey: `account-closure-request:${created.ticketId}:admin:${admin.id}`, category: "support", priority: "high",
+      })),
+      createNotification(userId, "Account closure request received", `${created.ticketNumber}: Your request is awaiting administrator review. Your account remains active.`, {
+        eventKey: `account-closure-request:${created.ticketId}:customer`, category: "support", priority: "high",
+      }),
+    ]);
+    if (results.some((result) => result.status === "rejected")) console.error("[AccountClosure] A request notification failed after the ticket was persisted.");
+  } catch (error) {
+    console.error("[AccountClosure] Request notifications failed:", error instanceof Error ? error.name : "UnknownError");
+  }
+  return created;
+}
+
+
 export async function listAllTickets() { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select({id:supportTickets.id,ticketNumber:supportTickets.ticketNumber,customerId:supportTickets.customerId,assignedAdminId:supportTickets.assignedAdminId,subject:supportTickets.subject,category:supportTickets.category,priority:supportTickets.priority,status:supportTickets.status,createdAt:supportTickets.createdAt,updatedAt:supportTickets.updatedAt,customerName:users.name,customerEmail:users.email}).from(supportTickets).leftJoin(users,eq(users.id,supportTickets.customerId)).orderBy(desc(supportTickets.updatedAt)); }
 export async function listSupportAssignees() { const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select({id:users.id,name:users.name,email:users.email}).from(users).where(eq(users.role,"admin")).orderBy(users.id); }
 export async function assignSupportTicket(actorId:number,ticketId:number,assignedAdminId:number|null) {
@@ -1483,6 +1580,161 @@ export async function listAdminCustomers(){
 export async function createAdminCustomer(input:{name:string;email:string;password:string;packageName:string}){const db=await getDb();if(!db)throw new Error("Database is not available");const email=input.email.trim().toLowerCase();if(!(await listOpportunityPackagePolicies()).some(p=>p.packageName===input.packageName&&p.enabled))throw new Error("Package is not configured or enabled");if(input.password.length<10)throw new Error("Customer password must be at least 10 characters");const existing=(await db.select({id:users.id}).from(users).where(eq(users.email,email)).limit(1))[0];if(existing)throw new Error("A customer with this email already exists");const salt=crypto.randomBytes(16).toString("hex");const digest=crypto.scryptSync(input.password,salt,32).toString("hex");const result=await db.insert(users).values({openId:`local:customer:${crypto.randomUUID()}`,name:input.name.trim(),email,loginMethod:"password",role:"user",passwordHash:`scrypt$${salt}$${digest}`,packageName:input.packageName});const id=Number(result[0].insertId);await db.insert(customerControls).values({userId:id});return {id,email,name:input.name.trim(),packageName:input.packageName};}
 export async function updateAdminCustomer(input:{id:number;name:string;email:string;packageName:string}){const db=await getDb();if(!db)throw new Error("Database is not available");const email=input.email.trim().toLowerCase();if(!(await listOpportunityPackagePolicies()).some(p=>p.packageName===input.packageName&&p.enabled))throw new Error("Package is not configured or enabled");const existing=(await db.select({id:users.id}).from(users).where(eq(users.email,email)).limit(1))[0];if(existing&&existing.id!==input.id)throw new Error("That email is already used by another account");await db.update(users).set({name:input.name.trim(),email,packageName:input.packageName}).where(and(eq(users.id,input.id),eq(users.role,"user")));return {success:true};}
 export async function updateCustomerControls(adminId:number,input:{userId:number;accountStatus?:"active"|"suspended"|"restricted";tradingEnabled?:boolean;opportunitiesEnabled?:boolean;autoTradeEnabled?:boolean;autoTradeMode?:"inherit"|"enabled"|"disabled";autoTradeAmountMinor?:number;autoTradeMinRewardBps?:number;autoTradeDailyLimit?:number;withdrawalsEnabled?:boolean;kycRequired?:boolean;twoFactorRequired?:boolean;emailVerified?:boolean;riskTier?:string;dailyTradeLimitMinor?:number;adminNote?:string}){const db=await getDb();if(!db)throw new Error("Database is not available");const existing=(await db.select().from(customerControls).where(eq(customerControls.userId,input.userId)).limit(1))[0];const values:any={...input};delete values.userId;if(values.autoTradeEnabled!==undefined&&values.autoTradeMode===undefined) values.autoTradeMode=values.autoTradeEnabled?"enabled":"disabled";if(existing)await db.update(customerControls).set({...values,updatedBy:adminId}).where(eq(customerControls.userId,input.userId));else await db.insert(customerControls).values({userId:input.userId,updatedBy:adminId,...values});return {success:true};}
+export type AccountClosureDecision = "approve" | "reject";
+export class AccountClosureDecisionError extends Error {
+  constructor(message: string) { super(message); this.name = "AccountClosureDecisionError"; }
+}
+
+function nonZeroWalletAmount(value: string | number | null | undefined): boolean {
+  const normalized = String(value ?? "0").trim().replace(/^[+-]/, "");
+  if (!normalized) return false;
+  if (!/^\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(normalized)) return true;
+  return /[1-9]/.test(normalized.split(/[eE]/)[0] ?? "0");
+}
+
+/** An explicit, audited decision. Approval anonymizes direct identity but preserves financial/audit records. */
+export async function applyAccountClosureDecision(adminId: number, input: { ticketId: number; decision: AccountClosureDecision; reason: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  if (!ENV.cookieSecret) throw new AccountClosureDecisionError("Account closure requires the configured session-signing secret.");
+
+  return db.transaction(async (tx) => {
+    const snapshot = (await tx.select({ customerId: supportTickets.customerId })
+      .from(supportTickets).where(eq(supportTickets.id, input.ticketId)).limit(1))[0];
+    if (!snapshot) throw new AccountClosureDecisionError("The account-closure ticket was not found.");
+
+    // Use one lock order (account, then ticket) for request and decision operations.
+    const user = (await tx.select().from(users).where(eq(users.id, snapshot.customerId)).limit(1).for("update"))[0];
+    const ticket = (await tx.select().from(supportTickets).where(eq(supportTickets.id, input.ticketId)).limit(1).for("update"))[0];
+    if (!ticket || ticket.customerId !== snapshot.customerId || ticket.subject !== ACCOUNT_CLOSURE_TICKET_SUBJECT || ticket.category !== "account") {
+      throw new AccountClosureDecisionError("This ticket is not a valid account-closure request.");
+    }
+    if (!user || user.role !== "user" || user.loginMethod === "closed") {
+      throw new AccountClosureDecisionError("The customer account is no longer eligible for a closure decision.");
+    }
+    if (ticket.status !== "open" && ticket.status !== "answered") {
+      throw new AccountClosureDecisionError("This account-closure request has already been decided. Submit a new request if another review is needed.");
+    }
+
+    if (input.decision === "reject") {
+      await tx.insert(supportMessages).values({
+        ticketId: ticket.id, authorId: adminId,
+        body: `ACCOUNT CLOSURE REQUEST REJECTED\n\nAdministrator review: ${input.reason.trim()}\n\nThe customer account remains open. The customer may contact support if further clarification is needed.`,
+      });
+      await tx.update(supportTickets).set({ status: "closed" }).where(eq(supportTickets.id, ticket.id));
+      await tx.insert(v5AuditEvents).values({
+        actorUserId: adminId, action: "ACCOUNT_CLOSURE_REJECTED", entityType: "customer_account",
+        entityId: String(user.id), reason: input.reason.trim(), reference: ticket.ticketNumber,
+        metadataJson: JSON.stringify({ ticketId: ticket.id, accountChanged: false }),
+      });
+      return { success: true, decision: input.decision, ticketId: ticket.id, ticketNumber: ticket.ticketNumber, customerId: user.id };
+    }
+
+    const otherActiveSupport = (await tx.select({ id: supportTickets.id }).from(supportTickets).where(and(
+      eq(supportTickets.customerId, user.id), inArray(supportTickets.status, ["open", "answered"]),
+      sql`${supportTickets.id} <> ${ticket.id}`,
+    )).limit(1).for("update"))[0];
+    if (otherActiveSupport) throw new AccountClosureDecisionError("Resolve or close the customer's other open support cases before approving account closure.");
+
+    const pendingPayout = (await tx.select({ id: payoutRequests.id }).from(payoutRequests).where(and(
+      eq(payoutRequests.userId, user.id), eq(payoutRequests.status, "pending"),
+    )).limit(1).for("update"))[0];
+    if (pendingPayout) throw new AccountClosureDecisionError("Resolve or cancel pending payout requests before approving account closure.");
+
+    const activeTrade = (await tx.select({ id: tradePositions.id }).from(tradePositions).where(and(
+      eq(tradePositions.userId, user.id), inArray(tradePositions.status, ["pending", "confirmed"]),
+    )).limit(1).for("update"))[0];
+    if (activeTrade) throw new AccountClosureDecisionError("Resolve all pending trading positions before approving account closure.");
+
+    const activeStake = (await tx.select({ id: stakePositions.id }).from(stakePositions).where(and(
+      eq(stakePositions.userId, user.id),
+      inArray(stakePositions.status, ["PENDING", "PROCESSING", "ACTIVE", "REWARD_ACCRUING", "SETTLING"]),
+    )).limit(1).for("update"))[0];
+    if (activeStake) throw new AccountClosureDecisionError("Complete or cancel active staking positions before approving account closure.");
+
+    const activeSubscription = (await tx.select({ id: customerPackageSubscriptions.id }).from(customerPackageSubscriptions).where(and(
+      eq(customerPackageSubscriptions.userId, user.id), eq(customerPackageSubscriptions.status, "active"),
+    )).limit(1).for("update"))[0];
+    if (activeSubscription) throw new AccountClosureDecisionError("Resolve the customer's active package subscription before approving account closure.");
+
+    const balances = await tx.select().from(customerBalances).where(eq(customerBalances.userId, user.id)).for("update");
+    if (balances.some((balance) => [balance.availableMinor, balance.lockedMinor, balance.promotionalMinor, balance.earnedMinor].some((amount) => Number(amount) !== 0))) {
+      throw new AccountClosureDecisionError("The customer has a non-zero wallet balance. Resolve or transfer funds before approving account closure.");
+    }
+    const digitalBalances = await tx.select().from(v5Wallets).where(eq(v5Wallets.userId, user.id)).for("update");
+    if (digitalBalances.some((wallet) => [wallet.availableAmount, wallet.lockedAmount, wallet.pendingAmount].some(nonZeroWalletAmount))) {
+      throw new AccountClosureDecisionError("The customer has a non-zero digital-asset balance. Resolve or transfer funds before approving account closure.");
+    }
+
+    const tombstoneOpenId = closedAccountIdentityKey(user.openId);
+    if (!tombstoneOpenId) throw new AccountClosureDecisionError("The account cannot be safely anonymized because the identity-protection secret is unavailable.");
+
+    const existingControls = (await tx.select({ userId: customerControls.userId }).from(customerControls)
+      .where(eq(customerControls.userId, user.id)).limit(1).for("update"))[0];
+    const closedControls = {
+      accountStatus: "restricted" as const, tradingEnabled: false, opportunitiesEnabled: false,
+      autoTradeEnabled: false, autoTradeMode: "disabled" as const, withdrawalsEnabled: false, updatedBy: adminId,
+    };
+    if (existingControls) await tx.update(customerControls).set(closedControls).where(eq(customerControls.userId, user.id));
+    else await tx.insert(customerControls).values({ userId: user.id, ...closedControls });
+
+    await tx.insert(supportMessages).values({
+      ticketId: ticket.id, authorId: adminId,
+      body: `ACCOUNT CLOSURE APPROVED\n\nThe administrator approved this request. Authentication was revoked and direct account-identifying profile fields were anonymized. Financial ledger, transaction references, and audit records remain retained where needed for compliance and dispute resolution.\n\nAdministrative decision: ${input.reason.trim()}`,
+    });
+
+    // Remove authentication secrets, device/IP history, preferences, and customer notifications.
+    // Monetary ledgers, balances, completed transactions, KYC/compliance and audit records are retained.
+    await tx.delete(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId, user.id));
+    await tx.delete(customerSessions).where(eq(customerSessions.userId, user.id));
+    await tx.delete(customerWalletPreferences).where(eq(customerWalletPreferences.userId, user.id));
+    await tx.delete(customerOpportunityRules).where(eq(customerOpportunityRules.userId, user.id));
+    await tx.delete(customerEmailPreferences).where(eq(customerEmailPreferences.userId, user.id));
+    await tx.delete(authEmailTokens).where(eq(authEmailTokens.userId, user.id));
+    await tx.delete(customerNotifications).where(eq(customerNotifications.userId, user.id));
+
+    if (user.email) {
+      await tx.update(emailOutbox).set({
+        recipient: `closed-account-${user.id}@invalid.example`,
+        encryptedPayload: "[REDACTED — ACCOUNT CLOSED]",
+        status: "FAILED", leaseUntil: null, lastError: "Cancelled and redacted after account closure",
+        providerMessageId: null, sentAt: null,
+      }).where(eq(emailOutbox.recipient, user.email));
+    }
+
+    const customerTickets = await tx.select({ id: supportTickets.id }).from(supportTickets)
+      .where(eq(supportTickets.customerId, user.id)).for("update");
+    const ticketIds = customerTickets.map((row) => row.id);
+    for (const oldTicketId of ticketIds.filter((id) => id !== ticket.id)) {
+      await tx.update(supportMessages).set({
+        body: "[Conversation content redacted following approved account closure; ticket metadata retained for audit and dispute resolution.]",
+      }).where(eq(supportMessages.ticketId, oldTicketId));
+      await tx.update(supportTickets).set({
+        subject: "Closed account support record", status: "closed", assignedAdminId: null,
+      }).where(eq(supportTickets.id, oldTicketId));
+    }
+    await tx.update(supportMessages).set({
+      body: "[Customer closure-request details redacted following approval. Decision metadata is retained in the administrative audit trail.]",
+    }).where(and(eq(supportMessages.ticketId, ticket.id), eq(supportMessages.authorId, user.id)));
+
+    await tx.update(users).set({
+      openId: tombstoneOpenId, name: null, email: null, loginMethod: "closed",
+      passwordHash: null, reportingTimezone: null, authVersion: sql`${users.authVersion} + 1`,
+    }).where(and(eq(users.id, user.id), eq(users.role, "user")));
+    await tx.update(supportTickets).set({ status: "closed" }).where(eq(supportTickets.id, ticket.id));
+    await tx.insert(v5AuditEvents).values({
+      actorUserId: adminId, action: "ACCOUNT_CLOSURE_APPROVED", entityType: "customer_account",
+      entityId: String(user.id), reason: input.reason.trim(), reference: ticket.ticketNumber,
+      metadataJson: JSON.stringify({
+        ticketId: ticket.id, directProfileAnonymized: true, authVersionIncremented: true,
+        walletAndFinancialLedgersPreserved: true,
+        supportAttachmentObjectsRetainedForProviderSpecificReview: true,
+      }),
+    });
+    return { success: true, decision: input.decision, ticketId: ticket.id, ticketNumber: ticket.ticketNumber, customerId: user.id };
+  });
+}
+
 export async function deleteAdminCustomer(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");await db.transaction(async tx=>{
   // Serialize account deletion against payout creation, which locks this same user row.
   await tx.select({id:users.id}).from(users).where(eq(users.id,userId)).limit(1).for("update");

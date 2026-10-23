@@ -303,6 +303,12 @@ class SDKServer {
     const signedInAt = new Date();
     let user = await db.getUserByOpenId(sessionUserId);
 
+    // A closed identity resolves to an anonymized tombstone. Never re-provision it
+    // from upstream OAuth or issue a fresh session for that identity.
+    if (user?.loginMethod === "closed" || user?.openId.startsWith("closed:")) {
+      throw ForbiddenError("This account has been permanently closed.");
+    }
+
     // If user not in DB, sync from OAuth server automatically
     if (!user) {
       try {
