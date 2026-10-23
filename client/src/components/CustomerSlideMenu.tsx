@@ -12,25 +12,12 @@ type CustomerDestinationGroup = { label: string; detail: string; items: Customer
 
 const destinationGroups: CustomerDestinationGroup[] = [
   {
-    label: "Main navigation",
-    detail: "Primary customer pages",
-    items: [
-      { label: "Dashboard", detail: "Account overview and activity summary", target: "dashboard", icon: Home },
-      { label: "Wallet", detail: "Balances, funding, withdrawals and conversions", target: "wallet", icon: WalletCards },
-      { label: "Opportunities", detail: "Review current market opportunities", target: "opportunities", icon: ArrowDownUp },
-      { label: "Activity", detail: "Account and transaction history", target: "activity", icon: Activity },
-      { label: "Crypto Mining", detail: "Mining package and simulated engine", target: "crypto-mining", icon: Cpu },
-      { label: "Yield Strategies", detail: "Explore yield and staking products", target: "yield", icon: Sparkles },
-      { label: "Support", detail: "Help and customer support", target: "support", icon: Headphones },
-      { label: "Account Settings", detail: "Profile, security and preferences", target: "account", icon: LockKeyhole },
-    ],
-  },
-  {
     label: "Core Workspace",
-    detail: "Live account operating tools",
+    detail: "Account tools and personal settings",
     items: [
       { label: "Power tools", detail: "Risk reports, sessions and support tools", target: "advanced", icon: Sparkles },
       { label: "Portfolio intelligence", detail: "Allocation health and signal quality", target: "intelligence", icon: BarChart3 },
+      { label: "Account Settings", detail: "Profile, security and preferences", target: "account", icon: LockKeyhole },
     ],
   },
   {
