@@ -34,9 +34,9 @@ const migrationFiles = [
   "0061_customer_totp_recovery_codes.sql",
   "0062_privacy_center.sql",
 ];
-// These tables are also created by the main Drizzle migration chain before this
-// portal-specific runner starts. Their presence alone therefore cannot prove that
-// portal migrations were partially applied without a tracker.
+// These tables are schema-baseline indicators for first-time portal migration tracking.
+// Some also belong to the main Drizzle chain; none of them alone proves that a
+// particular portal migration has been fully applied without a trusted tracker record.
 const targetTables = [
   "kyc_settings", "kyc_profiles", "password_reset_tokens", "admin_email_messages",
   "mining_economics_versions", "mining_packages", "mining_customer_packages", "payout_requests", "customer_totp_authenticators",
