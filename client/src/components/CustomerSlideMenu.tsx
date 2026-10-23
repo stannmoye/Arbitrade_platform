@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { trpc } from "@/lib/trpc";
 import { createPortal } from "react-dom";
 import {
   Activity, ArrowDownUp, BarChart3, BookMarked, BookOpen, CircleHelp, Coins, Cpu, FileText,
@@ -68,12 +69,40 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLElement | null>(null);
   const active = destinations.find((item) => item.target === section);
+  const shouldSearchRecords = open && query.trim().length >= 2;
+  const tradesQuery = trpc.customer.trades.useQuery(undefined, { enabled: shouldSearchRecords, staleTime: 15_000 });
+  const consoleQuery = trpc.customer.transactionConsole.useQuery(undefined, { enabled: shouldSearchRecords, staleTime: 15_000 });
+  const payoutQuery = trpc.customer.payoutRequests.useQuery(undefined, { enabled: shouldSearchRecords, staleTime: 15_000 });
+  const ticketQuery = trpc.customer.tickets.useQuery(undefined, { enabled: shouldSearchRecords, staleTime: 15_000 });
   const activeLabel = active?.label || primaryLabels[section] || "Customer workspace";
   const normalizedQuery = query.trim().toLowerCase();
   const filteredGroups = destinationGroups.map((group) => ({
     ...group,
     items: group.items.filter((item) => `${item.label} ${item.detail}`.toLowerCase().includes(normalizedQuery)),
   })).filter((group) => group.items.length > 0);
+  const recordMatches = useMemo(() => {
+    if (normalizedQuery.length < 2) return [];
+    const collections: Array<{ kind: string; rows: any[]; target: string }> = [
+      { kind: "Transaction", rows: Array.isArray(tradesQuery.data) ? tradesQuery.data as any[] : [], target: "activity" },
+      { kind: "Transaction activity", rows: Array.isArray(consoleQuery.data) ? consoleQuery.data as any[] : [], target: "activity" },
+      { kind: "Withdrawal request", rows: Array.isArray(payoutQuery.data) ? payoutQuery.data as any[] : [], target: "wallet" },
+      { kind: "Support ticket", rows: Array.isArray(ticketQuery.data) ? ticketQuery.data as any[] : [], target: "support" },
+    ];
+    return collections.flatMap(({ kind, rows, target }) => rows.filter((row) => {
+      const searchable = Object.entries(row || {}).filter(([key, value]) =>
+        !/email|phone|address|metadata|message|body|token|secret|password/i.test(key) &&
+        ["string", "number"].includes(typeof value)
+      ).map(([key, value]) => `${key} ${String(value)}`).join(" ").toLowerCase();
+      return searchable.includes(normalizedQuery);
+    }).slice(0, 5).map((row) => {
+      const id = row.transactionCode ?? row.reference ?? row.ticketNumber ?? row.id ?? row.tradeId ?? "Record";
+      const description = row.title ?? row.subject ?? row.symbol ?? row.currency ?? row.asset ?? kind;
+      const status = row.status ? ` · ${String(row.status)}` : "";
+      return { kind, id: String(id), description: String(description), status, target, key: `${kind}:${String(id)}` };
+    })).slice(0, 10);
+  }, [normalizedQuery, tradesQuery.data, consoleQuery.data, payoutQuery.data, ticketQuery.data]);
+  const recordSearchLoading = shouldSearchRecords && [tradesQuery, consoleQuery, payoutQuery, ticketQuery].some((item) => item.isLoading);
+  const recordSearchFailed = shouldSearchRecords && [tradesQuery, consoleQuery, payoutQuery, ticketQuery].every((item) => item.isError);
 
   useEffect(() => {
     if (!open) return;
@@ -115,6 +144,13 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
       <nav className="admin-slide-nav quick-actions-nav customer-resource-nav" aria-label="Customer pages and resources">
         {filteredGroups.map((group) => <section className="admin-slide-group customer-resource-group" key={group.label}><div className="admin-slide-group-title"><span>{group.label}</span><small>{group.detail}</small><i /></div><div className="admin-slide-items">{group.items.map(renderItem)}</div></section>)}
         {!filteredGroups.length && <div className="customer-resource-empty" role="status" aria-live="polite">No pages or resources match “{query}”.</div>}
+        {normalizedQuery.length >= 2 && <section className="customer-resource-group customer-search-records" aria-label="Matching account records">
+          <div className="admin-slide-group-title"><span>Account records</span><small>Private records for your signed-in account</small><i /></div>
+          {recordSearchLoading && <div className="customer-resource-empty" role="status">Searching account records…</div>}
+          {recordSearchFailed && <div className="customer-resource-empty" role="status">Account records could not be searched right now. Please retry in a moment.</div>}
+          {!recordSearchLoading && !recordSearchFailed && recordMatches.map((match) => <button key={match.key} type="button" className="admin-slide-item customer-search-result" tabIndex={open ? 0 : -1} onClick={() => navigate(match.target)}><span className="admin-slide-item-icon"><Search size={16} /></span><span className="admin-slide-item-copy"><strong>{match.description}</strong><small>{match.kind} · {match.id}{match.status}</small></span><span className="admin-slide-item-arrow">→</span></button>)}
+          {!recordSearchLoading && !recordSearchFailed && !recordMatches.length && <div className="customer-resource-empty" role="status" aria-live="polite">No matching account records found.</div>}
+        </section>}
       </nav>
       <div className="admin-slide-footer"><div className="quick-actions-status"><span><span className="quick-actions-status-dot" /> Customer workspace</span><strong>Connected</strong><small>Database-backed customer portal</small></div><div className="admin-slide-footer-note">Open a destination to switch customer pages. Items marked Planned are not live offerings.</div></div>
     </aside>
