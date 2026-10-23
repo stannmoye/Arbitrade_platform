@@ -277,6 +277,21 @@ export const opportunityPopupDaily = mysqlTable("opportunity_popup_daily", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const customerApiKeys = mysqlTable("customer_api_keys", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 80 }).notNull(),
+  keyPrefix: varchar("keyPrefix", { length: 24 }).notNull(),
+  keyHash: varchar("keyHash", { length: 64 }).notNull().unique(),
+  scopesJson: text("scopesJson").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  lastUsedAt: timestamp("lastUsedAt"),
+  revokedAt: timestamp("revokedAt"),
+}, (table) => ({
+  userCreatedIndex: index("customer_api_keys_user_created_idx").on(table.userId, table.createdAt, table.id),
+  userRevokedIndex: index("customer_api_keys_user_revoked_idx").on(table.userId, table.revokedAt),
+}));
+
 export const appSettings = mysqlTable("app_settings", {
   id: int("id").autoincrement().primaryKey(),
   settingKey: varchar("settingKey", { length: 120 }).notNull().unique(),
