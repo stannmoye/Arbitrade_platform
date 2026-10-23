@@ -269,32 +269,35 @@ export async function verifyCustomerWhatsAppNumber(userId: number, code: string)
   const db = await getDb();
   if (!db) throw new Error("Database is not available.");
   if (!/^\\d{6}$/.test(code)) throw new Error("Enter the six-digit verification code.");
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const row = (await tx.select().from(customerApiNotificationPreferences)
       .where(eq(customerApiNotificationPreferences.userId, userId)).limit(1).for("update"))[0];
-    if (!row?.whatsappNumber || !row.whatsappOptIn) throw new Error("Save and enable a WhatsApp number before verifying it.");
-    if (row.whatsappVerifiedAt) return { success: true, alreadyVerified: true };
+    if (!row?.whatsappNumber || !row.whatsappOptIn) return { error: "Save and enable a WhatsApp number before verifying it." };
+    if (row.whatsappVerifiedAt) return { success: true as const, alreadyVerified: true };
     if (!row.whatsappVerificationCodeHash || !row.whatsappVerificationExpiresAt
       || row.whatsappVerificationExpiresAt.getTime() <= Date.now()) {
-      throw new Error("The code is missing or expired. Request a new verification code.");
+      return { error: "The code is missing or expired. Request a new verification code." };
     }
-    if (row.whatsappVerificationAttempts >= 5) throw new Error("Too many attempts. Request a fresh code later.");
+    if (row.whatsappVerificationAttempts >= 5) return { error: "Too many attempts. Request a fresh code later." };
     const expected = Buffer.from(row.whatsappVerificationCodeHash, "hex");
     const actual = Buffer.from(verificationHash(userId, code), "hex");
     if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
       await tx.update(customerApiNotificationPreferences).set({
         whatsappVerificationAttempts: row.whatsappVerificationAttempts + 1,
       }).where(eq(customerApiNotificationPreferences.id, row.id));
-      throw new Error("The verification code is incorrect.");
+      return { error: "The verification code is incorrect." };
     }
+    const verifiedAt = new Date();
     await tx.update(customerApiNotificationPreferences).set({
-      whatsappVerifiedAt: new Date(),
+      whatsappVerifiedAt: verifiedAt,
       whatsappVerificationCodeHash: null,
       whatsappVerificationExpiresAt: null,
       whatsappVerificationAttempts: 0,
     }).where(eq(customerApiNotificationPreferences.id, row.id));
-    return { success: true, alreadyVerified: false, verifiedAt: new Date().toISOString() };
+    return { success: true as const, alreadyVerified: false, verifiedAt: verifiedAt.toISOString() };
   });
+  if ("error" in result) throw new Error(result.error);
+  return result;
 }
 
 export async function listCustomerApiWebhooks(userId: number) {
