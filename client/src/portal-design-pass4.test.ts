@@ -114,3 +114,37 @@ describe("customer left Settings navigation layout recovery", () => {
     expect(themeCss).toContain('var(--arb-color-surface)');
   });
 });
+
+describe("original customer left Settings menu recovery", () => {
+  it("keeps the release ZIP's in-shell rail and fixed desktop layout", () => {
+    expect(appSource).not.toContain('id="customer-left-menu-portal-host"');
+    expect(appSource).toContain('className="portal-rail customer-primary-rail"');
+    expect(appSource).toContain('className="customer-primary-menu-scrim"');
+    expect(appSource).toContain('className={`portal-body ${mobilePrimaryMenuOpen?"customer-primary-menu-open":""}`}');
+    expect(customerReferenceCss).toContain("position:fixed!important;z-index:50!important;top:66px!important;bottom:0!important;left:0!important;width:194px!important");
+  });
+
+  it("uses a left-slide fallback without the mobile compositor-risk combination", () => {
+    const recoveryStart = customerReferenceCss.indexOf("Customer LEFT Settings menu recovery for Android / narrow tablet WebViews");
+    expect(recoveryStart).toBeGreaterThan(-1);
+    const recoveryCss = customerReferenceCss.slice(recoveryStart);
+    expect(recoveryCss).toContain("@media (max-width: 900px)");
+    expect(recoveryCss).toContain("left: -105vw !important;");
+    expect(recoveryCss).toContain("left: 0 !important;");
+    expect(recoveryCss).toContain("transform: none !important;");
+    expect(recoveryCss).toContain("clip-path: none !important;");
+    expect(recoveryCss).toContain("filter: none !important;");
+    expect(recoveryCss).toContain(":root[data-arb-theme] .customer-portal .portal-body .customer-primary-rail");
+    expect(recoveryCss).toContain("z-index: 82 !important;");
+    expect(recoveryCss).toContain("left: 0 !important;");
+    expect(recoveryCss).toContain("visibility: hidden !important;");
+    expect(recoveryCss).toContain("visibility: visible !important;");
+  });
+
+  it("leaves semantic theme colors and the slide-button appearance to the current theme styles", () => {
+    expect(themeCss).toContain(":root[data-arb-theme] .customer-portal .customer-primary-rail");
+    expect(themeCss).toContain("var(--arb-color-surface)");
+    expect(themeCss).toContain("var(--arb-color-accent)");
+    expect(customerReferenceCss).toContain(".customer-portal .customer-settings-trigger");
+  });
+});

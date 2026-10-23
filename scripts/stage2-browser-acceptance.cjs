@@ -1334,74 +1334,131 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         passed: customerMainVisible,
       });
 
-      // The left-side SETTINGS rail is a separate component from the right-side
-      // customer resources drawer. Test its actual mobile opening/rendering path.
-      await page.setViewportSize({ width: 390, height: 844 });
-      const customerOverlayIsolation = await page.evaluate(() => {
-        const host = document.querySelector("#customer-left-menu-portal-host");
-        const layer = host?.querySelector(".portal-body");
+      // The left-side SETTINGS rail uses the release ZIP's original in-shell layout.
+      // Keep this check separate from the right-side customer resources drawer.
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.waitForFunction(() => {
+        const shell = document.querySelector(".customer-portal");
+        const rail = shell?.querySelector(":scope > .portal-body .customer-primary-rail");
+        if (!(shell instanceof HTMLElement) || !(rail instanceof HTMLElement)) return false;
+        const rect = rail.getBoundingClientRect();
+        const style = getComputedStyle(rail);
+        return style.position === "fixed" && style.display !== "none" &&
+          Math.abs(rect.left) <= 1 && Math.abs(rect.width - 194) <= 2;
+      }, { timeout: 10000 });
+      const customerDesktopRail = await page.evaluate(() => {
+        const shell = document.querySelector(".customer-portal");
+        const layer = shell?.querySelector(":scope > .portal-body");
         const rail = layer?.querySelector(".customer-primary-rail");
-        if (!(host instanceof HTMLElement) || !(layer instanceof HTMLElement) || !(rail instanceof HTMLElement)) {
-          return { hostPresent: Boolean(host), hostHasPageShellClass: host?.classList.contains("customer-portal") ?? true, pointerEvents: "missing", layerWidth: -1, layerHeight: -1, railVisibility: "missing" };
+        if (!(shell instanceof HTMLElement) || !(layer instanceof HTMLElement) || !(rail instanceof HTMLElement)) {
+          return { shellPresent: Boolean(shell), railInShell: false, position: "missing", left: -1, width: -1, visible: false };
         }
-        const hostStyle = getComputedStyle(host);
-        const layerStyle = getComputedStyle(layer);
-        const railStyle = getComputedStyle(rail);
+        const rect = rail.getBoundingClientRect();
+        const style = getComputedStyle(rail);
         return {
-          hostPresent: true,
-          hostHasPageShellClass: host.classList.contains("customer-portal"),
-          pointerEvents: hostStyle.pointerEvents,
-          hostBackground: hostStyle.backgroundColor,
-          layerWidth: layer.getBoundingClientRect().width,
-          layerHeight: layer.getBoundingClientRect().height,
-          railVisibility: railStyle.visibility,
-          railOpacity: Number(railStyle.opacity),
-          closed: !layer.classList.contains("customer-primary-menu-open"),
+          shellPresent: true,
+          railInShell: rail.closest(".customer-portal") === shell && rail.parentElement === layer,
+          position: style.position,
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          visible: style.display !== "none" && style.visibility === "visible" &&
+            Number(style.opacity) > 0 && rect.width > 0 && rect.height > 0,
         };
       });
-      const customerOverlayDoesNotCoverPage =
-        customerOverlayIsolation.hostPresent &&
-        !customerOverlayIsolation.hostHasPageShellClass &&
-        customerOverlayIsolation.pointerEvents === "none" &&
-        customerOverlayIsolation.layerWidth === 0 &&
-        customerOverlayIsolation.layerHeight === 0 &&
-        customerOverlayIsolation.closed &&
-        customerOverlayIsolation.railVisibility === "hidden" &&
-        customerOverlayIsolation.railOpacity === 0;
+      checks.push({
+        route: "/customer",
+        routeName: "customer",
+        width: 1440,
+        theme: "runtime-default",
+        check: "customer-left-settings-rail-keeps-original-desktop-position",
+        passed: customerDesktopRail.railInShell && customerDesktopRail.position === "fixed" &&
+          Math.abs(customerDesktopRail.left) <= 1 && Math.abs(customerDesktopRail.width - 194) <= 2 &&
+          customerDesktopRail.visible,
+        ...customerDesktopRail,
+        note: "Checks that the desktop left rail remains fixed inside the customer portal shell at its original width and left edge.",
+      });
+
+      // Closed phone/tablet state: keep the page in flow and the rail entirely off-canvas.
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.waitForFunction(() => {
+        const shell = document.querySelector(".customer-portal");
+        const layer = shell?.querySelector(":scope > .portal-body");
+        const rail = layer?.querySelector(".customer-primary-rail");
+        if (!(shell instanceof HTMLElement) || !(layer instanceof HTMLElement) || !(rail instanceof HTMLElement)) return false;
+        const rect = rail.getBoundingClientRect();
+        const style = getComputedStyle(rail);
+        return !layer.classList.contains("customer-primary-menu-open") &&
+          style.visibility === "hidden" && Number(style.opacity) === 0 &&
+          style.pointerEvents === "none" && rect.right < 0;
+      }, { timeout: 10000 });
+      const customerClosedRail = await page.evaluate(() => {
+        const shell = document.querySelector(".customer-portal");
+        const layer = shell?.querySelector(":scope > .portal-body");
+        const rail = layer?.querySelector(".customer-primary-rail");
+        const main = layer?.querySelector(".portal-main");
+        if (!(shell instanceof HTMLElement) || !(layer instanceof HTMLElement) ||
+            !(rail instanceof HTMLElement) || !(main instanceof HTMLElement)) {
+          return { shellPresent: Boolean(shell), railInShell: false, closed: false, railVisibility: "missing", railOpacity: -1, railPointerEvents: "missing", railRight: 0, pageMainVisible: false };
+        }
+        const railRect = rail.getBoundingClientRect();
+        const railStyle = getComputedStyle(rail);
+        const mainRect = main.getBoundingClientRect();
+        const mainStyle = getComputedStyle(main);
+        return {
+          shellPresent: true,
+          railInShell: rail.closest(".customer-portal") === shell && rail.parentElement === layer,
+          closed: !layer.classList.contains("customer-primary-menu-open"),
+          railVisibility: railStyle.visibility,
+          railOpacity: Number(railStyle.opacity),
+          railPointerEvents: railStyle.pointerEvents,
+          railLeft: railRect.left,
+          railRight: railRect.right,
+          pageMainVisible: mainStyle.display !== "none" && mainStyle.visibility !== "hidden" &&
+            Number(mainStyle.opacity) > 0 && mainRect.width > 0 && mainRect.height > 0,
+        };
+      });
+      const customerClosedRailSafe = customerClosedRail.shellPresent &&
+        customerClosedRail.railInShell && customerClosedRail.closed &&
+        customerClosedRail.railVisibility === "hidden" && customerClosedRail.railOpacity === 0 &&
+        customerClosedRail.railPointerEvents === "none" && customerClosedRail.railRight < 0 &&
+        customerClosedRail.pageMainVisible;
       checks.push({
         route: "/customer",
         routeName: "customer",
         width: 390,
         theme: "runtime-default",
-        check: "customer-settings-overlay-isolated-when-closed",
-        passed: customerOverlayDoesNotCoverPage,
-        ...customerOverlayIsolation,
-        note: "The body-level menu host must not inherit the customer page-shell class or intercept/paint over the page while the Settings rail is closed.",
+        check: "customer-settings-rail-is-off-canvas-with-page-visible-when-closed",
+        passed: customerClosedRailSafe,
+        ...customerClosedRail,
+        note: "Verifies the original rail is hidden off-canvas while the customer main workspace remains visible and interactive.",
       });
 
       const customerLeftSettingsTrigger = page.getByRole("button", { name: "Open Settings" });
       await customerLeftSettingsTrigger.waitFor({ state: "visible", timeout: 10000 });
       await customerLeftSettingsTrigger.click();
       await page.waitForFunction(() => {
-        const host = document.querySelector("#customer-left-menu-portal-host");
-        const layer = host?.querySelector(".portal-body.customer-primary-menu-open");
+        const shell = document.querySelector(".customer-portal");
+        const layer = shell?.querySelector(":scope > .portal-body.customer-primary-menu-open");
         const rail = layer?.querySelector(".customer-primary-rail");
-        if (!(host instanceof HTMLElement) || !(rail instanceof HTMLElement)) return false;
+        if (!(shell instanceof HTMLElement) || !(layer instanceof HTMLElement) || !(rail instanceof HTMLElement)) return false;
         const rect = rail.getBoundingClientRect();
         const style = getComputedStyle(rail);
-        return host.parentElement === document.body &&
-          style.visibility === "visible" && Number(style.opacity) > 0.95 &&
-          style.pointerEvents !== "none" && rect.width > 0 && rect.height > 0 && rect.left >= -1 &&
+        return rail.parentElement === layer && rail.closest(".customer-portal") === shell &&
+          style.position === "fixed" && style.visibility === "visible" &&
+          Number(style.opacity) > 0.95 && style.pointerEvents !== "none" &&
+          Math.abs(rect.left) <= 1 && rect.width > 0 && rect.height > 0 &&
           rect.right <= window.innerWidth + 1;
       }, { timeout: 10000 });
+
       const customerLeftMenuPaint = await page.evaluate(() => {
-        const host = document.querySelector("#customer-left-menu-portal-host");
-        const layer = host?.querySelector(".portal-body.customer-primary-menu-open");
+        const shell = document.querySelector(".customer-portal");
+        const layer = shell?.querySelector(":scope > .portal-body.customer-primary-menu-open");
         const rail = layer?.querySelector(".customer-primary-rail");
         const firstButton = rail?.querySelector('nav[aria-label="Account preferences navigation"] button');
-        if (!(host instanceof HTMLElement) || !(layer instanceof HTMLElement) ||
+        if (!(shell instanceof HTMLElement) || !(layer instanceof HTMLElement) ||
             !(rail instanceof HTMLElement) || !(firstButton instanceof HTMLElement)) {
-          return { attachedDirectlyToBody: false, railVisible: false, firstItemHitTest: false, themeBackground: "" };
+          return { railInShell: false, railVisible: false, firstItemHitTest: false, themeBackground: "" };
         }
         const rect = firstButton.getBoundingClientRect();
         const hitPoint = { x: rect.left + Math.min(20, rect.width / 2), y: rect.top + rect.height / 2 };
@@ -1416,10 +1473,10 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           text: (topmost.innerText || topmost.textContent || "").trim().slice(0, 70),
         } : null;
         return {
-          attachedDirectlyToBody: host.parentElement === document.body,
-          railVisible: railStyle.visibility === "visible" &&
-            Number(railStyle.opacity) > 0 && rail.getBoundingClientRect().width > 0,
+          railInShell: rail.parentElement === layer && rail.closest(".customer-portal") === shell,
           railRect: (() => { const r = rail.getBoundingClientRect(); return { left:r.left, top:r.top, right:r.right, bottom:r.bottom }; })(),
+          railVisible: railStyle.visibility === "visible" &&
+            Number(railStyle.opacity) > 0.95 && rail.getBoundingClientRect().width > 0,
           firstButtonRect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height },
           firstButtonStyle: { display: buttonStyle.display, visibility: buttonStyle.visibility, opacity: buttonStyle.opacity, pointerEvents: buttonStyle.pointerEvents, position: buttonStyle.position, zIndex: buttonStyle.zIndex },
           hitPoint,
@@ -1427,10 +1484,9 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           firstItemHitTest: topmost === firstButton || (topmost instanceof Node && firstButton.contains(topmost)),
           themeBackground: railStyle.backgroundColor,
           themeBackgroundImage: railStyle.backgroundImage,
-          portalZIndex: getComputedStyle(host).zIndex,
         };
       });
-      const customerLeftMenuWorks = customerLeftMenuPaint.attachedDirectlyToBody &&
+      const customerLeftMenuWorks = customerLeftMenuPaint.railInShell &&
         customerLeftMenuPaint.railVisible && customerLeftMenuPaint.firstItemHitTest &&
         customerLeftMenuPaint.themeBackground !== "rgba(0, 0, 0, 0)";
       checks.push({
@@ -1438,15 +1494,87 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         routeName: "customer",
         width: 390,
         theme: "runtime-default",
-        check: "customer-left-settings-menu-paints-above-its-panel",
+        check: "customer-left-settings-menu-slides-in-and-paints-above-page",
         passed: customerLeftMenuWorks,
         ...customerLeftMenuPaint,
-        note: "Opens the actual left SETTINGS rail, checks the body-level portal, viewport bounds, active theme surface and hit testing of the first navigation item.",
+        note: "Opens the actual left SETTINGS rail, checks the left-slide position, active theme surface and hit testing of the first navigation item inside the original portal shell.",
       });
-      await page.locator("#customer-left-menu-portal-host .customer-primary-menu-scrim").evaluate(element => {
-        if (element instanceof HTMLButtonElement) element.click();
+      await page.mouse.click(380, 500);
+      await page.waitForFunction(() => {
+        const layer = document.querySelector(".customer-portal > .portal-body");
+        return layer instanceof HTMLElement && !layer.classList.contains("customer-primary-menu-open");
+      }, { timeout: 10000 });
+      // Landscape/portrait tablet break point: 768px must use the same left-slide drawer as phones.
+      await page.setViewportSize({ width: 768, height: 1024 });
+      await page.waitForFunction(() => {
+        const layer = document.querySelector(".customer-portal > .portal-body");
+        const rail = layer?.querySelector(".customer-primary-rail");
+        if (!(layer instanceof HTMLElement) || !(rail instanceof HTMLElement)) return false;
+        const rect = rail.getBoundingClientRect();
+        const style = getComputedStyle(rail);
+        return !layer.classList.contains("customer-primary-menu-open") &&
+          style.visibility === "hidden" && Number(style.opacity) === 0 &&
+          style.pointerEvents === "none" && rect.right < 0;
+      }, { timeout: 10000 });
+      await page.getByRole("button", { name: "Open Settings" }).click();
+      await page.waitForFunction(() => {
+        const shell = document.querySelector(".customer-portal");
+        const layer = shell?.querySelector(":scope > .portal-body.customer-primary-menu-open");
+        const rail = layer?.querySelector(".customer-primary-rail");
+        if (!(shell instanceof HTMLElement) || !(layer instanceof HTMLElement) || !(rail instanceof HTMLElement)) return false;
+        const rect = rail.getBoundingClientRect();
+        const style = getComputedStyle(rail);
+        return rail.parentElement === layer && rail.closest(".customer-portal") === shell &&
+          style.visibility === "visible" && Number(style.opacity) > 0.95 &&
+          style.pointerEvents !== "none" && style.position === "fixed" &&
+          style.transform === "none" && style.clipPath === "none" && style.filter === "none" &&
+          Math.abs(rect.left) <= 1 && rect.width > 0 && rect.right <= window.innerWidth + 1;
+      }, { timeout: 10000 });
+      const customerTabletRail = await page.evaluate(() => {
+        const shell = document.querySelector(".customer-portal");
+        const layer = shell?.querySelector(":scope > .portal-body.customer-primary-menu-open");
+        const rail = layer?.querySelector(".customer-primary-rail");
+        const firstButton = rail?.querySelector('nav[aria-label="Account preferences navigation"] button');
+        if (!(shell instanceof HTMLElement) || !(layer instanceof HTMLElement) ||
+            !(rail instanceof HTMLElement) || !(firstButton instanceof HTMLElement)) {
+          return { railInShell: false, railVisible: false, noCompositorEffects: false, firstItemHitTest: false, themeBackground: "" };
+        }
+        const rect = rail.getBoundingClientRect();
+        const firstRect = firstButton.getBoundingClientRect();
+        const hitPoint = { x: firstRect.left + Math.min(20, firstRect.width / 2), y: firstRect.top + firstRect.height / 2 };
+        const topmost = document.elementFromPoint(hitPoint.x, hitPoint.y);
+        const style = getComputedStyle(rail);
+        return {
+          railInShell: rail.parentElement === layer && rail.closest(".customer-portal") === shell,
+          railRect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height },
+          railVisible: style.visibility === "visible" && Number(style.opacity) > 0.95 && rect.width > 0,
+          noCompositorEffects: style.transform === "none" && style.clipPath === "none" && style.filter === "none",
+          firstItemHitTest: topmost === firstButton || (topmost instanceof Node && firstButton.contains(topmost)),
+          themeBackground: style.backgroundColor,
+        };
       });
-      await page.waitForFunction(() => !document.querySelector("#customer-left-menu-portal-host .portal-body.customer-primary-menu-open"));
+      const customerTabletMenuWorks = customerTabletRail.railInShell &&
+        customerTabletRail.railVisible && customerTabletRail.noCompositorEffects &&
+        customerTabletRail.firstItemHitTest && customerTabletRail.themeBackground !== "rgba(0, 0, 0, 0)";
+      checks.push({
+        route: "/customer",
+        routeName: "customer",
+        width: 768,
+        theme: "runtime-default",
+        check: "customer-left-settings-rail-slides-and-paints-on-tablet",
+        passed: customerTabletMenuWorks,
+        ...customerTabletRail,
+        note: "Checks tablet-width drawer visibility, left-side placement, active theme surface, hit testing and removal of mobile compositor-triggering effects.",
+      });
+      await page.mouse.click(758, 500);
+      await page.waitForFunction(() => {
+        const layer = document.querySelector(".customer-portal > .portal-body");
+        const rail = layer?.querySelector(".customer-primary-rail");
+        if (!(layer instanceof HTMLElement) || !(rail instanceof HTMLElement)) return false;
+        const rect = rail.getBoundingClientRect();
+        return !layer.classList.contains("customer-primary-menu-open") && rect.right < 0;
+      }, { timeout: 10000 });
+
       await page.setViewportSize({ width: 1440, height: 900 });
 
       const select = selector.locator("select");
@@ -1708,8 +1836,9 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           return element?.getAttribute("aria-hidden") === "false" &&
             Boolean(element.contains(document.activeElement));
         });
-        const customerPortalPlacement = await drawer.evaluate(element => ({
-          layerClassPresent: element.parentElement?.classList.contains("customer-slide-portal") ?? false,
+        const customerMenuPlacement = await drawer.evaluate(element => ({
+          layerClassPresent: element.parentElement?.classList.contains("customer-slide-layer") ?? false,
+          insideCustomerWorkspace: Boolean(element.closest(".customer-portal")),
           attachedDirectlyToBody: element.parentElement?.parentElement === document.body,
         }));
         checks.push({
@@ -1717,10 +1846,12 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           routeName: "customer",
           width: 1440,
           theme: scenario.policy.defaultTheme,
-          check: "customer-navigation-uses-body-level-portal",
-          passed: customerPortalPlacement.layerClassPresent && customerPortalPlacement.attachedDirectlyToBody,
-          ...customerPortalPlacement,
-          note: "Verifies the customer drawer renders outside page-level clipping and stacking contexts.",
+          check: "customer-navigation-uses-original-in-shell-menu",
+          passed: customerMenuPlacement.layerClassPresent &&
+            customerMenuPlacement.insideCustomerWorkspace &&
+            !customerMenuPlacement.attachedDirectlyToBody,
+          ...customerMenuPlacement,
+          note: "Verifies the release-restored customer resources drawer remains inside the customer workspace instead of using the removed body-level portal.",
         });
         const customerSearch = drawer.getByRole("textbox", { name: "Search customer pages and resources" });
         await customerSearch.fill("wallet");

@@ -1612,3 +1612,56 @@
  * The rail shares the customer portal shell so desktop positioning and mobile
  * drawer state are governed by the existing .customer-portal responsive rules.
  */
+
+/*
+ * Customer LEFT Settings menu recovery for Android / narrow tablet WebViews.
+ * Keep the release ZIP's in-shell rail and backdrop, original sizing, and
+ * left-to-right drawer motion. Avoid combining transforms, polygon clipping,
+ * and filter-generated layers on the rail, which can make its contents vanish
+ * or paint over the customer workspace on mobile compositors.
+ *
+ * Theme colors remain owned by theme-system.css; this block only controls
+ * drawer geometry, visibility, paint behavior, and its transition.
+ */
+@media (max-width: 900px) {
+  /* The six-theme overrides historically set this rail to z-index: 80.
+     Keep it above the backdrop (81) in every selected theme. */
+  :root[data-arb-theme] .customer-portal .portal-body .customer-primary-rail {
+    z-index: 82 !important;
+  }
+
+  .customer-portal .portal-body .customer-primary-rail {
+    left: -105vw !important;
+    transform: none !important;
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+    filter: none !important;
+    will-change: auto !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transition:
+      left .28s cubic-bezier(.2, .8, .2, 1),
+      opacity .16s ease,
+      visibility 0s linear .28s !important;
+  }
+
+  .customer-portal .portal-body.customer-primary-menu-open .customer-primary-rail {
+    left: 0 !important;
+    transform: none !important;
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transition:
+      left .28s cubic-bezier(.2, .8, .2, 1),
+      opacity .16s ease,
+      visibility 0s linear 0s !important;
+  }
+
+  .customer-portal .portal-body .customer-primary-rail::after {
+    display: none !important;
+  }
+}
