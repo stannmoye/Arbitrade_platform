@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS `customer_api_notification_preferences` (
   `inAppEnabled` tinyint(1) NOT NULL DEFAULT 1,
   `dailySummaryEnabled` tinyint(1) NOT NULL DEFAULT 0,
   `dailyStatementEnabled` tinyint(1) NOT NULL DEFAULT 0,
+  `dailyTaxReportEnabled` tinyint(1) NOT NULL DEFAULT 0,
   `feeSummaryEnabled` tinyint(1) NOT NULL DEFAULT 0,
   `securityAlertsEnabled` tinyint(1) NOT NULL DEFAULT 1,
   `timezone` varchar(80) NOT NULL DEFAULT 'Africa/Lagos',
