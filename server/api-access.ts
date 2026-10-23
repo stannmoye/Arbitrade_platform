@@ -7,6 +7,7 @@ export const CUSTOMER_API_SCOPES = [
   "balances:read",
   "transactions:read",
   "withdrawals:read",
+  "withdrawals:create",
   "deposits:read",
   "fees:read",
   "statements:read",
