@@ -63,7 +63,7 @@ export function AdminSlideMenu({ section, onNavigate }: AdminSlideMenuProps) {
       <span className="admin-slide-trigger-icon"><Menu size={18} /></span><span className="admin-slide-trigger-copy">QUICK ACTIONS</span><span className="admin-slide-trigger-led" />
     </button>
     </div>{typeof document !== "undefined" && createPortal(
-      <div className={`admin-slide-layer admin-slide-portal-layer${open ? " is-open" : ""}`}>
+      <div className={`admin-slide-layer admin-slide-portal-layer arb-page${open ? " is-open" : ""}`}>
     <button className="admin-slide-backdrop" type="button" aria-label="Close Quick Actions" tabIndex={open ? 0 : -1} onClick={close} />
     <aside id="admin-navigation-drawer" ref={menuRef} className="admin-slide-drawer quick-actions-drawer" aria-label="Quick Actions" aria-hidden={!open} role="dialog" aria-modal={open}>
       <div className="admin-slide-drawer-topline"><span><i /> COMMAND PANEL</span><span className="admin-slide-count">ROLE-AWARE</span></div>
