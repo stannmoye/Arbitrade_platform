@@ -2,6 +2,7 @@ import mysql from "mysql2/promise";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
+import { assertWorkerSchemaContracts } from "./worker-schema-contracts.mjs";
 
 async function main() {
 const migrationKey = "0039_mining_database_driven_packages";
@@ -353,6 +354,8 @@ try {
     await connection.rollback();
     throw error;
   }
+  const verified = await assertWorkerSchemaContracts(connection);
+  console.log(`[mining-migrate] PASS: verified ${verified.checkedTables} worker-critical table contracts after mining migrations.`);
 } finally {
   await connection.end();
 }
