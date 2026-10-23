@@ -50,7 +50,7 @@ All routes require the administrator's global API switch, rate-limit allowance a
 | `POST /api/v1/webhooks` | `webhooks:manage` | Creates a signed HTTPS webhook and shows its signing secret once |
 | `DELETE /api/v1/webhooks/:webhookId` | `webhooks:manage` | Revokes only the authenticated customer's webhook |
 
-The REST webhook management routes expose a signing secret only at creation. Deliveries use an HMAC-SHA256 signature, event ID and idempotency identifier. Destinations must be public HTTPS addresses; use an outbound egress policy/proxy in production for stronger SSRF protection.
+The REST webhook management routes expose a signing secret only at creation. Deliveries use an HMAC-SHA256 signature over the timestamp, a timestamp header, event ID and an idempotency identifier. Consumers should reject requests outside a short timestamp window, use constant-time signature comparison, and deduplicate by event/idempotency ID. Destinations must be public HTTPS addresses; use an outbound egress policy/proxy in production for stronger SSRF protection.
 
 ## Notifications and scheduling
 
