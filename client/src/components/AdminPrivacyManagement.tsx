@@ -71,6 +71,7 @@ export function AdminPrivacyManagement() {
   const [summary, setSummary] = useState(starterSummary);
   const [sections, setSections] = useState<PrivacyPolicySection[]>(DEFAULT_PRIVACY_POLICY_SECTIONS);
   const [editorInitialized, setEditorInitialized] = useState(false);
+  const [publicationReviewed, setPublicationReviewed] = useState(false);
   const [customerMessage, setCustomerMessage] = useState("");
   const [internalNote, setInternalNote] = useState("");
   const [requestStatus, setRequestStatus] = useState<PrivacyRequestStatus>("submitted");
@@ -135,7 +136,8 @@ export function AdminPrivacyManagement() {
         sections,
       });
       setDraftId(saved.draftId);
-      const result = await publishPolicy.mutateAsync({ draftId: saved.draftId });
+      const result = await publishPolicy.mutateAsync({ draftId: saved.draftId, reviewAcknowledged: true });
+      setPublicationReviewed(false);
       setDraftId(undefined);
       await refreshPolicy();
       setNotice("Privacy Notice v" + result.versionLabel + " is published. The previous published version has been archived for historical reference.");
@@ -226,11 +228,11 @@ export function AdminPrivacyManagement() {
               })}
             </div>
             <div className="privacy-admin-editor-footer">
-              <div className="privacy-publish-warning"><LockKeyhole size={15} /><span>Publish only after reviewing accuracy, applicable jurisdictions, actual provider relationships and the effective date. The editor does not itself confirm legal compliance.</span></div>
+              <div className="privacy-publish-warning"><LockKeyhole size={15} /><span>Publish only after reviewing accuracy, applicable jurisdictions, actual provider relationships and the effective date. The editor does not itself confirm legal compliance.</span></div>\n              <label className="privacy-review-acknowledgement"><input type="checkbox" checked={publicationReviewed} onChange={(event) => setPublicationReviewed(event.target.checked)} disabled={saveDraft.isPending || publishPolicy.isPending} /><span><strong>Publication review confirmed</strong><small>I have reviewed the notice for accuracy, the platform services and provider relationships described, applicable jurisdictions, and the proposed effective date.</small></span></label>
               <div className="privacy-form-actions">
                 <button type="button" className="privacy-secondary-button" onClick={() => policyState.refetch()} disabled={saveDraft.isPending || publishPolicy.isPending}><History size={14} /> Reload saved version</button>
                 <button type="button" className="privacy-secondary-button" onClick={() => void handleSaveDraft()} disabled={!canPublish || saveDraft.isPending || publishPolicy.isPending}><Save size={15} /> {saveDraft.isPending ? "Saving…" : "Save draft"}</button>
-                <button type="button" className="privacy-primary-button" onClick={() => void handlePublish()} disabled={!canPublish || saveDraft.isPending || publishPolicy.isPending}><Send size={15} /> {publishPolicy.isPending ? "Publishing…" : "Publish notice"}</button>
+                <button type="button" className="privacy-primary-button" onClick={() => void handlePublish()} disabled={!canPublish || !publicationReviewed || saveDraft.isPending || publishPolicy.isPending}><Send size={15} /> {publishPolicy.isPending ? "Publishing…" : "Publish notice"}</button>
               </div>
             </div>
           </>
