@@ -1654,6 +1654,7 @@ export async function applyAccountClosureDecision(adminId: number, input: { tick
 
     const activeSubscription = (await tx.select({ id: customerPackageSubscriptions.id }).from(customerPackageSubscriptions).where(and(
       eq(customerPackageSubscriptions.userId, user.id), eq(customerPackageSubscriptions.status, "active"),
+      or(isNull(customerPackageSubscriptions.expiresAt), gt(customerPackageSubscriptions.expiresAt, new Date())),
     )).limit(1).for("update"))[0];
     if (activeSubscription) throw new AccountClosureDecisionError("Resolve the customer's active package subscription before approving account closure.");
 
