@@ -123,10 +123,10 @@
   outline-offset: 3px;
 }
 
-/* Keep the mobile account drawer above its dimming scrim. Earlier theme rules
-   assign the rail z-index 80 while the scrim is 81, which paints the scrim on
-   top of the open menu and makes it look empty. This recovery layer is loaded
-   last so the open-state stacking order remains authoritative. */
+/* Keep the mobile account rail above its scrim. The legacy mobile shape rule
+   adds clip-path plus filter:drop-shadow() to this scrollable rail; some Android
+   WebViews paint that combination as an empty panel. The open-state selector
+   is deliberately more specific than those later shape overrides. */
 @media (max-width: 900px) {
   .customer-portal .portal-body.customer-primary-menu-open .customer-primary-rail {
     z-index: 82 !important;
@@ -134,6 +134,10 @@
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+    filter: none !important;
+    -webkit-filter: none !important;
   }
 
   .customer-portal .customer-primary-menu-scrim {
