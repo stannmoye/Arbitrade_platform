@@ -7,8 +7,8 @@ const NOTICE_CSP = "<meta http-equiv=\"Content-Security-Policy\" content=\"defau
 
 export function buildPrivacyHtmlDocument(content: string): string {
   const source = content || "";
-  if (/<html[\\s>]/i.test(source)) {
-    if (/<head[\\s>]/i.test(source)) return source.replace(/<head([^>]*)>/i, (match) => match + NOTICE_CSP + '<meta name="viewport" content="width=device-width, initial-scale=1">');
+  if (/<html[\s>]/i.test(source)) {
+    if (/<head[\s>]/i.test(source)) return source.replace(/<head([^>]*)>/i, (match) => match + NOTICE_CSP + '<meta name="viewport" content="width=device-width, initial-scale=1">');
     return source.replace(/<html([^>]*)>/i, (match) => match + "<head>" + NOTICE_CSP + '<meta name="viewport" content="width=device-width, initial-scale=1"></head>');
   }
   return '<!doctype html><html><head><meta charset="utf-8">' + NOTICE_CSP +
