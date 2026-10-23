@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, gte, lt } from "drizzle-orm";
 import { authenticateCustomerApiKey, type CustomerApiScope } from "../api-access";
 import { getAppSetting, getDb, listBalances, listCurrencies, listCustomerPayoutRequests, listTrades } from "../db";
 import { API_AUTOMATION_EVENTS, createCustomerApiWebhook, listApiPlatformIncidents, listCustomerApiNotificationHistory, listCustomerApiWebhooks, revokeCustomerApiWebhook } from "../api-access-automation";
@@ -102,6 +102,7 @@ export function registerCustomerApiAccessRoutes(app: Express) {
   app.get("/api/v1/account/trades", apiIpRateLimit, apiHandler("transactions:read", async (req, res, identity) => {
     const requestedLimit = req.query.limit === undefined ? 50 : Number(req.query.limit);
     const beforeId = req.query.beforeId === undefined ? undefined : Number(req.query.beforeId);
+    const date = typeof req.query.date === "string" ? req.query.date : undefined;
     if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 100) {
       res.status(400).json({ error: "limit must be an integer between 1 and 100.", code: "INVALID_LIMIT" });
       return;
@@ -110,10 +111,19 @@ export function registerCustomerApiAccessRoutes(app: Express) {
       res.status(400).json({ error: "beforeId must be a positive integer.", code: "INVALID_CURSOR" });
       return;
     }
+    if (date !== undefined && (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(date + "T00:00:00Z")) || new Date(date + "T00:00:00Z").toISOString().slice(0, 10) !== date)) {
+      res.status(400).json({ error: "date must be a valid UTC calendar date in YYYY-MM-DD format.", code: "INVALID_REPORT_DATE" });
+      return;
+    }
     const db = await getDb();
     if (!db) throw new Error("Database is not available");
     const filters = [eq(tradePositions.userId, identity.userId)];
     if (beforeId !== undefined) filters.push(lt(tradePositions.id, beforeId));
+    if (date) {
+      const dateStart = new Date(date + "T00:00:00.000Z");
+      const dateEnd = new Date(dateStart.getTime() + 24 * 60 * 60 * 1000);
+      filters.push(gte(tradePositions.confirmedAt, dateStart), lt(tradePositions.confirmedAt, dateEnd));
+    }
     const rows = await db.select({
       id: tradePositions.id,
       offerId: tradePositions.offerId,
@@ -137,7 +147,7 @@ export function registerCustomerApiAccessRoutes(app: Express) {
     const page = hasMore ? rows.slice(0, requestedLimit) : rows;
     res.json({
       data: page,
-      meta: { accountScope: "authenticated-customer", count: page.length, limit: requestedLimit, nextBeforeId: hasMore ? page[page.length - 1]?.id ?? null : null, checkedAt: new Date().toISOString() },
+      meta: { accountScope: "authenticated-customer", count: page.length, limit: requestedLimit, date: date ?? null, timeZone: "UTC", nextBeforeId: hasMore ? page[page.length - 1]?.id ?? null : null, checkedAt: new Date().toISOString() },
     });
   }));
 
