@@ -3,6 +3,7 @@ import { and, desc, eq, lt } from "drizzle-orm";
 import { authenticateCustomerApiKey, type CustomerApiScope } from "../api-access";
 import { getAppSetting, getDb, listBalances, listCurrencies, listCustomerPayoutRequests, listTrades } from "../db";
 import { API_AUTOMATION_EVENTS, createCustomerApiWebhook, listApiPlatformIncidents, listCustomerApiNotificationHistory, listCustomerApiWebhooks, revokeCustomerApiWebhook } from "../api-access-automation";
+import { listCustomerApiUsage, recordCustomerApiUsage } from "../api-access-usage";
 import { opportunityOffers, tradePositions } from "../../drizzle/schema";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
 
@@ -52,6 +53,10 @@ function apiHandler(scope: CustomerApiScope, handler: (req: Request, res: Respon
     if (!match) return res.status(401).json({ error: "Provide an API key in the Authorization: Bearer header.", code: "API_KEY_REQUIRED" });
     const identity = await authenticateCustomerApiKey(match[1]);
     if (!identity) return res.status(401).json({ error: "The API key is invalid, revoked, or no longer belongs to an active customer.", code: "API_KEY_INVALID" });
+    const requestStartedAt = Date.now();
+    res.once("finish", () => {
+      void recordCustomerApiUsage(identity.userId, identity.keyId, res.statusCode, Date.now() - requestStartedAt);
+    });
     const policy = await loadPolicy();
     if (!policy.enabled) return res.status(503).json({ error: "Customer API access is disabled by the administrator.", code: "API_ACCESS_DISABLED" });
     if (!identity.scopes.includes(scope)) return res.status(403).json({ error: "This API key does not have the required permission.", code: "API_SCOPE_REQUIRED", requiredScope: scope });
@@ -184,6 +189,11 @@ export function registerCustomerApiAccessRoutes(app: Express) {
       return;
     }
     res.json({ data: schedule, meta: { source: "administrator-published-schedule", checkedAt: new Date().toISOString() } });
+  }));
+
+  app.get("/api/v1/account/api-usage", apiIpRateLimit, apiHandler("usage:read", async (_req, res, identity) => {
+    const data = await listCustomerApiUsage(identity.userId);
+    res.json({ data, meta: { accountScope: "authenticated-customer", retentionDays: 90, aggregation: "per-key-and-UTC-day", checkedAt: new Date().toISOString() } });
   }));
 
   app.get("/api/v1/account/exchange-rates", apiIpRateLimit, apiHandler("exchange-rates:read", async (_req, res) => {
