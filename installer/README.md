@@ -14,7 +14,7 @@ The release artifact is `arbitrade-universal-installer.zip`. It contains the bro
 
 1. Back up the target database and keep the backup outside the web root.
 2. Upload and extract the ZIP into the application's private root. A private directory outside `public_html` is preferred. If the hosting provider requires extraction under `public_html`, configure Apache/cPanel access controls before opening the site so source code, package files, environment files, logs, SQL dumps and installer state cannot be downloaded. The wizard must be reachable at `/installer/`, but private application files must not be publicly readable.
-3. Configure the cPanel Node.js application (Node.js 20+; Node 22 recommended) with startup file `dist/index.js`. Use the private terminal for locked dependency installation/build and any OS-level commands the hosting panel cannot perform.
+3. Configure the cPanel Node.js application (Node.js 20+; Node 22 recommended) with startup file `server-start.mjs`. Use the private terminal for locked dependency installation/build and any OS-level commands the hosting panel cannot perform.
 4. Create the database and dedicated user in cPanel. Open `https://YOUR-DOMAIN/installer/` and follow the staged browser wizard. Database connection, fresh-install administrator creation, and optional mail/OAuth settings are configured through the guided stages.
 5. For a new database, ensure it is empty and use `node installer/run-install.mjs --fresh-install`. For an already imported database, first verify a restorable backup and use `node installer/run-install.mjs --existing-database --confirm-existing-migrations`. Never use fresh-install mode against existing data.
 6. Restart through cPanel Setup Node.js App and run `pnpm installer:verify` and `pnpm installer:diagnose` from the private application root. Remove/deny public access to `/installer/` after verification.
@@ -34,7 +34,7 @@ Do not run the fresh-VPS provisioning flow on a server with existing application
 ## Browser wizard
 
 1. Upload/extract the repository into a private application root. Create a MySQL database and dedicated user in cPanel and grant that user privileges on the database.
-2. Create the Node.js app in cPanel if you use cPanel. Use the repository as application root and dist/index.js as the startup file.
+2. Create the Node.js app in cPanel if you use cPanel. Use the repository as application root and server-start.mjs as the startup file.
 3. Open /installer/ over HTTPS and follow the staged wizard. It displays PHP/MySQL prerequisites and validates the supplied database connection. Use a new, empty database for fresh installation.
 
    The first-screen preflight also checks PHP 8.2+, required PHP extensions (`pdo_mysql`, `openssl`, `json`, `mbstring`), configuration-directory write access, package/lockfile presence, dependency and build artifacts, HTTPS detection, measurable free disk space, and existing install-lock state. Critical PHP/version/extension/package/permission failures are blocked on submission. Node.js version is deliberately not guessed by PHP: verify Node.js 20+ in cPanel Setup Node.js App; the private Node installer checks the actual runtime.
@@ -69,14 +69,14 @@ node installer/run-install.mjs --existing-database --confirm-existing-migrations
 
    The script validates Node.js, pnpm, configuration, database connectivity, and database state before installing locked dependencies and building. It writes a private `installer/.install-in-progress.json` marker before dependency installation and updates the current stage before each migration/build/admin step. If a command fails or the process is interrupted, the marker remains and blocks a blind rerun; review the saved stage, private terminal output, backup, and migration state before an administrator deliberately clears the marker for recovery. It re-reads the current database table inventory and compares it with the inventory captured by the browser wizard; if the target database has changed, it stops before migrations and asks you to verify the target and rerun the wizard. Fresh mode requires the captured and current database to be empty, applies the initial schema, and creates the administrator. Existing mode requires explicit browser backup/import confirmation and the CLI confirmation flag because it applies forward migrations. It runs the main Drizzle migrations, portal migrations, and idempotent mining migrations/package-rate migration; it does not import a dump or create a replacement administrator. Reward processing is not automatically enabled.
 
-7. Set/restart the cPanel Node.js application with startup file dist/index.js.
+7. Set/restart the cPanel Node.js application with startup file server-start.mjs.
 8. After the app is running, run the post-install checks from the private terminal:
 
 ~~~bash
 pnpm installer:verify
 ~~~
 
-   The verifier loads `.env` relative to the application root (rather than assuming the terminal's current directory), checks the Node.js 20+ runtime and pnpm 10.18.x version, confirms the package and lockfile exist, validates that the package start script launches `dist/index.js` in production mode, checks that `PUBLIC_APP_URL` is a valid HTTPS URL, and then checks database connectivity, required tables, administrator presence, migration trackers, the build artifact, installer locks, bootstrap cleanup, incomplete-installation markers, `.env` permissions, SMTP connectivity when enabled, and GET `/api/health`. The health result includes response time. The final summary reports `READY`, `READY WITH WARNINGS`, or `NOT READY`; any failed check causes a non-zero exit code. A health check cannot pass until the Node.js application has been started. The install and SMTP CLI scripts also load `.env` from the application root.
+   The verifier loads `.env` relative to the application root (rather than assuming the terminal's current directory), checks the Node.js 20+ runtime and pnpm 10.18.x version, confirms the package and lockfile exist, validates that the package start script launches `server-start.mjs` in production mode and runs every migration chain plus required-table verification before loading `dist/index.js`, checks that `PUBLIC_APP_URL` is a valid HTTPS URL, and then checks database connectivity, required tables, administrator presence, migration trackers, the build artifact, installer locks, bootstrap cleanup, incomplete-installation markers, `.env` permissions, SMTP connectivity when enabled, and GET `/api/health`. The health result includes response time. The final summary reports `READY`, `READY WITH WARNINGS`, or `NOT READY`; any failed check causes a non-zero exit code. A health check cannot pass until the Node.js application has been started. The install and SMTP CLI scripts also load `.env` from the application root.
 9. If SMTP is configured, send an explicit test message to an address you control:
 
 ~~~bash
@@ -163,7 +163,7 @@ pnpm installer:runtime
 
 It checks the production start command, confirms `dist/index.js` exists, reads the configured `PORT` (default 3000), and requests the local `/api/health` endpoint. It does not print environment values or secrets. If health fails, it reports the next diagnostic steps.
 
-- **cPanel:** open **Setup Node.js App**, verify Node.js 20+ and the application root, confirm the startup file is `dist/index.js`, then use the control panel's **Restart** action. Run `pnpm installer:runtime` again after restarting. The helper cannot call cPanel's process manager.
+- **cPanel:** open **Setup Node.js App**, verify Node.js 20+ and the application root, confirm the startup file is `server-start.mjs`, then use the control panel's **Restart** action. Run `pnpm installer:runtime` again after restarting. The helper cannot call cPanel's process manager.
 - **VPS configured by this repository's setup script:** run `sudo node installer/runtime-status.mjs --restart-vps`. This only restarts an already-active `arbitrade.service` through systemd and waits up to 30 seconds for local health. It will not create a missing service or overwrite configuration.
 - **VPS diagnostics:** `sudo systemctl status arbitrade.service --no-pager` and `sudo journalctl -u arbitrade.service -n 100 --no-pager`.
 - **Health fails after restart:** confirm `PORT` matches the service configuration, rebuild with `pnpm build` if `dist/index.js` is missing, and inspect private service logs. Do not paste `.env` or passwords into support requests.
