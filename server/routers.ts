@@ -24,7 +24,7 @@ import { invalidateUserSessions } from "./authSessions";
 import { getLocalSessionFromRequest } from "./_core/localAuth";
 import * as privacyService from "./privacy";
 import { CUSTOMER_API_SCOPES, createCustomerApiKey, listCustomerApiKeys, revokeCustomerApiKey } from "./api-access";
-import { API_AUTOMATION_EVENTS, createApiPlatformIncident, createCustomerApiWebhook, getCustomerApiNotificationPreferences, listApiPlatformIncidents, listCustomerApiNotificationHistory, listCustomerApiWebhooks, requestCustomerWhatsAppVerification, resolveApiPlatformIncident, revokeCustomerApiWebhook, saveCustomerApiNotificationPreferences, verifyCustomerWhatsAppNumber } from "./api-access-automation";
+import { API_AUTOMATION_EVENTS, createApiPlatformIncident, createCustomerApiWebhook, enqueueCustomerApiEvent, getCustomerApiNotificationPreferences, listApiPlatformIncidents, listCustomerApiNotificationHistory, listCustomerApiWebhooks, requestCustomerWhatsAppVerification, resolveApiPlatformIncident, revokeCustomerApiWebhook, saveCustomerApiNotificationPreferences, verifyCustomerWhatsAppNumber } from "./api-access-automation";
 import { apiProviderCredentialStatus, removeApiProviderCredential, saveApiProviderCredential } from "./api-access-vault";
 import { sdk } from "./_core/sdk";
 
@@ -161,13 +161,21 @@ export const appRouter = router({
       scopes: z.array(z.enum(CUSTOMER_API_SCOPES)).min(1).max(CUSTOMER_API_SCOPES.length),
     })).mutation(async ({ ctx, input }) => {
       if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "API keys are available to customer accounts only." });
-      try { return await createCustomerApiKey(ctx.user.id, input.name, input.scopes); }
-      catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not create API key." }); }
+      try {
+        const created = await createCustomerApiKey(ctx.user.id, input.name, input.scopes);
+        void enqueueCustomerApiEvent(ctx.user.id, "api.key.created", { event: "A new API key was created.", keyName: input.name, keyPrefix: created.key.prefix }, "api-key-created:" + created.key.id)
+          .catch((error) => console.error("[API automation] Key-created event could not be queued:", error instanceof Error ? error.name : "UnknownError"));
+        return created;
+      } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not create API key." }); }
     }),
     revokeApiKey: protectedProcedure.input(z.object({ keyId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
       if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "API keys are available to customer accounts only." });
-      try { return await revokeCustomerApiKey(ctx.user.id, input.keyId); }
-      catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not revoke API key." }); }
+      try {
+        const result = await revokeCustomerApiKey(ctx.user.id, input.keyId);
+        if (!result.alreadyRevoked) void enqueueCustomerApiEvent(ctx.user.id, "api.key.revoked", { event: "An API key was revoked.", keyId: input.keyId }, "api-key-revoked:" + input.keyId)
+          .catch((error) => console.error("[API automation] Key-revoked event could not be queued:", error instanceof Error ? error.name : "UnknownError"));
+        return result;
+      } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not revoke API key." }); }
     }),
     apiAutomationPreferences: protectedProcedure.query(({ ctx }) => {
       if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Notification preferences are available to customer accounts only." });
@@ -520,7 +528,15 @@ export const appRouter = router({
       action: z.enum(["paid", "rejected"]),
       externalReference: z.string().trim().max(160).optional(),
       note: z.string().trim().max(1000).optional(),
-    })).mutation(({ ctx, input }) => resolveCustomerPayoutRequest(ctx.user.id, input)),
+    })).mutation(async ({ ctx, input }) => {
+      const result = await resolveCustomerPayoutRequest(ctx.user.id, input);
+      void enqueueCustomerApiEvent(result.userId, "withdrawal.status", {
+        reference: result.requestReference, status: result.status,
+        event: "Your withdrawal request status changed to " + result.status + ".",
+      }, "withdrawal-status:" + result.requestReference + ":" + result.status)
+        .catch((error) => console.error("[API automation] Withdrawal status event could not be queued:", error instanceof Error ? error.name : "UnknownError"));
+      return result;
+    }),
     notifications: adminProcedure.query(({ctx})=>listNotifications(ctx.user.id)),
     markNotificationsRead: adminProcedure.input(z.object({id:z.number().int().positive().optional()}).optional()).mutation(({ctx,input})=>markCustomerNotificationsRead(ctx.user.id,input?.id)),
     notificationCategoryVisibility: adminProcedure.query(() => getNotificationCategoryVisibility()),
