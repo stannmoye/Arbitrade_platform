@@ -65,7 +65,7 @@ describe("API automation integration contracts", () => {
     expect(routes).toContain('"/api/v1/account/api-usage"');
     expect(routes).toContain("DEPOSIT_PROVIDER_NOT_CONFIGURED");
     expect(routes).toContain("FEE_LEDGER_NOT_CONFIGURED");
-    expect(routes).toContain('"completeness": "partial"');
+    expect(routes).toContain('completeness: "partial"');
     expect(routes).toContain('"/api/v1/platform/incidents"');
   });
 });
