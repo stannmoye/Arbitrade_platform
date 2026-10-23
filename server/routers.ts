@@ -291,8 +291,8 @@ export const appRouter = router({
         body: z.string().min(40).max(8000),
       })).min(6).max(16),
     })).mutation(({ ctx, input }) => privacyService.savePrivacyPolicyDraft(ctx.user.id, input)),
-    publishPrivacyPolicy: adminProcedure.input(z.object({ draftId: z.number().int().positive() }))
-      .mutation(({ ctx, input }) => privacyService.publishPrivacyPolicy(ctx.user.id, input.draftId)),
+    publishPrivacyPolicy: adminProcedure.input(z.object({ draftId: z.number().int().positive(), reviewAcknowledged: z.literal(true) }))
+      .mutation(({ ctx, input }) => privacyService.publishPrivacyPolicy(ctx.user.id, input.draftId, input.reviewAcknowledged)),
     privacyRequests: adminProcedure.input(z.object({
       status: z.enum(["submitted", "identity_check", "in_review", "awaiting_customer", "completed", "declined", "cancelled"]).optional(),
     }).optional()).query(({ input }) => privacyService.listAdminPrivacyRequests(input?.status)),
