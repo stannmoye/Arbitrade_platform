@@ -35,6 +35,7 @@ const migrationFiles = [
   "0062_privacy_center.sql",
   "0063_privacy_notice_html.sql",
   "0064_customer_api_keys.sql",
+  "0065_api_access_automation.sql",
 ];
 // These tables are schema-baseline indicators for first-time portal migration tracking.
 // Some also belong to the main Drizzle chain; none of them alone proves that a
@@ -43,6 +44,7 @@ const targetTables = [
   "kyc_settings", "kyc_profiles", "password_reset_tokens", "admin_email_messages",
   "mining_economics_versions", "mining_packages", "mining_customer_packages", "payout_requests", "customer_totp_authenticators",
   "privacy_policy_versions", "privacy_requests", "privacy_request_events", "privacy_audit_events", "customer_api_keys",
+  "customer_api_notification_preferences", "customer_api_webhooks", "api_provider_credentials", "api_notification_deliveries", "api_platform_incidents", "api_provider_events",
 ];
 const baselineReviewed = process.argv.includes("--baseline-reviewed");
 let url;
