@@ -1612,3 +1612,25 @@
  * The rail shares the customer portal shell so desktop positioning and mobile
  * drawer state are governed by the existing .customer-portal responsive rules.
  */
+
+
+/* Keep the customer rail clear of the fixed header on desktop and touch layouts. */
+.customer-portal .customer-primary-rail {
+  padding-top: 26px !important;
+}
+@media (max-width: 900px), (pointer: coarse) {
+  .customer-portal .portal-body .customer-primary-rail {
+    padding-top: 18px !important;
+  }
+}
+@media (max-width: 900px) {
+  .customer-portal .portal-body .customer-primary-rail {
+    inset: 78px auto 0 0 !important;
+  }
+}
+@media (max-width: 760px) {
+  .customer-portal .portal-body .customer-primary-rail {
+    inset: 78px auto 0 0 !important;
+    padding-top: 18px !important;
+  }
+}
