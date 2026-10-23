@@ -2,9 +2,9 @@ import crypto from "node:crypto";
 import type { Express, Request, Response } from "express";
 import { parse as parseCookieHeader } from "cookie";
 import * as db from "../db";
-import { sdk } from "./sdk";
 import { getSessionCookieOptions } from "./cookies";
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { COOKIE_NAME } from "@shared/const";
+import { createLocalSession } from "./localAuth";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
 
 const STATE_COOKIE = "arbitrade_provider_oauth";
@@ -73,8 +73,10 @@ export function registerProviderOAuthRoutes(app: Express) {
       const openId = `${provider}:${externalId}`;
       const name = profile.name || [profile.given_name, profile.family_name].filter(Boolean).join(" ") || email;
       await db.upsertUser({ openId, name, email, loginMethod: provider, lastSignedIn: new Date() });
-      const sessionToken = await sdk.createSessionToken(openId, { name, expiresInMs: ONE_YEAR_MS });
-      res.cookie(COOKIE_NAME, sessionToken, { ...getSessionCookieOptions(req), maxAge: ONE_YEAR_MS });
+      const user = await db.getUserByOpenId(openId);
+      if (!user) return safeError(res, 500, "Provider account could not be saved");
+      const sessionToken = createLocalSession(user.id, Number(user.authVersion || 0));
+      res.cookie(COOKIE_NAME, sessionToken, { ...getSessionCookieOptions(req), maxAge: 30 * 24 * 60 * 60 * 1000 });
       return res.redirect(302, `/customer?oauth=complete&provider=${provider}`);
     } catch (error) { console.error(`[OAuth:${provider}] callback failed`, error instanceof Error ? error.message : "unknown error"); return safeError(res, 500, "OAuth callback failed"); }
   });
