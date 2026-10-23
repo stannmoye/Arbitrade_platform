@@ -6,7 +6,6 @@ import { invalidateUserSessions } from "./authSessions";
 import { applyAccountClosureDecision, createAccountClosureTicket, getUserById, getUserForSessionRevocation } from "./db";
 import { createLocalSession } from "./_core/localAuth";
 import { sdk } from "./_core/sdk";
-import { ENV } from "./_core/env";
 
 vi.mock("./authSessions", () => ({
   invalidateUserSessions: vi.fn().mockResolvedValue(undefined),
@@ -131,7 +130,10 @@ describe("auth.logout", () => {
   });
 
   it("recovers a valid Bearer session when context did not attach the user", async () => {
-    const token = await sdk.signSession({ openId: "sample-user", appId: ENV.appId, name: "Sample User", authVersion: 0 });
+    const token = "signed-test-token";
+    const verifySession = vi.spyOn(sdk, "verifySession").mockImplementation(async (candidate) =>
+      candidate === token ? { openId: "sample-user", appId: "test-app", name: "Sample User", authVersion: 0 } : null
+    );
     vi.mocked(getUserForSessionRevocation).mockResolvedValue({
       id: 1, openId: "sample-user", email: "sample@example.com", name: "Sample User",
       loginMethod: "manus", role: "user", authVersion: 0,
@@ -146,6 +148,7 @@ describe("auth.logout", () => {
     expect(result).toEqual({ success: true });
     expect(invalidateUserSessions).toHaveBeenCalledWith(1);
     expect(getUserForSessionRevocation).toHaveBeenCalledWith("sample-user");
+    verifySession.mockRestore();
   });
 
   it("does not report logout success if session storage cannot be verified", async () => {

@@ -1,4 +1,5 @@
 import { COOKIE_NAME } from "@shared/const";
+import { parse as parseCookieHeader } from "cookie";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
@@ -56,8 +57,8 @@ export const appRouter = router({
                 Number(localSession.authVersion) === Number(localUser.authVersion ?? 0);
             }
           } else {
-            const cookies = sdk.parseCookies(ctx.req.headers.cookie);
-            const cookieToken = cookies.get(COOKIE_NAME);
+            const cookies = parseCookieHeader(ctx.req.headers.cookie ?? "");
+            const cookieToken = cookies[COOKIE_NAME];
             const authHeader = ctx.req.headers.authorization;
             const bearerToken = typeof authHeader === "string" && authHeader.startsWith("Bearer ")
               ? authHeader.slice(7)
