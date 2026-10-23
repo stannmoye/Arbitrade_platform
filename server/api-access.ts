@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { getDb } from "./db";
 import { customerApiKeys, customerControls, users, v5AuditEvents } from "../drizzle/schema";
 
@@ -126,14 +126,18 @@ export async function authenticateCustomerApiKey(rawKey: string) {
     role: users.role,
     loginMethod: users.loginMethod,
     accountStatus: customerControls.accountStatus,
+    lastUsedAt: customerApiKeys.lastUsedAt,
   }).from(customerApiKeys)
     .innerJoin(users, eq(users.id, customerApiKeys.userId))
     .leftJoin(customerControls, eq(customerControls.userId, users.id))
     .where(eq(customerApiKeys.keyHash, keyHash)).limit(1))[0];
   if (!row || row.revokedAt || row.role !== "user" || row.loginMethod === "closed" || row.accountStatus === "suspended") return null;
   // Usage timestamps are best-effort telemetry; never expose or log the secret.
-  void db.update(customerApiKeys).set({ lastUsedAt: new Date() })
-    .where(and(eq(customerApiKeys.id, row.id), isNull(customerApiKeys.revokedAt)))
-    .catch(() => undefined);
+  const usageCutoff = new Date(Date.now() - 5 * 60_000);
+  if (!row.lastUsedAt || row.lastUsedAt < usageCutoff) {
+    void db.update(customerApiKeys).set({ lastUsedAt: new Date() })
+      .where(and(eq(customerApiKeys.id, row.id), isNull(customerApiKeys.revokedAt), or(isNull(customerApiKeys.lastUsedAt), lt(customerApiKeys.lastUsedAt, usageCutoff))))
+      .catch(() => undefined);
+  }
   return { userId: row.userId, keyId: row.id, scopes: parseScopes(row.scopesJson) };
 }
