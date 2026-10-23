@@ -267,7 +267,7 @@ export async function requestCustomerWhatsAppVerification(userId: number) {
       ? "The WhatsApp provider could not send the verification message. Check the approved verification template and provider configuration."
       : "The WhatsApp verification message could not be sent.");
   }
-  return { success: true, expiresInSeconds: 600, message: "A verification code was sent to your WhatsApp number." };
+  return { success: true, alreadyVerified: false, expiresInSeconds: 600, message: "A verification code was sent to your WhatsApp number." };
 }
 
 export async function verifyCustomerWhatsAppNumber(userId: number, code: string) {
