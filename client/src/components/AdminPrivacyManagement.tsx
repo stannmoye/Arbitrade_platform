@@ -304,7 +304,7 @@ export function AdminPrivacyManagement() {
                   {open && <div className="privacy-editor-fields">
                     <label>Section heading<input value={section.title} onChange={(event) => updateSection(section.id, { title: event.target.value })} maxLength={160} required /></label>
                     <label>Section content<textarea value={section.body} onChange={(event) => updateSection(section.id, { body: event.target.value })} rows={6} required placeholder="Enter reviewed, customer-facing notice text without a word-count limit." /></label>
-                    <div className="privacy-editor-section-actions"><span>No word-count limit</span><button type="button" className="privacy-text-action privacy-remove-section" onClick={() => removeSection(section.id)} disabled={sections.length <= 6 || saveDraft.isPending || publishPolicy.isPending}><Trash2 size={13} /> Remove section</button></div>
+                    <div className="privacy-editor-section-actions"><button type="button" className="privacy-text-action privacy-remove-section" onClick={() => removeSection(section.id)} disabled={sections.length <= 6 || saveDraft.isPending || publishPolicy.isPending}><Trash2 size={13} /> Remove section</button></div>
                   </div>}
                 </article>;
               })}
