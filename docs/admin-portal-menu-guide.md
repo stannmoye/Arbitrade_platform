@@ -778,8 +778,31 @@ Several operational pages refresh automatically so that queues, customer states,
 
 | Navigation layer | Count | Items |
 |---|---:|---|
-| Main admin rail | 19 | Home, Customers, Email Center, KYC Control Center, SMTP & Reports, Auto-trade Policy, Credit Customer, Debit Customer, Currencies, Signup Policy, Packages & Groups, Security Policies, API Registry, Branding & Identity, Sound Settings, Opportunity Engine, Settings, Audit Log, Advanced Controls |
+| Main admin rail | 20 | Home, Customers, Email Center, KYC Control Center, SMTP & Reports, Auto-trade Policy, Credit Customer, Debit Customer, Currencies, Signup Policy, Packages & Groups, Security Policies, API Registry, Branding & Identity, Sound Settings, Opportunity Engine, Settings, Audit Log, Advanced Controls |
 | Supplemental Operations drawer | 8 | Tickets, Opportunity Delivery, Verification Oversight, KYC Control Center, SMTP & Reports, Risk Watchlist, Transaction Review, Reports & Exports |
 | KYC internal regions | 5 | Overview, Workflow & Settings, Customers, Review Queue, Audit Trail |
 | Settings internal tabs | 4 | Ticket, Email, Trade, Password/Security |
 
+
+
+## 2.20 Privacy Management
+
+**Purpose:** Govern the published Privacy Notice and review customer information-rights requests independently of general support tickets, account closure, and authentication/security controls.
+
+### Notice editor and publication
+
+- Edit the notice title, summary and structured customer-facing sections in a persisted draft.
+- Save changes without changing the current published notice.
+- Publish a reviewed draft as a new numbered version; the former published version is archived rather than overwritten.
+- Review prior published versions, effective dates, and privacy-specific audit events.
+- Use the theme-aware customer preview to review readability before publication. The editor itself does not certify that legal text is valid for every jurisdiction.
+
+### Customer privacy request queue
+
+- Filter requests by status and open a scoped request detail view.
+- Review request category, customer-provided context, reference, timestamps, and event history.
+- Move requests through the supported status workflow, send a customer-visible update, and record a separate internal review note.
+- Customer-visible messages and internal review notes are stored separately; internal notes are not returned by the customer request endpoints.
+- Request submission and review actions are recorded in a dedicated privacy audit stream.
+
+Privacy requests do not themselves delete records, alter financial records, close accounts, or override statutory retention requirements. Any fulfilment requiring changes to retained personal or financial data needs an authorized, separately reviewed operational process. The privacy-specific SQL migration is applied by the existing portal migration runner in both fresh-install and existing-database installer flows.
