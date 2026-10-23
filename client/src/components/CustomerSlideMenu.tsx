@@ -120,7 +120,7 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
     <div className="customer-theme-sidebar-control" aria-label="Change customer workspace theme"><ThemeSelector compact ariaLabel="Change theme from left navigation" /></div>
     <button ref={triggerRef} className="admin-slide-trigger customer-slide-trigger customer-resource-peek-trigger" type="button" aria-label={open ? "Close customer navigation" : "Open customer navigation"} title={open ? "Close customer navigation" : "Open customer navigation"} aria-controls="customer-navigation-drawer" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setOpen(true)}><span className="customer-resource-bulb" aria-hidden="true"><Menu size={24} strokeWidth={1.9} /></span><span className="customer-resource-bulb-label">MENU</span><span className="admin-slide-trigger-led" /></button>
     </div>{typeof document !== "undefined" && createPortal(
-      <div className={`admin-slide-layer admin-slide-portal-layer customer-slide-portal${open ? " is-open" : ""}`}>
+      <div className={`admin-slide-layer admin-slide-portal-layer customer-slide-portal arb-page${open ? " is-open" : ""}`}>
     <button className="admin-slide-backdrop" type="button" aria-label="Close customer navigation" tabIndex={open ? 0 : -1} onClick={close} />
     <aside id="customer-navigation-drawer" ref={menuRef} className="admin-slide-drawer customer-slide-drawer" aria-label="Customer navigation and resources" aria-hidden={!open} role="dialog" aria-modal={open}>
       <div className="admin-slide-drawer-topline"><span><i /> CUSTOMER COMMAND PANEL</span><span className="admin-slide-count">MAIN MENU</span></div>
