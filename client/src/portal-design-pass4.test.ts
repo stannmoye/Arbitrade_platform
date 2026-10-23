@@ -101,7 +101,8 @@ describe("customer left Settings navigation body-level portal", () => {
   it("moves the actual left settings rail and scrim out of the workspace page body", () => {
     expect(appSource).toContain('import { createPortal } from "react-dom";');
     expect(appSource).toContain('id="customer-left-menu-portal-host"');
-    expect(appSource).toContain('className="customer-portal customer-left-menu-portal-host"');
+    expect(appSource).toContain('className="customer-left-menu-portal-host"');
+    expect(appSource).not.toContain('className="customer-portal customer-left-menu-portal-host"');
     expect(appSource).toContain('createPortal(');
     expect(appSource).toContain('document.body');
     expect(appSource).toContain('className="portal-rail customer-primary-rail"');
@@ -111,11 +112,11 @@ describe("customer left Settings navigation body-level portal", () => {
   });
 
   it("keeps current theme tokens while isolating the left rail from clipped/composited workspace ancestors", () => {
-    expect(customerReferenceCss).toContain('.customer-portal.customer-left-menu-portal-host');
+    expect(customerReferenceCss).toContain('.customer-left-menu-portal-host {');
     expect(customerReferenceCss).toContain('z-index: 2147483001 !important');
     expect(customerReferenceCss).toContain('.customer-left-menu-portal-host .portal-body');
     expect(customerReferenceCss).toContain('pointer-events: auto !important');
-    expect(themeCss).toContain(':root[data-arb-theme] .customer-portal .customer-primary-rail');
+    expect(themeCss).toContain(':root[data-arb-theme] .customer-left-menu-portal-host .customer-primary-rail');
     expect(themeCss).toContain('var(--arb-color-surface)');
   });
 });
