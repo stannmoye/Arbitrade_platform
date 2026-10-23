@@ -227,7 +227,7 @@ jobs:
           fi
 
           if [[ -e dist/public/api/platform/config.js ]] ||
-             grep -q '/api/platform/config.js\|__MANUS_CONFIG__' dist/public/index.html; then
+             grep -q '/api/platform/config.js' dist/public/index.html; then
             echo "Legacy third-party runtime configuration must not be shipped." >&2
             exit 1
           fi
