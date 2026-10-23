@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import type { Express, Request, Response } from "express";
 import { authenticateCustomerApiKey, type CustomerApiScope } from "../api-access";
 import { getAppSetting, listBalances, listCurrencies, listCustomerPayoutRequests, listTrades } from "../db";
@@ -38,7 +37,7 @@ async function consumeKeyRateLimit(keyId: number, max: number) {
     localBuckets.set(keyId, bucket);
   }
   bucket.count += 1;
-  if (localBuckets.size > 10_000 && !localBuckets.has(keyId)) localBuckets.delete(localBuckets.keys().next().value as number);
+  if (localBuckets.size > 10_000) { const oldest = localBuckets.keys().next().value; if (oldest !== undefined && oldest !== keyId) localBuckets.delete(oldest); }
   return { allowed: bucket.count <= max, remaining: Math.max(0, max - bucket.count), retryAfterSeconds: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)) };
 }
 
