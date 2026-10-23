@@ -1,4 +1,6 @@
 /* Privacy Centre — semantic theme tokens keep every nested surface aligned across all six themes. */
+:root[data-arb-theme="clean-light"] .privacy-center-page,
+:root[data-arb-theme="clean-light"] .privacy-admin-page{--privacy-accent-contrast:#fff}
 .privacy-center-page,.privacy-admin-page{
   --privacy-canvas:var(--arb-color-canvas,var(--bg,#0b1422));
   --privacy-surface:var(--arb-color-surface,var(--panel,#101d2d));
