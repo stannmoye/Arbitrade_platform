@@ -21,7 +21,7 @@ import { getDb } from "./db";
 const ACTIVE_STATUSES: PrivacyRequestStatus[] = ["submitted", "identity_check", "in_review", "awaiting_customer"];
 
 function cleanText(value: string, maxLength: number): string {
-  return value.replace(/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]/g, "").trim().slice(0, maxLength);
+  return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "").trim().slice(0, maxLength);
 }
 
 function parseSections(value: string): PrivacyPolicySection[] {
