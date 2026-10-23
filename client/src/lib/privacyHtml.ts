@@ -6,7 +6,13 @@
 const NOTICE_CSP = "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'; frame-src 'none'\">";
 
 export function buildPrivacyHtmlDocument(content: string): string {
-  const source = content || "";
+  const source = (content || "")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, "")
+    .replace(/<(iframe|object|embed|form)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
+    .replace(/<(iframe|object|embed|form)\b[^>]*\/?>/gi, "")
+    .replace(/<meta\b(?=[^>]*http-equiv\s*=\s*["']?refresh)[^>]*>/gi, "")
+    .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/(href|src|action)\s*=\s*(["']?)\s*javascript:[^"'\s>]\2/gi, '$1="#"');
   if (/<html[\s>]/i.test(source)) {
     if (/<head[\s>]/i.test(source)) return source.replace(/<head([^>]*)>/i, (match) => match + NOTICE_CSP + '<meta name="viewport" content="width=device-width, initial-scale=1">');
     return source.replace(/<html([^>]*)>/i, (match) => match + "<head>" + NOTICE_CSP + '<meta name="viewport" content="width=device-width, initial-scale=1"></head>');
