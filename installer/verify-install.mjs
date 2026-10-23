@@ -7,6 +7,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { safeDisplayText } from "./recovery-utils.mjs";
 import { getRequiredWorkerTables } from "../scripts/worker-schema-inventory.mjs";
+import { assertWorkerSchemaContracts } from "../scripts/worker-schema-contracts.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 config({ path: resolve(root, ".env"), override: false });
@@ -103,6 +104,20 @@ if (!url) {
           ? "Table exists; zero rows are allowed."
           : "Table is missing; run the main, portal and mining migrations before starting workers.",
       );
+    }
+    try {
+      const verified = await assertWorkerSchemaContracts(db);
+      report(
+        "Worker schema contracts",
+        true,
+        `${verified.checkedTables} mining/notification worker-critical table schemas match their required columns, nullability, enums, and indexes.`,
+      );
+    } catch (error) {
+      const errorCode = String(error?.code || "").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
+      const detail = error?.code
+        ? `Schema contract query failed (code: ${errorCode || "UNKNOWN"}); inspect migration output and database permissions.`
+        : String(error?.message || "Worker schema contract verification failed.").slice(0, 600);
+      report("Worker schema contracts", false, detail);
     }
     if (names.has("users")) {
       const [admins] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='admin'");
