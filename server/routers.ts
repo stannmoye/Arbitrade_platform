@@ -297,6 +297,61 @@ export const appRouter = router({
   }),
 
   adminOperations: router({
+    apiAccessSettings: adminProcedure.query(async () => {
+      const defaults = {
+        apiEnabled: false,
+        requestsPerMinute: 60,
+        whatsappEnabled: false,
+        whatsappNumber: "",
+        templates: {
+          deposit_confirmed: "Hello {{customer_name}}, your deposit {{reference}} has been confirmed.",
+          withdrawal_status: "Hello {{customer_name}}, your withdrawal request {{reference}} status is now {{status}}.",
+          daily_statement: "Hello {{customer_name}}, your daily account statement is ready: {{secure_link}}",
+          daily_activity: "Hello {{customer_name}}, your daily account activity summary is ready: {{secure_link}}",
+          fee_summary: "Hello {{customer_name}}, your fee summary is ready: {{secure_link}}",
+          platform_status: "Arbitrade platform status update: {{status}}. Details: {{status_url}}",
+          security_alert: "Security notice for your Arbitrade account: {{event}}. If this was not you, sign in and review your security settings.",
+          report_ready: "Hello {{customer_name}}, your requested report is ready: {{secure_link}}",
+        },
+        walletProviderName: "",
+        walletProviderBaseUrl: "",
+        walletWebhookUrl: "",
+      };
+      try {
+        const stored = JSON.parse((await getAppSetting("apiAccess.settings")) || "{}");
+        return { ...defaults, ...stored, templates: { ...defaults.templates, ...(stored.templates || {}) } };
+      } catch {
+        return defaults;
+      }
+    }),
+    saveApiAccessSettings: adminProcedure.input(z.object({
+      apiEnabled: z.boolean(),
+      requestsPerMinute: z.number().int().min(10).max(600),
+      whatsappEnabled: z.boolean(),
+      whatsappNumber: z.string().trim().max(32),
+      templates: z.record(z.string().min(1).max(64), z.string().max(2000)).refine((value) => Object.keys(value).length <= 20, "At most 20 message templates are allowed."),
+      walletProviderName: z.string().trim().max(120),
+      walletProviderBaseUrl: z.string().trim().max(500),
+      walletWebhookUrl: z.string().trim().max(500),
+    })).mutation(async ({ ctx, input }) => {
+      const number = input.whatsappNumber.trim();
+      if (number && !/^\\+?[0-9 ()-]{7,32}$/.test(number)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid WhatsApp business number using digits and an optional leading +." });
+      }
+      for (const [label, value] of [["Wallet provider base URL", input.walletProviderBaseUrl], ["Wallet webhook URL", input.walletWebhookUrl]] as const) {
+        if (!value) continue;
+        let parsed: URL;
+        try { parsed = new URL(value); } catch { throw new TRPCError({ code: "BAD_REQUEST", message: label + " must be a valid HTTPS URL." }); }
+        if (parsed.protocol !== "https:") throw new TRPCError({ code: "BAD_REQUEST", message: label + " must use HTTPS." });
+      }
+      const allowedTemplates = new Set(["deposit_confirmed","withdrawal_status","daily_statement","daily_activity","fee_summary","platform_status","security_alert","report_ready"]);
+      if (Object.keys(input.templates).some((key) => !allowedTemplates.has(key))) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "One or more message template identifiers are not supported." });
+      }
+      const settings = { ...input, whatsappNumber: number, templates: input.templates };
+      await setAppSetting("apiAccess.settings", JSON.stringify(settings), ctx.user.id);
+      return { success: true, settings };
+    }),
 
     privacyPolicyState: adminProcedure.query(() => privacyService.getAdminPrivacyPolicyState()),
     savePrivacyPolicyDraft: adminProcedure.input(z.object({
