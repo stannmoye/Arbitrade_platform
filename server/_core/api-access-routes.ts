@@ -328,7 +328,7 @@ export function registerCustomerApiAccessRoutes(app: Express) {
 
   app.get("/api/v1/account/statements/daily", apiIpRateLimit, apiHandler("statements:read", async (req, res, identity) => {
     const date = typeof req.query.date === "string" ? req.query.date : new Date().toISOString().slice(0, 10);
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(date + "T00:00:00Z"))) {
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(date + "T00:00:00Z")) || new Date(date + "T00:00:00Z").toISOString().slice(0, 10) !== date) {
       res.status(400).json({ error: "date must use YYYY-MM-DD.", code: "INVALID_REPORT_DATE" }); return;
     }
     const start = new Date(date + "T00:00:00.000Z").getTime();
@@ -356,7 +356,7 @@ export function registerCustomerApiAccessRoutes(app: Express) {
       },
       meta: { accountScope: "authenticated-customer", timeZone: "UTC", generatedAt: new Date().toISOString(),
         completeness: "partial", unavailableSections: ["deposits", "fees"],
-        note: "This API statement summarizes stored balances, trade records and withdrawal requests for the UTC date. It is not a complete statement while deposit and fee source systems are unconnected." },
+        note: "Trade records and withdrawal requests are filtered to the selected UTC date. Balances are the current snapshot as of generatedAt, not historical closing balances. This is not a complete statement while deposit and fee source systems are unconnected." },
     });
   }));
 
