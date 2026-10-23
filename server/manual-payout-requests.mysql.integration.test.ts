@@ -393,18 +393,20 @@ integrationDescribe("manual payout lifecycle against disposable MySQL/MariaDB", 
     else expect(current.availableMinor).toBe(10000);
   });
 
-  it("prevents customer deletion while a payout is pending and removes payout history after terminal closure", async () => {
+  it("blocks direct customer deletion even after payouts are resolved, preserving the account and financial audit trail", async () => {
     const userId = await createAccount();
     const request = await createCustomerPayoutRequest(userId, requestInput(1000, unique("payout-delete-guard")));
-    await expect(deleteAdminCustomer(userId)).rejects.toThrow("Resolve or cancel pending payout requests before deleting this customer.");
+    await expect(deleteAdminCustomer(userId)).rejects.toThrow("Direct customer deletion is disabled.");
     expect(await balance(userId)).toEqual({ availableMinor: 9000, lockedMinor: 1000, promotionalMinor: 2000 });
 
     await cancelCustomerPayoutRequest(userId, Number(request.id));
-    await expect(deleteAdminCustomer(userId)).resolves.toEqual({ success: true });
+    await expect(deleteAdminCustomer(userId)).rejects.toThrow("Direct customer deletion is disabled.");
+    expect(await balance(userId)).toEqual({ availableMinor: 10000, lockedMinor: 0, promotionalMinor: 2000 });
     const [userRows] = await pool!.execute<any[]>("SELECT id FROM users WHERE id=? LIMIT 1", [userId]);
-    const [payoutRows] = await pool!.execute<any[]>("SELECT id FROM payout_requests WHERE userId=? LIMIT 1", [userId]);
-    expect(userRows).toHaveLength(0);
-    expect(payoutRows).toHaveLength(0);
+    const [payoutRows] = await pool!.execute<any[]>("SELECT id,status FROM payout_requests WHERE userId=? LIMIT 1", [userId]);
+    expect(userRows).toHaveLength(1);
+    expect(payoutRows).toHaveLength(1);
+    expect(payoutRows[0].status).toBe("cancelled");
   });
 
   it("fails closed when customer withdrawal permission, global policy, or required KYC is missing", async () => {

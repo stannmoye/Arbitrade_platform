@@ -76,9 +76,10 @@ describe("manual payout request lifecycle contract", () => {
     expect(resolveService).not.toContain("sendExternalTransfer");
     const deleteStart = db.indexOf("export async function deleteAdminCustomer");
     const deleteService = db.slice(deleteStart);
-    expect(deleteService).toContain("Resolve or cancel pending payout requests before deleting this customer.");
-    expect(deleteService).toContain("tx.delete(customerTotpAuthenticators).where(eq(customerTotpAuthenticators.userId,userId))");
-    expect(deleteService).toContain('tx.delete(payoutRequests).where(eq(payoutRequests.userId,userId))');
+    expect(deleteService).toContain("Direct customer deletion is disabled.");
+    expect(deleteService).toContain("explicit administrator decision workflow");
+    expect(router).toContain('code: "PRECONDITION_FAILED"');
+    expect(router).toContain("deleteAdminCustomer(input.userId)");
   });
 
   it("exposes only customer-owned requests and admin-only resolution in the router", () => {
