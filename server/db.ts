@@ -525,7 +525,21 @@ export async function processNotificationCampaignLifecycle() {
       // Count the actual persisted outcome, not merely a non-throwing function call.
       if(result.status==="published") published++;
       else if(result.status==="expired") expiredDuringPublish++;
-    } catch(error) { failed++; console.error("[Notifications] Scheduled announcement lifecycle failed:",error instanceof Error?error.name:"UnknownError"); }
+    } catch(error) {
+      failed++;
+      const details = error && typeof error === "object" ? error as { name?: unknown; message?: unknown; code?: unknown; table?: unknown } : {};
+      const message = typeof details.message === "string"
+        ? details.message.replace(/\b(?:mysql|mariadb):\/\/[^\s"'<>]+/gi, "[database-url-redacted]").slice(0, 500)
+        : "No error message was provided";
+      const code = details.code == null ? undefined : String(details.code).replace(/[^A-Z0-9_]/gi, "").slice(0, 80);
+      const table = details.table == null ? undefined : String(details.table).replace(/[^A-Z0-9_]/gi, "").slice(0, 120);
+      console.error("[Notifications] Scheduled announcement lifecycle failed", {
+        name: typeof details.name === "string" ? details.name.slice(0, 80) : "UnknownError",
+        code,
+        table,
+        message,
+      });
+    }
   }
   return {expired:expiredCount+expiredDuringPublish,published,failed};
 }
