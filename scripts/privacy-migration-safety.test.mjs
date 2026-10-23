@@ -1,0 +1,41 @@
+import { readFile } from "node:fs/promises";
+import { describe, expect, it } from "vitest";
+
+const migrationPath = new URL("../drizzle/0062_privacy_center.sql", import.meta.url);
+const schemaPath = new URL("../drizzle/schema.ts", import.meta.url);
+const portalRunnerPath = new URL("./apply-portal-migrations.mjs", import.meta.url);
+const recoveryPath = new URL("../installer/migration-recovery-status.mjs", import.meta.url);
+const installPath = new URL("../installer/run-install.mjs", import.meta.url);
+
+describe("Privacy Centre migration and installation contract", () => {
+  it("creates dedicated versioning, request, request-event and audit tables without destructive SQL", async () => {
+    const sql = await readFile(migrationPath, "utf8");
+    for (const table of ["privacy_policy_versions", "privacy_requests", "privacy_request_events", "privacy_audit_events"]) {
+      expect(sql).toContain("CREATE TABLE IF NOT EXISTS `" + table + "`");
+    }
+    expect(sql).toContain("WHERE NOT EXISTS");
+    expect(sql).toContain("'published'");
+    expect(sql).toContain("'1.0'");
+    expect(sql).not.toMatch(/\bDROP\s+TABLE\b/i);
+    expect(sql).not.toMatch(/\bTRUNCATE\b/i);
+    expect(sql).not.toMatch(/\bDELETE\s+FROM\b/i);
+  });
+
+  it("keeps table declarations, migration registration, recovery reporting and installer flow aligned", async () => {
+    const [schema, portalRunner, recovery, installer] = await Promise.all([
+      readFile(schemaPath, "utf8"),
+      readFile(portalRunnerPath, "utf8"),
+      readFile(recoveryPath, "utf8"),
+      readFile(installPath, "utf8"),
+    ]);
+    for (const table of ["privacyPolicyVersions", "privacyRequests", "privacyRequestEvents", "privacyAuditEvents"]) {
+      expect(schema).toContain("export const " + table + " = mysqlTable(");
+    }
+    expect(portalRunner).toContain('"0062_privacy_center.sql"');
+    expect(recovery).toContain('"0062_privacy_center.sql"');
+    for (const table of ["privacy_policy_versions", "privacy_requests", "privacy_request_events", "privacy_audit_events"]) {
+      expect(portalRunner).toContain('"' + table + '"');
+    }
+    expect((installer.match(/db:portal-migrate/g) || []).length).toBeGreaterThanOrEqual(2);
+  });
+});
