@@ -29,7 +29,7 @@ describe("customer theme selector integration", () => {
     expect(themeCss).toContain(".customer-theme-sidebar-control");
     expect(themeCss).toContain(".customer-slide-theme-control");
     expect(customerCss).toContain(':root[data-arb-theme] .customer-portal .portal-main');
-    expect(customerCss).toContain(':root[data-arb-theme] .customer-portal .customer-primary-rail');
+    expect(customerCss).toContain(':root[data-arb-theme] .customer-left-menu-portal-host .customer-primary-rail');
     expect(customerCss).toContain("var(--arb-color-surface)");
   });
 
