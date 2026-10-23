@@ -19,7 +19,12 @@ async function hasColumn(db, table, column) {
 async function ensureColumn(db, table, column, definition) {
   if (await hasColumn(db, table, column)) return false;
   // Identifiers/definitions are constants owned by this file, never user input.
-  await db.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+  try {
+    await db.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+  } catch (error) {
+    if (await hasColumn(db, table, column)) return false;
+    throw error;
+  }
   console.log(`[worker-schema] added ${table}.${column}`);
   return true;
 }
@@ -42,7 +47,12 @@ async function ensureIndex(db, table, index, createSql) {
       throw new Error("customer_notifications has duplicate eventKey values; review those rows before enabling notification idempotency.");
     }
   }
-  await db.query(createSql);
+  try {
+    await db.query(createSql);
+  } catch (error) {
+    if (await hasIndex(db, table, index)) return false;
+    throw error;
+  }
   console.log(`[worker-schema] added index ${table}.${index}`);
   return true;
 }
@@ -55,7 +65,16 @@ async function ensureWithdrawnStatus(db, table, column, values) {
   if (!rows.length) throw new Error(`Required column ${table}.${column} is missing.`);
   const columnType = String(rows[0].columnType || "").toLowerCase();
   if (columnType.includes("'withdrawn'")) return false;
-  await db.query(`ALTER TABLE \`${table}\` MODIFY COLUMN \`${column}\` ${values}`);
+  try {
+    await db.query(`ALTER TABLE \`${table}\` MODIFY COLUMN \`${column}\` ${values}`);
+  } catch (error) {
+    const [refreshed] = await db.execute(
+      "SELECT column_type AS columnType FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1",
+      [table, column],
+    );
+    if (String(refreshed[0]?.columnType || "").toLowerCase().includes("'withdrawn'")) return false;
+    throw error;
+  }
   console.log(`[worker-schema] enabled withdrawn status in ${table}.${column}`);
   return true;
 }
