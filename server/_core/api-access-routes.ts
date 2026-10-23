@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { and, desc, eq, lt } from "drizzle-orm";
 import { authenticateCustomerApiKey, type CustomerApiScope } from "../api-access";
 import { getAppSetting, getDb, listBalances, listCurrencies, listCustomerPayoutRequests, listTrades } from "../db";
-import { listApiPlatformIncidents, listCustomerApiNotificationHistory } from "../api-access-automation";
+import { API_AUTOMATION_EVENTS, createCustomerApiWebhook, listApiPlatformIncidents, listCustomerApiNotificationHistory, listCustomerApiWebhooks, revokeCustomerApiWebhook } from "../api-access-automation";
 import { opportunityOffers, tradePositions } from "../../drizzle/schema";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
 
@@ -282,6 +282,36 @@ export function registerCustomerApiAccessRoutes(app: Express) {
       meta: { accountScope: "authenticated-customer", checkedAt: new Date().toISOString(), completeness: "partial",
         disclaimer: "This is a tax-support data summary, not a tax calculation or tax advice. It covers available trade records only; deposit and fee sources are not connected and jurisdiction-specific treatment is not assessed." },
     });
+  }));
+
+  app.get("/api/v1/webhooks", apiIpRateLimit, apiHandler("webhooks:manage", async (_req, res, identity) => {
+    const webhooks = await listCustomerApiWebhooks(identity.userId);
+    res.json({ data: webhooks, meta: { accountScope: "authenticated-customer", count: webhooks.length, checkedAt: new Date().toISOString() } });
+  }));
+
+  app.post("/api/v1/webhooks", apiIpRateLimit, apiHandler("webhooks:manage", async (req, res, identity) => {
+    const body = req.body && typeof req.body === "object" ? req.body as Record<string, unknown> : {};
+    const name = typeof body.name === "string" ? body.name : "";
+    const endpointUrl = typeof body.endpointUrl === "string" ? body.endpointUrl : "";
+    const events = Array.isArray(body.events) ? body.events.filter((item): item is typeof API_AUTOMATION_EVENTS[number] =>
+      typeof item === "string" && (API_AUTOMATION_EVENTS as readonly string[]).includes(item)) : [];
+    if (name.trim().length < 3 || name.trim().length > 80 || endpointUrl.length > 500 || !events.length
+      || (Array.isArray(body.events) && events.length !== body.events.length)) {
+      res.status(400).json({ error: "Provide a 3–80 character name, a public HTTPS endpoint URL and at least one supported event.", code: "INVALID_WEBHOOK_INPUT" });
+      return;
+    }
+    const created = await createCustomerApiWebhook(identity.userId, name, endpointUrl, events);
+    res.status(201).json({ data: created, meta: { note: "The webhook signing secret is shown once. Store it securely before leaving this response." } });
+  }));
+
+  app.delete("/api/v1/webhooks/:webhookId", apiIpRateLimit, apiHandler("webhooks:manage", async (req, res, identity) => {
+    const webhookId = Number(req.params.webhookId);
+    if (!Number.isSafeInteger(webhookId) || webhookId <= 0) {
+      res.status(400).json({ error: "webhookId must be a positive integer.", code: "INVALID_WEBHOOK_ID" });
+      return;
+    }
+    await revokeCustomerApiWebhook(identity.userId, webhookId);
+    res.json({ data: { success: true, webhookId }, meta: { accountScope: "authenticated-customer" } });
   }));
 
   app.get("/api/v1/account/notification-history", apiIpRateLimit, apiHandler("notifications:read", async (_req, res, identity) => {
