@@ -44,6 +44,6 @@ describe("createPrivacyNoticePdf", () => {
     const punctuatedPolicy = { ...policy, title: "Privacy — Customer’s Information (2026)" };
     const source = new TextDecoder().decode(createPrivacyNoticePdf(punctuatedPolicy));
     expect(source).toContain("PDF-1.4");
-    expect(source).toContain("/Title (Privacy \\? Customer\\?s Information \\(2026\\))");
+    expect(source).toContain("/Title (Privacy ? Customer?s Information \\(2026\\))");
   });
 });
