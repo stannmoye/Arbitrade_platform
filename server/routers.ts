@@ -19,6 +19,8 @@ import * as miningAdmin from "./mining-admin";
 import { normalizeAppearanceSettings } from "./appearance-settings";
 import { ADMIN_BROADCAST_CATEGORIES, buildTradeSettlementNotices } from "./modules/notification-events";
 import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
+import { getLocalSessionFromRequest } from "./_core/localAuth";
+import { invalidateLocalAuthSessions } from "./authSessions";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -35,12 +37,21 @@ export const appRouter = router({
     requestEmailVerification: protectedProcedure.mutation(({ ctx }) => requestEmailVerification(ctx.user.id)),
     confirmEmailVerification: protectedProcedure.input(z.object({ code: z.string().regex(/^\d{8}$/) })).mutation(({ ctx, input }) => confirmEmailVerification(ctx.user.id, input.code)),
     logout: publicProcedure.mutation(async ({ ctx }) => {
-      if (ctx.user) await closeTransactionConsoleSession(ctx.req, ctx.res, ctx.user.id);
       const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
+      try {
+        const localSession = getLocalSessionFromRequest(ctx.req);
+        if (ctx.user && localSession?.userId === ctx.user.id) {
+          // Invalidate the signed local-auth token server-side before reporting success.
+          await invalidateLocalAuthSessions(ctx.user.id);
+        }
+        if (ctx.user) {
+          await closeTransactionConsoleSession(ctx.req, ctx.res, ctx.user.id);
+        }
+        return { success: true } as const;
+      } finally {
+        // Always expire the browser cookie, even if revocation or cleanup fails.
+        ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      }
     }),
   }),
 
