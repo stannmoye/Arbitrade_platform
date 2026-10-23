@@ -12,9 +12,11 @@ import {
   LoaderCircle,
   LockKeyhole,
   MessageSquareText,
+  Plus,
   Save,
   Send,
   ShieldCheck,
+  Trash2,
   Users,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
@@ -146,6 +148,25 @@ export function AdminPrivacyManagement() {
     }
   };
 
+  const addSection = () => {
+    if (sections.length >= 16) return;
+    const suffix = globalThis.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const id = "custom-" + suffix.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 40);
+    setSections((existing) => [...existing, { id, title: "", body: "" }]);
+    setExpandedSection(id);
+    setPublicationReviewed(false);
+  };
+
+  const removeSection = (sectionId: string) => {
+    if (sections.length <= 6) {
+      setError("A published notice needs at least six sections. Add reviewed content before removing another section.");
+      return;
+    }
+    setSections((existing) => existing.filter((section) => section.id !== sectionId));
+    if (expandedSection === sectionId) setExpandedSection(null);
+    setPublicationReviewed(false);
+  };
+
   const updateSection = (sectionId: string, patch: Partial<PrivacyPolicySection>) => {
     setPublicationReviewed(false);
     setSections((existing) => existing.map((section) => section.id === sectionId ? { ...section, ...patch } : section));
@@ -177,7 +198,9 @@ export function AdminPrivacyManagement() {
   };
 
   const selectedRequest = requestDetail.data;
-  const canPublish = Boolean(title.trim() && summary.trim() && sections.length >= 6);
+  const canPublish = Boolean(title.trim().length >= 5 && summary.trim().length >= 20 && sections.length >= 6 &&
+    sections.every((section) => /^[a-z0-9-]{2,48}$/.test(section.id) && section.title.trim().length >= 3 && section.body.trim().length >= 40) &&
+    new Set(sections.map((section) => section.id)).size === sections.length);
   const published = policyState.data?.current;
   const draft = policyState.data?.draft;
 
@@ -213,7 +236,7 @@ export function AdminPrivacyManagement() {
               <label>Notice title<input value={title} onChange={(event) => { setTitle(event.target.value); setPublicationReviewed(false); }} maxLength={200} required /></label>
               <label>Customer-facing summary<textarea value={summary} onChange={(event) => { setSummary(event.target.value); setPublicationReviewed(false); }} maxLength={700} rows={3} required /></label>
             </div>
-            <div className="privacy-section-editor-heading"><div><strong>Notice sections</strong><span>{sections.length} structured sections · Published sections remain unchanged</span></div><span className="privacy-version-preview">Next version: {nextPrivacyVersion(published?.versionLabel)}</span></div>
+            <div className="privacy-section-editor-heading"><div><strong>Notice sections</strong><span>{sections.length} structured sections · Published sections remain unchanged</span></div><div className="privacy-section-editor-actions"><span className="privacy-version-preview">Next version: {nextPrivacyVersion(published?.versionLabel)}</span><button type="button" className="privacy-secondary-button privacy-add-section" onClick={addSection} disabled={sections.length >= 16 || saveDraft.isPending || publishPolicy.isPending}><Plus size={14} /> Add section</button></div></div>
             <div className="privacy-section-editor-list">
               {sections.map((section, index) => {
                 const open = expandedSection === section.id;
@@ -223,7 +246,8 @@ export function AdminPrivacyManagement() {
                   </button>
                   {open && <div className="privacy-editor-fields">
                     <label>Section heading<input value={section.title} onChange={(event) => updateSection(section.id, { title: event.target.value })} maxLength={160} required /></label>
-                    <label>Section content<textarea value={section.body} onChange={(event) => updateSection(section.id, { body: event.target.value })} rows={6} maxLength={8000} required /></label>
+                    <label>Section content<textarea value={section.body} onChange={(event) => updateSection(section.id, { body: event.target.value })} rows={6} maxLength={8000} required placeholder="Enter at least 40 characters of reviewed, customer-facing notice text." /></label>
+                    <div className="privacy-editor-section-actions"><span>{section.body.trim().length}/8000 characters · Minimum 40</span><button type="button" className="privacy-text-action privacy-remove-section" onClick={() => removeSection(section.id)} disabled={sections.length <= 6 || saveDraft.isPending || publishPolicy.isPending}><Trash2 size={13} /> Remove section</button></div>
                   </div>}
                 </article>;
               })}
