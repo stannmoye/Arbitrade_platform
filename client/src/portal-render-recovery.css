@@ -123,6 +123,32 @@
   outline-offset: 3px;
 }
 
+/* Keep the mobile account drawer above its dimming scrim. Earlier theme rules
+   assign the rail z-index 80 while the scrim is 81, which paints the scrim on
+   top of the open menu and makes it look empty. This recovery layer is loaded
+   last so the open-state stacking order remains authoritative. */
+@media (max-width: 900px) {
+  .customer-portal .portal-body.customer-primary-menu-open .customer-primary-rail {
+    z-index: 82 !important;
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  .customer-portal .customer-primary-menu-scrim {
+    z-index: 81 !important;
+  }
+}
+
+/* Desktop already shows the persistent customer rail; its mobile-only left
+   Settings toggle is redundant at desktop widths. */
+@media (min-width: 901px) {
+  .customer-portal .customer-settings-trigger {
+    display: none !important;
+  }
+}
+
 @media (max-width: 480px) {
   .portal-render-error {
     width: calc(100% - 20px);
