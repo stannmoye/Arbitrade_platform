@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { ThemeSelector } from "@/components/ThemeSelector";
 import {
   Activity, ArrowDownUp, BarChart3, BookMarked, BookOpen, CircleHelp, Coins, Cpu, FileText,
@@ -116,11 +115,9 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
     return <button key={item.target} type="button" className={`admin-slide-item${section === item.target ? " is-active" : ""}`} tabIndex={open ? 0 : -1} aria-current={section === item.target ? "page" : undefined} onClick={() => navigate(item.target)}><span className="admin-slide-item-icon"><Icon size={17} /></span><span className="admin-slide-item-copy"><strong>{item.label}{item.planned && <em className="customer-slide-planned">PLANNED</em>}</strong><small>{item.detail}</small></span><span className="admin-slide-item-arrow">→</span></button>;
   };
 
-  return <><div className={`admin-slide-layer customer-slide-layer arb-page${open ? " is-open" : ""}`}>
+  return <div className={`admin-slide-layer customer-slide-layer arb-page${open ? " is-open" : ""}`}>
     <div className="customer-theme-sidebar-control" aria-label="Change customer workspace theme"><ThemeSelector compact ariaLabel="Change theme from left navigation" /></div>
     <button ref={triggerRef} className="admin-slide-trigger customer-slide-trigger customer-resource-peek-trigger" type="button" aria-label={open ? "Close customer navigation" : "Open customer navigation"} title={open ? "Close customer navigation" : "Open customer navigation"} aria-controls="customer-navigation-drawer" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setOpen(true)}><span className="customer-resource-bulb" aria-hidden="true"><Menu size={24} strokeWidth={1.9} /></span><span className="customer-resource-bulb-label">MENU</span><span className="admin-slide-trigger-led" /></button>
-    </div>{typeof document !== "undefined" && createPortal(
-      <div className={`admin-slide-layer admin-slide-portal-layer customer-slide-portal arb-page${open ? " is-open" : ""}`}>
     <button className="admin-slide-backdrop" type="button" aria-label="Close customer navigation" tabIndex={open ? 0 : -1} onClick={close} />
     <aside id="customer-navigation-drawer" ref={menuRef} className="admin-slide-drawer customer-slide-drawer" aria-label="Customer navigation and resources" aria-hidden={!open} role="dialog" aria-modal={open}>
       <div className="admin-slide-drawer-topline"><span><i /> CUSTOMER COMMAND PANEL</span><span className="admin-slide-count">MAIN MENU</span></div>
@@ -134,7 +131,5 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
       </nav>
       <div className="admin-slide-footer"><div className="quick-actions-status"><span><span className="quick-actions-status-dot" /> Customer workspace</span><strong>Connected</strong><small>Database-backed customer portal</small></div><div className="admin-slide-footer-note">Open a destination to switch customer pages. Items marked Planned are not live offerings.</div></div>
     </aside>
-      </div>,
-      document.body
-    )}</>;
+  </div>;
 }
