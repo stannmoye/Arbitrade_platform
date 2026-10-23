@@ -1,7 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { and, desc, eq, lt } from "drizzle-orm";
 import { authenticateCustomerApiKey, type CustomerApiScope } from "../api-access";
-import { getAppSetting, getDb, listBalances, listCurrencies, listCustomerPayoutRequests } from "../db";
+import { getAppSetting, getDb, listBalances, listCurrencies, listCustomerPayoutRequests, listTrades } from "../db";
+import { listApiPlatformIncidents, listCustomerApiNotificationHistory } from "../api-access-automation";
 import { opportunityOffers, tradePositions } from "../../drizzle/schema";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
 
@@ -153,10 +154,173 @@ export function registerCustomerApiAccessRoutes(app: Express) {
     });
   }));
 
-  app.get("/api/v1/platform/status", apiIpRateLimit, apiHandler("platform:status", async (_req, res) => {
+
+  app.get("/api/v1/account/deposits", apiIpRateLimit, apiHandler("deposits:read", async (_req, res) => {
+    res.status(503).json({
+      error: "Deposit monitoring is unavailable until an administrator connects and verifies a supported wallet/deposit provider.",
+      code: "DEPOSIT_PROVIDER_NOT_CONFIGURED", retryable: false,
+    });
+  }));
+
+  app.get("/api/v1/account/fees", apiIpRateLimit, apiHandler("fees:read", async (_req, res) => {
+    res.status(503).json({
+      error: "Customer fee history is not available because the application does not yet have an authoritative fee ledger connected to this API.",
+      code: "FEE_LEDGER_NOT_CONFIGURED", retryable: false,
+    });
+  }));
+
+  app.get("/api/v1/platform/fee-schedule", apiIpRateLimit, apiHandler("fees:read", async (_req, res) => {
+    const raw = await getAppSetting("apiAccess.settings");
+    let settings: Record<string, unknown> = {};
+    try { settings = raw ? JSON.parse(raw) as Record<string, unknown> : {}; } catch { settings = {}; }
+    let schedule: unknown = [];
+    try { schedule = settings.feeScheduleJson ? JSON.parse(String(settings.feeScheduleJson)) : []; } catch { schedule = null; }
+    if (!Array.isArray(schedule)) {
+      res.status(503).json({ error: "The published fee schedule is not valid. Ask an administrator to review it.", code: "FEE_SCHEDULE_UNAVAILABLE" });
+      return;
+    }
+    if (!schedule.length) {
+      res.status(503).json({ error: "No fee schedule has been published by the administrator.", code: "FEE_SCHEDULE_NOT_PUBLISHED" });
+      return;
+    }
+    res.json({ data: schedule, meta: { source: "administrator-published-schedule", checkedAt: new Date().toISOString() } });
+  }));
+
+  app.get("/api/v1/account/exchange-rates", apiIpRateLimit, apiHandler("exchange-rates:read", async (_req, res) => {
+    const currencies = await listCurrencies();
     res.json({
-      data: { apiService: "online", maintenanceStatus: "not-configured", fullServiceHealth: "not-configured" },
-      meta: { checkedAt: new Date().toISOString(), note: "This endpoint reports API availability only until the administrator configures full platform health checks." },
+      data: currencies.map((currency) => ({
+        code: currency.code, scale: currency.scale, usdRate: currency.usdRate, updatedAt: currency.updatedAt ?? null,
+      })),
+      meta: { baseCurrency: "USD", checkedAt: new Date().toISOString(), note: "Rates reflect the application's stored rate source and update time." },
+    });
+  }));
+
+  app.get("/api/v1/account/analytics", apiIpRateLimit, apiHandler("analytics:read", async (_req, res, identity) => {
+    const [balances, currencies, trades, withdrawals] = await Promise.all([
+      listBalances(identity.userId), listCurrencies(), listTrades(identity.userId), listCustomerPayoutRequests(identity.userId),
+    ]);
+    const currencyByCode = new Map(currencies.map((currency) => [currency.code, currency]));
+    const totals = balances.reduce((result, balance) => {
+      const currency = currencyByCode.get(balance.currency);
+      const scale = currency?.scale ?? 2;
+      const rate = Number(currency?.usdRate) || 0;
+      result.availableUsd += Number(balance.availableMinor || 0) / Math.pow(10, scale) * rate;
+      result.lockedUsd += Number(balance.lockedMinor || 0) / Math.pow(10, scale) * rate;
+      return result;
+    }, { availableUsd: 0, lockedUsd: 0 });
+    const tradeStatuses = trades.reduce((result: Record<string, number>, item) => {
+      result[item.status] = (result[item.status] || 0) + 1; return result;
+    }, {});
+    const withdrawalStatuses = withdrawals.reduce((result: Record<string, number>, item) => {
+      result[item.status] = (result[item.status] || 0) + 1; return result;
+    }, {});
+    res.json({
+      data: {
+        balanceCurrencyCount: balances.length, totalsApproximateUsd: totals,
+        tradeCount: trades.length, tradeStatuses, withdrawalRequestCount: withdrawals.length, withdrawalStatuses,
+      },
+      meta: { accountScope: "authenticated-customer", checkedAt: new Date().toISOString(), note: "USD totals use stored currency rates and are estimates, not accounting valuations." },
+    });
+  }));
+
+  app.get("/api/v1/account/statements/daily", apiIpRateLimit, apiHandler("statements:read", async (req, res, identity) => {
+    const date = typeof req.query.date === "string" ? req.query.date : new Date().toISOString().slice(0, 10);
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(date + "T00:00:00Z"))) {
+      res.status(400).json({ error: "date must use YYYY-MM-DD.", code: "INVALID_REPORT_DATE" }); return;
+    }
+    const start = new Date(date + "T00:00:00.000Z").getTime();
+    const end = start + 24 * 60 * 60 * 1000;
+    const [balances, currencies, trades, withdrawals] = await Promise.all([
+      listBalances(identity.userId), listCurrencies(), listTrades(identity.userId), listCustomerPayoutRequests(identity.userId),
+    ]);
+    const dayTrades = trades.filter((item) => {
+      const time = new Date(item.confirmedAt).getTime(); return time >= start && time < end;
+    }).map(({ userId: _owner, ...item }) => item);
+    const dayWithdrawals = withdrawals.filter((item) => {
+      const time = new Date(item.createdAt).getTime(); return time >= start && time < end;
+    }).map((item) => ({
+      requestReference: item.requestReference, currency: item.currency, amountMinor: item.amountMinor,
+      status: item.status, externalReference: item.externalReference, createdAt: item.createdAt, updatedAt: item.updatedAt,
+    }));
+    res.json({
+      data: {
+        date, balances: balances.map((item) => ({
+          currency: item.currency, availableMinor: item.availableMinor, lockedMinor: item.lockedMinor,
+          promotionalMinor: item.promotionalMinor, earnedMinor: item.earnedMinor,
+        })),
+        currencies: currencies.map((item) => ({ code: item.code, scale: item.scale, usdRate: item.usdRate })),
+        trades: dayTrades, withdrawals: dayWithdrawals, deposits: null, fees: null,
+      },
+      meta: { accountScope: "authenticated-customer", timeZone: "UTC", generatedAt: new Date().toISOString(),
+        completeness: "partial", unavailableSections: ["deposits", "fees"],
+        note: "This API statement summarizes stored balances, trade records and withdrawal requests for the UTC date. It is not a complete statement while deposit and fee source systems are unconnected." },
+    });
+  }));
+
+  app.get("/api/v1/account/tax-support", apiIpRateLimit, apiHandler("tax-support:read", async (req, res, identity) => {
+    const year = req.query.year === undefined ? new Date().getUTCFullYear() : Number(req.query.year);
+    if (!Number.isInteger(year) || year < 2000 || year > 2200) {
+      res.status(400).json({ error: "year must be a four-digit year from 2000 to 2200.", code: "INVALID_REPORT_YEAR" }); return;
+    }
+    const trades = await listTrades(identity.userId);
+    const rows = trades.filter((item) => {
+      const time = new Date(item.confirmedAt).getTime();
+      return time >= Date.UTC(year, 0, 1) && time < Date.UTC(year + 1, 0, 1);
+    });
+    const totals = new Map<string, { tradeCount: number; principalMinor: number; creditedRewardMinor: number }>();
+    for (const item of rows) {
+      const current = totals.get(item.currency) || { tradeCount: 0, principalMinor: 0, creditedRewardMinor: 0 };
+      current.tradeCount += 1;
+      current.principalMinor += Number(item.principalMinor || 0);
+      current.creditedRewardMinor += Number(item.creditedRewardMinor || 0);
+      totals.set(item.currency, current);
+    }
+    res.json({
+      data: { year, currencySummaries: [...totals.entries()].map(([currency, value]) => ({ currency, ...value })),
+        tradeRows: rows.map(({ userId: _owner, ...item }) => item), additionalSources: ["deposits", "fees"] },
+      meta: { accountScope: "authenticated-customer", checkedAt: new Date().toISOString(), completeness: "partial",
+        disclaimer: "This is a tax-support data summary, not a tax calculation or tax advice. It covers available trade records only; deposit and fee sources are not connected and jurisdiction-specific treatment is not assessed." },
+    });
+  }));
+
+  app.get("/api/v1/account/notification-history", apiIpRateLimit, apiHandler("notifications:read", async (_req, res, identity) => {
+    const items = await listCustomerApiNotificationHistory(identity.userId);
+    res.json({ data: items, meta: { accountScope: "authenticated-customer", count: items.length, checkedAt: new Date().toISOString() } });
+  }));
+
+  app.get("/api/v1/platform/incidents", apiIpRateLimit, apiHandler("incidents:read", async (_req, res) => {
+    const incidents = await listApiPlatformIncidents();
+    res.json({ data: incidents.map((incident) => ({
+      id: incident.id, status: incident.status, title: incident.title, message: incident.message,
+      affectedServices: (() => { try { return JSON.parse(incident.affectedServicesJson) as string[]; } catch { return []; } })(),
+      startsAt: incident.startsAt, endsAt: incident.endsAt, createdAt: incident.createdAt, updatedAt: incident.updatedAt,
+    })), meta: { checkedAt: new Date().toISOString(), source: "administrator-maintained-incident-log" } });
+  }));
+
+  app.get("/api/v1/platform/status", apiIpRateLimit, apiHandler("platform:status", async (_req, res) => {
+    const raw = await getAppSetting("apiAccess.settings");
+    let settings: Record<string, unknown> = {};
+    try { settings = raw ? JSON.parse(raw) as Record<string, unknown> : {}; } catch { settings = {}; }
+    const incidents = await listApiPlatformIncidents();
+    const now = Date.now();
+    const activeIncident = incidents.find((item) => !item.endsAt && (!item.startsAt || item.startsAt.getTime() <= now));
+    const declaredStatus = ["operational", "degraded", "maintenance", "offline"].includes(String(settings.platformStatus))
+      ? String(settings.platformStatus) : "not-configured";
+    const effectiveStatus = activeIncident?.status || declaredStatus;
+    res.json({
+      data: {
+        apiService: "online",
+        platformStatus: effectiveStatus,
+        maintenanceStatus: effectiveStatus === "maintenance" ? "active" : "not-active-or-not-configured",
+        fullServiceHealth: activeIncident || declaredStatus !== "not-configured" ? "administrator-declared" : "not-configured",
+        maintenanceMessage: activeIncident?.message || String(settings.maintenanceMessage || ""),
+        activeIncident: activeIncident ? {
+          id: activeIncident.id, title: activeIncident.title, startsAt: activeIncident.startsAt,
+          affectedServices: (() => { try { return JSON.parse(activeIncident.affectedServicesJson) as string[]; } catch { return []; } })(),
+        } : null,
+      },
+      meta: { checkedAt: new Date().toISOString(), source: activeIncident ? "active-incident" : declaredStatus !== "not-configured" ? "administrator-setting" : "api-route-health", note: "Application status is an administrator-declared state until real health probes are configured." },
     });
   }));
 }
