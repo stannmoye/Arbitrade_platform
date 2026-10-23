@@ -1,84 +1,53 @@
 import type { Express } from "express";
-import { ENV } from "./env";
+import { basename } from "node:path";
 import { getTicketAttachmentAccess, getUserById } from "../db";
+import { isValidSupportAttachmentStorageKey } from "./attachmentPolicy";
 import { getLocalSessionFromRequest } from "./localAuth";
-import { sdk } from "./sdk";
-import { getSafePresignedDownloadUrl } from "../support-upload-security";
+import { getLocalStoragePath } from "../local-storage";
 
 export function registerStorageProxy(app: Express) {
-  app.get("/manus-storage/*", async (req, res) => {
-    const key = (req.params as Record<string, string>)[0];
-    if (!key) {
-      res.status(400).send("Missing storage key");
+  app.get("/api/support/attachments/file", async (req, res) => {
+    const key = typeof req.query.key === "string" ? req.query.key : "";
+    if (!isValidSupportAttachmentStorageKey(key)) {
+      res.status(404).send("Attachment not found");
       return;
     }
 
-    // Support attachments may contain sensitive customer evidence. Authorize
-    // the request against the persisted attachment row and ticket owner before
-    // requesting a signed storage URL.
-    if (key === "support" || key.startsWith("support/")) {
-      const session = getLocalSessionFromRequest(req);
-      try {
-        let user = session ? await getUserById(session.userId) : null;
-        if (session && (!user || Number(user.authVersion || 0) !== session.authVersion)) {
-          res.status(401).send("Authentication required");
-          return;
-        }
-        if (!user) {
-          try { user = await sdk.authenticateRequest(req); } catch { user = null; }
-        }
-        if (!user) {
-          res.status(401).send("Authentication required");
-          return;
-        }
-        const attachment = await getTicketAttachmentAccess(key);
-        if (!attachment || (user.role !== "admin" && attachment.customerId !== Number(user.id))) {
-          res.status(404).send("Attachment not found");
-          return;
-        }
-      } catch (err) {
-        console.error("[StorageProxy] support attachment authorization failed:", err);
-        res.status(500).send("Unable to authorize attachment");
-        return;
-      }
-    }
-
-    if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
-      res.status(500).send("Storage proxy not configured");
+    const session = getLocalSessionFromRequest(req);
+    if (!session) {
+      res.status(401).send("Authentication required");
       return;
     }
 
     try {
-      const forgeUrl = new URL(
-        "v1/storage/presign/get",
-        ENV.forgeApiUrl.replace(/\/+$/, "") + "/",
-      );
-      forgeUrl.searchParams.set("path", key);
+      const user = await getUserById(session.userId);
+      if (!user || Number(user.authVersion || 0) !== session.authVersion) {
+        res.status(401).send("Authentication required");
+        return;
+      }
 
-      const forgeResp = await fetch(forgeUrl, {
-        headers: { Authorization: `Bearer ${ENV.forgeApiKey}` },
+      const attachment = await getTicketAttachmentAccess(key);
+      if (!attachment || (user.role !== "admin" && attachment.customerId !== Number(user.id))) {
+        res.status(404).send("Attachment not found");
+        return;
+      }
+
+      const filePath = getLocalStoragePath(key);
+      res.set("Cache-Control", "private, no-store");
+      res.set("X-Content-Type-Options", "nosniff");
+      res.download(filePath, basename(filePath), (error) => {
+        if (error && !res.headersSent) res.status(404).send("Attachment not found");
       });
-
-      if (!forgeResp.ok) {
-        const body = await forgeResp.text().catch(() => "");
-        console.error(`[StorageProxy] forge error: ${forgeResp.status} ${body}`);
-        res.status(502).send("Storage backend error");
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code || "")
+        : "";
+      if (code === "ENOENT") {
+        res.status(404).send("Attachment not found");
         return;
       }
-
-      const { url } = (await forgeResp.json()) as { url?: unknown };
-      const safeDownloadUrl = getSafePresignedDownloadUrl(url);
-      if (!safeDownloadUrl) {
-        console.error("[StorageProxy] storage backend returned an invalid or unsafe signed URL");
-        res.status(502).send("Storage backend returned an invalid or unsafe signed URL");
-        return;
-      }
-
-      res.set("Cache-Control", "no-store, private");
-      res.redirect(307, safeDownloadUrl);
-    } catch (err) {
-      console.error("[StorageProxy] failed:", err);
-      res.status(502).send("Storage proxy error");
+      console.error("[LocalStorage] Failed to authorize or serve support attachment:", error instanceof Error ? error.name : "UnknownError");
+      if (!res.headersSent) res.status(500).send("Unable to retrieve attachment");
     }
   });
 }
