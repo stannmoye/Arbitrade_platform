@@ -60,8 +60,8 @@ describe("navigation drawer keyboard accessibility contracts", () => {
   });
 
   it("keeps the portaled customer drawer in a layer above page overlays", () => {
-    expect(drawerStyles).toMatch(/\.admin-slide-portal-layer\s*\{[^}]*z-index:\s*2147483000!important;[^}]*isolation:\s*isolate!important;/s);
-    expect(drawerStyles).toMatch(/\.admin-slide-portal-layer \.admin-slide-drawer\s*\{\s*z-index:\s*2!important;\s*\}/);
+    expect(drawerStyles).toContain(".admin-slide-portal-layer{z-index:2147483000!important;isolation:isolate!important}");
+    expect(drawerStyles).toContain(".admin-slide-portal-layer .admin-slide-drawer{z-index:2!important}");
   });
 
   it("hides the redundant left Settings handle when the desktop rail is present", () => {
