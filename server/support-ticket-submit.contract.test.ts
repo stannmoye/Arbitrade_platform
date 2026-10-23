@@ -53,7 +53,7 @@ describe("Stage 4 support ticket submission security contract", () => {
     expect(presign).toContain("/api/support/attachments/file?key=");
     expect(presign).toContain('randomBytes(24).toString("hex")');
     expect(presign).not.toContain("fetch(");
-    expect(presign).not.toContain("MANUS_API_URL");
+    expect(presign).not.toContain("process.env.");
     const uploadStart = server.indexOf('app.put("/api/support/attachments/upload"');
     const uploadEnd = server.indexOf("app.use(express.json", uploadStart);
     const upload = server.slice(uploadStart, uploadEnd);
