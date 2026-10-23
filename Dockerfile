@@ -11,4 +11,4 @@ ENV PORT=3000
 EXPOSE 3000
 # Use pnpm's command resolver; node_modules/.bin/drizzle-kit is a shell shim, not JavaScript.
 # Stop startup if migrations fail rather than launching against an incomplete schema.
-CMD ["sh", "-c", "pnpm db:migrate && node scripts/ensure-worker-runtime-schema.mjs && node dist/index.js"]
+CMD ["sh", "-c", "pnpm start"]

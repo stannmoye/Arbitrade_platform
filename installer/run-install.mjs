@@ -242,6 +242,8 @@ if (mode === "fresh") {
   run("node", ["scripts/apply-mining-migrations.mjs", "--confirm-host-migration", "--confirm-production"]);
   await setStage("initial-reward-rate-migration");
   run("node", ["scripts/apply-mining-initial-reward-rates.mjs", "--confirm-host-migration", "--confirm-production"]);
+  await setStage("mining-current-schema-repair");
+  run("node", ["scripts/ensure-mining-current-schema.mjs"]);
   await setStage("worker-runtime-schema");
   run("node", ["scripts/ensure-worker-runtime-schema.mjs"]);
   await setStage("worker-schema-verification");
@@ -264,6 +266,8 @@ if (mode === "fresh") {
   run("node", ["scripts/apply-mining-migrations.mjs", "--confirm-host-migration", "--confirm-production"]);
   await setStage("initial-reward-rate-migration");
   run("node", ["scripts/apply-mining-initial-reward-rates.mjs", "--confirm-host-migration", "--confirm-production"]);
+  await setStage("mining-current-schema-repair");
+  run("node", ["scripts/ensure-mining-current-schema.mjs"]);
   await setStage("worker-runtime-schema");
   run("node", ["scripts/ensure-worker-runtime-schema.mjs"]);
   await setStage("worker-schema-verification");

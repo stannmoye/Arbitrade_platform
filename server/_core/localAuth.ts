@@ -3,7 +3,7 @@ import type { Request } from "express";
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 function secret() {
-  const value = process.env.SESSION_SECRET || process.env.MANUS_JWT_SECRET;
+  const value = process.env.SESSION_SECRET;
   if (!value && process.env.NODE_ENV === "production") throw new Error("SESSION_SECRET is required in production");
   return value || "development-only-session-secret";
 }

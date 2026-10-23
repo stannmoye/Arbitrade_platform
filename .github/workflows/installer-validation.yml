@@ -70,6 +70,9 @@ jobs:
           node --check scripts/apply-mining-migrations-safety.test.mjs
           node --check scripts/worker-schema-contracts.mjs
           node --check scripts/worker-schema-contracts.test.mjs
+          node --check scripts/migrate-all.mjs
+          node --check scripts/migrate-all.test.mjs
+          node --check server-start.mjs
           node --check scripts/ensure-mining-current-schema.mjs
           node --check scripts/ensure-worker-runtime-schema.mjs
           node --check scripts/verify-worker-schema.mjs
@@ -231,16 +234,12 @@ jobs:
             exit 1
           fi
 
-          if [[ ! -s dist/public/api/platform/config.js ]] ||
-             ! grep -q 'window.__MANUS_CONFIG__=' dist/public/api/platform/config.js; then
-            echo "Expected public runtime configuration asset was not emitted." >&2
+          if [[ -e dist/public/api/platform/config.js ]] ||
+             grep -q '/api/platform/config.js' dist/public/index.html; then
+            echo "Legacy third-party runtime configuration must not be shipped." >&2
             exit 1
           fi
-          if ! grep -q '/api/platform/config.js' dist/public/index.html; then
-            echo "Production HTML no longer loads the public runtime configuration script." >&2
-            exit 1
-          fi
-          echo "Frontend JS/CSS budgets, lazy chunks, and runtime-config asset checks passed."
+          echo "Frontend JS/CSS budgets and provider-free HTML checks passed."
       - name: Smoke-test production server without a database
         env:
           NODE_ENV: production
@@ -266,15 +265,11 @@ jobs:
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:3187/api/health | grep -q '"status":"ok"'; then
               echo "Production server health endpoint returned status=ok."
-              if grep -Fq '[OAuth] ERROR: MANUS_OAUTH_API_URL' "$log_file"; then
-                echo "Missing optional OAuth configuration is still logged as an error." >&2
+              if grep -Fq '[OAuth]' "$log_file"; then
+                echo "Unconfigured external authentication should not emit startup diagnostics." >&2
                 exit 1
               fi
-              if ! grep -Fq '[OAuth] MANUS_OAUTH_API_URL is not configured; OAuth sign-in will be unavailable until it is set.' "$log_file"; then
-                echo "Expected actionable OAuth configuration warning was not logged." >&2
-                exit 1
-              fi
-              echo "OAuth startup diagnostic correctly distinguishes missing configuration from a startup failure."
+              echo "Production startup has no legacy provider diagnostics."
               exit 0
             fi
             if ! kill -0 "$server_pid" 2>/dev/null; then
@@ -756,7 +751,7 @@ jobs:
              configuration, logs, lock files, SQL dumps and package metadata cannot
              be downloaded over HTTP. Never leave .env or bootstrap files public.
           3. Extract the ZIP, create a cPanel Node.js application (Node.js 20+;
-             Node 22 recommended) with startup file dist/index.js, and install the
+             Node 22 recommended) with startup file server-start.mjs, and install the
              locked dependencies from the private application terminal:
                  corepack enable
                  corepack prepare pnpm@10.18.0 --activate

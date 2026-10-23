@@ -3,19 +3,15 @@ import express from "express";
 import { randomBytes } from "node:crypto";
 import { createServer } from "http";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { registerOAuthRoutes } from "./oauth";
 import { registerProviderOAuthRoutes } from "./providerOAuth";
-import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { sdk } from "./sdk";
 import { countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getUserByEmail, getUserById, processNotificationCampaignLifecycle, runAutoTradeCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
 import { resolveTrustedProxyHops } from "./trustedProxy";
-import { isAllowedAttachmentRequest } from "./attachmentPolicy";
-import { getSafePresignedUploadUrl } from "../support-upload-security";
+import { isAllowedAttachmentRequest, isSupportAttachmentStorageKeyForTicket } from "./attachmentPolicy";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
 import { getTicketUploadPolicy } from "../db";
 import { ensureMarketDrivenOpportunities, refreshMarketData } from "../marketSync";
@@ -27,11 +23,14 @@ import { confirmEmailVerification, requestEmailVerification, requestPasswordRese
 import { startEmailWorkers } from "../emailQueue";
 import { refreshMiningPriceFeeds } from "../mining-admin";
 import { runMiningWorkerCycle } from "../mining";
+import { saveLocalStorageFile } from "../local-storage";
+import { registerStorageProxy } from "./storageProxy";
 
 const registrationRateLimit = createAuthRateLimiter({ windowMs: 60 * 60_000, max: 5, message: "Too many registration attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-register" });
 const customerLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many login attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-login" });
 const adminLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 8, message: "Too many administrator login attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "admin-login" });
 const supportAttachmentPresignRateLimit = createAuthRateLimiter({ windowMs: 60_000, max: 20, message: "Too many support attachment requests. Try again shortly.", store: configuredAuthRateLimitStore, scope: "support-attachment-presign" });
+const supportAttachmentUploadRateLimit = createAuthRateLimiter({ windowMs: 60_000, max: 20, message: "Too many support attachment uploads. Try again shortly.", store: configuredAuthRateLimitStore, scope: "support-attachment-upload" });
 const passwordResetRequestRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 5, message: "Too many password-reset requests. Try again later.", store: configuredAuthRateLimitStore, scope: "password-reset-request" });
 const passwordResetConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many password-reset attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "password-reset-confirm" });
 const emailVerificationRequestRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 5, message: "Too many email-verification requests. Try again later.", store: configuredAuthRateLimitStore, scope: "email-verification-request" });
@@ -51,9 +50,65 @@ async function startServer() {
     if (req.method === "POST" && req.path === "/api/support/attachments/presign") {
       return supportAttachmentPresignRateLimit(req, res, next);
     }
+    if (req.method === "PUT" && req.path === "/api/support/attachments/upload") {
+      return supportAttachmentUploadRateLimit(req, res, next);
+    }
     return next();
   });
-  // Configure body parser with larger size limit for file uploads
+  // Raw support attachment bytes must be consumed before JSON parsing. These
+  // files are stored on the application host, never sent to a third-party service.
+  app.put("/api/support/attachments/upload", express.raw({ type: "*/*", limit: "25mb" }), async (req, res) => {
+    const session = getLocalSessionFromRequest(req);
+    if (!session) return res.status(401).json({ error: "Authentication required" });
+
+    try {
+      const user = await getUserById(session.userId);
+      if (!user || Number(user.authVersion || 0) !== session.authVersion) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const ticketId = Number(req.query.ticketId);
+      const key = typeof req.query.key === "string" ? req.query.key : "";
+      const fileName = typeof req.query.fileName === "string" ? req.query.fileName : "";
+      const mimeType = typeof req.query.mimeType === "string" ? req.query.mimeType.toLowerCase() : "";
+      const declaredSize = Number(req.query.sizeBytes);
+      const bytes = Buffer.isBuffer(req.body) ? req.body : null;
+      if (
+        !Number.isSafeInteger(ticketId) ||
+        ticketId < 1 ||
+        !isSupportAttachmentStorageKeyForTicket(key, ticketId) ||
+        !fileName ||
+        !mimeType ||
+        !bytes ||
+        !Number.isSafeInteger(declaredSize) ||
+        declaredSize !== bytes.length
+      ) {
+        return res.status(400).json({ error: "Invalid support attachment upload" });
+      }
+      if (!(await getCustomerTicket(user.id, ticketId))) return res.status(404).json({ error: "Ticket not found" });
+
+      const incomingMimeType = String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
+      if (incomingMimeType !== mimeType) return res.status(400).json({ error: "Attachment content type does not match its upload metadata" });
+      const policy = await getTicketUploadPolicy();
+      const rejectionMessage = `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}`;
+      if (!isAllowedAttachmentRequest({ fileName, mimeType, sizeBytes: bytes.length }, policy)) {
+        return res.status(400).json({ error: rejectionMessage });
+      }
+
+      await saveLocalStorageFile(key, bytes);
+      res.set("Cache-Control", "no-store, private");
+      return res.status(201).json({ uploaded: true });
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code || "")
+        : "";
+      if (code === "EEXIST") return res.status(409).json({ error: "This attachment upload was already received" });
+      console.error("[LocalStorage] Support attachment upload failed:", error instanceof Error ? error.name : "UnknownError");
+      return res.status(500).json({ error: "Unable to store support attachment" });
+    }
+  });
+
+  // Configure body parser with larger size limit for JSON/API requests.
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
@@ -133,71 +188,45 @@ async function startServer() {
       return res.json({ success: true });
     } catch (error) { return res.status(400).json({ error: error instanceof Error ? error.message : "The verification code is invalid or expired" }); }
   });
-  app.get("/api/platform/config.js", (_req, res) => {
-    res.set("Cache-Control", "no-store").type("application/javascript").send(publicPlatformScript());
-  });
   app.post("/api/support/attachments/presign", async (req, res) => {
-    // Keep authentication failures separate from storage/provider failures. A
-    // storage outage must never be reported as an invalid customer session.
-    let authenticatedUser;
-    const localSession = getLocalSessionFromRequest(req);
-    if (localSession) {
-      authenticatedUser = await getUserById(localSession.userId);
-      if (!authenticatedUser || Number(authenticatedUser.authVersion || 0) !== localSession.authVersion) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-    } else {
-      try {
-        authenticatedUser = await sdk.authenticateRequest(req);
-      } catch {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-    }
+    const session = getLocalSessionFromRequest(req);
+    if (!session) return res.status(401).json({ error: "Authentication required" });
 
     try {
+      const authenticatedUser = await getUserById(session.userId);
+      if (!authenticatedUser || Number(authenticatedUser.authVersion || 0) !== session.authVersion) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
       const { ticketId, fileName, mimeType, sizeBytes } = req.body ?? {};
       if (!Number.isSafeInteger(ticketId) || ticketId < 1) return res.status(400).json({ error: "A valid support ticket is required" });
       if (!(await getCustomerTicket(authenticatedUser.id, ticketId))) return res.status(404).json({ error: "Ticket not found" });
+
       const policy = await getTicketUploadPolicy();
       const rejectionMessage = `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}`;
       if (!isAllowedAttachmentRequest({ fileName, mimeType, sizeBytes }, policy)) {
         return res.status(400).json({ error: rejectionMessage });
       }
+
       const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
       const key = `support/${ticketId}/${randomBytes(24).toString("hex")}-${safeName}`;
-      const base = process.env.MANUS_API_URL;
-      const token = process.env.MANUS_API_KEY;
-      if (!base || !token) return res.status(503).json({ error: "Managed storage is not configured" });
-      const upstream = await fetch(`${base}/v1/storage/presign/put?path=${encodeURIComponent(key)}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) });
-      let payload: { url?: string; error?: string };
-      try {
-        payload = await upstream.json() as { url?: string; error?: string };
-      } catch {
-        return res.status(502).json({ error: "Managed storage returned an invalid response" });
+      if (!isSupportAttachmentStorageKeyForTicket(key, ticketId)) {
+        return res.status(400).json({ error: "Invalid support attachment storage key" });
       }
-      if (!upstream.ok || !payload.url) {
-        // Provider error text can contain internal details; expose only a stable,
-        // non-sensitive message to the customer.
-        console.error("[SupportAttachmentPresign] Storage provider rejected presign request", upstream.status);
-        return res.status(502).json({ error: "Unable to prepare managed upload. Please retry." });
-      }
-      // Presigned URLs are bearer credentials. Never send malformed, non-HTTPS,
-      // or credential-bearing URLs back to the customer's browser.
-      const safeUploadUrl = getSafePresignedUploadUrl(payload.url);
-      if (!safeUploadUrl) {
-        console.error("[SupportAttachmentPresign] Storage provider returned an invalid or unsafe upload URL");
-        return res.status(502).json({ error: "Managed storage returned an invalid or unsafe upload URL" });
-      }
+      const uploadUrl = `/api/support/attachments/upload?ticketId=${ticketId}&key=${encodeURIComponent(key)}&fileName=${encodeURIComponent(safeName)}&mimeType=${encodeURIComponent(String(mimeType).toLowerCase())}&sizeBytes=${sizeBytes}`;
       res.set("Cache-Control", "no-store, private");
-      return res.json({ uploadUrl: safeUploadUrl, storageKey: key, stableUrl: `/manus-storage/${key}` });
+      return res.json({
+        uploadUrl,
+        storageKey: key,
+        stableUrl: `/api/support/attachments/file?key=${encodeURIComponent(key)}`,
+      });
     } catch (error) {
-      // Avoid returning internal provider URLs, tokens, or exception details.
-      console.error("[SupportAttachmentPresign] Unable to prepare upload", error instanceof Error ? error.name : "UnknownError");
-      return res.status(502).json({ error: "Unable to prepare managed upload. Please retry." });
+      console.error("[LocalStorage] Unable to prepare support upload:", error instanceof Error ? error.name : "UnknownError");
+      return res.status(503).json({ error: "Unable to prepare attachment upload. Please retry." });
     }
   });
-  registerOAuthRoutes(app);
   registerProviderOAuthRoutes(app);
+  registerStorageProxy(app);
   // tRPC API
   app.use(
     "/api/trpc",

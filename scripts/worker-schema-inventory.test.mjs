@@ -16,6 +16,21 @@ describe("installer worker schema inventory", () => {
     expect(required).toContain("__drizzle_migrations");
   });
 
+  it("includes tables created by SQL migrations, including raw-SQL KYC tables", () => {
+    const required = getRequiredWorkerTables(
+      'export const users = mysqlTable("users", {});',
+      [
+        "-- CREATE TABLE `comment_only` (id INT);",
+        "CREATE TABLE IF NOT EXISTS `kyc_settings` (id INT);",
+        "CREATE TABLE `worker_runtime_state` (id INT);",
+      ],
+    );
+    expect(required).toContain("users");
+    expect(required).toContain("kyc_settings");
+    expect(required).toContain("worker_runtime_state");
+    expect(required).not.toContain("comment_only");
+  });
+
   it("reports missing tables deterministically and accepts empty-but-present tables", () => {
     expect(findMissingWorkerTables(
       ["users", "notification_campaigns", "mining_pending_boost_rewards"],
