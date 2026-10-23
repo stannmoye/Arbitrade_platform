@@ -1868,7 +1868,9 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         });
 
         await customerSearch.fill("");
-        await drawer.getByRole("button", { name: /Dashboard/ }).waitFor({ state: "visible" });
+        // Dashboard is a main-page destination exposed only as a search match.
+        // Verify a normal drawer destination returns when the query is cleared.
+        await drawer.getByRole("button", { name: /Wallet/ }).waitFor({ state: "visible" });
         await drawer.evaluate((element, selector) => element.querySelectorAll(selector)[0]?.focus(), focusableSelector);
         await page.keyboard.press("Shift+Tab");
         const focusTrapWorks = await drawer.evaluate((element, selector) => {
