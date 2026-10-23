@@ -57,6 +57,17 @@ describe("worker schema contracts", () => {
     expect(failures.some((failure) => failure.includes("notification_campaign_delivery_status_idx: expected index column order"))).toBe(true);
   });
 
+  it("rejects a reward amount column with the wrong decimal precision", () => {
+    const { columns, indexes } = validMetadata();
+    const malformed = columns.map((row) =>
+      row.tableName === "mining_pending_boost_rewards" && row.columnName === "amountCki"
+        ? { ...row, columnType: "decimal(18,2)" }
+        : row,
+    );
+    expect(findWorkerSchemaContractFailures(malformed, indexes))
+      .toContain("mining_pending_boost_rewards.amountCki: expected decimal(36,18), found decimal(18,2)");
+  });
+
   it("rejects an absent worker table instead of trusting migration tracker records", () => {
     const { columns, indexes } = validMetadata();
     expect(findWorkerSchemaContractFailures(
