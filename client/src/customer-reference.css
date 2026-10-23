@@ -1662,3 +1662,36 @@
     pointer-events: auto !important;
   }
 }
+
+
+/*
+ * Mobile paint-layer fallback for the customer LEFT Settings rail.
+ * Avoid the rail's transform + clip-path + filter combination on affected
+ * Android/WebView compositors; keep the latest semantic theme surface, border,
+ * and spacing while revealing the panel with opacity/visibility only.
+ */
+@media (max-width: 900px), (pointer: coarse) {
+  .customer-left-menu-portal-host .portal-body .customer-primary-rail {
+    transform: none !important;
+    clip-path: none !important;
+    filter: none !important;
+    will-change: auto !important;
+    backface-visibility: visible !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    border-radius: 0 18px 18px 0 !important;
+    box-shadow: 18px 18px 44px rgba(0,0,0,.38), inset 0 1px 0 rgba(135,195,221,.06) !important;
+    transition: opacity .16s ease, visibility 0s linear .16s !important;
+  }
+  .customer-left-menu-portal-host .portal-body.customer-primary-menu-open .customer-primary-rail {
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transition: opacity .16s ease, visibility 0s linear 0s !important;
+  }
+  .customer-left-menu-portal-host .portal-body .customer-primary-rail::after {
+    display: none !important;
+  }
+}
