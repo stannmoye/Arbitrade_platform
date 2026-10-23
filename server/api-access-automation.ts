@@ -559,7 +559,9 @@ async function enqueueDailySchedules() {
       const localTime = part("hour") + ":" + part("minute");
       if (localTime !== row.dailyReportTime || row.lastDailyReportDate === localDate) continue;
       await db.update(customerApiNotificationPreferences).set({ lastDailyReportDate: localDate })
-        .where(and(eq(customerApiNotificationPreferences.id, row.id), eq(customerApiNotificationPreferences.lastDailyReportDate, row.lastDailyReportDate)));
+        .where(row.lastDailyReportDate
+          ? and(eq(customerApiNotificationPreferences.id, row.id), eq(customerApiNotificationPreferences.lastDailyReportDate, row.lastDailyReportDate))
+          : and(eq(customerApiNotificationPreferences.id, row.id), isNull(customerApiNotificationPreferences.lastDailyReportDate)));
       if (row.dailySummaryEnabled) await enqueueCustomerApiEvent(row.userId, "daily.activity", { reportDate: localDate, message: "Your daily account activity summary is ready. Sign in to review the latest activity." }, "daily-activity:" + localDate);
       if (row.dailyStatementEnabled) await enqueueCustomerApiEvent(row.userId, "daily.statement", { reportDate: localDate, message: "Your daily account statement is ready. Sign in to review your statement." }, "daily-statement:" + localDate);
       if (row.feeSummaryEnabled) await enqueueCustomerApiEvent(row.userId, "fee.summary", { reportDate: localDate, message: "Your fee summary is ready. Sign in to review available fee records." }, "fee-summary:" + localDate);
@@ -605,6 +607,67 @@ export async function listCustomerApiNotificationHistory(userId: number) {
     createdAt: apiNotificationDeliveries.createdAt,
   }).from(apiNotificationDeliveries).where(eq(apiNotificationDeliveries.userId, userId))
     .orderBy(desc(apiNotificationDeliveries.createdAt), desc(apiNotificationDeliveries.id)).limit(100);
+}
+
+
+export async function createApiPlatformIncident(createdBy: number, input: {
+  status: "operational" | "degraded" | "maintenance" | "offline";
+  title: string;
+  message: string;
+  affectedServices: string[];
+  startsAt?: Date | null;
+  endsAt?: Date | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available.");
+  const title = input.title.trim();
+  const message = input.message.trim();
+  const affectedServices = [...new Set(input.affectedServices.map((value) => value.trim()).filter(Boolean))].slice(0, 20);
+  if (title.length < 3 || title.length > 200) throw new Error("Incident title must contain 3–200 characters.");
+  if (message.length < 1 || message.length > 4000) throw new Error("Incident message must contain 1–4,000 characters.");
+  if (input.endsAt && input.startsAt && input.endsAt.getTime() <= input.startsAt.getTime()) throw new Error("Incident end time must be later than its start time.");
+  const inserted = await db.insert(apiPlatformIncidents).values({
+    status: input.status, title, message,
+    affectedServicesJson: JSON.stringify(affectedServices),
+    startsAt: input.startsAt ?? new Date(),
+    endsAt: input.endsAt ?? null,
+    createdBy,
+  });
+  const id = Number(inserted[0].insertId);
+  const prefs = await db.select({
+    userId: customerApiNotificationPreferences.userId,
+    whatsappEventsJson: customerApiNotificationPreferences.whatsappEventsJson,
+  }).from(customerApiNotificationPreferences).limit(5000);
+  for (const pref of prefs) {
+    if (!parseEvents(pref.whatsappEventsJson).includes("platform.status")) continue;
+    await enqueueCustomerApiEvent(pref.userId, "platform.status", {
+      incidentId: id, status: input.status, title, message, affectedServices,
+    }, "platform-incident:" + id + ":" + input.status);
+  }
+  return { success: true, incidentId: id, notifiedSubscriptions: prefs.filter((pref) => parseEvents(pref.whatsappEventsJson).includes("platform.status")).length };
+}
+
+export async function resolveApiPlatformIncident(incidentId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available.");
+  const row = (await db.select().from(apiPlatformIncidents)
+    .where(eq(apiPlatformIncidents.id, incidentId)).limit(1))[0];
+  if (!row) throw new Error("Platform incident not found.");
+  if (row.endsAt) return { success: true, alreadyResolved: true };
+  const endedAt = new Date();
+  await db.update(apiPlatformIncidents).set({ status: "operational", endsAt: endedAt })
+    .where(eq(apiPlatformIncidents.id, incidentId));
+  const affectedServices = (() => { try { return JSON.parse(row.affectedServicesJson) as string[]; } catch { return []; } })();
+  const prefs = await db.select({ userId: customerApiNotificationPreferences.userId, whatsappEventsJson: customerApiNotificationPreferences.whatsappEventsJson })
+    .from(customerApiNotificationPreferences).limit(5000);
+  for (const pref of prefs) {
+    if (!parseEvents(pref.whatsappEventsJson).includes("platform.status")) continue;
+    await enqueueCustomerApiEvent(pref.userId, "platform.status", {
+      incidentId, status: "operational", title: row.title, message: "This incident has been marked resolved.",
+      affectedServices, resolvedAt: endedAt.toISOString(),
+    }, "platform-incident:" + incidentId + ":resolved");
+  }
+  return { success: true, alreadyResolved: false, resolvedAt: endedAt.toISOString() };
 }
 
 export async function listApiPlatformIncidents() {
