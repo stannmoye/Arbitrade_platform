@@ -1414,21 +1414,7 @@
 }
 
 
-/* Customer theme controls: compact, tactile, and usable from the header and navigation. */
-  position: fixed !important;
-  top: 13px !important;
-  right: 430px !important;
-  z-index: 95 !important;
-  display: inline-flex !important;
-  width: auto !important;
-  max-width: 180px !important;
-  min-height: 40px !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 12px !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
+/* Theme selector placement is owned by the header component. */
 .arb-theme-selector-control { position: relative; display: inline-flex; align-items: center; min-width: 0; }
 .arb-theme-selector-trigger {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
