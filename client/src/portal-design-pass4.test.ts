@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 
 const css = readFileSync(new URL("./portal-design-pass4.css", import.meta.url), "utf8");
 const entry = readFileSync(new URL("./main.tsx", import.meta.url), "utf8");
+const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const customerReferenceCss = readFileSync(new URL("./customer-reference.css", import.meta.url), "utf8");
+const themeCss = readFileSync(new URL("./theme-system.css", import.meta.url), "utf8");
 const layoutCss = readFileSync(new URL("./index.css", import.meta.url), "utf8");
 const adminSlideMenu = readFileSync(new URL("./components/AdminSlideMenu.tsx", import.meta.url), "utf8");
 const customerSlideMenu = readFileSync(new URL("./components/CustomerSlideMenu.tsx", import.meta.url), "utf8");
@@ -90,5 +93,29 @@ describe("body-level navigation drawer portals", () => {
     expect(layoutCss).toContain(':root[data-arb-theme] .customer-slide-portal .admin-slide-drawer');
     expect(layoutCss).toContain(':root[data-arb-theme] .customer-slide-portal .admin-slide-item');
     expect(layoutCss).toContain('var(--arb-color-surface-raised)');
+  });
+});
+
+
+describe("customer left Settings navigation body-level portal", () => {
+  it("moves the actual left settings rail and scrim out of the workspace page body", () => {
+    expect(appSource).toContain('import { createPortal } from "react-dom";');
+    expect(appSource).toContain('id="customer-left-menu-portal-host"');
+    expect(appSource).toContain('className="customer-portal customer-left-menu-portal-host"');
+    expect(appSource).toContain('createPortal(');
+    expect(appSource).toContain('document.body');
+    expect(appSource).toContain('className="portal-rail customer-primary-rail"');
+    expect(appSource).toContain('className="customer-primary-menu-scrim"');
+    expect(appSource).toContain('className="portal-body"><main key={section} className="portal-main">');
+    expect(appSource).toContain('className={`portal-body ${mobilePrimaryMenuOpen?"customer-primary-menu-open":""}`}');
+  });
+
+  it("keeps current theme tokens while isolating the left rail from clipped/composited workspace ancestors", () => {
+    expect(customerReferenceCss).toContain('.customer-portal.customer-left-menu-portal-host');
+    expect(customerReferenceCss).toContain('z-index: 2147483001 !important');
+    expect(customerReferenceCss).toContain('.customer-left-menu-portal-host .portal-body');
+    expect(customerReferenceCss).toContain('pointer-events: auto !important');
+    expect(themeCss).toContain(':root[data-arb-theme] .customer-portal .customer-primary-rail');
+    expect(themeCss).toContain('var(--arb-color-surface)');
   });
 });
