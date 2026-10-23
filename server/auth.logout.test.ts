@@ -3,7 +3,7 @@ import { appRouter } from "./routers";
 import { COOKIE_NAME } from "../shared/const";
 import type { TrpcContext } from "./_core/context";
 import { invalidateUserSessions } from "./authSessions";
-import { createTicket, listCustomerTickets } from "./db";
+import { applyAccountClosureDecision, createAccountClosureTicket } from "./db";
 
 vi.mock("./authSessions", () => ({
   invalidateUserSessions: vi.fn().mockResolvedValue(undefined),
@@ -19,8 +19,8 @@ vi.mock("./db", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./db")>();
   return {
     ...actual,
-    createTicket: vi.fn().mockResolvedValue({ ticketId: 123, ticketNumber: "ARB-TEST-123" }),
-    listCustomerTickets: vi.fn().mockResolvedValue([]),
+    applyAccountClosureDecision: vi.fn().mockResolvedValue({ success: true, decision: "approve", ticketId: 123, ticketNumber: "ARB-TEST-123", customerId: 1 }),
+    createAccountClosureTicket: vi.fn().mockResolvedValue({ ticketId: 123, ticketNumber: "ARB-TEST-123", alreadyPending: false }),
   };
 });
 
@@ -31,7 +31,7 @@ type CookieCall = {
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
-function createAuthContext(cookie?: string): { ctx: TrpcContext; clearedCookies: CookieCall[] } {
+function createAuthContext(cookie?: string, role: "user" | "admin" = "user"): { ctx: TrpcContext; clearedCookies: CookieCall[] } {
   const clearedCookies: CookieCall[] = [];
 
   const user: AuthenticatedUser = {
@@ -40,7 +40,7 @@ function createAuthContext(cookie?: string): { ctx: TrpcContext; clearedCookies:
     email: "sample@example.com",
     name: "Sample User",
     loginMethod: "manus",
-    role: "user",
+    role,
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),
@@ -101,33 +101,30 @@ describe("auth.logout", () => {
   });
 
   it("rejects account-closure requests with fewer than three reasons", async () => {
-    vi.mocked(createTicket).mockClear();
-    vi.mocked(listCustomerTickets).mockResolvedValue([]);
+    vi.mocked(createAccountClosureTicket).mockClear();
     const { ctx } = createAuthContext();
 
     await expect(appRouter.createCaller(ctx).customer.requestAccountClosure({
       reasons: ["privacy", "fees"],
       acknowledged: true,
     } as never)).rejects.toThrow();
-    expect(createTicket).not.toHaveBeenCalled();
+    expect(createAccountClosureTicket).not.toHaveBeenCalled();
   });
 
   it("requires the closure disclosure acknowledgment on the server", async () => {
-    vi.mocked(createTicket).mockClear();
-    vi.mocked(listCustomerTickets).mockResolvedValue([]);
+    vi.mocked(createAccountClosureTicket).mockClear();
     const { ctx } = createAuthContext();
 
     await expect(appRouter.createCaller(ctx).customer.requestAccountClosure({
       reasons: ["privacy", "fees", "experience"],
       acknowledged: false,
     } as never)).rejects.toThrow();
-    expect(createTicket).not.toHaveBeenCalled();
+    expect(createAccountClosureTicket).not.toHaveBeenCalled();
   });
 
-  it("creates a high-priority admin-reviewed closure ticket using server-authored disclosure", async () => {
-    vi.mocked(createTicket).mockClear();
-    vi.mocked(createTicket).mockResolvedValue({ ticketId: 123, ticketNumber: "ARB-TEST-123" });
-    vi.mocked(listCustomerTickets).mockResolvedValue([]);
+  it("creates a dedicated closure ticket after server-side validation", async () => {
+    vi.mocked(createAccountClosureTicket).mockClear();
+    vi.mocked(createAccountClosureTicket).mockResolvedValue({ ticketId: 123, ticketNumber: "ARB-TEST-123", alreadyPending: false });
     const { ctx } = createAuthContext();
 
     const result = await appRouter.createCaller(ctx).customer.requestAccountClosure({
@@ -136,30 +133,39 @@ describe("auth.logout", () => {
     });
 
     expect(result).toMatchObject({ ticketId: 123, ticketNumber: "ARB-TEST-123", alreadyPending: false });
-    expect(createTicket).toHaveBeenCalledWith(1, expect.objectContaining({
-      priority: "high",
-      category: "account",
-      subject: "Account closure request — administrator review required",
-      body: expect.stringContaining("The administrator must record an explicit approve/reject decision."),
-    }));
+    expect(createAccountClosureTicket).toHaveBeenCalledWith(1, ["privacy", "fees", "experience"]);
   });
 
-  it("returns an existing open closure ticket instead of opening duplicates", async () => {
-    vi.mocked(createTicket).mockClear();
-    vi.mocked(listCustomerTickets).mockResolvedValue([{
-      id: 45,
-      ticketNumber: "ARB-EXISTING-45",
-      subject: "Account closure request — administrator review required",
-      status: "open",
-    }] as never);
-    const { ctx } = createAuthContext();
+  it("requires an administrator to decide a closure request", async () => {
+    vi.mocked(applyAccountClosureDecision).mockClear();
+    const { ctx } = createAuthContext(undefined, "user");
+    await expect(appRouter.createCaller(ctx).adminOperations.decideAccountClosure({
+      ticketId: 123, decision: "approve", reason: "Reviewed account and closure eligibility.",
+    })).rejects.toThrow();
+    expect(applyAccountClosureDecision).not.toHaveBeenCalled();
+  });
 
-    const result = await appRouter.createCaller(ctx).customer.requestAccountClosure({
-      reasons: ["privacy", "fees", "experience"],
-      acknowledged: true,
+  it("requires a substantive administrator decision note", async () => {
+    vi.mocked(applyAccountClosureDecision).mockClear();
+    const { ctx } = createAuthContext(undefined, "admin");
+    await expect(appRouter.createCaller(ctx).adminOperations.decideAccountClosure({
+      ticketId: 123, decision: "approve", reason: "too short",
+    })).rejects.toThrow();
+    expect(applyAccountClosureDecision).not.toHaveBeenCalled();
+  });
+
+  it("records an explicit account-closure decision through the admin-only service", async () => {
+    vi.mocked(applyAccountClosureDecision).mockClear();
+    vi.mocked(applyAccountClosureDecision).mockResolvedValue({
+      success: true, decision: "reject", ticketId: 123, ticketNumber: "ARB-TEST-123", customerId: 1,
     });
-
-    expect(result).toMatchObject({ ticketId: 45, ticketNumber: "ARB-EXISTING-45", alreadyPending: true });
-    expect(createTicket).not.toHaveBeenCalled();
+    const { ctx } = createAuthContext(undefined, "admin");
+    const result = await appRouter.createCaller(ctx).adminOperations.decideAccountClosure({
+      ticketId: 123, decision: "reject", reason: "The request needs further review before proceeding.",
+    });
+    expect(result).toMatchObject({ success: true, decision: "reject", ticketId: 123 });
+    expect(applyAccountClosureDecision).toHaveBeenCalledWith(1, {
+      ticketId: 123, decision: "reject", reason: "The request needs further review before proceeding.",
+    });
   });
 });
