@@ -33,6 +33,7 @@ const migrationFiles = [
   "0060_customer_totp_authenticators.sql",
   "0061_customer_totp_recovery_codes.sql",
   "0062_privacy_center.sql",
+  "0063_privacy_notice_html.sql",
 ];
 // These tables are schema-baseline indicators for first-time portal migration tracking.
 // Some also belong to the main Drizzle chain; none of them alone proves that a
