@@ -37,7 +37,6 @@ const portalMigrationFiles = [
   "0062_privacy_center.sql",
   "0063_privacy_notice_html.sql",
   "0064_customer_api_keys.sql",
-  "0064_customer_api_keys.sql",
 ];
 let journal;
 try {
