@@ -2,6 +2,9 @@ import { useRef, useState, type FormEvent } from "react";
 import {
   ArrowDownToLine,
   ArrowRight,
+  Building2,
+  Globe2,
+  MapPin,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -307,6 +310,19 @@ export function CustomerPrivacyCenter() {
         </main>
 
         <aside className="privacy-side-column" aria-label="Privacy tools">
+          {viewedPolicy && <section className="privacy-side-card privacy-controller-card">
+            <span className="privacy-side-icon"><Building2 size={19} /></span>
+            <span className="eyebrow">RESPONSIBLE ORGANIZATION</span>
+            {viewedPolicy.controllerName && viewedPolicy.controllerName.toLowerCase() !== "not configured"
+              ? <h2>{viewedPolicy.controllerName}</h2>
+              : <h2>Organization contact details</h2>}
+            {viewedPolicy.controllerName?.toLowerCase() === "not configured" || !viewedPolicy.controllerName
+              ? <p>The legal organization responsible for your account has not published its full details here yet. Use the privacy contact channel below for assistance.</p>
+              : <p>The organization identified here is responsible for this published Privacy Notice.</p>}
+            {viewedPolicy.controllerAddress && <div className="privacy-contact-detail"><MapPin size={14} /><span>{viewedPolicy.controllerAddress}</span></div>}
+            <div className="privacy-contact-detail"><MessageSquareText size={14} /><span><strong>Privacy contact</strong>{viewedPolicy.privacyContact || "Use the authenticated Support Centre"}</span></div>
+            {viewedPolicy.applicableJurisdiction && <div className="privacy-contact-detail"><Globe2 size={14} /><span><strong>Applicable jurisdiction</strong>{viewedPolicy.applicableJurisdiction}</span></div>}
+          </section>}
           <section className="privacy-side-card privacy-commitment-card">
             <span className="privacy-side-icon"><ShieldCheck size={20} /></span>
             <span className="eyebrow">OUR APPROACH</span>
