@@ -54,7 +54,7 @@ The REST webhook management routes expose a signing secret only at creation. Del
 
 ## Notifications and scheduling
 
-Customer preferences support in-app notifications, opt-in WhatsApp events, WhatsApp destination verification, customer-selected time zone and daily delivery time. The database outbox deduplicates delivery requests and tracks attempts, status, timestamps and safe error codes. A worker processes due messages and applies bounded retries.
+Customer preferences support in-app notifications, opt-in WhatsApp events, WhatsApp destination verification, customer-selected time zone and daily delivery time. Customers can separately schedule daily activity, statement and tax-support notices. Tax-support notices contain only the stored trade records available for the report and explicitly do not constitute a tax calculation or tax advice. The database outbox deduplicates delivery requests and tracks attempts, status, timestamps and safe error codes. A worker processes due messages and applies bounded retries.
 
 The administrator must enable WhatsApp delivery, provide the sender number, store valid Meta Cloud API credentials, configure an approved one-parameter verification template, and map event types to approved Meta templates where required. The event parameter order is fixed by the application and described beside each template editor. Meta's registered template content must match its parameter count/order. Message-body drafts do not create Meta-approved templates. Outside an active customer-service window, free-form WhatsApp text may be rejected; the delivery is recorded as failed rather than reported as successful.
 
