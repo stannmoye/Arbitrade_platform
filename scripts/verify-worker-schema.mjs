@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { findMissingWorkerTables, getRequiredWorkerTables } from "./worker-schema-inventory.mjs";
+import { assertWorkerSchemaContracts } from "./worker-schema-contracts.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 config({ path: resolve(root, ".env"), override: false });
@@ -15,7 +16,7 @@ async function main() {
   const schema = await readFile(resolve(root, "drizzle/schema.ts"), "utf8");
   const required = getRequiredWorkerTables(schema);
   const url = new URL(raw);
-  if (![ "mysql:", "mariadb:" ].includes(url.protocol)) {
+  if (!["mysql:", "mariadb:"].includes(url.protocol)) {
     throw new Error("DATABASE_URL must use mysql:// or mariadb://.");
   }
   if (url.protocol === "mariadb:") url.protocol = "mysql:";
@@ -35,9 +36,13 @@ async function main() {
       process.exitCode = 1;
       return;
     }
+
+    const verified = await assertWorkerSchemaContracts(db);
     console.log(
       "[worker-schema] PASS: " + required.length +
-      " application and worker tables exist. Empty tables are valid and do not fail this check.",
+      " application and worker tables exist; " + verified.checkedTables +
+      " mining/notification worker-table contracts also match required columns, nullability, enum states and index layout. " +
+      "Empty tables are valid and do not fail this check.",
     );
   } finally {
     await db.end();
@@ -46,6 +51,9 @@ async function main() {
 
 main().catch((error) => {
   const code = String(error?.code || "UNKNOWN").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
-  console.error("[worker-schema] FAIL: schema verification could not complete (code: " + (code || "UNKNOWN") + "). Check the private DATABASE_URL and migration logs.");
+  const message = error instanceof Error
+    ? error.message.replace(/\b(?:mysql|mariadb):\/\/[^\s"'<>]+/gi, "[database-url-redacted]").slice(0, 400)
+    : "Unknown error";
+  console.error("[worker-schema] FAIL: schema verification could not complete (code: " + (code || "UNKNOWN") + "). " + message);
   process.exitCode = 1;
 });
