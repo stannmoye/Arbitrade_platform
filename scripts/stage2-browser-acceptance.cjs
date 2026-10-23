@@ -1337,6 +1337,48 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
       // The left-side SETTINGS rail is a separate component from the right-side
       // customer resources drawer. Test its actual mobile opening/rendering path.
       await page.setViewportSize({ width: 390, height: 844 });
+      const customerOverlayIsolation = await page.evaluate(() => {
+        const host = document.querySelector("#customer-left-menu-portal-host");
+        const layer = host?.querySelector(".portal-body");
+        const rail = layer?.querySelector(".customer-primary-rail");
+        if (!(host instanceof HTMLElement) || !(layer instanceof HTMLElement) || !(rail instanceof HTMLElement)) {
+          return { hostPresent: Boolean(host), hostHasPageShellClass: host?.classList.contains("customer-portal") ?? true, pointerEvents: "missing", layerWidth: -1, layerHeight: -1, railVisibility: "missing" };
+        }
+        const hostStyle = getComputedStyle(host);
+        const layerStyle = getComputedStyle(layer);
+        const railStyle = getComputedStyle(rail);
+        return {
+          hostPresent: true,
+          hostHasPageShellClass: host.classList.contains("customer-portal"),
+          pointerEvents: hostStyle.pointerEvents,
+          hostBackground: hostStyle.backgroundColor,
+          layerWidth: layer.getBoundingClientRect().width,
+          layerHeight: layer.getBoundingClientRect().height,
+          railVisibility: railStyle.visibility,
+          railOpacity: Number(railStyle.opacity),
+          closed: !layer.classList.contains("customer-primary-menu-open"),
+        };
+      });
+      const customerOverlayDoesNotCoverPage =
+        customerOverlayIsolation.hostPresent &&
+        !customerOverlayIsolation.hostHasPageShellClass &&
+        customerOverlayIsolation.pointerEvents === "none" &&
+        customerOverlayIsolation.layerWidth === 0 &&
+        customerOverlayIsolation.layerHeight === 0 &&
+        customerOverlayIsolation.closed &&
+        customerOverlayIsolation.railVisibility === "hidden" &&
+        customerOverlayIsolation.railOpacity === 0;
+      checks.push({
+        route: "/customer",
+        routeName: "customer",
+        width: 390,
+        theme: "runtime-default",
+        check: "customer-settings-overlay-isolated-when-closed",
+        passed: customerOverlayDoesNotCoverPage,
+        ...customerOverlayIsolation,
+        note: "The body-level menu host must not inherit the customer page-shell class or intercept/paint over the page while the Settings rail is closed.",
+      });
+
       const customerLeftSettingsTrigger = page.getByRole("button", { name: "Open Settings" });
       await customerLeftSettingsTrigger.waitFor({ state: "visible", timeout: 10000 });
       await customerLeftSettingsTrigger.click();
@@ -1348,8 +1390,8 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         const rect = rail.getBoundingClientRect();
         const style = getComputedStyle(rail);
         return host.parentElement === document.body &&
-          style.visibility === "visible" && style.pointerEvents !== "none" &&
-          rect.width > 0 && rect.height > 0 && rect.left >= -1 &&
+          style.visibility === "visible" && Number(style.opacity) > 0.95 &&
+          style.pointerEvents !== "none" && rect.width > 0 && rect.height > 0 && rect.left >= -1 &&
           rect.right <= window.innerWidth + 1;
       }, { timeout: 10000 });
       const customerLeftMenuPaint = await page.evaluate(() => {

@@ -17,7 +17,7 @@
   background-image:linear-gradient(135deg,color-mix(in srgb,var(--arb-color-surface-raised) 70%,var(--arb-color-surface)),var(--arb-color-surface) 76%)!important;
   box-shadow:var(--arb-shadow-elevated)!important;
 }
-:root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(
+:root[data-arb-theme] :is(.customer-portal,.admin-portal,.customer-left-menu-portal-host) .portal-main :is(
   .customer-metric-grid,.customer-balance-cards,.admin-kpi-grid,.admin-ops-metrics,.am-kpis,.cm-metrics,
   .cm-balance-grid,.report-grid,.support-inbox-summary,.activity-summary,.customer-quick-actions,
   .wallet-quick-actions,.system-grid
@@ -27,7 +27,7 @@
   background-image:linear-gradient(145deg,color-mix(in srgb,var(--arb-color-accent) 5%,var(--arb-color-surface-raised)),var(--arb-color-surface) 72%)!important;
   box-shadow:var(--arb-shadow-elevated)!important;
 }
-:root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(
+:root[data-arb-theme] :is(.customer-portal,.admin-portal,.customer-left-menu-portal-host) .portal-main :is(
   .customer-metric-grid,.customer-balance-cards,.admin-kpi-grid,.admin-ops-metrics,.am-kpis,.cm-metrics,
   .cm-balance-grid,.report-grid,.support-inbox-summary,.activity-summary,.customer-quick-actions,
   .wallet-quick-actions,.system-grid
@@ -45,15 +45,15 @@
   background-color:var(--arb-color-surface)!important;
   background-image:linear-gradient(145deg,color-mix(in srgb,var(--arb-color-accent) 3%,var(--arb-color-surface-raised)),var(--arb-color-surface) 74%)!important;
 }
-:root[data-arb-theme] :is(.customer-portal,.admin-portal) :is(.portal-rail,.customer-primary-rail,.admin-rail) {
+:root[data-arb-theme] :is(.customer-portal,.admin-portal,.customer-left-menu-portal-host) :is(.portal-rail,.customer-primary-rail,.admin-rail) {
   color:var(--arb-color-text)!important;
   background:linear-gradient(180deg,color-mix(in srgb,var(--arb-color-surface-raised) 35%,var(--arb-color-surface)),var(--arb-color-surface))!important;
   border-color:var(--arb-border-card)!important;
 }
-:root[data-arb-theme] :is(.customer-portal,.admin-portal) :is(
+:root[data-arb-theme] :is(.customer-portal,.admin-portal,.customer-left-menu-portal-host) :is(
   .portal-rail button,.customer-primary-rail nav button,.admin-nav-item-wrap button,.customer-workspace-categories button
 ) {color:var(--arb-color-text-soft)!important}
-:root[data-arb-theme] :is(.customer-portal,.admin-portal) :is(
+:root[data-arb-theme] :is(.customer-portal,.admin-portal,.customer-left-menu-portal-host) :is(
   .portal-rail button:hover,.customer-primary-rail nav button:hover,.admin-nav-item-wrap button:hover,
   .portal-rail button.active,.customer-primary-rail nav button.active,.admin-nav-item-wrap button.active,
   .customer-workspace-categories button:hover,.customer-workspace-categories button.active
@@ -62,10 +62,10 @@
   background:color-mix(in srgb,var(--arb-color-accent) 14%,var(--arb-color-surface))!important;
   border-color:color-mix(in srgb,var(--arb-color-accent) 42%,var(--arb-color-border))!important;
 }
-:root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(
+:root[data-arb-theme] :is(.customer-portal,.admin-portal,.customer-left-menu-portal-host) .portal-main :is(
   .table-wrap,.table-responsive,.admin-table-wrap,.customer-table-wrap,.table-container,.table-scroll,.data-table-wrap
 ) {max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;border-color:var(--arb-border-card)!important}
-:root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(
+:root[data-arb-theme] :is(.customer-portal,.admin-portal,.customer-left-menu-portal-host) .portal-main :is(
   .search-row,.search-bar,.table-toolbar,.filter-row,.filter-bar,.admin-search,.customer-search,.am-search,
   .quick-actions-search,.filter-search,.portal-search,.command-search,.support-toolbar,.kyc-admin-directory-tools
 ) {display:flex;flex-wrap:wrap;gap:10px;min-width:0;max-width:100%;align-items:center}
@@ -96,12 +96,12 @@
 }
 @media(max-width:900px) {
   :root[data-arb-theme] :is(.admin-portal,.customer-portal) .portal-main {padding-inline:clamp(12px,2.6vw,22px)!important}
-  :root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(.support-toolbar,.table-toolbar,.filter-bar,.search-row,.admin-search,.customer-search) {align-items:stretch}
+  :root[data-arb-theme] :is(.customer-portal,.admin-portal,.customer-left-menu-portal-host) .portal-main :is(.support-toolbar,.table-toolbar,.filter-bar,.search-row,.admin-search,.customer-search) {align-items:stretch}
 }
 @media(max-width:600px) {
-  :root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(.search-row,.search-bar,.table-toolbar,.filter-bar,.admin-search,.customer-search)>* {min-width:0;max-width:100%}
-  :root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(.support-summary-card,.customer-panel,.customer-ledger-panel,.admin-control-card,.admin-table-card,.admin-ops-panel,.settings-card,.report-card,.connector-card) {padding:clamp(12px,3vw,16px)!important}
-  :root[data-arb-theme] :is(.customer-portal,.admin-portal) .portal-main :is(.customer-metric-grid,.customer-balance-cards,.admin-kpi-grid,.admin-ops-metrics,.report-grid,.support-inbox-summary,.activity-summary) {min-width:0;gap:10px!important}
+  :root[data-arb-theme] :is(.customer-portal,.admin-portal,.customer-left-menu-portal-host) .portal-main :is(.search-row,.search-bar,.table-toolbar,.filter-bar,.admin-search,.customer-search)>* {min-width:0;max-width:100%}
+  :root[data-arb-theme] :is(.customer-portal,.admin-portal,.customer-left-menu-portal-host) .portal-main :is(.support-summary-card,.customer-panel,.customer-ledger-panel,.admin-control-card,.admin-table-card,.admin-ops-panel,.settings-card,.report-card,.connector-card) {padding:clamp(12px,3vw,16px)!important}
+  :root[data-arb-theme] :is(.customer-portal,.admin-portal,.customer-left-menu-portal-host) .portal-main :is(.customer-metric-grid,.customer-balance-cards,.admin-kpi-grid,.admin-ops-metrics,.report-grid,.support-inbox-summary,.activity-summary) {min-width:0;gap:10px!important}
 }
 @media(prefers-reduced-motion:reduce) {
   :root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page) *,:root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page)::before,:root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page)::after {animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}

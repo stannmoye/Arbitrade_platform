@@ -441,7 +441,7 @@
   color: var(--arb-color-text) !important;
 }
 :root[data-arb-theme] .customer-portal .portal-header,
-:root[data-arb-theme] .customer-portal .customer-primary-rail {
+:root[data-arb-theme] .customer-left-menu-portal-host .customer-primary-rail {
   background: var(--arb-color-surface) !important;
   border-color: var(--arb-color-border) !important;
   color: var(--arb-color-text) !important;
