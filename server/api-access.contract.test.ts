@@ -12,6 +12,7 @@ const migrationRunner = read("../scripts/apply-portal-migrations.mjs");
 const recovery = read("../installer/migration-recovery-status.mjs");
 const customerUi = read("../client/src/components/CustomerApiAccessPanel.tsx");
 const adminUi = read("../client/src/App.tsx");
+const adminCentre = read("../client/src/components/AdminApiAccessCentre.tsx");
 
 describe("customer API access foundation", () => {
   it("declares the key table and registers the additive migration in both portal migration paths", () => {
@@ -61,11 +62,11 @@ describe("customer API access foundation", () => {
     expect(customerUi).toContain("Copy now · shown once");
     expect(customerUi).toContain("Revoke");
     expect(customerUi).toContain("Read permissions only. No key can initiate a withdrawal.");
-    expect(adminUi).toContain("saveApiAccessSettings");
-    expect(adminUi).toContain("Message template studio");
-    expect(adminUi).toContain("WhatsApp Business destination");
-    expect(adminUi).toContain("Wallet / deposit provider");
-    expect(adminUi).toContain("Secret keys are not stored in these fields");
+    expect(adminCentre).toContain("saveApiAccessSettings");
+    expect(adminCentre).toContain("Message template studio");
+    expect(adminCentre).toContain("WhatsApp Business destination");
+    expect(adminCentre).toContain("Wallet / deposit provider");
+    expect(adminCentre).toContain("Secret keys are not stored in these fields");
     expect(adminUi).toContain("Encrypted provider credentials");
   });
 });
