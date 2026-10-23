@@ -16,7 +16,7 @@ Do not choose fresh-install mode for a database containing existing customer or 
 1. Create a MySQL database and a dedicated database user.
 2. Grant that user all privileges on the application database.
 3. Create a Node.js application in cPanel with the repository directory as the application root.
-4. Set the startup file to `dist/index.js` and the application URL to the HTTPS domain.
+4. Set the startup file to `server-start.mjs` and the application URL to the HTTPS domain. This wrapper loads the complete migration workflow and verifies worker tables before it imports the production server.
 5. Create the environment variables from `.env.example` in cPanel; do not upload `.env` to a public directory.
 
 ## 2. Install and initialize
