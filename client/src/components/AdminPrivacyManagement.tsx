@@ -147,6 +147,7 @@ export function AdminPrivacyManagement() {
   };
 
   const updateSection = (sectionId: string, patch: Partial<PrivacyPolicySection>) => {
+    setPublicationReviewed(false);
     setSections((existing) => existing.map((section) => section.id === sectionId ? { ...section, ...patch } : section));
   };
 
@@ -209,8 +210,8 @@ export function AdminPrivacyManagement() {
         {policyState.isLoading ? <div className="privacy-loading-panel" role="status"><LoaderCircle size={17} className="privacy-loading-icon" /> Loading current policy state…</div> : (
           <>
             <div className="privacy-editor-metadata">
-              <label>Notice title<input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={200} required /></label>
-              <label>Customer-facing summary<textarea value={summary} onChange={(event) => setSummary(event.target.value)} maxLength={700} rows={3} required /></label>
+              <label>Notice title<input value={title} onChange={(event) => { setTitle(event.target.value); setPublicationReviewed(false); }} maxLength={200} required /></label>
+              <label>Customer-facing summary<textarea value={summary} onChange={(event) => { setSummary(event.target.value); setPublicationReviewed(false); }} maxLength={700} rows={3} required /></label>
             </div>
             <div className="privacy-section-editor-heading"><div><strong>Notice sections</strong><span>{sections.length} structured sections · Published sections remain unchanged</span></div><span className="privacy-version-preview">Next version: {nextPrivacyVersion(published?.versionLabel)}</span></div>
             <div className="privacy-section-editor-list">
