@@ -31,22 +31,29 @@ export function useAuth(options?: UseAuthOptions) {
     try {
       await logoutMutation.mutateAsync();
     } catch (error: unknown) {
+      // An already-expired session is logged out from the server's perspective.
       if (
-        error instanceof TRPCClientError &&
-        error.data?.code === "UNAUTHORIZED"
+        !(error instanceof TRPCClientError) ||
+        error.data?.code !== "UNAUTHORIZED"
       ) {
-        return;
+        throw error;
       }
-      throw error;
-    } finally {
-      // Clear the Preview auto-login token mirrored into sessionStorage, so
-      // header-based sessions (Safari ITP / WebView) are logged out too. The
-      // backend cookie is cleared by the logout mutation.
-      try {
-        sessionStorage.removeItem("manus-cookie");
-      } catch {}
-      utils.auth.me.setData(undefined, null);
-      await utils.auth.me.invalidate();
+    }
+
+    // Only clear client identity and navigate after the server confirms logout
+    // (or confirms that this session is already unauthenticated).
+    try {
+      sessionStorage.removeItem("manus-cookie");
+      localStorage.removeItem("manus-runtime-user-info");
+    } catch {}
+    utils.auth.me.setData(undefined, null);
+    await utils.auth.me.invalidate();
+
+    if (typeof window !== "undefined") {
+      const loginPath = window.location.pathname.startsWith("/customer")
+        ? "/customer"
+        : "/";
+      window.location.replace(loginPath);
     }
   }, [logoutMutation, utils]);
 
