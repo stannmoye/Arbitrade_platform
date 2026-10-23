@@ -62,26 +62,6 @@
 :root[data-arb-theme] .customer-portal :is(.customer-market-status i,.customer-header-name small i,.customer-workspace-online i) {
   background:var(--arb-color-accent)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--arb-color-accent) 14%,transparent)!important;
 }
-/* Keep the additional chooser inside the actual left account rail; the drawer selector stays separate. */
-.customer-portal .customer-primary-rail-theme-control {position:static!important;inset:auto!important;z-index:auto!important;display:block!important;width:100%!important;max-width:100%!important;margin:12px 0 15px!important;padding:0 2px!important}
-.customer-portal .customer-primary-rail-theme-control .arb-theme-selector {position:static!important;display:flex!important;width:100%!important;max-width:100%!important;justify-content:stretch!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important}
-.customer-portal .customer-primary-rail-theme-control .arb-theme-selector-control {width:100%!important}
-.customer-portal .customer-primary-rail-theme-control .arb-theme-selector-trigger {
-  width:100%!important;min-width:0!important;justify-content:flex-start!important;border-color:var(--arb-color-border)!important;
-  background:color-mix(in srgb,var(--arb-color-surface-raised) 88%,var(--arb-color-accent) 12%)!important;color:var(--arb-color-text)!important;
-}
-.customer-portal .customer-primary-rail-theme-control .arb-theme-selector-trigger-label {flex:1;text-align:left}
-.customer-portal .customer-primary-rail-theme-control .arb-theme-selector-control select {width:100%!important}
-.customer-portal>.arb-theme-selector-compact .arb-theme-selector-trigger {
-  border-color:var(--arb-color-border)!important;background:color-mix(in srgb,var(--arb-color-surface-raised) 88%,var(--arb-color-accent) 12%)!important;color:var(--arb-color-text)!important;
-}
-.customer-portal>.arb-theme-selector-compact .arb-theme-selector-trigger:hover {border-color:var(--arb-color-accent)!important}
-@media(max-width:760px) {
-  .customer-portal .customer-primary-rail-theme-control {margin:8px 0 10px!important}
-  .customer-portal .customer-primary-rail-theme-control .arb-theme-selector-trigger {min-height:38px!important;padding-inline:9px!important}
-}
-
-
 /* Customer workspace experience polish: semantic colors, calmer density, and responsive hierarchy. */
 :root[data-arb-theme] .customer-portal .portal-main{background:radial-gradient(ellipse at 88% 0%,color-mix(in srgb,var(--arb-color-accent) 7%,transparent),transparent 38%),var(--arb-color-canvas)!important}
 :root[data-arb-theme] .customer-portal .portal-page{box-sizing:border-box;width:100%!important;max-width:1320px!important;padding:clamp(16px,2vw,28px)!important}
