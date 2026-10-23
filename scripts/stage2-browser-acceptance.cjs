@@ -1362,15 +1362,29 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           return { attachedDirectlyToBody: false, railVisible: false, firstItemHitTest: false, themeBackground: "" };
         }
         const rect = firstButton.getBoundingClientRect();
-        const topmost = document.elementFromPoint(rect.left + Math.min(20, rect.width / 2), rect.top + rect.height / 2);
+        const hitPoint = { x: rect.left + Math.min(20, rect.width / 2), y: rect.top + rect.height / 2 };
+        const topmost = document.elementFromPoint(hitPoint.x, hitPoint.y);
         const railStyle = getComputedStyle(rail);
+        const buttonStyle = getComputedStyle(firstButton);
+        const topmostElement = topmost instanceof HTMLElement ? {
+          tag: topmost.tagName,
+          id: topmost.id,
+          className: typeof topmost.className === "string" ? topmost.className : "",
+          ariaLabel: topmost.getAttribute("aria-label"),
+          text: (topmost.innerText || topmost.textContent || "").trim().slice(0, 70),
+        } : null;
         return {
           attachedDirectlyToBody: host.parentElement === document.body,
           railVisible: railStyle.visibility === "visible" &&
             Number(railStyle.opacity) > 0 && rail.getBoundingClientRect().width > 0,
           railRect: (() => { const r = rail.getBoundingClientRect(); return { left:r.left, top:r.top, right:r.right, bottom:r.bottom }; })(),
-          firstItemHitTest: topmost === firstButton || firstButton.contains(topmost),
+          firstButtonRect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height },
+          firstButtonStyle: { display: buttonStyle.display, visibility: buttonStyle.visibility, opacity: buttonStyle.opacity, pointerEvents: buttonStyle.pointerEvents, position: buttonStyle.position, zIndex: buttonStyle.zIndex },
+          hitPoint,
+          topmostElement,
+          firstItemHitTest: topmost === firstButton || (topmost instanceof Node && firstButton.contains(topmost)),
           themeBackground: railStyle.backgroundColor,
+          themeBackgroundImage: railStyle.backgroundImage,
           portalZIndex: getComputedStyle(host).zIndex,
         };
       });
