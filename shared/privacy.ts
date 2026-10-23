@@ -110,7 +110,7 @@ export function canTransitionPrivacyRequest(from: PrivacyRequestStatus, to: Priv
 }
 
 export function nextPrivacyVersion(current: string | null | undefined): string {
-  const match = /^(\\d+)\\.(\\d+)$/.exec(String(current || ""));
+  const match = /^(\d+)\.(\d+)$/.exec(String(current || ""));
   if (!match) return "1.0";
   return match[1] + "." + String(Number(match[2]) + 1);
 }
