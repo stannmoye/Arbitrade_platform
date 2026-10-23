@@ -921,7 +921,7 @@ export const consoleActivityPhrases = mysqlTable("console_activity_phrases", {
 /** Versioned privacy notice content controlled through the administrator workflow. */
 export const privacyPolicyVersions = mysqlTable("privacy_policy_versions", {
   id: int("id").autoincrement().primaryKey(),
-  versionLabel: varchar("versionLabel", { length: 40 }).notNull().unique(),
+  versionLabel: varchar("versionLabel", { length: 40 }).notNull(),
   title: varchar("title", { length: 200 }).notNull(),
   summary: varchar("summary", { length: 700 }).notNull().default(""),
   sectionsJson: text("sectionsJson").notNull(),
@@ -940,8 +940,8 @@ export const privacyPolicyVersions = mysqlTable("privacy_policy_versions", {
 /** Customer-submitted information rights and privacy concerns; not account-closure tickets. */
 export const privacyRequests = mysqlTable("privacy_requests", {
   id: int("id").autoincrement().primaryKey(),
-  requestReference: varchar("requestReference", { length: 48 }).notNull().unique(),
-  idempotencyKey: varchar("idempotencyKey", { length: 80 }).notNull().unique(),
+  requestReference: varchar("requestReference", { length: 48 }).notNull(),
+  idempotencyKey: varchar("idempotencyKey", { length: 80 }).notNull(),
   userId: int("userId").notNull(),
   requestType: mysqlEnum("requestType", ["access", "correction", "deletion", "restriction", "objection", "other"]).notNull(),
   subject: varchar("subject", { length: 180 }).notNull(),
@@ -953,6 +953,8 @@ export const privacyRequests = mysqlTable("privacy_requests", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
+  requestReferenceUnique: uniqueIndex("privacy_request_reference_uq").on(table.requestReference),
+  idempotencyUnique: uniqueIndex("privacy_request_idempotency_uq").on(table.idempotencyKey),
   userCreatedIndex: index("privacy_requests_user_created_idx").on(table.userId, table.createdAt, table.id),
   statusCreatedIndex: index("privacy_requests_status_created_idx").on(table.status, table.createdAt),
 }));
