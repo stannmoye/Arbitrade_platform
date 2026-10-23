@@ -124,13 +124,14 @@ describe("worker schema contracts", () => {
 
   it("gates migration success on actual worker-table schema contracts", async () => {
     const root = new URL("../", import.meta.url);
-    const [mainRunner, portalRunner, miningRunner, miningRepair, runtimeRepair, verifier] = await Promise.all([
+    const [mainRunner, portalRunner, miningRunner, miningRepair, runtimeRepair, verifier, installerVerifier] = await Promise.all([
       readFile(new URL("scripts/guarded-main-migrate.mjs", root), "utf8"),
       readFile(new URL("scripts/apply-portal-migrations.mjs", root), "utf8"),
       readFile(new URL("scripts/apply-mining-migrations.mjs", root), "utf8"),
       readFile(new URL("scripts/ensure-mining-current-schema.mjs", root), "utf8"),
       readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
       readFile(new URL("scripts/verify-worker-schema.mjs", root), "utf8"),
+      readFile(new URL("installer/verify-install.mjs", root), "utf8"),
     ]);
 
     const mainVerification = mainRunner.indexOf("const verified = await assertWorkerSchemaContracts(connection);");
@@ -151,5 +152,7 @@ describe("worker schema contracts", () => {
     expect(miningRepair.indexOf("assertWorkerSchemaContracts")).toBeLessThan(miningRepair.indexOf('message: "Current mining schema is ready"'));
     expect(runtimeRepair).toContain("const verified = await assertWorkerSchemaContracts(db);");
     expect(verifier).toContain("const verified = await assertWorkerSchemaContracts(db);");
+    expect(installerVerifier).toContain("const verified = await assertWorkerSchemaContracts(db);");
+    expect(installerVerifier).toContain('report("Worker schema contracts", false, detail)');
   });
 });
