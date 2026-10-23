@@ -216,7 +216,7 @@ From the application's private root in the hosting panel's terminal:
    pnpm build
    ```
 
-3. In the existing hosting panel, keep its current domain, SSL, proxy, and process configuration. Confirm the startup file is `dist/index.js` and the configured application port matches `PORT`, then restart the application using the panel.
+3. In the existing hosting panel, keep its current domain, SSL, proxy, and process configuration. Confirm the startup file is `server-start.mjs` and the configured application port matches `PORT`, then restart the application using the panel.
 4. After restart, run `pnpm installer:diagnose` from the private application root and verify `GET /api/health` returns `{"status":"ok"}`. Check the panel's private logs if either check fails.
 
 This procedure does **not** run database migrations, replace account credentials, provision a new service, or alter SSL/proxy configuration. If this release requires schema changes, first verify a restorable database backup and the exact target database, then follow the documented migration/recovery procedure separately. Do not use fresh-install mode on an existing database.
