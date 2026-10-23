@@ -24,7 +24,25 @@ Send the key over HTTPS in the standard header:
 Authorization: Bearer arb_live_<secret>
 ```
 
-Read-only API scopes cannot initiate withdrawal requests. The separate `withdrawals:create` scope is disabled by default and, when the administrator enables it, requires an authenticator code and idempotency key; the existing payout workflow reserves eligible account funds and creates a request for manual review. It does not execute a transfer. Every account operation is bound to the key owner's authenticated customer ID.
+The separate `withdrawals:create` scope is disabled by default. It requires administrator enablement, a confirmed authenticator enrollment, a six-digit authenticator code and an idempotency key. It reserves an eligible wallet balance and creates a request for manual review; it does not send a transfer. Every account operation is bound to the key owner's authenticated customer ID.
+
+Example protected withdrawal request:
+
+```bash
+curl -X POST "$ARBITRADE_API_BASE_URL/api/v1/account/withdrawals" \
+  -H "Authorization: Bearer $ARBITRADE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "currency": "USD",
+    "amountMinor": 1000,
+    "destinationType": "bank_transfer",
+    "destinationDetails": "YOUR VERIFIED BANK DESTINATION",
+    "idempotencyKey": "withdrawal-request-unique-001",
+    "totpCode": "REPLACE_WITH_CURRENT_SIX_DIGIT_CODE"
+  }'
+```
+
+Keep the destination and authenticator code private. `amountMinor` is expressed in the wallet currency's minor units. Reuse an idempotency key only when retrying the same request; do not retry with a new key if the first response is unknown.
 
 ## Current endpoints
 
