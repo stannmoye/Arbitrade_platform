@@ -3,11 +3,12 @@ import { and, desc, eq, lt } from "drizzle-orm";
 import { authenticateCustomerApiKey, type CustomerApiScope } from "../api-access";
 import { getAppSetting, getDb, listBalances, listCurrencies, listCustomerPayoutRequests } from "../db";
 import { opportunityOffers, tradePositions } from "../../drizzle/schema";
-import { configuredAuthRateLimitStore } from "./authRateLimit";
+import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
 
 type ApiIdentity = { userId: number; keyId: number; scopes: CustomerApiScope[] };
 type Bucket = { count: number; resetAt: number };
 const localBuckets = new Map<number, Bucket>();
+const apiIpRateLimit = createAuthRateLimiter({ windowMs: 60_000, max: 300, message: "Too many API requests from this network. Try again shortly.", store: configuredAuthRateLimitStore, scope: "customer-api-ip" });
 
 async function loadPolicy() {
   try {
@@ -72,7 +73,7 @@ function apiHandler(scope: CustomerApiScope, handler: (req: Request, res: Respon
 }
 
 export function registerCustomerApiAccessRoutes(app: Express) {
-  app.get("/api/v1/account/balances", apiHandler("balances:read", async (_req, res, identity) => {
+  app.get("/api/v1/account/balances", apiIpRateLimit, apiHandler("balances:read", async (_req, res, identity) => {
     const [balances, currencies] = await Promise.all([listBalances(identity.userId), listCurrencies()]);
     const currencyByCode = new Map(currencies.map((currency) => [currency.code, currency]));
     res.json({
@@ -92,7 +93,7 @@ export function registerCustomerApiAccessRoutes(app: Express) {
     });
   }));
 
-  app.get("/api/v1/account/trades", apiHandler("transactions:read", async (req, res, identity) => {
+  app.get("/api/v1/account/trades", apiIpRateLimit, apiHandler("transactions:read", async (req, res, identity) => {
     const requestedLimit = req.query.limit === undefined ? 50 : Number(req.query.limit);
     const beforeId = req.query.beforeId === undefined ? undefined : Number(req.query.beforeId);
     if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 100) {
@@ -134,7 +135,7 @@ export function registerCustomerApiAccessRoutes(app: Express) {
     });
   }));
 
-  app.get("/api/v1/account/withdrawals", apiHandler("withdrawals:read", async (_req, res, identity) => {
+  app.get("/api/v1/account/withdrawals", apiIpRateLimit, apiHandler("withdrawals:read", async (_req, res, identity) => {
     const rows = await listCustomerPayoutRequests(identity.userId);
     res.json({
       data: rows.map((row) => ({
@@ -152,7 +153,7 @@ export function registerCustomerApiAccessRoutes(app: Express) {
     });
   }));
 
-  app.get("/api/v1/platform/status", apiHandler("platform:status", async (_req, res) => {
+  app.get("/api/v1/platform/status", apiIpRateLimit, apiHandler("platform:status", async (_req, res) => {
     res.json({
       data: { apiService: "online", maintenanceStatus: "not-configured", fullServiceHealth: "not-configured" },
       meta: { checkedAt: new Date().toISOString(), note: "This endpoint reports API availability only until the administrator configures full platform health checks." },
