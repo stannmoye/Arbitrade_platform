@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { getDb } from "./db";
-import { customerApiKeys, users, v5AuditEvents } from "../drizzle/schema";
+import { customerApiKeys, customerControls, users, v5AuditEvents } from "../drizzle/schema";
 
 export const CUSTOMER_API_SCOPES = [
   "balances:read",
@@ -45,9 +45,9 @@ function safeKeyRecord(row: typeof customerApiKeys.$inferSelect) {
 export async function listCustomerApiKeys(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
-  const owner = (await db.select({ id: users.id, role: users.role, loginMethod: users.loginMethod })
-    .from(users).where(eq(users.id, userId)).limit(1))[0];
-  if (!owner || owner.role !== "user" || owner.loginMethod === "closed") {
+  const owner = (await db.select({ id: users.id, role: users.role, loginMethod: users.loginMethod, accountStatus: customerControls.accountStatus })
+    .from(users).leftJoin(customerControls, eq(customerControls.userId, users.id)).where(eq(users.id, userId)).limit(1))[0];
+  if (!owner || owner.role !== "user" || owner.loginMethod === "closed" || owner.accountStatus === "suspended") {
     throw new Error("An active customer account is required.");
   }
   const rows = await db.select().from(customerApiKeys)
@@ -69,9 +69,9 @@ export async function createCustomerApiKey(userId: number, name: string, request
 
   return db.transaction(async (tx) => {
     // Serialize key creation for this account so concurrent tabs cannot exceed the active-key cap.
-    const owner = (await tx.select({ id: users.id, role: users.role, loginMethod: users.loginMethod })
-      .from(users).where(eq(users.id, userId)).limit(1).for("update"))[0];
-    if (!owner || owner.role !== "user" || owner.loginMethod === "closed") {
+    const owner = (await tx.select({ id: users.id, role: users.role, loginMethod: users.loginMethod, accountStatus: customerControls.accountStatus })
+      .from(users).leftJoin(customerControls, eq(customerControls.userId, users.id)).where(eq(users.id, userId)).limit(1).for("update"))[0];
+    if (!owner || owner.role !== "user" || owner.loginMethod === "closed" || owner.accountStatus !== "active") {
       throw new Error("An active customer account is required.");
     }
     const activeRows = await tx.select({ count: sql<number>`count(*)` }).from(customerApiKeys)
@@ -125,10 +125,12 @@ export async function authenticateCustomerApiKey(rawKey: string) {
     revokedAt: customerApiKeys.revokedAt,
     role: users.role,
     loginMethod: users.loginMethod,
+    accountStatus: customerControls.accountStatus,
   }).from(customerApiKeys)
     .innerJoin(users, eq(users.id, customerApiKeys.userId))
+    .leftJoin(customerControls, eq(customerControls.userId, users.id))
     .where(eq(customerApiKeys.keyHash, keyHash)).limit(1))[0];
-  if (!row || row.revokedAt || row.role !== "user" || row.loginMethod === "closed") return null;
+  if (!row || row.revokedAt || row.role !== "user" || row.loginMethod === "closed" || row.accountStatus === "suspended") return null;
   // Usage timestamps are best-effort telemetry; never expose or log the secret.
   void db.update(customerApiKeys).set({ lastUsedAt: new Date() })
     .where(and(eq(customerApiKeys.id, row.id), isNull(customerApiKeys.revokedAt)))
