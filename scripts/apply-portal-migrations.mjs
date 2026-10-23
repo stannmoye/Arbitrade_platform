@@ -32,6 +32,7 @@ const migrationFiles = [
   "0059_manual_payout_requests.sql",
   "0060_customer_totp_authenticators.sql",
   "0061_customer_totp_recovery_codes.sql",
+  "0062_privacy_center.sql",
 ];
 // These tables are also created by the main Drizzle migration chain before this
 // portal-specific runner starts. Their presence alone therefore cannot prove that
@@ -39,6 +40,7 @@ const migrationFiles = [
 const targetTables = [
   "kyc_settings", "kyc_profiles", "password_reset_tokens", "admin_email_messages",
   "mining_economics_versions", "mining_packages", "mining_customer_packages", "payout_requests", "customer_totp_authenticators",
+  "privacy_policy_versions", "privacy_requests", "privacy_request_events", "privacy_audit_events",
 ];
 const baselineReviewed = process.argv.includes("--baseline-reviewed");
 let url;
