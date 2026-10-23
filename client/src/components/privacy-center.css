@@ -250,3 +250,9 @@
 @media(prefers-reduced-motion:reduce){
   .privacy-center-page *, .privacy-admin-page *{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+.privacy-review-acknowledgement{display:flex;align-items:flex-start;gap:10px;padding:13px;border:1px solid color-mix(in srgb,var(--privacy-accent) 31%,var(--privacy-border));border-radius:10px;background:color-mix(in srgb,var(--privacy-accent) 5%,var(--privacy-surface))}
+.privacy-review-acknowledgement input{flex:0 0 auto;width:16px;height:16px;margin:2px 0 0;accent-color:var(--privacy-accent)}
+.privacy-review-acknowledgement>span{display:grid;gap:4px}
+.privacy-review-acknowledgement strong{font-size:10px;color:var(--privacy-text)}
+.privacy-review-acknowledgement small{font-size:9px;color:var(--privacy-muted);line-height:1.6;font-weight:450}
