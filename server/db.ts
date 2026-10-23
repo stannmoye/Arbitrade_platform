@@ -1610,6 +1610,50 @@ function nonZeroWalletAmount(value: string | number | null | undefined): boolean
   return /[1-9]/.test(normalized.split(/[eE]/)[0] ?? "0");
 }
 
+/** Refuse account closure while Mining has unsettled customer obligations. Run inside the closure transaction. */
+export async function assertNoOutstandingMiningOperations(tx: any, userId: number) {
+  const guards = [
+    {
+      query: sql`SELECT id FROM mining_customer_packages
+        WHERE userId=${userId} AND status IN ('active','replaced')
+          AND startsAt<=UTC_TIMESTAMP(3)
+          AND (expiresAt IS NULL OR expiresAt>UTC_TIMESTAMP(3))
+          AND (endedAt IS NULL OR endedAt>UTC_TIMESTAMP(3))
+        LIMIT 1 FOR UPDATE`,
+      message: "Resolve or let all active Mining packages expire before approving account closure.",
+    },
+    {
+      query: sql`SELECT id FROM mining_pending_boost_rewards
+        WHERE userId=${userId} AND status='pending'
+        LIMIT 1 FOR UPDATE`,
+      message: "Wait for pending Mining boost rewards to settle before approving account closure.",
+    },
+    {
+      query: sql`SELECT id FROM mining_conversion_jobs
+        WHERE userId=${userId} AND status IN ('queued','retrying')
+        LIMIT 1 FOR UPDATE`,
+      message: "Resolve queued Mining conversions before approving account closure.",
+    },
+    {
+      query: sql`SELECT id FROM mining_adjustment_requests
+        WHERE userId=${userId} AND status='pending'
+        LIMIT 1 FOR UPDATE`,
+      message: "Resolve pending Mining balance adjustments before approving account closure.",
+    },
+    {
+      query: sql`SELECT id FROM mining_ledger_transactions
+        WHERE userId=${userId} AND status='pending'
+        LIMIT 1 FOR UPDATE`,
+      message: "Resolve pending Mining ledger entries before approving account closure.",
+    },
+  ] as const;
+
+  for (const guard of guards) {
+    const [rows] = await tx.execute(guard.query) as any;
+    if (rows?.length) throw new AccountClosureDecisionError(guard.message);
+  }
+}
+
 /** An explicit, audited decision. Approval anonymizes direct identity but preserves financial/audit records. */
 export async function applyAccountClosureDecision(adminId: number, input: { ticketId: number; decision: AccountClosureDecision; reason: string }) {
   const db = await getDb();
@@ -1676,6 +1720,8 @@ export async function applyAccountClosureDecision(adminId: number, input: { tick
     )).limit(1).for("update"))[0];
     if (activeSubscription) throw new AccountClosureDecisionError("Resolve the customer's active package subscription before approving account closure.");
 
+    await assertNoOutstandingMiningOperations(tx, user.id);
+
     const balances = await tx.select().from(customerBalances).where(eq(customerBalances.userId, user.id)).for("update");
     if (balances.some((balance) => [balance.availableMinor, balance.lockedMinor, balance.promotionalMinor, balance.earnedMinor].some((amount) => Number(amount) !== 0))) {
       throw new AccountClosureDecisionError("The customer has a non-zero wallet balance. Resolve or transfer funds before approving account closure.");
@@ -1701,6 +1747,13 @@ export async function applyAccountClosureDecision(adminId: number, input: { tick
       ticketId: ticket.id, authorId: adminId,
       body: `ACCOUNT CLOSURE APPROVED\n\nThe administrator approved this request. Authentication was revoked and direct account-identifying profile fields were anonymized. Financial ledger, transaction references, and audit records remain retained where needed for compliance and dispute resolution.\n\nAdministrative decision: ${input.reason.trim()}`,
     });
+
+    // Waiting conversion jobs cannot execute, and executable jobs were checked above.
+    // Mark waiting jobs terminal rather than retaining an orphaned conversion queue entry.
+    await tx.execute(sql`UPDATE mining_conversion_jobs
+      SET status='failed',lastError='Cancelled because the account was closed',updatedAt=UTC_TIMESTAMP(3)
+      WHERE userId=${user.id} AND status='waiting'`);
+    await tx.execute(sql`DELETE FROM mining_conversion_preferences WHERE userId=${user.id}`);
 
     // Remove authentication secrets, device/IP history, preferences, and customer notifications.
     // Monetary ledgers, balances, completed transactions, KYC/compliance and audit records are retained.
@@ -1764,7 +1817,7 @@ export async function deleteAdminCustomer(_userId: number): Promise<never> {
     "Direct customer deletion is disabled. Use the customer's account-closure request and the explicit administrator decision workflow.",
   );
 }
-export async function adjustCustomerBalance(adminId:number,input:{userId:number;currency:string;amountMinor:number;mode:"credit"|"debit";reason:string}){const db=await getDb();if(!db)throw new Error("Database is not available");if(input.amountMinor<=0)throw new Error("Amount must be positive");const ledgerReference=`admin-${adminId}-${input.userId}-${crypto.randomUUID()}`;const result=await db.transaction(async tx=>{const user=(await tx.select({id:users.id,role:users.role}).from(users).where(input.userId===adminId?eq(users.id,input.userId):and(eq(users.id,input.userId),eq(users.role,"user"))).limit(1))[0];if(!user)throw new Error("Customer account not found");if(user.role==="admin"&&user.id!==adminId)throw new Error("Administrators may adjust only their own wallet");const currency=(await tx.select().from(currencyRegistry).where(and(eq(currencyRegistry.code,input.currency.toUpperCase()),eq(currencyRegistry.enabled,true))).limit(1))[0];if(!currency)throw new Error(`Currency ${input.currency} is not enabled. Add it in Currency registry first.`);const balance=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,input.userId),eq(customerBalances.currency,currency.code))).limit(1))[0];const current=balance?.availableMinor||0;const next=input.mode==="credit"?current+input.amountMinor:current-input.amountMinor;if(next<0)throw new Error("Debit exceeds available wallet balance");if(balance)await tx.update(customerBalances).set({availableMinor:next,promotionalMinor:input.mode==="credit"?balance.promotionalMinor+input.amountMinor:balance.promotionalMinor}).where(eq(customerBalances.id,balance.id));else await tx.insert(customerBalances).values({userId:input.userId,currency:currency.code,availableMinor:input.amountMinor,promotionalMinor:input.mode==="credit"?input.amountMinor:0,earnedMinor:0});await tx.insert(balanceLedger).values({userId:input.userId,currency:currency.code,amountMinor:input.mode==="credit"?input.amountMinor:-input.amountMinor,entryType:`admin_${input.mode}`,reference:ledgerReference,withdrawable:false});return {success:true,newAvailableMinor:next,currency:currency.code,amountMinor:input.amountMinor,ledgerReference,rateUsd:Number(currency.usdRate),rateUpdatedAt:currency.updatedAt,amountUsd:nativeMinorToUsd(input.amountMinor,Number(currency.scale),Number(currency.usdRate))};}); try { await createNotification(input.userId,`Wallet ${input.mode==="credit"?"credited":"debited"}`,`An administrator ${input.mode}ed ${input.amountMinor} native ledger units to your ${input.currency.toUpperCase()} wallet. Reason: ${input.reason}`,{eventKey:`wallet-adjustment:${result.ledgerReference}`,category:input.mode==="credit"?"ledger_credit":"ledger_debit",priority:"normal"}); } catch(error) { console.error("[Notifications] Wallet adjustment notice failed after ledger commit:",error instanceof Error?error.name:"UnknownError"); } try { const { enqueueWalletAdjustmentEmail } = await import("./emailQueue"); await enqueueWalletAdjustmentEmail(input.userId,input.mode,input.amountMinor,input.currency,`admin-ledger:${adminId}:${input.userId}:${Date.now()}`); } catch(error) { console.error("[Email] Wallet alert enqueue failed:",error instanceof Error?error.name:"UnknownError"); } return result; }
+export async function adjustCustomerBalance(adminId:number,input:{userId:number;currency:string;amountMinor:number;mode:"credit"|"debit";reason:string}){const db=await getDb();if(!db)throw new Error("Database is not available");if(input.amountMinor<=0)throw new Error("Amount must be positive");const ledgerReference=`admin-${adminId}-${input.userId}-${crypto.randomUUID()}`;const result=await db.transaction(async tx=>{const user=(await tx.select({id:users.id,role:users.role,loginMethod:users.loginMethod}).from(users).where(input.userId===adminId?eq(users.id,input.userId):and(eq(users.id,input.userId),eq(users.role,"user"))).limit(1).for("update"))[0];if(!user)throw new Error("Customer account not found");if(user.role==="user"&&user.loginMethod==="closed")throw new Error("Cannot adjust the wallet of a closed customer account");if(user.role==="admin"&&user.id!==adminId)throw new Error("Administrators may adjust only their own wallet");const currency=(await tx.select().from(currencyRegistry).where(and(eq(currencyRegistry.code,input.currency.toUpperCase()),eq(currencyRegistry.enabled,true))).limit(1))[0];if(!currency)throw new Error(`Currency ${input.currency} is not enabled. Add it in Currency registry first.`);const balance=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,input.userId),eq(customerBalances.currency,currency.code))).limit(1))[0];const current=balance?.availableMinor||0;const next=input.mode==="credit"?current+input.amountMinor:current-input.amountMinor;if(next<0)throw new Error("Debit exceeds available wallet balance");if(balance)await tx.update(customerBalances).set({availableMinor:next,promotionalMinor:input.mode==="credit"?balance.promotionalMinor+input.amountMinor:balance.promotionalMinor}).where(eq(customerBalances.id,balance.id));else await tx.insert(customerBalances).values({userId:input.userId,currency:currency.code,availableMinor:input.amountMinor,promotionalMinor:input.mode==="credit"?input.amountMinor:0,earnedMinor:0});await tx.insert(balanceLedger).values({userId:input.userId,currency:currency.code,amountMinor:input.mode==="credit"?input.amountMinor:-input.amountMinor,entryType:`admin_${input.mode}`,reference:ledgerReference,withdrawable:false});return {success:true,newAvailableMinor:next,currency:currency.code,amountMinor:input.amountMinor,ledgerReference,rateUsd:Number(currency.usdRate),rateUpdatedAt:currency.updatedAt,amountUsd:nativeMinorToUsd(input.amountMinor,Number(currency.scale),Number(currency.usdRate))};}); try { await createNotification(input.userId,`Wallet ${input.mode==="credit"?"credited":"debited"}`,`An administrator ${input.mode}ed ${input.amountMinor} native ledger units to your ${input.currency.toUpperCase()} wallet. Reason: ${input.reason}`,{eventKey:`wallet-adjustment:${result.ledgerReference}`,category:input.mode==="credit"?"ledger_credit":"ledger_debit",priority:"normal"}); } catch(error) { console.error("[Notifications] Wallet adjustment notice failed after ledger commit:",error instanceof Error?error.name:"UnknownError"); } try { const { enqueueWalletAdjustmentEmail } = await import("./emailQueue"); await enqueueWalletAdjustmentEmail(input.userId,input.mode,input.amountMinor,input.currency,`admin-ledger:${adminId}:${input.userId}:${Date.now()}`); } catch(error) { console.error("[Email] Wallet alert enqueue failed:",error instanceof Error?error.name:"UnknownError"); } return result; }
 export async function listOpenOffers(){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();return db.select().from(opportunityOffers).where(and(eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt);}
 const TRADE_MATH_METHODS = ["session entropy", "amount elasticity", "route volatility", "liquidity depth", "customer risk curve", "rotation index", "weighted ensemble"] as const;
 function calculateTradeTerms(userId:number, offer:any, amountMinor:number) {
@@ -1806,8 +1859,9 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
  return db.transaction(async tx=>{
   // Serialize allocations for one customer. This makes daily caps and active-trade
   // checks safe when multiple workers attempt automatic trades concurrently.
-  const userLock=await tx.execute(sql`SELECT id FROM users WHERE id=${userId} FOR UPDATE`) as any;
-  if(!userLock?.[0]?.length) throw new Error("Customer account not found");
+  const userLock=await tx.execute(sql`SELECT id,loginMethod FROM users WHERE id=${userId} FOR UPDATE`) as any;
+  const lockedUser=userLock?.[0]?.[0];
+  if(!lockedUser||lockedUser.loginMethod==="closed") throw new Error("Customer account is missing or closed");
   // Lock and validate the popup event as an idempotency token before any wallet work.
   // If the original transaction committed but its response was lost, return that trade.
   if(input.deliveryEventId!==undefined){
