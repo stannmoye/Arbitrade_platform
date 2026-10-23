@@ -225,7 +225,18 @@ async function startServer() {
         const result=await processNotificationCampaignLifecycle();
         if(result.expired||result.published||result.failed)console.log("[NotificationCampaigns] lifecycle",result);
       } catch(error) {
-        console.error("[NotificationCampaigns]",error instanceof Error?error.name:"UnknownError");
+        const details = error && typeof error === "object" ? error as { name?: unknown; message?: unknown; code?: unknown; table?: unknown } : {};
+        const message = typeof details.message === "string"
+          ? details.message.replace(/\b(?:mysql|mariadb):\/\/[^\s"'<>]+/gi, "[database-url-redacted]").slice(0, 500)
+          : "No error message was provided";
+        const code = details.code == null ? undefined : String(details.code).replace(/[^A-Z0-9_]/gi, "").slice(0, 80);
+        const table = details.table == null ? undefined : String(details.table).replace(/[^A-Z0-9_]/gi, "").slice(0, 120);
+        console.error("[NotificationCampaigns] lifecycle failed", {
+          name: typeof details.name === "string" ? details.name.slice(0, 80) : "UnknownError",
+          code,
+          table,
+          message,
+        });
       } finally { notificationCampaignCycleRunning=false; }
     };
     const notificationCampaignTimer=setInterval(()=>{void runNotificationCampaignCycle();},30_000);

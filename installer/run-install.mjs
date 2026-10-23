@@ -242,6 +242,10 @@ if (mode === "fresh") {
   run("node", ["scripts/apply-mining-migrations.mjs", "--confirm-host-migration", "--confirm-production"]);
   await setStage("initial-reward-rate-migration");
   run("node", ["scripts/apply-mining-initial-reward-rates.mjs", "--confirm-host-migration", "--confirm-production"]);
+  await setStage("worker-runtime-schema");
+  run("node", ["scripts/ensure-worker-runtime-schema.mjs"]);
+  await setStage("worker-schema-verification");
+  run("node", ["scripts/verify-worker-schema.mjs"]);
   await setStage("production-build");
   runPnpm(["build"]);
   await setStage("administrator-creation");
@@ -260,6 +264,10 @@ if (mode === "fresh") {
   run("node", ["scripts/apply-mining-migrations.mjs", "--confirm-host-migration", "--confirm-production"]);
   await setStage("initial-reward-rate-migration");
   run("node", ["scripts/apply-mining-initial-reward-rates.mjs", "--confirm-host-migration", "--confirm-production"]);
+  await setStage("worker-runtime-schema");
+  run("node", ["scripts/ensure-worker-runtime-schema.mjs"]);
+  await setStage("worker-schema-verification");
+  run("node", ["scripts/verify-worker-schema.mjs"]);
   await setStage("production-build");
   runPnpm(["build"]);
 }
