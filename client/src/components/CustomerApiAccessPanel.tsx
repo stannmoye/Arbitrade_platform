@@ -67,6 +67,13 @@ const initialPreferences:PreferenceDraft = {
   whatsappNumber:"",whatsappOptIn:false,whatsappEvents:[],inAppEnabled:true,dailySummaryEnabled:false,
   dailyStatementEnabled:false,feeSummaryEnabled:false,securityAlertsEnabled:true,timezone:"Africa/Lagos",dailyReportTime:"08:00",
 };
+const booleanPreferenceOptions: Array<{key:"inAppEnabled"|"dailySummaryEnabled"|"dailyStatementEnabled"|"feeSummaryEnabled"|"securityAlertsEnabled";label:string}> = [
+  {key:"inAppEnabled",label:"In-app notifications"},
+  {key:"dailySummaryEnabled",label:"Daily account activity notice"},
+  {key:"dailyStatementEnabled",label:"Daily statement notice"},
+  {key:"feeSummaryEnabled",label:"Fee summary notice"},
+  {key:"securityAlertsEnabled",label:"Security alerts"},
+];
 
 export default function CustomerApiAccessPanel() {
   const keys=trpc.customer.apiKeys.useQuery(undefined,{refetchOnWindowFocus:true});
@@ -182,7 +189,7 @@ export default function CustomerApiAccessPanel() {
           <div className="api-access-verify-actions"><button className="secondary-button" type="button" disabled={savePreferences.isPending} onClick={()=>savePreferences.mutate(preferences)}>{savePreferences.isPending?"Saving…":"Save preferences"}</button><button className="primary-button" type="button" disabled={requestVerification.isPending||!preferences.whatsappNumber.trim()||!preferences.whatsappOptIn} onClick={async()=>{try{await savePreferences.mutateAsync(preferences);await requestVerification.mutateAsync()}catch{/* mutation handlers show the actual error */}}}>{requestVerification.isPending?"Sending code…":"Send verification code"}</button></div>
           <div className="api-access-verify-actions"><input value={verificationCode} onChange={e=>setVerificationCode(e.target.value.replace(/\D/g,"").slice(0,6))} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="6-digit code" aria-label="WhatsApp verification code"/><button className="secondary-button" disabled={verifyNumber.isPending||verificationCode.length!==6} onClick={()=>verifyNumber.mutate({code:verificationCode})}>{verifyNumber.isPending?"Verifying…":"Verify number"}</button></div>
           <div className="api-access-toggle-list">
-            {[["inAppEnabled","In-app notifications"],["dailySummaryEnabled","Daily account activity notice"],["dailyStatementEnabled","Daily statement notice"],["feeSummaryEnabled","Fee summary notice"],["securityAlertsEnabled","Security alerts"]].map(([key,label])=><label key={key} className="api-access-checkbox"><input type="checkbox" checked={Boolean(preferences[key as keyof PreferenceDraft])} onChange={e=>setPreferences(old=>({...old,[key]:e.target.checked}))}/>{label}</label>)}
+            {booleanPreferenceOptions.map(option=><label key={option.key} className="api-access-checkbox"><input type="checkbox" checked={preferences[option.key]} onChange={e=>setPreferences(old=>({...old,[option.key]:e.target.checked}))}/>{option.label}</label>)}
           </div>
           <div className="api-access-pref-row"><label className="api-access-field">Daily report time<input type="time" value={preferences.dailyReportTime} onChange={e=>setPreferences(old=>({...old,dailyReportTime:e.target.value}))}/></label><label className="api-access-field">Time zone<input value={preferences.timezone} onChange={e=>setPreferences(old=>({...old,timezone:e.target.value}))} placeholder="Africa/Lagos"/></label></div>
           <h3>WhatsApp event preferences</h3><div className="api-access-event-grid">{eventOptions.map(item=><label className="api-access-event" key={item.id}><input type="checkbox" checked={preferences.whatsappEvents.includes(item.id)} onChange={()=>togglePreferenceEvent(item.id)}/><span><strong>{item.label}</strong><small>{item.description}</small></span></label>)}</div>
