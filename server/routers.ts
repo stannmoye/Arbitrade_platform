@@ -26,6 +26,7 @@ import * as privacyService from "./privacy";
 import { CUSTOMER_API_SCOPES, createCustomerApiKey, listCustomerApiKeys, revokeCustomerApiKey } from "./api-access";
 import { API_AUTOMATION_EVENTS, createApiPlatformIncident, createCustomerApiWebhook, enqueueCustomerApiEvent, getCustomerApiNotificationPreferences, listApiPlatformIncidents, listCustomerApiNotificationHistory, listCustomerApiWebhooks, requestCustomerWhatsAppVerification, resolveApiPlatformIncident, revokeCustomerApiWebhook, saveCustomerApiNotificationPreferences, verifyCustomerWhatsAppNumber } from "./api-access-automation";
 import { apiProviderCredentialStatus, removeApiProviderCredential, saveApiProviderCredential } from "./api-access-vault";
+import { listCustomerApiUsage } from "./api-access-usage";
 import { sdk } from "./_core/sdk";
 
 export const appRouter = router({
@@ -152,6 +153,10 @@ export const appRouter = router({
   }),
 
   customer: router({
+    apiUsage: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "API usage is available to customer accounts only." });
+      return listCustomerApiUsage(ctx.user.id);
+    }),
     apiKeys: protectedProcedure.query(({ ctx }) => {
       if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "API keys are available to customer accounts only." });
       return listCustomerApiKeys(ctx.user.id);
