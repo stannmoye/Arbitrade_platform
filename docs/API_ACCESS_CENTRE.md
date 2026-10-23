@@ -24,7 +24,7 @@ Send the key over HTTPS in the standard header:
 Authorization: Bearer arb_live_<secret>
 ```
 
-An API key cannot initiate a withdrawal. The public routes are read-only and every account query is bound to the key owner's authenticated customer ID.
+Read-only API scopes cannot initiate withdrawal requests. The separate `withdrawals:create` scope is disabled by default and, when the administrator enables it, requires an authenticator code and idempotency key; the existing payout workflow reserves eligible account funds and creates a request for manual review. It does not execute a transfer. Every account operation is bound to the key owner's authenticated customer ID.
 
 ## Current endpoints
 
@@ -35,6 +35,7 @@ All routes require the administrator's global API switch, rate-limit allowance a
 | `GET /api/v1/account/balances` | `balances:read` | Connected to current balance records |
 | `GET /api/v1/account/trades` | `transactions:read` | Connected to current trade records |
 | `GET /api/v1/account/withdrawals` | `withdrawals:read` | Connected to withdrawal requests |
+| `POST /api/v1/account/withdrawals` | `withdrawals:create` | Disabled by default; requires admin enablement, six-digit authenticator code, idempotency key and manual review. Creates a request only; it does not execute a transfer. |
 | `GET /api/v1/account/analytics` | `analytics:read` | Derived from available balance/trade/withdrawal data |
 | `GET /api/v1/account/exchange-rates` | `exchange-rates:read` | Uses stored application rates |
 | `GET /api/v1/account/statements/daily?date=YYYY-MM-DD` | `statements:read` | Partial statement dataset; identifies missing sections |
