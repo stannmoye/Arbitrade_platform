@@ -1504,6 +1504,77 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
         const layer = document.querySelector(".customer-portal > .portal-body");
         return layer instanceof HTMLElement && !layer.classList.contains("customer-primary-menu-open");
       }, { timeout: 10000 });
+      // Landscape/portrait tablet break point: 768px must use the same left-slide drawer as phones.
+      await page.setViewportSize({ width: 768, height: 1024 });
+      await page.waitForFunction(() => {
+        const layer = document.querySelector(".customer-portal > .portal-body");
+        const rail = layer?.querySelector(".customer-primary-rail");
+        if (!(layer instanceof HTMLElement) || !(rail instanceof HTMLElement)) return false;
+        const rect = rail.getBoundingClientRect();
+        const style = getComputedStyle(rail);
+        return !layer.classList.contains("customer-primary-menu-open") &&
+          style.visibility === "hidden" && Number(style.opacity) === 0 &&
+          style.pointerEvents === "none" && rect.right < 0;
+      }, { timeout: 10000 });
+      await page.getByRole("button", { name: "Open Settings" }).click();
+      await page.waitForFunction(() => {
+        const shell = document.querySelector(".customer-portal");
+        const layer = shell?.querySelector(":scope > .portal-body.customer-primary-menu-open");
+        const rail = layer?.querySelector(".customer-primary-rail");
+        if (!(shell instanceof HTMLElement) || !(layer instanceof HTMLElement) || !(rail instanceof HTMLElement)) return false;
+        const rect = rail.getBoundingClientRect();
+        const style = getComputedStyle(rail);
+        return rail.parentElement === layer && rail.closest(".customer-portal") === shell &&
+          style.visibility === "visible" && Number(style.opacity) > 0.95 &&
+          style.pointerEvents !== "none" && style.position === "fixed" &&
+          style.transform === "none" && style.clipPath === "none" && style.filter === "none" &&
+          Math.abs(rect.left) <= 1 && rect.width > 0 && rect.right <= window.innerWidth + 1;
+      }, { timeout: 10000 });
+      const customerTabletRail = await page.evaluate(() => {
+        const shell = document.querySelector(".customer-portal");
+        const layer = shell?.querySelector(":scope > .portal-body.customer-primary-menu-open");
+        const rail = layer?.querySelector(".customer-primary-rail");
+        const firstButton = rail?.querySelector('nav[aria-label="Account preferences navigation"] button');
+        if (!(shell instanceof HTMLElement) || !(layer instanceof HTMLElement) ||
+            !(rail instanceof HTMLElement) || !(firstButton instanceof HTMLElement)) {
+          return { railInShell: false, railVisible: false, noCompositorEffects: false, firstItemHitTest: false, themeBackground: "" };
+        }
+        const rect = rail.getBoundingClientRect();
+        const firstRect = firstButton.getBoundingClientRect();
+        const hitPoint = { x: firstRect.left + Math.min(20, firstRect.width / 2), y: firstRect.top + firstRect.height / 2 };
+        const topmost = document.elementFromPoint(hitPoint.x, hitPoint.y);
+        const style = getComputedStyle(rail);
+        return {
+          railInShell: rail.parentElement === layer && rail.closest(".customer-portal") === shell,
+          railRect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height },
+          railVisible: style.visibility === "visible" && Number(style.opacity) > 0.95 && rect.width > 0,
+          noCompositorEffects: style.transform === "none" && style.clipPath === "none" && style.filter === "none",
+          firstItemHitTest: topmost === firstButton || (topmost instanceof Node && firstButton.contains(topmost)),
+          themeBackground: style.backgroundColor,
+        };
+      });
+      const customerTabletMenuWorks = customerTabletRail.railInShell &&
+        customerTabletRail.railVisible && customerTabletRail.noCompositorEffects &&
+        customerTabletRail.firstItemHitTest && customerTabletRail.themeBackground !== "rgba(0, 0, 0, 0)";
+      checks.push({
+        route: "/customer",
+        routeName: "customer",
+        width: 768,
+        theme: "runtime-default",
+        check: "customer-left-settings-rail-slides-and-paints-on-tablet",
+        passed: customerTabletMenuWorks,
+        ...customerTabletRail,
+        note: "Checks tablet-width drawer visibility, left-side placement, active theme surface, hit testing and removal of mobile compositor-triggering effects.",
+      });
+      await page.mouse.click(758, 500);
+      await page.waitForFunction(() => {
+        const layer = document.querySelector(".customer-portal > .portal-body");
+        const rail = layer?.querySelector(".customer-primary-rail");
+        if (!(layer instanceof HTMLElement) || !(rail instanceof HTMLElement)) return false;
+        const rect = rail.getBoundingClientRect();
+        return !layer.classList.contains("customer-primary-menu-open") && rect.right < 0;
+      }, { timeout: 10000 });
+
       await page.setViewportSize({ width: 1440, height: 900 });
 
       const select = selector.locator("select");
