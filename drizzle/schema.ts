@@ -924,7 +924,7 @@ export const privacyPolicyVersions = mysqlTable("privacy_policy_versions", {
   versionLabel: varchar("versionLabel", { length: 40 }).notNull(),
   title: varchar("title", { length: 200 }).notNull(),
   summary: varchar("summary", { length: 700 }).notNull().default(""),
-  controllerName: varchar("controllerName", { length: 200 }).notNull().default("Platform operator"),
+  controllerName: varchar("controllerName", { length: 200 }).notNull().default("Not configured"),
   controllerAddress: varchar("controllerAddress", { length: 500 }).notNull().default(""),
   privacyContact: varchar("privacyContact", { length: 320 }).notNull().default("Use the Privacy Centre request form or authenticated Support Centre"),
   applicableJurisdiction: varchar("applicableJurisdiction", { length: 180 }).notNull().default(""),
