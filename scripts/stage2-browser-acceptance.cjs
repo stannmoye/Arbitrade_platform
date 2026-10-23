@@ -1836,8 +1836,9 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           return element?.getAttribute("aria-hidden") === "false" &&
             Boolean(element.contains(document.activeElement));
         });
-        const customerPortalPlacement = await drawer.evaluate(element => ({
-          layerClassPresent: element.parentElement?.classList.contains("customer-slide-portal") ?? false,
+        const customerMenuPlacement = await drawer.evaluate(element => ({
+          layerClassPresent: element.parentElement?.classList.contains("customer-slide-layer") ?? false,
+          insideCustomerWorkspace: Boolean(element.closest(".customer-portal")),
           attachedDirectlyToBody: element.parentElement?.parentElement === document.body,
         }));
         checks.push({
@@ -1845,10 +1846,12 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           routeName: "customer",
           width: 1440,
           theme: scenario.policy.defaultTheme,
-          check: "customer-navigation-uses-body-level-portal",
-          passed: customerPortalPlacement.layerClassPresent && customerPortalPlacement.attachedDirectlyToBody,
-          ...customerPortalPlacement,
-          note: "Verifies the customer drawer renders outside page-level clipping and stacking contexts.",
+          check: "customer-navigation-uses-original-in-shell-menu",
+          passed: customerMenuPlacement.layerClassPresent &&
+            customerMenuPlacement.insideCustomerWorkspace &&
+            !customerMenuPlacement.attachedDirectlyToBody,
+          ...customerMenuPlacement,
+          note: "Verifies the release-restored customer resources drawer remains inside the customer workspace instead of using the removed body-level portal.",
         });
         const customerSearch = drawer.getByRole("textbox", { name: "Search customer pages and resources" });
         await customerSearch.fill("wallet");
