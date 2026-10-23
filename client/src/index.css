@@ -523,3 +523,24 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
 
 /* Mobile portal rules hide most header buttons; keep the warning's dismiss action reachable. */
 .portal-session .customer-audio-warning button{display:inline-flex!important;flex:none;align-items:center;justify-content:center;min-height:30px;padding:5px 9px;border:1px solid var(--ux-line-strong,#35536b);border-radius:6px;}
+
+
+/*
+ * Durable mobile drawer paint fix: render drawer/backdrop through a React portal
+ * under document.body, outside transformed/overflow-clipped workspace containers.
+ * Keep the entire layer above the app's own stacking contexts on touch browsers.
+ */
+.admin-slide-portal-layer{z-index:2147483000!important;isolation:isolate!important}
+.admin-slide-portal-layer .admin-slide-drawer{z-index:2!important}
+.admin-slide-portal-layer .admin-slide-drawer::before{z-index:0;pointer-events:none}
+.admin-slide-portal-layer .admin-slide-drawer>*{position:relative;z-index:1}
+:root[data-arb-theme] .customer-slide-portal .admin-slide-drawer{background:var(--arb-color-surface)!important;border-color:var(--arb-color-border)!important;color:var(--arb-color-text)!important}
+:root[data-arb-theme] .customer-slide-portal .admin-slide-drawer-topline,
+:root[data-arb-theme] .customer-slide-portal .admin-slide-current,
+:root[data-arb-theme] .customer-slide-portal .admin-slide-item{border-color:var(--arb-color-border)!important;background-color:var(--arb-color-surface-raised)!important;color:var(--arb-color-text)!important}
+:root[data-arb-theme] .customer-slide-portal .admin-slide-item:hover,
+:root[data-arb-theme] .customer-slide-portal .admin-slide-item.is-active{border-color:var(--arb-color-accent)!important;background:color-mix(in srgb,var(--arb-color-accent) 12%,var(--arb-color-surface-raised))!important}
+:root[data-arb-theme] .customer-slide-portal :where(h1,h2,h3,h4,strong,b,label,th){color:var(--arb-color-text)!important}
+:root[data-arb-theme] .customer-slide-portal :where(p,small,.eyebrow){color:var(--arb-color-text-muted)!important}
+:root[data-arb-theme] .customer-slide-portal :where(input,textarea,select){background-color:var(--arb-color-surface-raised)!important;border-color:var(--arb-color-border)!important;color:var(--arb-color-text)!important}
+:root[data-arb-theme] .customer-slide-portal :where(button,a,[role="button"],input,select,textarea):focus-visible{outline-color:var(--arb-focus-ring)!important;outline-offset:3px}

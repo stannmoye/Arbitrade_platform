@@ -72,3 +72,23 @@ describe("mobile drawer compositing recovery", () => {
     expect(customerSlideMenu).toContain('aria-hidden={!open}');
   });
 });
+
+
+describe("body-level navigation drawer portals", () => {
+  it("renders both navigation drawers outside page-level clipping and stacking contexts", () => {
+    expect(adminSlideMenu).toContain('createPortal(');
+    expect(customerSlideMenu).toContain('createPortal(');
+    expect(adminSlideMenu).toContain('document.body');
+    expect(customerSlideMenu).toContain('document.body');
+    expect(adminSlideMenu).toContain('admin-slide-portal-layer');
+    expect(customerSlideMenu).toContain('customer-slide-portal');
+    expect(layoutCss).toContain('.admin-slide-portal-layer');
+    expect(layoutCss).toContain('z-index:2147483000!important');
+  });
+
+  it("preserves customer theme tokens inside the portaled drawer", () => {
+    expect(layoutCss).toContain(':root[data-arb-theme] .customer-slide-portal .admin-slide-drawer');
+    expect(layoutCss).toContain(':root[data-arb-theme] .customer-slide-portal .admin-slide-item');
+    expect(layoutCss).toContain('var(--arb-color-surface-raised)');
+  });
+});

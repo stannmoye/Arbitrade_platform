@@ -711,6 +711,13 @@ async function runAdminAppearanceInteractionCheck(browser) {
       focusInside: element.contains(document.activeElement),
     }));
     const triggerExpandedWhileOpen = await page.locator(".admin-slide-trigger").getAttribute("aria-expanded");
+    const adminPortalPlacement = await quickActionsDialog.evaluate(element => ({
+      layerClassPresent: element.parentElement?.classList.contains("admin-slide-portal-layer") ?? false,
+      attachedDirectlyToBody: element.parentElement?.parentElement === document.body,
+    }));
+    record("quick-actions-dialog-uses-body-level-portal",
+      adminPortalPlacement.layerClassPresent && adminPortalPlacement.attachedDirectlyToBody,
+      adminPortalPlacement);
     record("quick-actions-dialog-accessibility-and-focus",
       dialogSemantics.visible && dialogSemantics.modal === "true" &&
       dialogSemantics.focusInside && triggerExpandedWhileOpen === "true",
@@ -1584,6 +1591,20 @@ async function runCustomerThemePolicyInteractionCheck(browser) {
           const element = document.querySelector("#customer-navigation-drawer");
           return element?.getAttribute("aria-hidden") === "false" &&
             Boolean(element.contains(document.activeElement));
+        });
+        const customerPortalPlacement = await drawer.evaluate(element => ({
+          layerClassPresent: element.parentElement?.classList.contains("customer-slide-portal") ?? false,
+          attachedDirectlyToBody: element.parentElement?.parentElement === document.body,
+        }));
+        checks.push({
+          route: "/customer",
+          routeName: "customer",
+          width: 1440,
+          theme: scenario.policy.defaultTheme,
+          check: "customer-navigation-uses-body-level-portal",
+          passed: customerPortalPlacement.layerClassPresent && customerPortalPlacement.attachedDirectlyToBody,
+          ...customerPortalPlacement,
+          note: "Verifies the customer drawer renders outside page-level clipping and stacking contexts.",
         });
         const customerSearch = drawer.getByRole("textbox", { name: "Search customer pages and resources" });
         await customerSearch.fill("wallet");

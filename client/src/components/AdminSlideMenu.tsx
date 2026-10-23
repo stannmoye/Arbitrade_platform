@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Activity, CircleDollarSign, Clock3, Database, FileText, Mail, Menu, RefreshCw, Search, ShieldAlert, ShieldCheck, TicketCheck, Users, WalletCards, X, Zap, type LucideIcon } from "lucide-react";
 import { quickActionItems } from "../admin-navigation";
 
@@ -57,10 +58,12 @@ export function AdminSlideMenu({ section, onNavigate }: AdminSlideMenuProps) {
   const close = () => { setOpen(false); window.requestAnimationFrame(() => triggerRef.current?.focus()); };
   const navigate = (target: string) => { onNavigate(target); close(); };
 
-  return <div className={`admin-slide-layer arb-page${open ? " is-open" : ""}`}>
+  return <><div className={`admin-slide-layer arb-page${open ? " is-open" : ""}`}>
     <button ref={triggerRef} className="admin-slide-trigger" type="button" aria-label={open ? "Close Quick Actions" : "Open Quick Actions"} aria-controls="admin-navigation-drawer" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setOpen(true)}>
       <span className="admin-slide-trigger-icon"><Menu size={18} /></span><span className="admin-slide-trigger-copy">QUICK ACTIONS</span><span className="admin-slide-trigger-led" />
     </button>
+    </div>{typeof document !== "undefined" && createPortal(
+      <div className={`admin-slide-layer admin-slide-portal-layer arb-page${open ? " is-open" : ""}`}>
     <button className="admin-slide-backdrop" type="button" aria-label="Close Quick Actions" tabIndex={open ? 0 : -1} onClick={close} />
     <aside id="admin-navigation-drawer" ref={menuRef} className="admin-slide-drawer quick-actions-drawer" aria-label="Quick Actions" aria-hidden={!open} role="dialog" aria-modal={open}>
       <div className="admin-slide-drawer-topline"><span><i /> COMMAND PANEL</span><span className="admin-slide-count">ROLE-AWARE</span></div>
@@ -75,5 +78,7 @@ export function AdminSlideMenu({ section, onNavigate }: AdminSlideMenuProps) {
       </nav>
       <div className="admin-slide-footer"><div className="quick-actions-status"><span><span className="quick-actions-status-dot" /> System status</span><strong>Connected</strong><small>Database and portal runtime</small></div><button className="admin-slide-exit" type="button" tabIndex={open ? 0 : -1} onClick={() => window.location.reload()}><RefreshCw size={15} /> Refresh status</button><div className="admin-slide-footer-note">Counters and actions link to the canonical menu tree.</div></div>
     </aside>
-  </div>;
+      </div>,
+      document.body
+    )}</>;
 }
