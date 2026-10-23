@@ -1795,3 +1795,24 @@
     pointer-events: auto !important;
   }
 }
+
+
+/*
+ * Closed-state guarantee for the Settings rail.
+ * Older customer menu rules animate visibility while closing. On mobile that
+ * can leave the body-level rail painted for the transition interval even after
+ * the open state is removed. A closed rail must disappear immediately so it
+ * cannot cover customer content or intercept the first page interaction.
+ */
+@media (max-width: 900px), (pointer: coarse) {
+  .customer-left-menu-portal-host .portal-body:not(.customer-primary-menu-open) .customer-primary-rail {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transition: none !important;
+  }
+  .customer-left-menu-portal-host .portal-body:not(.customer-primary-menu-open) .customer-primary-menu-scrim {
+    display: none !important;
+    pointer-events: none !important;
+  }
+}
