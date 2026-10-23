@@ -29,7 +29,10 @@ describe("canonical database migration workflow", () => {
   it("routes generic db:migrate and production startup through the complete workflow", async () => {
     const pkg = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
     expect(pkg.scripts["db:migrate"]).toBe("node scripts/migrate-all.mjs");
-    expect(pkg.scripts.start).toContain("pnpm db:migrate");
+    expect(pkg.scripts.start).toContain("server-start.mjs");
+    const startup = await readFile(new URL("server-start.mjs", root), "utf8");
+    expect(startup).toContain("scripts/migrate-all.mjs");
+    expect(startup).toContain("Migration workflow could not be started");
     const dockerfile = await readFile(new URL("Dockerfile", root), "utf8");
     expect(dockerfile).toContain('CMD ["sh", "-c", "pnpm start"]');
   });
