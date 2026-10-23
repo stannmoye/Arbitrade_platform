@@ -96,15 +96,18 @@ const renderApp = () => createRoot(rootElement).render(
   </trpc.Provider>
 );
 
-// Customer-only styles are scoped to .customer-portal. Keep them out of the
-// initial admin/landing CSS payload, and wait for them before first customer paint.
+// Customer-only styles stay split out of the initial admin/landing payload.
+// Start fetching them before mounting, but NEVER gate React startup on stylesheet
+// chunks: a slow or stalled CSS request must not leave the customer route as a
+// blank background with an empty #root. The current styles apply as soon as each
+// CSS chunk is ready; if one fails, the app still renders with the base design.
 if (window.location.pathname.startsWith("/customer")) {
   void Promise.all([
     import("./customer-reference.css"),
     import("./customer-theme-overrides.css"),
   ]).catch((error) => {
     console.error("[Customer styles] Unable to load customer theme styles", error);
-  }).finally(renderApp);
-} else {
-  renderApp();
+  });
 }
+
+renderApp();
