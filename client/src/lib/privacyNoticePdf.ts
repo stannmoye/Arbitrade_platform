@@ -64,7 +64,7 @@ function winAnsiHex(value: string): string {
   return result.toUpperCase();
 }
 
-export function createPrivacyNoticePdf(policy: PrivacyPolicyDocument): Uint8Array {
+export function createPrivacyNoticePdf(policy: PrivacyPolicyDocument): ArrayBuffer {
   const lines: PdfLine[] = [
     { text: policy.title || "Privacy Notice", size: 21, bold: true, gapAfter: 12 },
     { text: "Version " + policy.versionLabel, size: 10, bold: true, gapAfter: 3 },
@@ -153,5 +153,5 @@ export function createPrivacyNoticePdf(policy: PrivacyPolicyDocument): Uint8Arra
     pdf += String(offsets[index]).padStart(10, "0") + " 00000 n \n";
   }
   pdf += "trailer\n<< /Size " + (objects.length + 1) + " /Root 1 0 R /Info " + objects.length + " 0 R >>\nstartxref\n" + xrefOffset + "\n%%EOF";
-  return new TextEncoder().encode(pdf);
+  return new TextEncoder().encode(pdf).buffer as ArrayBuffer;
 }
