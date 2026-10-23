@@ -71,6 +71,10 @@ export function AdminPrivacyManagement() {
   const [draftId, setDraftId] = useState<number | undefined>();
   const [title, setTitle] = useState("Privacy Notice");
   const [summary, setSummary] = useState(starterSummary);
+  const [controllerName, setControllerName] = useState("Not configured");
+  const [controllerAddress, setControllerAddress] = useState("");
+  const [privacyContact, setPrivacyContact] = useState("Use the Privacy Centre request form or authenticated Support Centre");
+  const [applicableJurisdiction, setApplicableJurisdiction] = useState("");
   const [sections, setSections] = useState<PrivacyPolicySection[]>(DEFAULT_PRIVACY_POLICY_SECTIONS);
   const [editorInitialized, setEditorInitialized] = useState(false);
   const [publicationReviewed, setPublicationReviewed] = useState(false);
@@ -89,6 +93,10 @@ export function AdminPrivacyManagement() {
       setDraftId(draft?.id);
       setTitle(source.title);
       setSummary(source.summary);
+      setControllerName(source.controllerName || "Not configured");
+      setControllerAddress(source.controllerAddress || "");
+      setPrivacyContact(source.privacyContact || "");
+      setApplicableJurisdiction(source.applicableJurisdiction || "");
       setSections(source.sections.map((section) => ({ ...section })));
       setEditorInitialized(true);
     } else if (!editorInitialized && policyState.isSuccess) {
@@ -117,6 +125,10 @@ export function AdminPrivacyManagement() {
         ...(draftId ? { draftId } : {}),
         title,
         summary,
+        controllerName,
+        controllerAddress,
+        privacyContact,
+        applicableJurisdiction,
         sections,
       });
       setDraftId(result.draftId);
@@ -135,6 +147,10 @@ export function AdminPrivacyManagement() {
         ...(draftId ? { draftId } : {}),
         title,
         summary,
+        controllerName,
+        controllerAddress,
+        privacyContact,
+        applicableJurisdiction,
         sections,
       });
       setDraftId(saved.draftId);
@@ -198,7 +214,7 @@ export function AdminPrivacyManagement() {
   };
 
   const selectedRequest = requestDetail.data;
-  const canPublish = Boolean(title.trim().length >= 5 && summary.trim().length >= 20 && sections.length >= 6 &&
+  const canPublish = Boolean(title.trim().length >= 5 && summary.trim().length >= 20 && controllerName.trim().length >= 3 && controllerName.trim().toLowerCase() !== "not configured" && privacyContact.trim().length >= 5 && sections.length >= 6 &&
     sections.every((section) => /^[a-z0-9-]{2,48}$/.test(section.id) && section.title.trim().length >= 3 && section.body.trim().length >= 40) &&
     new Set(sections.map((section) => section.id)).size === sections.length);
   const published = policyState.data?.current;
@@ -235,6 +251,10 @@ export function AdminPrivacyManagement() {
             <div className="privacy-editor-metadata">
               <label>Notice title<input value={title} onChange={(event) => { setTitle(event.target.value); setPublicationReviewed(false); }} maxLength={200} required /></label>
               <label>Customer-facing summary<textarea value={summary} onChange={(event) => { setSummary(event.target.value); setPublicationReviewed(false); }} maxLength={700} rows={3} required /></label>
+              <label>Responsible legal organization<input value={controllerName} onChange={(event) => { setControllerName(event.target.value); setPublicationReviewed(false); }} maxLength={200} minLength={3} required placeholder="Registered legal entity name" /><small>Use the responsible legal entity name, not only a product or workspace name.</small></label>
+              <label>Registered address <span className="privacy-optional-label">Optional</span><textarea value={controllerAddress} onChange={(event) => { setControllerAddress(event.target.value); setPublicationReviewed(false); }} maxLength={500} rows={2} placeholder="Registered address or official correspondence address" /></label>
+              <label>Privacy contact channel<input value={privacyContact} onChange={(event) => { setPrivacyContact(event.target.value); setPublicationReviewed(false); }} maxLength={320} minLength={5} required placeholder="Privacy email or authorized contact channel" /><small>Provide a monitored channel where privacy-related enquiries can be sent.</small></label>
+              <label>Applicable jurisdiction <span className="privacy-optional-label">Optional</span><input value={applicableJurisdiction} onChange={(event) => { setApplicableJurisdiction(event.target.value); setPublicationReviewed(false); }} maxLength={180} placeholder="Applicable jurisdiction or jurisdictions" /></label>
             </div>
             <div className="privacy-section-editor-heading"><div><strong>Notice sections</strong><span>{sections.length} structured sections · Published sections remain unchanged</span></div><div className="privacy-section-editor-actions"><span className="privacy-version-preview">Next version: {nextPrivacyVersion(published?.versionLabel)}</span><button type="button" className="privacy-secondary-button privacy-add-section" onClick={addSection} disabled={sections.length >= 16 || saveDraft.isPending || publishPolicy.isPending}><Plus size={14} /> Add section</button></div></div>
             <div className="privacy-section-editor-list">
@@ -253,7 +273,7 @@ export function AdminPrivacyManagement() {
               })}
             </div>
             <div className="privacy-admin-editor-footer">
-              <div className="privacy-publish-warning"><LockKeyhole size={15} /><span>Publish only after reviewing accuracy, applicable jurisdictions, actual provider relationships and the effective date. The editor does not itself confirm legal compliance.</span></div>\n              <label className="privacy-review-acknowledgement"><input type="checkbox" checked={publicationReviewed} onChange={(event) => setPublicationReviewed(event.target.checked)} disabled={saveDraft.isPending || publishPolicy.isPending} /><span><strong>Publication review confirmed</strong><small>I have reviewed the notice for accuracy, the platform services and provider relationships described, applicable jurisdictions, and the proposed effective date.</small></span></label>
+              <div className="privacy-publish-warning"><LockKeyhole size={15} /><span>Complete the responsible organization and privacy contact details, then review the notice for accuracy, actual provider relationships, applicable jurisdictions and the effective date. Publication does not itself certify legal compliance.</span></div>\n              <label className="privacy-review-acknowledgement"><input type="checkbox" checked={publicationReviewed} onChange={(event) => setPublicationReviewed(event.target.checked)} disabled={saveDraft.isPending || publishPolicy.isPending} /><span><strong>Publication review confirmed</strong><small>I have reviewed the notice, confirmed the responsible legal organization and privacy contact, and checked the services described, applicable jurisdictions, and effective date.</small></span></label>
               <div className="privacy-form-actions">
                 <button type="button" className="privacy-secondary-button" onClick={() => policyState.refetch()} disabled={saveDraft.isPending || publishPolicy.isPending}><History size={14} /> Reload saved version</button>
                 <button type="button" className="privacy-secondary-button" onClick={() => void handleSaveDraft()} disabled={!canPublish || saveDraft.isPending || publishPolicy.isPending}><Save size={15} /> {saveDraft.isPending ? "Saving…" : "Save draft"}</button>
