@@ -1,6 +1,7 @@
 -- Required by the background workers even when no rewards or campaigns have been created yet.
 -- Keep this migration in the main Drizzle journal so hosted deployments that run only
 -- the standard Drizzle migration command still receive the worker tables.
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `mining_pending_boost_rewards` (
   `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -16,6 +17,7 @@ CREATE TABLE IF NOT EXISTS `mining_pending_boost_rewards` (
   UNIQUE KEY `uq_pending_boost_settlement_reference` (`settlementReference`),
   INDEX `idx_pending_boost_day_status` (`rewardDay`,`status`,`userId`)
 ) ENGINE=InnoDB;
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `notification_campaigns` (
   `id` INT NOT NULL AUTO_INCREMENT,
@@ -39,6 +41,7 @@ CREATE TABLE IF NOT EXISTS `notification_campaigns` (
   KEY `notification_campaign_status_scheduled_idx` (`status`, `scheduledAt`),
   KEY `notification_campaign_expiry_idx` (`expiresAt`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `notification_campaign_deliveries` (
   `id` INT NOT NULL AUTO_INCREMENT,
