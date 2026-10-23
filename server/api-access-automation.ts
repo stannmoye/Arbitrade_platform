@@ -360,9 +360,13 @@ export async function createCustomerApiWebhook(userId: number, name: string, raw
 export async function revokeCustomerApiWebhook(userId: number, webhookId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available.");
-  const result = await db.update(customerApiWebhooks).set({ revokedAt: new Date() })
+  const row = (await db.select().from(customerApiWebhooks)
+    .where(and(eq(customerApiWebhooks.id, webhookId), eq(customerApiWebhooks.userId, userId))).limit(1))[0];
+  if (!row) throw new Error("Webhook not found for this customer.");
+  if (row.revokedAt) return { success: true, alreadyRevoked: true };
+  await db.update(customerApiWebhooks).set({ revokedAt: new Date() })
     .where(and(eq(customerApiWebhooks.id, webhookId), eq(customerApiWebhooks.userId, userId), isNull(customerApiWebhooks.revokedAt)));
-  return { success: true, alreadyRevoked: false, result };
+  return { success: true, alreadyRevoked: false };
 }
 
 function hashDedupe(value: string) {
