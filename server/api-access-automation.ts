@@ -448,7 +448,7 @@ function eventTitle(eventKey: string) {
   };
   return labels[eventKey] || "Account update";
 }
-function jsonSetting(value: string | null, fallback: Record<string, unknown>) {
+function jsonSetting(value: string | null | undefined, fallback: Record<string, unknown>) {
   try { return { ...fallback, ...JSON.parse(value || "{}") }; } catch { return fallback; }
 }
 
