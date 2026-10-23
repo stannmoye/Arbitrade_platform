@@ -1,8 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { and, desc, eq, gte, lt } from "drizzle-orm";
 import { authenticateCustomerApiKey, type CustomerApiScope } from "../api-access";
-import { getAppSetting, getDb, listBalances, listCurrencies, listCustomerPayoutRequests, listTrades } from "../db";
-import { API_AUTOMATION_EVENTS, createCustomerApiWebhook, listApiPlatformIncidents, listCustomerApiNotificationHistory, listCustomerApiWebhooks, revokeCustomerApiWebhook } from "../api-access-automation";
+import { createCustomerPayoutRequest, getAppSetting, getDb, listBalances, listCurrencies, listCustomerPayoutRequests, listTrades } from "../db";
+import { API_AUTOMATION_EVENTS, createCustomerApiWebhook, enqueueCustomerApiEvent, listApiPlatformIncidents, listCustomerApiNotificationHistory, listCustomerApiWebhooks, revokeCustomerApiWebhook } from "../api-access-automation";
 import { listCustomerApiUsage, recordCustomerApiUsage } from "../api-access-usage";
 import { opportunityOffers, tradePositions } from "../../drizzle/schema";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
@@ -148,6 +148,77 @@ export function registerCustomerApiAccessRoutes(app: Express) {
     res.json({
       data: page,
       meta: { accountScope: "authenticated-customer", count: page.length, limit: requestedLimit, date: date ?? null, timeZone: "UTC", nextBeforeId: hasMore ? page[page.length - 1]?.id ?? null : null, checkedAt: new Date().toISOString() },
+    });
+  }));
+
+  app.post("/api/v1/account/withdrawals", apiIpRateLimit, apiHandler("withdrawals:create", async (req, res, identity) => {
+    let settings: Record<string, unknown> = {};
+    try { settings = JSON.parse((await getAppSetting("apiAccess.settings")) || "{}") as Record<string, unknown>; }
+    catch { settings = {}; }
+    if (settings.withdrawalApiEnabled !== true) {
+      res.status(403).json({ error: "API withdrawal requests are disabled by the administrator. You may still use the standard authenticated withdrawal workflow.", code: "WITHDRAWAL_API_DISABLED" });
+      return;
+    }
+    const body = req.body && typeof req.body === "object" && !Array.isArray(req.body)
+      ? req.body as Record<string, unknown> : {};
+    const currency = typeof body.currency === "string" ? body.currency.trim().toUpperCase() : "";
+    const amountMinor = body.amountMinor;
+    const destinationType = body.destinationType;
+    const destinationDetails = body.destinationDetails;
+    const idempotencyKey = body.idempotencyKey;
+    const totpCode = body.totpCode;
+    if (!["USD", "EUR", "GBP", "BTC", "ETH", "USDT"].includes(currency)) {
+      res.status(400).json({ error: "Choose a supported wallet currency: USD, EUR, GBP, BTC, ETH or USDT.", code: "INVALID_PAYOUT_CURRENCY" });
+      return;
+    }
+    if (typeof amountMinor !== "number" || !Number.isSafeInteger(amountMinor) || amountMinor <= 0) {
+      res.status(400).json({ error: "amountMinor must be a positive safe integer in the wallet currency's minor units.", code: "INVALID_PAYOUT_AMOUNT" });
+      return;
+    }
+    if (destinationType !== "bank_transfer" && destinationType !== "crypto_transfer") {
+      res.status(400).json({ error: "destinationType must be bank_transfer or crypto_transfer.", code: "INVALID_PAYOUT_DESTINATION_TYPE" });
+      return;
+    }
+    if (typeof destinationDetails !== "string" || destinationDetails.trim().length < 8 || destinationDetails.trim().length > 1000) {
+      res.status(400).json({ error: "destinationDetails must contain between 8 and 1,000 characters.", code: "INVALID_PAYOUT_DESTINATION" });
+      return;
+    }
+    if (typeof idempotencyKey !== "string" || idempotencyKey.trim().length < 8 || idempotencyKey.trim().length > 160) {
+      res.status(400).json({ error: "Provide an idempotencyKey between 8 and 160 characters; reuse it only when retrying the same request.", code: "INVALID_IDEMPOTENCY_KEY" });
+      return;
+    }
+    if (typeof totpCode !== "string" || !/^\\d{6}$/.test(totpCode)) {
+      res.status(400).json({ error: "A six-digit authenticator verification code is required for API withdrawal requests.", code: "TOTP_REQUIRED" });
+      return;
+    }
+    let request;
+    try {
+      request = await createCustomerPayoutRequest(identity.userId, {
+        currency, amountMinor, destinationType, destinationDetails: destinationDetails.trim(),
+        idempotencyKey: idempotencyKey.trim(), totpCode,
+      });
+    } catch {
+      res.status(400).json({
+        error: "The withdrawal request was rejected by account verification, wallet eligibility, balance, limits or idempotency checks. No transfer has been sent.",
+        code: "WITHDRAWAL_REQUEST_REJECTED",
+      });
+      return;
+    }
+    void enqueueCustomerApiEvent(identity.userId, "withdrawal.status", {
+      reference: request.requestReference, status: request.status,
+      event: "Your withdrawal request is " + request.status + ".",
+    }, "withdrawal-status:" + request.requestReference + ":" + request.status)
+      .catch((error) => console.error("[API automation] API withdrawal event could not be queued:", error instanceof Error ? error.name : "UnknownError"));
+    res.status(202).json({
+      data: {
+        requestReference: request.requestReference, status: request.status, currency: request.currency,
+        amountMinor: request.amountMinor, destinationType: request.destinationType,
+        createdAt: request.createdAt, updatedAt: request.updatedAt,
+      },
+      meta: {
+        requiresManualReview: true, requestAccepted: true, fundsTransferred: false,
+        note: "This creates a withdrawal request only. Existing account policy, wallet reservation, verification and manual approval still apply.",
+      },
     });
   }));
 
