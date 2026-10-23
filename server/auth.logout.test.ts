@@ -1,7 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { appRouter } from "./routers";
 import { COOKIE_NAME } from "../shared/const";
 import type { TrpcContext } from "./_core/context";
+import { createLocalSession } from "./_core/localAuth";
+import { invalidateLocalAuthSessions } from "./authSessions";
+
+vi.mock("./authSessions", () => ({ invalidateLocalAuthSessions: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("./transactionConsole", () => ({
+  closeTransactionConsoleSession: vi.fn().mockResolvedValue(undefined),
+  listTransactionConsoleEvents: vi.fn(),
+  recordTransactionConsoleEvent: vi.fn(),
+  recordTransactionConsolePulse: vi.fn(),
+}));
 
 type CookieCall = {
   name: string;
@@ -10,7 +20,7 @@ type CookieCall = {
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
-function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] } {
+function createAuthContext(cookie?: string): { ctx: TrpcContext; clearedCookies: CookieCall[] } {
   const clearedCookies: CookieCall[] = [];
 
   const user: AuthenticatedUser = {
@@ -29,7 +39,7 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
     user,
     req: {
       protocol: "https",
-      headers: {},
+      headers: cookie ? { cookie } : {},
     } as TrpcContext["req"],
     res: {
       clearCookie: (name: string, options: Record<string, unknown>) => {
@@ -58,5 +68,17 @@ describe("auth.logout", () => {
       httpOnly: true,
       path: "/",
     });
+  });
+
+  it("invalidates the server-side local-auth version before reporting success", async () => {
+    vi.mocked(invalidateLocalAuthSessions).mockClear();
+    const token = createLocalSession(1, 0);
+    const { ctx } = createAuthContext(`${COOKIE_NAME}=${token}`);
+
+    const result = await appRouter.createCaller(ctx).auth.logout();
+
+    expect(invalidateLocalAuthSessions).toHaveBeenCalledOnce();
+    expect(invalidateLocalAuthSessions).toHaveBeenCalledWith(1);
+    expect(result).toEqual({ success: true });
   });
 });
