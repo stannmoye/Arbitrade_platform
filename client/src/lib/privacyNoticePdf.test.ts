@@ -46,8 +46,9 @@ describe("createPrivacyNoticePdf", () => {
       htmlContent: '<style>.hidden{display:none}</style><section><h1>Custom notice heading</h1><p>Styled financial privacy content.</p><script>secretScript()</script></section>',
     };
     const source = new TextDecoder().decode(createPrivacyNoticePdf(htmlPolicy));
-    expect(source).toContain("Custom notice heading");
-    expect(source).toContain("Styled financial privacy content.");
+    const pdfTextHex = (value: string) => Array.from(new TextEncoder().encode(value), (byte) => byte.toString(16).padStart(2, "0")).join("").toUpperCase();
+    expect(source).toContain(pdfTextHex("Custom notice heading"));
+    expect(source).toContain(pdfTextHex("Styled financial privacy content."));
     expect(source).not.toContain("secretScript");
   });
 
