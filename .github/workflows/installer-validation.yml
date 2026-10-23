@@ -68,6 +68,11 @@ jobs:
           node --check scripts/mysql-compatible-migration-sql.test.mjs
           node --check scripts/apply-mining-migrations.mjs
           node --check scripts/apply-mining-migrations-safety.test.mjs
+          node --check scripts/worker-schema-contracts.mjs
+          node --check scripts/worker-schema-contracts.test.mjs
+          node --check scripts/ensure-mining-current-schema.mjs
+          node --check scripts/ensure-worker-runtime-schema.mjs
+          node --check scripts/verify-worker-schema.mjs
           node --check scripts/guarded-main-migrate.mjs
           node --check scripts/portal-migration-tracker.mjs
           node --check scripts/portal-migration-tracker.test.mjs
