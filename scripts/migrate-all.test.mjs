@@ -29,6 +29,7 @@ describe("canonical database migration workflow", () => {
   it("routes generic db:migrate and production startup through the complete workflow", async () => {
     const pkg = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
     expect(pkg.scripts["db:migrate"]).toBe("node scripts/migrate-all.mjs");
+    expect(pkg.scripts["db:push"]).toBe("drizzle-kit generate --config=drizzle.config.ts && node scripts/migrate-all.mjs");
     expect(pkg.scripts.start).toContain("server-start.mjs");
     const startup = await readFile(new URL("server-start.mjs", root), "utf8");
     expect(startup).toContain("scripts/migrate-all.mjs");
