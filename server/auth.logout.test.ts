@@ -43,7 +43,7 @@ function createAuthContext(cookie?: string, role: "user" | "admin" = "user", aut
     openId: "sample-user",
     email: "sample@example.com",
     name: "Sample User",
-    loginMethod: "manus",
+    loginMethod: "email",
     role,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -136,7 +136,7 @@ describe("auth.logout", () => {
     );
     vi.mocked(getUserForSessionRevocation).mockResolvedValue({
       id: 1, openId: "sample-user", email: "sample@example.com", name: "Sample User",
-      loginMethod: "manus", role: "user", authVersion: 0,
+      loginMethod: "email", role: "user", authVersion: 0,
       createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
     } as never);
     vi.mocked(invalidateUserSessions).mockClear();
