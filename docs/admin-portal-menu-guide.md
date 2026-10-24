@@ -721,7 +721,6 @@ The following areas use database-backed queries and mutations:
 - Currency registry
 - Package policy registry
 - Opportunity settings and offers
-- Auto-trade policy
 - Application settings
 - Email configuration metadata
 - KYC profiles, stages, reviews, settings, and audit records
