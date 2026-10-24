@@ -55,7 +55,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       createContext({
         req: {
           headers: {
-            cookie: "webdev_app_session=" + createLocalSession(userId, authVersion),
+            cookie: "arbitrade_app_session=" + createLocalSession(userId, authVersion),
           },
         } as never,
         res: {} as never,
@@ -119,7 +119,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       );
 
       const adminRead = await fetch(endpoint + "/adminOperations.settings", {
-        headers: { cookie: "webdev_app_session=" + adminToken },
+        headers: { cookie: "arbitrade_app_session=" + adminToken },
       });
       expect(adminRead.status).toBe(200);
       const adminPayload = await adminRead.json() as {
@@ -128,14 +128,14 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       expect(adminPayload.result?.data?.json?.appearance).toBeDefined();
 
       const customerRead = await fetch(endpoint + "/adminOperations.settings", {
-        headers: { cookie: "webdev_app_session=" + customerToken },
+        headers: { cookie: "arbitrade_app_session=" + customerToken },
       });
       expect(customerRead.status).toBe(403);
 
       const customerWrite = await fetch(endpoint + "/adminOperations.updateSettings", {
         method: "POST",
         headers: {
-          cookie: "webdev_app_session=" + customerToken,
+          cookie: "arbitrade_app_session=" + customerToken,
           "content-type": "application/json",
         },
         body: JSON.stringify({
@@ -232,7 +232,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       const user = await getUserById(userId);
       if (!user) throw new Error("Signed-session fixture user is missing");
       const context = await createContext({
-        req: { headers: { cookie: "webdev_app_session=" + createLocalSession(user.id, Number(user.authVersion || 0)) } } as never,
+        req: { headers: { cookie: "arbitrade_app_session=" + createLocalSession(user.id, Number(user.authVersion || 0)) } } as never,
         res: {} as never,
       });
       return appRouter.createCaller(context);
@@ -287,7 +287,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       const user = await getUserById(userId);
       if (!user) throw new Error("Signed-session fixture user is missing");
       const context = await createContext({
-        req: { headers: { cookie: "webdev_app_session=" + createLocalSession(user.id, Number(user.authVersion || 0)) } } as never,
+        req: { headers: { cookie: "arbitrade_app_session=" + createLocalSession(user.id, Number(user.authVersion || 0)) } } as never,
         res: {} as never,
       });
       return appRouter.createCaller(context);
