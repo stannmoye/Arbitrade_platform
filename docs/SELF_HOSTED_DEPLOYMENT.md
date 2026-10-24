@@ -51,6 +51,8 @@ These integrations are independent and can remain disabled until the operator co
 - **Email/owner alerts:** configure the SMTP variables and `OWNER_NOTIFICATION_EMAIL` to enable email. Database-backed customer notifications are stored locally.
 - **Market data, FX and real execution:** configure only verified, authorized provider endpoints as separate integrations. Never infer execution, settlement, deposits, withdrawals or financial profits from timers, generated values, UI state, or a generic AI/REST endpoint. The financial ledger remains the database source of truth and must be reconciled with provider evidence.
 
+The authenticated admin tRPC API exposes job management at `adminOperations.scheduledJobs.list`, `adminOperations.scheduledJobs.create`, `adminOperations.scheduledJobs.update`, and `adminOperations.scheduledJobs.delete`. These procedures require an Arbitrade admin session and persist job definitions to `local_scheduled_jobs`. Callback handlers are application code: add only the specific `/api/scheduled/...` routes required by your deployment and verify the scheduler HMAC/timestamp before acting. A job record by itself never proves that a trade or payment was executed or settled.
+
 ## Upgrade and validation
 
 After deploying the exact new source, install locked dependencies, back up the database and upload volume, apply migrations through the documented guarded installer/migration commands, then run:
