@@ -260,6 +260,13 @@
       "when": 1792858101055,
       "tag": "0067_trade_settlement_reference_claims",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792858818726,
+      "tag": "0068_trade_realized_profit_accounting",
+      "breakpoints": true
     }
   ]
 }
