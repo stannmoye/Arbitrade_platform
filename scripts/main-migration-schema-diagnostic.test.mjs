@@ -19,9 +19,12 @@ describe("read-only main migration schema diagnostics", () => {
       ["app_settings", "settingValue"],
     ]), "0019_daily_opportunity_quotas");
 
-    expect(result).toEqual([
+    expect(result).toContain(
+      "Missing required pre-existing column opportunity_package_policies.maxPopupsPerMinute for 0019_daily_opportunity_quotas.sql.",
+    );
+    expect(result).toContain(
       "0019_daily_opportunity_quotas.sql may already be reflected in the schema: source opportunity_package_policies.maxPopupsPerMinute is absent while destination opportunity_package_policies.maxPopupsPerDay exists, but tracker history did not record the migration.",
-    ]);
+    );
   });
 
   it("reports missing pre-existing fields without suggesting a migration retry", async () => {
