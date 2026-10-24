@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { and, count, desc, eq, gt, gte, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool } from "mysql2/promise";
-import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPopupEvents, balanceLedger, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
+import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPopupEvents, balanceLedger, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
@@ -1848,6 +1848,20 @@ export async function listCustomerOpportunities(userId:number, options: { consum
  const controls=await ensureCustomerControls(userId);
  const packageName=String(user?.packageName||"").trim();
  if(!packageName) return {offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery:{packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,autoTradeEnabled:false,noPackage:true,popupPolicy:{}}};
+ const now=new Date();
+ const activePackageSubscription=(await db.select({id:customerPackageSubscriptions.id}).from(customerPackageSubscriptions)
+  .innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
+  .where(and(
+   eq(customerPackageSubscriptions.userId,userId),
+   eq(customerPackageSubscriptions.status,"active"),
+   lte(customerPackageSubscriptions.startsAt,now),
+   or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,now)),
+   eq(packages.name,packageName),
+   eq(packages.enabled,true),
+   or(isNull(packages.startsAt),lte(packages.startsAt,now)),
+   or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
+  )).limit(1))[0];
+ if(!activePackageSubscription) return {offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery:{packageName,maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,autoTradeEnabled:false,packageNotActive:true,popupPolicy:{}}};
  if(controls.accountStatus!=="active") return {offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery:{packageName,maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,autoTradeEnabled:false,accountInactive:true,popupPolicy:{}}};
  const walletSnapshot=await listBalances(userId);
  // Opportunities remain visible for active package holders without spendable funds.
@@ -1889,7 +1903,22 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const totalWalletFunds=(await tx.select({availableMinor:sql`COALESCE(SUM(${customerBalances.availableMinor}),0)`}).from(customerBalances).where(eq(customerBalances.userId,userId)))[0]; if(Number(totalWalletFunds?.availableMinor||0)<=0) throw new Error("Trading is unavailable until at least one wallet has available funds");
   const offer=(await tx.select().from(opportunityOffers).where(and(eq(opportunityOffers.id,input.offerId),eq(opportunityOffers.status,"open"))).limit(1))[0];
   if(!offer || new Date(offer.closesAt).getTime()<=Date.now()) throw new Error("This opportunity is no longer open");
-  const userRecord=(await tx.select({packageName:users.packageName}).from(users).where(eq(users.id,userId)).limit(1))[0]; const assignedPackage=String(userRecord?.packageName||"").trim(); if(!assignedPackage) throw new Error("A trading package is required before trading can start"); const packagePolicy=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,assignedPackage)).limit(1))[0]; if(!packagePolicy) throw new Error("Customer package policy is not configured");
+  const userRecord=(await tx.select({packageName:users.packageName}).from(users).where(eq(users.id,userId)).limit(1))[0]; const assignedPackage=String(userRecord?.packageName||"").trim(); if(!assignedPackage) throw new Error("A trading package is required before trading can start");
+  const now=new Date();
+  const activePackageSubscription=(await tx.select({id:customerPackageSubscriptions.id}).from(customerPackageSubscriptions)
+   .innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
+   .where(and(
+    eq(customerPackageSubscriptions.userId,userId),
+    eq(customerPackageSubscriptions.status,"active"),
+    lte(customerPackageSubscriptions.startsAt,now),
+    or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,now)),
+    eq(packages.name,assignedPackage),
+    eq(packages.enabled,true),
+    or(isNull(packages.startsAt),lte(packages.startsAt,now)),
+    or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
+   )).limit(1).for("update"))[0];
+  if(!activePackageSubscription) throw new Error("An eligible active trading package subscription is required");
+  const packagePolicy=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,assignedPackage)).limit(1))[0]; if(!packagePolicy) throw new Error("Customer package policy is not configured");
   const activeRows=await tx.select({id:tradePositions.id}).from(tradePositions).where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed"))).limit(Number(packagePolicy.maxConcurrentActiveTrades||1)+1);
   if (activeRows.length >= Number(packagePolicy.maxConcurrentActiveTrades||1)) throw new Error("Package maximum concurrent active trades reached");
   const today=new Date().toISOString().slice(0,10);
