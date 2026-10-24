@@ -13,7 +13,8 @@ describe("manual trade settlement idempotency", () => {
     expect(implementation).toContain('.limit(1).for("update")');
     expect(implementation).toContain('trade.status==="settled"&&trade.settlementStatus==="completed"');
     expect(implementation).toContain("trade.settlementReference===reference");
-    expect(implementation).toContain("Number(trade.rewardCreditedMinor)===input.rewardMinor");
+    expect(implementation).toContain("Number(trade.realizedGrossProfitMinor)!==input.grossProfitMinor");
+    expect(implementation).toContain("trade.settlementReference===reference");
   });
 
   it("claims references in a database-unique table before any financial postings", () => {
