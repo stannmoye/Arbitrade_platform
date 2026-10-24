@@ -232,7 +232,7 @@ jobs:
           fi
 
           if [[ ! -s dist/public/api/platform/config.js ]] ||
-             ! grep -q 'window.__MANUS_CONFIG__=' dist/public/api/platform/config.js; then
+             ! grep -q 'window.__ARBITRADE_CONFIG__=' dist/public/api/platform/config.js; then
             echo "Expected public runtime configuration asset was not emitted." >&2
             exit 1
           fi
