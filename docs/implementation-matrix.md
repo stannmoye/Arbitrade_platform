@@ -7,7 +7,7 @@ Status vocabulary is exactly: **EXISTING / CORRECTED / EXTENDED / REBUILT / NEW 
 | Pre-implementation audit | EXISTING → EXTENDED | Existing README, spec, migrations and tests reviewed | Keep this matrix current through final acceptance | `docs/implementation-matrix.md`, `plan.md` |
 | Customer portal shell | EXISTING → REBUILT | `client/src/App.tsx` monolith | Route/feature modules with server-backed state | `client/src/app`, `client/src/pages/customer` |
 | Admin portal shell | EXISTING → REBUILT | Test UI and browser `sessionStorage` gate | Server-authenticated role/permission portal | `client/src/pages/admin`, `server/routers.ts` |
-| Authentication/session | CORRECTED | App-issued signed sessions, scrypt password hashes and local database users | Keep session revocation, role checks and security controls app-owned | `server/_core/localAuth.ts`, `server/_core/sdk.ts`, auth tables/migrations |
+| Authentication/session | CORRECTED | App-issued signed sessions, scrypt password hashes and local database users | Keep session revocation, role checks and security controls app-owned | `server/_core/localAuth.ts`, `server/_core/localIdentityService.ts`, auth tables/migrations |
 | Roles/permissions | EXISTING → NEW | Only `user/admin` enum | Granular deny-by-default permissions and admin guards | roles, permissions, role_permissions tables |
 | Packages/active subscriptions | EXTENDED | Basic package name and package policy exist | Dates, entitlements, active checks, expiry lifecycle | packages, subscriptions, entitlements |
 | Companies/logos | NEW | Frontend values are hard-coded | Database-owned companies and logo references | companies table/storage index |
