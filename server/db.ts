@@ -2283,29 +2283,72 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const totalWalletFunds=(await tx.select({availableMinor:sql`COALESCE(SUM(${customerBalances.availableMinor}),0)`}).from(customerBalances).where(eq(customerBalances.userId,userId)))[0]; if(Number(totalWalletFunds?.availableMinor||0)<=0) throw new Error("Trading is unavailable until at least one wallet has available funds");
   const offer=(await tx.select().from(opportunityOffers).where(and(eq(opportunityOffers.id,input.offerId),eq(opportunityOffers.status,"open"))).limit(1))[0];
   if(!offer || new Date(offer.closesAt).getTime()<=Date.now()) throw new Error("This opportunity is no longer open");
-  const userRecord=(await tx.select({packageName:users.packageName}).from(users).where(eq(users.id,userId)).limit(1))[0]; const assignedPackage=String(userRecord?.packageName||"").trim(); if(!assignedPackage) throw new Error("A trading package is required before trading can start");
   const now=new Date();
-  const activePackageSubscription=(await tx.select({id:customerPackageSubscriptions.id}).from(customerPackageSubscriptions)
-   .innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
-   .where(and(
-    eq(customerPackageSubscriptions.userId,userId),
-    eq(customerPackageSubscriptions.status,"active"),
-    lte(customerPackageSubscriptions.startsAt,now),
-    or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,now)),
-    eq(packages.name,assignedPackage),
-    eq(packages.enabled,true),
-    or(isNull(packages.startsAt),lte(packages.startsAt,now)),
-    or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
-   )).limit(1).for("update"))[0];
-  if(!activePackageSubscription) throw new Error("An eligible active trading package subscription is required");
-  const packagePolicy=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,assignedPackage)).limit(1))[0]; if(!packagePolicy) throw new Error("Customer package policy is not configured");
-  const activeRows=await tx.select({id:tradePositions.id}).from(tradePositions).where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed"))).limit(Number(packagePolicy.maxConcurrentActiveTrades||1)+1);
-  if (activeRows.length >= Number(packagePolicy.maxConcurrentActiveTrades||1)) throw new Error("Package maximum concurrent active trades reached");
   const today=new Date().toISOString().slice(0,10);
-  const attemptRows=await tx.execute(sql`SELECT COUNT(*) AS count FROM trade_positions WHERE userId=${userId} AND DATE(confirmedAt)=${today}`) as any;
-  if (Number(attemptRows?.[0]?.[0]?.count||0) >= Number(packagePolicy.maxTradeAttemptsPerDay||0) && Number(packagePolicy.maxTradeAttemptsPerDay||0)>0) throw new Error("Package daily trade-attempt limit reached");
-  const successfulRows=await tx.execute(sql`SELECT COUNT(*) AS count FROM trade_positions WHERE userId=${userId} AND status='settled' AND DATE(confirmedAt)=${today}`) as any;
-  if (Number(successfulRows?.[0]?.[0]?.count||0) >= Number(packagePolicy.maxSuccessfulTradesPerDay||0) && Number(packagePolicy.maxSuccessfulTradesPerDay||0)>0) throw new Error("Package daily successful-trade limit reached"); const currencyRow=(await tx.select({scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,updatedAt:currencyRegistry.updatedAt}).from(currencyRegistry).where(eq(currencyRegistry.code,offer.currency)).limit(1))[0]; if(!currencyRow) throw new Error(`Currency ${offer.currency} is not configured`); const nativeFactor=Math.pow(10,Number(currencyRow.scale)); const nativeRate=Number(currencyRow.usdRate); if(!Number.isFinite(nativeRate)||nativeRate<=0) throw new Error(`Currency ${offer.currency} has no valid conversion rate`); const packageMinimumNative=usdUnitsToNativeMinor(Number(packagePolicy.minimumTradeUnits),Number(currencyRow.scale),nativeRate); const packageMaximumNative=Math.max(packageMinimumNative,usdUnitsToNativeMinor(Number(packagePolicy.maximumTradeUnits),Number(currencyRow.scale),nativeRate)); const terms=calculateTradeTerms(userId,offer,input.amountMinor); assertTradeAmountWithinBounds(input.amountMinor,{minimumTradeMinor:Math.max(packageMinimumNative,Number(terms.minimumMinor)),maximumTradeMinor:packageMaximumNative},Number(offer.minimumMinor));
+  const activePackageSubscriptions=await tx.select({
+    subscriptionId:customerPackageSubscriptions.id,
+    packageId:packages.id,
+    packageName:packages.name,
+    packageQuota:packages.opportunitiesPerDay,
+    maxActiveInvestments:packages.maxActiveInvestments,
+    termsVersion:packages.termsVersion,
+    termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
+  }).from(customerPackageSubscriptions)
+    .innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
+    .where(and(
+      eq(customerPackageSubscriptions.userId,userId),
+      eq(customerPackageSubscriptions.status,"active"),
+      lte(customerPackageSubscriptions.startsAt,now),
+      or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,now)),
+      eq(packages.enabled,true),
+      or(isNull(packages.startsAt),lte(packages.startsAt,now)),
+      or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
+    )).orderBy(customerPackageSubscriptions.expiresAt).for("update");
+  if(!activePackageSubscriptions.length) throw new Error("An eligible active trading package subscription is required");
+
+  const packagePolicies=await tx.select().from(opportunityPackagePolicies)
+    .where(inArray(opportunityPackagePolicies.packageName,activePackageSubscriptions.map(row=>row.packageName))).for("update");
+  const policyByName=new Map<string,typeof packagePolicies[number]>();
+  for(const row of packagePolicies) policyByName.set(row.packageName,row);
+  const eligibleSubscriptions=activePackageSubscriptions.filter(subscription=>{
+    const configured=policyByName.get(subscription.packageName);
+    return !configured||(Boolean(configured.enabled)&&configured.automaticTradingEnabled!==false);
+  });
+  if(!eligibleSubscriptions.length) throw new Error("New allocations are paused for all active package policies");
+  const quotaRows=await tx.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL AND DATE(confirmedAt)=${today} AND status<>'cancelled' GROUP BY packageSubscriptionId`) as any;
+  const usedBySubscription=new Map<number,number>();
+  for(const row of (quotaRows?.[0]||[])) usedBySubscription.set(Number(row.packageSubscriptionId),Number(row.used||0));
+  const subscriptionsWithQuota=eligibleSubscriptions.filter(subscription=>{
+    let snapshot:any={};
+    try { snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}")); } catch { snapshot={}; }
+    const dailyQuota=Number(snapshot.opportunitiesPerDay??subscription.packageQuota);
+    const used=usedBySubscription.get(Number(subscription.subscriptionId))||0;
+    return Number.isSafeInteger(dailyQuota)&&dailyQuota>0&&used<dailyQuota;
+  });
+  if(!subscriptionsWithQuota.length) throw new Error("All active package opportunity quotas have been used for today");
+  const requestedSubscription=input.packageSubscriptionId
+    ? subscriptionsWithQuota.find(subscription=>Number(subscription.subscriptionId)===input.packageSubscriptionId)
+    : undefined;
+  const activePackageSubscription=requestedSubscription||subscriptionsWithQuota[0];
+  const selectedSubscriptionId=Number(activePackageSubscription.subscriptionId);
+  const packagePolicy=policyByName.get(activePackageSubscription.packageName);
+  if(activePackageSubscription.maxActiveInvestments>0){
+    const activePositions=await tx.select({id:tradePositions.id}).from(tradePositions)
+      .where(and(eq(tradePositions.userId,userId),eq(tradePositions.packageSubscriptionId,selectedSubscriptionId),eq(tradePositions.status,"confirmed")))
+      .limit(Number(activePackageSubscription.maxActiveInvestments)+1);
+    if(activePositions.length>=Number(activePackageSubscription.maxActiveInvestments)) throw new Error("Package maximum active investments reached");
+  }
+  if(packagePolicy){
+    const activeRows=await tx.select({id:tradePositions.id}).from(tradePositions)
+      .where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed")))
+      .limit(Math.max(1,Number(packagePolicy.maxConcurrentActiveTrades||1)+1));
+    if(Number(packagePolicy.maxConcurrentActiveTrades||0)>0&&activeRows.length>=Number(packagePolicy.maxConcurrentActiveTrades)) throw new Error("Package maximum concurrent active trades reached");
+    const attemptRows=await tx.execute(sql`SELECT COUNT(*) AS count FROM trade_positions WHERE userId=${userId} AND DATE(confirmedAt)=${today}`) as any;
+    if(Number(packagePolicy.maxTradeAttemptsPerDay||0)>0&&Number(attemptRows?.[0]?.[0]?.count||0)>=Number(packagePolicy.maxTradeAttemptsPerDay)) throw new Error("Package daily trade-attempt limit reached");
+    const successfulRows=await tx.execute(sql`SELECT COUNT(*) AS count FROM trade_positions WHERE userId=${userId} AND status='settled' AND DATE(confirmedAt)=${today}`) as any;
+    if(Number(packagePolicy.maxSuccessfulTradesPerDay||0)>0&&Number(successfulRows?.[0]?.[0]?.count||0)>=Number(packagePolicy.maxSuccessfulTradesPerDay)) throw new Error("Package daily successful-trade limit reached");
+  }
+  const currencyRow=(await tx.select({scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,updatedAt:currencyRegistry.updatedAt}).from(currencyRegistry).where(eq(currencyRegistry.code,offer.currency)).limit(1))[0]; if(!currencyRow) throw new Error(`Currency ${offer.currency} is not configured`); const nativeFactor=Math.pow(10,Number(currencyRow.scale)); const nativeRate=Number(currencyRow.usdRate); if(!Number.isFinite(nativeRate)||nativeRate<=0) throw new Error(`Currency ${offer.currency} has no valid conversion rate`); const terms=calculateTradeTerms(userId,offer,input.amountMinor); const packageMinimumNative=packagePolicy?usdUnitsToNativeMinor(Number(packagePolicy.minimumTradeUnits),Number(currencyRow.scale),nativeRate):Number(offer.minimumMinor); const packageMaximumNative=packagePolicy?Math.max(packageMinimumNative,usdUnitsToNativeMinor(Number(packagePolicy.maximumTradeUnits),Number(currencyRow.scale),nativeRate)):Number.MAX_SAFE_INTEGER; assertTradeAmountWithinBounds(input.amountMinor,{minimumTradeMinor:Math.max(Number(offer.minimumMinor),Number(terms.minimumMinor),packageMinimumNative),maximumTradeMinor:packageMaximumNative},Number(offer.minimumMinor));
   const already=await tx.select({id:tradePositions.id}).from(tradePositions).where(and(eq(tradePositions.userId,userId),eq(tradePositions.offerId,input.offerId))).limit(1);
   if(already[0]) throw new Error("This opportunity has already been allocated");
   // Lock the relevant wallet row as a second line of defence against concurrent
@@ -2313,15 +2356,11 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const walletLock=await tx.execute(sql`SELECT id FROM customer_balances WHERE userId=${userId} AND currency=${offer.currency} FOR UPDATE`) as any;
   const bal=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,userId),eq(customerBalances.currency,offer.currency))).limit(1))[0];
   if(!walletLock?.[0]?.length || !bal || bal.availableMinor<input.amountMinor) throw new Error("Insufficient available balance");
-  const customerRules=(await tx.select({maxDailyAllocationMinor:customerOpportunityRules.maxDailyAllocationMinor}).from(customerOpportunityRules).where(eq(customerOpportunityRules.userId,userId)).limit(1))[0];
-  const dailyAllocationLimit=Number(customerRules?.maxDailyAllocationMinor ?? 100000);
-  const dailyAllocationRows=await tx.execute(sql`SELECT COALESCE(SUM(principalMinor),0) AS allocatedMinor FROM trade_positions WHERE userId=${userId} AND currency=${offer.currency} AND DATE(confirmedAt)=${today} AND status <> 'cancelled'`) as any;
-  const alreadyAllocatedMinor=Number(dailyAllocationRows?.[0]?.[0]?.allocatedMinor||0);
-  if(!isWithinDailyAllocationLimit({limitMinor:dailyAllocationLimit,alreadyAllocatedMinor,requestedMinor:input.amountMinor})) throw new Error("Customer daily allocation limit reached for this currency");
+  // Customer-editable smart rules do not gate the approved automatic package lifecycle.
   const uncappedReward=Math.floor(input.amountMinor*terms.rewardBps/10000);
-  const reward=Number(packagePolicy.maxRewardPerTradeMinor||0)>0?Math.min(uncappedReward,Number(packagePolicy.maxRewardPerTradeMinor)):uncappedReward;
-  if (Number(packagePolicy.minimumRewardBps||0)>terms.rewardBps) throw new Error("Opportunity reward rate is below the package minimum");
-  if (Number(packagePolicy.maxDailyRewardMinor||0)>0) {
+  const reward=packagePolicy&&Number(packagePolicy.maxRewardPerTradeMinor||0)>0?Math.min(uncappedReward,Number(packagePolicy.maxRewardPerTradeMinor)):uncappedReward;
+  if (packagePolicy&&Number(packagePolicy.minimumRewardBps||0)>terms.rewardBps) throw new Error("Opportunity reward rate is below the package minimum");
+  if (packagePolicy&&Number(packagePolicy.maxDailyRewardMinor||0)>0) {
     const reservationRows=await tx.execute(sql`SELECT COALESCE(SUM(reservedMinor),0) AS reserved FROM trade_reward_reservations WHERE userId=${userId} AND windowKey=${today} AND status='reserved'`) as any;
     const creditedRows=await tx.execute(sql`SELECT COALESCE(SUM(amountMinor),0) AS credited FROM balance_ledger WHERE userId=${userId} AND entryType='trade_reward' AND DATE(createdAt)=${today}`) as any;
     const reserved=Number(reservationRows?.[0]?.[0]?.reserved||0), credited=Number(creditedRows?.[0]?.[0]?.credited||0);
@@ -2331,12 +2370,12 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   if(Number((balanceUpdate as any)[0]?.affectedRows||0)!==1) throw new Error("Insufficient available balance");
   const ref=`trade-${offer.id}-${userId}-${Date.now()}`;
   await tx.insert(balanceLedger).values({userId,currency:offer.currency,amountMinor:-input.amountMinor,entryType:"trade_reservation",reference:ref,withdrawable:false});
-  const settlementDelaySeconds=Math.max(Number(packagePolicy.minSettlementDelaySeconds||0),Math.min(Number(packagePolicy.maxSettlementDelaySeconds||settlementPolicy.delaySeconds),settlementPolicy.delaySeconds)); const creditAt=new Date(Date.now()+(settlementDelaySeconds+settlementPolicy.creditDelaySeconds)*1000); const settlesAt=new Date(Date.now()+settlementDelaySeconds*1000); const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,rewardReservedMinor:reward,settlesAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:Number(packagePolicy.policyVersion||1)} as any);
+  const settlementDelaySeconds=Math.max(Number(packagePolicy.minSettlementDelaySeconds||0),Math.min(Number(packagePolicy.maxSettlementDelaySeconds||settlementPolicy.delaySeconds),settlementPolicy.delaySeconds)); const creditAt=new Date(Date.now()+(settlementDelaySeconds+settlementPolicy.creditDelaySeconds)*1000); const settlesAt=new Date(Date.now()+settlementDelaySeconds*1000); const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,rewardReservedMinor:reward,settlesAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:Number(packagePolicy?.policyVersion||activePackageSubscription.termsVersion||1)} as any);
   const tradeId=Number(result[0].insertId);
-  await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,policyVersion:Number(packagePolicy.policyVersion||1)})});
+  await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:Number(packagePolicy?.policyVersion||activePackageSubscription.termsVersion||1)})});
   if(input.deliveryEventId!==undefined) await tx.update(opportunityPopupEvents).set({tradeId,eventStatus:"TRADED",tradedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offer.id)));
   else await tx.execute(sql`UPDATE opportunity_popup_events SET tradeId=${tradeId},eventStatus='TRADED',deliveryStatus=CASE WHEN deliveryStatus='failed' THEN deliveryStatus ELSE 'rendered' END,tradedAt=COALESCE(tradedAt,CURRENT_TIMESTAMP),updatedAt=CURRENT_TIMESTAMP WHERE userId=${userId} AND offerId=${offer.id} ORDER BY deliveredAt DESC LIMIT 1`);
-  if(Number(packagePolicy.maxDailyRewardMinor||0)>0) await tx.execute(sql`INSERT INTO trade_reward_reservations (userId,tradeId,packageName,windowKey,currency,reservedMinor,status) VALUES (${userId},${tradeId},${packagePolicy.packageName},${today},${offer.currency},${reward},'reserved')`);
+  await tx.insert(tradeRewardReservations).values({userId,tradeId,packageName:activePackageSubscription.packageName,windowKey:today,currency:offer.currency,reservedMinor:reward,status:"reserved"});
   return {tradeId,rewardMinor:reward,rewardBps:terms.rewardBps,minimumMinor:terms.minimumMinor,calculationMethod:terms.method,settlesAt,creditAt,currency:offer.currency,amountMinor:input.amountMinor,rateUsd:nativeRate,rateUpdatedAt:currencyRow.updatedAt,amountUsd:nativeMinorToUsd(input.amountMinor,Number(currencyRow.scale),nativeRate)};
  });
 }
