@@ -11,6 +11,7 @@ type ApiIdentity = { userId: number; keyId: number; scopes: CustomerApiScope[] }
 type Bucket = { count: number; resetAt: number };
 const localBuckets = new Map<number, Bucket>();
 const apiIpRateLimit = createAuthRateLimiter({ windowMs: 60_000, max: 300, message: "Too many API requests from this network. Try again shortly.", store: configuredAuthRateLimitStore, scope: "customer-api-ip" });
+const platformHealthRateLimit = createAuthRateLimiter({ windowMs: 60_000, max: 120, message: "Too many platform health checks. Try again shortly." });
 
 async function loadPolicy() {
   try {
@@ -461,7 +462,7 @@ export function registerCustomerApiAccessRoutes(app: Express) {
 
   // Public, minimal health probe so monitoring can still diagnose database outages
   // without a customer API key. It intentionally returns no account or provider secrets.
-  app.get("/api/v1/platform/health", apiIpRateLimit, async (_req, res) => {
+  app.get("/api/v1/platform/health", platformHealthRateLimit, async (_req, res) => {
     const checkedAt = new Date().toISOString();
     let databaseStatus: "online" | "unavailable" = "unavailable";
     let declaredStatus = "not-configured";
