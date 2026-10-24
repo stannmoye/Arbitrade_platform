@@ -7,12 +7,12 @@ ALTER TABLE `packages`
 --> statement-breakpoint
 ALTER TABLE `customer_package_subscriptions`
   ADD COLUMN IF NOT EXISTS `activationKey` varchar(128) NULL,
-  ADD COLUMN IF NOT EXISTS `termsSnapshotJson` text NOT NULL DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS `termsSnapshotJson` text NOT NULL DEFAULT ('{}'),
   ADD COLUMN IF NOT EXISTS `qualifyingBalanceUsdMinor` bigint NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS `packageTermsVersion` int NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS `activatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP;
 --> statement-breakpoint
-CREATE UNIQUE INDEX `customer_package_subscriptions_activation_key_unique`
+CREATE UNIQUE INDEX IF NOT EXISTS `customer_package_subscriptions_activation_key_unique`
   ON `customer_package_subscriptions` (`activationKey`);
 --> statement-breakpoint
 INSERT INTO `packages` (`name`,`minimumQualifyingBalanceUsdMinor`,`durationMonths`,`opportunitiesPerDay`,`termsVersion`,`enabled`)
