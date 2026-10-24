@@ -1,5 +1,5 @@
-// All runtime configuration belongs to the Arbitrade deployment. No hosted
-// builder, identity gateway, storage proxy, or project ID is required.
+// Runtime configuration belongs to the Arbitrade deployment. Primary data and
+// scheduled jobs use the operator's database; uploaded files use private local storage.
 export const ENV = {
   get appId() { return "arbitrade-local"; },
   get cookieSecret() { return process.env.SESSION_SECRET ?? ""; },

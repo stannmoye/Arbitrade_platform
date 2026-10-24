@@ -26,6 +26,7 @@
 - **Default theme decision:** Preserve the current/original Arbitrade theme as Theme 1 and keep it as the initial default.
 - **Theme count:** Five total themes: the original theme plus four new themes.
 - **Deployment principle:** Sandbox success does not prove cPanel or fresh-VPS compatibility. Each supported deployment path must be tested independently.
+- **Self-hosted runtime ownership (2026-10-24):** Customer/admin authentication and sessions are application-owned. Persistent business state and scheduled-job records use operator-configured MySQL/MariaDB through `DATABASE_URL`. Support attachment bytes live on the host's private persistent `UPLOADS_DIR` volume; attachment ownership, policy and metadata remain database-backed. VPS/container and cPanel deployment guides are the supported installation path. This records intended runtime ownership, not production deployment acceptance.
 
 ## Product vision and non-negotiable principles
 

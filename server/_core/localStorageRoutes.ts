@@ -3,7 +3,7 @@ import { getTicketAttachmentAccess, getUserById } from "../db";
 import { readStorageObject } from "../storage";
 import { getLocalSessionFromRequest } from "./localAuth";
 
-export function registerStorageProxy(app: Express) {
+export function registerLocalStorageRoutes(app: Express) {
   app.get("/storage/*", async (req, res) => {
     const key = (req.params as Record<string, string>)[0];
     if (!key || key.includes("\\") || key.split("/").some((part) => part === "." || part === "..")) {

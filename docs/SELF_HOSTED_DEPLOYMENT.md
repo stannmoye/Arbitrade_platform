@@ -31,7 +31,7 @@ Structured application, customer, package, ledger, audit, support, notification,
 
 Uploaded binary files are stored on a durable private filesystem volume, not in a hosted object-storage account. Set `UPLOADS_DIR` to a persistent directory outside `public_html` (or any other public web root), with write access limited to the Node service user. Back up this directory alongside the database and restore both together. The database stores support attachment metadata, stable storage keys, size/type, ticket ownership, and audit associations. The application serves files through authenticated `/storage/...` routes; generated public assets are a separate namespace and private namespaces fail closed.
 
-Support uploads are allocated through the authenticated local `/api/support/attachments/presign` endpoint and posted to the application-owned `/api/support/attachments/upload` endpoint. The old externally signed upload URL flow is not used.
+Support uploads are prepared through the authenticated local `/api/support/attachments/prepare-upload` endpoint and posted to the application-owned `/api/support/attachments/upload` endpoint. The server writes uploaded bytes under `UPLOADS_DIR`; the database records ticket ownership, allowed policy, attachment metadata and audit associations. No external upload-signing or object-storage service is required.
 
 ## Background jobs
 

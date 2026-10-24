@@ -12,6 +12,10 @@
 - [x] The Mining walkthrough's dummy +1 CKI/RPM/replay flow was replaced by a slow continuous purchased-package status animation. Admin Mining now says settlement integration is not configured; the old reward-credit toggle is disabled in the UI and rejected by the server. Legacy estimates cannot be enabled as actual settlement credits.
 - [x] Additive/idempotent Mining migrations were applied only to the Sandbox database; all builds/type checks/tests pass. No customer wallet balances were changed by this work.
 
+## Self-hosted runtime cleanup
+
+- [x] The application uses the operator-managed MySQL/MariaDB database through `DATABASE_URL` for persistent business state and scheduled-job records. Support attachment bytes are kept on the host's private persistent filesystem under `UPLOADS_DIR`; ownership, policy, and attachment metadata are stored in the database. Legacy external upload-signing helpers and obsolete runtime checks have been removed. VPS/container and cPanel guides describe the self-hosted setup.
+
 ## Still required for real financial operation
 
 - [ ] **Third-party settlement ingestion and allocation:** The farm sells hash to a third party without a pool. Persist actual settlement periods, amount/asset, source reference, FX/CKI valuation, costs and operator share; allocate actual distributable earnings to customer purchased hash power; credit CKI exactly once. Needed before reward posting: settlement source (manual statement upload or API), net-versus-gross cost treatment, customer share, and denominator/allocation basis. Package checkout is enabled, but no CKI reward is quoted or credited until this input exists; package hash rate alone does not establish earnings.
