@@ -2,37 +2,47 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
-const uploadSecurity = readFileSync(new URL("./support-upload-security.ts", import.meta.url), "utf8");
-const route = source.match(/app\.post\("\/api\/support\/attachments\/presign"[\s\S]*?registerOAuthRoutes\(app\);/);
+const presignStart = source.indexOf('app.post("/api/support/attachments/presign"');
+const uploadStart = source.indexOf('app.put("/api/support/attachments/upload"', presignStart);
+const uploadEnd = source.indexOf("registerProviderOAuthRoutes(app);", uploadStart);
+const presign = source.slice(presignStart, uploadStart);
+const upload = source.slice(uploadStart, uploadEnd);
 
-describe("support attachment presign error logging", () => {
-  it("rate-limits support presign requests before parsing potentially oversized JSON bodies", () => {
-    expect(source).toContain('const supportAttachmentPresignRateLimit = createAuthRateLimiter({ windowMs: 60_000, max: 20');
-    expect(source).toContain('scope: "support-attachment-presign"');
-    expect(source).toContain('if (req.method === "POST" && req.path === "/api/support/attachments/presign")');
+describe("self-hosted support attachment upload security", () => {
+  it("registers a dedicated request limiter for the presign endpoint before parsing large bodies", () => {
+    expect(source).toContain('req.path === "/api/support/attachments/presign"');
     const limiterPosition = source.indexOf("supportAttachmentPresignRateLimit(req, res, next)");
     const parserPosition = source.indexOf("app.use(express.json");
-    expect(limiterPosition).toBeGreaterThan(-1);
-    expect(parserPosition).toBeGreaterThan(-1);
-    expect(limiterPosition).toBeLessThan(parserPosition);
-    expect(source).toContain('app.post("/api/support/attachments/presign", async (req, res) => {');
+    expect(limiterPosition).toBeGreaterThanOrEqual(0);
+    expect(parserPosition).toBeGreaterThan(limiterPosition);
   });
 
-  it("rejects parser-normalized control characters before returning a bearer upload URL", () => {
-    expect(route).not.toBeNull();
-    const routeSource = route?.[0] ?? "";
-    const validationPosition = routeSource.indexOf("getSafePresignedUploadUrl(payload.url)");
-    const responsePosition = routeSource.indexOf("return res.json({ uploadUrl: safeUploadUrl");
-    expect(validationPosition).toBeGreaterThan(-1);
-    expect(responsePosition).toBeGreaterThan(validationPosition);
-    expect(uploadSecurity).toContain("value !== value.trim()");
-    expect(uploadSecurity).toContain(".test(value)");
-    expect(uploadSecurity).toContain("u007f]/.test(value)");
+  it("authorizes the customer and ticket before issuing an application-local upload URL", () => {
+    expect(presignStart).toBeGreaterThanOrEqual(0);
+    expect(uploadStart).toBeGreaterThan(presignStart);
+    expect(presign).toContain("resolveLocalSupportUser(req, res)");
+    expect(presign).toContain("getCustomerTicket(user.id, ticketId)");
+    expect(presign).toContain('randomBytes(24).toString("hex")');
+    expect(presign).toContain('fileName.replace(/[^a-zA-Z0-9._-]/g, "_")');
+    expect(presign).toContain('uploadUrl: `/api/support/attachments/upload?key=${encodeURIComponent(key)}`');
+    expect(presign).toContain('stableUrl: `/storage/${key}`');
+    expect(presign).not.toContain("MANUS_API_URL");
+    expect(presign).not.toContain("getSafePresignedUploadUrl");
+    expect(presign).not.toContain("fetch(");
   });
 
-  it("does not log raw provider or network exception messages", () => {
-    expect(route).not.toBeNull();
-    expect(route?.[0]).toContain('error instanceof Error ? error.name : "UnknownError"');
-    expect(route?.[0]).not.toContain("error.message");
+  it("validates ownership, storage key, actual bytes and policy before persisting upload data", () => {
+    expect(uploadStart).toBeGreaterThanOrEqual(0);
+    expect(uploadEnd).toBeGreaterThan(uploadStart);
+    expect(upload).toContain("resolveLocalSupportUser(req, res)");
+    expect(upload).toContain("getCustomerTicket(user.id, ticketId)");
+    expect(upload).toContain("Buffer.isBuffer(req.body)");
+    expect(upload).toContain("isAllowedAttachmentRequest({ fileName, mimeType, sizeBytes: req.body.length }, policy)");
+    const writePosition = upload.indexOf("await writeStorageObject(key, req.body, mimeType)");
+    const successPosition = upload.indexOf("res.status(201).json");
+    expect(writePosition).toBeGreaterThanOrEqual(0);
+    expect(successPosition).toBeGreaterThan(writePosition);
+    expect(upload).toContain('error instanceof Error ? error.name : "UnknownError"');
+    expect(upload).not.toContain("error.message");
   });
 });
