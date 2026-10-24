@@ -62,11 +62,11 @@ Customer and administrator accounts, roles, packages, opportunities, balances, l
 
 Before production launch, configure HTTPS, SMTP, rate limiting, CSRF protections appropriate to the deployment, admin 2FA, backups, reconciliation, and provider secrets through the host environment.
 
-The V5 workflow safety layer blocks `LIVE` execution without a named provider, execution reference, and result-retrieval mechanism. Settlement calculations require a verified provider result reference; configured opportunity estimates are never sufficient.
+The trading workflow records real-money trading allocations, capital movements, realized results, fees, and settlement in the customer's internal ledger. Financial changes must be supported by recorded trade lifecycle/result data and posted transactionally and idempotently; configured estimates alone must never be recorded as realized profit.
 
-## Financial safety boundary
+## Trading financial accounting
 
-The product is production-deployable, but real-money execution and verified returns are blocked until a named, approved execution/settlement mechanism is configured and independently verified. Until then, opportunities must be classified as Practice, Simulation, or Research. The application must not credit configured estimates as real profit or present simulated balances as withdrawable funds.
+Trading is treated as a real-money operation. Trading allocations, capital debits and returns, realized profits, platform fees, losses, and settlement records must be posted to the customer's internal ledger as appropriate to the actual trade lifecycle. Every posting must be durable, auditable, transactional, and idempotent. The interface must display committed ledger results, not create financial changes on its own. Deposit and withdrawal workflows are specified separately.
 
 ## OAuth and email
 
