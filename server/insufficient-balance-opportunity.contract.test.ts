@@ -19,7 +19,7 @@ describe("insufficient-balance opportunity handling", () => {
     const mark = source.slice(source.indexOf("async function markMissedOpportunity("), source.indexOf("async function markOpportunityExecuted("));
     const autoTrade = source.slice(source.indexOf("async function autoTradeOpenOpportunities("), source.indexOf("export async function listCustomerOpportunities("));
     expect(mark).toContain('status:"MISSED"');
-    expect(mark).toContain("INSUFFICIENT_AVAILABLE_BALANCE");
+    expect(autoTrade).toContain("INSUFFICIENT_AVAILABLE_BALANCE");
     expect(autoTrade).toContain("if(requestedAmount===null)");
     expect(autoTrade).toContain("await markMissedOpportunity");
     expect(autoTrade).not.toContain("balanceLedger");
