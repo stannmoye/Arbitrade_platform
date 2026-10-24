@@ -442,9 +442,9 @@ export async function getCustomerMiningBoostStatus(userId: number) {
     const now = new Date();
     const config = await loadMiningConfig(conn, now);
     const packages = await activePackageRows(conn, userId, now);
-    // Boost timing and CKI rewards are account/package features. A package may
-    // intentionally have zero extra TH/s; that must not prevent the customer
-    // from using the configured boost cycle.
+    // A package can intentionally provide a CKI reward boost without extra
+    // TH/s. Keep the reward cycle available; the customer UI must show the
+    // configured hash-power delta separately so it is never overstated.
     const eligiblePackage = packages.sort((a,b)=>decimal(a.boostBonusThsSnapshot).cmp(decimal(b.boostBonusThsSnapshot))).at(-1);
     const [activeRows] = await conn.query<any[]>(`SELECT id,startedAt,endsAt,bonusThs,packageVersionId,customerPackageId FROM mining_boost_activations WHERE userId=? AND status='active' AND endsAt>? ORDER BY startedAt DESC LIMIT 1`, [userId, now]);
     const [lastRows] = await conn.query<any[]>(`SELECT id,startedAt,endsAt,status FROM mining_boost_activations WHERE userId=? ORDER BY startedAt DESC,id DESC LIMIT 1`, [userId]);
