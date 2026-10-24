@@ -52,6 +52,8 @@ describe("customer API access foundation", () => {
     expect(apiRoutes).toContain("apiIpRateLimit");
     expect(apiRoutes).toContain('"/api/v1/account/withdrawals"');
     expect(apiRoutes).toContain('"/api/v1/platform/status"');
+    expect(apiRoutes).toContain('"/api/v1/account/statements/daily.pdf"');
+    expect(apiRoutes).toContain('"Content-Type": "application/pdf"');
     expect(server).toContain("registerCustomerApiAccessRoutes(app)");
     expect(apiRoutes).toContain('app.post("/api/v1/webhooks"');
     expect(apiRoutes).toContain('app.post("/api/v1/account/withdrawals"');
@@ -67,6 +69,7 @@ describe("customer API access foundation", () => {
 
   it("provides customer key controls and admin-editable integration policy and message templates", () => {
     expect(customerUi).toContain("Copy now · shown once");
+    expect(customerUi).toContain("Download today’s PDF statement");
     expect(customerUi).toContain("Revoke");
     expect(customerUi).toContain("The separate withdrawal-request scope requires an authenticator code and manual review");
     expect(adminCentre).toContain("saveApiAccessSettings");
