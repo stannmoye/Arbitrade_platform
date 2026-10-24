@@ -2,53 +2,21 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { createPortal } from "react-dom";
 import {
-  Activity, ArrowDownUp, BarChart3, BookMarked, BookOpen, CircleHelp, Coins, Cpu, FileText,
-  Headphones, Home, Library, LockKeyhole, Map, Menu, Newspaper, Scale, Search, ShieldAlert,
-  ShieldCheck, Sparkles, WalletCards, X, type LucideIcon,
-} from "lucide-react";
+  Activity, ArrowDownUp, BarChart3, Coins, Headphones, Home, Menu, Search,
+  Sparkles, WalletCards, X, type LucideIcon,
+} from "lucide-react";} from "lucide-react";
 
 type CustomerSlideMenuProps = { section: string; onNavigate: (section: string) => void };
-type CustomerDestination = { label: string; detail: string; target: string; icon: LucideIcon; planned?: boolean };
+type CustomerDestination = { label: string; detail: string; target: string; icon: LucideIcon };
 type CustomerDestinationGroup = { label: string; detail: string; items: CustomerDestination[] };
 
 const destinationGroups: CustomerDestinationGroup[] = [
   {
     label: "Core Workspace",
-    detail: "Account tools and personal settings",
+    detail: "Live customer tools",
     items: [
-      { label: "Power tools", detail: "Risk reports, sessions and support tools", target: "advanced", icon: Sparkles },
-      { label: "Portfolio intelligence", detail: "Allocation health and signal quality", target: "intelligence", icon: BarChart3 },
-      { label: "Account Settings", detail: "Profile, security and preferences", target: "account", icon: LockKeyhole },
-    ],
-  },
-  {
-    label: "Project & Investment",
-    detail: "Project context before participation",
-    items: [
-      { label: "Whitepaper", detail: "Project thesis, architecture and operating model", target: "whitepaper", icon: BookOpen },
-      { label: "Token Launch", detail: "Planned offering · review only, not live", target: "token-launch", icon: Coins, planned: true },
-      { label: "Tokenomics", detail: "Planned token model · not currently active", target: "tokenomics", icon: Scale, planned: true },
-      { label: "Roadmap", detail: "Milestones, delivery phases and priorities", target: "roadmap", icon: Map },
-      { label: "Investment Research", detail: "Research notes, signals and market context", target: "investment-research", icon: Library },
-    ],
-  },
-  {
-    label: "Knowledge & Support",
-    detail: "Learn, compare and get help",
-    items: [
-      { label: "Knowledge Base", detail: "Answers to common platform questions", target: "knowledge-base", icon: BookMarked },
-      { label: "Documentation", detail: "How the platform and workflows operate", target: "documentation", icon: FileText },
-      { label: "FAQs", detail: "Fast answers for common decisions", target: "faqs", icon: CircleHelp },
-      { label: "Trading Guides", detail: "Practical guides for market workflows", target: "trading-guides", icon: Activity },
-    ],
-  },
-  {
-    label: "Transparency & Updates",
-    detail: "Risk, legal and platform updates",
-    items: [
-      { label: "Risk Disclosure", detail: "Important risks before any action", target: "risk-disclosure", icon: ShieldAlert },
-      { label: "Legal Documents", detail: "Terms, policies and formal notices", target: "legal-documents", icon: Scale },
-      { label: "News & Updates", detail: "Platform announcements and releases", target: "news-updates", icon: Newspaper },
+      { label: "Risk Reports", detail: "Request and review account-linked risk reports", target: "advanced", icon: BarChart3 },
+      { label: "Portfolio Intelligence", detail: "Allocation health and active trading rules", target: "intelligence", icon: Sparkles },
     ],
   },
 ];
@@ -57,29 +25,26 @@ const destinations = destinationGroups.flatMap((group) => group.items);
 const mainPageSearchDestinations: CustomerDestination[] = [
   { label: "Home", detail: "Main customer dashboard", target: "dashboard", icon: Home },
   { label: "Wallet", detail: "Balances, funding and transaction history", target: "wallet", icon: WalletCards },
-  { label: "Opportunities", detail: "Published customer opportunities", target: "opportunities", icon: ArrowDownUp },
+  { label: "Trading Opportunities", detail: "Published opportunities and active positions", target: "opportunities", icon: ArrowDownUp },
   { label: "Activity", detail: "Account activity and transactions", target: "activity", icon: Activity },
-  { label: "Crypto Mining", detail: "Mining packages and activity", target: "crypto-mining", icon: Coins },
-  { label: "Yield Strategies", detail: "Yield and staking products", target: "yield", icon: Sparkles },
+  { label: "Crypto Mining", detail: "Published Mining packages and account activity", target: "crypto-mining", icon: Coins },
+  { label: "Stake & Earn", detail: "Yield and staking positions", target: "yield", icon: Sparkles },
   { label: "Support", detail: "Customer support and tickets", target: "support", icon: Headphones },
-  { label: "Treasury Bond", detail: "Treasury bond investment section", target: "treasury-bond", icon: FileText },
-  { label: "Cooperate Dept", detail: "Corporate opportunities section", target: "cooperate-dept", icon: FileText },
-  { label: "Litigation Funds", detail: "Litigation fund opportunities", target: "litigation-funds", icon: Scale },
-  { label: "IP Royalties", detail: "Intellectual property royalty opportunities", target: "ip-royalties", icon: FileText },
-  { label: "Music Royalties", detail: "Music royalty opportunities", target: "music-royalties", icon: FileText },
-  { label: "Agro Investment", detail: "Agricultural investment opportunities", target: "agro-investment", icon: FileText },
-  { label: "Carbon Credit", detail: "Carbon credit opportunities", target: "carbon-credit", icon: FileText },
-  { label: "Green Energy", detail: "Green energy opportunities", target: "green-energy", icon: FileText },
 ];
 const menuTargets = new Set(destinations.map((item) => item.target));
 const mainPageOnlySearchDestinations = mainPageSearchDestinations.filter((item) => !menuTargets.has(item.target));
 const primaryLabels: Record<string, string> = {
-  dashboard: "Dashboard", opportunities: "Opportunities", yield: "Yield Strategies", wallet: "Wallet",
-  activity: "Activity", support: "Support", account: "Account Settings", security: "Security",
-  kyc: "Identity verification", notifications: "Notifications", console: "Customer console",
-  "crypto-mining": "Crypto Mining", "token-launch": "Token Launch", "treasury-bond": "Treasury Bond", "cooperate-dept": "Cooperate Dept",
-  "litigation-funds": "Litigation Funds", "ip-royalties": "IP Royalties", "music-royalties": "Music Royalties", "agro-investment": "Agro Investment",
-  "carbon-credit": "Carbon Credit", "green-energy": "Green Energy",
+  dashboard: "Home", opportunities: "Trading Opportunities", yield: "Stake & Earn",
+  wallet: "Wallet", activity: "Activity", support: "Support", advanced: "Risk Reports",
+  intelligence: "Portfolio Intelligence", "crypto-mining": "Crypto Mining",
+  account: "Account Settings", security: "Security", kyc: "Identity verification",
+  notifications: "Notifications", console: "Customer console", privacy: "Privacy Centre",
+  "close-account": "Close Account", "personal-details": "Personal Details",
+  "language-region": "Language & Region", "date-time": "Date & Time",
+  statements: "Statements", "two-factor-auth": "Two-Factor Auth", password: "Password",
+  "trusted-devices": "Trusted Devices", "active-sessions": "Active Sessions",
+  "login-activity": "Login Activity", "withdrawal-security": "Withdrawal Security",
+  "api-access": "API Access",
 };
 
 export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProps) {
@@ -150,7 +115,7 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
   const navigate = (target: string) => { onNavigate(target); close(); };
   const renderItem = (item: CustomerDestination) => {
     const Icon = item.icon;
-    return <button key={item.target} type="button" className={`admin-slide-item${section === item.target ? " is-active" : ""}`} tabIndex={open ? 0 : -1} aria-current={section === item.target ? "page" : undefined} onClick={() => navigate(item.target)}><span className="admin-slide-item-icon"><Icon size={17} /></span><span className="admin-slide-item-copy"><strong>{item.label}{item.planned && <em className="customer-slide-planned">PLANNED</em>}</strong><small>{item.detail}</small></span><span className="admin-slide-item-arrow">→</span></button>;
+    return <button key={item.target} type="button" className={`admin-slide-item${section === item.target ? " is-active" : ""}`} tabIndex={open ? 0 : -1} aria-current={section === item.target ? "page" : undefined} onClick={() => navigate(item.target)}><span className="admin-slide-item-icon"><Icon size={17} /></span><span className="admin-slide-item-copy"><strong>{item.label}</strong><small>{item.detail}</small></span><span className="admin-slide-item-arrow">→</span></button>;
   };
 
   return <><div className={`admin-slide-layer customer-slide-layer arb-page${open ? " is-open" : ""}`}>
@@ -158,11 +123,11 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
     </div>{typeof document !== "undefined" && createPortal(
       <div className={`admin-slide-layer admin-slide-portal-layer customer-slide-portal arb-page${open ? " is-open" : ""}`}>
     <button className="admin-slide-backdrop" type="button" aria-label="Close customer navigation" tabIndex={open ? 0 : -1} onClick={close} />
-    <aside id="customer-navigation-drawer" ref={menuRef} className="admin-slide-drawer customer-slide-drawer" aria-label="Customer navigation and resources" aria-hidden={!open} role="dialog" aria-modal={open}>
+    <aside id="customer-navigation-drawer" ref={menuRef} className="admin-slide-drawer customer-slide-drawer" aria-label="Customer navigation" aria-hidden={!open} role="dialog" aria-modal={open}>
       <div className="admin-slide-drawer-topline"><span><i /> CUSTOMER COMMAND PANEL</span><span className="admin-slide-count">MAIN MENU</span></div>
-      <div className="admin-slide-heading"><div className="admin-slide-mark"><img src="/arbitrade-mark.svg" alt="" /></div><div className="admin-slide-title"><span>CUSTOMER WORKSPACE</span><h2>Navigation &amp; resources</h2></div><button className="admin-slide-close" type="button" onClick={close} aria-label="Close customer navigation" tabIndex={open ? 0 : -1}><X size={17} /></button></div>
+      <div className="admin-slide-heading"><div className="admin-slide-mark"><img src="/arbitrade-mark.svg" alt="" /></div><div className="admin-slide-title"><span>CUSTOMER WORKSPACE</span><h2>Customer navigation</h2></div><button className="admin-slide-close" type="button" onClick={close} aria-label="Close customer navigation" tabIndex={open ? 0 : -1}><X size={17} /></button></div>
       <div className="admin-slide-current"><span className="admin-slide-current-icon"><Activity size={15} /></span><span><small>YOU ARE IN</small><strong>{activeLabel}</strong></span><span className="admin-slide-current-dot" /></div>
-      <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search pages and resources" aria-label="Search customer pages and resources" tabIndex={open ? 0 : -1} /></div>
+      <div className="quick-actions-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search customer pages" aria-label="Search customer pages" tabIndex={open ? 0 : -1} /></div>
       <nav className="admin-slide-nav quick-actions-nav customer-resource-nav" aria-label="Customer pages and resources">
         {filteredGroups.map((group) => <section className="admin-slide-group customer-resource-group" key={group.label}><div className="admin-slide-group-title"><span>{group.label}</span><small>{group.detail}</small><i /></div><div className="admin-slide-items">{group.items.map(renderItem)}</div></section>)}
         {mainPageMatches.length > 0 && <section className="admin-slide-group customer-resource-group" aria-label="Main menu page matches">
@@ -178,7 +143,7 @@ export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProp
           {!recordSearchLoading && !recordSearchFailed && !recordMatches.length && <div className="customer-resource-empty" role="status" aria-live="polite">No matching account records found.</div>}
         </section>}
       </nav>
-      <div className="admin-slide-footer"><div className="quick-actions-status"><span><span className="quick-actions-status-dot" /> Customer workspace</span><strong>Connected</strong><small>Database-backed customer portal</small></div><div className="admin-slide-footer-note">Open a destination to switch customer pages. Items marked Planned are not live offerings.</div></div>
+      <div className="admin-slide-footer"><div className="quick-actions-status"><span><span className="quick-actions-status-dot" /> Customer workspace</span><strong>Connected</strong><small>Database-backed customer portal</small></div><div className="admin-slide-footer-note">Open a destination to switch customer workspaces. Search also finds recent account records.</div></div>
     </aside>
       </div>,
       document.body
