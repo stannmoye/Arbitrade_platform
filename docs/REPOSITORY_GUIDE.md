@@ -29,7 +29,7 @@
 
 ## Required build path
 
-A connected app platform should select this repository, resolve the current `main` SHA, use repository root as its build context, and use the root `Dockerfile`. The lockfile must be installed with `pnpm install --frozen-lockfile`. Verify `pnpm check`, `pnpm test`, and `pnpm build` against the same source SHA.
+Deploy directly to an operator-managed VPS/container or cPanel Node.js host. For a VPS/container deployment, use the root `Dockerfile`; for cPanel, follow `cpanel/README.md` and the installer guide. Configure `DATABASE_URL` for the operator-managed MySQL/MariaDB database and `UPLOADS_DIR` for a private persistent directory outside `public_html`, writable by the Node service account. Authentication, sessions, business state, scheduled-job records, and attachment metadata are application-owned; uploaded bytes remain on the host's private filesystem. Install the locked dependencies with `pnpm install --frozen-lockfile`, then verify `pnpm check`, `pnpm test`, and `pnpm build` against the same source SHA.
 
 Do not build from historical stage/integration branches or assume the newest-looking ZIP or old release is the newest source. Use the current full-application release workflow when a self-contained ZIP is required. The legacy `stage4-full-release.yml` and `build-production-release-pass4.yml` stage-specific publishers are disabled.
 

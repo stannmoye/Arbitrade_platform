@@ -12,9 +12,9 @@ const support = app.slice(supportStart, supportEnd);
 const advancedStart = app.indexOf("function CustomerAdvanced(");
 const advancedEnd = app.indexOf("\nfunction PaperclipIcon", advancedStart);
 const advanced = app.slice(advancedStart, advancedEnd);
-const presignStart = server.indexOf('app.post("/api/support/attachments/presign"');
-const presignEnd = server.indexOf('app.put("/api/support/attachments/upload"', presignStart);
-const presign = server.slice(presignStart, presignEnd);
+const prepareStart = server.indexOf('app.post("/api/support/attachments/prepare-upload"');
+const prepareEnd = server.indexOf('app.put("/api/support/attachments/upload"', prepareStart);
+const prepare = server.slice(prepareStart, prepareEnd);
 
 describe("Stage 4 support ticket submission security contract", () => {
   it("guards repeated submissions before starting ticket creation", () => {
@@ -25,7 +25,7 @@ describe("Stage 4 support ticket submission security contract", () => {
   });
 
   it("keeps the submission lock through attachment upload and registration", () => {
-    expect(support).toContain('fetch("/api/support/attachments/presign"');
+    expect(support).toContain('fetch("/api/support/attachments/prepare-upload"');
     expect(support).toContain('method:"PUT"');
     expect(support).toContain("await addAttachment.mutateAsync(");
     expect(support).toContain("onError:()=>{setTicketSubmitBusy(false);");
@@ -45,15 +45,13 @@ describe("Stage 4 support ticket submission security contract", () => {
     expect(advanced).toContain("finally { setTicketSubmitBusy(false); }");
   });
 
-  it("returns application-owned upload URLs without a hosted storage presign dependency", () => {
-    expect(presign).toContain('randomBytes(24).toString("hex")');
-    expect(presign).toContain('uploadUrl: `/api/support/attachments/upload?key=${encodeURIComponent(key)}`');
-    expect(presign).toContain('stableUrl: `/storage/${key}`');
-    expect(presign).toContain("getTicketUploadPolicy()");
-    expect(presign).toContain("isAllowedAttachmentRequest({ fileName, mimeType, sizeBytes }, policy)");
-    expect(presign).not.toContain("getSafePresignedUploadUrl");
-    expect(presign).not.toContain("MANUS_API_URL");
-    expect(presign).not.toContain("fetch(");
+  it("returns application-owned upload URLs through the local storage path", () => {
+    expect(prepare).toContain('randomBytes(24).toString("hex")');
+    expect(prepare).toContain('uploadUrl: `/api/support/attachments/upload?key=${encodeURIComponent(key)}`');
+    expect(prepare).toContain('stableUrl: `/storage/${key}`');
+    expect(prepare).toContain("getTicketUploadPolicy()");
+    expect(prepare).toContain("isAllowedAttachmentRequest({ fileName, mimeType, sizeBytes }, policy)");
+    expect(prepare).not.toContain("fetch(");
   });
   it("rejects arbitrary attachment storage keys before registering them", () => {
     expect(routers).toContain('import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy"');

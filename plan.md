@@ -12,7 +12,7 @@ Trading is a real-money workflow recorded in the customer's internal ledger. App
 - **Money:** fixed-precision decimal arithmetic using a decimal library; asset/currency precision, minimum units and rounding modes are stored in the database and captured in calculation snapshots.
 - **Authentication:** use Arbitrade-owned signed local sessions and direct, optional standard-provider OAuth; add application roles, permissions, admin 2FA readiness, customer security settings and server-side authorization.
 - **Jobs:** database-backed queue plus `/api/scheduled/*` handlers for daily reports, email delivery, FX refresh, settlement processing and reconciliation. Jobs are retryable and idempotent.
-- **Hosting:** container deployment with `/api/health`, API-before-static routing, runtime-only secrets, and a cPanel/shared-hosting recovery guide. Live-money providers remain disabled unless explicitly configured.
+- **Hosting:** operator-managed VPS/container or cPanel deployment with `/api/health`, API-before-static routing, runtime-only secrets, MySQL/MariaDB through `DATABASE_URL`, and durable private upload storage through `UPLOADS_DIR`. Authentication, primary application state, and scheduled-job records remain application-owned; provider integrations are optional and must be explicitly configured. Follow the self-hosted deployment and recovery guides.
 
 ## Design direction
 - **Design movement:** quiet institutional fintech control room: editorial hierarchy, dense but calm data surfaces, restrained neo-brutalist rules and accessible status color.

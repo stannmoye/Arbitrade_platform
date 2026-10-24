@@ -24,14 +24,14 @@ import { getLocalSessionFromRequest } from "./localAuth";
 import { confirmEmailVerification, requestEmailVerification, requestPasswordReset, resetPasswordWithCode } from "../emailAuth";
 import { startEmailWorkers } from "../emailQueue";
 import { startHeartbeatWorker } from "./heartbeat";
-import { registerStorageProxy } from "./storageProxy";
+import { registerLocalStorageRoutes } from "./localStorageRoutes";
 import { refreshMiningPriceFeeds } from "../mining-admin";
 import { runMiningWorkerCycle } from "../mining";
 
 const registrationRateLimit = createAuthRateLimiter({ windowMs: 60 * 60_000, max: 5, message: "Too many registration attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-register" });
 const customerLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many login attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-login" });
 const adminLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 8, message: "Too many administrator login attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "admin-login" });
-const supportAttachmentPresignRateLimit = createAuthRateLimiter({ windowMs: 60_000, max: 20, message: "Too many support attachment requests. Try again shortly.", store: configuredAuthRateLimitStore, scope: "support-attachment-presign" });
+const supportAttachmentPrepareUploadRateLimit = createAuthRateLimiter({ windowMs: 60_000, max: 20, message: "Too many support attachment requests. Try again shortly.", store: configuredAuthRateLimitStore, scope: "support-attachment-prepare-upload" });
 const passwordResetRequestRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 5, message: "Too many password-reset requests. Try again later.", store: configuredAuthRateLimitStore, scope: "password-reset-request" });
 const passwordResetConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many password-reset attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "password-reset-confirm" });
 const emailVerificationRequestRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 5, message: "Too many email-verification requests. Try again later.", store: configuredAuthRateLimitStore, scope: "email-verification-request" });
@@ -39,18 +39,18 @@ const emailVerificationConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 *
 
 async function startServer() {
   const app = express();
-  registerStorageProxy(app);
+  registerLocalStorageRoutes(app);
   if (process.env.NODE_ENV === "production" && !configuredAuthRateLimitStore) {
     console.warn("[AuthRateLimit] Using process-local counters. Configure AUTH_RATE_LIMIT_REDIS_REST_URL and AUTH_RATE_LIMIT_REDIS_REST_TOKEN for multi-instance deployments.");
   }
   // Do not trust X-Forwarded-For unless the actual reverse-proxy hop count is configured.
   app.set("trust proxy", resolveTrustedProxyHops(process.env.TRUST_PROXY_HOPS));
   const server = createServer(app);
-  // Rate-limit support presign requests before JSON parsing so oversized request
+  // Rate-limit local upload preparation requests before JSON parsing so oversized request
   // bodies cannot consume parser resources before the route limiter runs.
   app.use((req, res, next) => {
-    if (req.method === "POST" && req.path === "/api/support/attachments/presign") {
-      return supportAttachmentPresignRateLimit(req, res, next);
+    if (req.method === "POST" && req.path === "/api/support/attachments/prepare-upload") {
+      return supportAttachmentPrepareUploadRateLimit(req, res, next);
     }
     return next();
   });
@@ -148,7 +148,7 @@ async function startServer() {
     return user;
   };
 
-  app.post("/api/support/attachments/presign", async (req, res) => {
+  app.post("/api/support/attachments/prepare-upload", async (req, res) => {
     try {
       const user = await resolveLocalSupportUser(req, res);
       if (!user) return;
