@@ -47,6 +47,8 @@ describe("API automation integration contracts", () => {
     expect(automation).toContain("verifyCustomerWhatsAppNumber");
     expect(automation).toContain("whatsappVerified");
     expect(automation).toContain("whatsappOptIn");
+    expect(automation).toContain("WHATSAPP_TEMPLATE_NOT_CONFIGURED");
+    expect(automation).not.toContain("async function sendMetaWhatsApp(");
     expect(automation).toContain('createHmac("sha256"');
     expect(automation).toContain('"X-Arbitrade-Timestamp"');
     expect(automation).toContain('"X-Arbitrade-Signature"');
