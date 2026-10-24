@@ -57,6 +57,8 @@ const migrations = [
     columns: [["trade_settlement_reference_claims","settlementReference","varchar"],["trade_settlement_reference_claims","tradeId","int"],["trade_settlement_reference_claims","createdAt","timestamp"]] },
   { file: "0068_trade_realized_profit_accounting.sql", tables: ["trade_positions"],
     columns: [["trade_positions","realizedGrossProfitMinor","bigint"],["trade_positions","platformFeeMinor","bigint"],["trade_positions","netProfitMinor","bigint"],["trade_positions","feePolicyVersion","int"],["trade_positions","platformFeeRateBps","int"],["trade_positions","platformFeeRoundingMode","varchar"],["trade_positions","settlementOutcome","varchar"]] },
+  { file: "0070_local_scheduled_jobs.sql", tables: ["local_scheduled_jobs"],
+    columns: [["local_scheduled_jobs","taskUid","varchar"],["local_scheduled_jobs","ownerUserId","int"],["local_scheduled_jobs","cronExpression","varchar"],["local_scheduled_jobs","callbackPath","varchar"],["local_scheduled_jobs","nextExecutionAt","timestamp"],["local_scheduled_jobs","lockedUntil","timestamp"]] },
 ];
 
 const url = new URL(rawDatabaseUrl);
