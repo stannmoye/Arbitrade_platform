@@ -62,14 +62,6 @@ const mainPageSearchDestinations: CustomerDestination[] = [
   { label: "Crypto Mining", detail: "Mining packages and activity", target: "crypto-mining", icon: Coins },
   { label: "Yield Strategies", detail: "Yield and staking products", target: "yield", icon: Sparkles },
   { label: "Support", detail: "Customer support and tickets", target: "support", icon: Headphones },
-  { label: "Treasury Bond", detail: "Treasury bond investment section", target: "treasury-bond", icon: FileText },
-  { label: "Cooperate Dept", detail: "Corporate opportunities section", target: "cooperate-dept", icon: FileText },
-  { label: "Litigation Funds", detail: "Litigation fund opportunities", target: "litigation-funds", icon: Scale },
-  { label: "IP Royalties", detail: "Intellectual property royalty opportunities", target: "ip-royalties", icon: FileText },
-  { label: "Music Royalties", detail: "Music royalty opportunities", target: "music-royalties", icon: FileText },
-  { label: "Agro Investment", detail: "Agricultural investment opportunities", target: "agro-investment", icon: FileText },
-  { label: "Carbon Credit", detail: "Carbon credit opportunities", target: "carbon-credit", icon: FileText },
-  { label: "Green Energy", detail: "Green energy opportunities", target: "green-energy", icon: FileText },
 ];
 const menuTargets = new Set(destinations.map((item) => item.target));
 const mainPageOnlySearchDestinations = mainPageSearchDestinations.filter((item) => !menuTargets.has(item.target));
@@ -77,9 +69,7 @@ const primaryLabels: Record<string, string> = {
   dashboard: "Dashboard", opportunities: "Opportunities", yield: "Yield Strategies", wallet: "Wallet",
   activity: "Activity", support: "Support", account: "Account Settings", security: "Security",
   kyc: "Identity verification", notifications: "Notifications", console: "Customer console",
-  "crypto-mining": "Crypto Mining", "token-launch": "Token Launch", "treasury-bond": "Treasury Bond", "cooperate-dept": "Cooperate Dept",
-  "litigation-funds": "Litigation Funds", "ip-royalties": "IP Royalties", "music-royalties": "Music Royalties", "agro-investment": "Agro Investment",
-  "carbon-credit": "Carbon Credit", "green-energy": "Green Energy",
+  "crypto-mining": "Crypto Mining", "token-launch": "Token Launch",
 };
 
 export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProps) {
