@@ -7,6 +7,7 @@ import { ENV } from './_core/env';
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
+import { addCalendarMonths, calculateQualifyingBalanceUsdMinor, parsePackageQualificationPolicy, type PackageQualificationPolicy, type EligibleWalletBalance } from "./modules/trading-package-activation";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
@@ -1880,6 +1881,269 @@ function calculateTradeTerms(userId:number, offer:any, amountMinor:number) {
   return { minimumMinor, rewardBps, method:TRADE_MATH_METHODS[rotation], rotation, factors:{sessionEntropy,amountCurve,routeVolatility,liquidityDepth,customerRisk,rotationIndex} };
 }
 function packageUsdUnitsToNativeMinor(usdUnits:number, currency:string, currencies:any[]):number { const row=currencies.find((item:any)=>item.code===currency); if(!row) throw new Error(`Currency ${currency} is not configured`); return usdUnitsToNativeMinor(usdUnits,Number(row.scale),Number(row.usdRate)); }
+const PACKAGE_ACTIVATION_SETTING_KEYS = [
+  "trading.packageQualification.eligibleCurrencies",
+  "trading.packageQualification.combineEligibleWallets",
+  "trading.packagePurchase.repeatAllowed",
+  "trading.packagePurchase.maxCopies",
+  "trading.packagePurchase.repeatRestriction",
+  "trading.packagePurchase.cooldownSeconds",
+] as const;
+
+function packageActivationPolicyFromRows(rows: Array<{settingKey:string;settingValue:string}>): PackageQualificationPolicy {
+  const values:Record<string,string>={};
+  for(const row of rows) values[row.settingKey]=row.settingValue;
+  return parsePackageQualificationPolicy(values);
+}
+async function getPackageActivationPolicyInTransaction(tx:any) {
+  const rows=await tx.select({settingKey:appSettings.settingKey,settingValue:appSettings.settingValue})
+    .from(appSettings).where(inArray(appSettings.settingKey,[...PACKAGE_ACTIVATION_SETTING_KEYS])).for("update");
+  return packageActivationPolicyFromRows(rows);
+}
+function packageQualificationWalletRows(rows:any[]): EligibleWalletBalance[] {
+  return rows.map(row=>({
+    currency:String(row.currency),
+    availableMinor:Number(row.availableMinor),
+    scale:Number(row.scale),
+    usdRate:Number(row.usdRate),
+  }));
+}
+
+export async function getPackageActivationPolicy() {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const rows=await db.select({settingKey:appSettings.settingKey,settingValue:appSettings.settingValue})
+    .from(appSettings).where(inArray(appSettings.settingKey,[...PACKAGE_ACTIVATION_SETTING_KEYS]));
+  const policy=packageActivationPolicyFromRows(rows);
+  return {...policy,qualifyingBalanceCurrency:"USD"};
+}
+
+export async function setPackageActivationPolicy(updatedBy:number,input:{
+  eligibleCurrencies:string[];
+  combineEligibleWallets:boolean;
+  repeatAllowed:boolean;
+  maxCopies:number;
+  repeatRestriction:"active_only"|"all_history";
+  cooldownSeconds:number;
+}) {
+  const currencies=[...new Set(input.eligibleCurrencies.map(value=>value.trim().toUpperCase()))];
+  if(!currencies.length||currencies.some(value=>!/^[A-Z0-9._-]{2,32}$/.test(value))) throw new Error("Select at least one valid eligible wallet currency");
+  if(!Number.isSafeInteger(input.maxCopies)||input.maxCopies<0) throw new Error("Maximum package copies must be a non-negative integer");
+  if(!Number.isSafeInteger(input.cooldownSeconds)||input.cooldownSeconds<0||input.cooldownSeconds>31536000) throw new Error("Package activation cooldown must be between 0 and 31536000 seconds");
+  if(!["active_only","all_history"].includes(input.repeatRestriction)) throw new Error("Invalid package repeat restriction");
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const configured=await db.select({code:currencyRegistry.code}).from(currencyRegistry).where(and(inArray(currencyRegistry.code,currencies),eq(currencyRegistry.enabled,true)));
+  const configuredCodes=new Set(configured.map(row=>row.code.toUpperCase()));
+  const unknown=currencies.filter(code=>!configuredCodes.has(code));
+  if(unknown.length) throw new Error("These eligible currencies are not enabled: "+unknown.join(", "));
+  const values:Record<string,string>={
+    "trading.packageQualification.eligibleCurrencies":JSON.stringify(currencies),
+    "trading.packageQualification.combineEligibleWallets":String(input.combineEligibleWallets),
+    "trading.packagePurchase.repeatAllowed":String(input.repeatAllowed),
+    "trading.packagePurchase.maxCopies":String(input.maxCopies),
+    "trading.packagePurchase.repeatRestriction":input.repeatRestriction,
+    "trading.packagePurchase.cooldownSeconds":String(input.cooldownSeconds),
+  };
+  return db.transaction(async tx=>{
+    const current=await tx.select({settingKey:appSettings.settingKey,settingValue:appSettings.settingValue})
+      .from(appSettings).where(inArray(appSettings.settingKey,[...PACKAGE_ACTIVATION_SETTING_KEYS])).for("update");
+    const previous:Record<string,string>={};
+    for(const row of current) previous[row.settingKey]=row.settingValue;
+    for(const [settingKey,settingValue] of Object.entries(values)){
+      if(Object.prototype.hasOwnProperty.call(previous,settingKey)){
+        await tx.update(appSettings).set({settingValue,updatedBy,updatedAt:new Date()}).where(eq(appSettings.settingKey,settingKey));
+      }else{
+        await tx.insert(appSettings).values({settingKey,settingValue,updatedBy});
+      }
+    }
+    await tx.insert(v5AuditEvents).values({
+      actorUserId:updatedBy,action:"trading_package_activation_policy_updated",
+      entityType:"trading_package_activation_policy",entityId:"global",
+      reason:"Administrator updated package qualification and repeat-activation policy.",
+      reference:"trading-package-activation-policy:"+crypto.randomUUID(),
+      metadataJson:JSON.stringify({old:previous,new:values}),
+    });
+    return {...parsePackageQualificationPolicy(values),qualifyingBalanceCurrency:"USD"};
+  });
+}
+
+export async function listAdminTradingPackages() {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  return db.select().from(packages).orderBy(packages.minimumQualifyingBalanceUsdMinor,packages.id);
+}
+export async function updateAdminTradingPackage(updatedBy:number,input:{
+  id:number; name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
+  opportunitiesPerDay:number; enabled:boolean;
+}) {
+  if(!Number.isSafeInteger(input.id)||input.id<=0) throw new Error("Package ID is invalid");
+  if(!input.name.trim()||input.name.trim().length>80) throw new Error("Package name must contain 1–80 characters");
+  if(!Number.isSafeInteger(input.minimumQualifyingBalanceUsdMinor)||input.minimumQualifyingBalanceUsdMinor<=0) throw new Error("Minimum qualifying balance must be a positive USD minor-unit integer");
+  if(!Number.isSafeInteger(input.durationMonths)||input.durationMonths<1||input.durationMonths>1200) throw new Error("Package duration must be 1–1200 calendar months");
+  if(!Number.isSafeInteger(input.opportunitiesPerDay)||input.opportunitiesPerDay<1||input.opportunitiesPerDay>10000) throw new Error("Daily opportunity quota must be between 1 and 10000");
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  return db.transaction(async tx=>{
+    const current=(await tx.select().from(packages).where(eq(packages.id,input.id)).limit(1).for("update"))[0];
+    if(!current) throw new Error("Trading package not found");
+    const conflicting=(await tx.select({id:packages.id}).from(packages).where(eq(packages.name,input.name.trim())).limit(1))[0];
+    if(conflicting&&conflicting.id!==input.id) throw new Error("A package with this name already exists");
+    const nextVersion=Number(current.termsVersion||1)+1;
+    if(!Number.isSafeInteger(nextVersion)) throw new Error("Package terms version has reached its limit");
+    await tx.update(packages).set({
+      name:input.name.trim(),
+      minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,
+      durationMonths:input.durationMonths,
+      opportunitiesPerDay:input.opportunitiesPerDay,
+      enabled:input.enabled,
+      termsVersion:nextVersion,
+    }).where(eq(packages.id,input.id));
+    await tx.insert(v5AuditEvents).values({
+      actorUserId:updatedBy,action:"trading_package_terms_updated",
+      entityType:"trading_package",entityId:String(input.id),
+      reason:"Administrator updated package terms. Existing subscription snapshots remain unchanged.",
+      reference:"trading-package-terms:"+input.id+":"+nextVersion,
+      metadataJson:JSON.stringify({old:{name:current.name,minimumQualifyingBalanceUsdMinor:Number(current.minimumQualifyingBalanceUsdMinor),durationMonths:current.durationMonths,opportunitiesPerDay:current.opportunitiesPerDay,enabled:current.enabled,termsVersion:current.termsVersion},new:{...input,name:input.name.trim(),termsVersion:nextVersion}}),
+    });
+    return {id:input.id,name:input.name.trim(),minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,enabled:input.enabled,termsVersion:nextVersion};
+  });
+}
+
+export async function listCustomerTradingPackages(userId:number) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const now=new Date();
+  await db.update(customerPackageSubscriptions).set({status:"expired"}).where(and(
+    eq(customerPackageSubscriptions.userId,userId),eq(customerPackageSubscriptions.status,"active"),
+    isNotNull(customerPackageSubscriptions.expiresAt),lte(customerPackageSubscriptions.expiresAt,now),
+  ));
+  const settingRows=await db.select({settingKey:appSettings.settingKey,settingValue:appSettings.settingValue})
+    .from(appSettings).where(inArray(appSettings.settingKey,[...PACKAGE_ACTIVATION_SETTING_KEYS]));
+  const policy=packageActivationPolicyFromRows(settingRows);
+  const walletRows=await db.select({
+    currency:customerBalances.currency,availableMinor:customerBalances.availableMinor,
+    scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,
+  }).from(customerBalances).innerJoin(currencyRegistry,eq(customerBalances.currency,currencyRegistry.code))
+    .where(and(eq(customerBalances.userId,userId),eq(currencyRegistry.enabled,true),inArray(currencyRegistry.code,policy.eligibleCurrencies)));
+  const qualifyingBalanceUsdMinor=calculateQualifyingBalanceUsdMinor(packageQualificationWalletRows(walletRows),policy);
+  const catalog=await db.select().from(packages).where(and(
+    eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,now)),
+    or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
+  )).orderBy(packages.minimumQualifyingBalanceUsdMinor,packages.id);
+  const owned=await db.select({
+    id:customerPackageSubscriptions.id,packageId:customerPackageSubscriptions.packageId,
+    packageName:packages.name,status:customerPackageSubscriptions.status,
+    activatedAt:customerPackageSubscriptions.activatedAt,startsAt:customerPackageSubscriptions.startsAt,
+    expiresAt:customerPackageSubscriptions.expiresAt,termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
+  }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
+    .where(eq(customerPackageSubscriptions.userId,userId)).orderBy(desc(customerPackageSubscriptions.activatedAt));
+  const latestActivation=owned.reduce<Date|null>((latest,row)=>{
+    const activated=row.activatedAt?new Date(row.activatedAt):null;
+    return activated&&(!latest||activated>latest)?activated:latest;
+  },null);
+  const cooldownEndsAt=latestActivation?new Date(latestActivation.getTime()+policy.cooldownSeconds*1000):null;
+  const cooldownRemainingSeconds=cooldownEndsAt&&cooldownEndsAt>now?Math.ceil((cooldownEndsAt.getTime()-now.getTime())/1000):0;
+  const subscriptions=owned.filter(row=>row.status==="active"&&(!row.expiresAt||new Date(row.expiresAt)>now));
+  return {
+    qualifyingBalanceUsdMinor,qualifyingCurrencies:policy.eligibleCurrencies,
+    combineEligibleWallets:policy.combineEligibleWallets,repeatAllowed:policy.repeatAllowed,
+    maxCopies:policy.maxCopies,repeatRestriction:policy.repeatRestriction,
+    cooldownSeconds:policy.cooldownSeconds,cooldownRemainingSeconds,
+    subscriptions,
+    packages:catalog.map(pkg=>{
+      const history=owned.filter(row=>row.packageId===pkg.id);
+      const ownership=policy.repeatRestriction==="all_history"?history:history.filter(row=>row.status==="active"&&(!row.expiresAt||new Date(row.expiresAt)>now));
+      const activeOwnership=history.filter(row=>row.status==="active"&&(!row.expiresAt||new Date(row.expiresAt)>now));
+      const copyLimitReached=policy.maxCopies>0&&ownership.length>=policy.maxCopies;
+      const duplicateBlocked=!policy.repeatAllowed&&ownership.length>0;
+      const insufficient=qualifyingBalanceUsdMinor<Number(pkg.minimumQualifyingBalanceUsdMinor);
+      const cooling=cooldownRemainingSeconds>0;
+      const blockReason=insufficient?"insufficient_balance":duplicateBlocked?"same_package_owned":copyLimitReached?"max_copies_reached":cooling?"activation_cooldown":null;
+      return {
+        id:pkg.id,name:pkg.name,minimumQualifyingBalanceUsdMinor:Number(pkg.minimumQualifyingBalanceUsdMinor),
+        durationMonths:pkg.durationMonths,opportunitiesPerDay:pkg.opportunitiesPerDay,
+        termsVersion:pkg.termsVersion,enabled:pkg.enabled,qualifyingBalanceUsdMinor,
+        shortfallUsdMinor:Math.max(0,Number(pkg.minimumQualifyingBalanceUsdMinor)-qualifyingBalanceUsdMinor),
+        canActivate:!blockReason,blockReason,activeCopies:activeOwnership.length,
+      };
+    }),
+  };
+}
+
+export async function activateCustomerTradingPackage(userId:number,input:{packageId:number;idempotencyKey:string}) {
+  if(!Number.isSafeInteger(input.packageId)||input.packageId<=0) throw new Error("Trading package is invalid");
+  const idempotencyKey=input.idempotencyKey.trim();
+  if(idempotencyKey.length<8||idempotencyKey.length>128) throw new Error("Package activation key must contain 8–128 characters");
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const result=await db.transaction(async tx=>{
+    const lockedUsers=await tx.execute(sql`SELECT id,role,loginMethod FROM users WHERE id=${userId} FOR UPDATE`) as any;
+    const user=lockedUsers?.[0]?.[0];
+    if(!user||user.role!=="user"||user.loginMethod==="closed") throw new Error("Customer account is missing or closed");
+    const replay=(await tx.select().from(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.activationKey,idempotencyKey)).limit(1).for("update"))[0];
+    if(replay){
+      if(Number(replay.userId)!==userId) throw new Error("Package activation key has already been used");
+      return {subscriptionId:Number(replay.id),packageId:Number(replay.packageId),activatedAt:replay.activatedAt,expiresAt:replay.expiresAt,qualifyingBalanceUsdMinor:Number(replay.qualifyingBalanceUsdMinor),termsSnapshotJson:replay.termsSnapshotJson,replayed:true,packageName:null as string|null};
+    }
+    const policy=await getPackageActivationPolicyInTransaction(tx);
+    const now=new Date();
+    const pkg=(await tx.select().from(packages).where(and(
+      eq(packages.id,input.packageId),eq(packages.enabled,true),
+      or(isNull(packages.startsAt),lte(packages.startsAt,now)),
+      or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
+    )).limit(1).for("update"))[0];
+    if(!pkg) throw new Error("Trading package is unavailable");
+    const walletRows=await tx.select({
+      currency:customerBalances.currency,availableMinor:customerBalances.availableMinor,
+      scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,
+    }).from(customerBalances).innerJoin(currencyRegistry,eq(customerBalances.currency,currencyRegistry.code))
+      .where(and(eq(customerBalances.userId,userId),eq(currencyRegistry.enabled,true),inArray(currencyRegistry.code,policy.eligibleCurrencies))).for("update");
+    const qualifyingBalanceUsdMinor=calculateQualifyingBalanceUsdMinor(packageQualificationWalletRows(walletRows),policy);
+    if(qualifyingBalanceUsdMinor<Number(pkg.minimumQualifyingBalanceUsdMinor)){
+      throw new Error("Your available balance is not sufficient to activate this package. Minimum qualifying balance: USD "+(Number(pkg.minimumQualifyingBalanceUsdMinor)/100).toFixed(2)+".");
+    }
+    const ownershipRows=await tx.select().from(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.userId,userId)).for("update");
+    const priorForPackage=ownershipRows.filter(row=>Number(row.packageId)===Number(pkg.id));
+    const countedOwnership=policy.repeatRestriction==="all_history"
+      ? priorForPackage
+      : priorForPackage.filter(row=>row.status==="active"&&(!row.expiresAt||new Date(row.expiresAt)>now));
+    if(!policy.repeatAllowed&&countedOwnership.length>0) throw new Error("This package cannot be activated again under the current repeat-purchase policy");
+    if(policy.maxCopies>0&&countedOwnership.length>=policy.maxCopies) throw new Error("The maximum number of copies of this package has been reached");
+    const latestActivation=ownershipRows.reduce<Date|null>((latest,row)=>{
+      const activated=row.activatedAt?new Date(row.activatedAt):null;
+      return activated&&(!latest||activated>latest)?activated:latest;
+    },null);
+    if(latestActivation&&now.getTime()-latestActivation.getTime()<policy.cooldownSeconds*1000){
+      const remaining=Math.ceil((policy.cooldownSeconds*1000-(now.getTime()-latestActivation.getTime()))/1000);
+      throw new Error("Package activation cooldown is active for another "+remaining+" seconds");
+    }
+    const expiresAt=addCalendarMonths(now,Number(pkg.durationMonths));
+    const snapshot={
+      packageId:Number(pkg.id),packageName:pkg.name,
+      minimumQualifyingBalanceUsdMinor:Number(pkg.minimumQualifyingBalanceUsdMinor),
+      durationMonths:Number(pkg.durationMonths),opportunitiesPerDay:Number(pkg.opportunitiesPerDay),
+      termsVersion:Number(pkg.termsVersion),activatedAt:now.toISOString(),
+      qualification:{eligibleCurrencies:policy.eligibleCurrencies,combineEligibleWallets:policy.combineEligibleWallets,qualifyingBalanceUsdMinor},
+      repeatPolicy:{repeatAllowed:policy.repeatAllowed,maxCopies:policy.maxCopies,repeatRestriction:policy.repeatRestriction,cooldownSeconds:policy.cooldownSeconds},
+    };
+    const inserted=await tx.insert(customerPackageSubscriptions).values({
+      userId,packageId:pkg.id,startsAt:now,expiresAt,status:"active",activationKey:idempotencyKey,
+      termsSnapshotJson:JSON.stringify(snapshot),qualifyingBalanceUsdMinor,
+      packageTermsVersion:Number(pkg.termsVersion),activatedAt:now,createdAt:now,
+    });
+    const subscriptionId=Number(inserted[0].insertId);
+    await tx.update(users).set({packageName:pkg.name}).where(eq(users.id,userId));
+    await tx.insert(v5AuditEvents).values({
+      actorUserId:userId,action:"trading_package_activated",
+      entityType:"customer_package_subscription",entityId:String(subscriptionId),
+      reason:"Free trading package activated after qualifying-wallet-balance validation.",
+      reference:"trading-package-activation:"+idempotencyKey,
+      metadataJson:JSON.stringify({subscriptionId,userId,packageId:Number(pkg.id),packageName:pkg.name,qualifyingBalanceUsdMinor,minimumQualifyingBalanceUsdMinor:Number(pkg.minimumQualifyingBalanceUsdMinor),termsVersion:Number(pkg.termsVersion),expiresAt:expiresAt.toISOString()}),
+    });
+    return {subscriptionId,packageId:Number(pkg.id),packageName:pkg.name,activatedAt:now,expiresAt,qualifyingBalanceUsdMinor,termsSnapshotJson:JSON.stringify(snapshot),replayed:false};
+  });
+  if(!result.replayed){
+    try { await listCustomerOpportunities(userId,{consumeDelivery:false}); }
+    catch(error) { console.error("[AutoTrade] Immediate post-activation cycle failed:",error instanceof Error?error.message:"UnknownError"); }
+  }
+  return result;
+}
+
 export async function listOpportunityPackagePolicies() { const db=await getDb(); if(!db) throw new Error("Database is not available"); const existing=await db.select().from(opportunityPackagePolicies); const names=new Set(existing.map(row=>row.packageName)); for(const policy of DEFAULT_OPPORTUNITY_PACKAGE_POLICIES) if(!names.has(policy.packageName)) await db.insert(opportunityPackagePolicies).values(policy); return db.select().from(opportunityPackagePolicies); }
 export async function updateOpportunityPackagePolicies(updatedBy:number, policies:any[]) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
