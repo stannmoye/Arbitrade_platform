@@ -7,7 +7,6 @@ import { registerProviderOAuthRoutes } from "./providerOAuth";
 import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { sdk } from "./sdk";
 import { countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getUserByEmail, getUserById, processNotificationCampaignLifecycle, runAutoTradeCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
@@ -25,6 +24,7 @@ import { getLocalSessionFromRequest } from "./localAuth";
 import { confirmEmailVerification, requestEmailVerification, requestPasswordReset, resetPasswordWithCode } from "../emailAuth";
 import { startEmailWorkers } from "../emailQueue";
 import { startHeartbeatWorker } from "./heartbeat";
+import { registerStorageProxy } from "./storageProxy";
 import { refreshMiningPriceFeeds } from "../mining-admin";
 import { runMiningWorkerCycle } from "../mining";
 
@@ -39,6 +39,7 @@ const emailVerificationConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 *
 
 async function startServer() {
   const app = express();
+  registerStorageProxy(app);
   if (process.env.NODE_ENV === "production" && !configuredAuthRateLimitStore) {
     console.warn("[AuthRateLimit] Using process-local counters. Configure AUTH_RATE_LIMIT_REDIS_REST_URL and AUTH_RATE_LIMIT_REDIS_REST_TOKEN for multi-instance deployments.");
   }
