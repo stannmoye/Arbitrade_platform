@@ -6,6 +6,7 @@ import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEma
 import { ENV } from './_core/env';
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
+import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
@@ -65,6 +66,63 @@ export async function setAppSetting(key: string, value: string, updatedBy?: numb
 }
 
 export async function listAdminAuditEvents(){ const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(v5AuditEvents).orderBy(desc(v5AuditEvents.createdAt)).limit(200); }
+const TRADE_FEE_SETTING_KEYS = ["trade.platformFeeBps", "trade.feeRoundingMode", "trade.feePolicyVersion"] as const;
+const DEFAULT_TRADE_FEE_POLICY = { feeRateBps: 1500, roundingMode: "half_up" as FeeRoundingMode, policyVersion: 1 };
+function normalizeTradeFeePolicy(values: { feeRateBps: unknown; roundingMode: unknown; policyVersion: unknown }) {
+  const feeRateBps=Number(values.feeRateBps);
+  const policyVersion=Number(values.policyVersion);
+  const roundingMode=String(values.roundingMode) as FeeRoundingMode;
+  if(!Number.isInteger(feeRateBps)||feeRateBps<0||feeRateBps>10000) throw new Error("Trading fee rate setting is invalid");
+  if(!["half_up","down","up","half_even"].includes(roundingMode)) throw new Error("Trading fee rounding setting is invalid");
+  if(!Number.isSafeInteger(policyVersion)||policyVersion<1) throw new Error("Trading fee policy version is invalid");
+  return {feeRateBps,roundingMode,policyVersion};
+}
+export async function getTradeFeePolicy() {
+  const [feeRateBps,roundingMode,policyVersion]=await Promise.all([
+    getAppSetting("trade.platformFeeBps",String(DEFAULT_TRADE_FEE_POLICY.feeRateBps)),
+    getAppSetting("trade.feeRoundingMode",DEFAULT_TRADE_FEE_POLICY.roundingMode),
+    getAppSetting("trade.feePolicyVersion",String(DEFAULT_TRADE_FEE_POLICY.policyVersion)),
+  ]);
+  const policy=normalizeTradeFeePolicy({feeRateBps,roundingMode,policyVersion});
+  return {...policy,feePercent:policy.feeRateBps/100};
+}
+export async function setTradeFeePolicy(input:{feeRateBps:number;roundingMode:FeeRoundingMode},updatedBy:number) {
+  if(!Number.isInteger(input.feeRateBps)||input.feeRateBps<0||input.feeRateBps>10000) throw new Error("Trading fee rate must be between 0% and 100%");
+  if(!["half_up","down","up","half_even"].includes(input.roundingMode)) throw new Error("Unsupported trading fee rounding mode");
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  return db.transaction(async tx=>{
+    const rows=await tx.select().from(appSettings).where(inArray(appSettings.settingKey,[...TRADE_FEE_SETTING_KEYS])).for("update");
+    const byKey=new Map(rows.map(row=>[row.settingKey,row.settingValue]));
+    const current=normalizeTradeFeePolicy({
+      feeRateBps:byKey.get("trade.platformFeeBps")??String(DEFAULT_TRADE_FEE_POLICY.feeRateBps),
+      roundingMode:byKey.get("trade.feeRoundingMode")??DEFAULT_TRADE_FEE_POLICY.roundingMode,
+      policyVersion:byKey.get("trade.feePolicyVersion")??String(DEFAULT_TRADE_FEE_POLICY.policyVersion),
+    });
+    const next={feeRateBps:input.feeRateBps,roundingMode:input.roundingMode,policyVersion:current.policyVersion+1};
+    if(!Number.isSafeInteger(next.policyVersion)) throw new Error("Trading fee policy version has reached its limit");
+    const updateSetting=async(settingKey:string,settingValue:string)=>{
+      if(byKey.has(settingKey)) {
+        await tx.update(appSettings).set({settingValue,updatedBy,updatedAt:new Date()}).where(eq(appSettings.settingKey,settingKey));
+      } else {
+        await tx.insert(appSettings).values({settingKey,settingValue,updatedBy});
+      }
+    };
+    await updateSetting("trade.platformFeeBps",String(next.feeRateBps));
+    await updateSetting("trade.feeRoundingMode",next.roundingMode);
+    await updateSetting("trade.feePolicyVersion",String(next.policyVersion));
+    await tx.insert(v5AuditEvents).values({
+      actorUserId:updatedBy,
+      action:"trade_fee_policy_updated",
+      entityType:"trade_fee_policy",
+      entityId:String(next.policyVersion),
+      reason:"Administrator updated realized-profit fee settings.",
+      reference:`trade-fee-policy:${next.policyVersion}`,
+      metadataJson:JSON.stringify({old:{...current,feePercent:current.feeRateBps/100},new:{...next,feePercent:next.feeRateBps/100}}),
+    });
+    return {...next,feePercent:next.feeRateBps/100};
+  });
+}
+
 export async function getTradeSettlementPolicy() {
   const delaySeconds = Number(await getAppSetting("trade.settlementDelaySeconds", "900"));
   const creditDelaySeconds = Number(await getAppSetting("trade.creditDelaySeconds", "0"));
@@ -2046,25 +2104,45 @@ export async function listPendingSettlements(){
   }).from(tradePositions).leftJoin(opportunityOffers,eq(opportunityOffers.id,tradePositions.offerId)).leftJoin(users,eq(users.id,tradePositions.userId))
     .where(and(eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"))).orderBy(desc(tradePositions.confirmedAt));
 }
-export async function manuallySettleTrade(tradeId:number, adminId:number, input:{rewardMinor:number; settlementReference:string; notes?:string}){
+export async function manuallySettleTrade(tradeId:number, adminId:number, input:{grossProfitMinor:number; settlementReference:string; notes?:string}){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
-  if(!Number.isSafeInteger(input.rewardMinor)||input.rewardMinor<0) throw new Error("Manual reward must be a non-negative integer");
+  if(!Number.isSafeInteger(input.grossProfitMinor)) throw new Error("Actual gross profit or loss must be a signed safe integer");
   const reference=input.settlementReference.trim();
-  if(!reference) throw new Error("A manual settlement reference is required");
+  if(!reference) throw new Error("A settlement reference is required");
   if(reference.length>160) throw new Error("Settlement reference must not exceed 160 characters");
   const result=await db.transaction(async tx=>{
     const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,tradeId)).limit(1).for("update"))[0];
     if(!trade) throw new Error("Trade not found");
-    // A retried request with the same completed settlement identity is a safe replay.
-    if(trade.status==="settled"&&trade.settlementStatus==="completed"&&trade.settlementReference===reference&&Number(trade.rewardCreditedMinor)===input.rewardMinor){
-      return {tradeId,userId:trade.userId,offerId:trade.offerId,currency:trade.currency,principalMinor:Number(trade.principalMinor),rewardMinor:input.rewardMinor,totalMinor:Number(trade.principalMinor)+input.rewardMinor,reference};
+    // Replaying an already committed reference/result is safe and never posts again.
+    if(trade.status==="settled"&&trade.settlementStatus==="completed"&&trade.settlementReference===reference){
+      if(trade.settlementOutcome==="legacy_unrecorded"&&Number(trade.rewardCreditedMinor)===Math.max(0,input.grossProfitMinor)){
+        return {tradeId,userId:trade.userId,offerId:trade.offerId,currency:trade.currency,principalMinor:Number(trade.principalMinor),grossProfitMinor:0,platformFeeMinor:0,netProfitMinor:Number(trade.rewardCreditedMinor),rewardMinor:Number(trade.rewardCreditedMinor),totalMinor:Number(trade.principalMinor)+Number(trade.rewardCreditedMinor),feeRateBps:0,roundingMode:"half_up" as FeeRoundingMode,feePolicyVersion:Number(trade.feePolicyVersion||1),outcome:"legacy_unrecorded",reference,legacyUnrecorded:true};
+      }
+      if(Number(trade.realizedGrossProfitMinor)!==input.grossProfitMinor) throw new Error("Settlement reference was already used with a different actual result");
+      return {tradeId,userId:trade.userId,offerId:trade.offerId,currency:trade.currency,principalMinor:Number(trade.principalMinor),grossProfitMinor:Number(trade.realizedGrossProfitMinor),platformFeeMinor:Number(trade.platformFeeMinor),netProfitMinor:Number(trade.netProfitMinor),rewardMinor:Math.max(0,Number(trade.netProfitMinor)),totalMinor:Number(trade.principalMinor)+Number(trade.netProfitMinor),feeRateBps:Number(trade.platformFeeRateBps),roundingMode:String(trade.platformFeeRoundingMode) as FeeRoundingMode,feePolicyVersion:Number(trade.feePolicyVersion),outcome:String(trade.settlementOutcome),reference,legacyUnrecorded:false};
     }
     if(trade.status!=="confirmed"||trade.settlementStatus!=="pending") throw new Error("Trade is not pending manual settlement");
-    if(input.rewardMinor>Number(trade.rewardReservedMinor||0)) throw new Error("Manual reward exceeds the reserved package reward");
+
+    // Lock the active fee policy so this result uses one auditable, stable version.
+    const feeSettings=await tx.select().from(appSettings).where(inArray(appSettings.settingKey,[...TRADE_FEE_SETTING_KEYS])).for("update");
+    const feeByKey=new Map(feeSettings.map(row=>[row.settingKey,row.settingValue]));
+    const feePolicy=normalizeTradeFeePolicy({
+      feeRateBps:feeByKey.get("trade.platformFeeBps")??String(DEFAULT_TRADE_FEE_POLICY.feeRateBps),
+      roundingMode:feeByKey.get("trade.feeRoundingMode")??DEFAULT_TRADE_FEE_POLICY.roundingMode,
+      policyVersion:feeByKey.get("trade.feePolicyVersion")??String(DEFAULT_TRADE_FEE_POLICY.policyVersion),
+    });
+    const principal=Number(trade.principalMinor);
+    const accounting=calculateRealizedProfitSettlement({
+      principalMinor:principal,
+      grossProfitMinor:input.grossProfitMinor,
+      feeRateBps:feePolicy.feeRateBps,
+      roundingMode:feePolicy.roundingMode,
+    });
+
     const duplicate=(await tx.select({id:tradePositions.id}).from(tradePositions).where(eq(tradePositions.settlementReference,reference)).limit(1))[0];
     if(duplicate) throw new Error("Settlement reference has already been used");
-    // The unique claim is acquired before ledger mutation. Concurrent requests using
-    // the same reference cannot both reach the financial postings below.
+    // The unique claim is acquired before ledger mutation. Same reference across
+    // different trades cannot reach the financial postings concurrently.
     try {
       await tx.insert(tradeSettlementReferenceClaims).values({settlementReference:reference,tradeId});
     } catch(error) {
@@ -2072,47 +2150,82 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
       if(code==="ER_DUP_ENTRY") throw new Error("Settlement reference has already been used");
       throw error;
     }
-    const wallet=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,trade.userId),eq(customerBalances.currency,trade.currency))).limit(1))[0];
+    const wallet=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,trade.userId),eq(customerBalances.currency,trade.currency))).limit(1).for("update"))[0];
     if(!wallet) throw new Error("Customer settlement wallet is not configured");
-    const principal=Number(trade.principalMinor);
-    const total=principal+input.rewardMinor;
-    await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:principal,entryType:"trade_principal_release",reference:`${reference}:principal`,withdrawable:false});
-    if(input.rewardMinor>0) await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:input.rewardMinor,entryType:"trade_reward",reference:`${reference}:reward`,withdrawable:false});
-    const walletUpdate=await tx.update(customerBalances).set({availableMinor:sql`${customerBalances.availableMinor}+${total}`,lockedMinor:sql`GREATEST(${customerBalances.lockedMinor}-${principal},0)`,earnedMinor:sql`${customerBalances.earnedMinor}+${input.rewardMinor}`,updatedAt:new Date()}).where(eq(customerBalances.id,wallet.id));
+
+    // Keep ledger references within balance_ledger.reference's 80-character limit.
+    // Short references retain their existing readable form for audit/recovery tools.
+    const ledgerBase=reference.length<=60?reference:`trade-${tradeId}-${crypto.createHash("sha256").update(reference).digest("hex").slice(0,24)}`;
+    await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:principal,entryType:"trade_principal_release",reference:`${ledgerBase}:principal`,withdrawable:false});
+    if(accounting.grossProfitMinor>0) await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:accounting.grossProfitMinor,entryType:"trade_reward",reference:`${ledgerBase}:gross-profit`,withdrawable:false});
+    if(accounting.platformFeeMinor>0) await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:-accounting.platformFeeMinor,entryType:"trade_platform_fee",reference:`${ledgerBase}:platform-fee`,withdrawable:false});
+    if(accounting.grossProfitMinor<0) await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:accounting.grossProfitMinor,entryType:"trade_loss",reference:`${ledgerBase}:loss`,withdrawable:false});
+
+    const walletUpdate=await tx.update(customerBalances).set({
+      availableMinor:sql`${customerBalances.availableMinor}+${accounting.totalReturnedMinor}`,
+      lockedMinor:sql`GREATEST(${customerBalances.lockedMinor}-${principal},0)`,
+      earnedMinor:sql`${customerBalances.earnedMinor}+${accounting.netProfitMinor}`,
+      updatedAt:new Date(),
+    }).where(eq(customerBalances.id,wallet.id));
     assertExactlyOneAffectedRow(walletUpdate,"Manual settlement wallet update");
-    const settlementUpdate=await tx.update(tradePositions).set({status:"settled",settledAt:new Date(),lifecycleStage:"Trade Completed",settlementStatus:"completed",rewardCreditedMinor:input.rewardMinor,rewardReservedMinor:0,walletUpdatedAt:new Date(),completionAt:new Date(),transactionReference:reference,settlementReference:reference,settlementConfirmedAt:new Date(),settlementConfirmedBy:adminId,settlementNotes:input.notes?.trim()||null}).where(and(eq(tradePositions.id,tradeId),eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending")));
-    // If another settlement won the race, throw inside the transaction so the
-    // preceding wallet and ledger mutations are rolled back together.
+    const now=new Date();
+    const settlementUpdate=await tx.update(tradePositions).set({
+      status:"settled",
+      settledAt:now,
+      lifecycleStage:"Trade Completed",
+      settlementStatus:"completed",
+      rewardCreditedMinor:accounting.rewardCreditedMinor,
+      realizedGrossProfitMinor:accounting.grossProfitMinor,
+      platformFeeMinor:accounting.platformFeeMinor,
+      netProfitMinor:accounting.netProfitMinor,
+      feePolicyVersion:feePolicy.policyVersion,
+      platformFeeRateBps:feePolicy.feeRateBps,
+      platformFeeRoundingMode:feePolicy.roundingMode,
+      settlementOutcome:accounting.outcome,
+      rewardReservedMinor:0,
+      walletUpdatedAt:now,
+      completionAt:now,
+      transactionReference:reference,
+      settlementReference:reference,
+      settlementConfirmedAt:now,
+      settlementConfirmedBy:adminId,
+      settlementNotes:input.notes?.trim()||null,
+    }).where(and(eq(tradePositions.id,tradeId),eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending")));
+    // If another settlement won the race, roll back wallet and ledger mutations together.
     assertExactlyOneAffectedRow(settlementUpdate,"Manual trade settlement state transition");
-    await tx.update(tradeRewardReservations).set({status:"credited",updatedAt:new Date()}).where(and(eq(tradeRewardReservations.tradeId,tradeId),eq(tradeRewardReservations.status,"reserved")));
-    await tx.insert(tradeLifecycleEvents).values({tradeId,userId:trade.userId,eventType:"manual_settlement_confirmed",stage:"Wallet Updated",payloadJson:JSON.stringify({principalMinor:principal,rewardMinor:input.rewardMinor,reference,adminId})});
-    await tx.insert(tradeLifecycleEvents).values({tradeId,userId:trade.userId,eventType:"trade_completed",stage:"Trade Completed",payloadJson:JSON.stringify({reference})});
-    return {tradeId, userId:trade.userId, offerId:trade.offerId, currency:trade.currency, principalMinor:principal, rewardMinor:input.rewardMinor, totalMinor:total, reference};
+    await tx.update(tradeRewardReservations).set({
+      reservedMinor:Math.max(0,accounting.netProfitMinor),
+      status:accounting.netProfitMinor>0?"credited":"released",
+      updatedAt:now,
+    }).where(and(eq(tradeRewardReservations.tradeId,tradeId),eq(tradeRewardReservations.status,"reserved")));
+    await tx.insert(tradeLifecycleEvents).values({
+      tradeId,userId:trade.userId,eventType:"manual_settlement_confirmed",stage:"Wallet Updated",
+      payloadJson:JSON.stringify({principalMinor:principal,grossProfitMinor:accounting.grossProfitMinor,platformFeeMinor:accounting.platformFeeMinor,netProfitMinor:accounting.netProfitMinor,feeRateBps:feePolicy.feeRateBps,roundingMode:feePolicy.roundingMode,feePolicyVersion:feePolicy.policyVersion,outcome:accounting.outcome,reference,adminId}),
+    });
+    if(accounting.netProfitMinor>Number(trade.rewardReservedMinor||0)){
+      await tx.insert(tradeLifecycleEvents).values({
+        tradeId,userId:trade.userId,eventType:"realized_reward_exceeded_reservation",stage:"Settlement Reconciliation Required",
+        payloadJson:JSON.stringify({reservedMinor:Number(trade.rewardReservedMinor||0),actualNetProfitMinor:accounting.netProfitMinor,reference,reason:"Actual realized result exceeded the opportunity reward reservation; actual settlement was recorded without capping or fabricating the result."}),
+      });
+    }
+    await tx.insert(tradeLifecycleEvents).values({
+      tradeId,userId:trade.userId,eventType:"trade_completed",stage:"Trade Completed",
+      payloadJson:JSON.stringify({reference,outcome:accounting.outcome,realizedGrossProfitMinor:accounting.grossProfitMinor,platformFeeMinor:accounting.platformFeeMinor,netProfitMinor:accounting.netProfitMinor}),
+    });
+    return {
+      tradeId,userId:trade.userId,offerId:trade.offerId,currency:trade.currency,
+      principalMinor:principal,grossProfitMinor:accounting.grossProfitMinor,
+      platformFeeMinor:accounting.platformFeeMinor,netProfitMinor:accounting.netProfitMinor,
+      rewardMinor:accounting.rewardCreditedMinor,totalMinor:accounting.totalReturnedMinor,
+      feeRateBps:feePolicy.feeRateBps,roundingMode:feePolicy.roundingMode,
+      feePolicyVersion:feePolicy.policyVersion,outcome:accounting.outcome,reference,legacyUnrecorded:false,
+    };
   });
   await updatePopupLifecycleForOffer(result.userId,result.offerId,"settled");
-  // Financial state is already committed. Notification failures must not misreport
-  // settlement or roll back the customer's wallet/ledger entries.
-  const settlementNotices=[{
-    title:"Trade principal released",
-    body:`Trade ${result.tradeId} principal was released to your ${result.currency} wallet after settlement.`,
-    eventKey:`trade-settlement:${result.reference}:principal`,
-    category:"ledger_credit" as const,
-    priority:"normal" as const,
-  },...(result.rewardMinor>0?[{
-    title:"Trading reward credited",
-    body:`Trade ${result.tradeId} reward of ${result.rewardMinor} minor units was credited to your ${result.currency} wallet.`,
-    eventKey:`trade-settlement:${result.reference}:reward`,
-    category:"trading_reward" as const,
-    priority:"high" as const,
-  }]:[])];
-  const noticeResults=await Promise.allSettled(settlementNotices.map(notice=>createNotification(
-    result.userId,notice.title,notice.body,notice,
-  )));
-  if(noticeResults.some(notice=>notice.status==="rejected")) {
-    console.error("[Notifications] One or more trade settlement notices failed after commit.");
-  }
+  // Notification delivery is performed by the API router after this durable transaction commits.
   return result;
 }
+
 export async function createOpportunityOffer(input:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number}){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();const closesAt=new Date(now.getTime()+input.durationSeconds*1000);const result=await db.insert(opportunityOffers).values({...input,opensAt:now,closesAt,rewardAt:closesAt,status:"open"});return {id:Number(result[0].insertId),...input,opensAt:now,closesAt,rewardAt:closesAt};}
 
 export async function bulkCreateOpportunityOffers(inputs:{symbol:string;venueFrom:string;venueTo:string;currency:"USD"|"EUR"|"GBP"|"BTC"|"ETH";minimumMinor:number;expectedRewardBps:number;durationSeconds:number;opensAt?:Date;closesAt?:Date;rewardAt?:Date}[]) { const db=await getDb(); if(!db) throw new Error("Database is not available"); if(!inputs.length) return {created:0}; const rows=inputs.map(input=>{const opensAt=input.opensAt||new Date(); const closesAt=input.closesAt||new Date(opensAt.getTime()+input.durationSeconds*1000); return {...input,opensAt,closesAt,rewardAt:input.rewardAt||closesAt,status:"open" as const};}); await db.insert(opportunityOffers).values(rows); return {created:rows.length}; }
