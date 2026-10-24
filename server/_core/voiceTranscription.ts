@@ -75,14 +75,14 @@ export async function transcribeAudio(
 ): Promise<TranscriptionResponse | TranscriptionError> {
   try {
     // Step 1: Validate environment configuration
-    if (!ENV.aiApiBaseUrl) {
+    if (!ENV.transcriptionApiBaseUrl) {
       return {
         error: "Voice transcription service is not configured",
         code: "SERVICE_ERROR",
         details: "AI_API_BASE_URL is not set"
       };
     }
-    if (!ENV.aiApiKey && !["localhost", "127.0.0.1", "::1"].includes(new URL(ENV.aiApiBaseUrl).hostname)) {
+    if (!ENV.transcriptionApiKey && !["localhost", "127.0.0.1", "::1"].includes(new URL(ENV.transcriptionApiBaseUrl).hostname)) {
       return {
         error: "Voice transcription service authentication is missing",
         code: "SERVICE_ERROR",
@@ -143,7 +143,7 @@ export async function transcribeAudio(
     formData.append("prompt", prompt);
 
     // Step 4: Call the transcription service
-    const baseUrl = `${ENV.aiApiBaseUrl.replace(/\/+$/, "")}/`;
+    const baseUrl = `${ENV.transcriptionApiBaseUrl.replace(/\/+$/, "")}/`;
 
     const fullUrl = new URL(
       "v1/audio/transcriptions",
@@ -153,7 +153,7 @@ export async function transcribeAudio(
     const response = await fetch(fullUrl, {
       method: "POST",
       headers: {
-        ...(ENV.aiApiKey ? { authorization: `Bearer ${ENV.aiApiKey}` } : {}),
+        ...(ENV.transcriptionApiKey ? { authorization: `Bearer ${ENV.transcriptionApiKey}` } : {}),
         "Accept-Encoding": "identity",
       },
       body: formData,
