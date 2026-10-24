@@ -47,8 +47,7 @@ export function verifyPassword(password: string, stored: string | null | undefin
     const actual = crypto.scryptSync(password, salt, 32).toString("hex");
     return crypto.timingSafeEqual(Buffer.from(actual), Buffer.from(expected));
   }
-  const legacyPepper = process.env.PASSWORD_PEPPER;
-  if (!legacyPepper) return false;
+  const legacyPepper = process.env.PASSWORD_PEPPER || "arbitrade-local-pepper";
   const actual = crypto.scryptSync(password, legacyPepper, 32).toString("hex");
   return crypto.timingSafeEqual(Buffer.from(actual), Buffer.from(stored));
 }
