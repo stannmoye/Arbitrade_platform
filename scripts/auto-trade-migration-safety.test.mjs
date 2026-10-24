@@ -13,7 +13,7 @@ const portalRunnerPath = new URL("./apply-portal-migrations.mjs", import.meta.ur
 const recoveryPath = new URL("../installer/migration-recovery-status.mjs", import.meta.url);
 
 describe("package-driven auto-trade execution", () => {
-  it("disables inherited records before removing inherit from the database enum", async () => {
+  it("migrates inherited records safely and keeps runtime execution package-driven", async () => {
     const [migration, schema, db, router] = await Promise.all([
       readFile(migrationPath, "utf8"),
       readFile(schemaPath, "utf8"),
@@ -31,7 +31,11 @@ describe("package-driven auto-trade execution", () => {
     expect(schema).toContain('autoTradeEnabled: boolean("autoTradeEnabled").default(false).notNull()');
     expect(migration).toContain("SET `autoTradeEnabled` = CASE WHEN `autoTradeMode` = 'enabled' THEN 1 ELSE 0 END");
     expect(schema).not.toContain('mysqlEnum("autoTradeMode", ["inherit", "enabled", "disabled"])');
-    expect(db).toContain('autoTradeEnabled:false,autoTradeMode:"disabled"');
+    expect(db).not.toContain("autoTradeEnabled");
+    expect(db).not.toContain("autoTradeMode");
+    expect(db).not.toContain("autoTradeMinRewardBps");
+    expect(db).toContain("const eligibleSubscriptions=subscriptions;");
+    expect(db).toContain("const autoTradeCandidates=tradeCandidates;");
     expect(db).not.toContain('autoTradeMode=c?.autoTradeMode||"inherit"');
     expect(router).not.toContain('z.enum(["inherit","enabled","disabled"])');
   });
