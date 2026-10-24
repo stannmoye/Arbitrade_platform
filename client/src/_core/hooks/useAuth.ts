@@ -1,5 +1,6 @@
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
+import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
 
 type UseAuthOptions = {
