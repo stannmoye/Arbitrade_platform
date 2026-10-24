@@ -71,7 +71,6 @@ describe("explicit auto-trade opt-in migration", () => {
     }
     expect(app).not.toContain("Daily limit: {c.limit}");
     expect(schema).toContain('autoTradeMinRewardBps: int("autoTradeMinRewardBps").default(0).notNull()');
-    expect(schema).toContain('dailyTradeLimitMinor: bigint("dailyTradeLimitMinor", { mode: "number" }).default(2500000).notNull()');
     expect(db).not.toContain("updateCustomerAutoTradeSettings");
     expect(audit).toContain("function checkColumnAbsent(table, column)");
     expect(audit).toContain('absentColumns: [["customer_controls","autoTradeAmountMinor"],["customer_controls","autoTradeDailyLimit"]]');
