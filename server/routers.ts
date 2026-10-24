@@ -24,7 +24,7 @@ import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { invalidateUserSessions } from "./authSessions";
 import { getLocalSessionFromRequest } from "./_core/localAuth";
 import * as privacyService from "./privacy";
-import { sdk } from "./_core/sdk";
+import { localIdentityService } from "./_core/localIdentityService";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -110,9 +110,9 @@ export const appRouter = router({
           const bearerToken = typeof authHeader === "string" && authHeader.startsWith("Bearer ")
             ? authHeader.slice(7)
             : undefined;
-          let session = await sdk.verifySession(cookieToken);
+          let session = await localIdentityService.verifySession(cookieToken);
           if (!session && bearerToken && bearerToken !== cookieToken) {
-            session = await sdk.verifySession(bearerToken);
+            session = await localIdentityService.verifySession(bearerToken);
           }
 
           if (session) {
