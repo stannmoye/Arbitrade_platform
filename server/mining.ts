@@ -542,7 +542,6 @@ export async function getCustomerMiningDashboard(userId: number) {
     const [pendingRows] = await conn.query<any[]>(`SELECT COUNT(*) total FROM mining_conversion_jobs WHERE userId=? AND status IN ('queued','waiting','retrying')`, [userId]);
     const [activityRows] = await conn.query<any[]>(`SELECT COUNT(*) intervalCount,COALESCE(SUM(eligibleSeconds),0) eligibleSeconds,MAX(intervalEnd) lastRecordedAt
       FROM mining_engine_activity WHERE userId=? AND intervalStart>=UTC_DATE()`, [userId]);
-    const estimatedDailyTokens: Decimal | null = null;
     const pref = preferenceRows[0] ? {
       enabled: Boolean(preferenceRows[0].enabled), targetDenomination: String(preferenceRows[0].targetDenomination),
       minimumThreshold: String(preferenceRows[0].minimumThreshold), version: Number(preferenceRows[0].version), updatedAt: new Date(preferenceRows[0].updatedAt).toISOString(),
@@ -563,7 +562,7 @@ export async function getCustomerMiningDashboard(userId: number) {
       minSwapTokens: config.minSwapTokens, maxSwapTokens: config.maxSwapTokens,
       pendingTokens: pendingTokens.toDecimalPlaces(tokenScale, Decimal.ROUND_DOWN).toFixed(tokenScale), nextRewardAt: nextRewardAt.toISOString(),
       rewardTokensPerThsHour: config.rewardTokensPerThsHour,
-      estimatedDailyTokens: estimatedDailyTokens ? estimatedDailyTokens.toDecimalPlaces(tokenScale, Decimal.ROUND_DOWN).toFixed(tokenScale) : null,
+      estimatedDailyTokens: null,
       estimateAssumption: "CKI estimate-based credits are blocked until verified third-party farm settlements can be ingested, valued, allocated, and posted idempotently. Package estimates are not credited.",
       economicsVersion: config.version, tokenUnitsPerUsd: config.tokenUnitsPerUsd,
       tokenConversionReference: `1 ${config.tokenSymbol} = $${decimal(1).div(config.tokenUnitsPerUsd).toSignificantDigits(12).toString()} USD (admin-configured internal reference; not a market price or redemption promise)`,
