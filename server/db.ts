@@ -1863,7 +1863,6 @@ export async function listCustomerOpportunities(userId:number, options: { consum
   )).limit(1))[0];
  if(!activePackageSubscription) return {offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery:{packageName,maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,autoTradeEnabled:false,packageNotActive:true,popupPolicy:{}}};
  if(controls.accountStatus!=="active") return {offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery:{packageName,maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,autoTradeEnabled:false,accountInactive:true,popupPolicy:{}}};
- const walletSnapshot=await listBalances(userId);
  // Opportunities remain visible for active package holders without spendable funds.
  // autoTradeOpenOpportunities records an eligible opportunity as missed instead of
  // suppressing the feed or creating a trade with insufficient balance.
