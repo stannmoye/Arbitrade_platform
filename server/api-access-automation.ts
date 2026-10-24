@@ -429,7 +429,7 @@ export async function enqueueCustomerApiEvent(userId: number, eventKey: ApiAutom
 }
 
 function interpolateTemplate(template: string, data: Record<string, unknown>) {
-  return template.replace(/\\{\\{([a-zA-Z0-9_]+)\\}\\}/g, (_match, key: string) => {
+  return template.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_match, key: string) => {
     const value = data[key];
     return typeof value === "string" || typeof value === "number" ? String(value).slice(0, 500) : "";
   }).slice(0, 3000);
