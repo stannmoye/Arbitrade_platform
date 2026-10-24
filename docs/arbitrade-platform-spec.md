@@ -1,3 +1,5 @@
+> **Trading requirements precedence notice (2026-10-24):** For all trading-specific behaviour, `docs/TRADING_SYSTEM_SPECIFICATION.md` is the sole canonical product contract and takes precedence over any conflicting trading details in this older platform specification. Read the canonical trading specification before changing trading code. This file remains useful for non-trading platform architecture and historical context; do not treat conflicting older trading guidance here as current requirements. Update this notice if the canonical document is renamed.
+
 # Arbitrade: Hosted Crypto-Arbitrage Platform Specification
 
 **Version:** 1.0  
