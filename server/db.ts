@@ -2027,6 +2027,16 @@ export async function listTrades(userId:number){
     currency:tradePositions.currency,
     principalMinor:tradePositions.principalMinor,
     expectedRewardMinor:tradePositions.expectedRewardMinor,
+    rewardCreditedMinor:tradePositions.rewardCreditedMinor,
+    realizedGrossProfitMinor:tradePositions.realizedGrossProfitMinor,
+    platformFeeMinor:tradePositions.platformFeeMinor,
+    netProfitMinor:tradePositions.netProfitMinor,
+    settlementOutcome:tradePositions.settlementOutcome,
+    feePolicyVersion:tradePositions.feePolicyVersion,
+    platformFeeRateBps:tradePositions.platformFeeRateBps,
+    platformFeeRoundingMode:tradePositions.platformFeeRoundingMode,
+    settlementReference:tradePositions.settlementReference,
+    settlementConfirmedAt:tradePositions.settlementConfirmedAt,
     status:tradePositions.status,
     confirmedAt:tradePositions.confirmedAt,
     settlesAt:tradePositions.settlesAt,
@@ -2042,7 +2052,8 @@ export async function listTrades(userId:number){
   return rows.map(row=>{
     const settled=row.status==="settled";
     const pending=row.status==="pending";
-    const stage=settled?"Trade Completed":pending?"Trade Allocated":new Date(row.settlesAt).getTime()<=Date.now()?"Settlement Processing":"Trade Executing";
+    const hasActualBreakdown=settled&&row.settlementOutcome!=="legacy_unrecorded";
+    const stage=settled?"Trade Completed":pending?"Trade Allocated":new Date(row.settlesAt).getTime()<=Date.now()?"Awaiting Settlement Confirmation":"Trade Executing";
     return {
       ...row,
       tradeReference:`trade-${row.id}`,
@@ -2050,10 +2061,11 @@ export async function listTrades(userId:number){
       stage,
       settlementStatus:settled?"completed":row.status,
       rewardCredited:settled,
-      creditedRewardMinor:settled?Number(row.expectedRewardMinor):0,
+      creditedRewardMinor:hasActualBreakdown?Math.max(0,Number(row.netProfitMinor||0)):null,
       walletUpdated:settled,
       completionAt:settled?row.settledAt:null,
-      transactionReference:settled?`trade-settlement:${row.id}`:null,
+      transactionReference:settled?row.settlementReference:null,
+      hasActualBreakdown,
     };
   });
 }
