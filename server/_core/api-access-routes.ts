@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { and, desc, eq, gte, lt } from "drizzle-orm";
+import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { authenticateCustomerApiKey, type CustomerApiScope } from "../api-access";
 import { createCustomerPayoutRequest, getAppSetting, getDb, listBalances, listCurrencies, listCustomerPayoutRequests, listTrades } from "../db";
 import { API_AUTOMATION_EVENTS, createCustomerApiWebhook, enqueueCustomerApiEvent, listApiPlatformIncidents, listCustomerApiNotificationHistory, listCustomerApiWebhooks, revokeCustomerApiWebhook } from "../api-access-automation";
@@ -458,4 +458,47 @@ export function registerCustomerApiAccessRoutes(app: Express) {
       meta: { checkedAt: new Date().toISOString(), source: activeIncident ? "active-incident" : declaredStatus !== "not-configured" ? "administrator-setting" : "api-route-health", note: "Application status is an administrator-declared state until real health probes are configured." },
     });
   }));
+
+  // Public, minimal health probe so monitoring can still diagnose database outages
+  // without a customer API key. It intentionally returns no account or provider secrets.
+  app.get("/api/v1/platform/health", apiIpRateLimit, async (_req, res) => {
+    const checkedAt = new Date().toISOString();
+    let databaseStatus: "online" | "unavailable" = "unavailable";
+    let declaredStatus = "not-configured";
+    let maintenanceMessage = "";
+    try {
+      const db = await getDb();
+      if (db) {
+        await db.execute(sql`SELECT 1`);
+        databaseStatus = "online";
+        const raw = await getAppSetting("apiAccess.settings");
+        const settings = raw ? JSON.parse(raw) as Record<string, unknown> : {};
+        if (["operational", "degraded", "maintenance", "offline"].includes(String(settings.platformStatus))) {
+          declaredStatus = String(settings.platformStatus);
+        }
+        maintenanceMessage = typeof settings.maintenanceMessage === "string" ? settings.maintenanceMessage.slice(0, 1000) : "";
+      }
+    } catch {
+      databaseStatus = "unavailable";
+    }
+    const platformStatus = declaredStatus === "maintenance" || declaredStatus === "offline"
+      ? declaredStatus
+      : databaseStatus !== "online" || declaredStatus === "degraded"
+        ? "degraded"
+        : declaredStatus === "operational" ? "operational" : "unknown";
+    res.status(databaseStatus === "online" ? 200 : 503).json({
+      data: {
+        apiService: "online",
+        database: databaseStatus,
+        platformStatus,
+        maintenanceMessage: platformStatus === "maintenance" ? maintenanceMessage : "",
+        uptimeSeconds: Math.floor(process.uptime()),
+      },
+      meta: {
+        checkedAt,
+        source: "live-api-and-database-probe",
+        note: "This probe verifies API reachability and database connectivity. Other external providers are reported separately and are not inferred to be healthy.",
+      },
+    });
+  });
 }
