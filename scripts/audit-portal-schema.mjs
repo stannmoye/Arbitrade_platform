@@ -52,6 +52,8 @@ const migrations = [
     absentColumns: [["customer_controls","dailyTradeLimitMinor"]] },
   { file: "0067_trade_settlement_reference_claims.sql", tables: ["trade_settlement_reference_claims"],
     columns: [["trade_settlement_reference_claims","settlementReference","varchar"],["trade_settlement_reference_claims","tradeId","int"],["trade_settlement_reference_claims","createdAt","timestamp"]] },
+  { file: "0068_trade_realized_profit_accounting.sql", tables: ["trade_positions"],
+    columns: [["trade_positions","realizedGrossProfitMinor","bigint"],["trade_positions","platformFeeMinor","bigint"],["trade_positions","netProfitMinor","bigint"],["trade_positions","feePolicyVersion","int"],["trade_positions","platformFeeRateBps","int"],["trade_positions","platformFeeRoundingMode","varchar"],["trade_positions","settlementOutcome","varchar"]] },
 ];
 
 const url = new URL(rawDatabaseUrl);
