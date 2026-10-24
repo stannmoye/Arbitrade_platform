@@ -23,6 +23,10 @@ import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { invalidateUserSessions } from "./authSessions";
 import { getLocalSessionFromRequest } from "./_core/localAuth";
 import * as privacyService from "./privacy";
+import { CUSTOMER_API_SCOPES, createCustomerApiKey, listCustomerApiKeys, revokeCustomerApiKey } from "./api-access";
+import { API_AUTOMATION_EVENTS, createApiPlatformIncident, createCustomerApiWebhook, enqueueCustomerApiEvent, getCustomerApiNotificationPreferences, listApiPlatformIncidents, listCustomerApiNotificationHistory, listCustomerApiWebhooks, requestCustomerWhatsAppVerification, resolveApiPlatformIncident, revokeCustomerApiWebhook, saveCustomerApiNotificationPreferences, verifyCustomerWhatsAppNumber } from "./api-access-automation";
+import { apiProviderCredentialStatus, readApiProviderCredential, removeApiProviderCredential, saveApiProviderCredential, testMetaWhatsAppCredentials } from "./api-access-vault";
+import { listCustomerApiUsage } from "./api-access-usage";
 import { sdk } from "./_core/sdk";
 
 export const appRouter = router({
@@ -149,6 +153,88 @@ export const appRouter = router({
   }),
 
   customer: router({
+    apiUsage: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "API usage is available to customer accounts only." });
+      return listCustomerApiUsage(ctx.user.id);
+    }),
+    apiKeys: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "API keys are available to customer accounts only." });
+      return listCustomerApiKeys(ctx.user.id);
+    }),
+    createApiKey: protectedProcedure.input(z.object({
+      name: z.string().trim().min(3).max(80),
+      scopes: z.array(z.enum(CUSTOMER_API_SCOPES)).min(1).max(CUSTOMER_API_SCOPES.length),
+    })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "API keys are available to customer accounts only." });
+      try {
+        const created = await createCustomerApiKey(ctx.user.id, input.name, input.scopes);
+        void enqueueCustomerApiEvent(ctx.user.id, "api.key.created", { event: "A new API key was created.", keyName: input.name, keyPrefix: created.key.prefix }, "api-key-created:" + created.key.id)
+          .catch((error) => console.error("[API automation] Key-created event could not be queued:", error instanceof Error ? error.name : "UnknownError"));
+        return created;
+      } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not create API key." }); }
+    }),
+    revokeApiKey: protectedProcedure.input(z.object({ keyId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "API keys are available to customer accounts only." });
+      try {
+        const result = await revokeCustomerApiKey(ctx.user.id, input.keyId);
+        if (!result.alreadyRevoked) void enqueueCustomerApiEvent(ctx.user.id, "api.key.revoked", { event: "An API key was revoked.", keyId: input.keyId }, "api-key-revoked:" + input.keyId)
+          .catch((error) => console.error("[API automation] Key-revoked event could not be queued:", error instanceof Error ? error.name : "UnknownError"));
+        return result;
+      } catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not revoke API key." }); }
+    }),
+    apiAutomationPreferences: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Notification preferences are available to customer accounts only." });
+      return getCustomerApiNotificationPreferences(ctx.user.id);
+    }),
+    saveApiAutomationPreferences: protectedProcedure.input(z.object({
+      whatsappNumber: z.string().trim().max(32),
+      whatsappOptIn: z.boolean(),
+      whatsappEvents: z.array(z.enum(API_AUTOMATION_EVENTS)).max(API_AUTOMATION_EVENTS.length),
+      inAppEnabled: z.boolean(),
+      dailySummaryEnabled: z.boolean(),
+      dailyStatementEnabled: z.boolean(),
+      dailyTaxReportEnabled: z.boolean(),
+      feeSummaryEnabled: z.boolean(),
+      securityAlertsEnabled: z.boolean(),
+      timezone: z.string().min(1).max(80),
+      dailyReportTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+    })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Notification preferences are available to customer accounts only." });
+      try { return await saveCustomerApiNotificationPreferences(ctx.user.id, input); }
+      catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not save notification preferences." }); }
+    }),
+    requestWhatsAppVerification: protectedProcedure.mutation(async ({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "WhatsApp verification is available to customer accounts only." });
+      try { return await requestCustomerWhatsAppVerification(ctx.user.id); }
+      catch (error) { throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Could not send a WhatsApp verification code." }); }
+    }),
+    verifyWhatsAppNumber: protectedProcedure.input(z.object({ code: z.string().regex(/^\d{6}$/) })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "WhatsApp verification is available to customer accounts only." });
+      try { return await verifyCustomerWhatsAppNumber(ctx.user.id, input.code); }
+      catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not verify WhatsApp number." }); }
+    }),
+    apiWebhooks: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Webhooks are available to customer accounts only." });
+      return listCustomerApiWebhooks(ctx.user.id);
+    }),
+    createApiWebhook: protectedProcedure.input(z.object({
+      name: z.string().trim().min(3).max(80),
+      endpointUrl: z.string().url().max(500),
+      events: z.array(z.enum(API_AUTOMATION_EVENTS)).min(1).max(API_AUTOMATION_EVENTS.length),
+    })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Webhooks are available to customer accounts only." });
+      try { return await createCustomerApiWebhook(ctx.user.id, input.name, input.endpointUrl, input.events); }
+      catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not create webhook." }); }
+    }),
+    revokeApiWebhook: protectedProcedure.input(z.object({ webhookId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Webhooks are available to customer accounts only." });
+      try { return await revokeCustomerApiWebhook(ctx.user.id, input.webhookId); }
+      catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not revoke webhook." }); }
+    }),
+    apiNotificationHistory: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Notification history is available to customer accounts only." });
+      return listCustomerApiNotificationHistory(ctx.user.id);
+    }),
     authenticatorStatus: protectedProcedure.query(({ ctx }) => getCustomerAuthenticatorStatus(ctx.user.id)),
     startAuthenticatorEnrollment: protectedProcedure.mutation(({ ctx }) => startCustomerAuthenticatorEnrollment(ctx.user.id)),
     confirmAuthenticatorEnrollment: protectedProcedure.input(z.object({ code: z.string().regex(/^\d{6}$/) })).mutation(({ ctx, input }) => confirmCustomerAuthenticatorEnrollment(ctx.user.id, input.code)),
@@ -231,9 +317,25 @@ export const appRouter = router({
       destinationDetails: z.string().trim().min(8).max(1000),
       idempotencyKey: z.string().trim().min(8).max(160),
       totpCode: z.string().regex(/^\d{6}$/).optional(),
-    })).mutation(({ ctx, input }) => createCustomerPayoutRequest(ctx.user.id, input)),
+    })).mutation(async ({ ctx, input }) => {
+      const result = await createCustomerPayoutRequest(ctx.user.id, input);
+      void enqueueCustomerApiEvent(ctx.user.id, "withdrawal.status", {
+        reference: result.requestReference, status: result.status,
+        event: "Your withdrawal request was created with status " + result.status + ".",
+      }, "withdrawal-status:" + result.requestReference + ":" + result.status)
+        .catch((error) => console.error("[API automation] Withdrawal request event could not be queued:", error instanceof Error ? error.name : "UnknownError"));
+      return result;
+    }),
     cancelPayoutRequest: protectedProcedure.input(z.object({ requestId: z.number().int().positive() }))
-      .mutation(({ ctx, input }) => cancelCustomerPayoutRequest(ctx.user.id, input.requestId)),
+      .mutation(async ({ ctx, input }) => {
+        const result = await cancelCustomerPayoutRequest(ctx.user.id, input.requestId);
+        void enqueueCustomerApiEvent(ctx.user.id, "withdrawal.status", {
+          reference: result.requestReference, status: result.status,
+          event: "Your withdrawal request status changed to " + result.status + ".",
+        }, "withdrawal-status:" + result.requestReference + ":" + result.status)
+          .catch((error) => console.error("[API automation] Withdrawal cancellation event could not be queued:", error instanceof Error ? error.name : "UnknownError"));
+        return result;
+      }),
     walletPreferences: protectedProcedure.query(({ ctx }) => getCustomerWalletPreferences(ctx.user.id)),
     updateWalletPreferences: protectedProcedure.input(z.object({ tradingCurrency: z.string().min(2).max(32).optional(), swapCurrency: z.string().min(2).max(32).optional(), autoTopUpEnabled: z.boolean().optional(), withdrawalWhitelistEnabled: z.boolean().optional() })).mutation(({ ctx, input }) => updateCustomerWalletPreferences(ctx.user.id, input)),
     opportunityRules: protectedProcedure.query(({ ctx }) => getCustomerOpportunityRules(ctx.user.id)),
@@ -279,7 +381,157 @@ export const appRouter = router({
   }),
 
   adminOperations: router({
+    apiAccessSettings: adminProcedure.query(async () => {
+      const defaults = {
+        apiEnabled: false,
+        requestsPerMinute: 60,
+        whatsappEnabled: false,
+        whatsappNumber: "",
+        webhooksEnabled: false,
+        dailyReportDeliveryEnabled: false,
+        withdrawalApiEnabled: false,
+        walletProviderEnabled: false,
+        platformStatus: "not-configured",
+        maintenanceMessage: "",
+        feeScheduleJson: "",
+        templates: {
+          deposit_confirmed: "Hello {{customer_name}}, a deposit status update is available for reference {{reference}}. Sign in to review your account.",
+          deposit_delayed: "Hello {{customer_name}}, a deposit status update is available for reference {{reference}}. Sign in for details.",
+          deposit_failed: "Hello {{customer_name}}, a deposit status update is available for reference {{reference}}. Sign in for details.",
+          withdrawal_status: "Hello {{customer_name}}, your withdrawal request {{reference}} status is now {{status}}.",
+          trade_completed: "Hello {{customer_name}}, an account activity update is available. Sign in to review your trade history.",
+          daily_statement: "Hello {{customer_name}}, your daily statement data for {{report_date}} can be requested at {{report_endpoint}} using your API key.",
+          daily_activity: "Hello {{customer_name}}, your daily activity summary for {{report_date}} can be requested at {{report_endpoint}} using your API key.",
+          fee_recorded: "Hello {{customer_name}}, a fee record update is available. Sign in to review available details.",
+          fee_summary: "Hello {{customer_name}}, a fee summary notice for {{report_date}} is available. Sign in to review the published fee information.",
+          platform_status: "Arbitrade platform status update: {{status}}. {{event}}",
+          security_alert: "Security notice for your Arbitrade account: {{event}}. If this was not you, sign in and review your security settings.",
+          api_key_created: "Security notice: {{event}} Sign in to review your API key settings.",
+          api_key_revoked: "Security notice: {{event}} Sign in to review your API key settings.",
+          tax_report_ready: "Hello {{customer_name}}, your tax-support data for {{report_date}} can be requested at {{report_endpoint}}. This is not tax advice.",
+          report_ready: "Hello {{customer_name}}, a report update is available. Sign in to review reports supported by your account.",
+        },
+        whatsappMetaTemplates: {
+          deposit_confirmed: { name: "", language: "en" }, deposit_delayed: { name: "", language: "en" },
+          deposit_failed: { name: "", language: "en" }, withdrawal_status: { name: "", language: "en" },
+          trade_completed: { name: "", language: "en" }, daily_statement: { name: "", language: "en" },
+          daily_activity: { name: "", language: "en" }, fee_recorded: { name: "", language: "en" },
+          fee_summary: { name: "", language: "en" }, platform_status: { name: "", language: "en" },
+          security_alert: { name: "", language: "en" }, api_key_created: { name: "", language: "en" },
+          api_key_revoked: { name: "", language: "en" }, tax_report_ready: { name: "", language: "en" },
+          report_ready: { name: "", language: "en" },
+        },
+        walletProviderName: "",
+        walletProviderBaseUrl: "",
+        walletWebhookUrl: "",
+      };
+      try {
+        const stored = JSON.parse((await getAppSetting("apiAccess.settings")) || "{}");
+        return { ...defaults, ...stored, templates: { ...defaults.templates, ...(stored.templates || {}) },
+          whatsappMetaTemplates: { ...defaults.whatsappMetaTemplates, ...(stored.whatsappMetaTemplates || {}) } };
+      } catch {
+        return defaults;
+      }
+    }),
+    saveApiAccessSettings: adminProcedure.input(z.object({
+      apiEnabled: z.boolean(),
+      requestsPerMinute: z.number().int().min(10).max(600),
+      whatsappEnabled: z.boolean(),
+      whatsappNumber: z.string().trim().max(32),
+      webhooksEnabled: z.boolean().default(false),
+      dailyReportDeliveryEnabled: z.boolean().default(false),
+      withdrawalApiEnabled: z.boolean().default(false),
+      walletProviderEnabled: z.boolean().default(false),
+      platformStatus: z.enum(["not-configured", "operational", "degraded", "maintenance", "offline"]),
+      maintenanceMessage: z.string().max(1000),
+      feeScheduleJson: z.string().max(10000),
+      templates: z.record(z.string().min(1).max(64), z.string().max(2000)).refine((value) => Object.keys(value).length <= 20, "At most 20 message templates are allowed."),
+      whatsappMetaTemplates: z.record(z.string().min(1).max(64), z.object({
+        name: z.string().trim().max(512),
+        language: z.string().trim().regex(/^[a-z]{2,3}(?:_[A-Z]{2})?$/),
+      })).optional(),
+      walletProviderName: z.string().trim().max(120),
+      walletProviderBaseUrl: z.string().trim().max(500),
+      walletWebhookUrl: z.string().trim().max(500),
+    })).mutation(async ({ ctx, input }) => {
+      const number = input.whatsappNumber.trim();
+      if (number && !/^\+?[0-9 ()-]{7,32}$/.test(number)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid WhatsApp business number using digits and an optional leading +." });
+      }
+      for (const [label, value] of [["Wallet provider base URL", input.walletProviderBaseUrl], ["Wallet webhook URL", input.walletWebhookUrl]] as const) {
+        if (!value) continue;
+        let parsed: URL;
+        try { parsed = new URL(value); } catch { throw new TRPCError({ code: "BAD_REQUEST", message: label + " must be a valid HTTPS URL." }); }
+        if (parsed.protocol !== "https:") throw new TRPCError({ code: "BAD_REQUEST", message: label + " must use HTTPS." });
+      }
+      const allowedTemplates = new Set(["deposit_confirmed","deposit_delayed","deposit_failed","withdrawal_status","trade_completed","daily_statement","daily_activity","fee_recorded","fee_summary","platform_status","security_alert","api_key_created","api_key_revoked","tax_report_ready","report_ready"]);
+      if (Object.keys(input.templates).some((key) => !allowedTemplates.has(key))) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "One or more message template identifiers are not supported." });
+      }
+      if (input.feeScheduleJson.trim()) {
+        let feeSchedule: unknown;
+        try { feeSchedule = JSON.parse(input.feeScheduleJson); } catch { throw new TRPCError({ code: "BAD_REQUEST", message: "Fee schedule must be valid JSON." }); }
+        if (!Array.isArray(feeSchedule) || feeSchedule.length > 100 || feeSchedule.some((fee) =>
+          !fee || typeof fee !== "object" || Array.isArray(fee) ||
+          typeof (fee as Record<string, unknown>).code !== "string" ||
+          typeof (fee as Record<string, unknown>).name !== "string" ||
+          !["fixed", "percent", "tier"].includes(String((fee as Record<string, unknown>).type)))) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Fee schedule must be an array of up to 100 items with code, name and supported type (fixed, percent or tier)." });
+        }
+      }
+      const settings = { ...input, whatsappNumber: number, templates: input.templates };
+      await setAppSetting("apiAccess.settings", JSON.stringify(settings), ctx.user.id);
+      return { success: true, settings };
+    }),
 
+
+    apiProviderCredentialStatus: adminProcedure.query(() => apiProviderCredentialStatus()),
+    testWhatsAppProviderConnection: adminProcedure.mutation(async () => {
+      try {
+        const credentials = await readApiProviderCredential("whatsapp_meta");
+        if (!credentials) throw new Error("Save WhatsApp provider credentials before testing the connection.");
+        return await testMetaWhatsAppCredentials(credentials);
+      } catch (error) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Could not verify the WhatsApp provider connection." });
+      }
+    }),
+    saveWhatsAppProviderCredentials: adminProcedure.input(z.object({
+      accessToken: z.string().trim().min(20).max(4096),
+      phoneNumberId: z.string().trim().regex(/^\d{5,30}$/),
+      graphApiVersion: z.string().trim().regex(/^v\d+\.\d+$/).default("v26.0"),
+      verificationTemplateName: z.string().trim().regex(/^[a-z0-9_]{3,512}$/i),
+      verificationTemplateLanguage: z.string().trim().regex(/^[a-z]{2,3}(?:_[A-Z]{2})?$/).default("en"),
+    })).mutation(async ({ ctx, input }) => {
+      try { return await saveApiProviderCredential("whatsapp_meta", input, ctx.user.id); }
+      catch (error) { throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Could not save WhatsApp credentials." }); }
+    }),
+    saveWalletProviderCredentials: adminProcedure.input(z.object({
+      apiToken: z.string().trim().min(8).max(4096),
+      apiSecret: z.string().max(4096).optional().default(""),
+      webhookSecret: z.string().max(4096).optional().default(""),
+    })).mutation(async ({ ctx, input }) => {
+      try { return await saveApiProviderCredential("wallet_generic", input, ctx.user.id); }
+      catch (error) { throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Could not save wallet provider credentials." }); }
+    }),
+    removeApiProviderCredentials: adminProcedure.input(z.object({ provider: z.enum(["whatsapp_meta", "wallet_generic"]) }))
+      .mutation(({ input }) => removeApiProviderCredential(input.provider)),
+    apiPlatformIncidents: adminProcedure.query(() => listApiPlatformIncidents()),
+    createApiPlatformIncident: adminProcedure.input(z.object({
+      status: z.enum(["operational", "degraded", "maintenance", "offline"]),
+      title: z.string().trim().min(3).max(200),
+      message: z.string().trim().min(1).max(4000),
+      affectedServices: z.array(z.string().trim().min(1).max(80)).max(20),
+      startsAt: z.string().datetime().optional(),
+      endsAt: z.string().datetime().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      try { return await createApiPlatformIncident(ctx.user.id, { ...input, startsAt: input.startsAt ? new Date(input.startsAt) : null, endsAt: input.endsAt ? new Date(input.endsAt) : null }); }
+      catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not publish platform incident." }); }
+    }),
+    resolveApiPlatformIncident: adminProcedure.input(z.object({ incidentId: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        try { return await resolveApiPlatformIncident(input.incidentId); }
+        catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not resolve platform incident." }); }
+      }),
     privacyPolicyState: adminProcedure.query(() => privacyService.getAdminPrivacyPolicyState()),
     savePrivacyPolicyDraft: adminProcedure.input(z.object({
       draftId: z.number().int().positive().optional(),
@@ -331,7 +583,15 @@ export const appRouter = router({
       action: z.enum(["paid", "rejected"]),
       externalReference: z.string().trim().max(160).optional(),
       note: z.string().trim().max(1000).optional(),
-    })).mutation(({ ctx, input }) => resolveCustomerPayoutRequest(ctx.user.id, input)),
+    })).mutation(async ({ ctx, input }) => {
+      const result = await resolveCustomerPayoutRequest(ctx.user.id, input);
+      void enqueueCustomerApiEvent(result.userId, "withdrawal.status", {
+        reference: result.requestReference, status: result.status,
+        event: "Your withdrawal request status changed to " + result.status + ".",
+      }, "withdrawal-status:" + result.requestReference + ":" + result.status)
+        .catch((error) => console.error("[API automation] Withdrawal status event could not be queued:", error instanceof Error ? error.name : "UnknownError"));
+      return result;
+    }),
     notifications: adminProcedure.query(({ctx})=>listNotifications(ctx.user.id)),
     markNotificationsRead: adminProcedure.input(z.object({id:z.number().int().positive().optional()}).optional()).mutation(({ctx,input})=>markCustomerNotificationsRead(ctx.user.id,input?.id)),
     notificationCategoryVisibility: adminProcedure.query(() => getNotificationCategoryVisibility()),
@@ -379,7 +639,7 @@ export const appRouter = router({
     audit: adminProcedure.query(() => listAdminAuditEvents()),
     ledgerActivity: adminProcedure.query(() => listAdminRecentLedgerActivity()),
     pendingSettlements: adminProcedure.query(() => listPendingSettlements()),
-    confirmManualSettlement: adminProcedure.input(z.object({ tradeId: z.number().int().positive(), rewardMinor: z.number().int().nonnegative(), settlementReference: z.string().trim().min(3).max(160), notes: z.string().trim().max(2000).optional() })).mutation(async ({ ctx, input }) => { const result=await manuallySettleTrade(input.tradeId,ctx.user.id,input); const notices=buildTradeSettlementNotices({tradeId:result.tradeId,currency:result.currency,principalMinor:result.principalMinor,rewardMinor:result.rewardMinor}); const outcomes=await Promise.allSettled(notices.map(notice=>createNotification(result.userId,notice.title,notice.body,{eventKey:notice.eventKey,category:notice.category,priority:notice.priority}))); if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] One or more trade settlement notices failed after ledger commit."); return result; }),
+    confirmManualSettlement: adminProcedure.input(z.object({ tradeId: z.number().int().positive(), rewardMinor: z.number().int().nonnegative(), settlementReference: z.string().trim().min(3).max(160), notes: z.string().trim().max(2000).optional() })).mutation(async ({ ctx, input }) => { const result=await manuallySettleTrade(input.tradeId,ctx.user.id,input); const notices=buildTradeSettlementNotices({tradeId:result.tradeId,currency:result.currency,principalMinor:result.principalMinor,rewardMinor:result.rewardMinor}); const outcomes=await Promise.allSettled(notices.map(notice=>createNotification(result.userId,notice.title,notice.body,{eventKey:notice.eventKey,category:notice.category,priority:notice.priority}))); if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] One or more trade settlement notices failed after ledger commit."); void enqueueCustomerApiEvent(result.userId, "trade.completed", { reference: result.reference, currency: result.currency, principalMinor: result.principalMinor, rewardMinor: result.rewardMinor, event: "A trade settlement was confirmed." }, "trade-settlement:" + result.tradeId).catch((error) => console.error("[API automation] Trade completion event could not be queued:", error instanceof Error ? error.name : "UnknownError")); return result; }),
     autoTradePolicy: adminProcedure.query(() => getAutoTradePolicy()),
     updateAutoTradePolicy: adminProcedure.input(z.object({ globalEnabled: z.boolean() })).mutation(({ ctx, input }) => setAutoTradePolicy(input.globalEnabled, ctx.user.id)),
     customerBalances: adminProcedure.input(z.object({ userId: z.number().int().positive() })).query(({ input }) => listBalances(input.userId)),

@@ -277,6 +277,144 @@ export const opportunityPopupDaily = mysqlTable("opportunity_popup_daily", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const customerApiKeys = mysqlTable("customer_api_keys", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 80 }).notNull(),
+  keyPrefix: varchar("keyPrefix", { length: 24 }).notNull(),
+  keyHash: varchar("keyHash", { length: 64 }).notNull(),
+  scopesJson: text("scopesJson").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  lastUsedAt: timestamp("lastUsedAt"),
+  revokedAt: timestamp("revokedAt"),
+}, (table) => ({
+  keyHashUniqueIndex: uniqueIndex("customer_api_keys_hash_uq").on(table.keyHash),
+  userCreatedIndex: index("customer_api_keys_user_created_idx").on(table.userId, table.createdAt, table.id),
+  userRevokedIndex: index("customer_api_keys_user_revoked_idx").on(table.userId, table.revokedAt),
+}));
+
+
+export const customerApiNotificationPreferences = mysqlTable("customer_api_notification_preferences", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  whatsappNumber: varchar("whatsappNumber", { length: 32 }).default("").notNull(),
+  whatsappOptIn: boolean("whatsappOptIn").default(false).notNull(),
+  whatsappVerifiedAt: timestamp("whatsappVerifiedAt"),
+  whatsappVerificationCodeHash: varchar("whatsappVerificationCodeHash", { length: 64 }),
+  whatsappVerificationExpiresAt: timestamp("whatsappVerificationExpiresAt"),
+  whatsappVerificationSentAt: timestamp("whatsappVerificationSentAt"),
+  whatsappVerificationAttempts: int("whatsappVerificationAttempts").default(0).notNull(),
+  whatsappEventsJson: text("whatsappEventsJson").notNull(),
+  inAppEnabled: boolean("inAppEnabled").default(true).notNull(),
+  dailySummaryEnabled: boolean("dailySummaryEnabled").default(false).notNull(),
+  dailyStatementEnabled: boolean("dailyStatementEnabled").default(false).notNull(),
+  dailyTaxReportEnabled: boolean("dailyTaxReportEnabled").default(false).notNull(),
+  feeSummaryEnabled: boolean("feeSummaryEnabled").default(false).notNull(),
+  securityAlertsEnabled: boolean("securityAlertsEnabled").default(true).notNull(),
+  timezone: varchar("timezone", { length: 80 }).default("Africa/Lagos").notNull(),
+  dailyReportTime: varchar("dailyReportTime", { length: 5 }).default("08:00").notNull(),
+  lastDailyReportDate: varchar("lastDailyReportDate", { length: 10 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const customerApiWebhooks = mysqlTable("customer_api_webhooks", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 80 }).notNull(),
+  endpointUrl: varchar("endpointUrl", { length: 500 }).notNull(),
+  eventsJson: text("eventsJson").notNull(),
+  secretCiphertext: longtext("secretCiphertext").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  revokedAt: timestamp("revokedAt"),
+  lastDeliveredAt: timestamp("lastDeliveredAt"),
+  lastResponseCode: int("lastResponseCode"),
+  lastErrorCode: varchar("lastErrorCode", { length: 100 }),
+}, (table) => ({
+  userCreatedIndex: index("customer_api_webhooks_user_idx").on(table.userId, table.createdAt),
+  userActiveIndex: index("customer_api_webhooks_active_idx").on(table.userId, table.revokedAt),
+}));
+
+export const apiProviderCredentials = mysqlTable("api_provider_credentials", {
+  id: int("id").autoincrement().primaryKey(),
+  providerKey: varchar("providerKey", { length: 64 }).notNull().unique(),
+  encryptedPayload: longtext("encryptedPayload").notNull(),
+  updatedBy: int("updatedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const apiNotificationDeliveries = mysqlTable("api_notification_deliveries", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  eventKey: varchar("eventKey", { length: 100 }).notNull(),
+  channel: mysqlEnum("channel", ["in_app", "whatsapp", "webhook", "email"]).notNull(),
+  status: mysqlEnum("status", ["queued", "sending", "sent", "failed", "skipped"]).default("queued").notNull(),
+  payloadJson: longtext("payloadJson").notNull(),
+  dedupeKey: varchar("dedupeKey", { length: 64 }).notNull().unique(),
+  attempts: int("attempts").default(0).notNull(),
+  nextAttemptAt: timestamp("nextAttemptAt").defaultNow().notNull(),
+  lastAttemptAt: timestamp("lastAttemptAt"),
+  sentAt: timestamp("sentAt"),
+  errorCode: varchar("errorCode", { length: 120 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  dueIndex: index("api_notification_due_idx").on(table.status, table.nextAttemptAt, table.id),
+  userCreatedIndex: index("api_notification_user_idx").on(table.userId, table.createdAt, table.id),
+}));
+
+export const apiPlatformIncidents = mysqlTable("api_platform_incidents", {
+  id: int("id").autoincrement().primaryKey(),
+  status: mysqlEnum("status", ["operational", "degraded", "maintenance", "offline"]).notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  message: text("message").notNull(),
+  affectedServicesJson: text("affectedServicesJson").notNull(),
+  startsAt: timestamp("startsAt"),
+  endsAt: timestamp("endsAt"),
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  createdIndex: index("api_platform_incidents_created_idx").on(table.createdAt, table.id),
+  statusIndex: index("api_platform_incidents_status_idx").on(table.status, table.endsAt),
+}));
+
+export const apiProviderEvents = mysqlTable("api_provider_events", {
+  id: int("id").autoincrement().primaryKey(),
+  providerKey: varchar("providerKey", { length: 64 }).notNull(),
+  providerEventId: varchar("providerEventId", { length: 160 }).notNull(),
+  eventType: varchar("eventType", { length: 100 }).notNull(),
+  customerReference: varchar("customerReference", { length: 160 }),
+  payloadHash: varchar("payloadHash", { length: 64 }).notNull(),
+  userId: int("userId"),
+  processedAt: timestamp("processedAt"),
+  receivedAt: timestamp("receivedAt").defaultNow().notNull(),
+}, (table) => ({
+  eventUniqueIndex: uniqueIndex("api_provider_event_uq").on(table.providerKey, table.providerEventId),
+  userReceivedIndex: index("api_provider_event_user_idx").on(table.userId, table.receivedAt),
+  typeReceivedIndex: index("api_provider_event_type_idx").on(table.eventType, table.receivedAt),
+}));
+
+export const customerApiUsageDaily = mysqlTable("customer_api_usage_daily", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  keyId: int("keyId").notNull(),
+  usageDate: varchar("usageDate", { length: 10 }).notNull(),
+  requestCount: bigint("requestCount", { mode: "number" }).default(0).notNull(),
+  successCount: bigint("successCount", { mode: "number" }).default(0).notNull(),
+  errorCount: bigint("errorCount", { mode: "number" }).default(0).notNull(),
+  totalLatencyMs: bigint("totalLatencyMs", { mode: "number" }).default(0).notNull(),
+  lastRequestAt: timestamp("lastRequestAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  keyDateUniqueIndex: uniqueIndex("customer_api_usage_key_date_uq").on(table.keyId, table.usageDate),
+  userDateIndex: index("customer_api_usage_user_date_idx").on(table.userId, table.usageDate),
+  dateIndex: index("customer_api_usage_date_idx").on(table.usageDate),
+}));
+
 export const appSettings = mysqlTable("app_settings", {
   id: int("id").autoincrement().primaryKey(),
   settingKey: varchar("settingKey", { length: 120 }).notNull().unique(),
