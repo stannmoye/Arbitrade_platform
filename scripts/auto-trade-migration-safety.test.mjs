@@ -20,9 +20,9 @@ describe("explicit auto-trade opt-in migration", () => {
     expect(migration).toContain("SET `autoTradeMode` = 'disabled'");
     expect(migration).toContain("WHERE `autoTradeMode` = 'inherit'");
     expect(migration).toContain("enum('enabled','disabled') NOT NULL DEFAULT 'disabled'");
-    expect(migration).not.toMatch(/\\bDROP\\s+TABLE\\b/i);
-    expect(migration).not.toMatch(/\\bTRUNCATE\\b/i);
-    expect(migration).not.toMatch(/\\bDELETE\\s+FROM\\b/i);
+    expect(migration).not.toMatch(/\bDROP\s+TABLE\b/i);
+    expect(migration).not.toMatch(/\bTRUNCATE\b/i);
+    expect(migration).not.toMatch(/\bDELETE\s+FROM\b/i);
     expect(schema).toContain('autoTradeMode: mysqlEnum("autoTradeMode", ["enabled", "disabled"]).default("disabled").notNull()');
     expect(schema).not.toContain('mysqlEnum("autoTradeMode", ["inherit", "enabled", "disabled"])');
     expect(db).toContain('autoTradeEnabled:false,autoTradeMode:"disabled"');
