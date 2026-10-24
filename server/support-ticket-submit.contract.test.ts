@@ -14,7 +14,7 @@ const advancedStart = app.indexOf("function CustomerAdvanced(");
 const advancedEnd = app.indexOf("\nfunction PaperclipIcon", advancedStart);
 const advanced = app.slice(advancedStart, advancedEnd);
 const presignStart = server.indexOf('app.post("/api/support/attachments/presign"');
-const presignEnd = server.indexOf("registerOAuthRoutes(app);", presignStart);
+const presignEnd = server.indexOf('app.put("/api/support/attachments/upload"', presignStart);
 const presign = server.slice(presignStart, presignEnd);
 
 describe("Stage 4 support ticket submission security contract", () => {
@@ -46,15 +46,15 @@ describe("Stage 4 support ticket submission security contract", () => {
     expect(advanced).toContain("finally { setTicketSubmitBusy(false); }");
   });
 
-  it("only returns safe HTTPS presigned URLs and avoids forwarding provider errors", () => {
-    expect(presign).toContain("getSafePresignedUploadUrl(payload.url)");
-    expect(presign).toContain("signal: AbortSignal.timeout(10_000)");
+  it("returns application-owned upload URLs without a hosted storage presign dependency", () => {
     expect(presign).toContain('randomBytes(24).toString("hex")');
-    expect(presign).not.toContain("Math.random()");
-    expect(uploadSecurity).toContain('url.protocol !== "https:"');
-    expect(uploadSecurity).toContain("url.username || url.password");
-    expect(presign).toContain('error: "Unable to prepare managed upload. Please retry."');
-    expect(presign).not.toContain("payload.error ||");
+    expect(presign).toContain('uploadUrl: `/api/support/attachments/upload?key=${encodeURIComponent(key)}`');
+    expect(presign).toContain('stableUrl: `/storage/${key}`');
+    expect(presign).toContain("getTicketUploadPolicy()");
+    expect(presign).toContain("isAllowedAttachmentRequest({ fileName, mimeType, sizeBytes }, policy)");
+    expect(presign).not.toContain("getSafePresignedUploadUrl");
+    expect(presign).not.toContain("MANUS_API_URL");
+    expect(presign).not.toContain("fetch(");
   });
   it("rejects arbitrary attachment storage keys before registering them", () => {
     expect(routers).toContain('import { isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy"');
