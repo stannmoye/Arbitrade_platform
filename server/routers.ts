@@ -25,7 +25,7 @@ import { getLocalSessionFromRequest } from "./_core/localAuth";
 import * as privacyService from "./privacy";
 import { CUSTOMER_API_SCOPES, createCustomerApiKey, listCustomerApiKeys, revokeCustomerApiKey } from "./api-access";
 import { API_AUTOMATION_EVENTS, createApiPlatformIncident, createCustomerApiWebhook, enqueueCustomerApiEvent, getCustomerApiNotificationPreferences, listApiPlatformIncidents, listCustomerApiNotificationHistory, listCustomerApiWebhooks, requestCustomerWhatsAppVerification, resolveApiPlatformIncident, revokeCustomerApiWebhook, saveCustomerApiNotificationPreferences, verifyCustomerWhatsAppNumber } from "./api-access-automation";
-import { apiProviderCredentialStatus, removeApiProviderCredential, saveApiProviderCredential } from "./api-access-vault";
+import { apiProviderCredentialStatus, readApiProviderCredential, removeApiProviderCredential, saveApiProviderCredential, testMetaWhatsAppCredentials } from "./api-access-vault";
 import { listCustomerApiUsage } from "./api-access-usage";
 import { sdk } from "./_core/sdk";
 
@@ -486,6 +486,15 @@ export const appRouter = router({
 
 
     apiProviderCredentialStatus: adminProcedure.query(() => apiProviderCredentialStatus()),
+    testWhatsAppProviderConnection: adminProcedure.mutation(async () => {
+      try {
+        const credentials = await readApiProviderCredential("whatsapp_meta");
+        if (!credentials) throw new Error("Save WhatsApp provider credentials before testing the connection.");
+        return await testMetaWhatsAppCredentials(credentials);
+      } catch (error) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Could not verify the WhatsApp provider connection." });
+      }
+    }),
     saveWhatsAppProviderCredentials: adminProcedure.input(z.object({
       accessToken: z.string().trim().min(20).max(4096),
       phoneNumberId: z.string().trim().regex(/^\d{5,30}$/),
