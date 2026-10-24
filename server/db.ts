@@ -2221,37 +2221,163 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
   }
   return {executed,missed:await listMissedOpportunities(userId)};
 }
-export async function listCustomerOpportunities(userId:number, options: { consumeDelivery?: boolean } = {}) {
- const db=await getDb(); if(!db)throw new Error("Database is not available");
- const settled:Array<{tradeId:number;rewardMinor:number;currency:string;totalMinor:number}>=[];
- await markDueTradesAwaitingConfirmation(userId);
- const user=(await db.select({packageName:users.packageName}).from(users).where(eq(users.id,userId)).limit(1))[0];
- const controls=await ensureCustomerControls(userId);
- const packageName=String(user?.packageName||"").trim();
- if(!packageName) return {offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery:{packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,autoTradeEnabled:false,noPackage:true,popupPolicy:{}}};
- const now=new Date();
- const activePackageSubscription=(await db.select({id:customerPackageSubscriptions.id}).from(customerPackageSubscriptions)
-  .innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
-  .where(and(
-   eq(customerPackageSubscriptions.userId,userId),
-   eq(customerPackageSubscriptions.status,"active"),
-   lte(customerPackageSubscriptions.startsAt,now),
-   or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,now)),
-   eq(packages.name,packageName),
-   eq(packages.enabled,true),
-   or(isNull(packages.startsAt),lte(packages.startsAt,now)),
-   or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
-  )).limit(1))[0];
- if(!activePackageSubscription) return {offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery:{packageName,maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,autoTradeEnabled:false,packageNotActive:true,popupPolicy:{}}};
- if(controls.accountStatus!=="active") return {offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery:{packageName,maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,autoTradeEnabled:false,accountInactive:true,popupPolicy:{}}};
- // Opportunities remain visible for active package holders without spendable funds.
- // autoTradeOpenOpportunities records an eligible opportunity as missed instead of
- // suppressing the feed or creating a trade with insufficient balance.
- const policies=await listOpportunityPackagePolicies();
- const policy=policies.find(p=>p.packageName===packageName);
- if(!policy) return {offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery:{packageName,maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,autoTradeEnabled:false,packagePolicyMissing:true,popupPolicy:{}}};
- const currencyRows=await listCurrencies();
- const popupPolicy={popupMinGapSeconds:Number(policy.minIntervalSeconds||45),popupDisplaySeconds:Number(policy.popupDisplayTargetSeconds||120),popupMaxPerHour:Number(policy.dailyPopupTarget||policy.maxPopupsPerDay||12),popupPreAlertProbabilityBps:0,popupPreAlertSeconds:0,popupWithdrawalProbabilityBps:0,popupJitterSeconds:Math.max(0,Number(policy.maxIntervalSeconds||3600)-Number(policy.minIntervalSeconds||45))}; const maxPopupsPerDay=Math.max(0,Number(policy.dailyPopupTarget ?? policy.maxPopupsPerDay)||0); const drainMode=(await getAppSetting("opportunity.drainMode")) === "true"; const now=new Date(); const offerRows=await db.select().from(opportunityOffers).where(and(eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt).limit(5000); const rules=await getCustomerOpportunityRules(userId); const inQuietHours=isWithinQuietHours(now,String(rules.quietHoursStart||""),String(rules.quietHoursEnd||"")); const candidateOffers=offerRows.map(offer=>{const packageMinimumNative=packageUsdUnitsToNativeMinor(Number(policy.minimumTradeUnits),String(offer.currency),currencyRows);const packageMaximumNative=packageUsdUnitsToNativeMinor(Number(policy.maximumTradeUnits),String(offer.currency),currencyRows);const packageMinimum=Math.max(Number(offer.minimumMinor),packageMinimumNative);const terms=calculateTradeTerms(userId,offer,packageMinimum);return {...offer,minimumMinor:Math.max(Number(terms.minimumMinor),packageMinimumNative),packageMinimumTradeMinor:packageMinimumNative,packageMaximumTradeMinor:packageMaximumNative,currencyRateUsd:Number(currencyRows.find((row:any)=>row.code===offer.currency)?.usdRate||0),currencyRateUpdatedAt:currencyRows.find((row:any)=>row.code===offer.currency)?.updatedAt||null,expectedRewardBps:terms.rewardBps,calculationMethod:terms.method};}).filter(offer=>offer.minimumMinor<=Number(offer.packageMaximumTradeMinor)); const quotaDay=new Date().toISOString().slice(0,10); const deliveredRows=await db.select({offerId:opportunityDeliveryEvents.offerId}).from(opportunityDeliveryEvents).where(and(eq(opportunityDeliveryEvents.userId,userId),eq(opportunityDeliveryEvents.quotaDay,quotaDay))); const deliveredIds=new Set(deliveredRows.map(row=>row.offerId)); const consumeDelivery=options.consumeDelivery !== false; const lastDelivery=Number(policy.postCompletionIntervalSeconds||0)>0?(await db.select({deliveredAt:opportunityDeliveryEvents.deliveredAt}).from(opportunityDeliveryEvents).where(eq(opportunityDeliveryEvents.userId,userId)).orderBy(desc(opportunityDeliveryEvents.deliveredAt)).limit(1))[0]:undefined; const formulaReadyAt=lastDelivery?new Date(new Date(lastDelivery.deliveredAt).getTime()+Number(policy.postCompletionIntervalSeconds||0)*1000):null; const formulaCooling=Boolean(formulaReadyAt&&formulaReadyAt.getTime()>Date.now()); const maxEligibleOffers=Math.max(0,Math.min(Number(policy.maxVisibleOffers)||0,maxPopupsPerDay)); const deliveryCandidates=candidateOffers.slice(0,maxEligibleOffers); const newlyEligible=consumeDelivery && !drainMode && !formulaCooling && !inQuietHours ? deliveryCandidates.filter(offer=>!deliveredIds.has(offer.id)) : []; if(newlyEligible.length){await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({userId,offerId:offer.id,quotaDay}))).onDuplicateKeyUpdate({set:{deliveredAt:new Date()}}); newlyEligible.forEach(offer=>deliveredIds.add(offer.id));} const balancesSnapshot=await listBalances(userId); const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{const balance=balancesSnapshot.find(row=>row.currency===offer.currency); const available=Number(balance?.availableMinor||0); return {userId,offerId:offer.id,quotaDay,packageName:policy.packageName,symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),expectedRewardBps:Number(offer.expectedRewardBps),balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient": "insufficient",marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt})};})); const newlyEligibleIds=new Set(newlyEligible.map(item=>item.id)); const offers=candidateOffers.map(offer=>({...offer,deliveryEventId:lifecycleIds.get(`${userId}:${offer.id}:${quotaDay}`)||null,popupEligible:consumeDelivery && deliveredIds.has(offer.id)&&newlyEligibleIds.has(offer.id)})); const effectiveControls={...controls,autoTradeEnabled:true,tradingEnabled:true,autoTradeMinRewardBps:0}; const auto=await autoTradeOpenOpportunities(userId,offers,effectiveControls); const executedByOffer=new Map(auto.executed.map((trade:any)=>[trade.offerId,trade])); const enrichedOffers=offers.map((offer:any)=>({...offer,automaticTrade:executedByOffer.get(offer.id)||null})); return { offers:enrichedOffers, missed:auto.missed, autoTrades:auto.executed, settled, delivery:{packageName:policy.packageName,maxPopupsPerDay:maxEligibleOffers,maxVisibleOffers:maxEligibleOffers,drainMode,formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:policy.minHourlyTarget,normalHourlyTarget:policy.normalHourlyTarget,marketInfluenceBps:policy.marketInfluenceBps,burstEnabled:policy.burstEnabled,maxBurstSize:policy.maxBurstSize},enabled:true,autoTradeEnabled:true,popupPolicy} }; }
+export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean}={}) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const now=new Date();
+  const quotaDay=now.toISOString().slice(0,10);
+  const settled:Array<{tradeId:number;rewardMinor:number;currency:string;totalMinor:number}>=[];
+  await markDueTradesAwaitingConfirmation(userId);
+  const controls=await ensureCustomerControls(userId);
+  const emptyResult=(delivery:any)=>({offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery});
+  if(controls.accountStatus!=="active") return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,accountInactive:true,popupPolicy:{}});
+  const subscriptions=await db.select({
+    subscriptionId:customerPackageSubscriptions.id,packageId:packages.id,packageName:packages.name,
+    packageQuota:packages.opportunitiesPerDay,termsVersion:packages.termsVersion,termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
+    expiresAt:customerPackageSubscriptions.expiresAt,startsAt:customerPackageSubscriptions.startsAt,
+  }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
+    .where(and(eq(customerPackageSubscriptions.userId,userId),eq(customerPackageSubscriptions.status,"active"),
+      lte(customerPackageSubscriptions.startsAt,now),or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,now)),
+      eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,now)),
+      or(isNull(packages.expiresAt),gt(packages.expiresAt,now)))).orderBy(customerPackageSubscriptions.expiresAt);
+  if(!subscriptions.length) return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,noPackage:true,popupPolicy:{}});
+  const packagePolicies=await listOpportunityPackagePolicies();
+  const policyByName=new Map<string,typeof packagePolicies[number]>();
+  for(const policyRow of packagePolicies) policyByName.set(policyRow.packageName,policyRow);
+  const eligibleSubscriptions=subscriptions.filter(subscription=>{
+    const configured=policyByName.get(subscription.packageName);
+    return !configured||(Boolean(configured.enabled)&&configured.automaticDelivery!==false);
+  });
+  if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packageDeliveryDisabled:true,popupPolicy:{}});
+  const quotaFor=(subscription:any)=>{
+    try { const snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}")); const value=Number(snapshot.opportunitiesPerDay??subscription.packageQuota); return Number.isSafeInteger(value)&&value>0?value:0; }
+    catch { const value=Number(subscription.packageQuota); return Number.isSafeInteger(value)&&value>0?value:0; }
+  };
+  const quotaByPackage=new Map<string,number>();
+  for(const subscription of eligibleSubscriptions) quotaByPackage.set(subscription.packageName,(quotaByPackage.get(subscription.packageName)||0)+quotaFor(subscription));
+  const combinedQuota=[...quotaByPackage.values()].reduce((sum,value)=>sum+value,0);
+  if(combinedQuota<=0) return emptyResult({packageName:eligibleSubscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packageQuotaExhausted:true,popupPolicy:{}});
+  const currencyRows=await listCurrencies();
+  const configuredPolicies=eligibleSubscriptions.map(subscription=>policyByName.get(subscription.packageName)).filter((row:any)=>row&&row.enabled&&row.automaticDelivery!==false);
+  const policy=configuredPolicies[0]||null;
+  const packageName=[...new Set(eligibleSubscriptions.map(row=>row.packageName))].join(", ");
+  const adminDeliveryCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);return sum+(row?Math.max(0,Number(row.maxPopupsPerDay)||0):quotaFor(subscription));},0);
+  const adminVisibleCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);return sum+(row?Math.max(0,Number(row.maxVisibleOffers)||0):quotaFor(subscription));},0);
+  const maxPopupsPerDay=Math.min(combinedQuota,adminDeliveryCap||combinedQuota);
+  const maxVisibleOffers=Math.min(combinedQuota,adminVisibleCap||combinedQuota);
+  const drainMode=(await getAppSetting("opportunity.drainMode"))==="true";
+  const popupPolicy={
+    popupMinGapSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
+    popupDisplaySeconds:Math.max(1,Number(policy?.popupDisplayTargetSeconds||120)),
+    popupMaxPerHour:maxPopupsPerDay,
+    popupPreAlertProbabilityBps:0,popupPreAlertSeconds:0,popupWithdrawalProbabilityBps:0,
+    popupJitterSeconds:Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)),
+  };
+  const offerRows=await db.select().from(opportunityOffers).where(and(eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt).limit(5000);
+  const tradeHistory=await listTrades(userId);
+  const tradeOfferIds=new Set(tradeHistory.map((row:any)=>Number(row.offerId)));
+  const missedHistory=await listMissedOpportunities(userId);
+  const missedOfferIds=new Set(missedHistory.map((row:any)=>Number(row.offerId)));
+  const deliveredToday=await db.select({offerId:opportunityDeliveryEvents.offerId}).from(opportunityDeliveryEvents).where(and(eq(opportunityDeliveryEvents.userId,userId),eq(opportunityDeliveryEvents.quotaDay,quotaDay)));
+  const deliveredOfferIds=new Set(deliveredToday.map(row=>Number(row.offerId)));
+  const usedPackageRows=await db.select({packageName:opportunityPopupEvents.packageName}).from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.quotaDay,quotaDay)));
+  const usedByPackage=new Map<string,number>();
+  for(const row of usedPackageRows) usedByPackage.set(row.packageName,(usedByPackage.get(row.packageName)||0)+1);
+  const activePopupRows=await db.select({
+    eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
+    symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
+    expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
+    balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,quotaDay:opportunityPopupEvents.quotaDay,
+    deliveredAt:opportunityPopupEvents.deliveredAt,venueFrom:opportunityOffers.venueFrom,venueTo:opportunityOffers.venueTo,
+    offerStatus:opportunityOffers.status,offerMinimumMinor:opportunityOffers.minimumMinor,opensAt:opportunityOffers.opensAt,
+    closesAt:opportunityOffers.closesAt,rewardAt:opportunityOffers.rewardAt,durationSeconds:opportunityOffers.durationSeconds,
+    marketObservedAt:opportunityOffers.marketObservedAt,marketSnapshotId:opportunityOffers.marketSnapshotId,
+    sector:opportunityOffers.sector,industry:opportunityOffers.industry,listingStatus:opportunityOffers.listingStatus,
+  }).from(opportunityPopupEvents).leftJoin(opportunityOffers,eq(opportunityPopupEvents.offerId,opportunityOffers.id))
+    .where(and(eq(opportunityPopupEvents.userId,userId),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN"])))
+    .orderBy(desc(opportunityPopupEvents.deliveredAt));
+  const activePopupOfferIds=new Set(activePopupRows.map(row=>Number(row.offerId)));
+  const lastDelivery=Number(policy?.postCompletionIntervalSeconds||0)>0?(await db.select({deliveredAt:opportunityDeliveryEvents.deliveredAt}).from(opportunityDeliveryEvents).where(eq(opportunityDeliveryEvents.userId,userId)).orderBy(desc(opportunityDeliveryEvents.deliveredAt)).limit(1))[0]:undefined;
+  const formulaReadyAt=lastDelivery?new Date(new Date(lastDelivery.deliveredAt).getTime()+Number(policy?.postCompletionIntervalSeconds||0)*1000):null;
+  const formulaCooling=Boolean(formulaReadyAt&&formulaReadyAt.getTime()>now.getTime());
+  const dailyCap=Math.min(maxPopupsPerDay,maxVisibleOffers);
+  let remainingQuota=Math.max(0,dailyCap-deliveredToday.length);
+  const balancesSnapshot=await listBalances(userId);
+  const newlyEligible:any[]=[];
+  if(!drainMode&&!formulaCooling&&remainingQuota>0){
+    for(const offer of offerRows){
+      if(remainingQuota<=0) break;
+      const offerId=Number(offer.id);
+      if(deliveredOfferIds.has(offerId)||activePopupOfferIds.has(offerId)||tradeOfferIds.has(offerId)||missedOfferIds.has(offerId)) continue;
+      const subscription=eligibleSubscriptions.find(item=>(usedByPackage.get(item.packageName)||0)<(quotaByPackage.get(item.packageName)||0));
+      if(!subscription) break;
+      const configured=policyByName.get(subscription.packageName);
+      const currencyRow=currencyRows.find((row:any)=>String(row.code).toUpperCase()===String(offer.currency).toUpperCase());
+      if(!currencyRow) continue;
+      const configuredMinimum=configured?packageUsdUnitsToNativeMinor(Number(configured.minimumTradeUnits),String(offer.currency),currencyRows):Number(offer.minimumMinor);
+      const configuredMaximum=configured?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(configured.maximumTradeUnits),String(offer.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
+      const terms=calculateTradeTerms(userId,offer,Math.max(Number(offer.minimumMinor),configuredMinimum));
+      const minimumMinor=Math.max(Number(offer.minimumMinor),Number(terms.minimumMinor||0),configuredMinimum);
+      if(!Number.isSafeInteger(minimumMinor)||minimumMinor<=0||minimumMinor>configuredMaximum) continue;
+      newlyEligible.push({...offer,packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
+        minimumMinor,packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,
+        currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
+        expectedRewardBps:terms.rewardBps,calculationMethod:terms.method});
+      usedByPackage.set(subscription.packageName,(usedByPackage.get(subscription.packageName)||0)+1);
+      remainingQuota--;
+    }
+  }
+  if(newlyEligible.length){
+    await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({userId,offerId:offer.id,quotaDay,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1)}))).onDuplicateKeyUpdate({set:{deliveredAt:new Date()}});
+    const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{
+      const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
+      return {userId,offerId:offer.id,quotaDay,packageName:offer.packageName,symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
+        expectedRewardBps:Number(offer.expectedRewardBps),balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
+        marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt})};
+    }));
+    for(const offer of newlyEligible){offer.deliveryEventId=lifecycleIds.get(userId+":"+offer.id+":"+quotaDay)||null; deliveredOfferIds.add(Number(offer.id));}
+  }
+  const popupRows=await db.select({
+    eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
+    symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
+    expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
+    balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,quotaDay:opportunityPopupEvents.quotaDay,
+    deliveredAt:opportunityPopupEvents.deliveredAt,venueFrom:opportunityOffers.venueFrom,venueTo:opportunityOffers.venueTo,
+    offerStatus:opportunityOffers.status,offerMinimumMinor:opportunityOffers.minimumMinor,opensAt:opportunityOffers.opensAt,
+    closesAt:opportunityOffers.closesAt,rewardAt:opportunityOffers.rewardAt,durationSeconds:opportunityOffers.durationSeconds,
+    marketObservedAt:opportunityOffers.marketObservedAt,marketSnapshotId:opportunityOffers.marketSnapshotId,
+    sector:opportunityOffers.sector,industry:opportunityOffers.industry,listingStatus:opportunityOffers.listingStatus,
+  }).from(opportunityPopupEvents).leftJoin(opportunityOffers,eq(opportunityPopupEvents.offerId,opportunityOffers.id))
+    .where(and(eq(opportunityPopupEvents.userId,userId),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN"])))
+    .orderBy(desc(opportunityPopupEvents.deliveredAt));
+  const tradeCandidates=popupRows.filter(row=>row.offerStatus==="open"&&row.closesAt&&new Date(row.closesAt).getTime()>now.getTime()).map(row=>{
+    const subscription=eligibleSubscriptions.find(item=>item.packageName===row.packageName)||eligibleSubscriptions[0];
+    const configured=policyByName.get(subscription.packageName);
+    const currencyRow=currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase());
+    const offerMinimum=Number(row.offerMinimumMinor??row.popupMinimumMinor);
+    const configuredMinimum=configured&&currencyRow?packageUsdUnitsToNativeMinor(Number(configured.minimumTradeUnits),String(row.currency),currencyRows):offerMinimum;
+    const configuredMaximum=configured&&currencyRow?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(configured.maximumTradeUnits),String(row.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
+    return {id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
+      symbol:row.symbol,venueFrom:row.venueFrom||"",venueTo:row.venueTo||"",currency:row.currency,minimumMinor:Math.max(offerMinimum,Number(row.popupMinimumMinor||0),configuredMinimum),
+      packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,expectedRewardBps:Number(row.expectedRewardBps||0),
+      opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,durationSeconds:Number(row.durationSeconds||0),marketObservedAt:row.marketObservedAt,
+      marketSnapshotId:row.marketSnapshotId,sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus),eventStatus:row.eventStatus};
+  });
+  const autoTradeCandidates=tradeCandidates.filter(offer=>{const configured=policyByName.get(offer.packageName);return !configured||Boolean(configured.automaticTradingEnabled);});
+  const effectiveControls={...controls,autoTradeEnabled:true,tradingEnabled:true,autoTradeMinRewardBps:0};
+  const auto=await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls);
+  const executedByOffer=new Map(auto.executed.map((trade:any)=>[Number(trade.offerId),trade]));
+  const enrichedOffers=popupRows.map(row=>{
+    const base=tradeCandidates.find(offer=>Number(offer.offerId)===Number(row.offerId))||{};
+    const executed=executedByOffer.get(Number(row.offerId))||null;
+    return {...base,id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageName:row.packageName,
+      symbol:row.symbol,currency:row.currency,minimumMinor:Number(row.popupMinimumMinor),balanceAvailableMinor:Number(row.balanceAvailableMinor),
+      balanceStatus:row.balanceStatus,expectedRewardBps:Number(row.expectedRewardBps),eventStatus:row.eventStatus,deliveredAt:row.deliveredAt,
+      venueFrom:row.venueFrom||base.venueFrom||"",venueTo:row.venueTo||base.venueTo||"",opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,
+      durationSeconds:Number(row.durationSeconds||base.durationSeconds||0),marketObservedAt:row.marketObservedAt,sector:row.sector,industry:row.industry,
+      listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus),automaticTrade:executed};
+  });
+  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,drainMode,formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},enabled:true,autoTradeEnabled:true,popupPolicy}};
+}
 export async function runAutoTradeCycle(){const db=await getDb();if(!db)throw new Error("Database is not available");const customers=await db.select({id:users.id}).from(users).where(eq(users.role,"user"));let allocations=0;for(const customer of customers){try{const result=await listCustomerOpportunities(customer.id,{consumeDelivery:false});allocations+=result.autoTrades.length;}catch(error){console.error(`[AutoTrade] Customer ${customer.id} cycle failed:`,error instanceof Error?error.message:error);}}return {customers:customers.length,allocations};}
 export async function setCustomerPackage(email:string, packageName:string) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const normalized=email.trim().toLowerCase(); const user=(await db.select().from(users).where(eq(users.email,normalized)).limit(1))[0]; if(!user) throw new Error("Customer account not found"); await db.update(users).set({packageName}).where(eq(users.id,user.id)); return {id:user.id,email:user.email,packageName}; }
 export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number}){
