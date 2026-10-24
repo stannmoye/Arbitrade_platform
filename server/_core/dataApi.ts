@@ -1,11 +1,3 @@
-/**
- * Quick example (matches curl usage):
- *   await callDataApi("Youtube/search", {
- *     query: { gl: "US", hl: "en", q: "manus" },
- *   })
- */
-import { ENV } from "./env";
-
 export type DataApiCallOptions = {
   query?: Record<string, unknown>;
   body?: Record<string, unknown>;
@@ -13,52 +5,52 @@ export type DataApiCallOptions = {
   formData?: Record<string, unknown>;
 };
 
-export async function callDataApi(
-  apiId: string,
-  options: DataApiCallOptions = {}
-): Promise<unknown> {
-  if (!ENV.forgeApiUrl) {
-    throw new Error("MANUS_API_URL is not configured");
+/**
+ * Calls a REST API explicitly configured by the deployment operator. This is
+ * optional integration glue, not a hosted-platform proxy. Configure
+ * DATA_API_BASE_URL and, when required by that API, DATA_API_KEY.
+ */
+export async function callDataApi(apiId: string, options: DataApiCallOptions = {}): Promise<unknown> {
+  const base = process.env.DATA_API_BASE_URL?.trim();
+  if (!base) throw new Error("DATA_API_BASE_URL is not configured; external data API integration is optional");
+  if (!apiId || apiId.startsWith("/") || apiId.split("/").some((part) => !part || part === "." || part === "..")) {
+    throw new Error("Invalid data API endpoint identifier");
   }
-  if (!ENV.forgeApiKey) {
-    throw new Error("MANUS_API_KEY is not configured");
-  }
-
-  // Build the full URL by appending the service path to the base URL
-  const baseUrl = ENV.forgeApiUrl.endsWith("/") ? ENV.forgeApiUrl : `${ENV.forgeApiUrl}/`;
-  const fullUrl = new URL("webdevtoken.v1.WebDevService/CallApi", baseUrl).toString();
-
-  const response = await fetch(fullUrl, {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      "connect-protocol-version": "1",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
-    },
-    body: JSON.stringify({
-      apiId,
-      query: options.query,
-      body: options.body,
-      path_params: options.pathParams,
-      multipart_form_data: options.formData,
-    }),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(
-      `Data API request failed (${response.status} ${response.statusText})${detail ? `: ${detail}` : ""}`
-    );
-  }
-
-  const payload = await response.json().catch(() => ({}));
-  if (payload && typeof payload === "object" && "jsonData" in payload) {
-    try {
-      return JSON.parse((payload as Record<string, string>).jsonData ?? "{}");
-    } catch {
-      return (payload as Record<string, unknown>).jsonData;
+  const root = new URL(base);
+  if (!["http:", "https:"].includes(root.protocol)) throw new Error("DATA_API_BASE_URL must use HTTP or HTTPS");
+  const segments = apiId.split("/").map((part) => encodeURIComponent(part));
+  let endpoint = new URL(segments.join("/"), root.href.replace(/\/?$/, "/"));
+  for (const [key, value] of Object.entries(options.pathParams ?? {})) {
+    const encodedKey = encodeURIComponent(key);
+    if (endpoint.pathname.includes(`:${encodedKey}`)) {
+      endpoint.pathname = endpoint.pathname.replace(`:${encodedKey}`, encodeURIComponent(String(value)));
+    } else {
+      endpoint.searchParams.set(key, String(value));
     }
   }
-  return payload;
+  for (const [key, value] of Object.entries(options.query ?? {})) {
+    if (value !== undefined && value !== null) endpoint.searchParams.set(key, typeof value === "string" ? value : JSON.stringify(value));
+  }
+  const headers: Record<string, string> = { accept: "application/json" };
+  const token = process.env.DATA_API_KEY;
+  if (token) headers.authorization = `Bearer ${token}`;
+  let body: BodyInit | undefined;
+  let method = "GET";
+  if (options.formData) {
+    const form = new FormData();
+    for (const [key, value] of Object.entries(options.formData)) {
+      if (value !== undefined && value !== null) form.append(key, typeof value === "string" ? value : JSON.stringify(value));
+    }
+    body = form;
+    method = "POST";
+  } else if (options.body) {
+    headers["content-type"] = "application/json";
+    body = JSON.stringify(options.body);
+    method = "POST";
+  }
+  const response = await fetch(endpoint, { method, headers, body, signal: AbortSignal.timeout(20_000) });
+  if (!response.ok) throw new Error(`Configured data API failed (${response.status})`);
+  const text = await response.text();
+  if (!text) return null;
+  try { return JSON.parse(text) as unknown; } catch { return text; }
 }
