@@ -64,7 +64,8 @@ describe("customer trading and Mining navigation cleanup", () => {
     const workspaceMenu = between(appSource, "function CustomerTopWorkspaceMenu(", "type CustomerPreferenceItem =");
     expect(workspaceMenu).toContain('onNavigate("opportunities")');
     expect(workspaceMenu).toContain('onNavigate("yield")');
-    expect(workspaceMenu).toContain('onNavigate("crypto-mining")');
+    expect(workspaceMenu).toContain("customerInvestmentNavigation.map");
+    expect(appSource).toContain('id:"crypto-mining"');
     expect(workspaceMenu).toContain('onNavigate("support")');
   });
 
