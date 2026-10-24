@@ -103,6 +103,7 @@ export default function CustomerApiAccessPanel() {
   const [testerResult,setTesterResult]=useState("");
   const [testerError,setTesterError]=useState("");
   const [testerStatus,setTesterStatus]=useState<number|null>(null);
+  const [statementDownloadBusy,setStatementDownloadBusy]=useState(false);
   const [copied,setCopied]=useState(false);
 
   useEffect(()=>{
@@ -160,6 +161,41 @@ export default function CustomerApiAccessPanel() {
     try{await navigator.clipboard.writeText(text);setNotice(what+" copied to clipboard.");setCopied(true);}
     catch{setNotice("Clipboard access was blocked. Select and copy the value manually.");}
   };
+  const downloadPdfStatement=async()=>{
+    setTesterError("");
+    if(!testerKey.trim()){setTesterError("Paste an API key created for your account first.");return;}
+    setStatementDownloadBusy(true);
+    try{
+      const date=new Date().toISOString().slice(0,10);
+      const response=await fetch("/api/v1/account/statements/daily.pdf?date="+encodeURIComponent(date),{
+        method:"GET",
+        headers:{Authorization:"Bearer "+testerKey.trim(),Accept:"application/pdf"},
+        credentials:"omit",
+        redirect:"error",
+      });
+      if(!response.ok){
+        const body=await response.json().catch(()=>({error:"Statement download failed."}));
+        throw new Error(typeof body.error==="string"?body.error:"Statement download failed.");
+      }
+      const blob=await response.blob();
+      if(blob.type!=="application/pdf")throw new Error("The server did not return a PDF document.");
+      const objectUrl=URL.createObjectURL(blob);
+      const anchor=document.createElement("a");
+      anchor.href=objectUrl;
+      anchor.download="arbitrade-statement-"+date+".pdf";
+      anchor.style.display="none";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
+      setNotice("PDF statement downloaded. It is marked partial because deposit and fee sources are not connected.");
+    }catch(reason){
+      setTesterError(reason instanceof Error?reason.message:"The statement could not be downloaded.");
+    }finally{
+      setStatementDownloadBusy(false);
+    }
+  };
+
   const testEndpoint=async()=>{
     setTesterError("");setTesterStatus(null);setTesterResult("");
     if(!testerKey.trim()){setTesterError("Paste an API key created for your account first.");return;}
@@ -217,6 +253,8 @@ export default function CustomerApiAccessPanel() {
       <label className="api-access-field">API key<input type="password" autoComplete="off" value={testerKey} onChange={e=>setTesterKey(e.target.value)} placeholder="arb_live_…"/></label>
       <label className="api-access-field">Endpoint<select value={testerEndpoint} onChange={e=>setTesterEndpoint(e.target.value)}>{endpoints.map(endpoint=><option key={endpoint.path} value={endpoint.path}>{endpoint.label} — {endpoint.path}</option>)}</select></label>
       <button className="primary-button" onClick={()=>void testEndpoint()} disabled={!testerKey.trim()}>Run GET request</button>
+      <button className="secondary-button" onClick={()=>void downloadPdfStatement()} disabled={!testerKey.trim()||statementDownloadBusy}><FileText size={14}/>{statementDownloadBusy?"Preparing PDF…":"Download today’s PDF statement"}</button>
+      <p className="test-notice">PDF statements use the statements:read permission and contain only available records. They are partial until deposit and fee data sources are connected.</p>
       {testerError&&<div className="api-access-inline-error" role="alert">{testerError}</div>}
       {testerStatus!==null&&<div className={testerStatus>=200&&testerStatus<300?"api-access-test-result":"api-access-test-result api-access-test-failed"} role="status"><strong>HTTP {testerStatus}</strong><pre>{testerResult}</pre></div>}
     </section>
