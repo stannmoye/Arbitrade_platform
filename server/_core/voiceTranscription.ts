@@ -143,7 +143,7 @@ export async function transcribeAudio(
     formData.append("prompt", prompt);
 
     // Step 4: Call the transcription service
-    const baseUrl = `${ENV.aiApiBaseUrl.replace(/\\/+$/, "")}/`;
+    const baseUrl = `${ENV.aiApiBaseUrl.replace(/\/+$/, "")}/`;
 
     const fullUrl = new URL(
       "v1/audio/transcriptions",
