@@ -237,7 +237,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
             <div className="cm-boost-copy"><div className="cm-boost-topline"><b>HASH POWER ENGINE</b><span className="cm-boost-readout"><small>{boostStatusLabel}</small><strong>{boostCountdown}</strong></span></div><div className="cm-boost-bottomline"><small className="cm-boost-reward-note">+{fmt(boost?.boostRewardCkiPerDay, 6)} CKI / 24h while active</small><span className="cm-boost-charge" role="progressbar" aria-label={isBoostActive ? "Boost active time remaining" : isCoolingDown ? "Boost cooldown progress" : "Boost readiness"} aria-valuenow={boostCycleCharge} aria-valuemin={0} aria-valuemax={100} title={boost?.reason || (isBoostActive ? "The blue tube empties while the boost is active." : isCoolingDown ? "The blue tube refills until the boost is ready again." : "Boost is ready to activate.")}><i style={{width:`${boostCycleCharge}%`}}/></span></div></div>
             <button type="button" className="cm-glow-button" title={boost?.reason || "Activate Hash Power Boost"} aria-label="Activate Hash Power Boost" disabled={boostMutation.isPending || !boost?.ready} onClick={activateBoost}><ArrowDownUp size={15}/>{boostMutation.isPending?"Activating…":"Activate Boost"}</button>
           </article>}
-
+        </div>
       </section>
 
 	      <MiningOperationsFlow
