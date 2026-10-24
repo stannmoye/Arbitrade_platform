@@ -12,7 +12,7 @@ const routerPath = new URL("../server/routers.ts", import.meta.url);
 const portalRunnerPath = new URL("./apply-portal-migrations.mjs", import.meta.url);
 const recoveryPath = new URL("../installer/migration-recovery-status.mjs", import.meta.url);
 
-describe("explicit auto-trade opt-in migration", () => {
+describe("package-driven auto-trade execution", () => {
   it("disables inherited records before removing inherit from the database enum", async () => {
     const [migration, schema, db, router] = await Promise.all([
       readFile(migrationPath, "utf8"),
@@ -83,7 +83,9 @@ describe("explicit auto-trade opt-in migration", () => {
     expect(execution).toContain("packageMinimumTradeMinor");
     expect(execution).toContain("packageMaximumTradeMinor");
     expect(execution).toContain("availableMinor");
-    expect(execution).toContain("autoTradeMinRewardBps");
+    expect(execution).not.toContain("autoTradeMinRewardBps");
+    expect(execution).not.toContain("autoTradeEnabled");
+    expect(execution).not.toContain("autoTradeMode");
     expect(execution).not.toContain("autoTradeAmountMinor");
   });
 });
