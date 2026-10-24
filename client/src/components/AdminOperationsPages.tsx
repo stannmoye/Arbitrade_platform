@@ -26,9 +26,6 @@ type CustomerRecord = {
   emailVerified?: boolean;
   kyc?: boolean;
   riskTier?: string;
-  tradingEnabled?: boolean;
-  autoTradeEnabled?: boolean;
-  opportunitiesEnabled?: boolean;
   withdrawals?: boolean;
   twofa?: boolean;
   createdAt?: Date | string;
@@ -218,13 +215,13 @@ export function AdminRiskWatchlist() {
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Policy-derived watchlist</span><h2>Accounts to review</h2></div><span className="admin-ops-subtle">Read only</span></div>
-          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Customer risk watchlist"><table className="admin-ops-table"><thead><tr><th>Customer</th><th>Risk tier</th><th>Account state</th><th>Trading</th><th>Auto-trade</th><th>Opportunities</th></tr></thead><tbody>
+          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Customer risk watchlist"><table className="admin-ops-table"><thead><tr><th>Customer</th><th>Risk tier</th><th>Account state</th></tr></thead><tbody>
             {watchlist.map((customer) => {
               const tier = customer.riskTier || "standard";
               const state = customer.accountState || customer.status || "active";
-              return <tr key={customer.id}><td><strong>{customer.name || "Customer"}</strong><small>{customer.email || `Account ${customer.id}`}</small></td><td><StatusPill tone={rank(tier) >= 3 ? "high" : rank(tier) >= 2 ? "watch" : "neutral"}>{tier}</StatusPill></td><td><StatusPill tone={["active", "open"].includes(state.toLowerCase()) ? "good" : "watch"}>{state}</StatusPill></td><td>{customer.tradingEnabled === false ? "Disabled" : "Enabled"}</td><td>{customer.autoTradeEnabled ? "Enabled" : "Disabled"}</td><td>{customer.opportunitiesEnabled === false ? "Disabled" : "Enabled"}</td></tr>;
+              return <tr key={customer.id}><td><strong>{customer.name || "Customer"}</strong><small>{customer.email || `Account ${customer.id}`}</small></td><td><StatusPill tone={rank(tier) >= 3 ? "high" : rank(tier) >= 2 ? "watch" : "neutral"}>{tier}</StatusPill></td><td><StatusPill tone={["active", "open"].includes(state.toLowerCase()) ? "good" : "watch"}>{state}</StatusPill></td></tr>;
             })}
-            {!watchlist.length && <tr><td colSpan={6} className="admin-ops-table-empty">No elevated risk tiers or restricted accounts are recorded.</td></tr>}
+            {!watchlist.length && <tr><td colSpan={3} className="admin-ops-table-empty">No elevated risk tiers or restricted accounts are recorded.</td></tr>}
           </tbody></table></div>
         </section>
         <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Review only</strong> Risk flags are based on saved account controls. This view does not assign a credit, investment or suitability score and does not change any account.</span></div>
