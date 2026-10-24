@@ -95,9 +95,12 @@ describe("notification category visibility", () => {
 
 describe("trade settlement notification categories", () => {
   it("separates principal credits from actual trading rewards", () => {
-    const notices = buildTradeSettlementNotices({ tradeId: 41, currency: "usd", principalMinor: 10000, rewardMinor: 250 });
-    expect(notices.map(notice => notice.category)).toEqual(["ledger_credit", "trading_reward"]);
-    expect(notices.map(notice => notice.eventKey)).toEqual(["trade-settlement:41:principal", "trade-settlement:41:reward"]);
+    const notices = buildTradeSettlementNotices({
+      tradeId: 41, currency: "usd", principalMinor: 10000,
+      grossProfitMinor: 250, platformFeeMinor: 37, netProfitMinor: 213, rewardMinor: 213,
+    });
+    expect(notices.map(notice => notice.category)).toEqual(["ledger_credit", "trading_reward", "ledger_debit"]);
+    expect(notices.map(notice => notice.eventKey)).toEqual(["trade-settlement:41:principal", "trade-settlement:41:reward", "trade-settlement:41:fee"]);
     expect(notices[1].title).toBe("Net trading profit credited");
     expect(notices[2].title).toBe("Trading platform fee recorded");
   });
