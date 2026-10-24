@@ -110,6 +110,8 @@ jobs:
           test -f drizzle/0060_customer_totp_authenticators.sql
           test -f drizzle/0061_customer_totp_recovery_codes.sql
           test -f drizzle/0064_customer_api_keys.sql
+          test -f drizzle/0065_api_access_automation.sql
+          grep -Fq 'API_ACCESS_ENCRYPTION_KEY' .env.example
           grep -Fq 'TOTP_ENCRYPTION_KEY' .env.example
           grep -Fq 'gold-luxe' client/src/theme-system.css
           grep -Fq 'gold-luxe' client/src/customer-theme-overrides.css
