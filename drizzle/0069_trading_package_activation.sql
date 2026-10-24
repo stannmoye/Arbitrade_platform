@@ -50,3 +50,13 @@ VALUES
  ('trading.packagePurchase.repeatRestriction','active_only'),
  ('trading.packagePurchase.cooldownSeconds','21600')
 ON DUPLICATE KEY UPDATE `settingKey`=VALUES(`settingKey`);
+--> statement-breakpoint
+ALTER TABLE `trade_positions`
+  ADD COLUMN IF NOT EXISTS `packageSubscriptionId` int NULL;
+--> statement-breakpoint
+CREATE INDEX `trade_positions_package_subscription_idx`
+  ON `trade_positions` (`packageSubscriptionId`);
+--> statement-breakpoint
+ALTER TABLE `missed_opportunities`
+  ADD COLUMN IF NOT EXISTS `availableMinorAtOpportunity` bigint NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `shortfallMinor` bigint NOT NULL DEFAULT 0;
