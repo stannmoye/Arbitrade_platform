@@ -1013,3 +1013,28 @@ export const privacyAuditEvents = mysqlTable("privacy_audit_events", {
   actorCreatedIndex: index("privacy_audit_actor_created_idx").on(table.actorUserId, table.createdAt, table.id),
   actionCreatedIndex: index("privacy_audit_action_created_idx").on(table.action, table.createdAt),
 }));
+
+export const localScheduledJobs = mysqlTable("local_scheduled_jobs", {
+  id: int("id").autoincrement().primaryKey(),
+  taskUid: varchar("taskUid", { length: 64 }).notNull(),
+  ownerUserId: int("ownerUserId"),
+  name: varchar("name", { length: 160 }).notNull(),
+  cronExpression: varchar("cronExpression", { length: 120 }).notNull(),
+  callbackPath: varchar("callbackPath", { length: 512 }).notNull(),
+  callbackMethod: mysqlEnum("callbackMethod", ["POST", "PUT"]).default("POST").notNull(),
+  callbackPayload: longtext("callbackPayload").notNull(),
+  description: varchar("description", { length: 1000 }).default("").notNull(),
+  isEnable: boolean("isEnable").default(true).notNull(),
+  nextExecutionAt: timestamp("nextExecutionAt"),
+  lastExecutedAt: timestamp("lastExecutedAt"),
+  lockedUntil: timestamp("lockedUntil"),
+  executionCount: int("executionCount").default(0).notNull(),
+  lastStatus: varchar("lastStatus", { length: 24 }),
+  lastError: varchar("lastError", { length: 1000 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  taskUidUnique: uniqueIndex("local_scheduled_jobs_task_uid_unique").on(table.taskUid),
+  dueIndex: index("local_scheduled_jobs_due_idx").on(table.isEnable, table.nextExecutionAt, table.lockedUntil),
+  ownerIndex: index("local_scheduled_jobs_owner_idx").on(table.ownerUserId, table.createdAt),
+}));
