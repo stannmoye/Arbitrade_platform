@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { publicPlatformConfig, publicPlatformScript } from "./_core/publicConfig";
 import { getSessionCookieOptions } from "./_core/cookies";
@@ -80,7 +81,6 @@ describe("self-hosted platform integrations", () => {
   });
 
   it("refuses legacy password hashes when their configured pepper is missing", () => {
-    const crypto = require("node:crypto");
     const legacy = crypto.scryptSync("test-password-123", "legacy-secret", 32).toString("hex");
     vi.stubEnv("PASSWORD_PEPPER", "");
     expect(verifyPassword("test-password-123", legacy)).toBe(false);
