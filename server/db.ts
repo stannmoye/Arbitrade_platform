@@ -19,7 +19,6 @@ import { isAllowedAttachmentRequest, isSupportAttachmentStorageKeyForTicket, isV
 import { assertNotificationPayloadMatches, buildNotificationEventKey, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
-import { isCustomerAutoTradeExplicitlyEnabled } from "./modules/customer-auto-trade";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
@@ -1630,12 +1629,28 @@ export async function resolveCustomerPayoutRequest(adminId: number, input: Payou
 }
 
 export async function ensureCustomerControls(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");let row=(await db.select().from(customerControls).where(eq(customerControls.userId,userId)).limit(1))[0];if(!row){await db.insert(customerControls).values({userId,autoTradeEnabled:false,autoTradeMode:"disabled",autoTradeMinRewardBps:0});row=(await db.select().from(customerControls).where(eq(customerControls.userId,userId)).limit(1))[0];}return row;}
-export async function getCustomerAutoTradeSettings(userId:number){const c=await ensureCustomerControls(userId);const autoTradeEnabled=isCustomerAutoTradeExplicitlyEnabled(c.autoTradeMode);return {autoTradeEnabled,autoTradeMode:c.autoTradeMode,autoTradeMinRewardBps:c.autoTradeMinRewardBps,tradingEnabled:c.tradingEnabled,opportunitiesEnabled:c.opportunitiesEnabled,accountStatus:c.accountStatus};}
 export async function listAdminCustomers(){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
-  const rows=await db.select({id:users.id,name:users.name,email:users.email,packageName:users.packageName,role:users.role,createdAt:users.createdAt}).from(users).orderBy(desc(users.createdAt));
+  const rows=await db.select({id:users.id,name:users.name,email:users.email,role:users.role,createdAt:users.createdAt}).from(users).orderBy(desc(users.createdAt));
   const controls=await db.select().from(customerControls); const byUser=new Map(controls.map(row=>[row.userId,row]));
-  return rows.filter(row=>row.role!=="admin").map(row=>{const c=byUser.get(row.id); const autoTradeMode=c?.autoTradeMode||"disabled"; const autoTradeEffectiveEnabled=isCustomerAutoTradeExplicitlyEnabled(autoTradeMode); return {id:row.id,name:row.name||row.email||"Customer",email:row.email||"",package:row.packageName,group:row.packageName,status:c?.accountStatus||"active",accountState:c?.accountStatus||"active",opportunities:"Database delivery",opportunitiesEnabled:c?.opportunitiesEnabled??true,autoTradeMode,autoTradeEnabled:autoTradeEffectiveEnabled,autoTradeEffectiveEnabled,kyc:c?.kycRequired??true,withdrawals:c?.withdrawalsEnabled??false,twofa:c?.twoFactorRequired??false,facial:false,tradingEnabled:c?.tradingEnabled??true,emailVerified:c?.emailVerified??false,riskTier:c?.riskTier||"standard",adminNote:c?.adminNote||"",createdAt:row.createdAt};});
+  const now=new Date();
+  const activePackages=await db.select({userId:customerPackageSubscriptions.userId,packageName:packages.name})
+    .from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
+    .where(and(eq(customerPackageSubscriptions.status,"active"),lte(customerPackageSubscriptions.startsAt,now),
+      or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,now)),
+      eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,now)),
+      or(isNull(packages.expiresAt),gt(packages.expiresAt,now))));
+  const packageByUser=new Map<number,string[]>();
+  for(const subscription of activePackages){const names=packageByUser.get(subscription.userId)||[];names.push(subscription.packageName);packageByUser.set(subscription.userId,names);}
+  return rows.filter(row=>row.role!=="admin").map(row=>{
+    const control=byUser.get(row.id);
+    const purchasedPackages=[...new Set(packageByUser.get(row.id)||[])];
+    const packageLabel=purchasedPackages.length?purchasedPackages.join(", "):"No active package";
+    return {id:row.id,name:row.name||row.email||"Customer",email:row.email||"",package:packageLabel,group:packageLabel,
+      status:control?.accountStatus||"active",accountState:control?.accountStatus||"active",opportunities:"Package-based automatic execution",
+      kyc:control?.kycRequired??true,withdrawals:control?.withdrawalsEnabled??false,twofa:control?.twoFactorRequired??false,
+      facial:false,emailVerified:control?.emailVerified??false,riskTier:control?.riskTier||"standard",adminNote:control?.adminNote||"",createdAt:row.createdAt};
+  });
 }
 export async function createAdminCustomer(input:{name:string;email:string;password:string;packageName:string}){const db=await getDb();if(!db)throw new Error("Database is not available");const email=input.email.trim().toLowerCase();if(!(await listOpportunityPackagePolicies()).some(p=>p.packageName===input.packageName&&p.enabled))throw new Error("Package is not configured or enabled");if(input.password.length<10)throw new Error("Customer password must be at least 10 characters");const existing=(await db.select({id:users.id}).from(users).where(eq(users.email,email)).limit(1))[0];if(existing)throw new Error("A customer with this email already exists");const salt=crypto.randomBytes(16).toString("hex");const digest=crypto.scryptSync(input.password,salt,32).toString("hex");const result=await db.insert(users).values({openId:`local:customer:${crypto.randomUUID()}`,name:input.name.trim(),email,loginMethod:"password",role:"user",passwordHash:`scrypt$${salt}$${digest}`,packageName:input.packageName});const id=Number(result[0].insertId);await db.insert(customerControls).values({userId:id});return {id,email,name:input.name.trim(),packageName:input.packageName};}
 export async function updateAdminCustomer(input:{id:number;name:string;email:string;packageName:string}){const db=await getDb();if(!db)throw new Error("Database is not available");const email=input.email.trim().toLowerCase();if(!(await listOpportunityPackagePolicies()).some(p=>p.packageName===input.packageName&&p.enabled))throw new Error("Package is not configured or enabled");const existing=(await db.select({id:users.id}).from(users).where(eq(users.email,email)).limit(1))[0];if(existing&&existing.id!==input.id)throw new Error("That email is already used by another account");await db.update(users).set({name:input.name.trim(),email,packageName:input.packageName}).where(and(eq(users.id,input.id),eq(users.role,"user")));return {success:true};}
