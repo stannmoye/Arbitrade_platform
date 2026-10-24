@@ -40,7 +40,7 @@ const primaryLabels: Record<string, string> = {
   dashboard: "Dashboard", opportunities: "Opportunities", yield: "Yield Strategies", wallet: "Wallet",
   activity: "Activity", support: "Support", account: "Account Settings", security: "Security",
   kyc: "Identity verification", notifications: "Notifications", console: "Customer console",
-  "crypto-mining": "Crypto Mining", "token-launch": "Token Launch",
+  "crypto-mining": "Crypto Mining",
 };
 
 export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProps) {
