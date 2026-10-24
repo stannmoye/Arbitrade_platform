@@ -186,16 +186,18 @@ describe("authoritative financial-event notification contracts", () => {
   });
 
   it("uses stable event keys for committed trade-settlement notices and keeps delivery best-effort", () => {
-    const settlementIndex = db.indexOf("const settlementNotices=[");
-    const settlementEnd = db.indexOf("return result;", settlementIndex);
-    const settlement = db.slice(settlementIndex, settlementEnd);
-    expect(settlementIndex).toBeGreaterThanOrEqual(0);
-    expect(settlementEnd).toBeGreaterThan(settlementIndex);
-    expect(settlement).toContain('eventKey:`trade-settlement:${result.reference}:principal`');
-    expect(settlement).toContain('eventKey:`trade-settlement:${result.reference}:reward`');
-    expect(settlement).toContain("result.rewardMinor>0");
-    expect(settlement).toContain("await Promise.allSettled(settlementNotices.map(notice=>createNotification(");
-    expect(settlement).toContain("after commit");
+    const settlementStart = routers.indexOf("const result=await manuallySettleTrade(");
+    const settlementEnd = routers.indexOf("return result;", settlementStart);
+    const settlement = routers.slice(settlementStart, settlementEnd);
+    const notificationEvents = readFileSync(new URL("../../server/modules/notification-events.ts", import.meta.url), "utf8");
+    expect(settlementStart).toBeGreaterThanOrEqual(0);
+    expect(settlementEnd).toBeGreaterThan(settlementStart);
+    expect(settlement).toContain("buildTradeSettlementNotices({");
+    expect(settlement).toContain("tradeId:result.tradeId,");
+    expect(settlement).toContain("await Promise.allSettled(notices.map(notice=>createNotification(");
+    expect(settlement).toContain("One or more trade settlement notices failed after ledger commit.");
+    expect(notificationEvents).toContain("trade-settlement:${input.tradeId}:principal");
+    expect(notificationEvents).toContain("trade-settlement:${input.tradeId}:reward");
   });
 
   it("does not present customer deposit submission or withdrawal initiation as confirmed payout", () => {
