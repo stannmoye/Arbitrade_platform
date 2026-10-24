@@ -438,7 +438,7 @@ export async function listLLMModels(): Promise<ModelsResponse> {
   const url = `${platformApiBase()}/models`;
 
   const response = await fetchWithBackoff(url, {
-    headers: { authorization: `Bearer ${ENV.forgeApiKey}` },
+    headers: { ...(ENV.aiApiKey ? { authorization: `Bearer ${ENV.aiApiKey}` } : {}) },
   });
 
   if (!response.ok) {
