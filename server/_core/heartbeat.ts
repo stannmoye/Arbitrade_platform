@@ -106,8 +106,8 @@ function serializePayload(payload: unknown): string {
   return value;
 }
 
-async function resolveActor(sessionToken: string): Promise<number | null> {
-  if (!sessionToken) return null;
+async function resolveActor(sessionToken: string): Promise<number> {
+  if (!sessionToken) throw new TRPCError({ code: "UNAUTHORIZED", message: "A local session is required to manage scheduled jobs." });
   const session = verifyLocalSession(sessionToken);
   if (!session) throw new TRPCError({ code: "UNAUTHORIZED", message: "A valid local session is required to manage scheduled jobs." });
   const user = await getUserById(session.userId);
@@ -121,7 +121,7 @@ function toJobInfo(row: typeof localScheduledJobs.$inferSelect): HeartbeatJobInf
   return {
     taskUid: row.taskUid,
     name: row.name,
-    userId: row.ownerUserId === null ? "local-system" : String(row.ownerUserId),
+    userId: String(row.ownerUserId),
     description: row.description,
     cronExpression: row.cronExpression,
     callbackPath: row.callbackPath,
@@ -155,7 +155,7 @@ export async function updateHeartbeatJob(taskUid: string, patch: HeartbeatJobUpd
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The Arbitrade database is not available." });
   const ownerUserId = await resolveActor(userSession);
-  const whereOwner = ownerUserId === null ? and(eq(localScheduledJobs.taskUid, taskUid), isNull(localScheduledJobs.ownerUserId)) : and(eq(localScheduledJobs.taskUid, taskUid), eq(localScheduledJobs.ownerUserId, ownerUserId));
+  const whereOwner = and(eq(localScheduledJobs.taskUid, taskUid), eq(localScheduledJobs.ownerUserId, ownerUserId));
   const current = (await db.select().from(localScheduledJobs).where(whereOwner).limit(1))[0];
   if (!current) throw new TRPCError({ code: "NOT_FOUND", message: "Scheduled job not found." });
   const values: Partial<typeof localScheduledJobs.$inferInsert> = { updatedAt: new Date() };
@@ -184,7 +184,7 @@ export async function deleteHeartbeatJob(taskUid: string, userSession = ""): Pro
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The Arbitrade database is not available." });
   const ownerUserId = await resolveActor(userSession);
-  const whereOwner = ownerUserId === null ? and(eq(localScheduledJobs.taskUid, taskUid), isNull(localScheduledJobs.ownerUserId)) : and(eq(localScheduledJobs.taskUid, taskUid), eq(localScheduledJobs.ownerUserId, ownerUserId));
+  const whereOwner = and(eq(localScheduledJobs.taskUid, taskUid), eq(localScheduledJobs.ownerUserId, ownerUserId));
   await db.delete(localScheduledJobs).where(whereOwner);
 }
 
@@ -192,12 +192,12 @@ export async function listHeartbeatJobs(userSession = "", pagination?: { page?: 
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "The Arbitrade database is not available." });
   const ownerUserId = await resolveActor(userSession);
-  const whereOwner = ownerUserId === null ? isNull(localScheduledJobs.ownerUserId) : eq(localScheduledJobs.ownerUserId, ownerUserId);
+  const whereOwner = eq(localScheduledJobs.ownerUserId, ownerUserId);
   const page = Math.max(1, Math.floor(pagination?.page ?? 1));
   const pageSize = Math.min(100, Math.max(1, Math.floor(pagination?.pageSize ?? 20)));
   const rows = await db.select().from(localScheduledJobs).where(whereOwner).orderBy(localScheduledJobs.createdAt).limit(pageSize).offset((page - 1) * pageSize);
   const totals = await db.select({ id: localScheduledJobs.id }).from(localScheduledJobs).where(whereOwner);
-  return { total: totals.length, actorUserId: ownerUserId === null ? "local-system" : String(ownerUserId), jobs: rows.map(toJobInfo) };
+  return { total: totals.length, actorUserId: String(ownerUserId), jobs: rows.map(toJobInfo) };
 }
 
 function callbackSignature(taskUid: string, timestamp: string, body: string): string {
