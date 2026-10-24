@@ -2,32 +2,41 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const routerSource = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
+const notificationSource = readFileSync(new URL("./modules/notification-events.ts", import.meta.url), "utf8");
 const start = source.indexOf("export async function manuallySettleTrade(");
 const end = source.indexOf("export async function createOpportunityOffer(", start);
 const implementation = source.slice(start, end);
 
 describe("manual trade settlement notification boundary", () => {
-  it("emits notices only after the settlement transaction has committed", () => {
-    const transactionEnd = implementation.indexOf('  await updatePopupLifecycleForOffer(result.userId,result.offerId,"settled");');
-    const noticeBatch = implementation.indexOf("const noticeResults=await Promise.allSettled", transactionEnd);
+  it("keeps notification delivery outside the durable financial transaction", () => {
+    const transactionStart = implementation.indexOf("await db.transaction(async tx=>");
+    const transactionBoundary = implementation.indexOf('  await updatePopupLifecycleForOffer(result.userId,result.offerId,"settled");');
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    expect(transactionEnd).toBeGreaterThan(implementation.indexOf("await db.transaction(async tx=>"));
-    expect(noticeBatch).toBeGreaterThan(transactionEnd);
-    expect(implementation.slice(0, transactionEnd)).not.toContain("createNotification(");
+    expect(transactionStart).toBeGreaterThanOrEqual(0);
+    expect(transactionBoundary).toBeGreaterThan(transactionStart);
+    expect(implementation).not.toContain("createNotification(");
+    expect(implementation.slice(transactionBoundary)).toContain("return result;");
+    expect(routerSource).toContain("buildTradeSettlementNotices({");
+    expect(routerSource).toContain("await Promise.allSettled(notices.map");
   });
 
-  it("uses stable settlement-reference keys and distinguishes principal from positive rewards", () => {
-    expect(implementation).toContain("`trade-settlement:${result.reference}:principal`");
-    expect(implementation).toContain("`trade-settlement:${result.reference}:reward`");
-    expect(implementation).toContain('category:"ledger_credit" as const');
-    expect(implementation).toContain('category:"trading_reward" as const');
-    expect(implementation).toContain("result.rewardMinor>0?");
+  it("uses stable per-trade event keys and distinguishes gross result, fees, and losses", () => {
+    expect(notificationSource).toContain("`trade-settlement:${input.tradeId}:principal`");
+    expect(notificationSource).toContain("`trade-settlement:${input.tradeId}:reward`");
+    expect(notificationSource).toContain("`trade-settlement:${input.tradeId}:fee`");
+    expect(notificationSource).toContain("`trade-settlement:${input.tradeId}:loss`");
+    expect(notificationSource).toContain("Net trading profit credited");
+    expect(notificationSource).toContain("Trading platform fee recorded");
+    expect(notificationSource).toContain("Trading loss recorded");
+    expect(routerSource).toContain("grossProfitMinor:result.grossProfitMinor");
+    expect(routerSource).toContain("platformFeeMinor:result.platformFeeMinor");
+    expect(routerSource).toContain("netProfitMinor:result.netProfitMinor");
   });
 
   it("keeps notification failures best-effort after financial commit", () => {
-    expect(implementation).toContain("await Promise.allSettled(settlementNotices.map");
-    expect(implementation).toContain('[Notifications] One or more trade settlement notices failed after commit.');
-    expect(implementation).toContain("  return result;");
+    expect(routerSource).toContain("Promise.allSettled(notices.map");
+    expect(routerSource).toContain("One or more trade settlement notices failed after ledger commit.");
   });
 });
