@@ -433,6 +433,7 @@ function CustomerOpportunityAlert({sound,soundSettings,onOpen,delivery,opportuni
 }
 function CustomerDashboard({push,sound,setSound,soundSettings,delivery,opportunityData}:{push:(x:string)=>void;sound:boolean;setSound:(x:boolean)=>void;soundSettings:SoundSettings;delivery?:{packageName:string;maxPopupsPerDay:number;maxVisibleOffers:number;autoTradeEnabled?:boolean;pausedUntilSettled?:boolean;outstandingTrades?:number};opportunityData?:any}) {
   const balances=trpc.customer.balances.useQuery(undefined,{refetchInterval:5000});
+  const settings=trpc.customer.autoTradeSettings.useQuery(undefined,{refetchInterval:5000});
   const money=(value:number)=>`$${Number(value||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
   const assetMoney=(minor:number,currency:string)=>{const scale=balances.data?.currencies.find((x:any)=>x.code===currency)?.scale??(currency==="BTC"||currency==="ETH"?8:2);return `${(Number(minor||0)/Math.pow(10,scale)).toLocaleString(undefined,{minimumFractionDigits:Math.min(scale,8),maximumFractionDigits:Math.min(scale,8)})} ${currency}`};
   const summary=balances.data?.summary; const offers=opportunityData?.offers||[]; const missed=opportunityData?.missed||[];
