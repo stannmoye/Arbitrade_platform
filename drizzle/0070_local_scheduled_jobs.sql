@@ -1,0 +1,25 @@
+-- Self-hosted durable scheduled callbacks. No third-party scheduler is required.
+CREATE TABLE IF NOT EXISTS `local_scheduled_jobs` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `taskUid` varchar(64) NOT NULL,
+  `ownerUserId` int NULL,
+  `name` varchar(160) NOT NULL,
+  `cronExpression` varchar(120) NOT NULL,
+  `callbackPath` varchar(512) NOT NULL,
+  `callbackMethod` enum('POST','PUT') NOT NULL DEFAULT 'POST',
+  `callbackPayload` longtext NOT NULL,
+  `description` varchar(1000) NOT NULL DEFAULT '',
+  `isEnable` boolean NOT NULL DEFAULT true,
+  `nextExecutionAt` timestamp NULL DEFAULT NULL,
+  `lastExecutedAt` timestamp NULL DEFAULT NULL,
+  `lockedUntil` timestamp NULL DEFAULT NULL,
+  `executionCount` int NOT NULL DEFAULT 0,
+  `lastStatus` varchar(24) NULL,
+  `lastError` varchar(1000) NULL,
+  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT `local_scheduled_jobs_id_pk` PRIMARY KEY (`id`),
+  UNIQUE KEY `local_scheduled_jobs_task_uid_unique` (`taskUid`),
+  KEY `local_scheduled_jobs_due_idx` (`isEnable`, `nextExecutionAt`, `lockedUntil`),
+  KEY `local_scheduled_jobs_owner_idx` (`ownerUserId`, `createdAt`)
+);
