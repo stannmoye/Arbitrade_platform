@@ -3,7 +3,6 @@ import express from "express";
 import { randomBytes } from "node:crypto";
 import { createServer } from "http";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { registerOAuthRoutes } from "./oauth";
 import { registerProviderOAuthRoutes } from "./providerOAuth";
 import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
@@ -196,7 +195,6 @@ async function startServer() {
       return res.status(502).json({ error: "Unable to prepare managed upload. Please retry." });
     }
   });
-  registerOAuthRoutes(app);
   registerProviderOAuthRoutes(app);
   // tRPC API
   app.use(
