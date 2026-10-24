@@ -18,6 +18,7 @@ export type ListImageModelsResponse = { models: ImageModelInfo[] };
 
 function apiBase(): string {
   const base = ENV.imageApiBaseUrl;
+  if (!base) throw new Error("Image generation is optional; configure IMAGE_API_BASE_URL for a self-hosted or operator-controlled OpenAI-compatible image API");
   const host = new URL(base).hostname;
   if (!ENV.imageApiKey && !["localhost", "127.0.0.1", "::1"].includes(host)) {
     throw new Error("IMAGE_API_KEY is required for a remote image provider");
