@@ -2128,9 +2128,7 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     if(!trade) throw new Error("Trade not found");
     // Replaying an already committed reference/result is safe and never posts again.
     if(trade.status==="settled"&&trade.settlementStatus==="completed"&&trade.settlementReference===reference){
-      if(trade.settlementOutcome==="legacy_unrecorded"&&Number(trade.rewardCreditedMinor)===Math.max(0,input.grossProfitMinor)){
-        return {tradeId,userId:trade.userId,offerId:trade.offerId,currency:trade.currency,principalMinor:Number(trade.principalMinor),grossProfitMinor:0,platformFeeMinor:0,netProfitMinor:Number(trade.rewardCreditedMinor),rewardMinor:Number(trade.rewardCreditedMinor),totalMinor:Number(trade.principalMinor)+Number(trade.rewardCreditedMinor),feeRateBps:0,roundingMode:"half_up" as FeeRoundingMode,feePolicyVersion:Number(trade.feePolicyVersion||1),outcome:"legacy_unrecorded",reference,legacyUnrecorded:true};
-      }
+      if(trade.settlementOutcome==="legacy_unrecorded") throw new Error("This historical settlement has no recorded gross-profit result; replay requires manual financial review.");
       if(Number(trade.realizedGrossProfitMinor)!==input.grossProfitMinor) throw new Error("Settlement reference was already used with a different actual result");
       return {tradeId,userId:trade.userId,offerId:trade.offerId,currency:trade.currency,principalMinor:Number(trade.principalMinor),grossProfitMinor:Number(trade.realizedGrossProfitMinor),platformFeeMinor:Number(trade.platformFeeMinor),netProfitMinor:Number(trade.netProfitMinor),rewardMinor:Math.max(0,Number(trade.netProfitMinor)),totalMinor:Number(trade.principalMinor)+Number(trade.netProfitMinor),feeRateBps:Number(trade.platformFeeRateBps),roundingMode:String(trade.platformFeeRoundingMode) as FeeRoundingMode,feePolicyVersion:Number(trade.feePolicyVersion),outcome:String(trade.settlementOutcome),reference,legacyUnrecorded:false};
     }
@@ -2207,8 +2205,8 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     }).where(and(eq(tradePositions.id,tradeId),eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending")));
     // If another settlement won the race, roll back wallet and ledger mutations together.
     assertExactlyOneAffectedRow(settlementUpdate,"Manual trade settlement state transition");
+    // Preserve the original reserved estimate as audit evidence. Only its state changes.
     await tx.update(tradeRewardReservations).set({
-      reservedMinor:Math.max(0,accounting.netProfitMinor),
       status:accounting.netProfitMinor>0?"credited":"released",
       updatedAt:now,
     }).where(and(eq(tradeRewardReservations.tradeId,tradeId),eq(tradeRewardReservations.status,"reserved")));
