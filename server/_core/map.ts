@@ -42,7 +42,7 @@ export async function makeRequest<T = unknown>(
   const { baseUrl, apiKey } = getMapsConfig();
 
   // Requests go directly to the provider API; no hosted proxy is involved.
-  const url = new URL(endpoint.replace(/^\\/+/, ""), `${baseUrl}/`);
+  const url = new URL(endpoint.replace(/^\/+/, ""), baseUrl + "/");
 
   // Add API key as query parameter (standard Google Maps API authentication)
   url.searchParams.append("key", apiKey);
