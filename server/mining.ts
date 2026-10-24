@@ -279,14 +279,14 @@ export async function createCustomerMiningPurchaseQuote(userId: number, input: {
       sourceUsdRate: rates.sourceUsdRate, targetUsdRate: rates.targetUsdRate, tokenUnitsPerUsd: config.tokenUnitsPerUsd,
       marketProvider: rates.marketProvider, marketObservedAt: rates.marketObservedAt, targetScale: priceScale,
       feeBps: config.purchaseFeeBps, quoteTtlSeconds: config.quoteTtlSeconds, packageVersionId: input.packageVersionId,
-      configVersion: config.version, details: { packageId: Number(product.packageId), packageName:String(product.displayName||product.name), durationMonths:product.durationMonths===null?null:Number(product.durationMonths), expectedDailyRewardCki, calculationModel:config.calculationModel, ckiPerThsPerDay:config.ckiPerThsPerDay, priceAmount: price.toString(), priceAsset, paymentAsset, preferredPaymentAsset, mainWalletScale:wallet.scale, grossPayment: ceilAmount(payment.gross,wallet.scale).toFixed(wallet.scale), feeAsset: paymentAsset },
+      configVersion: config.version, details: { packageId: Number(product.packageId), packageName:String(product.displayName||product.name), durationMonths:product.durationMonths===null?null:Number(product.durationMonths), expectedDailyRewardCki, calculationModel:config.calculationModel, ckiPerThsPerDay:config.ckiPerThsPerDay, priceAmount: price.toString(), priceAsset, paymentAsset, mainWalletScale:wallet.scale, grossPayment: ceilAmount(payment.gross,wallet.scale).toFixed(wallet.scale), feeAsset: paymentAsset },
     });
     const balance = wallet;
     return {
       ...quote, packageId: Number(product.packageId), packageVersionId: input.packageVersionId, packageName: product.displayName||product.name,
       sourceAsset: paymentAsset, sourceAmount: paymentAmount, packagePrice: price.toFixed(priceScale), packagePriceAsset: priceAsset,
       fee: paymentFee, feeAsset: paymentAsset, availableBalance: balance.available,
-      preferredPaymentAsset, paymentAsset, sufficientBalance: decimal(balance.available).gte(paymentAmount), expiresAt: quote.validUntil.toISOString(),
+      paymentAsset, sufficientBalance: decimal(balance.available).gte(paymentAmount), expiresAt: quote.validUntil.toISOString(),
       provider: rates.marketProvider, priceObservedAt: rates.marketObservedAt.toISOString(), expectedDailyRewardCki, calculationModel:config.calculationModel,
       disclaimer: "Indicative main-wallet package-purchase quote. The charge is subject to live price validation and the customer's saved wallet balance.",
     };
