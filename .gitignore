@@ -95,7 +95,6 @@ temp/
 
 # Webdev artifacts
 .webdev/
-client/public/__manus__/version.json
 
 # Installer-generated secrets/state
 installer/.installed
