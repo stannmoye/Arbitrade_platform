@@ -6,7 +6,7 @@ import { getLocalSessionFromRequest } from "./localAuth";
 export function registerStorageProxy(app: Express) {
   app.get("/storage/*", async (req, res) => {
     const key = (req.params as Record<string, string>)[0];
-    if (!key || key.includes("\\\\") || key.split("/").some((part) => part === "." || part === "..")) {
+    if (!key || key.includes("\\") || key.split("/").some((part) => part === "." || part === "..")) {
       res.status(404).send("File not found");
       return;
     }
