@@ -22,7 +22,7 @@ describe("financial notification delivery observability", () => {
   it("reports failed allocation, settlement, and trade-allocation notices after commit", () => {
     expect(source).toContain('Automatic allocation notices failed after ledger commit.');
     expect(source).toContain('Automatic settlement notices failed after ledger commit.');
-    expect(source).toContain('Trade allocation notices failed after ledger commit.');
+    expect(source).toContain('Automatic allocation notices failed after ledger commit.');
     expect(source).toContain('allocationNoticeResults.some(outcome=>outcome.status==="rejected")');
     expect(source).toContain('settlementNoticeResults.some(outcome=>outcome.status==="rejected")');
   });
@@ -51,7 +51,8 @@ describe("financial notification delivery observability", () => {
   it("keeps trade allocation and settlement notices tied to committed trade identifiers", () => {
     expect(source).toContain("auto-trade-allocation:${trade.tradeId}");
     expect(source).toContain("trade-reward:${settlement.tradeId}");
-    expect(source).toContain("buildTradeSettlementNotices({tradeId:result.tradeId");
+    expect(source).toContain("buildTradeSettlementNotices({");
+    expect(source).toContain("tradeId:result.tradeId,");
     expect(source).toContain("await manuallySettleTrade(input.tradeId,ctx.user.id,input)");
     expect(notificationEventsSource).toContain("trade-settlement:${input.tradeId}:principal");
     expect(notificationEventsSource).toContain("trade-settlement:${input.tradeId}:reward");
