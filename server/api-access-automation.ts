@@ -428,12 +428,6 @@ export async function enqueueCustomerApiEvent(userId: number, eventKey: ApiAutom
   return { eventId, queued: true };
 }
 
-function interpolateTemplate(template: string, data: Record<string, unknown>) {
-  return template.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_match, key: string) => {
-    const value = data[key];
-    return typeof value === "string" || typeof value === "number" ? String(value).slice(0, 500) : "";
-  }).slice(0, 3000);
-}
 function eventTitle(eventKey: string) {
   const labels: Record<string, string> = {
     "deposit.confirmed": "Deposit confirmed",
@@ -522,10 +516,7 @@ async function processOneDelivery(id: number) {
       const prefs = await getCustomerApiNotificationPreferences(row.userId);
       if (!prefs.whatsappOptIn || !prefs.whatsappVerified || !prefs.whatsappNumber) throw new Error("WHATSAPP_DESTINATION_NOT_VERIFIED");
       const setting = jsonSetting(await getAppSetting("apiAccess.settings"), {});
-      const templates = (setting.templates && typeof setting.templates === "object" ? setting.templates : {}) as Record<string, string>;
       const templateKey = row.eventKey.replace(/[^a-z0-9]+/gi, "_");
-      const defaultText = eventTitle(row.eventKey) + ". Sign in to your secure account to review details.";
-      const template = typeof templates[templateKey] === "string" && templates[templateKey].trim() ? templates[templateKey] : defaultText;
       const reportDate = typeof data.reportDate === "string" ? data.reportDate : new Date().toISOString().slice(0, 10);
       const reportEndpoint = row.eventKey === "daily.statement" ? "/api/v1/account/statements/daily?date=" + reportDate
         : row.eventKey === "daily.activity" ? "/api/v1/account/trades?date=" + reportDate
@@ -542,7 +533,6 @@ async function processOneDelivery(id: number) {
         status_url: typeof data.status_url === "string" ? data.status_url : "",
         secure_link: typeof data.secure_link === "string" ? data.secure_link : "",
       };
-      const rendered = interpolateTemplate(template, enriched);
       const mappings = setting.whatsappMetaTemplates && typeof setting.whatsappMetaTemplates === "object"
         ? setting.whatsappMetaTemplates as Record<string, { name?: string; language?: string }> : {};
       const mapping = mappings[templateKey];
