@@ -24,6 +24,7 @@ import { runOpportunityRetention } from "../opportunityLifecycle";
 import { getLocalSessionFromRequest } from "./localAuth";
 import { confirmEmailVerification, requestEmailVerification, requestPasswordReset, resetPasswordWithCode } from "../emailAuth";
 import { startEmailWorkers } from "../emailQueue";
+import { startHeartbeatWorker } from "./heartbeat";
 import { refreshMiningPriceFeeds } from "../mining-admin";
 import { runMiningWorkerCycle } from "../mining";
 
@@ -190,7 +191,8 @@ async function startServer() {
       return res.status(201).json({ success: true, storageKey: key });
     } catch (error) {
       console.error("[SupportAttachmentUpload] Local disk write failed", error instanceof Error ? error.name : "UnknownError");
-      const message = error instanceof Error && error.message === "EEXIST" ? "Upload key already exists" : "Unable to save the attachment";
+      const errorCode = error && typeof error === "object" ? (error as NodeJS.ErrnoException).code : undefined;
+      const message = errorCode === "EEXIST" ? "Upload key already exists" : "Unable to save the attachment";
       return res.status(500).json({ error: message });
     }
   });
@@ -214,6 +216,7 @@ async function startServer() {
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
   if (process.env.DATABASE_URL) {
     startEmailWorkers();
+    startHeartbeatWorker();
     let notificationCampaignCycleRunning = false;
     const runNotificationCampaignCycle = async () => {
       if(notificationCampaignCycleRunning)return;
