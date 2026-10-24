@@ -60,4 +60,12 @@ describe("customer trading and Mining navigation cleanup", () => {
     expect(appSource).not.toContain("customerResourceIds");
     expect(appSource).toContain("<CustomerPrivacyCenter/>");
   });
+  it("keeps the working Trade & Earn and Stake & Earn routes visible in the primary workspace menu", () => {
+    const workspaceMenu = between(appSource, "function CustomerTopWorkspaceMenu(", "type CustomerPreferenceItem =");
+    expect(workspaceMenu).toContain('onNavigate("opportunities")');
+    expect(workspaceMenu).toContain('onNavigate("yield")');
+    expect(workspaceMenu).toContain('onNavigate("crypto-mining")');
+    expect(workspaceMenu).toContain('onNavigate("support")');
+  });
+
 });
