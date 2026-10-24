@@ -316,7 +316,7 @@ export const appRouter = router({
       destinationType: z.enum(["bank_transfer", "crypto_transfer"]),
       destinationDetails: z.string().trim().min(8).max(1000),
       idempotencyKey: z.string().trim().min(8).max(160),
-      totpCode: z.string().regex(/^\\d{6}$/).optional(),
+      totpCode: z.string().regex(/^\d{6}$/).optional(),
     })).mutation(async ({ ctx, input }) => {
       const result = await createCustomerPayoutRequest(ctx.user.id, input);
       void enqueueCustomerApiEvent(ctx.user.id, "withdrawal.status", {
