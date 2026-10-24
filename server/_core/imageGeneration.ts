@@ -1,167 +1,109 @@
-/**
- * Image generation helper using internal ImageService
- *
- * Example usage:
- *   const { url: imageUrl } = await generateImage({
- *     prompt: "A serene landscape with mountains"
- *   });
- *
- * For editing:
- *   const { url: imageUrl } = await generateImage({
- *     prompt: "Add a rainbow to this landscape",
- *     originalImages: [{
- *       url: "https://example.com/original.jpg",
- *       mimeType: "image/jpeg"
- *     }]
- *   });
- */
 import { storagePut } from "../storage";
 import { ENV } from "./env";
 
-// Default model for generated sites. "MODEL_GPT_IMAGE_2" is the forge images.v1
-// enum for GPT Image 2 (id: gpt-image-2). If omitted, forge falls back to Gemini 2.5 Flash.
-const DEFAULT_IMAGE_MODEL = "MODEL_GPT_IMAGE_2";
+const DEFAULT_IMAGE_MODEL = process.env.IMAGE_MODEL || "gpt-image-1";
 const DEFAULT_IMAGE_QUALITY = "medium";
 
 export type GenerateImageOptions = {
   prompt: string;
-  originalImages?: Array<{
-    url?: string;
-    b64Json?: string;
-    mimeType?: string;
-  }>;
-  /** Forge image model enum, e.g. "MODEL_GPT_IMAGE_2". Defaults to GPT Image 2. */
+  originalImages?: Array<{ url?: string; b64Json?: string; mimeType?: string }>;
   model?: string;
-  /** Generation quality, e.g. "medium" | "high". Defaults to "medium" for GPT Image 2. */
   quality?: string;
 };
 
-export type GenerateImageResponse = {
-  url?: string;
-};
+export type GenerateImageResponse = { url?: string };
+export type ImageModelInfo = { model?: string; id?: string };
+export type ListImageModelsResponse = { models: ImageModelInfo[] };
 
-export async function generateImage(
-  options: GenerateImageOptions
-): Promise<GenerateImageResponse> {
-  if (!ENV.forgeApiUrl) {
-    throw new Error("MANUS_API_URL is not configured");
+function apiBase(): string {
+  const base = ENV.imageApiBaseUrl;
+  const host = new URL(base).hostname;
+  if (!ENV.imageApiKey && !["localhost", "127.0.0.1", "::1"].includes(host)) {
+    throw new Error("IMAGE_API_KEY is required for a remote image provider");
   }
-  if (!ENV.forgeApiKey) {
-    throw new Error("MANUS_API_KEY is not configured");
-  }
-
-  // Build the full URL by appending the service path to the base URL
-  const baseUrl = ENV.forgeApiUrl.endsWith("/")
-    ? ENV.forgeApiUrl
-    : `${ENV.forgeApiUrl}/`;
-  const fullUrl = new URL(
-    "images.v1.ImageService/GenerateImage",
-    baseUrl
-  ).toString();
-
-  const model = options.model ?? DEFAULT_IMAGE_MODEL;
-  const quality =
-    options.quality ?? (model === DEFAULT_IMAGE_MODEL ? DEFAULT_IMAGE_QUALITY : undefined);
-
-  const response = await fetch(fullUrl, {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      "connect-protocol-version": "1",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
-    },
-    body: JSON.stringify({
-      prompt: options.prompt,
-      originalImages: options.originalImages || [],
-      model,
-      ...(quality ? { quality } : {}),
-    }),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(
-      `Image generation request failed (${response.status} ${response.statusText})${detail ? `: ${detail}` : ""}`
-    );
-  }
-
-  const result = (await response.json()) as {
-    image?: { b64Json?: string; url?: string; mimeType?: string };
-    error?: unknown;
-  };
-  if (result.error || !result.image) throw new Error("Image service did not return an image");
-  let buffer: Buffer;
-  if (result.image.b64Json) {
-    buffer = Buffer.from(result.image.b64Json, "base64");
-  } else if (result.image.url) {
-    const imageResponse = await fetch(result.image.url);
-    if (!imageResponse.ok) throw new Error(`Image download failed (${imageResponse.status})`);
-    buffer = Buffer.from(await imageResponse.arrayBuffer());
-  } else {
-    throw new Error("Image service returned no downloadable bytes");
-  }
-
-  // Save to S3
-  const { url } = await storagePut(
-    `generated/${Date.now()}.png`,
-    buffer,
-    result.image.mimeType
-  );
-  return {
-    url,
-  };
+  return base;
 }
 
-export type ImageModelInfo = {
-  /** Forge model enum, e.g. "MODEL_GPT_IMAGE_2". Pass into generateImage({ model }). */
-  model?: string;
-  /** Stable model id, e.g. "gpt-image-2". */
-  id?: string;
-};
+function authHeaders(): Record<string, string> {
+  return ENV.imageApiKey ? { authorization: `Bearer ${ENV.imageApiKey}` } : {};
+}
 
-export type ListImageModelsResponse = {
-  models: ImageModelInfo[];
-};
+async function imageBytes(source: { url?: string; b64Json?: string; mimeType?: string }): Promise<{ buffer: Buffer; mimeType: string }> {
+  const mimeType = source.mimeType || "image/png";
+  if (!mimeType.startsWith("image/")) throw new Error("Original image must use an image MIME type");
+  if (source.b64Json) {
+    const buffer = Buffer.from(source.b64Json, "base64");
+    if (!buffer.length || buffer.length > 20 * 1024 * 1024) throw new Error("Original image is empty or exceeds 20 MB");
+    return { buffer, mimeType };
+  }
+  if (!source.url) throw new Error("Original image requires a URL or base64 content");
+  const url = new URL(source.url, process.env.PUBLIC_APP_URL || "http://127.0.0.1");
+  if (url.pathname.startsWith("/storage/") && (url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.origin === process.env.PUBLIC_APP_URL)) {
+    const { readStorageObject } = await import("../storage");
+    const stored = await readStorageObject(decodeURIComponent(url.pathname.slice("/storage/".length)));
+    if (!stored.contentType.startsWith("image/")) throw new Error("Original storage object is not an image");
+    return { buffer: stored.buffer, mimeType: stored.contentType };
+  }
+  if (url.protocol !== "https:") throw new Error("Remote original image URLs must use HTTPS");
+  const response = await fetch(url, { signal: AbortSignal.timeout(15_000), redirect: "error" });
+  if (!response.ok) throw new Error(`Original image download failed (${response.status})`);
+  const actualType = response.headers.get("content-type")?.split(";")[0] || mimeType;
+  if (!actualType.startsWith("image/")) throw new Error("Original URL did not return an image");
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (!bytes.length || bytes.length > 20 * 1024 * 1024) throw new Error("Original image is empty or exceeds 20 MB");
+  return { buffer: bytes, mimeType: actualType };
+}
 
-/**
- * List the image models the internal ImageService currently supports.
- * Feed a returned `model` value into generateImage({ model }).
- */
+export async function generateImage(options: GenerateImageOptions): Promise<GenerateImageResponse> {
+  const base = apiBase();
+  if (!options.prompt?.trim()) throw new Error("Image prompt is required");
+  const model = options.model || DEFAULT_IMAGE_MODEL;
+  const quality = options.quality || DEFAULT_IMAGE_QUALITY;
+  let response: Response;
+  if (options.originalImages?.length) {
+    const form = new FormData();
+    form.append("model", model);
+    form.append("prompt", options.prompt);
+    form.append("quality", quality);
+    for (const source of options.originalImages.slice(0, 4)) {
+      const { buffer, mimeType } = await imageBytes(source);
+      const extension = mimeType.split("/")[1]?.replace(/[^a-z0-9]/gi, "") || "png";
+      form.append("image", new Blob([new Uint8Array(buffer)], { type: mimeType }), `source.${extension}`);
+    }
+    response = await fetch(`${base}/images/edits`, { method: "POST", headers: authHeaders(), body: form, signal: AbortSignal.timeout(120_000) });
+  } else {
+    response = await fetch(`${base}/images/generations`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ model, prompt: options.prompt, size: "1024x1024", quality, n: 1 }),
+      signal: AbortSignal.timeout(120_000),
+    });
+  }
+  if (!response.ok) throw new Error(`Configured image provider failed (${response.status})`);
+  const result = await response.json() as { data?: Array<{ b64_json?: string; url?: string }>; error?: unknown };
+  const image = result.data?.[0];
+  if (result.error || !image) throw new Error("Image provider returned no image");
+  let buffer: Buffer;
+  if (image.b64_json) buffer = Buffer.from(image.b64_json, "base64");
+  else if (image.url) {
+    const url = new URL(image.url);
+    if (url.protocol !== "https:") throw new Error("Image provider returned an unsafe image URL");
+    const downloaded = await fetch(url, { signal: AbortSignal.timeout(30_000), redirect: "error" });
+    if (!downloaded.ok) throw new Error(`Generated image download failed (${downloaded.status})`);
+    buffer = Buffer.from(await downloaded.arrayBuffer());
+  } else throw new Error("Image provider returned no downloadable image");
+  if (!buffer.length || buffer.length > 30 * 1024 * 1024) throw new Error("Generated image is empty or exceeds 30 MB");
+  const { url } = await storagePut(`generated/${Date.now()}-${crypto.randomUUID()}.png`, buffer, "image/png");
+  return { url };
+}
+
 export async function listImageModels(): Promise<ListImageModelsResponse> {
-  if (!ENV.forgeApiUrl) {
-    throw new Error("MANUS_API_URL is not configured");
-  }
-  if (!ENV.forgeApiKey) {
-    throw new Error("MANUS_API_KEY is not configured");
-  }
-
-  const baseUrl = ENV.forgeApiUrl.endsWith("/")
-    ? ENV.forgeApiUrl
-    : `${ENV.forgeApiUrl}/`;
-  const fullUrl = new URL(
-    "images.v1.ImageService/ListModels",
-    baseUrl
-  ).toString();
-
-  const response = await fetch(fullUrl, {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      "connect-protocol-version": "1",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
-    },
-    body: "{}",
+  const response = await fetch(`${apiBase()}/models`, {
+    headers: { accept: "application/json", ...authHeaders() },
+    signal: AbortSignal.timeout(15_000),
   });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(
-      `List image models failed (${response.status} ${response.statusText})${detail ? `: ${detail}` : ""}`
-    );
-  }
-
-  const result = (await response.json()) as { models?: ImageModelInfo[] };
-  return { models: result.models ?? [] };
+  if (!response.ok) throw new Error(`Configured image provider model list failed (${response.status})`);
+  const payload = await response.json() as { data?: Array<{ id?: string }> };
+  const models = (payload.data || []).filter((item) => typeof item.id === "string" && /image|dall-e/i.test(item.id)).map((item) => ({ id: item.id, model: item.id }));
+  return { models };
 }
