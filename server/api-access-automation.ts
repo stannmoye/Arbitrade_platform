@@ -428,6 +428,12 @@ export async function enqueueCustomerApiEvent(userId: number, eventKey: ApiAutom
   return { eventId, queued: true };
 }
 
+function interpolateTemplate(template: string, data: Record<string, unknown>) {
+  return template.replace(/\\{\\{([a-zA-Z0-9_]+)\\}\\}/g, (_match, key: string) => {
+    const value = data[key];
+    return typeof value === "string" || typeof value === "number" ? String(value).slice(0, 500) : "";
+  }).slice(0, 3000);
+}
 function eventTitle(eventKey: string) {
   const labels: Record<string, string> = {
     "deposit.confirmed": "Deposit confirmed",
@@ -505,8 +511,22 @@ async function processOneDelivery(id: number) {
     const payload: Record<string, unknown> = JSON.parse(row.payloadJson);
     const data = payload.data && typeof payload.data === "object" ? payload.data as Record<string, unknown> : {};
     if (row.channel === "in_app") {
+      const setting = jsonSetting(await getAppSetting("apiAccess.settings"), {});
+      const templates = (setting.templates && typeof setting.templates === "object" ? setting.templates : {}) as Record<string, string>;
+      const templateKey = row.eventKey.replace(/[^a-z0-9]+/gi, "_");
+      const defaultText = "An update is available in your account. Sign in to view the details.";
+      const template = typeof templates[templateKey] === "string" && templates[templateKey].trim() ? templates[templateKey] : defaultText;
+      const messageData: Record<string, unknown> = {
+        ...data,
+        event: typeof data.event === "string" ? data.event : eventTitle(row.eventKey),
+        status: typeof data.status === "string" ? data.status : "updated",
+        reference: typeof data.reference === "string" ? data.reference : "",
+        report_date: typeof data.reportDate === "string" ? data.reportDate : "",
+        customer_name: typeof data.customer_name === "string" ? data.customer_name : "Customer",
+      };
+      const renderedMessage = interpolateTemplate(template, messageData);
       await createNotification(row.userId, eventTitle(row.eventKey),
-        "An update is available in your account. Sign in to view the details.", {
+        renderedMessage || defaultText, {
           eventKey: "api-automation:" + row.dedupeKey,
           category: row.eventKey.includes("withdrawal") ? "withdrawal" : row.eventKey.includes("deposit") ? "deposit" : "account",
           priority: row.eventKey === "security.alert" ? "high" : "normal",
