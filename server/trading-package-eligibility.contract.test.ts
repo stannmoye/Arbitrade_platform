@@ -12,7 +12,9 @@ describe("server-side trading package eligibility", () => {
     expect(end).toBeGreaterThan(start);
     expect(implementation).toContain("customerPackageSubscriptions");
     expect(implementation).toContain('eq(customerPackageSubscriptions.status,"active")');
-    expect(implementation).toContain("eq(packages.name,packageName)");
+    expect(implementation).toContain(".innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))");
+    expect(implementation).toContain("noPackage:true");
+    expect(implementation).toContain("eq(packages.enabled,true)");
     expect(implementation).toContain("packageNotActive:true");
   });
 
@@ -23,7 +25,8 @@ describe("server-side trading package eligibility", () => {
     expect(implementation).toContain("db.transaction(async tx=>");
     expect(implementation).toContain("customerPackageSubscriptions");
     expect(implementation).toContain('eq(customerPackageSubscriptions.status,"active")');
-    expect(implementation).toContain('.limit(1).for("update")');
+    expect(implementation).toContain('.for("update")');
+    expect(implementation).toContain("SELECT id,loginMethod FROM users WHERE id=${userId} FOR UPDATE");
     expect(implementation).toContain('if(!activePackageSubscription) throw new Error("An eligible active trading package subscription is required")');
   });
 });
