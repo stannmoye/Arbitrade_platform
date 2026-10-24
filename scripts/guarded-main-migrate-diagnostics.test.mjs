@@ -11,6 +11,8 @@ describe("guarded main migration failure diagnostics", () => {
     expect(source).toContain("onStatement: (statement) => { currentStatement = statement; }");
     expect(source).toContain("failureMigration=?,failureStatementIndex=?,failureStatementLabel=?");
     expect(source).toContain("Schema diagnostic: unknown column ");
+    expect(source).toContain("inspectMainMigrationSchema(connection, diagnosticMigration)");
+    expect(source).toContain("Read-only schema check for ");
     expect(source).toContain("Automatic retry is blocked");
   });
 
