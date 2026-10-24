@@ -10,7 +10,7 @@ describe("USD-equivalent daily allocation limit", () => {
   });
   it("converts assets with different decimal scales", () => {
     expect(isWithinUsdDailyAllocationLimit({limitUsdMinor:100_000,alreadyAllocated:[],requested:{minor:1_000_000,scale:8,usdRate:65000}})).toBe(true);
-    expect(isWithinUsdDailyAllocationLimit({limitUsdMinor:100_000,alreadyAllocated:[],requested:{minor:200_000,scale:8,usdRate:65000}})).toBe(false);
+    expect(isWithinUsdDailyAllocationLimit({limitUsdMinor:100_000,alreadyAllocated:[],requested:{minor:2_000_000,scale:8,usdRate:65000}})).toBe(false);
   });
   it("fails closed for invalid conversion rates and metadata", () => {
     expect(isWithinUsdDailyAllocationLimit({limitUsdMinor:100_000,alreadyAllocated:[],requested:{minor:1000,scale:2,usdRate:0}})).toBe(false);
