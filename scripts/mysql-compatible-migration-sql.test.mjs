@@ -88,6 +88,23 @@ describe("executeCompatibleMigrationSql", () => {
     ]);
   });
 
+  it("reports safe migration statement labels without exposing SQL literal values", async () => {
+    const connection = createConnection();
+    const statements = [];
+
+    await executeCompatibleMigrationSql(
+      connection,
+      "ALTER TABLE \`example_table\` ADD COLUMN \`new_column\` INT; UPDATE \`example_table\` SET \`value\`='private-value';",
+      { onStatement: (statement) => statements.push(statement) },
+    );
+
+    expect(statements).toEqual([
+      { index: 1, label: "ALTER TABLE example_table" },
+      { index: 2, label: "UPDATE example_table" },
+    ]);
+    expect(JSON.stringify(statements)).not.toContain("private-value");
+  });
+
   it("passes ordinary SQL through unchanged apart from surrounding whitespace", async () => {
     const connection = createConnection();
 
