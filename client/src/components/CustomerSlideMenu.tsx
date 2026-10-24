@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import {
   Activity, ArrowDownUp, BarChart3, Coins, Headphones, Home, Menu, Search,
   Sparkles, WalletCards, X, type LucideIcon,
-} from "lucide-react";} from "lucide-react";
+} from "lucide-react";
 
 type CustomerSlideMenuProps = { section: string; onNavigate: (section: string) => void };
 type CustomerDestination = { label: string; detail: string; target: string; icon: LucideIcon };
