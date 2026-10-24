@@ -50,6 +50,8 @@ const migrations = [
     absentColumns: [["customer_controls","autoTradeAmountMinor"],["customer_controls","autoTradeDailyLimit"]] },
   { file: "0066_remove_unused_customer_daily_trade_limit.sql", tables: ["customer_controls"],
     absentColumns: [["customer_controls","dailyTradeLimitMinor"]] },
+  { file: "0067_trade_settlement_reference_claims.sql", tables: ["trade_settlement_reference_claims"],
+    columns: [["trade_settlement_reference_claims","settlementReference","varchar"],["trade_settlement_reference_claims","tradeId","int"],["trade_settlement_reference_claims","createdAt","timestamp"]] },
 ];
 
 const url = new URL(rawDatabaseUrl);
