@@ -15,6 +15,16 @@ import "./portal-render-recovery.css";
 
 const queryClient = new QueryClient();
 
+const redirectToLoginIfUnauthorized = (error: unknown) => {
+  if (!(error instanceof Error)) return;
+  if (!/UNAUTHORIZED|Authentication required|Session has been revoked/i.test(error.message)) return;
+  const current = window.location.pathname;
+  const target = current.startsWith("/ops-console") || current.startsWith("/admin")
+    ? "/ops-console-7f3a"
+    : "/customer";
+  if (current !== target) window.location.assign(target);
+};
+
 queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.query.state.error;
