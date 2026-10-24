@@ -1,31 +1,50 @@
-// Preconfigured storage helpers for Manus WebDev templates
-// Uploads via Forge Server presigned URL to S3 (PUT direct).
-// Downloads return /manus-storage/{key} paths served via 307 redirect.
+import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
 
-import { ENV } from "./_core/env";
-
-function getForgeConfig() {
-  const forgeUrl = ENV.forgeApiUrl;
-  const forgeKey = ENV.forgeApiKey;
-
-  if (!forgeUrl || !forgeKey) {
-    throw new Error(
-      "Storage config missing: set MANUS_API_URL and MANUS_API_KEY",
-    );
-  }
-
-  return { forgeUrl: forgeUrl.replace(/\/+$/, ""), forgeKey };
-}
+const STORAGE_ROOT = path.resolve(process.env.UPLOADS_DIR || path.join(process.cwd(), "data", "uploads"));
 
 function normalizeKey(relKey: string): string {
-  return relKey.replace(/^\/+/, "");
+  const key = relKey.replace(/\\/g, "/").replace(/^\\/+/, "");
+  const parts = key.split("/");
+  if (!key || parts.some((part) => !part || part === "." || part === "..") || /[\\x00-\\x1f\\x7f]/.test(key)) {
+    throw new Error("Invalid storage key");
+  }
+  const resolved = path.resolve(STORAGE_ROOT, ...parts);
+  if (!resolved.startsWith(STORAGE_ROOT + path.sep)) throw new Error("Invalid storage key");
+  return parts.join("/");
 }
 
-function appendHashSuffix(relKey: string): string {
-  const hash = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
-  const lastDot = relKey.lastIndexOf(".");
-  if (lastDot === -1) return `${relKey}_${hash}`;
-  return `${relKey.slice(0, lastDot)}_${hash}${relKey.slice(lastDot)}`;
+function filePath(key: string): string {
+  return path.resolve(STORAGE_ROOT, ...normalizeKey(key).split("/"));
+}
+
+function withHashSuffix(key: string): string {
+  const hash = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+  const slash = key.lastIndexOf("/");
+  const dir = slash >= 0 ? key.slice(0, slash + 1) : "";
+  const filename = slash >= 0 ? key.slice(slash + 1) : key;
+  const dot = filename.lastIndexOf(".");
+  return dir + (dot > 0 ? `${filename.slice(0, dot)}_${hash}${filename.slice(dot)}` : `${filename}_${hash}`);
+}
+
+export async function writeStorageObject(
+  relKey: string,
+  data: Buffer | Uint8Array | string,
+  contentType = "application/octet-stream",
+): Promise<{ key: string; url: string }> {
+  const key = normalizeKey(relKey);
+  const destination = filePath(key);
+  await fs.mkdir(path.dirname(destination), { recursive: true, mode: 0o750 });
+  const bytes = typeof data === "string" ? Buffer.from(data) : Buffer.from(data);
+  // wx prevents an upload retry from silently replacing an existing object.
+  await fs.writeFile(destination, bytes, { flag: "wx", mode: 0o640 });
+  await fs.writeFile(`${destination}.meta.json`, JSON.stringify({
+    contentType: contentType.slice(0, 200) || "application/octet-stream",
+    sizeBytes: bytes.length,
+    createdAt: new Date().toISOString(),
+  }), { flag: "wx", mode: 0o640 });
+  return { key, url: `/storage/${key}` };
 }
 
 export async function storagePut(
@@ -33,66 +52,43 @@ export async function storagePut(
   data: Buffer | Uint8Array | string,
   contentType = "application/octet-stream",
 ): Promise<{ key: string; url: string }> {
-  const { forgeUrl, forgeKey } = getForgeConfig();
-  const key = appendHashSuffix(normalizeKey(relKey));
+  return writeStorageObject(withHashSuffix(normalizeKey(relKey)), data, contentType);
+}
 
-  // 1. Get presigned PUT URL from Forge
-  const presignUrl = new URL("v1/storage/presign/put", forgeUrl + "/");
-  presignUrl.searchParams.set("path", key);
-
-  const presignResp = await fetch(presignUrl, {
-    headers: { Authorization: `Bearer ${forgeKey}` },
-  });
-
-  if (!presignResp.ok) {
-    const msg = await presignResp.text().catch(() => presignResp.statusText);
-    throw new Error(`Storage presign failed (${presignResp.status}): ${msg}`);
+export async function readStorageObject(relKey: string): Promise<{ key: string; buffer: Buffer; contentType: string }> {
+  const key = normalizeKey(relKey);
+  const destination = filePath(key);
+  const [buffer, metadata] = await Promise.all([
+    fs.readFile(destination),
+    fs.readFile(`${destination}.meta.json`, "utf8").catch(() => ""),
+  ]);
+  let contentType = "application/octet-stream";
+  if (metadata) {
+    try {
+      const value = JSON.parse(metadata) as { contentType?: unknown };
+      if (typeof value.contentType === "string" && value.contentType.length <= 200) contentType = value.contentType;
+    } catch {
+      // Older objects without valid sidecar metadata use a safe binary content type.
+    }
   }
+  return { key, buffer, contentType };
+}
 
-  const { url: s3Url } = (await presignResp.json()) as { url: string };
-  if (!s3Url) throw new Error("Forge returned empty presign URL");
-
-  // 2. PUT file directly to S3
-  const blob =
-    typeof data === "string"
-      ? new Blob([data], { type: contentType })
-      : new Blob([data as any], { type: contentType });
-
-  const uploadResp = await fetch(s3Url, {
-    method: "PUT",
-    headers: { "Content-Type": contentType },
-    body: blob,
-  });
-
-  if (!uploadResp.ok) {
-    throw new Error(`Storage upload to S3 failed (${uploadResp.status})`);
-  }
-
-  return { key, url: `/manus-storage/${key}` };
+export async function deleteStorageObject(relKey: string): Promise<void> {
+  const destination = filePath(normalizeKey(relKey));
+  await Promise.all([
+    fs.unlink(destination).catch((error: NodeJS.ErrnoException) => { if (error.code !== "ENOENT") throw error; }),
+    fs.unlink(`${destination}.meta.json`).catch((error: NodeJS.ErrnoException) => { if (error.code !== "ENOENT") throw error; }),
+  ]);
 }
 
 export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
-  return { key, url: `/manus-storage/${key}` };
+  return { key, url: `/storage/${key}` };
 }
 
+// Kept as a compatibility helper for existing callers. This returns the
+// application's stable route, never an external or bearer-signed URL.
 export async function storageGetSignedUrl(relKey: string): Promise<string> {
-  const { forgeUrl, forgeKey } = getForgeConfig();
-  const key = normalizeKey(relKey);
-
-  const getUrl = new URL("v1/storage/presign/get", forgeUrl + "/");
-  getUrl.searchParams.set("path", key);
-
-  const resp = await fetch(getUrl, {
-    headers: { Authorization: `Bearer ${forgeKey}` },
-  });
-
-  if (!resp.ok) {
-    const msg = await resp.text().catch(() => resp.statusText);
-    throw new Error(`Storage signed URL failed (${resp.status}): ${msg}`);
-  }
-
-  const { url } = (await resp.json()) as { url: string };
-  if (!url) throw new Error("Storage did not return a download URL");
-  return url;
+  return (await storageGet(relKey)).url;
 }
