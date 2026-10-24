@@ -131,7 +131,7 @@ describe("auth.logout", () => {
 
   it("recovers a valid Bearer session when context did not attach the user", async () => {
     const token = "signed-test-token";
-    const verifySession = vi.spyOn(sdk, "verifySession").mockImplementation(async (candidate) =>
+    const verifySession = vi.spyOn(localIdentityService, "verifySession").mockImplementation(async (candidate) =>
       candidate === token ? { openId: "sample-user", appId: "test-app", name: "Sample User", authVersion: 0 } : null
     );
     vi.mocked(getUserForSessionRevocation).mockResolvedValue({
