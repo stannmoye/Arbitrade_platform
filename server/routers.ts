@@ -6,7 +6,7 @@ import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_
 import { z } from "zod";
 import { communicationSettingsInput, getAdminCommunicationSettings, getCustomerCommunicationOptions, saveAdminCommunicationSettings, validateCommunicationSettingsInput } from "./communicationSettings";
 import { TRPCError } from "@trpc/server";
-import { ACCOUNT_CLOSURE_TICKET_SUBJECT, AccountClosureDecisionError, applyAccountClosureDecision, assignSupportTicket, createAccountClosureTicket, listSupportAssignees, addTicketAttachment, addTicketMessage, adjustCustomerBalance, broadcastCustomerNotification, listAdminNotificationCampaigns, retryNotificationCampaign, withdrawNotificationCampaign, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, createTrade, deleteAdminCustomer, getCustomerAutoTradeSettings, getCustomerTicket, getSupportTicketById, getAppSetting, getTradeSettlementPolicy, getTradeFeePolicy, setTradeFeePolicy, getCustomerBalanceSummary, getCustomerWalletPreferences, getCustomerOpportunityRules, getCustomerPayoutEligibility, getCustomerAuthenticatorStatus, startCustomerAuthenticatorEnrollment, confirmCustomerAuthenticatorEnrollment, generateCustomerAuthenticatorRecoveryCodes, startCustomerAuthenticatorRecoveryReplacement, startCustomerAuthenticatorReplacement, confirmCustomerAuthenticatorReplacement, createCustomerPayoutRequest, listCustomerPayoutRequests, cancelCustomerPayoutRequest, listAdminPayoutRequests, resolveCustomerPayoutRequest, manuallySettleTrade, listPendingSettlements, markCustomerNotificationsRead, updateCustomerWalletPreferences, updateCustomerOpportunityRules, getTicketUploadPolicy, setTradeSettlementPolicy, getNotificationCategoryVisibility, getCustomerNotificationUnreadCount, listCustomerNotificationPage, setNotificationCategoryVisibility, getUserById, getUserForSessionRevocation, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listCustomerNotifications, listNotifications, listNotificationEventCursor, listOpenOffers, listOpportunityPackagePolicies, listRiskReports, listTicketAttachments, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, reopenSupportTicket, setAppSetting, setCustomerPackage, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
+import { ACCOUNT_CLOSURE_TICKET_SUBJECT, AccountClosureDecisionError, applyAccountClosureDecision, assignSupportTicket, createAccountClosureTicket, listSupportAssignees, addTicketAttachment, addTicketMessage, adjustCustomerBalance, broadcastCustomerNotification, listAdminNotificationCampaigns, retryNotificationCampaign, withdrawNotificationCampaign, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, createTrade, deleteAdminCustomer, getCustomerAutoTradeSettings, getCustomerTicket, getSupportTicketById, getAppSetting, getTradeSettlementPolicy, getTradeFeePolicy, setTradeFeePolicy, getPackageActivationPolicy, setPackageActivationPolicy, listAdminTradingPackages, updateAdminTradingPackage, listCustomerTradingPackages, activateCustomerTradingPackage, getCustomerBalanceSummary, getCustomerWalletPreferences, getCustomerOpportunityRules, getCustomerPayoutEligibility, getCustomerAuthenticatorStatus, startCustomerAuthenticatorEnrollment, confirmCustomerAuthenticatorEnrollment, generateCustomerAuthenticatorRecoveryCodes, startCustomerAuthenticatorRecoveryReplacement, startCustomerAuthenticatorReplacement, confirmCustomerAuthenticatorReplacement, createCustomerPayoutRequest, listCustomerPayoutRequests, cancelCustomerPayoutRequest, listAdminPayoutRequests, resolveCustomerPayoutRequest, manuallySettleTrade, listPendingSettlements, markCustomerNotificationsRead, updateCustomerWalletPreferences, updateCustomerOpportunityRules, getTicketUploadPolicy, setTradeSettlementPolicy, getNotificationCategoryVisibility, getCustomerNotificationUnreadCount, listCustomerNotificationPage, setNotificationCategoryVisibility, getUserById, getUserForSessionRevocation, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listCustomerNotifications, listNotifications, listNotificationEventCursor, listOpenOffers, listOpportunityPackagePolicies, listRiskReports, listTicketAttachments, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, reopenSupportTicket, setAppSetting, setCustomerPackage, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
 import { allocateStake, cancelStake, getStakeDashboard, projectStake } from "./stakeEarn";
 import { closeTransactionConsoleSession, listTransactionConsoleEvents, recordTransactionConsoleEvent, recordTransactionConsolePulse } from "./transactionConsole";
 import { getOpportunityLifecycleSummary, runOpportunityRetention, updatePopupLifecycle, updatePopupDeliveryStatus } from "./opportunityLifecycle";
@@ -150,6 +150,32 @@ export const appRouter = router({
   }),
 
   customer: router({
+    tradingPackages: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Trading packages are available to customer accounts." });
+      return listCustomerTradingPackages(ctx.user.id);
+    }),
+    activateTradingPackage: protectedProcedure.input(z.object({
+      packageId: z.number().int().positive(),
+      idempotencyKey: z.string().trim().min(8).max(128),
+    })).mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Only customer accounts can activate a trading package." });
+      const result = await activateCustomerTradingPackage(ctx.user.id, input);
+      const cycle = result.immediateCycle as any;
+      for (const trade of cycle?.autoTrades || []) {
+        await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{
+          eventType:"DEBIT",status:"COMPLETED",title:"Automatic wallet reservation confirmed",
+          message:"An opportunity was automatically allocated after package activation; "+trade.amountMinor+" minor units of "+trade.currency+" were committed.",
+          transactionCode:"auto-debit:"+trade.tradeId,amountMinor:-trade.amountMinor,asset:trade.currency,
+        });
+        const notices=[
+          {title:"Automatic trading allocation confirmed",body:trade.symbol+" was allocated from your available "+trade.currency+" balance.",eventKey:"auto-trade-allocation:"+trade.tradeId,category:"trading",priority:"normal"},
+          {title:"Balance reserved for trade",body:trade.amountMinor+" minor units of "+trade.currency+" were reserved for the automatic allocation.",eventKey:"auto-trade-debit:"+trade.tradeId,category:"ledger_debit",priority:"normal"},
+        ];
+        const outcomes=await Promise.allSettled(notices.map(notice=>createNotification(ctx.user.id,notice.title,notice.body,{eventKey:notice.eventKey,category:notice.category,priority:notice.priority})));
+        if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] Post-activation allocation notice failed after ledger commit.");
+      }
+      return {subscriptionId:result.subscriptionId,packageId:result.packageId,packageName:result.packageName,activatedAt:result.activatedAt,expiresAt:result.expiresAt,qualifyingBalanceUsdMinor:result.qualifyingBalanceUsdMinor,replayed:result.replayed,automaticTradeCount:cycle?.autoTrades?.length||0};
+    }),
     communicationOptions: protectedProcedure.query(({ ctx }) => getCustomerCommunicationOptions(ctx.user.name, ctx.user.email)),
     authenticatorStatus: protectedProcedure.query(({ ctx }) => getCustomerAuthenticatorStatus(ctx.user.id)),
     startAuthenticatorEnrollment: protectedProcedure.mutation(({ ctx }) => startCustomerAuthenticatorEnrollment(ctx.user.id)),
@@ -281,6 +307,25 @@ export const appRouter = router({
   }),
 
   adminOperations: router({
+
+    tradingPackages: adminProcedure.query(() => listAdminTradingPackages()),
+    updateTradingPackage: adminProcedure.input(z.object({
+      id: z.number().int().positive(),
+      name: z.string().trim().min(1).max(80),
+      minimumQualifyingBalanceUsdMinor: z.number().int().positive().max(9007199254740991),
+      durationMonths: z.number().int().min(1).max(1200),
+      opportunitiesPerDay: z.number().int().min(1).max(10000),
+      enabled: z.boolean(),
+    })).mutation(({ ctx, input }) => updateAdminTradingPackage(ctx.user.id, input)),
+    packageActivationPolicy: adminProcedure.query(() => getPackageActivationPolicy()),
+    updatePackageActivationPolicy: adminProcedure.input(z.object({
+      eligibleCurrencies: z.array(z.string().trim().min(2).max(32)).min(1).max(64),
+      combineEligibleWallets: z.boolean(),
+      repeatAllowed: z.boolean(),
+      maxCopies: z.number().int().min(0).max(10000),
+      repeatRestriction: z.enum(["active_only","all_history"]),
+      cooldownSeconds: z.number().int().min(0).max(31536000),
+    })).mutation(({ ctx, input }) => setPackageActivationPolicy(ctx.user.id, input)),
 
     communicationSettings: adminProcedure.query(() => getAdminCommunicationSettings()),
     updateCommunicationSettings: adminProcedure.input(communicationSettingsInput).mutation(async ({ ctx, input }) => {
