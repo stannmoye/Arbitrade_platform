@@ -11,8 +11,8 @@
 3. Customer sign-in status must not determine server-side opportunity processing, countdowns, retries, or settlement.
 4. Do not add customer-facing Trading On/Off, Opportunity On/Off, or Auto Trade On/Off switches to this automatic model.
 5. Do not silently fall back to a default package when a customer has no valid active package.
-6. Financial transactions must be durable, auditable, transactional, and idempotent. Never credit or debit only in the UI.
-7. Real-money trading must use verified execution and settlement from a named, authorized provider. Until that exists, label activity as Practice/Simulation/Research and never present estimates or simulated profit as real, withdrawable earnings.
+6. All trade-related money movements must be recorded in the customer's internal ledger. When capital is committed, returned, or adjusted, and when realized profit, fees, or losses are due, apply the appropriate debit or credit to the correct customer wallet as part of a durable, auditable, transactional, idempotent database operation. The UI must reflect committed ledger records; it must never be the only place a financial change exists.
+7. Trading is a real-money operation using Arbitrade's internal ledger as the system of record for trading allocations, capital movements, realized results, fees, and settlement. Do not label trading as Practice, Simulation, or Research, and do not impose a requirement for an external broker/exchange execution provider as a prerequisite in this trading specification. Record the actual result and its supporting internal trade/settlement records; never fabricate a result or credit an estimate as a realized result.
 
 ## 2. Free package activation and qualifying balance
 
@@ -108,7 +108,7 @@ Example: capital $200; realized gross profit $20; fee $3 (15% of $20); net profi
 - No profit fee for failed execution, zero-profit outcome, or loss.
 - Record returned capital, gross profit, platform fee, net profit, and losses separately in the ledger.
 - Store the fee policy/version used for settlement.
-- Only credit after verified settlement. UI animations are not accounting.
+- Apply trade-related debits and credits to the customer's internal ledger when required by the actual trade lifecycle, using the recorded trade result and settlement state. Ledger changes must be committed transactionally and idempotently; UI animations are not accounting.
 - The combined daily earnings ceiling is one customer-level limit across all packages and wallets. Default measurement should be net realized profit, excluding returned principal. Admin must define daily reset timezone/period.
 - Wallet reservations must be distinguished from completed debits. Prevent the same funds from backing multiple concurrent trades.
 - Wallet ledger and displayed balances must reconcile. Use idempotent, transactional operations.
@@ -161,7 +161,7 @@ Every consequential admin change should record administrator, timestamp, old/new
 
 ## 13. Company and financial integrity boundaries
 
-Do not present randomly generated returns as real stock-market profit. If the first release is simulation-only, identify it as Practice/Simulation/Research and do not present simulated balances as withdrawable. Real-money execution requires a named, authorized execution provider, verified market data, execution references, settlement result retrieval, reconciliation, and jurisdiction-appropriate legal/compliance review.
+Trading operates as a real-money workflow recorded in the customer's internal ledger. Each allocation and financial result must be grounded in the actual recorded trade lifecycle and supporting result data. Do not fabricate company activity, trade execution, profit, or settlement results. Record capital debits/returns, realized profit, platform fees, and losses accurately in the internal ledger, with traceable references, reconciliation, and idempotent posting. This trading specification does not define deposit or withdrawal workflows; those belong in separate documents.
 
 ## 14. Acceptance checklist
 
@@ -172,7 +172,7 @@ Do not present randomly generated returns as real stock-market profit. If the fi
 - Package activation checks qualifying balance and creates no artificial debit/credit.
 - An eligible opportunity with insufficient funds is displayed only when it occurs, with required amount, available balance, shortfall, and timestamp.
 - Insufficient-balance opportunity never debits or allocates capital.
-- Settlement credits the correct capital/profit once only after confirmation.
+- Trade lifecycle applies the correct capital debit/return, realized profit, fee, or loss to the customer's internal ledger exactly once, supported by recorded trade/settlement state.
 - Default 15% fee is calculated from realized positive gross profit only.
 - Failed trades follow retry/carry-forward policy and do not incur a profit fee.
 - Combined daily net earnings ceiling applies across all packages and wallets.
