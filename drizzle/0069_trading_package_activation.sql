@@ -57,7 +57,7 @@ ON DUPLICATE KEY UPDATE `settingKey`=VALUES(`settingKey`);
 ALTER TABLE `trade_positions`
   ADD COLUMN IF NOT EXISTS `packageSubscriptionId` int NULL;
 --> statement-breakpoint
-CREATE INDEX `trade_positions_package_subscription_idx`
+CREATE INDEX IF NOT EXISTS `trade_positions_package_subscription_idx`
   ON `trade_positions` (`packageSubscriptionId`);
 --> statement-breakpoint
 ALTER TABLE `missed_opportunities`
