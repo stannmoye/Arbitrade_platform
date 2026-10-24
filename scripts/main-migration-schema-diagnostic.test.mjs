@@ -43,6 +43,7 @@ describe("read-only main migration schema diagnostics", () => {
     ]), "0069_trading_package_activation");
 
     expect(result).toContain("Missing required pre-existing column missed_opportunities.potentialRewardMinor for 0069_trading_package_activation.sql.");
-    expect(result.every(message => /Missing required|exists but expected|Both source/.test(message))).toBe(true);
+    expect(result.some(message => /Missing required/.test(message))).toBe(true);
+    expect(result.some(message => /Progress hint for 0069_trading_package_activation/.test(message))).toBe(true);
   });
 });
