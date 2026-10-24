@@ -14,8 +14,8 @@ import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
 import { resolveTrustedProxyHops } from "./trustedProxy";
 import { isAllowedAttachmentRequest } from "./attachmentPolicy";
-import { getSafePresignedUploadUrl } from "../support-upload-security";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
+import { writeStorageObject } from "../storage";
 import { getTicketUploadPolicy } from "../db";
 import { ensureMarketDrivenOpportunities, refreshMarketData } from "../marketSync";
 import { serveStatic, setupVite } from "./vite";
@@ -135,64 +135,63 @@ async function startServer() {
   app.get("/api/platform/config.js", (_req, res) => {
     res.set("Cache-Control", "no-store").type("application/javascript").send(publicPlatformScript());
   });
-  app.post("/api/support/attachments/presign", async (req, res) => {
-    // Keep authentication failures separate from storage/provider failures. A
-    // storage outage must never be reported as an invalid customer session.
-    let authenticatedUser;
-    const localSession = getLocalSessionFromRequest(req);
-    if (localSession) {
-      authenticatedUser = await getUserById(localSession.userId);
-      if (!authenticatedUser || Number(authenticatedUser.authVersion || 0) !== localSession.authVersion) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-    } else {
-      try {
-        authenticatedUser = await sdk.authenticateRequest(req);
-      } catch {
-        return res.status(401).json({ error: "Authentication required" });
-      }
+  const resolveLocalSupportUser = async (req: express.Request, res: express.Response) => {
+    const session = getLocalSessionFromRequest(req);
+    if (!session) { res.status(401).json({ error: "Authentication required" }); return null; }
+    const user = await getUserById(session.userId);
+    if (!user || Number(user.authVersion ?? 0) !== Number(session.authVersion ?? 0) || user.loginMethod === "closed") {
+      res.status(401).json({ error: "Authentication required" });
+      return null;
     }
+    return user;
+  };
 
+  app.post("/api/support/attachments/presign", async (req, res) => {
     try {
+      const user = await resolveLocalSupportUser(req, res);
+      if (!user) return;
       const { ticketId, fileName, mimeType, sizeBytes } = req.body ?? {};
-      if (!Number.isSafeInteger(ticketId) || ticketId < 1) return res.status(400).json({ error: "A valid support ticket is required" });
-      if (!(await getCustomerTicket(authenticatedUser.id, ticketId))) return res.status(404).json({ error: "Ticket not found" });
+      if (!Number.isSafeInteger(ticketId) || ticketId < 1 || typeof fileName !== "string" || typeof mimeType !== "string" || !Number.isSafeInteger(sizeBytes) || sizeBytes < 1) {
+        return res.status(400).json({ error: "A valid support attachment is required" });
+      }
+      if (!(await getCustomerTicket(user.id, ticketId))) return res.status(404).json({ error: "Ticket not found" });
       const policy = await getTicketUploadPolicy();
-      const rejectionMessage = `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}`;
       if (!isAllowedAttachmentRequest({ fileName, mimeType, sizeBytes }, policy)) {
-        return res.status(400).json({ error: rejectionMessage });
+        return res.status(400).json({ error: `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}` });
       }
-      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
+      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120) || "attachment";
       const key = `support/${ticketId}/${randomBytes(24).toString("hex")}-${safeName}`;
-      const base = process.env.MANUS_API_URL;
-      const token = process.env.MANUS_API_KEY;
-      if (!base || !token) return res.status(503).json({ error: "Managed storage is not configured" });
-      const upstream = await fetch(`${base}/v1/storage/presign/put?path=${encodeURIComponent(key)}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) });
-      let payload: { url?: string; error?: string };
-      try {
-        payload = await upstream.json() as { url?: string; error?: string };
-      } catch {
-        return res.status(502).json({ error: "Managed storage returned an invalid response" });
-      }
-      if (!upstream.ok || !payload.url) {
-        // Provider error text can contain internal details; expose only a stable,
-        // non-sensitive message to the customer.
-        console.error("[SupportAttachmentPresign] Storage provider rejected presign request", upstream.status);
-        return res.status(502).json({ error: "Unable to prepare managed upload. Please retry." });
-      }
-      // Presigned URLs are bearer credentials. Never send malformed, non-HTTPS,
-      // or credential-bearing URLs back to the customer's browser.
-      const safeUploadUrl = getSafePresignedUploadUrl(payload.url);
-      if (!safeUploadUrl) {
-        console.error("[SupportAttachmentPresign] Storage provider returned an invalid or unsafe upload URL");
-        return res.status(502).json({ error: "Managed storage returned an invalid or unsafe upload URL" });
-      }
       res.set("Cache-Control", "no-store, private");
-      return res.json({ uploadUrl: safeUploadUrl, storageKey: key, stableUrl: `/manus-storage/${key}` });
+      return res.json({ uploadUrl: `/api/support/attachments/upload?key=${encodeURIComponent(key)}`, storageKey: key, stableUrl: `/storage/${key}` });
     } catch (error) {
-      // Avoid returning internal provider URLs, tokens, or exception details.
-      console.error("[SupportAttachmentPresign] Unable to prepare upload", error instanceof Error ? error.name : "UnknownError");
-      return res.status(502).json({ error: "Unable to prepare managed upload. Please retry." });
+      console.error("[SupportAttachmentUpload] Could not prepare local upload", error instanceof Error ? error.name : "UnknownError");
+      return res.status(503).json({ error: "Unable to prepare local upload. Please retry." });
+    }
+  });
+
+  app.put("/api/support/attachments/upload", express.raw({ type: "*/*", limit: "100mb" }), async (req, res) => {
+    try {
+      const user = await resolveLocalSupportUser(req, res);
+      if (!user) return;
+      const key = typeof req.query.key === "string" ? req.query.key : "";
+      const match = /^support\/(\d+)\/([a-f0-9]{48})-([A-Za-z0-9._-]{1,120})$/.exec(key);
+      if (!match) return res.status(400).json({ error: "Invalid local storage key" });
+      const ticketId = Number(match[1]);
+      if (!(await getCustomerTicket(user.id, ticketId))) return res.status(404).json({ error: "Ticket not found" });
+      if (!Buffer.isBuffer(req.body) || req.body.length < 1) return res.status(400).json({ error: "The uploaded file is empty" });
+      const mimeType = String(req.headers["content-type"] || "application/octet-stream").split(";")[0].trim();
+      const fileName = match[3];
+      const policy = await getTicketUploadPolicy();
+      if (!isAllowedAttachmentRequest({ fileName, mimeType, sizeBytes: req.body.length }, policy)) {
+        return res.status(400).json({ error: `Attachment rejected. Maximum ${policy.maxAttachmentMb} MB. Allowed: ${policy.allowedMimeTypes.join(", ")}` });
+      }
+      await writeStorageObject(key, req.body, mimeType);
+      res.set("Cache-Control", "no-store, private");
+      return res.status(201).json({ success: true, storageKey: key });
+    } catch (error) {
+      console.error("[SupportAttachmentUpload] Local disk write failed", error instanceof Error ? error.name : "UnknownError");
+      const message = error instanceof Error && error.message === "EEXIST" ? "Upload key already exists" : "Unable to save the attachment";
+      return res.status(500).json({ error: message });
     }
   });
   registerProviderOAuthRoutes(app);
