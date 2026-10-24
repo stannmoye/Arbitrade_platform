@@ -25,6 +25,7 @@ import { invalidateUserSessions } from "./authSessions";
 import { getLocalSessionFromRequest } from "./_core/localAuth";
 import * as privacyService from "./privacy";
 import { localIdentityService } from "./_core/localIdentityService";
+import { createHeartbeatJob, deleteHeartbeatJob, listHeartbeatJobs, updateHeartbeatJob } from "./_core/heartbeat";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -303,6 +304,41 @@ export const appRouter = router({
   }),
 
   adminOperations: router({
+    scheduledJobs: router({
+      list: adminProcedure.input(z.object({ page: z.number().int().positive().optional(), pageSize: z.number().int().min(1).max(100).optional() }).optional()).query(({ ctx, input }) => {
+        const token = parseCookieHeader(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+        return listHeartbeatJobs(token, input);
+      }),
+      create: adminProcedure.input(z.object({
+        name: z.string().trim().min(1).max(160),
+        cron: z.string().trim().min(1).max(120),
+        path: z.string().trim().min(1).max(512),
+        method: z.enum(["POST", "PUT"]).optional(),
+        payload: z.unknown().optional(),
+        description: z.string().max(1000).optional(),
+      })).mutation(({ ctx, input }) => {
+        const token = parseCookieHeader(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+        return createHeartbeatJob(input, token);
+      }),
+      update: adminProcedure.input(z.object({
+        taskUid: z.string().trim().min(1).max(64),
+        patch: z.object({
+          cron: z.string().trim().min(1).max(120).optional(),
+          path: z.string().trim().min(1).max(512).optional(),
+          method: z.enum(["POST", "PUT"]).optional(),
+          payload: z.unknown().optional(),
+          description: z.string().max(1000).optional(),
+          enable: z.boolean().optional(),
+        }).refine((value) => Object.keys(value).length > 0, "At least one field to update is required"),
+      })).mutation(({ ctx, input }) => {
+        const token = parseCookieHeader(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+        return updateHeartbeatJob(input.taskUid, input.patch, token);
+      }),
+      delete: adminProcedure.input(z.object({ taskUid: z.string().trim().min(1).max(64) })).mutation(({ ctx, input }) => {
+        const token = parseCookieHeader(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
+        return deleteHeartbeatJob(input.taskUid, token).then(() => ({ success: true }));
+      }),
+    }),
 
     tradingPackages: adminProcedure.query(() => listAdminTradingPackages()),
     updateTradingPackage: adminProcedure.input(z.object({
