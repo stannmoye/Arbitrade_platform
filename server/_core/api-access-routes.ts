@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { authenticateCustomerApiKey, type CustomerApiScope } from "../api-access";
+import { createTextPdf } from "../api-access-pdf";
 import { createCustomerPayoutRequest, getAppSetting, getDb, listBalances, listCurrencies, listCustomerPayoutRequests, listTrades } from "../db";
 import { API_AUTOMATION_EVENTS, createCustomerApiWebhook, enqueueCustomerApiEvent, listApiPlatformIncidents, listCustomerApiNotificationHistory, listCustomerApiWebhooks, revokeCustomerApiWebhook } from "../api-access-automation";
 import { listCustomerApiUsage, recordCustomerApiUsage } from "../api-access-usage";
@@ -362,6 +363,61 @@ export function registerCustomerApiAccessRoutes(app: Express) {
         completeness: "partial", unavailableSections: ["deposits", "fees"],
         note: "Trade records and withdrawal requests are filtered to the selected UTC date. Balances are the current snapshot as of generatedAt, not historical closing balances. This is not a complete statement while deposit and fee source systems are unconnected." },
     });
+  }));
+
+  app.get("/api/v1/account/statements/daily.pdf", apiIpRateLimit, apiHandler("statements:read", async (req, res, identity) => {
+    const date = typeof req.query.date === "string" ? req.query.date : new Date().toISOString().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date + "T00:00:00Z")) || new Date(date + "T00:00:00Z").toISOString().slice(0, 10) !== date) {
+      res.status(400).json({ error: "date must use YYYY-MM-DD.", code: "INVALID_REPORT_DATE" }); return;
+    }
+    const start = new Date(date + "T00:00:00.000Z").getTime();
+    const end = start + 24 * 60 * 60 * 1000;
+    const [balances, currencies, trades, withdrawals] = await Promise.all([
+      listBalances(identity.userId), listCurrencies(), listTrades(identity.userId), listCustomerPayoutRequests(identity.userId),
+    ]);
+    const dayTrades = trades.filter((item) => {
+      const time = new Date(item.confirmedAt).getTime(); return time >= start && time < end;
+    });
+    const dayWithdrawals = withdrawals.filter((item) => {
+      const time = new Date(item.createdAt).getTime(); return time >= start && time < end;
+    });
+    const lines = [
+      "ARBITRADE - DAILY ACCOUNT STATEMENT",
+      "Statement date (UTC): " + date,
+      "Generated at (UTC): " + new Date().toISOString(),
+      "",
+      "IMPORTANT: PARTIAL STATEMENT",
+      "Deposit and fee source records are not connected and are omitted.",
+      "Balances below are the current snapshot at generation time, not historical closing balances.",
+      "",
+      "CURRENT BALANCES",
+      ...balances.map((item) => JSON.stringify({
+        currency: item.currency, availableMinor: item.availableMinor, lockedMinor: item.lockedMinor,
+        promotionalMinor: item.promotionalMinor, earnedMinor: item.earnedMinor,
+      })),
+      "",
+      "CURRENCY REFERENCE",
+      ...currencies.map((item) => JSON.stringify({ code: item.code, scale: item.scale, usdRate: item.usdRate })),
+      "",
+      "TRADE RECORDS FOR SELECTED UTC DATE",
+      ...dayTrades.map(({ userId: _owner, ...item }) => JSON.stringify(item)),
+      "",
+      "WITHDRAWAL REQUESTS CREATED ON SELECTED UTC DATE",
+      ...dayWithdrawals.map((item) => JSON.stringify({
+        requestReference: item.requestReference, currency: item.currency, amountMinor: item.amountMinor,
+        status: item.status, externalReference: item.externalReference, createdAt: item.createdAt, updatedAt: item.updatedAt,
+      })),
+      "",
+      "This document is generated from currently available account records.",
+      "It is not a complete financial statement while deposit and fee sources remain unconnected.",
+    ];
+    const pdf = createTextPdf(lines);
+    res.status(200).set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": 'attachment; filename="arbitrade-statement-' + date + '.pdf"',
+      "Cache-Control": "private, no-store, max-age=0",
+      "X-Content-Type-Options": "nosniff",
+    }).send(pdf);
   }));
 
   app.get("/api/v1/account/tax-support", apiIpRateLimit, apiHandler("tax-support:read", async (req, res, identity) => {
