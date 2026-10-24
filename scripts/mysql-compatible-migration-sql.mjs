@@ -69,15 +69,15 @@ function stripLeadingComments(input) {
 const unquoteIdentifier = value => value.replace(new RegExp(String.fromCharCode(96), "g"), "");
 
 function safeStatementLabel(statement) {
-  const compact = stripLeadingComments(statement).replace(/\\s+/g, " ").trim();
+  const compact = stripLeadingComments(statement).replace(/\s+/g, " ").trim();
   const patterns = [
-    [/^ALTER\\s+TABLE\\s+(`?[\w$]+`?)/i, "ALTER TABLE"],
-    [/^CREATE\\s+(?:UNIQUE\\s+)?INDEX(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+`?[\w$]+`?\\s+ON\\s+(`?[\w$]+`?)/i, "CREATE INDEX ON"],
-    [/^CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+(`?[\w$]+`?)/i, "CREATE TABLE"],
-    [/^INSERT\\s+INTO\\s+(`?[\w$]+`?)/i, "INSERT INTO"],
-    [/^UPDATE\\s+(`?[\w$]+`?)/i, "UPDATE"],
-    [/^DELETE\\s+FROM\\s+(`?[\w$]+`?)/i, "DELETE FROM"],
-    [/^REPLACE\\s+INTO\\s+(`?[\w$]+`?)/i, "REPLACE INTO"],
+    [/^ALTER\s+TABLE\s+(`?[\w$]+`?)/i, "ALTER TABLE"],
+    [/^CREATE\s+(?:UNIQUE\s+)?INDEX(?:\s+IF\s+NOT\s+EXISTS)?\s+`?[\w$]+`?\s+ON\s+(`?[\w$]+`?)/i, "CREATE INDEX ON"],
+    [/^CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(`?[\w$]+`?)/i, "CREATE TABLE"],
+    [/^INSERT\s+INTO\s+(`?[\w$]+`?)/i, "INSERT INTO"],
+    [/^UPDATE\s+(`?[\w$]+`?)/i, "UPDATE"],
+    [/^DELETE\s+FROM\s+(`?[\w$]+`?)/i, "DELETE FROM"],
+    [/^REPLACE\s+INTO\s+(`?[\w$]+`?)/i, "REPLACE INTO"],
   ];
   for (const [pattern, verb] of patterns) {
     const match = compact.match(pattern);
