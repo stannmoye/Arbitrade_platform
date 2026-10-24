@@ -37,6 +37,7 @@ const migrationFiles = [
   "0064_remove_auto_trade_inherit.sql",
   "0065_remove_obsolete_auto_trade_limits.sql",
   "0066_remove_unused_customer_daily_trade_limit.sql",
+  "0067_trade_settlement_reference_claims.sql",
 ];
 // These tables are schema-baseline indicators for first-time portal migration tracking.
 // Some also belong to the main Drizzle chain; none of them alone proves that a
