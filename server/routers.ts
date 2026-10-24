@@ -170,7 +170,7 @@ export const appRouter = router({
         const notices=[
           {title:"Automatic trading allocation confirmed",body:trade.symbol+" was allocated from your available "+trade.currency+" balance.",eventKey:"auto-trade-allocation:"+trade.tradeId,category:"trading",priority:"normal"},
           {title:"Balance reserved for trade",body:trade.amountMinor+" minor units of "+trade.currency+" were reserved for the automatic allocation.",eventKey:"auto-trade-debit:"+trade.tradeId,category:"ledger_debit",priority:"normal"},
-        ];
+        ] as const;
         const outcomes=await Promise.allSettled(notices.map(notice=>createNotification(ctx.user.id,notice.title,notice.body,{eventKey:notice.eventKey,category:notice.category,priority:notice.priority})));
         if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] Post-activation allocation notice failed after ledger commit.");
       }
