@@ -39,6 +39,10 @@ const portalMigrationFiles = [
   "0064_remove_auto_trade_inherit.sql",
   "0065_remove_obsolete_auto_trade_limits.sql",
   "0066_remove_unused_customer_daily_trade_limit.sql",
+  "0067_trade_settlement_reference_claims.sql",
+  "0068_trade_realized_profit_accounting.sql",
+  "0069_trading_package_activation.sql",
+  "0070_local_scheduled_jobs.sql",
 ];
 let journal;
 try {
