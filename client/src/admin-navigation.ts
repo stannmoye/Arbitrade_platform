@@ -10,6 +10,7 @@ import {
   Globe2,
   Layers3,
   Mail,
+  MessageSquare,
   PackageCheck,
   Palette,
   PlugZap,
@@ -82,6 +83,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "compose-email", target: "smtpCenter", label: "Compose Email", detail: "Recipients, rich text and attachments", icon: Mail },
     { id: "support-tickets", target: "suiteTickets", label: "Support Tickets", detail: "Canonical customer support queue", icon: TicketCheck },
     { id: "customer-notifications", target: "notificationCenter", label: "Announcements & Notifications", detail: "Publish customer updates and review operational alerts", icon: Bell },
+    { id: "communication-settings", target: "communicationSettings", label: "Message Templates & WhatsApp", detail: "Configure WhatsApp contact, customer message copy and planned wallet-provider details", icon: MessageSquare },
   ]},
   { id: "platform-configuration", label: "Platform Configuration", detail: "Signup, security and shared preferences", items: [
     { id: "signup-onboarding", target: "signup", label: "Signup & Onboarding", detail: "Signup rules, gates and jurisdiction matrix", icon: Globe2 },
