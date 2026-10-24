@@ -5,7 +5,7 @@ import type { TrpcContext } from "./_core/context";
 import { invalidateUserSessions } from "./authSessions";
 import { applyAccountClosureDecision, createAccountClosureTicket, getUserById, getUserForSessionRevocation } from "./db";
 import { createLocalSession } from "./_core/localAuth";
-import { sdk } from "./_core/sdk";
+import { localIdentityService } from "./_core/localIdentityService";
 
 vi.mock("./authSessions", () => ({
   invalidateUserSessions: vi.fn().mockResolvedValue(undefined),
