@@ -39,6 +39,7 @@ const migrationFiles = [
   "0066_remove_unused_customer_daily_trade_limit.sql",
   "0067_trade_settlement_reference_claims.sql",
   "0068_trade_realized_profit_accounting.sql",
+  "0069_trading_package_activation.sql",
 ];
 // These tables are schema-baseline indicators for first-time portal migration tracking.
 // Some also belong to the main Drizzle chain; none of them alone proves that a
