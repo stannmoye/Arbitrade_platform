@@ -7,7 +7,7 @@
 ## Code paths reviewed
 
 - `server/routers.ts`: customer ticket creation, message retrieval/reply, reopening, attachment metadata submission, customer notifications, admin ticket reply and notification settings.
-- `server/_core/index.ts`: support attachment presign endpoint, authentication error handling, configured MIME/size policy, provider response handling and safe error messages.
+- `server/_core/index.ts`: authenticated local upload-preparation endpoint, ticket ownership checks, configured MIME/size policy, private filesystem writes and safe local-storage errors.
 - `server/db.ts`: customer ownership lookup, message author-role check, closed-ticket reply guard, ticket status update, and notification creation/policy helpers.
 - `docs/ARBITRADE_STAGE_4_ACCEPTANCE.md`: current release gates and known gaps.
 
@@ -16,15 +16,15 @@
 1. Customer ticket-message reads and replies first verify ticket ownership through `getCustomerTicket(userId, ticketId)`.
 2. The shared message writer independently checks the actor role and prevents a non-admin from writing to another customer's ticket.
 3. Customer replies to a closed ticket are rejected, and the customer-facing router does not accept a client-supplied customer ID.
-4. Attachment presigning authenticates before handling the request and applies the configured upload policy.
-5. The presign endpoint returns safe provider/network failure messages rather than raw exception details.
+4. Local upload preparation authenticates before handling the request, checks ticket ownership and applies the configured upload policy.
+5. The local upload-preparation endpoint returns safe local-storage failure messages rather than raw exception details.
 6. The acceptance document correctly keeps deposit/withdrawal success notifications gated on a verified persisted provider lifecycle and keeps production migrations/deployment out of this PR.
 
 ## Required combined regression matrix
 
 ### Ticket workflow and authorization
 - Customer A cannot read, reply to, reopen, or attach a file to Customer B's ticket.
-- An unauthenticated request cannot presign or attach an upload.
+- An unauthenticated request cannot prepare, upload or register an attachment.
 - Empty/whitespace-only replies are rejected.
 - Closed-ticket customer replies fail; an authorized reopen permits a subsequent reply.
 - Admin reply status transitions are restricted to the declared lifecycle values.
@@ -34,7 +34,7 @@
 
 ### Attachment validation and storage failure
 - Reject wildcard/bare malformed MIME values, MIME mismatches, zero/negative/oversized sizes, control characters in names, and unsafe storage keys.
-- Verify configured size/type policy is applied consistently at presign and final attachment registration.
+- Verify configured size/type policy is applied consistently during local upload preparation, file upload and final attachment registration.
 - Reject storage-provider responses with invalid JSON, missing URLs, non-success status, and unexpected URL schemes.
 - Verify a failed upload is not shown as an attached file; retrying does not duplicate attachment records.
 - Verify only the ticket owner and authorized administrators can access stored attachment references.
