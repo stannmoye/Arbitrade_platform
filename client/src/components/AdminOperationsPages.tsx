@@ -237,10 +237,15 @@ export function AdminTransactionReview() {
   const ledgerQuery = trpc.adminOperations.ledgerActivity.useQuery(undefined, { refetchInterval: 10_000 });
   const pendingQuery = trpc.adminOperations.pendingSettlements.useQuery(undefined, { refetchInterval: 5_000 });
   const confirmSettlement = trpc.adminOperations.confirmManualSettlement.useMutation({ onSuccess: () => { pendingQuery.refetch(); ledgerQuery.refetch(); } });
+  const tradeFeePolicyQuery = trpc.adminOperations.tradeFeePolicy.useQuery(undefined, { staleTime: 60_000 });
+  const [feePolicyDraft, setFeePolicyDraft] = useState<{ feePercent: string; roundingMode: "half_up" | "down" | "up" | "half_even" } | null>(null);
+  const feePolicy = tradeFeePolicyQuery.data;
+  const feeDraft = feePolicyDraft ?? { feePercent: feePolicy ? String(feePolicy.feeRateBps / 100) : "15", roundingMode: feePolicy?.roundingMode ?? "half_up" };
+  const updateTradeFeePolicy = trpc.adminOperations.updateTradeFeePolicy.useMutation({ onSuccess: () => { setFeePolicyDraft(null); tradeFeePolicyQuery.refetch(); } });
   const payoutQuery = trpc.adminOperations.payoutRequests.useQuery(undefined, { refetchInterval: 5_000 });
   const resolvePayout = trpc.adminOperations.resolvePayoutRequest.useMutation({ onSuccess: () => { payoutQuery.refetch(); ledgerQuery.refetch(); } });
   const [payoutDrafts, setPayoutDrafts] = useState<Record<number, { externalReference: string; note: string }>>({});
-  const [drafts, setDrafts] = useState<Record<number, { rewardMinor: string; reference: string }>>({});
+  const [drafts, setDrafts] = useState<Record<number, { grossProfitMinor: string; reference: string }>>({});
   const currencyQuery = trpc.adminOperations.currencies.useQuery(undefined, { staleTime: 60_000 });
   const rows = (ledgerQuery.data ?? []) as unknown as LedgerRecord[];
   const currencies = (currencyQuery.data ?? []) as unknown as Array<{ code: string; scale: number }>;
@@ -256,11 +261,46 @@ export function AdminTransactionReview() {
     <ToolPage eyebrow="Append-only balance ledger" title="Transaction review" description="Review wallet ledger entries and confirm manually settled trades. Elapsed time never credits a reward or releases principal." icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { ledgerQuery.refetch(); pendingQuery.refetch(); payoutQuery.refetch(); }} disabled={ledgerQuery.isFetching || pendingQuery.isFetching || payoutQuery.isFetching}><RefreshCw size={14} /> Refresh</button>}>
       {ledgerQuery.isLoading ? <LoadingState /> : ledgerQuery.isError ? <div className="admin-ops-empty error">The balance ledger could not be loaded.</div> : <>
         <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Realized-profit fee policy</span><h2>Trading platform fee</h2></div><span className="admin-ops-subtle">Policy v{feePolicy?.policyVersion ?? 1}</span></div>
+          <p>Applies only to confirmed positive gross profit. Zero-profit and loss settlements incur no profit-based fee. The default policy is 15%.</p>
+          {tradeFeePolicyQuery.isError && <div className="admin-ops-empty error">Trading fee policy could not be loaded; changes are disabled.</div>}
+          {updateTradeFeePolicy.error && <div className="admin-ops-empty error">{updateTradeFeePolicy.error.message}</div>}
+          <div className="admin-ops-form-grid">
+            <label>Fee rate (%)
+              <input type="number" min={0} max={100} step={0.01} value={feeDraft.feePercent} disabled={tradeFeePolicyQuery.isLoading || tradeFeePolicyQuery.isError} onChange={(event) => setFeePolicyDraft({ ...feeDraft, feePercent: event.target.value })} />
+            </label>
+            <label>Fee rounding
+              <select value={feeDraft.roundingMode} disabled={tradeFeePolicyQuery.isLoading || tradeFeePolicyQuery.isError} onChange={(event) => setFeePolicyDraft({ ...feeDraft, roundingMode: event.target.value as "half_up" | "down" | "up" | "half_even" })}>
+                <option value="half_up">Half up</option>
+                <option value="down">Down</option>
+                <option value="up">Up</option>
+                <option value="half_even">Half even</option>
+              </select>
+            </label>
+            <div className="admin-ops-form-actions">
+              <button className="admin-ops-button" type="button" disabled={tradeFeePolicyQuery.isLoading || tradeFeePolicyQuery.isError || updateTradeFeePolicy.isPending || !feeDraft.feePercent.trim() || !Number.isFinite(Number(feeDraft.feePercent)) || Number(feeDraft.feePercent) < 0 || Number(feeDraft.feePercent) > 100} onClick={() => updateTradeFeePolicy.mutate({ feeRateBps: Math.round(Number(feeDraft.feePercent) * 100), roundingMode: feeDraft.roundingMode })}>{updateTradeFeePolicy.isPending ? "Saving…" : "Save fee policy"}</button>
+            </div>
+          </div>
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span>Changes are audited and versioned. Each settlement stores the fee rate, rounding rule, and policy version used.</span></div>
+        </section>
+        <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Manual settlement queue</span><h2>Trades awaiting administrator confirmation</h2></div><span className="admin-ops-subtle">{pendingQuery.data?.length ?? 0} pending</span></div>
-          {!pendingQuery.data?.length ? <div className="admin-ops-empty compact">No trades are awaiting manual settlement.</div> : <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Trades awaiting manual settlement" onKeyDown={(event) => { if (event.key === "ArrowRight") { event.preventDefault(); event.currentTarget.scrollLeft += 80; } else if (event.key === "ArrowLeft") { event.preventDefault(); event.currentTarget.scrollLeft -= 80; } }}><table className="admin-ops-table"><thead><tr><th>Trade / customer</th><th>Principal</th><th>Reserved reward</th><th>Settlement reference</th><th>Action</th></tr></thead><tbody>
-            {(pendingQuery.data as any[]).map((trade) => { const draft = drafts[trade.id] || { rewardMinor: String(trade.rewardReservedMinor ?? 0), reference: `manual-${trade.id}` }; return <tr key={trade.id}><td><strong>Trade {trade.id} · {trade.symbol || "Opportunity"}</strong><small>{trade.customerName || trade.customerEmail || `Account ${trade.userId}`} · {trade.currency}</small></td><td>{trade.principalMinor}</td><td>{trade.rewardReservedMinor}</td><td><input value={draft.reference} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, reference: event.target.value } }))} placeholder="External/manual reference" /><input value={draft.rewardMinor} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, rewardMinor: event.target.value } }))} inputMode="numeric" aria-label={`Reward minor units for trade ${trade.id}`} /></td><td><button className="admin-ops-button" type="button" disabled={confirmSettlement.isPending} onClick={() => confirmSettlement.mutate({ tradeId: trade.id, rewardMinor: Number(draft.rewardMinor), settlementReference: draft.reference })}><CheckCircle2 size={14} /> Confirm manual settlement</button></td></tr>; })}
+          {!pendingQuery.data?.length ? <div className="admin-ops-empty compact">No trades are awaiting manual settlement.</div> : <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Trades awaiting manual settlement" onKeyDown={(event) => { if (event.key === "ArrowRight") { event.preventDefault(); event.currentTarget.scrollLeft += 80; } else if (event.key === "ArrowLeft") { event.preventDefault(); event.currentTarget.scrollLeft -= 80; } }}><table className="admin-ops-table"><thead><tr><th>Trade / customer</th><th>Principal</th><th>Reserved reward (estimate)</th><th>Actual gross profit/loss (minor units)</th><th>Settlement evidence reference</th><th>Action</th></tr></thead><tbody>
+            {(pendingQuery.data as any[]).map((trade) => {
+              const draft = drafts[trade.id] || { grossProfitMinor: "", reference: "" };
+              const enteredGross = Number(draft.grossProfitMinor);
+              const canConfirm = draft.grossProfitMinor.trim() !== "" && Number.isSafeInteger(enteredGross) && draft.reference.trim().length >= 3;
+              return <tr key={trade.id}>
+                <td><strong>Trade {trade.id} · {trade.symbol || "Opportunity"}</strong><small>{trade.customerName || trade.customerEmail || ("Account " + trade.userId)} · {trade.currency}</small></td>
+                <td>{trade.principalMinor}</td>
+                <td>{trade.rewardReservedMinor}<small>Estimate only; not a settlement result.</small></td>
+                <td><input type="number" step={1} value={draft.grossProfitMinor} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, grossProfitMinor: event.target.value } }))} placeholder="Positive profit or negative loss" aria-label={"Actual gross profit/loss in minor units for trade " + trade.id} /></td>
+                <td><input value={draft.reference} maxLength={160} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, reference: event.target.value } }))} placeholder="Actual settlement reference (required)" aria-label={"Settlement evidence reference for trade " + trade.id} /></td>
+                <td><button className="admin-ops-button" type="button" disabled={confirmSettlement.isPending || !canConfirm} onClick={() => confirmSettlement.mutate({ tradeId: trade.id, grossProfitMinor: enteredGross, settlementReference: draft.reference.trim() })}><CheckCircle2 size={14} /> Confirm actual result</button></td>
+              </tr>;
+            })}
           </tbody></table></div>}
-          <div className="admin-ops-note"><ShieldCheck size={16} /><span>The administrator enters the externally confirmed result and payment reference. This action atomically releases principal, credits the reward once, updates the wallet, and records lifecycle events.</span></div>
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span>Enter the actual confirmed gross profit or loss and its supporting settlement reference. The reserved reward is an estimate, not a realized result. The server records returned principal, gross result, any fee, net result, and loss atomically in the ledger.</span></div>
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head">
