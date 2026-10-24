@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveEffectiveAutoTradeEnabled } from "./auto-trade-policy";
+import { resolveEffectiveAutoTradeEnabled, shouldExecuteAutomaticTrades } from "./auto-trade-policy";
 
 describe("effective automatic-trading policy", () => {
   it("uses the global setting for customers set to inherit", () => {
@@ -18,5 +18,15 @@ describe("effective automatic-trading policy", () => {
   it("never lets a customer override bypass the package-level safety switch", () => {
     expect(resolveEffectiveAutoTradeEnabled({ packageEnabled: false, globalDefaultEnabled: true, customerMode: "enabled" })).toBe(false);
     expect(resolveEffectiveAutoTradeEnabled({ packageEnabled: false, globalDefaultEnabled: true, customerMode: "inherit" })).toBe(false);
+  });
+});
+
+describe("automatic trade execution entry point", () => {
+  it("does not execute allocations from a normal customer feed query", () => {
+    expect(shouldExecuteAutomaticTrades()).toBe(false);
+    expect(shouldExecuteAutomaticTrades({ executeAutomaticTrades: false })).toBe(false);
+  });
+  it("allows the explicit background scheduler to execute allocations", () => {
+    expect(shouldExecuteAutomaticTrades({ executeAutomaticTrades: true })).toBe(true);
   });
 });
