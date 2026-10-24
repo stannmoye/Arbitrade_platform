@@ -76,5 +76,4 @@ describe("explicit auto-trade opt-in migration", () => {
     expect(execution).toContain("availableMinor");
     expect(execution).toContain("autoTradeMinRewardBps");
     expect(execution).not.toContain("autoTradeAmountMinor");
-  });
- );
+  });});
