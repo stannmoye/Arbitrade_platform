@@ -49,7 +49,7 @@ describe("financial notification delivery observability", () => {
   });
 
   it("keeps trade allocation and settlement notices tied to committed trade identifiers", () => {
-    expect(source).toContain("auto-trade-allocation:${trade.tradeId}");
+    expect(dbSource).toContain("auto-trade-allocation:${trade.tradeId}");
     expect(source).toContain("trade-reward:${settlement.tradeId}");
     expect(source).toContain("buildTradeSettlementNotices({tradeId:result.tradeId");
     expect(source).toContain("await manuallySettleTrade(input.tradeId,ctx.user.id,input)");
