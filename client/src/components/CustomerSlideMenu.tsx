@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { createPortal } from "react-dom";
 import {
-  Activity, ArrowDownUp, BarChart3, Headphones, Home, LockKeyhole, Menu, Search,
+  Activity, ArrowDownUp, BarChart3, Coins, Headphones, Home, LockKeyhole, Menu, Search,
   Sparkles, WalletCards, X, type LucideIcon,
 } from "lucide-react";
 
@@ -13,14 +13,12 @@ type CustomerDestinationGroup = { label: string; detail: string; items: Customer
 const destinationGroups: CustomerDestinationGroup[] = [
   {
     label: "Core Workspace",
-    detail: "Account tools and personal settings",
+    detail: "Specialist account views",
     items: [
-      { label: "Power tools", detail: "Risk reports, sessions and support tools", target: "advanced", icon: Sparkles },
-      { label: "Portfolio intelligence", detail: "Allocation health and signal quality", target: "intelligence", icon: BarChart3 },
-      { label: "Account Settings", detail: "Profile, security and preferences", target: "account", icon: LockKeyhole },
+      { label: "Risk Reports", detail: "Request and review account-linked risk reports", target: "advanced", icon: BarChart3 },
+      { label: "Portfolio intelligence", detail: "Allocation health and active trading rules", target: "intelligence", icon: Sparkles },
     ],
   },
-
 ];
 
 const destinations = destinationGroups.flatMap((group) => group.items);
