@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
 import type { Request } from "express";
+import { parse as parseCookieHeader } from "cookie";
+import { COOKIE_NAME } from "@shared/const";
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 function secret() {
@@ -29,8 +31,8 @@ export function verifyLocalSession(token: string | undefined) {
   return { userId: Number(userIdText), expiresAt: Number(expText), authVersion: Number(versionText) };
 }
 export function getLocalSessionFromRequest(req: Request) {
-  const raw = req.headers.cookie?.match(/(?:^|;\s*)webdev_app_session=([^;]+)/)?.[1];
-  return verifyLocalSession(raw);
+  const cookies = parseCookieHeader(req.headers.cookie ?? "");
+  return verifyLocalSession(cookies[COOKIE_NAME]);
 }
 export function passwordHash(password: string) {
   const salt = crypto.randomBytes(16).toString("hex");
