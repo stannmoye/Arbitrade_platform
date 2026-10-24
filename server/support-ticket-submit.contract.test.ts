@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const server = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
-const uploadSecurity = readFileSync(new URL("./support-upload-security.ts", import.meta.url), "utf8");
 const routers = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 
