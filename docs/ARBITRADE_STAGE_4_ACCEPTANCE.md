@@ -236,9 +236,9 @@ Track these as six acceptance work areas within Stage 4, not as six separate top
 
 - 2026-10-20: Wrapped ticket message persistence and ticket-status transition in one database transaction, with a ticket-row `FOR UPDATE` lock to serialize concurrent replies/status changes. Notification delivery remains post-commit and best-effort so notification outages do not make committed replies appear to fail. Add/retain concurrent close-versus-reply integration coverage before accepting this lifecycle hardening.
 
-- 2026-10-24 (supersedes the earlier 2026-10-20 entry): Attachment upload preparation no longer obtains or validates provider-generated URLs. The local endpoint validates upload metadata and ticket ownership, returns an application-local upload URL, and writes bytes to private host storage; safe client errors do not expose internal filesystem details.
+- 2026-10-24: Attachment upload preparation is fully application-local. The endpoint validates upload metadata and ticket ownership, returns an application-local upload URL, and writes bytes to private host storage; safe client errors do not expose internal filesystem details.
 
-- 2026-10-20: Customer ticket submission now stays disabled across the full create-ticket → presign → upload → attachment-registration flow. This prevents repeated clicks during a slow upload from creating duplicate tickets, and the error path avoids exposing provider exception text or falsely claiming an attachment was saved.
+- 2026-10-24 (current flow): Customer ticket submission stays disabled across create-ticket → local upload preparation → upload → attachment registration. This prevents repeated clicks during a slow local file write from creating duplicate tickets; errors do not expose internal storage details or falsely claim an attachment was saved.
 
 - 2026-10-20: Added `server/support-ticket-submit.contract.test.ts` to the normal Vitest suite. It guards the active customer Support Centre's full submission lock, attachment registration path, generic uncertainty/partial-failure messaging, and HTTPS-only application-local upload URL checks. These are source-contract regression tests; browser-level upload failure and real database concurrency checks remain required separately.
 

@@ -35,7 +35,7 @@
 ### Attachment validation and storage failure
 - Reject wildcard/bare malformed MIME values, MIME mismatches, zero/negative/oversized sizes, control characters in names, and unsafe storage keys.
 - Verify configured size/type policy is applied consistently during local upload preparation, file upload and final attachment registration.
-- Reject storage-provider responses with invalid JSON, missing URLs, non-success status, and unexpected URL schemes.
+- Reject malformed local upload-preparation responses, failed upload responses, and unsafe or invalid storage keys before attachment metadata is registered.
 - Verify a failed upload is not shown as an attached file; retrying does not duplicate attachment records.
 - Verify only the ticket owner and authorized administrators can access stored attachment references.
 
