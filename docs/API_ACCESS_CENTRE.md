@@ -101,3 +101,9 @@ Admin-created incidents are persisted and can be resolved from the admin portal.
 ## Not implemented by this foundation
 
 Provider-specific wallet adapter, actual deposit ledger ingestion, authoritative fee ledger, withdrawal initiation API, automated tax calculation or jurisdiction-specific advice, service-level health probes, stored PDF report generation and expiring report links. These must be built against the actual provider, ledger and report sources selected by the project owner rather than being simulated with fabricated data.
+
+
+## Live platform health
+
+- `GET /api/v1/platform/health` is a minimal public health probe for uptime monitors. It reports API reachability, a live database connectivity check, uptime and the configured maintenance state without requiring a customer API key.
+- HTTP 200 means the database probe succeeded; HTTP 503 means the database probe is unavailable. The response does not imply that an unconfigured wallet or messaging provider is healthy. Provider-specific status remains separate.
