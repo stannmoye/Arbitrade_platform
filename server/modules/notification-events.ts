@@ -123,23 +123,33 @@ export type TradeSettlementNotice = {
   title: string;
   body: string;
   eventKey: string;
-  category: "ledger_credit" | "trading_reward";
+  category: "ledger_credit" | "ledger_debit" | "trading_reward" | "trading";
   priority: "normal" | "high";
 };
 
-/** Build notices only for values returned after the settlement transaction commits. */
+/** Build notices from committed principal, realized result, fee and net profit values. */
 export function buildTradeSettlementNotices(input: {
   tradeId: number;
   currency: string;
   principalMinor: number;
   rewardMinor: number;
+  grossProfitMinor?: number;
+  platformFeeMinor?: number;
+  netProfitMinor?: number;
+  outcome?: string;
 }): TradeSettlementNotice[] {
   if (!Number.isSafeInteger(input.tradeId) || input.tradeId <= 0) {
     throw new RangeError("Trade settlement requires a positive trade ID");
   }
+  const grossProfitMinor=input.grossProfitMinor ?? input.rewardMinor;
+  const platformFeeMinor=input.platformFeeMinor ?? 0;
+  const netProfitMinor=input.netProfitMinor ?? input.rewardMinor;
   if (!Number.isSafeInteger(input.principalMinor) || input.principalMinor < 0 ||
-      !Number.isSafeInteger(input.rewardMinor) || input.rewardMinor < 0) {
-    throw new RangeError("Trade settlement amounts must be non-negative safe integers");
+      !Number.isSafeInteger(input.rewardMinor) || input.rewardMinor < 0 ||
+      !Number.isSafeInteger(grossProfitMinor) ||
+      !Number.isSafeInteger(platformFeeMinor) || platformFeeMinor < 0 ||
+      !Number.isSafeInteger(netProfitMinor)) {
+    throw new RangeError("Trade settlement amounts must be safe integers");
   }
   const currency = normalizeNotificationText(input.currency, 32, "currency").toUpperCase();
   const notices: TradeSettlementNotice[] = [{
@@ -149,11 +159,25 @@ export function buildTradeSettlementNotices(input: {
     category: "ledger_credit",
     priority: "normal",
   }];
-  if (input.rewardMinor > 0) notices.push({
-    title: "Trading reward credited",
-    body: `Trade ${input.tradeId} reward of ${input.rewardMinor} minor units was credited to your ${currency} wallet.`,
+  if (netProfitMinor > 0) notices.push({
+    title: "Net trading profit credited",
+    body: `Trade ${input.tradeId} realized gross profit was ${grossProfitMinor} minor units, platform fee was ${platformFeeMinor}, and net profit of ${netProfitMinor} minor units was credited to your ${currency} wallet.`,
     eventKey: `trade-settlement:${input.tradeId}:reward`,
     category: "trading_reward",
+    priority: "high",
+  });
+  if (platformFeeMinor > 0) notices.push({
+    title: "Trading platform fee recorded",
+    body: `Trade ${input.tradeId} platform fee of ${platformFeeMinor} minor units was deducted from realized gross profit.`,
+    eventKey: `trade-settlement:${input.tradeId}:fee`,
+    category: "ledger_debit",
+    priority: "normal",
+  });
+  if (grossProfitMinor < 0) notices.push({
+    title: "Trading loss recorded",
+    body: `Trade ${input.tradeId} recorded a realized loss of ${Math.abs(grossProfitMinor)} minor units. No profit fee was charged.`,
+    eventKey: `trade-settlement:${input.tradeId}:loss`,
+    category: "ledger_debit",
     priority: "high",
   });
   return notices;
