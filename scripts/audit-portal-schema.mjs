@@ -1,4 +1,7 @@
-import { config } from "dotenv";
+impo
+  { file: "0069_trading_package_activation.sql", tables: ["packages","customer_package_subscriptions"],
+    columns: [["packages","minimumQualifyingBalanceUsdMinor","bigint"],["packages","durationMonths","int"],["packages","opportunitiesPerDay","int"],["packages","termsVersion","int"],["customer_package_subscriptions","activationKey","varchar"],["customer_package_subscriptions","termsSnapshotJson","text"],["customer_package_subscriptions","qualifyingBalanceUsdMinor","bigint"],["customer_package_subscriptions","packageTermsVersion","int"],["customer_package_subscriptions","activatedAt","timestamp"]],
+    data: [{table:"packages",column:"name",value:"Aureate Capital",label:"Canonical trading package catalogue"}] },rt { config } from "dotenv";
 import mysql from "mysql2/promise";
 import { resolve } from "node:path";
 import { dirname } from "node:path";
