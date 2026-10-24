@@ -1628,7 +1628,7 @@ export async function resolveCustomerPayoutRequest(adminId: number, input: Payou
   return result;
 }
 
-export async function ensureCustomerControls(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");let row=(await db.select().from(customerControls).where(eq(customerControls.userId,userId)).limit(1))[0];if(!row){await db.insert(customerControls).values({userId,autoTradeEnabled:false,autoTradeMode:"disabled",autoTradeMinRewardBps:0});row=(await db.select().from(customerControls).where(eq(customerControls.userId,userId)).limit(1))[0];}return row;}
+export async function ensureCustomerControls(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");let row=(await db.select().from(customerControls).where(eq(customerControls.userId,userId)).limit(1))[0];if(!row){await db.insert(customerControls).values({userId});row=(await db.select().from(customerControls).where(eq(customerControls.userId,userId)).limit(1))[0];}return row;}
 export async function listAdminCustomers(){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const rows=await db.select({id:users.id,name:users.name,email:users.email,role:users.role,createdAt:users.createdAt}).from(users).orderBy(desc(users.createdAt));
@@ -1673,7 +1673,17 @@ export async function updateAdminCustomer(input:{id:number;name:string;email:str
   await db.update(users).set({name:input.name.trim(),email}).where(and(eq(users.id,input.id),eq(users.role,"user")));
   return {success:true};
 }
-export async function updateCustomerControls(adminId:number,input:{userId:number;accountStatus?:"active"|"suspended"|"restricted";tradingEnabled?:boolean;opportunitiesEnabled?:boolean;autoTradeEnabled?:boolean;autoTradeMode?:"enabled"|"disabled";autoTradeMinRewardBps?:number;withdrawalsEnabled?:boolean;kycRequired?:boolean;twoFactorRequired?:boolean;emailVerified?:boolean;riskTier?:string;adminNote?:string}){const db=await getDb();if(!db)throw new Error("Database is not available");const existing=(await db.select().from(customerControls).where(eq(customerControls.userId,input.userId)).limit(1))[0];const values:any={...input};delete values.userId;if(values.autoTradeEnabled!==undefined&&values.autoTradeMode===undefined) values.autoTradeMode=values.autoTradeEnabled?"enabled":"disabled";if(values.autoTradeMode!==undefined) values.autoTradeEnabled=values.autoTradeMode==="enabled";if(existing)await db.update(customerControls).set({...values,updatedBy:adminId}).where(eq(customerControls.userId,input.userId));else await db.insert(customerControls).values({userId:input.userId,updatedBy:adminId,...values});return {success:true};}
+export async function updateCustomerControls(adminId:number,input:{userId:number;accountStatus?:"active"|"suspended"|"restricted";withdrawalsEnabled?:boolean;kycRequired?:boolean;twoFactorRequired?:boolean;emailVerified?:boolean;riskTier?:string;adminNote?:string}){
+  const db=await getDb();if(!db)throw new Error("Database is not available");
+  const values:any={};
+  for(const key of ["accountStatus","withdrawalsEnabled","kycRequired","twoFactorRequired","emailVerified","riskTier","adminNote"] as const){
+    if(input[key]!==undefined) values[key]=input[key];
+  }
+  const existing=(await db.select().from(customerControls).where(eq(customerControls.userId,input.userId)).limit(1))[0];
+  if(existing) await db.update(customerControls).set({...values,updatedBy:adminId}).where(eq(customerControls.userId,input.userId));
+  else await db.insert(customerControls).values({userId:input.userId,updatedBy:adminId,...values});
+  return {success:true};
+}
 export type AccountClosureDecision = "approve" | "reject";
 export class AccountClosureDecisionError extends Error {
   constructor(message: string) { super(message); this.name = "AccountClosureDecisionError"; }
@@ -1812,8 +1822,7 @@ export async function applyAccountClosureDecision(adminId: number, input: { tick
     const existingControls = (await tx.select({ userId: customerControls.userId }).from(customerControls)
       .where(eq(customerControls.userId, user.id)).limit(1).for("update"))[0];
     const closedControls = {
-      accountStatus: "restricted" as const, tradingEnabled: false, opportunitiesEnabled: false,
-      autoTradeEnabled: false, autoTradeMode: "disabled" as const, withdrawalsEnabled: false, updatedBy: adminId,
+      accountStatus: "restricted" as const, withdrawalsEnabled: false, updatedBy: adminId,
     };
     if (existingControls) await tx.update(customerControls).set(closedControls).where(eq(customerControls.userId, user.id));
     else await tx.insert(customerControls).values({ userId: user.id, ...closedControls });
@@ -2387,7 +2396,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       marketSnapshotId:row.marketSnapshotId,sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus),eventStatus:row.eventStatus};
   });
   const autoTradeCandidates=tradeCandidates;
-  const effectiveControls={...controls,autoTradeEnabled:true,tradingEnabled:true,autoTradeMinRewardBps:0};
+  const effectiveControls=controls;
   const auto=await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls);
   const executedByOffer=new Map(auto.executed.map((trade:any)=>[Number(trade.offerId),trade]));
   const enrichedOffers=popupRows.map(row=>{
@@ -2400,10 +2409,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       durationSeconds:Number(row.durationSeconds||base.durationSeconds||0),marketObservedAt:row.marketObservedAt,sector:row.sector,industry:row.industry,
       listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus),automaticTrade:executed};
   });
-  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},enabled:true,autoTradeEnabled:true,popupPolicy}};
+  return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
 }
 export async function runAutoTradeCycle(){const db=await getDb();if(!db)throw new Error("Database is not available");const customers=await db.select({id:users.id}).from(users).where(eq(users.role,"user"));let allocations=0;for(const customer of customers){try{const result=await listCustomerOpportunities(customer.id,{consumeDelivery:false});allocations+=result.autoTrades.length;}catch(error){console.error(`[AutoTrade] Customer ${customer.id} cycle failed:`,error instanceof Error?error.message:error);}}return {customers:customers.length,allocations};}
-export async function setCustomerPackage(email:string, packageName:string) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const normalized=email.trim().toLowerCase(); const user=(await db.select().from(users).where(eq(users.email,normalized)).limit(1))[0]; if(!user) throw new Error("Customer account not found"); await db.update(users).set({packageName}).where(eq(users.id,user.id)); return {id:user.id,email:user.email,packageName}; }
 export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number}){
  const db=await getDb();if(!db)throw new Error("Database is not available");
  return db.transaction(async tx=>{
