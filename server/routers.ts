@@ -197,7 +197,7 @@ export const appRouter = router({
       feeSummaryEnabled: z.boolean(),
       securityAlertsEnabled: z.boolean(),
       timezone: z.string().min(1).max(80),
-      dailyReportTime: z.string().regex(/^([01]\\d|2[0-3]):[0-5]\\d$/),
+      dailyReportTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
     })).mutation(async ({ ctx, input }) => {
       if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Notification preferences are available to customer accounts only." });
       try { return await saveCustomerApiNotificationPreferences(ctx.user.id, input); }
@@ -208,7 +208,7 @@ export const appRouter = router({
       try { return await requestCustomerWhatsAppVerification(ctx.user.id); }
       catch (error) { throw new TRPCError({ code: "PRECONDITION_FAILED", message: error instanceof Error ? error.message : "Could not send a WhatsApp verification code." }); }
     }),
-    verifyWhatsAppNumber: protectedProcedure.input(z.object({ code: z.string().regex(/^\\d{6}$/) })).mutation(async ({ ctx, input }) => {
+    verifyWhatsAppNumber: protectedProcedure.input(z.object({ code: z.string().regex(/^\d{6}$/) })).mutation(async ({ ctx, input }) => {
       if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "WhatsApp verification is available to customer accounts only." });
       try { return await verifyCustomerWhatsAppNumber(ctx.user.id, input.code); }
       catch (error) { throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not verify WhatsApp number." }); }
@@ -488,8 +488,8 @@ export const appRouter = router({
     apiProviderCredentialStatus: adminProcedure.query(() => apiProviderCredentialStatus()),
     saveWhatsAppProviderCredentials: adminProcedure.input(z.object({
       accessToken: z.string().trim().min(20).max(4096),
-      phoneNumberId: z.string().trim().regex(/^\\d{5,30}$/),
-      graphApiVersion: z.string().trim().regex(/^v\\d+\\.\\d+$/).default("v26.0"),
+      phoneNumberId: z.string().trim().regex(/^\d{5,30}$/),
+      graphApiVersion: z.string().trim().regex(/^v\d+\.\d+$/).default("v26.0"),
       verificationTemplateName: z.string().trim().regex(/^[a-z0-9_]{3,512}$/i),
       verificationTemplateLanguage: z.string().trim().regex(/^[a-z]{2,3}(?:_[A-Z]{2})?$/).default("en"),
     })).mutation(async ({ ctx, input }) => {
