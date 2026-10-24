@@ -458,27 +458,6 @@ function jsonSetting(value: string | null | undefined, fallback: Record<string, 
   try { return { ...fallback, ...JSON.parse(value || "{}") }; } catch { return fallback; }
 }
 
-async function sendMetaWhatsApp(recipient: string, message: string) {
-  const credentials = await readApiProviderCredential("whatsapp_meta");
-  if (!credentials?.accessToken || !credentials.phoneNumberId) throw new Error("WHATSAPP_PROVIDER_NOT_CONFIGURED");
-  const settings = jsonSetting(await getAppSetting("apiAccess.settings"), {});
-  if (settings.whatsappEnabled !== true) throw new Error("WHATSAPP_POLICY_DISABLED");
-  const version = /^v\d+\.\d+$/.test(credentials.graphApiVersion || "") ? credentials.graphApiVersion! : "v26.0";
-  const response = await fetch("https://graph.facebook.com/" + version + "/" + encodeURIComponent(credentials.phoneNumberId) + "/messages", {
-    method: "POST",
-    headers: { Authorization: "Bearer " + credentials.accessToken, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to: recipient.replace(/\D/g, ""),
-      type: "text",
-      text: { preview_url: false, body: message },
-    }),
-    signal: AbortSignal.timeout(12_000),
-    redirect: "error",
-  });
-  if (!response.ok) throw new Error(response.status >= 500 ? "WHATSAPP_PROVIDER_TEMPORARY_ERROR" : "WHATSAPP_PROVIDER_REJECTED");
-}
-
 async function deliverWebhook(payload: Record<string, unknown>) {
   const setting = jsonSetting(await getAppSetting("apiAccess.settings"), {});
   if (setting.webhooksEnabled !== true) throw new Error("WEBHOOKS_POLICY_DISABLED");
@@ -581,7 +560,9 @@ async function processOneDelivery(id: number) {
         await sendMetaWhatsAppTemplate(prefs.whatsappNumber, mapping.name.trim(), mapping.language || "en",
           keys.map((key) => String(enriched[key] ?? "").slice(0, 1024)));
       } else {
-        await sendMetaWhatsApp(prefs.whatsappNumber, rendered);
+        // Business-initiated notifications must use an approved Meta message template.
+        // Admin-authored drafts are previews only; they cannot bypass Meta template approval.
+        throw new Error("WHATSAPP_TEMPLATE_NOT_CONFIGURED");
       }
     } else if (row.channel === "webhook") {
       await deliverWebhook({ ...payload, deliveryId: row.dedupeKey });
