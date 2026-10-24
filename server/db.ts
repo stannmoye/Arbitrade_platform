@@ -12,7 +12,7 @@ import { resolveEffectiveAutoTradeEnabled } from "./modules/auto-trade-policy";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
 import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
-import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
+import { isWithinUsdDailyAllocationLimit } from "./modules/daily-allocation-usd";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
 import { isAllowedAttachmentRequest, isSupportAttachmentStorageKeyForTicket, isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { assertNotificationPayloadMatches, buildNotificationEventKey, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
@@ -1898,11 +1898,13 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const bal=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,userId),eq(customerBalances.currency,offer.currency))).limit(1))[0];
   if(!walletLock?.[0]?.length || !bal || bal.availableMinor<input.amountMinor) throw new Error("Insufficient available balance");
   const customerRules=(await tx.select({maxDailyAllocationMinor:customerOpportunityRules.maxDailyAllocationMinor}).from(customerOpportunityRules).where(eq(customerOpportunityRules.userId,userId)).limit(1))[0];
-  const dailyAllocationLimit=Number(customerRules?.maxDailyAllocationMinor ?? 100000);
-  const dailyAllocationRows=await tx.execute(sql`SELECT COALESCE(SUM(principalMinor),0) AS allocatedMinor FROM trade_positions WHERE userId=${userId} AND currency=${offer.currency} AND DATE(confirmedAt)=${today} AND status <> 'cancelled'`) as any;
-  const alreadyAllocatedMinor=Number(dailyAllocationRows?.[0]?.[0]?.allocatedMinor||0);
-  if(!isWithinDailyAllocationLimit({limitMinor:dailyAllocationLimit,alreadyAllocatedMinor,requestedMinor:input.amountMinor})) throw new Error("Customer daily allocation limit reached for this currency");
-  const uncappedReward=Math.floor(input.amountMinor*terms.rewardBps/10000);
+  const dailyAllocationLimitUsdMinor=Number(customerRules?.maxDailyAllocationMinor ?? 100000);
+  const dailyAllocationRows=await tx.execute(sql`SELECT currency, COALESCE(SUM(principalMinor),0) AS allocatedMinor FROM trade_positions WHERE userId=${userId} AND DATE(confirmedAt)=${today} AND status <> ${"cancelled"} GROUP BY currency`) as any;
+  const currencyRates=await tx.select({code:currencyRegistry.code,scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate}).from(currencyRegistry);
+  const rateByCurrency=new Map(currencyRates.map((row:any)=>[String(row.code),{scale:Number(row.scale),usdRate:Number(row.usdRate)}]));
+  const alreadyAllocated=dailyAllocationRows?.[0]?.map((row:any)=>{ const rate=rateByCurrency.get(String(row.currency)); if(!rate) throw new Error(`Cannot validate the daily allocation cap because ${String(row.currency)} has no currency metadata`); return {minor:Number(row.allocatedMinor),scale:rate.scale,usdRate:rate.usdRate}; })||[];
+  if(!isWithinUsdDailyAllocationLimit({limitUsdMinor:dailyAllocationLimitUsdMinor,alreadyAllocated,requested:{minor:input.amountMinor,scale:Number(currencyRow.scale),usdRate:nativeRate}})) throw new Error("Customer daily allocation limit reached (USD equivalent across all assets)");
+    const uncappedReward=Math.floor(input.amountMinor*terms.rewardBps/10000);
   const reward=Number(packagePolicy.maxRewardPerTradeMinor||0)>0?Math.min(uncappedReward,Number(packagePolicy.maxRewardPerTradeMinor)):uncappedReward;
   if (Number(packagePolicy.minimumRewardBps||0)>terms.rewardBps) throw new Error("Opportunity reward rate is below the package minimum");
   if (Number(packagePolicy.maxDailyRewardMinor||0)>0) {
