@@ -57,6 +57,7 @@ All routes require the administrator's global API switch, rate-limit allowance a
 | `GET /api/v1/account/analytics` | `analytics:read` | Derived from available balance/trade/withdrawal data |
 | `GET /api/v1/account/exchange-rates` | `exchange-rates:read` | Uses stored application rates |
 | `GET /api/v1/account/statements/daily?date=YYYY-MM-DD` | `statements:read` | Partial statement dataset; identifies missing sections |
+| `GET /api/v1/account/statements/daily.pdf?date=YYYY-MM-DD` | `statements:read` | Downloadable PDF of available statement data; explicitly partial while deposits/fees are unavailable |
 | `GET /api/v1/account/tax-support?year=2026` | `tax-support:read` | Tax-support summary of available trade records only; not tax advice |
 | `GET /api/v1/account/notification-history` | `notifications:read` | Customer's delivery history |
 | `GET /api/v1/account/api-usage` | `usage:read` | Aggregate daily per-key request/error/latency metrics |
@@ -77,7 +78,7 @@ Customer preferences support in-app notifications, opt-in WhatsApp events, Whats
 
 The administrator must enable WhatsApp delivery, provide the sender number, store valid Meta Cloud API credentials, configure an approved one-parameter verification template, and map each event that should be sent to an approved Meta template. The Graph API version is configurable in the admin panel; the current default is v26.0, and administrators should review Meta's version/changelog before future upgrades. The event parameter order is fixed by the application and described beside each template editor. Meta's registered template content must match its parameter count/order. Message-body drafts customize in-app notifications but do not create or alter Meta-approved templates. Automated WhatsApp delivery fails closed when an event has no approved-template mapping; it never falls back to a free-form business-initiated message.
 
-Recipients must opt in and verify their number. No WhatsApp messages are sent to an unverified destination. Daily activity/statement messages are notices to query API data endpoints, not PDF attachments. Statement data is partial until deposit and fee sources exist. Fee-summary delivery should not be regarded as authoritative until a fee ledger is connected.
+Recipients must opt in and verify their number. No WhatsApp messages are sent to an unverified destination. Daily activity/statement messages are notices to query API data endpoints, not PDF attachments; customers can download a PDF statement from the customer API panel. Statement data is partial until deposit and fee sources exist. Fee-summary delivery should not be regarded as authoritative until a fee ledger is connected.
 
 ## Wallet provider integration
 
@@ -100,7 +101,7 @@ Admin-created incidents are persisted and can be resolved from the admin portal.
 
 ## Not implemented by this foundation
 
-Provider-specific wallet adapter, actual deposit ledger ingestion, authoritative fee ledger, withdrawal initiation API, automated tax calculation or jurisdiction-specific advice, service-level health probes, stored PDF report generation and expiring report links. These must be built against the actual provider, ledger and report sources selected by the project owner rather than being simulated with fabricated data.
+Provider-specific wallet adapter, actual deposit ledger ingestion, authoritative fee ledger, withdrawal initiation API, automated tax calculation or jurisdiction-specific advice, service-level health probes and expiring report links. These must be built against the actual provider, ledger and report sources selected by the project owner rather than being simulated with fabricated data.
 
 
 ## Live platform health
