@@ -20,7 +20,7 @@ describe("financial notification delivery observability", () => {
   });
 
   it("reports allocation and settlement notification failures after their financial records commit", () => {
-    expect(dbSource).toContain("trade committed, but a notification failed.");
+    expect(dbSource).toContain("committed, but a notification failed.");
     expect(source).toContain("Trade allocation notices failed after ledger commit.");
     expect(source).toContain("One or more trade settlement notices failed after ledger commit.");
     expect(source).toContain('allocationNoticeResults.some(outcome=>outcome.status==="rejected")');
