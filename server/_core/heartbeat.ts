@@ -114,6 +114,7 @@ async function resolveActor(sessionToken: string): Promise<number> {
   if (!user || user.loginMethod === "closed" || Number(user.authVersion ?? 0) !== Number(session.authVersion ?? 0)) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: "The local account or session is no longer active." });
   }
+  if (user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Only an administrator can manage scheduled jobs." });
   return user.id;
 }
 
