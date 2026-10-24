@@ -98,13 +98,20 @@ describe("trade settlement notification categories", () => {
     const notices = buildTradeSettlementNotices({ tradeId: 41, currency: "usd", principalMinor: 10000, rewardMinor: 250 });
     expect(notices.map(notice => notice.category)).toEqual(["ledger_credit", "trading_reward"]);
     expect(notices.map(notice => notice.eventKey)).toEqual(["trade-settlement:41:principal", "trade-settlement:41:reward"]);
-    expect(notices[1].title).toBe("Trading reward credited");
+    expect(notices[1].title).toBe("Net trading profit credited");
+    expect(notices[2].title).toBe("Trading platform fee recorded");
   });
 
-  it("does not create a reward notification for a zero-reward settlement", () => {
-    const notices = buildTradeSettlementNotices({ tradeId: 42, currency: "EUR", principalMinor: 10000, rewardMinor: 0 });
+  it("does not create a reward or fee notification for zero profit", () => {
+    const notices = buildTradeSettlementNotices({ tradeId: 42, currency: "EUR", principalMinor: 10000, rewardMinor: 0, grossProfitMinor: 0, platformFeeMinor: 0, netProfitMinor: 0 });
     expect(notices).toHaveLength(1);
     expect(notices[0].category).toBe("ledger_credit");
+  });
+
+  it("notifies a genuine loss without a profit fee or profit-credit notice", () => {
+    const notices = buildTradeSettlementNotices({ tradeId: 43, currency: "EUR", principalMinor: 10000, rewardMinor: 0, grossProfitMinor: -250, platformFeeMinor: 0, netProfitMinor: -250, outcome: "loss" });
+    expect(notices.map(notice => notice.eventKey)).toEqual(["trade-settlement:43:principal", "trade-settlement:43:loss"]);
+    expect(notices[1].title).toBe("Trading loss recorded");
   });
 
   it("rejects invalid settlement identities or amounts", () => {
