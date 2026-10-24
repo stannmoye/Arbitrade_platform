@@ -237,7 +237,7 @@ export const appRouter = router({
     cancelPayoutRequest: protectedProcedure.input(z.object({ requestId: z.number().int().positive() }))
       .mutation(({ ctx, input }) => cancelCustomerPayoutRequest(ctx.user.id, input.requestId)),
     walletPreferences: protectedProcedure.query(({ ctx }) => getCustomerWalletPreferences(ctx.user.id)),
-    updateWalletPreferences: protectedProcedure.input(z.object({ tradingCurrency: z.string().min(2).max(32).optional(), swapCurrency: z.string().min(2).max(32).optional(), autoTopUpEnabled: z.boolean().optional(), withdrawalWhitelistEnabled: z.boolean().optional() })).mutation(({ ctx, input }) => updateCustomerWalletPreferences(ctx.user.id, input)),
+    updateWalletPreferences: protectedProcedure.input(z.object({ tradingCurrency: z.string().min(2).max(32).optional(), swapCurrency: z.string().min(2).max(32).optional() })).mutation(({ ctx, input }) => updateCustomerWalletPreferences(ctx.user.id, input)),
     opportunityRules: protectedProcedure.query(({ ctx }) => getCustomerOpportunityRules(ctx.user.id)),
     updateOpportunityRules: protectedProcedure.input(z.object({ enabled: z.boolean().optional(), minimumRewardBps: z.number().int().min(0).max(5000).optional(), maxDailyAllocationMinor: z.number().int().positive().max(1000000000).optional(), allowedAssets: z.string().min(2).max(255).optional(), quietHoursStart: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(), quietHoursEnd: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional() })).mutation(({ ctx, input }) => updateCustomerOpportunityRules(ctx.user.id, input)),
     autoTradeSettings: protectedProcedure.query(({ ctx }) => getCustomerAutoTradeSettings(ctx.user.id)),
