@@ -5,9 +5,9 @@ import path from "node:path";
 const STORAGE_ROOT = path.resolve(process.env.UPLOADS_DIR || path.join(process.cwd(), "data", "uploads"));
 
 function normalizeKey(relKey: string): string {
-  const key = relKey.replace(/\\/g, "/").replace(/^\\/+/, "");
+  const key = relKey.replace(/\\/g, "/").replace(/^\/+/, "");
   const parts = key.split("/");
-  if (!key || parts.some((part) => !part || part === "." || part === "..") || /[\\x00-\\x1f\\x7f]/.test(key)) {
+  if (!key || parts.some((part) => !part || part === "." || part === "..") || /[\x00-\x1f\x7f]/.test(key)) {
     throw new Error("Invalid storage key");
   }
   const resolved = path.resolve(STORAGE_ROOT, ...parts);
