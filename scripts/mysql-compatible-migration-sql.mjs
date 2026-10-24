@@ -68,12 +68,37 @@ function stripLeadingComments(input) {
 
 const unquoteIdentifier = value => value.replace(new RegExp(String.fromCharCode(96), "g"), "");
 
-export async function executeCompatibleMigrationSql(connection, sql) {
+function safeStatementLabel(statement) {
+  const compact = stripLeadingComments(statement).replace(/\\s+/g, " ").trim();
+  const patterns = [
+    [/^ALTER\\s+TABLE\\s+(`?[\w$]+`?)/i, "ALTER TABLE"],
+    [/^CREATE\\s+(?:UNIQUE\\s+)?INDEX(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+`?[\w$]+`?\\s+ON\\s+(`?[\w$]+`?)/i, "CREATE INDEX ON"],
+    [/^CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+(`?[\w$]+`?)/i, "CREATE TABLE"],
+    [/^INSERT\\s+INTO\\s+(`?[\w$]+`?)/i, "INSERT INTO"],
+    [/^UPDATE\\s+(`?[\w$]+`?)/i, "UPDATE"],
+    [/^DELETE\\s+FROM\\s+(`?[\w$]+`?)/i, "DELETE FROM"],
+    [/^REPLACE\\s+INTO\\s+(`?[\w$]+`?)/i, "REPLACE INTO"],
+  ];
+  for (const [pattern, verb] of patterns) {
+    const match = compact.match(pattern);
+    if (match) return verb + " " + unquoteIdentifier(match[1]);
+  }
+  const verb = compact.match(/^([A-Z]+)/i)?.[1]?.toUpperCase();
+  return verb ? verb + " statement" : "SQL statement";
+}
+
+export async function executeCompatibleMigrationSql(connection, sql, options = {}) {
   // Historical migrations are trusted repository SQL. This adapter implements
   // the idempotent MariaDB syntax in a way that also works on MySQL 8.0.
+  // The callback is intentionally given only a safe statement label, never SQL
+  // text or literal values, so callers can report a failure location without
+  // exposing data or connection settings.
+  let statementIndex = 0;
   for (const raw of splitStatements(sql)) {
     const statement = stripLeadingComments(raw);
     if (!statement) continue;
+    statementIndex += 1;
+    options.onStatement?.({ index: statementIndex, label: safeStatementLabel(statement) });
 
     const alter = statement.match(/^ALTER\s+TABLE\s+(\S+)\s+([\s\S]+)$/i);
     if (alter) {
