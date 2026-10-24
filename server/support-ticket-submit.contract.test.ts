@@ -11,7 +11,7 @@ const supportStart = app.indexOf("function CustomerSupportCenter(");
 const supportEnd = app.indexOf("\nfunction ", supportStart + 10);
 const support = app.slice(supportStart, supportEnd);
 const advancedStart = app.indexOf("function CustomerAdvanced(");
-const advancedEnd = app.indexOf("\nfunction PaperclipIcon", advancedStart);
+const advancedEnd = app.indexOf("\nfunction AdminNotificationCenter(", advancedStart);
 const advanced = app.slice(advancedStart, advancedEnd);
 const presignStart = server.indexOf('app.post("/api/support/attachments/presign"');
 const presignEnd = server.indexOf("registerOAuthRoutes(app);", presignStart);
@@ -40,10 +40,13 @@ describe("Stage 4 support ticket submission security contract", () => {
     expect(support).not.toContain("push(`Ticket could not be opened · ${e.message}`)");
   });
 
-  it("keeps the secondary customer ticket form submission lock in component scope", () => {
-    expect(advanced).toContain("const [ticketSubmitBusy,setTicketSubmitBusy]=useState(false)");
-    expect(advanced).toContain("if(!subject.trim()||!body.trim()||ticketSubmitBusy)return; setTicketSubmitBusy(true)");
-    expect(advanced).toContain("finally { setTicketSubmitBusy(false); }");
+  it("keeps support ticket creation in the Support Centre and removes the duplicate Risk Reports form", () => {
+    expect(support).toContain("const [ticketSubmitBusy,setTicketSubmitBusy]=useState(false)");
+    expect(support).toContain("if(ticketSubmitBusy||create.isPending||subject.trim().length<3||body.trim().length<1||attachmentError)return");
+    expect(support).toContain("finally{setTicketSubmitBusy(false);}");
+    expect(advanced).not.toContain("ticketSubmitBusy");
+    expect(advanced).not.toContain("Open a support ticket");
+    expect(advanced).not.toContain("Register current session");
   });
 
   it("only returns safe HTTPS presigned URLs and avoids forwarding provider errors", () => {
