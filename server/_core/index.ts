@@ -263,12 +263,8 @@ async function startServer() {
     const runTradeCycle = async () => {
       const result = await runAutoTradeCycle();
       const outstandingTrades = await countOutstandingTrades();
-      if (outstandingTrades === 0) {
-        const opportunities = await ensureMarketDrivenOpportunities(new Date());
-        console.log("[AutoTrade] cycle", { ...result, outstandingTrades, opportunities });
-      } else {
-        console.log("[AutoTrade] cycle", { ...result, outstandingTrades, pausedUntilSettled: true });
-      }
+      const opportunities = await ensureMarketDrivenOpportunities(new Date());
+      console.log("[AutoTrade] cycle", { ...result, outstandingTrades, opportunities });
     };
     const autoTradeTimer = setInterval(() => { void runTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error)); }, 30_000);
     autoTradeTimer.unref();
