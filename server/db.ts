@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, count, desc, eq, gt, gte, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool } from "mysql2/promise";
 import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
@@ -880,8 +880,6 @@ export async function getTicketAttachmentAccess(storageKey:string) {
 }
 
 // Controlled opportunity engine: this is an internal paper-ledger boundary. Real execution requires licensed providers/custody.
-import { opportunityPackagePolicies } from "../drizzle/schema";
-
 // Legacy Starter/Growth/Pro/Institutional defaults are no longer seeded.
 // Trading entitlements now come from the canonical package catalogue and subscriptions.
 const DEFAULT_OPPORTUNITY_PACKAGE_POLICIES: readonly any[] = [];
@@ -2363,7 +2361,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const auto=await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls);
   const executedByOffer=new Map(auto.executed.map((trade:any)=>[Number(trade.offerId),trade]));
   const enrichedOffers=popupRows.map(row=>{
-    const base=tradeCandidates.find(offer=>Number(offer.offerId)===Number(row.offerId))||{};
+    const base:any=tradeCandidates.find(offer=>Number(offer.offerId)===Number(row.offerId))||{};
     const executed=executedByOffer.get(Number(row.offerId))||null;
     return {...base,id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageName:row.packageName,
       symbol:row.symbol,currency:row.currency,minimumMinor:Number(row.popupMinimumMinor),balanceAvailableMinor:Number(row.balanceAvailableMinor),
