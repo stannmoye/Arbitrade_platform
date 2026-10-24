@@ -1,90 +1,78 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { publicPlatformConfig, publicPlatformScript } from "./_core/publicConfig";
 import { getSessionCookieOptions } from "./_core/cookies";
-import { sdk } from "./_core/sdk";
+import { createLocalSession, passwordHash, verifyLocalSession, verifyPassword } from "./_core/localAuth";
 import { listLLMModels } from "./_core/llm";
 import { generateImage } from "./_core/imageGeneration";
+import { deleteStorageObject } from "./storage";
 import { COOKIE_NAME } from "../shared/const";
 
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
-describe("current platform integration", () => {
-  it("exposes only named public runtime configuration", () => {
+
+describe("self-hosted platform integrations", () => {
+  it("exposes only an explicitly configured browser-safe Google Maps key", () => {
     const env = {
-      MANUS_PROJECT_ID: "project-test",
-      MANUS_OAUTH_PORTAL_URL: "https://login.example",
-      MANUS_API_URL: "https://api.example",
-      MANUS_API_BROWSER_KEY: "public-browser-test",
-      MANUS_API_KEY: "server-only-test",
-      MANUS_JWT_SECRET: "signing-only-test",
+      GOOGLE_MAPS_BROWSER_KEY: "public-browser-test",
+      GOOGLE_MAPS_SERVER_KEY: "server-only-test",
       DATABASE_URL: "db-only-test",
       SESSION_SECRET: "session-only-test",
       PASSWORD_PEPPER: "pepper-only-test",
-      MANUS_ANALYTICS_ENDPOINT: "https://analytics.example",
-      MANUS_ANALYTICS_WEBSITE_ID: "site-test",
+      AI_API_KEY: "ai-secret-test",
+      SMTP_PASSWORD: "mail-secret-test",
     };
-    expect(publicPlatformConfig(env)).toEqual({
-      projectId: "project-test",
-      oauthPortalUrl: "https://login.example",
-      apiUrl: "https://api.example",
-      apiBrowserKey: "public-browser-test",
-    });
+    expect(publicPlatformConfig(env)).toEqual({ googleMapsBrowserKey: "public-browser-test" });
     const script = publicPlatformScript(env);
-    for (const value of [
-      env.MANUS_API_KEY,
-      env.MANUS_JWT_SECRET,
-      env.DATABASE_URL,
-      env.SESSION_SECRET,
-      env.PASSWORD_PEPPER,
-      env.MANUS_ANALYTICS_ENDPOINT,
-      env.MANUS_ANALYTICS_WEBSITE_ID,
-    ]) expect(script).not.toContain(value);
-    const appended: unknown[] = [];
-    const fakeDocument = { createElement: () => ({ setAttribute() {} }), head: { appendChild: (node: unknown) => appended.push(node) } };
-    new Function("window", "document", script)({}, fakeDocument);
-    expect(appended).toHaveLength(0);
-    new Function("window", "document", publicPlatformScript({}))({}, fakeDocument);
-    expect(appended).toHaveLength(0);
+    for (const value of [env.GOOGLE_MAPS_SERVER_KEY, env.DATABASE_URL, env.SESSION_SECRET, env.PASSWORD_PEPPER, env.AI_API_KEY, env.SMTP_PASSWORD]) {
+      expect(script).not.toContain(value);
+    }
+    expect(script).toContain("window.__ARBITRADE_CONFIG__=");
   });
 
-  it("escapes HTML-sensitive public values before emitting executable runtime configuration", () => {
+  it("escapes HTML-sensitive configuration before emitting executable runtime configuration", () => {
     const payload = "</script><script>window.pwned=true</script>";
-    const script = publicPlatformScript({ MANUS_PROJECT_ID: payload });
+    const script = publicPlatformScript({ GOOGLE_MAPS_BROWSER_KEY: payload });
     expect(script).not.toContain("<");
     expect(script).toContain("\\u003c/script>");
-    const fakeWindow: { __MANUS_CONFIG__?: Record<string, string> } = {};
+    const fakeWindow: { __ARBITRADE_CONFIG__?: Record<string, string> } = {};
     new Function("window", script)(fakeWindow);
-    expect(fakeWindow.__MANUS_CONFIG__?.projectId).toBe(payload);
+    expect(fakeWindow.__ARBITRADE_CONFIG__?.googleMapsBrowserKey).toBe(payload);
   });
 
-  it("does not guess a production API when the project environment is absent", async () => {
-    vi.stubEnv("MANUS_API_URL", ""); vi.stubEnv("MANUS_API_KEY", "test-only");
-    const request = vi.fn(); vi.stubGlobal("fetch", request);
-    await expect(listLLMModels()).rejects.toThrow("MANUS_API_URL");
+  it("fails closed when a remote AI provider has no key and never guesses a hosted endpoint", async () => {
+    vi.stubEnv("AI_API_BASE_URL", "https://api.example/v1");
+    vi.stubEnv("AI_API_KEY", "");
+    const request = vi.fn();
+    vi.stubGlobal("fetch", request);
+    await expect(listLLMModels()).rejects.toThrow("AI_API_KEY is required");
     expect(request).not.toHaveBeenCalled();
   });
-  it("persists URL-only image results through current managed storage", async () => {
-    vi.stubEnv("MANUS_API_URL", "https://api.example"); vi.stubEnv("MANUS_API_KEY", "test-only");
-    const request = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ image: { url: "https://image.example/result.png", mimeType: "image/png" } })))
-      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3])))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ url: "https://upload.example/object" })))
-      .mockResolvedValueOnce(new Response(""));
+
+  it("writes generated image bytes to local persistent storage, not an object-storage proxy", async () => {
+    vi.stubEnv("IMAGE_API_BASE_URL", "http://127.0.0.1:11434/v1");
+    vi.stubEnv("IMAGE_API_KEY", "");
+    const request = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({
+      data: [{ b64_json: Buffer.from([1, 2, 3]).toString("base64") }],
+    }), { status: 200, headers: { "content-type": "application/json" } }));
     vi.stubGlobal("fetch", request);
     const image = await generateImage({ prompt: "test", originalImages: [] });
-    expect(image.url).toMatch(/^\/manus-storage\/generated\//);
-    expect(request).toHaveBeenCalledTimes(4);
-    expect(JSON.parse(request.mock.calls[0][1].body)).toHaveProperty("originalImages");
+    expect(image.url).toMatch(/^\\/storage\\/generated\\//);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(request.mock.calls[0][1].body)).toMatchObject({ prompt: "test", n: 1 });
+    await deleteStorageObject(image.url!.slice("/storage/".length));
   });
-  it("uses a distinct secure app cookie behind the HTTPS Preview proxy", () => {
+
+  it("uses local password hashes and signed local sessions without hosted credentials", () => {
+    vi.stubEnv("SESSION_SECRET", "unit-test-signing-key-never-deployed");
+    const hash = passwordHash("test-password-123");
+    expect(verifyPassword("test-password-123", hash)).toBe(true);
+    expect(verifyPassword("not-the-password", hash)).toBe(false);
+    const token = createLocalSession(123, 7);
+    expect(verifyLocalSession(token)).toMatchObject({ userId: 123, authVersion: 7 });
+    expect(verifyLocalSession(token + "tampered")).toBeNull();
+  });
+
+  it("uses secure application cookies in production behind HTTPS", () => {
     expect(COOKIE_NAME).not.toBe("app_session_id");
     expect(getSessionCookieOptions({ protocol: "http", headers: {} } as never)).toMatchObject({ secure: true, httpOnly: true, sameSite: "none" });
-  });
-  it("binds signed app sessions to this project and accepts an empty display name", async () => {
-    vi.stubEnv("MANUS_PROJECT_ID", "project-test");
-    vi.stubEnv("MANUS_JWT_SECRET", "unit-test-signing-key-never-deployed");
-    const token = await sdk.signSession({ openId: "user-test", appId: "project-test", name: "", authVersion: 7 });
-    expect(await sdk.verifySession(token)).toMatchObject({ openId: "user-test", authVersion: 7 });
-    vi.stubEnv("MANUS_PROJECT_ID", "different-project");
-    expect(await sdk.verifySession(token)).toBeNull();
   });
 });
