@@ -35,7 +35,7 @@ export const customerControls = mysqlTable("customer_controls", {
   accountStatus: mysqlEnum("accountStatus", ["active", "suspended", "restricted"]).default("active").notNull(),
   tradingEnabled: boolean("tradingEnabled").default(true).notNull(),
   opportunitiesEnabled: boolean("opportunitiesEnabled").default(true).notNull(),
-  autoTradeEnabled: boolean("autoTradeEnabled").default(true).notNull(),
+  autoTradeEnabled: boolean("autoTradeEnabled").default(false).notNull(),
   autoTradeMode: mysqlEnum("autoTradeMode", ["enabled", "disabled"]).default("disabled").notNull(),
   autoTradeAmountMinor: bigint("autoTradeAmountMinor", { mode: "number" }).default(10000).notNull(),
   autoTradeMinRewardBps: int("autoTradeMinRewardBps").default(0).notNull(),
