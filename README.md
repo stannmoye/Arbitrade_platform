@@ -93,3 +93,8 @@ All CI and external deployment tools should use the repository-root `Dockerfile`
 Read [`AGENTS.md`](AGENTS.md), [`BUILD_SOURCE.json`](BUILD_SOURCE.json), [`docs/REPOSITORY_GUIDE.md`](docs/REPOSITORY_GUIDE.md), and [`BUILD_AND_RELEASE.md`](BUILD_AND_RELEASE.md) before building or changing this application. Resolve the current full SHA of `main` at build time. Use repository root as the build context and the root `Dockerfile` as the production container definition; do not use an unmerged feature branch, a cached main SHA, or a historical Stage 4/Pass 4-only ZIP as the latest source.
 
 The current full-application release workflow is [`.github/workflows/full-production-release.yml`](.github/workflows/full-production-release.yml). It packages the integrated application from `main`, verifies Stages 1–5 and the six theme variants, and attaches a detached SHA-256 checksum. See `BUILD_SOURCE.json` for artifact scope and acceptance status. Passing build checks does not by itself mean hosted Stage 5 acceptance or production certification is complete.
+
+
+## Canonical trading system requirements
+
+Before changing the customer Trading page or any trading-related backend, read [docs/TRADING_SYSTEM_SPECIFICATION.md](docs/TRADING_SYSTEM_SPECIFICATION.md). This is the canonical product contract for package eligibility, automatic opportunity processing, insufficient-balance opportunity cards, trade lifecycle, fee and wallet accounting, company catalogue/rotation, notifications, and admin controls. All developers and AI coding agents must follow it and update the specification and companion PDF together when requirements are formally revised.
