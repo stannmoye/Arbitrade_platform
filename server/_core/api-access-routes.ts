@@ -111,7 +111,7 @@ export function registerCustomerApiAccessRoutes(app: Express) {
       res.status(400).json({ error: "beforeId must be a positive integer.", code: "INVALID_CURSOR" });
       return;
     }
-    if (date !== undefined && (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(date + "T00:00:00Z")) || new Date(date + "T00:00:00Z").toISOString().slice(0, 10) !== date)) {
+    if (date !== undefined && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date + "T00:00:00Z")) || new Date(date + "T00:00:00Z").toISOString().slice(0, 10) !== date)) {
       res.status(400).json({ error: "date must be a valid UTC calendar date in YYYY-MM-DD format.", code: "INVALID_REPORT_DATE" });
       return;
     }
@@ -167,7 +167,10 @@ export function registerCustomerApiAccessRoutes(app: Express) {
     const destinationDetails = body.destinationDetails;
     const idempotencyKey = body.idempotencyKey;
     const totpCode = body.totpCode;
-    if (!["USD", "EUR", "GBP", "BTC", "ETH", "USDT"].includes(currency)) {
+    const supportedCurrencies = ["USD", "EUR", "GBP", "BTC", "ETH", "USDT"] as const;
+    const supportedCurrency = typeof currency === "string" && (supportedCurrencies as readonly string[]).includes(currency)
+      ? currency as typeof supportedCurrencies[number] : null;
+    if (!supportedCurrency) {
       res.status(400).json({ error: "Choose a supported wallet currency: USD, EUR, GBP, BTC, ETH or USDT.", code: "INVALID_PAYOUT_CURRENCY" });
       return;
     }
@@ -187,7 +190,7 @@ export function registerCustomerApiAccessRoutes(app: Express) {
       res.status(400).json({ error: "Provide an idempotencyKey between 8 and 160 characters; reuse it only when retrying the same request.", code: "INVALID_IDEMPOTENCY_KEY" });
       return;
     }
-    if (typeof totpCode !== "string" || !/^\\d{6}$/.test(totpCode)) {
+    if (typeof totpCode !== "string" || !/^\d{6}$/.test(totpCode)) {
       res.status(400).json({ error: "A six-digit authenticator verification code is required for API withdrawal requests.", code: "TOTP_REQUIRED" });
       return;
     }
@@ -205,7 +208,7 @@ export function registerCustomerApiAccessRoutes(app: Express) {
     let request;
     try {
       request = await createCustomerPayoutRequest(identity.userId, {
-        currency, amountMinor, destinationType, destinationDetails: destinationDetails.trim(),
+        currency: supportedCurrency, amountMinor, destinationType, destinationDetails: destinationDetails.trim(),
         idempotencyKey: idempotencyKey.trim(), totpCode,
       });
     } catch {
@@ -328,7 +331,7 @@ export function registerCustomerApiAccessRoutes(app: Express) {
 
   app.get("/api/v1/account/statements/daily", apiIpRateLimit, apiHandler("statements:read", async (req, res, identity) => {
     const date = typeof req.query.date === "string" ? req.query.date : new Date().toISOString().slice(0, 10);
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(date + "T00:00:00Z")) || new Date(date + "T00:00:00Z").toISOString().slice(0, 10) !== date) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date + "T00:00:00Z")) || new Date(date + "T00:00:00Z").toISOString().slice(0, 10) !== date) {
       res.status(400).json({ error: "date must use YYYY-MM-DD.", code: "INVALID_REPORT_DATE" }); return;
     }
     const start = new Date(date + "T00:00:00.000Z").getTime();
