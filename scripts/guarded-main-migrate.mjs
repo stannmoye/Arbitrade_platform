@@ -48,6 +48,8 @@ async function main() {
   let connection;
   let lockAcquired = false;
   let runStarted = false;
+  let currentMigration = null;
+  let currentStatement = null;
   try {
     connection = await mysql.createConnection(parseDatabaseUrl(databaseUrl));
 
@@ -88,8 +90,19 @@ async function main() {
         startedAt TIMESTAMP NULL,
         finishedAt TIMESTAMP NULL,
         failureCode VARCHAR(80) NULL,
+        failureMigration VARCHAR(160) NULL,
+        failureStatementIndex INT NULL,
+        failureStatementLabel VARCHAR(180) NULL,
         updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB
+    `);
+    // Existing installations may have the original guard-table shape. Add only
+    // diagnostic columns; this does not clear a failure or modify business data.
+    await executeCompatibleMigrationSql(connection, `
+      ALTER TABLE \`${guardTable}\`
+        ADD COLUMN IF NOT EXISTS failureMigration VARCHAR(160) NULL,
+        ADD COLUMN IF NOT EXISTS failureStatementIndex INT NULL,
+        ADD COLUMN IF NOT EXISTS failureStatementLabel VARCHAR(180) NULL
     `);
 
     const [lockRows] = await connection.execute("SELECT GET_LOCK(?, 0) AS acquired", [lockName]);
@@ -101,16 +114,24 @@ async function main() {
     }
 
     const [guardRows] = await connection.execute(
-      `SELECT status, failureCode FROM \`${guardTable}\` WHERE id=1 FOR UPDATE`,
+      `SELECT status, failureCode, failureMigration, failureStatementIndex, failureStatementLabel FROM \`${guardTable}\` WHERE id=1 FOR UPDATE`,
     );
     const previousStatus = guardRows[0]?.status;
     const previousFailureCode = String(guardRows[0]?.failureCode || "").replace(/[^A-Z0-9_]/gi, "").slice(0, 80);
+    const previousMigration = String(guardRows[0]?.failureMigration || "").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 160);
+    const previousStatementLabel = String(guardRows[0]?.failureStatementLabel || "").replace(/[^A-Za-z0-9 _.-]/g, "").slice(0, 180);
+    const previousStatementIndex = Number(guardRows[0]?.failureStatementIndex || 0);
     if (previousStatus === "failed" || previousStatus === "running") {
+      const location = previousMigration
+        ? " Last recorded failure location: " + previousMigration + ".sql" +
+          (previousStatementIndex > 0 ? " statement " + previousStatementIndex : "") +
+          (previousStatementLabel ? " (" + previousStatementLabel + ")" : "") + "."
+        : " This failure predates migration-location diagnostics; run the read-only schema audit before approving recovery.";
       console.error(
         "[main-migrate] ERROR: Automatic retry is blocked because the previous main migration run is " +
         previousStatus +
         (previousStatus === "failed" && previousFailureCode ? " (recorded failure code: " + previousFailureCode + ")" : "") +
-        ". The code identifies the earlier database error but does not prove schema integrity. Inspect the migration state and approve a recovery plan before retrying.",
+        "." + location + " A recorded failure code does not prove schema integrity. Inspect the migration state and approve a recovery plan before retrying.",
       );
       process.exitCode = 1;
       return;
@@ -118,7 +139,7 @@ async function main() {
 
     if (guardRows.length) {
       await connection.execute(
-        `UPDATE \`${guardTable}\` SET status='running',startedAt=CURRENT_TIMESTAMP,finishedAt=NULL,failureCode=NULL WHERE id=1`,
+        `UPDATE \`${guardTable}\` SET status='running',startedAt=CURRENT_TIMESTAMP,finishedAt=NULL,failureCode=NULL,failureMigration=NULL,failureStatementIndex=NULL,failureStatementLabel=NULL WHERE id=1`,
       );
     } else {
       await connection.execute(
@@ -166,7 +187,12 @@ async function main() {
         throw new Error("An unrecorded migration predates the latest recorded Drizzle history; automatic out-of-order recovery is blocked.");
       }
 
-      await executeCompatibleMigrationSql(connection, sql);
+      currentMigration = entry.tag;
+      currentStatement = null;
+      await executeCompatibleMigrationSql(connection, sql, {
+        onStatement: (statement) => { currentStatement = statement; },
+      });
+      currentStatement = { index: null, label: "record migration history" };
       await connection.execute(
         "INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)",
         [hash, migrationTimestamp],
@@ -174,23 +200,49 @@ async function main() {
       appliedHashes.add(hash);
       appliedCount++;
       console.log("[main-migrate] Applied " + entry.tag + ".sql");
+      currentMigration = null;
+      currentStatement = null;
     }
 
+    currentMigration = "post-migration-schema-verification";
+    currentStatement = { index: null, label: "worker schema contract verification" };
     const verified = await assertWorkerSchemaContracts(connection);
     await connection.execute(
-      `UPDATE \`${guardTable}\` SET status='completed',finishedAt=CURRENT_TIMESTAMP,failureCode=NULL WHERE id=1`,
+      `UPDATE \`${guardTable}\` SET status='completed',finishedAt=CURRENT_TIMESTAMP,failureCode=NULL,failureMigration=NULL,failureStatementIndex=NULL,failureStatementLabel=NULL WHERE id=1`,
     );
     runStarted = false;
+    currentMigration = null;
+    currentStatement = null;
     console.log("[main-migrate] Main migrations completed; " + appliedCount + " migration file(s) applied. Verified " + verified.checkedTables + " worker-critical table contracts.");
   } catch (error) {
     const code = safeCode(error);
     if (connection && runStarted) {
       await connection.execute(
-        `UPDATE \`${guardTable}\` SET status='failed',finishedAt=CURRENT_TIMESTAMP,failureCode=? WHERE id=1`,
-        [code],
+        `UPDATE \`${guardTable}\`
+          SET status='failed',finishedAt=CURRENT_TIMESTAMP,failureCode=?,
+              failureMigration=?,failureStatementIndex=?,failureStatementLabel=?
+          WHERE id=1`,
+        [
+          code,
+          currentMigration ? String(currentMigration).slice(0, 160) : null,
+          Number.isInteger(currentStatement?.index) ? currentStatement.index : null,
+          currentStatement?.label ? String(currentStatement.label).slice(0, 180) : null,
+        ],
       ).catch(() => {});
     }
-    console.error("[main-migrate] ERROR: Main migration run failed (code: " + code + "). The run is marked failed and automatic retry is blocked pending review.");
+    const location = currentMigration
+      ? " Migration: " + String(currentMigration).replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 160) +
+        (Number.isInteger(currentStatement?.index) ? ", statement " + currentStatement.index : "") +
+        (currentStatement?.label ? " (" + String(currentStatement.label).replace(/[^A-Za-z0-9 _.-]/g, "").slice(0, 180) + ")" : "") + "."
+      : "";
+    const sqlMessage = String(error?.sqlMessage || "");
+    const unknownColumn = sqlMessage.match(/Unknown column ['\\`"]([^'\\`"]+)['\\`"] in ['\\`"]([^'\\`"]+)['\\`"]/i);
+    console.error("[main-migrate] ERROR: Main migration run failed" + location + " (code: " + code + "). The run is marked failed and automatic retry is blocked pending review.");
+    if (unknownColumn) {
+      const column = unknownColumn[1].replace(/[^A-Za-z0-9_.$-]/g, "").slice(0, 120);
+      const context = unknownColumn[2].replace(/[^A-Za-z0-9_ .$-]/g, "").slice(0, 120);
+      console.error("[main-migrate] Schema diagnostic: unknown column " + column + " in " + context + ".");
+    }
     process.exitCode = 1;
   } finally {
     if (connection) {
