@@ -78,7 +78,7 @@ function matchesCron(date: Date, fields: CronField[]): boolean {
   return seconds.values.has(values[0]) && minutes.values.has(values[1]) && hours.values.has(values[2]) && months.values.has(values[4]) && calendarMatch;
 }
 
-function computeNextExecution(expression: string, after = new Date()): Date {
+export function computeNextExecution(expression: string, after = new Date()): Date {
   const fields = parseCron(expression);
   const candidate = new Date(after.getTime());
   candidate.setUTCSeconds(0, 0);
@@ -203,7 +203,7 @@ export async function listHeartbeatJobs(userSession = "", pagination?: { page?: 
 function callbackSignature(taskUid: string, timestamp: string, body: string): string {
   const key = process.env.SESSION_SECRET;
   if (!key && process.env.NODE_ENV === "production") throw new Error("SESSION_SECRET is required to sign scheduled callbacks.");
-  return crypto.createHmac("sha256", key || "development-only-session-secret").update(`${taskUid}. ${timestamp}.${body}`.replace(". ", ".")).digest("hex");
+  return crypto.createHmac("sha256", key || "development-only-session-secret").update(`${taskUid}.${timestamp}.${body}`).digest("hex");
 }
 
 /** Callback routes can use this to authenticate scheduler-originated requests. */
