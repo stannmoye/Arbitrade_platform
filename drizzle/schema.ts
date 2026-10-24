@@ -446,6 +446,12 @@ export const missedOpportunities = mysqlTable("missed_opportunities", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const tradeSettlementReferenceClaims = mysqlTable("trade_settlement_reference_claims", {
+  settlementReference: varchar("settlementReference", { length: 160 }).primaryKey(),
+  tradeId: int("tradeId").notNull().unique(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export const tradePositions = mysqlTable("trade_positions", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
