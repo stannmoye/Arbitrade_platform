@@ -1652,8 +1652,27 @@ export async function listAdminCustomers(){
       facial:false,emailVerified:control?.emailVerified??false,riskTier:control?.riskTier||"standard",adminNote:control?.adminNote||"",createdAt:row.createdAt};
   });
 }
-export async function createAdminCustomer(input:{name:string;email:string;password:string;packageName:string}){const db=await getDb();if(!db)throw new Error("Database is not available");const email=input.email.trim().toLowerCase();if(!(await listOpportunityPackagePolicies()).some(p=>p.packageName===input.packageName&&p.enabled))throw new Error("Package is not configured or enabled");if(input.password.length<10)throw new Error("Customer password must be at least 10 characters");const existing=(await db.select({id:users.id}).from(users).where(eq(users.email,email)).limit(1))[0];if(existing)throw new Error("A customer with this email already exists");const salt=crypto.randomBytes(16).toString("hex");const digest=crypto.scryptSync(input.password,salt,32).toString("hex");const result=await db.insert(users).values({openId:`local:customer:${crypto.randomUUID()}`,name:input.name.trim(),email,loginMethod:"password",role:"user",passwordHash:`scrypt$${salt}$${digest}`,packageName:input.packageName});const id=Number(result[0].insertId);await db.insert(customerControls).values({userId:id});return {id,email,name:input.name.trim(),packageName:input.packageName};}
-export async function updateAdminCustomer(input:{id:number;name:string;email:string;packageName:string}){const db=await getDb();if(!db)throw new Error("Database is not available");const email=input.email.trim().toLowerCase();if(!(await listOpportunityPackagePolicies()).some(p=>p.packageName===input.packageName&&p.enabled))throw new Error("Package is not configured or enabled");const existing=(await db.select({id:users.id}).from(users).where(eq(users.email,email)).limit(1))[0];if(existing&&existing.id!==input.id)throw new Error("That email is already used by another account");await db.update(users).set({name:input.name.trim(),email,packageName:input.packageName}).where(and(eq(users.id,input.id),eq(users.role,"user")));return {success:true};}
+export async function createAdminCustomer(input:{name:string;email:string;password:string}){
+  const db=await getDb();if(!db)throw new Error("Database is not available");
+  const email=input.email.trim().toLowerCase();
+  if(input.password.length<10)throw new Error("Customer password must be at least 10 characters");
+  const existing=(await db.select({id:users.id}).from(users).where(eq(users.email,email)).limit(1))[0];
+  if(existing)throw new Error("A customer with this email already exists");
+  const salt=crypto.randomBytes(16).toString("hex");
+  const digest=crypto.scryptSync(input.password,salt,32).toString("hex");
+  const result=await db.insert(users).values({openId:`local:customer:${crypto.randomUUID()}`,name:input.name.trim(),email,loginMethod:"password",role:"user",passwordHash:`scrypt$${salt}$${digest}`,packageName:"No active package"});
+  const id=Number(result[0].insertId);
+  await db.insert(customerControls).values({userId:id});
+  return {id,email,name:input.name.trim(),packageName:"No active package"};
+}
+export async function updateAdminCustomer(input:{id:number;name:string;email:string}){
+  const db=await getDb();if(!db)throw new Error("Database is not available");
+  const email=input.email.trim().toLowerCase();
+  const existing=(await db.select({id:users.id}).from(users).where(eq(users.email,email)).limit(1))[0];
+  if(existing&&existing.id!==input.id)throw new Error("That email is already used by another account");
+  await db.update(users).set({name:input.name.trim(),email}).where(and(eq(users.id,input.id),eq(users.role,"user")));
+  return {success:true};
+}
 export async function updateCustomerControls(adminId:number,input:{userId:number;accountStatus?:"active"|"suspended"|"restricted";tradingEnabled?:boolean;opportunitiesEnabled?:boolean;autoTradeEnabled?:boolean;autoTradeMode?:"enabled"|"disabled";autoTradeMinRewardBps?:number;withdrawalsEnabled?:boolean;kycRequired?:boolean;twoFactorRequired?:boolean;emailVerified?:boolean;riskTier?:string;adminNote?:string}){const db=await getDb();if(!db)throw new Error("Database is not available");const existing=(await db.select().from(customerControls).where(eq(customerControls.userId,input.userId)).limit(1))[0];const values:any={...input};delete values.userId;if(values.autoTradeEnabled!==undefined&&values.autoTradeMode===undefined) values.autoTradeMode=values.autoTradeEnabled?"enabled":"disabled";if(values.autoTradeMode!==undefined) values.autoTradeEnabled=values.autoTradeMode==="enabled";if(existing)await db.update(customerControls).set({...values,updatedBy:adminId}).where(eq(customerControls.userId,input.userId));else await db.insert(customerControls).values({userId:input.userId,updatedBy:adminId,...values});return {success:true};}
 export type AccountClosureDecision = "approve" | "reject";
 export class AccountClosureDecisionError extends Error {
