@@ -22,7 +22,7 @@ Package subscription is free under this proposal. A customer must meet the packa
 - At activation, check the configured eligible wallet balance. Admin policy must define whether multiple eligible wallets can be combined.
 - Recommended default: check at activation, then apply an admin-configurable maintenance rule and grace period if the balance later falls below the threshold.
 - Do not lock the entire qualifying balance by default. Reserve only capital actually committed to a trade unless a separate, disclosed reserve rule is approved.
-- If the customer cannot qualify, show: “Your available balance is not sufficient to activate this package. Please credit an eligible wallet. Minimum qualifying balance: [amount].”
+- If the customer cannot qualify, show: “Your available balance is not sufficient to activate this package. Minimum qualifying balance: [amount].”
 - Existing entitlements should retain a snapshot of their package terms when defaults change, unless an authorized, logged migration explicitly changes them.
 
 ## 3. Proposed package defaults
@@ -161,7 +161,7 @@ Every consequential admin change should record administrator, timestamp, old/new
 
 ## 13. Company and financial integrity boundaries
 
-Trading operates as a real-money workflow recorded in the customer's internal ledger. Each allocation and financial result must be grounded in the actual recorded trade lifecycle and supporting result data. Do not fabricate company activity, trade execution, profit, or settlement results. Record capital debits/returns, realized profit, platform fees, and losses accurately in the internal ledger, with traceable references, reconciliation, and idempotent posting. This trading specification does not define deposit or withdrawal workflows; those belong in separate documents.
+Trading operates as a real-money workflow recorded in the customer's internal ledger. Each allocation and financial result must be grounded in the actual recorded trade lifecycle and supporting result data. Do not fabricate company activity, trade execution, profit, or settlement results. Record capital debits/returns, realized profit, platform fees, and losses accurately in the internal ledger, with traceable references, reconciliation, and idempotent posting.
 
 ## 14. Acceptance checklist
 
