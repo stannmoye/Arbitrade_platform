@@ -236,7 +236,7 @@ async function main() {
         (currentStatement?.label ? " (" + String(currentStatement.label).replace(/[^A-Za-z0-9 _.-]/g, "").slice(0, 180) + ")" : "") + "."
       : "";
     const sqlMessage = String(error?.sqlMessage || "");
-    const unknownColumn = sqlMessage.match(/Unknown column ['\\`"]([^'\\`"]+)['\\`"] in ['\\`"]([^'\\`"]+)['\\`"]/i);
+    const unknownColumn = sqlMessage.match(/Unknown column ['"\x60]([^'"\x60]+)['"\x60] in ['"\x60]([^'"\x60]+)['"\x60]/i);
     console.error("[main-migrate] ERROR: Main migration run failed" + location + " (code: " + code + "). The run is marked failed and automatic retry is blocked pending review.");
     if (unknownColumn) {
       const column = unknownColumn[1].replace(/[^A-Za-z0-9_.$-]/g, "").slice(0, 120);
