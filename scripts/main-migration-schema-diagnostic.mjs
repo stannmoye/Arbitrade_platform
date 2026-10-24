@@ -30,6 +30,40 @@ const MIGRATION_PREREQUISITES = Object.freeze({
   ],
 });
 
+const MIGRATION_PROGRESS_COLUMNS = Object.freeze({
+  "0068_trade_realized_profit_accounting": [
+    { label: "trade_positions accounting columns from statement 1", columns: [
+      ["trade_positions", "realizedGrossProfitMinor"], ["trade_positions", "platformFeeMinor"],
+      ["trade_positions", "netProfitMinor"], ["trade_positions", "feePolicyVersion"],
+      ["trade_positions", "platformFeeRateBps"], ["trade_positions", "platformFeeRoundingMode"],
+      ["trade_positions", "settlementOutcome"],
+    ] },
+  ],
+  "0069_trading_package_activation": [
+    { label: "packages columns from statement 1", columns: [
+      ["packages", "minimumQualifyingBalanceUsdMinor"], ["packages", "durationMonths"],
+      ["packages", "opportunitiesPerDay"], ["packages", "termsVersion"],
+    ] },
+    { label: "subscription columns from statement 2", columns: [
+      ["customer_package_subscriptions", "activationKey"], ["customer_package_subscriptions", "termsSnapshotJson"],
+      ["customer_package_subscriptions", "qualifyingBalanceUsdMinor"], ["customer_package_subscriptions", "packageTermsVersion"],
+      ["customer_package_subscriptions", "activatedAt"],
+    ] },
+    { label: "policy column before policy update", columns: [["opportunity_package_policies", "automaticTradingEnabled"]] },
+    { label: "trade package-subscription column from statement 9", columns: [["trade_positions", "packageSubscriptionId"]] },
+    { label: "missed-opportunity columns from statement 11", columns: [
+      ["missed_opportunities", "availableMinorAtOpportunity"], ["missed_opportunities", "shortfallMinor"],
+    ] },
+  ],
+  "0070_local_scheduled_jobs": [
+    { label: "local_scheduled_jobs table columns", columns: [
+      ["local_scheduled_jobs", "taskUid"], ["local_scheduled_jobs", "ownerUserId"],
+      ["local_scheduled_jobs", "cronExpression"], ["local_scheduled_jobs", "callbackPath"],
+      ["local_scheduled_jobs", "nextExecutionAt"], ["local_scheduled_jobs", "lockedUntil"],
+    ] },
+  ],
+});
+
 const RENAMED_COLUMNS = Object.freeze([
   { migration: "0019_daily_opportunity_quotas", table: "opportunity_package_policies", from: "maxPopupsPerMinute", to: "maxPopupsPerDay" },
   { migration: "0032_package_trade_dollar_units", table: "opportunity_package_policies", from: "minimumTradeMinor", to: "minimumTradeUnits" },
@@ -70,6 +104,23 @@ export async function inspectMainMigrationSchema(connection, migrationTag) {
       diagnostics.push(
         "Both source " + item.table + "." + item.from + " and destination " + item.table + "." + item.to +
         " are missing for " + item.migration + ".sql.",
+      );
+    }
+  }
+
+  for (const group of MIGRATION_PROGRESS_COLUMNS[migrationTag] || []) {
+    const missing = group.columns.filter(([table, column]) => !present.has(table + "." + column));
+    if (missing.length) {
+      diagnostics.push(
+        "Progress hint for " + migrationTag + ".sql: " + group.label + " has " +
+        (group.columns.length - missing.length) + "/" + group.columns.length +
+        " expected columns present; missing " + missing.map(([table, column]) => table + "." + column).join(", ") +
+        ". This describes resulting schema only and does not prove which statement failed.",
+      );
+    } else {
+      diagnostics.push(
+        "Progress hint for " + migrationTag + ".sql: " + group.label +
+        " is fully present in the schema. This describes resulting schema only and does not prove which statement failed.",
       );
     }
   }
