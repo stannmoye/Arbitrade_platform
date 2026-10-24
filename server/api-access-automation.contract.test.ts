@@ -38,6 +38,8 @@ describe("API automation integration contracts", () => {
     expect(vault).toContain("encryptedPayload");
     expect(adminUi).toContain("Save encrypted WhatsApp credentials");
     expect(adminUi).toContain("Save encrypted wallet credentials");
+    expect(router).toContain("testWhatsAppProviderConnection: adminProcedure.mutation");
+    expect(adminUi).toContain("Test WhatsApp connection");
   });
 
   it("requires a verified opted-in WhatsApp destination and uses timestamped HMAC webhooks", () => {
