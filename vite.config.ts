@@ -38,7 +38,7 @@ const STAGE4_NOTIFICATION_SOUND_FILES = [
 // them into the production bundle explicitly so /sounds/*.wav never falls back
 // to the SPA index.html with a misleading 200 response.
 function vitePluginNotificationSoundAssets(): Plugin {
-  const soundDirectory = path.resolve(PROJECT_ROOT, "public", "sounds");
+  const soundDirectory = path.resolve(import.meta.dirname, "public", "sounds");
   return {
     name: "arbitrade-notification-sound-assets",
     configureServer(server) {
