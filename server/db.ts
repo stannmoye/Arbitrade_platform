@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { and, count, desc, eq, gt, gte, inArray, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool } from "mysql2/promise";
-import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPopupEvents, balanceLedger, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
+import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
@@ -886,12 +886,9 @@ export async function getTicketAttachmentAccess(storageKey:string) {
 // Controlled opportunity engine: this is an internal paper-ledger boundary. Real execution requires licensed providers/custody.
 import { opportunityPackagePolicies } from "../drizzle/schema";
 
-const DEFAULT_OPPORTUNITY_PACKAGE_POLICIES = [
-  { packageName: "Starter", maxPopupsPerDay: 50, maxVisibleOffers: 10, minimumTradeUnits: 1000, maximumTradeUnits: 500000, minHourlyTarget: 2, normalHourlyTarget: 2, marketInfluenceBps: 3000, burstEnabled: false, maxBurstSize: 0, enabled: true },
-  { packageName: "Growth", maxPopupsPerDay: 100, maxVisibleOffers: 20, minimumTradeUnits: 5000, maximumTradeUnits: 1500000, minHourlyTarget: 2, normalHourlyTarget: 4, marketInfluenceBps: 5000, burstEnabled: true, maxBurstSize: 2, enabled: true },
-  { packageName: "Pro", maxPopupsPerDay: 200, maxVisibleOffers: 40, minimumTradeUnits: 10000, maximumTradeUnits: 3000000, minHourlyTarget: 4, normalHourlyTarget: 6, marketInfluenceBps: 7000, burstEnabled: true, maxBurstSize: 3, enabled: true },
-  { packageName: "Institutional", maxPopupsPerDay: 500, maxVisibleOffers: 100, minimumTradeUnits: 200000, maximumTradeUnits: 700000, minHourlyTarget: 6, normalHourlyTarget: 10, marketInfluenceBps: 8500, burstEnabled: true, maxBurstSize: 3, enabled: true },
-] as const;
+// Legacy Starter/Growth/Pro/Institutional defaults are no longer seeded.
+// Trading entitlements now come from the canonical package catalogue and subscriptions.
+const DEFAULT_OPPORTUNITY_PACKAGE_POLICIES: readonly any[] = [];
 
 export async function provisionSignupCredit(userId:number) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
@@ -2160,9 +2157,65 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
   return listOpportunityPackagePolicies();
 }
 async function listMissedOpportunities(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");return db.select().from(missedOpportunities).where(and(eq(missedOpportunities.userId,userId),eq(missedOpportunities.status,"MISSED"))).orderBy(desc(missedOpportunities.createdAt)).limit(50);}
-async function markMissedOpportunity(userId:number,offer:any,amountMinor:number,reason:string){const db=await getDb();if(!db)throw new Error("Database is not available");const terms=calculateTradeTerms(userId,offer,amountMinor);const potentialRewardMinor=Math.floor(amountMinor*terms.rewardBps/10000);await db.insert(missedOpportunities).values({userId,offerId:offer.id,symbol:offer.symbol,currency:offer.currency,amountMinor,potentialRewardMinor,expectedRewardBps:terms.rewardBps,reason,status:"MISSED"}).onDuplicateKeyUpdate({set:{updatedAt:new Date(),potentialRewardMinor,reason}});}
-async function markOpportunityExecuted(userId:number,offerId:number){const db=await getDb();if(!db)throw new Error("Database is not available");await db.update(missedOpportunities).set({status:"EXECUTED",updatedAt:new Date()}).where(and(eq(missedOpportunities.userId,userId),eq(missedOpportunities.offerId,offerId)));}
-async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:any){const executed:any[]=[];if(controls.accountStatus!=="active")return {executed,missed:await listMissedOpportunities(userId)};const existingTrades:any[]=await listTrades(userId);for(const offer of offers){const requestedAmount=chooseSecureTradeAmount({minimumTradeMinor:Number(offer.packageMinimumTradeMinor||1),maximumTradeMinor:Number(offer.packageMaximumTradeMinor||Number.MAX_SAFE_INTEGER),offerMinimumMinor:Number(offer.minimumMinor),availableMinor:Number((await listBalances(userId)).find(b=>b.currency===offer.currency)?.availableMinor||0)});if(requestedAmount===null){await markMissedOpportunity(userId,offer,Math.max(Number(offer.minimumMinor),Number(offer.packageMinimumTradeMinor||1)),"INSUFFICIENT_AVAILABLE_BALANCE");continue;}const terms=calculateTradeTerms(userId,offer,requestedAmount);if(existingTrades.some(t=>t.offerId===offer.id))continue;const balance=(await listBalances(userId)).find(b=>b.currency===offer.currency);if(!balance||Number(balance.availableMinor)<requestedAmount){await markMissedOpportunity(userId,offer,requestedAmount,"INSUFFICIENT_AVAILABLE_BALANCE");continue;}try{const result=await createTrade(userId,{offerId:offer.id,amountMinor:requestedAmount});await markOpportunityExecuted(userId,offer.id);executed.push({...result,offerId:offer.id,symbol:offer.symbol,amountMinor:requestedAmount,rewardBps:terms.rewardBps,calculationMethod:terms.method});existingTrades.push({offerId:offer.id,confirmedAt:new Date()});break;}catch(error){if(error instanceof Error&&/already been allocated|duplicate/i.test(error.message))continue;await markMissedOpportunity(userId,offer,requestedAmount,error instanceof Error?error.message:"AUTO_TRADE_REJECTED");}}return {executed,missed:await listMissedOpportunities(userId)};}
+async function markMissedOpportunity(userId:number,offer:any,amountMinor:number,reason:string){
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const terms=calculateTradeTerms(userId,offer,amountMinor);
+  const potentialRewardMinor=Math.floor(amountMinor*terms.rewardBps/10000);
+  const balance=(await listBalances(userId)).find(row=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase());
+  const availableMinorAtOpportunity=Math.max(0,Number(balance?.availableMinor||0));
+  const shortfallMinor=Math.max(0,amountMinor-availableMinorAtOpportunity);
+  await db.insert(missedOpportunities).values({
+    userId,offerId:offer.id,symbol:offer.symbol,currency:offer.currency,amountMinor,
+    availableMinorAtOpportunity,shortfallMinor,potentialRewardMinor,expectedRewardBps:terms.rewardBps,
+    reason,status:"MISSED",
+  }).onDuplicateKeyUpdate({set:{updatedAt:new Date(),potentialRewardMinor,availableMinorAtOpportunity,shortfallMinor,reason}});
+}
+async function markOpportunityExecuted(userId:number,offerId:number){
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  await db.update(missedOpportunities).set({status:"EXECUTED",updatedAt:new Date()})
+    .where(and(eq(missedOpportunities.userId,userId),eq(missedOpportunities.offerId,offerId)));
+}
+async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:any){
+  const executed:any[]=[];
+  if(controls.accountStatus!=="active") return {executed,missed:await listMissedOpportunities(userId)};
+  const existingTrades:any[]=await listTrades(userId);
+  const existingMisses=await listMissedOpportunities(userId);
+  const missedOfferIds=new Set(existingMisses.map((row:any)=>Number(row.offerId)));
+  for(const offer of offers){
+    if(existingTrades.some((trade:any)=>Number(trade.offerId)===Number(offer.id))||missedOfferIds.has(Number(offer.id))) continue;
+    const offerMinimum=Number(offer.minimumMinor);
+    const packageMinimum=Number(offer.packageMinimumTradeMinor||0);
+    const requestedAmount=Math.max(offerMinimum,packageMinimum);
+    const packageMaximum=Number(offer.packageMaximumTradeMinor??Number.MAX_SAFE_INTEGER);
+    if(!Number.isSafeInteger(requestedAmount)||requestedAmount<=0||requestedAmount>packageMaximum){
+      await markMissedOpportunity(userId,offer,Math.max(1,Number.isFinite(requestedAmount)?requestedAmount:offerMinimum),"PACKAGE_TRADE_LIMIT_UNSATISFIABLE");
+      missedOfferIds.add(Number(offer.id));
+      continue;
+    }
+    const balance=(await listBalances(userId)).find(row=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase());
+    if(!balance||Number(balance.availableMinor)<requestedAmount){
+      await markMissedOpportunity(userId,offer,requestedAmount,"INSUFFICIENT_AVAILABLE_BALANCE");
+      missedOfferIds.add(Number(offer.id));
+      continue;
+    }
+    const terms=calculateTradeTerms(userId,offer,requestedAmount);
+    try{
+      const result=await createTrade(userId,{
+        offerId:offer.id,amountMinor:requestedAmount,
+        packageSubscriptionId:Number(offer.packageSubscriptionId||0)||undefined,
+      });
+      await markOpportunityExecuted(userId,offer.id);
+      executed.push({...result,offerId:offer.id,symbol:offer.symbol,amountMinor:requestedAmount,rewardBps:terms.rewardBps,calculationMethod:terms.method});
+      existingTrades.push({offerId:offer.id,confirmedAt:new Date()});
+      break;
+    }catch(error){
+      if(error instanceof Error&&/already been allocated|duplicate/i.test(error.message)) continue;
+      await markMissedOpportunity(userId,offer,requestedAmount,error instanceof Error?error.message:"AUTO_TRADE_REJECTED");
+      missedOfferIds.add(Number(offer.id));
+    }
+  }
+  return {executed,missed:await listMissedOpportunities(userId)};
+}
 export async function listCustomerOpportunities(userId:number, options: { consumeDelivery?: boolean } = {}) {
  const db=await getDb(); if(!db)throw new Error("Database is not available");
  const settled:Array<{tradeId:number;rewardMinor:number;currency:string;totalMinor:number}>=[];
