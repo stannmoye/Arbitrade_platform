@@ -536,6 +536,10 @@ export const tradingTypes = mysqlTable("trading_types", {
 export const packages = mysqlTable("packages", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 80 }).notNull().unique(),
+  minimumQualifyingBalanceUsdMinor: bigint("minimumQualifyingBalanceUsdMinor", { mode: "number" }).default(10000).notNull(),
+  durationMonths: int("durationMonths").default(1).notNull(),
+  opportunitiesPerDay: int("opportunitiesPerDay").default(6).notNull(),
+  termsVersion: int("termsVersion").default(1).notNull(),
   startsAt: timestamp("startsAt"),
   expiresAt: timestamp("expiresAt"),
   maxPopupsPerDay: int("maxPopupsPerDay").default(0).notNull(),
@@ -558,6 +562,11 @@ export const customerPackageSubscriptions = mysqlTable("customer_package_subscri
   startsAt: timestamp("startsAt").notNull(),
   expiresAt: timestamp("expiresAt"),
   status: mysqlEnum("status", ["active", "expired", "cancelled"]).default("active").notNull(),
+  activationKey: varchar("activationKey", { length: 128 }).unique(),
+  termsSnapshotJson: text("termsSnapshotJson").default("{}").notNull(),
+  qualifyingBalanceUsdMinor: bigint("qualifyingBalanceUsdMinor", { mode: "number" }).default(0).notNull(),
+  packageTermsVersion: int("packageTermsVersion").default(1).notNull(),
+  activatedAt: timestamp("activatedAt").defaultNow().notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
