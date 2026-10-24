@@ -43,7 +43,6 @@ export const customerControls = mysqlTable("customer_controls", {
   twoFactorRequired: boolean("twoFactorRequired").default(false).notNull(),
   emailVerified: boolean("emailVerified").default(false).notNull(),
   riskTier: varchar("riskTier", { length: 24 }).default("standard").notNull(),
-  dailyTradeLimitMinor: bigint("dailyTradeLimitMinor", { mode: "number" }).default(2500000).notNull(),
   adminNote: text("adminNote"),
   updatedBy: int("updatedBy"),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

@@ -14,6 +14,7 @@ describe("portal migration diagnostic privacy", () => {
     expect(source).toContain('"0063_privacy_notice_html.sql"');
     expect(source).toContain('"0064_remove_auto_trade_inherit.sql"');
     expect(source).toContain('"0065_remove_obsolete_auto_trade_limits.sql"');
+    expect(source).toContain('"0066_remove_unused_customer_daily_trade_limit.sql"');
     expect(source).toContain('"privacy_policy_versions", "privacy_requests", "privacy_request_events", "privacy_audit_events"');
     expect(source).not.toContain('"opportunity_popup_events", "opportunity_delivery_events"');
     expect(source).toContain('import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";');
