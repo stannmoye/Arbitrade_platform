@@ -88,6 +88,58 @@ describe("executeCompatibleMigrationSql", () => {
     ]);
   });
 
+  it("skips a column rename that is already reflected in the schema", async () => {
+    const connection = createConnection({ columns: ["new_column"] });
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    try {
+      await executeCompatibleMigrationSql(
+        connection,
+        "ALTER TABLE \`example_table\` CHANGE COLUMN \`old_column\` \`new_column\` INT;",
+      );
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(connection.queries).toEqual([]);
+    expect(connection.executions.map(item => item.params[1])).toEqual(["old_column", "new_column"]);
+  });
+
+  it("applies a column rename when only the source column exists", async () => {
+    const connection = createConnection({ columns: ["old_column"] });
+
+    await executeCompatibleMigrationSql(
+      connection,
+      "ALTER TABLE \`example_table\` CHANGE COLUMN \`old_column\` \`new_column\` INT;",
+    );
+
+    expect(connection.queries).toEqual([
+      "ALTER TABLE \`example_table\` CHANGE COLUMN \`old_column\` \`new_column\` INT",
+    ]);
+  });
+
+  it("fails closed when both columns in a rename are missing", async () => {
+    const connection = createConnection();
+
+    await expect(executeCompatibleMigrationSql(
+      connection,
+      "ALTER TABLE \`example_table\` CHANGE COLUMN \`old_column\` \`new_column\` INT;",
+    )).rejects.toMatchObject({ code: "MIGRATION_RENAME_COLUMNS_MISSING" });
+
+    expect(connection.queries).toEqual([]);
+  });
+
+  it("fails closed when both columns in a rename exist", async () => {
+    const connection = createConnection({ columns: ["old_column", "new_column"] });
+
+    await expect(executeCompatibleMigrationSql(
+      connection,
+      "ALTER TABLE \`example_table\` CHANGE COLUMN \`old_column\` \`new_column\` INT;",
+    )).rejects.toMatchObject({ code: "MIGRATION_RENAME_COLUMNS_CONFLICT" });
+
+    expect(connection.queries).toEqual([]);
+  });
+
   it("reports safe migration statement labels without exposing SQL literal values", async () => {
     const connection = createConnection();
     const statements = [];
