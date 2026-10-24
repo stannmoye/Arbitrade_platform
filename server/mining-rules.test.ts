@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import Decimal from "decimal.js";
-import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, calculatePackageDailyRate, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
+import { calculateMiningConversion, calculateMiningDifficultyIndex, calculateMiningReward, calculatePackageDailyRate, calculatePackageDailyReward, canStartMiningAccrual, getBoostCooldownWindow, VERIFIED_FARM_SETTLEMENTS_ENABLED, isQuoteFresh, isRateWithinDeviation, overlapSeconds } from "./mining-rules";
 
 describe("mining reward rules", () => {
   it("uses the configured tokens per TH/s-hour formula with decimal precision", () => {
@@ -103,14 +103,11 @@ describe("package daily reward model", () => {
 });
 
 describe("immediate mining accrual gate", () => {
-  it("does not run while verified reward posting is disabled", () => {
+  it("fails closed until verified farm settlement is available", () => {
+    expect(VERIFIED_FARM_SETTLEMENTS_ENABLED).toBe(false);
     expect(canStartMiningAccrual({ globalEnabled: false, expectedDailyRewardCki: "1.25" })).toBe(false);
-  });
-
-  it("requires a positive configured daily estimate before immediate accrual", () => {
     expect(canStartMiningAccrual({ globalEnabled: true, expectedDailyRewardCki: null })).toBe(false);
-    expect(canStartMiningAccrual({ globalEnabled: true, expectedDailyRewardCki: "0" })).toBe(false);
-    expect(canStartMiningAccrual({ globalEnabled: true, expectedDailyRewardCki: "0.0001" })).toBe(true);
+    expect(canStartMiningAccrual({ globalEnabled: true, expectedDailyRewardCki: "0.0001" })).toBe(false);
   });
 });
 
