@@ -1,6 +1,6 @@
 impo
-  { file: "0069_trading_package_activation.sql", tables: ["packages","customer_package_subscriptions"],
-    columns: [["packages","minimumQualifyingBalanceUsdMinor","bigint"],["packages","durationMonths","int"],["packages","opportunitiesPerDay","int"],["packages","termsVersion","int"],["customer_package_subscriptions","activationKey","varchar"],["customer_package_subscriptions","termsSnapshotJson","text"],["customer_package_subscriptions","qualifyingBalanceUsdMinor","bigint"],["customer_package_subscriptions","packageTermsVersion","int"],["customer_package_subscriptions","activatedAt","timestamp"]],
+  { file: "0069_trading_package_activation.sql", tables: ["packages","customer_package_subscriptions","trade_positions","missed_opportunities"],
+    columns: [["packages","minimumQualifyingBalanceUsdMinor","bigint"],["packages","durationMonths","int"],["packages","opportunitiesPerDay","int"],["packages","termsVersion","int"],["customer_package_subscriptions","activationKey","varchar"],["customer_package_subscriptions","termsSnapshotJson","text"],["customer_package_subscriptions","qualifyingBalanceUsdMinor","bigint"],["customer_package_subscriptions","packageTermsVersion","int"],["customer_package_subscriptions","activatedAt","timestamp"],["trade_positions","packageSubscriptionId","int"],["missed_opportunities","availableMinorAtOpportunity","bigint"],["missed_opportunities","shortfallMinor","bigint"]],
     data: [{table:"packages",column:"name",value:"Aureate Capital",label:"Canonical trading package catalogue"}] },rt { config } from "dotenv";
 import mysql from "mysql2/promise";
 import { resolve } from "node:path";
