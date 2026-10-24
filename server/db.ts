@@ -92,7 +92,8 @@ export async function setTradeFeePolicy(input:{feeRateBps:number;roundingMode:Fe
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   return db.transaction(async tx=>{
     const rows=await tx.select().from(appSettings).where(inArray(appSettings.settingKey,[...TRADE_FEE_SETTING_KEYS])).for("update");
-    const byKey=new Map(rows.map(row=>[row.settingKey,row.settingValue]));
+    const byKey=new Map<string,string>();
+    for(const row of rows) byKey.set(row.settingKey,row.settingValue);
     const current=normalizeTradeFeePolicy({
       feeRateBps:byKey.get("trade.platformFeeBps")??String(DEFAULT_TRADE_FEE_POLICY.feeRateBps),
       roundingMode:byKey.get("trade.feeRoundingMode")??DEFAULT_TRADE_FEE_POLICY.roundingMode,
@@ -2137,7 +2138,8 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
 
     // Lock the active fee policy so this result uses one auditable, stable version.
     const feeSettings=await tx.select().from(appSettings).where(inArray(appSettings.settingKey,[...TRADE_FEE_SETTING_KEYS])).for("update");
-    const feeByKey=new Map(feeSettings.map(row=>[row.settingKey,row.settingValue]));
+    const feeByKey=new Map<string,string>();
+    for(const row of feeSettings) feeByKey.set(row.settingKey,row.settingValue);
     const feePolicy=normalizeTradeFeePolicy({
       feeRateBps:feeByKey.get("trade.platformFeeBps")??String(DEFAULT_TRADE_FEE_POLICY.feeRateBps),
       roundingMode:feeByKey.get("trade.feeRoundingMode")??DEFAULT_TRADE_FEE_POLICY.roundingMode,
