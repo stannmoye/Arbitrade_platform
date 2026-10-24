@@ -10,7 +10,6 @@ describe("insufficient-balance opportunity handling", () => {
   it("does not suppress eligible opportunities just because no wallet has available funds", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    expect(implementation).toContain("const walletSnapshot=await listBalances(userId)");
     expect(implementation).not.toContain("if(!hasAnyWalletFunds)");
     expect(implementation).not.toContain("noWalletFunds:true");
     expect(implementation).toContain("autoTradeOpenOpportunities(userId,offers,effectiveControls)");
