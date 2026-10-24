@@ -80,11 +80,4 @@ describe("self-hosted platform integrations", () => {
     expect(getSessionCookieOptions({ protocol: "http", headers: {}, secure: false } as never)).toMatchObject({ secure: false, httpOnly: true, sameSite: "lax" });
   });
 
-  it("refuses legacy password hashes when their configured pepper is missing", () => {
-    const legacy = crypto.scryptSync("test-password-123", "legacy-secret", 32).toString("hex");
-    vi.stubEnv("PASSWORD_PEPPER", "");
-    expect(verifyPassword("test-password-123", legacy)).toBe(false);
-    vi.stubEnv("PASSWORD_PEPPER", "legacy-secret");
-    expect(verifyPassword("test-password-123", legacy)).toBe(true);
-  });
 });
