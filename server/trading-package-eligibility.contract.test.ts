@@ -15,7 +15,10 @@ describe("server-side trading package eligibility", () => {
     expect(implementation).toContain(".innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))");
     expect(implementation).toContain("noPackage:true");
     expect(implementation).toContain("eq(packages.enabled,true)");
-    expect(implementation).toContain("packageDeliveryDisabled:true");
+    expect(implementation).not.toContain("packageDeliveryDisabled:true");
+    expect(implementation).toContain("const eligibleSubscriptions=subscriptions;");
+    expect(implementation).toContain("const autoTradeCandidates=tradeCandidates;");
+    expect(implementation).not.toContain("drainMode");
   });
 
   it("rechecks active package eligibility inside the trade-allocation transaction", () => {
