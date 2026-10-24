@@ -90,9 +90,15 @@ describe("worker schema contracts", () => {
     // The standalone 0048 SQL is now an explicit forward-only journal entry at
     // the tail. Do not insert it back at its historical number: databases may
     // already have recorded 0062, and main migration recovery requires a prefix.
+    const workerBridgeIndex = journal.entries.findIndex((entry) => entry.tag === "0062_worker_runtime_tables");
+    const boostRewardsIndex = journal.entries.findIndex((entry) => entry.tag === "0048_pending_boost_rewards");
+    const boostRewards = journal.entries.find((entry) => entry.tag === "0048_pending_boost_rewards");
     const last = journal.entries.at(-1);
     const previous = journal.entries.at(-2);
-    expect(last.tag).toBe("0048_pending_boost_rewards");
+    expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
+    expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
+    expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
+    expect(last.tag).toBe("0070_local_scheduled_jobs");
     expect(last.idx).toBe(previous.idx + 1);
     expect(last.when).toBeGreaterThan(previous.when);
     expect(portalRunner).toContain('"0055_notification_campaign_delivery_tracking.sql"');
