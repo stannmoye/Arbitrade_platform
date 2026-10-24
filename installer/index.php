@@ -87,28 +87,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $adminPassword = '';
         }
         $appPort = validPort(postval('port'), 3000);
-        $smtpPort = validPort(postval('smtp_port'), 587);
-        $mailProvider = postval('mail_provider') ?: 'disabled';
-        if (!in_array($mailProvider, ['disabled', 'smtp'], true)) throw new RuntimeException('Choose a supported email provider.');
-        if ($mailProvider === 'smtp') {
-            if (postval('smtp_host') === '' || postval('from_email') === '' || !filter_var(postval('from_email'), FILTER_VALIDATE_EMAIL)) throw new RuntimeException('SMTP requires a hostname and a valid sender email address.');
-            if (postval('smtp_user') === '' || (string)($_POST['smtp_pass'] ?? '') === '') throw new RuntimeException('SMTP username and password are required when SMTP is enabled.');
-        }
         $databaseUrl = 'mysql://' . rawurlencode($dbUser) . ':' . rawurlencode($dbPass) . '@' . (str_contains($dbHost, ':') && !str_starts_with($dbHost, '[') ? '[' . $dbHost . ']' : $dbHost) . ':' . $dbPort . '/' . $dbName;
 
         $lines = [
             'NODE_ENV="production"', 'PORT="' . $appPort . '"',
             envline('PUBLIC_APP_URL', $appUrl), envline('DATABASE_URL', $databaseUrl),
             envline('SESSION_SECRET', bin2hex(random_bytes(32))), envline('PASSWORD_PEPPER', bin2hex(random_bytes(32))),
-            envline('GOOGLE_CLIENT_ID', postval('google_id')), envline('GOOGLE_CLIENT_SECRET', postval('google_secret')),
-            envline('GOOGLE_REDIRECT_URI', $appUrl . '/api/oauth/google/callback'),
-            envline('MICROSOFT_CLIENT_ID', postval('microsoft_id')), envline('MICROSOFT_CLIENT_SECRET', postval('microsoft_secret')),
-            envline('MICROSOFT_REDIRECT_URI', $appUrl . '/api/oauth/microsoft/callback'),
-            envline('MAIL_PROVIDER', $mailProvider),
-            envline('SMTP_HOST', postval('smtp_host')), 'SMTP_PORT="' . $smtpPort . '"',
-            'SMTP_SECURE="' . (postval('smtp_secure') === '1' ? 'true' : 'false') . '"',
-            envline('SMTP_USER', postval('smtp_user')), envline('SMTP_PASSWORD', (string)($_POST['smtp_pass'] ?? '')),
-            envline('SMTP_FROM_EMAIL', postval('from_email')), envline('SMTP_FROM_NAME', postval('from_name') ?: 'Arbitrade'),
+            // Optional providers are deliberately left unconfigured during installation.
+            // Configure supported integrations after the administrator can sign in.
+            'MAIL_PROVIDER="disabled"',
             envline('ADMIN_EMAIL', $adminEmail),
         ];
         $bootstrap = json_encode([
@@ -196,9 +183,8 @@ $diskFreeLabel = $diskFree === false ? 'Unavailable on this host' : (string)roun
 <label>Database password<input name="db_pass" type="password" autocomplete="new-password"></label><label>Create database if permitted<select name="create_db"><option value="0">No — I created it in cPanel</option><option value="1">Yes — attempt CREATE DATABASE</option></select></label>
 <label class="full"><span><input type="checkbox" name="allow_http" value="1" style="width:auto"> Allow HTTP for local testing only (not production)</span></label></div>
 <h2>3. Initial administrator (fresh install only)</h2><div id="admin-section"><div class="grid"><label>Administrator email<input name="admin_email" type="email" autocomplete="off"></label><label>Administrator password<input name="admin_password" type="password" minlength="12" autocomplete="new-password"><span class="help">At least 12 characters. Held in a protected one-time file and deleted after successful account creation.</span></label></div></div>
-<h2>4. Optional OAuth sign-in</h2><div class="grid"><label>Google client ID<input name="google_id"></label><label>Google client secret<input name="google_secret" type="password" autocomplete="new-password"></label><label>Microsoft client ID<input name="microsoft_id"></label><label>Microsoft client secret<input name="microsoft_secret" type="password" autocomplete="new-password"></label></div>
-<h2>5. Email delivery</h2><div class="grid"><label>Mail provider<select name="mail_provider"><option value="disabled">Disabled — configure later</option><option value="smtp">SMTP</option></select></label><label>SMTP host<input name="smtp_host"></label><label>SMTP port<input name="smtp_port" value="587" inputmode="numeric"></label><label>SMTP username<input name="smtp_user"></label><label>SMTP password<input name="smtp_pass" type="password" autocomplete="new-password"></label><label>From email<input name="from_email" type="email"></label><label>From name<input name="from_name" value="Arbitrade"></label><label>SMTP transport security<select name="smtp_secure"><option value="0">STARTTLS (usually port 587)</option><option value="1">Implicit TLS (usually port 465)</option></select></label><label>Send test email to<input name="smtp_test_to" type="email" placeholder="you@example.com" autocomplete="email"><span class="help">Use an inbox you control. Testing sends one real email.</span></label><div class="full"><button type="submit" class="secondary" name="action" value="smtp_test" formaction="smtp-test.php" formtarget="_blank" formnovalidate>Test SMTP settings</button></div></div>
-<div class="notice">SMTP test runs on the server before configuration is saved. It requires Node.js, the installed Nodemailer dependency, and PHP process execution support. If your cPanel host disables these, use the private terminal command after installation. Credentials are never shown in the test response.</div><div class="step-controls"><button type="button" class="secondary" id="step-prev">Previous</button><span class="help" id="step-count" aria-live="polite"></span><button type="button" id="step-next">Next step</button><button type="submit" id="step-submit" hidden>Verify database &amp; save configuration</button></div></form>
+<div class="notice">Email delivery and optional sign-in providers are left disabled during installation. Configure supported integrations after the application is running and an administrator can sign in.</div>
+<div class="step-controls"><button type="button" class="secondary" id="step-prev">Previous</button><span class="help" id="step-count" aria-live="polite"></span><button type="button" id="step-next">Next step</button><button type="submit" id="step-submit" hidden>Verify database &amp; save configuration</button></div></form>
 <script>
 const mode=document.getElementById('install_mode'),adminSection=document.getElementById('admin-section');
 function updateMode(){const fresh=mode.value==='fresh';adminSection.hidden=!fresh;adminSection.querySelector('[name="admin_email"]').required=fresh;adminSection.querySelector('[name="admin_password"]').required=fresh;const backup=document.getElementById('backup-confirmation');backup.hidden=fresh;backup.querySelector('input').disabled=fresh;backup.querySelector('input').required=!fresh;document.getElementById('database-mode-note').textContent=fresh?'Fresh installation requires an empty database. The wizard checks this before saving configuration.':'Import the intended SQL backup using cPanel/phpMyAdmin or a trusted private terminal before continuing. Large SQL imports are intentionally not accepted over this public web form because host upload/time limits can truncate a restore. Confirm you have a current restorable backup. The wizard records the database table inventory and checks it again in the private terminal before migrations.';}
