@@ -5,8 +5,8 @@ import { MiningCoreCanvas } from "./MiningCoreCanvas";
 import { MiningOperationsFlow } from "./MiningOperationsFlow";
 import {
   Activity, ArrowDownUp, ArrowRight,
-  ChevronLeft, ChevronRight, Cpu, Info,
-  RefreshCw, ShieldCheck, WalletCards, Zap,
+  ChevronDown, ChevronLeft, ChevronRight, Clock3, Cpu, Info,
+  RefreshCw, ShieldCheck, Sparkles, WalletCards, Zap,
 } from "lucide-react";
 
 const TARGET_ASSETS = ["USD", "EUR", "GBP", "BTC", "ETH", "USDT"];
@@ -39,6 +39,9 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const [swapTarget, setSwapTarget] = useState("");
   const [packageTab, setPackageTab] = useState("all");
   const [historyPage, setHistoryPage] = useState(0);
+  const [prefEnabled, setPrefEnabled] = useState(false);
+  const [prefTarget, setPrefTarget] = useState("USD");
+  const [prefThreshold, setPrefThreshold] = useState("0");
   const [message, setMessage] = useState("");
   const boostAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -47,6 +50,14 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const preference = dashboard.data?.conversionPreference;
+    if (preference) {
+      setPrefEnabled(Boolean(preference.enabled));
+      setPrefTarget(String(preference.targetDenomination || "USD"));
+      setPrefThreshold(String(preference.minimumThreshold || "0"));
+    }
+  }, [dashboard.data?.conversionPreference?.version]);
 
   useEffect(() => {
     const preferredSwap = String(walletPreferences.data?.swapCurrency || "").toUpperCase();
@@ -57,12 +68,16 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     onSuccess: result => {
       void dashboard.refetch(); void mainWallet.refetch(); void history.refetch(); void packages.refetch();
       push(`${result.packageName} purchased · ${result.receiptReference}`);
-      setMessage(`${result.packageName} is active from ${dateText(result.startsAt)}. ${result.paymentAmount} ${result.paymentAsset} was immediately debited from your main wallet. No estimated CKI reward was credited. Reward credits remain blocked until verified third-party farm settlements are connected.`);
+      setMessage(`${result.packageName} is active from ${dateText(result.startsAt)}. ${result.paymentAmount} ${result.paymentAsset} was immediately debited from your main wallet. ${result.rewardPostingReady ? "Eligible CKI rewards are processed automatically." : "Reward processing is currently paused or this package has no configured daily CKI rate."}`);
     },
     onError: error => setMessage(error.message),
   });
   const boostMutation = trpc.customer.mining.activateBoost.useMutation({
     onSuccess: result => { void dashboard.refetch(); void boostStatus.refetch(); void history.refetch(); push(`Boost activated until ${dateText(result.endsAt)}`); setMessage(`Package boost active until ${dateText(result.endsAt)}. It is next available after the customer-specific cooldown.`); },
+    onError: error => setMessage(error.message),
+  });
+  const preferenceMutation = trpc.customer.mining.updateConversionPreference.useMutation({
+    onSuccess: result => { void dashboard.refetch(); setMessage(`Conversion preference saved as version ${result.version}. It applies to future reward events.`); },
     onError: error => setMessage(error.message),
   });
   const mainWalletPreferenceMutation = trpc.customer.updateWalletPreferences.useMutation({
@@ -107,6 +122,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   };
   const mainWalletScale = (asset: string) => Number(mainWallet.data?.currencies?.find((item: any) => item.code === asset)?.scale ?? 0);
   const availableUsd = mainWalletAvailable("USD");
+  const dailyUsdReference = (Number(data?.estimatedDailyTokens || 0) * Number(data?.usdPerToken || 0)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const configuredUsdReference = Number(data?.usdPerToken || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const swapExpired = swapQuote ? new Date(swapQuote.expiresAt).getTime() <= now : false;
   const activeBoostEnds = boost?.activeBoost?.endsAt ? new Date(boost.activeBoost.endsAt).getTime() : null;
@@ -184,11 +200,11 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
           <strong>{fmt(availableCki, 6)} CKI</strong>
         </div>
         <div className="cm-header-summary">
-          <span>CKI LEDGER CREDITS TODAY</span>
+          <span>MINED TODAY</span>
           <strong className="cm-mined-today-value" aria-live="polite">{minedTodayDisplay}</strong>
         </div>
         <div className="cm-header-summary">
-          <span>INTERNAL CKI REFERENCE</span>
+          <span>CKI RATE TO DOLLAR</span>
           <strong>1 CKI → ≈${configuredUsdReference}</strong>
         </div>
       </div>
@@ -225,19 +241,20 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
               <div className="cm-progress-head"><span className="cm-eyebrow">HASH-POWER ENGINE</span><strong className="cm-status-time">{hasActiveHashPowerPackage?"ACTIVE":"IDLE"}</strong><small>{hasActiveHashPowerPackage?"Customer package is active":"No active package"}</small></div>
               <div className="cm-divider"/>
               <div className="cm-progress-metrics">
-                <div className="cm-progress-metric"><span className="cm-eyebrow">CKI LEDGER CREDITS TODAY</span><strong className="cm-token-amount">{fmt(data?.todayTokens,4)} <small>{tokenSymbol}</small></strong></div>
-                <div className="cm-progress-metric"><span className="cm-eyebrow">REWARD PROCESSING</span><strong className="cm-daily-amount">Blocked pending settlement</strong><small className="cm-simulation-note">Estimated CKI rewards are not credited until verified settlement ingestion is available.</small></div>
+                <div className="cm-progress-metric"><span className="cm-eyebrow">CKI REWARDS CREDITED TODAY</span><strong className="cm-token-amount">{fmt(data?.todayTokens,4)} <small>{tokenSymbol}</small></strong></div>
+                <div className="cm-progress-metric"><span className="cm-eyebrow">REWARD PROCESSING</span><strong className="cm-daily-amount">{data?.rewardPostingEnabled ? "Enabled" : "Paused"}</strong><small className="cm-simulation-note">{data?.rewardPostingEnabled ? "Configured CKI rates accrue by eligible time." : "Reward processing is paused by operations."}</small></div>
               </div>
               <div className="cm-coin-display"><span className="cm-coin-glow"/><b>₵</b><small>{tokenSymbol}</small></div>
               <div className="cm-mining-vault" aria-hidden="true"><span className="cm-vault-frame"/><span className="cm-vault-beam"/><span className="cm-vault-spark spark-a"/><span className="cm-vault-spark spark-b"/><span className="cm-vault-spark spark-c"/><div className="cm-vault-coin">₵</div><span className="cm-vault-platform"/><span className="cm-vault-orbit"/></div>
             </div>
           </article>
-          {boost?.featureAvailable && <article className={`cm-glass cm-boost-card is-${boostPhase}`}>
+          <article className={`cm-glass cm-boost-card is-${boostPhase}`}>
             <div className="cm-boost-machine" role="img" aria-label="Package hash-power boost engine"><span className="cm-engine-aura"/><span className="cm-engine-pipe cm-engine-pipe-left"/><span className="cm-engine-pipe cm-engine-pipe-right"/><div className="cm-engine-shell"><span className="cm-engine-topcap"/><span className="cm-engine-front-glass"/><span className="cm-engine-rotor"><i/><i/><b/></span><span className="cm-engine-vents"/><span className="cm-engine-mark"/><span className="cm-engine-leds"><i/><i/><i/></span><span className="cm-engine-base"/></div></div>
             <div className="cm-boost-copy"><div className="cm-boost-topline"><b>HASH POWER ENGINE</b><span className="cm-boost-readout"><small>{boostStatusLabel}</small><strong>{boostCountdown}</strong></span></div><div className="cm-boost-bottomline"><small className="cm-boost-reward-note">+{fmt(boost?.boostRewardCkiPerDay, 6)} CKI / 24h while active</small><span className="cm-boost-charge" role="progressbar" aria-label={isBoostActive ? "Boost active time remaining" : isCoolingDown ? "Boost cooldown progress" : "Boost readiness"} aria-valuenow={boostCycleCharge} aria-valuemin={0} aria-valuemax={100} title={boost?.reason || (isBoostActive ? "The blue tube empties while the boost is active." : isCoolingDown ? "The blue tube refills until the boost is ready again." : "Boost is ready to activate.")}><i style={{width:`${boostCycleCharge}%`}}/></span></div></div>
             <button type="button" className="cm-glow-button" title={boost?.reason || "Activate Hash Power Boost"} aria-label="Activate Hash Power Boost" disabled={boostMutation.isPending || !boost?.ready} onClick={activateBoost}><ArrowDownUp size={15}/>{boostMutation.isPending?"Activating…":"Activate Boost"}</button>
-          </article>}
+          </article>
         </div>
+
       </section>
 
 	      <MiningOperationsFlow
@@ -275,7 +292,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
               <div className="cm-package-art"><div className="cm-cube"><i/><i/><b>₵</b></div><span className="cm-package-glow"/></div>
               <div className="cm-package-label"><h3>{item.name}</h3><span>{statusLabel}</span></div>
               <div className="cm-package-price"><strong>{fmt(item.priceAmount,2)}</strong><small>{item.priceAsset}</small></div>
-              <div className="cm-package-facts"><b>{fmt(item.baseThs,3)} <small>TH/s</small></b><span>{Number(item.boostBonusThs)>0?`Boost +${fmt(item.boostBonusThs,3)} TH/s`:"No extra hash-power boost configured"}</span><span>Term {item.durationMonths==null?"not set":`${item.durationMonths} months`}</span><span>CKI credits blocked pending verified settlements</span></div>
+              <div className="cm-package-facts"><b>{fmt(item.baseThs,3)} <small>TH/s</small></b><span>Boost +{fmt(item.boostBonusThs,3)} TH/s</span><span>Term {item.durationMonths==null?"not set":`${item.durationMonths} months`}</span><span>{item.expectedDailyRewardCki==null?"Daily CKI rate not configured":`${fmt(item.expectedDailyRewardCki,8)} CKI/day · prorated by eligible seconds`}</span></div>
               {item.termsText&&<details className="cm-package-terms"><summary>Review package terms</summary><p>{item.termsText}</p></details>}
               <button type="button" className="cm-package-buy" disabled={!canPurchase||purchaseMutation.isPending} title={canPurchase?"Click to purchase now; the package's configured currency wallet will be charged immediately.":(unavailableReason||"Unavailable")} aria-label={`Buy ${item.name} now; the package's configured currency wallet will be charged immediately`} onClick={()=>{if(!canPurchase||purchaseMutation.isPending)return;setMessage("");purchaseMutation.mutate({packageVersionId:item.versionId,idempotencyKey:requestId()})}}>{buttonLabel}<ArrowRight size={13}/></button>
             </article>;
@@ -283,9 +300,9 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
         </div>
       </section>
 
-      <section className="cm-bottom-strip" aria-label="Mining platform features"><div><Cpu/><span><b>PACKAGE HASHPOWER</b><small>Active purchased capacity</small></span></div><div><Activity/><span><b>LIVE ACCOUNT DATA</b><small>Refreshes every few seconds</small></span></div><div><ArrowDownUp/><span><b>INTERNAL SWAPS</b><small>Quote and ledger guarded</small></span></div><div><Zap/><span><b>HASH POWER BOOST</b><small>Unavailable until settlement and package capacity are configured</small></span></div><div><ShieldCheck/><span><b>ACCOUNT SECURITY</b><small>Customer session protected</small></span></div></section>
+      <section className="cm-bottom-strip" aria-label="Mining platform features"><div><Cpu/><span><b>PACKAGE HASHPOWER</b><small>Active purchased capacity</small></span></div><div><Activity/><span><b>LIVE ACCOUNT DATA</b><small>Refreshes every few seconds</small></span></div><div><ArrowDownUp/><span><b>INTERNAL SWAPS</b><small>Quote and ledger guarded</small></span></div><div><Zap/><span><b>HASH POWER BOOST</b><small>{boost?.activeBoost?"Active now":"2-minute boost · 4-hour customer cooldown"}</small></span></div><div><ShieldCheck/><span><b>ACCOUNT SECURITY</b><small>Customer session protected</small></span></div></section>
 
-      <p className="cm-simulation-note">Automatic conversion is unavailable until verified settlement-backed CKI credits are supported. Manual CKI swaps remain available in the wallet section.</p>
+      <details className="cm-advanced-conversion"><summary><span><Sparkles size={16}/><b>Automatic conversion preferences</b><small>Future rewards only · Version {data?.conversionPreference?.version||0}</small></span><ChevronDown size={16}/></summary><p>Optional background conversion for eligible future reward intervals. A failed or stale quote leaves CKI in your wallet. This preference does not convert your existing balance.</p><div className="cm-auto-controls"><label className="cm-checkbox"><input type="checkbox" checked={prefEnabled} onChange={e=>setPrefEnabled(e.target.checked)}/><span>Automatically convert eligible future rewards</span></label><label>Destination<select value={prefTarget} onChange={e=>setPrefTarget(e.target.value)}>{TARGET_ASSETS.map(asset=><option key={asset}>{asset}</option>)}</select></label><label>Minimum {tokenSymbol}<input value={prefThreshold} onChange={e=>setPrefThreshold(e.target.value)} inputMode="decimal"/></label><button type="button" className="cm-secondary-button" disabled={preferenceMutation.isPending} onClick={()=>preferenceMutation.mutate({enabled:prefEnabled,targetDenomination:prefTarget,minimumThreshold:prefThreshold})}>{preferenceMutation.isPending?"Saving…":"Save preference"}</button></div><div className="cm-queue-note"><Clock3 size={14}/> Pending conversion jobs: <strong>{data?.pendingConversionJobs||0}</strong></div></details>
 
       <section className="cm-glass cm-history">
         <div className="cm-history-heading">
@@ -319,7 +336,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
         </>}
       </section>
 
-      <footer className="cm-disclaimer"><ShieldCheck size={15}/><span>Package purchases create simulated entitlements only. CKI estimate-based credits are blocked until verified third-party settlement ingestion and allocation are implemented. Internal CKI references are not market prices; CKI cannot be withdrawn as cash. Existing balances and ledger history are preserved; manual swaps remain available.</span><b>Economics v{data?.economicsVersion||"—"}</b></footer>
+      <footer className="cm-disclaimer"><ShieldCheck size={15}/><span>Configured package rewards are internal estimates, prorated by eligible contract time and recorded in the CKI ledger. They are not verified pool output, withdrawable funds, or a cash payout. CKI swaps credit the selected main wallet; no external transfer is initiated here.</span><b>Economics v{data?.economicsVersion||"—"}</b></footer>
     </main>
 
   </div>;
