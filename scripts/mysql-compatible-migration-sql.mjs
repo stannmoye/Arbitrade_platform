@@ -68,12 +68,37 @@ function stripLeadingComments(input) {
 
 const unquoteIdentifier = value => value.replace(new RegExp(String.fromCharCode(96), "g"), "");
 
-export async function executeCompatibleMigrationSql(connection, sql) {
+function safeStatementLabel(statement) {
+  const compact = stripLeadingComments(statement).replace(/\s+/g, " ").trim();
+  const patterns = [
+    [/^ALTER\s+TABLE\s+(`?[\w$]+`?)/i, "ALTER TABLE"],
+    [/^CREATE\s+(?:UNIQUE\s+)?INDEX(?:\s+IF\s+NOT\s+EXISTS)?\s+`?[\w$]+`?\s+ON\s+(`?[\w$]+`?)/i, "CREATE INDEX ON"],
+    [/^CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(`?[\w$]+`?)/i, "CREATE TABLE"],
+    [/^INSERT\s+INTO\s+(`?[\w$]+`?)/i, "INSERT INTO"],
+    [/^UPDATE\s+(`?[\w$]+`?)/i, "UPDATE"],
+    [/^DELETE\s+FROM\s+(`?[\w$]+`?)/i, "DELETE FROM"],
+    [/^REPLACE\s+INTO\s+(`?[\w$]+`?)/i, "REPLACE INTO"],
+  ];
+  for (const [pattern, verb] of patterns) {
+    const match = compact.match(pattern);
+    if (match) return verb + " " + unquoteIdentifier(match[1]);
+  }
+  const verb = compact.match(/^([A-Z]+)/i)?.[1]?.toUpperCase();
+  return verb ? verb + " statement" : "SQL statement";
+}
+
+export async function executeCompatibleMigrationSql(connection, sql, options = {}) {
   // Historical migrations are trusted repository SQL. This adapter implements
   // the idempotent MariaDB syntax in a way that also works on MySQL 8.0.
+  // The callback is intentionally given only a safe statement label, never SQL
+  // text or literal values, so callers can report a failure location without
+  // exposing data or connection settings.
+  let statementIndex = 0;
   for (const raw of splitStatements(sql)) {
     const statement = stripLeadingComments(raw);
     if (!statement) continue;
+    statementIndex += 1;
+    options.onStatement?.({ index: statementIndex, label: safeStatementLabel(statement) });
 
     const alter = statement.match(/^ALTER\s+TABLE\s+(\S+)\s+([\s\S]+)$/i);
     if (alter) {
@@ -82,20 +107,51 @@ export async function executeCompatibleMigrationSql(connection, sql) {
       const compatibleClauses = [];
       for (const clause of clauses) {
         const addition = clause.trim().match(/^ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+(\S+)([\s\S]*)$/i);
-        if (!addition) {
+        if (addition) {
+          const columnName = unquoteIdentifier(addition[1]);
+          const [existing] = await connection.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1",
+            [tableName, columnName],
+          );
+          if (existing.length) {
+            console.log("Skipping existing column " + tableName + "." + columnName);
+          } else {
+            compatibleClauses.push("ADD COLUMN " + addition[1] + addition[2]);
+          }
+          continue;
+        }
+
+        const rename = clause.trim().match(/^CHANGE\s+COLUMN\s+(\S+)\s+(\S+)([\s\S]*)$/i);
+        if (rename) {
+          const oldColumn = unquoteIdentifier(rename[1]);
+          const newColumn = unquoteIdentifier(rename[2]);
+          const [oldRows] = await connection.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1",
+            [tableName, oldColumn],
+          );
+          const [newRows] = await connection.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1",
+            [tableName, newColumn],
+          );
+          if (!oldRows.length && newRows.length) {
+            console.log("Skipping previously applied column rename " + tableName + "." + oldColumn + " -> " + newColumn);
+            continue;
+          }
+          if (!oldRows.length && !newRows.length) {
+            const error = new Error("Cannot safely apply column rename on " + tableName + ": both source " + oldColumn + " and destination " + newColumn + " are missing.");
+            error.code = "MIGRATION_RENAME_COLUMNS_MISSING";
+            throw error;
+          }
+          if (oldRows.length && newRows.length) {
+            const error = new Error("Cannot safely apply column rename on " + tableName + ": both source " + oldColumn + " and destination " + newColumn + " exist; inspect schema before retrying.");
+            error.code = "MIGRATION_RENAME_COLUMNS_CONFLICT";
+            throw error;
+          }
           compatibleClauses.push(clause);
           continue;
         }
-        const columnName = unquoteIdentifier(addition[1]);
-        const [existing] = await connection.execute(
-          "SELECT 1 FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1",
-          [tableName, columnName],
-        );
-        if (existing.length) {
-          console.log("Skipping existing column " + tableName + "." + columnName);
-        } else {
-          compatibleClauses.push("ADD COLUMN " + addition[1] + addition[2]);
-        }
+
+        compatibleClauses.push(clause);
       }
       if (compatibleClauses.length) {
         await connection.query("ALTER TABLE " + alter[1] + " " + compatibleClauses.join(", "));
