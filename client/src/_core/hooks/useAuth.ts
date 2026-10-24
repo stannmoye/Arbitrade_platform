@@ -1,6 +1,5 @@
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { TRPCClientError } from "@trpc/client";
 import { useCallback, useEffect, useMemo } from "react";
 
 type UseAuthOptions = {
@@ -9,10 +8,8 @@ type UseAuthOptions = {
 };
 
 export function useAuth(options?: UseAuthOptions) {
-  // Login is started via startLogin() in the effect below, only when we actually
-  // navigate — never during render. startLogin() mints a one-time nonce + writes
-  // the state cookie, so calling it per render would overwrite the cookie and
-  // desync it from an in-flight login's `state`.
+  // Authentication is owned by the local Arbitrade API. startLogin() navigates
+  // to the local sign-in screen and does not create a hosted identity session.
   const { redirectOnUnauthenticated = false, redirectPath } = options ?? {};
   const utils = trpc.useUtils();
 
@@ -40,11 +37,7 @@ export function useAuth(options?: UseAuthOptions) {
       }
     }
 
-    // Only clear client identity and navigate after the server confirms logout
-    // (or confirms that this session is already unauthenticated).
-    try {
-
-    } catch {}
+    // The server has confirmed logout; no browser-managed identity token is kept.
     utils.auth.me.setData(undefined, null);
     await utils.auth.me.invalidate();
 
@@ -78,7 +71,7 @@ export function useAuth(options?: UseAuthOptions) {
     if (typeof window === "undefined") return;
     if (redirectPath && window.location.pathname === redirectPath) return;
 
-    // Navigate at this moment only. startLogin() mints the nonce + cookie itself.
+    // Navigate only after auth state resolves; startLogin() targets local sign-in.
     if (redirectPath) {
       window.location.href = redirectPath;
     } else {
