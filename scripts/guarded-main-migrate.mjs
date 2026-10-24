@@ -101,11 +101,17 @@ async function main() {
     }
 
     const [guardRows] = await connection.execute(
-      `SELECT status FROM \`${guardTable}\` WHERE id=1 FOR UPDATE`,
+      `SELECT status, failureCode FROM \`${guardTable}\` WHERE id=1 FOR UPDATE`,
     );
     const previousStatus = guardRows[0]?.status;
+    const previousFailureCode = String(guardRows[0]?.failureCode || "").replace(/[^A-Z0-9_]/gi, "").slice(0, 80);
     if (previousStatus === "failed" || previousStatus === "running") {
-      console.error("[main-migrate] ERROR: Automatic retry is blocked because the previous main migration run is " + previousStatus + ". Inspect migration state and approve a recovery plan before retrying.");
+      console.error(
+        "[main-migrate] ERROR: Automatic retry is blocked because the previous main migration run is " +
+        previousStatus +
+        (previousStatus === "failed" && previousFailureCode ? " (recorded failure code: " + previousFailureCode + ")" : "") +
+        ". The code identifies the earlier database error but does not prove schema integrity. Inspect the migration state and approve a recovery plan before retrying.",
+      );
       process.exitCode = 1;
       return;
     }
