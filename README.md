@@ -11,6 +11,10 @@ Arbitrade is a Node.js/Express and React customer-and-operations platform for da
 - SMTP or an approved email provider
 - cPanel Setup Node.js App or a VPS
 
+## Self-hosted runtime
+
+The runtime uses Arbitrade-owned MySQL sessions, the configured MySQL/MariaDB database, persistent local file storage, a database-backed scheduler and operator-configured optional integrations. No hosted builder identity, API proxy, storage gateway or scheduler is required. Read [the self-hosted deployment guide](docs/SELF_HOSTED_DEPLOYMENT.md) before installing or upgrading.
+
 ## Database source of truth
 
 The repository-root `database.sql` is the single canonical database artifact for this application. It contains the database-backed application state, including accounts, wallets, balances, ledgers, mining packages, mining contracts, CKI economics, settings, and portal records. Before moving hosts or completing database changes, run `pnpm db:backup:github`; on a new empty database, run `pnpm db:restore:github`. See [`DATABASE_SOURCE_OF_TRUTH.md`](DATABASE_SOURCE_OF_TRUTH.md).
