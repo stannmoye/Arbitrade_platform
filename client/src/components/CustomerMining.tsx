@@ -221,8 +221,8 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
             <MiningCoreCanvas running={engineIsRunning && hasActiveHashPowerPackage} playing={true} boosted={Boolean(boost?.activeBoost)} hashPowerThs={activeHashPower} rewardPulseKey={Number(data?.todayTokens || 0)}/>
           </div>
           <div className="cm-factory-shade"/>
-          <div className="cm-factory-label"><span><Cpu size={16}/> MINING ENGINE</span><b className={hasActiveHashPowerPackage?"online":"offline"}><i aria-hidden="true"/>{hasActiveHashPowerPackage?"MINING STATUS ACTIVE":"MINING STATUS INACTIVE"}</b></div>
-          <div className="cm-video-controls" role="group" aria-label="Mining engine hash-rate readouts and fullscreen control">
+          <div className="cm-factory-label"><span><Cpu size={16}/> PACKAGE ACTIVITY VISUALIZATION</span><b className={hasActiveHashPowerPackage?"online":"offline"}><i aria-hidden="true"/>{hasActiveHashPowerPackage?"PACKAGE ACTIVE":"NO ACTIVE PACKAGE"}</b></div>
+          <div className="cm-video-controls" role="group" aria-label="Mining package activity visualization and fullscreen control">
             <div className="cm-engine-hash-readouts">
               <div className="cm-engine-hash-stat" title="Signed-in account's current hash rate, including any active boost.">
                 <span>CURRENT HASH RATE</span><strong>{currentHashRateDisplay} <small>TH/s</small></strong>
