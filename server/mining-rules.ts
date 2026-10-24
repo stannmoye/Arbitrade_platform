@@ -29,11 +29,8 @@ const TOKEN_SCALE = 8;
 const PACKAGE_REWARD_SCALE = 18;
 const MiningDecimal = Decimal.clone({ precision: 60, rounding: Decimal.ROUND_DOWN });
 
-/** False until verified third-party settlement ingestion, allocation, and idempotent posting are implemented and tested. */
-export const VERIFIED_FARM_SETTLEMENTS_ENABLED = false;
-
 export function canStartMiningAccrual(input: { globalEnabled: boolean; expectedDailyRewardCki: string | number | null | undefined }) {
-  if (!VERIFIED_FARM_SETTLEMENTS_ENABLED || !input.globalEnabled || input.expectedDailyRewardCki == null) return false;
+  if (!input.globalEnabled || input.expectedDailyRewardCki == null) return false;
   const estimate = new Decimal(input.expectedDailyRewardCki);
   return estimate.isFinite() && estimate.gt(0);
 }
