@@ -97,7 +97,7 @@ describe("communication settings integration contract", () => {
     const app = await source("../client/src/App.tsx");
     const component = await source("../client/src/components/AdminCommunicationSettings.tsx");
     expect(nav).toContain('target: "communicationSettings"');
-    expect(app).toContain('section === "communicationSettings"');
+    expect(app).toContain('section==="communicationSettings"');
     expect(app).toContain("trpc.customer.communicationOptions.useQuery");
     expect(app).toContain("buildWhatsAppContactUrl");
     expect(app).toContain('target="_blank" rel="noopener noreferrer"');
