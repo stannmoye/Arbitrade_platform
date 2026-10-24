@@ -94,3 +94,54 @@ export async function removeApiProviderCredential(providerKey: "whatsapp_meta" |
   await db.delete(apiProviderCredentials).where(eq(apiProviderCredentials.providerKey, providerKey));
   return { success: true, providerKey };
 }
+
+
+export async function testMetaWhatsAppCredentials(credentials: Record<string, string>) {
+  const accessToken = credentials.accessToken?.trim();
+  const phoneNumberId = credentials.phoneNumberId?.trim();
+  const configuredVersion = credentials.graphApiVersion?.trim() || "v26.0";
+  if (!accessToken || !phoneNumberId || !/^\\d{5,30}$/.test(phoneNumberId)) {
+    throw new Error("Save a valid Meta access token and phone number ID before testing the connection.");
+  }
+  const version = /^v\\d+\\.\\d+$/.test(configuredVersion) ? configuredVersion : "v26.0";
+  let response: Response;
+  try {
+    const url = new URL("https://graph.facebook.com/" + version + "/" + encodeURIComponent(phoneNumberId));
+    url.searchParams.set("fields", "id,display_phone_number,verified_name");
+    response = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: "Bearer " + accessToken },
+      signal: AbortSignal.timeout(10_000),
+      redirect: "error",
+    });
+  } catch {
+    throw new Error("Could not reach Meta to verify the WhatsApp connection. Check server network access and try again.");
+  }
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error("Meta rejected the credentials. Check the access token and its WhatsApp Business permissions.");
+    }
+    if (response.status === 404) {
+      throw new Error("Meta could not find this phone number ID. Check the ID and the selected business account.");
+    }
+    throw new Error("Meta could not verify the WhatsApp connection (HTTP " + response.status + "). Try again later.");
+  }
+  let payload: unknown;
+  try { payload = await response.json(); }
+  catch { throw new Error("Meta returned an unreadable connection response."); }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Meta returned an invalid connection response.");
+  }
+  const result = payload as Record<string, unknown>;
+  if (String(result.id ?? "") !== phoneNumberId) {
+    throw new Error("Meta's response did not match the configured phone number ID.");
+  }
+  return {
+    success: true,
+    phoneNumberId,
+    graphApiVersion: version,
+    displayPhoneNumber: typeof result.display_phone_number === "string" ? result.display_phone_number : null,
+    verifiedName: typeof result.verified_name === "string" ? result.verified_name : null,
+    checkedAt: new Date().toISOString(),
+  };
+}
