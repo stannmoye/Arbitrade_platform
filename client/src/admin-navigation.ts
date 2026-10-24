@@ -66,7 +66,6 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "opportunity-offers", target: "opportunity", label: "Offers", detail: "Review configured offers and routes", icon: PackageCheck },
     { id: "opportunity-delivery", target: "deliveryMonitor", label: "Delivery & Lifecycle", detail: "Delivery, popup and lifecycle states", icon: Activity },
     { id: "opportunity-package-rules", target: "packages", label: "Package Rules", detail: "Entitlements, limits and delivery policy", icon: Layers3 },
-    { id: "opportunity-auto-trade", target: "autoTrade", label: "Auto-trade Policy", detail: "Global and inherited execution defaults", icon: SlidersHorizontal },
   ]},
   { id: "verification-risk", label: "Verification & Risk", detail: "KYC, review, risk and session oversight", items: [
     { id: "kyc-overview", target: "kycCenter", label: "KYC Overview", detail: "Stages, metrics, settings and review posture", icon: ShieldCheck },

@@ -24,13 +24,12 @@ The admin portal is role-protected. Pages use the database-backed admin session,
 - Total customer accounts
 - Active customer packages
 - Opportunity delivery ceiling
-- Global auto-trade status
 - Current customer status and package information
 - Database-controlled opportunity and security configuration
 
 **How it functions:**
 
-- Reads live customer, package, settings, and auto-trade data from the database.
+- Reads live customer, package, and settings data from the database.
 - Provides shortcuts to security policy and operational settings.
 - Acts as a high-level control-centre view rather than a detailed editing page.
 
@@ -72,14 +71,6 @@ Enables or disables customer trading.
 ### Opportunity controls
 
 Enables or disables delivery of opportunities to the customer.
-
-### Auto-trade mode
-
-Per-customer auto-trade setting:
-
-- **Inherit** — use the global policy
-- **Enabled** — customer may execute eligible opportunities automatically
-- **Disabled** — customer must review opportunities manually
 
 ### Withdrawal control
 
@@ -263,21 +254,6 @@ Allows the administrator to:
 - Send the message through the configured email transport
 
 SMTP credentials are kept server-side and are not exposed to the browser.
-
----
-
-## 2.6 Auto-trade Policy
-
-**Purpose:** Define the global default for automatic execution of eligible opportunities.
-
-**Modes:**
-
-- **OFF — Manual review:** customers review opportunities manually
-- **ON — Execute automatically:** customers set to inherit may execute eligible opportunities automatically
-
-The global policy is enforced server-side by background execution and customer opportunity requests. Individual customer overrides remain controlled from **Customers**.
-
-The execution policy still respects trading status, wallet balance, risk tier, KYC restrictions, customer limits, and settlement rules.
 
 ---
 
@@ -745,7 +721,6 @@ The following areas use database-backed queries and mutations:
 - Currency registry
 - Package policy registry
 - Opportunity settings and offers
-- Auto-trade policy
 - Application settings
 - Email configuration metadata
 - KYC profiles, stages, reviews, settings, and audit records
@@ -778,7 +753,7 @@ Several operational pages refresh automatically so that queues, customer states,
 
 | Navigation layer | Count | Items |
 |---|---:|---|
-| Main admin rail | 20 | Home, Customers, Email Center, KYC Control Center, SMTP & Reports, Auto-trade Policy, Credit Customer, Debit Customer, Currencies, Signup Policy, Packages & Groups, Security Policies, API Registry, Branding & Identity, Sound Settings, Opportunity Engine, Settings, Audit Log, Advanced Controls |
+| Main admin rail | 19 | Home, Customers, Email Center, KYC Control Center, SMTP & Reports, Credit Customer, Debit Customer, Currencies, Signup Policy, Packages & Groups, Security Policies, API Registry, Branding & Identity, Sound Settings, Opportunity Engine, Settings, Audit Log, Advanced Controls |
 | Supplemental Operations drawer | 8 | Tickets, Opportunity Delivery, Verification Oversight, KYC Control Center, SMTP & Reports, Risk Watchlist, Transaction Review, Reports & Exports |
 | KYC internal regions | 5 | Overview, Workflow & Settings, Customers, Review Queue, Audit Trail |
 | Settings internal tabs | 4 | Ticket, Email, Trade, Password/Security |

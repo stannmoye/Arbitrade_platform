@@ -3,7 +3,6 @@ import { trpc } from "@/lib/trpc";
 import "../factory-cockpit.css";
 import { MiningCoreCanvas } from "./MiningCoreCanvas";
 import { MiningOperationsFlow } from "./MiningOperationsFlow";
-import { CustomerSlideMenu } from "./CustomerSlideMenu";
 import {
   Activity, ArrowDownUp, ArrowRight,
   ChevronDown, ChevronLeft, ChevronRight, Clock3, Cpu, Info,
@@ -63,7 +62,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   useEffect(() => {
     const preferredSwap = String(walletPreferences.data?.swapCurrency || "").toUpperCase();
     if (TARGET_ASSETS.includes(preferredSwap)) setSwapTarget(preferredSwap);
-  }, [walletPreferences.data?.tradingCurrency, walletPreferences.data?.swapCurrency]);
+  }, [walletPreferences.data?.swapCurrency]);
 
   const purchaseMutation = trpc.customer.mining.purchasePackage.useMutation({
     onSuccess: result => {
@@ -183,9 +182,6 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     mainWalletPreferenceMutation.mutate({ swapCurrency: asset });
   };
   const activateBoost = () => { const audio = boostAudioRef.current || new Audio("/audio/boost/mixkit-1093.mp3"); boostAudioRef.current = audio; audio.loop = true; audio.volume = 0.55; void audio.play().catch(() => {}); boostMutation.mutate({ idempotencyKey: requestId() }); };
-  const goTo = (section: string) => {
-    if (section !== "crypto-mining") window.dispatchEvent(new CustomEvent("arbitrade:customer-navigate", { detail: section }));
-  };
   const toggleFullscreen = () => {
     const el = document.querySelector(".cm-factory") as HTMLElement | null;
     if (!el) return;
@@ -194,7 +190,6 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   };
 
   return <div className="cm-dashboard-frame arb-page">
-    <CustomerSlideMenu section="crypto-mining" onNavigate={goTo} />
     <header className="cm-topbar">
       <a className="cm-brand" href="#mining-dashboard" onClick={e=>e.preventDefault()} aria-label="CoinKi mining dashboard home">
         <span className="cm-brand-mark">₵</span><span><strong>CoinKi</strong><small>Mine Today, Build Tomorrow</small></span>
@@ -279,7 +274,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
       </section>
 
       <section className="cm-glass cm-packages-panel">
-        <div className="cm-packages-header"><div><h2>Mining Packages</h2><p>Choose from packages currently published by operations</p><p className="cm-purchase-disclosure">Clicking Buy immediately purchases the displayed package and charges your saved {walletPreferences.data?.tradingCurrency ? `${String(walletPreferences.data.tradingCurrency).toUpperCase()} main wallet` : "main-wallet purchase currency"} using a fresh exchange quote. By clicking Buy, you accept the package terms shown on each card. Package capacity activates immediately and is added to your existing TH/s; configured CKI rewards accrue automatically while reward processing is enabled.</p></div><div className="cm-package-tabs" role="tablist" aria-label="Filter packages">{[["all","All Packages"],["mine","My Packages"],["upgrade","Upgrade"],["downgrade","Downgrade"]].map(([id,label])=><button type="button" role="tab" aria-selected={packageTab===id} className={packageTab===id?"selected":""} key={id} onClick={()=>setPackageTab(id)}>{label}</button>)}</div><button className="cm-refresh-button" type="button" onClick={()=>{void packages.refetch();void dashboard.refetch()}} aria-label="Refresh packages"><RefreshCw size={15}/></button></div>
+        <div className="cm-packages-header"><div><h2>Mining Packages</h2><p>Choose from packages currently published by operations</p><p className="cm-purchase-disclosure">Clicking Buy immediately purchases the displayed package and charges the package’s configured price currency using a fresh exchange quote. By clicking Buy, you accept the package terms shown on each card. Package capacity activates immediately and is added to your existing TH/s; configured CKI rewards accrue automatically while reward processing is enabled.</p></div><div className="cm-package-tabs" role="tablist" aria-label="Filter packages">{[["all","All Packages"],["mine","My Packages"],["upgrade","Upgrade"],["downgrade","Downgrade"]].map(([id,label])=><button type="button" role="tab" aria-selected={packageTab===id} className={packageTab===id?"selected":""} key={id} onClick={()=>setPackageTab(id)}>{label}</button>)}</div><button className="cm-refresh-button" type="button" onClick={()=>{void packages.refetch();void dashboard.refetch()}} aria-label="Refresh packages"><RefreshCw size={15}/></button></div>
         {active.length>0&&<div className="cm-active-note"><Cpu size={14}/><b>YOUR ACTIVE CAPACITY</b><span>{activePackageNames} · {fmt(activeBase,3)} TH/s</span></div>}
         <div className="cm-package-carousel">
           {packages.isLoading&&<div className="cm-empty">Loading published packages…</div>}
@@ -299,7 +294,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
               <div className="cm-package-price"><strong>{fmt(item.priceAmount,2)}</strong><small>{item.priceAsset}</small></div>
               <div className="cm-package-facts"><b>{fmt(item.baseThs,3)} <small>TH/s</small></b><span>Boost +{fmt(item.boostBonusThs,3)} TH/s</span><span>Term {item.durationMonths==null?"not set":`${item.durationMonths} months`}</span><span>{item.expectedDailyRewardCki==null?"Daily CKI rate not configured":`${fmt(item.expectedDailyRewardCki,8)} CKI/day · prorated by eligible seconds`}</span></div>
               {item.termsText&&<details className="cm-package-terms"><summary>Review package terms</summary><p>{item.termsText}</p></details>}
-              <button type="button" className="cm-package-buy" disabled={!canPurchase||purchaseMutation.isPending} title={canPurchase?"Click to purchase now; the saved main wallet will be charged immediately.":(unavailableReason||"Unavailable")} aria-label={`Buy ${item.name} now; the saved main wallet will be charged immediately`} onClick={()=>{if(!canPurchase||purchaseMutation.isPending)return;setMessage("");purchaseMutation.mutate({packageVersionId:item.versionId,idempotencyKey:requestId()})}}>{buttonLabel}<ArrowRight size={13}/></button>
+              <button type="button" className="cm-package-buy" disabled={!canPurchase||purchaseMutation.isPending} title={canPurchase?"Click to purchase now; the package's configured currency wallet will be charged immediately.":(unavailableReason||"Unavailable")} aria-label={`Buy ${item.name} now; the package's configured currency wallet will be charged immediately`} onClick={()=>{if(!canPurchase||purchaseMutation.isPending)return;setMessage("");purchaseMutation.mutate({packageVersionId:item.versionId,idempotencyKey:requestId()})}}>{buttonLabel}<ArrowRight size={13}/></button>
             </article>;
           })}
         </div>

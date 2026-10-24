@@ -92,16 +92,6 @@ async function creditMainWallet(conn: Db, userId: number, assetInput: string, am
   return { asset, scale, amount: amount.toFixed(scale), amountMinor: minor };
 }
 
-async function getSavedPurchaseCurrency(conn: Db, userId: number) {
-  let [rows] = await conn.query<any[]>("SELECT tradingCurrency FROM customer_wallet_preferences WHERE userId=? LIMIT 1", [userId]);
-  if (!rows[0]) {
-    await conn.execute("INSERT INTO customer_wallet_preferences (userId) VALUES (?) ON DUPLICATE KEY UPDATE userId=VALUES(userId)", [userId]);
-    [rows] = await conn.query<any[]>("SELECT tradingCurrency FROM customer_wallet_preferences WHERE userId=? LIMIT 1", [userId]);
-  }
-  if (!rows[0]) throw new MiningError("Set a default purchase currency in wallet preferences before buying a package");
-  return assertMainWalletAsset(String(rows[0].tradingCurrency));
-}
-
 async function getSavedSwapCurrency(conn: Db, userId: number) {
   let [rows] = await conn.query<any[]>("SELECT swapCurrency FROM customer_wallet_preferences WHERE userId=? LIMIT 1", [userId]);
   if (!rows[0]) {
@@ -263,16 +253,15 @@ export async function listCustomerMiningPackages(userId: number) {
   });
 }
 
-export async function createCustomerMiningPurchaseQuote(userId: number, input: { packageVersionId: number; paymentAsset?: string }) {
+export async function createCustomerMiningPurchaseQuote(userId: number, input: { packageVersionId: number }) {
   return withMiningConnection(async conn => inMiningTransaction(conn, async () => {
     await requireActiveMiningAccount(conn, userId);
     const config = await loadMiningConfig(conn);
     if (!config.packagePurchasesEnabled) throw new MiningError("Package purchases are paused by operations");
-    const preferredPaymentAsset = await getSavedPurchaseCurrency(conn, userId);
-    const paymentAsset = input.paymentAsset ? assertMainWalletAsset(input.paymentAsset) : preferredPaymentAsset;
     const [claimRows] = await conn.query<any[]>("SELECT packageId FROM mining_package_purchase_claims WHERE userId=? AND packageId=(SELECT packageId FROM mining_package_versions WHERE id=?) LIMIT 1", [userId, input.packageVersionId]);
     if (claimRows.length) throw new MiningError("You can purchase each Mining package only once");
     const product = await getPublishedPackage(conn, input.packageVersionId);
+    const paymentAsset = assertMainWalletAsset(String(product.priceAsset));
     const expectedDailyRewardCki = calculatePackageDailyRate({calculationModel:config.calculationModel,expectedDailyRewardCki:product.expectedDailyRewardCki,baseThs:String(product.baseThs),ckiPerThsPerDay:config.ckiPerThsPerDay});
     const priceAsset = assertMainWalletAsset(String(product.priceAsset));
     const priceScale = await getMainWalletScale(conn, priceAsset);
@@ -290,14 +279,14 @@ export async function createCustomerMiningPurchaseQuote(userId: number, input: {
       sourceUsdRate: rates.sourceUsdRate, targetUsdRate: rates.targetUsdRate, tokenUnitsPerUsd: config.tokenUnitsPerUsd,
       marketProvider: rates.marketProvider, marketObservedAt: rates.marketObservedAt, targetScale: priceScale,
       feeBps: config.purchaseFeeBps, quoteTtlSeconds: config.quoteTtlSeconds, packageVersionId: input.packageVersionId,
-      configVersion: config.version, details: { packageId: Number(product.packageId), packageName:String(product.displayName||product.name), durationMonths:product.durationMonths===null?null:Number(product.durationMonths), expectedDailyRewardCki, calculationModel:config.calculationModel, ckiPerThsPerDay:config.ckiPerThsPerDay, priceAmount: price.toString(), priceAsset, paymentAsset, preferredPaymentAsset, mainWalletScale:wallet.scale, grossPayment: ceilAmount(payment.gross,wallet.scale).toFixed(wallet.scale), feeAsset: paymentAsset },
+      configVersion: config.version, details: { packageId: Number(product.packageId), packageName:String(product.displayName||product.name), durationMonths:product.durationMonths===null?null:Number(product.durationMonths), expectedDailyRewardCki, calculationModel:config.calculationModel, ckiPerThsPerDay:config.ckiPerThsPerDay, priceAmount: price.toString(), priceAsset, paymentAsset, mainWalletScale:wallet.scale, grossPayment: ceilAmount(payment.gross,wallet.scale).toFixed(wallet.scale), feeAsset: paymentAsset },
     });
     const balance = wallet;
     return {
       ...quote, packageId: Number(product.packageId), packageVersionId: input.packageVersionId, packageName: product.displayName||product.name,
       sourceAsset: paymentAsset, sourceAmount: paymentAmount, packagePrice: price.toFixed(priceScale), packagePriceAsset: priceAsset,
       fee: paymentFee, feeAsset: paymentAsset, availableBalance: balance.available,
-      preferredPaymentAsset, paymentAsset, sufficientBalance: decimal(balance.available).gte(paymentAmount), expiresAt: quote.validUntil.toISOString(),
+      paymentAsset, sufficientBalance: decimal(balance.available).gte(paymentAmount), expiresAt: quote.validUntil.toISOString(),
       provider: rates.marketProvider, priceObservedAt: rates.marketObservedAt.toISOString(), expectedDailyRewardCki, calculationModel:config.calculationModel,
       disclaimer: "Indicative main-wallet package-purchase quote. The charge is subject to live price validation and the customer's saved wallet balance.",
     };

@@ -36,6 +36,7 @@ const portalMigrationFiles = [
   "0061_customer_totp_recovery_codes.sql",
   "0062_privacy_center.sql",
   "0063_privacy_notice_html.sql",
+  "0064_remove_auto_trade_inherit.sql",
 ];
 let journal;
 try {
