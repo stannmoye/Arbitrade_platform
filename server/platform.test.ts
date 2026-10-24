@@ -71,8 +71,20 @@ describe("self-hosted platform integrations", () => {
     expect(verifyLocalSession(token + "tampered")).toBeNull();
   });
 
-  it("uses secure application cookies in production behind HTTPS", () => {
-    expect(COOKIE_NAME).not.toBe("app_session_id");
-    expect(getSessionCookieOptions({ protocol: "http", headers: {} } as never)).toMatchObject({ secure: true, httpOnly: true, sameSite: "none" });
+  it("uses production-safe application cookies without hosted preview cross-site settings", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    expect(COOKIE_NAME).toBe("arbitrade_app_session");
+    expect(getSessionCookieOptions({ protocol: "http", headers: {}, secure: false } as never)).toMatchObject({ secure: true, httpOnly: true, sameSite: "lax" });
+    vi.stubEnv("NODE_ENV", "development");
+    expect(getSessionCookieOptions({ protocol: "http", headers: {}, secure: false } as never)).toMatchObject({ secure: false, httpOnly: true, sameSite: "lax" });
+  });
+
+  it("refuses legacy password hashes when their configured pepper is missing", () => {
+    const crypto = require("node:crypto");
+    const legacy = crypto.scryptSync("test-password-123", "legacy-secret", 32).toString("hex");
+    vi.stubEnv("PASSWORD_PEPPER", "");
+    expect(verifyPassword("test-password-123", legacy)).toBe(false);
+    vi.stubEnv("PASSWORD_PEPPER", "legacy-secret");
+    expect(verifyPassword("test-password-123", legacy)).toBe(true);
   });
 });
