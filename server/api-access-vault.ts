@@ -100,10 +100,10 @@ export async function testMetaWhatsAppCredentials(credentials: Record<string, st
   const accessToken = credentials.accessToken?.trim();
   const phoneNumberId = credentials.phoneNumberId?.trim();
   const configuredVersion = credentials.graphApiVersion?.trim() || "v26.0";
-  if (!accessToken || !phoneNumberId || !/^\\d{5,30}$/.test(phoneNumberId)) {
+  if (!accessToken || !phoneNumberId || !/^\d{5,30}$/.test(phoneNumberId)) {
     throw new Error("Save a valid Meta access token and phone number ID before testing the connection.");
   }
-  const version = /^v\\d+\\.\\d+$/.test(configuredVersion) ? configuredVersion : "v26.0";
+  const version = /^v\d+\.\d+$/.test(configuredVersion) ? configuredVersion : "v26.0";
   let response: Response;
   try {
     const url = new URL("https://graph.facebook.com/" + version + "/" + encodeURIComponent(phoneNumberId));
