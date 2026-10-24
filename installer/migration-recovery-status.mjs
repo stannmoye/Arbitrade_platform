@@ -37,6 +37,7 @@ const portalMigrationFiles = [
   "0062_privacy_center.sql",
   "0063_privacy_notice_html.sql",
   "0064_remove_auto_trade_inherit.sql",
+  "0065_remove_obsolete_auto_trade_limits.sql",
 ];
 let journal;
 try {

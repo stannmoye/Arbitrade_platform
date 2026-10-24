@@ -36,7 +36,7 @@ const migrations = [
     nullable: [["mining_customer_packages","ledgerTransactionId","YES"]] },
   { file: "0043_wallet_minor_units_bigint.sql",
     tables: ["customer_balances","balance_ledger","customer_controls","customer_opportunity_rules","kyc_stage_requirements","missed_opportunities","opportunity_offers","opportunity_popup_events","stake_events","stake_positions","stake_products","stake_rewards","stake_transactions","trade_positions","transaction_console_events"],
-    columns: [["customer_balances","availableMinor","bigint"],["customer_balances","lockedMinor","bigint"],["customer_balances","promotionalMinor","bigint"],["customer_balances","earnedMinor","bigint"],["balance_ledger","amountMinor","bigint"],["customer_controls","autoTradeAmountMinor","bigint"],["customer_controls","dailyTradeLimitMinor","bigint"],["customer_opportunity_rules","maxDailyAllocationMinor","bigint"],["kyc_stage_requirements","transactionLimitMinor","bigint"],["missed_opportunities","amountMinor","bigint"],["missed_opportunities","potentialRewardMinor","bigint"],["opportunity_offers","minimumMinor","bigint"],["opportunity_popup_events","minimumMinor","bigint"],["opportunity_popup_events","balanceAvailableMinor","bigint"],["stake_events","amountMinor","bigint"],["stake_positions","principalMinor","bigint"],["stake_positions","rewardMinor","bigint"],["stake_products","minMinor","bigint"],["stake_products","maxMinor","bigint"],["stake_rewards","amountMinor","bigint"],["stake_transactions","amountMinor","bigint"],["trade_positions","principalMinor","bigint"],["trade_positions","expectedRewardMinor","bigint"],["transaction_console_events","amountMinor","bigint"]] },
+    columns: [["customer_balances","availableMinor","bigint"],["customer_balances","lockedMinor","bigint"],["customer_balances","promotionalMinor","bigint"],["customer_balances","earnedMinor","bigint"],["balance_ledger","amountMinor","bigint"],["customer_controls","dailyTradeLimitMinor","bigint"],["customer_opportunity_rules","maxDailyAllocationMinor","bigint"],["kyc_stage_requirements","transactionLimitMinor","bigint"],["missed_opportunities","amountMinor","bigint"],["missed_opportunities","potentialRewardMinor","bigint"],["opportunity_offers","minimumMinor","bigint"],["opportunity_popup_events","minimumMinor","bigint"],["opportunity_popup_events","balanceAvailableMinor","bigint"],["stake_events","amountMinor","bigint"],["stake_positions","principalMinor","bigint"],["stake_positions","rewardMinor","bigint"],["stake_products","minMinor","bigint"],["stake_products","maxMinor","bigint"],["stake_rewards","amountMinor","bigint"],["stake_transactions","amountMinor","bigint"],["trade_positions","principalMinor","bigint"],["trade_positions","expectedRewardMinor","bigint"],["transaction_console_events","amountMinor","bigint"]] },
   { file: "0051_advanced_auto_trading.sql", tables: ["trade_reward_reservations","opportunity_schedule_decisions"],
     columns: [["opportunity_package_policies","automaticDelivery","tinyint"],["opportunity_package_policies","maxDailyRewardMinor","bigint"],["trade_positions","settlementStatus","varchar"],["trade_positions","rewardReservedMinor","bigint"],["trade_positions","transactionReference","varchar"],["trade_reward_reservations","tradeId","int"],["opportunity_schedule_decisions","nextEligibleAt","timestamp"]],
     data: [{table:"app_settings",column:"settingKey",value:"advancedAutoTrading.migration",label:"Advanced auto-trading migration setting"}] },
@@ -46,6 +46,8 @@ const migrations = [
     tables: ["trade_positions","trade_lifecycle_events"],
     columns: [["trade_positions","settlementReference","varchar"],["trade_positions","settlementConfirmedAt","timestamp"],["trade_positions","settlementConfirmedBy","int"],["trade_positions","settlementNotes","varchar"],["trade_lifecycle_events","id","int"],["trade_lifecycle_events","tradeId","int"],["trade_lifecycle_events","userId","int"],["trade_lifecycle_events","eventType","varchar"],["trade_lifecycle_events","stage","varchar"],["trade_lifecycle_events","payloadJson","text"]],
     data: [{table:"app_settings",column:"settingKey",value:"advancedAutoTrading.settlementMode",label:"Manual settlement mode setting"}] },
+  { file: "0065_remove_obsolete_auto_trade_limits.sql", tables: ["customer_controls"],
+    absentColumns: [["customer_controls","autoTradeAmountMinor"],["customer_controls","autoTradeDailyLimit"]] },
 ];
 
 const url = new URL(rawDatabaseUrl);
@@ -88,6 +90,11 @@ function checkNullable(table, column, expectedNullable) {
   return { label: table + "." + column + " nullable=" + expectedNullable,
     ok: Boolean(found && found.nullable === expectedNullable), detail: !found ? "missing" : "nullable=" + found.nullable };
 }
+function checkColumnAbsent(table, column) {
+  const found = columns.get(table + "." + column);
+  return { label: table + "." + column + " absent", ok: !found,
+    detail: found ? "still present (" + found.type + ")" : "absent as expected" };
+}
 async function checkSeed({ table, column, value, label }) {
   if (!tableSet.has(table)) return { label, ok: false, detail: "table missing" };
   if (!/^[A-Za-z0-9_]+$/.test(table) || !/^[A-Za-z0-9_]+$/.test(column)) return { label, ok: false, detail: "invalid audit identifier" };
@@ -107,6 +114,7 @@ try {
     for (const table of migration.tables) checks.push(checkTable(table));
     for (const [table, column, type] of migration.columns || []) checks.push(checkColumn(table, column, type));
     for (const [table, column, nullable] of migration.nullable || []) checks.push(checkNullable(table, column, nullable));
+    for (const [table, column] of migration.absentColumns || []) checks.push(checkColumnAbsent(table, column));
     for (const seed of migration.data || []) checks.push(await checkSeed(seed));
     const result = classifySchemaAudit(checks);
     reports.push({ file: migration.file, ...result, checks });
