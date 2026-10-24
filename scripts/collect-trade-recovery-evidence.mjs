@@ -3,6 +3,7 @@ import mysql from "mysql2/promise";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 config({ path: resolve(root, ".env"), override: false });
@@ -134,6 +135,9 @@ async function main() {
       "trade_positions.id", "trade_positions.userId", "trade_positions.currency",
       "trade_positions.status", "trade_positions.settlementStatus", "trade_positions.principalMinor",
       "trade_positions.rewardCreditedMinor", "trade_positions.settlementReference", "trade_positions.walletUpdatedAt",
+      "trade_positions.realizedGrossProfitMinor", "trade_positions.platformFeeMinor", "trade_positions.netProfitMinor",
+      "trade_positions.settlementOutcome", "trade_positions.feePolicyVersion", "trade_positions.platformFeeRateBps",
+      "trade_positions.platformFeeRoundingMode",
       "customer_balances.id", "customer_balances.userId", "customer_balances.currency", "customer_balances.availableMinor",
       "customer_balances.lockedMinor", "customer_balances.promotionalMinor", "customer_balances.earnedMinor", "customer_balances.updatedAt",
       "balance_ledger.id", "balance_ledger.userId", "balance_ledger.currency", "balance_ledger.amountMinor",
@@ -153,7 +157,7 @@ async function main() {
     }
 
     const [tradeRows] = await db.execute(
-      "SELECT id, userId, currency, status, settlementStatus, principalMinor, rewardCreditedMinor, settlementReference, walletUpdatedAt FROM trade_positions ORDER BY id DESC LIMIT ?",
+      "SELECT id, userId, currency, status, settlementStatus, principalMinor, rewardCreditedMinor, realizedGrossProfitMinor, platformFeeMinor, netProfitMinor, settlementOutcome, feePolicyVersion, platformFeeRateBps, platformFeeRoundingMode, settlementReference, walletUpdatedAt FROM trade_positions ORDER BY id DESC LIMIT ?",
       [args.limit],
     );
     const trades = tradeRows.map((row) => ({
@@ -164,6 +168,13 @@ async function main() {
       settlementStatus: String(row.settlementStatus),
       principalMinor: safeInteger(row.principalMinor, "trade_positions.principalMinor"),
       rewardCreditedMinor: safeInteger(row.rewardCreditedMinor, "trade_positions.rewardCreditedMinor"),
+      realizedGrossProfitMinor: safeInteger(row.realizedGrossProfitMinor, "trade_positions.realizedGrossProfitMinor"),
+      platformFeeMinor: safeInteger(row.platformFeeMinor, "trade_positions.platformFeeMinor"),
+      netProfitMinor: safeInteger(row.netProfitMinor, "trade_positions.netProfitMinor"),
+      settlementOutcome: String(row.settlementOutcome),
+      feePolicyVersion: safeInteger(row.feePolicyVersion, "trade_positions.feePolicyVersion"),
+      platformFeeRateBps: safeInteger(row.platformFeeRateBps, "trade_positions.platformFeeRateBps"),
+      platformFeeRoundingMode: String(row.platformFeeRoundingMode),
       settlementReference: row.settlementReference == null ? null : String(row.settlementReference),
       walletUpdatedAt: row.walletUpdatedAt ?? null,
     }));
@@ -184,9 +195,18 @@ async function main() {
 
     const tradeIds = [...new Set(trades.map((trade) => trade.id))];
     const idSql = placeholders(tradeIds.length);
-    const refs = [...new Set(trades.flatMap((trade) => trade.settlementReference
-      ? [`${trade.settlementReference}:principal`, `${trade.settlementReference}:reward`]
-      : []))];
+    const ledgerBaseFor = (trade) => {
+      if (!trade.settlementReference) return null;
+      if (trade.settlementOutcome === "legacy_unrecorded" || trade.settlementReference.length <= 60) return trade.settlementReference;
+      return `trade-${trade.id}-${createHash("sha256").update(trade.settlementReference).digest("hex").slice(0,24)}`;
+    };
+    const refs = [...new Set(trades.flatMap((trade) => {
+      const base = ledgerBaseFor(trade);
+      if (!base) return [];
+      return trade.settlementOutcome === "legacy_unrecorded"
+        ? [`${base}:principal`, `${trade.settlementReference}:reward`]
+        : [`${base}:principal`, `${base}:gross-profit`, `${base}:platform-fee`, `${base}:loss`];
+    }))];
     const ledgerRows = refs.length
       ? (await db.execute(
           `SELECT id, userId, currency, amountMinor, entryType, reference, createdAt FROM balance_ledger WHERE reference IN (${placeholders(refs.length)}) ORDER BY id`,
@@ -223,8 +243,13 @@ async function main() {
       : [];
 
     const records = trades.map((trade) => {
-      const principalReference = trade.settlementReference ? `${trade.settlementReference}:principal` : null;
-      const rewardReference = trade.settlementReference ? `${trade.settlementReference}:reward` : null;
+      const ledgerBaseReference = ledgerBaseFor(trade);
+      const principalReference = ledgerBaseReference ? `${ledgerBaseReference}:principal` : null;
+      const rewardReference = trade.settlementReference
+        ? (trade.settlementOutcome === "legacy_unrecorded" ? `${trade.settlementReference}:reward` : `${ledgerBaseReference}:gross-profit`)
+        : null;
+      const feeReference = ledgerBaseReference && trade.settlementOutcome !== "legacy_unrecorded" ? `${ledgerBaseReference}:platform-fee` : null;
+      const lossReference = ledgerBaseReference && trade.settlementOutcome !== "legacy_unrecorded" ? `${ledgerBaseReference}:loss` : null;
       const matchingLedger = ledgerRows.filter((row) =>
         safeInteger(row.userId, "balance_ledger.userId") === trade.userId &&
         String(row.currency) === trade.currency,
@@ -234,6 +259,12 @@ async function main() {
       );
       const rewardRows = matchingLedger.filter((row) =>
         row.entryType === "trade_reward" && row.reference === rewardReference,
+      );
+      const feeRows = matchingLedger.filter((row) =>
+        row.entryType === "trade_platform_fee" && row.reference === feeReference,
+      );
+      const lossRows = matchingLedger.filter((row) =>
+        row.entryType === "trade_loss" && row.reference === lossReference,
       );
       const reservationForTrade = reservationRows.filter((row) =>
         safeInteger(row.tradeId, "trade_reward_reservations.tradeId") === trade.id,
@@ -276,6 +307,8 @@ async function main() {
       });
       const principal = ledgerSummary(principalRows);
       const reward = ledgerSummary(rewardRows);
+      const fee = ledgerSummary(feeRows);
+      const loss = ledgerSummary(lossRows);
       const context = {
         userId: trade.userId,
         currency: trade.currency,
@@ -284,8 +317,17 @@ async function main() {
         settlementReference: trade.settlementReference,
         walletMatchCount: walletForTrade.length,
         wallet,
+        settlementOutcome: trade.settlementOutcome,
+        realizedGrossProfitMinor: trade.realizedGrossProfitMinor,
+        platformFeeMinor: trade.platformFeeMinor,
+        netProfitMinor: trade.netProfitMinor,
+        feePolicyVersion: trade.feePolicyVersion,
+        platformFeeRateBps: trade.platformFeeRateBps,
+        platformFeeRoundingMode: trade.platformFeeRoundingMode,
         principalLedger: principal,
-        rewardLedger: reward,
+        grossProfitLedger: reward,
+        platformFeeLedger: fee,
+        realizedLossLedger: loss,
         reservationCount: reservationForTrade.length,
         reservation: reservationForTrade.map((row) => ({
           id: safeInteger(row.id, "trade_reward_reservations.id"),
@@ -305,7 +347,7 @@ async function main() {
           eventStatus: String(row.eventStatus),
         })),
         identityMismatchedLedgerRows: ledgerRows.filter((row) =>
-          (row.reference === principalReference || row.reference === rewardReference) &&
+          (row.reference === principalReference || row.reference === rewardReference || row.reference === feeReference || row.reference === lossReference) &&
           (safeInteger(row.userId, "balance_ledger.userId") !== trade.userId || String(row.currency) !== trade.currency),
         ).map((row) => ({
           id: safeInteger(row.id, "balance_ledger.id"),
@@ -322,11 +364,22 @@ async function main() {
           settlementStatus: trade.settlementStatus,
           principalMinor: trade.principalMinor,
           rewardCreditedMinor: trade.rewardCreditedMinor,
+          realizedGrossProfitMinor: trade.realizedGrossProfitMinor,
+          platformFeeMinor: trade.platformFeeMinor,
+          netProfitMinor: trade.netProfitMinor,
+          settlementOutcome: trade.settlementOutcome,
+          feePolicyVersion: trade.feePolicyVersion,
+          platformFeeRateBps: trade.platformFeeRateBps,
+          platformFeeRoundingMode: trade.platformFeeRoundingMode,
           settlementReference: trade.settlementReference,
           principalLedgerCount: principal.count,
           principalLedgerAmountMinor: principal.amountMinor,
-          rewardLedgerCount: reward.count,
-          rewardLedgerAmountMinor: reward.amountMinor,
+          grossProfitLedgerCount: reward.count,
+          grossProfitLedgerAmountMinor: reward.amountMinor,
+          platformFeeLedgerCount: fee.count,
+          platformFeeLedgerAmountMinor: fee.amountMinor,
+          realizedLossLedgerCount: loss.count,
+          realizedLossLedgerAmountMinor: loss.amountMinor,
           rewardReservationStatus: reservationStatus,
           lifecycleEventCount: lifecycleForTrade.length,
           walletUpdatedAtPresent: trade.walletUpdatedAt != null,
