@@ -216,7 +216,6 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     }
-    }
 
     if (!values.lastSignedIn) {
       values.lastSignedIn = new Date();
