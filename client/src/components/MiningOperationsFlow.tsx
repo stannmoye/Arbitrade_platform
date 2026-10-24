@@ -62,7 +62,8 @@ export function MiningOperationsFlow({
   }, [latestRewardReference]);
 
   const active = hasActivePackage && hashPowerThs > 0;
-  const progress = active ? stage / (FLOW_STEPS.length - 1) : 0;
+  const visibleStage = latestRewardReference ? stage : Math.min(stage, 1);
+  const progress = active ? visibleStage / (FLOW_STEPS.length - 1) : 0;
   const status = !active
     ? "Idle · customer has no active package"
     : latestRewardReference
@@ -99,12 +100,12 @@ export function MiningOperationsFlow({
     <div className={`cm-flow-track-wrap ${active ? "is-replaying" : ""}`}>
       <div className="cm-flow-track" role="list" aria-label="Mining settlement processing stages">
         <div className="cm-flow-rail"><i style={{ width: `${progress * 100}%` }}/></div>
-        {FLOW_STEPS.map(({ label, detail, Icon }, index) => <div className={`cm-flow-step ${active && stage >= index ? "is-complete" : ""} ${active && stage === index ? "is-current" : ""}`} role="listitem" key={label}>
+        {FLOW_STEPS.map(({ label, detail, Icon }, index) => <div className={`cm-flow-step ${active && visibleStage >= index && (latestRewardReference || index < 2) ? "is-complete" : ""} ${active && visibleStage === index ? "is-current" : ""}`} role="listitem" key={label}>
           <span className="cm-flow-step-icon"><Icon size={17}/></span>
           <strong>{label}</strong>
           <small>{detail}</small>
         </div>)}
-        {active && <span className="cm-flow-token" style={{ left: `${8.333 + progress * 83.334}%` }} aria-hidden="true">•</span>}
+        {active && visibleStage < 2 && <span className="cm-flow-token" style={{ left: `${8.333 + progress * 83.334}%` }} aria-hidden="true">•</span>}
       </div>
       <div className="cm-flow-stage-note" aria-live="polite"><span className={active ? "is-active" : ""}/>{status}</div>
     </div>

@@ -19,12 +19,12 @@ describe("financial notification delivery observability", () => {
     expect(dbSource).toContain("orderBy(desc(customerNotifications.createdAt),desc(customerNotifications.id)).limit(500)");
   });
 
-  it("reports failed allocation, settlement, and trade-allocation notices after commit", () => {
-    expect(source).toContain('Automatic allocation notices failed after ledger commit.');
-    expect(source).toContain('Automatic settlement notices failed after ledger commit.');
-    expect(source).toContain('Trade allocation notices failed after ledger commit.');
+  it("reports allocation and settlement notification failures after their financial records commit", () => {
+    expect(dbSource).toContain("committed, but a notification failed.");
+    expect(source).toContain("Trade allocation notices failed after ledger commit.");
+    expect(source).toContain("One or more trade settlement notices failed after ledger commit.");
     expect(source).toContain('allocationNoticeResults.some(outcome=>outcome.status==="rejected")');
-    expect(source).toContain('settlementNoticeResults.some(outcome=>outcome.status==="rejected")');
+    expect(source).toContain('outcomes.some(outcome=>outcome.status==="rejected")');
   });
 
   it("scopes idempotency to the recipient and validates duplicate payloads before acknowledging delivery", () => {
@@ -49,8 +49,7 @@ describe("financial notification delivery observability", () => {
   });
 
   it("keeps trade allocation and settlement notices tied to committed trade identifiers", () => {
-    expect(source).toContain("auto-trade-allocation:${trade.tradeId}");
-    expect(source).toContain("trade-reward:${settlement.tradeId}");
+    expect(dbSource).toContain("auto-trade-allocation:${trade.tradeId}");
     expect(source).toContain("buildTradeSettlementNotices({tradeId:result.tradeId");
     expect(source).toContain("await manuallySettleTrade(input.tradeId,ctx.user.id,input)");
     expect(notificationEventsSource).toContain("trade-settlement:${input.tradeId}:principal");

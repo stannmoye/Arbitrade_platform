@@ -198,9 +198,12 @@ describe("authoritative financial-event notification contracts", () => {
     expect(settlement).toContain("after commit");
   });
 
-  it("does not present customer deposit submission or withdrawal initiation as confirmed payout", () => {
-    expect(app).toContain("Mock provider flow available for testing");
-    expect(app).toContain("Blocked until custody and execution providers are configured");
+  it("does not present no-op deposit or wallet buttons as working provider operations", () => {
+    expect(app).toContain("Deposits are unavailable until a deposit provider is configured.");
+    expect(app).toContain("Withdrawal requests can be submitted in the request section above and require manual review");
+    expect(app).not.toContain("Mock provider flow available for testing");
+    expect(app).not.toContain("Funding flow opened");
+    expect(app).not.toContain("Funds lock controls opened");
     expect(app).not.toContain("Deposit completed successfully");
     expect(app).not.toContain("Withdrawal paid successfully");
   });

@@ -3,7 +3,6 @@ import { trpc } from "@/lib/trpc";
 import "../factory-cockpit.css";
 import { MiningCoreCanvas } from "./MiningCoreCanvas";
 import { MiningOperationsFlow } from "./MiningOperationsFlow";
-import { CustomerSlideMenu } from "./CustomerSlideMenu";
 import {
   Activity, ArrowDownUp, ArrowRight,
   ChevronDown, ChevronLeft, ChevronRight, Clock3, Cpu, Info,
@@ -183,9 +182,6 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     mainWalletPreferenceMutation.mutate({ swapCurrency: asset });
   };
   const activateBoost = () => { const audio = boostAudioRef.current || new Audio("/audio/boost/mixkit-1093.mp3"); boostAudioRef.current = audio; audio.loop = true; audio.volume = 0.55; void audio.play().catch(() => {}); boostMutation.mutate({ idempotencyKey: requestId() }); };
-  const goTo = (section: string) => {
-    if (section !== "crypto-mining") window.dispatchEvent(new CustomEvent("arbitrade:customer-navigate", { detail: section }));
-  };
   const toggleFullscreen = () => {
     const el = document.querySelector(".cm-factory") as HTMLElement | null;
     if (!el) return;
@@ -194,7 +190,6 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   };
 
   return <div className="cm-dashboard-frame arb-page">
-    <CustomerSlideMenu section="crypto-mining" onNavigate={goTo} />
     <header className="cm-topbar">
       <a className="cm-brand" href="#mining-dashboard" onClick={e=>e.preventDefault()} aria-label="CoinKi mining dashboard home">
         <span className="cm-brand-mark">₵</span><span><strong>CoinKi</strong><small>Mine Today, Build Tomorrow</small></span>
@@ -226,8 +221,8 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
             <MiningCoreCanvas running={engineIsRunning && hasActiveHashPowerPackage} playing={true} boosted={Boolean(boost?.activeBoost)} hashPowerThs={activeHashPower} rewardPulseKey={Number(data?.todayTokens || 0)}/>
           </div>
           <div className="cm-factory-shade"/>
-          <div className="cm-factory-label"><span><Cpu size={16}/> MINING ENGINE</span><b className={hasActiveHashPowerPackage?"online":"offline"}><i aria-hidden="true"/>{hasActiveHashPowerPackage?"MINING STATUS ACTIVE":"MINING STATUS INACTIVE"}</b></div>
-          <div className="cm-video-controls" role="group" aria-label="Mining engine hash-rate readouts and fullscreen control">
+          <div className="cm-factory-label"><span><Cpu size={16}/> PACKAGE ACTIVITY VISUALIZATION</span><b className={hasActiveHashPowerPackage?"online":"offline"}><i aria-hidden="true"/>{hasActiveHashPowerPackage?"PACKAGE ACTIVE":"NO ACTIVE PACKAGE"}</b></div>
+          <div className="cm-video-controls" role="group" aria-label="Mining package activity visualization and fullscreen control">
             <div className="cm-engine-hash-readouts">
               <div className="cm-engine-hash-stat" title="Signed-in account's current hash rate, including any active boost.">
                 <span>CURRENT HASH RATE</span><strong>{currentHashRateDisplay} <small>TH/s</small></strong>

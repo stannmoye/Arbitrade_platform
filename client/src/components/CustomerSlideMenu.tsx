@@ -2,9 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { createPortal } from "react-dom";
 import {
-  Activity, ArrowDownUp, BarChart3, BookMarked, BookOpen, CircleHelp, Coins, Cpu, FileText,
-  Headphones, Home, Library, LockKeyhole, Map, Menu, Newspaper, Scale, Search, ShieldAlert,
-  ShieldCheck, Sparkles, WalletCards, X, type LucideIcon,
+  Activity, ArrowDownUp, BarChart3, Coins, Headphones, Home, LockKeyhole, Menu, Search,
+  Sparkles, WalletCards, X, type LucideIcon,
 } from "lucide-react";
 
 type CustomerSlideMenuProps = { section: string; onNavigate: (section: string) => void };
@@ -14,41 +13,10 @@ type CustomerDestinationGroup = { label: string; detail: string; items: Customer
 const destinationGroups: CustomerDestinationGroup[] = [
   {
     label: "Core Workspace",
-    detail: "Account tools and personal settings",
+    detail: "Specialist account views",
     items: [
-      { label: "Power tools", detail: "Risk reports, sessions and support tools", target: "advanced", icon: Sparkles },
-      { label: "Portfolio intelligence", detail: "Allocation health and signal quality", target: "intelligence", icon: BarChart3 },
-      { label: "Account Settings", detail: "Profile, security and preferences", target: "account", icon: LockKeyhole },
-    ],
-  },
-  {
-    label: "Project & Investment",
-    detail: "Project context before participation",
-    items: [
-      { label: "Whitepaper", detail: "Project thesis, architecture and operating model", target: "whitepaper", icon: BookOpen },
-      { label: "Token Launch", detail: "Planned offering · review only, not live", target: "token-launch", icon: Coins, planned: true },
-      { label: "Tokenomics", detail: "Planned token model · not currently active", target: "tokenomics", icon: Scale, planned: true },
-      { label: "Roadmap", detail: "Milestones, delivery phases and priorities", target: "roadmap", icon: Map },
-      { label: "Investment Research", detail: "Research notes, signals and market context", target: "investment-research", icon: Library },
-    ],
-  },
-  {
-    label: "Knowledge & Support",
-    detail: "Learn, compare and get help",
-    items: [
-      { label: "Knowledge Base", detail: "Answers to common platform questions", target: "knowledge-base", icon: BookMarked },
-      { label: "Documentation", detail: "How the platform and workflows operate", target: "documentation", icon: FileText },
-      { label: "FAQs", detail: "Fast answers for common decisions", target: "faqs", icon: CircleHelp },
-      { label: "Trading Guides", detail: "Practical guides for market workflows", target: "trading-guides", icon: Activity },
-    ],
-  },
-  {
-    label: "Transparency & Updates",
-    detail: "Risk, legal and platform updates",
-    items: [
-      { label: "Risk Disclosure", detail: "Important risks before any action", target: "risk-disclosure", icon: ShieldAlert },
-      { label: "Legal Documents", detail: "Terms, policies and formal notices", target: "legal-documents", icon: Scale },
-      { label: "News & Updates", detail: "Platform announcements and releases", target: "news-updates", icon: Newspaper },
+      { label: "Risk Reports", detail: "Request and review account-linked risk reports", target: "advanced", icon: BarChart3 },
+      { label: "Portfolio intelligence", detail: "Allocation health and active trading rules", target: "intelligence", icon: Sparkles },
     ],
   },
 ];
@@ -62,14 +30,6 @@ const mainPageSearchDestinations: CustomerDestination[] = [
   { label: "Crypto Mining", detail: "Mining packages and activity", target: "crypto-mining", icon: Coins },
   { label: "Yield Strategies", detail: "Yield and staking products", target: "yield", icon: Sparkles },
   { label: "Support", detail: "Customer support and tickets", target: "support", icon: Headphones },
-  { label: "Treasury Bond", detail: "Treasury bond investment section", target: "treasury-bond", icon: FileText },
-  { label: "Cooperate Dept", detail: "Corporate opportunities section", target: "cooperate-dept", icon: FileText },
-  { label: "Litigation Funds", detail: "Litigation fund opportunities", target: "litigation-funds", icon: Scale },
-  { label: "IP Royalties", detail: "Intellectual property royalty opportunities", target: "ip-royalties", icon: FileText },
-  { label: "Music Royalties", detail: "Music royalty opportunities", target: "music-royalties", icon: FileText },
-  { label: "Agro Investment", detail: "Agricultural investment opportunities", target: "agro-investment", icon: FileText },
-  { label: "Carbon Credit", detail: "Carbon credit opportunities", target: "carbon-credit", icon: FileText },
-  { label: "Green Energy", detail: "Green energy opportunities", target: "green-energy", icon: FileText },
 ];
 const menuTargets = new Set(destinations.map((item) => item.target));
 const mainPageOnlySearchDestinations = mainPageSearchDestinations.filter((item) => !menuTargets.has(item.target));
@@ -77,9 +37,7 @@ const primaryLabels: Record<string, string> = {
   dashboard: "Dashboard", opportunities: "Opportunities", yield: "Yield Strategies", wallet: "Wallet",
   activity: "Activity", support: "Support", account: "Account Settings", security: "Security",
   kyc: "Identity verification", notifications: "Notifications", console: "Customer console",
-  "crypto-mining": "Crypto Mining", "token-launch": "Token Launch", "treasury-bond": "Treasury Bond", "cooperate-dept": "Cooperate Dept",
-  "litigation-funds": "Litigation Funds", "ip-royalties": "IP Royalties", "music-royalties": "Music Royalties", "agro-investment": "Agro Investment",
-  "carbon-credit": "Carbon Credit", "green-energy": "Green Energy",
+  "crypto-mining": "Crypto Mining",
 };
 
 export function CustomerSlideMenu({ section, onNavigate }: CustomerSlideMenuProps) {
