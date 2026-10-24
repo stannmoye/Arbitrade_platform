@@ -55,7 +55,7 @@ describe("self-hosted platform integrations", () => {
     }), { status: 200, headers: { "content-type": "application/json" } }));
     vi.stubGlobal("fetch", request);
     const image = await generateImage({ prompt: "test", originalImages: [] });
-    expect(image.url).toMatch(/^\\/storage\\/generated\\//);
+    expect(image.url).toMatch(/^\/storage\/generated\//);
     expect(request).toHaveBeenCalledTimes(1);
     expect(JSON.parse(request.mock.calls[0][1].body)).toMatchObject({ prompt: "test", n: 1 });
     await deleteStorageObject(image.url!.slice("/storage/".length));
