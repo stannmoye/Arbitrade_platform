@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { decryptVaultValue, encryptVaultValue, isApiAccessVaultConfigured } from "./api-access-vault";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { decryptVaultValue, encryptVaultValue, isApiAccessVaultConfigured, testMetaWhatsAppCredentials } from "./api-access-vault";
 
 const originalKey = process.env.API_ACCESS_ENCRYPTION_KEY;
 afterEach(() => {
@@ -30,5 +30,37 @@ describe("API access encrypted provider vault", () => {
     expect(() => encryptVaultValue("secret")).toThrow(/API_ACCESS_ENCRYPTION_KEY/);
     process.env.API_ACCESS_ENCRYPTION_KEY = "short";
     expect(() => decryptVaultValue('{"v":1,"iv":"AA","tag":"AA","ciphertext":"AA"}')).toThrow(/API_ACCESS_ENCRYPTION_KEY/);
+  });
+});
+
+describe("Meta WhatsApp connection verification", () => {
+  it("checks the configured phone number without exposing the access token", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer private-test-token");
+      return new Response(JSON.stringify({
+        id: "1234567890",
+        display_phone_number: "+2348000000000",
+        verified_name: "Arbitrade",
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await testMetaWhatsAppCredentials({
+      accessToken: "private-test-token",
+      phoneNumberId: "1234567890",
+      graphApiVersion: "v26.0",
+    });
+    expect(result.success).toBe(true);
+    expect(result.displayPhoneNumber).toBe("+2348000000000");
+    expect(JSON.stringify(result)).not.toContain("private-test-token");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a safe diagnostic when Meta rejects credentials", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { message: "secret details" } }), { status: 401 })));
+    await expect(testMetaWhatsAppCredentials({
+      accessToken: "private-test-token",
+      phoneNumberId: "1234567890",
+      graphApiVersion: "v26.0",
+    })).rejects.toThrow("Meta rejected the credentials");
   });
 });
