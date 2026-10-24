@@ -24,6 +24,8 @@ describe("explicit auto-trade opt-in migration", () => {
     expect(migration).not.toMatch(/\bTRUNCATE\b/i);
     expect(migration).not.toMatch(/\bDELETE\s+FROM\b/i);
     expect(schema).toContain('autoTradeMode: mysqlEnum("autoTradeMode", ["enabled", "disabled"]).default("disabled").notNull()');
+    expect(schema).toContain('autoTradeEnabled: boolean("autoTradeEnabled").default(false).notNull()');
+    expect(migration).toContain("SET `autoTradeEnabled` = CASE WHEN `autoTradeMode` = 'enabled' THEN 1 ELSE 0 END");
     expect(schema).not.toContain('mysqlEnum("autoTradeMode", ["inherit", "enabled", "disabled"])');
     expect(db).toContain('autoTradeEnabled:false,autoTradeMode:"disabled"');
     expect(db).not.toContain('autoTradeMode=c?.autoTradeMode||"inherit"');
