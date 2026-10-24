@@ -182,9 +182,6 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
     mainWalletPreferenceMutation.mutate({ swapCurrency: asset });
   };
   const activateBoost = () => { const audio = boostAudioRef.current || new Audio("/audio/boost/mixkit-1093.mp3"); boostAudioRef.current = audio; audio.loop = true; audio.volume = 0.55; void audio.play().catch(() => {}); boostMutation.mutate({ idempotencyKey: requestId() }); };
-  const goTo = (section: string) => {
-    if (section !== "crypto-mining") window.dispatchEvent(new CustomEvent("arbitrade:customer-navigate", { detail: section }));
-  };
   const toggleFullscreen = () => {
     const el = document.querySelector(".cm-factory") as HTMLElement | null;
     if (!el) return;
