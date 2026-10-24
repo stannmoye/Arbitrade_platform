@@ -274,6 +274,13 @@
       "when": 1792859940930,
       "tag": "0069_trading_package_activation",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792861000000,
+      "tag": "0070_local_scheduled_jobs",
+      "breakpoints": true
     }
   ]
 }
