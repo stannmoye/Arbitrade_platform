@@ -3,7 +3,6 @@ import { trpc } from "@/lib/trpc";
 import "../factory-cockpit.css";
 import { MiningCoreCanvas } from "./MiningCoreCanvas";
 import { MiningOperationsFlow } from "./MiningOperationsFlow";
-import { CustomerSlideMenu } from "./CustomerSlideMenu";
 import {
   Activity, ArrowDownUp, ArrowRight,
   ChevronDown, ChevronLeft, ChevronRight, Clock3, Cpu, Info,
@@ -63,7 +62,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   useEffect(() => {
     const preferredSwap = String(walletPreferences.data?.swapCurrency || "").toUpperCase();
     if (TARGET_ASSETS.includes(preferredSwap)) setSwapTarget(preferredSwap);
-  }, [walletPreferences.data?.tradingCurrency, walletPreferences.data?.swapCurrency]);
+  }, [walletPreferences.data?.swapCurrency]);
 
   const purchaseMutation = trpc.customer.mining.purchasePackage.useMutation({
     onSuccess: result => {
@@ -194,7 +193,6 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   };
 
   return <div className="cm-dashboard-frame arb-page">
-    <CustomerSlideMenu section="crypto-mining" onNavigate={goTo} />
     <header className="cm-topbar">
       <a className="cm-brand" href="#mining-dashboard" onClick={e=>e.preventDefault()} aria-label="CoinKi mining dashboard home">
         <span className="cm-brand-mark">₵</span><span><strong>CoinKi</strong><small>Mine Today, Build Tomorrow</small></span>
