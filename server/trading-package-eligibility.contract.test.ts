@@ -15,7 +15,7 @@ describe("server-side trading package eligibility", () => {
     expect(implementation).toContain(".innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))");
     expect(implementation).toContain("noPackage:true");
     expect(implementation).toContain("eq(packages.enabled,true)");
-    expect(implementation).toContain("packageNotActive:true");
+    expect(implementation).toContain("packageDeliveryDisabled:true");
   });
 
   it("rechecks active package eligibility inside the trade-allocation transaction", () => {
@@ -27,6 +27,7 @@ describe("server-side trading package eligibility", () => {
     expect(implementation).toContain('eq(customerPackageSubscriptions.status,"active")');
     expect(implementation).toContain('.for("update")');
     expect(implementation).toContain("SELECT id,loginMethod FROM users WHERE id=${userId} FOR UPDATE");
-    expect(implementation).toContain('if(!activePackageSubscription) throw new Error("An eligible active trading package subscription is required")');
+    expect(implementation).toContain('if(!activePackageSubscriptions.length) throw new Error("An eligible active trading package subscription is required")');
+    expect(implementation).toContain('if(!subscriptionsWithQuota.length) throw new Error("All active package opportunity quotas have been used for today")');
   });
 });
