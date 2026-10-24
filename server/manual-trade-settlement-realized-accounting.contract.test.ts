@@ -37,6 +37,9 @@ describe("actual trade result ledger accounting", () => {
     expect(implementation).toContain("accounting.totalReturnedMinor");
     expect(implementation).toContain("earnedMinor:sql");
     expect(implementation).toContain("accounting.netProfitMinor");
-    expect(implementation).toContain("reservedMinor:Math.max(0,accounting.netProfitMinor)");
+    expect(implementation).toContain("accounting.totalReturnedMinor");
+    expect(implementation).toContain("accounting.netProfitMinor");
+    expect(implementation).toContain("status:accounting.netProfitMinor>0?\"credited\":\"released\"");
+    expect(implementation).not.toContain("reservedMinor:Math.max(0,accounting.netProfitMinor)");
   });
 });
