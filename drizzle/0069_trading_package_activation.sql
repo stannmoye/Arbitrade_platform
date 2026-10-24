@@ -37,6 +37,9 @@ ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);
 --> statement-breakpoint
 UPDATE `packages` SET `enabled`=0 WHERE `name` IN ('Starter','Growth','Pro','Institutional');
 --> statement-breakpoint
+ALTER TABLE `opportunity_package_policies`
+  ADD COLUMN IF NOT EXISTS `automaticTradingEnabled` tinyint(1) NOT NULL DEFAULT 1;
+--> statement-breakpoint
 UPDATE `opportunity_package_policies`
   SET `enabled`=0, `automaticTradingEnabled`=0
   WHERE `packageName` IN ('Starter','Growth','Pro','Institutional');
