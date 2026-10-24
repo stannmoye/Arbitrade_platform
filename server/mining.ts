@@ -92,16 +92,6 @@ async function creditMainWallet(conn: Db, userId: number, assetInput: string, am
   return { asset, scale, amount: amount.toFixed(scale), amountMinor: minor };
 }
 
-async function getSavedPurchaseCurrency(conn: Db, userId: number) {
-  let [rows] = await conn.query<any[]>("SELECT tradingCurrency FROM customer_wallet_preferences WHERE userId=? LIMIT 1", [userId]);
-  if (!rows[0]) {
-    await conn.execute("INSERT INTO customer_wallet_preferences (userId) VALUES (?) ON DUPLICATE KEY UPDATE userId=VALUES(userId)", [userId]);
-    [rows] = await conn.query<any[]>("SELECT tradingCurrency FROM customer_wallet_preferences WHERE userId=? LIMIT 1", [userId]);
-  }
-  if (!rows[0]) throw new MiningError("Set a default purchase currency in wallet preferences before buying a package");
-  return assertMainWalletAsset(String(rows[0].tradingCurrency));
-}
-
 async function getSavedSwapCurrency(conn: Db, userId: number) {
   let [rows] = await conn.query<any[]>("SELECT swapCurrency FROM customer_wallet_preferences WHERE userId=? LIMIT 1", [userId]);
   if (!rows[0]) {
@@ -263,16 +253,15 @@ export async function listCustomerMiningPackages(userId: number) {
   });
 }
 
-export async function createCustomerMiningPurchaseQuote(userId: number, input: { packageVersionId: number; paymentAsset?: string }) {
+export async function createCustomerMiningPurchaseQuote(userId: number, input: { packageVersionId: number }) {
   return withMiningConnection(async conn => inMiningTransaction(conn, async () => {
     await requireActiveMiningAccount(conn, userId);
     const config = await loadMiningConfig(conn);
     if (!config.packagePurchasesEnabled) throw new MiningError("Package purchases are paused by operations");
-    const preferredPaymentAsset = await getSavedPurchaseCurrency(conn, userId);
-    const paymentAsset = input.paymentAsset ? assertMainWalletAsset(input.paymentAsset) : preferredPaymentAsset;
     const [claimRows] = await conn.query<any[]>("SELECT packageId FROM mining_package_purchase_claims WHERE userId=? AND packageId=(SELECT packageId FROM mining_package_versions WHERE id=?) LIMIT 1", [userId, input.packageVersionId]);
     if (claimRows.length) throw new MiningError("You can purchase each Mining package only once");
     const product = await getPublishedPackage(conn, input.packageVersionId);
+    const paymentAsset = assertMainWalletAsset(String(product.priceAsset));
     const expectedDailyRewardCki = calculatePackageDailyRate({calculationModel:config.calculationModel,expectedDailyRewardCki:product.expectedDailyRewardCki,baseThs:String(product.baseThs),ckiPerThsPerDay:config.ckiPerThsPerDay});
     const priceAsset = assertMainWalletAsset(String(product.priceAsset));
     const priceScale = await getMainWalletScale(conn, priceAsset);
