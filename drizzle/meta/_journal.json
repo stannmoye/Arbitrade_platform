@@ -253,6 +253,13 @@
       "when": 1792771200001,
       "tag": "0048_pending_boost_rewards",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792858101055,
+      "tag": "0067_trade_settlement_reference_claims",
+      "breakpoints": true
     }
   ]
 }
