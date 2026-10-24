@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { executeCompatibleMigrationSql } from "./mysql-compatible-migration-sql.mjs";
 import { classifyMainMigrationPreflight, loadExpectedMainMigrationHistory, validateMainMigrationHistory } from "../installer/main-migration-preflight.mjs";
 import { assertWorkerSchemaContracts } from "./worker-schema-contracts.mjs";
+import { inspectMainMigrationSchema } from "./main-migration-schema-diagnostic.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const databaseUrl = process.env.DATABASE_URL;
@@ -122,6 +123,23 @@ async function main() {
     const previousStatementLabel = String(guardRows[0]?.failureStatementLabel || "").replace(/[^A-Za-z0-9 _.-]/g, "").slice(0, 180);
     const previousStatementIndex = Number(guardRows[0]?.failureStatementIndex || 0);
     if (previousStatus === "failed" || previousStatus === "running") {
+      const appliedHashesBeforeRetry = new Set(trackerRows.map(row => String(row.hash)));
+      const firstUnrecordedMigration = expectedHistory.migrations.find(migration => !appliedHashesBeforeRetry.has(migration.hash));
+      const diagnosticMigration = firstUnrecordedMigration?.tag || "post-migration-schema-verification";
+      try {
+        const diagnostics = await inspectMainMigrationSchema(connection, diagnosticMigration);
+        console.error("[main-migrate] Read-only schema check for " + diagnosticMigration + ".sql (no schema or data changes made):");
+        if (!diagnostics.length) {
+          console.error("[main-migrate] No missing pre-existing columns were detected for this migration's focused checks.");
+        } else {
+          for (const diagnostic of diagnostics.slice(0, 20)) {
+            console.error("[main-migrate] SCHEMA CHECK: " + diagnostic.replace(/[^A-Za-z0-9 _.,;:()'.-]/g, "").slice(0, 240));
+          }
+          if (diagnostics.length > 20) console.error("[main-migrate] Additional schema discrepancies omitted: " + (diagnostics.length - 20));
+        }
+      } catch {
+        console.error("[main-migrate] Read-only schema check could not complete. The existing failure remains blocked for manual review.");
+      }
       const location = previousMigration
         ? " Last recorded failure location: " + previousMigration + ".sql" +
           (previousStatementIndex > 0 ? " statement " + previousStatementIndex : "") +
