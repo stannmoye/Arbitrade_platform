@@ -3,7 +3,7 @@
 ## Outcome
 Rebuild the Arbitrade customer portal, admin portal, backend, database model, financial workflows, reporting and deployment around `AI ENGINEER MASTER UNIFIED SPECIFICATION — V5`. Preserve compatible existing authentication and support behavior where safe; replace hard-coded demo finance behavior with database-driven, auditable application behavior.
 
-Trading is a real-money workflow recorded in the customer's internal ledger. Apply required trade capital debits/returns, realized profit, fees, losses, and settlement changes to the ledger transactionally and idempotently, based on the actual recorded trade lifecycle. Do not label trading as practice or simulation. Deposit and withdrawal workflows are covered by separate documents.
+Trading is a real-money workflow recorded in the customer's internal ledger. Apply required trade capital debits/returns, realized profit, fees, losses, and settlement changes to the ledger transactionally and idempotently, based on the actual recorded trade lifecycle. Do not label trading as practice or simulation.
 
 ## Architecture
 - **Web application:** React + TypeScript + Vite for customer and admin portals, split by route and feature modules rather than a single monolithic page.
@@ -11,7 +11,7 @@ Trading is a real-money workflow recorded in the customer's internal ledger. App
 - **Database:** MySQL-compatible Drizzle schema with additive migrations, immutable ledger entries, stored wallet balances updated in the same transaction, idempotency keys, audit events and reconciliation records.
 - **Money:** fixed-precision decimal arithmetic using a decimal library; asset/currency precision, minimum units and rounding modes are stored in the database and captured in calculation snapshots.
 - **Authentication:** preserve `webdev_app_session` / Manus OAuth compatibility; add application roles, permissions, admin 2FA readiness, customer security settings and server-side authorization.
-- **Jobs:** database-backed queue plus `/api/scheduled/*` handlers for daily reports, email delivery, FX refresh, settlement simulation and reconciliation. Jobs are retryable and idempotent.
+- **Jobs:** database-backed queue plus `/api/scheduled/*` handlers for daily reports, email delivery, FX refresh, settlement processing and reconciliation. Jobs are retryable and idempotent.
 - **Hosting:** container deployment with `/api/health`, API-before-static routing, runtime-only secrets, and a cPanel/shared-hosting recovery guide. Live-money providers remain disabled unless explicitly configured.
 
 ## Design direction
@@ -81,7 +81,7 @@ docs/
 - Trading capital and realized outcomes must be posted to the internal ledger using actual recorded trade/settlement results; never fabricate execution, returns, or loss outcomes.
 
 ## Delivery and validation
-Use `pnpm check`, `pnpm test`, `pnpm build`, targeted financial concurrency tests, API health checks, seed verification and a production container smoke test. Publish only a version whose build and health path are verified. The final delivery will include the hosted URL and clearly labeled practice/test credentials; no production credentials will be created or exposed.
+Use `pnpm check`, `pnpm test`, `pnpm build`, targeted financial concurrency tests, API health checks, seed verification and a production container smoke test. Publish only a version whose build and health path are verified. The final delivery will include the hosted URL and clearly labeled test credentials; no production credentials will be created or exposed.
 
 
 ## CoinKi Mining database-driven implementation addendum
