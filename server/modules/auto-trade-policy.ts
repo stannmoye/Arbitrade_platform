@@ -19,3 +19,8 @@ export function resolveEffectiveAutoTradeEnabled(input: EffectiveAutoTradeInput)
   if (input.customerMode === "disabled") return false;
   return input.globalDefaultEnabled;
 }
+
+/** UI query calls must not mutate wallet/trade state; only a scheduler opts in. */
+export function shouldExecuteAutomaticTrades(options?: { executeAutomaticTrades?: boolean }): boolean {
+  return options?.executeAutomaticTrades === true;
+}
