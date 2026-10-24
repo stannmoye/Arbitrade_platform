@@ -212,15 +212,14 @@ const normalizeToolChoice = (
   return toolChoice;
 };
 
-const platformApiBase = () => {
-  if (!ENV.forgeApiUrl.trim()) throw new Error("MANUS_API_URL is not configured");
-  return ENV.forgeApiUrl.replace(/\/$/, "");
-};
-const resolveApiUrl = () => `${platformApiBase()}/v1/chat/completions`;
+const platformApiBase = () => ENV.aiApiBaseUrl;
+const resolveApiUrl = () => `${platformApiBase()}/chat/completions`;
 
 const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
-    throw new Error("MANUS_API_KEY is not configured");
+  const base = new URL(platformApiBase());
+  const local = ["localhost", "127.0.0.1", "::1"].includes(base.hostname);
+  if (!ENV.aiApiKey && !local) {
+    throw new Error("AI_API_KEY is required when AI_API_BASE_URL points to a remote provider");
   }
 };
 
@@ -406,7 +405,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
+      ...(ENV.aiApiKey ? { authorization: `Bearer ${ENV.aiApiKey}` } : {}),
     },
     body: JSON.stringify(payload),
   });
@@ -436,7 +435,7 @@ export type ModelsResponse = {
 export async function listLLMModels(): Promise<ModelsResponse> {
   assertApiKey();
 
-  const url = `${platformApiBase()}/v1/models`;
+  const url = `${platformApiBase()}/models`;
 
   const response = await fetchWithBackoff(url, {
     headers: { authorization: `Bearer ${ENV.forgeApiKey}` },
