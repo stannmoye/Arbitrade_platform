@@ -106,7 +106,7 @@ export async function executeCompatibleMigrationSql(connection, sql, options = {
       const clauses = splitTopLevelComma(alter[2]);
       const compatibleClauses = [];
       for (const clause of clauses) {
-        const addition = clause.trim().match(/^ADD\\s+COLUMN\\s+IF\\s+NOT\\s+EXISTS\\s+(\\S+)([\\s\\S]*)$/i);
+        const addition = clause.trim().match(/^ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+(\S+)([\s\S]*)$/i);
         if (addition) {
           const columnName = unquoteIdentifier(addition[1]);
           const [existing] = await connection.execute(
@@ -121,7 +121,7 @@ export async function executeCompatibleMigrationSql(connection, sql, options = {
           continue;
         }
 
-        const rename = clause.trim().match(/^CHANGE\\s+COLUMN\\s+(\\S+)\\s+(\\S+)([\\s\\S]*)$/i);
+        const rename = clause.trim().match(/^CHANGE\s+COLUMN\s+(\S+)\s+(\S+)([\s\S]*)$/i);
         if (rename) {
           const oldColumn = unquoteIdentifier(rename[1]);
           const newColumn = unquoteIdentifier(rename[2]);
