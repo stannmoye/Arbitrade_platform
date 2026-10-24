@@ -69,5 +69,7 @@ describe("API automation integration contracts", () => {
     expect(routes).toContain("FEE_LEDGER_NOT_CONFIGURED");
     expect(routes).toContain('completeness: "partial"');
     expect(routes).toContain('"/api/v1/platform/incidents"');
+    expect(routes).toContain('app.get("/api/v1/platform/health"');
+    expect(routes).toContain('live-api-and-database-probe');
   });
 });
