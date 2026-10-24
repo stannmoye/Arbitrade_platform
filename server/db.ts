@@ -1850,8 +1850,9 @@ export async function listCustomerOpportunities(userId:number, options: { consum
  if(!packageName) return {offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery:{packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,autoTradeEnabled:false,noPackage:true,popupPolicy:{}}};
  if(controls.accountStatus!=="active") return {offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery:{packageName,maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,autoTradeEnabled:false,accountInactive:true,popupPolicy:{}}};
  const walletSnapshot=await listBalances(userId);
- const hasAnyWalletFunds=walletSnapshot.some((balance:any)=>Number(balance.availableMinor||0)>0);
- if(!hasAnyWalletFunds) return {offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery:{packageName,maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,autoTradeEnabled:false,noWalletFunds:true,popupPolicy:{}}};
+ // Opportunities remain visible for active package holders without spendable funds.
+ // autoTradeOpenOpportunities records an eligible opportunity as missed instead of
+ // suppressing the feed or creating a trade with insufficient balance.
  const policies=await listOpportunityPackagePolicies();
  const policy=policies.find(p=>p.packageName===packageName);
  if(!policy) return {offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery:{packageName,maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,autoTradeEnabled:false,packagePolicyMissing:true,popupPolicy:{}}};
