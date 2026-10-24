@@ -12,7 +12,9 @@ describe("insufficient-balance opportunity handling", () => {
     expect(end).toBeGreaterThan(start);
     expect(implementation).not.toContain("if(!hasAnyWalletFunds)");
     expect(implementation).not.toContain("noWalletFunds:true");
-    expect(implementation).toContain("autoTradeOpenOpportunities(userId,offers,effectiveControls)");
+    expect(implementation).toContain("autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)");
+    expect(implementation).toContain("noPackage:true");
+    expect(implementation).toContain("eq(packages.enabled,true)");
   });
 
   it("records an insufficient-balance miss without allocating or debiting funds", () => {
@@ -20,7 +22,10 @@ describe("insufficient-balance opportunity handling", () => {
     const autoTrade = source.slice(source.indexOf("async function autoTradeOpenOpportunities("), source.indexOf("export async function listCustomerOpportunities("));
     expect(mark).toContain('status:"MISSED"');
     expect(autoTrade).toContain("INSUFFICIENT_AVAILABLE_BALANCE");
-    expect(autoTrade).toContain("if(requestedAmount===null)");
+    expect(autoTrade).toContain("const requestedAmount=Math.max(offerMinimum,packageMinimum)");
+    expect(autoTrade).toContain("if(!balance||Number(balance.availableMinor)<requestedAmount)");
+    expect(autoTrade.indexOf("if(!balance||Number(balance.availableMinor)<requestedAmount)")).toBeLessThan(autoTrade.indexOf("createTrade(userId,{"));
+    expect(autoTrade).toContain("INSUFFICIENT_AVAILABLE_BALANCE");
     expect(autoTrade).toContain("await markMissedOpportunity");
     expect(autoTrade).not.toContain("balanceLedger");
   });
