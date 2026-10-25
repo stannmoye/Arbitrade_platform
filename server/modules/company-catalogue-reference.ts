@@ -99,13 +99,19 @@ export function getCompanyReferenceById(id: string): CompanyReferenceResponse | 
 }
 
 /** Random informational spotlight only; never use this as a trade or execution record. */
-export function getRandomCompanyReference(random: () => number = Math.random): CompanyReferenceResponse {
+export function getRandomCompanyReference(
+  random: () => number = Math.random,
+  excludeIds: readonly string[] = [],
+): CompanyReferenceResponse {
   const sample = random();
   if (!Number.isFinite(sample) || sample < 0 || sample >= 1) {
     throw new Error("Random source must return a value in [0, 1)");
   }
-  const index = Math.floor(sample * COMPANY_REFERENCE_CATALOGUE.length);
-  return asReferenceResponse(COMPANY_REFERENCE_CATALOGUE[index]!);
+  const excluded = new Set(excludeIds);
+  const alternatives = COMPANY_REFERENCE_CATALOGUE.filter((company) => !excluded.has(company.id));
+  const candidates = alternatives.length ? alternatives : COMPANY_REFERENCE_CATALOGUE;
+  const index = Math.floor(sample * candidates.length);
+  return asReferenceResponse(candidates[index]!);
 }
 
 /** Returns all exact ticker/symbol matches; callers must not guess between markets. */

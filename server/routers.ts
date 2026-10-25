@@ -63,6 +63,9 @@ export const appRouter = router({
       symbol: z.string().trim().min(1).max(40),
     })).query(({ input }) => findCompanyReferencesBySymbol(input.symbol)),
     random: publicProcedure.query(() => getRandomCompanyReference()),
+    next: publicProcedure.input(z.object({
+      excludeId: z.string().trim().min(1).max(180).optional(),
+    }).optional()).mutation(({ input }) => getRandomCompanyReference(Math.random, input?.excludeId ? [input.excludeId] : [])),
   }),
 
   privacy: router({

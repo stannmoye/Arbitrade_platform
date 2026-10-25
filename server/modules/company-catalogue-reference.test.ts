@@ -62,6 +62,18 @@ describe("1,000-company static reference catalogue", () => {
     expect(() => getRandomCompanyReference(() => 1)).toThrow("Random source");
   });
 
+  it("does not repeat the previous spotlight when alternatives exist", () => {
+    const first = getRandomCompanyReference(() => 0);
+    const next = getRandomCompanyReference(() => 0, [first.id]);
+    expect(next.id).toBe(COMPANY_REFERENCE_CATALOGUE[1]!.id);
+    expect(next.id).not.toBe(first.id);
+  });
+
+  it("falls back to the full catalogue only when every ID is excluded", () => {
+    const allIds = COMPANY_REFERENCE_CATALOGUE.map((company) => company.id);
+    expect(getRandomCompanyReference(() => 0, allIds).id).toBe(COMPANY_REFERENCE_CATALOGUE[0]!.id);
+  });
+
   it("returns every exact symbol match rather than guessing across exchanges", () => {
     const sample = COMPANY_REFERENCE_CATALOGUE[0]!;
     expect(findCompanyReferencesBySymbol(sample.symbol).some((company) => company.id === sample.id)).toBe(true);

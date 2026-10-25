@@ -494,10 +494,24 @@ function CustomerDashboard({push,sound,setSound,soundSettings,delivery,opportuni
     <section className="customer-ledger-panel"><div className="customer-ledger-heading"><div><h2>BALANCE SUMMARY</h2><p>Current account balances and investment performance are displayed below.</p></div><button className="portal-action" onClick={()=>push("Funding request opened · provider approval required")}><Plus size={15}/> Add funds</button></div><div className="customer-metric-grid"><div><span className="metric-icon"><WalletCards/></span><span>Total balance</span><strong>{money(summary?.totalUsd||0)}</strong><b>Available + locked, earning shown separately</b></div><div><span className="metric-icon green"><Coins/></span><span>Available balance</span><strong>{money(summary?.availableUsd||0)}</strong><b>Ready for allocation</b></div><div><span className="metric-icon"><TrendingUp/></span><span>Total earned</span><strong>{money(summary?.earnedUsd||0)}</strong><b>Posted ledger rewards</b></div><div><span className="metric-icon"><ShieldCheck/></span><span>Active package</span><strong>{delivery?.packageName||"None"}</strong><b>Only an active database entitlement enables trading</b></div></div><div className="customer-columns"><div className="customer-panel"><div className="customer-panel-head"><div><div className="eyebrow">INSTANT FEED</div><h2>Opportunity notifications</h2></div><span className="admin-live-chip"><span className="pulse"/> {offers.length} OPEN</span></div>{offers.slice(0,5).map((x:any)=><button className="customer-opportunity" key={x.id} onClick={()=>push(`${x.symbol} opportunity opened · ${x.expectedRewardBps/100}% estimated reward`)}><div className="customer-coin">{x.symbol.slice(0,1)}</div><div><strong>{x.symbol}</strong><span>{x.venueFrom} → {x.venueTo}</span></div><b>+{(x.expectedRewardBps/100).toFixed(2)}%</b><em>{assetMoney(x.minimumMinor,x.currency)} minimum</em><span className="customer-risk">OPEN</span><ChevronRight size={15}/></button>)}{missed.slice(0,3).map((x:any)=><div className="customer-opportunity missed-opportunity-row" key={`missed-${x.id}`}><div className="customer-coin">!</div><div><strong>Missed {x.symbol}</strong><span>{String(x.reason||"Allocation was not completed").replaceAll("_"," ")}</span></div><b>+{assetMoney(x.potentialRewardMinor,x.currency)}</b><em>Potential reward</em></div>)}{!offers.length&&!missed.length&&<div className="empty-state"><Zap size={20}/><strong>No open opportunities yet.</strong><span>When an administrator publishes an opportunity, it will appear here.</span></div>}</div><div className="customer-panel notification-panel"><div className="eyebrow">AUTOMATIC TRADING LIFECYCLE</div><h2>Package-driven allocation</h2><div className="customer-safety"><ShieldCheck size={15}/><span>The server evaluates eligible open opportunities for active package holders. Allocations require sufficient available balance; estimated rewards are not credited until an actual settlement result is recorded.</span></div></div></div></section>
   </div>;
 }
+function CompanyReferenceLogo({name,logoUrl}:{name:string;logoUrl:string|null}) {
+  const [failedLogoUrl,setFailedLogoUrl]=useState<string|null>(null);
+  if(!logoUrl||failedLogoUrl===logoUrl)return <span className="trading-opportunity-symbol" aria-hidden="true">{name.trim().slice(0,2).toUpperCase()||"CO"}</span>;
+  return <img src={logoUrl} alt="" aria-hidden="true" width={48} height={48} style={{objectFit:"contain",borderRadius:10,background:"#e8edf3",padding:4}} onError={()=>setFailedLogoUrl(logoUrl)}/>;
+}
 function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:boolean;soundSettings:SoundSettings;opportunityData?:any}) {
   const balances=trpc.customer.balances.useQuery(undefined,{refetchInterval:5000});
   const trades=trpc.customer.trades.useQuery(undefined,{refetchInterval:5000});
-  const companyReference=trpc.companyCatalogueReference.random.useQuery(undefined,{refetchInterval:15000,refetchOnWindowFocus:false});
+  const lastCompanyReferenceId=useRef<string|undefined>(undefined);
+  const companyReferenceInFlight=useRef(false);
+  const [companyReferenceData,setCompanyReferenceData]=useState<any>(null);
+  const [companyReferenceLoadError,setCompanyReferenceLoadError]=useState(false);
+  const companyReference=trpc.companyCatalogueReference.next.useMutation({
+    onSuccess:(record)=>{companyReferenceInFlight.current=false;lastCompanyReferenceId.current=record.id;setCompanyReferenceData(record);setCompanyReferenceLoadError(false);},
+    onError:()=>{companyReferenceInFlight.current=false;setCompanyReferenceLoadError(true);},
+  });
+  const requestNextCompanyReference=()=>{if(companyReferenceInFlight.current)return;companyReferenceInFlight.current=true;companyReference.mutate({excludeId:lastCompanyReferenceId.current});};
+  useEffect(()=>{requestNextCompanyReference();const timer=window.setInterval(requestNextCompanyReference,15000);return()=>window.clearInterval(timer)},[]);
   const feed:any=opportunityData||{};
   const offers:any[]=feed.offers||[];
   const missed:any[]=feed.missed||[];
@@ -574,22 +588,21 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
     <section className="customer-panel company-reference-panel">
       <div className="customer-panel-head">
         <div><div className="eyebrow">Informational catalogue · not a trade</div><h2>Company reference spotlight</h2></div>
-        <button className="secondary-button" onClick={() => void companyReference.refetch()} disabled={companyReference.isFetching}>Next reference</button>
+        <button className="secondary-button" onClick={requestNextCompanyReference} disabled={companyReference.isPending}>Next reference</button>
       </div>
-      {companyReference.isLoading ? <div className="empty-state">Loading a company reference…</div>
-        : companyReference.error ? <div className="empty-state">Company references are temporarily unavailable.</div>
-        : companyReference.data ? <article className="trading-opportunity-row" aria-live="polite">
+      {!companyReferenceData&&companyReference.isPending ? <div className="empty-state">Loading a company reference…</div>
+        : !companyReferenceData&&companyReferenceLoadError ? <div className="empty-state">Company references are temporarily unavailable. Please try again.</div>
+        : companyReferenceData ? <article className="trading-opportunity-row" aria-live="polite">
           <div className="trading-opportunity-identity">
-            {companyReference.data.logoUrl
-              ? <img src={companyReference.data.logoUrl} alt="" aria-hidden="true" width={48} height={48} style={{objectFit:"contain",borderRadius:10,background:"#e8edf3",padding:4}}/>
-              : <span className="trading-opportunity-symbol" aria-hidden="true">{companyReference.data.name.slice(0,2).toUpperCase()}</span>}
-            <div><strong>{companyReference.data.name}</strong><small>{companyReference.data.symbol} · {companyReference.data.exchangeCode} · {companyReference.data.countryName}</small></div>
+            <CompanyReferenceLogo name={companyReferenceData.name} logoUrl={companyReferenceData.logoUrl}/>
+            <div><strong>{companyReferenceData.name}</strong><small>{companyReferenceData.symbol} · {companyReferenceData.exchangeCode} · {companyReferenceData.countryName}</small></div>
           </div>
           <div className="trading-opportunity-values">
             <div><span>Record status</span><strong>Incomplete · unverified</strong></div>
             <div><span>Display purpose</span><strong>Company reference only</strong></div>
           </div>
           <small>Reference only — not a trade, ownership record, customer activity, investment recommendation, execution, or performance result. The initials image is a neutral placeholder, not the company’s official logo. Listing status and headquarters still require verification.</small>
+          {companyReferenceLoadError&&<small role="status">The next reference could not be loaded. The last reference remains displayed.</small>}
         </article>
         : <div className="empty-state">No company reference is available.</div>}
     </section>
