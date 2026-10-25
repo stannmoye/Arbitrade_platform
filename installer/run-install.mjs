@@ -103,8 +103,6 @@ function detectPnpm() {
   fail("pnpm 10.18.x is unavailable. Enable Corepack or install pnpm 10.18.x in the private cPanel terminal, then rerun.");
 }
 
-const pnpm = detectPnpm();
-
 if (!mode) fail("Choose exactly one mode: --fresh-install or --existing-database.", 2);
 if (mode === "existing" && !process.argv.includes("--confirm-existing-migrations")) {
   fail("Existing-database mode applies forward database migrations. Verify a current restorable backup exists, inspect DATABASE_URL, then rerun with --existing-database --confirm-existing-migrations.");
@@ -183,6 +181,8 @@ try {
 if (process.env.SESSION_SECRET.length < 32) {
   fail("SESSION_SECRET must contain at least 32 characters.");
 }
+
+const pnpm = detectPnpm();
 
 let db;
 try {
