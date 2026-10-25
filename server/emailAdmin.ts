@@ -70,13 +70,22 @@ export async function publicEmailConfig() {
 }
 export async function isEmailAdminConfigured() {
   if (!(await hasSavedEmailConfig())) return false;
-  const config = await getEmailConfig();
+  let config: EmailConfig;
+  try {
+    config = await getEmailConfig();
+  } catch {
+    return false;
+  }
   if (!isValidSenderAddress(config.fromAddress)) return false;
   if (config.mode === "external") {
-    return Boolean(config.host.trim()
+    const host = typeof config.host === "string" ? config.host.trim() : "";
+    const user = typeof config.user === "string" ? config.user.trim() : "";
+    const password = typeof config.password === "string" ? config.password : "";
+    return Boolean(host
       && Number.isInteger(config.port) && config.port > 0 && config.port <= 65535
-      && (!config.user || Boolean(config.password)));
+      && (!user || password.length > 0));
   }
+  if (config.mode !== "direct") return false;
   try {
     await access(process.env.SENDMAIL_PATH || "/usr/sbin/sendmail", fsConstants.X_OK);
     return true;
