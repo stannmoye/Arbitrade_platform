@@ -1,31 +1,29 @@
 # Static company reference catalogue
 
-Arbitrade keeps a 950-record company reference subset in the version-controlled file `server/data/company-catalogue.json`. The server imports this JSON with the application bundle and builds in-memory indexes once at module initialization. Catalogue lookups and searches do not query the database and do not call external providers at runtime.
+Arbitrade's target is now a **1,000-company static reference catalogue** with 550 companies from the specified 40-country Pool A and 450 from the USA, UK, Germany, Australia, Canada and China (Pool B). The complete country list, field-by-field source hierarchy, official market-source starting points, logo-permission requirements, schema, and acceptance gates are documented in [Company Catalogue Source Guide](COMPANY_CATALOGUE_SOURCE_GUIDE.md).
 
-## Data source and permitted use
+## Current implementation status
 
-The subset is derived from the SEC EDGAR `company_tickers_exchange.json` file, which provides CIK, issuer name, ticker, and exchange. The immutable retrieval snapshot and Git blob ID are recorded in the JSON. The pinned source manifest records the official SEC payload SHA-256 and a last-modified timestamp of **July 24, 2026**. The source-specific licensing registry snapshot marks the SEC feed as `verified_open` with raw/derived redistribution and commercial use allowed, while requiring attribution. See `server/data/COMPANY_CATALOGUE_ATTRIBUTION.md`.
+The existing `server/data/company-catalogue.json` on this branch contains **950 US issuer/ticker records** derived from a SEC EDGAR snapshot dated July 24, 2026. Its entries are marked unverified, and sector, headquarters, instrument type and logo fields are not populated. It is a useful prototype for static/in-memory lookup only; **it does not meet the revised 1,000-company country split and has no local company-logo collection**.
 
-The deterministic selection removes duplicate CIK/name records, excludes blank and OTC exchange values and obvious ETF/ETN/ETP/fund/trust name labels, then selects 950 rows round-robin across Nasdaq and NYSE. Each item retains a stable SEC CIK. `countryCode` identifies the U.S. listing market, not issuer headquarters. Sector, headquarters, instrument type, and logos are null because the source does not provide reliable values for them.
+Do not alter `targetCount` or `companyCount` metadata to 1,000 until 1,000 real records have been sourced and validated. Do not claim logo completeness unless every record points to an existing, licensed/permissioned image asset in GitHub.
 
-## Build and validation
+## Required architecture
 
-```sh
-pnpm companies:build:950
-pnpm companies:verify:950
-pnpm test -- server/modules/company-catalogue.test.ts server/modules/company-rotation.test.ts
-pnpm check
-pnpm build
-```
+- Keep the dataset in a version-controlled JSON data file; do not bulk-seed the reference records into MySQL/MariaDB.
+- Import/index catalogue data in memory at startup or through a generated static module. Lookups must not query the database or fetch a remote data provider at runtime.
+- Keep company logos as local static files in `client/public/assets/company-logos/`, with repository-relative `logoPath` values and a machine-readable manifest of source, licence/permission and attribution.
+- Use issuer/exchange identifiers as stable identities. Do not map live/operational company references by ticker or company name alone.
+- Do not fill missing headquarters, country, sector, company image, or current-listing status by inference or placeholders.
 
-The maintenance-time builder downloads an immutable snapshot and checks its Git blob ID and schema before rewriting JSON. It does not require `DATABASE_URL` or connect to a database. Normal application startup does not fetch the source. The validator runs offline.
+## Existing prototype source and attribution
 
-## Verification and live-trading boundary
+The current prototype subset uses SEC EDGAR's `company_tickers_exchange.json` for CIK/name/ticker/exchange associations. The immutable source snapshot and SEC payload hash are recorded in `server/data/company-catalogue.json`; attribution and registry evidence are recorded in `server/data/COMPANY_CATALOGUE_ATTRIBUTION.md`. This source does not establish company headquarters, sector, a logo, complete instrument type, or current tradability. Its current US-only records cannot be carried forward as the full multinational catalogue without independently verified country and image evidence.
 
-All 950 records initially remain `listingStatus: "unverified"`, `requiresManualVerification: true`, and `lastVerifiedAt: null`. The upstream snapshot is several months old and the SEC file does not guarantee accuracy or scope, so the data is not evidence of a current listing or tradability. The rotation selector only accepts independently verified active listings and fails closed while none qualify.
+## Validation and implementation status
 
-The SEC file contains filers and ticker associations; name-pattern filtering cannot prove every selected entity is an operating company. Manually review records before company-only use. This catalogue is not yet connected to live opportunity/popup delivery, and no operational opportunity is automatically mapped by ticker or name.
+The existing scripts named `companies:build:950` and `companies:verify:950` validate the old 950-record prototype only. They must be replaced/extended before the revised acceptance target can be claimed. The required acceptance checks are listed in the source guide. A valid final validation report must include the dataset revision/hash, group totals (550 and 450), per-country counts, unique issuer count, number of licensed local logo files, unresolved/incomplete rows (must be zero), and test results.
 
-## Database boundary
+## Financial integrity boundary
 
-The catalogue itself is not bulk-seeded into the database. The existing `companies` table stays in place because existing opportunities reference integer company IDs. Those operational rows are not populated or remapped from this static file; any future integration must verify the actual underlying instrument identity first.
+This file contains company reference information only. It is not a feed of actual executed trades and must not be presented as proof that a trade occurred or a customer earned profit. Customer-facing execution and realized-result statements require actual trade/settlement records and a committed, auditable ledger event.
