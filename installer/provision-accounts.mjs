@@ -54,7 +54,7 @@ async function provisionAccount({ email, name, role, packageName, password }) {
     return;
   }
 
-  const openIdPrefix = role === "admin" ? "local:admin:" : "local:user:";
+  const openIdPrefix = role === "admin" ? "local:admin:" : "local:customer:";
   await connection.execute(
     "INSERT INTO users (openId, name, email, loginMethod, role, passwordHash, packageName) VALUES (?, ?, ?, 'password', ?, ?, ?)",
     [`${openIdPrefix}${email}`, name, email, role, passwordHash, packageName],
