@@ -152,12 +152,19 @@ describe("fresh-install initial account provisioning", () => {
     expect(source).toContain("Refusing to start.");
   });
 
-  it("leaves SMTP disabled and optional during installation", async () => {
+  it("removes all SMTP configuration and testing controls from the initial installer wizard", async () => {
     const wizard = await readFile(resolve(root, "installer", "index.php"), "utf8");
     expect(wizard).not.toContain("MAIL_PROVIDER");
-    expect(wizard).toContain("Mail transport is configured only after the administrator signs in.");
     expect(wizard).not.toContain("SMTP_HOST");
     expect(wizard).not.toContain("SMTP_PASSWORD");
+    expect(wizard).not.toContain("smtp_host");
+    expect(wizard).not.toContain("smtp_user");
+    expect(wizard).not.toContain("smtp_pass");
+    expect(wizard).not.toContain("smtp_test_to");
+    expect(wizard).not.toContain("smtp_test");
+    expect(wizard).not.toContain("smtp-test.php");
+    expect(wizard).toContain("Email delivery is intentionally not configured in this installer.");
+    expect(wizard).toContain("Communications → Email &amp; SMTP Settings");
   });
 });
 
