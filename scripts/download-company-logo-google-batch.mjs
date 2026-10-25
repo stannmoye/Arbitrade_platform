@@ -13,14 +13,14 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CATALOGUE = join(ROOT, "server/data/company-catalogue-1000.json");
 const LOGO_DIR = join(ROOT, "client/public/assets/company-logos");
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 200;
 const batch = Number(process.env.LOGO_BATCH ?? process.argv[2] ?? 1);
 const MAX_BYTES = 150 * 1024;
 const USER_AGENT = "ArbitradeCompanyLogoFetcher/1.2 (+official-site favicon extraction)";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const sha256 = (buffer) => createHash("sha256").update(buffer).digest("hex");
 
-if (!Number.isInteger(batch) || batch < 1 || batch > 20) throw new Error("LOGO_BATCH must be between 1 and 20.");
+if (!Number.isInteger(batch) || batch < 1 || batch > 5) throw new Error("LOGO_BATCH must be between 1 and 5.");
 
 // Domains below were identified as the companies' own sites. Do not add ambiguous domains
 // without confirming the company identity first; unknown entries stay pending, not guessed.
@@ -74,7 +74,91 @@ const OFFICIAL_SITES = {
   "it-alerion-clean-power-s-p-a-0p3o-55117d10": "https://www.alerion.it/",
   "it-alfio-bardolla-training-group-spa-abtg-8736bbe1": "https://www.alfiobardolla.com/",
   "it-alfonsino-s-p-a-alfo-42c4c503": "https://www.alfonsino.it/",
-  "it-almawave-s-p-a-aiw-a0d4d0ec": "https://www.almawave.com/"
+  "it-almawave-s-p-a-aiw-a0d4d0ec": "https://www.almawave.com/",
+  "it-amplifon-s-p-a-0n61-49e67a71": "https://www.amplifon.com/",
+  "it-anima-holding-s-p-a-0qti-bef30201": "https://www.animasgr.it/",
+  "it-antares-vision-spa-antvf-ebd4a454": "https://www.antaresvisiongroup.com/",
+  "it-aquafil-s-p-a-6w7-95f443e5": "https://www.aquafil.com/",
+  "it-arnoldo-mondadori-editore-s-p-a-0kav-d81023b8": "https://www.mondadorigroup.com/",
+  "it-arterra-bioscience-s-p-a-arbs-ed072fd6": "https://www.arterrabio.it/",
+  "br-2w-ecobank-s-a-2wav3-56f8df71": "https://ri.2wecobank.com.br/",
+  "br-524-participacoes-s-a-qvqp3-3cc4f4c9": "http://www.524participacoes.com.br/home/index.aspx",
+  "br-acessopar-investimentos-e-participacoes-s-a-a6op3-c642b25e": "https://www.acessopar.com.br/",
+  "br-aeris-ind-e-com-de-equip-geracao-de-energia-s-a-aeri3-e612f540": "https://www.aerisenergy.com.br/",
+  "br-afluente-transmissao-de-energia-eletrica-s-a-aflt3-61f93a96": "https://www.afluente.com.br/",
+  "br-agrale-s-a-agra4-6c93deb5": "https://www.agrale.com.br/",
+  "br-agrogalaxy-participacoes-s-a-agxy3-914b0a41": "https://ri.agrogalaxy.com.br/",
+  "br-alfa-holdings-s-a-rpad3-bd3f28cb": "https://www.alfaholdings.com.br/",
+  "br-aliperti-s-a-apti3-a1df5d09": "https://www.aliperti.com.br/",
+  "br-allianca-saude-e-participacoes-s-a-aalr12-9c802dd0": "https://www.allianca.com/",
+  "br-allied-tecnologia-s-a-alld3-6e4fb88e": "https://www.alliedbrasil.com.br/",
+  "br-allos-s-a-alos3-e9149122": "https://www.allos.co/",
+  "br-allpark-empreendimentos-participacoes-servicos-s-a-alpk3-0c11b016": "https://www.estapar.com.br/",
+  "br-alpargatas-s-a-alpa3-ca4df4cc": "https://www.alpargatas.com.br/",
+  "mx-accel-s-a-b-de-c-v-accelsab-2456b531": "https://www.accel.com.mx/",
+  "mx-alpek-s-a-b-de-c-v-alpeka-293f4000": "https://www.alpek.com/",
+  "mx-alsea-s-a-b-de-c-v-alsea-3fa52f1d": "https://www.alsea.net/",
+  "mx-alterna-asesoria-internacional-s-a-b-de-c-v-alternab-cbe9c163": "https://www.alterna.mx/",
+  "mx-america-movil-sab-de-cv-amxb-15c0b7dc": "https://www.americamovil.com/",
+  "mx-axtel-s-a-b-de-c-v-axtelcpo-2fda0d1a": "https://www.axtel.mx/",
+  "id-abm-investama-tbk-abmm-c411ce36": "https://www.abm-investama.com/",
+  "id-ace-oldfields-pt-kuas-32e01fb9": "https://www.aceoldfields.com/",
+  "id-acset-indonusa-tbk-acst-5635cf6f": "https://www.acset.co/",
+  "id-adaro-andalan-indonesia-tbk-aadi-cd26da86": "https://www.adaro.com/",
+  "id-adaro-minerals-indonesia-tbk-pt-admr-dd3a7d7b": "https://adarominerals.id/",
+  "id-adhi-commuter-properti-tbk-adcp-1e04524e": "https://www.adcp.co.id/",
+  "id-adi-sarana-armada-tbk-assa-0d5c3792": "https://www.assa.id/",
+  "id-adira-dinamika-multi-finance-admf-ad9b4c9d": "https://www.adira.co.id/",
+  "id-adiwarna-anugerah-abadi-tbk-naik-e93e8fc8": "https://www.adiwarna.co.id/",
+  "id-aesler-grup-internasional-tbk-pt-rony-e3456419": "https://aesler.co.id/",
+  "id-agro-bahari-nusantara-tbk-udng-56d101a5": "https://www.agrobahari.com/",
+  "id-agro-yasa-lestari-pt-tbk-ayls-23eedbb8": "https://www.agroyasalestari.com/",
+  "id-agung-podomoro-land-tbk-apln-c4d313e0": "https://www.agungpodomoroland.com/",
+  "id-akasha-wira-international-tbk-ades-94800369": "https://www.akashainternational.com/",
+  "tr-1000-yatirimlar-holding-a-s-binho-d1705fc7": "https://1000.com.tr/",
+  "tr-a-v-o-d-kurutulmus-gida-ve-tarim-urunleri-sanayi-ticaret-avod-7cb88434": "https://www.avod.com.tr/",
+  "tr-a1-capital-yatirim-menkul-degerler-a-s-a1cap-8b7875c0": "https://www.a1capital.com.tr/",
+  "tr-a1-yenilenebilir-enerji-uretim-a-s-a1yen-dac82f70": "https://www.a1yenilenebilir.com/",
+  "tr-aciselsan-acipayam-seluloz-sanayi-ve-ticaret-a-s-acsel-6c1d8d3d": "https://www.aciselsan.com.tr/",
+  "tr-adel-kalemcilik-ticaret-ve-sanayi-a-s-adel-94521adb": "https://www.adel.com.tr/",
+  "tr-adese-gayrimenkul-yatirim-a-s-adese-4c39d6d0": "https://www.adese.com.tr/",
+  "tr-adra-gayrimenkul-yatirim-ortakligi-a-s-adgyo-8b4b921c": "https://www.adragyo.com/",
+  "tr-afyon-cimento-sanayi-t-a-s-afyon-1b28f234": "https://www.afyoncimento.com/",
+  "tr-ag-anadolu-grubu-holding-a-s-aghol-9d1abc5a": "https://www.anadolugrubu.com.tr/",
+  "tr-agaoglu-avrasya-gayrimenkul-yatirim-ortakligi-a-s-aagyo-8d3309f8": "https://www.agaoglu.com.tr/",
+  "tr-agesa-hayat-ve-emeklilik-a-s-agesa-dd9cee1c": "https://www.agesa.com.tr/",
+  "tr-agrotech-yuksek-teknoloji-ve-yatirim-a-s-agrot-9ea22874": "https://www.agrotech.com.tr/",
+  "tr-ahes-gayrimenkul-yatirim-ortakligi-a-s-ahsgy-68e9e4ce": "https://www.ahesgyo.com/",
+  "nl-a-h-t-syngas-technology-n-v-3sq1-3d3c16bf": "https://www.ahtsyngas.com/",
+  "nl-aalberts-nv-aalb-6ece8df9": "https://aalberts.com/",
+  "nl-abn-amro-bank-n-v-abn-1f661b18": "https://www.abnamro.com/",
+  "nl-acomo-acomo-f116cf8f": "https://www.acomo.nl/",
+  "nl-ad-pepper-media-international-n-v-apm-1d72bd14": "https://www.adpepper.com/",
+  "nl-adyen-adyen-5857227d": "https://www.adyen.com/",
+  "nl-adyen-nv-adyey-8d6d9d87": "https://www.adyen.com/",
+  "nl-aegon-n-v-aegof-882704b2": "https://www.aegon.com/",
+  "nl-aercap-holdings-nv-aer-c7b75ebd": "https://www.aercap.com/",
+  "nl-affimed-n-v-0hl9-2ed37ebd": "https://www.affimed.com/",
+  "nl-airbus-group-se-0kvv-3c287580": "https://www.airbus.com/",
+  "nl-ajax-ajax-2f92e989": "https://english.ajax.nl/",
+  "nl-akzo-nobel-akza-1c18f63c": "https://www.akzonobel.com/",
+  "nl-alfen-alfen-a79749b6": "https://alfen.com/",
+  "ch-ac-immune-ltd-aciu-ce9209a6": "https://www.acimmune.com/",
+  "ch-accelleron-industries-ag-aclly-81d78077": "https://accelleron-industries.com/",
+  "ch-adc-therapeutics-sa-adct-0bddde8b": "https://www.adctherapeutics.com/",
+  "ch-addex-therapeutics-ltd-adxn-75f5aa03": "https://www.addextherapeutics.com/",
+  "ch-adecco-group-ag-class-n-aden-ec13c265": "https://www.adeccogroup.com/",
+  "ch-adval-tech-holding-ag-advn-95bfaf9c": "https://www.advaltech.com/",
+  "ch-aebi-schmidt-holding-ag-common-stock-aebi-4a1cc09a": "https://www.aebi-schmidt.com/",
+  "ch-aevis-victoria-sa-aevs-5050f450": "https://www.aevis.com/",
+  "ch-afrika-gold-ag-gog-7f07ed86": "https://www.afrikagold.com/",
+  "ch-allreal-holding-alln-311649cf": "https://www.allreal.ch/",
+  "ch-allwyn-ag-gofpy-1609c3ad": "https://www.allwyn.com/",
+  "ch-alpine-select-ag-alpn-32087977": "https://www.alpine-select.ch/",
+  "pl-11-bit-studios-s-a-11b-621e48d6": "https://11bitstudios.com/",
+  "pl-3r-games-sa-3rg-512b92b2": "https://3rgames.pl/",
+  "pl-4mass-sa-4ms-6bdcee1c": "https://4mass.pl/",
+  "pl-4mobility-sa-4mb-4da3c19e": "https://4mobility.pl/"
 };
 
 function decodeHtml(value) {
