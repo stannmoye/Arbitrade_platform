@@ -76,7 +76,7 @@ try {
       }
     } else fail(label + ": logo source is not on the explicit allowlist.");
     if (!/^[a-f0-9]{64}$/i.test(company.logoSha256)) fail(label + ": missing or invalid SHA-256 for logo asset.");
-    if (!/^[(?:[1-9]\d{0,2}|1000)\.png$/.test(company.logoUrl.split("/").at(-1))) fail(label + ": unexpected logo asset path.");
+    if (!/^(?:[1-9]\d{0,2}|1000)\.png$/.test(company.logoUrl.split("/").at(-1))) fail(label + ": unexpected logo asset path.");
     if (paths.has(company.logoUrl)) fail(label + ": duplicate local logo path"); paths.add(company.logoUrl);
     logoHashes.set(company.logoUrl, company.logoSha256.toLowerCase());
   }
@@ -99,7 +99,7 @@ try {
   if (Object.values(reported).reduce((total, count) => total + Number(count || 0), 0) !== 1000) fail("Reported country counts do not add up to 1,000.");
   const allLogoFiles = (await readdir(LOGO_DIR)).filter((name) => !name.startsWith("."));
   if (allLogoFiles.length !== 1000) fail("Expected exactly 1,000 cached logo files; found " + allLogoFiles.length + ".");
-  if (allLogoFiles.some((name) => !/^[(?:[1-9]\d{0,2}|1000)\.png$/.test(name))) fail("Logo directory contains an unexpected image format or unsafe filename.");
+  if (allLogoFiles.some((name) => !/^(?:[1-9]\d{0,2}|1000)\.png$/.test(name))) fail("Logo directory contains an unexpected image format or unsafe filename.");
   for (const relativePath of paths) {
     const filePath = join(ROOT, "client/public", relativePath.replace(/^\/+/, ""));
     const info = await stat(filePath);
