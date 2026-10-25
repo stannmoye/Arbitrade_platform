@@ -18,11 +18,11 @@ describe("self-hosted platform integrations", () => {
       SESSION_SECRET: "session-only-test",
       PASSWORD_PEPPER: "pepper-only-test",
       AI_API_KEY: "ai-secret-test",
-      SMTP_PASSWORD: "mail-secret-test",
+      EMAIL_CREDENTIAL_SECRET: "mail-secret-test",
     };
     expect(publicPlatformConfig(env)).toEqual({ googleMapsBrowserKey: "public-browser-test" });
     const script = publicPlatformScript(env);
-    for (const value of [env.GOOGLE_MAPS_SERVER_KEY, env.DATABASE_URL, env.SESSION_SECRET, env.PASSWORD_PEPPER, env.AI_API_KEY, env.SMTP_PASSWORD]) {
+    for (const value of [env.GOOGLE_MAPS_SERVER_KEY, env.DATABASE_URL, env.SESSION_SECRET, env.PASSWORD_PEPPER, env.AI_API_KEY, env.EMAIL_CREDENTIAL_SECRET]) {
       expect(script).not.toContain(value);
     }
     expect(script).toContain("window.__ARBITRADE_CONFIG__=");
