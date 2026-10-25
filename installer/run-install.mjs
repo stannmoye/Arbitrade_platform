@@ -135,8 +135,13 @@ if (mode === "fresh" && bootstrap.databaseTableCount !== 0) {
 if (mode === "fresh") {
   const email = String(bootstrap.adminEmail || "").trim().toLowerCase();
   const password = String(bootstrap.adminPassword || "");
+  const customerEmail = String(bootstrap.customerEmail || "").trim().toLowerCase();
+  const customerPassword = String(bootstrap.customerPassword || "");
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail("A valid administrator email is required for a fresh installation.");
   if (password.length < 12) fail("The administrator password must contain at least 12 characters.");
+  if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) fail("A valid initial customer email is required for a fresh installation.");
+  if (customerEmail === email) fail("The administrator and customer accounts must use different email addresses.");
+  if (customerPassword.length < 12) fail("The initial customer password must contain at least 12 characters.");
 }
 
 let db;
