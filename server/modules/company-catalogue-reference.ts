@@ -97,6 +97,16 @@ export function getCompanyReferenceById(id: string): CompanyReferenceResponse | 
   return company ? asReferenceResponse(company) : undefined;
 }
 
+/** Random informational spotlight only; never use this as a trade or execution record. */
+export function getRandomCompanyReference(random: () => number = Math.random): CompanyReferenceResponse {
+  const sample = random();
+  if (!Number.isFinite(sample) || sample < 0 || sample >= 1) {
+    throw new Error("Random source must return a value in [0, 1)");
+  }
+  const index = Math.floor(sample * COMPANY_REFERENCE_CATALOGUE.length);
+  return asReferenceResponse(COMPANY_REFERENCE_CATALOGUE[index]!);
+}
+
 /** Returns all exact ticker/symbol matches; callers must not guess between markets. */
 export function findCompanyReferencesBySymbol(symbol: string): CompanyReferenceResponse[] {
   const normalized = symbol.trim().toUpperCase();
