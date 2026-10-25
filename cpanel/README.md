@@ -17,7 +17,8 @@ Do not choose fresh-install mode for a database containing existing customer or 
 2. Grant that user all privileges on the application database.
 3. Create a Node.js application in cPanel with the repository directory as the application root.
 4. Set the startup file to `dist/index.js` and the application URL to the HTTPS domain.
-5. Create the environment variables from `.env.example` in cPanel; do not upload `.env` to a public directory.
+5. The browser installer writes `TRUST_PROXY_HOPS=1` for the standard single-proxy cPanel/Nginx path, so you do not need to add it manually. If you configure cPanel environment variables separately, use `1` only when exactly one trusted reverse proxy sits in front of Node; use `0` for direct access. Invalid values fall back safely to `0` rather than crashing startup.
+6. Create only any additional required environment variables from `.env.example` in cPanel; do not upload `.env` to a public directory.
 
 ## 2. Install and initialize
 

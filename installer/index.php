@@ -91,6 +91,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $lines = [
             'NODE_ENV="production"', 'PORT="' . $appPort . '"',
+            // The supported cPanel and VPS install paths place one web-server
+            // reverse proxy in front of Node. Operators can override this in the
+            // private runtime environment if their actual topology differs.
+            'TRUST_PROXY_HOPS="1"',
             envline('PUBLIC_APP_URL', $appUrl), envline('DATABASE_URL', $databaseUrl),
             envline('SESSION_SECRET', bin2hex(random_bytes(32))), envline('PASSWORD_PEPPER', bin2hex(random_bytes(32))),
             // Optional providers are deliberately left unconfigured during installation.
@@ -98,6 +102,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'MAIL_PROVIDER="disabled"',
             envline('ADMIN_EMAIL', $adminEmail),
         ];
+        // A fresh database can safely receive a new authenticator key. For an
+        // existing database, preserve its original key from the previous private
+        // environment; silently replacing it could make enrolled 2FA secrets unreadable.
+        if ($mode === 'fresh') {
+            $lines[] = envline('TOTP_ENCRYPTION_KEY', bin2hex(random_bytes(32)));
+        }
         $bootstrap = json_encode([
             'mode' => $mode,
             'adminEmail' => $adminEmail,

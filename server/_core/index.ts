@@ -43,8 +43,15 @@ async function startServer() {
   if (process.env.NODE_ENV === "production" && !configuredAuthRateLimitStore) {
     console.warn("[AuthRateLimit] Using process-local counters. Configure AUTH_RATE_LIMIT_REDIS_REST_URL and AUTH_RATE_LIMIT_REDIS_REST_TOKEN for multi-instance deployments.");
   }
-  // Do not trust X-Forwarded-For unless the actual reverse-proxy hop count is configured.
-  app.set("trust proxy", resolveTrustedProxyHops(process.env.TRUST_PROXY_HOPS));
+  // The installer configures one hop for its standard cPanel/Nginx reverse-proxy
+  // topology. If a manually configured value is malformed, fail closed to direct
+  // client mode and keep the server available rather than crashing at startup.
+  const proxySetting = process.env.TRUST_PROXY_HOPS;
+  const trustedProxyHops = resolveTrustedProxyHops(proxySetting);
+  if (proxySetting?.trim() && trustedProxyHops === false && !/^0+$/.test(proxySetting.trim())) {
+    console.warn("[Proxy] Invalid TRUST_PROXY_HOPS; using safe direct-client mode (0). Set an integer from 0 to 10 only when the trusted proxy topology is known.");
+  }
+  app.set("trust proxy", trustedProxyHops);
   const server = createServer(app);
   // Rate-limit local upload preparation requests before JSON parsing so oversized request
   // bodies cannot consume parser resources before the route limiter runs.
