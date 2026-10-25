@@ -41,6 +41,8 @@ describe("PHP installer state-marker safety", () => {
     expect(source).toContain("function installerCommandOutput(string $binary, array $arguments): ?string");
     expect(source).toContain("getenv('ARBITRADE_NODE_BINARY')");
     expect(source).toContain("getenv('ARBITRADE_PNPM_BINARY')");
+    expect(source).toContain(String.raw`preg_match('/^v?(\d+)\./'`);
+    expect(source).toContain(String.raw`preg_match('/^10\.18\./'`);
     expect(source).toContain("$nodeVersionValid");
     expect(source).toContain("$pnpmVersionValid");
     expect(source).toContain("is_file($root . '/node_modules/.modules.yaml')");
