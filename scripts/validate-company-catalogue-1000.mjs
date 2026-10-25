@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Validate the generated 1,000-company catalogue and every local SVG logo. */
+/** Validate the 1,000-company catalogue and country-organized local PNG logos. */
 import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -9,6 +9,7 @@ import { dirname } from "node:path";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CATALOGUE = join(ROOT, "server/data/company-catalogue-1000.json");
 const LOGO_DIR = join(ROOT, "client/public/assets/company-logos");
+const countryFolder = (name) => String(name).normalize("NFKD").replace(/\p{M}/gu, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const POOL_A = [
   ["Japan", "JP", 14], ["India", "IN", 14], ["France", "FR", 14], ["Italy", "IT", 14], ["Brazil", "BR", 14],
   ["Russia", "RU", 14], ["Mexico", "MX", 14], ["South Korea", "KR", 14], ["Spain", "ES", 14], ["Indonesia", "ID", 14],
@@ -76,7 +77,8 @@ try {
       }
     } else fail(label + ": logo source is not on the explicit allowlist.");
     if (!/^[a-f0-9]{64}$/i.test(company.logoSha256)) fail(label + ": missing or invalid SHA-256 for logo asset.");
-    if (!/^(?:[1-9]\d{0,2}|1000)\.png$/.test(company.logoUrl.split("/").at(-1))) fail(label + ": unexpected logo asset path.");
+    const expectedLogoPath = "/assets/company-logos/" + countryFolder(company.countryName) + "/" + (index + 1) + ".png";
+    if (company.logoUrl !== expectedLogoPath) fail(label + ": logo must be in its country folder with a numeric filename; expected " + expectedLogoPath + ".");
     if (paths.has(company.logoUrl)) fail(label + ": duplicate local logo path"); paths.add(company.logoUrl);
     logoHashes.set(company.logoUrl, company.logoSha256.toLowerCase());
   }
@@ -97,9 +99,15 @@ try {
     if ((reported[canonicalName] ?? 0) !== actual) fail("Reported country count does not match: " + canonicalName);
   }
   if (Object.values(reported).reduce((total, count) => total + Number(count || 0), 0) !== 1000) fail("Reported country counts do not add up to 1,000.");
-  const allLogoFiles = (await readdir(LOGO_DIR)).filter((name) => !name.startsWith("."));
+  const allLogoFiles = [];
+  const countryFolders = (await readdir(LOGO_DIR, { withFileTypes: true })).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+  for (const folder of countryFolders) {
+    for (const filename of await readdir(join(LOGO_DIR, folder))) allLogoFiles.push(folder + "/" + filename);
+  }
+  if ((await readdir(LOGO_DIR)).some((name) => !countryFolders.includes(name))) fail("Logo directory must contain country folders only, with no loose files.");
   if (allLogoFiles.length !== 1000) fail("Expected exactly 1,000 cached logo files; found " + allLogoFiles.length + ".");
-  if (allLogoFiles.some((name) => !/^(?:[1-9]\d{0,2}|1000)\.png$/.test(name))) fail("Logo directory contains an unexpected image format or unsafe filename.");
+  if (allLogoFiles.some((name) => !/^[A-Za-z0-9-]+\/(?:[1-9]\d{0,2}|1000)\.png$/.test(name))) fail("Country folders must contain only numeric PNG filenames.");
+  if (countryFolders.length !== counts.size) fail("Expected one folder for each represented country; found " + countryFolders.length + " folders for " + counts.size + " countries.");
   for (const relativePath of paths) {
     const filePath = join(ROOT, "client/public", relativePath.replace(/^\/+/, ""));
     const info = await stat(filePath);
