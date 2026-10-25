@@ -45,9 +45,8 @@ export type CompanyReferenceResponse = Omit<CompanyReferenceRecord, "logoUrl"> &
 };
 
 function asReferenceResponse(company: CompanyReferenceRecord): CompanyReferenceResponse {
-  const { logoUrl: _unapprovedLogoPath, ...reference } = company;
   return {
-    ...reference,
+    ...company,
     logoUrl: null,
     referenceOnly: true,
     logoReusePermissionVerified: false,
