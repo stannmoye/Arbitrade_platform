@@ -38,7 +38,7 @@ function isValidSenderAddress(value: string) {
 }
 
 export async function hasSavedEmailConfig() {
-  const raw = await getAppSetting("email.smtp", "");
+  const raw = (await getAppSetting("email.smtp", "")) || "";
   if (!raw.trim() || raw.trim() === "{}") return false;
   try {
     const parsed = JSON.parse(raw);
