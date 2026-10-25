@@ -63,6 +63,14 @@ describe("canonical installer preflight acceptance", () => {
     expect(result.output).not.toContain("Database connection successful");
   });
 
+  it("automatically generates a missing session secret instead of requiring manual configuration", async () => {
+    const source = await readFile(installer, "utf8");
+    expect(source).toContain('import { ensureSessionSecret } from "./session-secret.mjs";');
+    expect(source).toContain("await ensureSessionSecret({ root, env: process.env })");
+    expect(source).toContain('if (!process.env.DATABASE_URL || !process.env.PASSWORD_PEPPER || !process.env.PUBLIC_APP_URL)');
+    expect(source).not.toContain("!process.env.SESSION_SECRET ||");
+  });
+
   it("requires all private production configuration before connecting", () => {
     const result = runInstaller(["--fresh-install"], {
       NODE_ENV: "production",
