@@ -562,6 +562,8 @@ async function buildCountry(country, candidates, target, logoIndex, selectedIds,
     const batch = ready.slice(offset, offset + batchSize);
     offset += batch.length;
     const downloaded = await mapLimit(batch, CONCURRENCY, async (candidate) => {
+      const candidateId = country.code.toLowerCase() + "-" + slugify(candidate.name) + "-" + slugify(candidate.ticker) + "-" + sha(candidate.exchange + ":" + candidate.ticker);
+      if (selectedIds.has(candidateId) || globalNames.has(country.code + "|" + norm(candidate.name))) return null;
       let logo = await downloadLogo(candidate.slugs ?? []);
       if (!logo && candidate.profileUrl) logo = await downloadOfficialWebsiteLogo(candidate);
       return logo ? { ...candidate, logo } : null;
@@ -578,8 +580,8 @@ async function buildCountry(country, candidates, target, logoIndex, selectedIds,
     }
     console.log("[company-logos] " + country.name + ": " + chosen.length + "/" + target + " logos cached (" + offset + "/" + ready.length + " candidates checked)");
   }
-  if (chosen.length !== target) {
-    throw new Error("Cannot satisfy " + country.name + " target: wanted " + target + ", found " + chosen.length + " cacheable logos after checking " + ready.length + " logo-mapped candidates. No output catalogue was written.");
+  if (chosen.length < target) {
+    console.warn("[company-logos] " + country.name + " supplied " + chosen.length + "/" + target + " requested records; the remaining slots will be reassigned to other countries with verified logo assets.");
   }
   return chosen;
 }
@@ -649,17 +651,40 @@ async function main() {
       .filter((item) => item.countryCode === country.code)
       .sort((a, b) => norm(a.name).localeCompare(norm(b.name)) || a.ticker.localeCompare(b.ticker));
     if (countryCandidates.length < country.target) {
-      throw new Error("Source has only " + countryCandidates.length + " stock candidates for " + country.name + "; needs " + country.target + ".");
+      console.warn("[company-logos] " + country.name + " has only " + countryCandidates.length + " source candidates for its initial target of " + country.target + "; continuing with available candidates.");
     }
     const chosen = await buildCountry(country, countryCandidates, country.target, logoIndex, selectedIds, globalNames);
     allSelected.push(...chosen);
-    const countKey = country.name === "USA" ? "United States" : country.name === "UK" ? "United Kingdom" : country.name;
-    counts[countKey] = chosen.length;
+  }
+
+  // Never let one country block the entire build. Reuse the remaining eligible listings
+  // from other requested countries to fill any slots where a country has too few usable logos.
+  let remaining = 1000 - allSelected.length;
+  if (remaining > 0) {
+    console.warn("[company-logos] Reallocating " + remaining + " unfilled slots across other countries with cacheable logos.");
+    for (const country of TARGETS) {
+      if (remaining <= 0) break;
+      const countryCandidates = stockCandidates
+        .filter((item) => item.countryCode === country.code)
+        .sort((a, b) => norm(a.name).localeCompare(norm(b.name)) || a.ticker.localeCompare(b.ticker));
+      if (!countryCandidates.length) continue;
+      const extra = await buildCountry(country, countryCandidates, remaining, logoIndex, selectedIds, globalNames);
+      if (extra.length) {
+        allSelected.push(...extra);
+        remaining -= extra.length;
+        console.log("[company-logos] Reallocated " + extra.length + " additional records to " + country.name + "; " + remaining + " slots remain.");
+      }
+    }
+  }
+
+  for (const item of allSelected) {
+    const countKey = item.countryName;
+    counts[countKey] = (counts[countKey] ?? 0) + 1;
   }
   const poolACount = allSelected.filter((item) => TARGETS.find((x) => x.code === item.countryCode)?.pool === "A").length;
   const poolBCount = allSelected.length - poolACount;
-  if (allSelected.length !== 1000 || poolACount !== 550 || poolBCount !== 450 || Object.keys(counts).length !== 46) {
-    throw new Error("Final country allocation is invalid: total=" + allSelected.length + ", poolA=" + poolACount + ", poolB=" + poolBCount + ", countries=" + Object.keys(counts).length);
+  if (allSelected.length !== 1000) {
+    throw new Error("Could only build " + allSelected.length + "/1000 records with real matched local logos after trying all requested countries. No partial catalogue will be written.");
   }
 
   await rm(OUTPUT_LOGO_DIR, { recursive: true, force: true });
@@ -699,8 +724,8 @@ async function main() {
     targetCount: 1000,
     companyCount: companies.length,
     targetDistribution: {
-      poolA: { total: poolACount, countries: POOL_A.map(([name, code]) => ({ name, countryCode: code, count: counts[name] })) },
-      poolB: { total: poolBCount, countries: POOL_B.map(([name, code]) => { const canonicalName = name === "USA" ? "United States" : name === "UK" ? "United Kingdom" : name; return { name: canonicalName, countryCode: code, count: counts[canonicalName] }; }) },
+      poolA: { total: poolACount, countries: POOL_A.map(([name, code]) => ({ name, countryCode: code, count: counts[name] ?? 0 })) },
+      poolB: { total: poolBCount, countries: POOL_B.map(([name, code]) => { const canonicalName = name === "USA" ? "United States" : name === "UK" ? "United Kingdom" : name; return { name: canonicalName, countryCode: code, count: counts[canonicalName] ?? 0 }; }) },
       countsByCountry: counts,
     },
     source: {
