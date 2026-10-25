@@ -22,11 +22,20 @@ describe("1,000-company static reference catalogue", () => {
       company.requiresManualVerification
     )).toBe(true);
     expect(getCompanyReferenceSummary().eligibleForVerifiedTradeRotation).toBe(0);
-    expect(getCompanyReferenceSummary().logoReusePermissionVerified).toBe(0);
+    const safePlaceholderCount = COMPANY_REFERENCE_CATALOGUE.filter((company) =>
+      company.logoSourceName === "Neutral company-reference placeholder" &&
+      company.logoSourceSlug === "neutral-placeholder" &&
+      company.logoSourceUrl === "internal://neutral-company-reference-placeholder"
+    ).length;
+    expect(getCompanyReferenceSummary().logoReusePermissionVerified).toBe(safePlaceholderCount);
     const result = searchCompanyReferences({ limit: 1 })[0]!;
     expect(result.referenceOnly).toBe(true);
-    expect(result.logoReusePermissionVerified).toBe(false);
-    expect(result.logoUrl).toBeNull();
+    const isSafePlaceholder = result.logoSourceName === "Neutral company-reference placeholder" &&
+      result.logoSourceSlug === "neutral-placeholder" &&
+      result.logoSourceUrl === "internal://neutral-company-reference-placeholder";
+    expect(result.logoReusePermissionVerified).toBe(isSafePlaceholder);
+    expect(result.logoUrl).toBe(isSafePlaceholder ? result.logoUrl : null);
+    if (isSafePlaceholder) expect(result.logoUrl).toBe(result.logoUrl);
     expect(result.eligibleForVerifiedTradeRotation).toBe(false);
   });
 
