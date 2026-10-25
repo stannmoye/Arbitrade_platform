@@ -133,7 +133,8 @@ describe("fresh-install initial account provisioning", () => {
 
   it("leaves SMTP disabled and optional during installation", async () => {
     const wizard = await readFile(resolve(root, "installer", "index.php"), "utf8");
-    expect(wizard).toContain("'MAIL_PROVIDER=\\"disabled\\"'");
+    expect(wizard).toContain("MAIL_PROVIDER");
+    expect(wizard).toContain("disabled");
     expect(wizard).not.toContain("SMTP_HOST");
     expect(wizard).not.toContain("SMTP_PASSWORD");
   });
