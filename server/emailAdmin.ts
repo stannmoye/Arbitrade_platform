@@ -82,6 +82,7 @@ export async function isEmailAdminConfigured() {
   }
   if (!isValidSenderAddress(config.fromAddress)) return false;
   if (config.mode === "external") {
+    if (config.provider === "local") return false;
     const host = typeof config.host === "string" ? config.host.trim() : "";
     const user = typeof config.user === "string" ? config.user.trim() : "";
     const password = typeof config.password === "string" ? config.password : "";
@@ -90,7 +91,7 @@ export async function isEmailAdminConfigured() {
       && (!user || password.length > 0)
       && (config.provider === "local-smtp" || config.provider === "other" || Boolean(user && password)));
   }
-  if (config.mode !== "direct") return false;
+  if (config.mode !== "direct" || config.provider !== "local") return false;
   try {
     await access(process.env.SENDMAIL_PATH || "/usr/sbin/sendmail", fsConstants.X_OK);
     return true;
