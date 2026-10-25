@@ -92,18 +92,18 @@ async function deliver(to: string | string[], subject: string, html: string, tex
   if (!recipients.length) throw new Error("No email recipients supplied");
   const message = { from: config.fromName ? `\"${config.fromName}\" <${config.fromAddress}>` : config.fromAddress, to: recipients.join(","), replyTo: config.replyTo || undefined, subject, html, text: text || textFromHtml(html), attachments: (attachments || []).map(a => ({ filename: a.filename, content: Buffer.from(a.content, "base64"), contentType: a.contentType })) };
   if (config.mode === "direct") {
-    try {
-      const transport = nodemailer.createTransport({ sendmail: true, newline: "unix", path: process.env.SENDMAIL_PATH || "/usr/sbin/sendmail" });
-      await transport.sendMail(message);
-      return;
-    } catch (directError) {
-      if (!config.host) throw directError;
-    }
+    const transport = nodemailer.createTransport({ sendmail: true, newline: "unix", path: process.env.SENDMAIL_PATH || "/usr/sbin/sendmail" });
+    const result = await transport.sendMail(message);
+    return { messageId: String(result.messageId || "") };
   }
   const transport = nodemailer.createTransport({ host: config.host, port: config.port, secure: config.secure, auth: config.authType === "none" || !config.user ? undefined : { type: config.authType, user: config.user, pass: config.password }, connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 });
-  await transport.sendMail(message);
+  const result = await transport.sendMail(message);
+  return { messageId: String(result.messageId || "") };
 }
-export async function sendEmail(input: { to: string | string[]; subject: string; html: string; text?: string; attachments?: MailAttachment[] }) { await deliver(input.to, input.subject, input.html, input.text, input.attachments); return { sent: true }; }
+export async function sendEmail(input: { to: string | string[]; subject: string; html: string; text?: string; attachments?: MailAttachment[] }) {
+  const result = await deliver(input.to, input.subject, input.html, input.text, input.attachments);
+  return { sent: true, messageId: result.messageId };
+}
 export async function testEmailConnection(to: string) { await sendEmail({ to, subject: "WiseBond SMTP test", html: "<p>This is a WiseBond SMTP configuration test. Email delivery is working.</p>" }); return { sent: true }; }
 export async function sendAdminComposedEmail(adminId: number, input: { recipients: string[]; subject: string; htmlBody: string; textBody?: string; attachments?: MailAttachment[] }) {
   const db = await getDb(); if (!db) throw new Error("Database is not available");
