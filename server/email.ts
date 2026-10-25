@@ -74,4 +74,7 @@ export function isValidEmailAddress(value: string): boolean {
 
 // Email delivery configuration is stored and managed in the authenticated admin portal.
 export const isEmailDeliveryConfigured = () => isEmailAdminConfigured();
-export const sendRenderedEmail = (to: string, rendered: RenderedEmail) => sendEmail({ to, subject: rendered.subject, html: rendered.html, text: rendered.text });
+export async function sendRenderedEmail(to: string, rendered: RenderedEmail): Promise<{ sent: boolean; messageId?: string }> {
+  const result = await sendEmail({ to, subject: rendered.subject, html: rendered.html, text: rendered.text });
+  return { sent: result.sent, ...("messageId" in result ? { messageId: result.messageId } : {}) };
+}
