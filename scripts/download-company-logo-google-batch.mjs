@@ -26,6 +26,8 @@ if (!Number.isInteger(batch) || batch < 1 || batch > 20) throw new Error("LOGO_B
 // without confirming the company identity first; unknown entries stay pending, not guessed.
 const OFFICIAL_SITES = {
   "jp-3-d-matrix-ltd-7777-5d23fe3d": "https://www.3dmatrix.com/",
+  "jp-a-tie-co-ltd-369a-4dee7904": "https://a-tie.co.jp/",
+  "jp-abc-co-ltd-8783-895af577": "https://abc-chain.com/",
   "jp-4cs-hd-co-ltd-3726-68a12118": "https://www.4cs-holdings.co.jp/en/",
   "jp-a-a-material-corporation-5391-1744979d": "https://aa-material.co.jp/eng/company/",
   "jp-a-d-holon-holdings-company-limited-7745-4ccde400": "https://andholon.com/en/",
@@ -49,6 +51,8 @@ const OFFICIAL_SITES = {
   "in-63-moons-technologies-ltd-63moons-7cf68307": "https://www.63moons.com/",
   "in-7nr-retail-ltd-7nr-d7db40c3": "https://www.7nrretailltd.in/",
   "in-7seas-entertainment-ltd-7seasl-64cc2752": "https://www.7seasent.com/",
+  "in-a-1-ltd-a1l-b0c5f2be": "https://www.a-1limited.com/",
+  "in-a-b-cotspin-india-ltd-abcots-fce5bd8e": "https://abcotspin.co.in/",
   "fr-2crsi-s-a-al2si-a114086a": "https://www.2crsi.com/",
   "fr-74software-74sw-8443116c": "https://www.74software.com/",
   "fr-ab-science-s-a-ab-af4b7c3d": "https://www.ab-science.com/",
