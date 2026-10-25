@@ -1,0 +1,48 @@
+name: Download company logos for catalogue records 201-600
+
+on:
+  push:
+    branches:
+      - feature/verified-company-catalogue-rotation
+    paths:
+      - .github/workflows/download-company-logo-range-201-600.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: company-logo-range-201-600
+  cancel-in-progress: false
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out the existing feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/verified-company-catalogue-rotation
+          persist-credentials: true
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fetch official-site icons for records 201-600
+        env:
+          LOGO_START: "201"
+          LOGO_COUNT: "400"
+        run: node scripts/download-company-logo-google-batch.mjs
+      - name: Commit saved icons and the range report
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A server/data/company-catalogue-1000.json server/data/company-logo-range-201-600-report.json client/public/assets/company-logos
+          if git diff --cached --quiet; then
+            echo "No changes were produced for records 201-600."
+            exit 1
+          fi
+          git commit -m "Save official-site company icons for catalogue records 201-600"
+          git push origin HEAD:feature/verified-company-catalogue-rotation
