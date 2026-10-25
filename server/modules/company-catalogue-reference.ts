@@ -19,7 +19,6 @@ export type CompanyReferenceRecord = {
   headquartersCountry: string | null;
   instrumentType: "Stock";
   recordCompleteness: "incomplete";
-  incompleteReasons: string[];
 };
 
 type CataloguePayload = {
