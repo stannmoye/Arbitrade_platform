@@ -87,7 +87,12 @@ try {
     if (!/<svg\b/i.test(body) || !/<\/svg\s*>/i.test(body) || /<script\b|<foreignObject\b|javascript\s*:/i.test(body)) fail("Logo is not a safe standalone SVG: " + relativePath);
   }
   if (!/^[a-f0-9]{40}$/i.test(data.source?.sourceCommit ?? "") || !/^[a-f0-9]{40}$/i.test(data.logoSource?.repositoryCommit ?? "")) fail("Source snapshot commits are not pinned.");
-  console.log("[company-logos] PASS: 1,000 records across " + counts.size + " requested countries, Pool A=" + poolACount + ", Pool B=" + poolBCount + ", exactly 1,000 local SVGs, no runtime logo URLs.");
+  console.log("[company-logos] STRUCTURAL PASS: 1,000 reference records across " + counts.size + " represented countries, Pool A=" + poolACount + ", Pool B=" + poolBCount + ", exactly 1,000 local SVGs, no runtime logo URLs.");
+  const missingCountries = [...expected.entries()].filter(([code]) => !(counts.get(code) > 0)).map(([, value]) => value.name);
+  if (missingCountries.length) {
+    console.warn("[company-logos] ACCEPTANCE BLOCKER: no records for requested countries: " + missingCountries.join(", ") + ".");
+  }
+  console.warn("[company-logos] ACCEPTANCE BLOCKER: all records are marked unverified; headquarters-country evidence and logo redistribution permissions have not been independently verified. Do not use this dataset as verified trade eligibility or display its logos as cleared brand assets.");
 } catch (error) {
   console.error("[company-logos] FAIL: " + (error instanceof Error ? error.message : String(error)));
   process.exitCode = 1;
