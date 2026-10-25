@@ -107,6 +107,39 @@ describe("canonical installer diagnostic privacy", () => {
 });
 
 
+describe("fresh-install initial account provisioning", () => {
+  it("collects both account credential sets in the browser wizard", async () => {
+    const wizard = await readFile(resolve(root, "installer", "index.php"), "utf8");
+    expect(wizard).toContain("postval('admin_email')");
+    expect(wizard).toContain("postval('customer_email')");
+    expect(wizard).toContain("'customerEmail' => $customerEmail");
+    expect(wizard).toContain("'customerPassword' => $customerPassword");
+    expect(wizard).toContain("accountSection.querySelectorAll('input').forEach(input=>input.required=fresh)");
+  });
+
+  it("creates both initial accounts transactionally and hands off both credentials", async () => {
+    const source = await readFile(installer, "utf8");
+    expect(source).toContain('run("node", ["installer/create-initial-accounts.mjs"]');
+    expect(source).toContain('CUSTOMER_EMAIL: String(bootstrap.customerEmail).trim().toLowerCase()');
+    expect(source).toContain('CUSTOMER_PASSWORD: String(bootstrap.customerPassword)');
+    expect(source).not.toContain('run("node", ["installer/create-admin.mjs"]');
+    const accountScript = await readFile(resolve(root, "installer", "create-initial-accounts.mjs"), "utf8");
+    expect(accountScript).toContain("await connection.beginTransaction()");
+    expect(accountScript).toContain("await connection.commit()");
+    expect(accountScript).toContain("await connection.rollback()");
+    expect(accountScript).toContain('role: "user"');
+    expect(accountScript).toContain('role: "admin"');
+  });
+
+  it("leaves SMTP disabled and optional during installation", async () => {
+    const wizard = await readFile(resolve(root, "installer", "index.php"), "utf8");
+    expect(wizard).toContain("'MAIL_PROVIDER=\\"disabled\\"'");
+    expect(wizard).not.toContain("SMTP_HOST");
+    expect(wizard).not.toContain("SMTP_PASSWORD");
+  });
+});
+
+
 describe("main migration preflight integration", () => {
   it("checks existing-schema history before creating the persistent migration guard", async () => {
     const source = await readFile(new URL("../scripts/guarded-main-migrate.mjs", import.meta.url), "utf8");
