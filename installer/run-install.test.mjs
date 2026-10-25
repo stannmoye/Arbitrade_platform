@@ -32,6 +32,17 @@ function runInstaller(args, overrides = {}) {
   };
 }
 
+describe("browser installer account fields", () => {
+  it("renders both initial account credential pairs for a fresh install", async () => {
+    const source = await readFile(resolve(root, "installer/index.php"), "utf8");
+    for (const field of ["admin_email", "admin_password", "customer_email", "customer_password"]) {
+      expect(source).toContain('name="' + field + '"');
+    }
+    expect(source).toContain("adminSection.querySelector('[name=\"customer_email\"]').required=fresh");
+    expect(source).toContain("adminSection.querySelector('[name=\"customer_password\"]').required=fresh");
+  });
+});
+
 describe("canonical installer preflight acceptance", () => {
   it("rejects a missing installation mode before touching the database", () => {
     const result = runInstaller([]);
