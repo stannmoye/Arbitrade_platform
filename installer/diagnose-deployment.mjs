@@ -144,13 +144,7 @@ if (!secretPresent("DATABASE_URL")) {
   }
 }
 
-if (process.env.MAIL_PROVIDER === "smtp") {
-  const smtpMissing = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM_EMAIL"].filter((name) => !secretPresent(name));
-  report("SMTP environment", smtpMissing.length === 0,
-    smtpMissing.length ? `Missing required setting(s): ${smtpMissing.join(", ")}.` : "Required SMTP settings are present; use the SMTP test command to verify provider connectivity.");
-} else {
-  report("SMTP environment", true, "SMTP is not enabled with MAIL_PROVIDER=smtp; no SMTP connection attempted.", true);
-}
+report("Email delivery configuration", true, "Optional during installation; configure and test email from Communications → Email & SMTP Settings after administrator sign-in.");
 
 const failed = results.filter((item) => !item.ok).length;
 const warnings = results.filter((item) => item.warning).length;
