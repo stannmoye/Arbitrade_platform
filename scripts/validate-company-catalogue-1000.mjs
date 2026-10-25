@@ -54,11 +54,9 @@ try {
     }
     if (company.instrumentType !== "Stock") fail(label + ": non-stock instrument in catalogue.");
     if (!company.logoUrl.startsWith("/assets/company-logos/") || company.logoUrl.includes("://")) fail(label + ": logo must be referenced locally.");
-    if (company.logoSourceName === "Tradient Companies Logo API") {
-      if (company.logoSourceUrl !== "https://logo.tradient.org/v1/" + company.logoSourceSlug + ".svg") fail(label + ": source URL does not match the recorded logo slug.");
-    } else if (company.logoSourceName === "Official company website favicon") {
-      if (company.logoSourceSlug !== "official-site-favicon" || !/^https?:\/\//i.test(company.logoSourceUrl)) fail(label + ": invalid official website favicon source metadata.");
-    } else fail(label + ": unsupported logo source.");
+    if (company.logoSourceName === "Neutral company-reference placeholder") {
+      if (company.logoSourceSlug !== "neutral-placeholder" || company.logoSourceUrl !== "internal://neutral-company-reference-placeholder") fail(label + ": invalid neutral placeholder source metadata.");
+    } else fail(label + ": unapproved third-party/brand logo source is not allowed in the generated catalogue.");
     if (!/^[a-f0-9]{64}$/i.test(company.logoSha256)) fail(label + ": missing or invalid SHA-256 for logo asset.");
     if (!/^[a-z0-9-]+\.svg$/.test(company.logoUrl.split("/").at(-1))) fail(label + ": unexpected logo asset path.");
     if (paths.has(company.logoUrl)) fail(label + ": duplicate local logo path"); paths.add(company.logoUrl);
@@ -94,13 +92,14 @@ try {
     if (createHash("sha256").update(bytes).digest("hex").toLowerCase() !== logoHashes.get(relativePath)) fail("Logo SHA-256 mismatch: " + relativePath);
     if (!/<svg\b/i.test(body) || !/<\/svg\s*>/i.test(body) || /<script\b|<foreignObject\b|javascript\s*:/i.test(body)) fail("Logo is not a safe standalone SVG: " + relativePath);
   }
-  if (!/^[a-f0-9]{40}$/i.test(data.source?.sourceCommit ?? "") || !/^[a-f0-9]{40}$/i.test(data.logoSource?.repositoryCommit ?? "")) fail("Source snapshot commits are not pinned.");
+  if (!/^[a-f0-9]{40}$/i.test(data.source?.sourceCommit ?? "")) fail("Company identity source snapshot commit is not pinned.");
+  if (data.logoSource?.providerName !== "Locally generated neutral company-reference placeholders" || data.logoSource?.reusePermissionVerified !== true) fail("Catalogue must use locally generated neutral placeholders with no unapproved brand-logo redistribution.");
   console.log("[company-logos] STRUCTURAL PASS: 1,000 reference records across " + counts.size + " represented countries, Pool A=" + poolACount + ", Pool B=" + poolBCount + ", exactly 1,000 local SVGs, no runtime logo URLs.");
   const missingCountries = [...expected.entries()].filter(([code]) => !(counts.get(code) > 0)).map(([, value]) => value.name);
   if (missingCountries.length) {
     fail("No records for replacement country allocation: " + missingCountries.join(", ") + ". Every one of the 46 configured countries must be represented.");
   }
-  console.warn("[company-logos] ACCEPTANCE BLOCKER: all records are marked unverified; headquarters-country evidence and logo redistribution permissions have not been independently verified. Do not use this dataset as verified trade eligibility or display its logos as cleared brand assets.");
+  console.warn("[company-logos] LIMITATION: company identities/listing status and headquarters country remain unverified. Neutral placeholders are not company brand logos and do not establish trading eligibility.");
 } catch (error) {
   console.error("[company-logos] FAIL: " + (error instanceof Error ? error.message : String(error)));
   process.exitCode = 1;
