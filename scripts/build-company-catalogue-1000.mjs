@@ -315,7 +315,7 @@ function toCandidateRows(rows) {
 }
 
 async function loadMoexStockCandidates() {
-  const baseUrl = "https://iss.moex.com/iss/engines/stock/markets/shares/securities.json?iss.meta=off&iss.only=securities,cursor&is_traded=1&securities.columns=secid,shortname,name,isin,emitent_title,is_traded&cursor.columns=INDEX,TOTAL,PAGESIZE";
+  const baseUrl = "https://iss.moex.com/iss/engines/stock/markets/shares/securities.json?iss.meta=off&iss.only=securities,cursor&is_traded=1&securities.columns=SECID,SHORTNAME,SECNAME,ISIN,REGNUMBER,IS_TRADED&cursor.columns=INDEX,TOTAL,PAGESIZE";
   const safetyLimit = 20000;
   let pageSize = 100;
   let expectedTotal = null;
@@ -326,7 +326,7 @@ async function loadMoexStockCandidates() {
     const url = baseUrl + "&start=" + start;
     const payload = JSON.parse(await fetchText(url, "Official Moscow Exchange actively traded share listings"));
     const table = payload?.securities;
-    if (!Array.isArray(table?.columns) || !Array.isArray(table?.data)) {
+    if (!Array.isArray(table?.columns) || table.columns.length === 0 || !Array.isArray(table?.data)) {
       throw new Error("Moscow Exchange ISS returned an unexpected securities payload.");
     }
 
@@ -358,10 +358,10 @@ async function loadMoexStockCandidates() {
     }
   }
 
-  console.log("[company-logos] MOEX diagnostic columns: " + Object.keys(rows[0] ?? {}).join(",") + "; first-row-fields=" + JSON.stringify({ secid: rows[0]?.secid, emitent_title: rows[0]?.emitent_title, name: rows[0]?.name, shortname: rows[0]?.shortname, is_traded: rows[0]?.is_traded }));
+  
   const candidates = rows.flatMap((row) => {
     const ticker = getField(row, ["secid"]).toUpperCase();
-    const name = getField(row, ["emitent_title", "name", "shortname"]);
+    const name = getField(row, ["secname", "name", "shortname"]);
     const isTraded = getField(row, ["is_traded"]).toLowerCase();
     if (!name || !ticker || (isTraded && !["1", "true", "yes"].includes(isTraded))) return [];
     if (!/^[A-Z0-9][A-Z0-9._-]{0,19}$/.test(ticker)) return [];
@@ -386,7 +386,7 @@ async function loadMoexStockCandidates() {
       providerName: "Moscow Exchange Information and Statistical Server (ISS)",
       sourceUrl: baseUrl + "&start={offset}",
       retrievedAt: new Date().toISOString(),
-      sourceVersion: "Actively traded securities response with ISS cursor pagination, captured during catalogue build",
+      sourceVersion: "Actively traded shares response with explicit SECID/SECNAME columns and ISS cursor pagination, captured during catalogue build",
       rawRows: rows.length,
       reportedTotalRows: expectedTotal,
       tradableEquityCandidates: candidates.length,
