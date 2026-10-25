@@ -6,6 +6,20 @@ $installedLock = __DIR__ . '/.installed';
 $envPath = $root . '/.env';
 $bootstrapPath = $root . '/.installer-bootstrap.json';
 
+function installerRequestIsHttps(): bool {
+    $httpsFlag = strtolower((string)($_SERVER['HTTPS'] ?? ''));
+    if ($httpsFlag !== '' && $httpsFlag !== 'off' && $httpsFlag !== '0') return true;
+    if (strtolower((string)($_SERVER['REQUEST_SCHEME'] ?? '')) === 'https') return true;
+
+    // Only honor a forwarded scheme when the immediate peer is explicitly
+    // allowlisted by the hosting operator. Never trust X-Forwarded-Proto alone.
+    $remoteAddress = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+    $trustedProxies = array_filter(array_map('trim', explode(',', (string)getenv('INSTALLER_TRUSTED_PROXY_IPS'))));
+    if ($remoteAddress === '' || !in_array($remoteAddress, $trustedProxies, true)) return false;
+    $forwardedProto = strtolower(trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0] ?? ''));
+    return $forwardedProto === 'https';
+}
+
 /** Treat dangling symlinks as existing protected state; file_exists() alone misses them. */
 function installerPathExists(string $path): bool {
     return file_exists($path) || is_link($path);
@@ -15,7 +29,7 @@ if (installerPathExists($configuredLock) || installerPathExists($installedLock) 
     http_response_code(403);
     exit('The installer is locked because configuration already exists. Do not delete lock files to reinstall over an existing site.');
 }
-$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+$isHttps = installerRequestIsHttps();
 session_set_cookie_params(['httponly' => true, 'secure' => $isHttps, 'samesite' => 'Strict']);
 session_start();
 if (empty($_SESSION['installer_csrf'])) $_SESSION['installer_csrf'] = bin2hex(random_bytes(32));
@@ -197,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 $diskFree = @disk_free_space($root);
-$httpsDetected = $isHttps || (isset($_SERVER['REQUEST_SCHEME']) && strtolower((string)$_SERVER['REQUEST_SCHEME']) === 'https');
+$httpsDetected = installerRequestIsHttps();
 $detectedAppUrl = detectPublicAppUrl();
 $requiredExtensions = ['pdo_mysql', 'openssl', 'json', 'mbstring'];
 $extensionChecks = [];
