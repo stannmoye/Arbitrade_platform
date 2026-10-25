@@ -66,7 +66,7 @@ export async function enqueueAdminMessage(userId: number, subject: string, body:
 }
 
 export async function sendEmailTest(userId: number) {
-  if (!isEmailDeliveryConfigured()) throw new Error("SMTP is not configured; no test email was queued");
+  if (!(await isEmailDeliveryConfigured())) throw new Error("Email delivery is not configured in the admin portal; no test email was queued");
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const user = (await db.select({ email: users.email, role: users.role }).from(users).where(eq(users.id, userId)).limit(1))[0];
@@ -109,7 +109,7 @@ export function getZonedMinute(date: Date, timezone: string) {
 }
 
 export async function enqueueDailyDigests(now = new Date(), schedule = getDailyDigestSchedule()) {
-  if (!schedule || !isEmailDeliveryConfigured()) return 0;
+  if (!schedule || !(await isEmailDeliveryConfigured())) return 0;
   const local = getZonedMinute(now, schedule.timezone);
   if (local.time !== schedule.time) return 0;
   const db = await getDb();
@@ -134,7 +134,7 @@ export async function enqueueDailyDigests(now = new Date(), schedule = getDailyD
 const retryDelaysMs = [60_000, 5 * 60_000, 30 * 60_000, 2 * 60 * 60_000];
 let flushing = false;
 export async function flushEmailOutbox(limit = 20) {
-  if (flushing || !isEmailDeliveryConfigured()) return { sent: 0, failed: 0 };
+  if (flushing || !(await isEmailDeliveryConfigured())) return { sent: 0, failed: 0 };
   const db = await getDb();
   if (!db) return { sent: 0, failed: 0 };
   flushing = true;
