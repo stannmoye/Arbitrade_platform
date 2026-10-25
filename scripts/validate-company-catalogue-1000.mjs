@@ -59,6 +59,18 @@ try {
       if (company.logoSourceSlug !== "neutral-placeholder" || company.logoSourceUrl !== "internal://neutral-company-reference-placeholder") fail(label + ": invalid neutral placeholder source metadata.");
     } else if (company.logoSourceName === "Simple Icons CC0-1.0") {
       if (!/^[a-z0-9_-]+$/.test(company.logoSourceSlug) || !/^https:\/\//.test(company.logoSourceUrl) || company.logoLicense !== "CC0-1.0") fail(label + ": invalid Simple Icons source/license metadata.");
+    } else if (company.logoSourceName === "Wikimedia Commons") {
+      const license = String(company.logoLicense ?? "").trim();
+      const reusableLicense = /^CC0(?:[ -]1\.0)?$/i.test(license)
+        || /^CC BY(?:-SA)? (?:3\.0|4\.0)$/i.test(license)
+        || /^Public domain$/i.test(license);
+      if (!/^q\d+$/i.test(company.logoSourceSlug)
+        || !/^https:\/\/commons\.wikimedia\.org\/wiki\/File:/i.test(company.logoSourceUrl)
+        || !/^https?:\/\//i.test(String(company.logoLicenseUrl ?? ""))
+        || !reusableLicense) fail(label + ": invalid Wikimedia Commons source/license metadata.");
+      if (/^CC BY(?:-SA)? /i.test(license) && !String(company.logoAttribution ?? "").trim()) {
+        fail(label + ": attribution is required for the recorded Creative Commons licence.");
+      }
     } else fail(label + ": logo source is not on the explicit allowlist.");
     if (!/^[a-f0-9]{64}$/i.test(company.logoSha256)) fail(label + ": missing or invalid SHA-256 for logo asset.");
     if (!/^[a-z0-9-]+\.svg$/.test(company.logoUrl.split("/").at(-1))) fail(label + ": unexpected logo asset path.");
@@ -98,10 +110,16 @@ try {
   }
   if (!/^[a-f0-9]{40}$/i.test(data.source?.sourceCommit ?? "")) fail("Company identity source snapshot commit is not pinned.");
   const cc0SourcePolicy = data.logoSource?.explicitCc0Only === true && String(data.logoSource?.providerName ?? "").includes("Simple Icons CC0-1.0");
+  const wikimediaReusePolicy = data.logoSource?.wikimediaCommonsEnabled === true
+    && Array.isArray(data.logoSource?.permittedWikimediaLicenses)
+    && data.logoSource.permittedWikimediaLicenses.includes("CC0")
+    && data.logoSource.permittedWikimediaLicenses.includes("CC BY")
+    && data.logoSource.permittedWikimediaLicenses.includes("CC BY-SA")
+    && data.logoSource.permittedWikimediaLicenses.includes("Public domain");
   const untouchedLegacyPlaceholderState = data.logoSource?.providerName === "Locally generated neutral company-reference placeholders"
     && data.logoSource?.reusePermissionVerified === true
     && data.companies.every((company) => company.logoSourceName === "Neutral company-reference placeholder");
-  if (!cc0SourcePolicy && !untouchedLegacyPlaceholderState) fail("Catalogue logo policy must restrict sourced brand artwork to explicitly CC0-1.0 entries; only the untouched legacy placeholder-only state is allowed during transition.");
+  if (!cc0SourcePolicy && !wikimediaReusePolicy && !untouchedLegacyPlaceholderState) fail("Catalogue logo policy must restrict sourced artwork to explicit CC0, CC BY, CC BY-SA, or public-domain assets; only the untouched legacy placeholder-only state is allowed during transition.");
   console.log("[company-logos] STRUCTURAL PASS: 1,000 reference records across " + counts.size + " represented countries, Pool A=" + poolACount + ", Pool B=" + poolBCount + ", exactly 1,000 local SVGs, no runtime logo URLs.");
   const missingCountries = [...expected.entries()].filter(([code]) => !(counts.get(code) > 0)).map(([, value]) => value.name);
   if (missingCountries.length) {
