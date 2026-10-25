@@ -41,10 +41,16 @@ describe("installer credential and diagnostic privacy", () => {
     const verifierSource = await readFile(new URL("./verify-install.mjs", import.meta.url), "utf8");
     const diagnosticSource = await readFile(new URL("./diagnose-deployment.mjs", import.meta.url), "utf8");
     const packageSource = await readFile(new URL("../package.json", import.meta.url), "utf8");
+    const runtimeEmailSource = await readFile(new URL("../server/email.ts", import.meta.url), "utf8");
+    const envExample = await readFile(new URL("../.env.example", import.meta.url), "utf8");
     expect(verifierSource).not.toContain("process.env.SMTP_");
     expect(diagnosticSource).not.toContain("process.env.SMTP_");
     expect(verifierSource).not.toContain("process.env.MAIL_PROVIDER");
     expect(diagnosticSource).not.toContain("process.env.MAIL_PROVIDER");
+    expect(runtimeEmailSource).not.toContain("process.env.SMTP_");
+    expect(runtimeEmailSource).not.toContain("process.env.MAIL_PROVIDER");
+    expect(envExample).not.toContain("SMTP_");
+    expect(envExample).not.toContain("MAIL_PROVIDER=");
     expect(packageSource).not.toContain("installer:test-smtp");
     await expect(readFile(new URL("./test-smtp.mjs", import.meta.url), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
   });
