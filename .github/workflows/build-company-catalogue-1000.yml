@@ -14,8 +14,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: company-catalogue-1000-logo-build-reallocation-v2
-  cancel-in-progress: true
+  group: company-catalogue-1000-logo-build
+  cancel-in-progress: false
 
 jobs:
   build-and-cache:
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Check out feature branch
+      - name: Check out selected branch
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
