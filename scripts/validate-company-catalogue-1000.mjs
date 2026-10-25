@@ -70,8 +70,10 @@ try {
     const filePath = join(ROOT, "client/public", relativePath.replace(/^\/+/, ""));
     const info = await stat(filePath);
     if (!info.isFile() || info.size <= 0 || info.size > 200 * 1024) fail("Logo file has invalid size: " + relativePath + " (" + info.size + " bytes)");
-    const body = await readFile(filePath, "utf8");
-    if (!/<svg\b/i.test(body) || !/<\/svg\s*>/i.test(body) || /<script\b|<foreignObject\b|javascript\s*:/i.test(body)) fail("Logo is not a safe standalone SVG: " + relativePath);
+    const bytes = await readFile(filePath);
+    const body = bytes.toString("utf8");
+    if (createHash("sha256").update(bytes).digest("hex").toLowerCase() !== logoHashes.get(relativePath)) fail("Logo SHA-256 mismatch: " + relativePath);
+    if (!/<svg\\b/i.test(body) || !/<\\/svg\\s*>/i.test(body) || /<script\\b|<foreignObject\\b|javascript\\s*:/i.test(body)) fail("Logo is not a safe standalone SVG: " + relativePath);
   }
   if (!/^[a-f0-9]{40}$/i.test(data.source?.sourceCommit ?? "") || !/^[a-f0-9]{40}$/i.test(data.logoSource?.repositoryCommit ?? "")) fail("Source snapshot commits are not pinned.");
   const reported = data.targetDistribution?.countsByCountry ?? {};
