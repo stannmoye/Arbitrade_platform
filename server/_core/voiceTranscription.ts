@@ -79,14 +79,14 @@ export async function transcribeAudio(
       return {
         error: "Voice transcription service is not configured",
         code: "SERVICE_ERROR",
-        details: "AI_API_BASE_URL is not set"
+        details: "Speech transcription is an optional integration and is disabled by default"
       };
     }
     if (!ENV.transcriptionApiKey && !["localhost", "127.0.0.1", "::1"].includes(new URL(ENV.transcriptionApiBaseUrl).hostname)) {
       return {
         error: "Voice transcription service authentication is missing",
         code: "SERVICE_ERROR",
-        details: "AI_API_KEY is required for a remote transcription provider"
+        details: "Configure a transcription provider only if speech-to-text is needed"
       };
     }
 
