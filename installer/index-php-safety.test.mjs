@@ -36,6 +36,24 @@ describe("PHP installer state-marker safety", () => {
     expect(source).toContain("$httpsDetected = installerRequestIsHttps();");
   });
 
+  it("blocks wizard progression until Node.js, pnpm, and installed dependency metadata pass preflight", async () => {
+    const source = await readFile(wizardPath, "utf8");
+    expect(source).toContain("function installerCommandOutput(string $binary, array $arguments): ?string");
+    expect(source).toContain("getenv('ARBITRADE_NODE_BINARY')");
+    expect(source).toContain("getenv('ARBITRADE_PNPM_BINARY')");
+    expect(source).toContain(String.raw`preg_match('/^v?(\d+)\./'`);
+    expect(source).toContain(String.raw`preg_match('/^10\.18\./'`);
+    expect(source).toContain("$nodeVersionValid");
+    expect(source).toContain("$pnpmVersionValid");
+    expect(source).toContain("is_file($root . '/node_modules/.modules.yaml')");
+    expect(source).toContain("|| !$nodeVersionValid || !$pnpmVersionValid || !$nodeModulesReady");
+    expect(source).toContain("if (!$nodeVersionValid) throw new RuntimeException");
+    expect(source).toContain("if (!$pnpmVersionValid) throw new RuntimeException");
+    expect(source).toContain("if (!is_file($root . '/node_modules/.modules.yaml')) throw new RuntimeException");
+
+    expect(source).toContain("All required PHP, Node.js, pnpm, installed-dependency, package, permission, and installation-state checks must pass");
+  });
+
   it("keeps stage navigation controls outside the stage panels and gates progression", async () => {
     const source = await readFile(wizardPath, "utf8");
     expect(source).toContain("navigationControls.remove();");
@@ -45,4 +63,16 @@ describe("PHP installer state-marker safety", () => {
     expect(source).toContain("submit.disabled=preflightBlocked||!currentStepValid();");
   });
 
+  it("renders animated stage guidance and keeps the prerequisite gate intact", async () => {
+    const source = await readFile(wizardPath, "utf8");
+    expect(source).toContain("class=\"guide-panel\"");
+    expect(source).toContain("class=\"bot\"");
+    expect(source).toContain("@keyframes bot-float");
+    expect(source).toContain("prefers-reduced-motion:reduce");
+    expect(source).toContain("const guideStages=");
+    expect(source).toContain("querySelectorAll(':scope > .stage-header')");
+    expect(source).toContain("node.classList.contains('stage-header')");
+    expect(source).toContain("next.disabled=preflightBlocked||!currentStepValid();");
+    expect(source).toContain("submit.disabled=preflightBlocked||!currentStepValid();");
+  });
 });
