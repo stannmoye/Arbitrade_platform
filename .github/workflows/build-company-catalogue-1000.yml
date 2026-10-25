@@ -5,7 +5,7 @@ on:
     branches:
       - feature/verified-company-catalogue-rotation
     paths:
-      - scripts/build-company-catalogue-1000.mjs
+      - scripts/number-company-logos.mjs
       - scripts/validate-company-catalogue-1000.mjs
       - .github/workflows/build-company-catalogue-1000.yml
   workflow_dispatch:
@@ -32,8 +32,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Build the static catalogue and local SVG source artwork
-        run: node scripts/build-company-catalogue-1000.mjs
       - name: Install PNG conversion dependency
         run: npm install --no-save --package-lock=false sharp
       - name: Convert logos to sequential PNG filenames
