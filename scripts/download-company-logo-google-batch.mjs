@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Download each company's own site icon for one 50-company batch.
+ * Download company site icons for a configurable catalogue range.
  * Only uses explicitly mapped official homepages. No image-search scraping.
  * Prefers logo-like SVG/PNG and Apple touch icons, then declared favicon, then /favicon.ico.
  * Existing catalogue records and filenames are preserved; only successful icon downloads update metadata.
@@ -239,9 +239,13 @@ const catalogue = JSON.parse(await readFile(CATALOGUE, "utf8"));
 if (!Array.isArray(catalogue.companies) || catalogue.companies.length !== 1000) {
   throw new Error("Expected the existing 1,000-company catalogue; refusing to rebuild it.");
 }
-const start = (batch - 1) * BATCH_SIZE;
-const companies = catalogue.companies.slice(start, start + BATCH_SIZE);
-if (companies.length !== BATCH_SIZE) throw new Error("Batch " + batch + " does not contain 50 records.");
+const requestedStart = Number(process.env.LOGO_START ?? ((batch - 1) * BATCH_SIZE + 1));
+const requestedCount = Number(process.env.LOGO_COUNT ?? BATCH_SIZE);
+if (!Number.isInteger(requestedStart) || requestedStart < 1 || requestedStart > catalogue.companies.length) throw new Error("LOGO_START must be a valid 1-based catalogue position.");
+if (!Number.isInteger(requestedCount) || requestedCount < 1 || requestedStart + requestedCount - 1 > catalogue.companies.length) throw new Error("LOGO_COUNT must fit within the 1,000-record catalogue.");
+const start = requestedStart - 1;
+const companies = catalogue.companies.slice(start, start + requestedCount);
+if (companies.length !== requestedCount) throw new Error("Requested range does not contain the requested number of records.");
 await mkdir(LOGO_DIR, { recursive: true });
 
 let downloaded = 0;
@@ -329,6 +333,9 @@ catalogue.logoBatchDownload = {
   note: "Only icons fetched from an explicitly mapped official homepage are accepted. Unverified sites and failed icons remain pending; catalogue records are not regenerated."
 };
 await writeFile(CATALOGUE, JSON.stringify(catalogue, null, 2) + "\n");
-await writeFile(join(ROOT, "server/data", "company-logo-batch-" + String(batch).padStart(2, "0") + "-report.json"), JSON.stringify({ ...catalogue.logoBatchDownload, results: report }, null, 2) + "\n");
+const reportName = process.env.LOGO_START || process.env.LOGO_COUNT
+  ? "company-logo-range-" + String(start + 1).padStart(3, "0") + "-" + String(start + companies.length).padStart(3, "0") + "-report.json"
+  : "company-logo-batch-" + String(batch).padStart(2, "0") + "-report.json";
+await writeFile(join(ROOT, "server/data", reportName), JSON.stringify({ ...catalogue.logoBatchDownload, results: report }, null, 2) + "\n");
 console.log(JSON.stringify(catalogue.logoBatchDownload, null, 2));
 if (downloaded === 0 && alreadyReal === 0) process.exitCode = 1;
