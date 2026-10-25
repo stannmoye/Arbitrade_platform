@@ -11,8 +11,8 @@ export const ENV = {
   get aiApiBaseUrl() { return ""; },
   get aiApiKey() { return ""; },
   get imageApiBaseUrl() { return (process.env.IMAGE_API_BASE_URL ?? "").replace(/\/+$/, ""); },
-  get imageApiKey() { return process.env.IMAGE_API_KEY ?? ""; },
+  get imageApiKey() { return ""; },
   get transcriptionApiBaseUrl() { return ""; },
   get transcriptionApiKey() { return ""; },
-  get mapsServerApiKey() { return process.env.GOOGLE_MAPS_SERVER_KEY ?? ""; },
+  get mapsServerApiKey() { return ""; },
 };
