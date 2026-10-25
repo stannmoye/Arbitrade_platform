@@ -99,6 +99,23 @@ describe("canonical installer preflight acceptance", () => {
 });
 
 
+
+  it("loads the installer-generated environment before dependency installation without importing dotenv", async () => {
+    const source = await readFile(installer, "utf8");
+    expect(source).not.toContain('import { config } from "dotenv";');
+    expect(source).toContain("function loadPrivateEnv(path)");
+    expect(source).toContain('loadPrivateEnv(resolve(root, ".env"));');
+    expect(source.indexOf("loadPrivateEnv(resolve(root, \".env\"));")).toBeLessThan(source.indexOf("let db;"));
+    expect(source).toContain('"install", "--frozen-lockfile"');
+    expect(source).toContain('mysql = (await import("mysql2/promise")).default;');
+    expect(source.indexOf('"install", "--frozen-lockfile"')).toBeLessThan(source.indexOf('mysql = (await import("mysql2/promise")).default;'));
+  });
+
+  it("checks the required pnpm version before opening a database connection", async () => {
+    const source = await readFile(installer, "utf8");
+    expect(source.indexOf("const pnpm = detectPnpm();")).toBeLessThan(source.indexOf("let db;"));
+  });
+
 describe("canonical installer diagnostic privacy", () => {
   it("initializes the missing session secret automatically before reporting environment readiness", async () => {
     const source = await readFile(resolve(root, "installer", "diagnose-deployment.mjs"), "utf8");

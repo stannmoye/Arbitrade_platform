@@ -6,6 +6,20 @@ $installedLock = __DIR__ . '/.installed';
 $envPath = $root . '/.env';
 $bootstrapPath = $root . '/.installer-bootstrap.json';
 
+function installerRequestIsHttps(): bool {
+    $httpsFlag = strtolower((string)($_SERVER['HTTPS'] ?? ''));
+    if ($httpsFlag !== '' && $httpsFlag !== 'off' && $httpsFlag !== '0') return true;
+    if (strtolower((string)($_SERVER['REQUEST_SCHEME'] ?? '')) === 'https') return true;
+
+    // Only honor a forwarded scheme when the immediate peer is explicitly
+    // allowlisted by the hosting operator. Never trust X-Forwarded-Proto alone.
+    $remoteAddress = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+    $trustedProxies = array_filter(array_map('trim', explode(',', (string)getenv('INSTALLER_TRUSTED_PROXY_IPS'))));
+    if ($remoteAddress === '' || !in_array($remoteAddress, $trustedProxies, true)) return false;
+    $forwardedProto = strtolower(trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0] ?? ''));
+    return $forwardedProto === 'https';
+}
+
 /** Treat dangling symlinks as existing protected state; file_exists() alone misses them. */
 function installerPathExists(string $path): bool {
     return file_exists($path) || is_link($path);
@@ -15,7 +29,7 @@ if (installerPathExists($configuredLock) || installerPathExists($installedLock) 
     http_response_code(403);
     exit('The installer is locked because configuration already exists. Do not delete lock files to reinstall over an existing site.');
 }
-$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+$isHttps = installerRequestIsHttps();
 session_set_cookie_params(['httponly' => true, 'secure' => $isHttps, 'samesite' => 'Strict']);
 session_start();
 if (empty($_SESSION['installer_csrf'])) $_SESSION['installer_csrf'] = bin2hex(random_bytes(32));
@@ -44,7 +58,7 @@ function validPort(string $value, int $default): int {
  */
 function detectPublicAppUrl(): string {
     $httpsFlag = strtolower((string)($_SERVER['HTTPS'] ?? ''));
-    $scheme = ($httpsFlag !== '' && $httpsFlag !== 'off' && $httpsFlag !== '0') ? 'https' : '';
+    $scheme = installerRequestIsHttps() ? 'https' : '';
     if ($scheme === '') {
         $requestScheme = strtolower((string)($_SERVER['REQUEST_SCHEME'] ?? ''));
         if (in_array($requestScheme, ['http', 'https'], true)) $scheme = $requestScheme;
@@ -197,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 $diskFree = @disk_free_space($root);
-$httpsDetected = $isHttps || (isset($_SERVER['REQUEST_SCHEME']) && strtolower((string)$_SERVER['REQUEST_SCHEME']) === 'https');
+$httpsDetected = installerRequestIsHttps();
 $detectedAppUrl = detectPublicAppUrl();
 $requiredExtensions = ['pdo_mysql', 'openssl', 'json', 'mbstring'];
 $extensionChecks = [];
@@ -208,6 +222,7 @@ $packageReady = is_file($root . '/package.json') && is_file($root . '/pnpm-lock.
 $installerLocked = installerPathExists($configuredLock) || installerPathExists($installedLock) || installerPathExists($envPath) || installerPathExists($bootstrapPath);
 $rootWritable = is_writable($root);
 $diskFreeLabel = $diskFree === false ? 'Unavailable on this host' : (string)round($diskFree / 1024 / 1024) . ' MB free';
+$preflightBlocked = PHP_VERSION_ID < 80200 || in_array(false, $extensionChecks, true) || !$rootWritable || !$packageReady || $installerLocked;
 ?><!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arbitrade installation wizard</title>
 <style>
@@ -227,7 +242,7 @@ $diskFreeLabel = $diskFree === false ? 'Unavailable on this host' : (string)roun
 <div class="check"><strong><?= $installerLocked ? '!' : '✓' ?> Installation state</strong><small><?= $installerLocked ? 'Existing configuration/lock detected; installer must not be reused' : 'No existing installation lock detected' ?></small></div>
 <div class="check"><strong>! Node.js runtime</strong><small>PHP cannot reliably detect the Node.js version on shared hosting. Verify Node.js 20+ in cPanel Setup Node.js App; the terminal installer performs its own version check.</small></div>
 </div>
-<p class="sub">This preflight checks what PHP can reliably observe. Node.js runtime/version and live dependency health are explicitly marked for verification in the hosting environment rather than guessed. Critical PHP extension and write-permission failures block configuration submission. Database credentials are checked privately when you submit the database step. Do not expose this wizard publicly after setup.</p>
+<p class="sub">This preflight checks what PHP can reliably observe. Node.js runtime/version and live dependency health are explicitly marked for verification in the hosting environment rather than guessed. Critical PHP/version/extension/package/permission failures block both step navigation and configuration submission. Node.js and package integrity are checked by the private terminal installer before dependencies, migrations, or build steps run; the web PHP process cannot safely infer the Node runtime installed for the hosting account. Database credentials are checked privately when you submit the database step. Do not expose this wizard publicly after setup.</p>
 <?php if($message):?><div class="notice success"><?=h($message)?><p><strong>Next step:</strong> in the application root, run <code>node installer/run-install.mjs --<?=h(postval('install_mode') === 'existing' ? 'existing-database --confirm-existing-migrations' : 'fresh-install')?></code> from the private cPanel terminal.</p></div><?php endif;?>
 <?php if($error):?><div class="notice error"><?=h($error)?></div><?php endif;?>
 <?php if(!$message && !installerPathExists($configuredLock) && !installerPathExists($installedLock) && !installerPathExists($envPath) && !installerPathExists($bootstrapPath)):?>
@@ -246,6 +261,10 @@ $diskFreeLabel = $diskFree === false ? 'Unavailable on this host' : (string)roun
 <div class="step-controls"><button type="button" class="secondary" id="step-prev">Previous</button><span class="help" id="step-count" aria-live="polite"></span><button type="button" id="step-next">Next step</button><button type="submit" id="step-submit" hidden>Verify database &amp; save configuration</button></div></form>
 <script>
 const mode=document.getElementById('install_mode'),accountSection=document.getElementById('initial-accounts-section');
+const preflightBlocked=<?= ($preflightBlocked ? 'true' : 'false') ?>;
+const preflightBlockMessage='Resolve all failed server prerequisite checks before proceeding.';
+const navigationControls=document.querySelector('.step-controls');
+navigationControls.remove();
 function updateMode(){const fresh=mode.value==='fresh';accountSection.hidden=!fresh;accountSection.querySelectorAll('input').forEach(input=>input.required=fresh);const backup=document.getElementById('backup-confirmation');backup.hidden=fresh;backup.querySelector('input').disabled=fresh;backup.querySelector('input').required=!fresh;document.getElementById('database-mode-note').textContent=fresh?'Fresh installation requires an empty database. The wizard creates both initial accounts after migrations.':'Import the intended SQL backup using cPanel/phpMyAdmin or a trusted private terminal before continuing. Large SQL imports are intentionally not accepted over this public web form because host upload/time limits can truncate a restore. Confirm you have a current restorable backup. The wizard records the database table inventory and checks it again in the private terminal before migrations; existing account credentials are preserved.';}
 mode.addEventListener('change',updateMode);updateMode();
 const form=document.querySelector('form'), headings=[...form.querySelectorAll(':scope > h2')], panels=[];
@@ -253,11 +272,15 @@ for(const heading of headings){const panel=document.createElement('section');pan
 const nav=document.createElement('div');nav.className='steps';nav.setAttribute('aria-label','Installation progress');
 panels.forEach((panel,i)=>{const dot=document.createElement('div');dot.className='step-dot';dot.textContent=(i+1)+' / '+panels.length;nav.appendChild(dot);});
 form.insertBefore(nav,panels[0]);
+form.appendChild(navigationControls);
 const prev=document.getElementById('step-prev'),next=document.getElementById('step-next'),submit=document.getElementById('step-submit'),count=document.getElementById('step-count');let current=0;
-function showStep(index){current=Math.max(0,Math.min(index,panels.length-1));panels.forEach((p,i)=>p.hidden=i!==current);[...nav.children].forEach((d,i)=>d.classList.toggle('active',i===current));prev.disabled=current===0;next.hidden=current===panels.length-1;submit.hidden=current!==panels.length-1;count.textContent='Step '+(current+1)+' of '+panels.length;form.querySelectorAll('[data-step-invalid]').forEach(el=>el.removeAttribute('data-step-invalid'));}
+function currentStepValid(){for(const field of panels[current].querySelectorAll('input,select')){if(field.disabled||field.type==='checkbox'&&!field.required)continue;if(!field.checkValidity())return false;}return true;}
+function showStep(index){current=Math.max(0,Math.min(index,panels.length-1));panels.forEach((p,i)=>p.hidden=i!==current);[...nav.children].forEach((d,i)=>d.classList.toggle('active',i===current));prev.disabled=current===0;next.hidden=current===panels.length-1;submit.hidden=current!==panels.length-1;count.textContent='Step '+(current+1)+' of '+panels.length;form.querySelectorAll('[data-step-invalid]').forEach(el=>el.removeAttribute('data-step-invalid'));next.disabled=preflightBlocked||!currentStepValid();submit.disabled=preflightBlocked||!currentStepValid();}
+form.addEventListener('input',()=>{next.disabled=preflightBlocked||!currentStepValid();submit.disabled=preflightBlocked||!currentStepValid();});
+form.addEventListener('change',()=>{next.disabled=preflightBlocked||!currentStepValid();submit.disabled=preflightBlocked||!currentStepValid();});
 prev.addEventListener('click',()=>showStep(current-1));
-next.addEventListener('click',()=>{for(const field of panels[current].querySelectorAll('input,select')){if(field.disabled||field.type==='checkbox'&&!field.required)continue;if(!field.checkValidity()){field.reportValidity();return;}}showStep(current+1);});
-form.addEventListener('submit',event=>{for(const field of panels[current].querySelectorAll('input,select')){if(field.disabled)continue;if(!field.checkValidity()){event.preventDefault();field.reportValidity();return;}}});
+next.addEventListener('click',()=>{if(preflightBlocked){window.alert(preflightBlockMessage);return;}for(const field of panels[current].querySelectorAll('input,select')){if(field.disabled||field.type==='checkbox'&&!field.required)continue;if(!field.checkValidity()){field.reportValidity();return;}}showStep(current+1);});
+form.addEventListener('submit',event=>{if(preflightBlocked){event.preventDefault();window.alert(preflightBlockMessage);return;}for(const field of form.querySelectorAll('input,select')){if(field.disabled)continue;if(!field.checkValidity()){event.preventDefault();field.reportValidity();return;}}});
 showStep(0);
 </script>
 <?php elseif(!$message):?><div class="notice error">This installer is locked. Configuration or an installation lock already exists.</div><?php endif;?>
