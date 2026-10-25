@@ -91,6 +91,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $lines = [
             'NODE_ENV="production"', 'PORT="' . $appPort . '"',
+            // The supported cPanel and VPS install paths place one web-server
+            // reverse proxy in front of Node. Operators can override this in the
+            // private runtime environment if their actual topology differs.
+            'TRUST_PROXY_HOPS="1"',
             envline('PUBLIC_APP_URL', $appUrl), envline('DATABASE_URL', $databaseUrl),
             envline('SESSION_SECRET', bin2hex(random_bytes(32))), envline('PASSWORD_PEPPER', bin2hex(random_bytes(32))),
             // Optional providers are deliberately left unconfigured during installation.
