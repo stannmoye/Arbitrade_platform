@@ -89,10 +89,8 @@ if (process.env.NODE_ENV !== "production") fail("NODE_ENV must be production; lo
 if (Number(process.versions.node.split(".")[0]) < 20) {
   fail("Node.js 20 or newer is required. Detected " + process.versions.node + ".");
 }
-const sessionSecret = process.env["SESSION_SECRET"] || "";
-const passwordPepper = process.env["PASSWORD_PEPPER"] || "";
-if (!process.env.DATABASE_URL || !sessionSecret || !passwordPepper || !process.env.PUBLIC_APP_URL) {
-  fail("Database connection, generated security secrets, and public application URL must be configured before installation.");
+if (!process.env.DATABASE_URL || !process.env.PUBLIC_APP_URL) {
+  fail("DATABASE_URL and PUBLIC_APP_URL must be configured before installation. Security secrets are generated automatically when absent.");
 }
 let publicAppUrl;
 try {
@@ -102,9 +100,6 @@ try {
 }
 if (!["http:", "https:"].includes(publicAppUrl.protocol) || publicAppUrl.username || publicAppUrl.password) {
   fail("PUBLIC_APP_URL must use HTTP(S) and must not contain a username or password.");
-}
-if (sessionSecret.length < 32 || passwordPepper.length < 32) {
-  fail("SESSION_SECRET and PASSWORD_PEPPER must each contain at least 32 characters.");
 }
 if (await stateMarkerExists(lockPath)) {
   fail("An installation lock already exists. Refusing to rerun the installer.");
