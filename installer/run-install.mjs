@@ -134,9 +134,15 @@ if (mode === "fresh" && bootstrap.databaseTableCount !== 0) {
 }
 if (mode === "fresh") {
   const email = String(bootstrap.adminEmail || "").trim().toLowerCase();
+  const customerEmail = String(bootstrap.customerEmail || "").trim().toLowerCase();
   const password = String(bootstrap.adminPassword || "");
+  const customerPassword = String(bootstrap.customerPassword || "");
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail("A valid administrator email is required for a fresh installation.");
   if (password.length < 12) fail("The administrator password must contain at least 12 characters.");
+  if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) fail("A valid customer email is required for a fresh installation.");
+  if (customerPassword.length < 12) fail("The customer password must contain at least 12 characters.");
+  if (email === customerEmail) fail("Administrator and customer accounts must use different email addresses.");
+  if (password === customerPassword) fail("Administrator and customer passwords must be different.");
 }
 
 let db;
@@ -248,10 +254,12 @@ if (mode === "fresh") {
   run("node", ["scripts/verify-worker-schema.mjs"]);
   await setStage("production-build");
   runPnpm(["build"]);
-  await setStage("administrator-creation");
-  run("node", ["installer/create-admin.mjs"], {
+  await setStage("initial-account-creation");
+  run("node", ["installer/create-initial-accounts.mjs"], {
     ADMIN_EMAIL: String(bootstrap.adminEmail).trim().toLowerCase(),
     ADMIN_PASSWORD: String(bootstrap.adminPassword),
+    CUSTOMER_EMAIL: String(bootstrap.customerEmail).trim().toLowerCase(),
+    CUSTOMER_PASSWORD: String(bootstrap.customerPassword),
   });
 } else {
   console.log("\n[installer] Existing-database mode: applying forward migrations while preserving account credentials and financial records.");
