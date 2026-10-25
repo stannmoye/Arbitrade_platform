@@ -31,6 +31,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: company-catalogue-integration-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   typecheck-and-test:
     name: Type-check and test catalogue integration
