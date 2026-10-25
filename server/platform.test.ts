@@ -38,12 +38,10 @@ describe("self-hosted platform integrations", () => {
     expect(fakeWindow.__ARBITRADE_CONFIG__?.googleMapsBrowserKey).toBe(payload);
   });
 
-  it("fails closed when a remote AI provider has no key and never guesses a hosted endpoint", async () => {
-    vi.stubEnv("AI_API_BASE_URL", "https://api.example/v1");
-    vi.stubEnv("AI_API_KEY", "");
+  it("keeps the optional AI integration disabled by default", async () => {
     const request = vi.fn();
     vi.stubGlobal("fetch", request);
-    await expect(listLLMModels()).rejects.toThrow("AI_API_KEY is required");
+    await expect(listLLMModels()).rejects.toThrow("AI integration is disabled by default");
     expect(request).not.toHaveBeenCalled();
   });
 
