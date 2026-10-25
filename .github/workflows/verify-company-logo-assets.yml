@@ -1,0 +1,37 @@
+name: Verify existing company catalogue and logo assets
+
+on:
+  push:
+    branches:
+      - feature/verified-company-catalogue-rotation
+    paths:
+      - .github/workflows/verify-company-logo-assets.yml
+      - scripts/validate-company-catalogue-1000.mjs
+      - server/data/company-catalogue-1000.json
+      - client/public/assets/company-logos/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: company-logo-asset-verification
+  cancel-in-progress: false
+
+jobs:
+  verify-existing-assets:
+    name: Verify without rebuilding or changing files
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out current branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run catalogue and logo verifier only
+        run: node scripts/validate-company-catalogue-1000.mjs
