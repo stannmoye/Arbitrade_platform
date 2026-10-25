@@ -30,7 +30,7 @@ try {
     fail("Expected a 1,000-record static company catalogue.");
   }
   const expected = new Map([...POOL_A, ...POOL_B].map(([name, code]) => [code, { name }]));
-  const counts = new Map(), ids = new Set(), names = new Set(), listings = new Set(), paths = new Set(), logoHashes = new Map();
+  const counts = new Map(), ids = new Set(), names = new Set(), issuerNames = new Map(), listings = new Set(), paths = new Set(), logoHashes = new Map();
   for (const [index, company] of data.companies.entries()) {
     const label = "record " + (index + 1);
     for (const key of ["id", "name", "ticker", "symbol", "exchangeCode", "countryCode", "countryName", "logoUrl", "logoSourceUrl", "logoSourceSlug", "logoSha256"]) {
@@ -38,6 +38,9 @@ try {
     }
     if (ids.has(company.id)) fail(label + ": duplicate ID"); ids.add(company.id);
     const normalizedName = String(company.name).normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const issuerMatches = issuerNames.get(normalizedName) ?? [];
+    issuerMatches.push({ id: company.id, name: company.name, countryCode: company.countryCode, exchangeCode: company.exchangeCode, symbol: company.symbol });
+    issuerNames.set(normalizedName, issuerMatches);
     const nameKey = company.countryCode + "|" + normalizedName;
     if (names.has(nameKey)) fail(label + ": duplicate company name within country"); names.add(nameKey);
     const listing = String(company.exchangeCode).toUpperCase() + ":" + String(company.symbol).toUpperCase();
@@ -60,6 +63,11 @@ try {
     if (!/^[a-z0-9-]+\.svg$/.test(company.logoUrl.split("/").at(-1))) fail(label + ": unexpected logo asset path.");
     if (paths.has(company.logoUrl)) fail(label + ": duplicate local logo path"); paths.add(company.logoUrl);
     logoHashes.set(company.logoUrl, company.logoSha256.toLowerCase());
+  }
+  const duplicateIssuerNames = [...issuerNames.values()].filter((matches) => matches.length > 1);
+  if (duplicateIssuerNames.length) {
+    console.warn("[company-logos] ACCEPTANCE BLOCKER: " + duplicateIssuerNames.length + " normalized issuer-name groups appear in multiple records. Review primary listings and replace cross-listing duplicates before calling the catalogue 1,000 unique issuers.");
+    for (const matches of duplicateIssuerNames) console.warn("[company-logos] DUPLICATE ISSUER CANDIDATES: " + matches.map((item) => item.name + " (" + item.countryCode + ", " + item.exchangeCode + ":" + item.symbol + ")").join(" | "));
   }
   const poolACount = [...POOL_A].reduce((total, [, code]) => total + (counts.get(code) ?? 0), 0);
   const poolBCount = [...POOL_B].reduce((total, [, code]) => total + (counts.get(code) ?? 0), 0);
