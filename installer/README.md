@@ -81,7 +81,7 @@ pnpm installer:verify
 ~~~
 
    The verifier loads `.env` relative to the application root (rather than assuming the terminal's current directory), checks the Node.js 20+ runtime and pnpm 10.18.x version, confirms the package and lockfile exist, validates that the package start script launches `dist/index.js` in production mode, checks that `PUBLIC_APP_URL` is a valid HTTPS URL, and then checks database connectivity, required tables, administrator presence, migration trackers, the build artifact, installer locks, bootstrap cleanup, incomplete-installation markers, `.env` permissions, and GET `/api/health`. Email-provider connectivity is intentionally not checked by installer commands. Configure and test email from the authenticated admin portal after the administrator signs in. The health result includes response time. The final summary reports `READY`, `READY WITH WARNINGS`, or `NOT READY`; any failed check causes a non-zero exit code. A health check cannot pass until the Node.js application has been started. Installer commands load `.env` from the application root.
-10. Remove or deny public access to /installer/ after verification. Keep .env, bootstrap state, SQL dumps, logs, and uploads private. The install lock is not a substitute for removing public access.
+9. Remove or deny public access to /installer/ after verification. Keep .env, bootstrap state, SQL dumps, logs, and uploads private. The install lock is not a substitute for removing public access.
 
 ## Deployment diagnostics
 
