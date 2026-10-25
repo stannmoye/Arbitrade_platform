@@ -43,6 +43,7 @@ try {
     const listing = String(company.exchangeCode).toUpperCase() + ":" + String(company.symbol).toUpperCase();
     if (listings.has(listing)) fail(label + ": duplicate exchange/symbol"); listings.add(listing);
     if (!expected.has(company.countryCode)) fail(label + ": country is outside the requested 46-country allocation");
+    if (company.countryName !== expected.get(company.countryCode).name) fail(label + ": countryName does not match countryCode (expected " + expected.get(company.countryCode).name + ").");
     counts.set(company.countryCode, (counts.get(company.countryCode) ?? 0) + 1);
     if (company.listingStatus !== "unverified" || company.lastVerifiedAt !== null || company.requiresManualVerification !== true) {
       fail(label + ": source rows must remain unverified.");
@@ -64,12 +65,15 @@ try {
   const poolBCount = [...POOL_B].reduce((total, [, code]) => total + (counts.get(code) ?? 0), 0);
   if (poolACount !== 550 || poolBCount !== 450) fail("Pool totals are wrong: Pool A=" + poolACount + "; Pool B=" + poolBCount + ".");
   if (data.targetDistribution?.poolA?.total !== 550 || data.targetDistribution?.poolB?.total !== 450) fail("Catalogue distribution metadata is inconsistent.");
-  const allLogoFiles = (await readdir(LOGO_DIR)).filter((name) => name.endsWith(".svg"));
-  if (allLogoFiles.length !== 1000) fail("Expected exactly 1,000 cached SVG files; found " + allLogoFiles.length + ".");
+  const allLogoFiles = (await readdir(LOGO_DIR)).filter((name) => !name.startsWith("."));
+  if (allLogoFiles.length !== 1000) fail("Expected exactly 1,000 cached logo files; found " + allLogoFiles.length + ".");
+  if (allLogoFiles.some((name) => !/^[a-z0-9-]+\\.svg$/.test(name))) fail("Logo directory contains an unexpected non-SVG or unsafe filename.");
   for (const relativePath of paths) {
     const filePath = join(ROOT, "client/public", relativePath.replace(/^\/+/, ""));
     const info = await stat(filePath);
     if (!info.isFile() || info.size <= 0 || info.size > 200 * 1024) fail("Logo file has invalid size: " + relativePath + " (" + info.size + " bytes)");
+    const company = data.companies.find((entry) => entry.logoUrl === relativePath);
+    if (!company || (company.logoBytes != null && company.logoBytes !== info.size)) fail("Logo byte-size metadata mismatch: " + relativePath);
     const bytes = await readFile(filePath);
     const body = bytes.toString("utf8");
     if (createHash("sha256").update(bytes).digest("hex").toLowerCase() !== logoHashes.get(relativePath)) fail("Logo SHA-256 mismatch: " + relativePath);
