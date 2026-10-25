@@ -10,7 +10,7 @@ export const ENV = {
   // AI chat and speech transcription are optional integrations, not installation requirements.
   get aiApiBaseUrl() { return ""; },
   get aiApiKey() { return ""; },
-  get imageApiBaseUrl() { return (process.env.IMAGE_API_BASE_URL ?? "").replace(/\/+$/, ""); },
+  get imageApiBaseUrl() { return ""; },
   get imageApiKey() { return ""; },
   get transcriptionApiBaseUrl() { return ""; },
   get transcriptionApiKey() { return ""; },
