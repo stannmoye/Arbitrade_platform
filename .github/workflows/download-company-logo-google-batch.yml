@@ -1,4 +1,4 @@
-name: Download company logos from official websites in 50-company batches
+name: Download company logos from official websites in 200-company batches
 
 on:
   # Manual batches remain available; the script update triggers batch 1 once.
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       batch:
-        description: "Batch number (50 companies per batch, 1–20)"
+        description: "Batch number (200 companies per batch, 1–5)"
         required: true
         default: "1"
         type: string
