@@ -98,7 +98,7 @@ Run this from the private application root after configuring the environment:
 pnpm installer:diagnose
 ~~~
 
-The read-only diagnostic checks the Node.js and pnpm versions, production start command, build artifact, required environment-variable presence, public URL/HTTPS, configured port, local TCP listener, `/api/health`, and a non-mutating MySQL `SELECT 1` connection check. When `MAIL_PROVIDER=smtp`, it also checks that required SMTP settings are present; it does not send a message or test the provider connection. Use `pnpm installer:test-smtp --to=you@example.com` for an explicit SMTP test.
+The read-only diagnostic checks the Node.js and pnpm versions, production start command, build artifact, required environment-variable presence, public URL/HTTPS, configured port, local TCP listener, `/api/health`, and a non-mutating MySQL `SELECT 1` connection check. SMTP is deliberately outside the installer flow: after the administrator signs in, use Communications → Email & SMTP Settings to choose a provider, save credentials, and send a test message. Legacy deployments that explicitly configure `MAIL_PROVIDER=smtp` may still receive environment validation, but new installs do not need SMTP environment variables.
 
 It never prints database URLs, passwords, tokens, or other environment values. Database failures report an error code and troubleshooting guidance, not connection credentials. A successful result is a deployment triage aid, not proof that every feature works or that the installation is secure.
 

@@ -10,7 +10,7 @@ export function AdminSlideMenu({ section, onNavigate }: AdminSlideMenuProps) {
   const [query, setQuery] = useState("");
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLElement | null>(null);
-  const activeLabel = section === "suiteTickets" ? "Support Tickets" : section === "deliveryMonitor" ? "Delivery & Lifecycle" : section === "smtpCenter" ? "SMTP Transport" : section === "credit" ? "Credit Adjustment" : section === "debit" ? "Debit Adjustment" : section === "opportunity" ? "Offers" : section === "customers" ? "Customer Directory" : "Admin workspace";
+  const activeLabel = section === "suiteTickets" ? "Support Tickets" : section === "deliveryMonitor" ? "Delivery & Lifecycle" : section === "smtpCenter" ? "Email & SMTP Settings" : section === "credit" ? "Credit Adjustment" : section === "debit" ? "Debit Adjustment" : section === "opportunity" ? "Offers" : section === "customers" ? "Customer Directory" : "Admin workspace";
   const counters = [
     { label: "Pending KYC", value: "Review queue", target: "verificationOversight", icon: ShieldCheck },
     { label: "Open tickets", value: "Support queue", target: "suiteTickets", icon: TicketCheck },

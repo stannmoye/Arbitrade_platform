@@ -78,7 +78,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
   ]},
   { id: "communications", label: "Communications", detail: "Email operations and support work", items: [
     { id: "email-activity-queue", target: "emailCenter", label: "Email Activity & Queue", detail: "Customer communications and queued actions", icon: Mail },
-    { id: "smtp-transport", target: "smtpCenter", label: "SMTP Transport", detail: "Transport, sender metadata and delivery test", icon: Mail },
+    { id: "smtp-transport", target: "smtpCenter", label: "Email & SMTP Settings", detail: "Configure local mail, SendGrid, Amazon SES or another SMTP provider", icon: Mail },
     { id: "compose-email", target: "smtpCenter", label: "Compose Email", detail: "Recipients, rich text and attachments", icon: Mail },
     { id: "support-tickets", target: "suiteTickets", label: "Support Tickets", detail: "Canonical customer support queue", icon: TicketCheck },
     { id: "customer-notifications", target: "notificationCenter", label: "Announcements & Notifications", detail: "Publish customer updates and review operational alerts", icon: Bell },

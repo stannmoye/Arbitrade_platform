@@ -77,6 +77,35 @@ describe("admin-configured email transport", () => {
     expect(setAppSetting).toHaveBeenCalledTimes(2);
   });
 
+
+  it("requires provider credentials for SendGrid and Amazon SES and clears secrets on provider changes", async () => {
+    const common = {
+      mode: "external" as const,
+      host: "smtp.example.test",
+      port: 587,
+      secure: false,
+      authType: "login" as const,
+      fromName: "Test Mailer",
+      fromAddress: "no-reply@example.test",
+      replyTo: "",
+    };
+    await saveEmailConfig({ ...common, provider: "sendgrid", user: "apikey", password: "sendgrid-test-key" });
+    expect(await isEmailAdminConfigured()).toBe(true);
+    expect((await publicEmailConfig()).provider).toBe("sendgrid");
+
+    await saveEmailConfig({ ...common, provider: "aws-ses", region: "eu-west-1", user: "ses-user", clearPassword: true });
+    expect(await isEmailAdminConfigured()).toBe(false);
+    expect(await getEmailConfig()).toMatchObject({ provider: "aws-ses", region: "eu-west-1", password: "" });
+
+    await saveEmailConfig({ ...common, provider: "aws-ses", region: "eu-west-1", user: "ses-user", password: "ses-smtp-secret" });
+    expect(await isEmailAdminConfigured()).toBe(true);
+    const stored = settings.get("email.smtp") || "";
+    expect(stored).not.toContain("ses-smtp-secret");
+
+    await saveEmailConfig({ ...common, provider: "local", mode: "direct", clearPassword: true });
+    expect(await getEmailConfig()).toMatchObject({ provider: "local", password: "" });
+  });
+
   it("never includes a saved SMTP password in the public settings response", async () => {
     await saveEmailConfig({
       mode: "external",
