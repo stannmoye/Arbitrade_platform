@@ -13,10 +13,10 @@ export function validateInitialAccountInput(env = process.env) {
     throw new Error("A valid CUSTOMER_EMAIL is required for a fresh installation.");
   }
   if (adminPassword.length < 12 || adminPassword.length > 200) {
-    throw new Error("ADMIN_PASSWORD must contain at least 12 characters.");
+    throw new Error("ADMIN_PASSWORD must contain between 12 and 200 characters.");
   }
   if (customerPassword.length < 12 || customerPassword.length > 200) {
-    throw new Error("CUSTOMER_PASSWORD must contain at least 12 characters.");
+    throw new Error("CUSTOMER_PASSWORD must contain between 12 and 200 characters.");
   }
   if (adminEmail === customerEmail) {
     throw new Error("Administrator and customer accounts must use different email addresses.");
