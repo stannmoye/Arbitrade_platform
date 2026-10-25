@@ -422,6 +422,69 @@ async function loadMoexStockCandidates() {
   };
 }
 
+function decodeHtmlEntities(value) {
+  return String(value ?? "")
+    .replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#(\d+);/g, (_, decimal) => String.fromCodePoint(Number(decimal)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)));
+}
+function htmlText(value) {
+  return decodeHtmlEntities(String(value ?? "").replace(/<script\b[\s\S]*?<\/script\s*>/gi, " ").replace(/<style\b[\s\S]*?<\/style\s*>/gi, " ").replace(/<[^>]*>/g, " "))
+    .replace(/\s+/g, " ").trim();
+}
+async function loadDseStockCandidates() {
+  const sourceUrl = "https://www.dse.com.bd/companies?view=closed";
+  const html = await fetchText(sourceUrl, "Official Dhaka Stock Exchange company list");
+  const candidates = [];
+  const seen = new Set();
+  const anchorPattern = /<a\b[^>]*href=["'](?:https?:\/\/www\.dse\.com\.bd)?\/company\/([A-Za-z0-9._-]+)(?:[?#][^"']*)?["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let match;
+  while ((match = anchorPattern.exec(html)) !== null) {
+    const ticker = decodeHtmlEntities(match[1]).trim().toUpperCase();
+    if (!/^[A-Z0-9][A-Z0-9._-]{0,19}$/.test(ticker) || seen.has(ticker)) continue;
+    // DSE's all-securities view includes mutual funds and government/debt instruments.
+    if (/^(?:TB\d|BGTB|SUKUK)/i.test(ticker) || /(?:MF|BOND|SUKUK)$/i.test(ticker)) continue;
+    let display = htmlText(match[2]);
+    const firstSpace = display.search(/\s/);
+    if (firstSpace > 0) {
+      const firstToken = display.slice(0, firstSpace).trim().toUpperCase();
+      if (firstToken === ticker || (firstToken.startsWith(ticker) && firstToken.length <= ticker.length + 1)) {
+        display = display.slice(firstSpace + 1).trim();
+      }
+    }
+    if (!display || norm(display) === norm(ticker)) continue;
+    seen.add(ticker);
+    candidates.push({
+      name: display,
+      ticker,
+      symbol: ticker,
+      exchange: "DSE",
+      countryCode: "BD",
+      countryName: "Bangladesh",
+      sector: null,
+      sourceCountry: "Bangladesh",
+      sourceCountryCode: "BD",
+    });
+  }
+  if (candidates.length < 14) {
+    throw new Error("Official Dhaka Stock Exchange page yielded only " + candidates.length + " distinct equity candidates after excluding funds/debt; 14 are required for Bangladesh.");
+  }
+  return {
+    candidates,
+    source: {
+      providerName: "Dhaka Stock Exchange PLC",
+      sourceUrl,
+      retrievedAt: new Date().toISOString(),
+      sourceVersion: "Listed-company screener HTML captured during catalogue build",
+      rawRows: candidates.length,
+      tradableEquityCandidates: candidates.length,
+      attribution: "Dhaka Stock Exchange PLC, official listed-company screener: " + sourceUrl,
+      limitations: "Company identity reference only; listing status and eligibility are not independently verified by this catalogue.",
+    },
+  };
+}
+
 async function buildCountry(country, candidates, target, logoIndex, selectedIds, globalNames) {
   const ready = [];
   for (const candidate of candidates) {
@@ -495,6 +558,22 @@ async function main() {
     }
     supplementalSources.push(moex.source);
     console.log("[company-logos] Added " + added + " Moscow Exchange candidates from " + moex.source.rawRows + " ISS rows.");
+  }
+  const sourceBangladeshCount = stockCandidates.filter((item) => item.countryCode === "BD").length;
+  if (sourceBangladeshCount < 14) {
+    console.log("[company-logos] Main ticker source has " + sourceBangladeshCount + " Bangladesh rows; supplementing from the official Dhaka Stock Exchange list.");
+    const dse = await loadDseStockCandidates();
+    const knownListings = new Set(stockCandidates.map((item) => item.countryCode + "|" + item.exchange.toUpperCase() + "|" + item.ticker.toUpperCase()));
+    let added = 0;
+    for (const item of dse.candidates) {
+      const key = item.countryCode + "|" + item.exchange.toUpperCase() + "|" + item.ticker.toUpperCase();
+      if (knownListings.has(key)) continue;
+      stockCandidates.push(item);
+      knownListings.add(key);
+      added++;
+    }
+    supplementalSources.push(dse.source);
+    console.log("[company-logos] Added " + added + " Dhaka Stock Exchange candidates.");
   }
   const selectedIds = new Set();
   const globalNames = new Set();
