@@ -31,7 +31,7 @@ pnpm test
 pnpm dev
 ```
 
-Set `DATABASE_URL`, `SESSION_SECRET`, and `PASSWORD_PEPPER` before using authentication. Do not commit `.env`.
+Set `DATABASE_URL` for the application database. The installer generates security secrets automatically; when no installer-provided secrets exist, the runtime generates and persists them in a private `.arbitrade-runtime-secrets.json` file. Keep that file on durable private storage and back it up. Do not commit `.env` or runtime secret files.
 
 ## Production build
 
@@ -81,7 +81,7 @@ https://YOUR_DOMAIN/api/oauth/google/callback
 https://YOUR_DOMAIN/api/oauth/microsoft/callback
 ```
 
-Keep OAuth client secrets and SMTP credentials server-side. Configure SPF, DKIM, DMARC, sender verification, and failure/retry handling.
+Configure email delivery from the authenticated admin portal after installation. Email, AI, speech transcription, image, and maps integrations are optional and are not required for the application to start.
 
 ## Recovery
 
