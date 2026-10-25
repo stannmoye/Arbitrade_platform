@@ -287,6 +287,60 @@ function cleanSvg(text) {
   if (/<image\b[^>]*(?:href|xlink:href)\s*=\s*["']https?:/i.test(svg) || /url\(\s*["']?https?:/i.test(svg)) return null;
   return svg;
 }
+async function downloadOfficialWebsiteLogo(candidate) {
+  if (!candidate.profileUrl) return null;
+  try {
+    const profile = await fetchText(candidate.profileUrl, "Official exchange company profile");
+    const websiteLinks = [];
+    const anchorRe = /<a\b([^>]*?)href\s*=\s*["'](https?:\/\/[^"'#\s]+)["']([^>]*)>([\s\S]*?)<\/a>/gi;
+    let match;
+    while ((match = anchorRe.exec(profile)) !== null) {
+      const href = decodeHtmlEntities(match[2]).trim();
+      const label = norm(htmlText(match[4]) + " " + (match[1] + " " + match[3]).replace(/<[^>]*>/g, " "));
+      if (!/^https?:\/\//i.test(href) || /dse\.com\.bd|facebook\.com|linkedin\.com|youtube\.com|instagram\.com|twitter\.com|x\.com|mailto:/i.test(href)) continue;
+      if (/website|web site|company site|homepage|official site|visit site/.test(label)) websiteLinks.push(href);
+    }
+    for (const websiteUrl of [...new Set(websiteLinks)]) {
+      try {
+        const pageResponse = await fetch(websiteUrl, { headers: { "user-agent": "Arbitrade-Company-Catalogue/1.0", accept: "text/html,*/*" }, redirect: "follow", signal: AbortSignal.timeout(8000) });
+        if (!pageResponse.ok) continue;
+        const page = (await pageResponse.text()).slice(0, 500000);
+        const origin = new URL(pageResponse.url || websiteUrl).origin;
+        const iconCandidates = [];
+        const iconRe = /<link\b([^>]*?)>/gi;
+        let link;
+        while ((link = iconRe.exec(page)) !== null) {
+          const attrs = link[1];
+          const rel = (attrs.match(/\brel\s*=\s*["']([^"']+)["']/i) || [])[1] || "";
+          const href = (attrs.match(/\bhref\s*=\s*["']([^"']+)["']/i) || [])[1];
+          if (!href || !/icon|shortcut/i.test(rel)) continue;
+          try { iconCandidates.push(new URL(decodeHtmlEntities(href), origin).href); } catch {}
+        }
+        iconCandidates.push(new URL("/favicon.ico", origin).href);
+        for (const iconUrl of [...new Set(iconCandidates)]) {
+          try {
+            const iconResponse = await fetch(iconUrl, { headers: { "user-agent": "Arbitrade-Company-Catalogue/1.0", accept: "image/png,image/jpeg,image/gif,image/webp,image/svg+xml,*/*" }, redirect: "follow", signal: AbortSignal.timeout(8000) });
+            if (!iconResponse.ok) continue;
+            const mime = (iconResponse.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+            const bytes = Buffer.from(await iconResponse.arrayBuffer());
+            if (!bytes.length || bytes.length > 32768) continue;
+            if (mime === "image/x-icon" || mime === "image/vnd.microsoft.icon" || mime === "application/octet-stream") continue;
+            if (!["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"].includes(mime)) continue;
+            if (mime === "image/svg+xml") {
+              const svg = cleanSvg(bytes.toString("utf8"));
+              if (!svg) continue;
+              return { slug: "official-site-favicon", sourceUrl: iconResponse.url || iconUrl, sourceName: "Official company website favicon", svg, bytes: Buffer.byteLength(svg, "utf8") };
+            }
+            const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><image href="data:' + mime + ';base64,' + bytes.toString("base64") + '" width="64" height="64" preserveAspectRatio="xMidYMid meet"/></svg>';
+            const cleaned = cleanSvg(svg);
+            if (cleaned) return { slug: "official-site-favicon", sourceUrl: iconResponse.url || iconUrl, sourceName: "Official company website favicon", svg: cleaned, bytes: Buffer.byteLength(cleaned, "utf8") };
+          } catch {}
+        }
+      } catch {}
+    }
+  } catch {}
+  return null;
+}
 async function downloadLogo(slugs) {
   for (const slug of slugs) {
     const url = LOGO_API_ROOT + encodeURIComponent(slug) + ".svg";
@@ -457,6 +511,7 @@ async function loadDseStockCandidates() {
     seen.add(ticker);
     candidates.push({
       name: display,
+      profileUrl: "https://www.dse.com.bd/company/" + ticker,
       ticker,
       symbol: ticker,
       exchange: "DSE",
@@ -489,7 +544,7 @@ async function buildCountry(country, candidates, target, logoIndex, selectedIds,
   const ready = [];
   for (const candidate of candidates) {
     const slugs = findLogoSlugs(candidate, logoIndex);
-    if (slugs.length) ready.push({ ...candidate, slugs });
+    if (slugs.length || candidate.profileUrl) ready.push({ ...candidate, slugs });
   }
   let offset = 0;
   const chosen = [];
@@ -498,7 +553,8 @@ async function buildCountry(country, candidates, target, logoIndex, selectedIds,
     const batch = ready.slice(offset, offset + batchSize);
     offset += batch.length;
     const downloaded = await mapLimit(batch, CONCURRENCY, async (candidate) => {
-      const logo = await downloadLogo(candidate.slugs);
+      let logo = await downloadLogo(candidate.slugs ?? []);
+      if (!logo && candidate.profileUrl) logo = await downloadOfficialWebsiteLogo(candidate);
       return logo ? { ...candidate, logo } : null;
     });
     for (const item of downloaded) {
@@ -621,7 +677,7 @@ async function main() {
       sourceRecordId: item.exchange + ":" + item.ticker,
       sourceObservedAt: null,
       logoUrl: "/assets/company-logos/" + fileName,
-      logoSourceName: "Tradient Companies Logo API",
+      logoSourceName: item.logo.sourceName ?? "Tradient Companies Logo API",
       logoSourceUrl: item.logo.sourceUrl,
       logoSourceSlug: item.logo.slug,
       logoBytes: item.logo.bytes,
