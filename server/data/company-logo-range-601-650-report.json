@@ -1,0 +1,439 @@
+{
+  "provider": "Official company websites: declared logo/favicon/apple-touch-icon extraction",
+  "batch": 1,
+  "range": [
+    601,
+    650
+  ],
+  "attemptedAt": "2026-10-25T18:19:35.434Z",
+  "downloaded": 22,
+  "alreadyReal": 9,
+  "failed": 13,
+  "unverifiedSite": 6,
+  "note": "Only icons fetched from an explicitly mapped official homepage are accepted. Unverified sites and failed icons remain pending; catalogue records are not regenerated.",
+  "results": [
+    {
+      "id": "us-ab-ignitis-grupe-ign-e60fa2cc",
+      "name": "AB Ignitis grupe",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://ignitisgrupe.lt/en/companies/ab-ignitis-grupe",
+      "iconKind": "logo-labelled-image",
+      "source": "https://ignitisgrupe.lt/profiles/ignitisgrupe/themes/ignitis_ignitisgrupe/images/logos/logo_en.svg",
+      "bytes": 17340,
+      "mime": "image/svg+xml",
+      "sha256": "cd37d25827c6834c8041ac42a2e61c7037f20930d5e2f21a77c90e1c61a198a3"
+    },
+    {
+      "id": "us-ab-international-group-corp-abqq-515c211c",
+      "name": "AB International Group Corp",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.abqqs.com/",
+      "iconKind": "declared-favicon",
+      "source": "https://static.parastorage.com/client/pfavico.ico",
+      "bytes": 1150,
+      "mime": "image/vnd.microsoft.icon",
+      "sha256": "33c1436f8c40ca2582d091c449fccc34ed9bf73f02526c5fdef44f4f06c6321b"
+    },
+    {
+      "id": "us-abbott-laboratories-abt-28547a7e",
+      "name": "Abbott Laboratories",
+      "status": "already-real",
+      "homepage": "https://www.abbott.com/"
+    },
+    {
+      "id": "us-abbvie-inc-abbv-855f0ab5",
+      "name": "AbbVie Inc",
+      "status": "already-real",
+      "homepage": null
+    },
+    {
+      "id": "us-abby-inc-abby-2e528d65",
+      "name": "Abby Inc",
+      "status": "official-site-not-verified",
+      "note": "No confirmed official homepage mapping; left existing asset unchanged."
+    },
+    {
+      "id": "us-abeona-therapeutics-inc-0h7r-81994abb",
+      "name": "Abeona Therapeutics Inc.",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.abeonatherapeutics.com/",
+      "iconKind": "declared-favicon",
+      "source": "https://abeona.b-cdn.net/wp-content/uploads/2025/09/Favicon_abeona_icon-32x32-1.png",
+      "bytes": 1435,
+      "mime": "image/png",
+      "sha256": "6a2f164d04a3b01d114b87df98165c6af85bda1fc8c5301a8aaac9eaf2e46b26"
+    },
+    {
+      "id": "us-abercrombie-fitch-company-anf-4171b3d6",
+      "name": "Abercrombie & Fitch Company",
+      "status": "already-real",
+      "homepage": "https://corporate.abercrombie.com/"
+    },
+    {
+      "id": "us-abm-industries-incorporated-abm-dd8eae77",
+      "name": "ABM Industries Incorporated",
+      "status": "already-real",
+      "homepage": "https://www.abm.com/"
+    },
+    {
+      "id": "us-aboitiz-equity-ventures-inc-adr-abtzy-71c56af6",
+      "name": "Aboitiz Equity Ventures Inc ADR",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://aboitiz.com/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://cdn.prod.website-files.com/69b6dc91619866dcc23c6698/69c5d56f3e21409e42b083bf_Aboitiz%20Techglomerate%20Attitude%20Symbols%20Square.png",
+      "bytes": 2900,
+      "mime": "image/png",
+      "sha256": "4c78d5f6e41ecca8025a05dd314f115e5bcce5782399f7296afb5920381c2e2a"
+    },
+    {
+      "id": "us-aboitiz-power-corp-adr-abzpy-e58ac401",
+      "name": "Aboitiz Power Corp ADR",
+      "status": "official-site-fetch-failed",
+      "homepage": "https://aboitizpower.com/",
+      "error": "HTTP 403"
+    },
+    {
+      "id": "us-absa-group-ltd-adr-agrpy-67828cb6",
+      "name": "Absa Group Ltd ADR",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.absa.africa/",
+      "iconKind": "logo-labelled-image",
+      "source": "https://www.absa.africa/wp-content/uploads/2024/02/Absa-logo-badge_RGB_Passion_JPG-1.jpg",
+      "bytes": 18434,
+      "mime": "image/jpeg",
+      "sha256": "9a03fade19cccfef5b79bd09ab4c13375f12e36f2f55b4e85397baf93370909c"
+    },
+    {
+      "id": "us-absci-corp-absi-9d3ef961",
+      "name": "Absci Corp",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.absci.com/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://www.absci.com/wp-content/uploads/2021/06/cropped-absci-favicon_002-1-1-180x180.png",
+      "bytes": 3236,
+      "mime": "image/webp",
+      "sha256": "3419a7fb38320db10a24ba84af48be0c5847b3ab6ae149fe65109c2d18ab26ff"
+    },
+    {
+      "id": "us-absecon-bancorp-ascn-34d2bc38",
+      "name": "Absecon Bancorp",
+      "status": "official-site-not-verified",
+      "note": "No confirmed official homepage mapping; left existing asset unchanged."
+    },
+    {
+      "id": "us-absolute-health-and-fitness-inc-ahfi-52e5261a",
+      "name": "Absolute Health and Fitness Inc",
+      "status": "official-site-not-verified",
+      "note": "No confirmed official homepage mapping; left existing asset unchanged."
+    },
+    {
+      "id": "us-abundia-global-impact-group-inc-common-stock-agig-f2bbf916",
+      "name": "Abundia Global Impact Group Inc. Common stock",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://abundiaimpact.com/",
+      "iconKind": "declared-favicon",
+      "source": "https://abundiaimpact.com/wp-content/uploads/2025/12/favicon-1-150x150.png",
+      "bytes": 3854,
+      "mime": "image/webp",
+      "sha256": "8bc3d12665b2cc8aa1069396007b16bb81631bdb617e38932ad7f5eaed6f92e8"
+    },
+    {
+      "id": "us-abv-consulting-inc-abvn-1e97e060",
+      "name": "ABV Consulting Inc",
+      "status": "official-site-not-verified",
+      "note": "No confirmed official homepage mapping; left existing asset unchanged."
+    },
+    {
+      "id": "us-abvc-biopharma-inc-abvc-43785614",
+      "name": "ABVC Biopharma Inc",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://abvcbiopharma.com/",
+      "iconKind": "declared-favicon",
+      "source": "https://abvcbiopharma.com/favicon.png",
+      "bytes": 1149,
+      "mime": "image/png",
+      "sha256": "6ddbce090aba1933421840cfe6b618243420feaba8708d9b6813b664f9c62224"
+    },
+    {
+      "id": "us-ac-partners-inc-acps-d923f26c",
+      "name": "AC Partners Inc",
+      "status": "official-site-not-verified",
+      "note": "No confirmed official homepage mapping; left existing asset unchanged."
+    },
+    {
+      "id": "us-acacia-research-corporation-actg-d789c000",
+      "name": "Acacia Research Corporation",
+      "status": "already-real",
+      "homepage": "https://www.acaciaresearch.com/"
+    },
+    {
+      "id": "us-academy-sports-outdoors-inc-aso-f52a5b71",
+      "name": "Academy Sports Outdoors Inc",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.academy.com/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://www.academy.com/static-assets/prod1east_component_registry_vol/assets/icons/favicon/favicon-57.png?v=3",
+      "bytes": 4202,
+      "mime": "image/png",
+      "sha256": "2c15680b2c6906ea41e57bbaafd2d83dec389cc5db167fd0116d432613ec15c8"
+    },
+    {
+      "id": "us-acadia-energy-corporation-aecx-f6d8a2c1",
+      "name": "Acadia Energy Corporation",
+      "status": "official-site-not-verified",
+      "note": "No confirmed official homepage mapping; left existing asset unchanged."
+    },
+    {
+      "id": "us-acadia-healthcare-company-inc-achc-6059c720",
+      "name": "Acadia Healthcare Company Inc",
+      "status": "already-real",
+      "homepage": "https://www.acadiahealthcare.com/"
+    },
+    {
+      "id": "us-acadia-pharmaceuticals-inc-acad-032946ee",
+      "name": "ACADIA Pharmaceuticals Inc",
+      "status": "already-real",
+      "homepage": "https://www.acadia-pharm.com/"
+    },
+    {
+      "id": "us-acadia-realty-trust-akr-d67ed0ea",
+      "name": "Acadia Realty Trust",
+      "status": "official-site-fetch-failed",
+      "homepage": "https://www.acadiarealty.com/",
+      "error": "HTTP 403"
+    },
+    {
+      "id": "us-acadian-asset-management-inc-aami-521dedc4",
+      "name": "Acadian Asset Management Inc",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.acadian-asset.com/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://www.acadian-asset.com/favicons/apple-touch-icon.png",
+      "bytes": 3904,
+      "mime": "image/png",
+      "sha256": "dbe87f652922bfe3e7f7f5a9219ad6284125ba7ed608f8be7707609bba30647b"
+    },
+    {
+      "id": "gb-1spatial-plc-spa-1247afe0",
+      "name": "1Spatial PLC",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://1spatial.com/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://1spatial.com/apple-touch-icon.png",
+      "bytes": 2444,
+      "mime": "image/png",
+      "sha256": "70318edc578a7c0fd3bf1846a76313d254f78df2ac669f2e2363c546677d0b98"
+    },
+    {
+      "id": "gb-4basebio-uk-societas-4bb-c2b8f7ee",
+      "name": "4BASEBIO UK SOCIETAS",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.4basebio.com/",
+      "iconKind": "logo-labelled-image",
+      "source": "https://images.squarespace-cdn.com/content/v1/6800cf81ffa29d1745938e9e/c18bfb07-2597-44cd-8c0b-9d645bb4314e/4basebio-logo-reverse-sans.png",
+      "bytes": 5850,
+      "mime": "image/webp",
+      "sha256": "3213dd526c1f916184dececd602a933a520bb55d1b38410fae7fbb0e8be869b3"
+    },
+    {
+      "id": "gb-4global-plc-4gbl-71b9edd3",
+      "name": "4Global Plc",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://4global.com/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://4global.com/icons/apple-touch-icon.png",
+      "bytes": 3980,
+      "mime": "image/png",
+      "sha256": "22c4ea9b0680b8ee42c65b0eb419c5b07989679a8f86bc28f76e9c9c1c54aca8"
+    },
+    {
+      "id": "gb-80-mile-plc-80m-b5397543",
+      "name": "80 Mile Plc",
+      "status": "official-site-fetch-failed",
+      "homepage": "https://80mileplc.com/",
+      "error": "fetch failed"
+    },
+    {
+      "id": "gb-a-g-barr-plc-bag-f8fa3069",
+      "name": "A.G.Barr PLC",
+      "status": "official-site-fetch-failed",
+      "homepage": "https://www.agbarr.co.uk/",
+      "error": "fetch failed"
+    },
+    {
+      "id": "gb-ab-dynamics-abdp-70cfb048",
+      "name": "Ab Dynamics",
+      "status": "already-real",
+      "homepage": "https://www.abdynamics.com/"
+    },
+    {
+      "id": "gb-aberdeen-diversified-income-and-growth-trust-plc-adig-341b0e26",
+      "name": "Aberdeen Diversified Income and Growth Trust PLC",
+      "status": "official-site-fetch-failed",
+      "homepage": "https://www.aberdeeninvestments.com/adig",
+      "error": "HTTP 404"
+    },
+    {
+      "id": "gb-aberdeen-group-plc-abdn-4cc056ea",
+      "name": "Aberdeen Group plc",
+      "status": "already-real",
+      "homepage": "https://www.aberdeenplc.com/"
+    },
+    {
+      "id": "gb-aberdeen-new-india-investment-trust-plc-anii-f6a39f00",
+      "name": "Aberdeen New India Investment Trust PLC",
+      "status": "official-site-fetch-failed",
+      "homepage": "https://www.aberdeeninvestments.com/ani",
+      "error": "HTTP 404"
+    },
+    {
+      "id": "gb-aberforth-geared-value-agvi-9e3b2b6f",
+      "name": "Aberforth Geared Value &",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.aberforth.co.uk/trusts-and-funds/aberforth-geared-value-income-trust-plc/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://www.aberforth.co.uk/wp-content/uploads/2024/11/cropped-favicon-180x180.png",
+      "bytes": 2390,
+      "mime": "image/png",
+      "sha256": "3c8724e5d6dc0b4d53d1d0f9e8fbf0ae9f60cc3db184e7c22e82e4538abba357"
+    },
+    {
+      "id": "gb-aberforth-geared-value-income-trust-plc-agzi-5b7f9e9c",
+      "name": "Aberforth Geared Value & Income Trust plc",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.aberforth.co.uk/trusts-and-funds/aberforth-geared-value-income-trust-plc/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://www.aberforth.co.uk/wp-content/uploads/2024/11/cropped-favicon-180x180.png",
+      "bytes": 2390,
+      "mime": "image/png",
+      "sha256": "3c8724e5d6dc0b4d53d1d0f9e8fbf0ae9f60cc3db184e7c22e82e4538abba357"
+    },
+    {
+      "id": "gb-aberforth-smaller-companies-trust-plc-asl-2d993cab",
+      "name": "Aberforth Smaller Companies Trust PLC",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.aberforth.co.uk/trusts-and-funds/aberforth-smaller-companies-trust-plc/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://www.aberforth.co.uk/wp-content/uploads/2024/11/cropped-favicon-180x180.png",
+      "bytes": 2390,
+      "mime": "image/png",
+      "sha256": "3c8724e5d6dc0b4d53d1d0f9e8fbf0ae9f60cc3db184e7c22e82e4538abba357"
+    },
+    {
+      "id": "gb-abingdon-health-plc-abdx-6bbcfc65",
+      "name": "Abingdon Health Plc",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.abingdonhealth.com/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://www.abingdonhealth.com/wp-content/themes/abingdon-health/img/favicon/apple-touch-icon.png?v=1.4.100",
+      "bytes": 4280,
+      "mime": "image/webp",
+      "sha256": "4e172799dab8c7787caaee37315862f2d70f3e5af917c53374dfd67ad8aaa5fc"
+    },
+    {
+      "id": "gb-abrdn-asia-focus-plc-aas-498f7263",
+      "name": "Abrdn Asia Focus PLC",
+      "status": "official-site-fetch-failed",
+      "homepage": "https://www.aberdeeninvestments.com/aas",
+      "error": "HTTP 404"
+    },
+    {
+      "id": "gb-abrdn-asian-income-fund-limited-aaif-827131d4",
+      "name": "abrdn Asian Income Fund Limited",
+      "status": "official-site-fetch-failed",
+      "homepage": "https://www.aberdeeninvestments.com/aaif",
+      "error": "HTTP 404"
+    },
+    {
+      "id": "gb-abrdn-european-logistics-income-plc-asli-8778d207",
+      "name": "abrdn European Logistics Income plc",
+      "status": "official-site-fetch-failed",
+      "homepage": "https://www.aberdeeninvestments.com/asli",
+      "error": "HTTP 404"
+    },
+    {
+      "id": "gb-abrdn-uk-smaller-companies-growth-trust-plc-ausc-6213d630",
+      "name": "Abrdn UK Smaller Companies Growth Trust PLC",
+      "status": "official-site-fetch-failed",
+      "homepage": "https://www.aberdeeninvestments.com/ausc",
+      "error": "HTTP 404"
+    },
+    {
+      "id": "gb-accesso-technology-group-plc-acso-d10cecd2",
+      "name": "Accesso Technology Group PLC",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://accesso.com/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://accesso.com/favicon-180x180.png",
+      "bytes": 8940,
+      "mime": "image/webp",
+      "sha256": "a9de8645daabd4e21d4f0317ca50dcebf95d445849092138ca4a85f9b975e4ec"
+    },
+    {
+      "id": "gb-acuity-rm-group-plc-acrm-10a404c3",
+      "name": "Acuity RM Group Plc",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://acuityrmgroup.com/",
+      "iconKind": "declared-favicon",
+      "source": "https://acuityrmgroup.com/acuity_favicon_256x256.png",
+      "bytes": 15833,
+      "mime": "image/png",
+      "sha256": "37f2a66e1aca6f44bcfcb4725e659ba6e31f746ee5399a936c6f8e496898537b"
+    },
+    {
+      "id": "gb-adalan-ventures-plc-zaim-93232986",
+      "name": "Adalan Ventures Plc",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://adalanventures.com/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://i0.wp.com/adalanventures.com/wp-content/uploads/2023/12/cropped-icon_only.png?fit=180%2C180&",
+      "bytes": 10526,
+      "mime": "image/webp",
+      "sha256": "bc889ce259adce82c4e56ee78acd0f4824256055459a68ef498d01d10d17f4ea"
+    },
+    {
+      "id": "gb-adnams-plc-adb-62507434",
+      "name": "Adnams Plc",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://adnams.co.uk/",
+      "iconKind": "declared-favicon",
+      "source": "https://adnams.co.uk/cdn/shop/files/Adnams_A_BVI_DBLUE_no_background_32x32.png?v=1653901835",
+      "bytes": 1274,
+      "mime": "image/webp",
+      "sha256": "9799ae24daa8f071b902980ddaf2338c0fb0abd5ee81e6ee5752c28a8db1fac8"
+    },
+    {
+      "id": "gb-aew-uk-reit-plc-aewu-c10aa070",
+      "name": "AEW UK REIT Plc",
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.aewukreit.com/",
+      "iconKind": "logo-labelled-image",
+      "source": "https://www.aewukreit.com/~/media/Images/A/AEW-UK-Reit/content-images/awards-logo/aewu-colour-lg.jpg",
+      "bytes": 29277,
+      "mime": "image/png",
+      "sha256": "308322d4e4c6e99d49664bf329ef7acb2cfd4b84e3cda185786a581b8221dbcf"
+    },
+    {
+      "id": "gb-afc-energy-plc-afc-c3322f4f",
+      "name": "AFC Energy plc",
+      "status": "no-usable-site-icon",
+      "homepage": "https://www.h-power.co.uk/",
+      "candidatesChecked": 1
+    },
+    {
+      "id": "gb-afentra-plc-aet-2fe9e5bb",
+      "name": "Afentra PLC",
+      "status": "official-site-fetch-failed",
+      "homepage": "https://www.afentra.com/",
+      "error": "fetch failed"
+    },
+    {
+      "id": "gb-aferian-plc-afrn-4c5120f4",
+      "name": "Aferian PLC",
+      "status": "official-site-fetch-failed",
+      "homepage": "https://aferian.com/",
+      "error": "fetch failed"
+    }
+  ]
+}
