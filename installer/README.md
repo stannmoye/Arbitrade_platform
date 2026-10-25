@@ -80,7 +80,7 @@ node installer/run-install.mjs --existing-database --confirm-existing-migrations
 pnpm installer:verify
 ~~~
 
-   The verifier loads `.env` relative to the application root (rather than assuming the terminal's current directory), checks the Node.js 20+ runtime and pnpm 10.18.x version, confirms the package and lockfile exist, validates that the package start script launches `dist/index.js` in production mode, checks that `PUBLIC_APP_URL` is a valid HTTPS URL, and then checks database connectivity, required tables, administrator presence, migration trackers, the build artifact, installer locks, bootstrap cleanup, incomplete-installation markers, `.env` permissions, SMTP connectivity when enabled, and GET `/api/health`. The health result includes response time. The final summary reports `READY`, `READY WITH WARNINGS`, or `NOT READY`; any failed check causes a non-zero exit code. A health check cannot pass until the Node.js application has been started. The install and SMTP CLI scripts also load `.env` from the application root.
+   The verifier loads `.env` relative to the application root (rather than assuming the terminal's current directory), checks the Node.js 20+ runtime and pnpm 10.18.x version, confirms the package and lockfile exist, validates that the package start script launches `dist/index.js` in production mode, checks that `PUBLIC_APP_URL` is a valid HTTPS URL, and then checks database connectivity, required tables, administrator presence, migration trackers, the build artifact, installer locks, bootstrap cleanup, incomplete-installation markers, `.env` permissions, GET `/api/health`. The health result includes response time. The final summary reports `READY`, `READY WITH WARNINGS`, or `NOT READY`; any failed check causes a non-zero exit code. A health check cannot pass until the Node.js application has been started. The installer CLI loads `.env` from the application root.
 9. If SMTP is configured, send an explicit test message to an address you control:
 
 ~~~bash
@@ -117,19 +117,9 @@ Common follow-up actions:
 - Do not delete .configured or installer/.installed to force a reinstall over existing data.
 - The wizard does not provide a browser-based SQL dump importer because large imports can exceed cPanel limits and make recovery unreliable.
 
-## SMTP and OAuth
+## Optional provider setup
 
-The browser wizard includes a **Test SMTP settings** action on the email step. Enter a recipient inbox you control; the test submits the SMTP values only to the server-side `installer/smtp-test.php` endpoint, which invokes the existing Nodemailer test script with a restricted child-process argument list and environment. It does not save `.env`, echo credentials, or log SMTP passwords. The web test requires Node.js to be visible in the PHP process PATH, installed `node_modules/nodemailer` and `node_modules/dotenv`, and PHP process execution support. Some cPanel hosts hide Node.js from PHP-FPM or disable `proc_open`; in that case, finish configuration and use the private terminal fallback below. A successful test means the SMTP server accepted the test message, not that it reached the recipient's inbox.
-
-After installation, the private terminal fallback remains available:
-
-~~~bash
-pnpm installer:test-smtp --to=you@example.com
-~~~
-
-Configure SPF, DKIM, DMARC, and your provider's sender authorization separately.
-
-Google and Microsoft OAuth callback URLs are generated from the application URL. Register the exact callback URLs in the provider consoles and test sign-in; credentials alone do not prove provider-side approval or callback configuration.
+Email delivery is configured and tested from the authenticated admin portal after installation. OAuth providers remain optional and can be configured separately when needed.
 
 ## Cron jobs
 
