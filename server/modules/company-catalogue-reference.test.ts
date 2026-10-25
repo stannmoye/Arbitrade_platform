@@ -4,6 +4,7 @@ import {
   findCompanyReferencesBySymbol,
   getCompanyReferenceById,
   getCompanyReferenceSummary,
+  getRandomCompanyReference,
   searchCompanyReferences,
 } from "./company-catalogue-reference";
 
@@ -46,6 +47,18 @@ describe("1,000-company static reference catalogue", () => {
     expect(searchCompanyReferences({ search: sample.name, limit: 5 }).some((company) => company.id === sample.id)).toBe(true);
     expect(searchCompanyReferences({ countryCode: "ZZ" })).toHaveLength(0);
     expect(searchCompanyReferences({ limit: 1000 })).toHaveLength(100);
+  });
+
+  it("returns a clearly reference-only random spotlight, never a verified trade", () => {
+    const sample = getRandomCompanyReference(() => 0);
+    expect(sample.id).toBe(COMPANY_REFERENCE_CATALOGUE[0]!.id);
+    expect(sample.referenceOnly).toBe(true);
+    expect(sample.recordCompleteness).toBe("incomplete");
+    expect(sample.listingStatus).toBe("unverified");
+    expect(sample.eligibleForVerifiedTradeRotation).toBe(false);
+    expect(sample.logoReusePermissionVerified).toBe(true);
+    expect(sample.logoUrl).toBe(COMPANY_REFERENCE_CATALOGUE[0]!.logoUrl);
+    expect(() => getRandomCompanyReference(() => 1)).toThrow("Random source");
   });
 
   it("returns every exact symbol match rather than guessing across exchanges", () => {
