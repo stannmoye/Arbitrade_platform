@@ -61,7 +61,7 @@ try {
       if (!/^[a-z0-9_-]+$/.test(company.logoSourceSlug) || !/^https:\/\//.test(company.logoSourceUrl) || company.logoLicense !== "CC0-1.0") fail(label + ": invalid Simple Icons source/license metadata.");
     } else if (/^Official company website (declared-favicon|apple-touch-icon|standard-favicon|logo-labelled-image|declared-svg-icon)$/.test(company.logoSourceName)) {
       if (!/^https:\/\//i.test(String(company.logoSourceUrl ?? "")) || !/^https:\/\//i.test(String(company.logoHomepageUrl ?? ""))) fail(label + ": official-site logo source requires HTTPS source and homepage URLs.");
-      if (!/^official-website-(declared-favicon|apple-touch-icon|standard-favicon|logo-labelled-image|declared-svg-icon)$/.test(company.logoSourceSlug)) fail(label + ": invalid official-site source slug.");
+      if (!/^official-website-(favicon|declared-favicon|apple-touch-icon|standard-favicon|logo-labelled-image|declared-svg-icon)$/.test(company.logoSourceSlug)) fail(label + ": invalid official-site source slug.");
     } else if (company.logoSourceName === "Wikimedia Commons") {
       const license = String(company.logoLicense ?? "").trim();
       const reusableLicense = /^CC0(?:[ -]1\.0)?$/i.test(license)
