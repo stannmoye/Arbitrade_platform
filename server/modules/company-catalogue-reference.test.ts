@@ -1,0 +1,41 @@
+import { describe, expect, it } from "vitest";
+import {
+  COMPANY_REFERENCE_CATALOGUE,
+  findCompanyReferencesBySymbol,
+  getCompanyReferenceById,
+  getCompanyReferenceSummary,
+  searchCompanyReferences,
+} from "./company-catalogue-reference";
+
+describe("1,000-company static reference catalogue", () => {
+  it("loads 1,000 unique records and local logo paths", () => {
+    expect(COMPANY_REFERENCE_CATALOGUE).toHaveLength(1000);
+    expect(new Set(COMPANY_REFERENCE_CATALOGUE.map((company) => company.id)).size).toBe(1000);
+    expect(new Set(COMPANY_REFERENCE_CATALOGUE.map((company) => company.logoUrl)).size).toBe(1000);
+    expect(COMPANY_REFERENCE_CATALOGUE.every((company) => company.logoUrl.startsWith("/assets/company-logos/"))).toBe(true);
+  });
+
+  it("keeps every record unverified instead of treating catalogue membership as trading eligibility", () => {
+    expect(COMPANY_REFERENCE_CATALOGUE.every((company) =>
+      company.listingStatus === "unverified" &&
+      company.lastVerifiedAt === null &&
+      company.requiresManualVerification
+    )).toBe(true);
+    expect(getCompanyReferenceSummary().eligibleForVerifiedTradeRotation).toBe(0);
+    expect(getCompanyReferenceSummary().logoReusePermissionVerified).toBe(0);
+  });
+
+  it("supports ID lookup and bounded search without a database", () => {
+    const sample = COMPANY_REFERENCE_CATALOGUE[0]!;
+    expect(getCompanyReferenceById(sample.id)?.id).toBe(sample.id);
+    expect(searchCompanyReferences({ search: sample.name, limit: 5 }).some((company) => company.id === sample.id)).toBe(true);
+    expect(searchCompanyReferences({ countryCode: "ZZ" })).toHaveLength(0);
+    expect(searchCompanyReferences({ limit: 1000 })).toHaveLength(100);
+  });
+
+  it("returns every exact symbol match rather than guessing across exchanges", () => {
+    const sample = COMPANY_REFERENCE_CATALOGUE[0]!;
+    expect(findCompanyReferencesBySymbol(sample.symbol).some((company) => company.id === sample.id)).toBe(true);
+    expect(findCompanyReferencesBySymbol("   ")).toHaveLength(0);
+  });
+});
