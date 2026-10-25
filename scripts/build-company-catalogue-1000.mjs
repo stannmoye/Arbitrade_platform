@@ -30,7 +30,7 @@ const POOL_A = [
   ["Thailand", "TH"], ["United Arab Emirates", "AE"], ["Israel", "IL"], ["Austria", "AT"], ["Norway", "NO"],
   ["Singapore", "SG"], ["Vietnam", "VN"], ["Bangladesh", "BD"], ["Egypt", "EG"], ["Philippines", "PH"],
   ["Malaysia", "MY"], ["Denmark", "DK"], ["South Africa", "ZA"], ["Finland", "FI"], ["Chile", "CL"],
-  ["Romania", "RO"], ["Czechia", "CZ"], ["Portugal", "PT"], ["Kazakhstan", "KZ"], ["Peru", "PE"],
+  ["Romania", "RO"], ["Czechia", "CZ"], ["Portugal", "PT"], ["Hong Kong", "HK"], ["Peru", "PE"],
 ];
 const POOL_B = [
   ["USA", "US"], ["UK", "GB"], ["Germany", "DE"], ["Australia", "AU"], ["Canada", "CA"], ["China", "CN"],
@@ -89,7 +89,7 @@ const EXCHANGE_ALIASES = {
   SGX: ["SGX", "SES"], HOSE: ["HOSE", "VNINDEX"], HNX: ["HNX"], DSE: ["DSE"],
   EGX: ["EGX"], PSE: ["PSE"], KLSE: ["KLSE", "MYX"], MYX: ["KLSE", "MYX"],
   CPH: ["CPH", "XCSE"], JSE: ["JSE", "XJSE"], HEL: ["HEL", "XHEL"], SGO: ["SGO", "SCL"],
-  BVB: ["BVB"], LIS: ["LIS", "XLIS"], KASE: ["KASE"], BVL: ["BVL", "LIM"],
+  BVB: ["BVB"], LIS: ["LIS", "XLIS"], HKEX: ["HKEX", "SEHK", "XHKG"], SEHK: ["HKEX", "SEHK", "XHKG"], HKG: ["HKEX", "SEHK", "XHKG"], BVL: ["BVL", "LIM"],
 };
 const PREFIX_COUNTRY = {
   NASDAQ: "US", NASD: "US", XNAS: "US", NYSE: "US", XNYS: "US", "NYSE ARCA": "US", NYSEARCA: "US",
@@ -106,7 +106,7 @@ const PREFIX_COUNTRY = {
   TASE: "IL", VIE: "AT", WBO: "AT", OSL: "NO", XOSL: "NO", SGX: "SG", SES: "SG", HOSE: "VN",
   HNX: "VN", DSE: "BD", EGX: "EG", PSE: "PH", KLSE: "MY", MYX: "MY", CPH: "DK", XCSE: "DK",
   JSE: "ZA", XJSE: "ZA", HEL: "FI", XHEL: "FI", SGO: "CL", SCL: "CL", BVB: "RO", PSE_PRAGUE: "CZ",
-  LIS: "PT", XLIS: "PT", KASE: "KZ", BVL: "PE", LIM: "PE",
+  LIS: "PT", XLIS: "PT", HKEX: "HK", SEHK: "HK", XHKG: "HK", BVL: "PE", LIM: "PE",
 };
 const SUFFIXES_BY_COUNTRY = {
   US: [".US"], GB: [".L"], DE: [".DE", ".F"], AU: [".AX"], CA: [".TO", ".V", ".CN"],
@@ -117,7 +117,7 @@ const SUFFIXES_BY_COUNTRY = {
   TH: [".BK"], AE: [".AE"], IL: [".TA"], AT: [".VI"], NO: [".OL"], SG: [".SI"],
   VN: [".VN"], BD: [".BD"], EG: [".CA"], PH: [".PS"], MY: [".KL"], DK: [".CO"],
   ZA: [".JO"], FI: [".HE"], CL: [".SN"], RO: [".RO"], CZ: [".PR"], PT: [".LS"],
-  KZ: [".KZ"], PE: [".LM"],
+  HK: [".HK"], PE: [".LM"],
 };
 
 function norm(value) {
@@ -126,7 +126,7 @@ function norm(value) {
 function normCode(value) { return String(value ?? "").toUpperCase().replace(/[^A-Z0-9]/g, ""); }
 function normalizeCountryCode(rawCode, rawCountry) {
   const raw = String(rawCode ?? "").trim().toUpperCase();
-  const aliases = { USA: "US", UK: "GB", GBR: "GB", KOR: "KR", KOR_SOUTH: "KR", UAE: "AE", VNM: "VN", CZE: "CZ", RUS: "RU", TWN: "TW", CHN: "CN", AUS: "AU", CAN: "CA", DEU: "DE", JPN: "JP", IND: "IN", FRA: "FR", ITA: "IT", BRA: "BR", MEX: "MX", ESP: "ES", IDN: "ID", TUR: "TR", NLD: "NL", SAU: "SA", CHE: "CH", POL: "PL", BEL: "BE", SWE: "SE", ARG: "AR", IRL: "IE", THA: "TH", ISR: "IL", AUT: "AT", NOR: "NO", SGP: "SG", BGD: "BD", EGY: "EG", PHL: "PH", MYS: "MY", DNK: "DK", ZAF: "ZA", FIN: "FI", CHL: "CL", ROU: "RO", PRT: "PT", KAZ: "KZ", PER: "PE" };
+  const aliases = { USA: "US", UK: "GB", GBR: "GB", KOR: "KR", KOR_SOUTH: "KR", UAE: "AE", VNM: "VN", CZE: "CZ", RUS: "RU", TWN: "TW", CHN: "CN", AUS: "AU", CAN: "CA", DEU: "DE", JPN: "JP", IND: "IN", FRA: "FR", ITA: "IT", BRA: "BR", MEX: "MX", ESP: "ES", IDN: "ID", TUR: "TR", NLD: "NL", SAU: "SA", CHE: "CH", POL: "PL", BEL: "BE", SWE: "SE", ARG: "AR", IRL: "IE", THA: "TH", ISR: "IL", AUT: "AT", NOR: "NO", SGP: "SG", BGD: "BD", EGY: "EG", PHL: "PH", MYS: "MY", DNK: "DK", ZAF: "ZA", FIN: "FI", CHL: "CL", ROU: "RO", PRT: "PT", KAZ: "KZ", HKG: "HK", PER: "PE" };
   if (COUNTRY_CODES.has(aliases[raw])) return aliases[raw];
   if (COUNTRY_CODES.has(raw)) return raw;
   return NAME_TO_CODE.get(norm(rawCountry)) ?? NAME_TO_CODE.get(norm(raw)) ?? null;
