@@ -106,7 +106,9 @@ describe("canonical installer preflight acceptance", () => {
     expect(source).toContain("function loadPrivateEnv(path)");
     expect(source).toContain('loadPrivateEnv(resolve(root, ".env"));');
     expect(source.indexOf("loadPrivateEnv(resolve(root, \".env\"));")).toBeLessThan(source.indexOf("let db;"));
-    expect(source).toContain('runPnpm(["install", "--frozen-lockfile"]);');
+    expect(source).toContain('"install", "--frozen-lockfile"');
+    expect(source).toContain('mysql = (await import("mysql2/promise")).default;');
+    expect(source.indexOf('"install", "--frozen-lockfile"')).toBeLessThan(source.indexOf('mysql = (await import("mysql2/promise")).default;'));
   });
 
   it("checks the required pnpm version before opening a database connection", async () => {
