@@ -62,7 +62,7 @@ export async function saveEmailConfig(input: Partial<EmailConfig> & { clearPassw
   const current = await getEmailConfig();
   // An omitted or blank password means "keep the saved password", not "erase it",
   // unless the administrator explicitly switches providers and clears old credentials.
-  const submittedPassword = clearPassword ? "" : typeof configInput.password === "string" && configInput.password.length > 0 ? configInput.password : current.password;
+  const submittedPassword = typeof configInput.password === "string" && configInput.password.length > 0 ? configInput.password : clearPassword ? "" : current.password;
   const next = { ...current, ...configInput, password: submittedPassword };
   const { password, ...safeConfig } = next;
   await setAppSetting("email.smtp", JSON.stringify({ ...safeConfig, passwordCipher: password ? encryptConfigPassword(password) : "" }));
