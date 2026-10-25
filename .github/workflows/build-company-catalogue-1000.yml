@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: company-catalogue-1000-logo-build
+  group: company-catalogue-1000-logo-build-reallocation-v2
   cancel-in-progress: true
 
 jobs:
