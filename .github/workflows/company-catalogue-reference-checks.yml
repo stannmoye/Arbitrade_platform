@@ -7,6 +7,7 @@ on:
     paths:
       - server/modules/company-catalogue-reference.ts
       - server/modules/company-catalogue-reference.test.ts
+      - client/src/App.tsx
       - server/modules/company-rotation.ts
       - server/modules/company-rotation.test.ts
       - server/routers.ts
