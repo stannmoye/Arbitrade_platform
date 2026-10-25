@@ -16,7 +16,7 @@ const LOGO_DIR = join(ROOT, "client/public/assets/company-logos");
 const BATCH_SIZE = 50;
 const batch = Number(process.env.LOGO_BATCH ?? process.argv[2] ?? 1);
 const MAX_BYTES = 150 * 1024;
-const USER_AGENT = "ArbitradeCompanyLogoFetcher/1.1 (+official-site favicon extraction)";
+const USER_AGENT = "ArbitradeCompanyLogoFetcher/1.2 (+official-site favicon extraction)";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const sha256 = (buffer) => createHash("sha256").update(buffer).digest("hex");
 
