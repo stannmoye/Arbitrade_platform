@@ -105,7 +105,7 @@ export function searchCompanyReferences(filters: CompanyReferenceSearch = {}): C
   const term = filters.search?.trim().toLowerCase();
   const countryCode = filters.countryCode?.trim().toUpperCase();
   const limit = Number.isFinite(filters.limit) ? Math.max(1, Math.min(100, Math.floor(filters.limit!))) : 50;
-  const results: CompanyReferenceRecord[] = [];
+  const results: CompanyReferenceResponse[] = [];
   for (const company of COMPANY_REFERENCE_CATALOGUE) {
     if (term && ![company.name, company.ticker, company.symbol, company.exchangeCode].some((value) => value.toLowerCase().includes(term))) continue;
     if (countryCode && company.countryCode.toUpperCase() !== countryCode) continue;
