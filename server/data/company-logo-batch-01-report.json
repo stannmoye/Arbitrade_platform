@@ -1,5 +1,5 @@
 {
-  "provider": "Google Images search; image bytes fetched from each result's original host",
+  "provider": "Manual verification using Simple Icons brand assets",
   "batch": 1,
   "range": [
     1,
@@ -9,7 +9,7 @@
   "downloaded": 0,
   "alreadyReal": 1,
   "failed": 49,
-  "note": "Google Images is a discovery tool; source URLs are stored per downloaded image. Automated matching is not a substitute for visual review of brand identity or a rights check.",
+  "note": "Only entries explicitly matched to the company brand are marked verified. Unverified companies remain placeholders; no unrelated search images are accepted.",
   "results": [
     {
       "id": "jp-3-d-matrix-ltd-7777-5d23fe3d",
@@ -109,11 +109,6 @@
     {
       "id": "in-3i-infotech-ltd-3iinfoltd-19baaa74",
       "name": "3i Infotech Ltd",
-      "status": "no-downloadable-image"
-    },
-    {
-      "id": "in-3m-india-ltd-3mindia-18db5b55",
-      "name": "3M India Ltd",
       "status": "no-downloadable-image"
     },
     {
@@ -259,6 +254,14 @@
       "id": "it-almawave-s-p-a-aiw-a0d4d0ec",
       "name": "Almawave S.p.A.",
       "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-3m-india-ltd-3mindia-18db5b55",
+      "name": "3M India Ltd",
+      "status": "verified-logo-installed",
+      "source": "https://github.com/simple-icons/simple-icons/blob/develop/icons/3m.svg",
+      "license": "CC0-1.0"
     }
-  ]
+  ],
+  "verifiedCount": 1
 }

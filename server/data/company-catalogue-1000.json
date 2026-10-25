@@ -882,11 +882,14 @@
       "sourceRecordId": "BSE_IN:3MINDIA",
       "sourceObservedAt": null,
       "logoUrl": "/assets/company-logos/in-3m-india-ltd-3mindia-18db5b55.svg",
-      "logoSourceName": "Neutral company-reference placeholder",
-      "logoSourceUrl": "internal://neutral-company-reference-placeholder",
-      "logoSourceSlug": "neutral-placeholder",
-      "logoBytes": 380,
-      "logoSha256": "0d364f23a8aa56d6ece5183d8e681dda204606403b4d983d8c5e062e114577d5"
+      "logoSourceName": "Simple Icons — 3M brand icon (CC0-1.0)",
+      "logoSourceUrl": "https://github.com/simple-icons/simple-icons/blob/develop/icons/3m.svg",
+      "logoSourceSlug": "3m",
+      "logoBytes": 670,
+      "logoSha256": "0cdcd71f91322fff9680b3be4fe84a68b491a2493c75b6260ceaef29b3ee1a96",
+      "logoMimeType": "image/svg+xml",
+      "logoRetrievedAt": "2026-10-25T00:00:00.000Z",
+      "logoSearchProvider": "Simple Icons"
     },
     {
       "id": "in-3p-land-holdings-ltd-3pland-ff24b660",
