@@ -218,17 +218,17 @@ Sensitive payload fields are excluded from the administrator display.
 
 ### Transport configuration
 
-Supports two transport modes:
+Provider choices include:
 
-- **Direct server mail** — uses the host’s local sendmail service
-- **External SMTP** — uses an SMTP host, port, TLS option, username, password, and authentication mode
+- **Local server mail** — uses the host’s local sendmail-compatible service
+- **Local SMTP relay** — connects to an SMTP service on the same host or private network
+- **SendGrid** — uses the SendGrid SMTP relay and an API key as the SMTP password
+- **Amazon SES** — uses region-specific SES SMTP endpoints and SES-generated SMTP credentials
+- **Other SMTP provider** — supports a standards-compliant SMTP endpoint
 
-Additional fields include:
+Provider presets populate safe starting values, but the administrator can edit the host, port, TLS, authentication method, username, and secret. AWS region selection updates the SES endpoint. The form also includes from name, from address, optional reply-to, and daily trading-close time in UTC.
 
-- From name
-- From address
-- Reply-to address
-- Daily trading-close time in UTC
+SMTP passwords are encrypted in the database, never returned to the browser, and can be retained by leaving the password field blank. Switching providers explicitly clears the previous provider secret unless a new one is saved. The administrator should send a test email after saving and verify sender/domain authentication with the selected provider.
 
 ### Test email
 
