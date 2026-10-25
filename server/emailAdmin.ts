@@ -57,11 +57,13 @@ export async function getEmailConfig(): Promise<EmailConfig> {
   const validProviders: EmailProvider[] = ["local", "local-smtp", "sendgrid", "aws-ses", "other"];
   return { ...baseConfig(), ...parsed, provider: validProviders.includes(parsed.provider as EmailProvider) ? parsed.provider as EmailProvider : (parsed.mode === "direct" ? "local" : "other"), region: typeof parsed.region === "string" ? parsed.region : "us-east-1", password, port: Number(parsed.port || 25), secure: Boolean(parsed.secure), authType: parsed.authType === "plain" || parsed.authType === "none" ? parsed.authType : "login" };
 }
-export async function saveEmailConfig(input: Partial<EmailConfig>) {
+export async function saveEmailConfig(input: Partial<EmailConfig> & { clearPassword?: boolean }) {
+  const { clearPassword = false, ...configInput } = input;
   const current = await getEmailConfig();
-  // An omitted or blank password means "keep the saved password", not "erase it".
-  const submittedPassword = typeof input.password === "string" && input.password.length > 0 ? input.password : current.password;
-  const next = { ...current, ...input, password: submittedPassword };
+  // An omitted or blank password means "keep the saved password", not "erase it",
+  // unless the administrator explicitly switches providers and clears old credentials.
+  const submittedPassword = clearPassword ? "" : typeof configInput.password === "string" && configInput.password.length > 0 ? configInput.password : current.password;
+  const next = { ...current, ...configInput, password: submittedPassword };
   const { password, ...safeConfig } = next;
   await setAppSetting("email.smtp", JSON.stringify({ ...safeConfig, passwordCipher: password ? encryptConfigPassword(password) : "" }));
   return { ...next, password: next.password ? "••••••••" : "" };
