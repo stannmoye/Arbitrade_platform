@@ -37,7 +37,7 @@ try {
       if (typeof company[key] !== "string" || !company[key].trim()) fail(label + ": missing " + key);
     }
     if (ids.has(company.id)) fail(label + ": duplicate ID"); ids.add(company.id);
-    const normalizedName = String(company.name).normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const normalizedName = String(company.name).normalize("NFKD").toLowerCase().replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
     const issuerMatches = issuerNames.get(normalizedName) ?? [];
     issuerMatches.push({ id: company.id, name: company.name, countryCode: company.countryCode, exchangeCode: company.exchangeCode, symbol: company.symbol });
     issuerNames.set(normalizedName, issuerMatches);
