@@ -11,6 +11,7 @@ export type CompanyReferenceRecord = {
   logoUrl: string;
   logoSourceName: string;
   logoSourceUrl: string;
+  logoSourceSlug: string;
   listingStatus: "unverified";
   lastVerifiedAt: null;
   requiresManualVerification: true;
