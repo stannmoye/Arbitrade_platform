@@ -61,4 +61,16 @@ describe("PHP installer state-marker safety", () => {
     expect(source).toContain("submit.disabled=preflightBlocked||!currentStepValid();");
   });
 
+  it("renders animated stage guidance and keeps the prerequisite gate intact", async () => {
+    const source = await readFile(wizardPath, "utf8");
+    expect(source).toContain("class=\"guide-panel\"");
+    expect(source).toContain("class=\"bot\"");
+    expect(source).toContain("@keyframes bot-float");
+    expect(source).toContain("prefers-reduced-motion:reduce");
+    expect(source).toContain("const guideStages=");
+    expect(source).toContain("querySelectorAll(':scope > .stage-header')");
+    expect(source).toContain("node.classList.contains('stage-header')");
+    expect(source).toContain("next.disabled=preflightBlocked||!currentStepValid();");
+    expect(source).toContain("submit.disabled=preflightBlocked||!currentStepValid();");
+  });
 });
