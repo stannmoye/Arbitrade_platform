@@ -18,6 +18,8 @@ export type CompanyReferenceRecord = {
   sector: string | null;
   headquartersCountry: string | null;
   instrumentType: "Stock";
+  recordCompleteness: "incomplete";
+  incompleteReasons: string[];
 };
 
 type CataloguePayload = {
@@ -124,6 +126,7 @@ export function getCompanyReferenceSummary() {
   for (const company of COMPANY_REFERENCE_CATALOGUE) countryCounts[company.countryName] = (countryCounts[company.countryName] ?? 0) + 1;
   return {
     total: COMPANY_REFERENCE_CATALOGUE.length,
+    incompleteRecords: COMPANY_REFERENCE_CATALOGUE.filter((company) => company.recordCompleteness === "incomplete").length,
     unverified: COMPANY_REFERENCE_CATALOGUE.filter((company) => company.listingStatus === "unverified").length,
     verifiedActive: 0,
     localLogoPaths: COMPANY_REFERENCE_CATALOGUE.filter((company) => company.logoUrl.startsWith("/assets/company-logos/")).length,
@@ -134,6 +137,6 @@ export function getCompanyReferenceSummary() {
     dataLimitations: payload.dataLimitations ?? [],
     sourceProvider: payload.source?.providerName ?? null,
     logoProvider: payload.logoSource?.providerName ?? null,
-    note: "Reference-only data. Company listing status and headquarters remain unverified; locally generated initials are neutral placeholders, not company logos. Catalogue membership is not proof of a real trade or trading eligibility.",
+    note: "Reference-only data. Every record is explicitly incomplete until listing status, headquarters and permitted official brand assets are verified. Locally generated initials are neutral placeholders, not company logos. Catalogue membership is not proof of a real trade or trading eligibility.",
   };
 }
