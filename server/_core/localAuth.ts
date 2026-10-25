@@ -1,3 +1,4 @@
+import { getRuntimeSecret } from "./runtimeSecrets";
 import crypto from "node:crypto";
 import type { Request } from "express";
 import { parse as parseCookieHeader } from "cookie";
@@ -5,9 +6,7 @@ import { COOKIE_NAME } from "@shared/const";
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 function secret() {
-  const value = process.env.SESSION_SECRET;
-  if (!value && process.env.NODE_ENV === "production") throw new Error("SESSION_SECRET is required in production");
-  return value || "development-only-session-secret";
+  return getRuntimeSecret("SESSION_SECRET");
 }
 function sign(value: string) { return crypto.createHmac("sha256", secret()).update(value).digest("base64url"); }
 export function createLocalSession(userId: number, authVersion = 0) {
@@ -47,7 +46,7 @@ export function verifyPassword(password: string, stored: string | null | undefin
     const actual = crypto.scryptSync(password, salt, 32).toString("hex");
     return crypto.timingSafeEqual(Buffer.from(actual), Buffer.from(expected));
   }
-  const legacyPepper = process.env.PASSWORD_PEPPER || "arbitrade-local-pepper";
+  const legacyPepper = getRuntimeSecret("PASSWORD_PEPPER");
   const actual = crypto.scryptSync(password, legacyPepper, 32).toString("hex");
   return crypto.timingSafeEqual(Buffer.from(actual), Buffer.from(stored));
 }
