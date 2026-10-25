@@ -766,10 +766,11 @@ jobs:
              installation, select a new EMPTY database. For existing data, first
              import a verified backup and choose existing-database mode instead.
           5. Open https://YOUR-DOMAIN/installer/ and complete the staged browser
-             wizard: URL, database connection, initial admin for fresh installs,
-             optional OAuth, and email settings. The wizard checks the connection
-             and records a protected one-time database inventory; it does not run
-             privileged host commands or import large SQL dumps.
+             wizard: public URL, database connection, and administrator plus initial
+             customer credentials for fresh installs. Configure email from the authenticated
+             admin portal after startup. The wizard validates the connection and records
+             a protected one-time database inventory; it does not run privileged host
+             commands or import large SQL dumps.
           6. Run the exact command displayed by the wizard from the private app root:
              fresh database:
                  node installer/run-install.mjs --fresh-install
