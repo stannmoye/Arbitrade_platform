@@ -32,18 +32,18 @@ function imageCandidates(html) {
   const candidates = [];
   const seen = new Set();
   // Bing Images stores original image URLs as murl fields in JSON result metadata.
-  for (const match of html.matchAll(/"murl"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"/g)) {
+  for (const match of html.matchAll(/"murl"\s*:\s*"((?:\\.|[^"\\])*)"/g)) {
     let url = "";
     try { url = JSON.parse('"' + match[1] + '"'); } catch { continue; }
     url = decodeHtml(url);
-    if (/^https?:\\/\\//i.test(url) && !seen.has(url)) { seen.add(url); candidates.push(url); }
+    if (/^https?:\/\//i.test(url) && !seen.has(url)) { seen.add(url); candidates.push(url); }
   }
   // Fallback for search-result markup that exposes an encoded direct image URL.
-  for (const match of html.matchAll(/(?:imgurl=)(https?%3A%2F%2F[^&"\\s]+)/gi)) {
+  for (const match of html.matchAll(/(?:imgurl=)(https?%3A%2F%2F[^&"\s]+)/gi)) {
     let url = match[1];
     try { url = decodeURIComponent(url); } catch {}
     url = decodeHtml(url);
-    if (/^https?:\\/\\//i.test(url) && !seen.has(url)) { seen.add(url); candidates.push(url); }
+    if (/^https?:\/\//i.test(url) && !seen.has(url)) { seen.add(url); candidates.push(url); }
   }
   return candidates;
 }
