@@ -11,7 +11,7 @@ vi.mock("./db", () => ({
 }));
 
 import { getAppSetting, setAppSetting } from "./db";
-import { getEmailConfig, hasSavedEmailConfig, isEmailAdminConfigured, publicEmailConfig, saveEmailConfig } from "./emailAdmin";
+import { getEmailConfig, hasSavedEmailConfig, isEmailAdminConfigured, publicEmailConfig, saveEmailConfig, sendEmail } from "./emailAdmin";
 
 beforeEach(() => {
   settings.clear();
@@ -28,6 +28,14 @@ describe("admin-configured email transport", () => {
     expect(await hasSavedEmailConfig()).toBe(false);
     expect(await isEmailAdminConfigured()).toBe(false);
     expect(getAppSetting).toHaveBeenCalledWith("email.smtp", "");
+  });
+
+  it("refuses to send through the default sender when no transport was saved", async () => {
+    await expect(sendEmail({
+      to: "customer@example.test",
+      subject: "Test",
+      html: "<p>Test</p>",
+    })).rejects.toThrow(/transport is not configured/i);
   });
 
   it("encrypts the SMTP password in settings and preserves it on a blank password update", async () => {
