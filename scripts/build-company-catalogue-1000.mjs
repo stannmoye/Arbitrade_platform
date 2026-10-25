@@ -573,7 +573,7 @@ async function buildCountry(country, candidates, target, logoIndex, selectedIds,
     offset += batch.length;
     const downloaded = await mapLimit(batch, CONCURRENCY, async (candidate) => {
       const candidateId = country.code.toLowerCase() + "-" + slugify(candidate.name) + "-" + slugify(candidate.ticker) + "-" + sha(candidate.exchange + ":" + candidate.ticker);
-      if (selectedIds.has(candidateId) || attemptedCandidateIds.has(candidateId) || globalNames.has(country.code + "|" + norm(candidate.name))) return null;
+      if (selectedIds.has(candidateId) || attemptedCandidateIds.has(candidateId) || globalNames.has(norm(candidate.name))) return null;
       attemptedCandidateIds.add(candidateId);
       let logo = await downloadLogo(candidate.slugs ?? []);
       if (!logo && candidate.profileUrl) logo = await downloadOfficialWebsiteLogo(candidate);
@@ -581,7 +581,7 @@ async function buildCountry(country, candidates, target, logoIndex, selectedIds,
     });
     for (const item of downloaded) {
       if (!item || chosen.length >= target) continue;
-      const nameKey = country.code + "|" + norm(item.name);
+      const nameKey = norm(item.name);
       if (globalNames.has(nameKey)) continue;
       const id = country.code.toLowerCase() + "-" + slugify(item.name) + "-" + slugify(item.ticker) + "-" + sha(item.exchange + ":" + item.ticker);
       if (selectedIds.has(id)) continue;
