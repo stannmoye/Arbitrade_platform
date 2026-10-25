@@ -137,10 +137,10 @@ if (mode === "fresh") {
   const customerEmail = String(bootstrap.customerEmail || "").trim().toLowerCase();
   const password = String(bootstrap.adminPassword || "");
   const customerPassword = String(bootstrap.customerPassword || "");
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail("A valid administrator email is required for a fresh installation.");
-  if (password.length < 12) fail("The administrator password must contain at least 12 characters.");
-  if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) fail("A valid customer email is required for a fresh installation.");
-  if (customerPassword.length < 12) fail("The customer password must contain at least 12 characters.");
+  if (!email || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail("A valid administrator email of at most 320 characters is required for a fresh installation.");
+  if (password.length < 12 || password.length > 200) fail("The administrator password must be between 12 and 200 characters.");
+  if (!customerEmail || customerEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) fail("A valid customer email of at most 320 characters is required for a fresh installation.");
+  if (customerPassword.length < 12 || customerPassword.length > 200) fail("The customer password must be between 12 and 200 characters.");
   if (email === customerEmail) fail("Administrator and customer accounts must use different email addresses.");
   if (password === customerPassword) fail("Administrator and customer passwords must be different.");
 }
