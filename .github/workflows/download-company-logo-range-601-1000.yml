@@ -6,6 +6,7 @@ on:
       - feature/verified-company-catalogue-rotation
     paths:
       - .github/workflows/download-company-logo-range-601-1000.yml
+      - scripts/download-company-logo-google-batch.mjs
 
 permissions:
   contents: write
