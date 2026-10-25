@@ -43,9 +43,9 @@ async function startServer() {
   if (process.env.NODE_ENV === "production" && !configuredAuthRateLimitStore) {
     console.warn("[AuthRateLimit] Using process-local counters. Configure AUTH_RATE_LIMIT_REDIS_REST_URL and AUTH_RATE_LIMIT_REDIS_REST_TOKEN for multi-instance deployments.");
   }
-  // The installer configures one hop for its standard cPanel/Nginx reverse-proxy
-  // topology. If a manually configured value is malformed, fail closed to direct
-  // client mode and keep the server available rather than crashing at startup.
+  // The installer defaults to direct-client mode because it cannot securely
+  // infer the network topology. Trust forwarded headers only when an operator has
+  // verified the actual reverse-proxy chain. Malformed values fail closed.
   const proxySetting = process.env.TRUST_PROXY_HOPS;
   const trustedProxyHops = resolveTrustedProxyHops(proxySetting);
   if (proxySetting?.trim() && trustedProxyHops === false && !/^0+$/.test(proxySetting.trim())) {
