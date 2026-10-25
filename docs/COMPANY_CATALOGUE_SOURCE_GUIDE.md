@@ -6,7 +6,7 @@
 
 The catalogue must contain exactly **1,000 distinct publicly listed operating companies**:
 
-- **Pool A — 550 companies:** Japan, India, France, Italy, Brazil, Russia, Mexico, South Korea, Spain, Indonesia, Turkey, Netherlands, Saudi Arabia, Switzerland, Poland, Taiwan, Belgium, Sweden, Argentina, Ireland, Thailand, United Arab Emirates, Israel, Austria, Norway, Singapore, Vietnam, Bangladesh, Egypt, Philippines, Malaysia, Denmark, South Africa, Finland, Chile, Romania, Czechia, Portugal, Kazakhstan and Peru.
+- **Pool A — 550 companies:** Japan, India, France, Italy, Brazil, Russia, Mexico, South Korea, Spain, Indonesia, Turkey, Netherlands, Saudi Arabia, Switzerland, Poland, Taiwan, Belgium, Sweden, Argentina, Ireland, Thailand, United Arab Emirates, Israel, Austria, Norway, Singapore, Vietnam, Bangladesh, Egypt, Philippines, Malaysia, Denmark, South Africa, Finland, Chile, Romania, Czechia, Portugal, Hong Kong and Peru.
 - **Pool B — 450 companies:** USA, UK, Germany, Australia, Canada and China.
 
 Every country in each pool must be represented. The country count for each country is determined by the verified source records and written to a generated summary; do not invent target counts for individual countries or misstate the final counts. Pool A must total 550 and Pool B must total 450, and the combined catalogue must total 1,000.
@@ -75,7 +75,7 @@ Use the official exchange/market operator or local securities regulator as the a
 | Romania | [Bucharest Stock Exchange (BVB)](https://www.bvb.ro/) |
 | Czechia | [Prague Stock Exchange](https://www.pse.cz/en) |
 | Portugal | [Euronext Lisbon](https://live.euronext.com/) |
-| Kazakhstan | [Kazakhstan Stock Exchange (KASE)](https://kase.kz/en/) and [Astana International Exchange (AIX)](https://aix.kz/) |
+| Hong Kong | [Hong Kong Exchanges and Clearing (HKEX)](https://www.hkex.com.hk/Listing/Listed-Companies) |
 | Peru | [Lima Stock Exchange (BVL)](https://www.bvl.com.pe/) |
 | USA | [SEC EDGAR](https://www.sec.gov/edgar/search/) and the relevant primary exchange (NYSE/Nasdaq) |
 | UK | [London Stock Exchange](https://www.londonstockexchange.com/) and [FCA](https://www.fca.org.uk/markets/primary-markets) |
@@ -153,7 +153,7 @@ This is a reference-data schema, not proof that a trade was executed, a customer
 The catalogue is not complete until all gates pass:
 
 - Exactly 1,000 distinct issuer records.
-- Exactly 550 Pool A records from the specified 40 countries and exactly 450 Pool B records from the specified six countries.
+- Exactly 550 Pool A records from the specified 40 countries (Hong Kong replaces Kazakhstan, whose source coverage was insufficient) and exactly 450 Pool B records from the specified six countries.
 - Every one of the 46 specified countries has at least one verified record.
 - Every issuer has a non-empty legal/display name, ticker or approved exchange symbol, primary exchange, verified country, official source URL and verification timestamp.
 - Every record has a resolvable local logo path; every logo has recorded source and permitted-reuse evidence.
