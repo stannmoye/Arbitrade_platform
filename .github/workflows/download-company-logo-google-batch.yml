@@ -1,7 +1,12 @@
 name: Download company logos from official websites in 50-company batches
 
 on:
-  # Manual-only: each batch fetches icons only from confirmed official company homepages.
+  # Manual batches remain available; the script update triggers batch 1 once.
+  push:
+    branches:
+      - feature/verified-company-catalogue-rotation
+    paths:
+      - scripts/download-company-logo-google-batch.mjs
   workflow_dispatch:
     inputs:
       batch:
