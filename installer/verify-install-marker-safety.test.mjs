@@ -30,11 +30,11 @@ describe("installer verifier recovery-marker output safety", () => {
     expect(source).not.toContain('report("Application health", false, error?.message');
   });
 
-  it("sanitizes SMTP error codes and does not print raw SMTP error details", async () => {
+  it("does not require SMTP settings during installation verification", async () => {
     const source = await readFile(verifierPath, "utf8");
-    expect(source).toContain('String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40)');
-    expect(source).toContain("raw error details are not displayed.");
-    expect(source).not.toContain('String(error?.code || "unknown") + "). Check host, port, TLS, credentials');
+    expect(source).toContain('warn("Email delivery", "Optional; configure and test email from the authenticated admin portal after installation.");');
+    expect(source).not.toContain("MAIL_PROVIDER");
+    expect(source).not.toContain("SMTP_PASSWORD");
   });
 
   it("removes control and ANSI escape sequences from displayed marker values", () => {
