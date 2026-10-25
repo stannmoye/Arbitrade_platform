@@ -130,7 +130,7 @@ The catalogue is version-controlled static reference data. It must not be bulk-s
 
 A catalogue entry is reference metadata only. It does not establish that a security was bought or sold, that a customer owns it, that an opportunity was executed, or that a financial result/profit occurred. Only actual, independently recorded trade and settlement evidence may be used for customer-facing execution and realized-result claims.
 
-**Current implementation warning:** the existing 950-record US-only SEC snapshot is marked unverified and has no bundled logos. It does not meet this revised 1,000-record multi-country requirement. Do not change counts or declare this requirement implemented until the actual sourced records, local licensed logos and validation report are committed.
+**Current implementation warning (2026-10-25):** the branch now contains a 1,000-record static reference catalogue distributed across the 46 configured country/market classifications (Pool A=550, Pool B=450), with 1,000 local neutral SVG placeholders and structural validation of counts, uniqueness and file integrity. These records remain explicitly **unverified and incomplete**; their country is a source/market classification rather than independently confirmed headquarters, and the placeholder images are not official company logos. The catalogued records therefore do **not** yet satisfy this specification's verified-listing, per-company source-evidence, headquarters, and permitted-official-logo acceptance gates. The separate 950-record US-only SEC snapshot remains preserved as a legacy catalogue. Do not claim that all 1,000 entries are currently listed or that official logo permissions have been verified.
 
 
 ## 10. Opportunity pop-up and minimized dock

@@ -1,29 +1,39 @@
 # Static company reference catalogue
 
-Arbitrade's target is now a **1,000-company static reference catalogue** with 550 companies from the specified 40-country Pool A and 450 from the USA, UK, Germany, Australia, Canada and China (Pool B). The complete country list, field-by-field source hierarchy, official market-source starting points, logo-permission requirements, schema, and acceptance gates are documented in [Company Catalogue Source Guide](COMPANY_CATALOGUE_SOURCE_GUIDE.md).
+Arbitrade keeps company reference data in version-controlled JSON and serves it from an in-memory service. It is not bulk-seeded into MySQL/MariaDB and is not used as evidence of actual trades, account ownership, or realized profit.
 
-## Current implementation status
+## Current implementation status (2026-10-25)
 
-The existing `server/data/company-catalogue.json` on this branch contains **950 US issuer/ticker records** derived from a SEC EDGAR snapshot dated July 24, 2026. Its entries are marked unverified, and sector, headquarters, instrument type and logo fields are not populated. It is a useful prototype for static/in-memory lookup only; **it does not meet the revised 1,000-company country split and has no local company-logo collection**.
+The new `server/data/company-catalogue-1000.json` contains exactly **1,000 reference candidates** across the 46 configured country/market classifications: **550 Pool A records** (40 countries with 13 or 14 each) and **450 Pool B records** (75 each for the USA, UK, Germany, Australia, Canada and China). The generated distribution metadata, catalogue validator and local asset paths agree with this allocation.
 
-Do not alter `targetCount` or `companyCount` metadata to 1,000 until 1,000 real records have been sourced and validated. Do not claim logo completeness unless every record points to an existing, licensed/permissioned image asset in GitHub.
+The separate `server/data/company-catalogue.json` legacy catalogue remains at **950 US-only SEC-derived records**. Its existing lookup service and tests are preserved. The multinational reference catalogue is an additional file-backed dataset, not a replacement of that legacy catalogue.
 
-## Required architecture
+### Important verification limits
 
-- Keep the dataset in a version-controlled JSON data file; do not bulk-seed the reference records into MySQL/MariaDB.
-- Import/index catalogue data in memory at startup or through a generated static module. Lookups must not query the database or fetch a remote data provider at runtime.
-- Keep company logos as local static files in `client/public/assets/company-logos/`, with repository-relative `logoPath` values and a machine-readable manifest of source, licence/permission and attribution.
-- Use issuer/exchange identifiers as stable identities. Do not map live/operational company references by ticker or company name alone.
-- Do not fill missing headquarters, country, sector, company image, or current-listing status by inference or placeholders.
+The 1,000-record count is a **structural reference-catalogue count**, not a claim that 1,000 listings have been independently verified. All current entries are explicitly marked `listingStatus: "unverified"`, `lastVerifiedAt: null`, `requiresManualVerification: true`, and `recordCompleteness: "incomplete"`. Their country field is the source's market/country classification, not verified headquarters or domicile. The pinned secondary global ticker dataset and official-market supplements provide candidate identities, but they do not establish the current active-listing status, legal domicile, headquarters, or every field for each individual company.
 
-## Existing prototype source and attribution
+The 1,000 files under `client/public/assets/company-logos/` are locally generated neutral initials-based SVG placeholders (380 bytes each in the checked-in set). They are **not official company logos**. The reuse flag applies to the generated neutral placeholders, not to company brand assets. No official logo should be added unless its source and permission for the intended redistribution are documented.
 
-The current prototype subset uses SEC EDGAR's `company_tickers_exchange.json` for CIK/name/ticker/exchange associations. The immutable source snapshot and SEC payload hash are recorded in `server/data/company-catalogue.json`; attribution and registry evidence are recorded in `server/data/COMPANY_CATALOGUE_ATTRIBUTION.md`. This source does not establish company headquarters, sector, a logo, complete instrument type, or current tradability. Its current US-only records cannot be carried forward as the full multinational catalogue without independently verified country and image evidence.
+Do not describe this catalogue as a verified security master or as satisfying the source guide's full acceptance gates until per-company official listing/issuer evidence, verification timestamps, and permitted logo assets have been established. Keep a record incomplete when that evidence is missing; never infer or fabricate it to reach a target count.
 
-## Validation and implementation status
+## Architecture and integration
 
-The existing scripts named `companies:build:950` and `companies:verify:950` validate the old 950-record prototype only. They must be replaced/extended before the revised acceptance target can be claimed. The required acceptance checks are listed in the source guide. A valid final validation report must include the dataset revision/hash, group totals (550 and 450), per-country counts, unique issuer count, number of licensed local logo files, unresolved/incomplete rows (must be zero), and test results.
+- Keep both reference datasets as static JSON files; do not bulk-seed reference rows into MySQL/MariaDB.
+- Load and index records in memory. Normal catalogue lookup must not require a database query or remote provider request.
+- Keep images at local paths in `client/public/assets/company-logos/`; the current generated placeholders avoid runtime image-CDN dependencies.
+- Use stable record IDs and exchange/symbol pairs for identity. Do not infer a primary listing or resolve ambiguity solely by ticker.
+- Validate record counts, country allocations, global normalized-name uniqueness, IDs, exchange/symbol uniqueness, safe SVG structure, file hashes, and missing/orphan assets with `scripts/validate-company-catalogue-1000.mjs`.
+- The package test command runs both the legacy 950-record validator and the 1,000-record structural validator before Vitest.
+- The Trading Opportunities page displays the 1,000-record dataset in a separate **Company Reference Spotlight**. It refreshes every 15 seconds, avoids repeating the immediately previous record when alternatives exist, and is explicitly informational. It must not create or alter trades, balances, rewards, settlements, customer activity, or performance records.
+
+## Sources and attribution
+
+The 1,000-candidate dataset records the pinned source repository/commit and the supplemental Moscow Exchange ISS and Dhaka Stock Exchange source URLs in `server/data/company-catalogue-1000.json`. These source references and the explicit unverified status should remain visible; a secondary ticker feed is not a substitute for source-level verification.
+
+The legacy 950-record prototype uses the SEC's `company_tickers_exchange.json` for CIK/name/ticker/exchange association. Its immutable snapshot, payload hash and attribution are recorded in `server/data/company-catalogue.json` and `server/data/COMPANY_CATALOGUE_ATTRIBUTION.md`. The SEC ticker file does not itself establish headquarters, sector, logo rights, full instrument type, or current tradability.
+
+See [Company Catalogue Source Guide](COMPANY_CATALOGUE_SOURCE_GUIDE.md) for the per-field source hierarchy, official exchange starting points, licensing requirements, schema, and remaining acceptance gates.
 
 ## Financial integrity boundary
 
-This file contains company reference information only. It is not a feed of actual executed trades and must not be presented as proof that a trade occurred or a customer earned profit. Customer-facing execution and realized-result statements require actual trade/settlement records and a committed, auditable ledger event.
+Company-reference rows are display metadata only. They are not executed trades, customer holdings, or settlement records. Financial statements and balances must continue to come from actual trade lifecycle and committed internal-ledger records.
