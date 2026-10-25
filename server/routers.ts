@@ -4,6 +4,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { getCompanyCatalogueById, getCompanyCatalogueSummary, searchCompanyCatalogue } from "./modules/company-catalogue";
+import { findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, searchCompanyReferences } from "./modules/company-catalogue-reference";
 import { z } from "zod";
 import { communicationSettingsInput, getAdminCommunicationSettings, getCustomerCommunicationOptions, saveAdminCommunicationSettings, validateCommunicationSettingsInput } from "./communicationSettings";
 import { TRPCError } from "@trpc/server";
@@ -46,6 +47,21 @@ export const appRouter = router({
     byId: publicProcedure.input(z.object({
       id: z.string().trim().min(1).max(180),
     })).query(({ input }) => getCompanyCatalogueById(input.id) ?? null),
+  }),
+
+  companyCatalogueReference: router({
+    summary: publicProcedure.query(() => getCompanyReferenceSummary()),
+    search: publicProcedure.input(z.object({
+      search: z.string().trim().max(100).optional(),
+      countryCode: z.string().trim().length(2).optional(),
+      limit: z.number().int().min(1).max(100).optional(),
+    }).optional()).query(({ input }) => searchCompanyReferences(input ?? {})),
+    byId: publicProcedure.input(z.object({
+      id: z.string().trim().min(1).max(180),
+    })).query(({ input }) => getCompanyReferenceById(input.id) ?? null),
+    bySymbol: publicProcedure.input(z.object({
+      symbol: z.string().trim().min(1).max(40),
+    })).query(({ input }) => findCompanyReferencesBySymbol(input.symbol)),
   }),
 
   privacy: router({
