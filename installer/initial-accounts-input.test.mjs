@@ -27,6 +27,11 @@ describe("fresh-install initial account validation", () => {
     expect(() => validateInitialAccountInput({ ...validInput(), CUSTOMER_PASSWORD: "admin-password-123" })).toThrow(/must be different/);
   });
 
+  it("rejects passwords longer than the application-supported maximum", () => {
+    expect(() => validateInitialAccountInput({ ...validInput(), ADMIN_PASSWORD: "a".repeat(201) })).toThrow(/ADMIN_PASSWORD/);
+    expect(() => validateInitialAccountInput({ ...validInput(), CUSTOMER_PASSWORD: "b".repeat(201) })).toThrow(/CUSTOMER_PASSWORD/);
+  });
+
   it("rejects identical administrator and customer email addresses", () => {
     expect(() => validateInitialAccountInput({ ...validInput(), CUSTOMER_EMAIL: "ADMIN@example.test" })).toThrow(/different email addresses/);
   });
