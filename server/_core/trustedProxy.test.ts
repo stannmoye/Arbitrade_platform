@@ -5,6 +5,7 @@ describe("trusted proxy configuration", () => {
   it("does not trust forwarded headers by default or when configured with zero hops", () => {
     expect(resolveTrustedProxyHops(undefined)).toBe(false);
     expect(resolveTrustedProxyHops("")).toBe(false);
+    expect(resolveTrustedProxyHops("   ")).toBe(false);
     expect(resolveTrustedProxyHops("0")).toBe(false);
   });
 
@@ -14,9 +15,9 @@ describe("trusted proxy configuration", () => {
     expect(resolveTrustedProxyHops(" 1 ")).toBe(1);
   });
 
-  it("rejects ambiguous or excessive proxy settings", () => {
-    for (const value of ["true", "-1", "1.5", "11", "NaN", "1,2"]) {
-      expect(() => resolveTrustedProxyHops(value)).toThrow(/TRUST_PROXY_HOPS/);
+  it("fails closed instead of crashing startup on malformed or excessive settings", () => {
+    for (const value of ["true", "-1", "1.5", "11", "NaN", "1,2", "abc"]) {
+      expect(resolveTrustedProxyHops(value)).toBe(false);
     }
   });
 });
