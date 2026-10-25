@@ -119,12 +119,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $adminEmail = strtolower(postval('admin_email'));
         $adminPassword = (string)($_POST['admin_password'] ?? '');
+        $customerEmail = strtolower(postval('customer_email'));
+        $customerPassword = (string)($_POST['customer_password'] ?? '');
         if ($mode === 'fresh') {
             if (!filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) throw new RuntimeException('Enter a valid administrator email for a fresh installation.');
             if (strlen($adminPassword) < 12) throw new RuntimeException('Administrator password must be at least 12 characters.');
+            if (!filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) throw new RuntimeException('Enter a valid initial customer email for a fresh installation.');
+            if ($customerEmail === $adminEmail) throw new RuntimeException('Use different email addresses for the administrator and initial customer accounts.');
+            if (strlen($customerPassword) < 12) throw new RuntimeException('Initial customer password must be at least 12 characters.');
         } else {
-            $adminEmail = '';
-            $adminPassword = '';
+            $adminEmail = ''; $adminPassword = ''; $customerEmail = ''; $customerPassword = '';
         }
         $appPort = validPort(postval('port'), 3000);
         $databaseUrl = 'mysql://' . rawurlencode($dbUser) . ':' . rawurlencode($dbPass) . '@' . (str_contains($dbHost, ':') && !str_starts_with($dbHost, '[') ? '[' . $dbHost . ']' : $dbHost) . ':' . $dbPort . '/' . $dbName;
@@ -139,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             envline('SESSION_SECRET', bin2hex(random_bytes(32))), envline('PASSWORD_PEPPER', bin2hex(random_bytes(32))),
             // Optional providers are deliberately left unconfigured during installation.
             // Configure supported integrations after the administrator can sign in.
-            'MAIL_PROVIDER="disabled"',
+            // Email transport is configured later in the authenticated admin portal.
             envline('ADMIN_EMAIL', $adminEmail),
         ];
         // A fresh database can safely receive a new authenticator key. For an
@@ -152,6 +156,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'mode' => $mode,
             'adminEmail' => $adminEmail,
             'adminPassword' => $adminPassword,
+            'customerEmail' => $customerEmail,
+            'customerPassword' => $customerPassword,
             'databaseTableCount' => $tableCount,
             'databaseTableNames' => $tableNames,
             'backupConfirmed' => $mode === 'existing' && $backupConfirmed,
@@ -238,7 +244,7 @@ $diskFreeLabel = $diskFree === false ? 'Unavailable on this host' : (string)roun
 <div class="step-controls"><button type="button" class="secondary" id="step-prev">Previous</button><span class="help" id="step-count" aria-live="polite"></span><button type="button" id="step-next">Next step</button><button type="submit" id="step-submit" hidden>Verify database &amp; save configuration</button></div></form>
 <script>
 const mode=document.getElementById('install_mode'),adminSection=document.getElementById('admin-section');
-function updateMode(){const fresh=mode.value==='fresh';adminSection.hidden=!fresh;adminSection.querySelector('[name="admin_email"]').required=fresh;adminSection.querySelector('[name="admin_password"]').required=fresh;const backup=document.getElementById('backup-confirmation');backup.hidden=fresh;backup.querySelector('input').disabled=fresh;backup.querySelector('input').required=!fresh;document.getElementById('database-mode-note').textContent=fresh?'Fresh installation requires an empty database. The wizard checks this before saving configuration.':'Import the intended SQL backup using cPanel/phpMyAdmin or a trusted private terminal before continuing. Large SQL imports are intentionally not accepted over this public web form because host upload/time limits can truncate a restore. Confirm you have a current restorable backup. The wizard records the database table inventory and checks it again in the private terminal before migrations.';}
+function updateMode(){const fresh=mode.value==='fresh';adminSection.hidden=!fresh;adminSection.querySelector('[name="admin_email"]').required=fresh;adminSection.querySelector('[name="admin_password"]').required=fresh;adminSection.querySelector('[name="customer_email"]').required=fresh;adminSection.querySelector('[name="customer_password"]').required=fresh;const backup=document.getElementById('backup-confirmation');backup.hidden=fresh;backup.querySelector('input').disabled=fresh;backup.querySelector('input').required=!fresh;document.getElementById('database-mode-note').textContent=fresh?'Fresh installation requires an empty database. The wizard checks this before saving configuration.':'Import the intended SQL backup using cPanel/phpMyAdmin or a trusted private terminal before continuing. Large SQL imports are intentionally not accepted over this public web form because host upload/time limits can truncate a restore. Confirm you have a current restorable backup. The wizard records the database table inventory and checks it again in the private terminal before migrations.';}
 mode.addEventListener('change',updateMode);updateMode();
 const form=document.querySelector('form'), headings=[...form.querySelectorAll(':scope > h2')], panels=[];
 for(const heading of headings){const panel=document.createElement('section');panel.className='step-panel';heading.parentNode.insertBefore(panel,heading);let node=heading;while(node){const following=node.nextSibling;if(node!==heading&&node.tagName==='H2')break;panel.appendChild(node);node=following;}panels.push(panel);}
