@@ -14,7 +14,7 @@ ALTER TABLE `companies`
   ADD COLUMN `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
 
 CREATE INDEX `companies_listing_country_idx` ON `companies` (`listingStatus`, `countryCode`);
-CREATE INDEX `companies_exchange_ticker_idx` ON `companies` (`exchangeCode`, `ticker`);
+CREATE UNIQUE INDEX `companies_exchange_ticker_unique` ON `companies` (`exchangeCode`, `ticker`);
 CREATE UNIQUE INDEX `companies_provider_identity_unique` ON `companies` (`providerId`);
 
 CREATE TABLE `company_rotation_events` (
