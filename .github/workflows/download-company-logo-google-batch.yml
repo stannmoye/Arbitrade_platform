@@ -1,0 +1,55 @@
+name: Download company logos from Google Images in batches
+
+on:
+  push:
+    branches:
+      - feature/verified-company-catalogue-rotation
+    paths:
+      - scripts/download-company-logo-google-batch.mjs
+      - .github/workflows/download-company-logo-google-batch.yml
+  workflow_dispatch:
+    inputs:
+      batch:
+        description: "Batch number (50 companies per batch)"
+        required: true
+        default: "1"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: company-logo-google-batch
+  cancel-in-progress: false
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out existing feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/verified-company-catalogue-rotation
+          persist-credentials: true
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download actual image files for selected 50-company batch
+        env:
+          LOGO_BATCH: ${{ github.event.inputs.batch || '1' }}
+        run: node scripts/download-company-logo-google-batch.mjs
+      - name: Commit downloaded logo files and source report
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A server/data/company-catalogue-1000.json server/data/company-logo-batch-*-report.json client/public/assets/company-logos
+          if git diff --cached --quiet; then
+            echo "No downloadable logos were found in this batch."
+            exit 1
+          fi
+          git commit -m "Download company logos from Google Images batch ${{ github.event.inputs.batch || '1' }}"
+          git push origin HEAD:feature/verified-company-catalogue-rotation
