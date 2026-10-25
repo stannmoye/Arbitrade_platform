@@ -39,14 +39,11 @@ function persistStore(store: SecretStore): void {
 
 export function getRuntimeSecret(name: RuntimeSecretName): string {
   const environmentValue = process.env[name]?.trim();
-  const store = readStore();
-  if (environmentValue) {
-    if (store[name] !== environmentValue) {
-      store[name] = environmentValue;
-      persistStore(store);
-    }
-    return environmentValue;
+  if (environmentValue) return environmentValue;
+  if (process.env.NODE_ENV !== "production") {
+    return crypto.createHash("sha256").update("arbitrade-development-secret:" + name).digest("hex");
   }
+  const store = readStore();
   if (store[name] && store[name]!.length >= 32) return store[name]!;
   store[name] = crypto.randomBytes(32).toString("hex");
   persistStore(store);
