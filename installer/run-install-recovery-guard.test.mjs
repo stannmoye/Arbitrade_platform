@@ -15,6 +15,7 @@ async function makeFixture(marker) {
   await mkdir(join(root, "installer"), { recursive: true });
   await symlink(join(repositoryRoot, "node_modules"), join(root, "node_modules"), "dir");
   await writeFile(join(root, "installer", "run-install.mjs"), await readFile(installerSource));
+  await writeFile(join(root, "installer", "session-secret.mjs"), await readFile(join(repositoryRoot, "installer", "session-secret.mjs")));
   await writeFile(join(root, "installer", "main-migration-preflight.mjs"), await readFile(join(repositoryRoot, "installer", "main-migration-preflight.mjs")));
   await writeFile(join(root, ".installer-bootstrap.json"), JSON.stringify({
     mode: "fresh",
