@@ -349,7 +349,8 @@ async function loadMoexStockCandidates() {
     if (expectedTotal !== null && rows.length >= expectedTotal) break;
     start += page.length;
     if (rows.length >= safetyLimit && (expectedTotal === null || rows.length < expectedTotal)) {
-      throw new Error("Moscow Exchange ISS actively traded share results exceeded the " + safetyLimit + "-row safety limit.");
+      console.warn("[company-logos] Moscow Exchange ISS reports " + expectedTotal + " rows; applying the " + safetyLimit + "-row safety cap and using the bounded sample.");
+      break;
     }
   }
 
