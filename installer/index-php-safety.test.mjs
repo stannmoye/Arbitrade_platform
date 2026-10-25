@@ -45,6 +45,10 @@ describe("PHP installer state-marker safety", () => {
     expect(source).toContain("$pnpmVersionValid");
     expect(source).toContain("is_file($root . '/node_modules/.modules.yaml')");
     expect(source).toContain("|| !$nodeVersionValid || !$pnpmVersionValid || !$nodeModulesReady");
+    expect(source).toContain("if (!$nodeVersionValid) throw new RuntimeException");
+    expect(source).toContain("if (!$pnpmVersionValid) throw new RuntimeException");
+    expect(source).toContain("if (!is_file($root . '/node_modules/.modules.yaml')) throw new RuntimeException");
+
     expect(source).toContain("All required PHP, Node.js, pnpm, installed-dependency, package, permission, and installation-state checks must pass");
   });
 
