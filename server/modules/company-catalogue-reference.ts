@@ -38,18 +38,22 @@ export type CompanyReferenceSearch = {
   limit?: number;
 };
 export type CompanyReferenceResponse = Omit<CompanyReferenceRecord, "logoUrl"> & {
-  logoUrl: null;
+  logoUrl: string | null;
   referenceOnly: true;
-  logoReusePermissionVerified: false;
+  logoReusePermissionVerified: boolean;
   eligibleForVerifiedTradeRotation: false;
 };
 
 function asReferenceResponse(company: CompanyReferenceRecord): CompanyReferenceResponse {
+  const approvedPlaceholder =
+    company.logoSourceName === "Neutral company-reference placeholder" &&
+    company.logoSourceSlug === "neutral-placeholder" &&
+    company.logoSourceUrl === "internal://neutral-company-reference-placeholder";
   return {
     ...company,
-    logoUrl: null,
+    logoUrl: approvedPlaceholder ? company.logoUrl : null,
     referenceOnly: true,
-    logoReusePermissionVerified: false,
+    logoReusePermissionVerified: approvedPlaceholder,
     eligibleForVerifiedTradeRotation: false,
   };
 }
@@ -123,13 +127,13 @@ export function getCompanyReferenceSummary() {
     unverified: COMPANY_REFERENCE_CATALOGUE.filter((company) => company.listingStatus === "unverified").length,
     verifiedActive: 0,
     localLogoPaths: COMPANY_REFERENCE_CATALOGUE.filter((company) => company.logoUrl.startsWith("/assets/company-logos/")).length,
-    logoReusePermissionVerified: 0,
+    logoReusePermissionVerified: COMPANY_REFERENCE_CATALOGUE.filter((company) => company.logoSourceName === "Neutral company-reference placeholder" && company.logoSourceSlug === "neutral-placeholder" && company.logoSourceUrl === "internal://neutral-company-reference-placeholder").length,
     eligibleForVerifiedTradeRotation: 0,
     generatedAt: payload.generatedAt,
     countryCounts,
     dataLimitations: payload.dataLimitations ?? [],
     sourceProvider: payload.source?.providerName ?? null,
     logoProvider: payload.logoSource?.providerName ?? null,
-    note: "Reference-only data. Listing status and logo redistribution permissions have not been independently verified; do not use these records as proof of a trade or display their logos as approved brand assets until cleared.",
+    note: "Reference-only data. Company listing status and headquarters remain unverified; locally generated initials are neutral placeholders, not company logos. Catalogue membership is not proof of a real trade or trading eligibility.",
   };
 }
