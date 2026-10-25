@@ -117,17 +117,13 @@ Common follow-up actions:
 - Do not delete .configured or installer/.installed to force a reinstall over existing data.
 - The wizard does not provide a browser-based SQL dump importer because large imports can exceed cPanel limits and make recovery unreliable.
 
-## SMTP and OAuth
+## Email delivery configuration
 
-The browser wizard includes a **Test SMTP settings** action on the email step. Enter a recipient inbox you control; the test submits the SMTP values only to the server-side `installer/smtp-test.php` endpoint, which invokes the existing Nodemailer test script with a restricted child-process argument list and environment. It does not save `.env`, echo credentials, or log SMTP passwords. The web test requires Node.js to be visible in the PHP process PATH, installed `node_modules/nodemailer` and `node_modules/dotenv`, and PHP process execution support. Some cPanel hosts hide Node.js from PHP-FPM or disable `proc_open`; in that case, finish configuration and use the private terminal fallback below. A successful test means the SMTP server accepted the test message, not that it reached the recipient's inbox.
+The browser installation wizard deliberately has no SMTP configuration form, SMTP credential fields, provider selection, or test-email control. It only configures the application and database and records the one-time initial-account bootstrap. After the installation command succeeds and the administrator can sign in, use **Communications → Email & SMTP Settings** in the authenticated admin portal to configure local sendmail, a local SMTP relay, SendGrid, Amazon SES, or another SMTP provider and send a test email. SMTP settings and credentials are managed by the application there; they are not collected or written by the initial installer.
 
-After installation, the private terminal fallback remains available:
+The private terminal command `pnpm installer:test-smtp --to=you@example.com` is a legacy environment-based diagnostic only and is not part of the browser wizard or the recommended setup flow for new installations.
 
-~~~bash
-pnpm installer:test-smtp --to=you@example.com
-~~~
 
-Configure SPF, DKIM, DMARC, and your provider's sender authorization separately.
 
 Google and Microsoft OAuth callback URLs are generated from the application URL. Register the exact callback URLs in the provider consoles and test sign-in; credentials alone do not prove provider-side approval or callback configuration.
 
