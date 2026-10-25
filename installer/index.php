@@ -35,6 +35,44 @@ function validPort(string $value, int $default): int {
     return (int)$value;
 }
 
+/**
+ * Detect a usable URL from the current request when the web server exposes a
+ * trustworthy scheme and a syntactically valid host. Do not trust
+ * X-Forwarded-Host / X-Forwarded-Proto: proxy topology is host-specific.
+ * If detection is not reliable, leave the field empty so the operator must
+ * enter the public URL explicitly.
+ */
+function detectPublicAppUrl(): string {
+    $httpsFlag = strtolower((string)($_SERVER['HTTPS'] ?? ''));
+    $scheme = ($httpsFlag !== '' && $httpsFlag !== 'off' && $httpsFlag !== '0') ? 'https' : '';
+    if ($scheme === '') {
+        $requestScheme = strtolower((string)($_SERVER['REQUEST_SCHEME'] ?? ''));
+        if (in_array($requestScheme, ['http', 'https'], true)) $scheme = $requestScheme;
+    }
+
+    $rawHost = trim((string)($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? ''));
+    if ($scheme === '' || $rawHost === '' || preg_match('/[\x00-\x20\\\\\/\\?#@]/', $rawHost)) return '';
+
+    $candidate = $scheme . '://' . $rawHost;
+    $parts = parse_url($candidate);
+    if (!is_array($parts) || empty($parts['host']) || isset($parts['user']) || isset($parts['pass']) || isset($parts['path']) || isset($parts['query']) || isset($parts['fragment'])) return '';
+
+    $host = strtolower(trim((string)$parts['host'], '[]'));
+    if ($host === '' || $host === 'localhost' || str_ends_with($host, '.localhost') || str_ends_with($host, '.local')) return '';
+
+    if (filter_var($host, FILTER_VALIDATE_IP)) {
+        // Do not silently use loopback, private, or reserved IPs as a
+        // production-facing URL. Operators can still enter an explicit URL
+        // and opt into HTTP for local testing when appropriate.
+        if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) return '';
+    } elseif (filter_var($host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false) {
+        return '';
+    }
+
+    if (isset($parts['port']) && ((int)$parts['port'] < 1 || (int)$parts['port'] > 65535)) return '';
+    return $candidate;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if (!hash_equals($csrf, postval('csrf'))) throw new RuntimeException('Your installer session expired. Refresh and try again.');
@@ -45,7 +83,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!is_writable($root)) throw new RuntimeException('The application root is not writable by PHP. Adjust deployment permissions, save configuration, then remove write access after installation.');
         $mode = postval('install_mode');
         if (!in_array($mode, ['fresh', 'existing'], true)) throw new RuntimeException('Choose a fresh installation or an existing-database deployment.');
-        $appUrl = rtrim(postval('app_url'), '/');
+        $submittedAppUrl = postval('app_url');
+        $appUrl = rtrim($submittedAppUrl !== '' ? $submittedAppUrl : detectPublicAppUrl(), '/');
+        if ($appUrl === '') throw new RuntimeException('The public URL could not be detected safely. Enter your public application URL (for example, https://your-domain.com) and try again.');
         if (!filter_var($appUrl, FILTER_VALIDATE_URL) || !in_array(strtolower((string)parse_url($appUrl, PHP_URL_SCHEME)), ['https', 'http'], true)) throw new RuntimeException('Enter a valid application URL.');
         $parsedAppUrl = parse_url($appUrl);
         if (is_array($parsedAppUrl) && (isset($parsedAppUrl['user']) || isset($parsedAppUrl['pass']))) throw new RuntimeException('The application URL must not contain a username or password. Enter the public URL only.');
@@ -150,6 +190,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 $diskFree = @disk_free_space($root);
 $httpsDetected = $isHttps || (isset($_SERVER['REQUEST_SCHEME']) && strtolower((string)$_SERVER['REQUEST_SCHEME']) === 'https');
+$detectedAppUrl = detectPublicAppUrl();
 $requiredExtensions = ['pdo_mysql', 'openssl', 'json', 'mbstring'];
 $extensionChecks = [];
 foreach ($requiredExtensions as $extension) $extensionChecks[$extension] = extension_loaded($extension);
@@ -187,7 +228,7 @@ $diskFreeLabel = $diskFree === false ? 'Unavailable on this host' : (string)roun
 <label class="full" id="backup-confirmation" hidden><span><input type="checkbox" name="backup_confirmed" value="1" style="width:auto"> I confirm I have a current, restorable backup and have imported the intended Arbitrade backup into the target database. I understand the installer will run forward migrations and will not import or overwrite the database itself.</span></label></div>
 <div class="notice" id="database-mode-note">Fresh installation requires an empty database. For existing data, import the SQL backup using cPanel/phpMyAdmin or a trusted private terminal before continuing. Large SQL imports are intentionally not accepted over this public web form because host upload/time limits can truncate a restore. The installer records the database table inventory now and checks it again in the private terminal before migrations.</div>
 <h2>2. Application and database</h2><div class="grid">
-<label class="full">Public application URL<input name="app_url" placeholder="https://example.com" required></label><label>Node application port<input name="port" value="3000" inputmode="numeric" required></label>
+<label class="full">Public application URL<input name="app_url" type="url" value="<?=h(postval('app_url') !== '' ? postval('app_url') : $detectedAppUrl)?>" placeholder="https://your-domain.com" autocomplete="url" required><span class="help"><?php if ($detectedAppUrl !== ''): ?>Detected from this request. Confirm it is the public URL users will visit; edit it if this host or proxy does not expose the final domain.<?php else: ?>Automatic detection was unavailable. Enter the public URL users will visit, such as https://your-domain.com. Do not use localhost for a production deployment.<?php endif; ?></span></label><label>Node application port<input name="port" value="3000" inputmode="numeric" required></label>
 <label>Database host<input name="db_host" value="127.0.0.1" required></label><label>Database port<input name="db_port" value="3306" inputmode="numeric" required></label>
 <label>Database name<input name="db_name" placeholder="arbitrade" required></label><label>Database username<input name="db_user" required></label>
 <label>Database password<input name="db_pass" type="password" autocomplete="new-password"></label><label>Create database if permitted<select name="create_db"><option value="0">No — I created it in cPanel</option><option value="1">Yes — attempt CREATE DATABASE</option></select></label>
