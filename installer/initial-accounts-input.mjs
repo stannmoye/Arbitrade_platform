@@ -12,10 +12,10 @@ export function validateInitialAccountInput(env = process.env) {
   if (!EMAIL_PATTERN.test(customerEmail) || customerEmail.length > 320) {
     throw new Error("A valid CUSTOMER_EMAIL is required for a fresh installation.");
   }
-  if (adminPassword.length < 12) {
+  if (adminPassword.length < 12 || adminPassword.length > 200) {
     throw new Error("ADMIN_PASSWORD must contain at least 12 characters.");
   }
-  if (customerPassword.length < 12) {
+  if (customerPassword.length < 12 || customerPassword.length > 200) {
     throw new Error("CUSTOMER_PASSWORD must contain at least 12 characters.");
   }
   if (adminEmail === customerEmail) {
