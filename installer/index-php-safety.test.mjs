@@ -27,4 +27,22 @@ describe("PHP installer state-marker safety", () => {
     expect(source).toContain("isset($parsedAppUrl['user']) || isset($parsedAppUrl['pass'])");
     expect(source).toContain("The application URL must not contain a username or password.");
   });
+  it("does not trust forwarded HTTPS unless the immediate proxy IP is explicitly allowlisted", async () => {
+    const source = await readFile(wizardPath, "utf8");
+    expect(source).toContain("function installerRequestIsHttps(): bool");
+    expect(source).toContain("getenv('INSTALLER_TRUSTED_PROXY_IPS')");
+    expect(source).toContain("in_array($remoteAddress, $trustedProxies, true)");
+    expect(source).toContain("$forwardedProto === 'https'");
+    expect(source).toContain("$httpsDetected = installerRequestIsHttps();");
+  });
+
+  it("keeps stage navigation controls outside the stage panels and gates progression", async () => {
+    const source = await readFile(wizardPath, "utf8");
+    expect(source).toContain("navigationControls.remove();");
+    expect(source).toContain("form.appendChild(navigationControls);");
+    expect(source).toContain("const preflightBlocked=");
+    expect(source).toContain("next.disabled=preflightBlocked||!currentStepValid();");
+    expect(source).toContain("submit.disabled=preflightBlocked||!currentStepValid();");
+  });
+
 });
