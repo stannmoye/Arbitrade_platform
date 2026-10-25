@@ -47,7 +47,7 @@ for (const [alias, code] of Object.entries({
   "republic of korea": "KR", "korea south": "KR", "czech republic": "CZ", "czechia": "CZ",
   "united arab emirates": "AE", "uae": "AE", "russian federation": "RU", "russia": "RU",
   "viet nam": "VN", "vietnam": "VN", "turkiye": "TR", "türkiye": "TR", "turkey": "TR",
-  "taiwan province of china": "TW", "taiwan": "TW", "china": "CN", "hong kong": "CN",
+  "taiwan province of china": "TW", "taiwan": "TW", "china": "CN",
   "republic of ireland": "IE", "ireland": "IE", "republic of china": "TW",
 })) NAME_TO_CODE.set(norm(alias), code);
 
@@ -363,7 +363,8 @@ async function main() {
     }
     const chosen = await buildCountry(country, countryCandidates, country.target, logoIndex, selectedIds, globalNames);
     allSelected.push(...chosen);
-    counts[country.name] = chosen.length;
+    const countKey = country.name === "USA" ? "United States" : country.name === "UK" ? "United Kingdom" : country.name;
+    counts[countKey] = chosen.length;
   }
   const poolACount = allSelected.filter((item) => TARGETS.find((x) => x.code === item.countryCode)?.pool === "A").length;
   const poolBCount = allSelected.length - poolACount;
@@ -408,7 +409,7 @@ async function main() {
     companyCount: companies.length,
     targetDistribution: {
       poolA: { total: poolACount, countries: POOL_A.map(([name, code]) => ({ name, countryCode: code, count: counts[name] })) },
-      poolB: { total: poolBCount, countries: POOL_B.map(([name, code]) => ({ name: name === "USA" ? "United States" : name === "UK" ? "United Kingdom" : name, countryCode: code, count: counts[name] })) },
+      poolB: { total: poolBCount, countries: POOL_B.map(([name, code]) => { const canonicalName = name === "USA" ? "United States" : name === "UK" ? "United Kingdom" : name; return { name: canonicalName, countryCode: code, count: counts[canonicalName] }; }) },
       countsByCountry: counts,
     },
     source: {
