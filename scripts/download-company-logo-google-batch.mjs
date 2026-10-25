@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Fetch actual logo image files for one 50-company batch from Google Images results.
+ * Fetch actual logo image files for one 50-company batch from Bing Images results.
  * Reads the existing catalogue and only replaces placeholder entries in the selected batch.
  * Does not rebuild or regenerate the catalogue or any records.
  */
@@ -25,21 +25,25 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function get(url, headers = {}, timeout = 25000) {
   return fetch(url, { headers: { "user-agent": USER_AGENT, ...headers }, signal: AbortSignal.timeout(timeout), redirect: "follow" });
 }
-function decodeGoogleUrl(value) {
-  try { return decodeURIComponent(value.replace(/&amp;/g, "&")); } catch { return value; }
+function decodeHtml(value) {
+  return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 }
 function imageCandidates(html) {
   const candidates = [];
   const seen = new Set();
-  // Google Images embeds source URLs in imgurl query parameters.
-  for (const match of html.matchAll(/(?:imgurl=)(https?%3A%2F%2F[^&"\\]+)/gi)) {
-    const url = decodeGoogleUrl(match[1]);
-    if (!seen.has(url)) { seen.add(url); candidates.push(url); }
+  // Bing Images stores original image URLs as murl fields in JSON result metadata.
+  for (const match of html.matchAll(/"murl"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"/g)) {
+    let url = "";
+    try { url = JSON.parse('"' + match[1] + '"'); } catch { continue; }
+    url = decodeHtml(url);
+    if (/^https?:\\/\\//i.test(url) && !seen.has(url)) { seen.add(url); candidates.push(url); }
   }
-  // Some result variants include escaped direct URLs in JSON records.
-  for (const match of html.matchAll(/https?:\\u002F\\u002F[^"\\ ]+/g)) {
-    const url = match[0].replace(/\\u002F/g, "/").replace(/\\u003d/gi, "=").replace(/\\u0026/g, "&");
-    if (/\.(?:svg|png|jpe?g|webp)(?:[?#&]|$)/i.test(url) && !seen.has(url)) { seen.add(url); candidates.push(url); }
+  // Fallback for search-result markup that exposes an encoded direct image URL.
+  for (const match of html.matchAll(/(?:imgurl=)(https?%3A%2F%2F[^&"\\s]+)/gi)) {
+    let url = match[1];
+    try { url = decodeURIComponent(url); } catch {}
+    url = decodeHtml(url);
+    if (/^https?:\\/\\//i.test(url) && !seen.has(url)) { seen.add(url); candidates.push(url); }
   }
   return candidates;
 }
@@ -53,11 +57,13 @@ function extensionFor(type, url) {
   return [".svg", ".png", ".webp", ".jpg", ".jpeg"].includes(suffix) ? (suffix === ".jpeg" ? ".jpg" : suffix) : null;
 }
 async function findCandidates(company) {
-  const query = encodeURIComponent('"' + company.name + '" ' + company.countryName + " company logo");
-  const url = "https://www.google.com/search?tbm=isch&udm=2&q=" + query;
-  const response = await get(url, { accept: "text/html,application/xhtml+xml" });
-  if (!response.ok) throw new Error("Google Images returned HTTP " + response.status);
-  return imageCandidates(await response.text());
+  const query = encodeURIComponent('"' + company.name + '" ' + company.countryName + " official company logo");
+  const url = "https://www.bing.com/images/search?q=" + query + "&form=HDRSC3";
+  const response = await get(url, { accept: "text/html,application/xhtml+xml", "accept-language": "en-US,en;q=0.9" });
+  if (!response.ok) throw new Error("Bing Images returned HTTP " + response.status);
+  const candidates = imageCandidates(await response.text());
+  if (!candidates.length) throw new Error("Bing Images returned no direct image URLs");
+  return candidates;
 }
 async function downloadCandidate(url) {
   let parsed;
@@ -101,7 +107,7 @@ for (let i = 0; i < companies.length; i++) {
   }
   let candidates = [];
   try { candidates = await findCandidates(company); }
-  catch (error) { console.warn("Google Images search failed for " + company.name + ": " + error.message); }
+  catch (error) { console.warn("Bing Images search failed for " + company.name + ": " + error.message); }
   let asset = null;
   for (const url of candidates.slice(0, 12)) {
     asset = await downloadCandidate(url);
@@ -121,14 +127,14 @@ for (let i = 0; i < companies.length; i++) {
   await writeFile(fullPath, asset.bytes);
   if (oldFullPath !== fullPath) await rm(oldFullPath, { force: true });
   company.logoUrl = "/" + newPublicPath;
-  company.logoSourceName = "Google Images result; original image source";
+  company.logoSourceName = "Bing Images result; original image source";
   company.logoSourceUrl = asset.sourceUrl;
-  company.logoSourceSlug = "google-images-source";
+  company.logoSourceSlug = "bing-images-source";
   company.logoMimeType = asset.mime;
   company.logoBytes = asset.bytes.length;
   company.logoSha256 = asset.sha256;
   company.logoRetrievedAt = new Date().toISOString();
-  company.logoSearchProvider = "Google Images";
+  company.logoSearchProvider = "Bing Images";
   downloaded++;
   report.push({ id: company.id, name: company.name, status: "downloaded", bytes: asset.bytes.length, source: asset.sourceUrl });
   console.log("Downloaded " + (start + i + 1) + "/1000 " + company.name + " (" + asset.bytes.length + " bytes)");
@@ -136,14 +142,14 @@ for (let i = 0; i < companies.length; i++) {
 }
 
 catalogue.logoBatchDownload = {
-  provider: "Google Images search; image bytes fetched from each result's original host",
+  provider: "Bing Images search; image bytes fetched from each result's original host",
   batch,
   range: [start + 1, start + companies.length],
   attemptedAt: new Date().toISOString(),
   downloaded,
   alreadyReal,
   failed,
-  note: "Google Images is a discovery tool; source URLs are stored per downloaded image. Automated matching is not a substitute for visual review of brand identity or a rights check."
+  note: "Bing Images is a discovery tool; source URLs are stored per downloaded image. Automated matching is not a substitute for visual review of brand identity or a rights check."
 };
 await writeFile(CATALOGUE, JSON.stringify(catalogue, null, 2) + "\n");
 await writeFile(join(ROOT, "server/data", "company-logo-batch-" + String(batch).padStart(2, "0") + "-report.json"), JSON.stringify({ ...catalogue.logoBatchDownload, results: report }, null, 2) + "\n");
