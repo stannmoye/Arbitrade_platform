@@ -33,7 +33,8 @@
     "db:audit-trade-lifecycle": "node scripts/audit-trade-lifecycle.mjs",
     "db:plan-trade-recovery": "tsx scripts/plan-trade-recovery.ts",
     "db:collect-trade-recovery-evidence": "node scripts/collect-trade-recovery-evidence.mjs",
-    "db:ensure-worker-schema": "node scripts/ensure-worker-runtime-schema.mjs"
+    "db:ensure-worker-schema": "node scripts/ensure-worker-runtime-schema.mjs",
+    "companies:import": "node scripts/import-listed-companies.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
