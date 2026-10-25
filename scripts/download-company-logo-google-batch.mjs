@@ -158,7 +158,32 @@ const OFFICIAL_SITES = {
   "pl-11-bit-studios-s-a-11b-621e48d6": "https://11bitstudios.com/",
   "pl-3r-games-sa-3rg-512b92b2": "https://3rgames.pl/",
   "pl-4mass-sa-4ms-6bdcee1c": "https://4mass.pl/",
-  "pl-4mobility-sa-4mb-4da3c19e": "https://4mobility.pl/"
+  "pl-4mobility-sa-4mb-4da3c19e": "https://4mobility.pl/",
+  "us-abbott-laboratories-abt-28547a7e": "https://www.abbott.com/",
+  "us-abercrombie-fitch-company-anf-4171b3d6": "https://corporate.abercrombie.com/",
+  "us-abm-industries-incorporated-abm-dd8eae77": "https://www.abm.com/",
+  "us-acacia-research-corporation-actg-d789c000": "https://www.acaciaresearch.com/",
+  "us-acadia-healthcare-company-inc-achc-6059c720": "https://www.acadiahealthcare.com/",
+  "us-acadia-pharmaceuticals-inc-acad-032946ee": "https://www.acadia-pharm.com/",
+  "gb-a-g-barr-plc-bag-f8fa3069": "https://www.agbarr.co.uk/",
+  "gb-ab-dynamics-abdp-70cfb048": "https://www.abdynamics.com/",
+  "gb-aberdeen-group-plc-abdn-4cc056ea": "https://www.aberdeenplc.com/",
+  "gb-airtel-africa-plc-aaf-4bc3c714": "https://airtel.africa/",
+  "gb-aj-bell-plc-ajb-4d022fff": "https://www.ajbell.co.uk/",
+  "gb-anglo-american-plc-aaukd-3e8b6788": "https://www.angloamerican.com/",
+  "de-adidas-ag-na-o-n-ads-6d992da1": "https://www.adidas-group.com/",
+  "de-allianz-se-alizf-d09abf9d": "https://www.allianz.com/",
+  "au-29metals-limited-29m-ac961427": "https://www.29metals.com/",
+  "au-3p-learning-limited-73p-800fa620": "https://www.3plearning.com/",
+  "au-abacus-storage-king-ask-72bdc3b3": "https://www.abacusproperty.com.au/",
+  "au-accent-group-limited-ax1-7110bd82": "https://www.accentgr.com.au/",
+  "au-adairs-limited-adh-7e04efb0": "https://www.adairs.com.au/",
+  "au-adore-beauty-group-limited-aby-c501414b": "https://www.adorebeautygroup.com.au/",
+  "cn-air-china-ltd-class-a-601111-dc556ef8": "https://www.airchina.com.cn/en/",
+  "cn-agricultural-bank-of-china-ltd-class-a-601288-a3bb0622": "https://www.abchina.com/en/",
+  "cn-all-winner-technology-co-ltd-300458-462bf53b": "https://www.allwinnertech.com/",
+  "cn-angang-steel-co-ltd-class-a-000898-b2f795ce": "https://www.ansteel.cn/",
+  "cn-aluminum-corp-of-china-ltd-601600-9755a197": "https://www.chalco.com.cn/"
 };
 
 function decodeHtml(value) {
