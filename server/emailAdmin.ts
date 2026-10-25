@@ -83,6 +83,8 @@ export async function isEmailAdminConfigured() {
   if (!isValidSenderAddress(config.fromAddress)) return false;
   if (config.mode === "external") {
     if (config.provider === "local") return false;
+    if (config.provider === "sendgrid" && (config.authType !== "login" || config.user.trim() !== "apikey")) return false;
+    if (config.provider === "aws-ses" && config.authType === "none") return false;
     const host = typeof config.host === "string" ? config.host.trim() : "";
     const user = typeof config.user === "string" ? config.user.trim() : "";
     const password = typeof config.password === "string" ? config.password : "";
