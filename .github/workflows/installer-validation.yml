@@ -60,7 +60,6 @@ jobs:
           node --check installer/recovery-report.test.mjs
           node --check installer/recovery-utils.test.mjs
           node --check installer/recovery-report.mjs
-          node --check installer/test-smtp.mjs
           node --check scripts/apply-portal-migrations.mjs
           node --check scripts/apply-portal-migrations-safety.test.mjs
           node --check scripts/notification-migration-db-assertions.mjs

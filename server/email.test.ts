@@ -1,50 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
-import { createSmtpMailer, isSmtpConfigured, renderEmail } from "./email";
+import { describe, expect, it } from "vitest";
+import { renderEmail } from "./email";
 import { decryptEmailPayload, encryptEmailPayload, getDailyDigestSchedule, getZonedMinute } from "./emailQueue";
-
-const smtpEnv = (): NodeJS.ProcessEnv => ({
-  MAIL_PROVIDER: "smtp",
-  SMTP_HOST: "smtp.example.test",
-  SMTP_PORT: "587",
-  SMTP_SECURE: "false",
-  SMTP_USER: "mailer",
-  SMTP_PASSWORD: "test-only-password",
-  SMTP_FROM_EMAIL: "no-reply@example.test",
-  SMTP_FROM_NAME: "Test Mailer",
-});
-
-describe("SMTP mail adapter", () => {
-  it("fails closed when the provider is disabled or configuration is incomplete", async () => {
-    const env: NodeJS.ProcessEnv = { MAIL_PROVIDER: "disabled" };
-    const factory = vi.fn();
-    const mailer = createSmtpMailer(env, factory as any);
-    expect(mailer.isConfigured()).toBe(false);
-    expect(isSmtpConfigured({ ...smtpEnv(), SMTP_PASSWORD: "" })).toBe(false);
-    await expect(mailer.send("test@example.test", { subject: "x", text: "x", html: "x" })).rejects.toThrow(/disabled|incompletely configured/i);
-    expect(factory).not.toHaveBeenCalled();
-  });
-
-  it("uses the injected SMTP transport and sends a rendered message", async () => {
-    const sent: any[] = [];
-    const factory = vi.fn((_config: any) => ({ sendMail: async (message: any) => { sent.push(message); return { messageId: "unit-test-message" }; } }));
-    const mailer = createSmtpMailer(smtpEnv(), factory as any);
-    expect(mailer.isConfigured()).toBe(true);
-    const message = renderEmail("email_test", { testId: "test-123" });
-    const result = await mailer.send("customer@example.test", message);
-    expect(factory).toHaveBeenCalledOnce();
-    expect(factory.mock.calls[0]?.[0]).toMatchObject({ host: "smtp.example.test", port: 587, secure: false, auth: { user: "mailer", pass: "test-only-password" } });
-    expect(sent).toHaveLength(1);
-    expect(sent[0]).toMatchObject({ to: "customer@example.test", subject: "[TEST] Email delivery test", text: expect.stringContaining("test-123") });
-    expect(result).toEqual({ messageId: "unit-test-message" });
-  });
-
-  it("rejects invalid recipients before contacting SMTP", async () => {
-    const sendMail = vi.fn();
-    const mailer = createSmtpMailer(smtpEnv(), (() => ({ sendMail })) as any);
-    await expect(mailer.send("not-an-address", { subject: "x", text: "x", html: "x" })).rejects.toThrow("Invalid email recipient");
-    expect(sendMail).not.toHaveBeenCalled();
-  });
-});
 
 describe("email templates and encrypted outbox payloads", () => {
   it("escapes untrusted system and direct-admin content", () => {

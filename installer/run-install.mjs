@@ -307,5 +307,5 @@ try {
 await unlink(progressPath);
 console.log("\n[installer] Installation steps completed.");
 console.log("[installer] Start/restart the Node.js application, then run: pnpm installer:verify");
-console.log("[installer] If SMTP is configured, test it with: pnpm installer:test-smtp --to=you@example.com");
+console.log("[installer] Configure and test email after admin sign-in: Communications → Email & SMTP Settings.");
 console.log("[installer] Remove or rename the public installer directory after confirming the application works.");

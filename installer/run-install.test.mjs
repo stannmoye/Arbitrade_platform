@@ -155,8 +155,7 @@ describe("fresh-install initial account provisioning", () => {
   it("removes all SMTP configuration and testing controls from the initial installer wizard", async () => {
     const wizard = await readFile(resolve(root, "installer", "index.php"), "utf8");
     expect(wizard).not.toContain("MAIL_PROVIDER");
-    expect(wizard).not.toContain("SMTP_HOST");
-    expect(wizard).not.toContain("SMTP_PASSWORD");
+    expect(wizard).not.toContain("SMTP_");
     expect(wizard).not.toContain("smtp_host");
     expect(wizard).not.toContain("smtp_user");
     expect(wizard).not.toContain("smtp_pass");

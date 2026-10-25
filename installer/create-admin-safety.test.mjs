@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 const adminPath = new URL("./create-admin.mjs", import.meta.url);
-const smtpPath = new URL("./test-smtp.mjs", import.meta.url);
 
 describe("installer credential and diagnostic privacy", () => {
   it("validates and decodes the database URL without echoing configured values", async () => {
@@ -38,9 +37,21 @@ describe("installer credential and diagnostic privacy", () => {
     expect(runnerSource).toContain("await db.end();");
   });
 
-  it("sanitizes SMTP test provider error codes", async () => {
-    const source = await readFile(smtpPath, "utf8");
-    expect(source).toContain('String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40)');
-    expect(source).not.toContain('console.error("Provider error code: " + String(error?.code || "unknown"))');
+  it("keeps provider checks out of installer diagnostics and removes the legacy SMTP CLI", async () => {
+    const verifierSource = await readFile(new URL("./verify-install.mjs", import.meta.url), "utf8");
+    const diagnosticSource = await readFile(new URL("./diagnose-deployment.mjs", import.meta.url), "utf8");
+    const packageSource = await readFile(new URL("../package.json", import.meta.url), "utf8");
+    const runtimeEmailSource = await readFile(new URL("../server/email.ts", import.meta.url), "utf8");
+    const envExample = await readFile(new URL("../.env.example", import.meta.url), "utf8");
+    expect(verifierSource).not.toContain("process.env.SMTP_");
+    expect(diagnosticSource).not.toContain("process.env.SMTP_");
+    expect(verifierSource).not.toContain("process.env.MAIL_PROVIDER");
+    expect(diagnosticSource).not.toContain("process.env.MAIL_PROVIDER");
+    expect(runtimeEmailSource).not.toContain("process.env.SMTP_");
+    expect(runtimeEmailSource).not.toContain("process.env.MAIL_PROVIDER");
+    expect(envExample).not.toContain("SMTP_");
+    expect(envExample).not.toContain("MAIL_PROVIDER=");
+    expect(packageSource).not.toContain("installer:test-smtp");
+    await expect(readFile(new URL("./test-smtp.mjs", import.meta.url), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
   });
 });

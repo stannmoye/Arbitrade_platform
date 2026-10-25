@@ -46,11 +46,7 @@ After installation, restart the cPanel Node.js application. Then run these check
 pnpm installer:verify
 ~~~
 
-If SMTP is configured, test it with an address you control:
-
-~~~bash
-pnpm installer:test-smtp --to=you@example.com
-~~~
+Email delivery is configured after the administrator signs in. Open **Communications → Email & SMTP Settings**, choose the provider, save its credentials, and use the portal's test-email action. No email-provider environment variables are required for installation.
 
 ## 3. Start and verify
 

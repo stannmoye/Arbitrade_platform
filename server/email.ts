@@ -1,6 +1,4 @@
-import nodemailer from "nodemailer";
-import type { Transporter } from "nodemailer";
-import { hasSavedEmailConfig, isEmailAdminConfigured, sendEmail as sendPortalEmail } from "./emailAdmin";
+import { isEmailAdminConfigured, sendEmail as sendPortalEmail } from "./emailAdmin";
 
 export type EmailTemplate =
   | "system_notification"
@@ -13,13 +11,6 @@ export type EmailTemplate =
 
 export type EmailPayload = Record<string, string | number | boolean | null | undefined>;
 export type RenderedEmail = { subject: string; text: string; html: string };
-export type EmailTransportFactory = (config: {
-  host: string;
-  port: number;
-  secure: boolean;
-  auth: { user: string; pass: string };
-}) => Pick<Transporter, "sendMail">;
-
 const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, ch => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 }[ch]!));
@@ -81,67 +72,11 @@ export function isValidEmailAddress(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 320;
 }
 
-export function isSmtpConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
-  const provider = (env.MAIL_PROVIDER || "disabled").toLowerCase();
-  const port = Number(env.SMTP_PORT || 587);
-  return provider === "smtp"
-    && Boolean(env.SMTP_HOST?.trim())
-    && Number.isInteger(port) && port > 0 && port <= 65535
-    && Boolean(env.SMTP_USER?.trim())
-    && Boolean(env.SMTP_PASSWORD)
-    && isValidEmailAddress(env.SMTP_FROM_EMAIL || "");
-}
-
-export function createSmtpMailer(
-  env: NodeJS.ProcessEnv = process.env,
-  transportFactory: EmailTransportFactory = config => nodemailer.createTransport(config),
-) {
-  let transport: Pick<Transporter, "sendMail"> | null = null;
-  const configured = () => isSmtpConfigured(env);
-  const getTransport = () => {
-    if (!configured()) throw new Error("SMTP email is disabled or incompletely configured");
-    if (!transport) transport = transportFactory({
-      host: env.SMTP_HOST!.trim(),
-      port: Number(env.SMTP_PORT || 587),
-      secure: env.SMTP_SECURE === "true" || Number(env.SMTP_PORT || 587) === 465,
-      auth: { user: env.SMTP_USER!.trim(), pass: env.SMTP_PASSWORD! },
-    });
-    return transport;
-  };
-  return {
-    isConfigured: configured,
-    async send(to: string, rendered: RenderedEmail) {
-      if (!isValidEmailAddress(to)) throw new Error("Invalid email recipient");
-      const result = await getTransport().sendMail({
-        from: { name: env.SMTP_FROM_NAME?.trim() || "Arbitrade", address: env.SMTP_FROM_EMAIL!.trim() },
-        to,
-        subject: rendered.subject,
-        text: rendered.text,
-        html: rendered.html,
-        replyTo: env.SMTP_REPLY_TO?.trim() || undefined,
-      });
-      return { messageId: String(result.messageId || "") };
-    },
-  };
-}
-
-const smtpMailer = createSmtpMailer();
-
 /**
- * New installations configure mail from the authenticated admin portal.
- * Environment SMTP remains a backwards-compatible fallback for older hosts.
- * A missing mail transport never prevents the application from starting.
+ * Email delivery is configured exclusively in the authenticated admin portal.
+ * No provider credentials are needed during installation or application startup.
  */
 export async function isEmailDeliveryConfigured(): Promise<boolean> {
-  let portalConfigSaved = false;
-  try {
-    portalConfigSaved = await hasSavedEmailConfig();
-  } catch {
-    // If database settings are temporarily unavailable, retain the legacy
-    // environment transport if it is configured; otherwise fail closed.
-    return smtpMailer.isConfigured();
-  }
-  if (!portalConfigSaved) return smtpMailer.isConfigured();
   try {
     return await isEmailAdminConfigured();
   } catch {
@@ -151,16 +86,6 @@ export async function isEmailDeliveryConfigured(): Promise<boolean> {
 
 export async function sendRenderedEmail(to: string, rendered: RenderedEmail) {
   if (!isValidEmailAddress(to)) throw new Error("Invalid email recipient");
-  let portalConfigSaved = false;
-  try {
-    portalConfigSaved = await hasSavedEmailConfig();
-  } catch {
-    return smtpMailer.send(to, rendered);
-  }
-  if (!portalConfigSaved) return smtpMailer.send(to, rendered);
-
-  // Do not fall back after a portal transport send error: the provider may
-  // already have accepted the message and a second transport could duplicate it.
   const result = await sendPortalEmail({
     to,
     subject: rendered.subject,
