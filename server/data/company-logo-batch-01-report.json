@@ -1,15 +1,15 @@
 {
-  "provider": "Bing Images search; image bytes fetched from each result's original host",
+  "provider": "Google Images search; image bytes fetched from each result's original host",
   "batch": 1,
   "range": [
     1,
     50
   ],
-  "attemptedAt": "2026-10-25T17:33:38.337Z",
-  "downloaded": 43,
+  "attemptedAt": "2026-10-25T17:27:37.976Z",
+  "downloaded": 0,
   "alreadyReal": 1,
-  "failed": 6,
-  "note": "Bing Images is a discovery tool; source URLs are stored per downloaded image. Automated matching is not a substitute for visual review of brand identity or a rights check.",
+  "failed": 49,
+  "note": "Google Images is a discovery tool; source URLs are stored per downloaded image. Automated matching is not a substitute for visual review of brand identity or a rights check.",
   "results": [
     {
       "id": "jp-3-d-matrix-ltd-7777-5d23fe3d",
@@ -19,79 +19,57 @@
     {
       "id": "jp-4cs-hd-co-ltd-3726-68a12118",
       "name": "4Cs HD Co.,Ltd.",
-      "status": "downloaded",
-      "bytes": 19018,
-      "source": "https://www.cinematerial.com/p/297x/cjbzk7jh/outlander-blood-of-my-blood-movie-poster-md.jpg?v=1757882932"
+      "status": "no-downloadable-image"
     },
     {
       "id": "jp-a-a-material-corporation-5391-1744979d",
       "name": "A&A Material Corporation",
-      "status": "downloaded",
-      "bytes": 43980,
-      "source": "https://cdn.pixabay.com/photo/2015/08/26/23/57/letter-a-909227_1280.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "jp-a-d-holon-holdings-company-limited-7745-4ccde400",
       "name": "A&D HOLON Holdings Company,Limited",
-      "status": "downloaded",
-      "bytes": 43980,
-      "source": "https://cdn.pixabay.com/photo/2015/08/26/23/57/letter-a-909227_1280.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "jp-a-d-works-group-co-ltd-2982-4f2880a9",
       "name": "A.D.Works Group Co.,Ltd.",
-      "status": "downloaded",
-      "bytes": 43980,
-      "source": "https://cdn.pixabay.com/photo/2015/08/26/23/57/letter-a-909227_1280.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "jp-a-tie-co-ltd-369a-4dee7904",
       "name": "A-tie Co.,Ltd.",
-      "status": "downloaded",
-      "bytes": 43980,
-      "source": "https://cdn.pixabay.com/photo/2015/08/26/23/57/letter-a-909227_1280.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "jp-ab-company-co-ltd-9251-efc7382d",
       "name": "AB&Company Co.,Ltd.",
-      "status": "downloaded",
-      "bytes": 3972,
-      "source": "https://img.magnific.com/premium-vector/ab-logo-vector-illustration-8_666870-2637.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "jp-abalance-corporation-3856-f6f28473",
       "name": "Abalance Corporation",
-      "status": "downloaded",
-      "bytes": 87225,
-      "source": "https://www.freebiefindingmom.com/wp-content/uploads/2023/07/printable-cursive-calligraphy-alphabet-chart-1-791x1024.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "jp-abc-co-ltd-8783-895af577",
       "name": "abc Co.,Ltd.",
-      "status": "downloaded",
-      "bytes": 14050,
-      "source": "https://www.justjared.com/wp-content/uploads/2026/07/abc-fall-dates-1200x675.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "jp-abc-mart-inc-2670-9f4a83d0",
       "name": "ABC-MART,INC.",
-      "status": "downloaded",
-      "bytes": 14050,
-      "source": "https://www.justjared.com/wp-content/uploads/2026/07/abc-fall-dates-1200x675.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "jp-abeja-inc-5574-08b3a823",
       "name": "ABEJA,Inc.",
-      "status": "downloaded",
-      "bytes": 98234,
-      "source": "https://www.picclickimg.com/FB8AAeSwJaNq134o/Southern-Living-Magazine-Lot-Of-6-Issues-2026.webp"
+      "status": "no-downloadable-image"
     },
     {
       "id": "jp-abist-co-ltd-6087-8dccda2c",
       "name": "ABIST Co.,Ltd.",
-      "status": "downloaded",
-      "bytes": 18976,
-      "source": "https://d5ip5p2ldkpmf.cloudfront.net/cinema/DB_Photos/ShowCards/AllMADPhotos/10077400/p10077400_b_v5_v13_cmd1.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "jp-accelia-inc-271a-383135f9",
@@ -101,16 +79,12 @@
     {
       "id": "jp-access-co-ltd-4813-be1a8936",
       "name": "ACCESS CO.,LTD.",
-      "status": "downloaded",
-      "bytes": 12776,
-      "source": "https://www.windowsnoticias.com/wp-content/uploads/2023/10/access.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "in-20-microns-ltd-20microns-919ac70f",
       "name": "20 Microns Ltd",
-      "status": "downloaded",
-      "bytes": 99652,
-      "source": "https://c8.alamy.com/comp/CRHG27/birthday-anniversary-candles-showing-nr-20-CRHG27.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "in-360-one-wam-ltd-360one-09490cef",
@@ -120,30 +94,22 @@
     {
       "id": "in-3b-blackbio-dx-ltd-3bblackbio-efd20dbc",
       "name": "3B BlackBio Dx Ltd",
-      "status": "downloaded",
-      "bytes": 31415,
-      "source": "https://i.pinimg.com/736x/e6/d4/7f/e6d47f190f62cc3f452e71643a970553.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "in-3b-films-ltd-3bfilms-151d41dc",
       "name": "3B Films Ltd",
-      "status": "downloaded",
-      "bytes": 130016,
-      "source": "https://wallpapercave.com/wp/wp2656554.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "in-3c-it-solutions-and-telecoms-india-ltd-3cit-09074294",
       "name": "3C IT Solutions and Telecoms (India) Ltd",
-      "status": "downloaded",
-      "bytes": 147965,
-      "source": "https://nowboarding.changiairport.com/content/dam/canowboarding/article-assets/go-global/travel-guide-cambodia-phnom-penh/psar-thmei-central-market-phnom-penh-cambodia-%201080x770.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "in-3i-infotech-ltd-3iinfoltd-19baaa74",
       "name": "3i Infotech Ltd",
-      "status": "downloaded",
-      "bytes": 138000,
-      "source": "https://i.pinimg.com/originals/94/f8/fb/94f8fbc355cad1601f6e25ac5af90374.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "in-3m-india-ltd-3mindia-18db5b55",
@@ -153,107 +119,77 @@
     {
       "id": "in-3p-land-holdings-ltd-3pland-ff24b660",
       "name": "3P Land Holdings Ltd",
-      "status": "downloaded",
-      "bytes": 10888,
-      "source": "https://media.licdn.com/dms/image/v2/D4E03AQFlZqEwfubpKg/profile-displayphoto-shrink_200_200/profile-displayphoto-shrink_200_200/0/1728924986642?e=2147483647&v=beta&t=BYzeMXD2P_wx41EJE3MeBp6LYLznL19CDrs5-e38WH8"
+      "status": "no-downloadable-image"
     },
     {
       "id": "in-5paisa-capital-ltd-5paisa-14e4e6c8",
       "name": "5paisa Capital Ltd",
-      "status": "downloaded",
-      "bytes": 126613,
-      "source": "https://i.ytimg.com/vi/7w963R7xgfc/maxresdefault.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "in-63-moons-technologies-ltd-63moons-7cf68307",
       "name": "63 Moons Technologies Ltd",
-      "status": "downloaded",
-      "bytes": 133248,
-      "source": "https://media1.popsugar-assets.com/files/thumbor/iPgDfn7aWTH-6UV-vr2PqNC8Nh0/fit-in/2048xorig/filters:format_auto-!!-:strip_icc-!!-/2015/11/02/974/n/1922398/49e54985_corbin/i/Corbin-Bleu-Chad-Danforth.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "in-7nr-retail-ltd-7nr-d7db40c3",
       "name": "7NR Retail Ltd",
-      "status": "downloaded",
-      "bytes": 89813,
-      "source": "https://m.media-amazon.com/images/I/81PMtr87GhL._AC_UF894,1000_QL80_.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "in-7seas-entertainment-ltd-7seasl-64cc2752",
       "name": "7Seas Entertainment Ltd",
-      "status": "downloaded",
-      "bytes": 40590,
-      "source": "https://i.ebayimg.com/images/g/gOMAAOSwEQxi46s6/s-l400.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "in-a-1-ltd-a1l-b0c5f2be",
       "name": "A-1 Ltd",
-      "status": "downloaded",
-      "bytes": 43980,
-      "source": "https://cdn.pixabay.com/photo/2015/08/26/23/57/letter-a-909227_1280.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "in-a-b-cotspin-india-ltd-abcots-fce5bd8e",
       "name": "A B Cotspin India Ltd",
-      "status": "downloaded",
-      "bytes": 43980,
-      "source": "https://cdn.pixabay.com/photo/2015/08/26/23/57/letter-a-909227_1280.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "fr-2crsi-s-a-al2si-a114086a",
       "name": "2CRSI S.A.",
-      "status": "downloaded",
-      "bytes": 52766,
-      "source": "https://www.econic-technologies.com/wp-content/uploads/2023/06/Keith-updated-photo-500x500.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "fr-74software-74sw-8443116c",
       "name": "74SOFTWARE",
-      "status": "downloaded",
-      "bytes": 133132,
-      "source": "https://i.insider.com/663a886fb4abc992e8c6a3aa?width=1200&format=jpeg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "fr-ab-science-s-a-ab-af4b7c3d",
       "name": "AB Science S.A",
-      "status": "downloaded",
-      "bytes": 3972,
-      "source": "https://img.magnific.com/premium-vector/ab-logo-vector-illustration-8_666870-2637.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "fr-abc-arbitrage-sa-abca-7278b50d",
       "name": "ABC arbitrage SA",
-      "status": "downloaded",
-      "bytes": 14050,
-      "source": "https://www.justjared.com/wp-content/uploads/2026/07/abc-fall-dates-1200x675.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "fr-abeo-sa-0rjy-ca2e45d4",
       "name": "Abéo SA",
-      "status": "downloaded",
-      "bytes": 57585,
-      "source": "https://skylinepost.org/wp-content/uploads/2023/05/Screenshot_20230531_090832_Chrome-900x402.jpeg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "fr-abionyx-pharma-sa-abnx-75dc3ca3",
       "name": "Abionyx Pharma SA",
-      "status": "downloaded",
-      "bytes": 76009,
-      "source": "https://clipartmag.com/images/frankenstein-cartoon-face-clipart-13.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "fr-abivax-sa-abvx-2306718a",
       "name": "Abivax SA",
-      "status": "downloaded",
-      "bytes": 104698,
-      "source": "https://i.ytimg.com/vi/Ll7LSdHy1hA/maxresdefault.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "fr-accor-s-a-ac-77967177",
       "name": "Accor S. A.",
-      "status": "downloaded",
-      "bytes": 73092,
-      "source": "https://upload.wikimedia.org/wikipedia/fr/c/c3/Accor_Logo.png"
+      "status": "no-downloadable-image"
     },
     {
       "id": "fr-acheter-louer-alalo-6d2044be",
@@ -263,23 +199,17 @@
     {
       "id": "fr-acteos-s-a-eos-7d241b1b",
       "name": "ACTEOS S.A",
-      "status": "downloaded",
-      "bytes": 13785,
-      "source": "https://media.licdn.com/dms/image/v2/C4E03AQFwmdg8386x-A/profile-displayphoto-shrink_200_200/profile-displayphoto-shrink_200_200/0/1655738590120?e=2147483647&v=beta&t=dEeTXuBoFBR2xh_59b1d2Plbe-TJWIIsztdAwKWjhM0"
+      "status": "no-downloadable-image"
     },
     {
       "id": "fr-actia-group-alati-b2937f60",
       "name": "Actia Group",
-      "status": "downloaded",
-      "bytes": 88308,
-      "source": "https://img.magnific.com/premium-photo/social-media-manager-representation_1046319-6852.jpg?w=1380"
+      "status": "no-downloadable-image"
     },
     {
       "id": "fr-activium-group-mlact-11a98f1e",
       "name": "Activium Group",
-      "status": "downloaded",
-      "bytes": 10813,
-      "source": "https://media.licdn.com/dms/image/v2/C4E03AQGlPKcQBRvO1g/profile-displayphoto-shrink_200_200/profile-displayphoto-shrink_200_200/0/1558050800694?e=2147483647&v=beta&t=_P4itffCoQU03RZrqsbJObnPJWPsYdtDu6qf9gRFzQo"
+      "status": "no-downloadable-image"
     },
     {
       "id": "fr-ada-alada-a5c5146b",
@@ -288,30 +218,22 @@
     {
       "id": "fr-adeunis-alarf-371c17e8",
       "name": "Adeunis",
-      "status": "downloaded",
-      "bytes": 132971,
-      "source": "https://salalahport.com.om/uploads/pages/4252f63dc56a9be848ca27fe654cd815.png"
+      "status": "no-downloadable-image"
     },
     {
       "id": "it-a-b-p-nocivelli-s-p-a-abp-1849154d",
       "name": "A.B.P. Nocivelli S.p.A.",
-      "status": "downloaded",
-      "bytes": 43980,
-      "source": "https://cdn.pixabay.com/photo/2015/08/26/23/57/letter-a-909227_1280.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "it-a2a-spa-0n54-c993524c",
       "name": "A2A SpA",
-      "status": "downloaded",
-      "bytes": 10780,
-      "source": "https://media.licdn.com/dms/image/v2/D4E03AQEHpVSBrwXFBQ/profile-displayphoto-shrink_200_200/profile-displayphoto-shrink_200_200/0/1664452356906?e=2147483647&v=beta&t=B6c29RPWjdGic0X36eoFdCVJl6S5Pg5kWMcciw8_ldQ"
+      "status": "no-downloadable-image"
     },
     {
       "id": "it-acea-s-p-a-0mhd-941cd98d",
       "name": "Acea S.p.A.",
-      "status": "downloaded",
-      "bytes": 50790,
-      "source": "https://a57.foxnews.com/static.foxnews.com/foxnews.com/content/uploads/2024/03/1200/675/Joe-Biden-Jill-Biden.jpg?ve=1&tl=1"
+      "status": "no-downloadable-image"
     },
     {
       "id": "it-acinque-ac5-7df02124",
@@ -321,30 +243,22 @@
     {
       "id": "it-alerion-clean-power-s-p-a-0p3o-55117d10",
       "name": "Alerion Clean Power S.p.A.",
-      "status": "downloaded",
-      "bytes": 108820,
-      "source": "https://i.ytimg.com/vi/5y2xPJm_8tE/maxresdefault.jpg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "it-alfio-bardolla-training-group-spa-abtg-8736bbe1",
       "name": "Alfio Bardolla Training Group SpA",
-      "status": "downloaded",
-      "bytes": 133000,
-      "source": "https://www.laughingplace.com/uploads/2023/05/arctic-rescue-opening-friday-june-2nd-at-seaworld-san-diego-1.jpeg"
+      "status": "no-downloadable-image"
     },
     {
       "id": "it-alfonsino-s-p-a-alfo-42c4c503",
       "name": "Alfonsino S.p.A.",
-      "status": "downloaded",
-      "bytes": 46431,
-      "source": "https://www.fs.usda.gov/sites/nfs/files/styles/thumbnail/public/r03/coconino/image/woods-canyon-quiet-area-map-mvum.jpg?h=a261d19f"
+      "status": "no-downloadable-image"
     },
     {
       "id": "it-almawave-s-p-a-aiw-a0d4d0ec",
       "name": "Almawave S.p.A.",
-      "status": "downloaded",
-      "bytes": 17921,
-      "source": "https://static.tvmaze.com/uploads/images/medium_portrait/473/1184246.jpg"
+      "status": "no-downloadable-image"
     }
   ]
 }
