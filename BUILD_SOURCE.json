@@ -29,13 +29,10 @@
     "start_command": "sh -c 'pnpm db:migrate && node dist/index.js'",
     "database": "MySQL 8-compatible or MariaDB",
     "required_secrets": [
-      "DATABASE_URL",
-      "SESSION_SECRET",
-      "PASSWORD_PEPPER",
-      "TOTP_ENCRYPTION_KEY"
+      "DATABASE_URL"
     ],
     "optional_environment_reference": ".env.example",
-    "secrets_policy": "Provide secrets through the deployment platform or a protected server-side environment. Never commit .env files containing secrets, production credentials, authenticator encryption keys, or production database exports."
+    "secrets_policy": "DATABASE_URL is provisioned by the host. SESSION_SECRET, PASSWORD_PEPPER, and TOTP_ENCRYPTION_KEY are generated automatically and persisted in a private runtime secret file when not supplied by the installer. Keep that file on durable private storage and back it up. Never commit .env files, runtime secret files, production credentials, or production database exports."
   },
   "release": {
     "workflow": ".github/workflows/full-production-release.yml",
