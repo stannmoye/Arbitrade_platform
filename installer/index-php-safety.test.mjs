@@ -36,6 +36,18 @@ describe("PHP installer state-marker safety", () => {
     expect(source).toContain("$httpsDetected = installerRequestIsHttps();");
   });
 
+  it("blocks wizard progression until Node.js, pnpm, and installed dependency metadata pass preflight", async () => {
+    const source = await readFile(wizardPath, "utf8");
+    expect(source).toContain("function installerCommandOutput(string $binary, array $arguments): ?string");
+    expect(source).toContain("getenv('ARBITRADE_NODE_BINARY')");
+    expect(source).toContain("getenv('ARBITRADE_PNPM_BINARY')");
+    expect(source).toContain("$nodeVersionValid");
+    expect(source).toContain("$pnpmVersionValid");
+    expect(source).toContain("is_file($root . '/node_modules/.modules.yaml')");
+    expect(source).toContain("|| !$nodeVersionValid || !$pnpmVersionValid || !$nodeModulesReady");
+    expect(source).toContain("All required PHP, Node.js, pnpm, installed-dependency, package, permission, and installation-state checks must pass");
+  });
+
   it("keeps stage navigation controls outside the stage panels and gates progression", async () => {
     const source = await readFile(wizardPath, "utf8");
     expect(source).toContain("navigationControls.remove();");
