@@ -59,6 +59,9 @@ try {
       if (company.logoSourceSlug !== "neutral-placeholder" || company.logoSourceUrl !== "internal://neutral-company-reference-placeholder") fail(label + ": invalid neutral placeholder source metadata.");
     } else if (company.logoSourceName === "Simple Icons CC0-1.0") {
       if (!/^[a-z0-9_-]+$/.test(company.logoSourceSlug) || !/^https:\/\//.test(company.logoSourceUrl) || company.logoLicense !== "CC0-1.0") fail(label + ": invalid Simple Icons source/license metadata.");
+    } else if (/^Official company website (declared-favicon|apple-touch-icon|standard-favicon|logo-labelled-image|declared-svg-icon)$/.test(company.logoSourceName)) {
+      if (!/^https:\/\//i.test(String(company.logoSourceUrl ?? "")) || !/^https:\/\//i.test(String(company.logoHomepageUrl ?? ""))) fail(label + ": official-site logo source requires HTTPS source and homepage URLs.");
+      if (!/^official-website-(declared-favicon|apple-touch-icon|standard-favicon|logo-labelled-image|declared-svg-icon)$/.test(company.logoSourceSlug)) fail(label + ": invalid official-site source slug.");
     } else if (company.logoSourceName === "Wikimedia Commons") {
       const license = String(company.logoLicense ?? "").trim();
       const reusableLicense = /^CC0(?:[ -]1\.0)?$/i.test(license)
@@ -73,7 +76,7 @@ try {
       }
     } else fail(label + ": logo source is not on the explicit allowlist.");
     if (!/^[a-f0-9]{64}$/i.test(company.logoSha256)) fail(label + ": missing or invalid SHA-256 for logo asset.");
-    if (!/^[a-z0-9-]+\.svg$/.test(company.logoUrl.split("/").at(-1))) fail(label + ": unexpected logo asset path.");
+    if (!/^[a-z0-9-]+\.(svg|png|webp|ico|jpg|jpeg)$/.test(company.logoUrl.split("/").at(-1))) fail(label + ": unexpected logo asset path.");
     if (paths.has(company.logoUrl)) fail(label + ": duplicate local logo path"); paths.add(company.logoUrl);
     logoHashes.set(company.logoUrl, company.logoSha256.toLowerCase());
   }
@@ -96,7 +99,7 @@ try {
   if (Object.values(reported).reduce((total, count) => total + Number(count || 0), 0) !== 1000) fail("Reported country counts do not add up to 1,000.");
   const allLogoFiles = (await readdir(LOGO_DIR)).filter((name) => !name.startsWith("."));
   if (allLogoFiles.length !== 1000) fail("Expected exactly 1,000 cached logo files; found " + allLogoFiles.length + ".");
-  if (allLogoFiles.some((name) => !/^[a-z0-9-]+\.svg$/.test(name))) fail("Logo directory contains an unexpected non-SVG or unsafe filename.");
+  if (allLogoFiles.some((name) => !/^[a-z0-9-]+\.(svg|png|webp|ico|jpg|jpeg)$/.test(name))) fail("Logo directory contains an unexpected image format or unsafe filename.");
   for (const relativePath of paths) {
     const filePath = join(ROOT, "client/public", relativePath.replace(/^\/+/, ""));
     const info = await stat(filePath);
@@ -106,7 +109,17 @@ try {
     const bytes = await readFile(filePath);
     const body = bytes.toString("utf8");
     if (createHash("sha256").update(bytes).digest("hex").toLowerCase() !== logoHashes.get(relativePath)) fail("Logo SHA-256 mismatch: " + relativePath);
-    if (!/<svg\b/i.test(body) || !/<\/svg\s*>/i.test(body) || /<script\b|<foreignObject\b|javascript\s*:/i.test(body)) fail("Logo is not a safe standalone SVG: " + relativePath);
+    const extension = relativePath.split(".").at(-1).toLowerCase();
+    if (extension === "svg") {
+      if (!/<svg\b/i.test(body) || !/<\/svg\s*>/i.test(body) || /<script\b|<foreignObject\b|javascript\s*:/i.test(body)) fail("Logo is not a safe standalone SVG: " + relativePath);
+    } else {
+      const validRaster = extension === "png" ? bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+        : extension === "jpg" || extension === "jpeg" ? bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+        : extension === "webp" ? body.slice(0, 4) === "RIFF" && body.slice(8, 12) === "WEBP"
+        : extension === "ico" ? bytes[0] === 0 && bytes[1] === 0 && bytes[2] === 1 && bytes[3] === 0
+        : false;
+      if (!validRaster) fail("Logo file content does not match its image extension: " + relativePath);
+    }
   }
   if (!/^[a-f0-9]{40}$/i.test(data.source?.sourceCommit ?? "")) fail("Company identity source snapshot commit is not pinned.");
   const cc0SourcePolicy = data.logoSource?.explicitCc0Only === true && String(data.logoSource?.providerName ?? "").includes("Simple Icons CC0-1.0");
@@ -116,18 +129,23 @@ try {
     && data.logoSource.permittedWikimediaLicenses.includes("CC BY")
     && data.logoSource.permittedWikimediaLicenses.includes("CC BY-SA")
     && data.logoSource.permittedWikimediaLicenses.includes("Public domain");
+  const officialSiteSourcePolicy = data.companies.every((company) => {
+    if (!String(company.logoSourceName ?? "").startsWith("Official company website ")) return true;
+    return /^https:\/\//i.test(String(company.logoSourceUrl ?? "")) && /^https:\/\//i.test(String(company.logoHomepageUrl ?? ""));
+  });
   const untouchedLegacyPlaceholderState = data.logoSource?.providerName === "Locally generated neutral company-reference placeholders"
     && data.logoSource?.reusePermissionVerified === true
     && data.companies.every((company) => company.logoSourceName === "Neutral company-reference placeholder");
-  if (!cc0SourcePolicy && !wikimediaReusePolicy && !untouchedLegacyPlaceholderState) fail("Catalogue logo policy must restrict sourced artwork to explicit CC0, CC BY, CC BY-SA, or public-domain assets; only the untouched legacy placeholder-only state is allowed during transition.");
-  console.log("[company-logos] STRUCTURAL PASS: 1,000 reference records across " + counts.size + " represented countries, Pool A=" + poolACount + ", Pool B=" + poolBCount + ", exactly 1,000 local SVGs, no runtime logo URLs.");
+  if (!cc0SourcePolicy && !wikimediaReusePolicy && !officialSiteSourcePolicy && !untouchedLegacyPlaceholderState) fail("Logo source metadata does not satisfy an approved provenance policy.");
+  console.log("[company-logos] STRUCTURAL PASS: 1,000 reference records across " + counts.size + " represented countries, Pool A=" + poolACount + ", Pool B=" + poolBCount + ", exactly 1,000 local image assets, no runtime logo URLs.");
   const missingCountries = [...expected.entries()].filter(([code]) => !(counts.get(code) > 0)).map(([, value]) => value.name);
   if (missingCountries.length) {
     fail("No records for replacement country allocation: " + missingCountries.join(", ") + ". Every one of the 46 configured countries must be represented.");
   }
   const placeholderCount = data.companies.filter((company) => company.logoSourceName === "Neutral company-reference placeholder").length;
   const sourcedCount = data.companies.length - placeholderCount;
-  console.log("[company-logos] LOGO SOURCE COUNTS: " + sourcedCount + " explicitly CC0-1.0 Simple Icons assets; " + placeholderCount + " neutral placeholders.");
+  console.log("[company-logos] LOGO SOURCE COUNTS: " + sourcedCount + " sourced assets; " + placeholderCount + " neutral placeholders.");
+  console.warn("[company-logos] LICENSING NOTE: official-site favicons/images have verified source URLs but may still require separate redistribution-rights review.");
   console.warn("[company-logos] LIMITATION: company identities/listing status and headquarters country remain unverified. Placeholder images are not company brand logos; logos do not establish trading eligibility or prove a transaction occurred.");
 } catch (error) {
   console.error("[company-logos] FAIL: " + (error instanceof Error ? error.message : String(error)));
