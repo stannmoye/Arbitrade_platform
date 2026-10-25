@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { chmodSync, existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-type RuntimeSecretName = "SESSION_SECRET" | "PASSWORD_PEPPER" | "TOTP_ENCRYPTION_KEY";
+type RuntimeSecretName = "SESSION_SECRET" | "PASSWORD_PEPPER" | "TOTP_ENCRYPTION_KEY" | "INTEGRATION_ENCRYPTION_KEY";
 type SecretStore = Partial<Record<RuntimeSecretName, string>>;
 
 const storePath = path.resolve(process.cwd(), ".arbitrade-runtime-secrets.json");
