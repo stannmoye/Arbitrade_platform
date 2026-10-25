@@ -121,7 +121,6 @@ for (let i = 0; i < companies.length; i++) {
   await writeFile(fullPath, asset.bytes);
   if (oldFullPath !== fullPath) await rm(oldFullPath, { force: true });
   company.logoUrl = "/" + newPublicPath;
-  company.logoUrl = "/" + newPath.replace(/^client\/public\//, "");
   company.logoSourceName = "Google Images result; original image source";
   company.logoSourceUrl = asset.sourceUrl;
   company.logoSourceSlug = "google-images-source";
