@@ -25554,5 +25554,18 @@
       "logoBytes": 380,
       "logoSha256": "a47ef18e9aaaba1b1197c55af959a2d872b3287297b99e6a75214c7ccda35519"
     }
-  ]
+  ],
+  "logoBatchDownload": {
+    "provider": "Google Images search; image bytes fetched from each result's original host",
+    "batch": 1,
+    "range": [
+      1,
+      50
+    ],
+    "attemptedAt": "2026-10-25T17:27:37.976Z",
+    "downloaded": 0,
+    "alreadyReal": 1,
+    "failed": 49,
+    "note": "Google Images is a discovery tool; source URLs are stored per downloaded image. Automated matching is not a substitute for visual review of brand identity or a rights check."
+  }
 }

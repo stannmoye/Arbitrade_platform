@@ -1,0 +1,264 @@
+{
+  "provider": "Google Images search; image bytes fetched from each result's original host",
+  "batch": 1,
+  "range": [
+    1,
+    50
+  ],
+  "attemptedAt": "2026-10-25T17:27:37.976Z",
+  "downloaded": 0,
+  "alreadyReal": 1,
+  "failed": 49,
+  "note": "Google Images is a discovery tool; source URLs are stored per downloaded image. Automated matching is not a substitute for visual review of brand identity or a rights check.",
+  "results": [
+    {
+      "id": "jp-3-d-matrix-ltd-7777-5d23fe3d",
+      "name": "3-D Matrix,Ltd.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "jp-4cs-hd-co-ltd-3726-68a12118",
+      "name": "4Cs HD Co.,Ltd.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "jp-a-a-material-corporation-5391-1744979d",
+      "name": "A&A Material Corporation",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "jp-a-d-holon-holdings-company-limited-7745-4ccde400",
+      "name": "A&D HOLON Holdings Company,Limited",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "jp-a-d-works-group-co-ltd-2982-4f2880a9",
+      "name": "A.D.Works Group Co.,Ltd.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "jp-a-tie-co-ltd-369a-4dee7904",
+      "name": "A-tie Co.,Ltd.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "jp-ab-company-co-ltd-9251-efc7382d",
+      "name": "AB&Company Co.,Ltd.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "jp-abalance-corporation-3856-f6f28473",
+      "name": "Abalance Corporation",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "jp-abc-co-ltd-8783-895af577",
+      "name": "abc Co.,Ltd.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "jp-abc-mart-inc-2670-9f4a83d0",
+      "name": "ABC-MART,INC.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "jp-abeja-inc-5574-08b3a823",
+      "name": "ABEJA,Inc.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "jp-abist-co-ltd-6087-8dccda2c",
+      "name": "ABIST Co.,Ltd.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "jp-accelia-inc-271a-383135f9",
+      "name": "Accelia,Inc.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "jp-access-co-ltd-4813-be1a8936",
+      "name": "ACCESS CO.,LTD.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-20-microns-ltd-20microns-919ac70f",
+      "name": "20 Microns Ltd",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-360-one-wam-ltd-360one-09490cef",
+      "name": "360 ONE WAM LTD",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-3b-blackbio-dx-ltd-3bblackbio-efd20dbc",
+      "name": "3B BlackBio Dx Ltd",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-3b-films-ltd-3bfilms-151d41dc",
+      "name": "3B Films Ltd",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-3c-it-solutions-and-telecoms-india-ltd-3cit-09074294",
+      "name": "3C IT Solutions and Telecoms (India) Ltd",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-3i-infotech-ltd-3iinfoltd-19baaa74",
+      "name": "3i Infotech Ltd",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-3m-india-ltd-3mindia-18db5b55",
+      "name": "3M India Ltd",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-3p-land-holdings-ltd-3pland-ff24b660",
+      "name": "3P Land Holdings Ltd",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-5paisa-capital-ltd-5paisa-14e4e6c8",
+      "name": "5paisa Capital Ltd",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-63-moons-technologies-ltd-63moons-7cf68307",
+      "name": "63 Moons Technologies Ltd",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-7nr-retail-ltd-7nr-d7db40c3",
+      "name": "7NR Retail Ltd",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-7seas-entertainment-ltd-7seasl-64cc2752",
+      "name": "7Seas Entertainment Ltd",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-a-1-ltd-a1l-b0c5f2be",
+      "name": "A-1 Ltd",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "in-a-b-cotspin-india-ltd-abcots-fce5bd8e",
+      "name": "A B Cotspin India Ltd",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "fr-2crsi-s-a-al2si-a114086a",
+      "name": "2CRSI S.A.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "fr-74software-74sw-8443116c",
+      "name": "74SOFTWARE",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "fr-ab-science-s-a-ab-af4b7c3d",
+      "name": "AB Science S.A",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "fr-abc-arbitrage-sa-abca-7278b50d",
+      "name": "ABC arbitrage SA",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "fr-abeo-sa-0rjy-ca2e45d4",
+      "name": "Abéo SA",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "fr-abionyx-pharma-sa-abnx-75dc3ca3",
+      "name": "Abionyx Pharma SA",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "fr-abivax-sa-abvx-2306718a",
+      "name": "Abivax SA",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "fr-accor-s-a-ac-77967177",
+      "name": "Accor S. A.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "fr-acheter-louer-alalo-6d2044be",
+      "name": "Acheter Louer",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "fr-acteos-s-a-eos-7d241b1b",
+      "name": "ACTEOS S.A",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "fr-actia-group-alati-b2937f60",
+      "name": "Actia Group",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "fr-activium-group-mlact-11a98f1e",
+      "name": "Activium Group",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "fr-ada-alada-a5c5146b",
+      "status": "already-real"
+    },
+    {
+      "id": "fr-adeunis-alarf-371c17e8",
+      "name": "Adeunis",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "it-a-b-p-nocivelli-s-p-a-abp-1849154d",
+      "name": "A.B.P. Nocivelli S.p.A.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "it-a2a-spa-0n54-c993524c",
+      "name": "A2A SpA",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "it-acea-s-p-a-0mhd-941cd98d",
+      "name": "Acea S.p.A.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "it-acinque-ac5-7df02124",
+      "name": "Acinque",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "it-alerion-clean-power-s-p-a-0p3o-55117d10",
+      "name": "Alerion Clean Power S.p.A.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "it-alfio-bardolla-training-group-spa-abtg-8736bbe1",
+      "name": "Alfio Bardolla Training Group SpA",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "it-alfonsino-s-p-a-alfo-42c4c503",
+      "name": "Alfonsino S.p.A.",
+      "status": "no-downloadable-image"
+    },
+    {
+      "id": "it-almawave-s-p-a-aiw-a0d4d0ec",
+      "name": "Almawave S.p.A.",
+      "status": "no-downloadable-image"
+    }
+  ]
+}
