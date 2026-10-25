@@ -37,6 +37,20 @@ export type CompanyReferenceSearch = {
   countryCode?: string;
   limit?: number;
 };
+export type CompanyReferenceResponse = CompanyReferenceRecord & {
+  referenceOnly: true;
+  logoReusePermissionVerified: false;
+  eligibleForVerifiedTradeRotation: false;
+};
+
+function asReferenceResponse(company: CompanyReferenceRecord): CompanyReferenceResponse {
+  return {
+    ...company,
+    referenceOnly: true,
+    logoReusePermissionVerified: false,
+    eligibleForVerifiedTradeRotation: false,
+  };
+}
 
 const payload = catalogueJson as unknown as CataloguePayload;
 
@@ -71,20 +85,21 @@ export const COMPANY_REFERENCE_CATALOGUE: readonly CompanyReferenceRecord[] = Ob
 
 const byId = new Map(COMPANY_REFERENCE_CATALOGUE.map((company) => [company.id, company]));
 
-export function getCompanyReferenceById(id: string): CompanyReferenceRecord | undefined {
-  return byId.get(id);
+export function getCompanyReferenceById(id: string): CompanyReferenceResponse | undefined {
+  const company = byId.get(id);
+  return company ? asReferenceResponse(company) : undefined;
 }
 
 /** Returns all exact ticker/symbol matches; callers must not guess between markets. */
-export function findCompanyReferencesBySymbol(symbol: string): CompanyReferenceRecord[] {
+export function findCompanyReferencesBySymbol(symbol: string): CompanyReferenceResponse[] {
   const normalized = symbol.trim().toUpperCase();
   if (!normalized) return [];
-  return COMPANY_REFERENCE_CATALOGUE.filter((company) =>
-    company.symbol.toUpperCase() === normalized || company.ticker.toUpperCase() === normalized
-  );
+  return COMPANY_REFERENCE_CATALOGUE
+    .filter((company) => company.symbol.toUpperCase() === normalized || company.ticker.toUpperCase() === normalized)
+    .map(asReferenceResponse);
 }
 
-export function searchCompanyReferences(filters: CompanyReferenceSearch = {}): CompanyReferenceRecord[] {
+export function searchCompanyReferences(filters: CompanyReferenceSearch = {}): CompanyReferenceResponse[] {
   const term = filters.search?.trim().toLowerCase();
   const countryCode = filters.countryCode?.trim().toUpperCase();
   const limit = Number.isFinite(filters.limit) ? Math.max(1, Math.min(100, Math.floor(filters.limit!))) : 50;
@@ -92,7 +107,7 @@ export function searchCompanyReferences(filters: CompanyReferenceSearch = {}): C
   for (const company of COMPANY_REFERENCE_CATALOGUE) {
     if (term && ![company.name, company.ticker, company.symbol, company.exchangeCode].some((value) => value.toLowerCase().includes(term))) continue;
     if (countryCode && company.countryCode.toUpperCase() !== countryCode) continue;
-    results.push(company);
+    results.push(asReferenceResponse(company));
     if (results.length >= limit) break;
   }
   return results;
