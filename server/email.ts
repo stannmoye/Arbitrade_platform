@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
+import { hasSavedEmailConfig, isEmailAdminConfigured, sendEmail as sendPortalEmail } from "./emailAdmin";
 
 export type EmailTemplate =
   | "system_notification"
@@ -125,5 +126,46 @@ export function createSmtpMailer(
 }
 
 const smtpMailer = createSmtpMailer();
-export const isEmailDeliveryConfigured = () => smtpMailer.isConfigured();
-export const sendRenderedEmail = (to: string, rendered: RenderedEmail) => smtpMailer.send(to, rendered);
+
+/**
+ * New installations configure mail from the authenticated admin portal.
+ * Environment SMTP remains a backwards-compatible fallback for older hosts.
+ * A missing mail transport never prevents the application from starting.
+ */
+export async function isEmailDeliveryConfigured(): Promise<boolean> {
+  let portalConfigSaved = false;
+  try {
+    portalConfigSaved = await hasSavedEmailConfig();
+  } catch {
+    // If database settings are temporarily unavailable, retain the legacy
+    // environment transport if it is configured; otherwise fail closed.
+    return smtpMailer.isConfigured();
+  }
+  if (!portalConfigSaved) return smtpMailer.isConfigured();
+  try {
+    return await isEmailAdminConfigured();
+  } catch {
+    return false;
+  }
+}
+
+export async function sendRenderedEmail(to: string, rendered: RenderedEmail) {
+  if (!isValidEmailAddress(to)) throw new Error("Invalid email recipient");
+  let portalConfigSaved = false;
+  try {
+    portalConfigSaved = await hasSavedEmailConfig();
+  } catch {
+    return smtpMailer.send(to, rendered);
+  }
+  if (!portalConfigSaved) return smtpMailer.send(to, rendered);
+
+  // Do not fall back after a portal transport send error: the provider may
+  // already have accepted the message and a second transport could duplicate it.
+  const result = await sendPortalEmail({
+    to,
+    subject: rendered.subject,
+    text: rendered.text,
+    html: rendered.html,
+  });
+  return { messageId: result.messageId || "" };
+}
