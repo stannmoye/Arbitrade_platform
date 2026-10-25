@@ -45,6 +45,9 @@ jobs:
           node --check installer/install-wrapper.test.mjs
           node --check installer/run-install-recovery-guard.test.mjs
           node --check installer/create-admin.mjs
+          node --check installer/initial-accounts-input.mjs
+          node --check installer/initial-accounts-input.test.mjs
+          node --check installer/create-initial-accounts.mjs
           node --check installer/provision-accounts.mjs
           node --check installer/verify-install.mjs
           node --check installer/runtime-status.mjs
