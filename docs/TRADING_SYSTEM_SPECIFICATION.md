@@ -113,13 +113,25 @@ Example: capital $200; realized gross profit $20; fee $3 (15% of $20); net profi
 - Wallet reservations must be distinguished from completed debits. Prevent the same funds from backing multiple concurrent trades.
 - Wallet ledger and displayed balances must reconcile. Use idempotent, transactional operations.
 
-## 9. Company catalogue and rotation
+## 9. Company catalogue and source verification
 
-Target 3,000 verified publicly listed companies; prioritize large and liquid listings across the US, UK, Germany, Canada, Australia, Norway, Switzerland, Belgium, India, Russia, Sweden, Denmark, China, Hong Kong, Singapore, Netherlands, New Zealand, Austria, Poland, Lithuania, Slovakia, Belarus, Kuwait, South Africa, Saudi Arabia, Turkey, Spain, Italy, France, Egypt, Japan, Iceland, Slovenia, Czechia, South Korea, and other supported markets.
+The required static catalogue target is **1,000 distinct publicly listed operating companies**, with the exact geographic split and per-field source requirements documented in [Company Catalogue Source Guide](COMPANY_CATALOGUE_SOURCE_GUIDE.md):
 
-Store stable internal ID, legal/display name, ticker/symbol, exchange, instrument type, listing status, logo/source, headquarters city/country, country code/flag, sector, provider identifier, data source, and last verification timestamp. Use licensed/appropriate data sources; do not invent missing details to reach 3,000. Handle ticker changes, mergers, suspensions, and delistings without corrupting historical trades.
+- **550 companies** from Japan, India, France, Italy, Brazil, Russia, Mexico, South Korea, Spain, Indonesia, Turkey, Netherlands, Saudi Arabia, Switzerland, Poland, Taiwan, Belgium, Sweden, Argentina, Ireland, Thailand, United Arab Emirates, Israel, Austria, Norway, Singapore, Vietnam, Bangladesh, Egypt, Philippines, Malaysia, Denmark, South Africa, Finland, Chile, Romania, Czechia, Portugal, Kazakhstan and Peru.
+- **450 companies** from the USA, UK, Germany, Australia, Canada and China.
 
-Rotate eligible companies with server-side randomized scheduling and configurable market/sector filters. Avoid a fixed predictable sequence, but keep an audit trail. A catalogue entry alone does not prove a trade happened or that the customer owns shares.
+Every named country must be represented. The final catalogue must report verified counts by country and exactly 550/450 by pool; do not invent country subtotals, company records, identifiers, headquarters, sector values or listing status to satisfy the target. Define a company's country by its verified home/headquarters country, not the exchange where its shares trade. Count an issuer once across share classes and cross-listings and preserve the primary listing and other source identifiers.
+
+Use the relevant official stock exchange listing directory and regulator filings for legal name, ticker, exchange and active listing status. Use the issuer's official website/latest annual report or official registry for headquarters, website and sector/industry. Use stable identifiers (for example, exchange issuer IDs, ISIN, LEI, or US CIK where applicable) and store the URL, retrieval time, source version/hash, and last verification timestamp for each record.
+
+Each company logo must be a checked-in local asset referenced by a repository-relative path, preferably under `client/public/assets/company-logos/`. Use an official issuer media/brand kit or a logo source with explicit reuse rights; record the logo source URL, licence/permission basis, required attribution, retrieval date and file hash. A publicly visible logo is not automatically licensed for redistribution. Do not hotlink at runtime, use an unlicensed asset, or substitute a generated mark/flag and label it as the official company logo. If an image cannot be lawfully bundled, flag the record as incomplete.
+
+The catalogue is version-controlled static reference data. It must not be bulk-seeded into the application database, and normal application lookup must not query third-party sources. Validate exact pool counts, all-country coverage, unique issuer identities, non-empty required fields, source provenance, local file existence, logo licensing metadata and image integrity before marking the catalogue complete.
+
+A catalogue entry is reference metadata only. It does not establish that a security was bought or sold, that a customer owns it, that an opportunity was executed, or that a financial result/profit occurred. Only actual, independently recorded trade and settlement evidence may be used for customer-facing execution and realized-result claims.
+
+**Current implementation warning:** the existing 950-record US-only SEC snapshot is marked unverified and has no bundled logos. It does not meet this revised 1,000-record multi-country requirement. Do not change counts or declare this requirement implemented until the actual sourced records, local licensed logos and validation report are committed.
+
 
 ## 10. Opportunity pop-up and minimized dock
 
@@ -178,12 +190,12 @@ Trading operates as a real-money workflow recorded in the customer's internal le
 - Combined daily net earnings ceiling applies across all packages and wallets.
 - Pop-up minimizes after configured seconds and stays accessible in dock until terminal status.
 - Green/red notifications correspond to confirmed credits/debits only.
-- Company data is sourced and verified; no invented records to reach target.
+- Exactly 1,000 distinct companies are verified: 550 from Pool A and 450 from Pool B; every specified country is represented, source provenance is recorded, and all local logo assets have permitted-use evidence.
 - Admin changes are permissioned, versioned, and audited.
-- Tests cover concurrent allocations, insufficient balance, retries, worker restarts, fees, ceiling enforcement, and duplicate settlement.
+- Catalogue tests verify exact 550/450 pool totals, 46-country coverage, issuer uniqueness, source metadata, logo licence metadata, and that every local logo path resolves. Trading and settlement tests cover concurrency, insufficient balance, retries, worker restarts, fees, ceiling enforcement, and duplicate settlement.
 
 ## 15. Implementation workflow requirement
 
 Before changing trading code, read this specification and inspect the current repository state. Identify relevant frontend, API, database, worker, and migration paths. Implement in small stages with forward migrations and tests. Run project checks/tests/build where possible and report exactly what passed. Do not claim implementation, live execution, or production acceptance unless verified.
 
-When a requirement changes, update this canonical file and the PDF together in the same reviewed change. The repository instructions and README must continue linking to this document.
+When a requirement changes, update this canonical file and its companion PDF together if that PDF exists in the repository; the repository currently has no tracked docs/TRADING_SYSTEM_SPECIFICATION.pdf, so do not describe an absent PDF as updated. The README and root AGENTS.md must continue linking to this document and the source guide.
