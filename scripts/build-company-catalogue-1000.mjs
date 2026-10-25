@@ -315,23 +315,42 @@ function toCandidateRows(rows) {
 }
 
 async function loadMoexStockCandidates() {
-  const baseUrl = "https://iss.moex.com/iss/engines/stock/markets/shares/securities.json?iss.meta=off&iss.only=securities&securities.columns=secid,shortname,name,isin,emitent_title,is_traded";
-  const pageSize = 100;
+  const baseUrl = "https://iss.moex.com/iss/engines/stock/markets/shares/securities.json?iss.meta=off&iss.only=securities,cursor&is_traded=1&securities.columns=secid,shortname,name,isin,emitent_title,is_traded&cursor.columns=INDEX,TOTAL,PAGESIZE";
+  const safetyLimit = 20000;
+  let pageSize = 100;
+  let expectedTotal = null;
+  let start = 0;
   const rows = [];
-  for (let start = 0; start < 20000; start += pageSize) {
+
+  while (start < safetyLimit) {
     const url = baseUrl + "&start=" + start;
-    const payload = JSON.parse(await fetchText(url, "Official Moscow Exchange stock listings"));
+    const payload = JSON.parse(await fetchText(url, "Official Moscow Exchange actively traded share listings"));
     const table = payload?.securities;
     if (!Array.isArray(table?.columns) || !Array.isArray(table?.data)) {
       throw new Error("Moscow Exchange ISS returned an unexpected securities payload.");
     }
+
     const columns = table.columns.map((column) => String(column).toLowerCase());
     const page = table.data.map((values) =>
       Object.fromEntries(columns.map((column, index) => [column, values[index] ?? ""]))
     );
+    const cursor = payload?.cursor;
+    if (Array.isArray(cursor?.columns) && Array.isArray(cursor?.data) && cursor.data.length) {
+      const cursorColumns = cursor.columns.map((column) => String(column).toLowerCase());
+      const cursorRow = Object.fromEntries(cursorColumns.map((column, index) => [column, cursor.data[0][index]]));
+      const total = Number(cursorRow.total);
+      const serverPageSize = Number(cursorRow.pagesize);
+      if (Number.isFinite(total) && total >= 0) expectedTotal = total;
+      if (Number.isFinite(serverPageSize) && serverPageSize > 0) pageSize = serverPageSize;
+    }
+
     rows.push(...page);
-    if (page.length < pageSize) break;
-    if (start + pageSize >= 20000) throw new Error("Moscow Exchange ISS listing pagination exceeded the 20,000-row safety limit.");
+    if (page.length === 0 || page.length < pageSize) break;
+    if (expectedTotal !== null && rows.length >= expectedTotal) break;
+    start += page.length;
+    if (rows.length >= safetyLimit && (expectedTotal === null || rows.length < expectedTotal)) {
+      throw new Error("Moscow Exchange ISS actively traded share results exceeded the " + safetyLimit + "-row safety limit.");
+    }
   }
 
   const candidates = rows.flatMap((row) => {
@@ -361,8 +380,9 @@ async function loadMoexStockCandidates() {
       providerName: "Moscow Exchange Information and Statistical Server (ISS)",
       sourceUrl: baseUrl + "&start={offset}",
       retrievedAt: new Date().toISOString(),
-      sourceVersion: "Live paginated ISS securities response captured during catalogue build",
+      sourceVersion: "Actively traded securities response with ISS cursor pagination, captured during catalogue build",
       rawRows: rows.length,
+      reportedTotalRows: expectedTotal,
       tradableEquityCandidates: candidates.length,
       attribution: "Moscow Exchange ISS official security reference; https://www.moex.com/a2920",
     },
