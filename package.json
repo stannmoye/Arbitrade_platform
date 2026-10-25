@@ -9,7 +9,7 @@
     "start": "node scripts/ensure-worker-runtime-schema.mjs && NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
-    "test": "node scripts/validate-company-catalogue-950.mjs && vitest run",
+    "test": "node scripts/validate-company-catalogue-950.mjs && node scripts/validate-company-catalogue-1000.mjs && vitest run",
     "db:push": "drizzle-kit generate --config=drizzle.config.ts && node scripts/guarded-main-migrate.mjs",
     "db:migrate": "node scripts/guarded-main-migrate.mjs",
     "db:portal-migrate": "node scripts/apply-portal-migrations.mjs",
