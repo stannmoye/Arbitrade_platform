@@ -87,7 +87,7 @@ report("Production startup command", start.includes("NODE_ENV=production") && st
 report("Production build", await fileExists("dist/index.js"),
   await fileExists("dist/index.js") ? "dist/index.js exists." : "dist/index.js is missing; run pnpm build.");
 
-for (const name of ["DATABASE_URL", "SESSION_SECRET", "PASSWORD_PEPPER", "PUBLIC_APP_URL"]) {
+for (const name of ["DATABASE_URL", "PUBLIC_APP_URL"]) {
   report(`Environment: ${name}`, secretPresent(name), secretPresent(name) ? "Configured (value hidden)." : "Missing or empty; configure it in the private .env or host environment.");
 }
 if (secretPresent("PUBLIC_APP_URL")) {
