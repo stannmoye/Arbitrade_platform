@@ -9,8 +9,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE_CSV_URL = "https://raw.githubusercontent.com/adanos-software/free-ticker-database/main/data/tickers.csv";
-const LOGO_INDEX_URL = "https://raw.githubusercontent.com/tradient0/companies-logo/main/companies.json";
+const SOURCE_REPOSITORY = "adanos-software/free-ticker-database";
+const LOGO_REPOSITORY = "tradient0/companies-logo";
+const SOURCE_COMMIT_API = "https://api.github.com/repos/" + SOURCE_REPOSITORY + "/commits/main";
+const LOGO_COMMIT_API = "https://api.github.com/repos/" + LOGO_REPOSITORY + "/commits/main";
+const SOURCE_RAW_ROOT = "https://raw.githubusercontent.com/" + SOURCE_REPOSITORY;
+const LOGO_RAW_ROOT = "https://raw.githubusercontent.com/" + LOGO_REPOSITORY;
 const LOGO_API_ROOT = "https://logo.tradient.org/v1/";
 const OUTPUT_JSON = join(ROOT, "server/data/company-catalogue-1000.json");
 const OUTPUT_LOGO_DIR = join(ROOT, "client/public/assets/company-logos");
@@ -69,6 +73,11 @@ const EXCHANGE_ALIASES = {
   BMV: ["BMV", "MEX"], KRX: ["KRX", "KOE"], KOSDAQ: ["KOSDAQ", "KQ"],
   BME: ["BME", "MCE"], IDX: ["IDX", "JKT"], BIST: ["BIST"], AMS: ["AMS", "XAMS"],
   "EURONEXT AMSTERDAM": ["AMS", "XAMS"], "EURONEXT PARIS": ["EPA", "PAR", "XPAR"],
+  "EURONEXT BRUSSELS": ["EBR", "BRU"], "EURONEXT DUBLIN": ["ISE", "DUB"],
+  "EURONEXT LISBON": ["LIS", "XLIS"], "PRAGUE STOCK EXCHANGE": ["PSE", "PRA"],
+  "BUCHAREST STOCK EXCHANGE": ["BVB"], "TAIWAN STOCK EXCHANGE": ["TWSE", "TPE"],
+  "INDONESIA STOCK EXCHANGE": ["IDX", "JKT"], "KOREA EXCHANGE": ["KRX", "KOE"],
+  "SAUDI EXCHANGE": ["TADAWUL", "SAU"], "BORSA ISTANBUL": ["BIST"],
   EPA: ["EPA", "PAR", "XPAR"], PAR: ["EPA", "PAR", "XPAR"], MIL: ["MIL", "BIT", "XMIL"],
   BIT: ["MIL", "BIT", "XMIL"], "BORSA ITALIANA": ["MIL", "BIT", "XMIL"],
   TADAWUL: ["TADAWUL", "SAU"], SIX: ["SIX", "SWX", "XSWX"], SWX: ["SIX", "SWX", "XSWX"],
@@ -339,9 +348,20 @@ async function buildCountry(country, candidates, target, logoIndex, selectedIds,
 }
 async function main() {
   console.log("[company-logos] Downloading global stock reference CSV and logo index...");
+  const [sourceMetaText, logoMetaText] = await Promise.all([
+    fetchText(SOURCE_COMMIT_API, "Global ticker source commit metadata"),
+    fetchText(LOGO_COMMIT_API, "Logo-index source commit metadata"),
+  ]);
+  const sourceCommit = String(JSON.parse(sourceMetaText).sha ?? "");
+  const logoCommit = String(JSON.parse(logoMetaText).sha ?? "");
+  if (!/^[a-f0-9]{40}$/i.test(sourceCommit) || !/^[a-f0-9]{40}$/i.test(logoCommit)) {
+    throw new Error("Could not pin the ticker dataset and logo-index commits.");
+  }
+  const sourceCsvUrl = SOURCE_RAW_ROOT + "/" + sourceCommit + "/data/tickers.csv";
+  const logoIndexUrl = LOGO_RAW_ROOT + "/" + logoCommit + "/companies.json";
   const [csv, logoIndexText] = await Promise.all([
-    fetchText(SOURCE_CSV_URL, "Global ticker reference"),
-    fetchText(LOGO_INDEX_URL, "Logo index"),
+    fetchText(sourceCsvUrl, "Pinned global ticker reference"),
+    fetchText(logoIndexUrl, "Pinned logo index"),
   ]);
   const sourceRows = parseCsv(csv);
   const logoPayload = JSON.parse(logoIndexText);
@@ -400,6 +420,7 @@ async function main() {
       logoSourceUrl: item.logo.sourceUrl,
       logoSourceSlug: item.logo.slug,
       logoBytes: item.logo.bytes,
+      logoSha256: createHash("sha256").update(item.logo.svg, "utf8").digest("hex"),
     });
   }
   const payload = {
@@ -414,16 +435,18 @@ async function main() {
     },
     source: {
       providerName: "Adanos Free Global Ticker Database",
-      sourceFileUrl: SOURCE_CSV_URL,
+      sourceFileUrl: sourceCsvUrl,
       sourceRepository: "https://github.com/adanos-software/free-ticker-database",
-      sourceReference: "main branch snapshot retrieved at generation time",
+      sourceReference: sourceCommit,
+      sourceCommit,
       sourceFields: ["ticker", "name", "exchange", "asset_type", "stock_sector", "country", "country_code"],
       redistributionNote: "The reference repository is MIT-licensed as software, but the rights for underlying data may depend on source rows. This file is an unverified display/reference catalogue, not a security master or trading authorization.",
       attribution: "Global ticker reference: Adanos Software GmbH, free-ticker-database; source file URL recorded above.",
     },
     logoSource: {
       providerName: "Tradient Companies Logo API",
-      indexUrl: LOGO_INDEX_URL,
+      indexUrl: logoIndexUrl,
+      repositoryCommit: logoCommit,
       endpointPattern: LOGO_API_ROOT + "{slug}.svg",
       assetFormat: "SVG",
       cachePolicy: "All selected files are copied into client/public/assets/company-logos; production app uses local paths and performs no logo API calls.",
