@@ -35,7 +35,6 @@ jobs:
       - name: Validate PHP installer syntax
         run: |
           php -l installer/index.php
-          php -l installer/smtp-test.php
       - name: Validate Node.js installer scripts
         run: |
           node --check installer/run-install.mjs
@@ -771,8 +770,8 @@ jobs:
              installation, select a new EMPTY database. For existing data, first
              import a verified backup and choose existing-database mode instead.
           5. Open https://YOUR-DOMAIN/installer/ and complete the staged browser
-             wizard: URL, database connection, initial admin for fresh installs,
-             optional OAuth, and email settings. The wizard checks the connection
+             wizard: URL, database connection, and initial admin/customer credentials for fresh installs.
+             SMTP is not configured in the wizard; configure email after admin sign-in. The wizard checks the connection
              and records a protected one-time database inventory; it does not run
              privileged host commands or import large SQL dumps.
           6. Run the exact command displayed by the wizard from the private app root:
