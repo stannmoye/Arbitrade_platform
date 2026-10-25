@@ -15,7 +15,7 @@ export type MailAttachment = { filename: string; content: string; contentType?: 
 const baseConfig = (): EmailConfig => ({ mode: "direct", host: "127.0.0.1", port: 25, secure: false, authType: "login", user: "", password: "", fromName: "WiseBond", fromAddress: "admin@wisebond.org", replyTo: "" });
 
 function configEncryptionKey() {
-  const secret = getRuntimeSecret("SESSION_SECRET");
+  const secret = getRuntimeSecret("INTEGRATION_ENCRYPTION_KEY");
   return crypto.scryptSync(secret, "arbitrade-email-config-v1", 32);
 }
 function encryptConfigPassword(value: string) {
