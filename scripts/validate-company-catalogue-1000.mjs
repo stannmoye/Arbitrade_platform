@@ -67,7 +67,7 @@ try {
   if (data.targetDistribution?.poolA?.total !== 550 || data.targetDistribution?.poolB?.total !== 450) fail("Catalogue distribution metadata is inconsistent.");
   const allLogoFiles = (await readdir(LOGO_DIR)).filter((name) => !name.startsWith("."));
   if (allLogoFiles.length !== 1000) fail("Expected exactly 1,000 cached logo files; found " + allLogoFiles.length + ".");
-  if (allLogoFiles.some((name) => !/^[a-z0-9-]+\\.svg$/.test(name))) fail("Logo directory contains an unexpected non-SVG or unsafe filename.");
+  if (allLogoFiles.some((name) => !/^[a-z0-9-]+\.svg$/.test(name))) fail("Logo directory contains an unexpected non-SVG or unsafe filename.");
   for (const relativePath of paths) {
     const filePath = join(ROOT, "client/public", relativePath.replace(/^\/+/, ""));
     const info = await stat(filePath);
