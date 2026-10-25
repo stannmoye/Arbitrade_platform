@@ -58,7 +58,7 @@ function validPort(string $value, int $default): int {
  */
 function detectPublicAppUrl(): string {
     $httpsFlag = strtolower((string)($_SERVER['HTTPS'] ?? ''));
-    $scheme = ($httpsFlag !== '' && $httpsFlag !== 'off' && $httpsFlag !== '0') ? 'https' : '';
+    $scheme = installerRequestIsHttps() ? 'https' : '';
     if ($scheme === '') {
         $requestScheme = strtolower((string)($_SERVER['REQUEST_SCHEME'] ?? ''));
         if (in_array($requestScheme, ['http', 'https'], true)) $scheme = $requestScheme;
