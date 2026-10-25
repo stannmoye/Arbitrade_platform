@@ -23,8 +23,8 @@ function loadPrivateEnv(path) {
     if (error?.code === "ENOENT") return;
     fail("Cannot read the private .env file. Complete the protected browser wizard and verify file permissions.");
   }
-  for (const line of contents.split(/\\r?\\n/)) {
-    const match = line.match(/^\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(.*?)\\s*$/);
+  for (const line of contents.split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
     if (!match || Object.prototype.hasOwnProperty.call(process.env, match[1])) continue;
     let value = match[2];
     if (value.startsWith('"')) {
@@ -32,7 +32,7 @@ function loadPrivateEnv(path) {
     } else if (value.startsWith("'") && value.endsWith("'") && value.length >= 2) {
       value = value.slice(1, -1);
     } else {
-      value = value.replace(/\\s+#.*$/, "");
+      value = value.replace(/\s+#.*$/, "");
     }
     process.env[match[1]] = value;
   }
