@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /** Validate the generated 1,000-company catalogue and every local SVG logo. */
+import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,10 +30,10 @@ try {
     fail("Expected a 1,000-record static company catalogue.");
   }
   const expected = new Map([...POOL_A, ...POOL_B].map(([name, code, count]) => [code, { name, count }]));
-  const counts = new Map(), ids = new Set(), names = new Set(), listings = new Set(), paths = new Set();
+  const counts = new Map(), ids = new Set(), names = new Set(), listings = new Set(), paths = new Set(), logoHashes = new Map();
   for (const [index, company] of data.companies.entries()) {
     const label = "record " + (index + 1);
-    for (const key of ["id", "name", "ticker", "symbol", "exchangeCode", "countryCode", "countryName", "logoUrl", "logoSourceUrl", "logoSourceSlug"]) {
+    for (const key of ["id", "name", "ticker", "symbol", "exchangeCode", "countryCode", "countryName", "logoUrl", "logoSourceUrl", "logoSourceSlug", "logoSha256"]) {
       if (typeof company[key] !== "string" || !company[key].trim()) fail(label + ": missing " + key);
     }
     if (ids.has(company.id)) fail(label + ": duplicate ID"); ids.add(company.id);
@@ -49,8 +50,10 @@ try {
     if (company.instrumentType !== "Stock") fail(label + ": non-stock instrument in catalogue.");
     if (!company.logoUrl.startsWith("/assets/company-logos/") || company.logoUrl.includes("://")) fail(label + ": logo must be referenced locally.");
     if (company.logoSourceUrl !== "https://logo.tradient.org/v1/" + company.logoSourceSlug + ".svg") fail(label + ": source URL does not match the recorded logo slug.");
+    if (!/^[a-f0-9]{64}$/i.test(company.logoSha256)) fail(label + ": missing or invalid SHA-256 for logo asset.");
     if (!/^[a-z0-9-]+\.svg$/.test(company.logoUrl.split("/").at(-1))) fail(label + ": unexpected logo asset path.");
     if (paths.has(company.logoUrl)) fail(label + ": duplicate local logo path"); paths.add(company.logoUrl);
+    logoHashes.set(company.logoUrl, company.logoSha256.toLowerCase());
   }
   if (counts.size !== 46) fail("Expected all 46 requested countries; got " + counts.size + ".");
   for (const [name, code, required] of [...POOL_A, ...POOL_B]) {
@@ -70,6 +73,7 @@ try {
     const body = await readFile(filePath, "utf8");
     if (!/<svg\b/i.test(body) || !/<\/svg\s*>/i.test(body) || /<script\b|<foreignObject\b|javascript\s*:/i.test(body)) fail("Logo is not a safe standalone SVG: " + relativePath);
   }
+  if (!/^[a-f0-9]{40}$/i.test(data.source?.sourceCommit ?? "") || !/^[a-f0-9]{40}$/i.test(data.logoSource?.repositoryCommit ?? "")) fail("Source snapshot commits are not pinned.");
   const reported = data.targetDistribution?.countsByCountry ?? {};
   for (const [name, code, required] of [...POOL_A, ...POOL_B]) {
     const canonicalName = code === "US" ? "United States" : code === "GB" ? "United Kingdom" : name;
