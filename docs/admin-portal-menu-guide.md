@@ -119,7 +119,7 @@ Permanently removes the customer and related customer records through a database
 
 This area works with the email-authentication, email-queue, notification, and account-management features.
 
-For SMTP transport configuration and rich email composition, use **SMTP & Reports**.
+For SMTP transport configuration and rich email composition, use **Email & SMTP Settings**.
 
 ---
 
