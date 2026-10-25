@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Build a static 1,000-company reference catalogue and cache small company logos.
- * Logo downloads happen only during this build. App runtime reads the local assets.
+ * Build a static 1,000-company reference catalogue with locally generated neutral placeholders.
+ * Company identities come from the pinned ticker source; no third-party logo redistribution is required.
  */
 import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
