@@ -34,7 +34,8 @@
     "db:plan-trade-recovery": "tsx scripts/plan-trade-recovery.ts",
     "db:collect-trade-recovery-evidence": "node scripts/collect-trade-recovery-evidence.mjs",
     "db:ensure-worker-schema": "node scripts/ensure-worker-runtime-schema.mjs",
-    "companies:import": "node scripts/import-listed-companies.mjs"
+    "companies:import": "node scripts/import-listed-companies.mjs",
+    "companies:seed:950": "node scripts/seed-company-catalogue-950.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
