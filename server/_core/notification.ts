@@ -1,5 +1,4 @@
-import { renderEmail, sendRenderedEmail } from "../email";
-import { isEmailDeliveryConfigured } from "../email";
+import { isEmailDeliveryConfigured, renderEmail, sendRenderedEmail } from "../email";
 
 export type NotificationPayload = { title: string; content: string };
 const TITLE_MAX_LENGTH = 1200;
