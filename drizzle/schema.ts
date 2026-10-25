@@ -524,32 +524,6 @@ export const companies = mysqlTable("companies", {
   name: varchar("name", { length: 160 }).notNull(),
   logoUrl: varchar("logoUrl", { length: 512 }),
   status: mysqlEnum("status", ["active", "disabled"]).default("active").notNull(),
-  ticker: varchar("ticker", { length: 32 }),
-  exchangeCode: varchar("exchangeCode", { length: 32 }),
-  instrumentType: varchar("instrumentType", { length: 24 }).default("equity").notNull(),
-  listingStatus: varchar("listingStatus", { length: 24 }).default("unverified").notNull(),
-  headquartersCity: varchar("headquartersCity", { length: 120 }),
-  headquartersCountry: varchar("headquartersCountry", { length: 120 }),
-  countryCode: varchar("countryCode", { length: 2 }),
-  sector: varchar("sector", { length: 120 }),
-  providerId: varchar("providerId", { length: 120 }),
-  dataSource: varchar("dataSource", { length: 160 }),
-  sourceUrl: varchar("sourceUrl", { length: 512 }),
-  lastVerifiedAt: timestamp("lastVerifiedAt"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-}, (table) => ({
-  listingCountryIdx: index("companies_listing_country_idx").on(table.listingStatus, table.countryCode),
-  exchangeTickerUnique: uniqueIndex("companies_exchange_ticker_unique").on(table.exchangeCode, table.ticker),
-  providerIdentityUnique: uniqueIndex("companies_provider_identity_unique").on(table.providerId),
-}));
-
-export const tradingTypes = mysqlTable("trading_types", {
-  id: int("id").autoincrement().primaryKey(),
-  name: varchar("name", { length: 160 }).notNull().unique(),
-  description: text("description"),
-  mode: mysqlEnum("mode", ["PRACTICE", "SIMULATION", "RESEARCH", "LIVE"]).default("PRACTICE").notNull(),
-  enabled: boolean("enabled").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -1056,18 +1030,3 @@ export const localScheduledJobs = mysqlTable("local_scheduled_jobs", {
   ownerIndex: index("local_scheduled_jobs_owner_idx").on(table.ownerUserId, table.createdAt),
 }));
 
-export const companyRotationEvents = mysqlTable("company_rotation_events", {
-  id: bigint("id", { mode: "number" }).autoincrement().primaryKey(),
-  eventKey: varchar("eventKey", { length: 180 }).notNull(),
-  companyId: int("companyId").notNull(),
-  opportunityId: int("opportunityId"),
-  userId: int("userId"),
-  rotationCycle: bigint("rotationCycle", { mode: "number" }).notNull(),
-  selectionReason: varchar("selectionReason", { length: 160 }).notNull(),
-  filterSnapshotJson: text("filterSnapshotJson"),
-  selectedAt: timestamp("selectedAt").defaultNow().notNull(),
-}, (table) => ({
-  eventKeyUnique: uniqueIndex("company_rotation_event_key_unique").on(table.eventKey),
-  selectedAtIdx: index("company_rotation_selected_at_idx").on(table.selectedAt),
-  companySelectedAtIdx: index("company_rotation_company_idx").on(table.companyId, table.selectedAt),
-}));

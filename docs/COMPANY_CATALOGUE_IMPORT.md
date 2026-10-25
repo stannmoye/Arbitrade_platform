@@ -1,39 +1,33 @@
-# Verified listed-company catalogue
+# Static company reference catalogue
 
-The initial catalogue target is **950 unique publicly listed-company reference records** across available markets. Records must be traceable to a permitted data source; do not fabricate or duplicate entries to reach the count.
+Arbitrade stores its 950-record company/listing reference catalogue in the version-controlled file `server/data/company-catalogue.json`. The server imports this JSON as part of its application bundle and creates in-memory lookup indexes once during module initialization. Catalogue searches and lookups do not query the database or call an external provider.
 
-## Data source selection
+## Included fields and source
 
-A public candidate for evaluation is the [Adanos free global ticker database](https://github.com/adanos-software/free-ticker-database). Its repository describes an MIT-licensed source project and provides listing-level exports. Before production use, pin a specific release/snapshot, review the license and attribution requirements, record the snapshot date, inspect its coverage report, and verify that its fields map correctly to this application's `companies` and `market_instruments` records. A public dataset is reference data, not proof that every listing is currently tradable. Do not import rows until source fields and listing-status semantics have been checked.
+Each record has a stable ID, issuer name, ticker, source symbol, exchange code, source provenance, and a market country where the exchange mapping is unambiguous. The market country is not company headquarters. Headquarters, sector, and logo references are `null` where the source does not provide dependable values. Logos can be added later only from a source whose licensing and permitted use have been reviewed.
 
-If another provider is used, retain its license/contract, permitted-use and attribution terms, export date, and provider identifiers in the operational runbook. Do not store API keys or commercial exports in this repository unless the license explicitly permits redistribution.
+The data is derived from the Adanos Free Ticker Database international-symbol reference file pinned to commit `0755fc68a578aafcf98d095cad66a2cffd78f17e`. Attribution and the upstream MIT license text are stored in `server/data/COMPANY_CATALOGUE_ATTRIBUTION.md`. The pinned commit prevents automatic, unreviewed changes from a moving upstream branch.
 
-## Seed the 950-record starter catalogue
-
-After applying migrations through the normal guarded migration process and configuring the application's own `DATABASE_URL`, run `pnpm companies:seed:950`. The command downloads the upstream `core_listings.csv`, selects 950 unique stock listing records using a country-balanced round-robin, validates and imports them transactionally, then removes its temporary CSV. It refuses to invent rows if the source cannot supply 950 eligible listings. This requires network access to the source at seed time; the data is stored in the application's own database after a successful run.
-
-**Important status limitation:** the upstream core listing export does not establish current tradability for every record. Seeded records are therefore stored as `unverified`; they must not be treated as confirmed active/tradable companies and are not eligible for active-only rotation until independently verified. `lastVerifiedAt` on these rows records the source-import observation time, not an independent live-listing verification.
-
-## Manual CSV import
-
-Apply migrations through the normal guarded migration process, then run:
+## Build and validation
 
 ```sh
-DATABASE_URL='(configured in protected server environment)' node scripts/import-listed-companies.mjs /secure/path/listed-companies.csv
+pnpm companies:build:950
+pnpm companies:verify:950
+pnpm test -- server/modules/company-catalogue.test.ts server/modules/company-rotation.test.ts
+pnpm check
+pnpm build
 ```
 
-The normalized CSV headers are:
+The builder downloads the pinned upstream snapshot only when intentionally run for catalogue maintenance and writes the generated JSON into the repository. It does not require `DATABASE_URL` and does not connect to or write to a database. Normal application startup performs no source download. The verifier is offline and validates record count, identities, metadata, provenance, and status constraints.
 
-`name,ticker,exchangeCode,instrumentType,listingStatus,headquartersCity,headquartersCountry,countryCode,sector,providerId,dataSource,sourceUrl,lastVerifiedAt`
+## Verification and rotation safety
 
-The importer validates the complete file before opening a transaction, rejects duplicate exchange/ticker pairs within the file, requires provenance for active records, and rolls back the whole import on database failure. The raw source export may use different field names; normalize it to the documented schema only after reviewing its data dictionary. Use a current snapshot; active records older than 180 days are not eligible for rotation until reverified.
+The catalogue contains exactly 950 reference records, but all 950 initially remain `listingStatus: "unverified"`, `requiresManualVerification: true`, and `lastVerifiedAt: null`. The upstream source labels its records as secondary-review material. Source observation timestamps are not independent confirmation that a listing is currently active or tradable.
 
-After import, verify at least **950 unique records**, with a separately verified active subset with recent verification timestamps and meaningful coverage across supported countries/markets described in `docs/TRADING_SYSTEM_SPECIFICATION.md`. Count records by stable listing identity, not just company name or ticker. The script must report actual counts; it must not pad the catalogue to meet the target.
+The rotation selector only accepts actively listed entries with a valid, recent independent verification timestamp and fails closed while none qualify. Do not mark a record active until it has been checked against an appropriate exchange or trusted licensed source. This static catalogue change does not itself connect company references to live opportunities.
 
-## Rotation
+The tRPC routes `companyCatalogue.search`, `companyCatalogue.byId`, and `companyCatalogue.summary` use the cached local service. Search responses are limited to 100 records.
 
-`server/modules/company-rotation.ts` filters to active, recently verified companies and supports country, sector, and exclusion filters. It can create a shuffled cycle with no duplicates within a cycle. The caller must persist the cycle and its selection audit in the database and connect the selected company to the actual instrument behind the opportunity. Do not replace the company identity on an unrelated market offer merely to make the popup appear to rotate.
+## Database boundary
 
-## Important integration boundary
-
-The migration and import/selection groundwork does not itself populate 950 companies or connect rotation to the production opportunity-delivery path. That requires a reviewed dataset import, count and coverage verification, and an integration that binds each opportunity to the actual listed instrument and persists rotation events. Do not claim the catalogue is complete or live until those checks pass.
+The catalogue is not bulk-seeded into the database. The platform's existing core `companies` table stays in place because existing opportunity records use integer company IDs. Those operational rows must not be automatically associated with static catalogue records based on a matching name or ticker; a later integration must establish the actual underlying instrument first.

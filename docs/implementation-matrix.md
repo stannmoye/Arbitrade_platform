@@ -10,7 +10,7 @@ Status vocabulary is exactly: **EXISTING / CORRECTED / EXTENDED / REBUILT / NEW 
 | Authentication/session | CORRECTED | App-issued signed sessions, scrypt password hashes and local database users | Keep session revocation, role checks and security controls app-owned | `server/_core/localAuth.ts`, `server/_core/localIdentityService.ts`, auth tables/migrations |
 | Roles/permissions | EXISTING → NEW | Only `user/admin` enum | Granular deny-by-default permissions and admin guards | roles, permissions, role_permissions tables |
 | Packages/active subscriptions | EXTENDED | Basic package name and package policy exist | Dates, entitlements, active checks, expiry lifecycle | packages, subscriptions, entitlements |
-| Companies/logos | NEW | Frontend values are hard-coded | Database-owned companies and logo references | companies table/storage index |
+| Companies/logos | EXTENDED | Company references are version-controlled static JSON; existing opportunities retain their integer-keyed company references | 950-row local JSON, cached in-memory search API, optional licensed logo paths; no bulk company seeding | `server/data/company-catalogue.json`, `server/modules/company-catalogue.ts`, `scripts/build-company-catalogue-950.mjs` |
 | Trading types | NEW | No persisted trading type model | Admin-managed records plus historical snapshot | trading_types, investment snapshots |
 | Opportunities | EXTENDED → REBUILT | Basic open offer model exists | Company, title, trading type, eligibility, caps, status transitions | opportunities, delivery records |
 | Purchase limits/concurrency | NEW | No atomic cap/duplicate enforcement | Transactional cap and status-aware customer identity | purchases, unique active-success identity, idempotency |
