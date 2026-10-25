@@ -194,9 +194,9 @@ export function AdminSmtpEmailCenter() {
         {mode === "external" && <div className="form-two">
           <label>SMTP host<input value={host} onChange={event => setHost(event.target.value)} placeholder="smtp.example.com" autoComplete="off" /></label>
           <label>Port<input type="number" min="1" max="65535" value={port} onChange={event => setPort(Number(event.target.value))} /></label>
-          <label>SMTP username<input value={user} onChange={event => setUser(event.target.value)} placeholder={provider === "sendgrid" ? "apikey" : "SMTP username"} autoComplete="username" /></label>
+          <label>SMTP username<input value={user} onChange={event => setUser(event.target.value)} placeholder={provider === "sendgrid" ? "apikey" : "SMTP username"} autoComplete="username" readOnly={provider === "sendgrid"} /></label>
           <label>{provider === "sendgrid" ? "SendGrid API key" : "SMTP password"}<input type="password" value={password} onChange={event => setPassword(event.target.value)} placeholder={savedConfig?.hasPassword ? "Saved securely — leave blank to keep" : "Enter provider-issued secret"} autoComplete="new-password" /></label>
-          <label>Authentication<select value={authType} onChange={event => setAuthType(event.target.value as "login" | "plain" | "none")}><option value="login">LOGIN</option><option value="plain">PLAIN</option><option value="none">No authentication</option></select></label>
+          <label>Authentication<select value={authType} disabled={provider === "sendgrid"} onChange={event => setAuthType(event.target.value as "login" | "plain" | "none")}><option value="login">LOGIN</option><option value="plain">PLAIN</option><option value="none">No authentication</option></select></label>
           <label className="admin-toggle-row"><span>Use implicit TLS (usually port 465)</span><input type="checkbox" checked={secure} onChange={event => setSecure(event.target.checked)} /></label>
         </div>}
 
