@@ -1,6 +1,5 @@
 import { config } from "dotenv";
 import mysql from "mysql2/promise";
-import nodemailer from "nodemailer";
 import { access, readFile, stat } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
