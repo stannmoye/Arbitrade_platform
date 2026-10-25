@@ -15,7 +15,7 @@ pnpm test
 pnpm build
 ```
 
-Configure `DATABASE_URL` for the dedicated MySQL/MariaDB database and use a strong, stable `SESSION_SECRET`, `PASSWORD_PEPPER`, and `TOTP_ENCRYPTION_KEY`. Keep these secrets outside Git and outside the public document root. Do not rotate the session/pepper/encryption keys casually: rotations can invalidate sessions or make protected account data unreadable.
+Configure `DATABASE_URL` for the dedicated MySQL/MariaDB database. The installer writes strong random `SESSION_SECRET`, `PASSWORD_PEPPER`, and `TOTP_ENCRYPTION_KEY` values for a fresh installation; when absent, the runtime creates `.arbitrade-runtime-secrets.json`. Keep secret files on durable private storage, outside Git and the public document root, and include them in protected backups. For an existing database, restore the original session/pepper/TOTP keys from the previous deployment; do not silently rotate them, because sessions, password verification, or authenticator enrollments may stop working.
 
 Use the install wizard and commands in [the installer guide](../installer/README.md). For an existing database, take and verify a restorable backup and follow the existing-database path. Do not run fresh-install mode on an existing database. Keep the guarded migration process intact: never fabricate migration tracker entries or automatically retry a partially committed MySQL DDL migration.
 
@@ -48,7 +48,7 @@ These integrations are optional and are not required to install or run Arbitrade
 - **Speech transcription:** disabled by default and not required for installation. Speech-to-text requires a deliberately configured transcription provider.
 - **Maps:** `GOOGLE_MAPS_BROWSER_KEY` is intentionally public and must be HTTP-referrer restricted in the provider console. `GOOGLE_MAPS_SERVER_KEY` is server-only. Map features remain disabled when the respective key is not configured.
 - **External REST connector:** `DATA_API_BASE_URL` and optionally `DATA_API_KEY` point directly to an API selected by the operator. It is not an application-platform proxy.
-- **Email/owner alerts:** configure the SMTP variables and `OWNER_NOTIFICATION_EMAIL` to enable email. Database-backed customer notifications are stored locally.
+- **Email/owner alerts:** email delivery is optional. Configure direct server mail or external SMTP from the authenticated admin portal after installation; credentials are encrypted before being saved in MySQL. Database-backed customer notifications are stored locally.
 - **Market data, FX and real execution:** configure only verified, authorized provider endpoints as separate integrations. Never infer execution, settlement, deposits, withdrawals or financial profits from timers, generated values, UI state, or a generic AI/REST endpoint. The financial ledger remains the database source of truth and must be reconciled with provider evidence.
 
 The authenticated admin tRPC API exposes job management at `adminOperations.scheduledJobs.list`, `adminOperations.scheduledJobs.create`, `adminOperations.scheduledJobs.update`, and `adminOperations.scheduledJobs.delete`. These procedures require an Arbitrade admin session and persist job definitions to `local_scheduled_jobs`. Callback handlers are application code: add only the specific `/api/scheduled/...` routes required by your deployment and verify the scheduler HMAC/timestamp before acting. A job record by itself never proves that a trade or payment was executed or settled.
