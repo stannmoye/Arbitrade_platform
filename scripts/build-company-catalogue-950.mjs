@@ -1,32 +1,108 @@
 #!/usr/bin/env node
-/** Rebuild the checked-in static catalogue from an immutable upstream snapshot. No DB access. */
+/** Rebuild the static catalogue from an immutable SEC snapshot. No DB access. */
+import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-const SOURCE_COMMIT="0755fc68a578aafcf98d095cad66a2cffd78f17e";
-const SOURCE_PATH="data/financialdata/international_stock_symbols.json";
-const SOURCE_URL="https://raw.githubusercontent.com/adanos-software/free-ticker-database/"+SOURCE_COMMIT+"/"+SOURCE_PATH;
-const TARGET_COUNT=950, CATALOGUE_DATE="2026-10-25";
-const OUTPUT_PATH=fileURLToPath(new URL("../server/data/company-catalogue.json",import.meta.url));
-const COUNTRY_BY_EXCHANGE={"AMS":{"code":"NL","name":"Netherlands"},"B3":{"code":"BR","name":"Brazil"},"BMV":{"code":"MX","name":"Mexico"},"BSE_IN":{"code":"IN","name":"India"},"Bursa":{"code":"MY","name":"Malaysia"},"HKEX":{"code":"HK","name":"Hong Kong"},"IDX":{"code":"ID","name":"Indonesia"},"KRX":{"code":"KR","name":"South Korea"},"LSE":{"code":"GB","name":"United Kingdom"},"NSE_IN":{"code":"IN","name":"India"},"SGX":{"code":"SG","name":"Singapore"},"TSE":{"code":"JP","name":"Japan"},"TSX":{"code":"CA","name":"Canada"},"XETRA":{"code":"DE","name":"Germany"}};
-const cmp=(a,b)=>String(a)<String(b)?-1:String(a)>String(b)?1:0;
-const normalizedName=s=>String(s??"").normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
-const slug=s=>String(s??"").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-function createCatalogue(data){
- if(!Array.isArray(data.symbols)||data.symbols.length<TARGET_COUNT)throw new Error("Pinned source is missing a symbols array or enough rows.");
- const groups=new Map(),seen=new Set();
- for(const row of data.symbols){
-  const name=String(row.registrant_name??"").trim(),ticker=String(row.base_ticker??"").trim(),exchange=String(row.mapped_exchange??"").trim(),symbol=String(row.financialdata_symbol??"").trim();
-  if(!name||!ticker||!exchange||!symbol)continue;
-  const key=normalizedName(name);if(!key||seen.has(key))continue;seen.add(key);
-  if(!groups.has(exchange))groups.set(exchange,[]);groups.get(exchange).push(row);
- }
- for(const rows of groups.values())rows.sort((a,b)=>cmp(a.registrant_name,b.registrant_name)||cmp(a.financialdata_symbol,b.financialdata_symbol));
- const exchanges=[...groups.keys()].sort(cmp),selected=[];
- while(selected.length<TARGET_COUNT){let added=false;for(const exchange of exchanges){const row=groups.get(exchange).shift();if(!row)continue;selected.push(row);added=true;if(selected.length===TARGET_COUNT)break;}if(!added)break;}
- if(selected.length!==TARGET_COUNT)throw new Error("Source yielded only "+selected.length+" unique issuers; refusing to fabricate rows.");
- const companies=selected.map(row=>{const exchange=String(row.mapped_exchange).trim(),country=COUNTRY_BY_EXCHANGE[exchange]??null,symbol=String(row.financialdata_symbol).trim();return {id:"company-"+slug(exchange)+"-"+slug(symbol),name:String(row.registrant_name).trim(),ticker:String(row.base_ticker).trim(),symbol,exchangeCode:exchange,countryCode:country?.code??null,countryName:country?.name??null,headquartersCountry:null,sector:null,logoUrl:null,listingStatus:"unverified",lastVerifiedAt:null,requiresManualVerification:true,sourceConfidence:String(row.source_confidence??"unknown"),sourceRecordId:symbol,sourceObservedAt:row.observed_at?String(row.observed_at):null};});
- if(new Set(companies.map(x=>normalizedName(x.name))).size!==TARGET_COUNT||new Set(companies.map(x=>x.id)).size!==TARGET_COUNT||new Set(companies.map(x=>x.exchangeCode.toUpperCase()+":"+x.symbol.toUpperCase())).size!==TARGET_COUNT)throw new Error("Duplicate issuer/listing identity in generated catalogue.");
- return {schemaVersion:1,generatedAt:CATALOGUE_DATE,targetCount:TARGET_COUNT,companyCount:TARGET_COUNT,source:{providerName:"Adanos Free Ticker Database / financialdata international-stock-symbol reference",repositoryUrl:"https://github.com/adanos-software/free-ticker-database",sourceFilePath:SOURCE_PATH,sourceFileUrl:SOURCE_URL,sourceSnapshotCommit:SOURCE_COMMIT,sourceSnapshotAt:"2026-10-25T11:30:17Z",sourceDataGeneratedAt:String(data._meta?.generated_at??""),license:"MIT",attribution:"Copyright (c) 2025 Adanos Software GmbH",confidence:"secondary_review"},dataLimitations:["Reference metadata only. Source entries are secondary-review records and are not proof of current exchange listing or tradability.","Every included record is marked unverified and requires manual verification before any use in a live-trading workflow.","Country fields identify a known exchange market, not company headquarters. Euronext is multi-country and therefore has no inferred country value here.","The source does not provide dependable sector or company-logo data for this file; those values are null rather than guessed."],companies};
+const TARGET_COUNT = 950;
+const SOURCE_COMMIT = "613c946973fb3cab27ecee35905eb5d91731f8e0";
+const SOURCE_REGISTRY_COMMIT = "0755fc68a578aafcf98d095cad66a2cffd78f17e";
+const SOURCE_URL = "https://raw.githubusercontent.com/VlKAS/open-tax-ledger/613c946973fb3cab27ecee35905eb5d91731f8e0/reference-data/sec-company-tickers-exchange.json";
+const EXPECTED_GIT_BLOB_SHA = "c3116b277d7b4df067a136078d6895ebfc06c287";
+const OFFICIAL_SOURCE_SHA256 = "e6fbad74d63540e73239f257809cf217b9d6b4fed2410691f0c8c576c9a6cf3c";
+const OFFICIAL_LAST_MODIFIED = "2026-07-24T13:32:36Z";
+const EXPECTED_SOURCE_ROWS = 10432;
+const OUTPUT_PATH = fileURLToPath(new URL("../server/data/company-catalogue.json", import.meta.url));
+const EXCHANGES = ["Nasdaq", "NYSE"];
+const EXCLUDED_NAME_PATTERN = /\b(?:ETF|ETN|ETP|FUND|TRUST)\b/i;
+const compare = (a, b) => String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0;
+const normalizedName = (value) => String(value ?? "").normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+function createCatalogue(data) {
+  if (JSON.stringify(data.fields) !== JSON.stringify(["cik", "name", "ticker", "exchange"]) ||
+      !Array.isArray(data.data) || data.data.length !== EXPECTED_SOURCE_ROWS) {
+    throw new Error("Pinned SEC source has an unexpected schema or row count.");
+  }
+  const fields = Object.fromEntries(data.fields.map((name, index) => [name, index]));
+  const grouped = new Map(), seenCik = new Set(), seenNames = new Set();
+  for (const row of data.data) {
+    const cik = String(row[fields.cik] ?? "").trim(), name = String(row[fields.name] ?? "").trim();
+    const ticker = String(row[fields.ticker] ?? "").trim(), exchange = String(row[fields.exchange] ?? "").trim();
+    if (!cik || !name || !ticker || !EXCHANGES.includes(exchange) || EXCLUDED_NAME_PATTERN.test(name)) continue;
+    const normalized = normalizedName(name);
+    if (!normalized || seenCik.has(cik) || seenNames.has(normalized)) continue;
+    seenCik.add(cik); seenNames.add(normalized);
+    if (!grouped.has(exchange)) grouped.set(exchange, []);
+    grouped.get(exchange).push({ cik, name, ticker, exchange });
+  }
+  for (const rows of grouped.values()) rows.sort((a, b) => compare(normalizedName(a.name), normalizedName(b.name)) || compare(a.ticker, b.ticker) || compare(a.cik, b.cik));
+  const exchanges = [...grouped.keys()].sort(compare), selected = [];
+  while (selected.length < TARGET_COUNT) {
+    let added = false;
+    for (const exchange of exchanges) {
+      const record = grouped.get(exchange).shift();
+      if (!record) continue;
+      selected.push(record); added = true;
+      if (selected.length === TARGET_COUNT) break;
+    }
+    if (!added) break;
+  }
+  if (selected.length !== TARGET_COUNT) throw new Error("SEC source yielded only " + selected.length + " eligible records; refusing to fabricate entries.");
+  const companies = selected.map((record) => {
+    const cik = record.cik.padStart(10, "0");
+    return {
+      id: "sec-cik-" + cik, cik, name: record.name, ticker: record.ticker, symbol: record.ticker,
+      exchangeCode: record.exchange, countryCode: "US", countryName: "United States",
+      headquartersCountry: null, sector: null, logoUrl: null, instrumentType: null,
+      listingStatus: "unverified", lastVerifiedAt: null, requiresManualVerification: true,
+      sourceConfidence: "official_sec_reference", sourceRecordId: cik, sourceObservedAt: OFFICIAL_LAST_MODIFIED
+    };
+  });
+  if (new Set(companies.map((c) => c.id)).size !== TARGET_COUNT ||
+      new Set(companies.map((c) => normalizedName(c.name))).size !== TARGET_COUNT ||
+      new Set(companies.map((c) => c.exchangeCode.toUpperCase() + ":" + c.symbol.toUpperCase())).size !== TARGET_COUNT) {
+    throw new Error("Generated catalogue contains duplicate identities.");
+  }
+  return {
+    schemaVersion: 1, generatedAt: "2026-10-25", targetCount: TARGET_COUNT, companyCount: TARGET_COUNT,
+    source: {
+      providerName: "U.S. Securities and Exchange Commission (SEC EDGAR)",
+      sourceFilePath: "company_tickers_exchange.json", sourceFileUrl: "https://www.sec.gov/files/company_tickers_exchange.json",
+      sourceSnapshotUrl: SOURCE_URL, sourceSnapshotRepository: "https://github.com/VlKAS/open-tax-ledger",
+      sourceSnapshotCommit: SOURCE_COMMIT, sourceSnapshotGitBlobSha: EXPECTED_GIT_BLOB_SHA,
+      sourceSnapshotAt: OFFICIAL_LAST_MODIFIED, sourceSnapshotRecordCount: EXPECTED_SOURCE_ROWS,
+      sourceFields: ["cik", "name", "ticker", "exchange"], sourceOfficialPayloadSha256: OFFICIAL_SOURCE_SHA256,
+      licenseName: "SEC Website Dissemination Policy", licenseUrl: "https://www.sec.gov/about/privacy-information",
+      licenseStatus: "verified_open", rawRedistributionAllowed: true, derivedFactsRedistributionStatus: "allowed",
+      commercialUseStatus: "allowed", attributionRequired: true,
+      licenseRegistryUrl: "https://raw.githubusercontent.com/adanos-software/free-ticker-database/0755fc68a578aafcf98d095cad66a2cffd78f17e/data/masterfiles/sources.json",
+      licenseRegistryCommit: SOURCE_REGISTRY_COMMIT,
+      attribution: "Source: U.S. Securities and Exchange Commission, company_tickers_exchange.json.",
+      selectionPolicy: "950 unique CIK/name records, round-robin across Nasdaq and NYSE; excludes blank/OTC venues and obvious ETF, ETN, ETP, fund and trust names.",
+      confidence: "official_source_but_unverified_listing_status"
+    },
+    dataLimitations: [
+      "SEC company_tickers_exchange.json maps filers to ticker/exchange associations; it is not a global security master and does not guarantee accuracy or scope.",
+      "The source snapshot was last modified on 2026-07-24, so it is not a current listing-status check. All rows remain unverified.",
+      "countryCode identifies the U.S. listing market, not issuer headquarters or domicile.",
+      "The source does not provide dependable sector, headquarters, logo or instrument-type fields; these remain null rather than guessed.",
+      "Name-pattern filtering cannot prove every selected filer is an operating company; manually review entries before company-only use."
+    ],
+    companies
+  };
 }
-try{const response=await fetch(SOURCE_URL,{headers:{"user-agent":"Arbitrade-static-company-catalogue-builder/1.0"}});if(!response.ok)throw new Error("Pinned source HTTP "+response.status);const payload=createCatalogue(await response.json());await mkdir(path.dirname(OUTPUT_PATH),{recursive:true});await writeFile(OUTPUT_PATH,JSON.stringify(payload,null,2)+"\n","utf8");console.log("Wrote 950 reference records; no database connection was used.");}catch(error){console.error(error instanceof Error?error.message:error);process.exitCode=1;}
+
+try {
+  const response = await fetch(SOURCE_URL, { headers: { "user-agent": "Arbitrade-static-company-catalogue-builder/1.0" } });
+  if (!response.ok) throw new Error("Pinned SEC source download failed with HTTP " + response.status);
+  const raw = await response.text();
+  const gitBlobSha = createHash("sha1").update("blob " + Buffer.byteLength(raw) + "\0" + raw, "utf8").digest("hex");
+  if (gitBlobSha !== EXPECTED_GIT_BLOB_SHA) throw new Error("Pinned source Git blob SHA mismatch; refusing to build.");
+  const payload = createCatalogue(JSON.parse(raw));
+  await mkdir(path.dirname(OUTPUT_PATH), { recursive: true });
+  await writeFile(OUTPUT_PATH, JSON.stringify(payload, null, 2) + "\n", "utf8");
+  console.log("Wrote " + TARGET_COUNT + " reference records. No database connection was opened.");
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
+  process.exitCode = 1;
+}

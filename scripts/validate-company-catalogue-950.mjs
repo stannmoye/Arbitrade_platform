@@ -1,26 +1,35 @@
 #!/usr/bin/env node
-/** Offline validation for the checked-in static company catalogue. */
+/** Offline count, identity, and source-governance validation. */
 import { readFile } from "node:fs/promises";
-const file=new URL("../server/data/company-catalogue.json",import.meta.url);
-const norm=s=>String(s??"").normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
-try{
- const data=JSON.parse(await readFile(file,"utf8"));
- if(data.schemaVersion!==1||data.targetCount!==950||data.companyCount!==950||!Array.isArray(data.companies)||data.companies.length!==950)throw new Error("Expected exactly 950 catalogue records.");
- const ids=new Set(),names=new Set(),listings=new Set();
- for(const [i,c] of data.companies.entries()){
-  const label="record "+(i+1);
-  if(typeof c.id!=="string"||!c.id.trim()||ids.has(c.id))throw new Error(label+": invalid or duplicate ID");ids.add(c.id);
-  if(typeof c.name!=="string"||!c.name.trim()||c.name.length>160)throw new Error(label+": invalid name");
-  const n=norm(c.name);if(!n||names.has(n))throw new Error(label+": duplicate issuer name");names.add(n);
-  if(typeof c.ticker!=="string"||!c.ticker.trim()||typeof c.symbol!=="string"||!c.symbol.trim()||typeof c.exchangeCode!=="string"||!c.exchangeCode.trim())throw new Error(label+": missing listing identity");
-  const k=c.exchangeCode.toUpperCase()+":"+c.symbol.toUpperCase();if(listings.has(k))throw new Error(label+": duplicate exchange/symbol");listings.add(k);
-  if(c.countryCode!==null&&!/^[A-Z]{2}$/.test(c.countryCode))throw new Error(label+": invalid country code");
-  if(c.sector!==null&&typeof c.sector!=="string")throw new Error(label+": invalid sector");
-  if(c.logoUrl!==null&&!(typeof c.logoUrl==="string"&&(c.logoUrl.startsWith("/company-logos/")||/^https:\/\//i.test(c.logoUrl))))throw new Error(label+": invalid logo reference");
-  if(!["active","suspended","delisted","unverified"].includes(c.listingStatus)||typeof c.requiresManualVerification!=="boolean")throw new Error(label+": invalid verification status");
-  if(c.listingStatus==="active"&&(c.requiresManualVerification||!c.lastVerifiedAt||!Number.isFinite(Date.parse(c.lastVerifiedAt))))throw new Error(label+": active record lacks independent verification");
-  if(c.sourceObservedAt!==null&&!Number.isFinite(Date.parse(c.sourceObservedAt)))throw new Error(label+": invalid source observation date");
- }
- if(!data.source?.sourceSnapshotCommit||!data.source?.sourceFileUrl||data.source.license!=="MIT")throw new Error("Source provenance or attribution is missing");
- console.log("[company-catalogue] PASS: "+ids.size+" unique records; "+data.companies.filter(c=>c.listingStatus==="unverified").length+" remain unverified.");
-}catch(error){console.error("[company-catalogue] FAIL: "+(error instanceof Error?error.message:String(error)));process.exitCode=1;}
+const file = new URL("../server/data/company-catalogue.json", import.meta.url);
+const normalize = (value) => String(value ?? "").normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+try {
+  const data = JSON.parse(await readFile(file, "utf8"));
+  if (data.schemaVersion !== 1 || data.targetCount !== 950 || data.companyCount !== 950 || !Array.isArray(data.companies) || data.companies.length !== 950) throw new Error("Expected exactly 950 catalogue records.");
+  const ids = new Set(), ciks = new Set(), names = new Set(), listings = new Set();
+  for (const [index, c] of data.companies.entries()) {
+    const label = "record " + (index + 1);
+    if (!c.id || ids.has(c.id)) throw new Error(label + ": invalid or duplicate ID"); ids.add(c.id);
+    if (!/^\d{10}$/.test(c.cik) || ciks.has(c.cik)) throw new Error(label + ": invalid or duplicate CIK"); ciks.add(c.cik);
+    if (!c.name?.trim() || c.name.length > 160) throw new Error(label + ": invalid name");
+    const name = normalize(c.name); if (!name || names.has(name)) throw new Error(label + ": duplicate issuer name"); names.add(name);
+    if (!c.ticker?.trim() || c.symbol !== c.ticker || !["Nasdaq", "NYSE"].includes(c.exchangeCode)) throw new Error(label + ": invalid ticker or exchange");
+    const listing = c.exchangeCode.toUpperCase() + ":" + c.symbol.toUpperCase();
+    if (listings.has(listing)) throw new Error(label + ": duplicate exchange/symbol"); listings.add(listing);
+    if (c.countryCode !== "US" || c.countryName !== "United States") throw new Error(label + ": invalid listing-market country");
+    if (c.sector !== null || c.headquartersCountry !== null || c.logoUrl !== null || c.instrumentType !== null) throw new Error(label + ": unsupported metadata was populated");
+    if (c.listingStatus !== "unverified" || c.lastVerifiedAt !== null || c.requiresManualVerification !== true) throw new Error(label + ": source data must remain unverified");
+    if (c.sourceObservedAt !== "2026-07-24T13:32:36Z") throw new Error(label + ": source observation timestamp is invalid");
+  }
+  const s = data.source;
+  if (s.sourceSnapshotCommit !== "613c946973fb3cab27ecee35905eb5d91731f8e0" || s.sourceSnapshotGitBlobSha !== "c3116b277d7b4df067a136078d6895ebfc06c287" ||
+      s.sourceSnapshotRecordCount !== 10432 || s.sourceOfficialPayloadSha256 !== "e6fbad74d63540e73239f257809cf217b9d6b4fed2410691f0c8c576c9a6cf3c" ||
+      s.licenseStatus !== "verified_open" || s.rawRedistributionAllowed !== true ||
+      s.derivedFactsRedistributionStatus !== "allowed" || s.commercialUseStatus !== "allowed" || s.attributionRequired !== true) {
+    throw new Error("Pinned source provenance or distribution terms are not cleared.");
+  }
+  console.log("[company-catalogue] PASS: 950 unique SEC-derived records; all remain unverified; source provenance and licensing metadata match.");
+} catch (error) {
+  console.error("[company-catalogue] FAIL: " + (error instanceof Error ? error.message : String(error)));
+  process.exitCode = 1;
+}

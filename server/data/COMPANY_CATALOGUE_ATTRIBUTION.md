@@ -1,36 +1,15 @@
-# Company catalogue source attribution
+# SEC company catalogue source attribution
 
-The checked-in company/listing reference subset in `company-catalogue.json` was derived from the pinned source file below. The records are reference metadata, not independently verified trading recommendations or proof of current listing.
+The static company/listing reference subset in `company-catalogue.json` uses the U.S. Securities and Exchange Commission (SEC) EDGAR company-ticker-exchange reference file.
 
-- Repository: https://github.com/adanos-software/free-ticker-database
-- Source file: `data/financialdata/international_stock_symbols.json`
-- Immutable source snapshot: `0755fc68a578aafcf98d095cad66a2cffd78f17e`
-- Source data generation timestamp: `2026-04-17T07:41:14Z`
-- Upstream source metadata labels records `secondary_review` and `review_needed`; all records remain unverified.
-- Source project license: MIT. Company logos and sector labels were not copied into this subset.
+- Official SEC source: https://www.sec.gov/files/company_tickers_exchange.json
+- Official source last-modified time carried in the pinned manifest: 2026-07-24T13:32:36Z
+- Official payload SHA-256 as recorded in that manifest: `e6fbad74d63540e73239f257809cf217b9d6b4fed2410691f0c8c576c9a6cf3c`
+- SEC source row count in the pinned manifest: 10432
+- Immutable retrieval snapshot: https://github.com/VlKAS/open-tax-ledger/commit/613c946973fb3cab27ecee35905eb5d91731f8e0
+- Pinned retrieval file Git blob ID: `c3116b277d7b4df067a136078d6895ebfc06c287`
+- Source-specific licensing registry snapshot: https://github.com/adanos-software/free-ticker-database/commit/0755fc68a578aafcf98d095cad66a2cffd78f17e
+- That registry marks `sec_company_tickers_exchange` as `verified_open`, permits redistribution of the raw/derived data and commercial use, and requires attribution.
+- Required attribution: “Source: U.S. Securities and Exchange Commission, company_tickers_exchange.json.”
 
-The upstream project license text is retained below to preserve notice and attribution.
-
-```text
-MIT License
-
-Copyright (c) 2025 Adanos Software GmbH
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+The SEC source maps filers to ticker and exchange associations, does not guarantee accuracy or scope, and does not provide sector, logo, instrument type, or headquarters fields. Its July 2026 snapshot is not proof of current tradability. All entries remain unverified and require manual verification. This subset does not use the separate review-only FinancialData feed or redistribute Adanos repository code.
