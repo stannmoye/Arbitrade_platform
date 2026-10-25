@@ -20,6 +20,7 @@ const OUTPUT_JSON = join(ROOT, "server/data/company-catalogue-1000.json");
 const OUTPUT_LOGO_DIR = join(ROOT, "client/public/assets/company-logos");
 const CONCURRENCY = 8;
 const MAX_LOGO_BYTES = 200 * 1024;
+const attemptedCandidateIds = new Set();
 
 const POOL_A = [
   ["Japan", "JP"], ["India", "IN"], ["France", "FR"], ["Italy", "IT"], ["Brazil", "BR"],
@@ -572,7 +573,8 @@ async function buildCountry(country, candidates, target, logoIndex, selectedIds,
     offset += batch.length;
     const downloaded = await mapLimit(batch, CONCURRENCY, async (candidate) => {
       const candidateId = country.code.toLowerCase() + "-" + slugify(candidate.name) + "-" + slugify(candidate.ticker) + "-" + sha(candidate.exchange + ":" + candidate.ticker);
-      if (selectedIds.has(candidateId) || globalNames.has(country.code + "|" + norm(candidate.name))) return null;
+      if (selectedIds.has(candidateId) || attemptedCandidateIds.has(candidateId) || globalNames.has(country.code + "|" + norm(candidate.name))) return null;
+      attemptedCandidateIds.add(candidateId);
       let logo = await downloadLogo(candidate.slugs ?? []);
       if (!logo && candidate.profileUrl) logo = await downloadOfficialWebsiteLogo(candidate);
       return logo ? { ...candidate, logo } : null;
