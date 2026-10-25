@@ -551,9 +551,18 @@ async function loadDseStockCandidates() {
 
 async function buildCountry(country, candidates, target, logoIndex, selectedIds, globalNames) {
   const ready = [];
+  const officialSiteFallbacks = [];
   for (const candidate of candidates) {
     const slugs = findLogoSlugs(candidate, logoIndex);
-    if (slugs.length || candidate.profileUrl) ready.push({ ...candidate, slugs });
+    if (slugs.length) ready.push({ ...candidate, slugs });
+    else if (candidate.profileUrl) officialSiteFallbacks.push({ ...candidate, slugs: [] });
+  }
+  // Official exchange-profile/favicon lookups are slow and may be blocked. Bound them so
+  // one poorly indexed country cannot consume the whole build; later countries can fill its slots.
+  const MAX_OFFICIAL_SITE_FALLBACKS = 80;
+  ready.push(...officialSiteFallbacks.slice(0, MAX_OFFICIAL_SITE_FALLBACKS));
+  if (officialSiteFallbacks.length > MAX_OFFICIAL_SITE_FALLBACKS) {
+    console.warn("[company-logos] " + country.name + ": limiting official-site logo fallbacks to " + MAX_OFFICIAL_SITE_FALLBACKS + " of " + officialSiteFallbacks.length + " candidates; unused slots will be reassigned.");
   }
   let offset = 0;
   const chosen = [];
