@@ -691,7 +691,6 @@ async function main() {
       sector: item.sector,
       instrumentType: "Stock",
       recordCompleteness: "incomplete",
-      incompleteReasons: ["listing_status_unverified", "headquarters_country_unverified", "official_brand_logo_not_cleared"],
       listingStatus: "unverified",
       lastVerifiedAt: null,
       requiresManualVerification: true,
