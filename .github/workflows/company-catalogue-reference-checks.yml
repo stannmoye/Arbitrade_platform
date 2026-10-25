@@ -1,0 +1,56 @@
+name: Company catalogue integration checks
+
+on:
+  push:
+    branches:
+      - feature/verified-company-catalogue-rotation
+    paths:
+      - server/modules/company-catalogue-reference.ts
+      - server/modules/company-catalogue-reference.test.ts
+      - server/modules/company-rotation.ts
+      - server/modules/company-rotation.test.ts
+      - server/routers.ts
+      - server/data/company-catalogue-1000.json
+      - package.json
+      - pnpm-lock.yaml
+      - .github/workflows/company-catalogue-reference-checks.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - server/modules/company-catalogue-reference.ts
+      - server/modules/company-catalogue-reference.test.ts
+      - server/modules/company-rotation.ts
+      - server/modules/company-rotation.test.ts
+      - server/routers.ts
+      - server/data/company-catalogue-1000.json
+      - package.json
+      - pnpm-lock.yaml
+      - .github/workflows/company-catalogue-reference-checks.yml
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck-and-test:
+    name: Type-check and test catalogue integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact commit
+        uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: TypeScript check
+        run: pnpm check
+      - name: Test company reference lookup and rotation
+        run: pnpm exec vitest run server/modules/company-catalogue-reference.test.ts server/modules/company-rotation.test.ts
