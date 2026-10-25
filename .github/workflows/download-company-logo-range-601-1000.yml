@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: company-logo-range-601-1000
+  group: company-logo-range-601-650
   cancel-in-progress: false
 
 jobs:
@@ -28,7 +28,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Fetch official-site icons for records 601-1000
+      - name: Fetch official-site icons for records 601-650
         env:
           LOGO_START: "601"
           LOGO_COUNT: "50"
@@ -39,10 +39,10 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A server/data/company-catalogue-1000.json server/data/company-logo-range-*-report.json client/public/assets/company-logos
+          git add -A server/data/company-catalogue-1000.json server/data/company-logo-range-601-650-report.json client/public/assets/company-logos
           if git diff --cached --quiet; then
-            echo "No changes were produced for records 601-1000."
+            echo "No changes were produced for records 601-650."
             exit 1
           fi
-          git commit -m "Save official-site company icons for catalogue records 601-1000"
+          git commit -m "Save official-site company icons for catalogue records 601-650"
           git push origin HEAD:feature/verified-company-catalogue-rotation
