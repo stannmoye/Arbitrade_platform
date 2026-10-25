@@ -41,11 +41,11 @@ Cron expressions use six UTC fields (`second minute hour day-of-month month day-
 
 ## Optional integrations
 
-These integrations are independent and can remain disabled until the operator configures them. Their absence does not disable local login, MySQL persistence, local uploads, core portal routes, or the local job worker.
+These integrations are optional and are not required to install or run Arbitrade's core trading portal, local login, MySQL persistence, local uploads, or local job worker.
 
-- **Chat/completions:** `AI_API_BASE_URL` defaults to an Ollama-compatible local endpoint at `http://127.0.0.1:11434/v1`. Set `AI_API_KEY` only when the configured provider requires it. A remote API without a key is rejected.
-- **Image generation/editing:** set `IMAGE_API_BASE_URL` to an operator-controlled OpenAI-compatible image API and `IMAGE_API_KEY` if required. Image bytes are downloaded and persisted locally. If the endpoint is not configured, the feature returns an explicit configuration error rather than routing through a hidden proxy.
-- **Speech transcription:** `TRANSCRIPTION_API_BASE_URL` defaults to a locally hosted Whisper-compatible API at `http://127.0.0.1:8000/v1`; `TRANSCRIPTION_API_KEY` is optional for loopback/local endpoints and required for remote endpoints.
+- **AI chat/completions:** disabled by default. No AI endpoint or API key is required for installation or core features. Enabling an AI integration requires a deliberate code/configuration change and review.
+- **Image generation/editing:** optional. Set `IMAGE_API_BASE_URL` to an operator-controlled OpenAI-compatible image API and `IMAGE_API_KEY` if required. Image bytes are downloaded and persisted locally. If the endpoint is not configured, the feature returns an explicit configuration error rather than routing through a hidden proxy.
+- **Speech transcription:** disabled by default and not required for installation. Speech-to-text requires a deliberately configured transcription provider.
 - **Maps:** `GOOGLE_MAPS_BROWSER_KEY` is intentionally public and must be HTTP-referrer restricted in the provider console. `GOOGLE_MAPS_SERVER_KEY` is server-only. Map features remain disabled when the respective key is not configured.
 - **External REST connector:** `DATA_API_BASE_URL` and optionally `DATA_API_KEY` point directly to an API selected by the operator. It is not an application-platform proxy.
 - **Email/owner alerts:** configure the SMTP variables and `OWNER_NOTIFICATION_EMAIL` to enable email. Database-backed customer notifications are stored locally.
