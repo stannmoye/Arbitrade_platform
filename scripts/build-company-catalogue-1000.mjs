@@ -550,74 +550,49 @@ async function loadDseStockCandidates() {
   };
 }
 
-async function buildCountry(country, candidates, target, logoIndex, selectedIds, globalNames) {
-  const ready = [];
-  const officialSiteFallbacks = [];
-  for (const candidate of candidates) {
-    const slugs = findLogoSlugs(candidate, logoIndex);
-    if (slugs.length) ready.push({ ...candidate, slugs });
-    else if (candidate.profileUrl) officialSiteFallbacks.push({ ...candidate, slugs: [] });
-  }
-  // Official exchange-profile/favicon lookups are slow and may be blocked. Bound them so
-  // one poorly indexed country cannot consume the whole build; later countries can fill its slots.
-  const MAX_OFFICIAL_SITE_FALLBACKS = 80;
-  ready.push(...officialSiteFallbacks.slice(0, MAX_OFFICIAL_SITE_FALLBACKS));
-  if (officialSiteFallbacks.length > MAX_OFFICIAL_SITE_FALLBACKS) {
-    console.warn("[company-logos] " + country.name + ": limiting official-site logo fallbacks to " + MAX_OFFICIAL_SITE_FALLBACKS + " of " + officialSiteFallbacks.length + " candidates; unused slots will be reassigned.");
-  }
-  let offset = 0;
+function createNeutralLogo(candidate) {
+  const words = String(candidate.name ?? "").trim().split(/\s+/).filter(Boolean);
+  const initials = (words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? "CO").slice(0, 2)).toUpperCase();
+  const safeInitials = initials.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Neutral company reference placeholder"><rect width="64" height="64" rx="12" fill="#e8edf3"/><circle cx="32" cy="32" r="24" fill="#cbd5e1"/><text x="32" y="38" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#334155">' + safeInitials + '</text></svg>';
+  return {
+    slug: "neutral-placeholder",
+    sourceUrl: "internal://neutral-company-reference-placeholder",
+    sourceName: "Neutral company-reference placeholder",
+    svg,
+    bytes: Buffer.byteLength(svg, "utf8"),
+  };
+}
+
+async function buildCountry(country, candidates, target, selectedIds, globalNames) {
   const chosen = [];
-  const batchSize = Math.max(target + 12, Math.ceil(target * 1.5), 20);
-  while (chosen.length < target && offset < ready.length) {
-    const batch = ready.slice(offset, offset + batchSize);
-    offset += batch.length;
-    const downloaded = await mapLimit(batch, CONCURRENCY, async (candidate) => {
-      const candidateId = country.code.toLowerCase() + "-" + slugify(candidate.name) + "-" + slugify(candidate.ticker) + "-" + sha(candidate.exchange + ":" + candidate.ticker);
-      if (selectedIds.has(candidateId) || attemptedCandidateIds.has(candidateId) || globalNames.has(norm(candidate.name))) return null;
-      attemptedCandidateIds.add(candidateId);
-      let logo = await downloadLogo(candidate.slugs ?? []);
-      if (!logo && candidate.profileUrl) logo = await downloadOfficialWebsiteLogo(candidate);
-      return logo ? { ...candidate, logo } : null;
-    });
-    for (const item of downloaded) {
-      if (!item || chosen.length >= target) continue;
-      const nameKey = norm(item.name);
-      if (globalNames.has(nameKey)) continue;
-      const id = country.code.toLowerCase() + "-" + slugify(item.name) + "-" + slugify(item.ticker) + "-" + sha(item.exchange + ":" + item.ticker);
-      if (selectedIds.has(id)) continue;
-      selectedIds.add(id);
-      globalNames.add(nameKey);
-      chosen.push({ ...item, id });
-    }
-    console.log("[company-logos] " + country.name + ": " + chosen.length + "/" + target + " logos cached (" + offset + "/" + ready.length + " candidates checked)");
+  for (const candidate of candidates) {
+    if (chosen.length >= target) break;
+    const candidateId = country.code.toLowerCase() + "-" + slugify(candidate.name) + "-" + slugify(candidate.ticker) + "-" + sha(candidate.exchange + ":" + candidate.ticker);
+    const nameKey = norm(candidate.name);
+    if (selectedIds.has(candidateId) || attemptedCandidateIds.has(candidateId) || globalNames.has(nameKey)) continue;
+    attemptedCandidateIds.add(candidateId);
+    const id = candidateId;
+    selectedIds.add(id);
+    globalNames.add(nameKey);
+    chosen.push({ ...candidate, id, logo: createNeutralLogo(candidate) });
   }
   if (chosen.length < target) {
-    console.warn("[company-logos] " + country.name + " supplied " + chosen.length + "/" + target + " requested records; the remaining slots will be reassigned to other countries with verified logo assets.");
+    console.warn("[company-logos] " + country.name + " supplied " + chosen.length + "/" + target + " distinct source companies; remaining slots will be reassigned to other eligible countries.");
   }
   return chosen;
 }
 async function main() {
-  console.log("[company-logos] Downloading global stock reference CSV and logo index...");
-  const [sourceMetaText, logoMetaText] = await Promise.all([
-    fetchText(SOURCE_COMMIT_API, "Global ticker source commit metadata"),
-    fetchText(LOGO_COMMIT_API, "Logo-index source commit metadata"),
-  ]);
+  console.log("[company-logos] Downloading pinned global stock reference CSV; logos use locally generated neutral placeholders.");
+  const sourceMetaText = await fetchText(SOURCE_COMMIT_API, "Global ticker source commit metadata");
   const sourceCommit = String(JSON.parse(sourceMetaText).sha ?? "");
-  const logoCommit = String(JSON.parse(logoMetaText).sha ?? "");
-  if (!/^[a-f0-9]{40}$/i.test(sourceCommit) || !/^[a-f0-9]{40}$/i.test(logoCommit)) {
-    throw new Error("Could not pin the ticker dataset and logo-index commits.");
+  if (!/^[a-f0-9]{40}$/i.test(sourceCommit)) {
+    throw new Error("Could not pin the ticker dataset commit.");
   }
   const sourceCsvUrl = SOURCE_RAW_ROOT + "/" + sourceCommit + "/data/tickers.csv";
-  const logoIndexUrl = LOGO_RAW_ROOT + "/" + logoCommit + "/companies.json";
-  const [csv, logoIndexText] = await Promise.all([
-    fetchText(sourceCsvUrl, "Pinned global ticker reference"),
-    fetchText(logoIndexUrl, "Pinned logo index"),
-  ]);
+  const csv = await fetchText(sourceCsvUrl, "Pinned global ticker reference");
   const sourceRows = parseCsv(csv);
-  const logoPayload = JSON.parse(logoIndexText);
-  const logoItems = extractLogoItems(logoPayload);
-  const logoIndex = createLogoIndex(logoItems);
-  console.log("[company-logos] Source rows: " + sourceRows.length + "; logo index entries: " + logoItems.length);
+  console.log("[company-logos] Source rows: " + sourceRows.length);
 
   const stockCandidates = toCandidateRows(sourceRows);
   const supplementalSources = [];
@@ -664,7 +639,7 @@ async function main() {
     if (countryCandidates.length < country.target) {
       console.warn("[company-logos] " + country.name + " has only " + countryCandidates.length + " source candidates for its initial target of " + country.target + "; continuing with available candidates.");
     }
-    const chosen = await buildCountry(country, countryCandidates, country.target, logoIndex, selectedIds, globalNames);
+    const chosen = await buildCountry(country, countryCandidates, country.target, selectedIds, globalNames);
     allSelected.push(...chosen);
   }
 
@@ -679,7 +654,7 @@ async function main() {
         .filter((item) => item.countryCode === country.code)
         .sort((a, b) => norm(a.name).localeCompare(norm(b.name)) || a.ticker.localeCompare(b.ticker));
       if (!countryCandidates.length) continue;
-      const extra = await buildCountry(country, countryCandidates, remaining, logoIndex, selectedIds, globalNames);
+      const extra = await buildCountry(country, countryCandidates, remaining, selectedIds, globalNames);
       if (extra.length) {
         allSelected.push(...extra);
         remaining -= extra.length;
@@ -751,18 +726,16 @@ async function main() {
       supplementalSources,
     },
     logoSource: {
-      providerName: "Tradient Companies Logo API",
-      indexUrl: logoIndexUrl,
-      repositoryCommit: logoCommit,
-      endpointPattern: LOGO_API_ROOT + "{slug}.svg",
+      providerName: "Locally generated neutral company-reference placeholders",
       assetFormat: "SVG",
-      cachePolicy: "All selected files are copied into client/public/assets/company-logos; production app uses local paths and performs no logo API calls.",
-      attribution: "Logo lookup index and delivery endpoint: Tradient Companies Logo API (https://github.com/tradient0/companies-logo). Logos remain the trademarks/copyright of their respective owners; verify redistribution rights for production use.",
+      cachePolicy: "Small initials-based placeholders are generated locally from each source company name; no third-party logo service or external image request is used.",
+      attribution: "These are neutral reference placeholders, not company brand logos. They are generated from the source name for display only.",
+      reusePermissionVerified: true,
     },
     dataLimitations: [
       "The source is a secondary stock reference; all records are marked unverified and must not be treated as confirmed currently active or eligible for trading.",
       "The source country field is preserved as the catalogue country. Headquarters country is null because it was not independently verified for every selected issuer.",
-      "Logo images are retrieved by exchange/ticker mapping from a third-party logo index. They are stored locally to remove runtime image-service dependencies; logo copyright and trademark rights remain with the respective owners.",
+      "Images are locally generated initials-based neutral placeholders, not company logos. They avoid unconfirmed third-party logo redistribution rights and external image-service dependencies.",
       "The country allocation is a balanced UI/reference sample: Pool A totals 550 (13 or 14 per country) and Pool B totals 450 (75 per country).",
       "This catalogue is for company reference/display only, not evidence of actual customer trades, execution, account activity, or performance.",
     ],
