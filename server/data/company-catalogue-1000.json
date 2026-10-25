@@ -25718,14 +25718,14 @@
     "provider": "Official company websites: declared logo/favicon/apple-touch-icon extraction",
     "batch": 1,
     "range": [
-      1,
-      50
+      201,
+      600
     ],
-    "attemptedAt": "2026-10-25T17:56:29.346Z",
-    "downloaded": 39,
-    "alreadyReal": 2,
-    "failed": 9,
-    "unverifiedSite": 0,
+    "attemptedAt": "2026-10-25T18:04:33.724Z",
+    "downloaded": 0,
+    "alreadyReal": 21,
+    "failed": 0,
+    "unverifiedSite": 379,
     "note": "Only icons fetched from an explicitly mapped official homepage are accepted. Unverified sites and failed icons remain pending; catalogue records are not regenerated."
   }
 }
