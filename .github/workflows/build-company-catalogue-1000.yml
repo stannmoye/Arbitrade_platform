@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: company-catalogue-1000-logo-build
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-and-cache:
