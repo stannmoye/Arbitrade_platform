@@ -23,6 +23,10 @@ describe("1,000-company static reference catalogue", () => {
     )).toBe(true);
     expect(getCompanyReferenceSummary().eligibleForVerifiedTradeRotation).toBe(0);
     expect(getCompanyReferenceSummary().logoReusePermissionVerified).toBe(0);
+    const result = searchCompanyReferences({ limit: 1 })[0]!;
+    expect(result.referenceOnly).toBe(true);
+    expect(result.logoReusePermissionVerified).toBe(false);
+    expect(result.eligibleForVerifiedTradeRotation).toBe(false);
   });
 
   it("supports ID lookup and bounded search without a database", () => {
