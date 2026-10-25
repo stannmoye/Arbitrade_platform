@@ -43,7 +43,7 @@ function hashPassword(password) {
 }
 
 function localOpenId(role, email) {
-  const prefix = role === "admin" ? "local:admin:" : "local:user:";
+  const prefix = role === "admin" ? "local:admin:" : "local:customer:";
   const direct = prefix + email;
   if (direct.length <= 64) return direct;
   return prefix + crypto.createHash("sha256").update(email).digest("hex").slice(0, 64 - prefix.length);
