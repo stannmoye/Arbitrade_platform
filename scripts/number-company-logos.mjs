@@ -1,0 +1,56 @@
+#!/usr/bin/env node
+/**
+ * Convert the existing local catalogue logo artwork to compact, sequential PNGs.
+ * These are local renderings of the currently stored artwork; this does not claim
+ * that placeholder artwork is an official company logo.
+ */
+import { createHash } from "node:crypto";
+import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import sharp from "sharp";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const CATALOGUE_PATH = join(ROOT, "server/data/company-catalogue-1000.json");
+const LOGO_DIR = join(ROOT, "client/public/assets/company-logos");
+const MANIFEST_PATH = join(ROOT, "docs/company-logo-replacement-manifest.csv");
+const catalogue = JSON.parse(await readFile(CATALOGUE_PATH, "utf8"));
+if (!Array.isArray(catalogue.companies) || catalogue.companies.length !== 1000) {
+  throw new Error("Refusing to number logos: expected exactly 1,000 existing catalogue records.");
+}
+await mkdir(LOGO_DIR, { recursive: true });
+const existingFiles = await readdir(LOGO_DIR);
+for (const [index, company] of catalogue.companies.entries()) {
+  const id = index + 1;
+  const sourcePath = join(ROOT, "client/public", String(company.logoUrl).replace(/^\/+/, ""));
+  const sourceBytes = await readFile(sourcePath);
+  const pngBytes = await sharp(sourceBytes, { density: 144 })
+    .resize({ width: 96, height: 96, fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
+    .png({ compressionLevel: 9, palette: true })
+    .toBuffer();
+  const filename = id + ".png";
+  await writeFile(join(LOGO_DIR, filename), pngBytes);
+  company.logoUrl = "/assets/company-logos/" + filename;
+  company.logoBytes = pngBytes.length;
+  company.logoSha256 = createHash("sha256").update(pngBytes).digest("hex");
+}
+for (const filename of existingFiles) {
+  if (/^[a-z0-9-]+\.svg$/i.test(filename)) await rm(join(LOGO_DIR, filename), { force: true });
+}
+await writeFile(CATALOGUE_PATH, JSON.stringify(catalogue, null, 2) + "\n");
+
+try {
+  const manifest = await readFile(MANIFEST_PATH, "utf8");
+  const lines = manifest.trimEnd().split(/\r?\n/);
+  if (lines.length !== 1001) throw new Error("Manifest must contain a header and exactly 1,000 rows.");
+  lines[0] = lines[0].replace("current_catalogue_logo_path", "current_catalogue_logo_path");
+  for (let i = 1; i < lines.length; i++) {
+    const expectedId = String(i);
+    if (!lines[i].startsWith('"' + expectedId + '",')) throw new Error("Manifest row order/ID mismatch at row " + i);
+    lines[i] = lines[i].replace(/,"[^"]*"\s*$/, ',"/assets/company-logos/' + expectedId + '.png"');
+  }
+  await writeFile(MANIFEST_PATH, lines.join("\n") + "\n");
+} catch (error) {
+  throw new Error("Failed to update numeric logo manifest: " + error.message);
+}
+console.log("Converted and numbered exactly 1,000 local logo assets as 1.png through 1000.png.");
