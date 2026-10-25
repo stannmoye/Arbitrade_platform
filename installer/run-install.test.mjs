@@ -89,7 +89,7 @@ describe("canonical installer preflight acceptance", () => {
       NODE_ENV: "production",
       DATABASE_URL: "mysql://user:password@127.0.0.1:3306/arbitrade_test",
       SESSION_SECRET: "too-short",
-      PASSWORD_PEPPER: "also-too-short",
+      PASSWORD_PEPPER: "fixture-password-pepper-long-enough-000000",
       PUBLIC_APP_URL: "https://example.test",
     });
     expect(result.status).not.toBe(0);
@@ -154,8 +154,8 @@ describe("fresh-install initial account provisioning", () => {
 
   it("leaves SMTP disabled and optional during installation", async () => {
     const wizard = await readFile(resolve(root, "installer", "index.php"), "utf8");
-    expect(wizard).toContain("MAIL_PROVIDER");
-    expect(wizard).toContain("disabled");
+    expect(wizard).not.toContain("MAIL_PROVIDER");
+    expect(wizard).toContain("Mail transport is configured only after the administrator signs in.");
     expect(wizard).not.toContain("SMTP_HOST");
     expect(wizard).not.toContain("SMTP_PASSWORD");
   });
