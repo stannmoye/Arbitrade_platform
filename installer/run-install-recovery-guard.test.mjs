@@ -22,6 +22,8 @@ async function makeFixture(marker) {
     databaseTableCount: 0,
     adminEmail: "admin@example.test",
     adminPassword: "fixture-only-password-123",
+    customerEmail: "customer@example.test",
+    customerPassword: "fixture-only-customer-password-123",
   }));
   if (marker === "installed") {
     await writeFile(join(root, "installer", ".installed"), "fixture lock\n");
