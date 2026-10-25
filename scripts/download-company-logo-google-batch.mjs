@@ -114,13 +114,13 @@ for (let i = 0; i < companies.length; i++) {
     await sleep(700);
     continue;
   }
-  const oldPath = String(company.logoUrl || "").replace(/^\//, "");
-  const oldFullPath = join(ROOT, oldPath);
-  const base = oldPath.replace(/\.[^.]+$/, "");
-  const newPath = base + asset.ext;
-  const fullPath = join(ROOT, newPath);
+  const publicPath = String(company.logoUrl || "").replace(/^\//, "");
+  const oldFullPath = join(ROOT, "client/public", publicPath);
+  const newPublicPath = publicPath.replace(/\.[^.]+$/, "") + asset.ext;
+  const fullPath = join(ROOT, "client/public", newPublicPath);
   await writeFile(fullPath, asset.bytes);
   if (oldFullPath !== fullPath) await rm(oldFullPath, { force: true });
+  company.logoUrl = "/" + newPublicPath;
   company.logoUrl = "/" + newPath.replace(/^client\/public\//, "");
   company.logoSourceName = "Google Images result; original image source";
   company.logoSourceUrl = asset.sourceUrl;
