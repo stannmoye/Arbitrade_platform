@@ -1,6 +1,6 @@
 # Verified listed-company catalogue
 
-The trading specification targets 3,000 verified publicly listed companies across its supported markets. This repository does not fabricate company records or bundle a scraped dataset with unclear redistribution rights.
+The initial operational acceptance target for this implementation is **at least 600 unique, verified publicly listed companies** across supported markets. This is a staged minimum, replacing the larger initial rollout target for this phase. Records must be traceable to approved/licensed data sources; do not fabricate or duplicate entries to reach the count.
 
 ## Data source requirements
 
@@ -20,7 +20,7 @@ The CSV headers are:
 
 The importer validates the complete file before opening a transaction, rejects duplicate exchange/ticker pairs within the file, requires provenance for active records, and rolls back the whole import on database failure. Use a current export; active records older than 180 days are not eligible for rotation until reverified.
 
-After import, verify at least 3,000 unique active records with recent verification timestamps and meaningful coverage across the countries/markets required by `docs/TRADING_SYSTEM_SPECIFICATION.md`. The script reports actual counts; it does not pad the catalogue to meet the target.
+After import, verify at least **600 unique active records** with recent verification timestamps and meaningful coverage across supported countries/markets described in `docs/TRADING_SYSTEM_SPECIFICATION.md`. The script must report actual counts; it must not pad the catalogue to meet the target.
 
 ## Rotation
 
@@ -28,4 +28,4 @@ After import, verify at least 3,000 unique active records with recent verificati
 
 ## Important integration boundary
 
-This migration and import/selection groundwork does not itself populate 3,000 companies or connect rotation to the production opportunity-delivery path. That requires a licensed data export, import verification, and a reviewed integration that binds each opportunity to the actual listed instrument and persists rotation events. Do not claim the catalogue is complete or live until those checks pass.
+This migration and import/selection groundwork does not itself populate 600 companies or connect rotation to the production opportunity-delivery path. That requires a licensed data export, import verification, and a reviewed integration that binds each opportunity to the actual listed instrument and persists rotation events. Do not claim the catalogue is complete or live until those checks pass.
