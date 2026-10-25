@@ -136,12 +136,14 @@ catalogue.logoSource = {
   explicitCc0Only: true,
   trademarkNote: "Company names and marks remain the property of their respective owners; CC0 artwork licensing does not transfer trademark rights.",
   updatedAt: new Date().toISOString(),
-  matchedCompanyCount: updated,
+  matchedCompanyCount: catalogue.companies.filter((company) => company.logoSourceName === "Simple Icons CC0-1.0" && company.logoLicense === "CC0-1.0").length,
   placeholderCompanyCount: catalogue.companies.filter((company) => company.logoSourceName === "Neutral company-reference placeholder").length,
 };
 await writeFile(CATALOGUE_PATH, JSON.stringify(catalogue, null, 2) + "\n", "utf8");
 
-console.log(`[company-logos] Updated ${updated} unambiguous, explicitly CC0-licensed brand assets; ${catalogue.companies.length - updated} records remain unchanged or use placeholders.`);
+const verifiedLogoCount = catalogue.companies.filter((company) => company.logoSourceName === "Simple Icons CC0-1.0" && company.logoLicense === "CC0-1.0").length;
+const placeholderCount = catalogue.companies.filter((company) => company.logoSourceName === "Neutral company-reference placeholder").length;
+console.log(`[company-logos] Downloaded ${updated} assets this run. Catalogue now contains ${verifiedLogoCount} explicitly CC0-licensed icons and ${placeholderCount} neutral placeholders among ${catalogue.companies.length} companies.`);
 if (errors.length) {
   console.warn("[company-logos] Some matched assets could not be fetched; those records keep their existing source metadata where the download failed.");
   for (const error of errors.slice(0, 20)) console.warn(" - " + error);
