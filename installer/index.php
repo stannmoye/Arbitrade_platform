@@ -115,6 +115,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $missingExtensions = array_values(array_filter(['pdo_mysql', 'openssl', 'json', 'mbstring'], static fn(string $extension): bool => !extension_loaded($extension)));
         if ($missingExtensions !== []) throw new RuntimeException('Enable these required PHP extensions in cPanel before continuing: ' . implode(', ', $missingExtensions) . '.');
         if (!is_file($root . '/package.json') || !is_file($root . '/pnpm-lock.yaml')) throw new RuntimeException('The application package is incomplete. Upload the complete Arbitrade ZIP, including package.json and pnpm-lock.yaml.');
+        $nodeBinary = trim((string)(getenv('ARBITRADE_NODE_BINARY') ?: 'node'));
+        $pnpmBinary = trim((string)(getenv('ARBITRADE_PNPM_BINARY') ?: 'pnpm'));
+        $nodeVersionOutput = installerCommandOutput($nodeBinary, ['--version']);
+        $pnpmVersionOutput = installerCommandOutput($pnpmBinary, ['--version']);
+        $nodeVersionValid = $nodeVersionOutput !== null && preg_match('/^v?(\\d+)\\./', $nodeVersionOutput, $nodeVersionMatch) === 1 && (int)$nodeVersionMatch[1] >= 20;
+        $pnpmVersionValid = $pnpmVersionOutput !== null && preg_match('/^10\\.18\\./', $pnpmVersionOutput) === 1;
+        if (!$nodeVersionValid) throw new RuntimeException('Node.js 20+ could not be verified by PHP. Make the runtime available in the PHP environment or set ARBITRADE_NODE_BINARY to the exact executable path.');
+        if (!$pnpmVersionValid) throw new RuntimeException('pnpm 10.18.x could not be verified by PHP. Make pnpm available in the PHP environment or set ARBITRADE_PNPM_BINARY to the exact executable path.');
+        if (!is_file($root . '/node_modules/.modules.yaml')) throw new RuntimeException('Dependencies are not installed. Run pnpm install --frozen-lockfile from the private application root, then reload the installer.');
         if (!is_writable($root)) throw new RuntimeException('The application root is not writable by PHP. Adjust deployment permissions, save configuration, then remove write access after installation.');
         $mode = postval('install_mode');
         if (!in_array($mode, ['fresh', 'existing'], true)) throw new RuntimeException('Choose a fresh installation or an existing-database deployment.');
