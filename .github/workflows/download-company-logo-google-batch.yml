@@ -1,11 +1,11 @@
-name: Download company logos in manually verified batches
+name: Download company logos from official websites in 50-company batches
 
 on:
-  # Manual-only: never run unverified image searches automatically on code pushes.
+  # Manual-only: each batch fetches icons only from confirmed official company homepages.
   workflow_dispatch:
     inputs:
       batch:
-        description: "Batch number (50 companies per batch)"
+        description: "Batch number (50 companies per batch, 1–20)"
         required: true
         default: "1"
         type: string
@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: company-logo-google-batch
+  group: company-logo-official-site-batch
   cancel-in-progress: false
 
 jobs:
@@ -31,11 +31,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Download company logo files for selected 50-company batch (manual verification required)
+      - name: Fetch icons from official company websites for the selected batch
         env:
-          LOGO_BATCH: ${{ github.event.inputs.batch || '1' }}
+          LOGO_BATCH: \${{ github.event.inputs.batch || '1' }}
         run: node scripts/download-company-logo-google-batch.mjs
-      - name: Commit downloaded logo files and source report
+      - name: Commit local icons, catalogue metadata, and batch report
         shell: bash
         run: |
           set -euo pipefail
@@ -43,8 +43,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A server/data/company-catalogue-1000.json server/data/company-logo-batch-*-report.json client/public/assets/company-logos
           if git diff --cached --quiet; then
-            echo "No downloadable logos were found in this batch."
+            echo "No changes were produced for this batch."
             exit 1
           fi
-          git commit -m "Download company logos from Google Images batch ${{ github.event.inputs.batch || '1' }}"
+          git commit -m "Save official-site company icons for batch \${{ github.event.inputs.batch || '1' }}"
           git push origin HEAD:feature/verified-company-catalogue-rotation
