@@ -57,7 +57,7 @@ export async function getEmailConfig(): Promise<EmailConfig> {
   const validProviders: EmailProvider[] = ["local", "local-smtp", "sendgrid", "aws-ses", "other"];
   return { ...baseConfig(), ...parsed, provider: validProviders.includes(parsed.provider as EmailProvider) ? parsed.provider as EmailProvider : (parsed.mode === "direct" ? "local" : "other"), region: typeof parsed.region === "string" ? parsed.region : "us-east-1", password, port: Number(parsed.port || 25), secure: Boolean(parsed.secure), authType: parsed.authType === "plain" || parsed.authType === "none" ? parsed.authType : "login" };
 }
-export async function saveEmailConfig(input: Partial<EmailConfig> & { clearPassword?: boolean }) {
+export async function saveEmailConfig(input: Partial<EmailConfig> & { clearPassword?: boolean }, updatedBy?: number) {
   const { clearPassword = false, ...configInput } = input;
   const current = await getEmailConfig();
   // An omitted or blank password means "keep the saved password", not "erase it",
@@ -65,7 +65,7 @@ export async function saveEmailConfig(input: Partial<EmailConfig> & { clearPassw
   const submittedPassword = typeof configInput.password === "string" && configInput.password.length > 0 ? configInput.password : clearPassword ? "" : current.password;
   const next = { ...current, ...configInput, password: submittedPassword };
   const { password, ...safeConfig } = next;
-  await setAppSetting("email.smtp", JSON.stringify({ ...safeConfig, passwordCipher: password ? encryptConfigPassword(password) : "" }));
+  await setAppSetting("email.smtp", JSON.stringify({ ...safeConfig, passwordCipher: password ? encryptConfigPassword(password) : "" }), updatedBy);
   return { ...next, password: next.password ? "••••••••" : "" };
 }
 export async function publicEmailConfig() {
