@@ -57,7 +57,9 @@ try {
     if (!company.logoUrl.startsWith("/assets/company-logos/") || company.logoUrl.includes("://")) fail(label + ": logo must be referenced locally.");
     if (company.logoSourceName === "Neutral company-reference placeholder") {
       if (company.logoSourceSlug !== "neutral-placeholder" || company.logoSourceUrl !== "internal://neutral-company-reference-placeholder") fail(label + ": invalid neutral placeholder source metadata.");
-    } else fail(label + ": unapproved third-party/brand logo source is not allowed in the generated catalogue.");
+    } else if (company.logoSourceName === "Simple Icons CC0-1.0") {
+      if (!/^[a-z0-9_-]+$/.test(company.logoSourceSlug) || !/^https:\/\//.test(company.logoSourceUrl) || company.logoLicense !== "CC0-1.0") fail(label + ": invalid Simple Icons source/license metadata.");
+    } else fail(label + ": logo source is not on the explicit allowlist.");
     if (!/^[a-f0-9]{64}$/i.test(company.logoSha256)) fail(label + ": missing or invalid SHA-256 for logo asset.");
     if (!/^[a-z0-9-]+\.svg$/.test(company.logoUrl.split("/").at(-1))) fail(label + ": unexpected logo asset path.");
     if (paths.has(company.logoUrl)) fail(label + ": duplicate local logo path"); paths.add(company.logoUrl);
@@ -95,13 +97,16 @@ try {
     if (!/<svg\b/i.test(body) || !/<\/svg\s*>/i.test(body) || /<script\b|<foreignObject\b|javascript\s*:/i.test(body)) fail("Logo is not a safe standalone SVG: " + relativePath);
   }
   if (!/^[a-f0-9]{40}$/i.test(data.source?.sourceCommit ?? "")) fail("Company identity source snapshot commit is not pinned.");
-  if (data.logoSource?.providerName !== "Locally generated neutral company-reference placeholders" || data.logoSource?.reusePermissionVerified !== true) fail("Catalogue must use locally generated neutral placeholders with no unapproved brand-logo redistribution.");
+  if (data.logoSource?.explicitCc0Only !== true || !String(data.logoSource?.providerName ?? "").includes("Simple Icons CC0-1.0")) fail("Catalogue logo policy must restrict sourced brand artwork to explicitly CC0-1.0 entries.");
   console.log("[company-logos] STRUCTURAL PASS: 1,000 reference records across " + counts.size + " represented countries, Pool A=" + poolACount + ", Pool B=" + poolBCount + ", exactly 1,000 local SVGs, no runtime logo URLs.");
   const missingCountries = [...expected.entries()].filter(([code]) => !(counts.get(code) > 0)).map(([, value]) => value.name);
   if (missingCountries.length) {
     fail("No records for replacement country allocation: " + missingCountries.join(", ") + ". Every one of the 46 configured countries must be represented.");
   }
-  console.warn("[company-logos] LIMITATION: company identities/listing status and headquarters country remain unverified. Neutral placeholders are not company brand logos and do not establish trading eligibility.");
+  const placeholderCount = data.companies.filter((company) => company.logoSourceName === "Neutral company-reference placeholder").length;
+  const sourcedCount = data.companies.length - placeholderCount;
+  console.log("[company-logos] LOGO SOURCE COUNTS: " + sourcedCount + " explicitly CC0-1.0 Simple Icons assets; " + placeholderCount + " neutral placeholders.");
+  console.warn("[company-logos] LIMITATION: company identities/listing status and headquarters country remain unverified. Placeholder images are not company brand logos; logos do not establish trading eligibility or prove a transaction occurred.");
 } catch (error) {
   console.error("[company-logos] FAIL: " + (error instanceof Error ? error.message : String(error)));
   process.exitCode = 1;
