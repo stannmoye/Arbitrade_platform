@@ -343,7 +343,7 @@ function toCandidateRows(rows) {
 }
 
 async function loadMoexStockCandidates() {
-  const baseUrl = "https://iss.moex.com/iss/engines/stock/markets/shares/securities.json?iss.meta=off&iss.only=securities,cursor&is_traded=1&securities.columns=SECID,SHORTNAME,SECNAME,ISIN,REGNUMBER,IS_TRADED&cursor.columns=INDEX,TOTAL,PAGESIZE";
+  const baseUrl = "https://iss.moex.com/iss/engines/stock/markets/shares/securities.json?iss.meta=off&iss.only=securities,cursor&is_traded=1&securities.columns=SECID,SHORTNAME,SECNAME,LATNAME,ISIN,REGNUMBER,IS_TRADED&cursor.columns=INDEX,TOTAL,PAGESIZE";
   const safetyLimit = 20000;
   let pageSize = 100;
   let expectedTotal = null;
@@ -389,7 +389,7 @@ async function loadMoexStockCandidates() {
   
   const candidates = rows.flatMap((row) => {
     const ticker = getField(row, ["secid"]).toUpperCase();
-    const name = getField(row, ["secname", "name", "shortname"]);
+    const name = getField(row, ["latname", "name", "secname", "shortname"]);
     const isTraded = getField(row, ["is_traded"]).toLowerCase();
     if (!name || !ticker || (isTraded && !["1", "true", "yes"].includes(isTraded))) return [];
     if (!/^[A-Z0-9][A-Z0-9._-]{0,19}$/.test(ticker)) return [];
