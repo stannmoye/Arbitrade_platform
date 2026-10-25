@@ -34,8 +34,7 @@ describe("1,000-company static reference catalogue", () => {
       result.logoSourceSlug === "neutral-placeholder" &&
       result.logoSourceUrl === "internal://neutral-company-reference-placeholder";
     expect(result.logoReusePermissionVerified).toBe(isSafePlaceholder);
-    expect(result.logoUrl).toBe(isSafePlaceholder ? result.logoUrl : null);
-    if (isSafePlaceholder) expect(result.logoUrl).toBe(result.logoUrl);
+    expect(result.logoUrl).toBe(isSafePlaceholder ? COMPANY_REFERENCE_CATALOGUE[0]!.logoUrl : null);
     expect(result.eligibleForVerifiedTradeRotation).toBe(false);
   });
 
