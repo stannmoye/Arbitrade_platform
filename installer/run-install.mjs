@@ -1,4 +1,3 @@
-import mysql from "mysql2/promise";
 import { spawnSync } from "node:child_process";
 import { lstat, readFile, unlink, writeFile } from "node:fs/promises";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -183,6 +182,24 @@ if (process.env.SESSION_SECRET.length < 32) {
 }
 
 const pnpm = detectPnpm();
+const installResult = spawnSync(pnpm.command, [...pnpm.prefix, "install", "--frozen-lockfile"], {
+  cwd: root,
+  env: process.env,
+  stdio: "inherit",
+  shell: false,
+});
+if (installResult.error) {
+  fail("Could not start the locked dependency installation. Verify pnpm 10.18.x and hosting permissions, then retry.");
+}
+if (installResult.status !== 0) {
+  fail("The locked dependency installation failed. No database migrations were run; resolve the package/lockfile error and retry.");
+}
+let mysql;
+try {
+  mysql = (await import("mysql2/promise")).default;
+} catch {
+  fail("Required MySQL driver is still unavailable after the locked dependency installation. Check the pnpm output and package lockfile.");
+}
 
 let db;
 try {
@@ -274,8 +291,6 @@ async function setStage(stage) {
   console.log("\n[installer] Stage: " + stage);
 }
 await writeFile(progressPath, JSON.stringify(progress, null, 2) + "\n", { mode: 0o600, flag: "wx" });
-runPnpm(["install", "--frozen-lockfile"]);
-
 if (mode === "fresh") {
   console.log("\n[installer] Initializing a fresh database. Reward processing remains disabled unless separately enabled by an administrator.");
   await setStage("main-database-migrations");
