@@ -87,7 +87,6 @@ try {
     if (!/<svg\b/i.test(body) || !/<\/svg\s*>/i.test(body) || /<script\b|<foreignObject\b|javascript\s*:/i.test(body)) fail("Logo is not a safe standalone SVG: " + relativePath);
   }
   if (!/^[a-f0-9]{40}$/i.test(data.source?.sourceCommit ?? "") || !/^[a-f0-9]{40}$/i.test(data.logoSource?.repositoryCommit ?? "")) fail("Source snapshot commits are not pinned.");
-  const reported = data.targetDistribution?.countsByCountry ?? {};
   console.log("[company-logos] PASS: 1,000 records across " + counts.size + " requested countries, Pool A=" + poolACount + ", Pool B=" + poolBCount + ", exactly 1,000 local SVGs, no runtime logo URLs.");
 } catch (error) {
   console.error("[company-logos] FAIL: " + (error instanceof Error ? error.message : String(error)));
