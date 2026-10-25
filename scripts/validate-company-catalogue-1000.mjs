@@ -97,7 +97,11 @@ try {
     if (!/<svg\b/i.test(body) || !/<\/svg\s*>/i.test(body) || /<script\b|<foreignObject\b|javascript\s*:/i.test(body)) fail("Logo is not a safe standalone SVG: " + relativePath);
   }
   if (!/^[a-f0-9]{40}$/i.test(data.source?.sourceCommit ?? "")) fail("Company identity source snapshot commit is not pinned.");
-  if (data.logoSource?.explicitCc0Only !== true || !String(data.logoSource?.providerName ?? "").includes("Simple Icons CC0-1.0")) fail("Catalogue logo policy must restrict sourced brand artwork to explicitly CC0-1.0 entries.");
+  const cc0SourcePolicy = data.logoSource?.explicitCc0Only === true && String(data.logoSource?.providerName ?? "").includes("Simple Icons CC0-1.0");
+  const untouchedLegacyPlaceholderState = data.logoSource?.providerName === "Locally generated neutral company-reference placeholders"
+    && data.logoSource?.reusePermissionVerified === true
+    && data.companies.every((company) => company.logoSourceName === "Neutral company-reference placeholder");
+  if (!cc0SourcePolicy && !untouchedLegacyPlaceholderState) fail("Catalogue logo policy must restrict sourced brand artwork to explicitly CC0-1.0 entries; only the untouched legacy placeholder-only state is allowed during transition.");
   console.log("[company-logos] STRUCTURAL PASS: 1,000 reference records across " + counts.size + " represented countries, Pool A=" + poolACount + ", Pool B=" + poolBCount + ", exactly 1,000 local SVGs, no runtime logo URLs.");
   const missingCountries = [...expected.entries()].filter(([code]) => !(counts.get(code) > 0)).map(([, value]) => value.name);
   if (missingCountries.length) {
