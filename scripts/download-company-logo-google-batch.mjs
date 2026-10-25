@@ -226,6 +226,13 @@ const OFFICIAL_SITES = {
   "gb-alliance-witan-ord-alw-91a25fce": "https://www.alliancewitan.com/",
   "gb-allianz-technology-trust-plc-att-9deb21d9": "https://www.allianztechnologytrust.com/",
   "gb-alpha-growth-plc-alpgf-9a66de62": "https://alphagrowthplc.com/",
+  "us-ab-ignitis-grupe-ign-e60fa2cc": "https://ignitisgrupe.lt/en/companies/ab-ignitis-grupe",
+  "us-ab-international-group-corp-abqq-515c211c": "https://www.abqqs.com/",
+  "us-abeona-therapeutics-inc-0h7r-81994abb": "https://www.abeonatherapeutics.com/",
+  "us-abundia-global-impact-group-inc-common-stock-agig-f2bbf916": "https://abundiaimpact.com/",
+  "us-abvc-biopharma-inc-abvc-43785614": "https://abvcbiopharma.com/",
+  "gb-acuity-rm-group-plc-acrm-10a404c3": "https://acuityrmgroup.com/",
+  "gb-adalan-ventures-plc-zaim-93232986": "https://adalanventures.com/",
 };
 
 function decodeHtml(value) {
