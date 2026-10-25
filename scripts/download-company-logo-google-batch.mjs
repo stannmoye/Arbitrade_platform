@@ -29,6 +29,8 @@ function decodeHtml(value) {
   return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 }
 function imageCandidates(html) {
+  // Bing often HTML-escapes the JSON metadata inside its result attributes.
+  html = decodeHtml(html);
   const candidates = [];
   const seen = new Set();
   // Bing Images stores original image URLs as murl fields in JSON result metadata.
