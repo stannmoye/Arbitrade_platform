@@ -290,7 +290,9 @@ function cleanSvg(text) {
 async function downloadOfficialWebsiteLogo(candidate) {
   if (!candidate.profileUrl) return null;
   try {
-    const profile = await fetchText(candidate.profileUrl, "Official exchange company profile");
+    const profileResponse = await fetch(candidate.profileUrl, { headers: { "user-agent": "Arbitrade-Company-Catalogue/1.0", accept: "text/html,*/*" }, signal: AbortSignal.timeout(8000) });
+    if (!profileResponse.ok) return null;
+    const profile = (await profileResponse.text()).slice(0, 500000);
     const websiteLinks = [];
     const websiteBlock = profile.match(/Website[\s\S]{0,800}?href\s*=\s*["']([^"']+)["']/i);
     if (websiteBlock?.[1]) {
