@@ -21,6 +21,13 @@ describe("1,000-company static reference catalogue", () => {
       company.lastVerifiedAt === null &&
       company.requiresManualVerification
     )).toBe(true);
+    expect(COMPANY_REFERENCE_CATALOGUE.every((company) =>
+      company.recordCompleteness === "incomplete" &&
+      company.incompleteReasons.includes("listing_status_unverified") &&
+      company.incompleteReasons.includes("headquarters_country_unverified") &&
+      company.incompleteReasons.includes("official_brand_logo_not_cleared")
+    )).toBe(true);
+    expect(getCompanyReferenceSummary().incompleteRecords).toBe(1000);
     expect(getCompanyReferenceSummary().eligibleForVerifiedTradeRotation).toBe(0);
     const safePlaceholderCount = COMPANY_REFERENCE_CATALOGUE.filter((company) =>
       company.logoSourceName === "Neutral company-reference placeholder" &&
