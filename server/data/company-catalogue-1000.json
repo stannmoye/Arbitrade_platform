@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-25T15:37:39.387Z",
+  "generatedAt": "2026-10-25T15:44:53.965Z",
   "targetCount": 1000,
   "companyCount": 1000,
   "targetDistribution": {
@@ -313,7 +313,7 @@
       {
         "providerName": "Moscow Exchange Information and Statistical Server (ISS)",
         "sourceUrl": "https://iss.moex.com/iss/engines/stock/markets/shares/securities.json?iss.meta=off&iss.only=securities,cursor&is_traded=1&securities.columns=SECID,SHORTNAME,SECNAME,LATNAME,ISIN,REGNUMBER,IS_TRADED&cursor.columns=INDEX,TOTAL,PAGESIZE&start={offset}",
-        "retrievedAt": "2026-10-25T15:37:04.042Z",
+        "retrievedAt": "2026-10-25T15:44:16.751Z",
         "sourceVersion": "Actively traded shares response with explicit SECID/SECNAME columns and ISS cursor pagination, captured during catalogue build",
         "rawRows": 20736,
         "reportedTotalRows": null,
@@ -323,7 +323,7 @@
       {
         "providerName": "Dhaka Stock Exchange PLC",
         "sourceUrl": "https://www.dse.com.bd/companies?view=closed",
-        "retrievedAt": "2026-10-25T15:37:04.653Z",
+        "retrievedAt": "2026-10-25T15:44:17.865Z",
         "sourceVersion": "Listed-company screener HTML captured during catalogue build",
         "rawRows": 385,
         "tradableEquityCandidates": 385,
