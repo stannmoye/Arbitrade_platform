@@ -50,7 +50,11 @@ try {
     }
     if (company.instrumentType !== "Stock") fail(label + ": non-stock instrument in catalogue.");
     if (!company.logoUrl.startsWith("/assets/company-logos/") || company.logoUrl.includes("://")) fail(label + ": logo must be referenced locally.");
-    if (company.logoSourceUrl !== "https://logo.tradient.org/v1/" + company.logoSourceSlug + ".svg") fail(label + ": source URL does not match the recorded logo slug.");
+    if (company.logoSourceName === "Tradient Companies Logo API") {
+      if (company.logoSourceUrl !== "https://logo.tradient.org/v1/" + company.logoSourceSlug + ".svg") fail(label + ": source URL does not match the recorded logo slug.");
+    } else if (company.logoSourceName === "Official company website favicon") {
+      if (company.logoSourceSlug !== "official-site-favicon" || !/^https?:\/\//i.test(company.logoSourceUrl)) fail(label + ": invalid official website favicon source metadata.");
+    } else fail(label + ": unsupported logo source.");
     if (!/^[a-f0-9]{64}$/i.test(company.logoSha256)) fail(label + ": missing or invalid SHA-256 for logo asset.");
     if (!/^[a-z0-9-]+\.svg$/.test(company.logoUrl.split("/").at(-1))) fail(label + ": unexpected logo asset path.");
     if (paths.has(company.logoUrl)) fail(label + ": duplicate local logo path"); paths.add(company.logoUrl);
