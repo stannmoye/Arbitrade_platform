@@ -25,6 +25,12 @@ if (!Number.isInteger(batch) || batch < 1 || batch > 5) throw new Error("LOGO_BA
 // Domains below were identified as the companies' own sites. Do not add ambiguous domains
 // without confirming the company identity first; unknown entries stay pending, not guessed.
 const OFFICIAL_SITES = {
+  "us-aardvark-therapeutics-inc-common-stock-aard-15e6f085": "https://aardvarktherapeutics.com/",
+  "us-aar-corp-air-e9326ec4": "https://www.aarcorp.com/",
+  "tw-1-production-film-co-8458-e542baaf": "https://www.1production.com.tw/",
+  "pl-answear-com-s-a-anr-8aa7d910": "https://about.answear.com/",
+  "pl-alior-bank-s-a-alr-1b196cab": "https://www.aliorbank.pl/",
+  "pl-7levels-sa-7lv-c6a535e5": "https://www.7lvls.com/",
   "jp-3-d-matrix-ltd-7777-5d23fe3d": "https://www.3dmatrix.com/",
   "jp-a-tie-co-ltd-369a-4dee7904": "https://a-tie.co.jp/",
   "jp-abc-co-ltd-8783-895af577": "https://abc-chain.com/",
