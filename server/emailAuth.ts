@@ -34,7 +34,7 @@ async function issueCode(userId: number, purpose: AuthEmailPurpose) {
   const user = (await db.select({ id: users.id, email: users.email, loginMethod: users.loginMethod, passwordHash: users.passwordHash }).from(users).where(eq(users.id, userId)).limit(1))[0];
   if (!user?.email) return { issued: false, delivered: false };
   if (purpose === "PASSWORD_RESET" && (!user.passwordHash || !["password", "email"].includes(user.loginMethod || ""))) return { issued: false, delivered: false };
-  if (!isEmailDeliveryConfigured()) return { issued: false, delivered: false };
+  if (!(await isEmailDeliveryConfigured())) return { issued: false, delivered: false };
   const previous = (await db.select().from(authEmailTokens).where(and(eq(authEmailTokens.userId, userId), eq(authEmailTokens.purpose, purpose))).limit(1))[0];
   const now = new Date();
   if (previous && isWithinResendCooldown(previous.lastRequestedAt, now)) return { issued: false, delivered: false, throttled: true };

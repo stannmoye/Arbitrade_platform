@@ -5,6 +5,7 @@ import net from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { ensureSessionSecret } from "./session-secret.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 config({ path: resolve(root, ".env"), override: false });
@@ -16,11 +17,18 @@ if ([...args].some((arg) => !["--help", "-h"].includes(arg))) {
 if (args.has("--help") || args.has("-h")) {
   console.log("Usage: pnpm installer:diagnose");
   console.log("Checks deployment configuration, production build, database connectivity, local port, and health endpoint.");
-  console.log("It never prints secret values and does not change application or database state.");
+  console.log("It never prints secret values or changes database state. It may initialize the missing private session secret required for safe production startup.");
   process.exit(0);
 }
 
 const results = [];
+try {
+  const sessionSecret = await ensureSessionSecret({ root, env: process.env });
+  report("Automatic session-secret setup", true,
+    sessionSecret.generated ? "Generated and securely persisted the missing session secret." : "A session secret is available from the configured environment or private .env file.");
+} catch {
+  report("Automatic session-secret setup", false, "Could not securely initialize SESSION_SECRET. Check private application-root permissions.");
+}
 function report(name, ok, detail, warning = false) {
   const status = warning ? "WARN" : ok ? "PASS" : "FAIL";
   results.push({ name, ok: ok || warning, warning });

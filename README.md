@@ -8,7 +8,7 @@ Arbitrade is a Node.js/Express and React customer-and-operations platform for da
 - pnpm 10.18
 - MySQL 8-compatible or MariaDB database
 - HTTPS
-- SMTP or an approved email provider
+- Email transport only if outbound email is required (optional during installation)
 - cPanel Setup Node.js App or a VPS
 
 ## Self-hosted runtime
@@ -45,7 +45,7 @@ pnpm accounts:provision
 pnpm start
 ```
 
-The provisioning command creates both required accounts in MySQL, stores salted scrypt hashes, and never stores plaintext passwords in the repository.
+The standalone provisioning command creates both requested accounts in MySQL, stores salted scrypt hashes, and never stores plaintext passwords in the repository. The browser fresh-install wizard collects both account credential sets and creates the administrator and customer transactionally after migrations succeed. SMTP is optional during installation and is configured after sign-in from the administrator portal.
 
 Migration `0006_v5_reporting_jobs.sql` adds customer reporting-timezone history, daily-report preferences, failed-job visibility, and the customer/reporting-day uniqueness invariant. Back up MySQL before applying it and reconcile wallet balances afterward.
 

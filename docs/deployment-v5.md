@@ -8,7 +8,7 @@
 - HTTPS and secure cookies
 - cPanel Setup Node.js App or a VPS process manager
 - cPanel Cron or an equivalent UTC scheduler
-- SMTP/API credentials stored as server-side environment variables
+- Email transport configuration (optional during install; required only when outbound email is needed)
 
 Required environment variables are documented in `.env.example`. `DATABASE_URL`, `SESSION_SECRET`, and `PASSWORD_PEPPER` are mandatory for production.
 
@@ -30,7 +30,7 @@ PHP-only hosting cannot run this Express application. A cPanel account must prov
 
 ## Email delivery and scheduled summaries
 
-- This release supports SMTP only. Set `MAIL_PROVIDER=smtp` plus `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, and optionally `SMTP_FROM_NAME` / `SMTP_REPLY_TO` as **server-only environment secrets**. Do not place SMTP credentials in the admin settings database or commit a populated `.env` file.
+- Email delivery is optional during installation and does not gate application startup. After the first administrator signs in, configure the mail transport in the authenticated admin portal. The portal stores the SMTP password AES-256-GCM encrypted in the application's `app_settings` table, using the stable `SESSION_SECRET` for key derivation; keep that secret backed up and do not rotate it casually. A saved portal transport is used for transactional email, password recovery, verification messages, queued reports, and admin campaigns. Existing deployments may continue to use `MAIL_PROVIDER=smtp` plus `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, and optional `SMTP_FROM_NAME` / `SMTP_REPLY_TO` as an environment-based fallback when no portal configuration has been saved. Never commit a populated `.env` file.
 - Until SMTP is complete, outbound delivery stays disabled. The app queues mail in an encrypted, idempotent outbox and retries temporary failures; check the admin Email center for readiness and send controlled test mail to the admin or one verified customer.
 - Inbox verification and password recovery use hashed, expiring one-time codes with resend cooldowns and attempt limits. Inbox verification is not identity verification/KYC. Financial-looking alert templates explicitly identify internal ledger adjustments as simulated; they do not represent real deposits, withdrawals, custody, or payments.
 - To enable daily customer summaries, set both `EMAIL_DAILY_DIGEST_TIME` (`HH:MM`, 24-hour local wall time) and `EMAIL_DAILY_DIGEST_TIMEZONE` (an IANA zone such as `Europe/London`). Digests are queued once per customer/local day only when SMTP is configured, the customer inbox is verified, and the customer has not opted out. No schedule is active while either setting is blank.

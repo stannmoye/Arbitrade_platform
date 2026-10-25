@@ -63,6 +63,14 @@ describe("canonical installer preflight acceptance", () => {
     expect(result.output).not.toContain("Database connection successful");
   });
 
+  it("automatically generates a missing session secret instead of requiring manual configuration", async () => {
+    const source = await readFile(installer, "utf8");
+    expect(source).toContain('import { ensureSessionSecret } from "./session-secret.mjs";');
+    expect(source).toContain("await ensureSessionSecret({ root, env: process.env })");
+    expect(source).toContain('if (!process.env.DATABASE_URL || !process.env.PASSWORD_PEPPER || !process.env.PUBLIC_APP_URL)');
+    expect(source).not.toContain("!process.env.SESSION_SECRET ||");
+  });
+
   it("requires all private production configuration before connecting", () => {
     const result = runInstaller(["--fresh-install"], {
       NODE_ENV: "production",
@@ -72,7 +80,7 @@ describe("canonical installer preflight acceptance", () => {
       PUBLIC_APP_URL: "",
     });
     expect(result.status).not.toBe(0);
-    expect(result.output).toContain("DATABASE_URL, SESSION_SECRET, PASSWORD_PEPPER, and PUBLIC_APP_URL must be set");
+    expect(result.output).toContain("DATABASE_URL, PASSWORD_PEPPER, and PUBLIC_APP_URL must be configured");
     expect(result.output).not.toContain("Database connection successful");
   });
 
@@ -85,13 +93,19 @@ describe("canonical installer preflight acceptance", () => {
       PUBLIC_APP_URL: "https://example.test",
     });
     expect(result.status).not.toBe(0);
-    expect(result.output).toContain("must each contain at least 32 characters");
+    expect(result.output).toContain("SESSION_SECRET must contain at least 32 characters");
     expect(result.output).not.toContain("Database connection successful");
   });
 });
 
 
 describe("canonical installer diagnostic privacy", () => {
+  it("initializes the missing session secret automatically before reporting environment readiness", async () => {
+    const source = await readFile(resolve(root, "installer", "diagnose-deployment.mjs"), "utf8");
+    expect(source).toContain('import { ensureSessionSecret } from "./session-secret.mjs";');
+    expect(source).toContain("await ensureSessionSecret({ root, env: process.env })");
+    expect(source).toContain("Generated and securely persisted the missing session secret.");
+  });
   it("does not print raw database error messages that may include connection identifiers", async () => {
     const source = await readFile(installer, "utf8");
     expect(source).toContain('String(error?.code || "unavailable").replace(/[^A-Z0-9_]/gi, "").slice(0, 40)');
@@ -103,6 +117,47 @@ describe("canonical installer diagnostic privacy", () => {
     const source = await readFile(installer, "utf8");
     expect(source).toContain('run("node", ["scripts/guarded-main-migrate.mjs"]);');
     expect(source).not.toContain('runPnpm(["db:migrate"]);');
+  });
+});
+
+
+describe("fresh-install initial account provisioning", () => {
+  it("collects both account credential sets in the browser wizard", async () => {
+    const wizard = await readFile(resolve(root, "installer", "index.php"), "utf8");
+    expect(wizard).toContain("postval('admin_email')");
+    expect(wizard).toContain("postval('customer_email')");
+    expect(wizard).toContain("'customerEmail' => $customerEmail");
+    expect(wizard).toContain("'customerPassword' => $customerPassword");
+    expect(wizard).toContain("accountSection.querySelectorAll('input').forEach(input=>input.required=fresh)");
+  });
+
+  it("creates both initial accounts transactionally and hands off both credentials", async () => {
+    const source = await readFile(installer, "utf8");
+    expect(source).toContain('run("node", ["installer/create-initial-accounts.mjs"]');
+    expect(source).toContain('CUSTOMER_EMAIL: String(bootstrap.customerEmail).trim().toLowerCase()');
+    expect(source).toContain('CUSTOMER_PASSWORD: String(bootstrap.customerPassword)');
+    expect(source).not.toContain('run("node", ["installer/create-admin.mjs"]');
+    const accountScript = await readFile(resolve(root, "installer", "create-initial-accounts.mjs"), "utf8");
+    expect(accountScript).toContain("await connection.beginTransaction()");
+    expect(accountScript).toContain("await connection.commit()");
+    expect(accountScript).toContain("await connection.rollback()");
+    expect(accountScript).toContain('role: "user"');
+    expect(accountScript).toContain('role: "admin"');
+  });
+
+  it("initializes missing production session secrets before the server accepts requests", async () => {
+    const source = await readFile(resolve(root, "server/_core/index.ts"), "utf8");
+    expect(source).toContain('import { ensureSessionSecret } from "../../installer/session-secret.mjs";');
+    expect(source).toContain('await ensureSessionSecret({ root: process.cwd(), env: process.env })');
+    expect(source).toContain("Refusing to start.");
+  });
+
+  it("leaves SMTP disabled and optional during installation", async () => {
+    const wizard = await readFile(resolve(root, "installer", "index.php"), "utf8");
+    expect(wizard).toContain("MAIL_PROVIDER");
+    expect(wizard).toContain("disabled");
+    expect(wizard).not.toContain("SMTP_HOST");
+    expect(wizard).not.toContain("SMTP_PASSWORD");
   });
 });
 

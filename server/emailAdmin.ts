@@ -33,6 +33,21 @@ function decryptConfigPassword(value: string) {
   return Buffer.concat([decipher.update(Buffer.from(encryptedText, "base64url")), decipher.final()]).toString("utf8");
 }
 
+function isValidSenderAddress(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 320;
+}
+
+export async function hasSavedEmailConfig() {
+  const raw = (await getAppSetting("email.smtp", "")) || "";
+  if (!raw.trim() || raw.trim() === "{}") return false;
+  try {
+    const parsed = JSON.parse(raw);
+    return Boolean(parsed && typeof parsed === "object" && typeof parsed.mode === "string" && typeof parsed.fromAddress === "string" && parsed.fromAddress.trim());
+  } catch {
+    return false;
+  }
+}
+
 export async function getEmailConfig(): Promise<EmailConfig> {
   const raw = await getAppSetting("email.smtp", "{}");
   let parsed: Partial<EmailConfig> & { passwordCipher?: string } = {};
@@ -42,7 +57,9 @@ export async function getEmailConfig(): Promise<EmailConfig> {
 }
 export async function saveEmailConfig(input: Partial<EmailConfig>) {
   const current = await getEmailConfig();
-  const next = { ...current, ...input };
+  // An omitted or blank password means "keep the saved password", not "erase it".
+  const submittedPassword = typeof input.password === "string" && input.password.length > 0 ? input.password : current.password;
+  const next = { ...current, ...input, password: submittedPassword };
   const { password, ...safeConfig } = next;
   await setAppSetting("email.smtp", JSON.stringify({ ...safeConfig, passwordCipher: password ? encryptConfigPassword(password) : "" }));
   return { ...next, password: next.password ? "••••••••" : "" };
@@ -52,8 +69,23 @@ export async function publicEmailConfig() {
   return { mode: c.mode, host: c.host, port: c.port, secure: c.secure, authType: c.authType, user: c.user, fromName: c.fromName, fromAddress: c.fromAddress, replyTo: c.replyTo, hasPassword: Boolean(c.password) };
 }
 export async function isEmailAdminConfigured() {
-  const config = await getEmailConfig();
-  if (config.mode === "external") return Boolean(config.host.trim() && Number.isInteger(config.port) && config.port > 0 && config.port <= 65535 && (!config.user || Boolean(config.password)));
+  if (!(await hasSavedEmailConfig())) return false;
+  let config: EmailConfig;
+  try {
+    config = await getEmailConfig();
+  } catch {
+    return false;
+  }
+  if (!isValidSenderAddress(config.fromAddress)) return false;
+  if (config.mode === "external") {
+    const host = typeof config.host === "string" ? config.host.trim() : "";
+    const user = typeof config.user === "string" ? config.user.trim() : "";
+    const password = typeof config.password === "string" ? config.password : "";
+    return Boolean(host
+      && Number.isInteger(config.port) && config.port > 0 && config.port <= 65535
+      && (!user || password.length > 0));
+  }
+  if (config.mode !== "direct") return false;
   try {
     await access(process.env.SENDMAIL_PATH || "/usr/sbin/sendmail", fsConstants.X_OK);
     return true;
@@ -63,24 +95,27 @@ export async function isEmailAdminConfigured() {
 }
 function textFromHtml(html: string) { return html.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(); }
 async function deliver(to: string | string[], subject: string, html: string, text?: string, attachments?: MailAttachment[]) {
+  if (!(await isEmailAdminConfigured())) {
+    throw new Error("Email transport is not configured or is not ready.");
+  }
   const config = await getEmailConfig();
-  if (!config.fromAddress) throw new Error("Email from address is not configured");
+  if (!isValidSenderAddress(config.fromAddress)) throw new Error("A valid email sender address is required.");
   const recipients = Array.isArray(to) ? to : [to];
   if (!recipients.length) throw new Error("No email recipients supplied");
   const message = { from: config.fromName ? `\"${config.fromName}\" <${config.fromAddress}>` : config.fromAddress, to: recipients.join(","), replyTo: config.replyTo || undefined, subject, html, text: text || textFromHtml(html), attachments: (attachments || []).map(a => ({ filename: a.filename, content: Buffer.from(a.content, "base64"), contentType: a.contentType })) };
   if (config.mode === "direct") {
-    try {
-      const transport = nodemailer.createTransport({ sendmail: true, newline: "unix", path: process.env.SENDMAIL_PATH || "/usr/sbin/sendmail" });
-      await transport.sendMail(message);
-      return;
-    } catch (directError) {
-      if (!config.host) throw directError;
-    }
+    const transport = nodemailer.createTransport({ sendmail: true, newline: "unix", path: process.env.SENDMAIL_PATH || "/usr/sbin/sendmail" });
+    const result = await transport.sendMail(message);
+    return { messageId: String(result.messageId || "") };
   }
   const transport = nodemailer.createTransport({ host: config.host, port: config.port, secure: config.secure, auth: config.authType === "none" || !config.user ? undefined : { type: config.authType, user: config.user, pass: config.password }, connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 });
-  await transport.sendMail(message);
+  const result = await transport.sendMail(message);
+  return { messageId: String(result.messageId || "") };
 }
-export async function sendEmail(input: { to: string | string[]; subject: string; html: string; text?: string; attachments?: MailAttachment[] }) { await deliver(input.to, input.subject, input.html, input.text, input.attachments); return { sent: true }; }
+export async function sendEmail(input: { to: string | string[]; subject: string; html: string; text?: string; attachments?: MailAttachment[] }) {
+  const result = await deliver(input.to, input.subject, input.html, input.text, input.attachments);
+  return { sent: true, messageId: result.messageId };
+}
 export async function testEmailConnection(to: string) { await sendEmail({ to, subject: "WiseBond SMTP test", html: "<p>This is a WiseBond SMTP configuration test. Email delivery is working.</p>" }); return { sent: true }; }
 export async function sendAdminComposedEmail(adminId: number, input: { recipients: string[]; subject: string; htmlBody: string; textBody?: string; attachments?: MailAttachment[] }) {
   const db = await getDb(); if (!db) throw new Error("Database is not available");
