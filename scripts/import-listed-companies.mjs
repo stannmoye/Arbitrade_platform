@@ -109,7 +109,8 @@ try {
          headquartersCountry, countryCode, sector, providerId, dataSource, sourceUrl, lastVerifiedAt, status)
        VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
-         name=VALUES(name), ticker=VALUES(ticker), exchangeCode=VALUES(exchangeCode),\n         providerId=VALUES(providerId), instrumentType=VALUES(instrumentType),
+         name=VALUES(name), ticker=VALUES(ticker), exchangeCode=VALUES(exchangeCode),
+         providerId=VALUES(providerId), instrumentType=VALUES(instrumentType),
          listingStatus=VALUES(listingStatus), headquartersCity=VALUES(headquartersCity),
          headquartersCountry=VALUES(headquartersCountry), countryCode=VALUES(countryCode),
          sector=VALUES(sector), dataSource=VALUES(dataSource), sourceUrl=VALUES(sourceUrl),
