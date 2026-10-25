@@ -1,3 +1,4 @@
+import { getRuntimeSecret } from "./_core/runtimeSecrets";
 import crypto from "node:crypto";
 import { sendRenderedEmail } from "./email";
 import mysql, { type Pool, type RowDataPacket, type ResultSetHeader } from "mysql2/promise";
@@ -9,7 +10,7 @@ let pool: Pool | null = null;
 function db() { if (!pool) pool = mysql.createPool(mysqlConnectionOptions()); return pool; }
 async function rows<T extends RowDataPacket = RowDataPacket>(sql: string, params: unknown[] = []) { const [result] = await db().query<T[]>(sql, params); return result; }
 async function exec(sql: string, params: unknown[] = []) { const [result] = await db().execute<ResultSetHeader>(sql, params); return result; }
-function hmac(value: string) { return crypto.createHmac("sha256", process.env.PASSWORD_PEPPER || process.env.SESSION_SECRET || "development-only").update(value).digest("hex"); }
+function hmac(value: string) { return crypto.createHmac("sha256", getRuntimeSecret("PASSWORD_PEPPER")).update(value).digest("hex"); }
 function hash(value: string) { return crypto.createHash("sha256").update(value).digest("hex"); }
 function id() { return crypto.randomBytes(24).toString("hex"); }
 function safeJson(value: unknown) { return JSON.stringify(value).slice(0, 100000); }
