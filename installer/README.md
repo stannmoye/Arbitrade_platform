@@ -1,6 +1,10 @@
 # Arbitrade installation and deployment
 
-## Authenticator encryption key\n\nBefore enabling customer authenticator enrollment, configure `TOTP_ENCRYPTION_KEY` in the private runtime environment as a stable 32-byte key (64 hexadecimal characters or base64). Keep it in the host secret manager, back it up separately, and do not rotate it without a reviewed secret-migration procedure; enrolled authenticator secrets cannot be decrypted after key loss. The installer does not generate or display this secret.\n\n## Supported environments
+## Authenticator encryption key
+
+For a fresh installation, the wizard generates a stable 32-byte `TOTP_ENCRYPTION_KEY` automatically. Keep the private `.env` file backed up securely and do not rotate this key casually; enrolled authenticator secrets cannot be decrypted after key loss. For an existing database, restore the original key from the prior deployment's protected environment instead of generating a replacement, or existing authenticator enrollments may become unreadable.
+
+## Supported environments
 
 - **cPanel:** cPanel Setup Node.js App, Node.js 20+ (Node 22 recommended), pnpm 10.18.x, MySQL/MariaDB, HTTPS, and private terminal access.
 - **VPS:** Debian/Ubuntu, Node.js 20+, pnpm 10.18.x, MySQL/MariaDB, and root/sudo access for server provisioning.
