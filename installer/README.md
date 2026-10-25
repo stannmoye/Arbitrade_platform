@@ -71,7 +71,7 @@ node installer/run-install.mjs --existing-database --confirm-existing-migrations
 
    Existing database already restored.
 
-   The script validates Node.js, pnpm, configuration, database connectivity, and database state before installing locked dependencies and building. It writes a private `installer/.install-in-progress.json` marker before dependency installation and updates the current stage before each migration/build/admin step. If a command fails or the process is interrupted, the marker remains and blocks a blind rerun; review the saved stage, private terminal output, backup, and migration state before an administrator deliberately clears the marker for recovery. It re-reads the current database table inventory and compares it with the inventory captured by the browser wizard; if the target database has changed, it stops before migrations and asks you to verify the target and rerun the wizard. Fresh mode requires the captured and current database to be empty, applies the initial schema, and creates the administrator. Existing mode requires explicit browser backup/import confirmation and the CLI confirmation flag because it applies forward migrations. It runs the main Drizzle migrations, portal migrations, and idempotent mining migrations/package-rate migration; it does not import a dump or create a replacement administrator. Reward processing is not automatically enabled.
+   The script validates Node.js, pnpm, configuration, database connectivity, and database state before installing locked dependencies and building. It writes a private `installer/.install-in-progress.json` marker before dependency installation and updates the current stage before each migration/build/admin step. If a command fails or the process is interrupted, the marker remains and blocks a blind rerun; review the saved stage, private terminal output, backup, and migration state before an administrator deliberately clears the marker for recovery. It re-reads the current database table inventory and compares it with the inventory captured by the browser wizard; if the target database has changed, it stops before migrations and asks you to verify the target and rerun the wizard. Fresh mode requires the captured and current database to be empty, applies the initial schema, and creates the administrator and initial customer accounts from the protected one-time bootstrap. Existing mode requires explicit browser backup/import confirmation and the CLI confirmation flag because it applies forward migrations. It runs the main Drizzle migrations, portal migrations, and idempotent mining migrations/package-rate migration; it does not import a dump or replace existing account credentials. Reward processing is not automatically enabled.
 
 7. Set/restart the cPanel Node.js application with startup file dist/index.js.
 8. After the app is running, run the post-install checks from the private terminal:
@@ -81,13 +81,7 @@ pnpm installer:verify
 ~~~
 
    The verifier loads `.env` relative to the application root (rather than assuming the terminal's current directory), checks the Node.js 20+ runtime and pnpm 10.18.x version, confirms the package and lockfile exist, validates that the package start script launches `dist/index.js` in production mode, checks that `PUBLIC_APP_URL` is a valid HTTPS URL, and then checks database connectivity, required tables, administrator presence, migration trackers, the build artifact, installer locks, bootstrap cleanup, incomplete-installation markers, `.env` permissions, GET `/api/health`. The health result includes response time. The final summary reports `READY`, `READY WITH WARNINGS`, or `NOT READY`; any failed check causes a non-zero exit code. A health check cannot pass until the Node.js application has been started. The installer CLI loads `.env` from the application root.
-9. If SMTP is configured, send an explicit test message to an address you control:
-
-~~~bash
-pnpm installer:test-smtp --to=you@example.com
-~~~
-
-   This verifies SMTP connectivity/authentication and sends one test email. Provider error details are deliberately limited to avoid logging secrets.
+9. Configure and test email delivery from the authenticated admin portal whenever you are ready.
 10. Remove or deny public access to /installer/ after verification. Keep .env, bootstrap state, SQL dumps, logs, and uploads private. The install lock is not a substitute for removing public access.
 
 ## Deployment diagnostics
