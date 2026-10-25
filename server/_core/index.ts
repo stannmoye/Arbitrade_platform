@@ -27,6 +27,7 @@ import { startHeartbeatWorker } from "./heartbeat";
 import { registerLocalStorageRoutes } from "./localStorageRoutes";
 import { refreshMiningPriceFeeds } from "../mining-admin";
 import { runMiningWorkerCycle } from "../mining";
+import { ensureSessionSecret } from "../../installer/session-secret.mjs";
 
 const registrationRateLimit = createAuthRateLimiter({ windowMs: 60 * 60_000, max: 5, message: "Too many registration attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-register" });
 const customerLoginRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many login attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "customer-login" });
@@ -38,6 +39,17 @@ const emailVerificationRequestRateLimit = createAuthRateLimiter({ windowMs: 15 *
 const emailVerificationConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many email-verification attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "email-verification-confirm" });
 
 async function startServer() {
+  if (process.env.NODE_ENV === "production") {
+    try {
+      const result = await ensureSessionSecret({ root: process.cwd(), env: process.env });
+      if (result.generated) {
+        console.info("[Session] Generated and securely persisted the missing session secret.");
+      }
+    } catch {
+      console.error("[Session] A stable session secret is missing and could not be persisted securely. Refusing to start.");
+      throw new Error("Production session-secret initialization failed.");
+    }
+  }
   const app = express();
   registerLocalStorageRoutes(app);
   if (process.env.NODE_ENV === "production" && !configuredAuthRateLimitStore) {
