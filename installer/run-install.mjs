@@ -248,10 +248,12 @@ if (mode === "fresh") {
   run("node", ["scripts/verify-worker-schema.mjs"]);
   await setStage("production-build");
   runPnpm(["build"]);
-  await setStage("administrator-creation");
-  run("node", ["installer/create-admin.mjs"], {
+  await setStage("initial-account-provisioning");
+  run("node", ["installer/provision-accounts.mjs"], {
     ADMIN_EMAIL: String(bootstrap.adminEmail).trim().toLowerCase(),
     ADMIN_PASSWORD: String(bootstrap.adminPassword),
+    CUSTOMER_EMAIL: String(bootstrap.customerEmail).trim().toLowerCase(),
+    CUSTOMER_PASSWORD: String(bootstrap.customerPassword),
   });
 } else {
   console.log("\n[installer] Existing-database mode: applying forward migrations while preserving account credentials and financial records.");
@@ -283,5 +285,5 @@ try {
 await unlink(progressPath);
 console.log("\n[installer] Installation steps completed.");
 console.log("[installer] Start/restart the Node.js application, then run: pnpm installer:verify");
-console.log("[installer] If SMTP is configured, test it with: pnpm installer:test-smtp --to=you@example.com");
+console.log("[installer] Configure and test email delivery from the authenticated admin portal when ready.");
 console.log("[installer] Remove or rename the public installer directory after confirming the application works.");
