@@ -37,15 +37,18 @@ export type CompanyReferenceSearch = {
   countryCode?: string;
   limit?: number;
 };
-export type CompanyReferenceResponse = CompanyReferenceRecord & {
+export type CompanyReferenceResponse = Omit<CompanyReferenceRecord, "logoUrl"> & {
+  logoUrl: null;
   referenceOnly: true;
   logoReusePermissionVerified: false;
   eligibleForVerifiedTradeRotation: false;
 };
 
 function asReferenceResponse(company: CompanyReferenceRecord): CompanyReferenceResponse {
+  const { logoUrl: _unapprovedLogoPath, ...reference } = company;
   return {
-    ...company,
+    ...reference,
+    logoUrl: null,
     referenceOnly: true,
     logoReusePermissionVerified: false,
     eligibleForVerifiedTradeRotation: false,
