@@ -216,6 +216,7 @@ const platformApiBase = () => ENV.aiApiBaseUrl;
 const resolveApiUrl = () => `${platformApiBase()}/chat/completions`;
 
 const assertApiKey = () => {
+  if (!platformApiBase()) throw new Error("AI integration is disabled by default and is not required for Arbitrade core features");
   const base = new URL(platformApiBase());
   const local = ["localhost", "127.0.0.1", "::1"].includes(base.hostname);
   if (!ENV.aiApiKey && !local) {

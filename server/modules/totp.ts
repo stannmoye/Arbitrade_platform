@@ -1,3 +1,4 @@
+import { getRuntimeSecret } from "../_core/runtimeSecrets";
 import crypto from "node:crypto";
 
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -5,7 +6,7 @@ const STEP_SECONDS = 30;
 const DIGITS = 6;
 
 function encryptionKey(): Buffer {
-  const raw = process.env.TOTP_ENCRYPTION_KEY || "";
+  const raw = getRuntimeSecret("TOTP_ENCRYPTION_KEY");
   const key = /^[a-f0-9]{64}$/i.test(raw) ? Buffer.from(raw, "hex") : Buffer.from(raw, "base64");
   if (key.length !== 32) throw new Error("TOTP_ENCRYPTION_KEY must be configured as a 32-byte hex or base64 key.");
   return key;

@@ -1,3 +1,4 @@
+import { getRuntimeSecret } from "./_core/runtimeSecrets";
 import crypto from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -14,8 +15,7 @@ export type MailAttachment = { filename: string; content: string; contentType?: 
 const baseConfig = (): EmailConfig => ({ mode: "direct", host: "127.0.0.1", port: 25, secure: false, authType: "login", user: "", password: "", fromName: "WiseBond", fromAddress: "admin@wisebond.org", replyTo: "" });
 
 function configEncryptionKey() {
-  const secret = process.env.SESSION_SECRET || process.env.PASSWORD_PEPPER;
-  if (!secret || secret.length < 16) throw new Error("A strong SESSION_SECRET or PASSWORD_PEPPER is required to protect SMTP credentials.");
+  const secret = getRuntimeSecret("INTEGRATION_ENCRYPTION_KEY");
   return crypto.scryptSync(secret, "arbitrade-email-config-v1", 32);
 }
 function encryptConfigPassword(value: string) {
@@ -71,16 +71,17 @@ async function deliver(to: string | string[], subject: string, html: string, tex
   if (config.mode === "direct") {
     try {
       const transport = nodemailer.createTransport({ sendmail: true, newline: "unix", path: process.env.SENDMAIL_PATH || "/usr/sbin/sendmail" });
-      await transport.sendMail(message);
-      return;
+      const info = await transport.sendMail(message);
+      return { messageId: String(info.messageId || "") };
     } catch (directError) {
       if (!config.host) throw directError;
     }
   }
   const transport = nodemailer.createTransport({ host: config.host, port: config.port, secure: config.secure, auth: config.authType === "none" || !config.user ? undefined : { type: config.authType, user: config.user, pass: config.password }, connectionTimeout: 10000, greetingTimeout: 10000, socketTimeout: 15000 });
-  await transport.sendMail(message);
+  const info = await transport.sendMail(message);
+  return { messageId: String(info.messageId || "") };
 }
-export async function sendEmail(input: { to: string | string[]; subject: string; html: string; text?: string; attachments?: MailAttachment[] }) { await deliver(input.to, input.subject, input.html, input.text, input.attachments); return { sent: true }; }
+export async function sendEmail(input: { to: string | string[]; subject: string; html: string; text?: string; attachments?: MailAttachment[] }) { const result = await deliver(input.to, input.subject, input.html, input.text, input.attachments); return { sent: true, messageId: result.messageId }; }
 export async function testEmailConnection(to: string) { await sendEmail({ to, subject: "WiseBond SMTP test", html: "<p>This is a WiseBond SMTP configuration test. Email delivery is working.</p>" }); return { sent: true }; }
 export async function sendAdminComposedEmail(adminId: number, input: { recipients: string[]; subject: string; htmlBody: string; textBody?: string; attachments?: MailAttachment[] }) {
   const db = await getDb(); if (!db) throw new Error("Database is not available");

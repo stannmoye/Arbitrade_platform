@@ -19,18 +19,18 @@ The release artifact is `arbitrade-universal-installer.zip`. It contains the bro
 1. Back up the target database and keep the backup outside the web root.
 2. Upload and extract the ZIP into the application's private root. A private directory outside `public_html` is preferred. If the hosting provider requires extraction under `public_html`, configure Apache/cPanel access controls before opening the site so source code, package files, environment files, logs, SQL dumps and installer state cannot be downloaded. The wizard must be reachable at `/installer/`, but private application files must not be publicly readable.
 3. Configure the cPanel Node.js application (Node.js 20+; Node 22 recommended) with startup file `dist/index.js`. Use the private terminal for locked dependency installation/build and any OS-level commands the hosting panel cannot perform.
-4. Create the database and dedicated user in cPanel. Open `https://YOUR-DOMAIN/installer/` and follow the staged browser wizard. Database connection and fresh-install administrator creation are configured through the guided stages. Email delivery and optional OAuth providers are left disabled during installation and should be configured after the application is running, using the admin portal where supported.
+4. Create the database and dedicated user in cPanel. Open `https://YOUR-DOMAIN/installer/` and follow the staged browser wizard. For a fresh install, enter the administrator and initial customer email/password as well as the public URL and database connection. Email is left disabled during installation and can be configured from the authenticated admin portal after startup. Other provider integrations are optional and do not block core startup.
 5. For a new database, ensure it is empty and use `node installer/run-install.mjs --fresh-install`. For an already imported database, first verify a restorable backup and use `node installer/run-install.mjs --existing-database --confirm-existing-migrations`. Never use fresh-install mode against existing data.\n\nThe existing portal migration stage applies `drizzle/0062_privacy_center.sql` and `drizzle/0063_privacy_notice_html.sql`. The first creates the Privacy Centre tables and initializes the baseline notice; the second adds the raw HTML/CSS notice-content column. Both are additive and preserve existing account and financial records. `pnpm installer:diagnose` includes these migrations in its tracked portal-migration report.
 6. Restart through cPanel Setup Node.js App and run `pnpm installer:verify` and `pnpm installer:diagnose` from the private application root. Remove/deny public access to `/installer/` after verification.
 
-The browser wizard generates independent session and password-pepper secrets and generates an authenticator-encryption key only for fresh installs. It defaults `TRUST_PROXY_HOPS=0` because a PHP installer cannot securely infer the real reverse-proxy topology. No proxy question is needed for safe direct-client mode. Only change this value in the private runtime environment to `1` after verifying exactly one trusted reverse proxy sits in front of Node and sanitizes forwarded headers; use the actual verified hop count for other arrangements. Unknown topology should remain at `0`. Invalid values safely fall back to `0` instead of preventing startup. Keep a protected backup of the generated private `.env` file: it contains stable cryptographic keys, and losing the authenticator-encryption key can make enrolled authenticator secrets unreadable. The browser wizard does not collect SMTP credentials or optional OAuth client secrets. Email/provider setup is deferred until after the first administrator can sign in; providers that require protected host-level environment secrets must still be configured in the hosting platform's secret manager. The browser wizard cannot run privileged operating-system commands or safely install system packages. Run those manually over SSH as the VPS administrator. Do not run `installer/vps-setup.sh` on a panel-managed host unless you deliberately want its separate systemd/Nginx provisioning and have reviewed the consequences.
+The browser wizard generates independent session, password-pepper, and authenticator-encryption secrets automatically. If the installer is bypassed and those secrets are absent, the runtime generates them in `.arbitrade-runtime-secrets.json`. Keep that file on durable private storage with restrictive permissions and include it in protected backups; losing it can invalidate sessions or make enrolled authenticator secrets unreadable. The application defaults to direct-client proxy mode and does not require a proxy-hop setting. For a fresh install, the wizard collects administrator email/password, initial customer email/password, public URL, and database connection details. Email transport is configured after the first administrator can sign in, using the admin portal; no SMTP variables are required to start the app. The browser wizard cannot run privileged operating-system commands or safely install system packages. Run those manually over SSH as the VPS administrator. Do not run `installer/vps-setup.sh` on a panel-managed host unless you deliberately want its separate systemd/Nginx provisioning and have reviewed the consequences.
 
 ### B. Fresh VPS without cPanel or a hosted domain
 
 1. Upload the ZIP to a clean supported Debian/Ubuntu VPS and extract it into a private directory. Connect as a sudo-capable administrator.
 2. Review and run `sudo bash installer/vps-preflight.sh`, then inspect `sudo bash installer/vps-setup.sh --help`.
 3. Run the documented VPS setup command from the console using only reviewed options. This path may install system packages and Node.js/pnpm, create a service user, configure systemd and Nginx, and optionally configure TLS. Point DNS to the VPS and open the required ports before requesting TLS.
-4. Configure the private environment and database. Once the domain/web endpoint is available, use `https://YOUR-DOMAIN/installer/` for the guided browser stages, including database connection and initial administrator creation. Run the corresponding fresh or existing database CLI command shown by the wizard from the private application root.
+4. Configure the private environment and database. Once the domain/web endpoint is available, use `https://YOUR-DOMAIN/installer/` for the guided browser stages. Fresh installs collect the initial administrator and customer credentials; the wizard also validates the database and public URL. Run the corresponding fresh or existing database CLI command shown by the wizard from the private application root.
 5. Verify with `pnpm installer:verify`, `pnpm installer:diagnose`, and the HTTPS `/api/health` endpoint. Keep rollback scripts and a verified database backup available.
 
 Do not run the fresh-VPS provisioning flow on a server with existing applications unless every proposed host change has been reviewed and an operator-approved recovery plan exists. The universal ZIP contains no database snapshot or deployment secrets.
@@ -71,7 +71,7 @@ node installer/run-install.mjs --existing-database --confirm-existing-migrations
 
    Existing database already restored.
 
-   The script validates Node.js, pnpm, configuration, database connectivity, and database state before installing locked dependencies and building. It writes a private `installer/.install-in-progress.json` marker before dependency installation and updates the current stage before each migration/build/admin step. If a command fails or the process is interrupted, the marker remains and blocks a blind rerun; review the saved stage, private terminal output, backup, and migration state before an administrator deliberately clears the marker for recovery. It re-reads the current database table inventory and compares it with the inventory captured by the browser wizard; if the target database has changed, it stops before migrations and asks you to verify the target and rerun the wizard. Fresh mode requires the captured and current database to be empty, applies the initial schema, and creates the administrator. Existing mode requires explicit browser backup/import confirmation and the CLI confirmation flag because it applies forward migrations. It runs the main Drizzle migrations, portal migrations, and idempotent mining migrations/package-rate migration; it does not import a dump or create a replacement administrator. Reward processing is not automatically enabled.
+   The script validates Node.js, pnpm, configuration, database connectivity, and database state before installing locked dependencies and building. It writes a private `installer/.install-in-progress.json` marker before dependency installation and updates the current stage before each migration/build/admin step. If a command fails or the process is interrupted, the marker remains and blocks a blind rerun; review the saved stage, private terminal output, backup, and migration state before an administrator deliberately clears the marker for recovery. It re-reads the current database table inventory and compares it with the inventory captured by the browser wizard; if the target database has changed, it stops before migrations and asks you to verify the target and rerun the wizard. Fresh mode requires the captured and current database to be empty, applies the initial schema, and creates the administrator and initial customer accounts from the protected one-time bootstrap. Existing mode requires explicit browser backup/import confirmation and the CLI confirmation flag because it applies forward migrations. It runs the main Drizzle migrations, portal migrations, and idempotent mining migrations/package-rate migration; it does not import a dump or replace existing account credentials. Reward processing is not automatically enabled.
 
 7. Set/restart the cPanel Node.js application with startup file dist/index.js.
 8. After the app is running, run the post-install checks from the private terminal:
@@ -80,14 +80,8 @@ node installer/run-install.mjs --existing-database --confirm-existing-migrations
 pnpm installer:verify
 ~~~
 
-   The verifier loads `.env` relative to the application root (rather than assuming the terminal's current directory), checks the Node.js 20+ runtime and pnpm 10.18.x version, confirms the package and lockfile exist, validates that the package start script launches `dist/index.js` in production mode, checks that `PUBLIC_APP_URL` is a valid HTTPS URL, and then checks database connectivity, required tables, administrator presence, migration trackers, the build artifact, installer locks, bootstrap cleanup, incomplete-installation markers, `.env` permissions, SMTP connectivity when enabled, and GET `/api/health`. The health result includes response time. The final summary reports `READY`, `READY WITH WARNINGS`, or `NOT READY`; any failed check causes a non-zero exit code. A health check cannot pass until the Node.js application has been started. The install and SMTP CLI scripts also load `.env` from the application root.
-9. If SMTP is configured, send an explicit test message to an address you control:
-
-~~~bash
-pnpm installer:test-smtp --to=you@example.com
-~~~
-
-   This verifies SMTP connectivity/authentication and sends one test email. Provider error details are deliberately limited to avoid logging secrets.
+   The verifier loads `.env` relative to the application root (rather than assuming the terminal's current directory), checks the Node.js 20+ runtime and pnpm 10.18.x version, confirms the package and lockfile exist, validates that the package start script launches `dist/index.js` in production mode, checks that `PUBLIC_APP_URL` is a valid HTTPS URL, and then checks database connectivity, required tables, administrator presence, migration trackers, the build artifact, installer locks, bootstrap cleanup, incomplete-installation markers, `.env` permissions, GET `/api/health`. The health result includes response time. The final summary reports `READY`, `READY WITH WARNINGS`, or `NOT READY`; any failed check causes a non-zero exit code. A health check cannot pass until the Node.js application has been started. The installer CLI loads `.env` from the application root.
+9. Configure and test email delivery from the authenticated admin portal whenever you are ready.
 10. Remove or deny public access to /installer/ after verification. Keep .env, bootstrap state, SQL dumps, logs, and uploads private. The install lock is not a substitute for removing public access.
 
 ## Deployment diagnostics
@@ -98,7 +92,7 @@ Run this from the private application root after configuring the environment:
 pnpm installer:diagnose
 ~~~
 
-The read-only diagnostic checks the Node.js and pnpm versions, production start command, build artifact, required environment-variable presence, public URL/HTTPS, configured port, local TCP listener, `/api/health`, and a non-mutating MySQL `SELECT 1` connection check. When `MAIL_PROVIDER=smtp`, it also checks that required SMTP settings are present; it does not send a message or test the provider connection. Use `pnpm installer:test-smtp --to=you@example.com` for an explicit SMTP test.
+The read-only diagnostic checks the Node.js and pnpm versions, production start command, build artifact, required environment-variable presence, public URL/HTTPS, configured port, local TCP listener, `/api/health`, and a non-mutating MySQL `SELECT 1` connection check. Email delivery is optional and is configured/tested from the authenticated admin portal after installation.
 
 It never prints database URLs, passwords, tokens, or other environment values. Database failures report an error code and troubleshooting guidance, not connection credentials. A successful result is a deployment triage aid, not proof that every feature works or that the installation is secure.
 
@@ -117,19 +111,9 @@ Common follow-up actions:
 - Do not delete .configured or installer/.installed to force a reinstall over existing data.
 - The wizard does not provide a browser-based SQL dump importer because large imports can exceed cPanel limits and make recovery unreliable.
 
-## SMTP and OAuth
+## Optional provider setup
 
-The browser wizard includes a **Test SMTP settings** action on the email step. Enter a recipient inbox you control; the test submits the SMTP values only to the server-side `installer/smtp-test.php` endpoint, which invokes the existing Nodemailer test script with a restricted child-process argument list and environment. It does not save `.env`, echo credentials, or log SMTP passwords. The web test requires Node.js to be visible in the PHP process PATH, installed `node_modules/nodemailer` and `node_modules/dotenv`, and PHP process execution support. Some cPanel hosts hide Node.js from PHP-FPM or disable `proc_open`; in that case, finish configuration and use the private terminal fallback below. A successful test means the SMTP server accepted the test message, not that it reached the recipient's inbox.
-
-After installation, the private terminal fallback remains available:
-
-~~~bash
-pnpm installer:test-smtp --to=you@example.com
-~~~
-
-Configure SPF, DKIM, DMARC, and your provider's sender authorization separately.
-
-Google and Microsoft OAuth callback URLs are generated from the application URL. Register the exact callback URLs in the provider consoles and test sign-in; credentials alone do not prove provider-side approval or callback configuration.
+Email delivery is configured and tested from the authenticated admin portal after installation. OAuth providers remain optional and can be configured separately when needed.
 
 ## Cron jobs
 

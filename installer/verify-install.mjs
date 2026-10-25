@@ -1,6 +1,5 @@
 import { config } from "dotenv";
 import mysql from "mysql2/promise";
-import nodemailer from "nodemailer";
 import { access, readFile, stat } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
@@ -253,34 +252,7 @@ if (!appUrl) {
   }
 }
 
-if (process.env.MAIL_PROVIDER === "smtp") {
-  const required = ["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM_EMAIL"];
-  const missing = required.filter((key) => !process.env[key]);
-  if (missing.length) {
-    report("SMTP configuration", false, "Missing: " + missing.join(", "));
-  } else {
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: String(process.env.SMTP_SECURE || "false").toLowerCase() === "true",
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-    });
-    try {
-      await transporter.verify();
-      report("SMTP connection/authentication", true, "SMTP transport verified. Run pnpm installer:test-smtp --to=you@example.com to send a test message.");
-    } catch (error) {
-      const errorCode = String(error?.code || "unknown").replace(/[^A-Z0-9_]/gi, "").slice(0, 40);
-      report("SMTP connection/authentication", false, "SMTP verification failed (code: " + (errorCode || "unknown") + "). Check host, port, TLS, credentials, and outbound SMTP restrictions; raw error details are not displayed.");
-    } finally {
-      transporter.close();
-    }
-  }
-} else {
-  warn("SMTP", "Email delivery is disabled. Configure SMTP if the application needs outbound email.");
-}
+warn("Email delivery", "Optional; configure and test email from the authenticated admin portal after installation.");
 
 warn("Cron jobs", "Cannot inspect cPanel/VPS scheduler entries without an authorized hosting API. Verify required authenticated jobs manually using docs/deployment-v5.md.");
 warn("OAuth", "Google/Microsoft credentials and provider-side callback registrations require a sign-in test; review the configured redirect URLs.");

@@ -8,7 +8,6 @@ Arbitrade is a Node.js/Express and React customer-and-operations platform for da
 - pnpm 10.18
 - MySQL 8-compatible or MariaDB database
 - HTTPS
-- SMTP or an approved email provider
 - cPanel Setup Node.js App or a VPS
 
 ## Self-hosted runtime
@@ -31,7 +30,7 @@ pnpm test
 pnpm dev
 ```
 
-Set `DATABASE_URL`, `SESSION_SECRET`, and `PASSWORD_PEPPER` before using authentication. Do not commit `.env`.
+Set `DATABASE_URL` for the application database. The installer generates security secrets automatically; when no installer-provided secrets exist, the runtime generates and persists them in a private `.arbitrade-runtime-secrets.json` file. Keep that file on durable private storage and back it up. Do not commit `.env` or runtime secret files.
 
 ## Production build
 
@@ -64,7 +63,7 @@ Follow [`cpanel/README.md`](cpanel/README.md). The browser-assisted setup wizard
 
 Customer and administrator accounts, roles, packages, opportunities, balances, ledger entries, support tickets, notifications, and operational settings are stored in MySQL. Local passwords use salted scrypt hashes; sessions are signed, httpOnly cookies. Financial values use decimal-safe server-side rules and immutable ledger records.
 
-Before production launch, configure HTTPS, SMTP, rate limiting, CSRF protections appropriate to the deployment, admin 2FA, backups, reconciliation, and provider secrets through the host environment.
+Before production launch, configure HTTPS, rate limiting, CSRF protections appropriate to the deployment, admin 2FA, backups, reconciliation, and only the optional provider API credentials you intend to use. Configure email transport from the authenticated admin portal; SMTP credentials are encrypted in the application database and are not required as host environment variables.
 
 The trading workflow records real-money trading allocations, capital movements, realized results, fees, and settlement in the customer's internal ledger. Financial changes must be supported by recorded trade lifecycle/result data and posted transactionally and idempotently; configured estimates alone must never be recorded as realized profit.
 
@@ -81,7 +80,7 @@ https://YOUR_DOMAIN/api/oauth/google/callback
 https://YOUR_DOMAIN/api/oauth/microsoft/callback
 ```
 
-Keep OAuth client secrets and SMTP credentials server-side. Configure SPF, DKIM, DMARC, sender verification, and failure/retry handling.
+Configure email delivery from the authenticated admin portal after installation. Email, AI, speech transcription, image, and maps integrations are optional and are not required for the application to start.
 
 ## Recovery
 

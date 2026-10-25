@@ -32,6 +32,17 @@ function runInstaller(args, overrides = {}) {
   };
 }
 
+describe("browser installer account fields", () => {
+  it("renders both initial account credential pairs for a fresh install", async () => {
+    const source = await readFile(resolve(root, "installer/index.php"), "utf8");
+    for (const field of ["admin_email", "admin_password", "customer_email", "customer_password"]) {
+      expect(source).toContain('name="' + field + '"');
+    }
+    expect(source).toContain("adminSection.querySelector('[name=\"customer_email\"]').required=fresh");
+    expect(source).toContain("adminSection.querySelector('[name=\"customer_password\"]').required=fresh");
+  });
+});
+
 describe("canonical installer preflight acceptance", () => {
   it("rejects a missing installation mode before touching the database", () => {
     const result = runInstaller([]);
@@ -63,7 +74,7 @@ describe("canonical installer preflight acceptance", () => {
     expect(result.output).not.toContain("Database connection successful");
   });
 
-  it("requires all private production configuration before connecting", () => {
+  it("requires the database and public URL before connecting", () => {
     const result = runInstaller(["--fresh-install"], {
       NODE_ENV: "production",
       DATABASE_URL: "",
@@ -72,11 +83,11 @@ describe("canonical installer preflight acceptance", () => {
       PUBLIC_APP_URL: "",
     });
     expect(result.status).not.toBe(0);
-    expect(result.output).toContain("DATABASE_URL, SESSION_SECRET, PASSWORD_PEPPER, and PUBLIC_APP_URL must be set");
+    expect(result.output).toContain("DATABASE_URL and PUBLIC_APP_URL must be configured before installation");
     expect(result.output).not.toContain("Database connection successful");
   });
 
-  it("rejects weak session secrets before connecting", () => {
+  it("does not require manually supplied session secrets", () => {
     const result = runInstaller(["--fresh-install"], {
       NODE_ENV: "production",
       DATABASE_URL: "mysql://user:password@127.0.0.1:3306/arbitrade_test",
@@ -85,7 +96,7 @@ describe("canonical installer preflight acceptance", () => {
       PUBLIC_APP_URL: "https://example.test",
     });
     expect(result.status).not.toBe(0);
-    expect(result.output).toContain("must each contain at least 32 characters");
+    expect(result.output).toContain("Missing or unreadable .installer-bootstrap.json");
     expect(result.output).not.toContain("Database connection successful");
   });
 });

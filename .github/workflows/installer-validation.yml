@@ -336,7 +336,9 @@ jobs:
             databaseTableNames: [],
             databaseTableCount: 0,
             adminEmail: "ci-admin@example.test",
-            adminPassword: "ci-only-admin-password-12345"
+            adminPassword: "ci-only-admin-password-12345",
+            customerEmail: "ci-customer@example.test",
+            customerPassword: "ci-only-customer-password-12345"
           }, null, 2) + "\n", { mode: 0o600, flag: "wx" });
           console.log("Disposable MariaDB database is empty and bootstrap fixture is ready.");
           NODE
@@ -366,6 +368,8 @@ jobs:
             }
             const [admins] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='admin' AND email='ci-admin@example.test'");
             if (Number(admins[0].count) !== 1) throw new Error("Expected exactly one CI administrator account.");
+            const [customers] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='user' AND email='ci-customer@example.test'");
+            if (Number(customers[0].count) !== 1) throw new Error("Expected exactly one initial CI customer account.");
              if (!tables.has("trade_lifecycle_events")) throw new Error("Manual settlement lifecycle migration did not create trade_lifecycle_events.");
              const [settlementColumns] = await db.query(
                "SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='trade_positions' AND column_name IN ('settlementReference','settlementConfirmedAt','settlementConfirmedBy','settlementNotes')"
@@ -474,7 +478,9 @@ jobs:
             databaseTableNames: [],
             databaseTableCount: 0,
             adminEmail: "ci-admin@example.test",
-            adminPassword: "ci-only-admin-password-12345"
+            adminPassword: "ci-only-admin-password-12345",
+            customerEmail: "ci-customer@example.test",
+            customerPassword: "ci-only-customer-password-12345"
           }, null, 2) + "\n", { mode: 0o600, flag: "wx" });
           console.log("Disposable MySQL 8 database is empty and bootstrap fixture is ready.");
           NODE
@@ -504,6 +510,8 @@ jobs:
             }
             const [admins] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='admin' AND email='ci-admin@example.test'");
             if (Number(admins[0].count) !== 1) throw new Error("Expected exactly one CI administrator account.");
+            const [customers] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='user' AND email='ci-customer@example.test'");
+            if (Number(customers[0].count) !== 1) throw new Error("Expected exactly one initial CI customer account.");
              if (!tables.has("trade_lifecycle_events")) throw new Error("Manual settlement lifecycle migration did not create trade_lifecycle_events.");
              const [settlementColumns] = await db.query(
                "SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='trade_positions' AND column_name IN ('settlementReference','settlementConfirmedAt','settlementConfirmedBy','settlementNotes')"
@@ -758,10 +766,11 @@ jobs:
              installation, select a new EMPTY database. For existing data, first
              import a verified backup and choose existing-database mode instead.
           5. Open https://YOUR-DOMAIN/installer/ and complete the staged browser
-             wizard: URL, database connection, initial admin for fresh installs,
-             optional OAuth, and email settings. The wizard checks the connection
-             and records a protected one-time database inventory; it does not run
-             privileged host commands or import large SQL dumps.
+             wizard: public URL, database connection, and administrator plus initial
+             customer credentials for fresh installs. Configure email from the authenticated
+             admin portal after startup. The wizard validates the connection and records
+             a protected one-time database inventory; it does not run privileged host
+             commands or import large SQL dumps.
           6. Run the exact command displayed by the wizard from the private app root:
              fresh database:
                  node installer/run-install.mjs --fresh-install

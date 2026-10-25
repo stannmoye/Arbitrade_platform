@@ -1,4 +1,4 @@
-import { renderEmail, isValidEmailAddress, isSmtpConfigured, sendRenderedEmail } from "../email";
+import { isEmailDeliveryConfigured, renderEmail, sendRenderedEmail } from "../email";
 
 export type NotificationPayload = { title: string; content: string };
 const TITLE_MAX_LENGTH = 1200;
@@ -21,8 +21,9 @@ function validatePayload(input: NotificationPayload): NotificationPayload {
  */
 export async function notifyOwner(payload: NotificationPayload): Promise<boolean> {
   const normalized = validatePayload(payload);
-  const recipient = process.env.OWNER_NOTIFICATION_EMAIL?.trim() || "";
-  if (!isSmtpConfigured() || !isValidEmailAddress(recipient)) return false;
+  // Owner alerts are optional and remain disabled until a recipient is managed in the admin portal.
+  const recipient = "";
+  if (!(await isEmailDeliveryConfigured()) || !recipient) return false;
   const rendered = renderEmail("system_notification", { title: normalized.title, body: normalized.content });
   try {
     await sendRenderedEmail(recipient, rendered);

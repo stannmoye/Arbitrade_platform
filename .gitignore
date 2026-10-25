@@ -104,3 +104,7 @@ installer/.installed
 .env.installing.*
 .admin-bootstrap.json
 .sandbox-credentials
+
+# Runtime-generated security secrets (never commit)
+.arbitrade-runtime-secrets.json
+.arbitrade-runtime-secrets.json.*.tmp

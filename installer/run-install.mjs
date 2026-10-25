@@ -89,8 +89,8 @@ if (process.env.NODE_ENV !== "production") fail("NODE_ENV must be production; lo
 if (Number(process.versions.node.split(".")[0]) < 20) {
   fail("Node.js 20 or newer is required. Detected " + process.versions.node + ".");
 }
-if (!process.env.DATABASE_URL || !process.env.SESSION_SECRET || !process.env.PASSWORD_PEPPER || !process.env.PUBLIC_APP_URL) {
-  fail("DATABASE_URL, SESSION_SECRET, PASSWORD_PEPPER, and PUBLIC_APP_URL must be set in .env.");
+if (!process.env.DATABASE_URL || !process.env.PUBLIC_APP_URL) {
+  fail("DATABASE_URL and PUBLIC_APP_URL must be configured before installation. Security secrets are generated automatically when absent.");
 }
 let publicAppUrl;
 try {
@@ -100,9 +100,6 @@ try {
 }
 if (!["http:", "https:"].includes(publicAppUrl.protocol) || publicAppUrl.username || publicAppUrl.password) {
   fail("PUBLIC_APP_URL must use HTTP(S) and must not contain a username or password.");
-}
-if (process.env.SESSION_SECRET.length < 32 || process.env.PASSWORD_PEPPER.length < 32) {
-  fail("SESSION_SECRET and PASSWORD_PEPPER must each contain at least 32 characters.");
 }
 if (await stateMarkerExists(lockPath)) {
   fail("An installation lock already exists. Refusing to rerun the installer.");
@@ -135,8 +132,13 @@ if (mode === "fresh" && bootstrap.databaseTableCount !== 0) {
 if (mode === "fresh") {
   const email = String(bootstrap.adminEmail || "").trim().toLowerCase();
   const password = String(bootstrap.adminPassword || "");
+  const customerEmail = String(bootstrap.customerEmail || "").trim().toLowerCase();
+  const customerPassword = String(bootstrap.customerPassword || "");
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail("A valid administrator email is required for a fresh installation.");
   if (password.length < 12) fail("The administrator password must contain at least 12 characters.");
+  if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) fail("A valid initial customer email is required for a fresh installation.");
+  if (customerEmail === email) fail("The administrator and customer accounts must use different email addresses.");
+  if (customerPassword.length < 12) fail("The initial customer password must contain at least 12 characters.");
 }
 
 let db;
@@ -248,10 +250,12 @@ if (mode === "fresh") {
   run("node", ["scripts/verify-worker-schema.mjs"]);
   await setStage("production-build");
   runPnpm(["build"]);
-  await setStage("administrator-creation");
-  run("node", ["installer/create-admin.mjs"], {
+  await setStage("initial-account-provisioning");
+  run("node", ["installer/provision-accounts.mjs"], {
     ADMIN_EMAIL: String(bootstrap.adminEmail).trim().toLowerCase(),
     ADMIN_PASSWORD: String(bootstrap.adminPassword),
+    CUSTOMER_EMAIL: String(bootstrap.customerEmail).trim().toLowerCase(),
+    CUSTOMER_PASSWORD: String(bootstrap.customerPassword),
   });
 } else {
   console.log("\n[installer] Existing-database mode: applying forward migrations while preserving account credentials and financial records.");
@@ -283,5 +287,5 @@ try {
 await unlink(progressPath);
 console.log("\n[installer] Installation steps completed.");
 console.log("[installer] Start/restart the Node.js application, then run: pnpm installer:verify");
-console.log("[installer] If SMTP is configured, test it with: pnpm installer:test-smtp --to=you@example.com");
+console.log("[installer] Configure and test email delivery from the authenticated admin portal when ready.");
 console.log("[installer] Remove or rename the public installer directory after confirming the application works.");

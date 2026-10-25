@@ -1,5 +1,4 @@
-import nodemailer from "nodemailer";
-import type { Transporter } from "nodemailer";
+import { isEmailAdminConfigured, sendEmail } from "./emailAdmin";
 
 export type EmailTemplate =
   | "system_notification"
@@ -12,13 +11,6 @@ export type EmailTemplate =
 
 export type EmailPayload = Record<string, string | number | boolean | null | undefined>;
 export type RenderedEmail = { subject: string; text: string; html: string };
-export type EmailTransportFactory = (config: {
-  host: string;
-  port: number;
-  secure: boolean;
-  auth: { user: string; pass: string };
-}) => Pick<Transporter, "sendMail">;
-
 const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, ch => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 }[ch]!));
@@ -80,50 +72,9 @@ export function isValidEmailAddress(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 320;
 }
 
-export function isSmtpConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
-  const provider = (env.MAIL_PROVIDER || "disabled").toLowerCase();
-  const port = Number(env.SMTP_PORT || 587);
-  return provider === "smtp"
-    && Boolean(env.SMTP_HOST?.trim())
-    && Number.isInteger(port) && port > 0 && port <= 65535
-    && Boolean(env.SMTP_USER?.trim())
-    && Boolean(env.SMTP_PASSWORD)
-    && isValidEmailAddress(env.SMTP_FROM_EMAIL || "");
+// Email delivery configuration is stored and managed in the authenticated admin portal.
+export const isEmailDeliveryConfigured = () => isEmailAdminConfigured();
+export async function sendRenderedEmail(to: string, rendered: RenderedEmail): Promise<{ sent: boolean; messageId?: string }> {
+  const result = await sendEmail({ to, subject: rendered.subject, html: rendered.html, text: rendered.text });
+  return { sent: result.sent, ...("messageId" in result ? { messageId: result.messageId } : {}) };
 }
-
-export function createSmtpMailer(
-  env: NodeJS.ProcessEnv = process.env,
-  transportFactory: EmailTransportFactory = config => nodemailer.createTransport(config),
-) {
-  let transport: Pick<Transporter, "sendMail"> | null = null;
-  const configured = () => isSmtpConfigured(env);
-  const getTransport = () => {
-    if (!configured()) throw new Error("SMTP email is disabled or incompletely configured");
-    if (!transport) transport = transportFactory({
-      host: env.SMTP_HOST!.trim(),
-      port: Number(env.SMTP_PORT || 587),
-      secure: env.SMTP_SECURE === "true" || Number(env.SMTP_PORT || 587) === 465,
-      auth: { user: env.SMTP_USER!.trim(), pass: env.SMTP_PASSWORD! },
-    });
-    return transport;
-  };
-  return {
-    isConfigured: configured,
-    async send(to: string, rendered: RenderedEmail) {
-      if (!isValidEmailAddress(to)) throw new Error("Invalid email recipient");
-      const result = await getTransport().sendMail({
-        from: { name: env.SMTP_FROM_NAME?.trim() || "Arbitrade", address: env.SMTP_FROM_EMAIL!.trim() },
-        to,
-        subject: rendered.subject,
-        text: rendered.text,
-        html: rendered.html,
-        replyTo: env.SMTP_REPLY_TO?.trim() || undefined,
-      });
-      return { messageId: String(result.messageId || "") };
-    },
-  };
-}
-
-const smtpMailer = createSmtpMailer();
-export const isEmailDeliveryConfigured = () => smtpMailer.isConfigured();
-export const sendRenderedEmail = (to: string, rendered: RenderedEmail) => smtpMailer.send(to, rendered);

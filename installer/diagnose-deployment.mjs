@@ -87,7 +87,7 @@ report("Production startup command", start.includes("NODE_ENV=production") && st
 report("Production build", await fileExists("dist/index.js"),
   await fileExists("dist/index.js") ? "dist/index.js exists." : "dist/index.js is missing; run pnpm build.");
 
-for (const name of ["DATABASE_URL", "SESSION_SECRET", "PASSWORD_PEPPER", "PUBLIC_APP_URL"]) {
+for (const name of ["DATABASE_URL", "PUBLIC_APP_URL"]) {
   report(`Environment: ${name}`, secretPresent(name), secretPresent(name) ? "Configured (value hidden)." : "Missing or empty; configure it in the private .env or host environment.");
 }
 if (secretPresent("PUBLIC_APP_URL")) {
@@ -136,13 +136,7 @@ if (!secretPresent("DATABASE_URL")) {
   }
 }
 
-if (process.env.MAIL_PROVIDER === "smtp") {
-  const smtpMissing = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM_EMAIL"].filter((name) => !secretPresent(name));
-  report("SMTP environment", smtpMissing.length === 0,
-    smtpMissing.length ? `Missing required setting(s): ${smtpMissing.join(", ")}.` : "Required SMTP settings are present; use the SMTP test command to verify provider connectivity.");
-} else {
-  report("SMTP environment", true, "SMTP is not enabled with MAIL_PROVIDER=smtp; no SMTP connection attempted.", true);
-}
+report("Email delivery", true, "Optional; configure and test it from the authenticated admin portal after installation.", true);
 
 const failed = results.filter((item) => !item.ok).length;
 const warnings = results.filter((item) => item.warning).length;

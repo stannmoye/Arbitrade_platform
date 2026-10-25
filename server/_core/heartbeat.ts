@@ -1,3 +1,4 @@
+import { getRuntimeSecret } from "./runtimeSecrets";
 import crypto from "node:crypto";
 import { and, eq, lte, or, isNull, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -202,9 +203,8 @@ export async function listHeartbeatJobs(userSession = "", pagination?: { page?: 
 }
 
 function callbackSignature(taskUid: string, timestamp: string, body: string): string {
-  const key = process.env.SESSION_SECRET;
-  if (!key && process.env.NODE_ENV === "production") throw new Error("SESSION_SECRET is required to sign scheduled callbacks.");
-  return crypto.createHmac("sha256", key || "development-only-session-secret").update(`${taskUid}.${timestamp}.${body}`).digest("hex");
+  const key = getRuntimeSecret("SESSION_SECRET");
+  return crypto.createHmac("sha256", key).update(`${taskUid}.${timestamp}.${body}`).digest("hex");
 }
 
 /** Callback routes can use this to authenticate scheduler-originated requests. */
