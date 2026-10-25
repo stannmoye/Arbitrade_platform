@@ -80,14 +80,7 @@ node installer/run-install.mjs --existing-database --confirm-existing-migrations
 pnpm installer:verify
 ~~~
 
-   The verifier loads `.env` relative to the application root (rather than assuming the terminal's current directory), checks the Node.js 20+ runtime and pnpm 10.18.x version, confirms the package and lockfile exist, validates that the package start script launches `dist/index.js` in production mode, checks that `PUBLIC_APP_URL` is a valid HTTPS URL, and then checks database connectivity, required tables, administrator presence, migration trackers, the build artifact, installer locks, bootstrap cleanup, incomplete-installation markers, `.env` permissions, SMTP connectivity when enabled, and GET `/api/health`. The health result includes response time. The final summary reports `READY`, `READY WITH WARNINGS`, or `NOT READY`; any failed check causes a non-zero exit code. A health check cannot pass until the Node.js application has been started. The install and SMTP CLI scripts also load `.env` from the application root.
-9. If SMTP is configured, send an explicit test message to an address you control:
-
-~~~bash
-pnpm installer:test-smtp --to=you@example.com
-~~~
-
-   This verifies SMTP connectivity/authentication and sends one test email. Provider error details are deliberately limited to avoid logging secrets.
+   The verifier loads `.env` relative to the application root (rather than assuming the terminal's current directory), checks the Node.js 20+ runtime and pnpm 10.18.x version, confirms the package and lockfile exist, validates that the package start script launches `dist/index.js` in production mode, checks that `PUBLIC_APP_URL` is a valid HTTPS URL, and then checks database connectivity, required tables, administrator presence, migration trackers, the build artifact, installer locks, bootstrap cleanup, incomplete-installation markers, `.env` permissions, and GET `/api/health`. Email-provider connectivity is intentionally not checked by installer commands. Configure and test email from the authenticated admin portal after the administrator signs in. The health result includes response time. The final summary reports `READY`, `READY WITH WARNINGS`, or `NOT READY`; any failed check causes a non-zero exit code. A health check cannot pass until the Node.js application has been started. Installer commands load `.env` from the application root.
 10. Remove or deny public access to /installer/ after verification. Keep .env, bootstrap state, SQL dumps, logs, and uploads private. The install lock is not a substitute for removing public access.
 
 ## Deployment diagnostics
@@ -98,7 +91,7 @@ Run this from the private application root after configuring the environment:
 pnpm installer:diagnose
 ~~~
 
-The read-only diagnostic checks the Node.js and pnpm versions, production start command, build artifact, required environment-variable presence, public URL/HTTPS, configured port, local TCP listener, `/api/health`, and a non-mutating MySQL `SELECT 1` connection check. SMTP is deliberately outside the installer flow: after the administrator signs in, use Communications → Email & SMTP Settings to choose a provider, save credentials, and send a test message. Legacy deployments that explicitly configure `MAIL_PROVIDER=smtp` may still receive environment validation, but new installs do not need SMTP environment variables.
+The read-only diagnostic checks the Node.js and pnpm versions, production start command, build artifact, required environment-variable presence, public URL/HTTPS, configured port, local TCP listener, `/api/health`, and a non-mutating MySQL `SELECT 1` connection check. Email delivery is deliberately outside the installer flow: after administrator sign-in, use Communications → Email & SMTP Settings to choose a provider, save credentials, and send a test message. Installer diagnostics do not inspect or require email-provider environment variables.
 
 It never prints database URLs, passwords, tokens, or other environment values. Database failures report an error code and troubleshooting guidance, not connection credentials. A successful result is a deployment triage aid, not proof that every feature works or that the installation is secure.
 
@@ -121,7 +114,6 @@ Common follow-up actions:
 
 The browser installation wizard deliberately has no SMTP configuration form, SMTP credential fields, provider selection, or test-email control. It only configures the application and database and records the one-time initial-account bootstrap. After the installation command succeeds and the administrator can sign in, use **Communications → Email & SMTP Settings** in the authenticated admin portal to configure local sendmail, a local SMTP relay, SendGrid, Amazon SES, or another SMTP provider and send a test email. SMTP settings and credentials are managed by the application there; they are not collected or written by the initial installer.
 
-The private terminal command `pnpm installer:test-smtp --to=you@example.com` is a legacy environment-based diagnostic only and is not part of the browser wizard or the recommended setup flow for new installations.
 
 
 
@@ -168,7 +160,7 @@ It checks the production start command, confirms `dist/index.js` exists, reads t
 - **VPS diagnostics:** `sudo systemctl status arbitrade.service --no-pager` and `sudo journalctl -u arbitrade.service -n 100 --no-pager`.
 - **Health fails after restart:** confirm `PORT` matches the service configuration, rebuild with `pnpm build` if `dist/index.js` is missing, and inspect private service logs. Do not paste `.env` or passwords into support requests.
 
-The runtime helper verifies process availability and the health endpoint; it does not prove that every application feature, scheduled task, OAuth provider, or SMTP delivery path is working.
+The runtime helper verifies process availability and the health endpoint; it does not prove that every application feature, scheduled task, OAuth provider, or email delivery path is working.
 
 ## Troubleshooting and recovery
 
