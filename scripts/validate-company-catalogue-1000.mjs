@@ -73,7 +73,7 @@ try {
     const bytes = await readFile(filePath);
     const body = bytes.toString("utf8");
     if (createHash("sha256").update(bytes).digest("hex").toLowerCase() !== logoHashes.get(relativePath)) fail("Logo SHA-256 mismatch: " + relativePath);
-    if (!/<svg\\b/i.test(body) || !/<\\/svg\\s*>/i.test(body) || /<script\\b|<foreignObject\\b|javascript\\s*:/i.test(body)) fail("Logo is not a safe standalone SVG: " + relativePath);
+    if (!/<svg\b/i.test(body) || !/<\/svg\s*>/i.test(body) || /<script\b|<foreignObject\b|javascript\s*:/i.test(body)) fail("Logo is not a safe standalone SVG: " + relativePath);
   }
   if (!/^[a-f0-9]{40}$/i.test(data.source?.sourceCommit ?? "") || !/^[a-f0-9]{40}$/i.test(data.logoSource?.repositoryCommit ?? "")) fail("Source snapshot commits are not pinned.");
   const reported = data.targetDistribution?.countsByCountry ?? {};

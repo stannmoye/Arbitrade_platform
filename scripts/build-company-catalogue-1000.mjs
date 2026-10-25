@@ -313,6 +313,62 @@ function toCandidateRows(rows) {
   }
   return [...map.values()];
 }
+
+async function loadMoexStockCandidates() {
+  const baseUrl = "https://iss.moex.com/iss/engines/stock/markets/shares/securities.json?iss.meta=off&iss.only=securities&securities.columns=secid,shortname,name,isin,emitent_title,is_traded";
+  const pageSize = 100;
+  const rows = [];
+  for (let start = 0; start < 20000; start += pageSize) {
+    const url = baseUrl + "&start=" + start;
+    const payload = JSON.parse(await fetchText(url, "Official Moscow Exchange stock listings"));
+    const table = payload?.securities;
+    if (!Array.isArray(table?.columns) || !Array.isArray(table?.data)) {
+      throw new Error("Moscow Exchange ISS returned an unexpected securities payload.");
+    }
+    const columns = table.columns.map((column) => String(column).toLowerCase());
+    const page = table.data.map((values) =>
+      Object.fromEntries(columns.map((column, index) => [column, values[index] ?? ""]))
+    );
+    rows.push(...page);
+    if (page.length < pageSize) break;
+    if (start + pageSize >= 20000) throw new Error("Moscow Exchange ISS listing pagination exceeded the 20,000-row safety limit.");
+  }
+
+  const candidates = rows.flatMap((row) => {
+    const ticker = getField(row, ["secid"]).toUpperCase();
+    const name = getField(row, ["emitent_title", "name", "shortname"]);
+    const isTraded = getField(row, ["is_traded"]).toLowerCase();
+    if (!name || !ticker || (isTraded && !["1", "true", "yes"].includes(isTraded))) return [];
+    if (!/^[A-Z0-9][A-Z0-9._-]{0,19}$/.test(ticker)) return [];
+    return [{
+      name,
+      ticker,
+      symbol: ticker,
+      exchange: "MOEX",
+      countryCode: "RU",
+      countryName: "Russia",
+      sector: null,
+      sourceCountry: "Russia",
+      sourceCountryCode: "RU",
+    }];
+  });
+  if (candidates.length < 14) {
+    throw new Error("Official Moscow Exchange ISS returned only " + candidates.length + " tradable equity candidates; 14 are required for Russia.");
+  }
+  return {
+    candidates,
+    source: {
+      providerName: "Moscow Exchange Information and Statistical Server (ISS)",
+      sourceUrl: baseUrl + "&start={offset}",
+      retrievedAt: new Date().toISOString(),
+      sourceVersion: "Live paginated ISS securities response captured during catalogue build",
+      rawRows: rows.length,
+      tradableEquityCandidates: candidates.length,
+      attribution: "Moscow Exchange ISS official security reference; https://www.moex.com/a2920",
+    },
+  };
+}
+
 async function buildCountry(country, candidates, target, logoIndex, selectedIds, globalNames) {
   const ready = [];
   for (const candidate of candidates) {
@@ -370,6 +426,23 @@ async function main() {
   console.log("[company-logos] Source rows: " + sourceRows.length + "; logo index entries: " + logoItems.length);
 
   const stockCandidates = toCandidateRows(sourceRows);
+  const supplementalSources = [];
+  const sourceRussiaCount = stockCandidates.filter((item) => item.countryCode === "RU").length;
+  if (sourceRussiaCount < 14) {
+    console.log("[company-logos] Main ticker source has " + sourceRussiaCount + " Russia rows; supplementing from the official Moscow Exchange ISS.");
+    const moex = await loadMoexStockCandidates();
+    const knownListings = new Set(stockCandidates.map((item) => item.countryCode + "|" + item.exchange.toUpperCase() + "|" + item.ticker.toUpperCase()));
+    let added = 0;
+    for (const item of moex.candidates) {
+      const key = item.countryCode + "|" + item.exchange.toUpperCase() + "|" + item.ticker.toUpperCase();
+      if (knownListings.has(key)) continue;
+      stockCandidates.push(item);
+      knownListings.add(key);
+      added++;
+    }
+    supplementalSources.push(moex.source);
+    console.log("[company-logos] Added " + added + " Moscow Exchange candidates from " + moex.source.rawRows + " ISS rows.");
+  }
   const selectedIds = new Set();
   const globalNames = new Set();
   const allSelected = [];
@@ -442,6 +515,7 @@ async function main() {
       sourceFields: ["ticker", "name", "exchange", "asset_type", "stock_sector", "country", "country_code"],
       redistributionNote: "The reference repository is MIT-licensed as software, but the rights for underlying data may depend on source rows. This file is an unverified display/reference catalogue, not a security master or trading authorization.",
       attribution: "Global ticker reference: Adanos Software GmbH, free-ticker-database; source file URL recorded above.",
+      supplementalSources,
     },
     logoSource: {
       providerName: "Tradient Companies Logo API",
