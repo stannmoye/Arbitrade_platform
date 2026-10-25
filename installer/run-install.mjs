@@ -89,8 +89,10 @@ if (process.env.NODE_ENV !== "production") fail("NODE_ENV must be production; lo
 if (Number(process.versions.node.split(".")[0]) < 20) {
   fail("Node.js 20 or newer is required. Detected " + process.versions.node + ".");
 }
-if (!process.env.DATABASE_URL || !process.env.SESSION_SECRET || !process.env.PASSWORD_PEPPER || !process.env.PUBLIC_APP_URL) {
-  fail("DATABASE_URL, SESSION_SECRET, PASSWORD_PEPPER, and PUBLIC_APP_URL must be set in .env.");
+const sessionSecret = process.env["SESSION_SECRET"] || "";
+const passwordPepper = process.env["PASSWORD_PEPPER"] || "";
+if (!process.env.DATABASE_URL || !sessionSecret || !passwordPepper || !process.env.PUBLIC_APP_URL) {
+  fail("Database connection, generated security secrets, and public application URL must be configured before installation.");
 }
 let publicAppUrl;
 try {
@@ -101,7 +103,7 @@ try {
 if (!["http:", "https:"].includes(publicAppUrl.protocol) || publicAppUrl.username || publicAppUrl.password) {
   fail("PUBLIC_APP_URL must use HTTP(S) and must not contain a username or password.");
 }
-if (process.env.SESSION_SECRET.length < 32 || process.env.PASSWORD_PEPPER.length < 32) {
+if (sessionSecret.length < 32 || passwordPepper.length < 32) {
   fail("SESSION_SECRET and PASSWORD_PEPPER must each contain at least 32 characters.");
 }
 if (await stateMarkerExists(lockPath)) {
