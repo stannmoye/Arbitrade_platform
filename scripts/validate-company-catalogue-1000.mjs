@@ -17,7 +17,7 @@ const POOL_A = [
   ["Thailand", "TH", 14], ["United Arab Emirates", "AE", 14], ["Israel", "IL", 14], ["Austria", "AT", 14], ["Norway", "NO", 14],
   ["Singapore", "SG", 14], ["Vietnam", "VN", 14], ["Bangladesh", "BD", 14], ["Egypt", "EG", 14], ["Philippines", "PH", 14],
   ["Malaysia", "MY", 13], ["Denmark", "DK", 13], ["South Africa", "ZA", 13], ["Finland", "FI", 13], ["Chile", "CL", 13],
-  ["Romania", "RO", 13], ["Czechia", "CZ", 13], ["Portugal", "PT", 13], ["Kazakhstan", "KZ", 13], ["Peru", "PE", 13],
+  ["Romania", "RO", 13], ["Czechia", "CZ", 13], ["Portugal", "PT", 13], ["Hong Kong", "HK", 13], ["Peru", "PE", 13],
 ];
 const POOL_B = [
   ["United States", "US", 75], ["United Kingdom", "GB", 75], ["Germany", "DE", 75],
