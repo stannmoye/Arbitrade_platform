@@ -14,6 +14,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CATALOGUE_PATH = join(ROOT, "server/data/company-catalogue-1000.json");
 const LOGO_DIR = join(ROOT, "client/public/assets/company-logos");
 const MANIFEST_PATH = join(ROOT, "docs/company-logo-replacement-manifest.csv");
+const countryFolder = (name) => String(name).normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const catalogue = JSON.parse(await readFile(CATALOGUE_PATH, "utf8"));
 if (!Array.isArray(catalogue.companies) || catalogue.companies.length !== 1000) {
   throw new Error("Refusing to number logos: expected exactly 1,000 existing catalogue records.");
@@ -28,9 +29,11 @@ for (const [index, company] of catalogue.companies.entries()) {
     .resize({ width: 96, height: 96, fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
     .png({ compressionLevel: 9, palette: true })
     .toBuffer();
+  const folder = countryFolder(company.countryName);
   const filename = id + ".png";
-  await writeFile(join(LOGO_DIR, filename), pngBytes);
-  company.logoUrl = "/assets/company-logos/" + filename;
+  await mkdir(join(LOGO_DIR, folder), { recursive: true });
+  await writeFile(join(LOGO_DIR, folder, filename), pngBytes);
+  company.logoUrl = "/assets/company-logos/" + folder + "/" + filename;
   company.logoBytes = pngBytes.length;
   company.logoSha256 = createHash("sha256").update(pngBytes).digest("hex");
 }
@@ -53,4 +56,4 @@ try {
 } catch (error) {
   throw new Error("Failed to update numeric logo manifest: " + error.message);
 }
-console.log("Converted and numbered exactly 1,000 local logo assets as 1.png through 1000.png.");
+console.log("Sorted exactly 1,000 local PNG logo assets into country folders, with numeric filenames 1.png through 1000.png.");
