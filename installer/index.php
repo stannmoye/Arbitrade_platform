@@ -97,14 +97,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'TRUST_PROXY_HOPS="1"',
             envline('PUBLIC_APP_URL', $appUrl), envline('DATABASE_URL', $databaseUrl),
             envline('SESSION_SECRET', bin2hex(random_bytes(32))), envline('PASSWORD_PEPPER', bin2hex(random_bytes(32))),
-            // Generate a stable encryption key during install so 2FA does not require
-            // a separate manual secret; preserve and back up the private .env file.
-            envline('TOTP_ENCRYPTION_KEY', bin2hex(random_bytes(32))),
             // Optional providers are deliberately left unconfigured during installation.
             // Configure supported integrations after the administrator can sign in.
             'MAIL_PROVIDER="disabled"',
             envline('ADMIN_EMAIL', $adminEmail),
         ];
+        // A fresh database can safely receive a new authenticator key. For an
+        // existing database, preserve its original key from the previous private
+        // environment; silently replacing it could make enrolled 2FA secrets unreadable.
+        if ($mode === 'fresh') {
+            $lines[] = envline('TOTP_ENCRYPTION_KEY', bin2hex(random_bytes(32)));
+        }
         $bootstrap = json_encode([
             'mode' => $mode,
             'adminEmail' => $adminEmail,
