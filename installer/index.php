@@ -145,9 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'TRUST_PROXY_HOPS="0"',
             envline('PUBLIC_APP_URL', $appUrl), envline('DATABASE_URL', $databaseUrl),
             envline('SESSION_SECRET', bin2hex(random_bytes(32))), envline('PASSWORD_PEPPER', bin2hex(random_bytes(32))),
-            // Optional providers are deliberately left unconfigured during installation.
-            // Configure supported integrations after the administrator can sign in.
-            'MAIL_PROVIDER="disabled"',
+            // Mail transport is configured only after the administrator signs in.
             envline('ADMIN_EMAIL', $adminEmail),
         ];
         // A fresh database can safely receive a new authenticator key. For an
