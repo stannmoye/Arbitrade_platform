@@ -497,6 +497,7 @@ function CustomerDashboard({push,sound,setSound,soundSettings,delivery,opportuni
 function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:boolean;soundSettings:SoundSettings;opportunityData?:any}) {
   const balances=trpc.customer.balances.useQuery(undefined,{refetchInterval:5000});
   const trades=trpc.customer.trades.useQuery(undefined,{refetchInterval:5000});
+  const companyReference=trpc.companyCatalogueReference.random.useQuery(undefined,{refetchInterval:15000,refetchOnWindowFocus:false});
   const feed:any=opportunityData||{};
   const offers:any[]=feed.offers||[];
   const missed:any[]=feed.missed||[];
@@ -569,6 +570,28 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
             <small>{trade.status==="settled"&&trade.settlementOutcome==="legacy_unrecorded"?"Historical settlement: gross result and fee were not recorded; no estimate is shown as realized.":"Allocated "+(trade.confirmedAt?new Date(trade.confirmedAt).toLocaleString():"time unavailable")+" · "+(trade.status==="settled"?"Settled "+(trade.settledAt?new Date(trade.settledAt).toLocaleString():"time unavailable"):"Waiting for actual settlement confirmation")}</small>
           </article>
         ))}</div>}
+    </section>
+    <section className="customer-panel company-reference-panel">
+      <div className="customer-panel-head">
+        <div><div className="eyebrow">Informational catalogue · not a trade</div><h2>Company reference spotlight</h2></div>
+        <button className="secondary-button" onClick={() => void companyReference.refetch()} disabled={companyReference.isFetching}>Next reference</button>
+      </div>
+      {companyReference.isLoading ? <div className="empty-state">Loading a company reference…</div>
+        : companyReference.error ? <div className="empty-state">Company references are temporarily unavailable.</div>
+        : companyReference.data ? <article className="trading-opportunity-row" aria-live="polite">
+          <div className="trading-opportunity-identity">
+            {companyReference.data.logoUrl
+              ? <img src={companyReference.data.logoUrl} alt="" aria-hidden="true" width={48} height={48} style={{objectFit:"contain",borderRadius:10,background:"#e8edf3",padding:4}}/>
+              : <span className="trading-opportunity-symbol" aria-hidden="true">{companyReference.data.name.slice(0,2).toUpperCase()}</span>}
+            <div><strong>{companyReference.data.name}</strong><small>{companyReference.data.symbol} · {companyReference.data.exchangeCode} · {companyReference.data.countryName}</small></div>
+          </div>
+          <div className="trading-opportunity-values">
+            <div><span>Record status</span><strong>Incomplete · unverified</strong></div>
+            <div><span>Display purpose</span><strong>Company reference only</strong></div>
+          </div>
+          <small>Reference only — not a trade, ownership record, customer activity, investment recommendation, execution, or performance result. The initials image is a neutral placeholder, not the company’s official logo. Listing status and headquarters still require verification.</small>
+        </article>
+        : <div className="empty-state">No company reference is available.</div>}
     </section>
   </div>;
 }
