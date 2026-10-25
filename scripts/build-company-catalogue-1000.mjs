@@ -244,7 +244,6 @@ function findLogoSlugs(row, logoIndex) {
     });
     if (possible.length === 1) return possible[0].slugs;
   }
-  if (code !== "RU") return [];
   // Last-resort company-name match allows a Russian issuer to reuse its own logo
   // when the logo index has that issuer under another exchange's ticker. Only a single
   // best-matching slug is accepted; ambiguous matches fail closed.
