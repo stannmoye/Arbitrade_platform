@@ -119,12 +119,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $adminEmail = strtolower(postval('admin_email'));
         $adminPassword = (string)($_POST['admin_password'] ?? '');
+        $customerEmail = strtolower(postval('customer_email'));
+        $customerPassword = (string)($_POST['customer_password'] ?? '');
         if ($mode === 'fresh') {
             if (!filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) throw new RuntimeException('Enter a valid administrator email for a fresh installation.');
             if (strlen($adminPassword) < 12) throw new RuntimeException('Administrator password must be at least 12 characters.');
+            if (!filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) throw new RuntimeException('Enter a valid customer email for a fresh installation.');
+            if (strlen($customerPassword) < 12) throw new RuntimeException('Customer password must be at least 12 characters.');
+            if ($adminEmail === $customerEmail) throw new RuntimeException('Administrator and customer accounts must use different email addresses.');
+            if ($adminPassword === $customerPassword) throw new RuntimeException('Administrator and customer passwords must be different.');
         } else {
             $adminEmail = '';
             $adminPassword = '';
+            $customerEmail = '';
+            $customerPassword = '';
         }
         $appPort = validPort(postval('port'), 3000);
         $databaseUrl = 'mysql://' . rawurlencode($dbUser) . ':' . rawurlencode($dbPass) . '@' . (str_contains($dbHost, ':') && !str_starts_with($dbHost, '[') ? '[' . $dbHost . ']' : $dbHost) . ':' . $dbPort . '/' . $dbName;
@@ -152,6 +160,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'mode' => $mode,
             'adminEmail' => $adminEmail,
             'adminPassword' => $adminPassword,
+            'customerEmail' => $customerEmail,
+            'customerPassword' => $customerPassword,
             'databaseTableCount' => $tableCount,
             'databaseTableNames' => $tableNames,
             'backupConfirmed' => $mode === 'existing' && $backupConfirmed,
@@ -161,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $bootstrapTmp = $root . '/.installer-bootstrap.tmp.' . bin2hex(random_bytes(6));
         if (file_put_contents($envTmp, implode("\n", $lines) . "\n", LOCK_EX) === false) throw new RuntimeException('Could not write environment configuration. Check application-directory permissions.');
         chmod($envTmp, 0600);
-        if (file_put_contents($bootstrapTmp, $bootstrap, LOCK_EX) === false) { @unlink($envTmp); throw new RuntimeException('Could not write the one-time administrator bootstrap.'); }
+        if (file_put_contents($bootstrapTmp, $bootstrap, LOCK_EX) === false) { @unlink($envTmp); throw new RuntimeException('Could not write the one-time initial-account bootstrap.'); }
         chmod($bootstrapTmp, 0600);
         if (installerPathExists($envPath) || installerPathExists($bootstrapPath) || installerPathExists($configuredLock) || installerPathExists($installedLock)) {
             @unlink($envTmp); @unlink($bootstrapTmp);
@@ -233,12 +243,12 @@ $diskFreeLabel = $diskFree === false ? 'Unavailable on this host' : (string)roun
 <label>Database name<input name="db_name" placeholder="arbitrade" required></label><label>Database username<input name="db_user" required></label>
 <label>Database password<input name="db_pass" type="password" autocomplete="new-password"></label><label>Create database if permitted<select name="create_db"><option value="0">No — I created it in cPanel</option><option value="1">Yes — attempt CREATE DATABASE</option></select></label>
 <label class="full"><span><input type="checkbox" name="allow_http" value="1" style="width:auto"> Allow HTTP for local testing only (not production)</span></label></div>
-<h2>3. Initial administrator (fresh install only)</h2><div id="admin-section"><div class="grid"><label>Administrator email<input name="admin_email" type="email" autocomplete="off"></label><label>Administrator password<input name="admin_password" type="password" minlength="12" autocomplete="new-password"><span class="help">At least 12 characters. Held in a protected one-time file and deleted after successful account creation.</span></label></div></div>
+<h2>3. Initial accounts (fresh install only)</h2><div id="initial-accounts-section"><div class="grid"><label>Administrator email<input name="admin_email" type="email" autocomplete="off"></label><label>Administrator password<input name="admin_password" type="password" minlength="12" autocomplete="new-password"><span class="help">At least 12 characters. Held in a protected one-time file and deleted after successful account creation.</span></label><label>Initial customer email<input name="customer_email" type="email" autocomplete="off"></label><label>Initial customer password<input name="customer_password" type="password" minlength="12" autocomplete="new-password"><span class="help">At least 12 characters and different from the administrator password. Held only in the protected one-time bootstrap and deleted after successful account creation.</span></label></div></div>
 <div class="notice">Email delivery and optional sign-in providers are left disabled during installation. Configure supported integrations after the application is running and an administrator can sign in.</div>
 <div class="step-controls"><button type="button" class="secondary" id="step-prev">Previous</button><span class="help" id="step-count" aria-live="polite"></span><button type="button" id="step-next">Next step</button><button type="submit" id="step-submit" hidden>Verify database &amp; save configuration</button></div></form>
 <script>
-const mode=document.getElementById('install_mode'),adminSection=document.getElementById('admin-section');
-function updateMode(){const fresh=mode.value==='fresh';adminSection.hidden=!fresh;adminSection.querySelector('[name="admin_email"]').required=fresh;adminSection.querySelector('[name="admin_password"]').required=fresh;const backup=document.getElementById('backup-confirmation');backup.hidden=fresh;backup.querySelector('input').disabled=fresh;backup.querySelector('input').required=!fresh;document.getElementById('database-mode-note').textContent=fresh?'Fresh installation requires an empty database. The wizard checks this before saving configuration.':'Import the intended SQL backup using cPanel/phpMyAdmin or a trusted private terminal before continuing. Large SQL imports are intentionally not accepted over this public web form because host upload/time limits can truncate a restore. Confirm you have a current restorable backup. The wizard records the database table inventory and checks it again in the private terminal before migrations.';}
+const mode=document.getElementById('install_mode'),accountSection=document.getElementById('initial-accounts-section');
+function updateMode(){const fresh=mode.value==='fresh';accountSection.hidden=!fresh;accountSection.querySelectorAll('input').forEach(input=>input.required=fresh);const backup=document.getElementById('backup-confirmation');backup.hidden=fresh;backup.querySelector('input').disabled=fresh;backup.querySelector('input').required=!fresh;document.getElementById('database-mode-note').textContent=fresh?'Fresh installation requires an empty database. The wizard creates both initial accounts after migrations.':'Import the intended SQL backup using cPanel/phpMyAdmin or a trusted private terminal before continuing. Large SQL imports are intentionally not accepted over this public web form because host upload/time limits can truncate a restore. Confirm you have a current restorable backup. The wizard records the database table inventory and checks it again in the private terminal before migrations; existing account credentials are preserved.';}
 mode.addEventListener('change',updateMode);updateMode();
 const form=document.querySelector('form'), headings=[...form.querySelectorAll(':scope > h2')], panels=[];
 for(const heading of headings){const panel=document.createElement('section');panel.className='step-panel';heading.parentNode.insertBefore(panel,heading);let node=heading;while(node){const following=node.nextSibling;if(node!==heading&&node.tagName==='H2')break;panel.appendChild(node);node=following;}panels.push(panel);}
