@@ -329,11 +329,12 @@ async function downloadOfficialWebsiteLogo(candidate) {
           try {
             const iconResponse = await fetch(iconUrl, { headers: { "user-agent": "Arbitrade-Company-Catalogue/1.0", accept: "image/png,image/jpeg,image/gif,image/webp,image/svg+xml,*/*" }, redirect: "follow", signal: AbortSignal.timeout(8000) });
             if (!iconResponse.ok) continue;
-            const mime = (iconResponse.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+            let mime = (iconResponse.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
             const bytes = Buffer.from(await iconResponse.arrayBuffer());
             if (!bytes.length || bytes.length > 32768) continue;
-            if (mime === "image/x-icon" || mime === "image/vnd.microsoft.icon" || mime === "application/octet-stream") continue;
-            if (!["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"].includes(mime)) continue;
+            if ((mime === "application/octet-stream" || !mime) && bytes.length >= 4 && bytes[0] === 0 && bytes[1] === 0 && bytes[2] === 1 && bytes[3] === 0) mime = "image/x-icon";
+            if (mime === "image/vnd.microsoft.icon") mime = "image/x-icon";
+            if (!["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml", "image/x-icon"].includes(mime)) continue;
             if (mime === "image/svg+xml") {
               const svg = cleanSvg(bytes.toString("utf8"));
               if (!svg) continue;
