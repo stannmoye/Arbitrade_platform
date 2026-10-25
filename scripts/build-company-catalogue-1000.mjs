@@ -292,6 +292,12 @@ async function downloadOfficialWebsiteLogo(candidate) {
   try {
     const profile = await fetchText(candidate.profileUrl, "Official exchange company profile");
     const websiteLinks = [];
+    const websiteBlock = profile.match(/Website[\s\S]{0,800}?href\s*=\s*["']([^"']+)["']/i);
+    if (websiteBlock?.[1]) {
+      let href = decodeHtmlEntities(websiteBlock[1]).trim();
+      if (/^www\./i.test(href)) href = "https://" + href;
+      try { if (/^https?:\/\//i.test(href) && !/dse\.com\.bd/i.test(new URL(href).hostname)) websiteLinks.push(href); } catch {}
+    }
     const anchorRe = /<a\b([^>]*?)href\s*=\s*["'](https?:\/\/[^"'#\s]+)["']([^>]*)>([\s\S]*?)<\/a>/gi;
     let match;
     while ((match = anchorRe.exec(profile)) !== null) {
