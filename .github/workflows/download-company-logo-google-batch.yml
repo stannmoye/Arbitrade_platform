@@ -38,7 +38,7 @@ jobs:
           node-version: 22
       - name: Fetch icons from official company websites for the selected batch
         env:
-          LOGO_BATCH: \${{ github.event.inputs.batch || '1' }}
+          LOGO_BATCH: ${{ github.event.inputs.batch || '1' }}
         run: node scripts/download-company-logo-google-batch.mjs
       - name: Commit local icons, catalogue metadata, and batch report
         shell: bash
@@ -51,5 +51,5 @@ jobs:
             echo "No changes were produced for this batch."
             exit 1
           fi
-          git commit -m "Save official-site company icons for batch \${{ github.event.inputs.batch || '1' }}"
+          git commit -m "Save official-site company icons for batch ${{ github.event.inputs.batch || '1' }}"
           git push origin HEAD:feature/verified-company-catalogue-rotation
