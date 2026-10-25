@@ -72,7 +72,7 @@ describe("canonical installer preflight acceptance", () => {
       PUBLIC_APP_URL: "",
     });
     expect(result.status).not.toBe(0);
-    expect(result.output).toContain("DATABASE_URL, SESSION_SECRET, PASSWORD_PEPPER, and PUBLIC_APP_URL must be set");
+    expect(result.output).toContain("DATABASE_URL, PASSWORD_PEPPER, and PUBLIC_APP_URL must be configured");
     expect(result.output).not.toContain("Database connection successful");
   });
 
@@ -85,7 +85,7 @@ describe("canonical installer preflight acceptance", () => {
       PUBLIC_APP_URL: "https://example.test",
     });
     expect(result.status).not.toBe(0);
-    expect(result.output).toContain("must each contain at least 32 characters");
+    expect(result.output).toContain("SESSION_SECRET must contain at least 32 characters");
     expect(result.output).not.toContain("Database connection successful");
   });
 });
@@ -129,6 +129,13 @@ describe("fresh-install initial account provisioning", () => {
     expect(accountScript).toContain("await connection.rollback()");
     expect(accountScript).toContain('role: "user"');
     expect(accountScript).toContain('role: "admin"');
+  });
+
+  it("initializes missing production session secrets before the server accepts requests", async () => {
+    const source = await readFile(resolve(root, "server/_core/index.ts"), "utf8");
+    expect(source).toContain('import { ensureSessionSecret } from "../../installer/session-secret.mjs";');
+    expect(source).toContain('await ensureSessionSecret({ root: process.cwd(), env: process.env })');
+    expect(source).toContain("Refusing to start.");
   });
 
   it("leaves SMTP disabled and optional during installation", async () => {
