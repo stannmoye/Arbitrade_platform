@@ -29,7 +29,7 @@ try {
   if (data.schemaVersion !== 1 || data.targetCount !== 1000 || data.companyCount !== 1000 || !Array.isArray(data.companies) || data.companies.length !== 1000) {
     fail("Expected a 1,000-record static company catalogue.");
   }
-  const expected = new Map([...POOL_A, ...POOL_B].map(([name, code]) => [code, { name }]));
+  const expected = new Map([...POOL_A, ...POOL_B].map(([name, code, target]) => [code, { name, target }]));
   const counts = new Map(), ids = new Set(), names = new Set(), issuerNames = new Map(), listings = new Set(), paths = new Set(), logoHashes = new Map();
   for (const [index, company] of data.companies.entries()) {
     const label = "record " + (index + 1);
@@ -73,9 +73,10 @@ try {
   if (poolACount + poolBCount !== 1000) fail("Pool totals do not add up to 1,000.");
   if (data.targetDistribution?.poolA?.total !== poolACount || data.targetDistribution?.poolB?.total !== poolBCount) fail("Catalogue pool distribution metadata is inconsistent.");
   const reported = data.targetDistribution?.countsByCountry ?? {};
-  for (const [name, code] of [...POOL_A, ...POOL_B]) {
+  for (const [name, code, target] of [...POOL_A, ...POOL_B]) {
     const canonicalName = code === "US" ? "United States" : code === "GB" ? "United Kingdom" : name;
     const actual = counts.get(code) ?? 0;
+    if (actual !== target) fail("Country allocation mismatch for " + canonicalName + ": expected " + target + ", found " + actual + ".");
     if ((reported[canonicalName] ?? 0) !== actual) fail("Reported country count does not match: " + canonicalName);
   }
   if (Object.values(reported).reduce((total, count) => total + Number(count || 0), 0) !== 1000) fail("Reported country counts do not add up to 1,000.");
