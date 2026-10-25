@@ -5586,12 +5586,16 @@
       "sourceConfidence": "secondary_global_reference_unverified",
       "sourceRecordId": "WSE:7LV",
       "sourceObservedAt": null,
-      "logoUrl": "/assets/company-logos/pl-7levels-sa-7lv-c6a535e5.svg",
-      "logoSourceName": "Neutral company-reference placeholder",
-      "logoSourceUrl": "internal://neutral-company-reference-placeholder",
-      "logoSourceSlug": "neutral-placeholder",
-      "logoBytes": 380,
-      "logoSha256": "4a0cb47a27ae17221b9af00ca0af3a82fb7d7b84a0adf6ed615d529486d720a3"
+      "logoUrl": "/assets/company-logos/pl-7levels-sa-7lv-c6a535e5.png",
+      "logoSourceName": "Official company website apple-touch-icon",
+      "logoSourceUrl": "https://www.7lvls.com/wp-content/uploads/2018/01/cropped-fav-180x180.png",
+      "logoSourceSlug": "official-website-favicon",
+      "logoBytes": 20971,
+      "logoSha256": "6a291ec2a7e131b2bf5b3d37aec9e5225effa397a236e8dcd3df8c8383625f42",
+      "logoHomepageUrl": "https://www.7lvls.com/",
+      "logoMimeType": "image/png",
+      "logoRetrievedAt": "2026-10-25T18:14:21.851Z",
+      "logoSearchProvider": "Official company website favicon extraction"
     },
     {
       "id": "pl-ab-spo-ka-akcyjna-abe-a795af5a",
@@ -5686,12 +5690,16 @@
       "sourceConfidence": "secondary_global_reference_unverified",
       "sourceRecordId": "WSE:ALR",
       "sourceObservedAt": null,
-      "logoUrl": "/assets/company-logos/pl-alior-bank-s-a-alr-1b196cab.svg",
-      "logoSourceName": "Neutral company-reference placeholder",
-      "logoSourceUrl": "internal://neutral-company-reference-placeholder",
-      "logoSourceSlug": "neutral-placeholder",
-      "logoBytes": 380,
-      "logoSha256": "8fdde5ea201dd1a260c90f922d7a06124a604373e79507e38756f2150b3ce865"
+      "logoUrl": "/assets/company-logos/pl-alior-bank-s-a-alr-1b196cab.png",
+      "logoSourceName": "Official company website apple-touch-icon",
+      "logoSourceUrl": "https://www.aliorbank.pl/.resources/common-module/webresources/public/apple-touch-icon.png",
+      "logoSourceSlug": "official-website-favicon",
+      "logoBytes": 65198,
+      "logoSha256": "1c137d2dd7d61af41923eb4793d63ebfd99dd9a7f5dcd51e80e6c62cb6a21262",
+      "logoHomepageUrl": "https://www.aliorbank.pl/",
+      "logoMimeType": "image/png",
+      "logoRetrievedAt": "2026-10-25T18:14:24.540Z",
+      "logoSearchProvider": "Official company website favicon extraction"
     },
     {
       "id": "pl-altus-spo-ka-akcyjna-ali-22ccd70e",
@@ -5836,12 +5844,16 @@
       "sourceConfidence": "secondary_global_reference_unverified",
       "sourceRecordId": "TPEX:8458",
       "sourceObservedAt": null,
-      "logoUrl": "/assets/company-logos/tw-1-production-film-co-8458-e542baaf.svg",
-      "logoSourceName": "Neutral company-reference placeholder",
-      "logoSourceUrl": "internal://neutral-company-reference-placeholder",
-      "logoSourceSlug": "neutral-placeholder",
-      "logoBytes": 380,
-      "logoSha256": "75dca1d03b832246d0f8e55163e99363b038c84879c63e0ff1678d2c0afc61b9"
+      "logoUrl": "/assets/company-logos/tw-1-production-film-co-8458-e542baaf.ico",
+      "logoSourceName": "Official company website standard-favicon",
+      "logoSourceUrl": "https://www.1production.com.tw/favicon.ico",
+      "logoSourceSlug": "official-website-favicon",
+      "logoBytes": 9662,
+      "logoSha256": "5730b0607e56ef8f218affc5e8fde36551cb4475146509cdcc038a5bb5be6518",
+      "logoHomepageUrl": "https://www.1production.com.tw/",
+      "logoMimeType": "image/vnd.microsoft.icon",
+      "logoRetrievedAt": "2026-10-25T18:14:27.090Z",
+      "logoSearchProvider": "Official company website favicon extraction"
     },
     {
       "id": "tw-33834-6831-2699f6d7",
@@ -15617,11 +15629,15 @@
       "sourceRecordId": "NYSE:AIR",
       "sourceObservedAt": null,
       "logoUrl": "/assets/company-logos/us-aar-corp-air-e9326ec4.svg",
-      "logoSourceName": "Neutral company-reference placeholder",
-      "logoSourceUrl": "internal://neutral-company-reference-placeholder",
-      "logoSourceSlug": "neutral-placeholder",
-      "logoBytes": 380,
-      "logoSha256": "8d0b604916b3d321a58b219a12acfb9c1d196a4db52e129e9200273a18074ebc"
+      "logoSourceName": "Official company website declared-svg-icon",
+      "logoSourceUrl": "https://www.aarcorp.com/images/favicon.svg",
+      "logoSourceSlug": "official-website-favicon",
+      "logoBytes": 3345,
+      "logoSha256": "a540eafe966dfd94731bf0cac7042a7a8f02ac5e0f8f6bc9cd6bac1f7b900266",
+      "logoHomepageUrl": "https://www.aarcorp.com/",
+      "logoMimeType": "image/svg+xml",
+      "logoRetrievedAt": "2026-10-25T18:14:27.883Z",
+      "logoSearchProvider": "Official company website favicon extraction"
     },
     {
       "id": "us-aardvark-therapeutics-inc-common-stock-aard-15e6f085",
@@ -15641,12 +15657,16 @@
       "sourceConfidence": "secondary_global_reference_unverified",
       "sourceRecordId": "NASDAQ:AARD",
       "sourceObservedAt": null,
-      "logoUrl": "/assets/company-logos/us-aardvark-therapeutics-inc-common-stock-aard-15e6f085.svg",
-      "logoSourceName": "Neutral company-reference placeholder",
-      "logoSourceUrl": "internal://neutral-company-reference-placeholder",
-      "logoSourceSlug": "neutral-placeholder",
-      "logoBytes": 380,
-      "logoSha256": "53ecb83e76029c368e75f02fb5127a4bc0ba6b40e6e74191afa4c728a6fe9b8f"
+      "logoUrl": "/assets/company-logos/us-aardvark-therapeutics-inc-common-stock-aard-15e6f085.webp",
+      "logoSourceName": "Official company website apple-touch-icon",
+      "logoSourceUrl": "https://i0.wp.com/aardvarktherapeutics.com/wp-content/uploads/2022/11/favicon-white.png?fit=180%2C180&",
+      "logoSourceSlug": "official-website-favicon",
+      "logoBytes": 2628,
+      "logoSha256": "6388456d73f7a9555d8e0a3a33a67e0bfe153a18c037eb467f512fcd39317653",
+      "logoHomepageUrl": "https://aardvarktherapeutics.com/",
+      "logoMimeType": "image/webp",
+      "logoRetrievedAt": "2026-10-25T18:14:29.170Z",
+      "logoSearchProvider": "Official company website favicon extraction"
     },
     {
       "id": "us-ab-ignitis-grupe-ign-e60fa2cc",
@@ -25798,14 +25818,14 @@
     "provider": "Official company websites: declared logo/favicon/apple-touch-icon extraction",
     "batch": 1,
     "range": [
-      601,
-      1000
+      201,
+      600
     ],
-    "attemptedAt": "2026-10-25T18:08:06.960Z",
-    "downloaded": 20,
-    "alreadyReal": 13,
-    "failed": 4,
-    "unverifiedSite": 363,
+    "attemptedAt": "2026-10-25T18:14:29.420Z",
+    "downloaded": 5,
+    "alreadyReal": 21,
+    "failed": 1,
+    "unverifiedSite": 373,
     "note": "Only icons fetched from an explicitly mapped official homepage are accepted. Unverified sites and failed icons remain pending; catalogue records are not regenerated."
   }
 }

@@ -5,11 +5,11 @@
     201,
     600
   ],
-  "attemptedAt": "2026-10-25T18:04:33.724Z",
-  "downloaded": 0,
+  "attemptedAt": "2026-10-25T18:14:29.420Z",
+  "downloaded": 5,
   "alreadyReal": 21,
-  "failed": 0,
-  "unverifiedSite": 379,
+  "failed": 1,
+  "unverifiedSite": 373,
   "note": "Only icons fetched from an explicitly mapped official homepage are accepted. Unverified sites and failed icons remain pending; catalogue records are not regenerated.",
   "results": [
     {
@@ -21,8 +21,13 @@
     {
       "id": "pl-7levels-sa-7lv-c6a535e5",
       "name": "7Levels SA",
-      "status": "official-site-not-verified",
-      "note": "No confirmed official homepage mapping; left existing asset unchanged."
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.7lvls.com/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://www.7lvls.com/wp-content/uploads/2018/01/cropped-fav-180x180.png",
+      "bytes": 20971,
+      "mime": "image/png",
+      "sha256": "6a291ec2a7e131b2bf5b3d37aec9e5225effa397a236e8dcd3df8c8383625f42"
     },
     {
       "id": "pl-ab-spo-ka-akcyjna-abe-a795af5a",
@@ -45,8 +50,13 @@
     {
       "id": "pl-alior-bank-s-a-alr-1b196cab",
       "name": "Alior Bank S.A.",
-      "status": "official-site-not-verified",
-      "note": "No confirmed official homepage mapping; left existing asset unchanged."
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.aliorbank.pl/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://www.aliorbank.pl/.resources/common-module/webresources/public/apple-touch-icon.png",
+      "bytes": 65198,
+      "mime": "image/png",
+      "sha256": "1c137d2dd7d61af41923eb4793d63ebfd99dd9a7f5dcd51e80e6c62cb6a21262"
     },
     {
       "id": "pl-altus-spo-ka-akcyjna-ali-22ccd70e",
@@ -69,8 +79,9 @@
     {
       "id": "pl-answear-com-s-a-anr-8aa7d910",
       "name": "Answear.com S.A.",
-      "status": "official-site-not-verified",
-      "note": "No confirmed official homepage mapping; left existing asset unchanged."
+      "status": "official-site-fetch-failed",
+      "homepage": "https://about.answear.com/",
+      "error": "HTTP 403"
     },
     {
       "id": "tw-company-1101-dc7ef474",
@@ -81,8 +92,13 @@
     {
       "id": "tw-1-production-film-co-8458-e542baaf",
       "name": "1 Production Film Co.",
-      "status": "official-site-not-verified",
-      "note": "No confirmed official homepage mapping; left existing asset unchanged."
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.1production.com.tw/",
+      "iconKind": "standard-favicon",
+      "source": "https://www.1production.com.tw/favicon.ico",
+      "bytes": 9662,
+      "mime": "image/vnd.microsoft.icon",
+      "sha256": "5730b0607e56ef8f218affc5e8fde36551cb4475146509cdcc038a5bb5be6518"
     },
     {
       "id": "tw-33834-6831-2699f6d7",
@@ -2403,14 +2419,24 @@
     {
       "id": "us-aar-corp-air-e9326ec4",
       "name": "AAR Corp",
-      "status": "official-site-not-verified",
-      "note": "No confirmed official homepage mapping; left existing asset unchanged."
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://www.aarcorp.com/",
+      "iconKind": "declared-svg-icon",
+      "source": "https://www.aarcorp.com/images/favicon.svg",
+      "bytes": 3345,
+      "mime": "image/svg+xml",
+      "sha256": "a540eafe966dfd94731bf0cac7042a7a8f02ac5e0f8f6bc9cd6bac1f7b900266"
     },
     {
       "id": "us-aardvark-therapeutics-inc-common-stock-aard-15e6f085",
       "name": "Aardvark Therapeutics, Inc. Common Stock",
-      "status": "official-site-not-verified",
-      "note": "No confirmed official homepage mapping; left existing asset unchanged."
+      "status": "official-site-icon-downloaded",
+      "homepage": "https://aardvarktherapeutics.com/",
+      "iconKind": "apple-touch-icon",
+      "source": "https://i0.wp.com/aardvarktherapeutics.com/wp-content/uploads/2022/11/favicon-white.png?fit=180%2C180&",
+      "bytes": 2628,
+      "mime": "image/webp",
+      "sha256": "6388456d73f7a9555d8e0a3a33a67e0bfe153a18c037eb467f512fcd39317653"
     }
   ]
 }
