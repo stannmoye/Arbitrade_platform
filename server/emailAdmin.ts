@@ -1,3 +1,4 @@
+import { getRuntimeSecret } from "./_core/runtimeSecrets";
 import crypto from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -14,8 +15,7 @@ export type MailAttachment = { filename: string; content: string; contentType?: 
 const baseConfig = (): EmailConfig => ({ mode: "direct", host: "127.0.0.1", port: 25, secure: false, authType: "login", user: "", password: "", fromName: "WiseBond", fromAddress: "admin@wisebond.org", replyTo: "" });
 
 function configEncryptionKey() {
-  const secret = process.env.SESSION_SECRET || process.env.PASSWORD_PEPPER;
-  if (!secret || secret.length < 16) throw new Error("A strong SESSION_SECRET or PASSWORD_PEPPER is required to protect SMTP credentials.");
+  const secret = getRuntimeSecret("SESSION_SECRET");
   return crypto.scryptSync(secret, "arbitrade-email-config-v1", 32);
 }
 function encryptConfigPassword(value: string) {
