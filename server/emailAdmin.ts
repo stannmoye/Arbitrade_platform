@@ -9,9 +9,10 @@ import { sql } from "drizzle-orm";
 
 const execFileAsync = promisify(execFile);
 export type EmailMode = "external" | "direct";
-export type EmailConfig = { mode: EmailMode; host: string; port: number; secure: boolean; authType: "login" | "plain" | "none"; user: string; password: string; fromName: string; fromAddress: string; replyTo: string };
+export type EmailProvider = "local" | "local-smtp" | "sendgrid" | "aws-ses" | "other";
+export type EmailConfig = { provider: EmailProvider; region: string; mode: EmailMode; host: string; port: number; secure: boolean; authType: "login" | "plain" | "none"; user: string; password: string; fromName: string; fromAddress: string; replyTo: string };
 export type MailAttachment = { filename: string; content: string; contentType?: string };
-const baseConfig = (): EmailConfig => ({ mode: "direct", host: "127.0.0.1", port: 25, secure: false, authType: "login", user: "", password: "", fromName: "WiseBond", fromAddress: "admin@wisebond.org", replyTo: "" });
+const baseConfig = (): EmailConfig => ({ provider: "local", region: "us-east-1", mode: "direct", host: "127.0.0.1", port: 25, secure: false, authType: "login", user: "", password: "", fromName: "Arbitrade", fromAddress: "", replyTo: "" });
 
 function configEncryptionKey() {
   const secret = process.env.SESSION_SECRET || process.env.PASSWORD_PEPPER;
@@ -53,7 +54,8 @@ export async function getEmailConfig(): Promise<EmailConfig> {
   let parsed: Partial<EmailConfig> & { passwordCipher?: string } = {};
   try { parsed = JSON.parse(raw || "{}"); } catch { /* use defaults */ }
   const password = parsed.passwordCipher ? decryptConfigPassword(parsed.passwordCipher) : String(parsed.password || "");
-  return { ...baseConfig(), ...parsed, password, port: Number(parsed.port || 25), secure: Boolean(parsed.secure), authType: parsed.authType === "plain" || parsed.authType === "none" ? parsed.authType : "login" };
+  const validProviders: EmailProvider[] = ["local", "local-smtp", "sendgrid", "aws-ses", "other"];
+  return { ...baseConfig(), ...parsed, provider: validProviders.includes(parsed.provider as EmailProvider) ? parsed.provider as EmailProvider : (parsed.mode === "direct" ? "local" : "other"), region: typeof parsed.region === "string" ? parsed.region : "us-east-1", password, port: Number(parsed.port || 25), secure: Boolean(parsed.secure), authType: parsed.authType === "plain" || parsed.authType === "none" ? parsed.authType : "login" };
 }
 export async function saveEmailConfig(input: Partial<EmailConfig>) {
   const current = await getEmailConfig();
@@ -66,7 +68,7 @@ export async function saveEmailConfig(input: Partial<EmailConfig>) {
 }
 export async function publicEmailConfig() {
   const c = await getEmailConfig();
-  return { mode: c.mode, host: c.host, port: c.port, secure: c.secure, authType: c.authType, user: c.user, fromName: c.fromName, fromAddress: c.fromAddress, replyTo: c.replyTo, hasPassword: Boolean(c.password) };
+  return { provider: c.provider, region: c.region, mode: c.mode, host: c.host, port: c.port, secure: c.secure, authType: c.authType, user: c.user, fromName: c.fromName, fromAddress: c.fromAddress, replyTo: c.replyTo, hasPassword: Boolean(c.password) };
 }
 export async function isEmailAdminConfigured() {
   if (!(await hasSavedEmailConfig())) return false;
@@ -83,7 +85,8 @@ export async function isEmailAdminConfigured() {
     const password = typeof config.password === "string" ? config.password : "";
     return Boolean(host
       && Number.isInteger(config.port) && config.port > 0 && config.port <= 65535
-      && (!user || password.length > 0));
+      && (!user || password.length > 0)
+      && (config.provider === "local-smtp" || config.provider === "other" || Boolean(user && password)));
   }
   if (config.mode !== "direct") return false;
   try {
