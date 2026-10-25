@@ -117,7 +117,7 @@ Example: capital $200; realized gross profit $20; fee $3 (15% of $20); net profi
 
 The required static catalogue target is **1,000 distinct publicly listed operating companies**, with the exact geographic split and per-field source requirements documented in [Company Catalogue Source Guide](COMPANY_CATALOGUE_SOURCE_GUIDE.md):
 
-- **550 companies** from Japan, India, France, Italy, Brazil, Russia, Mexico, South Korea, Spain, Indonesia, Turkey, Netherlands, Saudi Arabia, Switzerland, Poland, Taiwan, Belgium, Sweden, Argentina, Ireland, Thailand, United Arab Emirates, Israel, Austria, Norway, Singapore, Vietnam, Bangladesh, Egypt, Philippines, Malaysia, Denmark, South Africa, Finland, Chile, Romania, Czechia, Portugal, Kazakhstan and Peru.
+- **550 companies** from Japan, India, France, Italy, Brazil, Russia, Mexico, South Korea, Spain, Indonesia, Turkey, Netherlands, Saudi Arabia, Switzerland, Poland, Taiwan, Belgium, Sweden, Argentina, Ireland, Thailand, United Arab Emirates, Israel, Austria, Norway, Singapore, Vietnam, Bangladesh, Egypt, Philippines, Malaysia, Denmark, South Africa, Finland, Chile, Romania, Czechia, Portugal, Hong Kong and Peru. For the 1,000-record catalogue slice in PR #181, Hong Kong replaces Kazakhstan because the source/build pipeline did not yield usable Kazakhstan records; this is a documented scope substitution, not a claim that Kazakhstan has no listed companies.
 - **450 companies** from the USA, UK, Germany, Australia, Canada and China.
 
 Every named country must be represented. The final catalogue must report verified counts by country and exactly 550/450 by pool; do not invent country subtotals, company records, identifiers, headquarters, sector values or listing status to satisfy the target. Define a company's country by its verified home/headquarters country, not the exchange where its shares trade. Count an issuer once across share classes and cross-listings and preserve the primary listing and other source identifiers.
@@ -192,7 +192,7 @@ Trading operates as a real-money workflow recorded in the customer's internal le
 - Green/red notifications correspond to confirmed credits/debits only.
 - Exactly 1,000 distinct companies are verified: 550 from Pool A and 450 from Pool B; every specified country is represented, source provenance is recorded, and all local logo assets have permitted-use evidence.
 - Admin changes are permissioned, versioned, and audited.
-- Catalogue tests verify exact 550/450 pool totals, 46-country coverage, issuer uniqueness, source metadata, logo licence metadata, and that every local logo path resolves. Trading and settlement tests cover concurrency, insufficient balance, retries, worker restarts, fees, ceiling enforcement, and duplicate settlement.
+- Catalogue tests verify exact 550/450 pool totals, 46-country coverage for the user-authorized PR #181 country allocation (Hong Kong replacing Kazakhstan), issuer uniqueness, source metadata, explicit incomplete status for neutral-placeholder logo records, and that every local logo path resolves. A neutral placeholder is not an approved company logo and must not be presented as one. Trading and settlement tests cover concurrency, insufficient balance, retries, worker restarts, fees, ceiling enforcement, and duplicate settlement.
 
 ## 15. Implementation workflow requirement
 
