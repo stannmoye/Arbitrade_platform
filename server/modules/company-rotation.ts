@@ -1,5 +1,5 @@
-import {COMPANY_REFERENCE_CATALOGUE,type CompanyReferenceRecord} from "./company-catalogue-reference";
-export type ListedCompany=Pick<CompanyReferenceRecord,"id"|"name"|"ticker"|"exchangeCode"|"countryCode"|"sector"|"listingStatus"|"lastVerifiedAt">;
+import {COMPANY_REFERENCE_CATALOGUE} from "./company-catalogue-reference";
+export type ListedCompany={id:string;name:string;ticker:string;exchangeCode:string;countryCode:string|null;sector:string|null;listingStatus:"active"|"suspended"|"delisted"|"unverified";lastVerifiedAt:string|null};
 export type RotationFilters={countryCodes?:string[];sectors?:string[];excludedCompanyIds?:string[];verificationMaxAgeDays?:number};
 const DEFAULT_VERIFICATION_MAX_AGE_DAYS=180;
 export function eligibleCompanies(companies:ListedCompany[],filters:RotationFilters={},now=new Date()){
