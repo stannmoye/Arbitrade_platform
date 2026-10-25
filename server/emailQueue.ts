@@ -1,12 +1,12 @@
+import { getRuntimeSecret } from "./_core/runtimeSecrets";
 import crypto from "node:crypto";
 import { and, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { getDb } from "./db";
 import { sendRenderedEmail, isEmailDeliveryConfigured, renderEmail, isValidEmailAddress, type EmailPayload, type EmailTemplate } from "./email";
 import { authEmailTokens, customerControls, customerEmailPreferences, customerNotifications, emailOutbox, balanceLedger, users } from "../drizzle/schema";
 
-function encryptionKey(secret = process.env.SESSION_SECRET): Buffer {
-  if (!secret && process.env.NODE_ENV === "production") throw new Error("SESSION_SECRET is required to encrypt queued email payloads");
-  return crypto.createHash("sha256").update(`wisebond-email-outbox:${secret || "development-only-email-key"}`).digest();
+function encryptionKey(secret?: string): Buffer {
+  return crypto.createHash("sha256").update(`wisebond-email-outbox:${secret || getRuntimeSecret("SESSION_SECRET")}`).digest();
 }
 
 export function encryptEmailPayload(payload: EmailPayload, secret?: string): string {
