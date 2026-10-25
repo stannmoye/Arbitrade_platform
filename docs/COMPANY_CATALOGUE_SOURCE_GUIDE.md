@@ -1,21 +1,21 @@
 # Company Catalogue: Source, Verification and Local-Logo Guide
 
-**Status:** Target specification for the revised 1,000-record catalogue. This document does not claim that the current 950-record US-only catalogue already meets the target.
+**Status:** Source and verification guide for the static 1,000-record reference catalogue. The current records are sourced from a pinned secondary global ticker dataset with limited official-market supplements. They are not independently verified as currently listed, operating, or headquartered in the displayed country.
 
 ## 1. Exact target and country pools
 
-The catalogue must contain exactly **1,000 distinct publicly listed operating companies**:
+The static display catalogue contains exactly **1,000 distinct company-reference candidates** across the configured country allocation. The dataset is a UI reference sample, not a verified security master:
 
 - **Pool A — 550 companies:** Japan, India, France, Italy, Brazil, Russia, Mexico, South Korea, Spain, Indonesia, Turkey, Netherlands, Saudi Arabia, Switzerland, Poland, Taiwan, Belgium, Sweden, Argentina, Ireland, Thailand, United Arab Emirates, Israel, Austria, Norway, Singapore, Vietnam, Bangladesh, Egypt, Philippines, Malaysia, Denmark, South Africa, Finland, Chile, Romania, Czechia, Portugal, Hong Kong and Peru.
 - **Pool B — 450 companies:** USA, UK, Germany, Australia, Canada and China.
 
-Every country in each pool must be represented. The country count for each country is determined by the verified source records and written to a generated summary; do not invent target counts for individual countries or misstate the final counts. Pool A must total 550 and Pool B must total 450, and the combined catalogue must total 1,000.
+Every configured country must be represented. The current allocation totals Pool A=550 and Pool B=450. These are display-sample allocation targets, not proof that every issuer is currently listed or operating. The checked-in generated summary records the actual per-country counts.
 
-Count the issuer once, not once per ticker or exchange. Where an issuer has multiple share classes or cross-listings, choose a primary listing and retain the identifiers needed to disambiguate it. A country's allocation means the issuer's verified headquarters/home country, **not** merely the country in which its shares trade.
+The builder rejects repeated normalized issuer names and repeated exchange/symbol pairs. Some cross-listings or legal-entity relationships can still require manual review. The current `countryName`/`countryCode` reflects the source dataset's country or market classification; it does **not** prove headquarters or beneficial domicile. `headquartersCountry` remains null until independently verified.
 
 ## 2. Field-by-field sources
 
-Use the strongest available source for each field and store a source URL and retrieval/verification timestamp. One source rarely supports every field.
+For a production-grade verified catalogue, use the strongest available source for each field and store its source URL and retrieval/verification timestamp. The current catalogue records the pinned dataset and supplemental source provenance, but identity and listing status still require independent verification.
 
 | Field | Preferred evidence |
 |---|---|
