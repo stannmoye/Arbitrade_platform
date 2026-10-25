@@ -354,6 +354,7 @@ async function loadMoexStockCandidates() {
     }
   }
 
+  console.log("[company-logos] MOEX diagnostic columns: " + Object.keys(rows[0] ?? {}).join(",") + "; first-row-fields=" + JSON.stringify({ secid: rows[0]?.secid, emitent_title: rows[0]?.emitent_title, name: rows[0]?.name, shortname: rows[0]?.shortname, is_traded: rows[0]?.is_traded }));
   const candidates = rows.flatMap((row) => {
     const ticker = getField(row, ["secid"]).toUpperCase();
     const name = getField(row, ["emitent_title", "name", "shortname"]);
