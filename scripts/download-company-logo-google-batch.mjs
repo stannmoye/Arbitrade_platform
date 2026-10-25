@@ -189,8 +189,8 @@ const OFFICIAL_SITES = {
   "cn-agricultural-bank-of-china-ltd-class-a-601288-a3bb0622": "https://www.abchina.com/en/",
   "cn-all-winner-technology-co-ltd-300458-462bf53b": "https://www.allwinnertech.com/",
   "cn-angang-steel-co-ltd-class-a-000898-b2f795ce": "https://www.ansteel.cn/",
-  "cn-aluminum-corp-of-china-ltd-601600-9755a197": "https://www.chalco.com.cn/"
-,  "us-aboitiz-equity-ventures-inc-adr-abtzy-71c56af6": "https://aboitiz.com/",
+  "cn-aluminum-corp-of-china-ltd-601600-9755a197": "https://www.chalco.com.cn/",
+  "us-aboitiz-equity-ventures-inc-adr-abtzy-71c56af6": "https://aboitiz.com/",
   "us-aboitiz-power-corp-adr-abzpy-e58ac401": "https://aboitizpower.com/",
   "us-absa-group-ltd-adr-agrpy-67828cb6": "https://www.absa.africa/",
   "us-absci-corp-absi-9d3ef961": "https://www.absci.com/",
