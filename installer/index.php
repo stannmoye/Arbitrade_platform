@@ -135,10 +135,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $lines = [
             'NODE_ENV="production"', 'PORT="' . $appPort . '"',
-            // The installer cannot securely infer the hosting proxy topology.
-            // Default to direct-client mode; only set a positive hop count after
-            // verifying the actual trusted reverse-proxy chain.
-            'TRUST_PROXY_HOPS="0"',
             envline('PUBLIC_APP_URL', $appUrl), envline('DATABASE_URL', $databaseUrl),
             envline('SESSION_SECRET', bin2hex(random_bytes(32))), envline('PASSWORD_PEPPER', bin2hex(random_bytes(32))),
             // Optional providers are deliberately left unconfigured during installation.
