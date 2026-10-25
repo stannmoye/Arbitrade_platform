@@ -39,7 +39,7 @@ try {
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
   const digest = crypto.scryptSync(password, salt, 32).toString("hex");
-  return \`scrypt$\${salt}$\${digest}\`;
+  return "scrypt$" + salt + "$" + digest;
 }
 
 function localOpenId(role, email) {
