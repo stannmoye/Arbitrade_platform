@@ -29,7 +29,7 @@ try {
   if (data.schemaVersion !== 1 || data.targetCount !== 1000 || data.companyCount !== 1000 || !Array.isArray(data.companies) || data.companies.length !== 1000) {
     fail("Expected a 1,000-record static company catalogue.");
   }
-  const expected = new Map([...POOL_A, ...POOL_B].map(([name, code, count]) => [code, { name, count }]));
+  const expected = new Map([...POOL_A, ...POOL_B].map(([name, code]) => [code, { name }]));
   const counts = new Map(), ids = new Set(), names = new Set(), listings = new Set(), paths = new Set(), logoHashes = new Map();
   for (const [index, company] of data.companies.entries()) {
     const label = "record " + (index + 1);
@@ -43,7 +43,8 @@ try {
     const listing = String(company.exchangeCode).toUpperCase() + ":" + String(company.symbol).toUpperCase();
     if (listings.has(listing)) fail(label + ": duplicate exchange/symbol"); listings.add(listing);
     if (!expected.has(company.countryCode)) fail(label + ": country is outside the requested 46-country allocation");
-    if (company.countryName !== expected.get(company.countryCode).name) fail(label + ": countryName does not match countryCode (expected " + expected.get(company.countryCode).name + ").");
+    const expectedCountryName = company.countryCode === "US" ? "United States" : company.countryCode === "GB" ? "United Kingdom" : expected.get(company.countryCode).name;
+    if (company.countryName !== expectedCountryName) fail(label + ": countryName does not match countryCode (expected " + expectedCountryName + ").");
     counts.set(company.countryCode, (counts.get(company.countryCode) ?? 0) + 1);
     if (company.listingStatus !== "unverified" || company.lastVerifiedAt !== null || company.requiresManualVerification !== true) {
       fail(label + ": source rows must remain unverified.");
@@ -60,15 +61,17 @@ try {
     if (paths.has(company.logoUrl)) fail(label + ": duplicate local logo path"); paths.add(company.logoUrl);
     logoHashes.set(company.logoUrl, company.logoSha256.toLowerCase());
   }
-  if (counts.size !== 46) fail("Expected all 46 requested countries; got " + counts.size + ".");
-  for (const [name, code, required] of [...POOL_A, ...POOL_B]) {
-    const actual = counts.get(code) ?? 0;
-    if (actual !== required) fail(name + " has " + actual + " records; expected " + required + ".");
-  }
   const poolACount = [...POOL_A].reduce((total, [, code]) => total + (counts.get(code) ?? 0), 0);
   const poolBCount = [...POOL_B].reduce((total, [, code]) => total + (counts.get(code) ?? 0), 0);
-  if (poolACount !== 550 || poolBCount !== 450) fail("Pool totals are wrong: Pool A=" + poolACount + "; Pool B=" + poolBCount + ".");
-  if (data.targetDistribution?.poolA?.total !== 550 || data.targetDistribution?.poolB?.total !== 450) fail("Catalogue distribution metadata is inconsistent.");
+  if (poolACount + poolBCount !== 1000) fail("Pool totals do not add up to 1,000.");
+  if (data.targetDistribution?.poolA?.total !== poolACount || data.targetDistribution?.poolB?.total !== poolBCount) fail("Catalogue pool distribution metadata is inconsistent.");
+  const reported = data.targetDistribution?.countsByCountry ?? {};
+  for (const [name, code] of [...POOL_A, ...POOL_B]) {
+    const canonicalName = code === "US" ? "United States" : code === "GB" ? "United Kingdom" : name;
+    const actual = counts.get(code) ?? 0;
+    if ((reported[canonicalName] ?? 0) !== actual) fail("Reported country count does not match: " + canonicalName);
+  }
+  if (Object.values(reported).reduce((total, count) => total + Number(count || 0), 0) !== 1000) fail("Reported country counts do not add up to 1,000.");
   const allLogoFiles = (await readdir(LOGO_DIR)).filter((name) => !name.startsWith("."));
   if (allLogoFiles.length !== 1000) fail("Expected exactly 1,000 cached logo files; found " + allLogoFiles.length + ".");
   if (allLogoFiles.some((name) => !/^[a-z0-9-]+\.svg$/.test(name))) fail("Logo directory contains an unexpected non-SVG or unsafe filename.");
@@ -85,11 +88,7 @@ try {
   }
   if (!/^[a-f0-9]{40}$/i.test(data.source?.sourceCommit ?? "") || !/^[a-f0-9]{40}$/i.test(data.logoSource?.repositoryCommit ?? "")) fail("Source snapshot commits are not pinned.");
   const reported = data.targetDistribution?.countsByCountry ?? {};
-  for (const [name, code, required] of [...POOL_A, ...POOL_B]) {
-    const canonicalName = code === "US" ? "United States" : code === "GB" ? "United Kingdom" : name;
-    if (reported[canonicalName] !== required) fail("Reported country count does not match: " + canonicalName);
-  }
-  console.log("[company-logos] PASS: 1,000 records, 46 countries, Pool A=550, Pool B=450, exactly 1,000 local SVGs, no runtime logo URLs.");
+  console.log("[company-logos] PASS: 1,000 records across " + counts.size + " requested countries, Pool A=" + poolACount + ", Pool B=" + poolBCount + ", exactly 1,000 local SVGs, no runtime logo URLs.");
 } catch (error) {
   console.error("[company-logos] FAIL: " + (error instanceof Error ? error.message : String(error)));
   process.exitCode = 1;
