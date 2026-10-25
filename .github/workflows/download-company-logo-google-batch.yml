@@ -1,12 +1,7 @@
-name: Download company logos from Google Images in batches
+name: Download company logos in manually verified batches
 
 on:
-  push:
-    branches:
-      - feature/verified-company-catalogue-rotation
-    paths:
-      - scripts/download-company-logo-google-batch.mjs
-      - .github/workflows/download-company-logo-google-batch.yml
+  # Manual-only: never run unverified image searches automatically on code pushes.
   workflow_dispatch:
     inputs:
       batch:
@@ -36,7 +31,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Download actual image files for selected 50-company batch
+      - name: Download company logo files for selected 50-company batch (manual verification required)
         env:
           LOGO_BATCH: ${{ github.event.inputs.batch || '1' }}
         run: node scripts/download-company-logo-google-batch.mjs
