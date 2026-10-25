@@ -28,7 +28,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Fetch official-site icons for records 201-600
+      - name: Fetch newly mapped official-site icons for records 201-600
         env:
           LOGO_START: "201"
           LOGO_COUNT: "400"
