@@ -1,8 +1,7 @@
-import { config } from "dotenv";
 import mysql from "mysql2/promise";
 import { spawnSync } from "node:child_process";
 import { lstat, readFile, unlink, writeFile } from "node:fs/promises";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
@@ -16,7 +15,29 @@ const mode = fresh === existing ? null : fresh ? "fresh" : "existing";
 const bootstrapPath = resolve(root, ".installer-bootstrap.json");
 const lockPath = resolve(root, "installer/.installed");
 const progressPath = resolve(root, "installer/.install-in-progress.json");
-config({ path: resolve(root, ".env"), override: false });
+function loadPrivateEnv(path) {
+  let contents;
+  try {
+    contents = readFileSync(path, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return;
+    fail("Cannot read the private .env file. Complete the protected browser wizard and verify file permissions.");
+  }
+  for (const line of contents.split(/\\r?\\n/)) {
+    const match = line.match(/^\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(.*?)\\s*$/);
+    if (!match || Object.prototype.hasOwnProperty.call(process.env, match[1])) continue;
+    let value = match[2];
+    if (value.startsWith('"')) {
+      try { value = JSON.parse(value); } catch { fail("The private .env file contains an invalid quoted value. Reopen the wizard or repair the file securely."); }
+    } else if (value.startsWith("'") && value.endsWith("'") && value.length >= 2) {
+      value = value.slice(1, -1);
+    } else {
+      value = value.replace(/\\s+#.*$/, "");
+    }
+    process.env[match[1]] = value;
+  }
+}
+loadPrivateEnv(resolve(root, ".env"));
 
 function fail(message, code = 1) {
   console.error("[installer] ERROR: " + message);
