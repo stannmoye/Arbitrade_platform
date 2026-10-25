@@ -11,7 +11,6 @@ import { countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomer
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
-import { resolveTrustedProxyHops } from "./trustedProxy";
 import { isAllowedAttachmentRequest } from "./attachmentPolicy";
 import { createLocalSession, passwordHash, verifyPassword } from "./localAuth";
 import { writeStorageObject } from "../storage";
@@ -43,15 +42,9 @@ async function startServer() {
   if (process.env.NODE_ENV === "production" && !configuredAuthRateLimitStore) {
     console.warn("[AuthRateLimit] Using process-local counters. Configure AUTH_RATE_LIMIT_REDIS_REST_URL and AUTH_RATE_LIMIT_REDIS_REST_TOKEN for multi-instance deployments.");
   }
-  // The installer defaults to direct-client mode because it cannot securely
-  // infer the network topology. Trust forwarded headers only when an operator has
-  // verified the actual reverse-proxy chain. Malformed values fail closed.
-  const proxySetting = process.env.TRUST_PROXY_HOPS;
-  const trustedProxyHops = resolveTrustedProxyHops(proxySetting);
-  if (proxySetting?.trim() && trustedProxyHops === false && !/^0+$/.test(proxySetting.trim())) {
-    console.warn("[Proxy] Invalid TRUST_PROXY_HOPS; using safe direct-client mode (0). Set an integer from 0 to 10 only when the trusted proxy topology is known.");
-  }
-  app.set("trust proxy", trustedProxyHops);
+  // Use safe direct-client mode by default. Do not trust forwarded headers
+  // unless the actual reverse-proxy topology has been verified by the operator.
+  app.set("trust proxy", false);
   const server = createServer(app);
   // Rate-limit local upload preparation requests before JSON parsing so oversized request
   // bodies cannot consume parser resources before the route limiter runs.
