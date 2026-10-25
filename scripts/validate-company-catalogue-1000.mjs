@@ -57,7 +57,7 @@ try {
     if (!company.logoUrl.startsWith("/assets/company-logos/") || company.logoUrl.includes("://")) fail(label + ": logo must be referenced locally.");
     if (company.logoSourceName === "Neutral company-reference placeholder") {
       if (company.logoSourceSlug !== "neutral-placeholder" || company.logoSourceUrl !== "internal://neutral-company-reference-placeholder") fail(label + ": invalid neutral placeholder source metadata.");
-    } else if (company.logoSourceName === "Simple Icons CC0-1.0") {
+    } else if (String(company.logoSourceName ?? "").startsWith("Simple Icons")) {
       if (!/^[a-z0-9_-]+$/.test(company.logoSourceSlug) || !/^https:\/\//.test(company.logoSourceUrl) || company.logoLicense !== "CC0-1.0") fail(label + ": invalid Simple Icons source/license metadata.");
     } else if (/^Official company website (declared-favicon|apple-touch-icon|standard-favicon|logo-labelled-image|declared-svg-icon)$/.test(company.logoSourceName)) {
       if (!/^https:\/\//i.test(String(company.logoSourceUrl ?? "")) || !/^https:\/\//i.test(String(company.logoHomepageUrl ?? ""))) fail(label + ": official-site logo source requires HTTPS source and homepage URLs.");
