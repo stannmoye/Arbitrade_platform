@@ -100,6 +100,12 @@ describe("canonical installer preflight acceptance", () => {
 
 
 describe("canonical installer diagnostic privacy", () => {
+  it("initializes the missing session secret automatically before reporting environment readiness", async () => {
+    const source = await readFile(resolve(root, "installer", "diagnose-deployment.mjs"), "utf8");
+    expect(source).toContain('import { ensureSessionSecret } from "./session-secret.mjs";');
+    expect(source).toContain("await ensureSessionSecret({ root, env: process.env })");
+    expect(source).toContain("Generated and securely persisted the missing session secret.");
+  });
   it("does not print raw database error messages that may include connection identifiers", async () => {
     const source = await readFile(installer, "utf8");
     expect(source).toContain('String(error?.code || "unavailable").replace(/[^A-Z0-9_]/gi, "").slice(0, 40)');
