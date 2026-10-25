@@ -30,6 +30,14 @@ describe("admin-configured email transport", () => {
     expect(getAppSetting).toHaveBeenCalledWith("email.smtp", "");
   });
 
+  it("fails closed when saved transport metadata is invalid", async () => {
+    settings.set("email.smtp", JSON.stringify({
+      mode: "unexpected",
+      fromAddress: "no-reply@example.test",
+    }));
+    expect(await isEmailAdminConfigured()).toBe(false);
+  });
+
   it("refuses to send through the default sender when no transport was saved", async () => {
     await expect(sendEmail({
       to: "customer@example.test",
