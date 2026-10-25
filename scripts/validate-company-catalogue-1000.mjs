@@ -53,6 +53,7 @@ try {
       fail(label + ": source rows must remain unverified.");
     }
     if (company.instrumentType !== "Stock") fail(label + ": non-stock instrument in catalogue.");
+    if (company.recordCompleteness !== "incomplete" || !Array.isArray(company.incompleteReasons) || !company.incompleteReasons.includes("official_brand_logo_not_cleared")) fail(label + ": records using neutral placeholders must be marked incomplete until source verification and official brand assets are cleared.");
     if (!company.logoUrl.startsWith("/assets/company-logos/") || company.logoUrl.includes("://")) fail(label + ": logo must be referenced locally.");
     if (company.logoSourceName === "Neutral company-reference placeholder") {
       if (company.logoSourceSlug !== "neutral-placeholder" || company.logoSourceUrl !== "internal://neutral-company-reference-placeholder") fail(label + ": invalid neutral placeholder source metadata.");
