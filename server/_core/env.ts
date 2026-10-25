@@ -8,11 +8,11 @@ export const ENV = {
 
   get isProduction() { return process.env.NODE_ENV === "production"; },
   // AI chat and speech transcription are optional integrations, not installation requirements.
-  get aiApiBaseUrl() { return ""; },
-  get aiApiKey() { return ""; },
-  get imageApiBaseUrl() { return ""; },
-  get imageApiKey() { return ""; },
-  get transcriptionApiBaseUrl() { return ""; },
-  get transcriptionApiKey() { return ""; },
-  get mapsServerApiKey() { return ""; },
+  get aiApiBaseUrl() { return (process.env.AI_API_BASE_URL ?? "").trim().replace(/\/+$/, ""); },
+  get aiApiKey() { return process.env.AI_API_KEY ?? ""; },
+  get imageApiBaseUrl() { return (process.env.IMAGE_API_BASE_URL ?? "").trim().replace(/\/+$/, ""); },
+  get imageApiKey() { return process.env.IMAGE_API_KEY ?? ""; },
+  get transcriptionApiBaseUrl() { return (process.env.TRANSCRIPTION_API_BASE_URL ?? "").trim().replace(/\/+$/, ""); },
+  get transcriptionApiKey() { return process.env.TRANSCRIPTION_API_KEY ?? ""; },
+  get mapsServerApiKey() { return process.env.GOOGLE_MAPS_SERVER_KEY ?? ""; },
 };
