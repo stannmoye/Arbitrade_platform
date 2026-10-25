@@ -1,4 +1,4 @@
-name: Download company logos for catalogue records 601-1000
+name: Download company logos for catalogue records 601-650
 
 on:
   push:
@@ -31,15 +31,15 @@ jobs:
       - name: Fetch official-site icons for records 601-1000
         env:
           LOGO_START: "601"
-          LOGO_COUNT: "400"
+          LOGO_COUNT: "50"
         run: node scripts/download-company-logo-google-batch.mjs
-      - name: Commit saved icons and the range report
+      - name: Commit saved icons and the range report for records 601-650
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A server/data/company-catalogue-1000.json server/data/company-logo-range-601-1000-report.json client/public/assets/company-logos
+          git add -A server/data/company-catalogue-1000.json server/data/company-logo-range-*-report.json client/public/assets/company-logos
           if git diff --cached --quiet; then
             echo "No changes were produced for records 601-1000."
             exit 1
