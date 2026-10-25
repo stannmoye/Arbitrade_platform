@@ -8,7 +8,7 @@ Arbitrade is a Node.js/Express and React customer-and-operations platform for da
 - pnpm 10.18
 - MySQL 8-compatible or MariaDB database
 - HTTPS
-- SMTP or an approved email provider
+- Email transport only if outbound email is required (optional during installation)
 - cPanel Setup Node.js App or a VPS
 
 ## Self-hosted runtime
