@@ -86,8 +86,11 @@ export async function isEmailAdminConfigured() {
 }
 function textFromHtml(html: string) { return html.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(); }
 async function deliver(to: string | string[], subject: string, html: string, text?: string, attachments?: MailAttachment[]) {
+  if (!(await isEmailAdminConfigured())) {
+    throw new Error("Email transport is not configured or is not ready.");
+  }
   const config = await getEmailConfig();
-  if (!config.fromAddress) throw new Error("Email from address is not configured");
+  if (!isValidSenderAddress(config.fromAddress)) throw new Error("A valid email sender address is required.");
   const recipients = Array.isArray(to) ? to : [to];
   if (!recipients.length) throw new Error("No email recipients supplied");
   const message = { from: config.fromName ? `\"${config.fromName}\" <${config.fromAddress}>` : config.fromAddress, to: recipients.join(","), replyTo: config.replyTo || undefined, subject, html, text: text || textFromHtml(html), attachments: (attachments || []).map(a => ({ filename: a.filename, content: Buffer.from(a.content, "base64"), contentType: a.contentType })) };
