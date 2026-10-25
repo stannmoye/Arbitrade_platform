@@ -334,11 +334,15 @@
     ]
   },
   "logoSource": {
-    "providerName": "Locally generated neutral company-reference placeholders",
-    "assetFormat": "SVG",
-    "cachePolicy": "Small initials-based placeholders are generated locally from each source company name; no third-party logo service or external image request is used.",
-    "attribution": "These are neutral reference placeholders, not company brand logos. They are generated from the source name for display only.",
-    "reusePermissionVerified": true
+    "providerName": "Simple Icons CC0-1.0 plus existing local neutral placeholders",
+    "providerVersion": "16.35.0",
+    "metadataUrl": "https://raw.githubusercontent.com/simple-icons/simple-icons/16.35.0/data/simple-icons.json",
+    "licensePolicy": "Only entries explicitly marked CC0-1.0 are applied; unmatched or failed records retain their local placeholder.",
+    "explicitCc0Only": true,
+    "trademarkNote": "Company names and marks remain the property of their respective owners; CC0 artwork licensing does not transfer trademark rights.",
+    "updatedAt": "2026-10-25T16:59:41.902Z",
+    "matchedCompanyCount": 1,
+    "placeholderCompanyCount": 999
   },
   "dataLimitations": [
     "The source is a secondary stock reference; all records are marked unverified and must not be treated as confirmed currently active or eligible for trading.",
@@ -1367,11 +1371,12 @@
       "sourceRecordId": "Euronext:ALADA",
       "sourceObservedAt": null,
       "logoUrl": "/assets/company-logos/fr-ada-alada-a5c5146b.svg",
-      "logoSourceName": "Neutral company-reference placeholder",
-      "logoSourceUrl": "internal://neutral-company-reference-placeholder",
-      "logoSourceSlug": "neutral-placeholder",
-      "logoBytes": 380,
-      "logoSha256": "ff898f8349c997a29ca2da6d660b3f56b9bf67af410fb4e9f78376d05c0b56f2"
+      "logoSourceName": "Simple Icons CC0-1.0",
+      "logoSourceUrl": "https://ada-lang-io.github.io/ada-logo-editor/",
+      "logoSourceSlug": "ada",
+      "logoBytes": 979,
+      "logoSha256": "8490cd7037ee803f141b358ed9c98214a309e8dcfc4c86972480c41ec79119db",
+      "logoLicense": "CC0-1.0"
     },
     {
       "id": "fr-adeunis-alarf-371c17e8",
