@@ -1,0 +1,51 @@
+name: Build and cache 1,000 company logos
+
+on:
+  push:
+    branches:
+      - feature/verified-company-catalogue-rotation
+    paths:
+      - scripts/build-company-catalogue-1000.mjs
+      - scripts/validate-company-catalogue-1000.mjs
+      - .github/workflows/build-company-catalogue-1000.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: company-catalogue-1000-logo-build
+  cancel-in-progress: false
+
+jobs:
+  build-and-cache:
+    name: Download small logos and store them in the repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out selected branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: true
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the static catalogue and local SVG logos
+        run: node scripts/build-company-catalogue-1000.mjs
+      - name: Validate all 1,000 records and logo assets
+        run: node scripts/validate-company-catalogue-1000.mjs
+      - name: Commit the generated catalogue and logo files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server/data/company-catalogue-1000.json client/public/assets/company-logos
+          if git diff --cached --quiet; then
+            echo "Generated catalogue and logos are already current."
+            exit 0
+          fi
+          git commit -m "Cache 1,000 company logos and static catalogue"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
