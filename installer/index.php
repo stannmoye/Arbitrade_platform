@@ -20,6 +20,27 @@ function installerRequestIsHttps(): bool {
     return $forwardedProto === 'https';
 }
 
+/**
+ * Run a fixed version command without a shell. Hosting operators can set
+ * ARBITRADE_NODE_BINARY / ARBITRADE_PNPM_BINARY when cPanel keeps binaries
+ * outside PHP's PATH. An unavailable process API is a blocking preflight.
+ */
+function installerCommandOutput(string $binary, array $arguments): ?string {
+    if (!function_exists('proc_open') || $binary === '' || str_contains($binary, "\0")) return null;
+    $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+    $process = @proc_open(array_merge([$binary], $arguments), $descriptors, $pipes, dirname(__DIR__), null, ['bypass_shell' => true]);
+    if (!is_resource($process)) return null;
+    fclose($pipes[0]);
+    $stdout = stream_get_contents($pipes[1]);
+    $stderr = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $status = proc_close($process);
+    if ($status !== 0) return null;
+    $output = trim((string)$stdout);
+    return $output !== '' ? $output : null;
+}
+
 /** Treat dangling symlinks as existing protected state; file_exists() alone misses them. */
 function installerPathExists(string $path): bool {
     return file_exists($path) || is_link($path);
@@ -216,13 +237,19 @@ $detectedAppUrl = detectPublicAppUrl();
 $requiredExtensions = ['pdo_mysql', 'openssl', 'json', 'mbstring'];
 $extensionChecks = [];
 foreach ($requiredExtensions as $extension) $extensionChecks[$extension] = extension_loaded($extension);
-$nodeModulesReady = is_dir($root . '/node_modules');
+$nodeBinary = trim((string)(getenv('ARBITRADE_NODE_BINARY') ?: 'node'));
+$pnpmBinary = trim((string)(getenv('ARBITRADE_PNPM_BINARY') ?: 'pnpm'));
+$nodeVersionOutput = installerCommandOutput($nodeBinary, ['--version']);
+$pnpmVersionOutput = installerCommandOutput($pnpmBinary, ['--version']);
+$nodeVersionValid = $nodeVersionOutput !== null && preg_match('/^v?(\\d+)\\./', $nodeVersionOutput, $nodeVersionMatch) === 1 && (int)$nodeVersionMatch[1] >= 20;
+$pnpmVersionValid = $pnpmVersionOutput !== null && preg_match('/^10\\.18\\./', $pnpmVersionOutput) === 1;
+$nodeModulesReady = is_file($root . '/node_modules/.modules.yaml');
 $buildReady = is_file($root . '/dist/index.js');
 $packageReady = is_file($root . '/package.json') && is_file($root . '/pnpm-lock.yaml');
 $installerLocked = installerPathExists($configuredLock) || installerPathExists($installedLock) || installerPathExists($envPath) || installerPathExists($bootstrapPath);
 $rootWritable = is_writable($root);
 $diskFreeLabel = $diskFree === false ? 'Unavailable on this host' : (string)round($diskFree / 1024 / 1024) . ' MB free';
-$preflightBlocked = PHP_VERSION_ID < 80200 || in_array(false, $extensionChecks, true) || !$rootWritable || !$packageReady || $installerLocked;
+$preflightBlocked = PHP_VERSION_ID < 80200 || in_array(false, $extensionChecks, true) || !$rootWritable || !$packageReady || !$nodeVersionValid || !$pnpmVersionValid || !$nodeModulesReady || $installerLocked;
 ?><!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arbitrade installation wizard</title>
 <style>
@@ -235,14 +262,16 @@ $preflightBlocked = PHP_VERSION_ID < 80200 || in_array(false, $extensionChecks, 
 <?php endforeach; ?>
 <div class="check"><strong><?= $rootWritable ? '✓' : '✕' ?> Configuration directory</strong><small><?= $rootWritable ? 'Writable by PHP during setup' : 'Action required: allow PHP to write configuration during setup' ?></small></div>
 <div class="check"><strong><?= $packageReady ? '✓' : '✕' ?> Application package</strong><small><?= $packageReady ? 'package.json and pnpm-lock.yaml found' : 'Upload the complete application package, including the lockfile' ?></small></div>
-<div class="check"><strong><?= $nodeModulesReady ? '✓' : '!' ?> Dependencies</strong><small><?= $nodeModulesReady ? 'node_modules directory exists; package integrity is not yet verified' : 'Not installed yet; requires Node.js/pnpm terminal or supported host automation' ?></small></div>
+<div class="check"><strong><?= $nodeVersionValid ? '✓' : '✕' ?> Node.js runtime</strong><small><?= $nodeVersionValid ? 'Node.js ' . h($nodeVersionOutput) . ' detected' : 'Action required: make Node.js 20+ available to PHP, or set ARBITRADE_NODE_BINARY to its executable path' ?></small></div>
+<div class="check"><strong><?= $pnpmVersionValid ? '✓' : '✕' ?> pnpm package manager</strong><small><?= $pnpmVersionValid ? 'pnpm ' . h($pnpmVersionOutput) . ' detected' : 'Action required: make pnpm 10.18.x available to PHP, or set ARBITRADE_PNPM_BINARY to its executable path' ?></small></div>
+<div class="check"><strong><?= $nodeModulesReady ? '✓' : '✕' ?> Dependencies installed</strong><small><?= $nodeModulesReady ? 'pnpm installation metadata exists; the terminal installer will verify the frozen lockfile again' : 'Run pnpm install --frozen-lockfile from the private application root before continuing' ?></small></div>
 <div class="check"><strong><?= $buildReady ? '✓' : '!' ?> Production build</strong><small><?= $buildReady ? 'dist/index.js exists' : 'Not built yet; build after configuring the environment' ?></small></div>
 <div class="check"><strong><?= $httpsDetected ? '✓' : '!' ?> HTTPS</strong><small><?= $httpsDetected ? 'HTTPS detected for this request' : 'HTTPS not detected; enable SSL before production use' ?></small></div>
 <div class="check"><strong><?= $diskFree === false ? '!' : ($diskFree > 1024 * 1024 * 1024 ? '✓' : '!') ?> Available disk</strong><small><?=h($diskFreeLabel)?><?= $diskFree !== false && $diskFree <= 1024 * 1024 * 1024 ? '; verify sufficient space before dependency installation/build' : '' ?></small></div>
 <div class="check"><strong><?= $installerLocked ? '!' : '✓' ?> Installation state</strong><small><?= $installerLocked ? 'Existing configuration/lock detected; installer must not be reused' : 'No existing installation lock detected' ?></small></div>
-<div class="check"><strong>! Node.js runtime</strong><small>PHP cannot reliably detect the Node.js version on shared hosting. Verify Node.js 20+ in cPanel Setup Node.js App; the terminal installer performs its own version check.</small></div>
+
 </div>
-<p class="sub">This preflight checks what PHP can reliably observe. Node.js runtime/version and live dependency health are explicitly marked for verification in the hosting environment rather than guessed. Critical PHP/version/extension/package/permission failures block both step navigation and configuration submission. Node.js and package integrity are checked by the private terminal installer before dependencies, migrations, or build steps run; the web PHP process cannot safely infer the Node runtime installed for the hosting account. Database credentials are checked privately when you submit the database step. Do not expose this wizard publicly after setup.</p>
+<p class="sub">All required PHP, Node.js, pnpm, installed-dependency, package, permission, and installation-state checks must pass before stage navigation or submission is enabled. If PHP cannot execute Node.js or pnpm, configure the corresponding binary path in the PHP hosting environment; do not bypass the preflight. The terminal installer rechecks the frozen lockfile before database migrations. Database credentials are checked privately when you submit the database step. Do not expose this wizard publicly after setup.</p>
 <?php if($message):?><div class="notice success"><?=h($message)?><p><strong>Next step:</strong> in the application root, run <code>node installer/run-install.mjs --<?=h(postval('install_mode') === 'existing' ? 'existing-database --confirm-existing-migrations' : 'fresh-install')?></code> from the private cPanel terminal.</p></div><?php endif;?>
 <?php if($error):?><div class="notice error"><?=h($error)?></div><?php endif;?>
 <?php if(!$message && !installerPathExists($configuredLock) && !installerPathExists($installedLock) && !installerPathExists($envPath) && !installerPathExists($bootstrapPath)):?>
