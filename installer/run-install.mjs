@@ -105,6 +105,9 @@ if (!["http:", "https:"].includes(publicAppUrl.protocol) || publicAppUrl.usernam
 if (process.env.PASSWORD_PEPPER.length < 32) {
   fail("PASSWORD_PEPPER must contain at least 32 characters.");
 }
+if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.length < 32) {
+  fail("SESSION_SECRET must contain at least 32 characters.");
+}
 if (await stateMarkerExists(lockPath)) {
   fail("An installation lock already exists. Refusing to rerun the installer.");
 }
