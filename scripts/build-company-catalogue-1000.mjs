@@ -331,9 +331,9 @@ async function loadMoexStockCandidates() {
     }
 
     const columns = table.columns.map((column) => String(column).toLowerCase());
-    const page = table.data.map((values) =>
-      Object.fromEntries(columns.map((column, index) => [column, values[index] ?? ""]))
-    );
+    const page = Array.from(table.data)
+      .filter((values) => Array.isArray(values))
+      .map((values) => Object.fromEntries(columns.map((column, index) => [column, values[index] ?? ""])));
     const cursor = payload?.cursor;
     if (Array.isArray(cursor?.columns) && Array.isArray(cursor?.data) && cursor.data.length) {
       const cursorColumns = cursor.columns.map((column) => String(column).toLowerCase());
