@@ -339,7 +339,9 @@ jobs:
             databaseTableNames: [],
             databaseTableCount: 0,
             adminEmail: "ci-admin@example.test",
-            adminPassword: "ci-only-admin-password-12345"
+            adminPassword: "ci-only-admin-password-12345",
+            customerEmail: "ci-customer@example.test",
+            customerPassword: "ci-only-customer-password-12345"
           }, null, 2) + "\n", { mode: 0o600, flag: "wx" });
           console.log("Disposable MariaDB database is empty and bootstrap fixture is ready.");
           NODE
@@ -369,6 +371,8 @@ jobs:
             }
             const [admins] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='admin' AND email='ci-admin@example.test'");
             if (Number(admins[0].count) !== 1) throw new Error("Expected exactly one CI administrator account.");
+            const [customers] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='user' AND email='ci-customer@example.test'");
+            if (Number(customers[0].count) !== 1) throw new Error("Expected exactly one initial CI customer account.");
              if (!tables.has("trade_lifecycle_events")) throw new Error("Manual settlement lifecycle migration did not create trade_lifecycle_events.");
              const [settlementColumns] = await db.query(
                "SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='trade_positions' AND column_name IN ('settlementReference','settlementConfirmedAt','settlementConfirmedBy','settlementNotes')"
@@ -393,6 +397,7 @@ jobs:
               status: "PASS",
               tableCount: tables.size,
               administratorCreated: true,
+              customerCreated: true,
               migrationRecords: {
                 drizzle: Number(drizzle[0].count),
                 portal: Number(portal[0].count),
@@ -477,7 +482,9 @@ jobs:
             databaseTableNames: [],
             databaseTableCount: 0,
             adminEmail: "ci-admin@example.test",
-            adminPassword: "ci-only-admin-password-12345"
+            adminPassword: "ci-only-admin-password-12345",
+            customerEmail: "ci-customer@example.test",
+            customerPassword: "ci-only-customer-password-12345"
           }, null, 2) + "\n", { mode: 0o600, flag: "wx" });
           console.log("Disposable MySQL 8 database is empty and bootstrap fixture is ready.");
           NODE
@@ -507,6 +514,8 @@ jobs:
             }
             const [admins] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='admin' AND email='ci-admin@example.test'");
             if (Number(admins[0].count) !== 1) throw new Error("Expected exactly one CI administrator account.");
+            const [customers] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='user' AND email='ci-customer@example.test'");
+            if (Number(customers[0].count) !== 1) throw new Error("Expected exactly one initial CI customer account.");
              if (!tables.has("trade_lifecycle_events")) throw new Error("Manual settlement lifecycle migration did not create trade_lifecycle_events.");
              const [settlementColumns] = await db.query(
                "SELECT column_name FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='trade_positions' AND column_name IN ('settlementReference','settlementConfirmedAt','settlementConfirmedBy','settlementNotes')"
@@ -531,6 +540,7 @@ jobs:
               status: "PASS",
               tableCount: tables.size,
               administratorCreated: true,
+              customerCreated: true,
               migrationRecords: {
                 drizzle: Number(drizzle[0].count),
                 portal: Number(portal[0].count),
