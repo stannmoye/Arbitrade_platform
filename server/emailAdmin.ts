@@ -33,6 +33,21 @@ function decryptConfigPassword(value: string) {
   return Buffer.concat([decipher.update(Buffer.from(encryptedText, "base64url")), decipher.final()]).toString("utf8");
 }
 
+function isValidSenderAddress(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value.length <= 320;
+}
+
+export async function hasSavedEmailConfig() {
+  const raw = await getAppSetting("email.smtp", "");
+  if (!raw.trim() || raw.trim() === "{}") return false;
+  try {
+    const parsed = JSON.parse(raw);
+    return Boolean(parsed && typeof parsed === "object" && typeof parsed.mode === "string" && typeof parsed.fromAddress === "string" && parsed.fromAddress.trim());
+  } catch {
+    return false;
+  }
+}
+
 export async function getEmailConfig(): Promise<EmailConfig> {
   const raw = await getAppSetting("email.smtp", "{}");
   let parsed: Partial<EmailConfig> & { passwordCipher?: string } = {};
@@ -42,7 +57,9 @@ export async function getEmailConfig(): Promise<EmailConfig> {
 }
 export async function saveEmailConfig(input: Partial<EmailConfig>) {
   const current = await getEmailConfig();
-  const next = { ...current, ...input };
+  // An omitted or blank password means "keep the saved password", not "erase it".
+  const submittedPassword = typeof input.password === "string" && input.password.length > 0 ? input.password : current.password;
+  const next = { ...current, ...input, password: submittedPassword };
   const { password, ...safeConfig } = next;
   await setAppSetting("email.smtp", JSON.stringify({ ...safeConfig, passwordCipher: password ? encryptConfigPassword(password) : "" }));
   return { ...next, password: next.password ? "••••••••" : "" };
@@ -52,8 +69,14 @@ export async function publicEmailConfig() {
   return { mode: c.mode, host: c.host, port: c.port, secure: c.secure, authType: c.authType, user: c.user, fromName: c.fromName, fromAddress: c.fromAddress, replyTo: c.replyTo, hasPassword: Boolean(c.password) };
 }
 export async function isEmailAdminConfigured() {
+  if (!(await hasSavedEmailConfig())) return false;
   const config = await getEmailConfig();
-  if (config.mode === "external") return Boolean(config.host.trim() && Number.isInteger(config.port) && config.port > 0 && config.port <= 65535 && (!config.user || Boolean(config.password)));
+  if (!isValidSenderAddress(config.fromAddress)) return false;
+  if (config.mode === "external") {
+    return Boolean(config.host.trim()
+      && Number.isInteger(config.port) && config.port > 0 && config.port <= 65535
+      && (!config.user || Boolean(config.password)));
+  }
   try {
     await access(process.env.SENDMAIL_PATH || "/usr/sbin/sendmail", fsConstants.X_OK);
     return true;
