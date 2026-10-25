@@ -331,9 +331,13 @@ async function loadMoexStockCandidates() {
     }
 
     const columns = table.columns.map((column) => String(column).toLowerCase());
-    const page = Array.from(table.data)
-      .filter((values) => Array.isArray(values))
+    const rawData = Array.from(table.data);
+    const page = rawData
+      .filter((values) => values != null && typeof values === "object")
       .map((values) => Object.fromEntries(columns.map((column, index) => [column, values[index] ?? ""])));
+    if (page.length === 0) {
+      throw new Error("Moscow Exchange ISS returned no usable security rows (columns=" + columns.join(",") + "; rawDataLength=" + rawData.length + "; firstEntryType=" + typeof rawData[0] + ").");
+    }
     const cursor = payload?.cursor;
     if (Array.isArray(cursor?.columns) && Array.isArray(cursor?.data) && cursor.data.length) {
       const cursorColumns = cursor.columns.map((column) => String(column).toLowerCase());
@@ -345,9 +349,9 @@ async function loadMoexStockCandidates() {
     }
 
     rows.push(...page);
-    if (page.length === 0 || page.length < pageSize) break;
+    if (rawData.length < pageSize) break;
     if (expectedTotal !== null && rows.length >= expectedTotal) break;
-    start += page.length;
+    start += rawData.length;
     if (rows.length >= safetyLimit && (expectedTotal === null || rows.length < expectedTotal)) {
       console.warn("[company-logos] Moscow Exchange ISS reports " + expectedTotal + " rows; applying the " + safetyLimit + "-row safety cap and using the bounded sample.");
       break;
