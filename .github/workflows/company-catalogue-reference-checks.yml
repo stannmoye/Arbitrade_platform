@@ -12,6 +12,10 @@ on:
       - server/modules/company-rotation.test.ts
       - server/routers.ts
       - server/data/company-catalogue-1000.json
+      - scripts/build-company-catalogue-1000.mjs
+      - scripts/validate-company-catalogue-950.mjs
+      - scripts/validate-company-catalogue-1000.mjs
+      - client/public/assets/company-logos/**
       - package.json
       - pnpm-lock.yaml
       - .github/workflows/company-catalogue-reference-checks.yml
@@ -26,6 +30,10 @@ on:
       - server/modules/company-rotation.test.ts
       - server/routers.ts
       - server/data/company-catalogue-1000.json
+      - scripts/build-company-catalogue-1000.mjs
+      - scripts/validate-company-catalogue-950.mjs
+      - scripts/validate-company-catalogue-1000.mjs
+      - client/public/assets/company-logos/**
       - package.json
       - pnpm-lock.yaml
       - .github/workflows/company-catalogue-reference-checks.yml
@@ -59,4 +67,4 @@ jobs:
       - name: TypeScript check
         run: pnpm check
       - name: Test company reference lookup and rotation
-        run: pnpm exec vitest run server/modules/company-catalogue-reference.test.ts server/modules/company-rotation.test.ts
+        run: pnpm test
