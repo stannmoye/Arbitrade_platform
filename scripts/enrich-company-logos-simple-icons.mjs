@@ -48,24 +48,26 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function fetchResponse(url) {
   let lastError;
   for (let attempt = 0; attempt < 4; attempt++) {
+    let response;
     try {
-      const response = await fetch(url, {
+      response = await fetch(url, {
         headers: { "user-agent": USER_AGENT, accept: "image/svg+xml,application/json,text/plain,*/*" },
         signal: AbortSignal.timeout(20000),
       });
-      if (response.ok) return response;
-      const error = new Error("HTTP " + response.status + " while fetching " + url);
-      if (attempt < 3 && (response.status === 429 || response.status >= 500)) {
-        await pause(500 * (attempt + 1));
-        lastError = error;
-        continue;
-      }
-      throw error;
     } catch (error) {
       lastError = error;
       if (attempt >= 3) break;
       await pause(500 * (attempt + 1));
+      continue;
     }
+    if (response.ok) return response;
+    const error = new Error("HTTP " + response.status + " while fetching " + url);
+    if (attempt < 3 && (response.status === 429 || response.status >= 500)) {
+      lastError = error;
+      await pause(500 * (attempt + 1));
+      continue;
+    }
+    throw error;
   }
   throw lastError ?? new Error("Unknown network failure while fetching " + url);
 }
