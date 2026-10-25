@@ -1,0 +1,51 @@
+name: Enrich company logos from CC0 brand assets
+
+on:
+  push:
+    branches:
+      - feature/verified-company-catalogue-rotation
+    paths:
+      - scripts/enrich-company-logos-simple-icons.mjs
+      - scripts/validate-company-catalogue-1000.mjs
+      - .github/workflows/enrich-company-logos-simple-icons.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: company-logo-cc0-enrichment
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    name: Cache explicitly CC0-licensed logos and validate fallbacks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the existing catalogue branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: true
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Replace only unambiguous, explicitly CC0-licensed logo matches
+        run: node scripts/enrich-company-logos-simple-icons.mjs
+      - name: Validate all 1,000 records and local assets
+        run: node scripts/validate-company-catalogue-1000.mjs
+      - name: Commit the local assets and source metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server/data/company-catalogue-1000.json client/public/assets/company-logos
+          if git diff --cached --quiet; then
+            echo "No logo changes were required."
+            exit 0
+          fi
+          git commit -m "Cache CC0 company brand logos locally"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
