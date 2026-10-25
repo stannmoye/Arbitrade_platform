@@ -66,8 +66,8 @@ try {
   }
   const duplicateIssuerNames = [...issuerNames.values()].filter((matches) => matches.length > 1);
   if (duplicateIssuerNames.length) {
-    console.warn("[company-logos] ACCEPTANCE BLOCKER: " + duplicateIssuerNames.length + " normalized issuer-name groups appear in multiple records. Review primary listings and replace cross-listing duplicates before calling the catalogue 1,000 unique issuers.");
-    for (const matches of duplicateIssuerNames) console.warn("[company-logos] DUPLICATE ISSUER CANDIDATES: " + matches.map((item) => item.name + " (" + item.countryCode + ", " + item.exchangeCode + ":" + item.symbol + ")").join(" | "));
+    for (const matches of duplicateIssuerNames) console.error("[company-logos] DUPLICATE ISSUER BLOCKER: " + matches.map((item) => item.name + " (" + item.countryCode + ", " + item.exchangeCode + ":" + item.symbol + ")").join(" | "));
+    fail("Found " + duplicateIssuerNames.length + " normalized issuer-name groups duplicated across countries; catalogue must contain 1,000 distinct companies.");
   }
   const poolACount = [...POOL_A].reduce((total, [, code]) => total + (counts.get(code) ?? 0), 0);
   const poolBCount = [...POOL_B].reduce((total, [, code]) => total + (counts.get(code) ?? 0), 0);
@@ -98,7 +98,7 @@ try {
   console.log("[company-logos] STRUCTURAL PASS: 1,000 reference records across " + counts.size + " represented countries, Pool A=" + poolACount + ", Pool B=" + poolBCount + ", exactly 1,000 local SVGs, no runtime logo URLs.");
   const missingCountries = [...expected.entries()].filter(([code]) => !(counts.get(code) > 0)).map(([, value]) => value.name);
   if (missingCountries.length) {
-    console.warn("[company-logos] ACCEPTANCE BLOCKER: no records for requested countries: " + missingCountries.join(", ") + ".");
+    fail("No records for replacement country allocation: " + missingCountries.join(", ") + ". Every one of the 46 configured countries must be represented.");
   }
   console.warn("[company-logos] ACCEPTANCE BLOCKER: all records are marked unverified; headquarters-country evidence and logo redistribution permissions have not been independently verified. Do not use this dataset as verified trade eligibility or display its logos as cleared brand assets.");
 } catch (error) {
