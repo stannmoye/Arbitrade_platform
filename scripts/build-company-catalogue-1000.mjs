@@ -198,7 +198,7 @@ function extractLogoItems(payload) {
   }).filter((item) => item.slugs.length > 0);
 }
 function createLogoIndex(items) {
-  const byKey = new Map(), bySymbol = new Map();
+  const byKey = new Map(), bySymbol = new Map(), byNameToken = new Map();
   for (const item of items) {
     const key = normCode(item.exchange) + ":" + item.symbol.toUpperCase();
     if (!byKey.has(key)) byKey.set(key, []);
@@ -206,8 +206,16 @@ function createLogoIndex(items) {
     const symbol = item.symbol.toUpperCase();
     if (!bySymbol.has(symbol)) bySymbol.set(symbol, []);
     bySymbol.get(symbol).push(item);
+    for (const slug of item.slugs) {
+      const tokens = new Set(norm(slug.replace(/[-_.]/g, " ")).split(" ").filter((token) => token.length > 2));
+      const entry = { item, slug, tokens };
+      for (const token of tokens) {
+        if (!byNameToken.has(token)) byNameToken.set(token, []);
+        byNameToken.get(token).push(entry);
+      }
+    }
   }
-  return { byKey, bySymbol };
+  return { byKey, bySymbol, byNameToken };
 }
 function findLogoSlugs(row, logoIndex) {
   const code = row.countryCode;
@@ -235,6 +243,25 @@ function findLogoSlugs(row, logoIndex) {
       return overlap / Math.max(nameTokens.size, slugTokens.size) >= 0.5;
     });
     if (possible.length === 1) return possible[0].slugs;
+  }
+  // Last-resort company-name match allows a Russian issuer to reuse its own logo
+  // when the logo index has that issuer under another exchange's ticker. Only a single
+  // best-matching slug is accepted; ambiguous matches fail closed.
+  const ignoredNameTokens = new Set(["inc", "corp", "corporation", "company", "limited", "ltd", "plc", "group", "holdings", "holding", "co", "llc", "ag", "sa", "nv", "bv", "gmbh", "se", "pjsc", "pao", "oao", "ojsc", "jsc", "public", "joint", "stock", "the"]);
+  const nameTokens = new Set(norm(row.name).split(" ").filter((token) => token.length > 2 && !ignoredNameTokens.has(token)));
+  const scoredSlugs = new Map();
+  for (const token of nameTokens) {
+    for (const entry of logoIndex.byNameToken.get(token) ?? []) {
+      if (!nameTokens.size || !entry.tokens.size) continue;
+      const overlap = [...nameTokens].filter((nameToken) => entry.tokens.has(nameToken)).length;
+      const score = overlap / Math.max(nameTokens.size, entry.tokens.size);
+      if (score >= 0.5) scoredSlugs.set(entry.slug, Math.max(scoredSlugs.get(entry.slug) ?? 0, score));
+    }
+  }
+  if (scoredSlugs.size) {
+    const bestScore = Math.max(...scoredSlugs.values());
+    const bestSlugs = [...scoredSlugs].filter(([, score]) => score === bestScore).map(([slug]) => slug);
+    if (bestScore >= 0.5 && bestSlugs.length === 1) return bestSlugs;
   }
   return [];
 }
