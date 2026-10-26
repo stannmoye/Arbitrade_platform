@@ -8252,9 +8252,10 @@
       "companyName": "Kirin Holdings",
       "logoFile": "logos/Kirin Holdings.png",
       "domain": "img.logo.devkirinholdings.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Japan",
+      "countryAssignmentMethod": "official-or-reliable-headquarters-source",
+      "countryConfidence": "high",
+      "countryEvidenceUrl": "https://www.kirinholdings.com/en/company/overview/"
     },
     {
       "logoId": 918,
