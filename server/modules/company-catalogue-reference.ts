@@ -41,6 +41,7 @@ export type CompanyReferenceSearch = {
   search?: string;
   /** Exact country-folder label from the image catalogue; not a verified headquarters claim. */
   countryName?: string;
+  offset?: number;
   limit?: number;
 };
 
@@ -252,10 +253,13 @@ export function searchCompanyReferences(filters: CompanyReferenceSearch = {}): C
   const term = filters.search?.trim().toLowerCase();
   const countryName = filters.countryName?.trim().toLowerCase();
   const limit = Number.isFinite(filters.limit) ? Math.max(1, Math.min(1811, Math.floor(filters.limit!))) : 50;
+  const offset = Number.isFinite(filters.offset) ? Math.max(0, Math.min(1810, Math.floor(filters.offset!))) : 0;
   const results: CompanyReferenceResponse[] = [];
+  let matched = 0;
   for (const company of COMPANY_REFERENCE_CATALOGUE) {
     if (term && ![company.name, company.domain, company.ticker, company.exchangeCode].some((value) => value.toLowerCase().includes(term))) continue;
     if (countryName && company.countryName.toLowerCase() !== countryName) continue;
+    if (matched++ < offset) continue;
     results.push(asReferenceResponse(company));
     if (results.length >= limit) break;
   }
