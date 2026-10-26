@@ -459,6 +459,35 @@ export const tradeSettlementReferenceClaims = mysqlTable("trade_settlement_refer
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export const tradeSettlementRecoveryCases = mysqlTable("trade_settlement_recovery_cases", {
+  id: int("id").autoincrement().primaryKey(),
+  tradeId: int("tradeId").notNull(),
+  userId: int("userId").notNull(),
+  currency: varchar("currency", { length: 12 }).notNull(),
+  settlementReference: varchar("settlementReference", { length: 160 }),
+  correctionMode: mysqlEnum("correctionMode", ["ledger_only", "wallet_and_ledger"]).notNull(),
+  amountMinor: bigint("amountMinor", { mode: "number" }).notNull(),
+  evidenceReference: varchar("evidenceReference", { length: 160 }).notNull(),
+  evidenceSummary: text("evidenceSummary").notNull(),
+  reason: text("reason").notNull(),
+  idempotencyKey: varchar("idempotencyKey", { length: 180 }).notNull(),
+  status: mysqlEnum("status", ["pending_approval", "approved", "rejected", "resolved"]).default("pending_approval").notNull(),
+  proposedBy: int("proposedBy").notNull(),
+  approvedBy: int("approvedBy"),
+  reviewNote: text("reviewNote"),
+  reviewedAt: timestamp("reviewedAt"),
+  resolvedBy: int("resolvedBy"),
+  resolvedAt: timestamp("resolvedAt"),
+  recoveryLedgerReference: varchar("recoveryLedgerReference", { length: 80 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  idempotencyUnique: uniqueIndex("trade_settlement_recovery_idempotency_unique").on(table.idempotencyKey),
+  recoveryLedgerReferenceUnique: uniqueIndex("trade_settlement_recovery_ledger_reference_unique").on(table.recoveryLedgerReference),
+  statusCreatedIdx: index("trade_settlement_recovery_status_created_idx").on(table.status, table.createdAt, table.id),
+  tradeIdx: index("trade_settlement_recovery_trade_idx").on(table.tradeId, table.id),
+}));
+
 export const tradePositions = mysqlTable("trade_positions", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
