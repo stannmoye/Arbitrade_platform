@@ -1592,9 +1592,9 @@
       "companyName": "Z",
       "logoFile": "logos/Z.png",
       "domain": "img.logo.devz.ai",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "China",
+      "countryAssignmentMethod": "headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 178,
@@ -3563,9 +3563,9 @@
       "companyName": "IQOS",
       "logoFile": "logos/IQOS.png",
       "domain": "img.logo.deviqos.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 397,
