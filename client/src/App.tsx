@@ -510,6 +510,7 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
   const [catalogueCountry,setCatalogueCountry]=useState("");
   const [catalogueOffset,setCatalogueOffset]=useState(0);
   const companyCatalogueSummary=trpc.companyCatalogueReference.summary.useQuery();
+  const companyCatalogueCount=trpc.companyCatalogueReference.count.useQuery({search:catalogueSearch,countryName:catalogueCountry||undefined});
   const companyCatalogueQuery=trpc.companyCatalogueReference.search.useQuery({search:catalogueSearch,countryName:catalogueCountry||undefined,offset:catalogueOffset,limit:100});
   const companyReference=trpc.companyCatalogueReference.next.useMutation({
     onSuccess:(record)=>{companyReferenceInFlight.current=false;lastCompanyReferenceId.current=record.id;setCompanyReferenceData(record);setCompanyReferenceLoadError(false);},
