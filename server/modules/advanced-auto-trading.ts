@@ -1,4 +1,4 @@
-import { randomBytes as nodeRandomBytes } from "node:crypto";
+import { randomInt as nodeRandomInt } from "node:crypto";
 
 export type SchedulingPeriod = "rolling_24h" | "calendar_day";
 export type PackageAutomationPolicy = {
@@ -61,18 +61,35 @@ export function getWindowKey(now: Date, period: SchedulingPeriod) {
   return `day:${now.toISOString().slice(0, 10)}`;
 }
 
-/** Uses bounded cryptographic randomness. The seed is never returned to customers. */
-export function chooseNextEligibleAt(now: Date, minIntervalSeconds: number, maxIntervalSeconds: number, randomize: boolean, randomBytes: (size: number) => Uint8Array = cryptoRandomBytes) {
-  if (minIntervalSeconds < 0 || maxIntervalSeconds < minIntervalSeconds) throw new Error("Invalid scheduling interval range");
-  const span = maxIntervalSeconds - minIntervalSeconds;
-  const offset = randomize && span > 0 ? randomBytes(4).reduce((sum, byte, index) => sum + byte * 256 ** index, 0) % (span + 1) : 0;
-  return new Date(now.getTime() + (minIntervalSeconds + offset) * 1000);
-}
-
-function cryptoRandomBytes(size: number) {
-  const values = new Uint8Array(size);
-  values.set(nodeRandomBytes(size));
-  return values;
+/**
+ * Chooses the next server-owned schedule instant. Node's crypto.randomInt uses
+ * unbiased bounded sampling (unlike taking random bytes modulo the interval).
+ * The optional sampler keeps boundary behavior deterministic in unit tests.
+ */
+export function chooseNextEligibleAt(
+  now: Date,
+  minIntervalSeconds: number,
+  maxIntervalSeconds: number,
+  randomize: boolean,
+  randomIntFn: (minimum: number, maximumExclusive: number) => number = nodeRandomInt,
+) {
+  if (!Number.isFinite(now.getTime()) ||
+      !Number.isSafeInteger(minIntervalSeconds) ||
+      !Number.isSafeInteger(maxIntervalSeconds) ||
+      minIntervalSeconds < 0 ||
+      maxIntervalSeconds < minIntervalSeconds ||
+      maxIntervalSeconds >= 2 ** 48) {
+    throw new Error("Invalid scheduling interval range");
+  }
+  const offset = randomize && maxIntervalSeconds > minIntervalSeconds
+    ? randomIntFn(minIntervalSeconds, maxIntervalSeconds + 1)
+    : minIntervalSeconds;
+  if (!Number.isSafeInteger(offset) || offset < minIntervalSeconds || offset > maxIntervalSeconds) {
+    throw new Error("Scheduling random source returned an out-of-range interval");
+  }
+  const next = new Date(now.getTime() + offset * 1000);
+  if (!Number.isFinite(next.getTime())) throw new Error("Scheduled timestamp is outside the supported date range");
+  return next;
 }
 
 export function remainingRewardAllowance(cap: number, credited: number, reserved: number) {
