@@ -10,6 +10,28 @@ const pendingStart = source.indexOf("export async function listPendingSettlement
 const pendingEnd = source.indexOf("\nexport async function manuallySettleTrade(", pendingStart);
 const pendingImplementation = source.slice(pendingStart, pendingEnd);
 
+
+describe("read-only settlement integrity audit", () => {
+  const start = source.indexOf("export async function listTradeSettlementIntegrityIssues(");
+  const end = source.indexOf("\\nexport async function manuallySettleTrade(", start);
+  const implementation = source.slice(start, end);
+
+  it("surfaces legacy and inconsistent settlement states without mutating financial records", () => {
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(implementation).toContain('eq(tradePositions.settlementOutcome,"legacy_unrecorded")');
+    expect(implementation).toContain('isNull(tradePositions.settlementReference)');
+    expect(implementation).toContain('isNull(tradeSettlementReferenceClaims.tradeId)');
+    expect(implementation).toContain('"pending_trade_missing_reward_reservation"');
+    expect(implementation).toContain('"pending_trade_reservation_not_reserved"');
+    expect(implementation).toContain('"settled_trade_reservation_still_reserved"');
+    expect(implementation).toContain(".filter(row=>row.issues.length>0)");
+    expect(implementation).not.toContain("tx.update(");
+    expect(implementation).not.toContain("tx.insert(");
+    expect(implementation).not.toContain("tx.delete(");
+  });
+});
+
 describe("pending settlement reconciliation visibility", () => {
   it("exposes lifecycle timing and reward-reservation identity for admin reconciliation", () => {
     expect(pendingStart).toBeGreaterThanOrEqual(0);
