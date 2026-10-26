@@ -14427,9 +14427,9 @@
       "companyName": "DJ Jina",
       "logoFile": "logos/DJ Jina.png",
       "domain": "img.logo.devonefc.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "South Korea",
+      "countryAssignmentMethod": "artist-profile-table-music",
+      "countryConfidence": "high"
     },
     {
       "logoId": 1603,
