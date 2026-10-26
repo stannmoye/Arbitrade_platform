@@ -178,8 +178,15 @@ export function classifyTradeRecoveryEvidence(
       if (evidence.platformFeeMinor! > gross && gross > 0) {
         reasons.push("Recorded platform fee exceeds positive realized gross profit.");
       }
-      if (evidence.netProfitMinor !== gross - evidence.platformFeeMinor!) {
-        reasons.push("Recorded net profit does not equal realized gross profit less the recorded fee.");
+      // Two individually safe integers can subtract to an unsafe result; reconcile
+      // money using BigInt so JavaScript rounding cannot hide a ledger discrepancy.
+      const expectedNetProfit = BigInt(gross) - BigInt(evidence.platformFeeMinor!);
+      if (
+        expectedNetProfit > BigInt(Number.MAX_SAFE_INTEGER) ||
+        expectedNetProfit < BigInt(Number.MIN_SAFE_INTEGER) ||
+        BigInt(evidence.netProfitMinor!) !== expectedNetProfit
+      ) {
+        reasons.push("Recorded net profit does not equal realized gross profit less the recorded fee using safe integer arithmetic.");
       }
       if (gross <= 0 && evidence.platformFeeMinor !== 0) {
         reasons.push("Zero-profit and loss outcomes must not incur a positive-profit platform fee.");
@@ -235,8 +242,12 @@ export function classifyTradeRecoveryEvidence(
       } else if (gross >= 0 && lossCount === 0 && lossAmount !== null && lossAmount !== undefined) {
         reasons.push("Realized-loss ledger amount must be absent when no loss entry exists.");
       }
-      if (evidence.rewardCreditedMinor !== Math.max(0, evidence.netProfitMinor)) {
-        reasons.push("Recorded credited reward does not match positive net profit after the stored fee.");
+      const expectedReward = expectedNetProfit > 0n ? expectedNetProfit : 0n;
+      if (
+        expectedReward > BigInt(Number.MAX_SAFE_INTEGER) ||
+        BigInt(evidence.rewardCreditedMinor) !== expectedReward
+      ) {
+        reasons.push("Recorded credited reward does not match positive net profit after the stored fee using safe integer arithmetic.");
       }
     }
     if (evidence.rewardReservationStatus === "reserved") {
