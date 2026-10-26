@@ -45,6 +45,17 @@ describe("manual trade settlement idempotency", () => {
     expect(implementation).toContain("assertExactlyOneAffectedRow(reservationUpdate,\"Trade reward reservation settlement\")");
   });
 
+  it("validates package subscription ownership and reservation package identity before postings", () => {
+    const subscriptionCheck = implementation.indexOf("Trade package subscription identity is inconsistent");
+    const firstLedgerPost = implementation.indexOf("tx.insert(balanceLedger)");
+    expect(subscriptionCheck).toBeGreaterThanOrEqual(0);
+    expect(firstLedgerPost).toBeGreaterThan(subscriptionCheck);
+    expect(implementation).toContain("subscription.userId!==trade.userId");
+    expect(implementation).toContain("Trade package identity cannot be resolved");
+    expect(implementation).toContain("reservation.packageName!==packageName");
+    expect(implementation).toContain("Trade reward reservation package does not match the trade subscription");
+  });
+
   it("claims references in a database-unique table before any financial postings", () => {
     const claim = implementation.indexOf("tx.insert(tradeSettlementReferenceClaims)");
     const principal = implementation.indexOf("tx.insert(balanceLedger)");
