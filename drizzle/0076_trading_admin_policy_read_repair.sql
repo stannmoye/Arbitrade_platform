@@ -58,12 +58,6 @@ WHERE p.`termsVersion`=1
   AND p.`minimumQualifyingBalanceUsdMinor`=10000
   AND p.`durationMonths`=1
   AND p.`opportunitiesPerDay`=6;
---> statement-breakpoint
-UPDATE `packages`
-SET `enabled`=0
-WHERE `name` IN ('Starter','Growth','Pro','Institutional')
-  AND `termsVersion`=1;
---> statement-breakpoint
 INSERT INTO `app_settings` (`settingKey`,`settingValue`)
 VALUES
  ('trading.packageQualification.eligibleCurrencies','["USD"]'),
