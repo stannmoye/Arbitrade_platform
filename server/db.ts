@@ -2857,8 +2857,9 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   if(!Number.isSafeInteger(input.grossProfitMinor)) throw new Error("Actual gross profit or loss must be a signed safe integer");
   const reference=input.settlementReference.trim();
-  if(!reference) throw new Error("A settlement reference is required");
+  if(reference.length<3) throw new Error("Settlement reference must contain at least 3 characters");
   if(reference.length>160) throw new Error("Settlement reference must not exceed 160 characters");
+  if(input.notes!==undefined&&input.notes.trim().length>2000) throw new Error("Settlement notes must not exceed 2000 characters");
   const result=await db.transaction(async tx=>{
     const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,tradeId)).limit(1).for("update"))[0];
     if(!trade) throw new Error("Trade not found");
