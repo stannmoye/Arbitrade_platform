@@ -162,19 +162,45 @@ The catalogue is version-controlled static reference data and must not be bulk-s
 
 **Status (2026-10-26):** the image catalogue is indexed from 1 through 1811 and country-grouped on disk; 1,799 records have country assignments and 12 remain in `Unverified`. This status supersedes the older 950/1,000 image-count wording only for the image-reference collection. It does not certify all companies as publicly listed, all country assignments as headquarters-verified, or any ticker/trading-number mapping.
 
-## 10. Opportunity pop-up and minimized dock
+## 10. Opportunity pop-up, country flags, trade details, and minimized dock
 
-The expanded card appears when an opportunity is generated. Admin controls how many seconds it remains expanded. After that it minimizes into a bottom-attached dock rather than disappearing; countdown/status continues updating and the card remains accessible until terminal status. Handle multiple simultaneous cards without hiding or overwriting trades.
+When an opportunity/trade card opens, it must associate the company identity and all financial/timing fields with the same stable trade and company IDs. The expanded pop-up is controlled by the configured display duration. When minimized, it becomes a fixed bottom-of-viewport dock: it stays visible while the page scrolls up or down and does not scroll away with the page.
 
-Normal card should show:
-- Company name, ticker/abbreviation, logo, flag, headquarters city/country, and exchange where relevant.
-- Trade amount requested and source wallet.
-- Start time, estimated completion time, countdown, and expected payout/settlement time.
-- Estimated gross profit, fee percentage, estimated fee, estimated net profit, and estimated total return (capital + net profit), when supportable.
-- Clear distinction between estimates and confirmed values; final realized values replace estimates after settlement.
-- Current status.
+### Company identity
 
-For an insufficient-balance card, show the explicit missed status, required capital, available eligible balance, shortfall, and reason. The expanded-card timeout is configurable in seconds; the minimized dock stays accessible until the opportunity/trade reaches a terminal status.
+Show these together in the expanded pop-up and minimized card where space allows:
+- Company name.
+- The correct local company logo/image resolved through the stable Logo ID and country-grouped index.
+- Country name and its country flag.
+- Supplied ticker/symbol/code and exchange, with the workbook classification/status visible wherever a non-public or placeholder code is shown.
+- Company Logo ID and trade/opportunity reference where useful for support and audit.
+
+Country flags must be derived from the company's country metadata using a maintained country-to-flag mapping/component. Do not infer a country from the company name, ticker, logo, or exchange. For records assigned to Unverified or with missing/unsupported country metadata, show an explicit “Country unverified” label and a neutral unknown-country indicator rather than a guessed flag. Country/flag is descriptive metadata and does not establish listing or execution eligibility.
+
+### Trade and financial information
+
+The expanded pop-up must display, when the relevant values exist:
+- Amount invested/allocated and the source wallet.
+- Gross profit, platform fee amount, net profit, and total amount returned/credited (principal plus net profit), each as separate values.
+- Profit percentage and platform-fee percentage, with their calculation bases stated clearly (profit percentage is not the fee percentage).
+- Platform fee amount and the fee policy/version used.
+- Trade opening/start timestamp and expected/actual closing timestamp as separately labelled fields.
+- Live countdown to the scheduled/estimated close, plus current trade status.
+- Opportunity/trade ID and any other available, relevant audit/timing details.
+
+Never invent missing trade details, timestamps, returns, fees, percentages, or results to fill the UI. Before settlement, label modelled or configured values as estimates and do not present them as earned profit or confirmed credits. After settlement, replace estimates with the actual values supported by the persisted trade result and ledger. Returned principal, gross profit, platform fee, net profit, and total credited amount must not be conflated. Calculate the default platform fee as 15% of realized positive gross profit only; failed, zero-profit, and loss outcomes do not incur a profit-based fee. If a value is not available, show a clear pending/unavailable label rather than fabricating a number.
+
+### Minimize, maximize, and dismissal lifecycle
+
+- Provide a **Minimize** control on the expanded pop-up. It collapses the card into a fixed bottom dock that remains visible during vertical page scrolling.
+- The minimized dock must keep the company name and flag/logo where practical, current status, countdown, and a **Maximize** control that reopens the expanded pop-up.
+- Minimize/maximize changes presentation only. They must not pause, restart, extend, or otherwise change the server-owned countdown, trade lifecycle, allocation, settlement, or ledger.
+- Keep each card tied to its own trade/opportunity ID. Multiple active cards must not overwrite one another; use a bounded, responsive stack/list when more than one is active.
+- The card must not disappear merely because the user scrolls, minimizes it, changes views, or the expanded-display timeout expires.
+- At countdown zero, refresh/show the authoritative server-side trade status. Dismiss the card completely only when the countdown has finished and the trade/opportunity is in an appropriate terminal state. If it is still pending, retrying, or awaiting settlement, keep it accessible and show that state; a timer reaching zero is not proof of execution, success, or settlement.
+- An insufficient-balance opportunity remains explicitly marked “Missed — insufficient balance” / “Insufficient balance — not allocated” and shows required capital, eligible available balance, shortfall, and reason. It must never be styled as an executed trade or show fictional invested capital/profit.
+
+The expanded-card display duration is configurable in seconds. The minimized dock remains fixed and accessible until the dismissal conditions above are satisfied.
 
 ## 11. Credit/debit animations and notifications
 
@@ -217,7 +243,9 @@ Trading operates as a real-money workflow recorded in the customer's internal le
 - Default 15% fee is calculated from realized positive gross profit only.
 - Failed trades follow retry/carry-forward policy and do not incur a profit fee.
 - Combined daily net earnings ceiling applies across all packages and wallets.
-- Pop-up minimizes after configured seconds and stays accessible in dock until terminal status.
+- Pop-up has a minimize control; minimized dock remains fixed at the viewport bottom while scrolling and exposes the live countdown and maximize control.
+- Pop-up displays company name, local logo, country and correctly mapped flag, supplied symbol/exchange classification, invested amount, profit/total return, opening/closing times, countdown, profit percentage, platform-fee percentage/amount, and relevant trade references without inventing unavailable values.
+- Pop-up dismissal requires countdown completion and an authoritative terminal trade/opportunity status; a zero countdown alone never proves execution or settlement.
 - Green/red notifications correspond to confirmed credits/debits only.
 - The company-image reference collection has 1,811 stable indexed IDs (1–1811), matching index/mapping/country-group data and valid local file paths; 1,799 country assignments are recorded and 12 remain explicitly Unverified.
 - The company pop-up/spotlight uses the 1,811-image reference pool only for informational display; it does not imply a verified listing or trigger trade execution/accounting.
