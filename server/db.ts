@@ -2411,9 +2411,18 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const missedOfferIds=new Set(missedHistory.map((row:any)=>Number(row.offerId)));
   const deliveredToday=await db.select({offerId:opportunityDeliveryEvents.offerId}).from(opportunityDeliveryEvents).where(and(eq(opportunityDeliveryEvents.userId,userId),eq(opportunityDeliveryEvents.quotaDay,quotaDay)));
   const deliveredOfferIds=new Set(deliveredToday.map(row=>Number(row.offerId)));
-  const usedPackageRows=await db.select({packageName:opportunityPopupEvents.packageName}).from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.quotaDay,quotaDay)));
-  const usedByPackage=new Map<string,number>();
-  for(const row of usedPackageRows) usedByPackage.set(row.packageName,(usedByPackage.get(row.packageName)||0)+1);
+  // Package copies are separate entitlements: count allocations against each
+  // subscription's own daily quota instead of pooling copies under package name.
+  const usedQuotaRows=await db.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions
+    WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL
+      AND DATE(confirmedAt)=${quotaDay} AND status<>'cancelled'
+    GROUP BY packageSubscriptionId`) as any;
+  const usedBySubscription=new Map<number,number>();
+  for(const row of (usedQuotaRows?.[0]||[])) usedBySubscription.set(Number(row.packageSubscriptionId),Number(row.used||0));
+  const subscriptionHasQuota=(subscription:any)=>{
+    const dailyQuota=quotaFor(subscription);
+    return dailyQuota>0&&(usedBySubscription.get(Number(subscription.subscriptionId))||0)<dailyQuota;
+  };
   const activePopupRows=await db.select({
     eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
@@ -2440,7 +2449,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       if(remainingQuota<=0) break;
       const offerId=Number(offer.id);
       if(deliveredOfferIds.has(offerId)||activePopupOfferIds.has(offerId)||tradeOfferIds.has(offerId)||missedOfferIds.has(offerId)) continue;
-      const subscription=eligibleSubscriptions.find(item=>(usedByPackage.get(item.packageName)||0)<(quotaByPackage.get(item.packageName)||0));
+      const subscription=eligibleSubscriptions.find(subscriptionHasQuota);
       if(!subscription) break;
       const configured=policyByName.get(subscription.packageName);
       const currencyRow=currencyRows.find((row:any)=>String(row.code).toUpperCase()===String(offer.currency).toUpperCase());
@@ -2454,7 +2463,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         minimumMinor,packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
         expectedRewardBps:terms.rewardBps,calculationMethod:terms.method});
-      usedByPackage.set(subscription.packageName,(usedByPackage.get(subscription.packageName)||0)+1);
+      usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
       remainingQuota--;
     }
   }
@@ -2484,8 +2493,11 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const tradeCandidates=popupRows.filter(row=>row.offerStatus==="open"&&row.closesAt&&new Date(row.closesAt).getTime()>now.getTime()).map(row=>{
     // Never reassign an existing popup to another package when its original
     // package is renamed, disabled, expired, or otherwise no longer eligible.
-    const subscription=eligibleSubscriptions.find(item=>item.packageName===row.packageName);
+    // Existing popups keep their package identity, while the actual entitlement
+    // is selected from same-package copies that still have their own daily quota.
+    const subscription=eligibleSubscriptions.find(item=>item.packageName===row.packageName&&subscriptionHasQuota(item));
     if(!subscription) return null;
+    usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
     const configured=policyByName.get(subscription.packageName);
     const currencyRow=currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase());
     const offerMinimum=Number(row.offerMinimumMinor??row.popupMinimumMinor);
