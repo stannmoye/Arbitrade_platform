@@ -40,7 +40,7 @@ describe("Trade Settings administrator navigation", () => {
       "verificationOversight", "riskWatchlist", "emailCenter", "smtpCenter",
       "suiteTickets", "notificationCenter", "communicationSettings", "signup",
       "policies", "privacyManagement", "settings", "sound", "branding",
-      "appearance", "apis", "audit", "reportsExports",
+      "appearance", "apis", "audit", "reportsExports", "tradeSystemHealth",
     ]);
     for (const item of group!.items) expect(supportedTargets.has(item.target), item.label).toBe(true);
   });
