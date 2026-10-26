@@ -40,6 +40,7 @@ export function validatePackageAutomationPolicy(policy: PackageAutomationPolicy)
     ["maximum pending deliveries", policy.maxPendingDeliveries],
     ["maximum delivery attempts", policy.maxDeliveryAttempts],
     ["maximum trade attempts", policy.maxTradeAttemptsPerDay],
+    ["trade retry delay", policy.tradeRetryDelaySeconds],
     ["maximum successful trades", policy.maxSuccessfulTradesPerDay],
     ["maximum concurrent trades", policy.maxConcurrentActiveTrades],
     ["minimum reward rate", policy.minimumRewardBps],
