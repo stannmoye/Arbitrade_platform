@@ -81,6 +81,15 @@ export function inspectWalletLedgerSnapshot(input: WalletLedgerSnapshot): Wallet
       "inconclusive",
       "At least one database aggregate cannot be represented exactly as a JavaScript safe integer; do not compare or repair these amounts automatically."
     );
+  } else if (
+    walletCount! < 0 || ledgerEntryCount! < 0 || activeTradeCount! < 0 ||
+    pendingPayoutCount! < 0 || knownActiveTradePrincipalMinor! < 0 || pendingPayoutMinor! < 0
+  ) {
+    add(
+      "invalid_negative_reconciliation_input",
+      "inconclusive",
+      "A row count or known locked obligation is negative. The source aggregate is invalid for reconciliation, so dependent comparisons are suppressed until the query or stored data is reviewed."
+    );
   } else {
     if (walletCount === 0 && (ledgerEntryCount! > 0 || activeTradeCount! > 0 || pendingPayoutCount! > 0)) {
       add(
