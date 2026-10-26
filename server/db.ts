@@ -2890,6 +2890,7 @@ export async function listTradeSettlementIntegrityIssues(){
       eq(tradePositions.settlementOutcome,"legacy_unrecorded"),
       and(eq(tradePositions.status,"settled"),isNull(tradePositions.settlementReference)),
       and(eq(tradePositions.status,"settled"),isNull(tradeSettlementReferenceClaims.tradeId)),
+      and(eq(tradePositions.status,"settled"),isNotNull(tradePositions.settlementReference),isNotNull(tradeSettlementReferenceClaims.settlementReference),sql`${tradePositions.settlementReference} <> ${tradeSettlementReferenceClaims.settlementReference}`),
       and(eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),isNull(tradeRewardReservations.id),gt(tradePositions.rewardReservedMinor,0)),
       and(eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),eq(tradeRewardReservations.status,"credited")),
       and(eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),eq(tradeRewardReservations.status,"released")),
