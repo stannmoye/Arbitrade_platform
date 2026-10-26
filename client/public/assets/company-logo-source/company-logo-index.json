@@ -2447,9 +2447,9 @@
       "companyName": "Zend",
       "logoFile": "logos/Zend.png",
       "domain": "img.logo.devzend.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 273,
@@ -2636,9 +2636,9 @@
       "companyName": "Infinix Mobile",
       "logoFile": "logos/Infinix Mobile.png",
       "domain": "img.logo.devinfinixmobility.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "China",
+      "countryAssignmentMethod": "parent-company-headquarters",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 294,
@@ -2753,9 +2753,9 @@
       "companyName": "Shangri",
       "logoFile": "logos/Shangri.png",
       "domain": "img.logo.devshangri-la.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Hong Kong",
+      "countryAssignmentMethod": "brand-headquarters",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 307,
@@ -2906,9 +2906,9 @@
       "companyName": "MSC",
       "logoFile": "logos/MSC.png",
       "domain": "img.logo.devmsc.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Switzerland",
+      "countryAssignmentMethod": "company-headquarters",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 324,
