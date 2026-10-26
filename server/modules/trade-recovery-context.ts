@@ -14,6 +14,8 @@ export type TradeRecoveryCollectorContext = {
   }>;
   wallet?: {
     id: number;
+    userId?: number;
+    currency?: string;
     availableMinor: number;
     lockedMinor: number;
     promotionalMinor: number;
@@ -56,20 +58,36 @@ export function applyRecoveryContextSafety(
     } else if (context.wallet !== null) {
       const walletValues = [
         context.wallet.id,
+        ...(context.wallet.userId === undefined ? [] : [context.wallet.userId]),
         context.wallet.availableMinor,
         context.wallet.lockedMinor,
         context.wallet.promotionalMinor,
         context.wallet.earnedMinor,
       ];
       if (walletValues.some((value) => !Number.isSafeInteger(value) || value < 0) ||
-          context.wallet.id < 1) {
+          context.wallet.id < 1 ||
+          (context.wallet.userId !== undefined && context.wallet.userId < 1)) {
         reasons.push("Wallet snapshot contains negative or unsafe identifier/balance values.");
       }
+      if (context.currency !== undefined && context.wallet.currency !== undefined &&
+          context.wallet.currency !== context.currency) {
+        reasons.push("Wallet snapshot currency does not match the trade currency.");
+      }
     }
+  }
+  const hasReservationEvidence = context.reservation !== undefined ||
+    context.rewardReservationStatus !== undefined;
+  if (hasReservationEvidence && context.reservation === undefined) {
+    reasons.push("Collector supplied reservation metadata without the reservation row snapshot.");
   }
   if (context.reservation !== undefined) {
     if (!Array.isArray(context.reservation) || context.reservation.length !== context.reservationCount) {
       reasons.push("Reservation rows do not match the collector's reservation count.");
+    } else if (context.reservation.length === 0) {
+      reasons.push("No reward reservation row was found for the trade; verify historical reservation policy and settlement evidence.");
+      if (context.rewardReservationStatus !== undefined && context.rewardReservationStatus !== null) {
+        reasons.push("Reservation status is present despite no reservation row being supplied.");
+      }
     } else if (context.reservation.length === 1) {
       const reservation = context.reservation[0];
       if (!Number.isSafeInteger(reservation.id) || reservation.id < 1 ||
