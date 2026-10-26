@@ -1,3 +1,25 @@
+function expectedPlatformFeeMinor(grossProfitMinor: number, feeRateBps: number, roundingMode: string): number {
+  const positiveGross = BigInt(Math.max(0, grossProfitMinor));
+  const numerator = positiveGross * BigInt(feeRateBps);
+  const denominator = 10000n;
+  const quotient = numerator / denominator;
+  const remainder = numerator % denominator;
+  let rounded = quotient;
+  if (remainder !== 0n) {
+    if (roundingMode === "up") rounded = quotient + 1n;
+    else if (roundingMode === "half_up" || roundingMode === "half_even") {
+      const doubled = remainder * 2n;
+      if (doubled > denominator ||
+          (doubled === denominator &&
+            (roundingMode === "half_up" || quotient % 2n === 1n))) {
+        rounded = quotient + 1n;
+      }
+    }
+  }
+  if (rounded > BigInt(Number.MAX_SAFE_INTEGER)) return Number.NaN;
+  return Number(rounded);
+}
+
 export type TradeRecoveryEvidence = {
   tradeStatus: "pending" | "confirmed" | "settled" | "cancelled" | string;
   settlementStatus: string;
@@ -87,7 +109,7 @@ export function classifyTradeRecoveryEvidence(
     (evidence.platformFeeRateBps !== undefined && evidence.platformFeeRateBps < 0) ||
     (evidence.feePolicyVersion !== undefined && evidence.feePolicyVersion < 1) ||
     (evidence.platformFeeRoundingMode !== undefined &&
-      !["half_up", "half_even", "floor", "ceil", "trunc"].includes(evidence.platformFeeRoundingMode))
+      !["half_up", "half_even", "down", "up"].includes(evidence.platformFeeRoundingMode))
   ) {
     return result("MANUAL_FINANCIAL_REVIEW", [
       "Evidence contains invalid or unsafe integer values.",
@@ -171,6 +193,26 @@ export function classifyTradeRecoveryEvidence(
       if (evidence.platformFeeRateBps !== undefined && evidence.platformFeeRateBps > 10000) {
         reasons.push("Stored platform fee rate exceeds 100 percent.");
       }
+      if (evidence.principalMinor <= 0) {
+        reasons.push("Recorded principal must be positive for a settled trade.");
+      }
+      if (gross < -evidence.principalMinor) {
+        reasons.push("Recorded realized loss exceeds the committed principal without an approved leveraged-loss policy.");
+      }
+      if (
+        evidence.platformFeeRateBps !== undefined &&
+        evidence.platformFeeRoundingMode !== undefined &&
+        evidence.platformFeeRateBps <= 10000
+      ) {
+        const expectedFee = expectedPlatformFeeMinor(
+          gross,
+          evidence.platformFeeRateBps,
+          evidence.platformFeeRoundingMode,
+        );
+        if (!Number.isSafeInteger(expectedFee) || fee !== expectedFee) {
+          reasons.push("Recorded platform fee does not match the stored fee rate and rounding policy.");
+        }
+      }
       const expectedGrossCount = gross > 0 ? 1 : 0;
       if (rewardCount !== expectedGrossCount) reasons.push("Gross-profit ledger count does not match the recorded realized outcome.");
       else if (expectedGrossCount === 1 && rewardAmount !== gross) reasons.push("Gross-profit ledger amount does not match realized gross profit.");
@@ -180,6 +222,8 @@ export function classifyTradeRecoveryEvidence(
         reasons.push("Platform-fee ledger count does not match the recorded fee.");
       } else if (fee > 0 && feeAmount !== -fee) {
         reasons.push("Platform-fee ledger amount must be the negative recorded fee.");
+      } else if (fee === 0 && feeCount === 0 && feeAmount !== null && feeAmount !== undefined) {
+        reasons.push("Platform-fee ledger amount must be absent when no fee entry exists.");
       }
       const lossCount = evidence.realizedLossLedgerCount;
       const lossAmount = evidence.realizedLossLedgerAmountMinor;
@@ -187,6 +231,8 @@ export function classifyTradeRecoveryEvidence(
         reasons.push("Realized-loss ledger count does not match the recorded outcome.");
       } else if (gross < 0 && lossAmount !== gross) {
         reasons.push("Realized-loss ledger amount does not match realized gross loss.");
+      } else if (gross >= 0 && lossCount === 0 && lossAmount !== null && lossAmount !== undefined) {
+        reasons.push("Realized-loss ledger amount must be absent when no loss entry exists.");
       }
       if (evidence.rewardCreditedMinor !== Math.max(0, evidence.netProfitMinor)) {
         reasons.push("Recorded credited reward does not match positive net profit after the stored fee.");
