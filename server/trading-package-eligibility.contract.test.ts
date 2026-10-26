@@ -60,7 +60,9 @@ describe("server-side trading package eligibility", () => {
     const start = source.indexOf("async function autoTradeOpenOpportunities(");
     const end = source.indexOf("\nexport async function listCustomerOpportunities(", start);
     const implementation = source.slice(start, end);
-    expect(implementation).toContain("if(/new trading allocations are paused by an administrator/i.test(message)) continue;");
+    expect(implementation).toContain("if(/new trading allocations are paused by an administrator/i.test(message))");
+    expect(implementation).toContain('status:"RETRYING"');
+    expect(implementation).toContain("releaseAttempt:true");
   });
 
 });
