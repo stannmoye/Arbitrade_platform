@@ -80,5 +80,5 @@ VALUES
 ON DUPLICATE KEY UPDATE `settingKey`=VALUES(`settingKey`);
 --> statement-breakpoint
 INSERT INTO `app_settings` (`settingKey`,`settingValue`)
-VALUES ('trading.allocations.paused','{"allocationsPaused":false,"reason":"","updatedAt":null,"updatedBy":null}')
+VALUES ('trading.allocations.paused','{"allocationsPaused":true,"reason":"Safety hold inserted by schema repair; administrator review is required before resuming allocations.","updatedAt":null,"updatedBy":null}')
 ON DUPLICATE KEY UPDATE `settingKey`=VALUES(`settingKey`);
