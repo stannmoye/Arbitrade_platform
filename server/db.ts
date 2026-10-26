@@ -2220,65 +2220,84 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
 }
 
 export async function listCustomerTradingPackages(userId:number) {
-  const db=await getDb(); if(!db) throw new Error("Database is not available");
-  const now=new Date();
-  await db.update(customerPackageSubscriptions).set({status:"expired"}).where(and(
-    eq(customerPackageSubscriptions.userId,userId),eq(customerPackageSubscriptions.status,"active"),
-    isNotNull(customerPackageSubscriptions.expiresAt),lte(customerPackageSubscriptions.expiresAt,now),
-  ));
-  const settingRows=await db.select({settingKey:appSettings.settingKey,settingValue:appSettings.settingValue})
-    .from(appSettings).where(inArray(appSettings.settingKey,[...PACKAGE_ACTIVATION_SETTING_KEYS]));
-  const policy=packageActivationPolicyFromRows(settingRows);
-  const walletRows=await db.select({
-    currency:customerBalances.currency,availableMinor:customerBalances.availableMinor,
-    scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,
-  }).from(customerBalances).innerJoin(currencyRegistry,eq(customerBalances.currency,currencyRegistry.code))
-    .where(and(eq(customerBalances.userId,userId),eq(currencyRegistry.enabled,true),inArray(currencyRegistry.code,policy.eligibleCurrencies)));
-  const qualifyingBalanceUsdMinor=calculateQualifyingBalanceUsdMinor(packageQualificationWalletRows(walletRows),policy);
-  const catalog=await db.select().from(packages).where(and(
-    eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,now)),
-    or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
-  )).orderBy(packages.minimumQualifyingBalanceUsdMinor,packages.id);
-  const owned=await db.select({
-    id:customerPackageSubscriptions.id,packageId:customerPackageSubscriptions.packageId,
-    packageName:packages.name,status:customerPackageSubscriptions.status,
-    activatedAt:customerPackageSubscriptions.activatedAt,startsAt:customerPackageSubscriptions.startsAt,
-    expiresAt:customerPackageSubscriptions.expiresAt,termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
-  }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
-    .where(eq(customerPackageSubscriptions.userId,userId)).orderBy(desc(customerPackageSubscriptions.activatedAt));
-  const latestActivation=owned.reduce<Date|null>((latest,row)=>{
-    const activated=row.activatedAt?new Date(row.activatedAt):null;
-    return activated&&(!latest||activated>latest)?activated:latest;
-  },null);
-  const cooldownEndsAt=latestActivation?new Date(latestActivation.getTime()+policy.cooldownSeconds*1000):null;
-  const cooldownRemainingSeconds=cooldownEndsAt&&cooldownEndsAt>now?Math.ceil((cooldownEndsAt.getTime()-now.getTime())/1000):0;
-  const subscriptions=owned.filter(row=>row.status==="active"&&(!row.expiresAt||new Date(row.expiresAt)>now));
-  return {
-    qualifyingBalanceUsdMinor,qualifyingCurrencies:policy.eligibleCurrencies,
-    combineEligibleWallets:policy.combineEligibleWallets,repeatAllowed:policy.repeatAllowed,
-    maxCopies:policy.maxCopies,repeatRestriction:policy.repeatRestriction,
-    cooldownSeconds:policy.cooldownSeconds,cooldownRemainingSeconds,
-    subscriptions,
-    packages:catalog.map(pkg=>{
-      const history=owned.filter(row=>row.packageId===pkg.id);
-      const ownership=policy.repeatRestriction==="all_history"?history:history.filter(row=>row.status==="active"&&(!row.expiresAt||new Date(row.expiresAt)>now));
-      const activeOwnership=history.filter(row=>row.status==="active"&&(!row.expiresAt||new Date(row.expiresAt)>now));
-      const copyLimitReached=policy.maxCopies>0&&ownership.length>=policy.maxCopies;
-      const duplicateBlocked=!policy.repeatAllowed&&ownership.length>0;
-      const insufficient=qualifyingBalanceUsdMinor<Number(pkg.minimumQualifyingBalanceUsdMinor);
-      const cooling=cooldownRemainingSeconds>0;
-      const blockReason=insufficient?"insufficient_balance":duplicateBlocked?"same_package_owned":copyLimitReached?"max_copies_reached":cooling?"activation_cooldown":null;
-      return {
-        id:pkg.id,name:pkg.name,minimumQualifyingBalanceUsdMinor:Number(pkg.minimumQualifyingBalanceUsdMinor),
-        durationMonths:pkg.durationMonths,opportunitiesPerDay:pkg.opportunitiesPerDay,
-        termsVersion:pkg.termsVersion,enabled:pkg.enabled,qualifyingBalanceUsdMinor,
-        shortfallUsdMinor:Math.max(0,Number(pkg.minimumQualifyingBalanceUsdMinor)-qualifyingBalanceUsdMinor),
-        canActivate:!blockReason,blockReason,activeCopies:activeOwnership.length,
-      };
-    }),
-  };
+  let phase = "database_connection";
+  try {
+    const db=await getDb(); if(!db) throw new Error("Database is not available");
+    const now=new Date();
+    phase = "expire_stale_subscriptions";
+    await db.update(customerPackageSubscriptions).set({status:"expired"}).where(and(
+      eq(customerPackageSubscriptions.userId,userId),eq(customerPackageSubscriptions.status,"active"),
+      isNotNull(customerPackageSubscriptions.expiresAt),lte(customerPackageSubscriptions.expiresAt,now),
+    ));
+    phase = "read_activation_settings";
+    const settingRows=await db.select({settingKey:appSettings.settingKey,settingValue:appSettings.settingValue})
+      .from(appSettings).where(inArray(appSettings.settingKey,[...PACKAGE_ACTIVATION_SETTING_KEYS]));
+    const policy=packageActivationPolicyFromRows(settingRows);
+    phase = "read_qualifying_wallet_balances";
+    const walletRows=await db.select({
+      currency:customerBalances.currency,availableMinor:customerBalances.availableMinor,
+      scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,
+    }).from(customerBalances).innerJoin(currencyRegistry,eq(customerBalances.currency,currencyRegistry.code))
+      .where(and(eq(customerBalances.userId,userId),eq(currencyRegistry.enabled,true),inArray(currencyRegistry.code,policy.eligibleCurrencies)));
+    phase = "calculate_qualifying_balance";
+    const qualifyingBalanceUsdMinor=calculateQualifyingBalanceUsdMinor(packageQualificationWalletRows(walletRows),policy);
+    phase = "read_enabled_package_catalogue";
+    const catalog=await db.select().from(packages).where(and(
+      eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,now)),
+      or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
+    )).orderBy(packages.minimumQualifyingBalanceUsdMinor,packages.id);
+    phase = "read_customer_subscription_history";
+    const owned=await db.select({
+      id:customerPackageSubscriptions.id,packageId:customerPackageSubscriptions.packageId,
+      packageName:packages.name,status:customerPackageSubscriptions.status,
+      activatedAt:customerPackageSubscriptions.activatedAt,startsAt:customerPackageSubscriptions.startsAt,
+      expiresAt:customerPackageSubscriptions.expiresAt,termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
+    }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
+      .where(eq(customerPackageSubscriptions.userId,userId)).orderBy(desc(customerPackageSubscriptions.activatedAt));
+    const latestActivation=owned.reduce<Date|null>((latest,row)=>{
+      const activated=row.activatedAt?new Date(row.activatedAt):null;
+      return activated&&(!latest||activated>latest)?activated:latest;
+    },null);
+    const cooldownEndsAt=latestActivation?new Date(latestActivation.getTime()+policy.cooldownSeconds*1000):null;
+    const cooldownRemainingSeconds=cooldownEndsAt&&cooldownEndsAt>now?Math.ceil((cooldownEndsAt.getTime()-now.getTime())/1000):0;
+    const subscriptions=owned.filter(row=>row.status==="active"&&(!row.expiresAt||new Date(row.expiresAt)>now));
+    return {
+      qualifyingBalanceUsdMinor,qualifyingCurrencies:policy.eligibleCurrencies,
+      combineEligibleWallets:policy.combineEligibleWallets,repeatAllowed:policy.repeatAllowed,
+      maxCopies:policy.maxCopies,repeatRestriction:policy.repeatRestriction,
+      cooldownSeconds:policy.cooldownSeconds,cooldownRemainingSeconds,
+      subscriptions,
+      packages:catalog.map(pkg=>{
+        const history=owned.filter(row=>row.packageId===pkg.id);
+        const ownership=policy.repeatRestriction==="all_history"?history:history.filter(row=>row.status==="active"&&(!row.expiresAt||new Date(row.expiresAt)>now));
+        const activeOwnership=history.filter(row=>row.status==="active"&&(!row.expiresAt||new Date(row.expiresAt)>now));
+        const copyLimitReached=policy.maxCopies>0&&ownership.length>=policy.maxCopies;
+        const duplicateBlocked=!policy.repeatAllowed&&ownership.length>0;
+        const insufficient=qualifyingBalanceUsdMinor<Number(pkg.minimumQualifyingBalanceUsdMinor);
+        const cooling=cooldownRemainingSeconds>0;
+        const blockReason=insufficient?"insufficient_balance":duplicateBlocked?"same_package_owned":copyLimitReached?"max_copies_reached":cooling?"activation_cooldown":null;
+        return {
+          id:pkg.id,name:pkg.name,minimumQualifyingBalanceUsdMinor:Number(pkg.minimumQualifyingBalanceUsdMinor),
+          durationMonths:pkg.durationMonths,opportunitiesPerDay:pkg.opportunitiesPerDay,
+          termsVersion:pkg.termsVersion,enabled:pkg.enabled,qualifyingBalanceUsdMinor,
+          shortfallUsdMinor:Math.max(0,Number(pkg.minimumQualifyingBalanceUsdMinor)-qualifyingBalanceUsdMinor),
+          canActivate:!blockReason,blockReason,activeCopies:activeOwnership.length,
+        };
+      }),
+    };
+  } catch (error) {
+    const cause = error as { name?: unknown; message?: unknown; code?: unknown; errno?: unknown; sqlState?: unknown };
+    console.error("[Trading] Customer package catalogue read failed", {
+      phase,
+      errorName: typeof cause?.name === "string" ? cause.name : "UnknownError",
+      errorCode: typeof cause?.code === "string" || typeof cause?.code === "number" ? cause.code : undefined,
+      errorNumber: typeof cause?.errno === "number" ? cause.errno : undefined,
+      sqlState: typeof cause?.sqlState === "string" ? cause.sqlState : undefined,
+      message: typeof cause?.message === "string" ? cause.message : "Unknown database error",
+    });
+    throw new Error("Unable to load the Trading package catalogue. Please retry; server logs contain the diagnostic phase.");
+  }
 }
-
 export async function activateCustomerTradingPackage(userId:number,input:{packageId:number;idempotencyKey:string}) {
   if(!Number.isSafeInteger(input.packageId)||input.packageId<=0) throw new Error("Trading package is invalid");
   const idempotencyKey=input.idempotencyKey.trim();
