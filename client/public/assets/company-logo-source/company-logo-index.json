@@ -2051,9 +2051,9 @@
       "companyName": "Axe",
       "logoFile": "logos/Axe.png",
       "domain": "img.logo.devaxe.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United Kingdom",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 229,
@@ -3788,9 +3788,9 @@
       "companyName": "CompLex",
       "logoFile": "logos/CompLex.png",
       "domain": "img.logo.devcomplex.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 422,
@@ -8352,9 +8352,9 @@
       "companyName": "PAX",
       "logoFile": "logos/PAX.png",
       "domain": "img.logo.devpaxsite.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 929,
@@ -14184,9 +14184,9 @@
       "companyName": "WOT",
       "logoFile": "logos/WOT.png",
       "domain": "img.logo.devmywot.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Finland",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 1576,
