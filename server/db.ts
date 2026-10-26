@@ -7,6 +7,7 @@ import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEma
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
+import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostings, inspectWalletLedgerSnapshot } from "./modules/wallet-ledger-reconciliation";
 import { addCalendarMonths, calculateQualifyingBalanceUsdMinor, parsePackageQualificationPolicy, type PackageQualificationPolicy, type EligibleWalletBalance } from "./modules/trading-package-activation";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
@@ -2858,59 +2859,268 @@ export async function listPendingSettlements(){
  * cannot be trusted without a human financial review. This function never
  * changes wallet, ledger, trade, or reservation state.
  */
-export async function listTradeSettlementIntegrityIssues(){
-  const db=await getDb(); if(!db) throw new Error("Database is not available");
-  const rows=await db.select({
-    tradeId:tradePositions.id,
-    userId:tradePositions.userId,
-    currency:tradePositions.currency,
-    principalMinor:tradePositions.principalMinor,
-    status:tradePositions.status,
-    settlementStatus:tradePositions.settlementStatus,
-    lifecycleStage:tradePositions.lifecycleStage,
-    settlementOutcome:tradePositions.settlementOutcome,
-    settlementReference:tradePositions.settlementReference,
-    realizedGrossProfitMinor:tradePositions.realizedGrossProfitMinor,
-    platformFeeMinor:tradePositions.platformFeeMinor,
-    netProfitMinor:tradePositions.netProfitMinor,
-    rewardReservedMinor:tradePositions.rewardReservedMinor,
-    rewardCreditedMinor:tradePositions.rewardCreditedMinor,
-    settledAt:tradePositions.settledAt,
-    reservationId:tradeRewardReservations.id,
-    reservationUserId:tradeRewardReservations.userId,
-    reservationCurrency:tradeRewardReservations.currency,
-    reservationAmountMinor:tradeRewardReservations.reservedMinor,
-    reservationStatus:tradeRewardReservations.status,
-    claimReference:tradeSettlementReferenceClaims.settlementReference,
-    claimTradeId:tradeSettlementReferenceClaims.tradeId,
+export async function listTradeSettlementIntegrityIssues(input?: { limit?: number; beforeTradeId?: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const safeLimit = Math.max(1, Math.min(1000, Number.isSafeInteger(input?.limit) ? Number(input?.limit) : 250));
+  const statusIssues = or(
+    and(eq(tradePositions.status, "settled"), eq(tradePositions.settlementOutcome, "legacy_unrecorded")),
+    and(eq(tradePositions.status, "settled"), isNull(tradePositions.settlementReference)),
+    and(eq(tradePositions.status, "settled"), isNull(tradeSettlementReferenceClaims.tradeId)),
+    and(eq(tradePositions.status, "settled"), isNotNull(tradePositions.settlementReference), isNotNull(tradeSettlementReferenceClaims.settlementReference), sql`${tradePositions.settlementReference} <> ${tradeSettlementReferenceClaims.settlementReference}`),
+    and(eq(tradePositions.status, "settled"), sql`${tradePositions.settlementStatus} <> 'completed'`),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "pending"), isNull(tradeRewardReservations.id), gt(tradePositions.rewardReservedMinor, 0)),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "pending"), eq(tradeRewardReservations.status, "credited")),
+    and(eq(tradePositions.status, "confirmed"), eq(tradePositions.settlementStatus, "pending"), eq(tradeRewardReservations.status, "released")),
+    and(eq(tradePositions.status, "settled"), eq(tradePositions.settlementStatus, "completed"), eq(tradeRewardReservations.status, "reserved")),
+    and(isNotNull(tradeRewardReservations.id), sql`(${tradeRewardReservations.userId} <> ${tradePositions.userId} OR ${tradeRewardReservations.currency} <> ${tradePositions.currency} OR ${tradeRewardReservations.reservedMinor} <> ${tradePositions.rewardReservedMinor})`)
+  );
+  const whereClause = input?.beforeTradeId
+    ? and(statusIssues, lt(tradePositions.id, input.beforeTradeId))
+    : statusIssues;
+  const rows = await db.select({
+    tradeId: tradePositions.id,
+    userId: tradePositions.userId,
+    currency: tradePositions.currency,
+    principalMinor: tradePositions.principalMinor,
+    status: tradePositions.status,
+    settlementStatus: tradePositions.settlementStatus,
+    lifecycleStage: tradePositions.lifecycleStage,
+    settlementOutcome: tradePositions.settlementOutcome,
+    settlementReference: tradePositions.settlementReference,
+    realizedGrossProfitMinor: tradePositions.realizedGrossProfitMinor,
+    platformFeeMinor: tradePositions.platformFeeMinor,
+    netProfitMinor: tradePositions.netProfitMinor,
+    rewardReservedMinor: tradePositions.rewardReservedMinor,
+    rewardCreditedMinor: tradePositions.rewardCreditedMinor,
+    settledAt: tradePositions.settledAt,
+    reservationId: tradeRewardReservations.id,
+    reservationUserId: tradeRewardReservations.userId,
+    reservationCurrency: tradeRewardReservations.currency,
+    reservationAmountMinor: tradeRewardReservations.reservedMinor,
+    reservationStatus: tradeRewardReservations.status,
+    claimReference: tradeSettlementReferenceClaims.settlementReference,
+    claimTradeId: tradeSettlementReferenceClaims.tradeId,
   }).from(tradePositions)
-    .leftJoin(tradeRewardReservations,eq(tradeRewardReservations.tradeId,tradePositions.id))
-    .leftJoin(tradeSettlementReferenceClaims,eq(tradeSettlementReferenceClaims.tradeId,tradePositions.id))
-    .where(or(
-      eq(tradePositions.settlementOutcome,"legacy_unrecorded"),
-      and(eq(tradePositions.status,"settled"),isNull(tradePositions.settlementReference)),
-      and(eq(tradePositions.status,"settled"),isNull(tradeSettlementReferenceClaims.tradeId)),
-      and(eq(tradePositions.status,"settled"),isNotNull(tradePositions.settlementReference),isNotNull(tradeSettlementReferenceClaims.settlementReference),sql`${tradePositions.settlementReference} <> ${tradeSettlementReferenceClaims.settlementReference}`),
-      and(eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),isNull(tradeRewardReservations.id),gt(tradePositions.rewardReservedMinor,0)),
-      and(eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),eq(tradeRewardReservations.status,"credited")),
-      and(eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),eq(tradeRewardReservations.status,"released")),
-      and(eq(tradePositions.status,"settled"),eq(tradePositions.settlementStatus,"completed"),eq(tradeRewardReservations.status,"reserved"))
-    ))
+    .leftJoin(tradeRewardReservations, eq(tradeRewardReservations.tradeId, tradePositions.id))
+    .leftJoin(tradeSettlementReferenceClaims, eq(tradeSettlementReferenceClaims.tradeId, tradePositions.id))
+    .where(whereClause)
     .orderBy(desc(tradePositions.id))
-    .limit(1000);
+    .limit(safeLimit + 1);
 
-  return rows.map(row=>{
-    const issues:string[]=[];
-    if(row.settlementOutcome==="legacy_unrecorded") issues.push("historical_settlement_without_recorded_result");
-    if(row.status==="settled"&&!row.settlementReference) issues.push("settled_trade_missing_reference");
-    if(row.status==="settled"&&!row.claimTradeId) issues.push("settled_trade_missing_reference_claim");
-    if(row.claimTradeId!==null&&row.claimTradeId!==undefined&&row.claimTradeId!==row.tradeId) issues.push("settlement_reference_claim_trade_mismatch");
-    if(row.claimReference&&row.settlementReference&&row.claimReference!==row.settlementReference) issues.push("settlement_reference_claim_value_mismatch");
-    if(row.status==="confirmed"&&row.settlementStatus==="pending"&&!row.reservationId&&Number(row.rewardReservedMinor)>0) issues.push("pending_trade_missing_reward_reservation");
-    if(row.status==="confirmed"&&row.settlementStatus==="pending"&&(row.reservationStatus==="credited"||row.reservationStatus==="released")) issues.push("pending_trade_reservation_not_reserved");
-    if(row.status==="settled"&&row.settlementStatus==="completed"&&row.reservationStatus==="reserved") issues.push("settled_trade_reservation_still_reserved");
-    return {...row,issues};
-  }).filter(row=>row.issues.length>0);
+  const hasMore = rows.length > safeLimit;
+  const pageRows = rows.slice(0, safeLimit);
+  const issues = pageRows.map((row) => {
+    const flags: string[] = [];
+    if (row.status === "settled" && row.settlementOutcome === "legacy_unrecorded") flags.push("historical_settlement_without_recorded_result");
+    if (row.status === "settled" && !row.settlementReference) flags.push("settled_trade_missing_reference");
+    if (row.status === "settled" && !row.claimTradeId) flags.push("settled_trade_missing_reference_claim");
+    if (row.claimTradeId !== null && row.claimTradeId !== undefined && row.claimTradeId !== row.tradeId) flags.push("settlement_reference_claim_trade_mismatch");
+    if (row.claimReference && row.settlementReference && row.claimReference !== row.settlementReference) flags.push("settlement_reference_claim_value_mismatch");
+    if (row.status === "confirmed" && row.settlementStatus === "pending" && !row.reservationId && Number(row.rewardReservedMinor) > 0) flags.push("pending_trade_missing_reward_reservation");
+    if (row.status === "confirmed" && row.settlementStatus === "pending" && (row.reservationStatus === "credited" || row.reservationStatus === "released")) flags.push("pending_trade_reservation_not_reserved");
+    if (row.status === "settled" && row.settlementStatus === "completed" && row.reservationStatus === "reserved") flags.push("settled_trade_reservation_still_reserved");
+    if (row.reservationId && (row.reservationUserId !== row.userId || row.reservationCurrency !== row.currency || Number(row.reservationAmountMinor) !== Number(row.rewardReservedMinor))) flags.push("trade_reward_reservation_identity_or_amount_mismatch");
+    if (row.status === "settled" && row.settlementStatus !== "completed") flags.push("settled_trade_status_not_completed");
+    return { ...row, issues: flags };
+  }).filter((row) => row.issues.length > 0);
+
+  return {
+    issues,
+    scan: {
+      limit: safeLimit,
+      candidatesExamined: pageRows.length,
+      hasMore,
+      nextBeforeTradeId: hasMore && pageRows.length ? Number(pageRows[pageRows.length - 1].tradeId) : null,
+    },
+  };
+}
+
+export async function listWalletLedgerReconciliation(input?: {
+  limit?: number;
+  afterUserId?: number;
+  afterCurrency?: string;
+  beforeTradeId?: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const safeLimit = Math.max(1, Math.min(1000, Number.isSafeInteger(input?.limit) ? Number(input?.limit) : 250));
+  if ((input?.afterUserId === undefined) !== (input?.afterCurrency === undefined)) {
+    throw new Error("Wallet reconciliation cursor requires both customer ID and currency");
+  }
+  const walletCursor = input?.afterUserId === undefined ? sql`1=1` : or(
+    gt(customerBalances.userId, input.afterUserId),
+    and(eq(customerBalances.userId, input.afterUserId), gt(customerBalances.currency, input.afterCurrency!))
+  );
+  const ledgerCursor = input?.afterUserId === undefined ? sql`1=1` : or(
+    gt(balanceLedger.userId, input.afterUserId),
+    and(eq(balanceLedger.userId, input.afterUserId), gt(balanceLedger.currency, input.afterCurrency!))
+  );
+  const tradeCursor = input?.afterUserId === undefined ? sql`1=1` : or(
+    gt(tradePositions.userId, input.afterUserId),
+    and(eq(tradePositions.userId, input.afterUserId), gt(tradePositions.currency, input.afterCurrency!))
+  );
+  const payoutCursor = input?.afterUserId === undefined ? sql`1=1` : or(
+    gt(payoutRequests.userId, input.afterUserId),
+    and(eq(payoutRequests.userId, input.afterUserId), gt(payoutRequests.currency, input.afterCurrency!))
+  );
+
+  const [walletGroups, ledgerGroups, tradeGroups, payoutGroups] = await Promise.all([
+    db.select({
+      userId: customerBalances.userId,
+      currency: customerBalances.currency,
+      walletCount: count(),
+      availableMinor: sql<string>`COALESCE(SUM(${customerBalances.availableMinor}), 0)`,
+      lockedMinor: sql<string>`COALESCE(SUM(${customerBalances.lockedMinor}), 0)`,
+    }).from(customerBalances).where(walletCursor)
+      .groupBy(customerBalances.userId, customerBalances.currency)
+      .orderBy(customerBalances.userId, customerBalances.currency).limit(safeLimit + 1),
+    db.select({
+      userId: balanceLedger.userId,
+      currency: balanceLedger.currency,
+      ledgerEntryCount: count(),
+      ledgerNetMinor: sql<string>`COALESCE(SUM(${balanceLedger.amountMinor}), 0)`,
+    }).from(balanceLedger).where(ledgerCursor)
+      .groupBy(balanceLedger.userId, balanceLedger.currency)
+      .orderBy(balanceLedger.userId, balanceLedger.currency).limit(safeLimit + 1),
+    db.select({
+      userId: tradePositions.userId,
+      currency: tradePositions.currency,
+      activeTradeCount: count(),
+      knownActiveTradePrincipalMinor: sql<string>`COALESCE(SUM(${tradePositions.principalMinor}), 0)`,
+    }).from(tradePositions).where(and(
+      tradeCursor,
+      inArray(tradePositions.status, ["pending", "confirmed"]),
+      eq(tradePositions.settlementStatus, "pending")
+    )).groupBy(tradePositions.userId, tradePositions.currency)
+      .orderBy(tradePositions.userId, tradePositions.currency).limit(safeLimit + 1),
+    db.select({
+      userId: payoutRequests.userId,
+      currency: payoutRequests.currency,
+      pendingPayoutCount: count(),
+      pendingPayoutMinor: sql<string>`COALESCE(SUM(${payoutRequests.amountMinor}), 0)`,
+    }).from(payoutRequests).where(and(payoutCursor, eq(payoutRequests.status, "pending")))
+      .groupBy(payoutRequests.userId, payoutRequests.currency)
+      .orderBy(payoutRequests.userId, payoutRequests.currency).limit(safeLimit + 1),
+  ]);
+
+  const keyFor = (userId: number, currency: string) => String(userId) + "\u0000" + currency;
+  const candidateKeys = new Map<string, { userId: number; currency: string }>();
+  for (const row of [...walletGroups, ...ledgerGroups, ...tradeGroups, ...payoutGroups]) {
+    const userId = Number(row.userId);
+    const currency = String(row.currency);
+    candidateKeys.set(keyFor(userId, currency), { userId, currency });
+  }
+  const allGroups = Array.from(candidateKeys.values()).sort((a, b) => a.userId - b.userId || a.currency.localeCompare(b.currency));
+  const groups = allGroups.slice(0, safeLimit);
+  const hasMoreWalletGroups = allGroups.length > safeLimit;
+  const walletMap = new Map(walletGroups.map((row) => [keyFor(Number(row.userId), String(row.currency)), row]));
+  const ledgerMap = new Map(ledgerGroups.map((row) => [keyFor(Number(row.userId), String(row.currency)), row]));
+  const tradeMap = new Map(tradeGroups.map((row) => [keyFor(Number(row.userId), String(row.currency)), row]));
+  const payoutMap = new Map(payoutGroups.map((row) => [keyFor(Number(row.userId), String(row.currency)), row]));
+
+  const walletIssues = groups.map((group) => {
+    const key = keyFor(group.userId, group.currency);
+    const wallet = walletMap.get(key);
+    const ledger = ledgerMap.get(key);
+    const trades = tradeMap.get(key);
+    const payouts = payoutMap.get(key);
+    return inspectWalletLedgerSnapshot({
+      userId: group.userId,
+      currency: group.currency,
+      walletCount: wallet?.walletCount ?? 0,
+      availableMinor: wallet?.availableMinor ?? 0,
+      lockedMinor: wallet?.lockedMinor ?? 0,
+      ledgerEntryCount: ledger?.ledgerEntryCount ?? 0,
+      ledgerNetMinor: ledger?.ledgerNetMinor ?? 0,
+      activeTradeCount: trades?.activeTradeCount ?? 0,
+      knownActiveTradePrincipalMinor: trades?.knownActiveTradePrincipalMinor ?? 0,
+      pendingPayoutCount: payouts?.pendingPayoutCount ?? 0,
+      pendingPayoutMinor: payouts?.pendingPayoutMinor ?? 0,
+    });
+  }).filter((row) => row.issues.length > 0);
+
+  const tradeWhere = input?.beforeTradeId
+    ? and(eq(tradePositions.status, "settled"), lt(tradePositions.id, input.beforeTradeId))
+    : eq(tradePositions.status, "settled");
+  const candidateTrades = await db.select({
+    tradeId: tradePositions.id,
+    userId: tradePositions.userId,
+    currency: tradePositions.currency,
+    principalMinor: tradePositions.principalMinor,
+    status: tradePositions.status,
+    settlementStatus: tradePositions.settlementStatus,
+    settlementOutcome: tradePositions.settlementOutcome,
+    settlementReference: tradePositions.settlementReference,
+    realizedGrossProfitMinor: tradePositions.realizedGrossProfitMinor,
+    platformFeeMinor: tradePositions.platformFeeMinor,
+    netProfitMinor: tradePositions.netProfitMinor,
+    rewardCreditedMinor: tradePositions.rewardCreditedMinor,
+    platformFeeRateBps: tradePositions.platformFeeRateBps,
+    platformFeeRoundingMode: tradePositions.platformFeeRoundingMode,
+    feePolicyVersion: tradePositions.feePolicyVersion,
+  }).from(tradePositions).where(tradeWhere)
+    .orderBy(desc(tradePositions.id)).limit(safeLimit + 1);
+  const hasMoreSettledTrades = candidateTrades.length > safeLimit;
+  const trades = candidateTrades.slice(0, safeLimit);
+  const candidateReferences = buildSettlementLedgerCandidateReferences(trades.map((trade) => ({
+    tradeId: Number(trade.tradeId),
+    settlementReference: trade.settlementReference,
+  })));
+  const ledgerEntryLimit = Math.min(10000, safeLimit * 16);
+  const candidateLedgerRows = candidateReferences.length
+    ? await db.select({
+        id: balanceLedger.id,
+        userId: balanceLedger.userId,
+        currency: balanceLedger.currency,
+        amountMinor: balanceLedger.amountMinor,
+        entryType: balanceLedger.entryType,
+        reference: balanceLedger.reference,
+      }).from(balanceLedger).where(inArray(balanceLedger.reference, candidateReferences))
+        .orderBy(balanceLedger.id).limit(ledgerEntryLimit + 1)
+    : [];
+  const ledgerEntriesTruncated = candidateLedgerRows.length > ledgerEntryLimit;
+  const ledgerRows = candidateLedgerRows.slice(0, ledgerEntryLimit);
+  const settlementIssues = trades.map((trade) => inspectSettlementLedgerPostings({
+    ...trade,
+    tradeId: Number(trade.tradeId),
+    userId: Number(trade.userId),
+    principalMinor: trade.principalMinor,
+    realizedGrossProfitMinor: trade.realizedGrossProfitMinor,
+    platformFeeMinor: trade.platformFeeMinor,
+    netProfitMinor: trade.netProfitMinor,
+    rewardCreditedMinor: trade.rewardCreditedMinor,
+    platformFeeRateBps: trade.platformFeeRateBps,
+    feePolicyVersion: trade.feePolicyVersion,
+    platformFeeRoundingMode: trade.platformFeeRoundingMode,
+  }, ledgerRows as Array<{
+    id: number; userId: number; currency: string; amountMinor: number | string;
+    entryType: string; reference: string;
+  }>, !ledgerEntriesTruncated)).filter((row) => row.issues.length > 0);
+
+  const lastWalletGroup = groups[groups.length - 1];
+  const lastSettlementTrade = trades[trades.length - 1];
+  return {
+    generatedAt: new Date().toISOString(),
+    walletIssues,
+    walletScan: {
+      limit: safeLimit,
+      groupsExamined: groups.length,
+      hasMore: hasMoreWalletGroups,
+      nextCursor: hasMoreWalletGroups && lastWalletGroup
+        ? { afterUserId: lastWalletGroup.userId, afterCurrency: lastWalletGroup.currency }
+        : null,
+    },
+    settlementIssues,
+    settlementScan: {
+      limit: safeLimit,
+      tradesExamined: trades.length,
+      hasMore: hasMoreSettledTrades,
+      nextBeforeTradeId: hasMoreSettledTrades && lastSettlementTrade ? Number(lastSettlementTrade.tradeId) : null,
+      ledgerEntriesExamined: ledgerRows.length,
+      ledgerEntriesTruncated,
+    },
+  };
 }
 
 export async function manuallySettleTrade(tradeId:number, adminId:number, input:{grossProfitMinor:number; settlementReference:string; notes?:string}){
