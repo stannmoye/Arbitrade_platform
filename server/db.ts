@@ -2804,12 +2804,20 @@ export async function listPendingSettlements(){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   return db.select({
     id:tradePositions.id, userId:tradePositions.userId, offerId:tradePositions.offerId,
+    packageSubscriptionId:tradePositions.packageSubscriptionId,
     currency:tradePositions.currency, principalMinor:tradePositions.principalMinor,
     expectedRewardMinor:tradePositions.expectedRewardMinor, rewardReservedMinor:tradePositions.rewardReservedMinor,
     status:tradePositions.status, settlementStatus:tradePositions.settlementStatus,
-    confirmedAt:tradePositions.confirmedAt, settlesAt:tradePositions.settlesAt,
+    lifecycleStage:tradePositions.lifecycleStage,
+    confirmedAt:tradePositions.confirmedAt, settlesAt:tradePositions.settlesAt, creditAt:tradePositions.creditAt,
+    reservationStatus:tradeRewardReservations.status,
+    reservationPackageName:tradeRewardReservations.packageName,
+    reservationAmountMinor:tradeRewardReservations.reservedMinor,
     symbol:opportunityOffers.symbol, packageName:users.packageName, customerName:users.name, customerEmail:users.email
-  }).from(tradePositions).leftJoin(opportunityOffers,eq(opportunityOffers.id,tradePositions.offerId)).leftJoin(users,eq(users.id,tradePositions.userId))
+  }).from(tradePositions)
+    .leftJoin(opportunityOffers,eq(opportunityOffers.id,tradePositions.offerId))
+    .leftJoin(users,eq(users.id,tradePositions.userId))
+    .leftJoin(tradeRewardReservations,eq(tradeRewardReservations.tradeId,tradePositions.id))
     .where(and(eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"))).orderBy(desc(tradePositions.confirmedAt));
 }
 export async function manuallySettleTrade(tradeId:number, adminId:number, input:{grossProfitMinor:number; settlementReference:string; notes?:string}){
