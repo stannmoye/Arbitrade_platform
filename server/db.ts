@@ -2367,7 +2367,8 @@ async function claimOpportunityExecutionAttempt(userId:number, offer:any, maxAtt
       executionStatus:opportunityPopupEvents.executionStatus,executionAttemptCount:opportunityPopupEvents.executionAttemptCount,
       executionRetryAfter:opportunityPopupEvents.executionRetryAfter,executionRetryDay:opportunityPopupEvents.executionRetryDay,
     }).from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.id,Number(offer.deliveryEventId)),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,Number(offer.offerId)))).limit(1).for("update"))[0];
-    if(!event||event.tradeId||["TRADED","SETTLED"].includes(String(event.eventStatus))||["FAILED","SUCCEEDED"].includes(String(event.executionStatus))) return {claimed:false,reason:"terminal"};
+    if(!event||event.tradeId||["TRADED","SETTLED"].includes(String(event.eventStatus))||String(event.executionStatus)==="SUCCEEDED") return {claimed:false,reason:"terminal"};
+    if(String(event.executionStatus)==="FAILED") return {claimed:false,reason:"failed",errorCode:String((event as any).executionLastErrorCode||"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED")};
     const now=new Date();
     const day=now.toISOString().slice(0,10);
     const attempts=Number(event.executionAttemptCount||0);
@@ -2425,8 +2426,8 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
     const maxAttempts=Number.isSafeInteger(Number(offer.maxTradeAttemptsPerDay))?Number(offer.maxTradeAttemptsPerDay):5;
     const claim=await claimOpportunityExecutionAttempt(userId,offer,maxAttempts);
     if(!claim.claimed){
-      if(claim.reason==="retry-window-expired"||claim.reason==="attempts-exhausted"){
-        const reason=claim.reason==="retry-window-expired"?"TEMPORARY_EXECUTION_RETRY_WINDOW_EXPIRED":"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED";
+      if(claim.reason==="retry-window-expired"||claim.reason==="attempts-exhausted"||claim.reason==="failed"){
+        const reason=claim.reason==="retry-window-expired"?"TEMPORARY_EXECUTION_RETRY_WINDOW_EXPIRED":claim.reason==="failed"?String((claim as any).errorCode||"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED"):"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED";
         await markMissedOpportunity(userId,offer,requestedAmount,reason);
         missedOfferIds.add(Number(offer.id));
       }
