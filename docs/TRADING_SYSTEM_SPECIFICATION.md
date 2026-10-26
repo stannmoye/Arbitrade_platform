@@ -134,7 +134,15 @@ The image catalogue is **not** a verified tradable-securities list. Many image r
 
 ### Separate company-symbol and trading-number work
 
-Ticker/symbol, exchange, security identifier, listing status, and any platform-specific trading number are a separate data-enrichment phase and are **not implied by logo IDs**. Do not guess symbols from names, map a company to an exchange without evidence, or treat an internal logo ID as a ticker, ISIN, CIK, exchange code, or order identifier. Before a company can be represented as a tradable security, verify the legal issuer/security and its primary listing against authoritative exchange/regulator sources, retain source URL and verification timestamp, and model company identity separately from each listed security. Where a company is not publicly listed or cannot be verified, it may remain in the informational image pool but must not be promoted to a tradable listing.
+Ticker/symbol, exchange, security identifier, listing status, and any platform-specific trading number are a separate data-enrichment phase and are **not implied by logo IDs**.
+
+#### Imported ticker-candidate snapshot
+
+The supplied `company_trading_symbols.xlsx` has been imported into `server/data/company-trading-symbol-candidates-1811.json.gz.b64` and is loaded by `server/modules/company-catalogue-reference.ts`. Records are joined to the canonical image catalogue by sequential `logoId` (1–1811), not by fuzzy company-name matching. The snapshot contains 1,811 rows: 814 marked `Public`, 637 marked `PLACEHOLDER - invented code, not a real ticker`, 265 marked `Uses listed parent's ticker`, and 95 marked `Historic ticker`.
+
+Only the 814 `Public` rows expose candidate ticker and exchange fields; all remain **unverified candidates**, not verified securities. Invented placeholders, parent-brand ticker references, and historic tickers are deliberately withheld from active ticker fields. The workbook says its information is based on knowledge to mid-2026, includes ambiguous-name guesses, and has no authoritative source URL per row. Therefore every company still has `listingStatus: "unverified"`, `eligibleForVerifiedTradeRotation: false`, and `requiresManualVerification: true`. Symbol search is informational only and must never authorize orders, live quotes, or trade execution.
+
+Before enabling any candidate for a live market-data or trading path, independently verify the legal issuer and exact instrument, primary exchange/MIC, currency, active listing status, approved market-data provider identifier, authoritative source URL, and verification timestamp. A candidate's status text or ticker string is not evidence that it is currently tradable. Do not guess symbols from names, map a company to an exchange without evidence, or treat an internal logo ID as a ticker, ISIN, CIK, exchange code, or order identifier. Before a company can be represented as a tradable security, verify the legal issuer/security and its primary listing against authoritative exchange/regulator sources, retain source URL and verification timestamp, and model company identity separately from each listed security. Where a company is not publicly listed or cannot be verified, it may remain in the informational image pool but must not be promoted to a tradable listing.
 
 ### Validation and maintenance requirements
 
