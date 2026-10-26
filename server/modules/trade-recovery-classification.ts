@@ -241,8 +241,17 @@ export function classifyTradeRecoveryEvidence(
     if (evidence.rewardReservationStatus === "reserved") {
       reasons.push("Reward reservation remains reserved after settlement.");
     }
-  } else if (evidence.rewardLedgerCount !== 0) {
-    reasons.push("Reward ledger entry exists although the trade records no credited reward.");
+  } else {
+    const expectedLegacyRewardCount = evidence.rewardCreditedMinor > 0 ? 1 : 0;
+    if (evidence.rewardLedgerCount !== expectedLegacyRewardCount) {
+      reasons.push("Legacy reward ledger count does not match the recorded credited reward.");
+    } else if (expectedLegacyRewardCount === 1 &&
+        evidence.rewardLedgerAmountMinor !== evidence.rewardCreditedMinor) {
+      reasons.push("Legacy reward ledger amount does not match the recorded credited reward.");
+    } else if (expectedLegacyRewardCount === 0 &&
+        evidence.rewardLedgerAmountMinor !== null) {
+      reasons.push("Legacy reward ledger amount must be absent when no reward entry exists.");
+    }
   }
 
   if (evidence.rewardReservationStatus === "reserved") {
