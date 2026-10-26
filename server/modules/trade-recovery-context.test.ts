@@ -98,6 +98,16 @@ describe("trade recovery collector context safety", () => {
     expect(result.plannedMutations).toEqual([]);
   });
 
+  it("requires reservation rows when collector reservation metadata is supplied", () => {
+    const result = applyRecoveryContextSafety(plan(), {
+      ...healthyContext,
+      rewardReservationStatus: null,
+    });
+    expect(result.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(result.reasons.join(" ")).toContain("without the reservation row snapshot");
+    expect(result.plannedMutations).toEqual([]);
+  });
+
   it("escalates ledger rows whose user or currency does not match", () => {
     const result = applyRecoveryContextSafety(plan(), {
       ...healthyContext,
