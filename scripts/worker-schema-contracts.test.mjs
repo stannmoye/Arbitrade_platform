@@ -109,12 +109,13 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(last.tag).toBe("0074_trade_execution_retries");
-    expect(journal.entries.slice(-4).map((entry) => entry.tag)).toEqual([
+    expect(last.tag).toBe("0075_trade_retry_delay_policy");
+    expect(journal.entries.slice(-5).map((entry) => entry.tag)).toEqual([
       "0071_trade_allocation_pause",
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
       "0074_trade_execution_retries",
+      "0075_trade_retry_delay_policy",
     ]);
     expect(last.idx).toBe(previous.idx + 1);
     expect(last.when).toBeGreaterThan(previous.when);
