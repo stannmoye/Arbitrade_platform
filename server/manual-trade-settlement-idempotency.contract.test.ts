@@ -25,6 +25,12 @@ describe("pending settlement reconciliation visibility", () => {
 });
 
 describe("manual trade settlement idempotency", () => {
+  it("rejects manual settlement before the trade due timestamp", () => {
+    expect(implementation).toContain("const settlementDueAt=trade.creditAt||trade.settlesAt");
+    expect(implementation).toContain("Trade is not yet due for settlement confirmation");
+    expect(implementation).toContain("new Date(settlementDueAt).getTime()>Date.now()");
+  });
+
   it("locks the trade and treats a matching completed reference/result as a replay", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
