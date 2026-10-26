@@ -3,32 +3,35 @@ import { z } from "zod";
 import { buildTradeRecoveryPlan } from "../server/modules/trade-recovery-planner";
 import { applyRecoveryContextSafety } from "../server/modules/trade-recovery-context";
 
+const safeInteger = z.number().refine(Number.isSafeInteger, "Expected a safe integer.");
+const nonNegativeSafeInteger = safeInteger.refine((value) => value >= 0, "Expected a non-negative safe integer.");
+
 const evidenceSchema = z.object({
   tradeStatus: z.string(),
   settlementStatus: z.string(),
-  principalMinor: z.number(),
-  rewardCreditedMinor: z.number(),
+  principalMinor: nonNegativeSafeInteger,
+  rewardCreditedMinor: nonNegativeSafeInteger,
   settlementReference: z.string().nullable(),
-  principalLedgerCount: z.number(),
-  principalLedgerAmountMinor: z.number().nullable(),
+  principalLedgerCount: nonNegativeSafeInteger,
+  principalLedgerAmountMinor: nonNegativeSafeInteger.nullable(),
   // Accept the original planner fixture and the collector's current output.
-  rewardLedgerCount: z.number().optional(),
-  rewardLedgerAmountMinor: z.number().nullable().optional(),
-  grossProfitLedgerCount: z.number().optional(),
-  grossProfitLedgerAmountMinor: z.number().nullable().optional(),
-  realizedGrossProfitMinor: z.number().optional(),
-  platformFeeMinor: z.number().optional(),
-  netProfitMinor: z.number().optional(),
-  platformFeeLedgerCount: z.number().optional(),
-  platformFeeLedgerAmountMinor: z.number().nullable().optional(),
-  realizedLossLedgerCount: z.number().optional(),
-  realizedLossLedgerAmountMinor: z.number().nullable().optional(),
+  rewardLedgerCount: nonNegativeSafeInteger.optional(),
+  rewardLedgerAmountMinor: nonNegativeSafeInteger.nullable().optional(),
+  grossProfitLedgerCount: nonNegativeSafeInteger.optional(),
+  grossProfitLedgerAmountMinor: safeInteger.nullable().optional(),
+  realizedGrossProfitMinor: safeInteger.optional(),
+  platformFeeMinor: nonNegativeSafeInteger.optional(),
+  netProfitMinor: safeInteger.optional(),
+  platformFeeLedgerCount: nonNegativeSafeInteger.optional(),
+  platformFeeLedgerAmountMinor: safeInteger.nullable().optional(),
+  realizedLossLedgerCount: nonNegativeSafeInteger.optional(),
+  realizedLossLedgerAmountMinor: safeInteger.nullable().optional(),
   settlementOutcome: z.string().optional(),
-  feePolicyVersion: z.number().optional(),
-  platformFeeRateBps: z.number().optional(),
+  feePolicyVersion: nonNegativeSafeInteger.optional(),
+  platformFeeRateBps: nonNegativeSafeInteger.optional(),
   platformFeeRoundingMode: z.string().optional(),
   rewardReservationStatus: z.string().nullable(),
-  lifecycleEventCount: z.number(),
+  lifecycleEventCount: nonNegativeSafeInteger,
   walletUpdatedAtPresent: z.boolean(),
 }).superRefine((evidence, ctx) => {
   if (evidence.rewardLedgerCount === undefined && evidence.grossProfitLedgerCount === undefined) {
@@ -40,9 +43,15 @@ const evidenceSchema = z.object({
 });
 
 const contextSchema = z.object({
-  walletMatchCount: z.number().int().nonnegative(),
-  reservationCount: z.number().int().nonnegative(),
+  walletMatchCount: nonNegativeSafeInteger,
+  reservationCount: nonNegativeSafeInteger,
   identityMismatchedLedgerRows: z.array(z.unknown()),
+  scanCoverage: z.object({
+    requestedLimit: nonNegativeSafeInteger,
+    selectedTradeCount: nonNegativeSafeInteger,
+    totalTradeCount: nonNegativeSafeInteger,
+    complete: z.boolean(),
+  }).optional(),
 }).passthrough();
 
 const inputSchema = z.array(z.object({
