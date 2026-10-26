@@ -39,7 +39,7 @@ describe("trade execution retry policy", () => {
     const source = readFileSync(new URL("../db.ts", import.meta.url), "utf8");
     expect(source).toContain("claimOpportunityExecutionAttempt");
     expect(source).toContain("executionStatus:\"RUNNING\"");
-    expect(source).toContain("executionStatus:\"RETRYING\"");
+    expect(source).toContain('status:"RETRYING"');
     expect(source).toContain("executionStatus:\"FAILED\"");
     expect(source).toContain("executionStatus:\"SUCCEEDED\"");
     expect(source).toContain("TEMPORARY_EXECUTION_RETRY_WINDOW_EXPIRED");
