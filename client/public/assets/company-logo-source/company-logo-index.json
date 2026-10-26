@@ -323,18 +323,18 @@
       "companyName": "Bain & Company",
       "logoFile": "logos/Bain & Company.png",
       "domain": "img.logo.devbain.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 37,
       "companyName": "Boston Consulting Group",
       "logoFile": "logos/Boston Consulting Group.png",
       "domain": "img.logo.devbcg.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 38,
@@ -863,9 +863,9 @@
       "companyName": "Mattel",
       "logoFile": "logos/Mattel.png",
       "domain": "img.logo.devabout.mattel.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 97,
@@ -908,9 +908,9 @@
       "companyName": "Forrester",
       "logoFile": "logos/Forrester.png",
       "domain": "img.logo.devforrester.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 102,
@@ -926,9 +926,9 @@
       "companyName": "Gensler",
       "logoFile": "logos/Gensler.png",
       "domain": "img.logo.devgensler.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 104,
@@ -944,9 +944,9 @@
       "companyName": "Nielsen",
       "logoFile": "logos/Nielsen.png",
       "domain": "img.logo.devnielsen.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 106,
@@ -962,27 +962,27 @@
       "companyName": "RSM Global",
       "logoFile": "logos/RSM Global.png",
       "domain": "img.logo.devrsm.global",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United Kingdom",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 108,
       "companyName": "Slalom",
       "logoFile": "logos/Slalom.png",
       "domain": "img.logo.devslalom.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 109,
       "companyName": "The Clorox Company",
       "logoFile": "logos/The Clorox Company.png",
       "domain": "img.logo.devthecloroxcompany.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 110,
@@ -1016,9 +1016,9 @@
       "companyName": "News Corp",
       "logoFile": "logos/News Corp.png",
       "domain": "img.logo.devnewscorp.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 114,
