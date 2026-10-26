@@ -40,7 +40,8 @@ for (const item of index.logos) {
   const filename = path.basename(item.logoFile || "");
   if (!filename) throw new Error(`Missing filename for logo ID ${item.logoId}`);
   const destinationRelative = path.posix.join("by-country", country, filename);
-  const source = path.resolve(assetRoot, item.logoFile);
+  const currentRelative = path.posix.normalize(String(item.logoFile || ""));
+  const source = path.resolve(assetRoot, currentRelative);
   const destination = path.resolve(assetRoot, destinationRelative);
   if (!source.startsWith(assetRoot + path.sep) || !destination.startsWith(assetRoot + path.sep)) {
     throw new Error(`Unsafe asset path for logo ID ${item.logoId}`);
@@ -56,16 +57,18 @@ if (apply) {
   // Validate all source files and collisions before changing anything.
   for (const p of plans) {
     await fs.access(p.source);
-    try {
-      await fs.access(p.destination);
-      throw new Error(`Destination already exists: ${p.destinationRelative}`);
-    } catch (e) {
-      if (e.code !== "ENOENT") throw e;
+    if (p.source !== p.destination) {
+      try {
+        await fs.access(p.destination);
+        throw new Error(`Destination already exists: ${p.destinationRelative}`);
+      } catch (e) {
+        if (e.code !== "ENOENT") throw e;
+      }
     }
   }
   for (const p of plans) {
     await fs.mkdir(path.dirname(p.destination), { recursive: true });
-    await fs.rename(p.source, p.destination);
+    if (p.source !== p.destination) await fs.rename(p.source, p.destination);
     p.item.logoFile = p.destinationRelative;
   }
 
@@ -102,7 +105,7 @@ if (apply) {
     "Unverified entries are stored under by-country/Unverified/ until their headquarters can be confirmed."
   ];
   await fs.writeFile(groupsPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
-  console.log(`Moved ${plans.length} logos into ${new Set(plans.map(p => p.country)).size} country/status folders.`);
+  console.log(`Organized ${plans.length} logos into ${new Set(plans.map(p => p.country)).size} country/status folders.`);
 } else {
   const counts = {};
   for (const p of plans) counts[p.country] = (counts[p.country] || 0) + 1;

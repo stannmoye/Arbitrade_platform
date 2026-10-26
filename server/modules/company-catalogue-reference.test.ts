@@ -13,7 +13,7 @@ describe("Logo.dev brand-only static reference catalogue", () => {
     expect(COMPANY_REFERENCE_CATALOGUE).toHaveLength(1811);
     expect(new Set(COMPANY_REFERENCE_CATALOGUE.map((company) => company.id)).size).toBe(1811);
     expect(new Set(COMPANY_REFERENCE_CATALOGUE.map((company) => company.name.toLowerCase())).size).toBe(1811);
-    expect(COMPANY_REFERENCE_CATALOGUE.every((company) => company.logoUrl.startsWith("/assets/company-logo-source/logos/"))).toBe(true);
+    expect(COMPANY_REFERENCE_CATALOGUE.every((company) => company.logoUrl.startsWith("/assets/company-logo-source/by-country/"))).toBe(true);
   });
 
   it("never presents brand names as verified securities or trade-eligible listings", () => {

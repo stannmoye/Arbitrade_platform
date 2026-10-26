@@ -2,7 +2,7 @@ LOGO.DEV COMPANY LOGO PACK
 
 Source: https://www.logo.dev/search/categories/company
 
-This archive contains 1811 company entries from Logo.dev. Each logo was downloaded from the public Logo.dev image URL, converted to PNG, trimmed to its visible artwork, and fitted on a transparent 256 x 256 pixel canvas with a 16-pixel safety margin. Files are named using the company name; logo-mapping.csv preserves the exact company name, domain, Logo.dev brand page, and source URLs.
+This archive contains 1811 company entries from Logo.dev. Each logo was downloaded from the public Logo.dev image URL, converted to PNG, trimmed to its visible artwork, and fitted on a transparent 256 x 256 pixel canvas with a 16-pixel safety margin. Files are named using the company name; logo-mapping.csv preserves the exact company name, domain, Logo.dev brand page, and source URLs. Images are organized under by-country/<Country>/; entries without a verified country are under by-country/Unverified/.
 
 Normalized logos: 1811
 Failed downloads: 0
