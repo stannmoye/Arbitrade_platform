@@ -65,8 +65,25 @@ describe("Logo.dev brand-only static reference catalogue", () => {
     expect(getRandomCompanyReference(() => 0, allIds).id).toBe(COMPANY_REFERENCE_CATALOGUE[0]!.id);
   });
 
-  it("does not invent ticker matches because the logo archive contains no symbols", () => {
-    expect(findCompanyReferencesBySymbol("AAPL")).toHaveLength(0);
+  it("loads public ticker candidates by stable logo ID but never treats them as verified listings", () => {
+    const apple = getCompanyReferenceById("logo-brand-0001");
+    expect(apple?.name).toBe("Apple");
+    expect(apple?.ticker).toBe("AAPL");
+    expect(apple?.symbol).toBe("AAPL");
+    expect(apple?.exchangeCode).toBe("NASDAQ");
+    expect(apple?.tickerResearchStatus).toBe("Public");
+    expect(apple?.listingStatus).toBe("unverified");
+    expect(apple?.eligibleForVerifiedTradeRotation).toBe(false);
+    expect(findCompanyReferencesBySymbol("aapl").map((company) => company.id)).toContain("logo-brand-0001");
     expect(findCompanyReferencesBySymbol("   ")).toHaveLength(0);
+    expect(getCompanyReferenceSummary().tickerCandidates).toBe(814);
+  });
+
+  it("does not expose invented placeholder codes as candidate tickers", () => {
+    const placeholders = COMPANY_REFERENCE_CATALOGUE.filter((company) =>
+      company.tickerResearchStatus === "PLACEHOLDER - invented code, not a real ticker"
+    );
+    expect(placeholders).toHaveLength(637);
+    expect(placeholders.every((company) => company.ticker === "" && company.exchangeCode === "")).toBe(true);
   });
 });
