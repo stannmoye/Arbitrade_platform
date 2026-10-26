@@ -234,7 +234,7 @@ export function AdminTransactionReview() {
   const ledgerQuery = trpc.adminOperations.ledgerActivity.useQuery(undefined, { refetchInterval: 10_000 });
   const pendingQuery = trpc.adminOperations.pendingSettlements.useQuery(undefined, { refetchInterval: 5_000 });
   const [integrityBeforeTradeId, setIntegrityBeforeTradeId] = useState<number | undefined>(undefined);
-  const [walletReconciliationAfter, setWalletReconciliationAfter] = useState<{ userId: number; currency: string } | undefined>(undefined);
+  const [walletReconciliationAfter, setWalletReconciliationAfter] = useState<{ afterUserId: number; afterCurrency: string } | undefined>(undefined);
   const [settlementLedgerBeforeTradeId, setSettlementLedgerBeforeTradeId] = useState<number | undefined>(undefined);
   const integrityQuery = trpc.adminOperations.settlementIntegrityIssues.useQuery({
     limit: 250,
