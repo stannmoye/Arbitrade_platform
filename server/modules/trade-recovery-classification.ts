@@ -216,6 +216,7 @@ export function classifyTradeRecoveryEvidence(
       const expectedGrossCount = gross > 0 ? 1 : 0;
       if (rewardCount !== expectedGrossCount) reasons.push("Gross-profit ledger count does not match the recorded realized outcome.");
       else if (expectedGrossCount === 1 && rewardAmount !== gross) reasons.push("Gross-profit ledger amount does not match realized gross profit.");
+      else if (expectedGrossCount === 0 && rewardAmount !== null) reasons.push("Gross-profit ledger amount must be absent when no gross-profit entry exists.");
       const feeCount = evidence.platformFeeLedgerCount;
       const feeAmount = evidence.platformFeeLedgerAmountMinor;
       if (feeCount === undefined || (feeCount !== (fee > 0 ? 1 : 0))) {
