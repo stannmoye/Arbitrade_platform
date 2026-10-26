@@ -40,6 +40,18 @@ describe("trade recovery collector context safety", () => {
     expect(result.reasons.join(" ")).toContain("Duplicate reward reservation");
   });
 
+  it("fails closed on negative or unsafe collector counts", () => {
+    for (const context of [
+      { ...healthyContext, reservationCount: -1 },
+      { ...healthyContext, walletMatchCount: Number.MAX_SAFE_INTEGER + 1 },
+    ]) {
+      const result = applyRecoveryContextSafety(plan(), context);
+      expect(result.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+      expect(result.plannedMutations).toEqual([]);
+      expect(result.reasons.join(" ")).toContain("invalid wallet/reservation counts");
+    }
+  });
+
   it("escalates ledger rows whose user or currency does not match", () => {
     const result = applyRecoveryContextSafety(plan(), {
       ...healthyContext,
