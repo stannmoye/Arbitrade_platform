@@ -76,10 +76,17 @@ async function main() {
     const records = inputSchema.parse(parsedJson);
     const plans = records.map((record) => {
       const source = record.evidence;
+      const hasCollectorGrossProfitLedger = source.grossProfitLedgerCount !== undefined;
       const evidence = {
         ...source,
-        rewardLedgerCount: source.grossProfitLedgerCount ?? source.rewardLedgerCount!,
-        rewardLedgerAmountMinor: source.grossProfitLedgerAmountMinor ?? source.rewardLedgerAmountMinor!,
+        rewardLedgerCount: hasCollectorGrossProfitLedger
+          ? source.grossProfitLedgerCount!
+          : source.rewardLedgerCount!,
+        // null means the collector found no matching entry; preserve it instead of
+        // accidentally replacing it with an undefined legacy field via ??.
+        rewardLedgerAmountMinor: hasCollectorGrossProfitLedger
+          ? source.grossProfitLedgerAmountMinor!
+          : source.rewardLedgerAmountMinor!,
       };
       const plan = buildTradeRecoveryPlan({
         tradeId: record.tradeId,
