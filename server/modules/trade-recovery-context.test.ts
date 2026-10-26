@@ -108,6 +108,19 @@ describe("trade recovery collector context safety", () => {
     expect(result.plannedMutations).toEqual([]);
   });
 
+  it("flags a collector result with no reservation row", () => {
+    const result = applyRecoveryContextSafety(plan(), {
+      ...healthyContext,
+      tradeId: 42,
+      reservationCount: 0,
+      rewardReservationStatus: null,
+      reservation: [],
+    });
+    expect(result.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(result.reasons.join(" ")).toContain("No reward reservation row was found");
+    expect(result.plannedMutations).toEqual([]);
+  });
+
   it("checks wallet user and reservation trade identity", () => {
     const result = applyRecoveryContextSafety(plan(), {
       ...healthyContext,
