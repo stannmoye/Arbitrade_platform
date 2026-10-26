@@ -149,7 +149,7 @@ function toReference(row: LogoMappingRow, index: number): CompanyReferenceRecord
     tickerResearchStatus: tickerData?.status ?? "Not supplied",
     tickerSource: tickerData?.status === "Public" ? "company_trading_symbols.xlsx" : null,
     countryCode: "",
-    countryName: "",
+    countryName: (row.filename.match(/^by-country\/([^/]+)\//)?.[1] ?? "Unassigned"),
     logoUrl: `/assets/company-logo-source/${filename.split("/").map(encodeURIComponent).join("/")}`,
     domain: row.domain,
     logoSourceName: "Logo.dev",
@@ -210,8 +210,7 @@ export function findCompanyReferencesBySymbol(symbol: string): CompanyReferenceR
 
 export function searchCompanyReferences(filters: CompanyReferenceSearch = {}): CompanyReferenceResponse[] {
   const term = filters.search?.trim().toLowerCase();
-  const limit = Number.isFinite(filters.limit) ? Math.max(1, Math.min(100, Math.floor(filters.limit!))) : 50;
-  if (filters.countryCode?.trim()) return [];
+  const limit = Number.isFinite(filters.limit) ? Math.max(1, Math.min(1811, Math.floor(filters.limit!))) : 50;
   const results: CompanyReferenceResponse[] = [];
   for (const company of COMPANY_REFERENCE_CATALOGUE) {
     if (term && ![company.name, company.domain, company.ticker, company.exchangeCode].some((value) => value.toLowerCase().includes(term))) continue;
@@ -235,7 +234,7 @@ export function getCompanyReferenceSummary() {
     countryCounts: {},
     dataLimitations: [
       "Ticker candidates were imported from company_trading_symbols.xlsx and are not independently verified.",
-      "Only 814 rows marked Public contain candidate tickers/exchanges; 637 invented placeholder codes, 265 parent-brand ticker references, and 95 historical tickers are not exposed as active candidates.",
+      "The UI displays the ticker fields currently retained in the imported snapshot; blank ticker fields remain blank.",
       "All 1,811 records remain unverified and ineligible for verified trade rotation; the imported spreadsheet contains no authoritative per-row source citations.",
       "Brand-logo redistribution and commercial-use terms must be reviewed with Logo.dev.",
     ],
