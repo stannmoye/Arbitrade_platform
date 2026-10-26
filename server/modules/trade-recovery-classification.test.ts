@@ -203,6 +203,25 @@ describe("trade recovery evidence classification (read-only)", () => {
     expect(feeOnLoss.reasons.join(" ")).toContain("must not incur");
   });
 
+  it("rejects a gross-profit amount when no gross-profit ledger entry exists", () => {
+    const result = classifyTradeRecoveryEvidence(settledEvidence({
+      rewardCreditedMinor: 0,
+      grossProfitLedgerCount: 0,
+      grossProfitLedgerAmountMinor: 1,
+      realizedGrossProfitMinor: 0,
+      platformFeeMinor: 0,
+      netProfitMinor: 0,
+      platformFeeLedgerCount: 0,
+      platformFeeLedgerAmountMinor: null,
+      realizedLossLedgerCount: 0,
+      realizedLossLedgerAmountMinor: null,
+      settlementOutcome: "zero_profit",
+      rewardReservationStatus: "released",
+    }));
+    expect(result.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(result.reasons.join(" ")).toContain("must be absent when no gross-profit entry exists");
+  });
+
   it("checks the stored fee rate and rounding policy against the recorded fee", () => {
     const valid = classifyTradeRecoveryEvidence(settledEvidence({
       rewardCreditedMinor: 1700,
