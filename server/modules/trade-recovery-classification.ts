@@ -8,6 +8,19 @@ export type TradeRecoveryEvidence = {
   principalLedgerAmountMinor: number | null;
   rewardLedgerCount: number;
   rewardLedgerAmountMinor: number | null;
+  realizedGrossProfitMinor?: number;
+  platformFeeMinor?: number;
+  netProfitMinor?: number;
+  grossProfitLedgerCount?: number;
+  grossProfitLedgerAmountMinor?: number | null;
+  platformFeeLedgerCount?: number;
+  platformFeeLedgerAmountMinor?: number | null;
+  realizedLossLedgerCount?: number;
+  realizedLossLedgerAmountMinor?: number | null;
+  settlementOutcome?: string;
+  feePolicyVersion?: number;
+  platformFeeRateBps?: number;
+  platformFeeRoundingMode?: string;
   rewardReservationStatus: "reserved" | "credited" | "released" | string | null;
   lifecycleEventCount: number;
   walletUpdatedAtPresent: boolean;
@@ -65,8 +78,12 @@ export function classifyTradeRecoveryEvidence(
     ]);
   }
 
+  const hasGrossProfitEvidence = evidence.grossProfitLedgerCount !== undefined;
+  const rewardCount = hasGrossProfitEvidence ? evidence.grossProfitLedgerCount! : evidence.rewardLedgerCount;
+  const rewardAmount = hasGrossProfitEvidence ? evidence.grossProfitLedgerAmountMinor ?? null : evidence.rewardLedgerAmountMinor;
   const hasAnySettlementLedger =
-    evidence.principalLedgerCount > 0 || evidence.rewardLedgerCount > 0;
+    evidence.principalLedgerCount > 0 || rewardCount > 0 ||
+    (evidence.platformFeeLedgerCount ?? 0) > 0 || (evidence.realizedLossLedgerCount ?? 0) > 0;
   if (evidence.tradeStatus !== "settled") {
     if (
       hasAnySettlementLedger ||
@@ -102,11 +119,33 @@ export function classifyTradeRecoveryEvidence(
     reasons.push("Principal-release ledger amount does not match the trade principal.");
   }
 
-  if (evidence.rewardCreditedMinor > 0) {
-    if (evidence.rewardLedgerCount !== 1) {
-      reasons.push("Credited reward requires exactly one matching reward ledger entry.");
-    } else if (evidence.rewardLedgerAmountMinor !== evidence.rewardCreditedMinor) {
-      reasons.push("Reward ledger amount does not match the recorded credited reward.");
+  if (hasGrossProfitEvidence) {
+    const gross = evidence.realizedGrossProfitMinor;
+    const fee = evidence.platformFeeMinor;
+    if (gross === undefined || fee === undefined || evidence.netProfitMinor === undefined ||
+        ![gross, fee, evidence.netProfitMinor].every((value) => Number.isSafeInteger(value))) {
+      reasons.push("Realized gross profit, fee, or net-profit snapshot is missing or unsafe.");
+    } else {
+      const expectedGrossCount = gross > 0 ? 1 : 0;
+      if (rewardCount !== expectedGrossCount) reasons.push("Gross-profit ledger count does not match the recorded realized outcome.");
+      else if (expectedGrossCount === 1 && rewardAmount !== gross) reasons.push("Gross-profit ledger amount does not match realized gross profit.");
+      const feeCount = evidence.platformFeeLedgerCount;
+      const feeAmount = evidence.platformFeeLedgerAmountMinor;
+      if (feeCount === undefined || (feeCount !== (fee > 0 ? 1 : 0))) {
+        reasons.push("Platform-fee ledger count does not match the recorded fee.");
+      } else if (fee > 0 && feeAmount !== -fee) {
+        reasons.push("Platform-fee ledger amount must be the negative recorded fee.");
+      }
+      const lossCount = evidence.realizedLossLedgerCount;
+      const lossAmount = evidence.realizedLossLedgerAmountMinor;
+      if (lossCount === undefined || lossCount !== (gross < 0 ? 1 : 0)) {
+        reasons.push("Realized-loss ledger count does not match the recorded outcome.");
+      } else if (gross < 0 && lossAmount !== gross) {
+        reasons.push("Realized-loss ledger amount does not match realized gross loss.");
+      }
+      if (evidence.rewardCreditedMinor !== Math.max(0, evidence.netProfitMinor)) {
+        reasons.push("Recorded credited reward does not match positive net profit after the stored fee.");
+      }
     }
     if (evidence.rewardReservationStatus === "reserved") {
       reasons.push("Reward reservation remains reserved after settlement.");
