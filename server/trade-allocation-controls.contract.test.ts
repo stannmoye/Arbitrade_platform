@@ -17,6 +17,7 @@ describe("global trade allocation pause", () => {
 
   it("fails closed when the stored safety setting is malformed", () => {
     expect(db).toContain("A malformed safety setting must fail closed");
+    expect(db).toContain("Global allocation safety setting is missing; administrator review is required.");
     expect(db).toContain('allocationsPaused: true, reason: "Safety setting requires administrator review');
   });
 
