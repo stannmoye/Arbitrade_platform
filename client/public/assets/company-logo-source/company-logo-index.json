@@ -11043,9 +11043,9 @@
       "companyName": "Tower Records",
       "logoFile": "logos/Tower Records.png",
       "domain": "img.logo.devtower.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Japan",
+      "countryAssignmentMethod": "current-company-headquarters",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 1227,
@@ -11169,9 +11169,9 @@
       "companyName": "AKG",
       "logoFile": "logos/AKG.png",
       "domain": "img.logo.devakg.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Austria",
+      "countryAssignmentMethod": "brand-origin",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 1241,
@@ -11250,9 +11250,9 @@
       "companyName": "AMI",
       "logoFile": "logos/AMI.png",
       "domain": "img.logo.devami.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "France",
+      "countryAssignmentMethod": "brand-headquarters",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 1250,
@@ -11466,9 +11466,9 @@
       "companyName": "BBS",
       "logoFile": "logos/BBS.png",
       "domain": "img.logo.devbbs.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Germany",
+      "countryAssignmentMethod": "company-headquarters",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 1274,
@@ -11943,9 +11943,9 @@
       "companyName": "CodeGear",
       "logoFile": "logos/CodeGear.png",
       "domain": "img.logo.devcodegear.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "company-origin",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 1327,
