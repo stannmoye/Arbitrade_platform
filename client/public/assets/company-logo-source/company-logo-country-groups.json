@@ -13857,6 +13857,14 @@
         "confidence": "high"
       },
       {
+        "logoId": 1330,
+        "companyName": "Consumer Rights Wiki",
+        "logoFile": "logos/Consumer Rights Wiki.png",
+        "country": "United States",
+        "assignmentMethod": "official-parent-foundation-privacy-policy",
+        "confidence": "high"
+      },
+      {
         "logoId": 1332,
         "companyName": "Crayola",
         "logoFile": "logos/Crayola.png",
@@ -14534,14 +14542,6 @@
         "logoId": 1022,
         "companyName": "Aylo",
         "logoFile": "logos/Aylo.png",
-        "country": "Unverified",
-        "assignmentMethod": "needs-manual-verification",
-        "confidence": "unknown"
-      },
-      {
-        "logoId": 1330,
-        "companyName": "Consumer Rights Wiki",
-        "logoFile": "logos/Consumer Rights Wiki.png",
         "country": "Unverified",
         "assignmentMethod": "needs-manual-verification",
         "confidence": "unknown"
