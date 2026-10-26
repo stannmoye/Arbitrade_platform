@@ -295,6 +295,13 @@
       "when": 1793033000000,
       "tag": "0072_wallet_ledger_reconciliation_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793035055833,
+      "tag": "0073_trade_settlement_recovery_cases",
+      "breakpoints": true
     }
   ]
 }
