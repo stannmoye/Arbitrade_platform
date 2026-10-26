@@ -344,7 +344,9 @@ export const customerBalances = mysqlTable("customer_balances", {
   promotionalMinor: bigint("promotionalMinor", { mode: "number" }).default(0).notNull(),
   earnedMinor: bigint("earnedMinor", { mode: "number" }).default(0).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+  userCurrencyIdx: index("customer_balances_user_currency_idx").on(table.userId, table.currency),
+}));
 
 export const currencyRegistry = mysqlTable("currency_registry", {
   id: int("id").autoincrement().primaryKey(),
@@ -370,7 +372,10 @@ export const balanceLedger = mysqlTable("balance_ledger", {
   reference: varchar("reference", { length: 80 }).notNull(),
   withdrawable: boolean("withdrawable").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  userCurrencyIdx: index("balance_ledger_user_currency_idx").on(table.userId, table.currency, table.id),
+  referenceIdx: index("balance_ledger_reference_idx").on(table.reference),
+}));
 
 export const opportunityOffers = mysqlTable("opportunity_offers", {
   id: int("id").autoincrement().primaryKey(),
@@ -486,7 +491,10 @@ export const tradePositions = mysqlTable("trade_positions", {
   settlementConfirmedBy: int("settlementConfirmedBy"),
   settlementNotes: varchar("settlementNotes", { length: 2000 }),
   policyVersion: int("policyVersion").default(1).notNull(),
-});
+}, (table) => ({
+  statusSettlementUserCurrencyIdx: index("trade_positions_status_settlement_user_currency_idx").on(table.status, table.settlementStatus, table.userId, table.currency),
+  settlementReferenceIdx: index("trade_positions_settlement_reference_idx").on(table.settlementReference),
+}));
 export const tradeLifecycleEvents = mysqlTable("trade_lifecycle_events", {
   id: int("id").autoincrement().primaryKey(),
   tradeId: int("tradeId").notNull(),
