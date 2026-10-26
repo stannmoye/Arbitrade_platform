@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   COMPANY_REFERENCE_CATALOGUE,
+  countCompanyReferences,
   findCompanyReferencesBySymbol,
   getCompanyReferenceById,
   getCompanyReferenceSummary,
