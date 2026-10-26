@@ -323,6 +323,13 @@
       "when": 1793062000000,
       "tag": "0076_trading_admin_policy_read_repair",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793062000001,
+      "tag": "0077_trading_package_catalogue_schema_repair",
+      "breakpoints": true
     }
   ]
 }
