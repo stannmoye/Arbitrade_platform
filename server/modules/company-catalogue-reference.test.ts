@@ -8,56 +8,47 @@ import {
   searchCompanyReferences,
 } from "./company-catalogue-reference";
 
-describe("1,000-company static reference catalogue", () => {
-  it("loads 1,000 unique records and local logo paths", () => {
-    expect(COMPANY_REFERENCE_CATALOGUE).toHaveLength(1000);
-    expect(new Set(COMPANY_REFERENCE_CATALOGUE.map((company) => company.id)).size).toBe(1000);
-    expect(new Set(COMPANY_REFERENCE_CATALOGUE.map((company) => company.logoUrl)).size).toBe(1000);
-    expect(COMPANY_REFERENCE_CATALOGUE.every((company) => company.logoUrl.startsWith("/assets/company-logos/"))).toBe(true);
+describe("Logo.dev brand-only static reference catalogue", () => {
+  it("loads all 1,811 mapped brands with unique IDs and local logo paths", () => {
+    expect(COMPANY_REFERENCE_CATALOGUE).toHaveLength(1811);
+    expect(new Set(COMPANY_REFERENCE_CATALOGUE.map((company) => company.id)).size).toBe(1811);
+    expect(new Set(COMPANY_REFERENCE_CATALOGUE.map((company) => company.name.toLowerCase())).size).toBe(1811);
+    expect(COMPANY_REFERENCE_CATALOGUE.every((company) => company.logoUrl.startsWith("/assets/company-logo-source/logos/"))).toBe(true);
   });
 
-  it("keeps every record unverified instead of treating catalogue membership as trading eligibility", () => {
+  it("never presents brand names as verified securities or trade-eligible listings", () => {
     expect(COMPANY_REFERENCE_CATALOGUE.every((company) =>
       company.listingStatus === "unverified" &&
       company.lastVerifiedAt === null &&
-      company.requiresManualVerification
+      company.requiresManualVerification &&
+      company.recordCompleteness === "brand-only" &&
+      company.instrumentType === "Brand"
     )).toBe(true);
-    expect(COMPANY_REFERENCE_CATALOGUE.every((company) => company.recordCompleteness === "incomplete")).toBe(true);
-    expect(getCompanyReferenceSummary().incompleteRecords).toBe(1000);
+    expect(getCompanyReferenceSummary().incompleteRecords).toBe(1811);
     expect(getCompanyReferenceSummary().eligibleForVerifiedTradeRotation).toBe(0);
-    const safePlaceholderCount = COMPANY_REFERENCE_CATALOGUE.filter((company) =>
-      company.logoSourceName === "Neutral company-reference placeholder" &&
-      company.logoSourceSlug === "neutral-placeholder" &&
-      company.logoSourceUrl === "internal://neutral-company-reference-placeholder"
-    ).length;
-    expect(getCompanyReferenceSummary().logoReusePermissionVerified).toBe(safePlaceholderCount);
     const result = searchCompanyReferences({ limit: 1 })[0]!;
     expect(result.referenceOnly).toBe(true);
-    const isSafePlaceholder = result.logoSourceName === "Neutral company-reference placeholder" &&
-      result.logoSourceSlug === "neutral-placeholder" &&
-      result.logoSourceUrl === "internal://neutral-company-reference-placeholder";
-    expect(result.logoReusePermissionVerified).toBe(isSafePlaceholder);
-    const sourceRecord = COMPANY_REFERENCE_CATALOGUE.find((company) => company.id === result.id)!;
-    expect(result.logoUrl).toBe(isSafePlaceholder ? sourceRecord.logoUrl : null);
+    expect(result.logoReusePermissionVerified).toBe(false);
     expect(result.eligibleForVerifiedTradeRotation).toBe(false);
   });
 
-  it("supports ID lookup and bounded search without a database", () => {
+  it("supports ID lookup and bounded name/domain search without a database", () => {
     const sample = COMPANY_REFERENCE_CATALOGUE[0]!;
     expect(getCompanyReferenceById(sample.id)?.id).toBe(sample.id);
     expect(searchCompanyReferences({ search: sample.name, limit: 5 }).some((company) => company.id === sample.id)).toBe(true);
-    expect(searchCompanyReferences({ countryCode: "ZZ" })).toHaveLength(0);
+    expect(searchCompanyReferences({ search: sample.domain, limit: 5 }).length).toBeGreaterThan(0);
+    expect(searchCompanyReferences({ countryCode: "US" })).toHaveLength(0);
     expect(searchCompanyReferences({ limit: 1000 })).toHaveLength(100);
   });
 
-  it("returns a clearly reference-only random spotlight, never a verified trade", () => {
+  it("returns a brand-only random spotlight and rejects invalid random sources", () => {
     const sample = getRandomCompanyReference(() => 0);
     expect(sample.id).toBe(COMPANY_REFERENCE_CATALOGUE[0]!.id);
     expect(sample.referenceOnly).toBe(true);
-    expect(sample.recordCompleteness).toBe("incomplete");
+    expect(sample.recordCompleteness).toBe("brand-only");
     expect(sample.listingStatus).toBe("unverified");
     expect(sample.eligibleForVerifiedTradeRotation).toBe(false);
-    expect(sample.logoReusePermissionVerified).toBe(true);
+    expect(sample.logoReusePermissionVerified).toBe(false);
     expect(sample.logoUrl).toBe(COMPANY_REFERENCE_CATALOGUE[0]!.logoUrl);
     expect(() => getRandomCompanyReference(() => 1)).toThrow("Random source");
   });
@@ -69,14 +60,13 @@ describe("1,000-company static reference catalogue", () => {
     expect(next.id).not.toBe(first.id);
   });
 
-  it("falls back to the full catalogue only when every ID is excluded", () => {
+  it("falls back to the full brand list only when every ID is excluded", () => {
     const allIds = COMPANY_REFERENCE_CATALOGUE.map((company) => company.id);
     expect(getRandomCompanyReference(() => 0, allIds).id).toBe(COMPANY_REFERENCE_CATALOGUE[0]!.id);
   });
 
-  it("returns every exact symbol match rather than guessing across exchanges", () => {
-    const sample = COMPANY_REFERENCE_CATALOGUE[0]!;
-    expect(findCompanyReferencesBySymbol(sample.symbol).some((company) => company.id === sample.id)).toBe(true);
+  it("does not invent ticker matches because the logo archive contains no symbols", () => {
+    expect(findCompanyReferencesBySymbol("AAPL")).toHaveLength(0);
     expect(findCompanyReferencesBySymbol("   ")).toHaveLength(0);
   });
 });
