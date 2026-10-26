@@ -56,4 +56,6 @@ Live execution requires a named, authorized provider, verified result references
 - Keep company ID, local logo, country folder, supplied ticker, exchange, and dataset status associated on the same result.
 - Search endpoint may return up to 1,811 records, but the customer UI should request and render at most 100 results at a time.
 - Display supplied ticker values as supplied; do not imply they are verified or guaranteed to resolve with a market-data provider.
-\n- Import every row and every column from `company_trading_symbols.xlsx` aligned by its 1-based `#` field to Logo ID; preserve supplied ticker, exchange, status, parent ticker, and reason fields even for placeholder, parent, and historical rows.\n- Placeholder codes are display-only and must not be passed to market-data or order APIs. Historical and parent-company ticker references must remain visibly classified; do not silently convert them into direct listings.\n
+
+- Import every row and every column from `company_trading_symbols.xlsx` aligned by its 1-based `#` field to Logo ID; preserve supplied ticker, exchange, status, parent ticker, and reason fields even for placeholder, parent, and historical rows.
+- Placeholder codes are display-only and must not be passed to market-data or order APIs. Historical and parent-company ticker references must remain visibly classified; do not silently convert them into direct listings.
