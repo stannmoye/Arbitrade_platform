@@ -604,13 +604,18 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
               <div><strong>{company.name}</strong><small>Logo ID {company.id.replace("logo-brand-","")} · {company.countryName || "Country not assigned"}</small></div>
             </div>
             <div className="trading-opportunity-values">
-              <div><span>Trading symbol</span><strong>{company.symbol || "Not supplied"}</strong></div>
-              <div><span>Exchange</span><strong>{company.exchangeCode || "Not supplied"}</strong></div>
-              <div><span>Dataset status</span><strong>{company.tickerResearchStatus || "Not supplied"}</strong></div>
+              <div><span>Supplied ticker / code</span><strong>{company.symbol || "Not supplied"}</strong></div>
+              <div><span>Exchange / code</span><strong>{company.exchangeCode || "Not supplied"}</strong></div>
+              <div><span>Workbook status</span><strong>{company.tickerResearchStatus || "Not supplied"}</strong></div>
+              {company.parentTicker && <div><span>Parent ticker</span><strong>{company.parentTicker}</strong></div>}
+              {company.whyNoRealTicker && <div><span>Why no real ticker</span><strong>{company.whyNoRealTicker}</strong></div>}
+              {company.tickerClassification === "placeholder" && <div><span>Use restriction</span><strong>Internal placeholder only — not for market-data lookup or orders</strong></div>}
+              {company.tickerClassification === "historic" && <div><span>Use restriction</span><strong>Historical code — not an active listing by this record</strong></div>}
+              {company.tickerClassification === "parent" && <div><span>Use restriction</span><strong>Parent-company reference; this brand is not separately listed in this row</strong></div>}
             </div>
           </article>
         ))}</div>}
-      <small>Search covers the 1,811-company catalogue. Up to 100 matching records are shown per query; refine the search to find a specific company. Symbols and exchange fields are displayed as supplied in the current dataset and are not independently verified.</small>
+      <small>Search covers the 1,811-company catalogue. Up to 100 matching records are shown per query; refine the search to find a specific company. All 1,811 workbook rows are imported verbatim by Logo ID, including placeholder, parent-company, and historical entries. Placeholder codes are display-only and must not be used for market-data lookup or orders.</small>
       {companyReferenceData&&<details><summary>Random company spotlight</summary><article className="trading-opportunity-row" aria-live="polite"><div className="trading-opportunity-identity"><CompanyReferenceLogo name={companyReferenceData.name} logoUrl={companyReferenceData.logoUrl}/><div><strong>{companyReferenceData.name}</strong><small>{companyReferenceData.symbol||"No symbol supplied"} · {companyReferenceData.exchangeCode||"No exchange supplied"} · {companyReferenceData.countryName}</small></div></div><button className="secondary-button" onClick={requestNextCompanyReference} disabled={companyReference.isPending}>Next reference</button></article></details>}
     </section>
   </div>;
