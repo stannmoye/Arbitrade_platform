@@ -7,7 +7,7 @@ import { registerProviderOAuthRoutes } from "./providerOAuth";
 import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getUserByEmail, getUserById, processNotificationCampaignLifecycle, runAutoTradeCycle } from "../db";
+import { countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getUserByEmail, getUserById, processNotificationCampaignLifecycle, reconcileAllDueTradesAwaitingConfirmation, runAutoTradeCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
@@ -281,10 +281,17 @@ async function startServer() {
     popupRetentionTimer.unref();
     void runOpportunityRetention().catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error));
     const runTradeCycle = async () => {
+      let settlementReconciliation: Awaited<ReturnType<typeof reconcileAllDueTradesAwaitingConfirmation>> | null = null;
+      try {
+        settlementReconciliation = await reconcileAllDueTradesAwaitingConfirmation();
+        if (settlementReconciliation.marked) console.log("[SettlementReconciliation] overdue trades marked for confirmation", settlementReconciliation);
+      } catch (error) {
+        console.error("[SettlementReconciliation] sweep failed", error instanceof Error ? error.message : error);
+      }
       const result = await runAutoTradeCycle();
       const outstandingTrades = await countOutstandingTrades();
       const opportunities = await ensureMarketDrivenOpportunities(new Date());
-      console.log("[AutoTrade] cycle", { ...result, outstandingTrades, opportunities });
+      console.log("[AutoTrade] cycle", { ...result, outstandingTrades, opportunities, settlementReconciliation });
     };
     const autoTradeTimer = setInterval(() => { void runTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error)); }, 30_000);
     autoTradeTimer.unref();
