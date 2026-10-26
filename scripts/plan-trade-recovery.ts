@@ -11,11 +11,32 @@ const evidenceSchema = z.object({
   settlementReference: z.string().nullable(),
   principalLedgerCount: z.number(),
   principalLedgerAmountMinor: z.number().nullable(),
-  rewardLedgerCount: z.number(),
-  rewardLedgerAmountMinor: z.number().nullable(),
+  // Accept the original planner fixture and the collector's current output.
+  rewardLedgerCount: z.number().optional(),
+  rewardLedgerAmountMinor: z.number().nullable().optional(),
+  grossProfitLedgerCount: z.number().optional(),
+  grossProfitLedgerAmountMinor: z.number().nullable().optional(),
+  realizedGrossProfitMinor: z.number().optional(),
+  platformFeeMinor: z.number().optional(),
+  netProfitMinor: z.number().optional(),
+  platformFeeLedgerCount: z.number().optional(),
+  platformFeeLedgerAmountMinor: z.number().nullable().optional(),
+  realizedLossLedgerCount: z.number().optional(),
+  realizedLossLedgerAmountMinor: z.number().nullable().optional(),
+  settlementOutcome: z.string().optional(),
+  feePolicyVersion: z.number().optional(),
+  platformFeeRateBps: z.number().optional(),
+  platformFeeRoundingMode: z.string().optional(),
   rewardReservationStatus: z.string().nullable(),
   lifecycleEventCount: z.number(),
   walletUpdatedAtPresent: z.boolean(),
+}).superRefine((evidence, ctx) => {
+  if (evidence.rewardLedgerCount === undefined && evidence.grossProfitLedgerCount === undefined) {
+    ctx.addIssue({ code: "custom", message: "Missing rewardLedgerCount or grossProfitLedgerCount." });
+  }
+  if (evidence.rewardLedgerCount !== undefined && evidence.grossProfitLedgerCount !== undefined) {
+    ctx.addIssue({ code: "custom", message: "Supply either legacy reward ledger fields or collector gross-profit ledger fields, not both." });
+  }
 });
 
 const contextSchema = z.object({
@@ -45,9 +66,15 @@ async function main() {
     const parsedJson: unknown = JSON.parse(await readFile(file, "utf8"));
     const records = inputSchema.parse(parsedJson);
     const plans = records.map((record) => {
+      const source = record.evidence;
+      const evidence = {
+        ...source,
+        rewardLedgerCount: source.grossProfitLedgerCount ?? source.rewardLedgerCount!,
+        rewardLedgerAmountMinor: source.grossProfitLedgerAmountMinor ?? source.rewardLedgerAmountMinor!,
+      };
       const plan = buildTradeRecoveryPlan({
         tradeId: record.tradeId,
-        evidence: record.evidence,
+        evidence,
       });
       return record.context ? applyRecoveryContextSafety(plan, record.context) : plan;
     });
