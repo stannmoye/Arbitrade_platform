@@ -4409,9 +4409,9 @@
       "companyName": "A1",
       "logoFile": "logos/A1.png",
       "domain": "img.logo.deva1.net",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Austria",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 491,
@@ -4562,9 +4562,9 @@
       "companyName": "Tetra Pak",
       "logoFile": "logos/Tetra Pak.png",
       "domain": "img.logo.devtetrapak.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Switzerland",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 508,
