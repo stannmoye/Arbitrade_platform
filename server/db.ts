@@ -2248,6 +2248,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
     try{
       const result=await createTrade(userId,{
         offerId:offer.id,amountMinor:requestedAmount,
+        deliveryEventId:offer.deliveryEventId ? Number(offer.deliveryEventId) : undefined,
         packageSubscriptionId:Number(offer.packageSubscriptionId||0)||undefined,
       });
       await markOpportunityExecuted(userId,offer.id);
