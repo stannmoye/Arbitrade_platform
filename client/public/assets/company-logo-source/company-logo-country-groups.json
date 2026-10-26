@@ -7557,6 +7557,14 @@
         "confidence": "high"
       },
       {
+        "logoId": 1602,
+        "companyName": "DJ Jina",
+        "logoFile": "logos/DJ Jina.png",
+        "country": "South Korea",
+        "assignmentMethod": "artist-profile-table-music",
+        "confidence": "high"
+      },
+      {
         "logoId": 1634,
         "companyName": "Pinkfong",
         "logoFile": "logos/Pinkfong.png",
@@ -14582,14 +14590,6 @@
         "logoId": 1583,
         "companyName": "Nikka Whisky",
         "logoFile": "logos/Nikka Whisky.png",
-        "country": "Unverified",
-        "assignmentMethod": "needs-manual-verification",
-        "confidence": "unknown"
-      },
-      {
-        "logoId": 1602,
-        "companyName": "DJ Jina",
-        "logoFile": "logos/DJ Jina.png",
         "country": "Unverified",
         "assignmentMethod": "needs-manual-verification",
         "confidence": "unknown"
