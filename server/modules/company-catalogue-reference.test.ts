@@ -68,7 +68,7 @@ describe("Logo.dev brand-only static reference catalogue", () => {
 
   it("counts all matching records independently of pagination", () => {
     expect(countCompanyReferences({ countryName: "United States" })).toBeGreaterThan(100);
-    expect(countCompanyReferences({ countryName: "United States", search: "apple" })).toBeGreaterThanOrEqual(0);
+    expect(countCompanyReferences({ countryName: "United States", search: "apple" })).toBe(searchCompanyReferences({ countryName: "United States", search: "apple", limit: 1811 }).length);
     expect(countCompanyReferences({ countryName: "No Such Country" })).toBe(0);
     expect(countCompanyReferences({ countryName: "United States", offset: 100, limit: 100 })).toBe(countCompanyReferences({ countryName: "United States" }));
   });
