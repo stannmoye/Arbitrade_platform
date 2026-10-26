@@ -94,7 +94,7 @@ describe("trade recovery collector context safety", () => {
     });
     expect(result.classification).toBe("MANUAL_FINANCIAL_REVIEW");
     expect(result.reasons.join(" ")).toContain("did not provide its balance snapshot");
-    expect(result.reasons.join(" ")).toContain("Reservation currency does not match");
+    expect(result.reasons.join(" ")).toContain("Reward reservation currency does not match the trade currency");
     expect(result.plannedMutations).toEqual([]);
   });
 
