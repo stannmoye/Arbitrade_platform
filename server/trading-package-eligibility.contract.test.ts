@@ -16,7 +16,9 @@ describe("server-side trading package eligibility", () => {
     expect(implementation).toContain("noPackage:true");
     expect(implementation).toContain("eq(packages.enabled,true)");
     expect(implementation).not.toContain("packageDeliveryDisabled:true");
-    expect(implementation).toContain("const eligibleSubscriptions=subscriptions;");
+    expect(implementation).toContain("const eligibleSubscriptions=subscriptions.filter(subscription=>");
+    expect(implementation).toContain("configured.automaticDelivery!==false");
+    expect(implementation).toContain("packagePolicyPaused:true");
     expect(implementation).toContain("const autoTradeCandidates=tradeCandidates.filter((offer:any)=>");
     expect(implementation).toContain("if(offer.popupEligible!==true) return false;");
     expect(implementation).toContain("Boolean(packagePolicy.enabled) && packagePolicy.automaticTradingEnabled!==false");
@@ -39,6 +41,8 @@ describe("server-side trading package eligibility", () => {
     expect(implementation).toContain("samePackageSubscription");
     expect(implementation).toContain("No eligible package subscription remains for this allocation");
     expect(implementation).toContain("Number(subscription.packageId)===input.packageId");
+    expect(implementation).toContain('eq(appSettings.settingKey,"trading.allocations.paused")');
+    expect(implementation).toContain("if(allocationControls.allocationsPaused)");
   });
   it("never auto-allocates a pending or retrying popup that was not delivered", () => {
     const start = source.indexOf("async function autoTradeOpenOpportunities(");
@@ -48,6 +52,13 @@ describe("server-side trading package eligibility", () => {
     expect(end).toBeGreaterThan(start);
     expect(implementation).toContain("if(offer.popupEligible" + "!==true) continue;");
     expect(implementation).toContain("deliveryEventId:offer.deliveryEventId ? Number(offer.deliveryEventId) : undefined");
+  });
+
+  it("does not permanently mark a delivered opportunity missed when an admin pauses allocations", () => {
+    const start = source.indexOf("async function autoTradeOpenOpportunities(");
+    const end = source.indexOf("\nexport async function listCustomerOpportunities(", start);
+    const implementation = source.slice(start, end);
+    expect(implementation).toContain("if(/new trading allocations are paused by an administrator/i.test(message)) continue;");
   });
 
 });
