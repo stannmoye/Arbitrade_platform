@@ -41,7 +41,7 @@ describe("server-side trading package eligibility", () => {
     const implementation = source.slice(start, end);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    expect(implementation).toContain("if(offer.popupEligible===false) continue;");
+    expect(implementation).toContain("if(offer.popupEligible" + "!==true) continue;");
   });
 
 });
