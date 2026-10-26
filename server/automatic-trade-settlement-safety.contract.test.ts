@@ -18,6 +18,7 @@ describe("global overdue trade reconciliation", () => {
     expect(globalImplementation).toContain('eq(tradePositions.status,"confirmed")');
     expect(globalImplementation).toContain('eq(tradePositions.settlementStatus,"pending")');
     expect(globalImplementation).toContain("limit(1000)");
+    expect(globalImplementation).toContain('notInArray(tradePositions.lifecycleStage,["Awaiting Settlement Confirmation"])');
     expect(globalImplementation).toContain("settlement_due_waiting_for_confirmation");
     expect(globalImplementation).not.toContain("balanceLedger");
     expect(globalImplementation).not.toContain("customerBalances");
