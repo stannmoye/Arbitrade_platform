@@ -48,8 +48,8 @@ describe("trading package activation policy", () => {
 
   it("fails closed when combining eligible wallet balances would exceed safe integer precision", () => {
     expect(() => calculateQualifyingBalanceUsdMinor([
-      { currency: "USD", availableMinor: Number.MAX_SAFE_INTEGER, scale: 0, usdRate: 1 },
-      { currency: "EUR", availableMinor: Number.MAX_SAFE_INTEGER, scale: 0, usdRate: 1 },
+      { currency: "USD", availableMinor: 45_035_996_273_704, scale: 0, usdRate: 1 },
+      { currency: "EUR", availableMinor: 45_035_996_273_704, scale: 0, usdRate: 1 },
     ], { eligibleCurrencies: ["USD", "EUR"], combineEligibleWallets: true })).toThrow(/safe integer precision/);
   });
 });
