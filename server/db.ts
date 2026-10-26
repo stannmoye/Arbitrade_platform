@@ -2521,6 +2521,15 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     return {tradeId:Number(existing.id),rewardMinor:Number(existing.expectedRewardMinor),rewardBps:amountMinor>0?Math.floor(Number(existing.expectedRewardMinor)*10000/amountMinor):0,minimumMinor:0,calculationMethod:"idempotent-replay",settlesAt:existing.settlesAt,creditAt:existing.creditAt,currency:existing.currency,amountMinor,rateUsd:Number(rate.usdRate),rateUpdatedAt:rate.updatedAt,amountUsd:nativeMinorToUsd(amountMinor,Number(rate.scale),Number(rate.usdRate)),idempotentReplay:true};
    }
   }
+  // Serialize every new allocation against the administrator's global pause.
+  // Existing idempotent replays above remain readable while paused.
+  const allocationSetting=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
+    .where(eq(appSettings.settingKey,"trading.allocations.paused")).limit(1).for("update"))[0];
+  const allocationControls=parseTradeAllocationControls(allocationSetting?.settingValue);
+  if(allocationControls.allocationsPaused) {
+    throw new Error("New trading allocations are paused by an administrator: " + (allocationControls.reason || "system safety pause"));
+  }
+
   const settlementPolicy=await getTradeSettlementPolicy();
 
   const totalWalletFunds=(await tx.select({availableMinor:sql`COALESCE(SUM(${customerBalances.availableMinor}),0)`}).from(customerBalances).where(eq(customerBalances.userId,userId)))[0]; if(Number(totalWalletFunds?.availableMinor||0)<=0) throw new Error("Trading is unavailable until at least one wallet has available funds");
