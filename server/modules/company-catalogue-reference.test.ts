@@ -79,11 +79,32 @@ describe("Logo.dev brand-only static reference catalogue", () => {
     expect(getCompanyReferenceSummary().tickerCandidates).toBe(814);
   });
 
-  it("does not expose invented placeholder codes as candidate tickers", () => {
+  it("preserves all supplied workbook values and classifications by logo ID", () => {
+    const stripe = getCompanyReferenceById("logo-brand-0016");
+    expect(stripe?.name).toBe("Stripe");
+    expect(stripe?.ticker).toBe("STRI");
+    expect(stripe?.exchangeCode).toBe("PLACEHOLDER");
+    expect(stripe?.tickerClassification).toBe("placeholder");
+    expect(stripe?.whyNoRealTicker).toBe("NO TICKER - never publicly listed");
+    expect(findCompanyReferencesBySymbol("STRI")).toHaveLength(0);
+    const slack = getCompanyReferenceById("logo-brand-0013");
+    expect(slack?.ticker).toBe("WORK");
+    expect(slack?.tickerClassification).toBe("historic");
+    const dhl = getCompanyReferenceById("logo-brand-0053");
+    expect(dhl?.ticker).toBe("DHL");
+    expect(dhl?.parentTicker).toBe("XETRA:DHL");
+    expect(dhl?.tickerClassification).toBe("parent");
+    expect(getCompanyReferenceSummary().suppliedTickerValues).toBe(1811);
+    expect(getCompanyReferenceSummary().placeholderCodes).toBe(637);
+    expect(getCompanyReferenceSummary().parentTickerReferences).toBe(265);
+    expect(getCompanyReferenceSummary().historicalTickerReferences).toBe(95);
+  });
+
+  it("keeps placeholder values visible as source data but never treats them as public ticker candidates", () => {
     const placeholders = COMPANY_REFERENCE_CATALOGUE.filter((company) =>
       company.tickerResearchStatus === "PLACEHOLDER - invented code, not a real ticker"
     );
     expect(placeholders).toHaveLength(637);
-    expect(placeholders.every((company) => company.ticker === "" && company.exchangeCode === "")).toBe(true);
+    expect(placeholders.every((company) => company.ticker !== "" && company.exchangeCode === "PLACEHOLDER" && company.tickerClassification === "placeholder")).toBe(true);
   });
 });
