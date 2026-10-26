@@ -9567,18 +9567,20 @@
       "companyName": "GlobalFoundries",
       "logoFile": "logos/GlobalFoundries.png",
       "domain": "img.logo.devgf.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "official-or-reliable-headquarters-source",
+      "countryConfidence": "high",
+      "countryEvidenceUrl": "https://investors.gf.com/investor-relations/ir-resources/faqs"
     },
     {
       "logoId": 1064,
       "companyName": "Heidelberg Materials",
       "logoFile": "logos/Heidelberg Materials.png",
       "domain": "img.logo.devheidelbergmaterials.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Germany",
+      "countryAssignmentMethod": "official-or-reliable-headquarters-source",
+      "countryConfidence": "high",
+      "countryEvidenceUrl": "https://www.heidelbergmaterials.com/en/imprint"
     },
     {
       "logoId": 1065,
@@ -9594,9 +9596,10 @@
       "companyName": "VDL Groep",
       "logoFile": "logos/VDL Groep.png",
       "domain": "img.logo.devvdlgroep.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Netherlands",
+      "countryAssignmentMethod": "official-or-reliable-headquarters-source",
+      "countryConfidence": "high",
+      "countryEvidenceUrl": "https://www.vdlgroep.com/en/contact"
     },
     {
       "logoId": 1067,
@@ -9612,18 +9615,20 @@
       "companyName": "Missoni",
       "logoFile": "logos/Missoni.png",
       "domain": "img.logo.devmissoni.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Italy",
+      "countryAssignmentMethod": "official-or-reliable-headquarters-source",
+      "countryConfidence": "high",
+      "countryEvidenceUrl": "https://www.missoni.com/en-gb/missoni-faq.html"
     },
     {
       "logoId": 1069,
       "companyName": "VELUX",
       "logoFile": "logos/VELUX.png",
       "domain": "img.logo.devvelux.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Denmark",
+      "countryAssignmentMethod": "official-or-reliable-headquarters-source",
+      "countryConfidence": "high",
+      "countryEvidenceUrl": "https://www.velux.com/contact-us"
     },
     {
       "logoId": 1070,
@@ -9648,9 +9653,10 @@
       "companyName": "Grupo Bimbo",
       "logoFile": "logos/Grupo Bimbo.png",
       "domain": "img.logo.devgrupobimbo.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Mexico",
+      "countryAssignmentMethod": "official-or-reliable-headquarters-source",
+      "countryConfidence": "high",
+      "countryEvidenceUrl": "https://grupobimbo-com-assets.s3.amazonaws.com/s3fs-public/reportes-2021/BIMBO_Annual_Report_2020_0.pdf"
     },
     {
       "logoId": 1073,
@@ -9675,27 +9681,30 @@
       "companyName": "USRobotics",
       "logoFile": "logos/USRobotics.png",
       "domain": "img.logo.devusr.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "official-or-reliable-headquarters-source",
+      "countryConfidence": "high",
+      "countryEvidenceUrl": "https://support.usr.com/press/pr-factsheet.asp"
     },
     {
       "logoId": 1076,
       "companyName": "Linden Lab",
       "logoFile": "logos/Linden Lab.png",
       "domain": "img.logo.devlindenlab.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "official-or-reliable-headquarters-source",
+      "countryConfidence": "high",
+      "countryEvidenceUrl": "https://lindenlab.com/about"
     },
     {
       "logoId": 1077,
       "companyName": "Mack Trucks",
       "logoFile": "logos/Mack Trucks.png",
       "domain": "img.logo.devmacktrucks.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "official-or-reliable-headquarters-source",
+      "countryConfidence": "high",
+      "countryEvidenceUrl": "https://www.macktrucks.com/about-mack/facilities/mack-world-headquarters/"
     },
     {
       "logoId": 1078,
