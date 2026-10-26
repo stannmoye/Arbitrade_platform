@@ -21,9 +21,18 @@ export function chooseSecureTradeAmount(input: TradeAmountRequest): number | nul
   const availableMaximum = input.availableMinor === undefined ? configuredMaximum : Math.floor(input.availableMinor);
   const maximum = Math.min(configuredMaximum, availableMaximum);
   if (!Number.isSafeInteger(minimum) || !Number.isSafeInteger(maximum) || minimum > maximum) return null;
+  // crypto.randomInt requires a safe exclusive upper bound and a range below 2^48.
+  // Fail closed rather than silently biasing or overflowing an unsupported range.
+  if (maximum >= Number.MAX_SAFE_INTEGER || maximum - minimum >= 2 ** 48) {
+    throw new RangeError("Trade amount range exceeds secure random sampler limits");
+  }
   const randomIntFn = input.randomIntFn ?? ((min, maxExclusive) => randomInt(min, maxExclusive));
-  // Rejection sampling via crypto.randomInt avoids Math.random and modulo bias.
-  return randomIntFn(minimum, maximum + 1);
+  // crypto.randomInt avoids Math.random and modulo bias; validate injected samplers too.
+  const amount = randomIntFn(minimum, maximum + 1);
+  if (!Number.isSafeInteger(amount) || amount < minimum || amount > maximum) {
+    throw new RangeError("Trade amount random source returned an out-of-range amount");
+  }
+  return amount;
 }
 
 export function assertTradeAmountWithinBounds(amountMinor: number, bounds: TradeAmountBounds, offerMinimumMinor = 1): void {
