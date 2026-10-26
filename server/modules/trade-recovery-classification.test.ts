@@ -184,6 +184,43 @@ describe("trade recovery evidence classification (read-only)", () => {
     expect(feeOnLoss.reasons.join(" ")).toContain("must not incur");
   });
 
+  it("checks the stored fee rate and rounding policy against the recorded fee", () => {
+    const valid = classifyTradeRecoveryEvidence(settledEvidence({
+      rewardCreditedMinor: 1700,
+      grossProfitLedgerCount: 1,
+      grossProfitLedgerAmountMinor: 2000,
+      realizedGrossProfitMinor: 2000,
+      platformFeeMinor: 300,
+      netProfitMinor: 1700,
+      platformFeeLedgerCount: 1,
+      platformFeeLedgerAmountMinor: -300,
+      realizedLossLedgerCount: 0,
+      realizedLossLedgerAmountMinor: null,
+      feePolicyVersion: 1,
+      platformFeeRateBps: 1500,
+      platformFeeRoundingMode: "half_up",
+    }));
+    expect(valid.classification).toBe("NO_ACTION");
+
+    const mismatch = classifyTradeRecoveryEvidence(settledEvidence({
+      rewardCreditedMinor: 1700,
+      grossProfitLedgerCount: 1,
+      grossProfitLedgerAmountMinor: 2000,
+      realizedGrossProfitMinor: 2000,
+      platformFeeMinor: 250,
+      netProfitMinor: 1750,
+      platformFeeLedgerCount: 1,
+      platformFeeLedgerAmountMinor: -250,
+      realizedLossLedgerCount: 0,
+      realizedLossLedgerAmountMinor: null,
+      feePolicyVersion: 1,
+      platformFeeRateBps: 1500,
+      platformFeeRoundingMode: "half_up",
+    }));
+    expect(mismatch.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(mismatch.reasons.join(" ")).toContain("does not match the stored fee rate");
+  });
+
   it("escalates settlement outcomes that disagree with the recorded realized result", () => {
     const result = classifyTradeRecoveryEvidence(settledEvidence({
       grossProfitLedgerCount: 1,
