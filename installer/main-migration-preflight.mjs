@@ -2,6 +2,13 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+// Migration 0072 was shipped before fresh-install testing exposed its dependency on
+// portal-chain columns. Accept the original hash for already-applied databases while
+// fresh installs use the corrected migration body.
+const LEGACY_MIGRATION_HASH_ALIASES = new Map([
+  ["a2f897e5e500ae7fb54c71cc6756510191f02d615e3e62c4a3a68f824898cafc", "0072_wallet_ledger_reconciliation_indexes"],
+]);
+
 export async function loadExpectedMainMigrationHistory(root) {
   const journal = JSON.parse(await readFile(resolve(root, "drizzle/meta/_journal.json"), "utf8"));
   if (!Array.isArray(journal.entries) || journal.entries.length === 0) throw new Error("The Drizzle migration journal is missing or empty.");
@@ -27,12 +34,14 @@ export function validateMainMigrationHistory(trackerRows, expectedMigrations) {
   if (!Array.isArray(trackerRows) || trackerRows.length === 0) return { allowed: false, reason: "The Drizzle migration tracker is empty or unreadable." };
   if (!Array.isArray(expectedMigrations) || expectedMigrations.length === 0) return { allowed: false, reason: "The repository migration journal could not be verified." };
   const expectedByHash = new Map(expectedMigrations.map((migration, index) => [migration.hash, { createdAt: migration.createdAt, index }]));
+  const expectedByTag = new Map(expectedMigrations.map((migration, index) => [migration.tag, { createdAt: migration.createdAt, index }]));
   const seen = new Set();
   const seenIndexes = new Set();
   for (const row of trackerRows) {
     const hash = String(row?.hash ?? "");
     const createdAt = Number(row?.created_at);
-    const expected = expectedByHash.get(hash);
+    const legacyTag = LEGACY_MIGRATION_HASH_ALIASES.get(hash);
+    const expected = expectedByHash.get(hash) ?? (legacyTag ? expectedByTag.get(legacyTag) : undefined);
     if (!/^[a-f0-9]{64}$/i.test(hash) || !expected) return { allowed: false, reason: "The Drizzle tracker contains a migration hash that does not match the repository journal." };
     if (seen.has(hash)) return { allowed: false, reason: "The Drizzle tracker contains duplicate migration hashes." };
     if (!Number.isSafeInteger(createdAt) || createdAt !== expected.createdAt) return { allowed: false, reason: "A recorded Drizzle migration timestamp does not match its repository journal entry." };
