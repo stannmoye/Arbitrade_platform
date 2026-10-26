@@ -59,9 +59,15 @@ export function applyRecoveryContextSafety(
       (!Number.isSafeInteger(context.userId) || context.userId < 1)) {
     reasons.push("Collector trade user identity is invalid.");
   }
-  if (context.tradeId !== undefined &&
-      (!Number.isSafeInteger(context.tradeId) || context.tradeId < 1)) {
-    reasons.push("Collector trade identity is invalid.");
+  if (context.tradeId !== undefined) {
+    if (!Number.isSafeInteger(context.tradeId) || context.tradeId < 1) {
+      reasons.push("Collector trade identity is invalid.");
+    } else {
+      const plannedTradeId = typeof plan.tradeId === "number" ? plan.tradeId : Number(plan.tradeId);
+      if (!Number.isSafeInteger(plannedTradeId) || plannedTradeId < 1 || plannedTradeId !== context.tradeId) {
+        reasons.push("Collector context trade identity does not match the trade being planned.");
+      }
+    }
   }
   if (context.currency !== undefined && (typeof context.currency !== "string" || !context.currency.trim())) {
     reasons.push("Collector trade currency is invalid.");
