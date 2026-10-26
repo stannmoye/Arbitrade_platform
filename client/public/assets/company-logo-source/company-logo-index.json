@@ -11979,9 +11979,9 @@
       "companyName": "Consumer Rights Wiki",
       "logoFile": "logos/Consumer Rights Wiki.png",
       "domain": "img.logo.devconsumerrights.wiki",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "official-parent-foundation-privacy-policy",
+      "countryConfidence": "high"
     },
     {
       "logoId": 1331,
