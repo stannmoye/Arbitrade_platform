@@ -210,4 +210,22 @@ describe("historical-safe settlement ledger reconciliation", () => {
       code: "ledger_posting_scan_truncated", confidence: "inconclusive",
     }));
   });
+  
+  it("fails closed when a reconciliation count or known obligation is negative", () => {
+    const result = inspectWalletLedgerSnapshot({
+      userId: 7, currency: "USD", walletCount: 1,
+      availableMinor: 1000, lockedMinor: 0,
+      ledgerEntryCount: 2, ledgerNetMinor: 1000,
+      activeTradeCount: 1, knownActiveTradePrincipalMinor: -500,
+      pendingPayoutCount: 0, pendingPayoutMinor: 0,
+    });
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        code: "invalid_negative_reconciliation_input",
+        confidence: "inconclusive",
+      }),
+    ]);
+    expect(result.availableLedgerDeltaMinor).toBe(0);
+  });
+
 });
