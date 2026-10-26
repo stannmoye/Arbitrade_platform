@@ -37,6 +37,14 @@ describe("manual trade settlement idempotency", () => {
     expect(implementation).toContain('assertExactlyOneAffectedRow(reservationUpdate,"Trade reward reservation settlement")');
   });
 
+  it("validates the reservation identity and amount before settlement postings", () => {
+    expect(implementation).toContain("const reservation=(await tx.select().from(tradeRewardReservations)");
+    expect(implementation).toContain("reservation.userId!==trade.userId||reservation.currency!==trade.currency||reservation.tradeId!==trade.id");
+    expect(implementation).toContain("Number(reservation.reservedMinor)!==reservedMinor");
+    expect(implementation).toContain("Trade has a reserved reward amount but its reservation record is missing");
+    expect(implementation).toContain("assertExactlyOneAffectedRow(reservationUpdate,\"Trade reward reservation settlement\")");
+  });
+
   it("claims references in a database-unique table before any financial postings", () => {
     const claim = implementation.indexOf("tx.insert(tradeSettlementReferenceClaims)");
     const principal = implementation.indexOf("tx.insert(balanceLedger)");
