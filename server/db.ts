@@ -2444,6 +2444,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   let remainingQuota=Math.max(0,dailyCap-deliveredToday.length);
   const balancesSnapshot=await listBalances(userId);
   const newlyEligible:any[]=[];
+  // Preserve the entitlement selected for newly created popups during this cycle,
+  // so the later automatic-trade pass does not count that same quota slot twice.
+  const assignedSubscriptionByOffer=new Map<number,any>();
   if(!formulaCooling&&remainingQuota>0){
     for(const offer of offerRows){
       if(remainingQuota<=0) break;
@@ -2463,6 +2466,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         minimumMinor,packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
         expectedRewardBps:terms.rewardBps,calculationMethod:terms.method});
+      assignedSubscriptionByOffer.set(Number(offer.id),subscription);
       usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
       remainingQuota--;
     }
@@ -2495,9 +2499,14 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     // package is renamed, disabled, expired, or otherwise no longer eligible.
     // Existing popups keep their package identity, while the actual entitlement
     // is selected from same-package copies that still have their own daily quota.
-    const subscription=eligibleSubscriptions.find(item=>item.packageName===row.packageName&&subscriptionHasQuota(item));
+    const assignedSubscription=assignedSubscriptionByOffer.get(Number(row.offerId));
+    const subscription=assignedSubscription&&assignedSubscription.packageName===row.packageName
+      ?assignedSubscription
+      :eligibleSubscriptions.find(item=>item.packageName===row.packageName&&subscriptionHasQuota(item));
     if(!subscription) return null;
-    usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
+    if(!assignedSubscriptionByOffer.has(Number(row.offerId))) {
+      usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
+    }
     const configured=policyByName.get(subscription.packageName);
     const currencyRow=currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase());
     const offerMinimum=Number(row.offerMinimumMinor??row.popupMinimumMinor);
