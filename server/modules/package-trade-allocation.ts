@@ -36,6 +36,11 @@ export function chooseSecureTradeAmount(input: TradeAmountRequest): number | nul
 }
 
 export function assertTradeAmountWithinBounds(amountMinor: number, bounds: TradeAmountBounds, offerMinimumMinor = 1): void {
+  if (!Number.isSafeInteger(bounds.minimumTradeMinor) || bounds.minimumTradeMinor < 1
+    || !Number.isSafeInteger(bounds.maximumTradeMinor) || bounds.maximumTradeMinor < bounds.minimumTradeMinor
+    || !Number.isSafeInteger(offerMinimumMinor) || offerMinimumMinor < 1) {
+    throw new RangeError("Trade amount bounds must be valid positive safe integers");
+  }
   if (!Number.isSafeInteger(amountMinor) || amountMinor < Math.max(1, bounds.minimumTradeMinor, offerMinimumMinor)) {
     throw new Error(`Trade amount must be at least ${Math.max(1, bounds.minimumTradeMinor, offerMinimumMinor)} minor units for this package`);
   }
