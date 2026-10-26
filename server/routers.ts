@@ -3,10 +3,11 @@ import { parse as parseCookieHeader } from "cookie";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, getRandomCompanyReference, searchCompanyReferences } from "./modules/company-catalogue-reference";
 import { z } from "zod";
 import { communicationSettingsInput, getAdminCommunicationSettings, getCustomerCommunicationOptions, saveAdminCommunicationSettings, validateCommunicationSettingsInput } from "./communicationSettings";
 import { TRPCError } from "@trpc/server";
-import { ACCOUNT_CLOSURE_TICKET_SUBJECT, AccountClosureDecisionError, applyAccountClosureDecision, assignSupportTicket, createAccountClosureTicket, listSupportAssignees, addTicketAttachment, addTicketMessage, adjustCustomerBalance, broadcastCustomerNotification, listAdminNotificationCampaigns, retryNotificationCampaign, withdrawNotificationCampaign, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, deleteAdminCustomer, getCustomerTicket, getSupportTicketById, getAppSetting, getTradeSettlementPolicy, getTradeFeePolicy, setTradeFeePolicy, getPackageActivationPolicy, setPackageActivationPolicy, listAdminTradingPackages, updateAdminTradingPackage, listCustomerTradingPackages, activateCustomerTradingPackage, getCustomerBalanceSummary, getCustomerWalletPreferences, getCustomerPayoutEligibility, getCustomerAuthenticatorStatus, startCustomerAuthenticatorEnrollment, confirmCustomerAuthenticatorEnrollment, generateCustomerAuthenticatorRecoveryCodes, startCustomerAuthenticatorRecoveryReplacement, startCustomerAuthenticatorReplacement, confirmCustomerAuthenticatorReplacement, createCustomerPayoutRequest, listCustomerPayoutRequests, cancelCustomerPayoutRequest, listAdminPayoutRequests, resolveCustomerPayoutRequest, manuallySettleTrade, listPendingSettlements, markCustomerNotificationsRead, updateCustomerWalletPreferences, getTicketUploadPolicy, setTradeSettlementPolicy, getNotificationCategoryVisibility, getCustomerNotificationUnreadCount, listCustomerNotificationPage, setNotificationCategoryVisibility, getUserById, getUserForSessionRevocation, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listCustomerNotifications, listNotifications, listNotificationEventCursor, listOpenOffers, listOpportunityPackagePolicies, listRiskReports, listTicketAttachments, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, reopenSupportTicket, setAppSetting, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
+import { ACCOUNT_CLOSURE_TICKET_SUBJECT, AccountClosureDecisionError, applyAccountClosureDecision, assignSupportTicket, createAccountClosureTicket, listSupportAssignees, addTicketAttachment, addTicketMessage, adjustCustomerBalance, broadcastCustomerNotification, listAdminNotificationCampaigns, retryNotificationCampaign, withdrawNotificationCampaign, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, deleteAdminCustomer, getCustomerTicket, getSupportTicketById, getAppSetting, getTradeSettlementPolicy, getTradeFeePolicy, setTradeFeePolicy, getPackageActivationPolicy, setPackageActivationPolicy, getTradeAllocationControls, setTradeAllocationControls, listAdminTradingPackages, updateAdminTradingPackage, listCustomerTradingPackages, activateCustomerTradingPackage, getCustomerBalanceSummary, getCustomerWalletPreferences, getCustomerPayoutEligibility, getCustomerAuthenticatorStatus, startCustomerAuthenticatorEnrollment, confirmCustomerAuthenticatorEnrollment, generateCustomerAuthenticatorRecoveryCodes, startCustomerAuthenticatorRecoveryReplacement, startCustomerAuthenticatorReplacement, confirmCustomerAuthenticatorReplacement, createCustomerPayoutRequest, listCustomerPayoutRequests, cancelCustomerPayoutRequest, listAdminPayoutRequests, resolveCustomerPayoutRequest, manuallySettleTrade, listPendingSettlements, listTradeSettlementIntegrityIssues, listWalletLedgerReconciliation, markCustomerNotificationsRead, updateCustomerWalletPreferences, getTicketUploadPolicy, setTradeSettlementPolicy, getNotificationCategoryVisibility, getCustomerNotificationUnreadCount, listCustomerNotificationPage, setNotificationCategoryVisibility, getUserById, getUserForSessionRevocation, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listCustomerNotifications, listNotifications, listNotificationEventCursor, listOpenOffers, listOpportunityPackagePolicies, listRiskReports, listTicketAttachments, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, reopenSupportTicket, setAppSetting, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
 import { allocateStake, cancelStake, getStakeDashboard, projectStake } from "./stakeEarn";
 import { closeTransactionConsoleSession, listTransactionConsoleEvents, recordTransactionConsoleEvent, recordTransactionConsolePulse } from "./transactionConsole";
 import { getOpportunityLifecycleSummary, runOpportunityRetention, updatePopupLifecycle, updatePopupDeliveryStatus } from "./opportunityLifecycle";
@@ -33,6 +34,25 @@ export const appRouter = router({
   appearanceConfig: publicProcedure.query(async () =>
     normalizeAppearanceSettings(await getAppSetting("appearance.settings"))
   ),
+
+  companyCatalogueReference: router({
+    summary: publicProcedure.query(() => getCompanyReferenceSummary()),
+    search: publicProcedure.input(z.object({
+      search: z.string().trim().max(100).optional(),
+      countryCode: z.string().trim().length(2).optional(),
+      limit: z.number().int().min(1).max(1811).optional(),
+    }).optional()).query(({ input }) => searchCompanyReferences(input ?? {})),
+    byId: publicProcedure.input(z.object({
+      id: z.string().trim().min(1).max(180),
+    })).query(({ input }) => getCompanyReferenceById(input.id) ?? null),
+    bySymbol: publicProcedure.input(z.object({
+      symbol: z.string().trim().min(1).max(40),
+    })).query(({ input }) => findCompanyReferencesBySymbol(input.symbol)),
+    random: publicProcedure.query(() => getRandomCompanyReference()),
+    next: publicProcedure.input(z.object({
+      excludeId: z.string().trim().min(1).max(180).optional(),
+    }).optional()).mutation(({ input }) => getRandomCompanyReference(Math.random, input?.excludeId ? [input.excludeId] : [])),
+  }),
 
   privacy: router({
     currentPolicy: protectedProcedure.query(({ ctx }) => {
@@ -340,6 +360,11 @@ export const appRouter = router({
       }),
     }),
 
+    tradeAllocationControls: adminProcedure.query(() => getTradeAllocationControls()),
+    updateTradeAllocationControls: adminProcedure.input(z.object({
+      allocationsPaused: z.boolean(),
+      reason: z.string().trim().max(500),
+    })).mutation(({ ctx, input }) => setTradeAllocationControls(ctx.user.id, input)),
     tradingPackages: adminProcedure.query(() => listAdminTradingPackages()),
     updateTradingPackage: adminProcedure.input(z.object({
       id: z.number().int().positive(),
@@ -470,6 +495,18 @@ export const appRouter = router({
       roundingMode: z.enum(["half_up","down","up","half_even"]),
     })).mutation(({ ctx, input }) => setTradeFeePolicy(input,ctx.user.id)),
     pendingSettlements: adminProcedure.query(() => listPendingSettlements()),
+    settlementIntegrityIssues: adminProcedure.input(z.object({
+      limit: z.number().int().min(1).max(1000).optional(),
+      beforeTradeId: z.number().int().positive().optional(),
+    }).optional()).query(({ input }) => listTradeSettlementIntegrityIssues(input)),
+    walletLedgerReconciliation: adminProcedure.input(z.object({
+      limit: z.number().int().min(1).max(1000).optional(),
+      afterUserId: z.number().int().positive().optional(),
+      afterCurrency: z.string().trim().min(2).max(12).optional(),
+      beforeTradeId: z.number().int().positive().optional(),
+    }).refine((input) => (input.afterUserId === undefined) === (input.afterCurrency === undefined), {
+      message: "Wallet reconciliation cursor requires both customer ID and currency",
+    }).optional()).query(({ input }) => listWalletLedgerReconciliation(input)),
     confirmManualSettlement: adminProcedure.input(z.object({
       tradeId: z.number().int().positive(),
       grossProfitMinor: z.number().int(),

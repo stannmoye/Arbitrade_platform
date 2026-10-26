@@ -8,11 +8,37 @@ describe("advanced automatic trading policy", () => {
     expect(() => validatePackageAutomationPolicy({ ...base, minIntervalSeconds: 500, maxIntervalSeconds: 10 })).toThrow(/interval/);
     expect(() => validatePackageAutomationPolicy({ ...base, maxRewardPerTradeMinor: 10001, maxDailyRewardMinor: 10000 })).toThrow(/per trade/);
   });
-  it("keeps a randomized next time inside the administrator range", () => {
+  it("rejects fractional, unsafe, and unordered settlement delays", () => {
+    expect(() => validatePackageAutomationPolicy({ ...base, minSettlementDelaySeconds: 1.5, maxSettlementDelaySeconds: 10 })).toThrow(/settlement delay/);
+    expect(() => validatePackageAutomationPolicy({ ...base, minSettlementDelaySeconds: Number.MAX_SAFE_INTEGER + 1, maxSettlementDelaySeconds: Number.MAX_SAFE_INTEGER + 1 })).toThrow(/settlement delay/);
+    expect(() => validatePackageAutomationPolicy({ ...base, minSettlementDelaySeconds: 11, maxSettlementDelaySeconds: 10 })).toThrow(/settlement delay/);
+    expect(() => validatePackageAutomationPolicy({ ...base, minSettlementDelaySeconds: Number.NaN, maxSettlementDelaySeconds: 10 })).toThrow(/settlement delay/);
+  });
+  it("rejects invalid policy enum values and empty package names at runtime", () => {
+    expect(() => validatePackageAutomationPolicy({ ...base, packageName: "  " })).toThrow(/package name/);
+    expect(() => validatePackageAutomationPolicy({ ...base, schedulingPeriod: "unknown" as any })).toThrow(/scheduling period/);
+    expect(() => validatePackageAutomationPolicy({ ...base, closePolicy: "unknown" as any })).toThrow(/close policy/);
+  });
+  it("uses the secure bounded sampler and accepts both configured interval endpoints", () => {
     const now = new Date("2026-10-16T10:00:00.000Z");
-    const next = chooseNextEligibleAt(now, 45, 60, true, () => new Uint8Array([255, 255, 255, 255]));
-    expect(next.getTime()).toBeGreaterThanOrEqual(now.getTime() + 45_000);
-    expect(next.getTime()).toBeLessThanOrEqual(now.getTime() + 60_000);
+    const calls: number[][] = [];
+    const low = chooseNextEligibleAt(now, 45, 60, true, (min, maxExclusive) => {
+      calls.push([min, maxExclusive]);
+      return min;
+    });
+    const high = chooseNextEligibleAt(now, 45, 60, true, (_min, maxExclusive) => maxExclusive - 1);
+    expect(calls).toEqual([[45, 61]]);
+    expect(low.toISOString()).toBe("2026-10-16T10:00:45.000Z");
+    expect(high.toISOString()).toBe("2026-10-16T10:01:00.000Z");
+  });
+
+  it("rejects invalid dates, unsafe intervals and a broken random sampler", () => {
+    const now = new Date("2026-10-16T10:00:00.000Z");
+    expect(() => chooseNextEligibleAt(now, -1, 60, true)).toThrow(/interval range/);
+    expect(() => chooseNextEligibleAt(now, 61, 60, true)).toThrow(/interval range/);
+    expect(() => chooseNextEligibleAt(now, 0, 2 ** 48, true)).toThrow(/interval range/);
+    expect(() => chooseNextEligibleAt(now, 45, 60, true, () => 61)).toThrow(/out-of-range/);
+    expect(() => chooseNextEligibleAt(new Date(Number.NaN), 45, 60, true)).toThrow(/interval range/);
   });
   it("uses explicit window keys and subtracts both credited and reserved rewards", () => {
     const now = new Date("2026-10-16T10:00:00.000Z");
@@ -20,5 +46,15 @@ describe("advanced automatic trading policy", () => {
     expect(remainingRewardAllowance(10_000, 2_000, 3_000)).toBe(5_000);
     expect(canReserveReward(10_000, 2_000, 3_000, 5_000)).toBe(true);
     expect(canReserveReward(10_000, 2_000, 3_000, 5_001)).toBe(false);
+    expect(remainingRewardAllowance(10_000, 12_000, 0)).toBe(0);
+    expect(remainingRewardAllowance(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER - 1, 1)).toBe(0);
+  });
+
+  it("fails closed for invalid reward-cap amounts instead of propagating NaN or fractions", () => {
+    expect(() => remainingRewardAllowance(Number.NaN, 0, 0)).toThrow(/Reward cap/);
+    expect(() => remainingRewardAllowance(100, -1, 0)).toThrow(/Credited rewards/);
+    expect(() => remainingRewardAllowance(100, 0, 1.5)).toThrow(/Reserved rewards/);
+    expect(() => canReserveReward(100, 0, 0, -1)).toThrow(/Requested reward/);
+    expect(() => canReserveReward(100, 0, 0, Number.MAX_SAFE_INTEGER + 1)).toThrow(/Requested reward/);
   });
 });

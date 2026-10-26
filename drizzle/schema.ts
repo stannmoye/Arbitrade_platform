@@ -344,7 +344,9 @@ export const customerBalances = mysqlTable("customer_balances", {
   promotionalMinor: bigint("promotionalMinor", { mode: "number" }).default(0).notNull(),
   earnedMinor: bigint("earnedMinor", { mode: "number" }).default(0).notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (table) => ({
+  userCurrencyIdx: index("customer_balances_user_currency_idx").on(table.userId, table.currency),
+}));
 
 export const currencyRegistry = mysqlTable("currency_registry", {
   id: int("id").autoincrement().primaryKey(),
@@ -370,7 +372,10 @@ export const balanceLedger = mysqlTable("balance_ledger", {
   reference: varchar("reference", { length: 80 }).notNull(),
   withdrawable: boolean("withdrawable").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  userCurrencyIdx: index("balance_ledger_user_currency_idx").on(table.userId, table.currency, table.id),
+  referenceIdx: index("balance_ledger_reference_idx").on(table.reference),
+}));
 
 export const opportunityOffers = mysqlTable("opportunity_offers", {
   id: int("id").autoincrement().primaryKey(),
@@ -454,6 +459,35 @@ export const tradeSettlementReferenceClaims = mysqlTable("trade_settlement_refer
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export const tradeSettlementRecoveryCases = mysqlTable("trade_settlement_recovery_cases", {
+  id: int("id").autoincrement().primaryKey(),
+  tradeId: int("tradeId").notNull(),
+  userId: int("userId").notNull(),
+  currency: varchar("currency", { length: 12 }).notNull(),
+  settlementReference: varchar("settlementReference", { length: 160 }),
+  correctionMode: mysqlEnum("correctionMode", ["ledger_only", "wallet_and_ledger"]).notNull(),
+  amountMinor: bigint("amountMinor", { mode: "number" }).notNull(),
+  evidenceReference: varchar("evidenceReference", { length: 160 }).notNull(),
+  evidenceSummary: text("evidenceSummary").notNull(),
+  reason: text("reason").notNull(),
+  idempotencyKey: varchar("idempotencyKey", { length: 180 }).notNull(),
+  status: mysqlEnum("status", ["pending_approval", "approved", "rejected", "resolved"]).default("pending_approval").notNull(),
+  proposedBy: int("proposedBy").notNull(),
+  approvedBy: int("approvedBy"),
+  reviewNote: text("reviewNote"),
+  reviewedAt: timestamp("reviewedAt"),
+  resolvedBy: int("resolvedBy"),
+  resolvedAt: timestamp("resolvedAt"),
+  recoveryLedgerReference: varchar("recoveryLedgerReference", { length: 80 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  idempotencyUnique: uniqueIndex("trade_settlement_recovery_idempotency_unique").on(table.idempotencyKey),
+  recoveryLedgerReferenceUnique: uniqueIndex("trade_settlement_recovery_ledger_reference_unique").on(table.recoveryLedgerReference),
+  statusCreatedIdx: index("trade_settlement_recovery_status_created_idx").on(table.status, table.createdAt, table.id),
+  tradeIdx: index("trade_settlement_recovery_trade_idx").on(table.tradeId, table.id),
+}));
+
 export const tradePositions = mysqlTable("trade_positions", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
@@ -486,7 +520,10 @@ export const tradePositions = mysqlTable("trade_positions", {
   settlementConfirmedBy: int("settlementConfirmedBy"),
   settlementNotes: varchar("settlementNotes", { length: 2000 }),
   policyVersion: int("policyVersion").default(1).notNull(),
-});
+}, (table) => ({
+  statusSettlementUserCurrencyIdx: index("trade_positions_status_settlement_user_currency_idx").on(table.status, table.settlementStatus, table.userId, table.currency),
+  settlementReferenceIdx: index("trade_positions_settlement_reference_idx").on(table.settlementReference),
+}));
 export const tradeLifecycleEvents = mysqlTable("trade_lifecycle_events", {
   id: int("id").autoincrement().primaryKey(),
   tradeId: int("tradeId").notNull(),
@@ -524,15 +561,6 @@ export const companies = mysqlTable("companies", {
   name: varchar("name", { length: 160 }).notNull(),
   logoUrl: varchar("logoUrl", { length: 512 }),
   status: mysqlEnum("status", ["active", "disabled"]).default("active").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-
-export const tradingTypes = mysqlTable("trading_types", {
-  id: int("id").autoincrement().primaryKey(),
-  name: varchar("name", { length: 160 }).notNull().unique(),
-  description: text("description"),
-  mode: mysqlEnum("mode", ["PRACTICE", "SIMULATION", "RESEARCH", "LIVE"]).default("PRACTICE").notNull(),
-  enabled: boolean("enabled").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -1038,3 +1066,5 @@ export const localScheduledJobs = mysqlTable("local_scheduled_jobs", {
   dueIndex: index("local_scheduled_jobs_due_idx").on(table.isEnable, table.nextExecutionAt, table.lockedUntil),
   ownerIndex: index("local_scheduled_jobs_owner_idx").on(table.ownerUserId, table.createdAt),
 }));
+
+

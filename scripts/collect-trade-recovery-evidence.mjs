@@ -34,6 +34,11 @@ function parseArgs(argv) {
 }
 
 function safeInteger(value, label) {
+  if (value === null || value === undefined ||
+      (typeof value !== "number" && typeof value !== "string") ||
+      (typeof value === "string" && value.trim() === "")) {
+    throw new Error(`Missing or non-numeric integer in ${label}; refusing to coerce absent financial evidence to zero.`);
+  }
   const parsed = typeof value === "number" ? value : Number(value);
   if (!Number.isSafeInteger(parsed)) {
     throw new Error(`Unsafe or invalid integer in ${label}; refusing to produce potentially lossy financial evidence.`);
@@ -156,10 +161,18 @@ async function main() {
       );
     }
 
+    const [countRows] = await db.query("SELECT COUNT(*) AS totalCount FROM trade_positions");
+    const totalTradeCount = safeInteger(countRows[0]?.totalCount, "trade_positions total count");
     const [tradeRows] = await db.execute(
       "SELECT id, userId, currency, status, settlementStatus, principalMinor, rewardCreditedMinor, realizedGrossProfitMinor, platformFeeMinor, netProfitMinor, settlementOutcome, feePolicyVersion, platformFeeRateBps, platformFeeRoundingMode, settlementReference, walletUpdatedAt FROM trade_positions ORDER BY id DESC LIMIT ?",
       [args.limit],
     );
+    const scanCoverage = {
+      requestedLimit: args.limit,
+      selectedTradeCount: tradeRows.length,
+      totalTradeCount,
+      complete: tradeRows.length === totalTradeCount,
+    };
     const trades = tradeRows.map((row) => ({
       id: safeInteger(row.id, "trade_positions.id"),
       userId: safeInteger(row.userId, "trade_positions.userId"),
@@ -278,6 +291,8 @@ async function main() {
       );
       const wallet = walletForTrade.length === 1 ? {
         id: safeInteger(walletForTrade[0].id, "customer_balances.id"),
+        userId: safeInteger(walletForTrade[0].userId, "customer_balances.userId"),
+        currency: String(walletForTrade[0].currency),
         availableMinor: safeInteger(walletForTrade[0].availableMinor, "customer_balances.availableMinor"),
         lockedMinor: safeInteger(walletForTrade[0].lockedMinor, "customer_balances.lockedMinor"),
         promotionalMinor: safeInteger(walletForTrade[0].promotionalMinor, "customer_balances.promotionalMinor"),
@@ -310,6 +325,7 @@ async function main() {
       const fee = ledgerSummary(feeRows);
       const loss = ledgerSummary(lossRows);
       const context = {
+        tradeId: trade.id,
         userId: trade.userId,
         currency: trade.currency,
         principalMinor: trade.principalMinor,
@@ -329,8 +345,10 @@ async function main() {
         platformFeeLedger: fee,
         realizedLossLedger: loss,
         reservationCount: reservationForTrade.length,
+        rewardReservationStatus: reservationStatus,
         reservation: reservationForTrade.map((row) => ({
           id: safeInteger(row.id, "trade_reward_reservations.id"),
+          tradeId: safeInteger(row.tradeId, "trade_reward_reservations.tradeId"),
           status: String(row.status),
           reservedMinor: safeInteger(row.reservedMinor, "trade_reward_reservations.reservedMinor"),
           currency: String(row.currency),
@@ -346,6 +364,7 @@ async function main() {
           id: safeInteger(row.id, "opportunity_popup_events.id"),
           eventStatus: String(row.eventStatus),
         })),
+        scanCoverage,
         identityMismatchedLedgerRows: ledgerRows.filter((row) =>
           (row.reference === principalReference || row.reference === rewardReference || row.reference === feeReference || row.reference === lossReference) &&
           (safeInteger(row.userId, "balance_ledger.userId") !== trade.userId || String(row.currency) !== trade.currency),
