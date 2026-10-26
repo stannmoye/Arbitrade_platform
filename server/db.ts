@@ -2800,6 +2800,38 @@ export async function markDueTradesAwaitingConfirmation(userId:number){
   }
   return marked;
 }
+export async function reconcileAllDueTradesAwaitingConfirmation(){
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const now=new Date();
+  const due=await db.select({id:tradePositions.id}).from(tradePositions).where(and(
+    eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),
+    or(lte(tradePositions.creditAt,now),and(isNull(tradePositions.creditAt),lte(tradePositions.settlesAt,now))),
+  )).orderBy(tradePositions.creditAt).limit(1000);
+  let marked=0;
+  for(const item of due){
+    const markedOne=await db.transaction(async tx=>{
+      const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,item.id)).limit(1).for("update"))[0];
+      if(!trade||trade.status!=="confirmed"||trade.settlementStatus!=="pending") return false;
+      const dueAt=trade.creditAt||trade.settlesAt;
+      if(!dueAt||new Date(dueAt).getTime()>now.getTime()) return false;
+      if(trade.lifecycleStage==="Awaiting Settlement Confirmation") return false;
+      const stateUpdate=await tx.update(tradePositions).set({
+        lifecycleStage:"Awaiting Settlement Confirmation",
+      }).where(and(eq(tradePositions.id,trade.id),eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending")));
+      assertExactlyOneAffectedRow(stateUpdate,"Global due-trade awaiting-confirmation transition");
+      await tx.insert(tradeLifecycleEvents).values({
+        tradeId:trade.id,
+        userId:trade.userId,
+        eventType:"settlement_due_waiting_for_confirmation",
+        stage:"Awaiting Settlement Confirmation",
+        payloadJson:JSON.stringify({dueAt:new Date(dueAt).toISOString(),reason:"Global reconciliation sweep found the scheduled time elapsed; actual settlement confirmation is still required."}),
+      });
+      return true;
+    });
+    if(markedOne) marked++;
+  }
+  return {scanned:due.length,marked,limit:1000,asOf:now.toISOString()};
+}
 export async function listPendingSettlements(){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   return db.select({
