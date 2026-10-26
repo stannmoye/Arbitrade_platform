@@ -12,6 +12,8 @@ describe("Trading administration policy schema repair", () => {
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS `durationMonths`");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS `opportunitiesPerDay`");
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS `termsVersion`");
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS `app_settings`");
+    expect(migration.match(/--> statement-breakpoint/g)?.length).toBeGreaterThanOrEqual(6);
     expect(migration).toContain("('Paramount Capital Reserve',15000000,24,30,1,1)");
   });
 
