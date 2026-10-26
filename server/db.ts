@@ -2383,7 +2383,7 @@ async function claimOpportunityExecutionAttempt(userId:number, offer:any, maxAtt
     }
     await tx.update(opportunityPopupEvents).set({
       executionStatus:"RUNNING",executionAttemptCount:attempts+1,
-      executionRetryAfter:new Date(now.getTime()+30000),executionRetryDay:day,updatedAt:now,
+      executionRetryAfter:new Date(now.getTime()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),executionRetryDay:day,updatedAt:now,
     }).where(eq(opportunityPopupEvents.id,event.id));
     return {claimed:true,attemptNumber:attempts+1,eventId:Number(event.id)};
   });
