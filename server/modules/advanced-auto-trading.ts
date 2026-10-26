@@ -16,6 +16,7 @@ export type PackageAutomationPolicy = {
   maxDeliveryAttempts: number;
   automaticTradingEnabled: boolean;
   maxTradeAttemptsPerDay: number;
+  tradeRetryDelaySeconds: number;
   maxSuccessfulTradesPerDay: number;
   maxConcurrentActiveTrades: number;
   requirePreviousSettlement: boolean;
