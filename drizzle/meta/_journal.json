@@ -309,6 +309,13 @@
       "when": 1793060000000,
       "tag": "0074_trade_execution_retries",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1793061000000,
+      "tag": "0075_trade_retry_delay_policy",
+      "breakpoints": true
     }
   ]
 }

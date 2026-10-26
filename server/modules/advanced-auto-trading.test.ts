@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { canReserveReward, chooseNextEligibleAt, getWindowKey, remainingRewardAllowance, validatePackageAutomationPolicy, type PackageAutomationPolicy } from "./advanced-auto-trading";
 
-const base: PackageAutomationPolicy = { packageName: "Pro", automaticDelivery: true, dailyPopupTarget: 10, schedulingPeriod: "calendar_day", minIntervalSeconds: 45, maxIntervalSeconds: 3600, randomizationEnabled: true, popupDisplayTargetSeconds: 120, completionDisplaySeconds: 8, postCompletionIntervalSeconds: 30, maxPendingDeliveries: 3, maxDeliveryAttempts: 3, automaticTradingEnabled: true, maxTradeAttemptsPerDay: 5, maxSuccessfulTradesPerDay: 5, maxConcurrentActiveTrades: 1, requirePreviousSettlement: true, minSettlementDelaySeconds: 900, maxSettlementDelaySeconds: 900, minimumRewardBps: 0, maxDailyRewardMinor: 10000, maxRewardPerTradeMinor: 3000, closePolicy: "after_final_display" };
+const base: PackageAutomationPolicy = { packageName: "Pro", automaticDelivery: true, dailyPopupTarget: 10, schedulingPeriod: "calendar_day", minIntervalSeconds: 45, maxIntervalSeconds: 3600, randomizationEnabled: true, popupDisplayTargetSeconds: 120, completionDisplaySeconds: 8, postCompletionIntervalSeconds: 30, maxPendingDeliveries: 3, maxDeliveryAttempts: 3, automaticTradingEnabled: true, maxTradeAttemptsPerDay: 5, tradeRetryDelaySeconds: 30, maxSuccessfulTradesPerDay: 5, maxConcurrentActiveTrades: 1, requirePreviousSettlement: true, minSettlementDelaySeconds: 900, maxSettlementDelaySeconds: 900, minimumRewardBps: 0, maxDailyRewardMinor: 10000, maxRewardPerTradeMinor: 3000, closePolicy: "after_final_display" };
 
 describe("advanced automatic trading policy", () => {
   it("rejects unsafe interval and cap combinations", () => {
@@ -13,6 +13,11 @@ describe("advanced automatic trading policy", () => {
     expect(() => validatePackageAutomationPolicy({ ...base, minSettlementDelaySeconds: Number.MAX_SAFE_INTEGER + 1, maxSettlementDelaySeconds: Number.MAX_SAFE_INTEGER + 1 })).toThrow(/settlement delay/);
     expect(() => validatePackageAutomationPolicy({ ...base, minSettlementDelaySeconds: 11, maxSettlementDelaySeconds: 10 })).toThrow(/settlement delay/);
     expect(() => validatePackageAutomationPolicy({ ...base, minSettlementDelaySeconds: Number.NaN, maxSettlementDelaySeconds: 10 })).toThrow(/settlement delay/);
+  });
+  it("rejects retry delays outside the safe admin-configured range", () => {
+    expect(() => validatePackageAutomationPolicy({ ...base, tradeRetryDelaySeconds: 4 })).toThrow(/retry delay/);
+    expect(() => validatePackageAutomationPolicy({ ...base, tradeRetryDelaySeconds: 3601 })).toThrow(/retry delay/);
+    expect(() => validatePackageAutomationPolicy({ ...base, tradeRetryDelaySeconds: 1.5 })).toThrow(/retry delay/);
   });
   it("rejects invalid policy enum values and empty package names at runtime", () => {
     expect(() => validatePackageAutomationPolicy({ ...base, packageName: "  " })).toThrow(/package name/);
