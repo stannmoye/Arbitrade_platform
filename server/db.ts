@@ -2001,6 +2001,76 @@ export async function setPackageActivationPolicy(updatedBy:number,input:{
   });
 }
 
+const TRADE_ALLOCATION_CONTROL_KEY = "trading.allocations.paused";
+
+export type TradeAllocationControls = {
+  allocationsPaused: boolean;
+  reason: string;
+  updatedAt: string | null;
+  updatedBy: number | null;
+};
+
+function parseTradeAllocationControls(raw: string | null | undefined): TradeAllocationControls {
+  if (!raw) return { allocationsPaused: false, reason: "", updatedAt: null, updatedBy: null };
+  try {
+    const value = JSON.parse(raw);
+    return {
+      allocationsPaused: value?.allocationsPaused === true,
+      reason: typeof value?.reason === "string" ? value.reason : "",
+      updatedAt: typeof value?.updatedAt === "string" ? value.updatedAt : null,
+      updatedBy: Number.isSafeInteger(Number(value?.updatedBy)) && Number(value?.updatedBy) > 0 ? Number(value.updatedBy) : null,
+    };
+  } catch {
+    // A malformed safety setting must fail closed, never silently resume allocation.
+    return { allocationsPaused: true, reason: "Safety setting requires administrator review because its stored value is invalid.", updatedAt: null, updatedBy: null };
+  }
+}
+
+export async function getTradeAllocationControls(): Promise<TradeAllocationControls> {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const row = (await db.select({ settingValue: appSettings.settingValue }).from(appSettings)
+    .where(eq(appSettings.settingKey, TRADE_ALLOCATION_CONTROL_KEY)).limit(1))[0];
+  return parseTradeAllocationControls(row?.settingValue);
+}
+
+export async function setTradeAllocationControls(updatedBy: number, input: { allocationsPaused: boolean; reason: string }) {
+  if (!Number.isSafeInteger(updatedBy) || updatedBy <= 0) throw new Error("Administrator identity is required");
+  const reason = String(input.reason ?? "").trim();
+  if (input.allocationsPaused && reason.length < 8) throw new Error("Provide a reason of at least 8 characters before pausing new allocations");
+  if (reason.length > 500) throw new Error("Pause reason must be 500 characters or fewer");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const row = (await tx.select({ settingKey: appSettings.settingKey, settingValue: appSettings.settingValue })
+      .from(appSettings).where(eq(appSettings.settingKey, TRADE_ALLOCATION_CONTROL_KEY)).limit(1).for("update"))[0];
+    const previous = parseTradeAllocationControls(row?.settingValue);
+    const next: TradeAllocationControls = {
+      allocationsPaused: input.allocationsPaused,
+      reason: input.allocationsPaused ? reason : (reason || "Resumed by administrator"),
+      updatedAt: new Date().toISOString(),
+      updatedBy,
+    };
+    const settingValue = JSON.stringify(next);
+    if (row) {
+      await tx.update(appSettings).set({ settingValue, updatedBy, updatedAt: new Date() })
+        .where(eq(appSettings.settingKey, TRADE_ALLOCATION_CONTROL_KEY));
+    } else {
+      await tx.insert(appSettings).values({ settingKey: TRADE_ALLOCATION_CONTROL_KEY, settingValue, updatedBy });
+    }
+    await tx.insert(v5AuditEvents).values({
+      actorUserId: updatedBy,
+      action: input.allocationsPaused ? "trading_new_allocations_paused" : "trading_new_allocations_resumed",
+      entityType: "trade_allocation_controls",
+      entityId: "global",
+      reason: next.reason,
+      reference: "trade-allocation-control:" + crypto.randomUUID(),
+      metadataJson: JSON.stringify({ old: previous, new: next }),
+    });
+    return next;
+  });
+}
+
 export async function listAdminTradingPackages() {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   return db.select().from(packages).orderBy(packages.minimumQualifyingBalanceUsdMinor,packages.id);
@@ -2403,8 +2473,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,durationSeconds:Number(row.durationSeconds||0),marketObservedAt:row.marketObservedAt,
       marketSnapshotId:row.marketSnapshotId,sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus),eventStatus:row.eventStatus};
   }).filter((offer:any)=>offer!==null);
+  const allocationControls=await getTradeAllocationControls();
   const autoTradeCandidates=tradeCandidates.filter((offer:any)=>{
-    if(offer.popupEligible!==true) return false;
+    if(offer.popupEligible!==true || allocationControls.allocationsPaused) return false;
     const packagePolicy=policyByName.get(String(offer.packageName));
     // Disabled package policies or automatic execution must stop new allocations
     // without turning a merely visible/pending popup into a trade request.
