@@ -286,6 +286,8 @@ async function main() {
       );
       const wallet = walletForTrade.length === 1 ? {
         id: safeInteger(walletForTrade[0].id, "customer_balances.id"),
+        userId: safeInteger(walletForTrade[0].userId, "customer_balances.userId"),
+        currency: String(walletForTrade[0].currency),
         availableMinor: safeInteger(walletForTrade[0].availableMinor, "customer_balances.availableMinor"),
         lockedMinor: safeInteger(walletForTrade[0].lockedMinor, "customer_balances.lockedMinor"),
         promotionalMinor: safeInteger(walletForTrade[0].promotionalMinor, "customer_balances.promotionalMinor"),
