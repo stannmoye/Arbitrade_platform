@@ -30,4 +30,17 @@ describe("administrator wallet adjustment notification boundary", () => {
     expect(implementation).toContain('error instanceof Error?error.name:"UnknownError"');
     expect(implementation).toContain("return result;");
   });
+
+  it("rejects unsafe minor-unit amounts and locks the target wallet row before reading its balance", () => {
+    expect(implementation).toContain("!Number.isSafeInteger(input.amountMinor)||input.amountMinor<=0");
+    expect(implementation).toContain('.limit(1).for("update"))[0];const current=balance?.availableMinor??0');
+    expect(implementation).toContain("!Number.isSafeInteger(current)||current<0");
+    expect(implementation).toContain("!Number.isSafeInteger(next)");
+  });
+
+  it("rejects unsafe promotional-balance arithmetic instead of persisting rounded JavaScript numbers", () => {
+    expect(implementation).toContain("!Number.isSafeInteger(balance.promotionalMinor)");
+    expect(implementation).toContain("!Number.isSafeInteger(balance.promotionalMinor+input.amountMinor)");
+    expect(implementation).toContain("Wallet promotional balance is invalid or exceeds the safe integer range");
+  });
 });
