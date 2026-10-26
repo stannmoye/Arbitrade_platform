@@ -282,13 +282,24 @@ export function AdminTransactionReview() {
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Manual settlement queue</span><h2>Trades awaiting administrator confirmation</h2></div><span className="admin-ops-subtle">{pendingQuery.data?.length ?? 0} pending</span></div>
-          {!pendingQuery.data?.length ? <div className="admin-ops-empty compact">No trades are awaiting manual settlement.</div> : <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Trades awaiting manual settlement" onKeyDown={(event) => { if (event.key === "ArrowRight") { event.preventDefault(); event.currentTarget.scrollLeft += 80; } else if (event.key === "ArrowLeft") { event.preventDefault(); event.currentTarget.scrollLeft -= 80; } }}><table className="admin-ops-table"><thead><tr><th>Trade / customer</th><th>Principal</th><th>Reserved reward (estimate)</th><th>Actual gross profit/loss (minor units)</th><th>Settlement evidence reference</th><th>Action</th></tr></thead><tbody>
+          {pendingQuery.isError && <div className="admin-ops-empty error">Pending settlements could not be loaded. Refresh before attempting any settlement.</div>}
+          {confirmSettlement.error && <div className="admin-ops-empty error" role="alert">Settlement was not confirmed: {confirmSettlement.error.message}. Verify the trade's due time and evidence reference before retrying.</div>}
+          {confirmSettlement.isSuccess && <div className="admin-ops-note" role="status">Settlement recorded. The queue and ledger are being refreshed.</div>}
+          {pendingQuery.isLoading ? <LoadingState /> : !pendingQuery.data?.length ? <div className="admin-ops-empty compact">No trades are awaiting manual settlement.</div> : <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Trades awaiting manual settlement" onKeyDown={(event) => { if (event.key === "ArrowRight") { event.preventDefault(); event.currentTarget.scrollLeft += 80; } else if (event.key === "ArrowLeft") { event.preventDefault(); event.currentTarget.scrollLeft -= 80; } }}><table className="admin-ops-table"><thead><tr><th>Trade / customer</th><th>Due status / evidence health</th><th>Principal</th><th>Reserved reward (estimate)</th><th>Actual gross profit/loss (minor units)</th><th>Settlement evidence reference</th><th>Action</th></tr></thead><tbody>
             {(pendingQuery.data as any[]).map((trade) => {
               const draft = drafts[trade.id] || { grossProfitMinor: "", reference: "" };
               const enteredGross = Number(draft.grossProfitMinor);
-              const canConfirm = draft.grossProfitMinor.trim() !== "" && Number.isSafeInteger(enteredGross) && draft.reference.trim().length >= 3;
+              const reserved = Number(trade.rewardReservedMinor || 0);
+              const reservationAmount = trade.reservationAmountMinor == null ? null : Number(trade.reservationAmountMinor);
+              const reservationConsistent = reservationAmount === null
+                ? reserved === 0 && !trade.reservationStatus
+                : Number.isSafeInteger(reservationAmount) && reservationAmount === reserved && trade.reservationStatus === "reserved";
+              const dueAt = trade.creditAt || trade.settlesAt;
+              const isDue = !!dueAt && Number.isFinite(new Date(dueAt).getTime()) && new Date(dueAt).getTime() <= Date.now();
+              const canConfirm = isDue && reservationConsistent && draft.grossProfitMinor.trim() !== "" && Number.isSafeInteger(enteredGross) && draft.reference.trim().length >= 3;
               return <tr key={trade.id}>
-                <td><strong>Trade {trade.id} · {trade.symbol || "Opportunity"}</strong><small>{trade.customerName || trade.customerEmail || ("Account " + trade.userId)} · {trade.currency}</small></td>
+                <td><strong>Trade {trade.id} · {trade.symbol || "Opportunity"}</strong><small>{trade.customerName || trade.customerEmail || ("Account " + trade.userId)} · {trade.currency}</small><small>Subscription: {trade.packageSubscriptionId ?? "Legacy / none"}</small></td>
+                <td><strong>{trade.lifecycleStage || "Stage not recorded"}</strong><small>{dueAt ? (isDue ? "Due " : "Not due ") + new Date(dueAt).toLocaleString() : "Missing settlement due timestamp"}</small><small>{reservationConsistent ? "Reward reservation consistent" : "Reservation mismatch — investigate before settlement"}</small><small>{trade.reservationStatus ? "Reservation: " + trade.reservationStatus : "No reservation record"}</small></td>
                 <td>{trade.principalMinor}</td>
                 <td>{trade.rewardReservedMinor}<small>Estimate only; not a settlement result.</small></td>
                 <td><input type="number" step={1} value={draft.grossProfitMinor} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, grossProfitMinor: event.target.value } }))} placeholder="Positive profit or negative loss" aria-label={"Actual gross profit/loss in minor units for trade " + trade.id} /></td>
@@ -297,7 +308,7 @@ export function AdminTransactionReview() {
               </tr>;
             })}
           </tbody></table></div>}
-          <div className="admin-ops-note"><ShieldCheck size={16} /><span>Enter the actual confirmed gross profit or loss and its supporting settlement reference. The reserved reward is an estimate, not a realized result. The server records returned principal, gross result, any fee, net result, and loss atomically in the ledger.</span></div>
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span>Only settle after independently verifying the actual trade result and its evidence reference. The reserved reward is an estimate, not a settlement result. The server rejects early settlement and atomically records returned principal, actual gross result, applicable fee, net result, and loss. A client-side due-time display is informational; the server check is authoritative.</span></div>
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head">
