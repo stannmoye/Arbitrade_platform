@@ -2539,6 +2539,14 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
    if(event.eventStatus==="TRADED" && Number(event.tradeId)>0){
     const existing=(await tx.select().from(tradePositions).where(and(eq(tradePositions.id,Number(event.tradeId)),eq(tradePositions.userId,userId))).limit(1))[0];
     if(!existing) throw new Error("Previously allocated trade is missing; manual recovery review is required");
+    // An idempotency token may replay the same request, but must not silently
+    // accept a changed amount or package subscription as though it were applied.
+    if(Number(existing.principalMinor)!==input.amountMinor) {
+      throw new Error("Opportunity delivery event was already allocated with a different trade amount");
+    }
+    if(input.packageSubscriptionId!==undefined&&Number(existing.packageSubscriptionId)!==input.packageSubscriptionId) {
+      throw new Error("Opportunity delivery event was already allocated under a different package subscription");
+    }
     const rate=(await tx.select({scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,updatedAt:currencyRegistry.updatedAt}).from(currencyRegistry).where(eq(currencyRegistry.code,existing.currency)).limit(1))[0];
     if(!rate || !Number.isFinite(Number(rate.usdRate)) || Number(rate.usdRate)<=0) throw new Error("Existing trade was found but its currency rate is unavailable for a safe retry response");
     const amountMinor=Number(existing.principalMinor);
