@@ -65,6 +65,13 @@ describe("Logo.dev brand-only static reference catalogue", () => {
     expect(Object.keys(counts)).toContain("United States");
   });
 
+  it("counts all matching records independently of pagination", () => {
+    expect(countCompanyReferences({ countryName: "United States" })).toBeGreaterThan(100);
+    expect(countCompanyReferences({ countryName: "United States", search: "apple" })).toBeGreaterThanOrEqual(0);
+    expect(countCompanyReferences({ countryName: "No Such Country" })).toBe(0);
+    expect(countCompanyReferences({ countryName: "United States", offset: 100, limit: 100 })).toBe(countCompanyReferences({ countryName: "United States" }));
+  });
+
   it("returns a brand-only random spotlight and rejects invalid random sources", () => {
     const sample = getRandomCompanyReference(() => 0);
     expect(sample.id).toBe(COMPANY_REFERENCE_CATALOGUE[0]!.id);
