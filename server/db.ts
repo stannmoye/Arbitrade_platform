@@ -2225,6 +2225,9 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
   const existingMisses=await listMissedOpportunities(userId);
   const missedOfferIds=new Set(existingMisses.map((row:any)=>Number(row.offerId)));
   for(const offer of offers){
+    // A pending/retrying card is not a delivered opportunity and must never trigger
+    // a trade. Only authoritative DELIVERED/NOTICED popup states are eligible.
+    if(offer.popupEligible===false) continue;
     if(existingTrades.some((trade:any)=>Number(trade.offerId)===Number(offer.id))||missedOfferIds.has(Number(offer.id))) continue;
     const offerMinimum=Number(offer.minimumMinor);
     const packageMinimum=Number(offer.packageMinimumTradeMinor||0);
@@ -2395,7 +2398,13 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,durationSeconds:Number(row.durationSeconds||0),marketObservedAt:row.marketObservedAt,
       marketSnapshotId:row.marketSnapshotId,sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus),eventStatus:row.eventStatus};
   });
-  const autoTradeCandidates=tradeCandidates;
+  const autoTradeCandidates=tradeCandidates.filter((offer:any)=>{
+    if(offer.popupEligible!==true) return false;
+    const packagePolicy=policyByName.get(String(offer.packageName));
+    // Disabled package policies or automatic execution must stop new allocations
+    // without turning a merely visible/pending popup into a trade request.
+    return !packagePolicy || (Boolean(packagePolicy.enabled) && packagePolicy.automaticTradingEnabled!==false);
+  });
   const effectiveControls=controls;
   const auto=await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls);
   const executedByOffer=new Map(auto.executed.map((trade:any)=>[Number(trade.offerId),trade]));
