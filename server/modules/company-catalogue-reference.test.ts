@@ -51,6 +51,12 @@ describe("Logo.dev brand-only static reference catalogue", () => {
     expect(unitedStates.every((company) => company.countryName === "United States")).toBe(true);
     expect(searchCompanyReferences({ countryName: "united states", limit: 1811 })).toEqual(unitedStates);
     expect(searchCompanyReferences({ countryName: "No Such Country", limit: 1811 })).toHaveLength(0);
+    const allFirstPage = searchCompanyReferences({ countryName: "United States", limit: 25, offset: 0 });
+    const allSecondPage = searchCompanyReferences({ countryName: "United States", limit: 25, offset: 25 });
+    expect(allFirstPage).toHaveLength(25);
+    expect(allSecondPage).toHaveLength(25);
+    expect(allSecondPage.map((company) => company.id)).not.toEqual(allFirstPage.map((company) => company.id));
+    expect(searchCompanyReferences({ countryName: "United States", limit: 25, offset: 1810 })).toHaveLength(0);
 
     const summary = getCompanyReferenceSummary();
     const counts = summary.countryCounts as Record<string, number>;
