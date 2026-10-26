@@ -14,6 +14,12 @@ describe("trade execution retry policy", () => {
     }
   });
 
+  it("honors the admin-configured retry delay", () => {
+    const decision = decideTradeExecutionRetry({ code: "ETIMEDOUT" }, 1, 3, now, 120);
+    expect(decision.kind).toBe("retry");
+    if (decision.kind === "retry") expect(decision.retryAt.toISOString()).toBe("2026-10-26T12:02:00.000Z");
+  });
+
   it("fails closed when the configured attempt limit is reached", () => {
     expect(decideTradeExecutionRetry({ code: "ETIMEDOUT" }, 5, 5, now)).toEqual({
       kind: "failed",
