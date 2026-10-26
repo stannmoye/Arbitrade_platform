@@ -233,8 +233,22 @@ export function AdminRiskWatchlist() {
 export function AdminTransactionReview() {
   const ledgerQuery = trpc.adminOperations.ledgerActivity.useQuery(undefined, { refetchInterval: 10_000 });
   const pendingQuery = trpc.adminOperations.pendingSettlements.useQuery(undefined, { refetchInterval: 5_000 });
-  const integrityQuery = trpc.adminOperations.settlementIntegrityIssues.useQuery(undefined, { refetchInterval: 30_000 });
-  const confirmSettlement = trpc.adminOperations.confirmManualSettlement.useMutation({ onSuccess: () => { pendingQuery.refetch(); ledgerQuery.refetch(); } });
+  const [integrityBeforeTradeId, setIntegrityBeforeTradeId] = useState<number | undefined>(undefined);
+  const [walletReconciliationAfter, setWalletReconciliationAfter] = useState<{ userId: number; currency: string } | undefined>(undefined);
+  const [settlementLedgerBeforeTradeId, setSettlementLedgerBeforeTradeId] = useState<number | undefined>(undefined);
+  const integrityQuery = trpc.adminOperations.settlementIntegrityIssues.useQuery({
+    limit: 250,
+    ...(integrityBeforeTradeId === undefined ? {} : { beforeTradeId: integrityBeforeTradeId }),
+  }, { refetchInterval: 30_000 });
+  const walletLedgerReconciliationQuery = trpc.adminOperations.walletLedgerReconciliation.useQuery({
+    limit: 250,
+    ...(walletReconciliationAfter === undefined ? {} : {
+      afterUserId: walletReconciliationAfter.userId,
+      afterCurrency: walletReconciliationAfter.currency,
+    }),
+    ...(settlementLedgerBeforeTradeId === undefined ? {} : { beforeTradeId: settlementLedgerBeforeTradeId }),
+  }, { refetchInterval: 30_000 });
+  const confirmSettlement = trpc.adminOperations.confirmManualSettlement.useMutation({ onSuccess: () => { pendingQuery.refetch(); ledgerQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); } });
   const tradeFeePolicyQuery = trpc.adminOperations.tradeFeePolicy.useQuery(undefined, { staleTime: 60_000 });
   const [feePolicyDraft, setFeePolicyDraft] = useState<{ feePercent: string; roundingMode: "half_up" | "down" | "up" | "half_even" } | null>(null);
   const feePolicy = tradeFeePolicyQuery.data;
@@ -256,7 +270,7 @@ export function AdminTransactionReview() {
   };
 
   return (
-    <ToolPage eyebrow="Append-only balance ledger" title="Transaction review" description="Review wallet ledger entries and confirm manually settled trades. Elapsed time never credits a reward or releases principal." icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { ledgerQuery.refetch(); pendingQuery.refetch(); integrityQuery.refetch(); payoutQuery.refetch(); }} disabled={ledgerQuery.isFetching || pendingQuery.isFetching || integrityQuery.isFetching || payoutQuery.isFetching}><RefreshCw size={14} /> Refresh</button>}>
+    <ToolPage eyebrow="Append-only balance ledger" title="Transaction review" description="Review wallet ledger entries and confirm manually settled trades. Elapsed time never credits a reward or releases principal." icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { ledgerQuery.refetch(); pendingQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); payoutQuery.refetch(); }} disabled={ledgerQuery.isFetching || pendingQuery.isFetching || integrityQuery.isFetching || walletLedgerReconciliationQuery.isFetching || payoutQuery.isFetching}><RefreshCw size={14} /> Refresh</button>}>
       {ledgerQuery.isLoading ? <LoadingState /> : ledgerQuery.isError ? <div className="admin-ops-empty error">The balance ledger could not be loaded.</div> : <>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Realized-profit fee policy</span><h2>Trading platform fee</h2></div><span className="admin-ops-subtle">Policy v{feePolicy?.policyVersion ?? 1}</span></div>
@@ -312,18 +326,81 @@ export function AdminTransactionReview() {
           <div className="admin-ops-note"><ShieldCheck size={16} /><span>Only settle after independently verifying the actual trade result and its evidence reference. The reserved reward is an estimate, not a settlement result. The server rejects early settlement and atomically records returned principal, actual gross result, applicable fee, net result, and loss. A client-side due-time display is informational; the server check is authoritative.</span></div>
         </section>
         <section className="admin-ops-panel">
-          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Read-only integrity scan</span><h2>Settlement records requiring review</h2></div><span className="admin-ops-subtle">{integrityQuery.data?.length ?? 0} flagged</span></div>
-          <p>This scan surfaces historical or inconsistent records for human review. It does not change balances, create ledger entries, or infer missing profit results.</p>
-          {integrityQuery.isLoading ? <LoadingState /> : integrityQuery.isError ? <div className="admin-ops-empty error">Settlement integrity results could not be loaded. Refresh before relying on this review.</div> : !integrityQuery.data?.length ? <div className="admin-ops-empty compact">No settlement integrity issues were returned by the current scan.</div> : <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Settlement integrity issues"><table className="admin-ops-table"><thead><tr><th>Trade</th><th>State</th><th>Recorded settlement</th><th>Reservation</th><th>Review flags</th></tr></thead><tbody>
-            {(integrityQuery.data as any[]).map((item) => <tr key={item.tradeId}>
-              <td><strong>Trade {item.tradeId}</strong><small>Account {item.userId} · {item.currency}</small></td>
-              <td>{item.status} / {item.settlementStatus}<small>{item.lifecycleStage || "No lifecycle stage"}</small></td>
-              <td>{item.settlementReference || "No reference"}<small>Outcome: {item.settlementOutcome || "Not recorded"}</small><small>Gross: {item.realizedGrossProfitMinor} · Fee: {item.platformFeeMinor} · Net: {item.netProfitMinor}</small></td>
-              <td>{item.reservationStatus || "No reservation"}<small>Reserved: {item.reservationAmountMinor ?? item.rewardReservedMinor}</small></td>
-              <td>{(item.issues as string[]).map((issue) => <div key={issue}>{issue.replaceAll("_", " ")}</div>)}</td>
-            </tr>)}
-          </tbody></table></div>}
-          <div className="admin-ops-note"><ShieldCheck size={16} /><span>Flags are investigation leads, not proof of fraud or a final accounting verdict. Historical records must be reconciled against source evidence; never replay an unrecorded result or credit an estimate.</span></div>
+          <div className="admin-ops-panel-head">
+            <div><span className="admin-ops-kicker">Read-only wallet reconciliation</span><h2>Available balances versus signed ledger entries</h2></div>
+            <span className="admin-ops-subtle">{walletLedgerReconciliationQuery.data?.walletIssues.length ?? 0} flagged groups</span>
+          </div>
+          <p>Ledger-net totals are compared with available balances, not available plus locked funds. Missing opening-balance history is shown as inconclusive. Known trade principal and pending payouts are checked separately against locked funds.</p>
+          {walletLedgerReconciliationQuery.isLoading ? <LoadingState /> : walletLedgerReconciliationQuery.isError ? <div className="admin-ops-empty error">Wallet and ledger reconciliation could not be loaded. Refresh before relying on this review.</div> : <>
+            <div className="admin-ops-note"><ShieldCheck size={16} /><span>Read only: this report does not change wallets or post adjustments. Confirmed flags identify structural contradictions; balance deltas without a trusted opening snapshot remain inconclusive.</span></div>
+            <div className="admin-ops-subtle">Generated {walletLedgerReconciliationQuery.data?.generatedAt ? new Date(walletLedgerReconciliationQuery.data.generatedAt).toLocaleString() : "—"} · Examined {walletLedgerReconciliationQuery.data?.walletScan.groupsExamined ?? 0} account/currency groups · Batch limit {walletLedgerReconciliationQuery.data?.walletScan.limit ?? 250} · {walletLedgerReconciliationQuery.data?.walletScan.hasMore ? "More groups remain" : "No further groups in this scan"}</div>
+            <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Wallet ledger reconciliation results">
+              <table className="admin-ops-table"><thead><tr><th>Customer / currency</th><th>Wallet rows</th><th>Available balance</th><th>Signed ledger net</th><th>Delta (available − ledger)</th><th>Locked / known obligations</th><th>Review flags</th></tr></thead><tbody>
+                {(walletLedgerReconciliationQuery.data?.walletIssues ?? []).map((item) => <tr key={String(item.userId) + ":" + item.currency}>
+                  <td><strong>Account {item.userId}</strong><small>{item.currency}</small></td>
+                  <td>{item.walletCount ?? "Unsafe total"}</td>
+                  <td>{item.availableMinor === null ? "Unsafe total" : formatAmount(Number(item.availableMinor), item.currency)}</td>
+                  <td>{item.ledgerNetMinor === null ? "Unsafe total" : formatAmount(Number(item.ledgerNetMinor), item.currency)}<small>{item.ledgerEntryCount ?? "?"} ledger entries</small></td>
+                  <td>{item.availableLedgerDeltaMinor === null ? "Not comparable" : formatAmount(Number(item.availableLedgerDeltaMinor), item.currency)}</td>
+                  <td>{item.lockedMinor === null ? "Unsafe total" : formatAmount(Number(item.lockedMinor), item.currency)}<small>Known trades: {item.knownActiveTradePrincipalMinor === null ? "unknown" : formatAmount(Number(item.knownActiveTradePrincipalMinor), item.currency)} · Pending payouts: {item.pendingPayoutMinor === null ? "unknown" : formatAmount(Number(item.pendingPayoutMinor), item.currency)}</small></td>
+                  <td>{item.issues.map((issue) => <div key={issue.code}><strong>{issue.confidence}</strong>: {issue.code.replaceAll("_", " ")}<small>{issue.explanation}</small></div>)}</td>
+                </tr>)}
+                {!(walletLedgerReconciliationQuery.data?.walletIssues ?? []).length && <tr><td colSpan={7} className="admin-ops-table-empty">No flagged groups in this batch. This does not mean unscanned groups were reviewed.</td></tr>}
+              </tbody></table>
+            </div>
+            <div className="admin-payout-actions">
+              {walletLedgerReconciliationQuery.data?.walletScan.hasMore && walletLedgerReconciliationQuery.data.walletScan.nextCursor && <button className="admin-ops-button" type="button" onClick={() => setWalletReconciliationAfter(walletLedgerReconciliationQuery.data!.walletScan.nextCursor ?? undefined)}>Load next wallet groups</button>}
+              {walletReconciliationAfter && <button className="admin-ops-button" type="button" onClick={() => setWalletReconciliationAfter(undefined)}>Restart wallet scan</button>}
+            </div>
+          </>}
+        </section>
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head">
+            <div><span className="admin-ops-kicker">Read-only settlement ledger audit</span><h2>Expected postings versus recorded ledger</h2></div>
+            <span className="admin-ops-subtle">{walletLedgerReconciliationQuery.data?.settlementIssues.length ?? 0} flagged settlements</span>
+          </div>
+          <p>Settled trades with a recorded result are compared with expected principal, realized profit/loss and fee postings using their stored fee-policy snapshot. Legacy results are never estimated or backfilled.</p>
+          {walletLedgerReconciliationQuery.isLoading ? <LoadingState /> : walletLedgerReconciliationQuery.isError ? <div className="admin-ops-empty error">Settlement ledger reconciliation could not be loaded.</div> : <>
+            <div className="admin-ops-subtle">Examined {walletLedgerReconciliationQuery.data?.settlementScan.tradesExamined ?? 0} settled trades · Batch limit {walletLedgerReconciliationQuery.data?.settlementScan.limit ?? 250} · {walletLedgerReconciliationQuery.data?.settlementScan.hasMore ? "More settled trades remain" : "No further settled trades in this scan"} · {walletLedgerReconciliationQuery.data?.settlementScan.ledgerEntriesExamined ?? 0} matching ledger rows inspected</div>
+            {walletLedgerReconciliationQuery.data?.settlementScan.ledgerEntriesTruncated && <div className="admin-ops-empty error" role="alert">Matching ledger evidence reached the scan safety cap. Missing/duplicate posting conclusions are suppressed for this batch; narrow the batch or review the saved evidence before drawing conclusions.</div>}
+            <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Settlement ledger reconciliation results">
+              <table className="admin-ops-table"><thead><tr><th>Trade / customer</th><th>Settlement reference</th><th>Recorded gross / fee / net</th><th>Reconciliation flags</th></tr></thead><tbody>
+                {(walletLedgerReconciliationQuery.data?.settlementIssues ?? []).map((item) => <tr key={item.tradeId}>
+                  <td><strong>Trade {item.tradeId}</strong><small>Account {item.userId} · {item.currency}</small></td>
+                  <td>{item.settlementReference || "Missing reference"}</td>
+                  <td>{item.realizedGrossProfitMinor ?? "Not recorded"} / {item.platformFeeMinor ?? "—"} / {item.netProfitMinor ?? "—"}<small>Minor units; read from saved trade result</small></td>
+                  <td>{item.issues.map((issue) => <div key={issue.code}><strong>{issue.confidence}</strong>: {issue.code.replaceAll("_", " ")}<small>{issue.explanation}</small></div>)}</td>
+                </tr>)}
+                {!(walletLedgerReconciliationQuery.data?.settlementIssues ?? []).length && <tr><td colSpan={4} className="admin-ops-table-empty">No flagged settlements in this batch. Check the scan metadata before treating this as a full audit.</td></tr>}
+              </tbody></table>
+            </div>
+            <div className="admin-payout-actions">
+              {walletLedgerReconciliationQuery.data?.settlementScan.hasMore && walletLedgerReconciliationQuery.data.settlementScan.nextBeforeTradeId && <button className="admin-ops-button" type="button" onClick={() => setSettlementLedgerBeforeTradeId(walletLedgerReconciliationQuery.data!.settlementScan.nextBeforeTradeId ?? undefined)}>Load next settled trades</button>}
+              {settlementLedgerBeforeTradeId !== undefined && <button className="admin-ops-button" type="button" onClick={() => setSettlementLedgerBeforeTradeId(undefined)}>Restart settlement ledger scan</button>}
+            </div>
+          </>}
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span>This audit is investigative, not a repair command. Missing historical results or references remain inconclusive. Any justified correction must be separately authorized, evidence-backed, idempotent, and recorded with compensating ledger entries rather than rewriting old entries.</span></div>
+        </section>
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Read-only settlement integrity scan</span><h2>Settlement state and reservation issues</h2></div><span className="admin-ops-subtle">{integrityQuery.data?.issues.length ?? 0} flagged</span></div>
+          <p>This scan checks saved settlement state, claims and reservation transitions. It is paginated and never changes balances, creates ledger entries, or infers missing profit results.</p>
+          {integrityQuery.isLoading ? <LoadingState /> : integrityQuery.isError ? <div className="admin-ops-empty error">Settlement integrity results could not be loaded. Refresh before relying on this review.</div> : <>
+            <div className="admin-ops-subtle">Examined {integrityQuery.data?.scan.candidatesExamined ?? 0} candidates · Batch limit {integrityQuery.data?.scan.limit ?? 250} · {integrityQuery.data?.scan.hasMore ? "More candidates remain" : "No additional candidates in this scan"}</div>
+            <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Settlement integrity issues"><table className="admin-ops-table"><thead><tr><th>Trade</th><th>State</th><th>Recorded settlement</th><th>Reservation</th><th>Review flags</th></tr></thead><tbody>
+              {(integrityQuery.data?.issues ?? []).map((item) => <tr key={item.tradeId}>
+                <td><strong>Trade {item.tradeId}</strong><small>Account {item.userId} · {item.currency}</small></td>
+                <td>{item.status} / {item.settlementStatus}<small>{item.lifecycleStage || "No lifecycle stage"}</small></td>
+                <td>{item.settlementReference || "No reference"}<small>Outcome: {item.settlementOutcome || "Not recorded"}</small><small>Gross: {item.realizedGrossProfitMinor} · Fee: {item.platformFeeMinor} · Net: {item.netProfitMinor}</small></td>
+                <td>{item.reservationStatus || "No reservation"}<small>Reserved: {item.reservationAmountMinor ?? item.rewardReservedMinor}</small></td>
+                <td>{(item.issues as string[]).map((issue) => <div key={issue}>{issue.replaceAll("_", " ")}</div>)}</td>
+              </tr>)}
+              {!(integrityQuery.data?.issues ?? []).length && <tr><td colSpan={5} className="admin-ops-table-empty">No settlement integrity issues in this batch.</td></tr>}
+            </tbody></table></div>
+            <div className="admin-payout-actions">
+              {integrityQuery.data?.scan.hasMore && integrityQuery.data.scan.nextBeforeTradeId && <button className="admin-ops-button" type="button" onClick={() => setIntegrityBeforeTradeId(integrityQuery.data!.scan.nextBeforeTradeId ?? undefined)}>Load next integrity batch</button>}
+              {integrityBeforeTradeId !== undefined && <button className="admin-ops-button" type="button" onClick={() => setIntegrityBeforeTradeId(undefined)}>Restart integrity scan</button>}
+            </div>
+          </>}
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head">
