@@ -39,7 +39,8 @@ type LogoMappingRow = {
 
 export type CompanyReferenceSearch = {
   search?: string;
-  countryCode?: string;
+  /** Exact country-folder label from the image catalogue; not a verified headquarters claim. */
+  countryName?: string;
   limit?: number;
 };
 
@@ -249,10 +250,12 @@ export function findCompanyReferencesBySymbol(symbol: string): CompanyReferenceR
 
 export function searchCompanyReferences(filters: CompanyReferenceSearch = {}): CompanyReferenceResponse[] {
   const term = filters.search?.trim().toLowerCase();
+  const countryName = filters.countryName?.trim().toLowerCase();
   const limit = Number.isFinite(filters.limit) ? Math.max(1, Math.min(1811, Math.floor(filters.limit!))) : 50;
   const results: CompanyReferenceResponse[] = [];
   for (const company of COMPANY_REFERENCE_CATALOGUE) {
     if (term && ![company.name, company.domain, company.ticker, company.exchangeCode].some((value) => value.toLowerCase().includes(term))) continue;
+    if (countryName && company.countryName.toLowerCase() !== countryName) continue;
     results.push(asReferenceResponse(company));
     if (results.length >= limit) break;
   }
@@ -274,7 +277,10 @@ export function getCompanyReferenceSummary() {
     logoReusePermissionVerified: 0,
     eligibleForVerifiedTradeRotation: 0,
     generatedAt: null,
-    countryCounts: {},
+    countryCounts: Object.fromEntries(
+      [...COMPANY_REFERENCE_CATALOGUE.reduce((counts, company) => counts.set(company.countryName, (counts.get(company.countryName) ?? 0) + 1), new Map<string, number>())]
+        .sort(([left], [right]) => left.localeCompare(right)),
+    ),
     dataLimitations: [
       "Ticker candidates were imported from company_trading_symbols.xlsx and are not independently verified.",
       "All ticker, exchange, status, parent-ticker, and explanatory fields from the supplied workbook are preserved for all 1,811 logo IDs.",
