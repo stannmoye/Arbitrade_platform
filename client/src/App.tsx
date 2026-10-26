@@ -506,6 +506,8 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
   const companyReferenceInFlight=useRef(false);
   const [companyReferenceData,setCompanyReferenceData]=useState<any>(null);
   const [companyReferenceLoadError,setCompanyReferenceLoadError]=useState(false);
+  const [catalogueSearch,setCatalogueSearch]=useState("");
+  const companyCatalogueQuery=trpc.companyCatalogueReference.search.useQuery({search:catalogueSearch,limit:100});
   const companyReference=trpc.companyCatalogueReference.next.useMutation({
     onSuccess:(record)=>{companyReferenceInFlight.current=false;lastCompanyReferenceId.current=record.id;setCompanyReferenceData(record);setCompanyReferenceLoadError(false);},
     onError:()=>{companyReferenceInFlight.current=false;setCompanyReferenceLoadError(true);},
@@ -587,24 +589,29 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
     </section>
     <section className="customer-panel company-reference-panel">
       <div className="customer-panel-head">
-        <div><div className="eyebrow">Informational catalogue · not a trade</div><h2>Company reference spotlight</h2></div>
-        <button className="secondary-button" onClick={requestNextCompanyReference} disabled={companyReference.isPending}>Next reference</button>
+        <div><div className="eyebrow">Company catalogue · 1,811 records</div><h2>Find a company and trading symbol</h2></div>
+        <span>{companyCatalogueQuery.data?.length ?? 0} shown</span>
       </div>
-      {!companyReferenceData&&companyReference.isPending ? <div className="empty-state">Loading a company reference…</div>
-        : !companyReferenceData&&companyReferenceLoadError ? <div className="empty-state">Company references are temporarily unavailable. Please try again.</div>
-        : companyReferenceData ? <article className="trading-opportunity-row" aria-live="polite">
-          <div className="trading-opportunity-identity">
-            <CompanyReferenceLogo name={companyReferenceData.name} logoUrl={companyReferenceData.logoUrl}/>
-            <div><strong>{companyReferenceData.name}</strong><small>{companyReferenceData.symbol} · {companyReferenceData.exchangeCode} · {companyReferenceData.countryName}</small></div>
-          </div>
-          <div className="trading-opportunity-values">
-            <div><span>Record status</span><strong>Incomplete · unverified</strong></div>
-            <div><span>Display purpose</span><strong>Company reference only</strong></div>
-          </div>
-          <small>Reference only — not a trade, ownership record, customer activity, investment recommendation, execution, or performance result. The initials image is a neutral placeholder, not the company’s official logo. Listing status and headquarters still require verification.</small>
-          {companyReferenceLoadError&&<small role="status">The next reference could not be loaded. The last reference remains displayed.</small>}
-        </article>
-        : <div className="empty-state">No company reference is available.</div>}
+      <label className="company-catalogue-search-label" htmlFor="company-catalogue-search">Search by company name, domain, ticker, or exchange</label>
+      <input id="company-catalogue-search" className="company-catalogue-search" type="search" value={catalogueSearch} onChange={event=>setCatalogueSearch(event.target.value)} placeholder="e.g. Apple, AAPL, NASDAQ" autoComplete="off" />
+      {companyCatalogueQuery.isLoading ? <div className="empty-state">Loading company catalogue…</div>
+        : companyCatalogueQuery.isError ? <div className="empty-state">Company catalogue is temporarily unavailable. Please try again.</div>
+        : !(companyCatalogueQuery.data||[]).length ? <div className="empty-state">No companies match this search.</div>
+        : <div className="trading-opportunity-list">{(companyCatalogueQuery.data||[]).map((company:any)=>(
+          <article className="trading-opportunity-row" key={company.id}>
+            <div className="trading-opportunity-identity">
+              <CompanyReferenceLogo name={company.name} logoUrl={company.logoUrl}/>
+              <div><strong>{company.name}</strong><small>Logo ID {company.id.replace("logo-brand-","")} · {company.countryName || "Country not assigned"}</small></div>
+            </div>
+            <div className="trading-opportunity-values">
+              <div><span>Trading symbol</span><strong>{company.symbol || "Not supplied"}</strong></div>
+              <div><span>Exchange</span><strong>{company.exchangeCode || "Not supplied"}</strong></div>
+              <div><span>Dataset status</span><strong>{company.tickerResearchStatus || "Not supplied"}</strong></div>
+            </div>
+          </article>
+        ))}</div>}
+      <small>Search covers the 1,811-company catalogue. Up to 100 matching records are shown per query; refine the search to find a specific company. Symbols and exchange fields are displayed as supplied in the current dataset and are not independently verified.</small>
+      {companyReferenceData&&<details><summary>Random company spotlight</summary><article className="trading-opportunity-row" aria-live="polite"><div className="trading-opportunity-identity"><CompanyReferenceLogo name={companyReferenceData.name} logoUrl={companyReferenceData.logoUrl}/><div><strong>{companyReferenceData.name}</strong><small>{companyReferenceData.symbol||"No symbol supplied"} · {companyReferenceData.exchangeCode||"No exchange supplied"} · {companyReferenceData.countryName}</small></div></div><button className="secondary-button" onClick={requestNextCompanyReference} disabled={companyReference.isPending}>Next reference</button></article></details>}
     </section>
   </div>;
 }
