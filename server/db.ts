@@ -2547,6 +2547,15 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     if(input.packageSubscriptionId!==undefined&&Number(existing.packageSubscriptionId)!==input.packageSubscriptionId) {
       throw new Error("Opportunity delivery event was already allocated under a different package subscription");
     }
+    if(input.packageId!==undefined) {
+      const subscription=(await tx.select({packageId:customerPackageSubscriptions.packageId})
+        .from(customerPackageSubscriptions)
+        .where(and(eq(customerPackageSubscriptions.id,Number(existing.packageSubscriptionId)),eq(customerPackageSubscriptions.userId,userId)))
+        .limit(1))[0];
+      if(!subscription||Number(subscription.packageId)!==input.packageId) {
+        throw new Error("Opportunity delivery event was already allocated under a different package");
+      }
+    }
     const rate=(await tx.select({scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,updatedAt:currencyRegistry.updatedAt}).from(currencyRegistry).where(eq(currencyRegistry.code,existing.currency)).limit(1))[0];
     if(!rate || !Number.isFinite(Number(rate.usdRate)) || Number(rate.usdRate)<=0) throw new Error("Existing trade was found but its currency rate is unavailable for a safe retry response");
     const amountMinor=Number(existing.principalMinor);
