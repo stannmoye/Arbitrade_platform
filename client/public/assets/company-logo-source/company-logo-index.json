@@ -13058,9 +13058,9 @@
       "companyName": "iQIYI",
       "logoFile": "logos/iQIYI (2).png",
       "domain": "img.logo.deviqiyi.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "China",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 1452,
