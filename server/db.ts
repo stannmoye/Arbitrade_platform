@@ -2330,8 +2330,12 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
       existingTrades.push({offerId:offer.id,confirmedAt:new Date()});
       break;
     }catch(error){
-      if(error instanceof Error&&/already been allocated|duplicate/i.test(error.message)) continue;
-      await markMissedOpportunity(userId,offer,requestedAmount,error instanceof Error?error.message:"AUTO_TRADE_REJECTED");
+      const message=error instanceof Error?error.message:"AUTO_TRADE_REJECTED";
+      if(/already been allocated|duplicate/i.test(message)) continue;
+      // A system safety pause is temporary, not a customer miss. Keep the
+      // delivered popup eligible so a later cycle can retry after an admin resumes.
+      if(/new trading allocations are paused by an administrator/i.test(message)) continue;
+      await markMissedOpportunity(userId,offer,requestedAmount,message);
       missedOfferIds.add(Number(offer.id));
     }
   }
