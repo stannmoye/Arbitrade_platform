@@ -1,6 +1,8 @@
 import type { TradeRecoveryPlan } from "./trade-recovery-planner";
 
 export type TradeRecoveryCollectorContext = {
+  tradeId?: number;
+  userId?: number;
   walletMatchCount: number;
   reservationCount: number;
   identityMismatchedLedgerRows: unknown[];
@@ -8,6 +10,7 @@ export type TradeRecoveryCollectorContext = {
   rewardReservationStatus?: string | null;
   reservation?: Array<{
     id: number;
+    tradeId?: number;
     status: string;
     reservedMinor: number;
     currency: string;
@@ -69,6 +72,10 @@ export function applyRecoveryContextSafety(
           (context.wallet.userId !== undefined && context.wallet.userId < 1)) {
         reasons.push("Wallet snapshot contains negative or unsafe identifier/balance values.");
       }
+      if (context.userId !== undefined && context.wallet.userId !== undefined &&
+          context.wallet.userId !== context.userId) {
+        reasons.push("Wallet snapshot user does not match the trade user.");
+      }
       if (context.currency !== undefined && context.wallet.currency !== undefined &&
           context.wallet.currency !== context.currency) {
         reasons.push("Wallet snapshot currency does not match the trade currency.");
@@ -95,6 +102,10 @@ export function applyRecoveryContextSafety(
           typeof reservation.status !== "string" || !reservation.status ||
           typeof reservation.currency !== "string" || !reservation.currency) {
         reasons.push("Reward reservation snapshot contains invalid identity, amount, status, or currency.");
+      }
+      if (context.tradeId !== undefined && reservation.tradeId !== undefined &&
+          reservation.tradeId !== context.tradeId) {
+        reasons.push("Reward reservation trade identity does not match the inspected trade.");
       }
       if (context.currency !== undefined && reservation.currency !== context.currency) {
         reasons.push("Reward reservation currency does not match the trade currency.");
