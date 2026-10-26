@@ -885,33 +885,87 @@ export async function getTicketAttachmentAccess(storageKey:string) {
 // Trading entitlements now come from the canonical package catalogue and subscriptions.
 const DEFAULT_OPPORTUNITY_PACKAGE_POLICIES: readonly any[] = [];
 
-export async function provisionSignupCredit(userId:number) {
-  const db=await getDb(); if(!db) throw new Error("Database is not available");
-  const amount=Number(await getAppSetting("signup.autoCreditMinor"));
-  const currency=(await getAppSetting("signup.autoCreditCurrency")) || "USD";
-  if(!Number.isFinite(amount) || amount<=0) return;
-  const existing=await db.select().from(balanceLedger).where(and(eq(balanceLedger.userId,userId),eq(balanceLedger.entryType,"signup_credit"))).limit(1);
-  // Retry the notice on repeated provisioning calls if the ledger write succeeded
-  // but notification persistence failed on the first attempt. The stable event key
-  // makes this safe when the notification already exists.
-  const notifySignupCredit=async(creditedAmount:number,creditedCurrency:string)=>{
-    try {
-      await createNotification(userId,"Signup credit added",`A signup credit of ${creditedAmount} minor units was added to your ${creditedCurrency} wallet. This credit is not withdrawable.`,{
-        eventKey:`signup-credit:${userId}`,category:"ledger_credit",priority:"normal",
+export async function provisionSignupCredit(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const amount = Number(await getAppSetting("signup.autoCreditMinor"));
+  const currency = (await getAppSetting("signup.autoCreditCurrency")) || "USD";
+  if (!Number.isSafeInteger(amount) || amount <= 0) return;
+
+  const credited = await db.transaction(async (tx) => {
+    // Serialize concurrent signup provisioning, and keep the idempotency read,
+    // wallet mutation, and ledger append within the same rollback boundary.
+    const userLock = await tx.execute(sql`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`) as any;
+    if (!userLock?.[0]?.[0]?.id) throw new Error("Customer account was not found for signup credit");
+
+    const existing = await tx.select().from(balanceLedger)
+      .where(and(eq(balanceLedger.userId, userId), eq(balanceLedger.entryType, "signup_credit")))
+      .limit(1).for("update");
+    if (existing[0]) {
+      return {
+        amountMinor: Number(existing[0].amountMinor),
+        currency: String(existing[0].currency),
+      };
+    }
+
+    const balance = (await tx.select().from(customerBalances)
+      .where(and(eq(customerBalances.userId, userId), eq(customerBalances.currency, currency)))
+      .limit(1).for("update"))[0];
+    if (balance) {
+      const available = Number(balance.availableMinor);
+      const promotional = Number(balance.promotionalMinor);
+      if (
+        !Number.isSafeInteger(available) || available < 0 ||
+        !Number.isSafeInteger(promotional) || promotional < 0 ||
+        !Number.isSafeInteger(available + amount) ||
+        !Number.isSafeInteger(promotional + amount)
+      ) {
+        throw new Error("Signup credit wallet amounts are inconsistent or exceed safe integer precision");
+      }
+      const updated = await tx.update(customerBalances).set({
+        availableMinor: available + amount,
+        promotionalMinor: promotional + amount,
+        updatedAt: new Date(),
+      }).where(eq(customerBalances.id, balance.id));
+      if (Number((updated as any)[0]?.affectedRows || 0) !== 1) {
+        throw new Error("Signup credit wallet update did not affect exactly one row");
+      }
+    } else {
+      await tx.insert(customerBalances).values({
+        userId,
+        currency,
+        availableMinor: amount,
+        promotionalMinor: amount,
+        earnedMinor: 0,
       });
-    } catch(error) {
-      console.error("[Notifications] Signup credit notice failed after ledger persistence:",error instanceof Error?error.name:"UnknownError");
+    }
+
+    await tx.insert(balanceLedger).values({
+      userId,
+      currency,
+      amountMinor: amount,
+      entryType: "signup_credit",
+      reference: "signup-" + userId,
+      withdrawable: false,
+    });
+    return { amountMinor: amount, currency };
+  });
+
+  // Notifications are best-effort after commit: a delivery failure cannot undo
+  // the wallet/ledger pair, and an idempotent call can retry the notice safely.
+  const notifySignupCredit = async (creditedAmount: number, creditedCurrency: string) => {
+    try {
+      await createNotification(
+        userId,
+        "Signup credit added",
+        "A signup credit of " + creditedAmount + " minor units was added to your " + creditedCurrency + " wallet. This credit is not withdrawable.",
+        { eventKey: "signup-credit:" + userId, category: "ledger_credit", priority: "normal" }
+      );
+    } catch (error) {
+      console.error("[Notifications] Signup credit notice failed after ledger persistence:", error instanceof Error ? error.name : "UnknownError");
     }
   };
-  if(existing[0]) {
-    await notifySignupCredit(Number(existing[0].amountMinor),String(existing[0].currency));
-    return;
-  }
-  const balance=(await db.select().from(customerBalances).where(and(eq(customerBalances.userId,userId),eq(customerBalances.currency,currency))).limit(1))[0];
-  if(balance) await db.update(customerBalances).set({availableMinor:balance.availableMinor+amount,promotionalMinor:balance.promotionalMinor+amount}).where(eq(customerBalances.id,balance.id));
-  else await db.insert(customerBalances).values({userId,currency,availableMinor:amount,promotionalMinor:amount,earnedMinor:0});
-  await db.insert(balanceLedger).values({userId,currency,amountMinor:amount,entryType:"signup_credit",reference:`signup-${userId}`,withdrawable:false});
-  await notifySignupCredit(amount,currency);
+  await notifySignupCredit(credited.amountMinor, credited.currency);
 }
 const defaultCurrencies=[{code:"USD",name:"US Dollar",symbol:"$",scale:2,assetType:"fiat" as const,usdRate:"1",rateProvider:"manual",externalCode:"USD",enabled:true},{code:"EUR",name:"Euro",symbol:"€",scale:2,assetType:"fiat" as const,usdRate:"1.08",rateProvider:"manual",externalCode:"EUR",enabled:true},{code:"GBP",name:"British Pound",symbol:"£",scale:2,assetType:"fiat" as const,usdRate:"1.27",rateProvider:"manual",externalCode:"GBP",enabled:true},{code:"BTC",name:"Bitcoin",symbol:"₿",scale:8,assetType:"crypto" as const,usdRate:"65000",rateProvider:"manual",externalCode:"BTC",enabled:true},{code:"ETH",name:"Ethereum",symbol:"Ξ",scale:8,assetType:"crypto" as const,usdRate:"3500",rateProvider:"manual",externalCode:"ETH",enabled:true}];
 export async function listCurrencies(){const db=await getDb();if(!db)throw new Error("Database is not available");let rows=await db.select().from(currencyRegistry).where(eq(currencyRegistry.enabled,true));if(!rows.length){for(const c of defaultCurrencies)await db.insert(currencyRegistry).values(c).onDuplicateKeyUpdate({set:{name:c.name,symbol:c.symbol,scale:c.scale,usdRate:c.usdRate}});rows=await db.select().from(currencyRegistry).where(eq(currencyRegistry.enabled,true));}return rows;}
@@ -2944,6 +2998,7 @@ export async function listWalletLedgerReconciliation(input?: {
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
+  return db.transaction(async (tx) => {
   const safeLimit = Math.max(1, Math.min(1000, Number.isSafeInteger(input?.limit) ? Number(input?.limit) : 250));
   if ((input?.afterUserId === undefined) !== (input?.afterCurrency === undefined)) {
     throw new Error("Wallet reconciliation cursor requires both customer ID and currency");
@@ -2966,7 +3021,7 @@ export async function listWalletLedgerReconciliation(input?: {
   );
 
   const [walletGroups, ledgerGroups, tradeGroups, payoutGroups] = await Promise.all([
-    db.select({
+    tx.select({
       userId: customerBalances.userId,
       currency: customerBalances.currency,
       walletCount: count(),
@@ -2975,7 +3030,7 @@ export async function listWalletLedgerReconciliation(input?: {
     }).from(customerBalances).where(walletCursor)
       .groupBy(customerBalances.userId, customerBalances.currency)
       .orderBy(customerBalances.userId, customerBalances.currency).limit(safeLimit + 1),
-    db.select({
+    tx.select({
       userId: balanceLedger.userId,
       currency: balanceLedger.currency,
       ledgerEntryCount: count(),
@@ -2983,18 +3038,18 @@ export async function listWalletLedgerReconciliation(input?: {
     }).from(balanceLedger).where(ledgerCursor)
       .groupBy(balanceLedger.userId, balanceLedger.currency)
       .orderBy(balanceLedger.userId, balanceLedger.currency).limit(safeLimit + 1),
-    db.select({
+    tx.select({
       userId: tradePositions.userId,
       currency: tradePositions.currency,
       activeTradeCount: count(),
       knownActiveTradePrincipalMinor: sql<string>`COALESCE(SUM(${tradePositions.principalMinor}), 0)`,
     }).from(tradePositions).where(and(
       tradeCursor,
-      inArray(tradePositions.status, ["pending", "confirmed"]),
+      inArray(tradePositions.status, ["confirmed"]),
       eq(tradePositions.settlementStatus, "pending")
     )).groupBy(tradePositions.userId, tradePositions.currency)
       .orderBy(tradePositions.userId, tradePositions.currency).limit(safeLimit + 1),
-    db.select({
+    tx.select({
       userId: payoutRequests.userId,
       currency: payoutRequests.currency,
       pendingPayoutCount: count(),
@@ -3043,7 +3098,7 @@ export async function listWalletLedgerReconciliation(input?: {
   const tradeWhere = input?.beforeTradeId
     ? and(eq(tradePositions.status, "settled"), lt(tradePositions.id, input.beforeTradeId))
     : eq(tradePositions.status, "settled");
-  const candidateTrades = await db.select({
+  const candidateTrades = await tx.select({
     tradeId: tradePositions.id,
     userId: tradePositions.userId,
     currency: tradePositions.currency,
@@ -3069,7 +3124,7 @@ export async function listWalletLedgerReconciliation(input?: {
   })));
   const ledgerEntryLimit = Math.min(10000, safeLimit * 16);
   const candidateLedgerRows = candidateReferences.length
-    ? await db.select({
+    ? await tx.select({
         id: balanceLedger.id,
         userId: balanceLedger.userId,
         currency: balanceLedger.currency,
@@ -3121,6 +3176,7 @@ export async function listWalletLedgerReconciliation(input?: {
       ledgerEntriesTruncated,
     },
   };
+  });
 }
 
 export async function manuallySettleTrade(tradeId:number, adminId:number, input:{grossProfitMinor:number; settlementReference:string; notes?:string}){
