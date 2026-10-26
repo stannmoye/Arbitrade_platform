@@ -4,6 +4,21 @@ export type TradeRecoveryCollectorContext = {
   walletMatchCount: number;
   reservationCount: number;
   identityMismatchedLedgerRows: unknown[];
+  currency?: string;
+  rewardReservationStatus?: string | null;
+  reservation?: Array<{
+    id: number;
+    status: string;
+    reservedMinor: number;
+    currency: string;
+  }>;
+  wallet?: {
+    id: number;
+    availableMinor: number;
+    lockedMinor: number;
+    promotionalMinor: number;
+    earnedMinor: number;
+  } | null;
   scanCoverage?: {
     requestedLimit: number;
     selectedTradeCount: number;
@@ -34,6 +49,43 @@ export function applyRecoveryContextSafety(
   }
   if (context.identityMismatchedLedgerRows.length > 0) {
     reasons.push("Ledger rows share a settlement reference but do not match the trade user and currency.");
+  }
+  if (context.wallet !== undefined) {
+    if (context.walletMatchCount === 1 && context.wallet === null) {
+      reasons.push("Collector reports one wallet match but did not provide its balance snapshot.");
+    } else if (context.wallet !== null) {
+      const walletValues = [
+        context.wallet.id,
+        context.wallet.availableMinor,
+        context.wallet.lockedMinor,
+        context.wallet.promotionalMinor,
+        context.wallet.earnedMinor,
+      ];
+      if (walletValues.some((value) => !Number.isSafeInteger(value) || value < 0) ||
+          context.wallet.id < 1) {
+        reasons.push("Wallet snapshot contains negative or unsafe identifier/balance values.");
+      }
+    }
+  }
+  if (context.reservation !== undefined) {
+    if (!Array.isArray(context.reservation) || context.reservation.length !== context.reservationCount) {
+      reasons.push("Reservation rows do not match the collector's reservation count.");
+    } else if (context.reservation.length === 1) {
+      const reservation = context.reservation[0];
+      if (!Number.isSafeInteger(reservation.id) || reservation.id < 1 ||
+          !Number.isSafeInteger(reservation.reservedMinor) || reservation.reservedMinor < 0 ||
+          typeof reservation.status !== "string" || !reservation.status ||
+          typeof reservation.currency !== "string" || !reservation.currency) {
+        reasons.push("Reward reservation snapshot contains invalid identity, amount, status, or currency.");
+      }
+      if (context.currency !== undefined && reservation.currency !== context.currency) {
+        reasons.push("Reward reservation currency does not match the trade currency.");
+      }
+      if (context.rewardReservationStatus !== undefined &&
+          reservation.status !== context.rewardReservationStatus) {
+        reasons.push("Reward reservation status does not match the classifier evidence.");
+      }
+    }
   }
   if (context.scanCoverage !== undefined) {
     const coverage = context.scanCoverage;
