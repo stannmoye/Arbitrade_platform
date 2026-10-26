@@ -75,6 +75,21 @@ export function inspectWalletLedgerSnapshot(input: WalletLedgerSnapshot): Wallet
     issues.push({ code, confidence, explanation });
   };
 
+  if (availableMinor !== null && availableMinor < 0) {
+    add(
+      "negative_available_wallet_balance",
+      "confirmed",
+      "The stored available wallet balance is negative. This is a directly observed invalid wallet state and requires investigation; do not automatically change the balance."
+    );
+  }
+  if (lockedMinor !== null && lockedMinor < 0) {
+    add(
+      "negative_locked_wallet_balance",
+      "confirmed",
+      "The stored locked wallet balance is negative. This is a directly observed invalid wallet state and requires investigation; do not automatically change the balance."
+    );
+  }
+
   if (requiredValues.some((value) => value === null)) {
     add(
       "aggregate_outside_safe_integer_precision",

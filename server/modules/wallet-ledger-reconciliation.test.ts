@@ -105,6 +105,22 @@ describe("wallet versus signed-ledger reconciliation", () => {
     }));
   });
 
+  it("flags negative available and locked wallet balances without proposing a repair", () => {
+    const result = inspectWalletLedgerSnapshot({
+      userId: 7, currency: "USD", walletCount: 1,
+      availableMinor: -1, lockedMinor: -2,
+      ledgerEntryCount: 2, ledgerNetMinor: 100,
+      activeTradeCount: 0, knownActiveTradePrincipalMinor: 0,
+      pendingPayoutCount: 0, pendingPayoutMinor: 0,
+    });
+    expect(result.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "negative_available_wallet_balance", confidence: "confirmed" }),
+      expect.objectContaining({ code: "negative_locked_wallet_balance", confidence: "confirmed" }),
+    ]));
+    expect(result.availableMinor).toBe(-1);
+    expect(result.lockedMinor).toBe(-2);
+  });
+
   it("refuses conclusions when aggregates exceed safe integer precision", () => {
     const result = inspectWalletLedgerSnapshot({
       userId: 7, currency: "USD", walletCount: 1,
