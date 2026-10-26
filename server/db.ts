@@ -15,6 +15,7 @@ import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marke
 import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
+import { decideTradeExecutionRetry } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
 import { isAllowedAttachmentRequest, isSupportAttachmentStorageKeyForTicket, isValidSupportAttachmentStorageKey } from "./_core/attachmentPolicy";
 import { assertNotificationPayloadMatches, buildNotificationEventKey, filterNotificationCategories, filterVisibleNotificationEventCursor, normalizeBroadcastTargetUserId, normalizeNotificationHref, normalizeNotificationText, partitionNotificationRecipients, NOTIFICATION_CATEGORIES, type AdminBroadcastCategory, type NotificationCategory, type NotificationPriority } from "./modules/notification-events";
@@ -2355,6 +2356,44 @@ async function markOpportunityExecuted(userId:number,offerId:number){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   await db.update(missedOpportunities).set({status:"EXECUTED",updatedAt:new Date()})
     .where(and(eq(missedOpportunities.userId,userId),eq(missedOpportunities.offerId,offerId)));
+  await db.update(opportunityPopupEvents).set({executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,updatedAt:new Date()})
+    .where(and(eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offerId),eq(opportunityPopupEvents.eventStatus,"TRADED")));
+}
+async function claimOpportunityExecutionAttempt(userId:number, offer:any, maxAttempts:number){
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  return db.transaction(async tx=>{
+    const event=(await tx.select({
+      id:opportunityPopupEvents.id,eventStatus:opportunityPopupEvents.eventStatus,tradeId:opportunityPopupEvents.tradeId,
+      executionStatus:opportunityPopupEvents.executionStatus,executionAttemptCount:opportunityPopupEvents.executionAttemptCount,
+      executionRetryAfter:opportunityPopupEvents.executionRetryAfter,executionRetryDay:opportunityPopupEvents.executionRetryDay,
+    }).from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.id,Number(offer.deliveryEventId)),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,Number(offer.offerId)))).limit(1).for("update"))[0];
+    if(!event||event.tradeId||["TRADED","SETTLED"].includes(String(event.eventStatus))||["FAILED","SUCCEEDED"].includes(String(event.executionStatus))) return {claimed:false,reason:"terminal"};
+    const now=new Date();
+    const day=now.toISOString().slice(0,10);
+    const attempts=Number(event.executionAttemptCount||0);
+    if(attempts>0&&event.executionRetryDay&&String(event.executionRetryDay)!==day){
+      await tx.update(opportunityPopupEvents).set({executionStatus:"FAILED",executionRetryAfter:null,executionLastErrorCode:"TEMPORARY_EXECUTION_RETRY_WINDOW_EXPIRED",updatedAt:now}).where(eq(opportunityPopupEvents.id,event.id));
+      return {claimed:false,reason:"retry-window-expired"};
+    }
+    if(event.executionRetryAfter&&new Date(event.executionRetryAfter).getTime()>now.getTime()) return {claimed:false,reason:"waiting"};
+    if(!Number.isSafeInteger(maxAttempts)||maxAttempts<1||attempts>=maxAttempts){
+      await tx.update(opportunityPopupEvents).set({executionStatus:"FAILED",executionRetryAfter:null,executionLastErrorCode:"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED",updatedAt:now}).where(eq(opportunityPopupEvents.id,event.id));
+      return {claimed:false,reason:"attempts-exhausted"};
+    }
+    await tx.update(opportunityPopupEvents).set({
+      executionStatus:"RUNNING",executionAttemptCount:attempts+1,
+      executionRetryAfter:new Date(now.getTime()+30000),executionRetryDay:day,updatedAt:now,
+    }).where(eq(opportunityPopupEvents.id,event.id));
+    return {claimed:true,attemptNumber:attempts+1,eventId:Number(event.id)};
+  });
+}
+async function recordOpportunityExecutionFailure(userId:number,eventId:number, state:{status:"RETRYING"|"FAILED";retryAt?:Date;errorCode:string;attemptNumber?:number;releaseAttempt?:boolean}){
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const now=new Date();
+  const set:any={executionStatus:state.status,executionRetryAfter:state.retryAt||null,executionLastErrorCode:state.errorCode,updatedAt:now};
+  if(state.releaseAttempt&&Number.isSafeInteger(state.attemptNumber)) set.executionAttemptCount=Math.max(0,Number(state.attemptNumber)-1);
+  if(state.status==="RETRYING") set.executionRetryDay=now.toISOString().slice(0,10);
+  await db.update(opportunityPopupEvents).set(set).where(and(eq(opportunityPopupEvents.id,eventId),eq(opportunityPopupEvents.userId,userId),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED"])));
 }
 async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:any){
   const executed:any[]=[];
@@ -2383,6 +2422,16 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
       continue;
     }
     const terms=calculateTradeTerms(userId,offer,requestedAmount);
+    const maxAttempts=Number.isSafeInteger(Number(offer.maxTradeAttemptsPerDay))?Number(offer.maxTradeAttemptsPerDay):5;
+    const claim=await claimOpportunityExecutionAttempt(userId,offer,maxAttempts);
+    if(!claim.claimed){
+      if(claim.reason==="retry-window-expired"||claim.reason==="attempts-exhausted"){
+        const reason=claim.reason==="retry-window-expired"?"TEMPORARY_EXECUTION_RETRY_WINDOW_EXPIRED":"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED";
+        await markMissedOpportunity(userId,offer,requestedAmount,reason);
+        missedOfferIds.add(Number(offer.id));
+      }
+      continue;
+    }
     try{
       const result=await createTrade(userId,{
         offerId:offer.id,amountMinor:requestedAmount,
@@ -2397,10 +2446,19 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
     }catch(error){
       const message=error instanceof Error?error.message:"AUTO_TRADE_REJECTED";
       if(/already been allocated|duplicate/i.test(message)) continue;
-      // A system safety pause is temporary, not a customer miss. Keep the
-      // delivered popup eligible so a later cycle can retry after an admin resumes.
-      if(/new trading allocations are paused by an administrator/i.test(message)) continue;
-      await markMissedOpportunity(userId,offer,requestedAmount,message);
+      // A pause must not consume the configured retry budget; release the claim
+      // and wait briefly so the durable worker can resume after the administrator unpauses.
+      if(/new trading allocations are paused by an administrator/i.test(message)){
+        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+30000),errorCode:"ALLOCATION_PAUSED",attemptNumber:claim.attemptNumber,releaseAttempt:true});
+        continue;
+      }
+      const decision=decideTradeExecutionRetry(error,Number(claim.attemptNumber),Math.max(1,maxAttempts),new Date());
+      if(decision.kind==="retry"){
+        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:decision.retryAt,errorCode:decision.errorCode});
+        continue;
+      }
+      await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"FAILED",errorCode:decision.errorCode});
+      await markMissedOpportunity(userId,offer,requestedAmount,decision.errorCode);
       missedOfferIds.add(Number(offer.id));
     }
   }
@@ -2541,6 +2599,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   }
   const popupRows=await db.select({
     eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
+    executionStatus:opportunityPopupEvents.executionStatus,executionAttemptCount:opportunityPopupEvents.executionAttemptCount,executionRetryAfter:opportunityPopupEvents.executionRetryAfter,executionRetryDay:opportunityPopupEvents.executionRetryDay,executionLastErrorCode:opportunityPopupEvents.executionLastErrorCode,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
     balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,quotaDay:opportunityPopupEvents.quotaDay,
@@ -2574,7 +2633,10 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       symbol:row.symbol,venueFrom:row.venueFrom||"",venueTo:row.venueTo||"",currency:row.currency,minimumMinor:Math.max(offerMinimum,Number(row.popupMinimumMinor||0),configuredMinimum),
       packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,expectedRewardBps:Number(row.expectedRewardBps||0),
       opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,durationSeconds:Number(row.durationSeconds||0),marketObservedAt:row.marketObservedAt,
-      marketSnapshotId:row.marketSnapshotId,sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered"].includes(String(row.deliveryStatus)),eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus};
+      marketSnapshotId:row.marketSnapshotId,sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,
+      executionStatus:row.executionStatus,executionAttemptCount:Number(row.executionAttemptCount||0),executionRetryAfter:row.executionRetryAfter,executionRetryDay:row.executionRetryDay,executionLastErrorCode:row.executionLastErrorCode,
+      maxTradeAttemptsPerDay:Number(policyByName.get(String(row.packageName))?.maxTradeAttemptsPerDay??5),
+      popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered"].includes(String(row.deliveryStatus)),eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus};
   }).filter((offer) => offer !== null);
   const allocationControls=await getTradeAllocationControls();
   const autoTradeCandidates=tradeCandidates.filter((offer:any)=>{
@@ -2762,8 +2824,8 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const settlementDelaySeconds=Math.max(Number(packagePolicy?.minSettlementDelaySeconds||0),Math.min(Number(packagePolicy?.maxSettlementDelaySeconds||settlementPolicy.delaySeconds),settlementPolicy.delaySeconds)); const creditAt=new Date(Date.now()+(settlementDelaySeconds+settlementPolicy.creditDelaySeconds)*1000); const settlesAt=new Date(Date.now()+settlementDelaySeconds*1000); const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,rewardReservedMinor:reward,settlesAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:Number(packagePolicy?.policyVersion||activePackageSubscription.termsVersion||1)} as any);
   const tradeId=Number(result[0].insertId);
   await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:Number(packagePolicy?.policyVersion||activePackageSubscription.termsVersion||1)})});
-  if(input.deliveryEventId!==undefined) await tx.update(opportunityPopupEvents).set({tradeId,eventStatus:"TRADED",tradedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offer.id)));
-  else await tx.execute(sql`UPDATE opportunity_popup_events SET tradeId=${tradeId},eventStatus='TRADED',deliveryStatus=CASE WHEN deliveryStatus='failed' THEN deliveryStatus ELSE 'rendered' END,tradedAt=COALESCE(tradedAt,CURRENT_TIMESTAMP),updatedAt=CURRENT_TIMESTAMP WHERE userId=${userId} AND offerId=${offer.id} ORDER BY deliveredAt DESC LIMIT 1`);
+  if(input.deliveryEventId!==undefined) await tx.update(opportunityPopupEvents).set({tradeId,eventStatus:"TRADED",executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,tradedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offer.id)));
+  else await tx.execute(sql`UPDATE opportunity_popup_events SET tradeId=${tradeId},eventStatus='TRADED',executionStatus='SUCCEEDED',executionRetryAfter=NULL,executionLastErrorCode=NULL,deliveryStatus=CASE WHEN deliveryStatus='failed' THEN deliveryStatus ELSE 'rendered' END,tradedAt=COALESCE(tradedAt,CURRENT_TIMESTAMP),updatedAt=CURRENT_TIMESTAMP WHERE userId=${userId} AND offerId=${offer.id} ORDER BY deliveredAt DESC LIMIT 1`);
   await tx.insert(tradeRewardReservations).values({userId,tradeId,packageName:activePackageSubscription.packageName,windowKey:today,currency:offer.currency,reservedMinor:reward,status:"reserved"});
   return {tradeId,rewardMinor:reward,rewardBps:terms.rewardBps,minimumMinor:terms.minimumMinor,calculationMethod:terms.method,settlesAt,creditAt,currency:offer.currency,amountMinor:input.amountMinor,rateUsd:nativeRate,rateUpdatedAt:currencyRow.updatedAt,amountUsd:nativeMinorToUsd(input.amountMinor,Number(currencyRow.scale),nativeRate)};
  });
