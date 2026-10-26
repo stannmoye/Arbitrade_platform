@@ -2054,6 +2054,9 @@ export async function setTradeAllocationControls(updatedBy: number, input: { all
   return db.transaction(async tx => {
     const row = (await tx.select({ settingKey: appSettings.settingKey, settingValue: appSettings.settingValue })
       .from(appSettings).where(eq(appSettings.settingKey, TRADE_ALLOCATION_CONTROL_KEY)).limit(1).for("update"))[0];
+    if (!row && !input.allocationsPaused) {
+      throw new Error("Global allocation safety setting is missing; apply the migration before resuming new allocations");
+    }
     const previous = parseTradeAllocationControls(row?.settingValue);
     const next: TradeAllocationControls = {
       allocationsPaused: input.allocationsPaused,
