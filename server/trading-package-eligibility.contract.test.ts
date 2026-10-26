@@ -21,6 +21,8 @@ describe("server-side trading package eligibility", () => {
     expect(implementation).toContain("packagePolicyPaused:true");
     expect(implementation).toContain("const autoTradeCandidates=tradeCandidates.filter((offer:any)=>");
     expect(implementation).toContain("if(offer.popupEligible!==true) return false;");
+    expect(implementation).toContain("deliveryStatus:opportunityPopupEvents.deliveryStatus");
+    expect(implementation).toContain('["delivered","received","rendered"].includes(String(row.deliveryStatus))');
     expect(implementation).toContain("Boolean(packagePolicy.enabled) && packagePolicy.automaticTradingEnabled!==false");
     expect(implementation).toContain("if(!subscription) return null;");
     expect(implementation).toContain(".filter((offer:any)=>offer!==null)");
