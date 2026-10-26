@@ -1367,90 +1367,90 @@
       "companyName": "Ryder System",
       "logoFile": "logos/Ryder System.png",
       "domain": "img.logo.devryder.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 153,
       "companyName": "SAIC",
       "logoFile": "logos/SAIC.png",
       "domain": "img.logo.devsaic.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 154,
       "companyName": "Southern California Edison",
       "logoFile": "logos/Southern California Edison.png",
       "domain": "img.logo.devsce.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 155,
       "companyName": "SharkNinja",
       "logoFile": "logos/SharkNinja.png",
       "domain": "img.logo.devsharkninja.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 156,
       "companyName": "Sherwin-Williams",
       "logoFile": "logos/Sherwin-Williams.png",
       "domain": "img.logo.devsherwin-williams.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 157,
       "companyName": "Siemens Energy",
       "logoFile": "logos/Siemens Energy.png",
       "domain": "img.logo.devsiemens-energy.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Germany",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 158,
       "companyName": "Simon",
       "logoFile": "logos/Simon.png",
       "domain": "img.logo.devsimon.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 159,
       "companyName": "SpaceX",
       "logoFile": "logos/SpaceX.png",
       "domain": "img.logo.devspacex.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 160,
       "companyName": "U-Haul",
       "logoFile": "logos/U-Haul.png",
       "domain": "img.logo.devuhaul.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 161,
       "companyName": "United Rentals",
       "logoFile": "logos/United Rentals.png",
       "domain": "img.logo.devunitedrentals.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 162,
