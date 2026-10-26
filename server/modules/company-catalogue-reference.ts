@@ -104,8 +104,11 @@ type TickerSnapshot = {
 };
 
 function loadTickerSnapshot(): Map<number, { companyName: string; ticker: string; exchange: string; status: string; parentTicker: string; whyNoRealTicker: string }> {
-  const dataPath = resolve(process.cwd(), "server/data/company-trading-symbols-1811.json.br");
-  const snapshot = JSON.parse(brotliDecompressSync(readFileSync(dataPath)).toString("utf8")) as TickerSnapshot;
+  const dataDirectory = resolve(process.cwd(), "server/data/company-trading-symbols-1811.parts");
+  const encoded = ["part-01.b64", "part-02.b64", "part-03.b64", "part-04.b64"]
+    .map((part) => readFileSync(resolve(dataDirectory, part), "utf8").trim())
+    .join("");
+  const snapshot = JSON.parse(brotliDecompressSync(Buffer.from(encoded, "base64")).toString("utf8")) as TickerSnapshot;
   if (snapshot.v !== 2 || snapshot.n !== 1811 || snapshot.records.length !== 1811 || !Array.isArray(snapshot.statuses)) {
     throw new Error("The 1,811-company trading-symbol snapshot has an invalid schema or record count.");
   }
