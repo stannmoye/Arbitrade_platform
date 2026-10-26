@@ -56,6 +56,7 @@ export function validatePackageAutomationPolicy(policy: PackageAutomationPolicy)
     errors.push("settlement delay range must use non-negative safe integer seconds and be ordered");
   }
   if (policy.minIntervalSeconds > policy.maxIntervalSeconds) errors.push("minimum interval cannot exceed maximum interval");
+  if (policy.tradeRetryDelaySeconds < 5 || policy.tradeRetryDelaySeconds > 3600) errors.push("trade retry delay must be between 5 and 3600 seconds");
   if (policy.maxTradeAttemptsPerDay > 0 && policy.maxSuccessfulTradesPerDay > policy.maxTradeAttemptsPerDay) errors.push("successful trades cannot exceed trade attempts");
   if (policy.dailyPopupTarget > 0 && policy.maxPendingDeliveries === 0) errors.push("daily popup target requires at least one pending delivery slot");
   if (policy.maxRewardPerTradeMinor > 0 && policy.maxDailyRewardMinor > 0 && policy.maxRewardPerTradeMinor > policy.maxDailyRewardMinor) errors.push("maximum reward per trade cannot exceed daily reward cap");
