@@ -3,7 +3,7 @@ import { parse as parseCookieHeader } from "cookie";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, getRandomCompanyReference, searchCompanyReferences } from "./modules/company-catalogue-reference";
+import { countCompanyReferences, findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, getRandomCompanyReference, searchCompanyReferences } from "./modules/company-catalogue-reference";
 import { z } from "zod";
 import { communicationSettingsInput, getAdminCommunicationSettings, getCustomerCommunicationOptions, saveAdminCommunicationSettings, validateCommunicationSettingsInput } from "./communicationSettings";
 import { TRPCError } from "@trpc/server";
