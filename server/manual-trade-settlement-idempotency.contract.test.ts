@@ -17,6 +17,14 @@ describe("manual trade settlement idempotency", () => {
     expect(implementation).toContain("trade.settlementReference===reference");
   });
 
+  it("fails closed instead of silently clamping an inconsistent locked principal", () => {
+    expect(implementation).toContain("const lockedMinor=Number(wallet.lockedMinor)");
+    expect(implementation).toContain("!Number.isSafeInteger(lockedMinor)||lockedMinor<principal");
+    expect(implementation).toContain("Settlement wallet locked balance is inconsistent with the trade principal");
+    expect(implementation).toContain("lockedMinor:sql`${customerBalances.lockedMinor}-${principal}`");
+    expect(implementation).not.toContain("GREATEST(${customerBalances.lockedMinor}-${principal},0)");
+  });
+
   it("claims references in a database-unique table before any financial postings", () => {
     const claim = implementation.indexOf("tx.insert(tradeSettlementReferenceClaims)");
     const principal = implementation.indexOf("tx.insert(balanceLedger)");
