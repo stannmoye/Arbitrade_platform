@@ -45,6 +45,24 @@ describe("realized trade profit accounting", () => {
     })).toThrow("no approved leveraged-loss policy");
   });
 
+  it("rejects settlement totals that exceed safe integer ledger precision", () => {
+    expect(() => calculateRealizedProfitSettlement({
+      principalMinor: Number.MAX_SAFE_INTEGER,
+      grossProfitMinor: 1,
+      feeRateBps: 0,
+      roundingMode: "half_up",
+    })).toThrow("Settlement value exceeds safe ledger integer precision");
+  });
+
+  it("allows a loss equal to principal but never returns a negative total", () => {
+    expect(calculateRealizedProfitSettlement({
+      principalMinor: 1000,
+      grossProfitMinor: -1000,
+      feeRateBps: 1500,
+      roundingMode: "half_up",
+    })).toMatchObject({ netProfitMinor: -1000, totalReturnedMinor: 0, platformFeeMinor: 0, outcome: "loss" });
+  });
+
   it("rejects invalid precision and fee policies", () => {
     expect(() => calculateRealizedProfitSettlement({
       principalMinor: 0, grossProfitMinor: 0, feeRateBps: 1500, roundingMode: "half_up",
