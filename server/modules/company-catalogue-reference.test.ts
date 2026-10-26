@@ -37,8 +37,9 @@ describe("Logo.dev brand-only static reference catalogue", () => {
     expect(getCompanyReferenceById(sample.id)?.id).toBe(sample.id);
     expect(searchCompanyReferences({ search: sample.name, limit: 5 }).some((company) => company.id === sample.id)).toBe(true);
     expect(searchCompanyReferences({ search: sample.domain, limit: 5 }).length).toBeGreaterThan(0);
-    expect(searchCompanyReferences({ countryCode: "US" })).toHaveLength(0);
-    expect(searchCompanyReferences({ limit: 1000 })).toHaveLength(100);
+    expect(searchCompanyReferences({ countryCode: "US" })).toHaveLength(100);
+    expect(searchCompanyReferences({ limit: 1000 })).toHaveLength(1000);
+    expect(COMPANY_REFERENCE_CATALOGUE.every((company) => company.countryName.length > 0)).toBe(true);
   });
 
   it("returns a brand-only random spotlight and rejects invalid random sources", () => {
