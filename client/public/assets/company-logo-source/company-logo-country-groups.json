@@ -3701,6 +3701,15 @@
         "confidence": "medium"
       },
       {
+        "logoId": 917,
+        "companyName": "Kirin Holdings",
+        "logoFile": "logos/Kirin Holdings.png",
+        "country": "Japan",
+        "assignmentMethod": "official-or-reliable-headquarters-source",
+        "confidence": "high",
+        "evidenceUrl": "https://www.kirinholdings.com/en/company/overview/"
+      },
+      {
         "logoId": 920,
         "companyName": "Toei",
         "logoFile": "logos/Toei.png",
@@ -10522,14 +10531,6 @@
         "logoId": 913,
         "companyName": "Ruger",
         "logoFile": "logos/Ruger.png",
-        "country": "Unverified",
-        "assignmentMethod": "needs-manual-verification",
-        "confidence": "unknown"
-      },
-      {
-        "logoId": 917,
-        "companyName": "Kirin Holdings",
-        "logoFile": "logos/Kirin Holdings.png",
         "country": "Unverified",
         "assignmentMethod": "needs-manual-verification",
         "confidence": "unknown"
