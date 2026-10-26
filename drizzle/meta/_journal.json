@@ -302,6 +302,13 @@
       "when": 1793035055833,
       "tag": "0073_trade_settlement_recovery_cases",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1793060000000,
+      "tag": "0074_trade_execution_retries",
+      "breakpoints": true
     }
   ]
 }
