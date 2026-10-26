@@ -24,6 +24,25 @@ describe("pending settlement reconciliation visibility", () => {
   });
 });
 
+const referenceClaimsMigration = readFileSync(new URL("../drizzle/0067_trade_settlement_reference_claims.sql", import.meta.url), "utf8");
+const migrationJournal = readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8");
+
+describe("settlement reference uniqueness migration", () => {
+  it("registers a database-enforced global unique reference claim and one claim per trade", () => {
+    expect(referenceClaimsMigration).toContain("PRIMARY KEY (`settlementReference`)");
+    expect(referenceClaimsMigration).toContain("UNIQUE KEY `trade_settlement_reference_claim_trade_unique` (`tradeId`)");
+    expect(migrationJournal).toContain('"tag": "0067_trade_settlement_reference_claims"');
+  });
+
+  it("acquires the unique reference claim before any wallet ledger posting", () => {
+    const claim = implementation.indexOf("tx.insert(tradeSettlementReferenceClaims)");
+    const firstLedgerPost = implementation.indexOf("tx.insert(balanceLedger)");
+    expect(claim).toBeGreaterThanOrEqual(0);
+    expect(firstLedgerPost).toBeGreaterThan(claim);
+    expect(implementation).toContain("Settlement reference has already been used");
+  });
+});
+
 describe("manual trade settlement idempotency", () => {
   it("rejects manual settlement before the trade due timestamp", () => {
     expect(implementation).toContain("const settlementDueAt=trade.creditAt||trade.settlesAt");
