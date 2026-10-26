@@ -86,6 +86,26 @@ describe("trade recovery evidence classification (read-only)", () => {
       .toBe("MANUAL_FINANCIAL_REVIEW");
   });
 
+  it("does not interpret legacy migration defaults as a recorded zero-profit result", () => {
+    const result = classifyTradeRecoveryEvidence(settledEvidence({
+      settlementOutcome: "legacy_unrecorded",
+      realizedGrossProfitMinor: 0,
+      platformFeeMinor: 0,
+      netProfitMinor: 0,
+      grossProfitLedgerCount: 0,
+      grossProfitLedgerAmountMinor: null,
+      platformFeeLedgerCount: 0,
+      platformFeeLedgerAmountMinor: null,
+      realizedLossLedgerCount: 0,
+      realizedLossLedgerAmountMinor: null,
+      rewardCreditedMinor: 0,
+      rewardReservationStatus: "released",
+    }));
+    expect(result.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(result.reasons.join(" ")).toContain("migration-default zero values are not proof");
+    expect(result.automatedMutationAllowed).toBe(false);
+  });
+
   it("escalates negative or unsafe optional settlement evidence", () => {
     const negativeFeeCount = classifyTradeRecoveryEvidence(settledEvidence({
       grossProfitLedgerCount: 1,
