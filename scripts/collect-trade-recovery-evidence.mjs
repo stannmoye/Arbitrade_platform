@@ -320,6 +320,7 @@ async function main() {
       const fee = ledgerSummary(feeRows);
       const loss = ledgerSummary(lossRows);
       const context = {
+        tradeId: trade.id,
         userId: trade.userId,
         currency: trade.currency,
         principalMinor: trade.principalMinor,
@@ -342,6 +343,7 @@ async function main() {
         rewardReservationStatus: reservationStatus,
         reservation: reservationForTrade.map((row) => ({
           id: safeInteger(row.id, "trade_reward_reservations.id"),
+          tradeId: safeInteger(row.tradeId, "trade_reward_reservations.tradeId"),
           status: String(row.status),
           reservedMinor: safeInteger(row.reservedMinor, "trade_reward_reservations.reservedMinor"),
           currency: String(row.currency),
