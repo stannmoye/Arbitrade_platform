@@ -12,7 +12,11 @@ describe("Logo.dev brand-only static reference catalogue", () => {
   it("loads all 1,811 mapped brands with unique IDs and local logo paths", () => {
     expect(COMPANY_REFERENCE_CATALOGUE).toHaveLength(1811);
     expect(new Set(COMPANY_REFERENCE_CATALOGUE.map((company) => company.id)).size).toBe(1811);
-    expect(new Set(COMPANY_REFERENCE_CATALOGUE.map((company) => company.name.toLowerCase())).size).toBe(1811);
+    // Display names may repeat in the source brand inventory; stable IDs, not names, identify records.
+    expect(new Set(COMPANY_REFERENCE_CATALOGUE.map((company) => company.name.toLowerCase())).size).toBeLessThan(1811);
+    const googleEntries = COMPANY_REFERENCE_CATALOGUE.filter((company) => company.name.toLowerCase() === "google");
+    expect(googleEntries).toHaveLength(2);
+    expect(new Set(googleEntries.map((company) => company.id)).size).toBe(2);
     expect(COMPANY_REFERENCE_CATALOGUE.every((company) => company.logoUrl.startsWith("/assets/company-logo-source/by-country/"))).toBe(true);
   });
 
