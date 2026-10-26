@@ -8,11 +8,26 @@ describe("advanced automatic trading policy", () => {
     expect(() => validatePackageAutomationPolicy({ ...base, minIntervalSeconds: 500, maxIntervalSeconds: 10 })).toThrow(/interval/);
     expect(() => validatePackageAutomationPolicy({ ...base, maxRewardPerTradeMinor: 10001, maxDailyRewardMinor: 10000 })).toThrow(/per trade/);
   });
-  it("keeps a randomized next time inside the administrator range", () => {
+  it("uses the secure bounded sampler and accepts both configured interval endpoints", () => {
     const now = new Date("2026-10-16T10:00:00.000Z");
-    const next = chooseNextEligibleAt(now, 45, 60, true, () => new Uint8Array([255, 255, 255, 255]));
-    expect(next.getTime()).toBeGreaterThanOrEqual(now.getTime() + 45_000);
-    expect(next.getTime()).toBeLessThanOrEqual(now.getTime() + 60_000);
+    const calls: number[][] = [];
+    const low = chooseNextEligibleAt(now, 45, 60, true, (min, maxExclusive) => {
+      calls.push([min, maxExclusive]);
+      return min;
+    });
+    const high = chooseNextEligibleAt(now, 45, 60, true, (min, maxExclusive) => maxExclusive - 1);
+    expect(calls).toEqual([[45, 61]]);
+    expect(low.toISOString()).toBe("2026-10-16T10:00:45.000Z");
+    expect(high.toISOString()).toBe("2026-10-16T10:01:00.000Z");
+  });
+
+  it("rejects invalid dates, unsafe intervals and a broken random sampler", () => {
+    const now = new Date("2026-10-16T10:00:00.000Z");
+    expect(() => chooseNextEligibleAt(now, -1, 60, true)).toThrow(/interval range/);
+    expect(() => chooseNextEligibleAt(now, 61, 60, true)).toThrow(/interval range/);
+    expect(() => chooseNextEligibleAt(now, 0, 2 ** 48, true)).toThrow(/interval range/);
+    expect(() => chooseNextEligibleAt(now, 45, 60, true, () => 61)).toThrow(/out-of-range/);
+    expect(() => chooseNextEligibleAt(new Date(Number.NaN), 45, 60, true)).toThrow(/interval range/);
   });
   it("uses explicit window keys and subtracts both credited and reserved rewards", () => {
     const now = new Date("2026-10-16T10:00:00.000Z");
