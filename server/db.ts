@@ -2227,7 +2227,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
   for(const offer of offers){
     // A pending/retrying card is not a delivered opportunity and must never trigger
     // a trade. Only authoritative DELIVERED/NOTICED popup states are eligible.
-    if(offer.popupEligible===false) continue;
+    if(offer.popupEligible!==true) continue;
     if(existingTrades.some((trade:any)=>Number(trade.offerId)===Number(offer.id))||missedOfferIds.has(Number(offer.id))) continue;
     const offerMinimum=Number(offer.minimumMinor);
     const packageMinimum=Number(offer.packageMinimumTradeMinor||0);
