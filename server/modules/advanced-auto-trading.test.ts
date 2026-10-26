@@ -46,5 +46,15 @@ describe("advanced automatic trading policy", () => {
     expect(remainingRewardAllowance(10_000, 2_000, 3_000)).toBe(5_000);
     expect(canReserveReward(10_000, 2_000, 3_000, 5_000)).toBe(true);
     expect(canReserveReward(10_000, 2_000, 3_000, 5_001)).toBe(false);
+    expect(remainingRewardAllowance(10_000, 12_000, 0)).toBe(0);
+    expect(remainingRewardAllowance(Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER - 1, 1)).toBe(0);
+  });
+
+  it("fails closed for invalid reward-cap amounts instead of propagating NaN or fractions", () => {
+    expect(() => remainingRewardAllowance(Number.NaN, 0, 0)).toThrow(/Reward cap/);
+    expect(() => remainingRewardAllowance(100, -1, 0)).toThrow(/Credited rewards/);
+    expect(() => remainingRewardAllowance(100, 0, 1.5)).toThrow(/Reserved rewards/);
+    expect(() => canReserveReward(100, 0, 0, -1)).toThrow(/Requested reward/);
+    expect(() => canReserveReward(100, 0, 0, Number.MAX_SAFE_INTEGER + 1)).toThrow(/Requested reward/);
   });
 });
