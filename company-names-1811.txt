@@ -1,6 +1,6 @@
 COMPANY NAME LIST — ARBITRADE
 Total companies: 1,811
-Source: company-logo-source/logo-mapping.csv
+Source: client/public/assets/company-logo-source/logo-mapping.csv
 
 1. Apple
 2. Google
