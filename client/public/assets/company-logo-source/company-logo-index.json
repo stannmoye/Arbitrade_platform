@@ -1025,9 +1025,9 @@
       "companyName": "Publicis Sapient",
       "logoFile": "logos/Publicis Sapient.png",
       "domain": "img.logo.devpublicissapient.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 115,
@@ -1043,27 +1043,27 @@
       "companyName": "1-800-GOT-JUNK?",
       "logoFile": "logos/1-800-GOT-JUNK-.png",
       "domain": "img.logo.dev1800gotjunk.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Canada",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 117,
       "companyName": "OneSource Distributors",
       "logoFile": "logos/OneSource Distributors.png",
       "domain": "img.logo.dev1sourcedist.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 118,
       "companyName": "ADM",
       "logoFile": "logos/ADM.png",
       "domain": "img.logo.devadm.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 119,
@@ -1088,27 +1088,27 @@
       "companyName": "Baker Hughes",
       "logoFile": "logos/Baker Hughes.png",
       "domain": "img.logo.devbakerhughes.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 122,
       "companyName": "Ball Corporation",
       "logoFile": "logos/Ball Corporation.png",
       "domain": "img.logo.devball.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 123,
       "companyName": "Benjamin Moore",
       "logoFile": "logos/Benjamin Moore.png",
       "domain": "img.logo.devbenjaminmoore.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 124,
@@ -1124,18 +1124,18 @@
       "companyName": "Blue Origin",
       "logoFile": "logos/Blue Origin.png",
       "domain": "img.logo.devblueorigin.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 126,
       "companyName": "Booz Allen Hamilton",
       "logoFile": "logos/Booz Allen Hamilton.png",
       "domain": "img.logo.devboozallen.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 127,
@@ -1151,9 +1151,9 @@
       "companyName": "Callaway Golf",
       "logoFile": "logos/Callaway Golf.png",
       "domain": "img.logo.devcallawaygolf.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 129,
