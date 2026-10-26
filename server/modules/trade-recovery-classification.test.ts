@@ -97,4 +97,42 @@ describe("trade recovery evidence classification (read-only)", () => {
       expect(classifyTradeRecoveryEvidence(evidence).automatedMutationAllowed).toBe(false);
     }
   });
+  
+  it("compares collector gross-profit and fee postings separately from net credited reward", () => {
+    const result = classifyTradeRecoveryEvidence(settledEvidence({
+      rewardCreditedMinor: 1700,
+      rewardLedgerCount: 1,
+      rewardLedgerAmountMinor: 2000,
+      realizedGrossProfitMinor: 2000,
+      platformFeeMinor: 300,
+      netProfitMinor: 1700,
+      grossProfitLedgerCount: 1,
+      grossProfitLedgerAmountMinor: 2000,
+      platformFeeLedgerCount: 1,
+      platformFeeLedgerAmountMinor: -300,
+      realizedLossLedgerCount: 0,
+      realizedLossLedgerAmountMinor: null,
+    }));
+    expect(result.classification).toBe("NO_ACTION");
+  });
+
+  it("escalates a fee posting that has the wrong sign or amount", () => {
+    const result = classifyTradeRecoveryEvidence(settledEvidence({
+      rewardCreditedMinor: 1700,
+      rewardLedgerCount: 1,
+      rewardLedgerAmountMinor: 2000,
+      realizedGrossProfitMinor: 2000,
+      platformFeeMinor: 300,
+      netProfitMinor: 1700,
+      grossProfitLedgerCount: 1,
+      grossProfitLedgerAmountMinor: 2000,
+      platformFeeLedgerCount: 1,
+      platformFeeLedgerAmountMinor: 300,
+      realizedLossLedgerCount: 0,
+      realizedLossLedgerAmountMinor: null,
+    }));
+    expect(result.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(result.reasons.join(" ")).toContain("negative recorded fee");
+  });
+
 });
