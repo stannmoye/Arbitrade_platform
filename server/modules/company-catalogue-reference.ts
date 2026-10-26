@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { brotliDecompressSync } from "node:zlib";
+import { brotliDecompressSync, gunzipSync } from "node:zlib";
 
 export type CompanyReferenceRecord = {
   id: string;
@@ -100,29 +100,53 @@ type TickerSnapshot = {
   n: number;
   source: string;
   statuses: string[];
-  records: Array<[number, string, string, string, number, string, string]>;
+  records: Array<[number, string, string, number]>;
 };
 
 function loadTickerSnapshot(): Map<number, { companyName: string; ticker: string; exchange: string; status: string; parentTicker: string; whyNoRealTicker: string }> {
-  const dataDirectory = resolve(process.cwd(), "server/data/company-trading-symbols-1811.parts");
-  const encoded = ["part-01.b64", "part-02.b64", "part-03.b64", "part-04.b64"]
-    .map((part) => readFileSync(resolve(dataDirectory, part), "utf8").trim())
-    .join("");
-  const snapshot = JSON.parse(brotliDecompressSync(Buffer.from(encoded, "base64")).toString("utf8")) as TickerSnapshot;
-  if (snapshot.v !== 2 || snapshot.n !== 1811 || snapshot.records.length !== 1811 || !Array.isArray(snapshot.statuses)) {
-    throw new Error("The 1,811-company trading-symbol snapshot has an invalid schema or record count.");
+  const basePath = resolve(process.cwd(), "server/data/company-trading-symbol-candidates-1811.json.gz.b64");
+  const baseEncoded = readFileSync(basePath, "utf8").trim();
+  const snapshot = JSON.parse(gunzipSync(Buffer.from(baseEncoded, "base64")).toString("utf8")) as TickerSnapshot;
+  if (snapshot.v !== 1 || snapshot.n !== 1811 || snapshot.records.length !== 1811 || !Array.isArray(snapshot.statuses)) {
+    throw new Error("The base 1,811-company ticker snapshot has an invalid schema or record count.");
   }
   const candidates = new Map<number, { companyName: string; ticker: string; exchange: string; status: string; parentTicker: string; whyNoRealTicker: string }>();
   const statusCounts = new Map<string, number>();
   for (const record of snapshot.records) {
-    const [logoId, companyName, ticker, exchange, statusIndex, parentTicker, whyNoRealTicker] = record;
+    const [logoId, ticker, exchange, statusIndex] = record;
     const status = snapshot.statuses[statusIndex];
-    if (!Number.isInteger(logoId) || logoId < 1 || logoId > 1811 || candidates.has(logoId) || !status || !companyName) {
-      throw new Error("The trading-symbol snapshot contains an invalid or duplicate logo ID/status.");
+    if (!Number.isInteger(logoId) || logoId < 1 || logoId > 1811 || candidates.has(logoId) || !status) {
+      throw new Error("The base ticker snapshot contains an invalid or duplicate logo ID/status.");
     }
-    if (!ticker || !exchange) throw new Error(`Supplied ticker/code and exchange fields must be preserved for logo ID ${logoId}.`);
-    candidates.set(logoId, { companyName, ticker, exchange, status, parentTicker, whyNoRealTicker });
-    statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1);
+    candidates.set(logoId, { companyName: "", ticker, exchange, status, parentTicker: "", whyNoRealTicker: "" });
+  }
+  const dataDirectory = resolve(process.cwd(), "server/data/company-trading-symbols-1811.parts");
+  const encoded = ["part-01.b64", "part-02.b64", "part-03.b64"]
+    .map((part) => readFileSync(resolve(dataDirectory, part), "utf8").trim())
+    .join("");
+  const supplement = JSON.parse(brotliDecompressSync(Buffer.from(encoded, "base64")).toString("utf8")) as {
+    v: number; n: number; source: string; records: Array<[number, string, string, string, string, string]>;
+  };
+  if (supplement.v !== 1 || supplement.n !== 997 || supplement.records.length !== 997) {
+    throw new Error("The supplemental 997-row workbook import has an invalid schema or record count.");
+  }
+  const supplemented = new Set<number>();
+  for (const record of supplement.records) {
+    const [logoId, companyName, ticker, exchange, parentTicker, whyNoRealTicker] = record;
+    const current = candidates.get(logoId);
+    if (!current || supplemented.has(logoId) || current.status === "Public" || !companyName || !ticker || !exchange) {
+      throw new Error(`Invalid or duplicate supplemental workbook row for logo ID ${logoId}.`);
+    }
+    supplemented.add(logoId);
+    candidates.set(logoId, { companyName, ticker, exchange, status: current.status, parentTicker, whyNoRealTicker });
+  }
+  for (const [logoId, current] of candidates) {
+    if (!current.companyName) {
+      if (current.status !== "Public") throw new Error(`Missing supplemental workbook fields for logo ID ${logoId}.`);
+      current.companyName = mapping[logoId - 1]?.company_name ?? "";
+    }
+    if (!current.ticker || !current.exchange) throw new Error(`Missing supplied ticker/code fields for logo ID ${logoId}.`);
+    statusCounts.set(current.status, (statusCounts.get(current.status) ?? 0) + 1);
   }
   const expected = new Map([
     ["Public", 814],
@@ -130,8 +154,8 @@ function loadTickerSnapshot(): Map<number, { companyName: string; ticker: string
     ["Uses listed parent's ticker", 265],
     ["Historic ticker (no longer trading / delisted)", 95],
   ]);
-  if (statusCounts.size !== expected.size || [...expected].some(([status, count]) => statusCounts.get(status) !== count)) {
-    throw new Error("The trading-symbol snapshot does not preserve all expected workbook statuses.");
+  if (candidates.size !== 1811 || supplemented.size !== 997 || statusCounts.size !== expected.size || [...expected].some(([status, count]) => statusCounts.get(status) !== count)) {
+    throw new Error("The combined ticker data does not preserve all 1,811 workbook rows and statuses.");
   }
   return candidates;
 }
@@ -142,7 +166,7 @@ const tickerSnapshot = loadTickerSnapshot();
 function toReference(row: LogoMappingRow, index: number): CompanyReferenceRecord {
   const tickerData = tickerSnapshot.get(index + 1);
   if (!tickerData) throw new Error(`Missing ticker snapshot row for logo ID ${index + 1}.`);
-  if (tickerData.companyName.trim().toLowerCase() !== row.company_name.trim().toLowerCase()) {
+  if (tickerData.companyName && tickerData.companyName.trim().toLowerCase() !== row.company_name.trim().toLowerCase()) {
     throw new Error(`Company-name/Logo ID alignment mismatch for logo ID ${index + 1}: ${row.company_name} vs ${tickerData.companyName}.`);
   }
   const filename = row.filename.replace(/^\/+/, "");
