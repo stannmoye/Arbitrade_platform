@@ -44,6 +44,7 @@ const migrationFiles = [
   "0071_trade_allocation_pause.sql",
   "0076_trading_admin_policy_read_repair.sql",
   "0077_trading_package_catalogue_schema_repair.sql",
+  "0078_trading_customer_package_subscription_repair.sql",
 ];
 // These tables are schema-baseline indicators for first-time portal migration tracking.
 // Some also belong to the main Drizzle chain; none of them alone proves that a
