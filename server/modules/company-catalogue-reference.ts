@@ -85,11 +85,14 @@ function loadLogoMapping(): LogoMappingRow[] {
     const values = parseCsvRow(line);
     return Object.fromEntries(required.map((key) => [key, values[indexes[key]!] ?? ""])) as LogoMappingRow;
   }).filter((row) => row.company_name && row.filename);
-  const names = new Set<string>();
+  // The source inventory is keyed by stable logo ID (CSV row order), not by company name.
+  // Distinct source entries can legitimately share a display name; rejecting those would
+  // prevent the entire 1,811-record catalogue from loading. File paths and IDs remain unique.
+  const filenames = new Set<string>();
   for (const row of rows) {
-    const normalized = row.company_name.trim().toLowerCase();
-    if (names.has(normalized)) throw new Error(`Duplicate company name in new logo mapping: ${row.company_name}`);
-    names.add(normalized);
+    const normalizedFilename = row.filename.trim().toLowerCase();
+    if (filenames.has(normalizedFilename)) throw new Error(`Duplicate logo filename in new logo mapping: ${row.filename}`);
+    filenames.add(normalizedFilename);
   }
   if (rows.length !== 1811) throw new Error(`Expected 1,811 mapped company logos, found ${rows.length}.`);
   return rows;
