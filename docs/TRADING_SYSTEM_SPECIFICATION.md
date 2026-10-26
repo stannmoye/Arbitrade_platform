@@ -224,6 +224,43 @@ The expanded-card display duration is configurable in seconds. The minimized doc
 
 ## 12. Admin portal controls
 
+### Admin navigation: Trade Settings
+
+The admin portal's main navigation must contain one clear top-level menu named **Trade Settings**. All admin pages and submenus that configure, monitor, or operate trading belong beneath this menu, rather than being scattered as unrelated top-level menu items. Respect existing admin roles and permissions for each submenu; a menu grouping must not grant access by itself.
+
+Required Trade Settings submenu structure (reuse existing working screens where they already provide the relevant function; do not create duplicate or placeholder screens):
+
+1. **Overview** — trading system status, today's allocations/opportunities, active and pending trades, settlements, exceptions, and key health indicators.
+2. **Packages & Eligibility** — package names, minimum qualifying balances, activation rules, terms, status, and eligibility.
+3. **Package Quotas & Customer Limits** — opportunities per package/day, combined quotas, account limits, and customer-level controls.
+4. **Opportunity Schedule** — opportunity generation windows, schedule/time zone, company selection/filters, and cadence.
+5. **Trade Duration & Closing Rules** — admin-configured duration, scheduled close calculation, timing policy, effective-time rules, and countdown target policy.
+6. **Capital Allocation & Wallet Rules** — eligible internal wallets, allocation amounts, reservations, spendable-balance checks, and capital return routing.
+7. **Profit, Fees & Earnings Limits** — gross/net profit handling, platform fee rate and calculation base, rounding, daily net earnings ceiling, and reset timezone.
+8. **Retries & Carry-Forward** — retry limits, failure classification, next-day carry-forward caps, and make-good policy.
+9. **Company Catalogue & Rotation** — company/logo/country/flag metadata, supplied symbol classifications, company eligibility/filters, and rotation policy.
+10. **Trade Pop-up & Customer Display** — identity and financial fields, expanded display duration, minimize/maximize dock, countdown presentation, and dismissal rules.
+11. **Notifications** — customer trade notices, confirmed credit/debit notifications, toast placement, and display duration.
+12. **Active Trades & Pending Work** — current lifecycle status, scheduled closes, pending/retrying items, and safe operational actions.
+13. **Settlement & Reconciliation** — ledger reconciliation, settlement exceptions, idempotency status, and traceable settlement records.
+14. **System Health & Pause Controls** — worker/integration health, emergency pause of new allocations, and recovery controls. Pausing new allocations must not discard or silently abandon pending trades or required settlement.
+15. **Audit Log & Policy Versions** — administrator, timestamp, reason, old/new values, approvals, and configuration versions.
+
+Only show a submenu when the corresponding capability exists or is being implemented as a real, permission-protected feature. If a feature is not yet implemented, record it as pending in development documentation rather than presenting a fake working control. Every consequential setting must be validated server-side and audited. Financial ledger history is immutable through normal admin settings; corrections must use an auditable adjustment/reconciliation workflow.
+
+### Customer-side trade controls must be removed
+
+The customer portal must not expose buttons or switches that let a customer manually control the automatic trade engine. Remove existing customer-side controls such as Trading On/Off, Opportunity On/Off, Auto Trade On/Off, manual start/stop, or any equivalent toggle that conflicts with this specification. Do not replace them with another customer-side switch that changes allocation, schedules, duration, trade closing time, fees, package quotas, or settlement policy.
+
+The customer portal is for viewing package eligibility, opportunities, trade cards, countdowns, status, and ledger-backed financial information. Trades are allocated automatically by the server when the customer has an eligible active package and an eligible opportunity occurs, subject to admin-configured quotas, schedule, balance, account status, risk controls, and earnings limits. Customer sign-in state must not control server-side opportunity processing or settlement.
+
+Customer-side presentation controls such as **Minimize** and **Maximize** are permitted because they change only how the trade card is displayed; they must never pause or modify a trade. Any customer action that affects money or trade execution must be explicitly supported by the canonical specification and implemented server-side with authorization, validation, idempotency, and ledger audit.
+
+### Package-driven opportunity presentation
+
+Opportunity generation and trade-card presentation must follow the customer's active package entitlements and the opportunity counts/quotas configured for those packages in the admin portal. Do not use one hard-coded global number of pop-ups for every customer. Sum eligible quotas across active entitlements according to the package policy, enforce the combined customer limits and daily earnings ceiling, and ensure retries do not count as additional completed opportunities. Only present an eligible opportunity when it actually occurs; an insufficient-balance card is shown only when a real eligible opportunity occurs and the funds check fails. A pop-up is not itself proof that a trade was allocated or executed.
+
+
 Provide configurable sections for:
 - Packages: names, amounts, durations, quotas, qualification, activation, status, and terms-change policy.
 - Repurchases: same-package repeat toggle, maximum copies, and cooldown.
@@ -242,6 +279,11 @@ Every consequential admin change should record administrator, timestamp, old/new
 Trading operates as a real-money workflow recorded in the customer's internal ledger. Each allocation and financial result must be grounded in the actual recorded trade lifecycle and supporting result data. Do not fabricate company activity, trade execution, profit, or settlement results. Record capital debits/returns, realized profit, platform fees, and losses accurately in the internal ledger, with traceable references, reconciliation, and idempotent posting.
 
 ## 14. Acceptance checklist
+
+- Customer portal has no manual Trading On/Off, Opportunity On/Off, Auto Trade On/Off, or equivalent trade-engine switches; automatic server-side processing follows the admin-controlled rules.
+- Admin portal has a top-level **Trade Settings** menu grouping all trading controls into permission-protected, functional submenus; no fake placeholder controls are presented as working features.
+- Trade Settings includes package/eligibility, package quotas, opportunity schedule, duration/closing rules, wallet allocation, fees/earnings limits, retries/carry-forward, company rotation, customer pop-up/display, notifications, active/pending trades, settlement/reconciliation, system health/pause, and audit/policy versions.
+- Opportunity/pop-up cadence respects each customer's active package entitlements and admin-configured package quotas, plus combined limits; no hard-coded global popup count overrides admin policy.
 
 - No active package => no automatic trade allocation; no fallback package.
 - Active eligible package => server evaluates opportunities even when customer is signed out.
