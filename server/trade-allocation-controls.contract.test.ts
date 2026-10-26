@@ -31,6 +31,7 @@ describe("global trade allocation pause", () => {
     expect(implementation).toContain("trading_new_allocations_paused");
     expect(implementation).toContain("trading_new_allocations_resumed");
     expect(implementation).toContain("at least 8 characters");
+    expect(implementation).toContain("apply the migration before resuming new allocations");
   });
 
   it("filters automatic candidates and enforces the pause transactionally", () => {
