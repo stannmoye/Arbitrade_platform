@@ -14,6 +14,11 @@ describe("advanced automatic trading policy", () => {
     expect(() => validatePackageAutomationPolicy({ ...base, minSettlementDelaySeconds: 11, maxSettlementDelaySeconds: 10 })).toThrow(/settlement delay/);
     expect(() => validatePackageAutomationPolicy({ ...base, minSettlementDelaySeconds: Number.NaN, maxSettlementDelaySeconds: 10 })).toThrow(/settlement delay/);
   });
+  it("rejects retry delays outside the safe admin-configured range", () => {
+    expect(() => validatePackageAutomationPolicy({ ...base, tradeRetryDelaySeconds: 4 })).toThrow(/retry delay/);
+    expect(() => validatePackageAutomationPolicy({ ...base, tradeRetryDelaySeconds: 3601 })).toThrow(/retry delay/);
+    expect(() => validatePackageAutomationPolicy({ ...base, tradeRetryDelaySeconds: 1.5 })).toThrow(/retry delay/);
+  });
   it("rejects invalid policy enum values and empty package names at runtime", () => {
     expect(() => validatePackageAutomationPolicy({ ...base, packageName: "  " })).toThrow(/package name/);
     expect(() => validatePackageAutomationPolicy({ ...base, schedulingPeriod: "unknown" as any })).toThrow(/scheduling period/);
