@@ -2496,15 +2496,16 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   });
   if(!subscriptionsWithQuota.length) throw new Error("All active package opportunity quotas have been used for today");
   const requestedSubscription=input.packageSubscriptionId
-    ? subscriptionsWithQuota.find(subscription=>Number(subscription.subscriptionId)===input.packageSubscriptionId)
+    ? subscriptionsWithQuota.find(subscription=>Number(subscription.subscriptionId)===input.packageSubscriptionId&&(!input.packageId||Number(subscription.packageId)===input.packageId))
     : undefined;
   const samePackageSubscription=input.packageId
     ? subscriptionsWithQuota.find(subscription=>Number(subscription.packageId)===input.packageId)
     : undefined;
-  if(input.packageSubscriptionId && !requestedSubscription && !samePackageSubscription) {
-    throw new Error("The selected package subscription has no remaining quota or is no longer eligible");
+  if((input.packageSubscriptionId||input.packageId)&&!requestedSubscription&&!samePackageSubscription) {
+    throw new Error("The selected package has no remaining quota or is no longer eligible");
   }
-  const activePackageSubscription=requestedSubscription||samePackageSubscription||subscriptionsWithQuota[0];
+  const activePackageSubscription=requestedSubscription||samePackageSubscription||(!input.packageSubscriptionId&&!input.packageId?subscriptionsWithQuota[0]:undefined);
+  if(!activePackageSubscription) throw new Error("No eligible package subscription remains for this allocation");
   const selectedSubscriptionId=Number(activePackageSubscription.subscriptionId);
   const packagePolicy=policyByName.get(activePackageSubscription.packageName);
   if(activePackageSubscription.maxActiveInvestments>0){
