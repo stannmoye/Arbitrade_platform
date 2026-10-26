@@ -6,6 +6,7 @@ const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const adminUi = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../drizzle/0071_trade_allocation_pause.sql", import.meta.url), "utf8");
 const journal = readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8");
+const portalMigrationRunner = readFileSync(new URL("../scripts/apply-portal-migrations.mjs", import.meta.url), "utf8");
 
 describe("global trade allocation pause", () => {
   it("ships a default-unpaused durable setting", () => {
@@ -13,6 +14,15 @@ describe("global trade allocation pause", () => {
     expect(migration).toContain('"allocationsPaused":false');
     expect(migration).toContain("ON DUPLICATE KEY UPDATE");
     expect(journal).toContain('"tag": "0071_trade_allocation_pause"');
+    expect(portalMigrationRunner).toContain('"0071_trade_allocation_pause.sql"');
+  });
+
+  it("logs actionable sanitized diagnostics when policy reads fail", () => {
+    expect(db).toContain("[Trading] Admin allocation safety status read failed");
+    expect(db).toContain("[Trading] Admin package activation policy read failed");
+    expect(db).toContain("errorCode:");
+    expect(db).toContain("sqlState:");
+    expect(db).toContain("Check server logs for the underlying database error");
   });
 
   it("fails closed when the stored safety setting is malformed", () => {

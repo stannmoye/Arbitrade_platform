@@ -2001,11 +2001,23 @@ function packageQualificationWalletRows(rows:any[]): EligibleWalletBalance[] {
 }
 
 export async function getPackageActivationPolicy() {
-  const db=await getDb(); if(!db) throw new Error("Database is not available");
-  const rows=await db.select({settingKey:appSettings.settingKey,settingValue:appSettings.settingValue})
-    .from(appSettings).where(inArray(appSettings.settingKey,[...PACKAGE_ACTIVATION_SETTING_KEYS]));
-  const policy=packageActivationPolicyFromRows(rows);
-  return {...policy,qualifyingBalanceCurrency:"USD"};
+  try {
+    const db=await getDb(); if(!db) throw new Error("Database is not available");
+    const rows=await db.select({settingKey:appSettings.settingKey,settingValue:appSettings.settingValue})
+      .from(appSettings).where(inArray(appSettings.settingKey,[...PACKAGE_ACTIVATION_SETTING_KEYS]));
+    const policy=packageActivationPolicyFromRows(rows);
+    return {...policy,qualifyingBalanceCurrency:"USD"};
+  } catch (error) {
+    const cause = error as { name?: unknown; message?: unknown; code?: unknown; errno?: unknown; sqlState?: unknown };
+    console.error("[Trading] Admin package activation policy read failed", {
+      errorName: typeof cause?.name === "string" ? cause.name : "UnknownError",
+      errorCode: typeof cause?.code === "string" || typeof cause?.code === "number" ? cause.code : undefined,
+      errorNumber: typeof cause?.errno === "number" ? cause.errno : undefined,
+      sqlState: typeof cause?.sqlState === "string" ? cause.sqlState : undefined,
+      message: typeof cause?.message === "string" ? cause.message : "Unknown database error",
+    });
+    throw new Error("Unable to load the Trading package activation policy. Check server logs for the underlying database error.");
+  }
 }
 
 export async function setPackageActivationPolicy(updatedBy:number,input:{
@@ -2093,11 +2105,23 @@ function parseTradeAllocationControls(raw: string | null | undefined): TradeAllo
 }
 
 export async function getTradeAllocationControls(): Promise<TradeAllocationControls> {
-  const db = await getDb();
-  if (!db) throw new Error("Database is not available");
-  const row = (await db.select({ settingValue: appSettings.settingValue }).from(appSettings)
-    .where(eq(appSettings.settingKey, TRADE_ALLOCATION_CONTROL_KEY)).limit(1))[0];
-  return parseTradeAllocationControls(row?.settingValue);
+  try {
+    const db = await getDb();
+    if (!db) throw new Error("Database is not available");
+    const row = (await db.select({ settingValue: appSettings.settingValue }).from(appSettings)
+      .where(eq(appSettings.settingKey, TRADE_ALLOCATION_CONTROL_KEY)).limit(1))[0];
+    return parseTradeAllocationControls(row?.settingValue);
+  } catch (error) {
+    const cause = error as { name?: unknown; message?: unknown; code?: unknown; errno?: unknown; sqlState?: unknown };
+    console.error("[Trading] Admin allocation safety status read failed", {
+      errorName: typeof cause?.name === "string" ? cause.name : "UnknownError",
+      errorCode: typeof cause?.code === "string" || typeof cause?.code === "number" ? cause.code : undefined,
+      errorNumber: typeof cause?.errno === "number" ? cause.errno : undefined,
+      sqlState: typeof cause?.sqlState === "string" ? cause.sqlState : undefined,
+      message: typeof cause?.message === "string" ? cause.message : "Unknown database error",
+    });
+    throw new Error("Unable to load the Trading allocation safety status. Check server logs for the underlying database error.");
+  }
 }
 
 export async function setTradeAllocationControls(updatedBy: number, input: { allocationsPaused: boolean; reason: string }) {
