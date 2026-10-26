@@ -1457,9 +1457,9 @@
       "companyName": "Valeo",
       "logoFile": "logos/Valeo.png",
       "domain": "img.logo.devvaleo.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "France",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 163,
@@ -1475,27 +1475,27 @@
       "companyName": "CGI",
       "logoFile": "logos/CGI.png",
       "domain": "img.logo.devcgi.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Canada",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 165,
       "companyName": "Cognizant",
       "logoFile": "logos/Cognizant.png",
       "domain": "img.logo.devcognizant.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 166,
       "companyName": "Mailchimp",
       "logoFile": "logos/Mailchimp.png",
       "domain": "img.logo.devmailchimp.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 167,
@@ -1511,18 +1511,18 @@
       "companyName": "Warner Bros. Discovery",
       "logoFile": "logos/Warner Bros. Discovery.png",
       "domain": "img.logo.devwbd.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 169,
       "companyName": "Hostinger",
       "logoFile": "logos/Hostinger.png",
       "domain": "img.logo.devhostinger.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Lithuania",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 170,
@@ -1538,27 +1538,27 @@
       "companyName": "Zoho",
       "logoFile": "logos/Zoho.png",
       "domain": "img.logo.devzoho.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "India",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 172,
       "companyName": "Alipay",
       "logoFile": "logos/Alipay.png",
       "domain": "img.logo.devalipay.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "China",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 173,
       "companyName": "JBL",
       "logoFile": "logos/JBL.png",
       "domain": "img.logo.devjbl.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 174,
@@ -1574,9 +1574,9 @@
       "companyName": "IMDb",
       "logoFile": "logos/IMDb.png",
       "domain": "img.logo.devimdb.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 176,
