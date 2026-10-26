@@ -2250,6 +2250,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
         offerId:offer.id,amountMinor:requestedAmount,
         deliveryEventId:offer.deliveryEventId ? Number(offer.deliveryEventId) : undefined,
         packageSubscriptionId:Number(offer.packageSubscriptionId||0)||undefined,
+        packageId:Number(offer.packageId||0)||undefined,
       });
       await markOpportunityExecuted(userId,offer.id);
       executed.push({...result,offerId:offer.id,symbol:offer.symbol,amountMinor:requestedAmount,rewardBps:terms.rewardBps,calculationMethod:terms.method});
@@ -2393,7 +2394,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const offerMinimum=Number(row.offerMinimumMinor??row.popupMinimumMinor);
     const configuredMinimum=configured&&currencyRow?packageUsdUnitsToNativeMinor(Number(configured.minimumTradeUnits),String(row.currency),currencyRows):offerMinimum;
     const configuredMaximum=configured&&currencyRow?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(configured.maximumTradeUnits),String(row.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
-    return {id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
+    return {id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageId:Number(subscription.packageId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
       symbol:row.symbol,venueFrom:row.venueFrom||"",venueTo:row.venueTo||"",currency:row.currency,minimumMinor:Math.max(offerMinimum,Number(row.popupMinimumMinor||0),configuredMinimum),
       packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,expectedRewardBps:Number(row.expectedRewardBps||0),
       opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,durationSeconds:Number(row.durationSeconds||0),marketObservedAt:row.marketObservedAt,
@@ -2422,7 +2423,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
 }
 export async function runAutoTradeCycle(){const db=await getDb();if(!db)throw new Error("Database is not available");const customers=await db.select({id:users.id}).from(users).where(eq(users.role,"user"));let allocations=0;for(const customer of customers){try{const result=await listCustomerOpportunities(customer.id,{consumeDelivery:false});allocations+=result.autoTrades.length;}catch(error){console.error(`[AutoTrade] Customer ${customer.id} cycle failed:`,error instanceof Error?error.message:error);}}return {customers:customers.length,allocations};}
-export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number}){
+export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number;packageId?:number}){
  const db=await getDb();if(!db)throw new Error("Database is not available");
  return db.transaction(async tx=>{
   // Serialize allocations for one customer. This makes daily caps and active-trade
@@ -2497,7 +2498,13 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const requestedSubscription=input.packageSubscriptionId
     ? subscriptionsWithQuota.find(subscription=>Number(subscription.subscriptionId)===input.packageSubscriptionId)
     : undefined;
-  const activePackageSubscription=requestedSubscription||subscriptionsWithQuota[0];
+  const samePackageSubscription=input.packageId
+    ? subscriptionsWithQuota.find(subscription=>Number(subscription.packageId)===input.packageId)
+    : undefined;
+  if(input.packageSubscriptionId && !requestedSubscription && !samePackageSubscription) {
+    throw new Error("The selected package subscription has no remaining quota or is no longer eligible");
+  }
+  const activePackageSubscription=requestedSubscription||samePackageSubscription||subscriptionsWithQuota[0];
   const selectedSubscriptionId=Number(activePackageSubscription.subscriptionId);
   const packagePolicy=policyByName.get(activePackageSubscription.packageName);
   if(activePackageSubscription.maxActiveInvestments>0){
