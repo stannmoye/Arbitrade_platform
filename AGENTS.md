@@ -59,3 +59,13 @@ Live execution requires a named, authorized provider, verified result references
 
 - Import every row and every column from `company_trading_symbols.xlsx` aligned by its 1-based `#` field to Logo ID; preserve supplied ticker, exchange, status, parent ticker, and reason fields even for placeholder, parent, and historical rows.
 - Placeholder codes are display-only and must not be passed to market-data or order APIs. Historical and parent-company ticker references must remain visibly classified; do not silently convert them into direct listings.
+
+### Trade pop-up and minimized dock requirements
+
+- The canonical UI requirements are in Section 10 of `docs/TRADING_SYSTEM_SPECIFICATION.md`; read and follow that section before changing the trade pop-up.
+- Show company name, local logo, country name and country flag together with the supplied symbol/code and exchange classification. Derive the flag from country metadata; never guess a flag for an unverified country.
+- Include invested/allocated amount, gross profit, net profit, platform-fee percentage and amount, profit percentage, total amount credited/returned, trade opening and closing times, countdown, status, and available trade references. Keep principal, gross profit, fee, net profit, and total return distinct.
+- Never invent financial values or timestamps. Label estimates clearly and replace them with persisted, ledger-supported actual values after settlement.
+- The expanded pop-up must have Minimize; its fixed bottom-of-viewport dock must remain visible during scrolling and show the countdown/status plus Maximize. Minimize/maximize must not alter server-owned trade timing or accounting.
+- Do not dismiss a card solely because its expanded timeout expires or countdown reaches zero. Dismiss only after countdown completion and an authoritative terminal status; keep pending/retrying/unsettled items accessible.
+- Update the canonical specification and acceptance checklist alongside relevant implementation changes. Test country/flag fallback, scrolling persistence, minimize/maximize, multiple concurrent cards, countdown expiry, terminal dismissal, and unavailable/estimated/settled financial fields.
