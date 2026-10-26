@@ -1,6 +1,16 @@
 -- Repair the schema and default rows required by the Trading administration policy screens.
 -- Safe for existing installations: additive DDL, insert-if-missing settings, and package
 -- term correction only when the terms are still at their untouched version-1 defaults.
+CREATE TABLE IF NOT EXISTS `app_settings` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `settingKey` varchar(120) NOT NULL,
+  `settingValue` text NOT NULL,
+  `updatedBy` int NULL,
+  `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `app_settings_setting_key_unique` (`settingKey`)
+) ENGINE=InnoDB;
+--> statement-breakpoint
 ALTER TABLE `packages`
   ADD COLUMN IF NOT EXISTS `minimumQualifyingBalanceUsdMinor` bigint NOT NULL DEFAULT 10000,
   ADD COLUMN IF NOT EXISTS `durationMonths` int NOT NULL DEFAULT 1,
