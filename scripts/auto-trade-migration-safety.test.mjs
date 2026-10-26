@@ -34,8 +34,8 @@ describe("package-driven auto-trade execution", () => {
     expect(db).not.toContain("autoTradeEnabled");
     expect(db).not.toContain("autoTradeMode");
     expect(db).not.toContain("autoTradeMinRewardBps");
-    expect(db).toContain("const eligibleSubscriptions=subscriptions;");
-    expect(db).toContain("const autoTradeCandidates=tradeCandidates;");
+    expect(db).toContain("const eligibleSubscriptions=subscriptions.filter(subscription=>");
+    expect(db).toContain("const autoTradeCandidates=tradeCandidates.filter((offer:any)=>");
     expect(db).not.toContain('autoTradeMode=c?.autoTradeMode||"inherit"');
     expect(router).not.toContain('z.enum(["inherit","enabled","disabled"])');
   });
