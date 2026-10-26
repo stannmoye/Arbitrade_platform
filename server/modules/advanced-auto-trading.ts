@@ -98,10 +98,22 @@ export function chooseNextEligibleAt(
   return next;
 }
 
+function assertRewardAmount(value: number, label: string) {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new RangeError(`${label} must be a non-negative safe integer`);
+  }
+}
+
 export function remainingRewardAllowance(cap: number, credited: number, reserved: number) {
-  return Math.max(0, cap - credited - reserved);
+  assertRewardAmount(cap, "Reward cap");
+  assertRewardAmount(credited, "Credited rewards");
+  assertRewardAmount(reserved, "Reserved rewards");
+  // Avoid intermediate floating-point overflow when summing large safe integers.
+  const remaining = BigInt(cap) - BigInt(credited) - BigInt(reserved);
+  return remaining > 0n ? Number(remaining) : 0;
 }
 
 export function canReserveReward(cap: number, credited: number, reserved: number, requested: number) {
-  return requested >= 0 && remainingRewardAllowance(cap, credited, reserved) >= requested;
+  assertRewardAmount(requested, "Requested reward");
+  return remainingRewardAllowance(cap, credited, reserved) >= requested;
 }
