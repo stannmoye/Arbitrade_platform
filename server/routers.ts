@@ -40,6 +40,7 @@ export const appRouter = router({
     search: publicProcedure.input(z.object({
       search: z.string().trim().max(100).optional(),
       countryName: z.string().trim().min(1).max(100).optional(),
+      offset: z.number().int().min(0).max(1810).optional(),
       limit: z.number().int().min(1).max(1811).optional(),
     }).optional()).query(({ input }) => searchCompanyReferences(input ?? {})),
     byId: publicProcedure.input(z.object({
