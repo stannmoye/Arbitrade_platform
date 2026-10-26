@@ -6137,9 +6137,9 @@
       "companyName": "BMI",
       "logoFile": "logos/BMI.png",
       "domain": "img.logo.devbmi.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "organization-headquarters",
+      "countryConfidence": "medium"
     },
     {
       "logoId": 683,
