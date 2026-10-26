@@ -2363,7 +2363,14 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const packagePolicies=await listOpportunityPackagePolicies();
   const policyByName=new Map<string,typeof packagePolicies[number]>();
   for(const policyRow of packagePolicies) policyByName.set(policyRow.packageName,policyRow);
-  const eligibleSubscriptions=subscriptions;
+  // Package-level delivery controls apply before any new popup or quota is
+  // assigned. Automatic trading can be disabled independently while delivery
+  // remains available for an administrator-configured review workflow.
+  const eligibleSubscriptions=subscriptions.filter(subscription=>{
+    const configured=policyByName.get(subscription.packageName);
+    return !configured||(Boolean(configured.enabled)&&configured.automaticDelivery!==false);
+  });
+  if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}});
   const quotaFor=(subscription:any)=>{
     try { const snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}")); const value=Number(snapshot.opportunitiesPerDay??subscription.packageQuota); return Number.isSafeInteger(value)&&value>0?value:0; }
     catch { const value=Number(subscription.packageQuota); return Number.isSafeInteger(value)&&value>0?value:0; }
