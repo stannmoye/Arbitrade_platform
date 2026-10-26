@@ -51,7 +51,7 @@ export function classifyTradeRecoveryEvidence(
     reasons: reasonList,
   });
 
-  const amounts = [
+  const nonNegativeIntegers = [
     evidence.principalMinor,
     evidence.rewardCreditedMinor,
     evidence.principalLedgerCount,
@@ -60,11 +60,13 @@ export function classifyTradeRecoveryEvidence(
     ...(evidence.grossProfitLedgerCount === undefined ? [] : [evidence.grossProfitLedgerCount]),
     ...(evidence.platformFeeLedgerCount === undefined ? [] : [evidence.platformFeeLedgerCount]),
     ...(evidence.realizedLossLedgerCount === undefined ? [] : [evidence.realizedLossLedgerCount]),
-    ...(evidence.realizedGrossProfitMinor === undefined ? [] : [evidence.realizedGrossProfitMinor]),
     ...(evidence.platformFeeMinor === undefined ? [] : [evidence.platformFeeMinor]),
-    ...(evidence.netProfitMinor === undefined ? [] : [evidence.netProfitMinor]),
     ...(evidence.feePolicyVersion === undefined ? [] : [evidence.feePolicyVersion]),
     ...(evidence.platformFeeRateBps === undefined ? [] : [evidence.platformFeeRateBps]),
+  ];
+  const signedAccountingIntegers = [
+    ...(evidence.realizedGrossProfitMinor === undefined ? [] : [evidence.realizedGrossProfitMinor]),
+    ...(evidence.netProfitMinor === undefined ? [] : [evidence.netProfitMinor]),
   ];
   const optionalLedgerAmounts = [
     evidence.grossProfitLedgerAmountMinor,
@@ -72,7 +74,8 @@ export function classifyTradeRecoveryEvidence(
     evidence.realizedLossLedgerAmountMinor,
   ].filter((value): value is number => value !== undefined && value !== null);
   if (
-    amounts.some((value) => !Number.isSafeInteger(value) || value < 0) ||
+    nonNegativeIntegers.some((value) => !Number.isSafeInteger(value) || value < 0) ||
+    signedAccountingIntegers.some((value) => !Number.isSafeInteger(value)) ||
     (evidence.principalLedgerAmountMinor !== null &&
       (!Number.isSafeInteger(evidence.principalLedgerAmountMinor) ||
         evidence.principalLedgerAmountMinor < 0)) ||
