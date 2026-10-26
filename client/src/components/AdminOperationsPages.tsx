@@ -233,6 +233,7 @@ export function AdminRiskWatchlist() {
 export function AdminTransactionReview() {
   const ledgerQuery = trpc.adminOperations.ledgerActivity.useQuery(undefined, { refetchInterval: 10_000 });
   const pendingQuery = trpc.adminOperations.pendingSettlements.useQuery(undefined, { refetchInterval: 5_000 });
+  const integrityQuery = trpc.adminOperations.settlementIntegrityIssues.useQuery(undefined, { refetchInterval: 30_000 });
   const confirmSettlement = trpc.adminOperations.confirmManualSettlement.useMutation({ onSuccess: () => { pendingQuery.refetch(); ledgerQuery.refetch(); } });
   const tradeFeePolicyQuery = trpc.adminOperations.tradeFeePolicy.useQuery(undefined, { staleTime: 60_000 });
   const [feePolicyDraft, setFeePolicyDraft] = useState<{ feePercent: string; roundingMode: "half_up" | "down" | "up" | "half_even" } | null>(null);
@@ -255,7 +256,7 @@ export function AdminTransactionReview() {
   };
 
   return (
-    <ToolPage eyebrow="Append-only balance ledger" title="Transaction review" description="Review wallet ledger entries and confirm manually settled trades. Elapsed time never credits a reward or releases principal." icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { ledgerQuery.refetch(); pendingQuery.refetch(); payoutQuery.refetch(); }} disabled={ledgerQuery.isFetching || pendingQuery.isFetching || payoutQuery.isFetching}><RefreshCw size={14} /> Refresh</button>}>
+    <ToolPage eyebrow="Append-only balance ledger" title="Transaction review" description="Review wallet ledger entries and confirm manually settled trades. Elapsed time never credits a reward or releases principal." icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { ledgerQuery.refetch(); pendingQuery.refetch(); integrityQuery.refetch(); payoutQuery.refetch(); }} disabled={ledgerQuery.isFetching || pendingQuery.isFetching || integrityQuery.isFetching || payoutQuery.isFetching}><RefreshCw size={14} /> Refresh</button>}>
       {ledgerQuery.isLoading ? <LoadingState /> : ledgerQuery.isError ? <div className="admin-ops-empty error">The balance ledger could not be loaded.</div> : <>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Realized-profit fee policy</span><h2>Trading platform fee</h2></div><span className="admin-ops-subtle">Policy v{feePolicy?.policyVersion ?? 1}</span></div>
@@ -309,6 +310,20 @@ export function AdminTransactionReview() {
             })}
           </tbody></table></div>}
           <div className="admin-ops-note"><ShieldCheck size={16} /><span>Only settle after independently verifying the actual trade result and its evidence reference. The reserved reward is an estimate, not a settlement result. The server rejects early settlement and atomically records returned principal, actual gross result, applicable fee, net result, and loss. A client-side due-time display is informational; the server check is authoritative.</span></div>
+        </section>
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Read-only integrity scan</span><h2>Settlement records requiring review</h2></div><span className="admin-ops-subtle">{integrityQuery.data?.length ?? 0} flagged</span></div>
+          <p>This scan surfaces historical or inconsistent records for human review. It does not change balances, create ledger entries, or infer missing profit results.</p>
+          {integrityQuery.isLoading ? <LoadingState /> : integrityQuery.isError ? <div className="admin-ops-empty error">Settlement integrity results could not be loaded. Refresh before relying on this review.</div> : !integrityQuery.data?.length ? <div className="admin-ops-empty compact">No settlement integrity issues were returned by the current scan.</div> : <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Settlement integrity issues"><table className="admin-ops-table"><thead><tr><th>Trade</th><th>State</th><th>Recorded settlement</th><th>Reservation</th><th>Review flags</th></tr></thead><tbody>
+            {(integrityQuery.data as any[]).map((item) => <tr key={item.tradeId}>
+              <td><strong>Trade {item.tradeId}</strong><small>Account {item.userId} · {item.currency}</small></td>
+              <td>{item.status} / {item.settlementStatus}<small>{item.lifecycleStage || "No lifecycle stage"}</small></td>
+              <td>{item.settlementReference || "No reference"}<small>Outcome: {item.settlementOutcome || "Not recorded"}</small><small>Gross: {item.realizedGrossProfitMinor} · Fee: {item.platformFeeMinor} · Net: {item.netProfitMinor}</small></td>
+              <td>{item.reservationStatus || "No reservation"}<small>Reserved: {item.reservationAmountMinor ?? item.rewardReservedMinor}</small></td>
+              <td>{(item.issues as string[]).map((issue) => <div key={issue}>{issue.replaceAll("_", " ")}</div>)}</td>
+            </tr>)}
+          </tbody></table></div>}
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span>Flags are investigation leads, not proof of fraud or a final accounting verdict. Historical records must be reconciled against source evidence; never replay an unrecorded result or credit an estimate.</span></div>
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head">
