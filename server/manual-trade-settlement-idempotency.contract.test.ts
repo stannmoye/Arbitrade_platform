@@ -19,13 +19,16 @@ describe("read-only settlement integrity audit", () => {
   it("surfaces legacy and inconsistent settlement states without mutating financial records", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    expect(implementation).toContain('eq(tradePositions.settlementOutcome,"legacy_unrecorded")');
+    expect(implementation).toContain('eq(tradePositions.settlementOutcome, "legacy_unrecorded")');
+    expect(implementation).toContain('eq(tradePositions.status, "settled")');
     expect(implementation).toContain('isNull(tradePositions.settlementReference)');
     expect(implementation).toContain('isNull(tradeSettlementReferenceClaims.tradeId)');
     expect(implementation).toContain('"pending_trade_missing_reward_reservation"');
     expect(implementation).toContain('"pending_trade_reservation_not_reserved"');
     expect(implementation).toContain('"settled_trade_reservation_still_reserved"');
-    expect(implementation).toContain(".filter(row=>row.issues.length>0)");
+    expect(implementation).toContain(".filter((row) => row.issues.length > 0)");
+    expect(implementation).toContain("limit(safeLimit + 1)");
+    expect(implementation).toContain("nextBeforeTradeId");
     expect(implementation).not.toContain("tx.update(");
     expect(implementation).not.toContain("tx.insert(");
     expect(implementation).not.toContain("tx.delete(");
