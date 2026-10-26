@@ -74,6 +74,25 @@ describe("trade recovery evidence classification (read-only)", () => {
     expect(result.classification).toBe("NO_ACTION");
   });
 
+  it("checks legacy reward ledger count and amount against the credited reward", () => {
+    const mismatch = classifyTradeRecoveryEvidence(settledEvidence({
+      rewardCreditedMinor: 500,
+      rewardLedgerCount: 1,
+      rewardLedgerAmountMinor: 499,
+    }));
+    expect(mismatch.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(mismatch.reasons.join(" ")).toContain("Legacy reward ledger amount does not match");
+
+    const zeroRewardWithPhantomAmount = classifyTradeRecoveryEvidence(settledEvidence({
+      rewardCreditedMinor: 0,
+      rewardLedgerCount: 0,
+      rewardLedgerAmountMinor: 1,
+      rewardReservationStatus: "released",
+    }));
+    expect(zeroRewardWithPhantomAmount.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(zeroRewardWithPhantomAmount.reasons.join(" ")).toContain("must be absent");
+  });
+
   it("escalates a settled trade with a still-reserved reward", () => {
     expect(classifyTradeRecoveryEvidence(settledEvidence({ rewardReservationStatus: "reserved" })).classification)
       .toBe("MANUAL_FINANCIAL_REVIEW");
