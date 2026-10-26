@@ -6,6 +6,24 @@ const start = source.indexOf("export async function manuallySettleTrade(");
 const end = source.indexOf("\nexport async function createOpportunityOffer(", start);
 const implementation = source.slice(start, end);
 
+const pendingStart = source.indexOf("export async function listPendingSettlements(");
+const pendingEnd = source.indexOf("\nexport async function manuallySettleTrade(", pendingStart);
+const pendingImplementation = source.slice(pendingStart, pendingEnd);
+
+describe("pending settlement reconciliation visibility", () => {
+  it("exposes lifecycle timing and reward-reservation identity for admin reconciliation", () => {
+    expect(pendingStart).toBeGreaterThanOrEqual(0);
+    expect(pendingEnd).toBeGreaterThan(pendingStart);
+    expect(pendingImplementation).toContain("lifecycleStage:tradePositions.lifecycleStage");
+    expect(pendingImplementation).toContain("creditAt:tradePositions.creditAt");
+    expect(pendingImplementation).toContain("packageSubscriptionId:tradePositions.packageSubscriptionId");
+    expect(pendingImplementation).toContain("reservationStatus:tradeRewardReservations.status");
+    expect(pendingImplementation).toContain("reservationPackageName:tradeRewardReservations.packageName");
+    expect(pendingImplementation).toContain("reservationAmountMinor:tradeRewardReservations.reservedMinor");
+    expect(pendingImplementation).toContain("leftJoin(tradeRewardReservations,eq(tradeRewardReservations.tradeId,tradePositions.id))");
+  });
+});
+
 describe("manual trade settlement idempotency", () => {
   it("locks the trade and treats a matching completed reference/result as a replay", () => {
     expect(start).toBeGreaterThanOrEqual(0);
