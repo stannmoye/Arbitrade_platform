@@ -134,6 +134,24 @@ describe("trade recovery evidence classification (read-only)", () => {
     expect(unsafeFee.classification).toBe("MANUAL_FINANCIAL_REVIEW");
   });
 
+  it("accepts a consistent realized loss without a platform fee", () => {
+    const result = classifyTradeRecoveryEvidence(settledEvidence({
+      rewardCreditedMinor: 0,
+      grossProfitLedgerCount: 0,
+      grossProfitLedgerAmountMinor: null,
+      realizedGrossProfitMinor: -500,
+      platformFeeMinor: 0,
+      netProfitMinor: -500,
+      platformFeeLedgerCount: 0,
+      platformFeeLedgerAmountMinor: null,
+      realizedLossLedgerCount: 1,
+      realizedLossLedgerAmountMinor: -500,
+      settlementOutcome: "loss",
+      rewardReservationStatus: "released",
+    }));
+    expect(result.classification).toBe("NO_ACTION");
+  });
+
   it("escalates inconsistent net-profit arithmetic and fees on non-profit outcomes", () => {
     const incorrectNet = classifyTradeRecoveryEvidence(settledEvidence({
       grossProfitLedgerCount: 1,
