@@ -13,7 +13,7 @@ const pendingImplementation = source.slice(pendingStart, pendingEnd);
 
 describe("read-only settlement integrity audit", () => {
   const start = source.indexOf("export async function listTradeSettlementIntegrityIssues(");
-  const end = source.indexOf("\\nexport async function manuallySettleTrade(", start);
+  const end = source.indexOf("\nexport async function manuallySettleTrade(", start);
   const implementation = source.slice(start, end);
 
   it("surfaces legacy and inconsistent settlement states without mutating financial records", () => {
