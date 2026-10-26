@@ -21,7 +21,7 @@ describe("signup credit notification boundary", () => {
     expect(implementation).toContain("if (existing[0]) {");
     expect(implementation).toContain("amountMinor: Number(existing[0].amountMinor)")
     expect(implementation).toContain("currency: String(existing[0].currency)");
-    expect(implementation).toContain("await notifySignupCredit(amount,currency);");
+    expect(implementation).toContain("await notifySignupCredit(credited.amountMinor, credited.currency);");
   });
 
   it("keeps notification failure from misreporting or reversing the persisted credit", () => {
