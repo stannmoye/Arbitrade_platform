@@ -34,6 +34,10 @@ function parseArgs(argv) {
 }
 
 function safeInteger(value, label) {
+  if (value === null || value === undefined ||
+      (typeof value === "string" && value.trim() === "")) {
+    throw new Error(`Missing integer in ${label}; refusing to coerce absent financial evidence to zero.`);
+  }
   const parsed = typeof value === "number" ? value : Number(value);
   if (!Number.isSafeInteger(parsed)) {
     throw new Error(`Unsafe or invalid integer in ${label}; refusing to produce potentially lossy financial evidence.`);
