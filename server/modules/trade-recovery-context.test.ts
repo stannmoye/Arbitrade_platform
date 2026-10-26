@@ -79,6 +79,25 @@ describe("trade recovery collector context safety", () => {
     expect(inconsistent.reasons.join(" ")).toContain("coverage metadata is invalid");
   });
 
+  it("escalates missing wallet snapshots and reservation currency mismatches", () => {
+    const result = applyRecoveryContextSafety(plan(), {
+      ...healthyContext,
+      currency: "USD",
+      wallet: null,
+      reservation: [{
+        id: 9,
+        status: "credited",
+        reservedMinor: 500,
+        currency: "EUR",
+      }],
+      rewardReservationStatus: "credited",
+    });
+    expect(result.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(result.reasons.join(" ")).toContain("did not provide its balance snapshot");
+    expect(result.reasons.join(" ")).toContain("Reservation currency does not match");
+    expect(result.plannedMutations).toEqual([]);
+  });
+
   it("escalates ledger rows whose user or currency does not match", () => {
     const result = applyRecoveryContextSafety(plan(), {
       ...healthyContext,
