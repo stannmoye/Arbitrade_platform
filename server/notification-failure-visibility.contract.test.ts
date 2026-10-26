@@ -42,7 +42,7 @@ describe("financial notification delivery observability", () => {
   it("keeps security, signup-credit, wallet-adjustment, and support notification sources mapped to stable event identities", () => {
     expect(source).toContain("security-session-revoked:${input.id}:${sessionCursor}");
     expect(source).toContain('category: "security"');
-    expect(dbSource).toContain("eventKey:`signup-credit:${userId}`");
+    expect(dbSource).toContain('eventKey: "signup-credit:" + userId');
     expect(dbSource).toContain("eventKey:`wallet-adjustment:${result.ledgerReference}`");
     expect(dbSource).toContain("support-ticket-created-customer:${ticketId}");
     expect(dbSource).toContain("support-ticket:${ticketId}:message:${committed.messageId}");
