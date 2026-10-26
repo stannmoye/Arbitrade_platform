@@ -42,9 +42,10 @@ export function decideTradeExecutionRetry(
     throw new Error("Invalid trade execution retry policy inputs");
   }
 
-  const code = errorCodeOf(error);
+  let code = errorCodeOf(error);
   const message = error instanceof Error ? error.message : "";
   const transientMessage = /temporarily unavailable|connection (?:reset|lost|closed)|socket hang up|deadlock|lock wait timeout|timed out|try again later/i.test(message);
+  if (transientMessage && code === "TRADE_ALLOCATION_REJECTED") code = "TEMPORARY_EXECUTION_FAILURE";
   if (!RETRYABLE_CODES.has(code) && !transientMessage) {
     return { kind: "failed", attemptNumber: failedAttempts, errorCode: code };
   }
