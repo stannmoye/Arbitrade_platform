@@ -1,0 +1,119 @@
+name: One-time legacy company asset cleanup
+
+on:
+  push:
+    branches:
+      - feature/verified-company-catalogue-rotation
+    paths:
+      - .github/workflows/cleanup-legacy-company-assets.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-time-company-asset-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the catalogue branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/verified-company-catalogue-rotation
+          fetch-depth: 0
+      - name: Copy the new ZIP-derived source files from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout origin/main -- client/public/assets/company-logo-source logodev-company-logos-normalized\ \(1\).zip .github/workflows/extract-logo-dev-archive.yml
+          test -f client/public/assets/company-logo-source/logo-mapping.csv
+          test -f client/public/assets/company-logo-source/README.txt
+          test "$(find client/public/assets/company-logo-source/logos -maxdepth 1 -type f -name '*.png' | wc -l | tr -d ' ')" = "1811"
+      - name: Point existing catalogue logo paths at the new local files
+        run: |
+          python - <<'PY'
+          import csv, json, re
+          from pathlib import Path
+          mapping_path = Path("client/public/assets/company-logo-source/logo-mapping.csv")
+          def norm(value):
+              return re.sub(r"[^a-z0-9]+", "", (value or "").casefold())
+          with mapping_path.open(encoding="utf-8-sig", newline="") as f:
+              rows = list(csv.DictReader(f))
+          by_name = {}
+          for row in rows:
+              name = row.get("company_name", "").strip()
+              filename = row.get("filename", "").strip()
+              if name and filename:
+                  by_name.setdefault(norm(name), filename.replace("\\", "/"))
+          for target in (Path("server/data/company-catalogue-1000.json"), Path("server/data/company-catalogue.json")):
+              if not target.exists():
+                  continue
+              payload = json.loads(target.read_text(encoding="utf-8"))
+              companies = payload.get("companies", [])
+              matched = 0
+              for company in companies:
+                  filename = by_name.get(norm(company.get("name", "")))
+                  if filename:
+                      company["logoUrl"] = "/assets/company-logo-source/" + filename
+                      matched += 1
+                  else:
+                      company["logoUrl"] = None
+              target.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+              print(f"{target}: {matched}/{len(companies)} names matched to new Logo.dev files; unmatched logoUrl values cleared")
+          PY
+      - name: Remove the old downloaded logo set and obsolete logo bots
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf client/public/assets/company-logos
+          rm -f \
+            .github/workflows/build-company-catalogue-1000.yml \
+            .github/workflows/download-company-logo-google-batch.yml \
+            .github/workflows/download-company-logo-range-201-600.yml \
+            .github/workflows/download-company-logo-range-601-1000.yml \
+            .github/workflows/enrich-company-logos-simple-icons.yml \
+            .github/workflows/verify-company-logo-assets.yml \
+            docs/COMPANY_CATALOGUE_IMPORT.md \
+            docs/COMPANY_CATALOGUE_SOURCE_GUIDE.md \
+            docs/company-logo-download-instructions.txt \
+            docs/company-logo-replacement-manifest.csv \
+            scripts/build-company-catalogue-1000.mjs \
+            scripts/build-company-catalogue-950.mjs \
+            scripts/download-company-logo-google-batch.mjs \
+            scripts/enrich-company-logos-simple-icons.mjs \
+            scripts/number-company-logos.mjs \
+            scripts/validate-company-catalogue-1000.mjs \
+            scripts/validate-company-catalogue-950.mjs \
+            server/data/company-logo-batch-01-report.json \
+            server/data/company-logo-download-manifest.csv \
+            server/data/company-logo-range-201-600-report.json \
+            server/data/company-logo-range-601-1000-report.json \
+            server/data/company-logo-range-601-650-report.json
+          rm -f .github/workflows/cleanup-legacy-company-assets.yml
+      - name: Verify the new source and absence of old logo files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find client/public/assets/company-logo-source/logos -maxdepth 1 -type f -name '*.png' | wc -l | tr -d ' ')" = "1811"
+          test ! -d client/public/assets/company-logos
+          test -f client/public/assets/company-logo-source/logo-mapping.csv
+          test -f client/public/assets/company-logo-source/README.txt
+          git status --short
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No cleanup changes required."
+            exit 0
+          fi
+          git commit -m "Replace legacy company logos with ZIP-derived source assets"
+          git push origin HEAD:feature/verified-company-catalogue-rotation
