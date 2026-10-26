@@ -2805,6 +2805,7 @@ export async function reconcileAllDueTradesAwaitingConfirmation(){
   const now=new Date();
   const due=await db.select({id:tradePositions.id}).from(tradePositions).where(and(
     eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),
+    notInArray(tradePositions.lifecycleStage,["Awaiting Settlement Confirmation"]),
     or(lte(tradePositions.creditAt,now),and(isNull(tradePositions.creditAt),lte(tradePositions.settlesAt,now))),
   )).orderBy(tradePositions.creditAt).limit(1000);
   let marked=0;
