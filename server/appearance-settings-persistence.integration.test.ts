@@ -376,11 +376,28 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       body: "Reply before reopening",
     })).rejects.toThrow("Resolved or closed tickets must be reopened before a customer reply");
 
-    await expect(ownerCaller.customer.reopenTicket({ ticketId: temporaryTicketId })).resolves.toMatchObject({
-      success: true,
-      changed: true,
-      status: "open",
-    });
+    // Two authenticated requests racing to reopen the same resolved ticket must
+    // produce one state transition and only one round of recipient notices.
+    const reopenAttempts = await Promise.all([
+      ownerCaller.customer.reopenTicket({ ticketId: temporaryTicketId }),
+      ownerCaller.customer.reopenTicket({ ticketId: temporaryTicketId }),
+    ]);
+    expect(reopenAttempts.filter(result => result.changed)).toHaveLength(1);
+    expect(reopenAttempts.filter(result => !result.changed)).toHaveLength(1);
+    expect(reopenAttempts.every(result => result.success && result.status === "open")).toBe(true);
+
+    const adminUsers = await db.select({ id: users.id }).from(users).where(eq(users.role, "admin"));
+    const reopenNotices = await db.select({
+      id: customerNotifications.id,
+      userId: customerNotifications.userId,
+      eventKey: customerNotifications.eventKey,
+    }).from(customerNotifications).where(and(
+      eq(customerNotifications.title, "Customer reopened a support ticket"),
+      like(customerNotifications.body, temporaryTicketNumber + ":%"),
+    ));
+    expect(reopenNotices).toHaveLength(adminUsers.length);
+    expect(new Set(reopenNotices.map(notice => notice.eventKey)).size).toBe(adminUsers.length);
+    expect(reopenNotices.every(notice => adminUsers.some(adminUser => adminUser.id === notice.userId))).toBe(true);
     await expect(ownerCaller.customer.replyTicket({
       ticketId: temporaryTicketId,
       body: "Customer reply after reopening",
@@ -411,6 +428,8 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
           and(eq(customerNotifications.title, "New customer support ticket"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
           and(eq(customerNotifications.title, "Support ticket assigned"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
           and(eq(customerNotifications.title, "Customer replied to a support ticket"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
+          and(eq(customerNotifications.title, "Customer reopened a support ticket"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
+          and(eq(customerNotifications.title, "Your support ticket was reopened"), like(customerNotifications.body, temporaryTicketNumber + ":%")),
         ));
       }
       await db.delete(supportAttachments).where(eq(supportAttachments.ticketId, temporaryTicketId));
