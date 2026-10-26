@@ -1250,63 +1250,63 @@
       "companyName": "Jabil",
       "logoFile": "logos/Jabil.png",
       "domain": "img.logo.devjabil.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 140,
       "companyName": "Keysight Technologies",
       "logoFile": "logos/Keysight Technologies.png",
       "domain": "img.logo.devkeysight.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 141,
       "companyName": "L3Harris Technologies",
       "logoFile": "logos/L3Harris Technologies.png",
       "domain": "img.logo.devl3harris.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 142,
       "companyName": "Michelin",
       "logoFile": "logos/Michelin.png",
       "domain": "img.logo.devmichelin.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "France",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 143,
       "companyName": "The Mosaic Company",
       "logoFile": "logos/The Mosaic Company.png",
       "domain": "img.logo.devmosaicco.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 144,
       "companyName": "Parsons",
       "logoFile": "logos/Parsons.png",
       "domain": "img.logo.devparsons.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 145,
       "companyName": "Pacific Gas & Electric",
       "logoFile": "logos/Pacific Gas & Electric.png",
       "domain": "img.logo.devpge.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 146,
@@ -1322,27 +1322,27 @@
       "companyName": "Polaris",
       "logoFile": "logos/Polaris.png",
       "domain": "img.logo.devpolaris.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 148,
       "companyName": "PPG Industries",
       "logoFile": "logos/PPG Industries.png",
       "domain": "img.logo.devppg.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 149,
       "companyName": "RE/MAX",
       "logoFile": "logos/RE-MAX.png",
       "domain": "img.logo.devremax.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "web-search-headquarters",
+      "countryConfidence": "high"
     },
     {
       "logoId": 150,
