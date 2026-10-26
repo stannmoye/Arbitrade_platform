@@ -41,6 +41,7 @@ const migrationFiles = [
   "0068_trade_realized_profit_accounting.sql",
   "0069_trading_package_activation.sql",
   "0070_local_scheduled_jobs.sql",
+  "0071_trade_allocation_pause.sql",
 ];
 // These tables are schema-baseline indicators for first-time portal migration tracking.
 // Some also belong to the main Drizzle chain; none of them alone proves that a
