@@ -61,4 +61,25 @@ describe("wallet and settlement reconciliation read-only contract", () => {
       tag: "0072_wallet_ledger_reconciliation_indexes",
     }));
   });
+  
+  it("keeps the evidence-backed recovery case table aligned with its migration", () => {
+    const recoveryMigration = readFileSync(new URL("../drizzle/0073_trade_settlement_recovery_cases.sql", import.meta.url), "utf8");
+    expect(schema).toContain('mysqlTable("trade_settlement_recovery_cases"');
+    for (const field of [
+      "tradeId", "userId", "currency", "settlementReference", "correctionMode",
+      "amountMinor", "evidenceReference", "evidenceSummary", "reason", "idempotencyKey",
+      "status", "proposedBy", "approvedBy", "resolvedBy", "recoveryLedgerReference",
+    ]) {
+      expect(schema).toContain(field);
+      expect(recoveryMigration).toContain('`' + field + '`');
+    }
+    expect(recoveryMigration).toContain("trade_settlement_recovery_idempotency_unique");
+    expect(recoveryMigration).toContain("trade_settlement_recovery_ledger_reference_unique");
+    expect(recoveryMigration).toContain("'pending_approval'");
+    expect(journal.entries).toContainEqual(expect.objectContaining({
+      idx: 42,
+      tag: "0073_trade_settlement_recovery_cases",
+    }));
+  });
+
 });
