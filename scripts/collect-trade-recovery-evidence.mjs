@@ -156,10 +156,18 @@ async function main() {
       );
     }
 
+    const [countRows] = await db.query("SELECT COUNT(*) AS totalCount FROM trade_positions");
+    const totalTradeCount = safeInteger(countRows[0]?.totalCount, "trade_positions total count");
     const [tradeRows] = await db.execute(
       "SELECT id, userId, currency, status, settlementStatus, principalMinor, rewardCreditedMinor, realizedGrossProfitMinor, platformFeeMinor, netProfitMinor, settlementOutcome, feePolicyVersion, platformFeeRateBps, platformFeeRoundingMode, settlementReference, walletUpdatedAt FROM trade_positions ORDER BY id DESC LIMIT ?",
       [args.limit],
     );
+    const scanCoverage = {
+      requestedLimit: args.limit,
+      selectedTradeCount: tradeRows.length,
+      totalTradeCount,
+      complete: tradeRows.length === totalTradeCount,
+    };
     const trades = tradeRows.map((row) => ({
       id: safeInteger(row.id, "trade_positions.id"),
       userId: safeInteger(row.userId, "trade_positions.userId"),
@@ -346,6 +354,7 @@ async function main() {
           id: safeInteger(row.id, "opportunity_popup_events.id"),
           eventStatus: String(row.eventStatus),
         })),
+        scanCoverage,
         identityMismatchedLedgerRows: ledgerRows.filter((row) =>
           (row.reference === principalReference || row.reference === rewardReference || row.reference === feeReference || row.reference === lossReference) &&
           (safeInteger(row.userId, "balance_ledger.userId") !== trade.userId || String(row.currency) !== trade.currency),
