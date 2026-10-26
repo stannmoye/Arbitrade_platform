@@ -57,7 +57,20 @@ export function classifyTradeRecoveryEvidence(
     evidence.principalLedgerCount,
     evidence.rewardLedgerCount,
     evidence.lifecycleEventCount,
+    ...(evidence.grossProfitLedgerCount === undefined ? [] : [evidence.grossProfitLedgerCount]),
+    ...(evidence.platformFeeLedgerCount === undefined ? [] : [evidence.platformFeeLedgerCount]),
+    ...(evidence.realizedLossLedgerCount === undefined ? [] : [evidence.realizedLossLedgerCount]),
+    ...(evidence.realizedGrossProfitMinor === undefined ? [] : [evidence.realizedGrossProfitMinor]),
+    ...(evidence.platformFeeMinor === undefined ? [] : [evidence.platformFeeMinor]),
+    ...(evidence.netProfitMinor === undefined ? [] : [evidence.netProfitMinor]),
+    ...(evidence.feePolicyVersion === undefined ? [] : [evidence.feePolicyVersion]),
+    ...(evidence.platformFeeRateBps === undefined ? [] : [evidence.platformFeeRateBps]),
   ];
+  const optionalLedgerAmounts = [
+    evidence.grossProfitLedgerAmountMinor,
+    evidence.platformFeeLedgerAmountMinor,
+    evidence.realizedLossLedgerAmountMinor,
+  ].filter((value): value is number => value !== undefined && value !== null);
   if (
     amounts.some((value) => !Number.isSafeInteger(value) || value < 0) ||
     (evidence.principalLedgerAmountMinor !== null &&
@@ -65,14 +78,23 @@ export function classifyTradeRecoveryEvidence(
         evidence.principalLedgerAmountMinor < 0)) ||
     (evidence.rewardLedgerAmountMinor !== null &&
       (!Number.isSafeInteger(evidence.rewardLedgerAmountMinor) ||
-        evidence.rewardLedgerAmountMinor < 0))
+        evidence.rewardLedgerAmountMinor < 0)) ||
+    optionalLedgerAmounts.some((value) => !Number.isSafeInteger(value)) ||
+    (evidence.platformFeeMinor !== undefined && evidence.platformFeeMinor < 0) ||
+    (evidence.platformFeeRateBps !== undefined && evidence.platformFeeRateBps < 0) ||
+    (evidence.feePolicyVersion !== undefined && evidence.feePolicyVersion < 1) ||
+    (evidence.platformFeeRoundingMode !== undefined &&
+      !["half_up", "half_even", "floor", "ceil", "trunc"].includes(evidence.platformFeeRoundingMode))
   ) {
     return result("MANUAL_FINANCIAL_REVIEW", [
       "Evidence contains invalid or unsafe integer values.",
     ]);
   }
 
-  if (evidence.principalLedgerCount > 1 || evidence.rewardLedgerCount > 1) {
+  if (evidence.principalLedgerCount > 1 || evidence.rewardLedgerCount > 1 ||
+      (evidence.grossProfitLedgerCount ?? 0) > 1 ||
+      (evidence.platformFeeLedgerCount ?? 0) > 1 ||
+      (evidence.realizedLossLedgerCount ?? 0) > 1) {
     return result("MANUAL_FINANCIAL_REVIEW", [
       "Duplicate ledger entries exist for a settlement component.",
     ]);
@@ -126,6 +148,24 @@ export function classifyTradeRecoveryEvidence(
         ![gross, fee, evidence.netProfitMinor].every((value) => Number.isSafeInteger(value))) {
       reasons.push("Realized gross profit, fee, or net-profit snapshot is missing or unsafe.");
     } else {
+      if (evidence.platformFeeMinor! > gross && gross > 0) {
+        reasons.push("Recorded platform fee exceeds positive realized gross profit.");
+      }
+      if (evidence.netProfitMinor !== gross - evidence.platformFeeMinor!) {
+        reasons.push("Recorded net profit does not equal realized gross profit less the recorded fee.");
+      }
+      if (gross <= 0 && evidence.platformFeeMinor !== 0) {
+        reasons.push("Zero-profit and loss outcomes must not incur a positive-profit platform fee.");
+      }
+      if (evidence.settlementOutcome !== undefined) {
+        const expectedOutcome = gross > 0 ? "profit" : gross < 0 ? "loss" : "zero_profit";
+        if (evidence.settlementOutcome !== expectedOutcome) {
+          reasons.push("Settlement outcome does not agree with the recorded realized gross result.");
+        }
+      }
+      if (evidence.platformFeeRateBps !== undefined && evidence.platformFeeRateBps > 10000) {
+        reasons.push("Stored platform fee rate exceeds 100 percent.");
+      }
       const expectedGrossCount = gross > 0 ? 1 : 0;
       if (rewardCount !== expectedGrossCount) reasons.push("Gross-profit ledger count does not match the recorded realized outcome.");
       else if (expectedGrossCount === 1 && rewardAmount !== gross) reasons.push("Gross-profit ledger amount does not match realized gross profit.");
