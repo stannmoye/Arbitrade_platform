@@ -337,6 +337,7 @@ async function main() {
         platformFeeLedger: fee,
         realizedLossLedger: loss,
         reservationCount: reservationForTrade.length,
+        rewardReservationStatus: reservationStatus,
         reservation: reservationForTrade.map((row) => ({
           id: safeInteger(row.id, "trade_reward_reservations.id"),
           status: String(row.status),
