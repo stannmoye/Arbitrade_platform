@@ -2141,8 +2141,23 @@ export async function setTradeAllocationControls(updatedBy: number, input: { all
 }
 
 export async function listAdminTradingPackages() {
-  const db=await getDb(); if(!db) throw new Error("Database is not available");
-  return db.select().from(packages).orderBy(packages.minimumQualifyingBalanceUsdMinor,packages.id);
+  try {
+    const db=await getDb();
+    if(!db) throw new Error("Database is not available");
+    return await db.select().from(packages).orderBy(packages.minimumQualifyingBalanceUsdMinor,packages.id);
+  } catch (error) {
+    // Keep database details server-side while recording enough context to diagnose
+    // missing migrations, missing tables/columns, connectivity, or permission errors.
+    const cause = error as { name?: unknown; message?: unknown; code?: unknown; errno?: unknown; sqlState?: unknown };
+    console.error("[Trading] Admin package catalogue read failed", {
+      errorName: typeof cause?.name === "string" ? cause.name : "UnknownError",
+      errorCode: typeof cause?.code === "string" || typeof cause?.code === "number" ? cause.code : undefined,
+      errorNumber: typeof cause?.errno === "number" ? cause.errno : undefined,
+      sqlState: typeof cause?.sqlState === "string" ? cause.sqlState : undefined,
+      message: typeof cause?.message === "string" ? cause.message : "Unknown database error",
+    });
+    throw new Error("Unable to load the Trading package catalogue. Check server logs for the underlying database error.");
+  }
 }
 export async function updateAdminTradingPackage(updatedBy:number,input:{
   id:number; name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
