@@ -134,8 +134,8 @@ describe("trade recovery collector context safety", () => {
       reservation: [{ id: 10, tradeId: 99, status: "credited", reservedMinor: 500, currency: "USD" }],
     });
     expect(result.classification).toBe("MANUAL_FINANCIAL_REVIEW");
-    expect(result.reasons.join(" ")).toContain("Wallet snapshot user does not match");
-    expect(result.reasons.join(" ")).toContain("reservation trade identity does not match");
+    expect(result.reasons.join(" ")).toContain("Wallet snapshot user is missing or does not match");
+    expect(result.reasons.join(" ")).toContain("reservation trade identity is missing or does not match");
     expect(result.plannedMutations).toEqual([]);
   });
 
