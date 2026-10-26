@@ -45,9 +45,15 @@ export function validatePackageAutomationPolicy(policy: PackageAutomationPolicy)
     ["daily reward cap", policy.maxDailyRewardMinor],
     ["maximum reward per trade", policy.maxRewardPerTradeMinor],
   ] as const;
-  for (const [label, value] of nonNegative) if (!Number.isInteger(value) || value < 0) errors.push(`${label} must be a non-negative integer`);
+  for (const [label, value] of nonNegative) if (!Number.isSafeInteger(value) || value < 0) errors.push(`${label} must be a non-negative safe integer`);
+  if (!policy.packageName.trim()) errors.push("package name is required");
+  if (policy.schedulingPeriod !== "rolling_24h" && policy.schedulingPeriod !== "calendar_day") errors.push("scheduling period is invalid");
+  if (policy.closePolicy !== "after_completion" && policy.closePolicy !== "after_final_display") errors.push("close policy is invalid");
+  if (!Number.isSafeInteger(policy.minSettlementDelaySeconds) || !Number.isSafeInteger(policy.maxSettlementDelaySeconds) ||
+      policy.minSettlementDelaySeconds < 0 || policy.maxSettlementDelaySeconds < policy.minSettlementDelaySeconds) {
+    errors.push("settlement delay range must use non-negative safe integer seconds and be ordered");
+  }
   if (policy.minIntervalSeconds > policy.maxIntervalSeconds) errors.push("minimum interval cannot exceed maximum interval");
-  if (policy.minSettlementDelaySeconds < 0 || policy.maxSettlementDelaySeconds < policy.minSettlementDelaySeconds) errors.push("settlement delay range is invalid");
   if (policy.maxTradeAttemptsPerDay > 0 && policy.maxSuccessfulTradesPerDay > policy.maxTradeAttemptsPerDay) errors.push("successful trades cannot exceed trade attempts");
   if (policy.dailyPopupTarget > 0 && policy.maxPendingDeliveries === 0) errors.push("daily popup target requires at least one pending delivery slot");
   if (policy.maxRewardPerTradeMinor > 0 && policy.maxDailyRewardMinor > 0 && policy.maxRewardPerTradeMinor > policy.maxDailyRewardMinor) errors.push("maximum reward per trade cannot exceed daily reward cap");
