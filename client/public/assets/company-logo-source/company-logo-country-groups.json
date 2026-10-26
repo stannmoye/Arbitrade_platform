@@ -1241,6 +1241,15 @@
         "country": "Denmark",
         "assignmentMethod": "web-search-headquarters",
         "confidence": "high"
+      },
+      {
+        "logoId": 1069,
+        "companyName": "VELUX",
+        "logoFile": "logos/VELUX.png",
+        "country": "Denmark",
+        "assignmentMethod": "official-or-reliable-headquarters-source",
+        "confidence": "high",
+        "evidenceUrl": "https://www.velux.com/contact-us"
       }
     ],
     "Finland": [
@@ -2281,6 +2290,15 @@
         "confidence": "high"
       },
       {
+        "logoId": 1064,
+        "companyName": "Heidelberg Materials",
+        "logoFile": "logos/Heidelberg Materials.png",
+        "country": "Germany",
+        "assignmentMethod": "official-or-reliable-headquarters-source",
+        "confidence": "high",
+        "evidenceUrl": "https://www.heidelbergmaterials.com/en/imprint"
+      },
+      {
         "logoId": 1180,
         "companyName": "METRO",
         "logoFile": "logos/METRO.png",
@@ -3177,6 +3195,15 @@
         "country": "Italy",
         "assignmentMethod": "country-code-domain",
         "confidence": "medium"
+      },
+      {
+        "logoId": 1068,
+        "companyName": "Missoni",
+        "logoFile": "logos/Missoni.png",
+        "country": "Italy",
+        "assignmentMethod": "official-or-reliable-headquarters-source",
+        "confidence": "high",
+        "evidenceUrl": "https://www.missoni.com/en-gb/missoni-faq.html"
       },
       {
         "logoId": 1173,
@@ -4506,6 +4533,15 @@
         "confidence": "high"
       },
       {
+        "logoId": 1072,
+        "companyName": "Grupo Bimbo",
+        "logoFile": "logos/Grupo Bimbo.png",
+        "country": "Mexico",
+        "assignmentMethod": "official-or-reliable-headquarters-source",
+        "confidence": "high",
+        "evidenceUrl": "https://grupobimbo-com-assets.s3.amazonaws.com/s3fs-public/reportes-2021/BIMBO_Annual_Report_2020_0.pdf"
+      },
+      {
         "logoId": 1269,
         "companyName": "Banco de México",
         "logoFile": "logos/Banco de México.png",
@@ -4772,6 +4808,15 @@
         "country": "Netherlands",
         "assignmentMethod": "web-search-headquarters",
         "confidence": "high"
+      },
+      {
+        "logoId": 1066,
+        "companyName": "VDL Groep",
+        "logoFile": "logos/VDL Groep.png",
+        "country": "Netherlands",
+        "assignmentMethod": "official-or-reliable-headquarters-source",
+        "confidence": "high",
+        "evidenceUrl": "https://www.vdlgroep.com/en/contact"
       },
       {
         "logoId": 1209,
@@ -10430,6 +10475,42 @@
         "confidence": "high"
       },
       {
+        "logoId": 1063,
+        "companyName": "GlobalFoundries",
+        "logoFile": "logos/GlobalFoundries.png",
+        "country": "United States",
+        "assignmentMethod": "official-or-reliable-headquarters-source",
+        "confidence": "high",
+        "evidenceUrl": "https://investors.gf.com/investor-relations/ir-resources/faqs"
+      },
+      {
+        "logoId": 1075,
+        "companyName": "USRobotics",
+        "logoFile": "logos/USRobotics.png",
+        "country": "United States",
+        "assignmentMethod": "official-or-reliable-headquarters-source",
+        "confidence": "high",
+        "evidenceUrl": "https://support.usr.com/press/pr-factsheet.asp"
+      },
+      {
+        "logoId": 1076,
+        "companyName": "Linden Lab",
+        "logoFile": "logos/Linden Lab.png",
+        "country": "United States",
+        "assignmentMethod": "official-or-reliable-headquarters-source",
+        "confidence": "high",
+        "evidenceUrl": "https://lindenlab.com/about"
+      },
+      {
+        "logoId": 1077,
+        "companyName": "Mack Trucks",
+        "logoFile": "logos/Mack Trucks.png",
+        "country": "United States",
+        "assignmentMethod": "official-or-reliable-headquarters-source",
+        "confidence": "high",
+        "evidenceUrl": "https://www.macktrucks.com/about-mack/facilities/mack-world-headquarters/"
+      },
+      {
         "logoId": 1795,
         "companyName": "Xerox",
         "logoFile": "logos/Xerox.png",
@@ -10608,22 +10689,6 @@
         "confidence": "unknown"
       },
       {
-        "logoId": 1063,
-        "companyName": "GlobalFoundries",
-        "logoFile": "logos/GlobalFoundries.png",
-        "country": "Unverified",
-        "assignmentMethod": "needs-manual-verification",
-        "confidence": "unknown"
-      },
-      {
-        "logoId": 1064,
-        "companyName": "Heidelberg Materials",
-        "logoFile": "logos/Heidelberg Materials.png",
-        "country": "Unverified",
-        "assignmentMethod": "needs-manual-verification",
-        "confidence": "unknown"
-      },
-      {
         "logoId": 1065,
         "companyName": "Jeppesen",
         "logoFile": "logos/Jeppesen.png",
@@ -10632,33 +10697,9 @@
         "confidence": "unknown"
       },
       {
-        "logoId": 1066,
-        "companyName": "VDL Groep",
-        "logoFile": "logos/VDL Groep.png",
-        "country": "Unverified",
-        "assignmentMethod": "needs-manual-verification",
-        "confidence": "unknown"
-      },
-      {
         "logoId": 1067,
         "companyName": "Fox Corporation",
         "logoFile": "logos/Fox Corporation.png",
-        "country": "Unverified",
-        "assignmentMethod": "needs-manual-verification",
-        "confidence": "unknown"
-      },
-      {
-        "logoId": 1068,
-        "companyName": "Missoni",
-        "logoFile": "logos/Missoni.png",
-        "country": "Unverified",
-        "assignmentMethod": "needs-manual-verification",
-        "confidence": "unknown"
-      },
-      {
-        "logoId": 1069,
-        "companyName": "VELUX",
-        "logoFile": "logos/VELUX.png",
         "country": "Unverified",
         "assignmentMethod": "needs-manual-verification",
         "confidence": "unknown"
@@ -10680,41 +10721,9 @@
         "confidence": "unknown"
       },
       {
-        "logoId": 1072,
-        "companyName": "Grupo Bimbo",
-        "logoFile": "logos/Grupo Bimbo.png",
-        "country": "Unverified",
-        "assignmentMethod": "needs-manual-verification",
-        "confidence": "unknown"
-      },
-      {
         "logoId": 1073,
         "companyName": "WACKER",
         "logoFile": "logos/WACKER.png",
-        "country": "Unverified",
-        "assignmentMethod": "needs-manual-verification",
-        "confidence": "unknown"
-      },
-      {
-        "logoId": 1075,
-        "companyName": "USRobotics",
-        "logoFile": "logos/USRobotics.png",
-        "country": "Unverified",
-        "assignmentMethod": "needs-manual-verification",
-        "confidence": "unknown"
-      },
-      {
-        "logoId": 1076,
-        "companyName": "Linden Lab",
-        "logoFile": "logos/Linden Lab.png",
-        "country": "Unverified",
-        "assignmentMethod": "needs-manual-verification",
-        "confidence": "unknown"
-      },
-      {
-        "logoId": 1077,
-        "companyName": "Mack Trucks",
-        "logoFile": "logos/Mack Trucks.png",
         "country": "Unverified",
         "assignmentMethod": "needs-manual-verification",
         "confidence": "unknown"
