@@ -2859,6 +2859,10 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     }
     const wallet=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,trade.userId),eq(customerBalances.currency,trade.currency))).limit(1).for("update"))[0];
     if(!wallet) throw new Error("Customer settlement wallet is not configured");
+    const lockedMinor=Number(wallet.lockedMinor);
+    if(!Number.isSafeInteger(lockedMinor)||lockedMinor<principal) {
+      throw new Error("Settlement wallet locked balance is inconsistent with the trade principal");
+    }
 
     // Keep ledger references within balance_ledger.reference's 80-character limit.
     // Short references retain their existing readable form for audit/recovery tools.
@@ -2870,7 +2874,7 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
 
     const walletUpdate=await tx.update(customerBalances).set({
       availableMinor:sql`${customerBalances.availableMinor}+${accounting.totalReturnedMinor}`,
-      lockedMinor:sql`GREATEST(${customerBalances.lockedMinor}-${principal},0)`,
+      lockedMinor:sql`${customerBalances.lockedMinor}-${principal}`,
       earnedMinor:sql`${customerBalances.earnedMinor}+${accounting.netProfitMinor}`,
       updatedAt:new Date(),
     }).where(eq(customerBalances.id,wallet.id));
