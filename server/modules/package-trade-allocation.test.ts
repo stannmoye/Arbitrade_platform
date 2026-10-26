@@ -42,6 +42,12 @@ describe("package trade amount allocation", () => {
     })).toThrow(/range exceeds secure random sampler limits/);
   });
 
+  it("rejects invalid package or offer bounds before checking a manual amount", () => {
+    expect(() => assertTradeAmountWithinBounds(10, { minimumTradeMinor: NaN, maximumTradeMinor: 20 }, 1)).toThrow(/bounds must be valid/);
+    expect(() => assertTradeAmountWithinBounds(10, { minimumTradeMinor: 20, maximumTradeMinor: 10 }, 1)).toThrow(/bounds must be valid/);
+    expect(() => assertTradeAmountWithinBounds(10, { minimumTradeMinor: 1, maximumTradeMinor: 20 }, 0)).toThrow(/bounds must be valid/);
+  });
+
   it("rejects manual amounts outside the package range", () => {
     expect(() => assertTradeAmountWithinBounds(700_001, { minimumTradeMinor: 200_000, maximumTradeMinor: 700_000 }, 1)).toThrow("cannot exceed");
     expect(() => assertTradeAmountWithinBounds(199_999, { minimumTradeMinor: 200_000, maximumTradeMinor: 700_000 }, 1)).toThrow("at least");
