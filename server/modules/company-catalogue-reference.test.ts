@@ -45,6 +45,26 @@ describe("Logo.dev brand-only static reference catalogue", () => {
     expect(COMPANY_REFERENCE_CATALOGUE.every((company) => company.countryName.length > 0)).toBe(true);
   });
 
+  it("filters by the catalogue country-folder label and reports accurate country counts", () => {
+    const unitedStates = searchCompanyReferences({ countryName: "United States", limit: 1811 });
+    expect(unitedStates.length).toBeGreaterThan(0);
+    expect(unitedStates.every((company) => company.countryName === "United States")).toBe(true);
+    expect(searchCompanyReferences({ countryName: "united states", limit: 1811 })).toEqual(unitedStates);
+    expect(searchCompanyReferences({ countryName: "No Such Country", limit: 1811 })).toHaveLength(0);
+    const allFirstPage = searchCompanyReferences({ countryName: "United States", limit: 25, offset: 0 });
+    const allSecondPage = searchCompanyReferences({ countryName: "United States", limit: 25, offset: 25 });
+    expect(allFirstPage).toHaveLength(25);
+    expect(allSecondPage).toHaveLength(25);
+    expect(allSecondPage.map((company) => company.id)).not.toEqual(allFirstPage.map((company) => company.id));
+    expect(searchCompanyReferences({ countryName: "United States", limit: 25, offset: 1810 })).toHaveLength(0);
+
+    const summary = getCompanyReferenceSummary();
+    const counts = summary.countryCounts as Record<string, number>;
+    expect(Object.values(counts).reduce((sum, count) => sum + count, 0)).toBe(1811);
+    expect(counts["Unverified"]).toBeGreaterThan(0);
+    expect(Object.keys(counts)).toContain("United States");
+  });
+
   it("returns a brand-only random spotlight and rejects invalid random sources", () => {
     const sample = getRandomCompanyReference(() => 0);
     expect(sample.id).toBe(COMPANY_REFERENCE_CATALOGUE[0]!.id);

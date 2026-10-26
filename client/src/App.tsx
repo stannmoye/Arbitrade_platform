@@ -507,7 +507,10 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
   const [companyReferenceData,setCompanyReferenceData]=useState<any>(null);
   const [companyReferenceLoadError,setCompanyReferenceLoadError]=useState(false);
   const [catalogueSearch,setCatalogueSearch]=useState("");
-  const companyCatalogueQuery=trpc.companyCatalogueReference.search.useQuery({search:catalogueSearch,limit:100});
+  const [catalogueCountry,setCatalogueCountry]=useState("");
+  const [catalogueOffset,setCatalogueOffset]=useState(0);
+  const companyCatalogueSummary=trpc.companyCatalogueReference.summary.useQuery();
+  const companyCatalogueQuery=trpc.companyCatalogueReference.search.useQuery({search:catalogueSearch,countryName:catalogueCountry||undefined,offset:catalogueOffset,limit:100});
   const companyReference=trpc.companyCatalogueReference.next.useMutation({
     onSuccess:(record)=>{companyReferenceInFlight.current=false;lastCompanyReferenceId.current=record.id;setCompanyReferenceData(record);setCompanyReferenceLoadError(false);},
     onError:()=>{companyReferenceInFlight.current=false;setCompanyReferenceLoadError(true);},
@@ -593,7 +596,12 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
         <span>{companyCatalogueQuery.data?.length ?? 0} shown</span>
       </div>
       <label className="company-catalogue-search-label" htmlFor="company-catalogue-search">Search by company name, domain, ticker, or exchange</label>
-      <input id="company-catalogue-search" className="company-catalogue-search" type="search" value={catalogueSearch} onChange={event=>setCatalogueSearch(event.target.value)} placeholder="e.g. Apple, AAPL, NASDAQ" autoComplete="off" />
+      <input id="company-catalogue-search" className="company-catalogue-search" type="search" value={catalogueSearch} onChange={event=>{setCatalogueSearch(event.target.value);setCatalogueOffset(0);}} placeholder="e.g. Apple, AAPL, NASDAQ" autoComplete="off" />
+      <label className="company-catalogue-search-label" htmlFor="company-catalogue-country">Filter by country folder</label>
+      <select id="company-catalogue-country" className="company-catalogue-search" value={catalogueCountry} onChange={event=>{setCatalogueCountry(event.target.value);setCatalogueOffset(0);}}>
+        <option value="">All country folders ({companyCatalogueSummary.data?.total ?? 1811} records)</option>
+        {Object.entries((companyCatalogueSummary.data?.countryCounts ?? {}) as Record<string,number>).sort(([left],[right])=>left.localeCompare(right)).map(([country,count])=><option key={country} value={country}>{country} ({count})</option>)}
+      </select>
       {companyCatalogueQuery.isLoading ? <div className="empty-state">Loading company catalogue…</div>
         : companyCatalogueQuery.isError ? <div className="empty-state">Company catalogue is temporarily unavailable. Please try again.</div>
         : !(companyCatalogueQuery.data||[]).length ? <div className="empty-state">No companies match this search.</div>
@@ -615,7 +623,12 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
             </div>
           </article>
         ))}</div>}
-      <small>Search covers the 1,811-company catalogue. Up to 100 matching records are shown per query; refine the search to find a specific company. All 1,811 workbook rows are imported verbatim by Logo ID, including placeholder, parent-company, and historical entries. Placeholder codes are display-only and must not be used for market-data lookup or orders.</small>
+      <div className="company-catalogue-pagination" aria-label="Company catalogue pages">
+        <button className="secondary-button" type="button" onClick={()=>setCatalogueOffset(Math.max(0,catalogueOffset-100))} disabled={catalogueOffset===0||companyCatalogueQuery.isLoading}>Previous 100</button>
+        <span>Records {catalogueOffset+1}–{catalogueOffset+(companyCatalogueQuery.data?.length??0)} of matching catalogue entries</span>
+        <button className="secondary-button" type="button" onClick={()=>setCatalogueOffset(catalogueOffset+100)} disabled={companyCatalogueQuery.isLoading||(companyCatalogueQuery.data?.length??0)<100}>Next 100</button>
+      </div>
+      <small>Search covers all 1,811 catalogue records and shows up to 100 matches. Country filtering uses the image folder label, not verified headquarters or listing evidence. All workbook rows remain aligned by stable Logo ID, including placeholder, parent-company, and historical entries. Placeholder codes are display-only and must not be used for market-data lookup or orders.</small>
       {companyReferenceData&&<details><summary>Random company spotlight</summary><article className="trading-opportunity-row" aria-live="polite"><div className="trading-opportunity-identity"><CompanyReferenceLogo name={companyReferenceData.name} logoUrl={companyReferenceData.logoUrl}/><div><strong>{companyReferenceData.name}</strong><small>{companyReferenceData.symbol||"No symbol supplied"} · {companyReferenceData.exchangeCode||"No exchange supplied"} · {companyReferenceData.countryName}</small></div></div><button className="secondary-button" onClick={requestNextCompanyReference} disabled={companyReference.isPending}>Next reference</button></article></details>}
     </section>
   </div>;
