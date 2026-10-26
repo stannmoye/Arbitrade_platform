@@ -2017,11 +2017,18 @@ function parseTradeAllocationControls(raw: string | null | undefined): TradeAllo
   }
   try {
     const value = JSON.parse(raw);
+    if (!value || typeof value !== "object" ||
+        typeof value.allocationsPaused !== "boolean" ||
+        typeof value.reason !== "string" ||
+        !(value.updatedAt === null || typeof value.updatedAt === "string") ||
+        !(value.updatedBy === null || (Number.isSafeInteger(value.updatedBy) && value.updatedBy > 0))) {
+      throw new Error("Invalid global allocation safety setting shape");
+    }
     return {
-      allocationsPaused: value?.allocationsPaused === true,
-      reason: typeof value?.reason === "string" ? value.reason : "",
-      updatedAt: typeof value?.updatedAt === "string" ? value.updatedAt : null,
-      updatedBy: Number.isSafeInteger(Number(value?.updatedBy)) && Number(value?.updatedBy) > 0 ? Number(value.updatedBy) : null,
+      allocationsPaused: value.allocationsPaused,
+      reason: value.reason,
+      updatedAt: value.updatedAt,
+      updatedBy: value.updatedBy,
     };
   } catch {
     // A malformed safety setting must fail closed, never silently resume allocation.
