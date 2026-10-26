@@ -34,6 +34,9 @@ describe("server-side trading package eligibility", () => {
     expect(implementation).toContain("SELECT id,loginMethod FROM users WHERE id=${userId} FOR UPDATE");
     expect(implementation).toContain('if(!activePackageSubscriptions.length) throw new Error("An eligible active trading package subscription is required")');
     expect(implementation).toContain('if(!subscriptionsWithQuota.length) throw new Error("All active package opportunity quotas have been used for today")');
+    expect(implementation).toContain("samePackageSubscription");
+    expect(implementation).toContain("No eligible package subscription remains for this allocation");
+    expect(implementation).toContain("Number(subscription.packageId)===input.packageId");
   });
   it("never auto-allocates a pending or retrying popup that was not delivered", () => {
     const start = source.indexOf("async function autoTradeOpenOpportunities(");
