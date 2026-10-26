@@ -286,7 +286,7 @@ export function buildExpectedSettlementPostings(
     add(
       "recorded_trade_accounting_fields_mismatch",
       "confirmed",
-      "The stored gross result, fee-policy snapshot and fee/net/reward/outcome fields do not reconcile under the recorded policy."
+      "The saved fee/net/reward/outcome fields do not reconcile with the realized gross result under the trade’s stored fee policy."
     );
   }
 
@@ -334,7 +334,7 @@ export function inspectSettlementLedgerPostings(
   trade: SettlementLedgerSnapshot,
   ledgerEntries: SettlementLedgerEntry[],
   evidenceComplete = true
-): { tradeId: number; userId: number; currency: string; settlementReference: string | null; issues: ReconciliationIssue[] } {
+): { tradeId: number; userId: number; currency: string; settlementReference: string | null; realizedGrossProfitMinor: number | null; platformFeeMinor: number | null; netProfitMinor: number | null; issues: ReconciliationIssue[] } {
   const built = buildExpectedSettlementPostings(trade);
   const issues = [...built.issues];
   const add = (code: string, confidence: ReconciliationConfidence, explanation: string) => {
@@ -343,7 +343,10 @@ export function inspectSettlementLedgerPostings(
   if (!trade.settlementReference) {
     return {
       tradeId: trade.tradeId, userId: trade.userId, currency: trade.currency,
-      settlementReference: trade.settlementReference, issues,
+      settlementReference: trade.settlementReference,
+      realizedGrossProfitMinor: safeInteger(trade.realizedGrossProfitMinor),
+      platformFeeMinor: safeInteger(trade.platformFeeMinor),
+      netProfitMinor: safeInteger(trade.netProfitMinor), issues,
     };
   }
 
@@ -394,6 +397,9 @@ export function inspectSettlementLedgerPostings(
     userId: trade.userId,
     currency: trade.currency,
     settlementReference: trade.settlementReference,
+    realizedGrossProfitMinor: safeInteger(trade.realizedGrossProfitMinor),
+    platformFeeMinor: safeInteger(trade.platformFeeMinor),
+    netProfitMinor: safeInteger(trade.netProfitMinor),
     issues,
   };
 }
