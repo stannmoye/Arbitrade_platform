@@ -115,6 +115,9 @@ Example: capital $200; realized gross profit $20; fee $3 (15% of $20); net profi
 
 ## 9. Company image catalogue, country folders, and source verification
 
+The customer Trading Opportunities page includes a searchable company catalogue backed by `companyCatalogueReference.search`. It searches the 1,811 logo-ID records by company name, domain, supplied ticker, and exchange; returns up to 100 matches per query; and displays the local country-folder logo path, logo ID, country folder, supplied symbol, exchange, and source status. The supplied ticker values are displayed as-is for catalogue reference only and are not a guarantee of an active exchange listing or a live market-data instrument. Do not use this reference catalogue as proof of execution eligibility or as a source of fabricated prices.
+
+
 The current company-image reference collection contains **1,811 indexed company/logo records**, replacing earlier planning references to 950 or 1,000 as the size of the image catalogue. The 950-record US-only SEC dataset and the separate 1,000-record reference catalogue are legacy/separate datasets; they must not be confused with or used to cap the 1,811-image collection.
 
 ### Canonical image catalogue structure
