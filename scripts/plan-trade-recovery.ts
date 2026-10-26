@@ -4,6 +4,7 @@ import { buildTradeRecoveryPlan } from "../server/modules/trade-recovery-planner
 import { applyRecoveryContextSafety } from "../server/modules/trade-recovery-context";
 
 const safeInteger = z.number().refine(Number.isSafeInteger, "Expected a safe integer.");
+const positiveSafeInteger = safeInteger.refine((value) => value > 0, "Expected a positive safe integer.");
 const nonNegativeSafeInteger = safeInteger.refine((value) => value >= 0, "Expected a non-negative safe integer.");
 
 const evidenceSchema = z.object({
@@ -43,29 +44,49 @@ const evidenceSchema = z.object({
 });
 
 const contextSchema = z.object({
+  tradeId: positiveSafeInteger,
+  userId: positiveSafeInteger,
+  currency: z.string().trim().min(1),
   walletMatchCount: nonNegativeSafeInteger,
+  wallet: z.object({
+    id: positiveSafeInteger,
+    userId: positiveSafeInteger,
+    currency: z.string().trim().min(1),
+    availableMinor: nonNegativeSafeInteger,
+    lockedMinor: nonNegativeSafeInteger,
+    promotionalMinor: nonNegativeSafeInteger,
+    earnedMinor: nonNegativeSafeInteger,
+  }).nullable(),
   reservationCount: nonNegativeSafeInteger,
+  rewardReservationStatus: z.string().nullable(),
+  reservation: z.array(z.object({
+    id: positiveSafeInteger,
+    tradeId: positiveSafeInteger,
+    status: z.string().trim().min(1),
+    reservedMinor: nonNegativeSafeInteger,
+    currency: z.string().trim().min(1),
+  })),
   identityMismatchedLedgerRows: z.array(z.unknown()),
   scanCoverage: z.object({
-    requestedLimit: nonNegativeSafeInteger,
+    requestedLimit: positiveSafeInteger,
     selectedTradeCount: nonNegativeSafeInteger,
     totalTradeCount: nonNegativeSafeInteger,
     complete: z.boolean(),
-  }).optional(),
+  }),
 }).passthrough();
 
 const inputSchema = z.array(z.object({
   tradeId: z.union([z.string(), z.number()]),
   evidence: evidenceSchema,
-  context: contextSchema.optional(),
+  context: contextSchema,
 }));
 
 async function main() {
   const file = process.argv[2];
   if (!file || file === "--help" || file === "-h") {
     console.log("Usage: pnpm db:plan-trade-recovery <evidence.json>");
-    console.log("Input must be a JSON array of { tradeId, evidence } records.");
-    console.log("Collector context is also checked for missing/duplicate wallets, duplicate reservations, and ledger identity mismatches.");
+    console.log("Input must be a JSON array of collector records containing { tradeId, evidence, context }.");
+    console.log("Full collector context is required and checked for wallet/reservation snapshots, identity mismatches, and scan completeness.");
     console.log("This tool performs no database access and proposes no database or wallet writes.");
     process.exitCode = file ? 0 : 2;
     return;
@@ -92,7 +113,7 @@ async function main() {
         tradeId: record.tradeId,
         evidence,
       });
-      return record.context ? applyRecoveryContextSafety(plan, record.context) : plan;
+      return applyRecoveryContextSafety(plan, record.context);
     });
     console.log(JSON.stringify({
       mode: "READ_ONLY_PLAN",
