@@ -330,6 +330,13 @@
       "when": 1793062000001,
       "tag": "0077_trading_package_catalogue_schema_repair",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793063000000,
+      "tag": "0078_trading_customer_package_subscription_repair",
+      "breakpoints": true
     }
   ]
 }
