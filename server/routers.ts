@@ -3,7 +3,7 @@ import { parse as parseCookieHeader } from "cookie";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, getRandomCompanyReference, searchCompanyReferences } from "./modules/company-catalogue-reference";
+import { countCompanyReferences, findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, getRandomCompanyReference, searchCompanyReferences } from "./modules/company-catalogue-reference";
 import { z } from "zod";
 import { communicationSettingsInput, getAdminCommunicationSettings, getCustomerCommunicationOptions, saveAdminCommunicationSettings, validateCommunicationSettingsInput } from "./communicationSettings";
 import { TRPCError } from "@trpc/server";
@@ -37,6 +37,10 @@ export const appRouter = router({
 
   companyCatalogueReference: router({
     summary: publicProcedure.query(() => getCompanyReferenceSummary()),
+    count: publicProcedure.input(z.object({
+      search: z.string().trim().max(100).optional(),
+      countryName: z.string().trim().min(1).max(100).optional(),
+    }).optional()).query(({ input }) => countCompanyReferences(input ?? {})),
     search: publicProcedure.input(z.object({
       search: z.string().trim().max(100).optional(),
       countryName: z.string().trim().min(1).max(100).optional(),

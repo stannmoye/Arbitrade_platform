@@ -266,6 +266,10 @@ export function searchCompanyReferences(filters: CompanyReferenceSearch = {}): C
   return results;
 }
 
+export function countCompanyReferences(filters: CompanyReferenceSearch = {}): number {
+  return searchCompanyReferences({ ...filters, offset: 0, limit: 1811 }).length;
+}
+
 export function getCompanyReferenceSummary() {
   return {
     total: COMPANY_REFERENCE_CATALOGUE.length,
