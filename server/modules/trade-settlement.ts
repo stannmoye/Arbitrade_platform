@@ -17,10 +17,14 @@ export function calculateTradeSettlement(input: TradeSettlementInput) {
   if (!Number.isSafeInteger(input.rewardMinor) || input.rewardMinor < 0) {
     throw new Error("Trade reward must be a non-negative integer in minor units");
   }
+  const totalMinor = input.principalMinor + input.rewardMinor;
+  if (!Number.isSafeInteger(totalMinor)) {
+    throw new RangeError("Trade settlement total exceeds safe integer precision");
+  }
   return {
     walletCurrency: currency,
     principalMinor: input.principalMinor,
     rewardMinor: input.rewardMinor,
-    totalMinor: input.principalMinor + input.rewardMinor,
+    totalMinor,
   };
 }
