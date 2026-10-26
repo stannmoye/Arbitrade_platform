@@ -276,6 +276,25 @@ describe("trade recovery evidence classification (read-only)", () => {
     expect(result.reasons.join(" ")).toContain("does not agree");
   });
 
+  it("uses exact arithmetic when safe integer fields could produce an unsafe net result", () => {
+    const result = classifyTradeRecoveryEvidence(settledEvidence({
+      rewardCreditedMinor: 0,
+      grossProfitLedgerCount: 0,
+      grossProfitLedgerAmountMinor: null,
+      realizedGrossProfitMinor: -Number.MAX_SAFE_INTEGER,
+      platformFeeMinor: Number.MAX_SAFE_INTEGER,
+      netProfitMinor: 0,
+      platformFeeLedgerCount: 1,
+      platformFeeLedgerAmountMinor: -Number.MAX_SAFE_INTEGER,
+      realizedLossLedgerCount: 1,
+      realizedLossLedgerAmountMinor: -Number.MAX_SAFE_INTEGER,
+      settlementOutcome: "loss",
+      rewardReservationStatus: "released",
+    }));
+    expect(result.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(result.reasons.join(" ")).toContain("safe integer arithmetic");
+  });
+
   it("never authorizes automated writes for any classification", () => {
     const examples = [
       settledEvidence(),
