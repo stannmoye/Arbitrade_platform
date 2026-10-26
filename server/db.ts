@@ -2011,7 +2011,10 @@ export type TradeAllocationControls = {
 };
 
 function parseTradeAllocationControls(raw: string | null | undefined): TradeAllocationControls {
-  if (!raw) return { allocationsPaused: false, reason: "", updatedAt: null, updatedBy: null };
+  if (!raw) {
+    // Missing control row means the safety migration may not have run; fail closed.
+    return { allocationsPaused: true, reason: "Global allocation safety setting is missing; administrator review is required.", updatedAt: null, updatedBy: null };
+  }
   try {
     const value = JSON.parse(raw);
     return {
