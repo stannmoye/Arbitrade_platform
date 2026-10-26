@@ -113,25 +113,43 @@ Example: capital $200; realized gross profit $20; fee $3 (15% of $20); net profi
 - Wallet reservations must be distinguished from completed debits. Prevent the same funds from backing multiple concurrent trades.
 - Wallet ledger and displayed balances must reconcile. Use idempotent, transactional operations.
 
-## 9. Company catalogue and source verification
+## 9. Company image catalogue, country folders, and source verification
 
-The required static catalogue target is **1,000 distinct publicly listed operating companies**, with the exact geographic split and per-field source requirements documented in [Company Catalogue Source Guide](COMPANY_CATALOGUE_SOURCE_GUIDE.md):
+The current company-image reference collection contains **1,811 indexed company/logo records**, replacing earlier planning references to 950 or 1,000 as the size of the image catalogue. The 950-record US-only SEC dataset and the separate 1,000-record reference catalogue are legacy/separate datasets; they must not be confused with or used to cap the 1,811-image collection.
 
-- **550 companies** from Japan, India, France, Italy, Brazil, Russia, Mexico, South Korea, Spain, Indonesia, Turkey, Netherlands, Saudi Arabia, Switzerland, Poland, Taiwan, Belgium, Sweden, Argentina, Ireland, Thailand, United Arab Emirates, Israel, Austria, Norway, Singapore, Vietnam, Bangladesh, Egypt, Philippines, Malaysia, Denmark, South Africa, Finland, Chile, Romania, Czechia, Portugal, Hong Kong and Peru. For the 1,000-record catalogue slice in PR #181, Hong Kong replaces Kazakhstan because the source/build pipeline did not yield usable Kazakhstan records; this is a documented scope substitution, not a claim that Kazakhstan has no listed companies.
-- **450 companies** from the USA, UK, Germany, Australia, Canada and China.
+### Canonical image catalogue structure
 
-Every named country must be represented. The final catalogue must report verified counts by country and exactly 550/450 by pool; do not invent country subtotals, company records, identifiers, headquarters, sector values or listing status to satisfy the target. Define a company's country by its verified home/headquarters country, not the exchange where its shares trade. Count an issuer once across share classes and cross-listings and preserve the primary listing and other source identifiers.
+- Stable image catalogue IDs are `logoId` values **1–1811**, aligned with `catalogue_number` in `logo-mapping.csv`. Do not renumber existing IDs or treat them as stock tickers or exchange trading numbers.
+- Company display names, IDs, filenames, domains, and country assignment metadata are indexed in `client/public/assets/company-logo-source/company-logo-index.json`.
+- Country-grouped records are indexed in `client/public/assets/company-logo-source/company-logo-country-groups.json`.
+- The physical image files are stored below `client/public/assets/company-logo-source/by-country/{Country}/`. Use the country folder and the index's relative `logoFile` path to locate an image; do not reconstruct paths from company names.
+- `client/public/assets/company-logo-source/logo-mapping.csv` is preserved as a mapping/reference artifact. Duplicate company names may exist and must retain their separate IDs and file mappings unless an explicit reviewed deduplication task is approved.
+- The current country assignment audit records **1,799** images assigned to researched country folders and **12** records under `Unverified`. Therefore the image collection has 1,811 records, but it is not accurate to claim that all 1,811 headquarters countries have been verified. Keep the unresolved 12 visibly marked as unverified until researched; never infer a country merely to remove an item from that folder.
 
-Use the relevant official stock exchange listing directory and regulator filings for legal name, ticker, exchange and active listing status. Use the issuer's official website/latest annual report or official registry for headquarters, website and sector/industry. Use stable identifiers (for example, exchange issuer IDs, ISIN, LEI, or US CIK where applicable) and store the URL, retrieval time, source version/hash, and last verification timestamp for each record.
+### Intended use in the Trading page
 
-Each company logo must be a checked-in local asset referenced by a repository-relative path, preferably under `client/public/assets/company-logos/`. Use an official issuer media/brand kit or a logo source with explicit reuse rights; record the logo source URL, licence/permission basis, required attribution, retrieval date and file hash. A publicly visible logo is not automatically licensed for redistribution. Do not hotlink at runtime, use an unlicensed asset, or substitute a generated mark/flag and label it as the official company logo. If an image cannot be lawfully bundled, flag the record as incomplete.
+The 1,811-record collection is the available company-image/name reference pool for the informational company pop-up/spotlight. The UI may display a company's indexed ID, company name, local image, and assigned country label. Use local assets; do not introduce a runtime third-party logo CDN or network dependency for these images.
 
-The catalogue is version-controlled static reference data. It must not be bulk-seeded into the application database, and normal application lookup must not query third-party sources. Validate exact pool counts, all-country coverage, unique issuer identities, non-empty required fields, source provenance, local file existence, logo licensing metadata and image integrity before marking the catalogue complete.
+The image catalogue is **not** a verified tradable-securities list. Many image records may represent private companies, brands, subsidiaries, products, institutions, or companies without a confirmed public listing. A country folder indicates the current country classification for organizing the image library; it does not by itself prove legal headquarters or listing eligibility. Do not present the pop-up as a live market quote, investment recommendation, verified listing, or executed trade. Do not let a random/rotating company image itself trigger trade execution, alter customer balances, or create a profit/loss record.
 
-A catalogue entry is reference metadata only. It does not establish that a security was bought or sold, that a customer owns it, that an opportunity was executed, or that a financial result/profit occurred. Only actual, independently recorded trade and settlement evidence may be used for customer-facing execution and realized-result claims.
+### Separate company-symbol and trading-number work
 
-**Current implementation warning (2026-10-25):** the branch now contains a 1,000-record static reference catalogue distributed across the 46 configured country/market classifications (Pool A=550, Pool B=450), with 1,000 local neutral SVG placeholders and structural validation of counts, uniqueness and file integrity. These records remain explicitly **unverified and incomplete**; their country is a source/market classification rather than independently confirmed headquarters, and the placeholder images are not official company logos. The catalogued records therefore do **not** yet satisfy this specification's verified-listing, per-company source-evidence, headquarters, and permitted-official-logo acceptance gates. The separate 950-record US-only SEC snapshot remains preserved as a legacy catalogue. Do not claim that all 1,000 entries are currently listed or that official logo permissions have been verified.
+Ticker/symbol, exchange, security identifier, listing status, and any platform-specific trading number are a separate data-enrichment phase and are **not implied by logo IDs**. Do not guess symbols from names, map a company to an exchange without evidence, or treat an internal logo ID as a ticker, ISIN, CIK, exchange code, or order identifier. Before a company can be represented as a tradable security, verify the legal issuer/security and its primary listing against authoritative exchange/regulator sources, retain source URL and verification timestamp, and model company identity separately from each listed security. Where a company is not publicly listed or cannot be verified, it may remain in the informational image pool but must not be promoted to a tradable listing.
 
+### Validation and maintenance requirements
+
+Before changing the image collection or its consumers, validate all of the following:
+1. Exactly 1,811 indexed records and IDs covering the expected range 1–1811, with no accidental ID reuse or missing index entries.
+2. Every indexed image path resolves to the corresponding checked-in file under the country-grouped source directory; no broken paths.
+3. Country-group JSON and index agree on IDs, names, relative paths, and country values.
+4. The country grouping totals account for all 1,811 records, including the 12 explicitly unverified records; never hide or discard unresolved entries.
+5. Duplicate names and repeated brands remain distinguishable by stable ID and path.
+6. The pop-up reads the local catalogue as reference data only and remains separate from security-symbol lookup, live market data, trade allocation, execution, and settlement.
+7. Updates preserve the source archive and mapping files and include tests/documentation changes where applicable.
+
+The catalogue is version-controlled static reference data and must not be bulk-seeded into the customer/account database. A catalogue entry, local image, company name, or country folder does not establish security ownership, a trade execution, or a financial result. Financial and trading claims must be based on the application's independently recorded trade lifecycle and settlement evidence.
+
+**Status (2026-10-26):** the image catalogue is indexed from 1 through 1811 and country-grouped on disk; 1,799 records have country assignments and 12 remain in `Unverified`. This status supersedes the older 950/1,000 image-count wording only for the image-reference collection. It does not certify all companies as publicly listed, all country assignments as headquarters-verified, or any ticker/trading-number mapping.
 
 ## 10. Opportunity pop-up and minimized dock
 
@@ -190,9 +208,11 @@ Trading operates as a real-money workflow recorded in the customer's internal le
 - Combined daily net earnings ceiling applies across all packages and wallets.
 - Pop-up minimizes after configured seconds and stays accessible in dock until terminal status.
 - Green/red notifications correspond to confirmed credits/debits only.
-- Exactly 1,000 distinct companies are verified: 550 from Pool A and 450 from Pool B; every specified country is represented, source provenance is recorded, and all local logo assets have permitted-use evidence.
+- The company-image reference collection has 1,811 stable indexed IDs (1–1811), matching index/mapping/country-group data and valid local file paths; 1,799 country assignments are recorded and 12 remain explicitly Unverified.
+- The company pop-up/spotlight uses the 1,811-image reference pool only for informational display; it does not imply a verified listing or trigger trade execution/accounting.
+- Ticker, exchange, security identifier, listing status, and trading number are separately verified and never inferred from a logo ID or country folder.
 - Admin changes are permissioned, versioned, and audited.
-- Catalogue tests verify exact 550/450 pool totals, 46-country coverage for the user-authorized PR #181 country allocation (Hong Kong replacing Kazakhstan), issuer uniqueness, source metadata, explicit incomplete status for neutral-placeholder logo records, and that every local logo path resolves. A neutral placeholder is not an approved company logo and must not be presented as one. Trading and settlement tests cover concurrency, insufficient balance, retries, worker restarts, fees, ceiling enforcement, and duplicate settlement.
+- Catalogue tests cover ID completeness, index/group agreement, every local image path, preservation of duplicates under distinct IDs, and visibility of unresolved country assignments. Trading and settlement tests cover concurrency, insufficient balance, retries, worker restarts, fees, ceiling enforcement, and duplicate settlement.
 
 ## 15. Implementation workflow requirement
 
