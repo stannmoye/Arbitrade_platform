@@ -2857,6 +2857,20 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
       if(code==="ER_DUP_ENTRY") throw new Error("Settlement reference has already been used");
       throw error;
     }
+    const reservation=(await tx.select().from(tradeRewardReservations).where(eq(tradeRewardReservations.tradeId,tradeId)).limit(1).for("update"))[0];
+    const reservedMinor=Number(trade.rewardReservedMinor||0);
+    if(reservation) {
+      if(reservation.userId!==trade.userId||reservation.currency!==trade.currency||reservation.tradeId!==trade.id) {
+        throw new Error("Trade reward reservation identity does not match the trade");
+      }
+      if(reservation.status!=="reserved") throw new Error("Trade reward reservation is not pending while the trade is awaiting settlement");
+      if(!Number.isSafeInteger(reservedMinor)||reservedMinor<0||Number(reservation.reservedMinor)!==reservedMinor) {
+        throw new Error("Trade reward reservation amount is inconsistent with the trade");
+      }
+    } else if(!Number.isSafeInteger(reservedMinor)||reservedMinor!==0) {
+      throw new Error("Trade has a reserved reward amount but its reservation record is missing");
+    }
+
     const wallet=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,trade.userId),eq(customerBalances.currency,trade.currency))).limit(1).for("update"))[0];
     if(!wallet) throw new Error("Customer settlement wallet is not configured");
     const lockedMinor=Number(wallet.lockedMinor);
@@ -2905,10 +2919,13 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     // If another settlement won the race, roll back wallet and ledger mutations together.
     assertExactlyOneAffectedRow(settlementUpdate,"Manual trade settlement state transition");
     // Preserve the original reserved estimate as audit evidence. Only its state changes.
-    await tx.update(tradeRewardReservations).set({
-      status:accounting.netProfitMinor>0?"credited":"released",
-      updatedAt:now,
-    }).where(and(eq(tradeRewardReservations.tradeId,tradeId),eq(tradeRewardReservations.status,"reserved")));
+    if(reservation) {
+      const reservationUpdate=await tx.update(tradeRewardReservations).set({
+        status:accounting.netProfitMinor>0?"credited":"released",
+        updatedAt:now,
+      }).where(and(eq(tradeRewardReservations.id,reservation.id),eq(tradeRewardReservations.status,"reserved")));
+      assertExactlyOneAffectedRow(reservationUpdate,"Trade reward reservation settlement");
+    }
     await tx.insert(tradeLifecycleEvents).values({
       tradeId,userId:trade.userId,eventType:"manual_settlement_confirmed",stage:"Wallet Updated",
       payloadJson:JSON.stringify({principalMinor:principal,grossProfitMinor:accounting.grossProfitMinor,platformFeeMinor:accounting.platformFeeMinor,netProfitMinor:accounting.netProfitMinor,feeRateBps:feePolicy.feeRateBps,roundingMode:feePolicy.roundingMode,feePolicyVersion:feePolicy.policyVersion,outcome:accounting.outcome,reference,adminId}),
