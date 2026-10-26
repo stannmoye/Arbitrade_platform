@@ -39,4 +39,17 @@ describe("trading package activation policy", () => {
     expect(addCalendarMonths(new Date("2028-01-31T12:00:00.000Z"), 1).toISOString()).toBe("2028-02-29T12:00:00.000Z");
     expect(addCalendarMonths(new Date("2026-10-24T12:00:00.000Z"), 3).toISOString()).toBe("2027-01-24T12:00:00.000Z");
   });
+
+  it("rejects invalid activation dates and unsupported package durations", () => {
+    expect(() => addCalendarMonths(new Date(Number.NaN), 1)).toThrow(/valid activation time/);
+    expect(() => addCalendarMonths(new Date("2026-10-24T12:00:00.000Z"), 0)).toThrow(/1–1200 calendar months/);
+    expect(() => addCalendarMonths(new Date("2026-10-24T12:00:00.000Z"), 1201)).toThrow(/1–1200 calendar months/);
+  });
+
+  it("fails closed when combining eligible wallet balances would exceed safe integer precision", () => {
+    expect(() => calculateQualifyingBalanceUsdMinor([
+      { currency: "USD", availableMinor: Number.MAX_SAFE_INTEGER, scale: 0, usdRate: 1 },
+      { currency: "EUR", availableMinor: Number.MAX_SAFE_INTEGER, scale: 0, usdRate: 1 },
+    ], { eligibleCurrencies: ["USD", "EUR"], combineEligibleWallets: true })).toThrow(/safe integer precision/);
+  });
 });
