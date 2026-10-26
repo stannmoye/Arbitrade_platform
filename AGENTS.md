@@ -40,3 +40,12 @@ Database changes should use ordered forward migrations and retry-safe server-sid
 ## Financial safety and release discipline
 
 Live execution requires a named, authorized provider, verified result references, and settlement reconciliation. Configured opportunity estimates are never sufficient to credit real profit. Admin changes to financial policy must be permissioned and auditable. Passing build checks, source inclusion, hosted acceptance, deployment, and production certification are separate gates.
+
+
+## Ticker candidate data safeguards
+
+- The imported candidate snapshot is `server/data/company-trading-symbol-candidates-1811.json.gz.b64`; the service validates its 1,811 rows and 814 public candidates at startup.
+- Join candidate ticker data to the image catalogue using the stable sequential logo ID, never fuzzy name matching.
+- The source workbook includes 637 invented placeholder codes, 265 parent-brand ticker references, and 95 historical tickers. Those values must not be exposed as active candidates.
+- The 814 rows marked Public are still unverified research candidates. Keep all entries ineligible for verified trade rotation until independent authoritative verification, source URL, provider instrument ID, and verification timestamp are recorded.
+- Do not use ticker search results to authorize live orders, market quotes, or settlement.
