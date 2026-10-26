@@ -243,8 +243,8 @@ export function AdminTransactionReview() {
   const walletLedgerReconciliationQuery = trpc.adminOperations.walletLedgerReconciliation.useQuery({
     limit: 250,
     ...(walletReconciliationAfter === undefined ? {} : {
-      afterUserId: walletReconciliationAfter.userId,
-      afterCurrency: walletReconciliationAfter.currency,
+      afterUserId: walletReconciliationAfter.afterUserId,
+      afterCurrency: walletReconciliationAfter.afterCurrency,
     }),
     ...(settlementLedgerBeforeTradeId === undefined ? {} : { beforeTradeId: settlementLedgerBeforeTradeId }),
   }, { refetchInterval: 30_000 });
