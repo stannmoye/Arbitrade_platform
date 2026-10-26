@@ -2355,6 +2355,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const now=new Date();
   const quotaDay=now.toISOString().slice(0,10);
+  const quotaDayStartUtc=new Date(`${quotaDay}T00:00:00.000Z`);
+  const nextQuotaDayStartUtc=new Date(quotaDayStartUtc.getTime()+24*60*60*1000);
   const settled:Array<{tradeId:number;rewardMinor:number;currency:string;totalMinor:number}>=[];
   await markDueTradesAwaitingConfirmation(userId);
   const controls=await ensureCustomerControls(userId);
@@ -2415,7 +2417,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   // subscription's own daily quota instead of pooling copies under package name.
   const usedQuotaRows=await db.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions
     WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL
-      AND DATE(confirmedAt)=${quotaDay} AND status<>'cancelled'
+      AND confirmedAt>=${quotaDayStartUtc} AND confirmedAt<${nextQuotaDayStartUtc}
+      AND status<>'cancelled'
     GROUP BY packageSubscriptionId`) as any;
   const usedBySubscription=new Map<number,number>();
   for(const row of (usedQuotaRows?.[0]||[])) usedBySubscription.set(Number(row.packageSubscriptionId),Number(row.used||0));
@@ -2599,6 +2602,8 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   if(!offer || new Date(offer.closesAt).getTime()<=Date.now()) throw new Error("This opportunity is no longer open");
   const now=new Date();
   const today=new Date().toISOString().slice(0,10);
+  const todayStartUtc=new Date(`${today}T00:00:00.000Z`);
+  const tomorrowStartUtc=new Date(todayStartUtc.getTime()+24*60*60*1000);
   const activePackageSubscriptions=await tx.select({
     subscriptionId:customerPackageSubscriptions.id,
     packageId:packages.id,
@@ -2690,7 +2695,8 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
       INNER JOIN trade_positions tp ON tp.id=trr.tradeId
       WHERE trr.userId=${userId} AND trr.packageName=${activePackageSubscription.packageName}
         AND trr.status='credited' AND tp.settlementStatus='completed'
-        AND DATE(tp.settledAt)=${today} AND tp.netProfitMinor>0`) as any;
+        AND tp.settledAt>=${todayStartUtc} AND tp.settledAt<${tomorrowStartUtc}
+        AND tp.netProfitMinor>0`) as any;
     const reserved=Number(reservationRows?.[0]?.[0]?.reserved||0), credited=Number(creditedRows?.[0]?.[0]?.credited||0);
     if (remainingRewardAllowance(Number(packagePolicy.maxDailyRewardMinor),credited,reserved)<reward) throw new Error("Daily reward cap reached for this package");
   }
