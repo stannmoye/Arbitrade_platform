@@ -52,6 +52,33 @@ describe("trade recovery collector context safety", () => {
     }
   });
 
+  it("escalates incomplete or internally inconsistent scan coverage", () => {
+    const incomplete = applyRecoveryContextSafety(plan(), {
+      ...healthyContext,
+      scanCoverage: {
+        requestedLimit: 100,
+        selectedTradeCount: 100,
+        totalTradeCount: 181,
+        complete: false,
+      },
+    });
+    expect(incomplete.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(incomplete.reasons.join(" ")).toContain("collected 100 of 181 trades");
+    expect(incomplete.plannedMutations).toEqual([]);
+
+    const inconsistent = applyRecoveryContextSafety(plan(), {
+      ...healthyContext,
+      scanCoverage: {
+        requestedLimit: 100,
+        selectedTradeCount: 50,
+        totalTradeCount: 40,
+        complete: true,
+      },
+    });
+    expect(inconsistent.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(inconsistent.reasons.join(" ")).toContain("coverage metadata is invalid");
+  });
+
   it("escalates ledger rows whose user or currency does not match", () => {
     const result = applyRecoveryContextSafety(plan(), {
       ...healthyContext,
