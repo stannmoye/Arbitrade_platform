@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { gunzipSync } from "node:zlib";
 
 export type CompanyReferenceRecord = {
   id: string;
@@ -7,6 +8,8 @@ export type CompanyReferenceRecord = {
   ticker: string;
   symbol: string;
   exchangeCode: string;
+  tickerResearchStatus: string;
+  tickerSource: "company_trading_symbols.xlsx" | null;
   countryCode: string;
   countryName: string;
   logoUrl: string;
@@ -89,9 +92,50 @@ function loadLogoMapping(): LogoMappingRow[] {
   return rows;
 }
 
+type TickerSnapshot = {
+  v: number;
+  n: number;
+  source: string;
+  policy: string;
+  statuses: string[];
+  records: Array<[number, string, string, number]>;
+};
+
+function loadTickerSnapshot(): Map<number, { ticker: string; exchange: string; status: string }> {
+  const dataPath = resolve(process.cwd(), "server/data/company-trading-symbol-candidates-1811.json.gz.b64");
+  const encoded = readFileSync(dataPath, "utf8").trim();
+  const snapshot = JSON.parse(gunzipSync(Buffer.from(encoded, "base64")).toString("utf8")) as TickerSnapshot;
+  if (snapshot.v !== 1 || snapshot.n !== 1811 || snapshot.records.length !== 1811 || !Array.isArray(snapshot.statuses)) {
+    throw new Error("The 1,811-company ticker candidate snapshot has an invalid schema or record count.");
+  }
+  const candidates = new Map<number, { ticker: string; exchange: string; status: string }>();
+  let publicCandidateCount = 0;
+  for (const record of snapshot.records) {
+    const [logoId, ticker, exchange, statusIndex] = record;
+    const status = snapshot.statuses[statusIndex];
+    if (!Number.isInteger(logoId) || logoId < 1 || logoId > 1811 || candidates.has(logoId) || !status) {
+      throw new Error("The ticker snapshot contains an invalid or duplicate logo ID/status.");
+    }
+    if (status === "Public") {
+      if (!ticker || !exchange) throw new Error(`Public ticker candidate is incomplete for logo ID ${logoId}.`);
+      publicCandidateCount++;
+    } else if (ticker || exchange) {
+      throw new Error(`Non-public row ${logoId} must not expose a candidate ticker or exchange.`);
+    }
+    candidates.set(logoId, { ticker, exchange, status });
+  }
+  if (publicCandidateCount !== 814) {
+    throw new Error(`Expected 814 public ticker candidates from the supplied workbook, found ${publicCandidateCount}.`);
+  }
+  return candidates;
+}
+
 const mapping = loadLogoMapping();
+const tickerSnapshot = loadTickerSnapshot();
 
 function toReference(row: LogoMappingRow, index: number): CompanyReferenceRecord {
+  const tickerData = tickerSnapshot.get(index + 1);
+  if (!tickerData) throw new Error(`Missing ticker snapshot row for logo ID ${index + 1}.`);
   const filename = row.filename.replace(/^\/+/, "");
   if (filename.includes("..") || filename.startsWith("http:") || filename.startsWith("https:")) {
     throw new Error(`Invalid local logo filename for ${row.company_name}`);
@@ -99,9 +143,11 @@ function toReference(row: LogoMappingRow, index: number): CompanyReferenceRecord
   return {
     id: `logo-brand-${String(index + 1).padStart(4, "0")}`,
     name: row.company_name.trim(),
-    ticker: "",
-    symbol: "",
-    exchangeCode: "",
+    ticker: tickerData?.ticker ?? "",
+    symbol: tickerData?.ticker ?? "",
+    exchangeCode: tickerData?.exchange ?? "",
+    tickerResearchStatus: tickerData?.status ?? "Not supplied",
+    tickerSource: tickerData?.status === "Public" ? "company_trading_symbols.xlsx" : null,
     countryCode: "",
     countryName: "",
     logoUrl: `/assets/company-logo-source/${filename.split("/").map(encodeURIComponent).join("/")}`,
@@ -153,9 +199,13 @@ export function getRandomCompanyReference(
   return asReferenceResponse(candidates[Math.floor(sample * candidates.length)]!);
 }
 
-/** The logo archive contains no exchange symbols; do not guess ticker matches. */
-export function findCompanyReferencesBySymbol(_symbol: string): CompanyReferenceResponse[] {
-  return [];
+/** Matches only imported public ticker candidates for research; results remain unverified and never authorize execution. */
+export function findCompanyReferencesBySymbol(symbol: string): CompanyReferenceResponse[] {
+  const normalized = symbol.trim().toUpperCase();
+  if (!normalized) return [];
+  return COMPANY_REFERENCE_CATALOGUE
+    .filter((company) => company.ticker && company.ticker.toUpperCase() === normalized)
+    .map(asReferenceResponse);
 }
 
 export function searchCompanyReferences(filters: CompanyReferenceSearch = {}): CompanyReferenceResponse[] {
@@ -164,7 +214,7 @@ export function searchCompanyReferences(filters: CompanyReferenceSearch = {}): C
   if (filters.countryCode?.trim()) return [];
   const results: CompanyReferenceResponse[] = [];
   for (const company of COMPANY_REFERENCE_CATALOGUE) {
-    if (term && ![company.name, company.domain].some((value) => value.toLowerCase().includes(term))) continue;
+    if (term && ![company.name, company.domain, company.ticker, company.exchangeCode].some((value) => value.toLowerCase().includes(term))) continue;
     results.push(asReferenceResponse(company));
     if (results.length >= limit) break;
   }
@@ -176,6 +226,7 @@ export function getCompanyReferenceSummary() {
     total: COMPANY_REFERENCE_CATALOGUE.length,
     incompleteRecords: COMPANY_REFERENCE_CATALOGUE.length,
     unverified: COMPANY_REFERENCE_CATALOGUE.length,
+    tickerCandidates: COMPANY_REFERENCE_CATALOGUE.filter((company) => Boolean(company.ticker)).length,
     verifiedActive: 0,
     localLogoPaths: COMPANY_REFERENCE_CATALOGUE.filter((company) => company.logoUrl.startsWith("/assets/company-logo-source/")).length,
     logoReusePermissionVerified: 0,
@@ -183,8 +234,9 @@ export function getCompanyReferenceSummary() {
     generatedAt: null,
     countryCounts: {},
     dataLimitations: [
-      "The new logo archive contains company names, domains, and logos only.",
-      "Ticker symbols, exchange codes, and company countries are not supplied by this archive.",
+      "Ticker candidates were imported from company_trading_symbols.xlsx and are not independently verified.",
+      "Only 814 rows marked Public contain candidate tickers/exchanges; 637 invented placeholder codes, 265 parent-brand ticker references, and 95 historical tickers are not exposed as active candidates.",
+      "All 1,811 records remain unverified and ineligible for verified trade rotation; the imported spreadsheet contains no authoritative per-row source citations.",
       "Brand-logo redistribution and commercial-use terms must be reviewed with Logo.dev.",
     ],
     sourceProvider: null,
