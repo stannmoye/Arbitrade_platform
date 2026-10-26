@@ -55,6 +55,20 @@ export function applyRecoveryContextSafety(
   if (context.identityMismatchedLedgerRows.length > 0) {
     reasons.push("Ledger rows share a settlement reference but do not match the trade user and currency.");
   }
+  if (context.userId !== undefined &&
+      (!Number.isSafeInteger(context.userId) || context.userId < 1)) {
+    reasons.push("Collector trade user identity is invalid.");
+  }
+  if (context.tradeId !== undefined &&
+      (!Number.isSafeInteger(context.tradeId) || context.tradeId < 1)) {
+    reasons.push("Collector trade identity is invalid.");
+  }
+  if (context.currency !== undefined && (typeof context.currency !== "string" || !context.currency.trim())) {
+    reasons.push("Collector trade currency is invalid.");
+  }
+  if (context.userId !== undefined && context.wallet === undefined) {
+    reasons.push("Collector omitted the wallet snapshot for a trade with explicit user identity.");
+  }
   if (context.wallet !== undefined) {
     if (context.walletMatchCount === 1 && context.wallet === null) {
       reasons.push("Collector reports one wallet match but did not provide its balance snapshot.");
@@ -72,13 +86,13 @@ export function applyRecoveryContextSafety(
           (context.wallet.userId !== undefined && context.wallet.userId < 1)) {
         reasons.push("Wallet snapshot contains negative or unsafe identifier/balance values.");
       }
-      if (context.userId !== undefined && context.wallet.userId !== undefined &&
-          context.wallet.userId !== context.userId) {
-        reasons.push("Wallet snapshot user does not match the trade user.");
+      if (context.userId !== undefined &&
+          (!Number.isSafeInteger(context.wallet.userId) || context.wallet.userId !== context.userId)) {
+        reasons.push("Wallet snapshot user is missing or does not match the trade user.");
       }
-      if (context.currency !== undefined && context.wallet.currency !== undefined &&
-          context.wallet.currency !== context.currency) {
-        reasons.push("Wallet snapshot currency does not match the trade currency.");
+      if (context.currency !== undefined &&
+          (typeof context.wallet.currency !== "string" || context.wallet.currency !== context.currency)) {
+        reasons.push("Wallet snapshot currency is missing or does not match the trade currency.");
       }
     }
   }
@@ -103,9 +117,9 @@ export function applyRecoveryContextSafety(
           typeof reservation.currency !== "string" || !reservation.currency) {
         reasons.push("Reward reservation snapshot contains invalid identity, amount, status, or currency.");
       }
-      if (context.tradeId !== undefined && reservation.tradeId !== undefined &&
-          reservation.tradeId !== context.tradeId) {
-        reasons.push("Reward reservation trade identity does not match the inspected trade.");
+      if (context.tradeId !== undefined &&
+          (!Number.isSafeInteger(reservation.tradeId) || reservation.tradeId !== context.tradeId)) {
+        reasons.push("Reward reservation trade identity is missing or does not match the inspected trade.");
       }
       if (context.currency !== undefined && reservation.currency !== context.currency) {
         reasons.push("Reward reservation currency does not match the trade currency.");
