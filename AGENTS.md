@@ -60,6 +60,14 @@ Live execution requires a named, authorized provider, verified result references
 - Import every row and every column from `company_trading_symbols.xlsx` aligned by its 1-based `#` field to Logo ID; preserve supplied ticker, exchange, status, parent ticker, and reason fields even for placeholder, parent, and historical rows.
 - Placeholder codes are display-only and must not be passed to market-data or order APIs. Historical and parent-company ticker references must remain visibly classified; do not silently convert them into direct listings.
 
+### Admin authority and trade closing time
+
+- The admin portal is the source of truth for all admin-configurable customer-side trading behaviour. Customer UI must reflect authorized admin settings and server-persisted state; it must not independently override or hard-code policy values.
+- Trade close time and countdown target are based on the admin-configured duration/schedule plus the server-recorded trade opening/start timestamp. The browser only renders the countdown; it cannot determine or change the authoritative close time.
+- Customer sign-out, refresh, local clock drift, scrolling, minimizing, or maximizing must not alter trade timing or settlement.
+- Admin configuration changes must be authorized, validated, audited, and versioned where they affect existing trades. Follow the documented effective-time policy; never silently rewrite a trade's historical timestamps.
+- If the configured close time is missing or invalid, show a pending/unavailable state rather than inventing a duration or timestamp.
+
 ### Trade pop-up and minimized dock requirements
 
 - The canonical UI requirements are in Section 10 of `docs/TRADING_SYSTEM_SPECIFICATION.md`; read and follow that section before changing the trade pop-up.
