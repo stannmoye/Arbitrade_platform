@@ -2662,14 +2662,14 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   if (packagePolicy&&Number(packagePolicy.minimumRewardBps||0)>terms.rewardBps) throw new Error("Opportunity reward rate is below the package minimum");
   if (packagePolicy&&Number(packagePolicy.maxDailyRewardMinor||0)>0) {
     const reservationRows=await tx.execute(sql`SELECT COALESCE(SUM(reservedMinor),0) AS reserved FROM trade_reward_reservations WHERE userId=${userId} AND packageName=${activePackageSubscription.packageName} AND windowKey=${today} AND status='reserved'`) as any;
-    // Apply each package's daily reward ceiling only to realized gross profit from
-    // that package's own trade reservations, not rewards earned under other packages.
-    const creditedRows=await tx.execute(sql`SELECT COALESCE(SUM(tp.realizedGrossProfitMinor),0) AS credited
+    // The daily reward ceiling counts realized net profit actually retained by the
+    // customer, not gross profit before platform fees and not another package's trades.
+    const creditedRows=await tx.execute(sql`SELECT COALESCE(SUM(tp.netProfitMinor),0) AS credited
       FROM trade_reward_reservations trr
       INNER JOIN trade_positions tp ON tp.id=trr.tradeId
       WHERE trr.userId=${userId} AND trr.packageName=${activePackageSubscription.packageName}
         AND trr.status='credited' AND tp.settlementStatus='completed'
-        AND DATE(tp.settledAt)=${today} AND tp.realizedGrossProfitMinor>0`) as any;
+        AND DATE(tp.settledAt)=${today} AND tp.netProfitMinor>0`) as any;
     const reserved=Number(reservationRows?.[0]?.[0]?.reserved||0), credited=Number(creditedRows?.[0]?.[0]?.credited||0);
     if (remainingRewardAllowance(Number(packagePolicy.maxDailyRewardMinor),credited,reserved)<reward) throw new Error("Daily reward cap reached for this package");
   }
