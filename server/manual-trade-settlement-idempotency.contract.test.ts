@@ -44,6 +44,12 @@ describe("settlement reference uniqueness migration", () => {
 });
 
 describe("manual trade settlement idempotency", () => {
+  it("enforces the minimum reference length and note limit in the settlement service", () => {
+    expect(implementation).toContain("Settlement reference must contain at least 3 characters");
+    expect(implementation).toContain("Settlement reference must not exceed 160 characters");
+    expect(implementation).toContain("Settlement notes must not exceed 2000 characters");
+  });
+
   it("rejects manual settlement before the trade due timestamp", () => {
     expect(implementation).toContain("const settlementDueAt=trade.creditAt||trade.settlesAt");
     expect(implementation).toContain("Trade is not yet due for settlement confirmation");
