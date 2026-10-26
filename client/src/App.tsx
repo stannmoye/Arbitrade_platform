@@ -721,7 +721,7 @@ function AdminTradingPackageCatalogue(){
     <div className="settings-card" style={{marginTop:24,padding:18}}>
       <div className="eyebrow">Activation and qualification policy</div><h2>Wallet eligibility & repeat purchases</h2>
       <p>These rules are checked server-side during activation. Qualifying balances do not authorize overspending or reserve capital for trades.</p>
-      {policyQ.isLoading||!policyDraft?<div className="empty-state">Loading activation policy…</div>:<>
+      {policyQ.isError?<div className="admin-ops-empty error">Activation policy could not be loaded. Refresh to retry; no policy changes were submitted.</div>:policyQ.isLoading||!policyDraft?<div className="empty-state">Loading activation policy…</div>:<>
         <label>Eligible wallet currencies (comma-separated ISO codes)<input value={policyDraft.eligibleCurrenciesText} onChange={e=>setPolicyDraft((v:any)=>({...v,eligibleCurrenciesText:e.target.value}))}/></label>
         <label>Combine qualifying balances across eligible wallets <input type="checkbox" checked={Boolean(policyDraft.combineEligibleWallets)} onChange={e=>setPolicyDraft((v:any)=>({...v,combineEligibleWallets:e.target.checked}))}/></label>
         <label>Allow repeat purchase of the same package <input type="checkbox" checked={Boolean(policyDraft.repeatAllowed)} onChange={e=>setPolicyDraft((v:any)=>({...v,repeatAllowed:e.target.checked}))}/></label>
