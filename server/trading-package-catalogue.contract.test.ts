@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(new URL("../drizzle/0069_trading_package_activation.sql", import.meta.url), "utf8");
-const insert = migration.match(//INSERT INTO `packages` \\(`name`,`minimumQualifyingBalanceUsdMinor`,`durationMonths`,`opportunitiesPerDay`,`termsVersion`,`enabled`\\)\\s*VALUES/([\s\S]*?)ON DUPLICATE KEY UPDATE/i)?.[1] ?? "";
+const insert = migration.match(/INSERT INTO `packages` \(`name`,`minimumQualifyingBalanceUsdMinor`,`durationMonths`,`opportunitiesPerDay`,`termsVersion`,`enabled`\)\s*VALUES([\s\S]*?)ON DUPLICATE KEY UPDATE/i)?.[1] ?? "";
 const seededPackages = [...insert.matchAll(/\('([^']+)',(\d+),(\d+),(\d+),1,1\)/g)].map((match) => ({
   name: match[1],
   minimumUsdMinor: Number(match[2]),
