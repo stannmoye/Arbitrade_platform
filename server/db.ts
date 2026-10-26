@@ -2388,7 +2388,10 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     .where(and(eq(opportunityPopupEvents.userId,userId),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN"])))
     .orderBy(desc(opportunityPopupEvents.deliveredAt));
   const tradeCandidates=popupRows.filter(row=>row.offerStatus==="open"&&row.closesAt&&new Date(row.closesAt).getTime()>now.getTime()).map(row=>{
-    const subscription=eligibleSubscriptions.find(item=>item.packageName===row.packageName)||eligibleSubscriptions[0];
+    // Never reassign an existing popup to another package when its original
+    // package is renamed, disabled, expired, or otherwise no longer eligible.
+    const subscription=eligibleSubscriptions.find(item=>item.packageName===row.packageName);
+    if(!subscription) return null;
     const configured=policyByName.get(subscription.packageName);
     const currencyRow=currencyRows.find((item:any)=>String(item.code).toUpperCase()===String(row.currency).toUpperCase());
     const offerMinimum=Number(row.offerMinimumMinor??row.popupMinimumMinor);
@@ -2399,7 +2402,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,expectedRewardBps:Number(row.expectedRewardBps||0),
       opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,durationSeconds:Number(row.durationSeconds||0),marketObservedAt:row.marketObservedAt,
       marketSnapshotId:row.marketSnapshotId,sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus),eventStatus:row.eventStatus};
-  });
+  }).filter((offer:any)=>offer!==null);
   const autoTradeCandidates=tradeCandidates.filter((offer:any)=>{
     if(offer.popupEligible!==true) return false;
     const packagePolicy=policyByName.get(String(offer.packageName));
