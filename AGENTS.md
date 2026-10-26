@@ -12,6 +12,12 @@ Read these files before changing the application:
 
 Before modifying the Trading page, opportunity engine, package entitlements, wallet allocation, trade lifecycle, settlement, fees, company catalogue, or related admin controls, read `docs/TRADING_SYSTEM_SPECIFICATION.md` in full. Treat it as the canonical product contract for trading behaviour. It covers package defaults, free activation/qualifying balance, same-package repurchase controls, combined customer earnings ceiling, insufficient-balance opportunity pop-ups, server-side automatic processing, 15% fee on realized positive profit, retries/carry-forward, company rotation, wallet notifications, and admin controls.
 
+### Current company-logo catalogue baseline
+
+As of 2026-10-26, the working inventory baseline is **1,811 companies**, each with a stable company ID, company name, corresponding logo image, and country grouping represented by its country folder. This supersedes earlier 950- or 1,000-company inventory figures for the logo popup. The 3,000-company target in the trading specification is a future goal, not the current inventory count.
+
+Do not confuse logo/catalogue completeness with verified trading-instrument data. Company ticker/symbol, exchange, listing status, provider identifiers, and market data remain a separate verification stage. Preserve the ID/name/image/country-folder mapping; never invent symbols or claim a country folder alone proves headquarters or exchange listing. Popup selection must use the stable company ID and its matching logo asset. Update this baseline only after a fresh inventory audit establishes a different count.
+
 Do not introduce behaviour that conflicts with the specification. If a codebase constraint or later user instruction appears to conflict, stop and document the conflict before implementing. Update the canonical specification and its PDF together when requirements are formally revised. Never claim a requirement is implemented without inspecting the code and validating it.
 
 ## Canonical source
