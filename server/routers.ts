@@ -37,6 +37,10 @@ export const appRouter = router({
 
   companyCatalogueReference: router({
     summary: publicProcedure.query(() => getCompanyReferenceSummary()),
+    count: publicProcedure.input(z.object({
+      search: z.string().trim().max(100).optional(),
+      countryName: z.string().trim().min(1).max(100).optional(),
+    }).optional()).query(({ input }) => countCompanyReferences(input ?? {})),
     search: publicProcedure.input(z.object({
       search: z.string().trim().max(100).optional(),
       countryName: z.string().trim().min(1).max(100).optional(),
