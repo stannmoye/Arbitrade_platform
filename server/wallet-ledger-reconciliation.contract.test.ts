@@ -53,7 +53,9 @@ describe("wallet and settlement reconciliation read-only contract", () => {
     expect(schema).toContain("balance_ledger_reference_idx");
     expect(schema).toContain("trade_positions_status_settlement_user_currency_idx");
     expect(schema).toContain("trade_positions_settlement_reference_idx");
-    expect(migration).toContain("ADD INDEX");
+    expect(migration).toContain("CREATE INDEX IF NOT EXISTS");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS `settlementStatus`");
+    expect(migration).toContain("ADD COLUMN IF NOT EXISTS `settlementReference`");
     expect(migration).toContain("customer_balances_user_currency_idx");
     expect(migration).toContain("balance_ledger_reference_idx");
     expect(journal.entries).toContainEqual(expect.objectContaining({

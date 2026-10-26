@@ -76,6 +76,18 @@ describe("worker schema contracts", () => {
     )).toContain("mining_pending_boost_rewards: table is missing or has no visible columns");
   });
 
+  it("creates settlement index prerequisites before indexing them in the main migration path", async () => {
+    const sql = await readFile(new URL("../drizzle/0072_wallet_ledger_reconciliation_indexes.sql", import.meta.url), "utf8");
+    const settlementStatusColumn = sql.indexOf("ADD COLUMN IF NOT EXISTS `settlementStatus`");
+    const settlementReferenceColumn = sql.indexOf("ADD COLUMN IF NOT EXISTS `settlementReference`");
+    const settlementStatusIndex = sql.indexOf("CREATE INDEX IF NOT EXISTS `trade_positions_status_settlement_user_currency_idx`");
+    const settlementReferenceIndex = sql.indexOf("CREATE INDEX IF NOT EXISTS `trade_positions_settlement_reference_idx`");
+    expect(settlementStatusColumn).toBeGreaterThanOrEqual(0);
+    expect(settlementReferenceColumn).toBeGreaterThanOrEqual(0);
+    expect(settlementStatusColumn).toBeLessThan(settlementStatusIndex);
+    expect(settlementReferenceColumn).toBeLessThan(settlementReferenceIndex);
+  });
+
   it("keeps the standalone mining and portal campaign migrations covered by the standard journal bridge", async () => {
     const root = new URL("../", import.meta.url);
     const [journalText, mainSql, miningSql, portalSql, portalRunner] = await Promise.all([
@@ -97,7 +109,12 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(last.tag).toBe("0070_local_scheduled_jobs");
+    expect(last.tag).toBe("0073_trade_settlement_recovery_cases");
+    expect(journal.entries.slice(-3).map((entry) => entry.tag)).toEqual([
+      "0071_trade_allocation_pause",
+      "0072_wallet_ledger_reconciliation_indexes",
+      "0073_trade_settlement_recovery_cases",
+    ]);
     expect(last.idx).toBe(previous.idx + 1);
     expect(last.when).toBeGreaterThan(previous.when);
     expect(portalRunner).toContain('"0055_notification_campaign_delivery_tracking.sql"');

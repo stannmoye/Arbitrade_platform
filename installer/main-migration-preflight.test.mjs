@@ -56,6 +56,22 @@ describe("main migration preflight", () => {
     expect(validateMainMigrationHistory([{ hash: "b".repeat(64), created_at: 2000 }], expected).allowed).toBe(false);
   });
 
+  it("accepts the verified pre-correction hash for migration 0072 without permitting history gaps", () => {
+    const expected = [
+      { tag: "0071_trade_allocation_pause", hash: "a".repeat(64), createdAt: 1000 },
+      { tag: "0072_wallet_ledger_reconciliation_indexes", hash: "b".repeat(64), createdAt: 2000 },
+      { tag: "0073_trade_settlement_recovery_cases", hash: "c".repeat(64), createdAt: 3000 },
+    ];
+    const legacyHash = "a2f897e5e500ae7fb54c71cc6756510191f02d615e3e62c4a3a68f824898cafc";
+    expect(validateMainMigrationHistory([
+      { hash: "a".repeat(64), created_at: 1000 },
+      { hash: legacyHash, created_at: 2000 },
+    ], expected).allowed).toBe(true);
+    expect(validateMainMigrationHistory([
+      { hash: legacyHash, created_at: 2001 },
+    ], expected).allowed).toBe(false);
+  });
+
   it("fails closed when database inventory counts are malformed", () => {
     for (const tableCount of [Number.NaN, 1.5, -1]) {
       expect(classifyMainMigrationPreflight({
