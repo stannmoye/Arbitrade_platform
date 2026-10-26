@@ -6542,9 +6542,9 @@
       "companyName": "Ocado",
       "logoFile": "logos/Ocado.png",
       "domain": "img.logo.devocado.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United Kingdom",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 728,
@@ -6560,54 +6560,54 @@
       "companyName": "Thermaltake Technology",
       "logoFile": "logos/Thermaltake Technology.png",
       "domain": "img.logo.devthermaltake.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Taiwan",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 730,
       "companyName": "ams OSRAM",
       "logoFile": "logos/ams OSRAM.png",
       "domain": "img.logo.devams-osram.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Austria",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 731,
       "companyName": "Molex",
       "logoFile": "logos/Molex.png",
       "domain": "img.logo.devmolex.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 732,
       "companyName": "Cainiao",
       "logoFile": "logos/Cainiao.png",
       "domain": "img.logo.devcainiao.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "China",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 733,
       "companyName": "DFDS",
       "logoFile": "logos/DFDS.png",
       "domain": "img.logo.devdfds.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Denmark",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 734,
       "companyName": "SGX RegCo",
       "logoFile": "logos/SGX RegCo.png",
       "domain": "img.logo.devsgx.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Singapore",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 735,
@@ -6623,18 +6623,18 @@
       "companyName": "Sysco",
       "logoFile": "logos/Sysco.png",
       "domain": "img.logo.devsysco.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 737,
       "companyName": "Bosch Rexroth",
       "logoFile": "logos/Bosch Rexroth.png",
       "domain": "img.logo.devboschrexroth.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Germany",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 738,
@@ -6650,54 +6650,54 @@
       "companyName": "Knorr",
       "logoFile": "logos/Knorr.png",
       "domain": "img.logo.devknorr.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United Kingdom",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 740,
       "companyName": "G4S",
       "logoFile": "logos/G4S.png",
       "domain": "img.logo.devg4s.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United Kingdom",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 741,
       "companyName": "Skanska",
       "logoFile": "logos/Skanska.png",
       "domain": "img.logo.devskanska.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Sweden",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 742,
       "companyName": "ManpowerGroup",
       "logoFile": "logos/ManpowerGroup.png",
       "domain": "img.logo.devmanpowergroup.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 743,
       "companyName": "EnBW",
       "logoFile": "logos/EnBW.png",
       "domain": "img.logo.devenbw.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Germany",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 744,
       "companyName": "Kroll",
       "logoFile": "logos/Kroll.png",
       "domain": "img.logo.devkroll.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 745,
@@ -6713,9 +6713,9 @@
       "companyName": "Teradata",
       "logoFile": "logos/Teradata.png",
       "domain": "img.logo.devteradata.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 747,
@@ -6731,108 +6731,108 @@
       "companyName": "TIBCO Software",
       "logoFile": "logos/TIBCO Software.png",
       "domain": "img.logo.devtibco.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 749,
       "companyName": "Alexander McQueen",
       "logoFile": "logos/Alexander McQueen.png",
       "domain": "img.logo.devalexandermcqueen.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United Kingdom",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 750,
       "companyName": "Anheuser-Busch",
       "logoFile": "logos/Anheuser-Busch.png",
       "domain": "img.logo.devanheuser-busch.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 751,
       "companyName": "Lloyd's Register",
       "logoFile": "logos/Lloyd's Register.png",
       "domain": "img.logo.devlr.org",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United Kingdom",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 752,
       "companyName": "The HEINEKEN Company",
       "logoFile": "logos/The HEINEKEN Company.png",
       "domain": "img.logo.devtheheinekencompany.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Netherlands",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 753,
       "companyName": "BAT",
       "logoFile": "logos/BAT.png",
       "domain": "img.logo.devbat.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United Kingdom",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 754,
       "companyName": "GLS",
       "logoFile": "logos/GLS.png",
       "domain": "img.logo.devgls-group.eu",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Netherlands",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 755,
       "companyName": "Leica Geosystems",
       "logoFile": "logos/Leica Geosystems.png",
       "domain": "img.logo.devleica-geosystems.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Switzerland",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 756,
       "companyName": "Fiskars",
       "logoFile": "logos/Fiskars.png",
       "domain": "img.logo.devfiskars.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Finland",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 757,
       "companyName": "Smeg Group",
       "logoFile": "logos/Smeg Group.png",
       "domain": "img.logo.devsmeg.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Italy",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 758,
       "companyName": "Jacobs",
       "logoFile": "logos/Jacobs.png",
       "domain": "img.logo.devjacobs.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 759,
       "companyName": "Cannondale",
       "logoFile": "logos/Cannondale.png",
       "domain": "img.logo.devcannondale.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 760,
@@ -6848,18 +6848,18 @@
       "companyName": "POP MART",
       "logoFile": "logos/POP MART.png",
       "domain": "img.logo.devpopmart.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "China",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 762,
       "companyName": "Topcoder",
       "logoFile": "logos/Topcoder.png",
       "domain": "img.logo.devtopcoder.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 763,
@@ -6875,9 +6875,9 @@
       "companyName": "Cheetos",
       "logoFile": "logos/Cheetos.png",
       "domain": "img.logo.devcheetos.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "United States",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 765,
@@ -6893,18 +6893,18 @@
       "companyName": "BIC",
       "logoFile": "logos/BIC.png",
       "domain": "img.logo.devbic.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "France",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 767,
       "companyName": "Astellas Pharma",
       "logoFile": "logos/Astellas Pharma.png",
       "domain": "img.logo.devastellas.com",
-      "country": "Unverified",
-      "countryAssignmentMethod": "needs-manual-verification",
-      "countryConfidence": "unknown"
+      "country": "Japan",
+      "countryAssignmentMethod": "company-headquarters-research",
+      "countryConfidence": "high"
     },
     {
       "logoId": 768,
