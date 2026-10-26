@@ -29,6 +29,8 @@ describe("Trading administration policy schema repair", () => {
     expect(migration).toContain("trading.packagePurchase.repeatAllowed");
     expect(migration).toContain("trading.packagePurchase.cooldownSeconds");
     expect(migration).toContain("trading.allocations.paused");
+    expect(migration).toContain('"allocationsPaused":true');
+    expect(migration).toContain("administrator review is required before resuming allocations");
     expect(migration.match(/ON DUPLICATE KEY UPDATE `settingKey`=VALUES(`settingKey`)/g)).toHaveLength(2);
   });
 
