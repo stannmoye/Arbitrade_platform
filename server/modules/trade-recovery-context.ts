@@ -11,6 +11,15 @@ export function applyRecoveryContextSafety(
   context: TradeRecoveryCollectorContext,
 ): TradeRecoveryPlan {
   const reasons: string[] = [];
+  if (
+    !Number.isSafeInteger(context.walletMatchCount) ||
+    context.walletMatchCount < 0 ||
+    !Number.isSafeInteger(context.reservationCount) ||
+    context.reservationCount < 0 ||
+    !Array.isArray(context.identityMismatchedLedgerRows)
+  ) {
+    reasons.push("Collector context contains invalid wallet/reservation counts or malformed ledger identity evidence.");
+  }
   if (context.walletMatchCount !== 1) {
     reasons.push("Expected exactly one wallet row for the trade user and currency; inspect wallet identity and schema evidence.");
   }
