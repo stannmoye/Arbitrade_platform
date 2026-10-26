@@ -1,0 +1,37 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+
+describe("customer Trading package catalogue diagnostics", () => {
+  const start = source.indexOf("export async function listCustomerTradingPackages(");
+  const end = source.indexOf("\nexport async function activateCustomerTradingPackage(", start);
+  const implementation = source.slice(start, end);
+
+  it("identifies each database-dependent phase without logging customer identifiers", () => {
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    for (const phase of [
+      "database_connection",
+      "expire_stale_subscriptions",
+      "read_activation_settings",
+      "read_qualifying_wallet_balances",
+      "calculate_qualifying_balance",
+      "read_enabled_package_catalogue",
+      "read_customer_subscription_history",
+    ]) {
+      expect(implementation).toContain(`phase = "${phase}"`);
+    }
+    expect(implementation).toContain('[Trading] Customer package catalogue read failed');
+    expect(implementation).toContain("errorCode:");
+    expect(implementation).toContain("sqlState:");
+    expect(implementation).not.toContain("userId,");
+    expect(implementation).toContain('throw new Error("Unable to load the Trading package catalogue.');
+  });
+
+  it("keeps the customer-facing failure generic and does not attempt activation", () => {
+    expect(implementation).toContain("Unable to load the Trading package catalogue");
+    expect(implementation).not.toContain("activateCustomerTradingPackage(");
+    expect(implementation).not.toContain("SQL query failed");
+  });
+});
