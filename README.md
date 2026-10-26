@@ -101,4 +101,10 @@ The current full-application release workflow is [`.github/workflows/full-produc
 
 ## Canonical trading system requirements
 
+### Company image catalogue instructions
+
+The current company-image reference collection contains 1,811 indexed records (IDs 1–1811), with company names and local images organized under `client/public/assets/company-logo-source/by-country/{Country}/`. Use `company-logo-index.json` as the ID/name/path source of truth and `company-logo-country-groups.json` for country groupings. The latest country audit has 1,799 assigned records and 12 still under `Unverified`; do not describe all 1,811 countries as verified. Earlier 950- and 1,000-company figures refer to separate legacy/catalogue datasets and are not the size of this image pool.
+
+The Trading page may use these records for the informational company pop-up/spotlight. A logo ID is not a ticker or trading number, and a country folder is not proof of a public listing or verified headquarters. Company symbols, exchange/security identifiers, listing status, and platform trading numbers must be researched and verified separately before any record is presented as tradable. Rotation must never create a trade or financial ledger entry. See [the canonical Trading System Specification](docs/TRADING_SYSTEM_SPECIFICATION.md) for the full contract and [the company catalogue source guide](docs/COMPANY_CATALOGUE_SOURCE_GUIDE.md) for the data-handling checklist.
+
 Before changing the customer Trading page or any trading-related backend, read [docs/TRADING_SYSTEM_SPECIFICATION.md](docs/TRADING_SYSTEM_SPECIFICATION.md). This is the canonical product contract for package eligibility, automatic opportunity processing, insufficient-balance opportunity cards, trade lifecycle, fee and wallet accounting, company catalogue/rotation, notifications, and admin controls. All developers and AI coding agents must follow it and keep the source policy in [docs/COMPANY_CATALOGUE_SOURCE_GUIDE.md](docs/COMPANY_CATALOGUE_SOURCE_GUIDE.md) aligned with the catalogue implementation. The repository currently has no tracked companion PDF at docs/TRADING_SYSTEM_SPECIFICATION.pdf.
