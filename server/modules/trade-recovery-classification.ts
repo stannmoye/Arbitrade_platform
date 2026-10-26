@@ -144,7 +144,9 @@ export function classifyTradeRecoveryEvidence(
   if (hasGrossProfitEvidence) {
     const gross = evidence.realizedGrossProfitMinor;
     const fee = evidence.platformFeeMinor;
-    if (gross === undefined || fee === undefined || evidence.netProfitMinor === undefined ||
+    if (evidence.settlementOutcome === "legacy_unrecorded") {
+      reasons.push("Historical settlement result is explicitly unrecorded; migration-default zero values are not proof of a zero-profit outcome.");
+    } else if (gross === undefined || fee === undefined || evidence.netProfitMinor === undefined ||
         ![gross, fee, evidence.netProfitMinor].every((value) => Number.isSafeInteger(value))) {
       reasons.push("Realized gross profit, fee, or net-profit snapshot is missing or unsafe.");
     } else {
