@@ -2829,6 +2829,18 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     }
     if(trade.status!=="confirmed"||trade.settlementStatus!=="pending") throw new Error("Trade is not pending manual settlement");
 
+    // A trade tied to a package subscription must still resolve to that exact owner/package.
+    // Settlement does not depend on the subscription remaining active, only on its identity.
+    let packageName:string|null=null;
+    if(trade.packageSubscriptionId!==null) {
+      const subscription=(await tx.select({userId:customerPackageSubscriptions.userId,packageId:customerPackageSubscriptions.packageId})
+        .from(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.id,trade.packageSubscriptionId)).limit(1).for("update"))[0];
+      if(!subscription||subscription.userId!==trade.userId) throw new Error("Trade package subscription identity is inconsistent");
+      const packageRow=(await tx.select({name:packages.name}).from(packages).where(eq(packages.id,subscription.packageId)).limit(1))[0];
+      if(!packageRow?.name) throw new Error("Trade package identity cannot be resolved");
+      packageName=packageRow.name;
+    }
+
     // Lock the active fee policy so this result uses one auditable, stable version.
     const feeSettings=await tx.select().from(appSettings).where(inArray(appSettings.settingKey,[...TRADE_FEE_SETTING_KEYS])).for("update");
     const feeByKey=new Map<string,string>();
@@ -2863,6 +2875,7 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
       if(reservation.userId!==trade.userId||reservation.currency!==trade.currency||reservation.tradeId!==trade.id) {
         throw new Error("Trade reward reservation identity does not match the trade");
       }
+      if(packageName!==null&&reservation.packageName!==packageName) throw new Error("Trade reward reservation package does not match the trade subscription");
       if(reservation.status!=="reserved") throw new Error("Trade reward reservation is not pending while the trade is awaiting settlement");
       if(!Number.isSafeInteger(reservedMinor)||reservedMinor<0||Number(reservation.reservedMinor)!==reservedMinor) {
         throw new Error("Trade reward reservation amount is inconsistent with the trade");
