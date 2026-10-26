@@ -86,6 +86,83 @@ describe("trade recovery evidence classification (read-only)", () => {
       .toBe("MANUAL_FINANCIAL_REVIEW");
   });
 
+  it("escalates negative or unsafe optional settlement evidence", () => {
+    const negativeFeeCount = classifyTradeRecoveryEvidence(settledEvidence({
+      grossProfitLedgerCount: 1,
+      grossProfitLedgerAmountMinor: 2000,
+      realizedGrossProfitMinor: 2000,
+      platformFeeMinor: 300,
+      netProfitMinor: 1700,
+      platformFeeLedgerCount: -1,
+      platformFeeLedgerAmountMinor: null,
+      realizedLossLedgerCount: 0,
+      realizedLossLedgerAmountMinor: null,
+    }));
+    expect(negativeFeeCount.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+
+    const unsafeFee = classifyTradeRecoveryEvidence(settledEvidence({
+      grossProfitLedgerCount: 1,
+      grossProfitLedgerAmountMinor: 2000,
+      realizedGrossProfitMinor: 2000,
+      platformFeeMinor: Number.MAX_SAFE_INTEGER + 1,
+      netProfitMinor: 1700,
+      platformFeeLedgerCount: 1,
+      platformFeeLedgerAmountMinor: -300,
+      realizedLossLedgerCount: 0,
+      realizedLossLedgerAmountMinor: null,
+    }));
+    expect(unsafeFee.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+  });
+
+  it("escalates inconsistent net-profit arithmetic and fees on non-profit outcomes", () => {
+    const incorrectNet = classifyTradeRecoveryEvidence(settledEvidence({
+      grossProfitLedgerCount: 1,
+      grossProfitLedgerAmountMinor: 2000,
+      realizedGrossProfitMinor: 2000,
+      platformFeeMinor: 300,
+      netProfitMinor: 1800,
+      platformFeeLedgerCount: 1,
+      platformFeeLedgerAmountMinor: -300,
+      realizedLossLedgerCount: 0,
+      realizedLossLedgerAmountMinor: null,
+    }));
+    expect(incorrectNet.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(incorrectNet.reasons.join(" ")).toContain("net profit does not equal");
+
+    const feeOnLoss = classifyTradeRecoveryEvidence(settledEvidence({
+      rewardCreditedMinor: 0,
+      grossProfitLedgerCount: 0,
+      grossProfitLedgerAmountMinor: null,
+      realizedGrossProfitMinor: -500,
+      platformFeeMinor: 50,
+      netProfitMinor: -550,
+      platformFeeLedgerCount: 1,
+      platformFeeLedgerAmountMinor: -50,
+      realizedLossLedgerCount: 1,
+      realizedLossLedgerAmountMinor: -500,
+      settlementOutcome: "loss",
+    }));
+    expect(feeOnLoss.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(feeOnLoss.reasons.join(" ")).toContain("must not incur");
+  });
+
+  it("escalates settlement outcomes that disagree with the recorded realized result", () => {
+    const result = classifyTradeRecoveryEvidence(settledEvidence({
+      grossProfitLedgerCount: 1,
+      grossProfitLedgerAmountMinor: 2000,
+      realizedGrossProfitMinor: 2000,
+      platformFeeMinor: 300,
+      netProfitMinor: 1700,
+      platformFeeLedgerCount: 1,
+      platformFeeLedgerAmountMinor: -300,
+      realizedLossLedgerCount: 0,
+      realizedLossLedgerAmountMinor: null,
+      settlementOutcome: "loss",
+    }));
+    expect(result.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(result.reasons.join(" ")).toContain("does not agree");
+  });
+
   it("never authorizes automated writes for any classification", () => {
     const examples = [
       settledEvidence(),
