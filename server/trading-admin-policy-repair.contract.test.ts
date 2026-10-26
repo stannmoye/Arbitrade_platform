@@ -31,7 +31,7 @@ describe("Trading administration policy schema repair", () => {
     expect(migration).toContain("trading.allocations.paused");
     expect(migration).toContain('"allocationsPaused":true');
     expect(migration).toContain("administrator review is required before resuming allocations");
-    expect(migration.match(/ON DUPLICATE KEY UPDATE `settingKey`=VALUES(`settingKey`)/g)).toHaveLength(2);
+    expect(migration.split("ON DUPLICATE KEY UPDATE `settingKey`=VALUES(`settingKey`)").length - 1).toBe(2);
   });
 
   it("is included in main migrations, portal migration runs, and recovery diagnostics", () => {
