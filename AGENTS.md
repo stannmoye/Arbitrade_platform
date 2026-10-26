@@ -49,3 +49,10 @@ Live execution requires a named, authorized provider, verified result references
 - The source workbook includes 637 invented placeholder codes, 265 parent-brand ticker references, and 95 historical tickers. Those values must not be exposed as active candidates.
 - The 814 rows marked Public are still unverified research candidates. Keep all entries ineligible for verified trade rotation until independent authoritative verification, source URL, provider instrument ID, and verification timestamp are recorded.
 - Do not use ticker search results to authorize live orders, market quotes, or settlement.
+
+
+### Company catalogue UI integration
+- The company catalogue contains 1,811 logo-ID-aligned records and is searchable from the customer Trading Opportunities page.
+- Keep company ID, local logo, country folder, supplied ticker, exchange, and dataset status associated on the same result.
+- Search endpoint may return up to 1,811 records, but the customer UI should request and render at most 100 results at a time.
+- Display supplied ticker values as supplied; do not imply they are verified or guaranteed to resolve with a market-data provider.
