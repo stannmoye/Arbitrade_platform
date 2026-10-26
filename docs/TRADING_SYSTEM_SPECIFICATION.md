@@ -166,6 +166,17 @@ The catalogue is version-controlled static reference data and must not be bulk-s
 
 When an opportunity/trade card opens, it must associate the company identity and all financial/timing fields with the same stable trade and company IDs. The expanded pop-up is controlled by the configured display duration. When minimized, it becomes a fixed bottom-of-viewport dock: it stays visible while the page scrolls up or down and does not scroll away with the page.
 
+### Admin portal is the source of truth for customer-side behaviour
+
+The admin portal is the authoritative control plane for the customer Trading experience. Customer-side displays and actions must reflect persisted, authorized admin configuration and server-side trade state; the frontend must not independently invent, override, or hard-code admin-controlled policy.
+
+- **Trade closing time and duration:** the scheduled close timestamp and countdown must be calculated from the active admin-configured trade duration/schedule and the server-recorded trade start/opening timestamp. If an authorized admin policy changes the duration or schedule, apply it according to the policy/version and effective-time rules recorded by the backend. Do not substitute a frontend default or let the browser decide the authoritative close time.
+- Admin controls the opportunity schedule, trade duration/closing rules, allocation eligibility, package rules, quotas, fees, daily earnings ceiling, retries/carry-forward, pause/resume, company selection/filters, and customer-facing display settings wherever those controls are provided by the specification.
+- Customer-side UI is a presentation and interaction layer: it reads the active configuration and persisted trade status from authorized server APIs. It must not offer customers controls that override admin policy, including changing trade duration, closing time, fee rate, opportunity schedule, or allocation rules.
+- Countdown rendering may update locally for smooth display, but its target timestamp and final status come from the server. Client clock drift, page refresh, sign-out, scrolling, minimizing, or maximizing must not change the scheduled close or settlement state.
+- Admin configuration changes must be permissioned, validated, timestamped, versioned where policy affects an existing trade, and audited with administrator, old/new values, and reason. Existing trades must follow a documented policy for whether their opening-time configuration snapshot remains fixed or an authorized change applies; never silently rewrite historical timing.
+- If the admin-configured close time is missing or invalid, do not invent one. Show an appropriate pending/unavailable state and record/report the configuration issue.
+
 ### Company identity
 
 Show these together in the expanded pop-up and minimized card where space allows:
@@ -216,12 +227,12 @@ The expanded-card display duration is configurable in seconds. The minimized doc
 Provide configurable sections for:
 - Packages: names, amounts, durations, quotas, qualification, activation, status, and terms-change policy.
 - Repurchases: same-package repeat toggle, maximum copies, and cooldown.
-- Opportunities: schedules, quotas, timing, company filters, retry rules, carry-forward caps, and eligibility.
+- Opportunities: schedules, quotas, admin-configured trade duration/closing-time rules, company filters, retry rules, carry-forward caps, and eligibility.
 - Earnings/fees: combined daily net earnings ceiling, fee rate, calculation/rounding rules, and reset timezone.
 - Company catalogue: import, search, verify, logo/flag, ticker, headquarters, exchange, sector, and listing status.
 - Trading operations: pause new allocations, provider health, pending work, failures, retries, settlement, and reconciliation.
 - Wallets: eligible wallet types, reservation rules, allocation and settlement routing.
-- Customer experience: pop-up duration, minimized dock, notification position/duration, visible fields, locale/currency formatting.
+- Customer experience: pop-up display duration, minimized dock, notification position/duration, visible fields, locale/currency formatting, and other customer-side presentation settings.
 - Audit/security: role permissions, change history, policy versioning, approval for sensitive settings, and immutable ledger history.
 
 Every consequential admin change should record administrator, timestamp, old/new values, and reason. Emergency pause stops new allocations but does not erase pending work or prevent required settlement/reconciliation. Admins must not silently edit/delete historical financial ledger records.
@@ -245,7 +256,8 @@ Trading operates as a real-money workflow recorded in the customer's internal le
 - Combined daily net earnings ceiling applies across all packages and wallets.
 - Pop-up has a minimize control; minimized dock remains fixed at the viewport bottom while scrolling and exposes the live countdown and maximize control.
 - Pop-up displays company name, local logo, country and correctly mapped flag, supplied symbol/exchange classification, invested amount, profit/total return, opening/closing times, countdown, profit percentage, platform-fee percentage/amount, and relevant trade references without inventing unavailable values.
-- Pop-up dismissal requires countdown completion and an authoritative terminal trade/opportunity status; a zero countdown alone never proves execution or settlement.
+- Trade closing time and countdown target come from the active admin configuration and server-recorded trade timestamps; the browser cannot override them. Pop-up dismissal requires countdown completion and an authoritative terminal trade/opportunity status; a zero countdown alone never proves execution or settlement.
+- All customer-side trade behaviour and configurable displays are driven by authorized admin settings and persisted server state; no frontend hard-coded defaults may override admin policy.
 - Green/red notifications correspond to confirmed credits/debits only.
 - The company-image reference collection has 1,811 stable indexed IDs (1–1811), matching index/mapping/country-group data and valid local file paths; 1,799 country assignments are recorded and 12 remain explicitly Unverified.
 - The company pop-up/spotlight uses the 1,811-image reference pool only for informational display; it does not imply a verified listing or trigger trade execution/accounting.
