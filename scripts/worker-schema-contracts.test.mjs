@@ -76,6 +76,18 @@ describe("worker schema contracts", () => {
     )).toContain("mining_pending_boost_rewards: table is missing or has no visible columns");
   });
 
+  it("creates settlement index prerequisites before indexing them in the main migration path", async () => {
+    const sql = await readFile(new URL("../drizzle/0072_wallet_ledger_reconciliation_indexes.sql", import.meta.url), "utf8");
+    const settlementStatusColumn = sql.indexOf("ADD COLUMN IF NOT EXISTS `settlementStatus`");
+    const settlementReferenceColumn = sql.indexOf("ADD COLUMN IF NOT EXISTS `settlementReference`");
+    const settlementStatusIndex = sql.indexOf("ADD INDEX `trade_positions_status_settlement_user_currency_idx`");
+    const settlementReferenceIndex = sql.indexOf("ADD INDEX `trade_positions_settlement_reference_idx`");
+    expect(settlementStatusColumn).toBeGreaterThanOrEqual(0);
+    expect(settlementReferenceColumn).toBeGreaterThanOrEqual(0);
+    expect(settlementStatusColumn).toBeLessThan(settlementStatusIndex);
+    expect(settlementReferenceColumn).toBeLessThan(settlementReferenceIndex);
+  });
+
   it("keeps the standalone mining and portal campaign migrations covered by the standard journal bridge", async () => {
     const root = new URL("../", import.meta.url);
     const [journalText, mainSql, miningSql, portalSql, portalRunner] = await Promise.all([
