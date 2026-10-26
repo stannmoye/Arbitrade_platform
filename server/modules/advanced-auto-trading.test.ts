@@ -8,6 +8,17 @@ describe("advanced automatic trading policy", () => {
     expect(() => validatePackageAutomationPolicy({ ...base, minIntervalSeconds: 500, maxIntervalSeconds: 10 })).toThrow(/interval/);
     expect(() => validatePackageAutomationPolicy({ ...base, maxRewardPerTradeMinor: 10001, maxDailyRewardMinor: 10000 })).toThrow(/per trade/);
   });
+  it("rejects fractional, unsafe, and unordered settlement delays", () => {
+    expect(() => validatePackageAutomationPolicy({ ...base, minSettlementDelaySeconds: 1.5, maxSettlementDelaySeconds: 10 })).toThrow(/settlement delay/);
+    expect(() => validatePackageAutomationPolicy({ ...base, minSettlementDelaySeconds: Number.MAX_SAFE_INTEGER + 1, maxSettlementDelaySeconds: Number.MAX_SAFE_INTEGER + 1 })).toThrow(/settlement delay/);
+    expect(() => validatePackageAutomationPolicy({ ...base, minSettlementDelaySeconds: 11, maxSettlementDelaySeconds: 10 })).toThrow(/settlement delay/);
+    expect(() => validatePackageAutomationPolicy({ ...base, minSettlementDelaySeconds: Number.NaN, maxSettlementDelaySeconds: 10 })).toThrow(/settlement delay/);
+  });
+  it("rejects invalid policy enum values and empty package names at runtime", () => {
+    expect(() => validatePackageAutomationPolicy({ ...base, packageName: "  " })).toThrow(/package name/);
+    expect(() => validatePackageAutomationPolicy({ ...base, schedulingPeriod: "unknown" as any })).toThrow(/scheduling period/);
+    expect(() => validatePackageAutomationPolicy({ ...base, closePolicy: "unknown" as any })).toThrow(/close policy/);
+  });
   it("uses the secure bounded sampler and accepts both configured interval endpoints", () => {
     const now = new Date("2026-10-16T10:00:00.000Z");
     const calls: number[][] = [];
@@ -15,7 +26,7 @@ describe("advanced automatic trading policy", () => {
       calls.push([min, maxExclusive]);
       return min;
     });
-    const high = chooseNextEligibleAt(now, 45, 60, true, (min, maxExclusive) => maxExclusive - 1);
+    const high = chooseNextEligibleAt(now, 45, 60, true, (_min, maxExclusive) => maxExclusive - 1);
     expect(calls).toEqual([[45, 61]]);
     expect(low.toISOString()).toBe("2026-10-16T10:00:45.000Z");
     expect(high.toISOString()).toBe("2026-10-16T10:01:00.000Z");
