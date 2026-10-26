@@ -288,6 +288,13 @@
       "when": 1793025000000,
       "tag": "0071_trade_allocation_pause",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793033000000,
+      "tag": "0072_wallet_ledger_reconciliation_indexes",
+      "breakpoints": true
     }
   ]
 }
