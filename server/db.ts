@@ -2853,6 +2853,65 @@ export async function listPendingSettlements(){
     .leftJoin(tradeRewardReservations,eq(tradeRewardReservations.tradeId,tradePositions.id))
     .where(and(eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"))).orderBy(desc(tradePositions.confirmedAt));
 }
+/**
+ * Read-only reconciliation queue for settlement records whose persisted state
+ * cannot be trusted without a human financial review. This function never
+ * changes wallet, ledger, trade, or reservation state.
+ */
+export async function listTradeSettlementIntegrityIssues(){
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const rows=await db.select({
+    tradeId:tradePositions.id,
+    userId:tradePositions.userId,
+    currency:tradePositions.currency,
+    principalMinor:tradePositions.principalMinor,
+    status:tradePositions.status,
+    settlementStatus:tradePositions.settlementStatus,
+    lifecycleStage:tradePositions.lifecycleStage,
+    settlementOutcome:tradePositions.settlementOutcome,
+    settlementReference:tradePositions.settlementReference,
+    realizedGrossProfitMinor:tradePositions.realizedGrossProfitMinor,
+    platformFeeMinor:tradePositions.platformFeeMinor,
+    netProfitMinor:tradePositions.netProfitMinor,
+    rewardReservedMinor:tradePositions.rewardReservedMinor,
+    rewardCreditedMinor:tradePositions.rewardCreditedMinor,
+    settledAt:tradePositions.settledAt,
+    reservationId:tradeRewardReservations.id,
+    reservationUserId:tradeRewardReservations.userId,
+    reservationCurrency:tradeRewardReservations.currency,
+    reservationAmountMinor:tradeRewardReservations.reservedMinor,
+    reservationStatus:tradeRewardReservations.status,
+    claimReference:tradeSettlementReferenceClaims.settlementReference,
+    claimTradeId:tradeSettlementReferenceClaims.tradeId,
+  }).from(tradePositions)
+    .leftJoin(tradeRewardReservations,eq(tradeRewardReservations.tradeId,tradePositions.id))
+    .leftJoin(tradeSettlementReferenceClaims,eq(tradeSettlementReferenceClaims.tradeId,tradePositions.id))
+    .where(or(
+      eq(tradePositions.settlementOutcome,"legacy_unrecorded"),
+      and(eq(tradePositions.status,"settled"),isNull(tradePositions.settlementReference)),
+      and(eq(tradePositions.status,"settled"),isNull(tradeSettlementReferenceClaims.tradeId)),
+      and(eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),isNull(tradeRewardReservations.id),gt(tradePositions.rewardReservedMinor,0)),
+      and(eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),eq(tradeRewardReservations.status,"credited")),
+      and(eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),eq(tradeRewardReservations.status,"released")),
+      and(eq(tradePositions.status,"settled"),eq(tradePositions.settlementStatus,"completed"),eq(tradeRewardReservations.status,"reserved"))
+    ))
+    .orderBy(desc(tradePositions.id))
+    .limit(1000);
+
+  return rows.map(row=>{
+    const issues:string[]=[];
+    if(row.settlementOutcome==="legacy_unrecorded") issues.push("historical_settlement_without_recorded_result");
+    if(row.status==="settled"&&!row.settlementReference) issues.push("settled_trade_missing_reference");
+    if(row.status==="settled"&&!row.claimTradeId) issues.push("settled_trade_missing_reference_claim");
+    if(row.claimTradeId!==null&&row.claimTradeId!==undefined&&row.claimTradeId!==row.tradeId) issues.push("settlement_reference_claim_trade_mismatch");
+    if(row.claimReference&&row.settlementReference&&row.claimReference!==row.settlementReference) issues.push("settlement_reference_claim_value_mismatch");
+    if(row.status==="confirmed"&&row.settlementStatus==="pending"&&!row.reservationId&&Number(row.rewardReservedMinor)>0) issues.push("pending_trade_missing_reward_reservation");
+    if(row.status==="confirmed"&&row.settlementStatus==="pending"&&(row.reservationStatus==="credited"||row.reservationStatus==="released")) issues.push("pending_trade_reservation_not_reserved");
+    if(row.status==="settled"&&row.settlementStatus==="completed"&&row.reservationStatus==="reserved") issues.push("settled_trade_reservation_still_reserved");
+    return {...row,issues};
+  }).filter(row=>row.issues.length>0);
+}
+
 export async function manuallySettleTrade(tradeId:number, adminId:number, input:{grossProfitMinor:number; settlementReference:string; notes?:string}){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   if(!Number.isSafeInteger(input.grossProfitMinor)) throw new Error("Actual gross profit or loss must be a signed safe integer");
