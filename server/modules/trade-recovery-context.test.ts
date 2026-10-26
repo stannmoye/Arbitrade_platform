@@ -108,6 +108,24 @@ describe("trade recovery collector context safety", () => {
     expect(result.plannedMutations).toEqual([]);
   });
 
+  it("checks wallet user and reservation trade identity", () => {
+    const result = applyRecoveryContextSafety(plan(), {
+      ...healthyContext,
+      tradeId: 42,
+      userId: 7,
+      currency: "USD",
+      walletMatchCount: 1,
+      wallet: { id: 8, userId: 9, currency: "USD", availableMinor: 1000, lockedMinor: 0, promotionalMinor: 0, earnedMinor: 0 },
+      reservationCount: 1,
+      rewardReservationStatus: "credited",
+      reservation: [{ id: 10, tradeId: 99, status: "credited", reservedMinor: 500, currency: "USD" }],
+    });
+    expect(result.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(result.reasons.join(" ")).toContain("Wallet snapshot user does not match");
+    expect(result.reasons.join(" ")).toContain("reservation trade identity does not match");
+    expect(result.plannedMutations).toEqual([]);
+  });
+
   it("escalates ledger rows whose user or currency does not match", () => {
     const result = applyRecoveryContextSafety(plan(), {
       ...healthyContext,
