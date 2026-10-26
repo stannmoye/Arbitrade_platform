@@ -60,6 +60,13 @@ Live execution requires a named, authorized provider, verified result references
 - Import every row and every column from `company_trading_symbols.xlsx` aligned by its 1-based `#` field to Logo ID; preserve supplied ticker, exchange, status, parent ticker, and reason fields even for placeholder, parent, and historical rows.
 - Placeholder codes are display-only and must not be passed to market-data or order APIs. Historical and parent-company ticker references must remain visibly classified; do not silently convert them into direct listings.
 
+### Trade Settings admin navigation and removal of customer trade switches
+
+- The admin portal must use **Trade Settings** as the top-level navigation group for trading configuration and operations. Follow the submenu structure in Section 12 of `docs/TRADING_SYSTEM_SPECIFICATION.md`, including packages/eligibility, quotas, opportunity schedules, duration/closing rules, wallet allocation, fees/earnings limits, retries/carry-forward, company rotation, pop-up/customer display, notifications, active/pending trades, settlement/reconciliation, system health/pause, and audit/policy versions.
+- Remove customer-side manual trade-engine controls such as Trading On/Off, Opportunity On/Off, Auto Trade On/Off, and equivalent start/stop switches. Trades are automatic and server-controlled under active customer package entitlements and admin-configured opportunity quotas, schedules, balances, and limits.
+- Package entitlements and admin-configured package opportunity counts govern eligible opportunity presentation; do not hard-code one global pop-up count for all customers. Display an insufficient-balance opportunity only when an eligible opportunity actually occurs and the funds check fails.
+- Customer-side Minimize/Maximize controls are display-only and must not change trade execution, countdown, or settlement. Keep all financial and policy-changing actions server-side, authorized, validated, idempotent, and auditable.
+
 ### Admin authority and trade closing time
 
 - The admin portal is the source of truth for all admin-configurable customer-side trading behaviour. Customer UI must reflect authorized admin settings and server-persisted state; it must not independently override or hard-code policy values.
