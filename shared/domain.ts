@@ -1,5 +1,5 @@
-export const PRACTICE_MODES = ["PRACTICE", "SIMULATION", "RESEARCH"] as const;
-export type PracticeMode = (typeof PRACTICE_MODES)[number];
+export const EXECUTION_MODES = ["INTERNAL_LEDGER", "LIVE"] as const;
+export type ExecutionMode = (typeof EXECUTION_MODES)[number];
 
 export const OPPORTUNITY_STATUSES = ["DRAFT", "ACTIVE", "PAUSED", "DISABLED", "EXPIRED"] as const;
 export type OpportunityStatus = (typeof OPPORTUNITY_STATUSES)[number];
