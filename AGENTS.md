@@ -37,6 +37,15 @@ Never commit `node_modules/`, generated `dist/` output, release archives, actual
 
 Database changes should use ordered forward migrations and retry-safe server-side behaviour. Do not run a fresh install against a populated database.
 
+## Mandatory Trade/Trading ledger rules
+
+- Read and follow `docs/TRADING_SYSTEM_SPECIFICATION.md` Section 1 and Section 1A before touching any Trade/Trading implementation.
+- All trade capital comes from the customer's authoritative internal ledger. Check spendable balance, reserve/commit capital, and write linked ledger/trade records atomically and idempotently; never use frontend or cached amounts as authority.
+- Never generate synthetic transaction activity or fabricated trade outcomes. Remove random/pseudo-random activity generators and any display that implies an unposted event is a real transaction.
+- Configured reward estimates, percentages, and countdowns are not realized profit. Never credit them as a financial result. Profit/loss and fees must be supported by actual recorded trade-result and settlement evidence.
+- The internal ledger is the source of customer capital and accounting; it is not proof of an external market execution. Where a market execution is claimed, preserve the required authorized-provider, order/result-reference, and reconciliation evidence. Missing evidence must fail closed, not fall back to pretend trading.
+- Do not call the system production-ready or say a trade is real/executed solely because a row, timer, UI animation, or balance projection exists. Verify transaction entries, wallet balances, trade state, settlement references, and tests together.
+
 ## Financial safety and release discipline
 
 Live execution requires a named, authorized provider, verified result references, and settlement reconciliation. Configured opportunity estimates are never sufficient to credit real profit. Admin changes to financial policy must be permissioned and auditable. Passing build checks, source inclusion, hosted acceptance, deployment, and production certification are separate gates.
