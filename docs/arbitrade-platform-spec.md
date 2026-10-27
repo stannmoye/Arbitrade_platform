@@ -111,13 +111,13 @@ Market/opportunity features and their source, data quality, risk, calculation, f
 53. Sound notification with mute, volume, and quiet-hours controls.
 54. Browser push notification with explicit consent.
 55. Email, SMS, and in-app notification preferences.
-56. Risk disclosures attached to every opportunity.
+56. Trade/Trading opportunity risk disclosures and presentation are defined only in the canonical Trade/Trading guide.
 57. Education centre and glossary.
 58. Support tickets, secure messaging, and complaint workflow.
 59. Security centre with recent events and emergency lock.
 60. Privacy controls, data-export request, and account-closure request.
 
-The sound alert must never be the only way to communicate an opportunity. A customer should not be pressured by flashing timers, artificial scarcity, or dark patterns. The popup must remain accessible, keyboard navigable, readable by screen readers, and disabled by default until the customer opts in.
+Trade/Trading opportunity alerts, sound preferences, popup behavior, and customer interaction are defined only in the canonical Trade/Trading guide. General accessibility and non-coercive design standards apply across the application.
 
 ### 4.1 Wallet, cash, and balance model
 
