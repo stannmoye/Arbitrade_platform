@@ -1,6 +1,6 @@
 > **Single-source notice:** This is the older platform-wide architecture specification, not a Trade/Trading implementation guide. All trading-specific behavior—including customer Trade UI, package activation, opportunity data/calculation, automatic processing, execution, admin Trade Settings, ledger accounting, settlement, company catalogue, recovery and acceptance—is maintained only in `docs/TRADING_SYSTEM_SPECIFICATION.md`. The trading-specific sections that were previously in this file have been consolidated or replaced with pointers. Do not implement Trade/Trading behavior from historical snippets in this document.
 
-# Arbitrade: Hosted Crypto-Arbitrage Platform Specification
+# Arbitrade Platform Architecture, Compliance, and Deployment Context
 
 **Version:** 1.0  
 **Date:** 30 September 2026  
