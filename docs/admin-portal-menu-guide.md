@@ -64,13 +64,9 @@ Controls whether an account is:
 - Suspended
 - Restricted
 
-### Trading controls
+### Trading eligibility and restrictions
 
-Enables or disables customer trading.
-
-### Opportunity controls
-
-Enables or disables delivery of opportunities to the customer.
+Trading is automatic for customers with an eligible active package, according to the server-persisted package and Trade Settings policies. Customer-facing Trading On/Off, Opportunity On/Off and Auto Trade On/Off switches must not be added. Any authorized account restriction, eligibility flag or administrator pause is server-controlled, permissioned and audited. The full behavior is defined only in docs/TRADING_SYSTEM_SPECIFICATION.md.
 
 ### Withdrawal control
 
@@ -370,20 +366,7 @@ These controls define how new customers are screened and onboarded. Country-spec
 
 **Purpose:** View the authoritative package and entitlement registry.
 
-**Package information includes:**
-
-- Package name
-- Enabled status
-- Opportunities per day
-- Maximum active allocations
-- Minimum and maximum trade amounts
-- Hourly delivery targets
-- Burst size
-- Entitlements
-
-Package data is read from the database and is used by customer eligibility, opportunity delivery, and account provisioning logic.
-
-Detailed policy editing is handled through the Opportunity Engine controls.
+This general menu may display package name, enabled status and assigned entitlements. For all trading-package terms, qualifying-balance checks, activation, duration, quota, repeat/cooldown, allocation and expiry behavior, follow the single canonical guide: docs/TRADING_SYSTEM_SPECIFICATION.md. Do not implement or document separate trading package rules here.
 
 ---
 
@@ -458,65 +441,13 @@ The settings are stored in the application settings registry and are consumed by
 
 ---
 
-## 2.16 Opportunity Engine
+## 2.16 Trade Settings
 
-**Purpose:** Manage opportunity creation, delivery policy, package rules, customer package assignment, lifecycle monitoring, and retention.
+**Purpose:** Provide one administrator control plane for trading configuration, operations and financial review.
 
-### Global delivery settings
+The Trade Settings area covers the trading overview and worker health; packages and eligibility; quotas and schedules; trade duration and closing rules; wallet allocation, fee and earnings limits; company catalogue and rotation; customer opportunity display and notifications; active/pending trades; settlement and reconciliation; execution/integration status; system pause/resume; audit and policy versions.
 
-Controls include:
-
-- Maximum opportunities per day
-- Emergency ceiling
-- Drain mode
-- Countdown duration
-- Signup credit amount
-- Signup credit currency
-
-### Package policy editor
-
-Controls package-specific:
-
-- Daily popup limit
-- Maximum visible offers
-- Minimum and maximum trade units
-- Minimum and normal hourly targets
-- Market influence basis points
-- Burst mode
-- Maximum burst size
-- Enabled status
-
-### Offer creation
-
-Creates one opportunity offer with:
-
-- Symbol
-- Source venue
-- Destination venue
-- Currency
-- Minimum amount
-- Expected reward
-- Duration
-
-### Bulk offer import
-
-Creates multiple opportunity offers in one operation.
-
-### Customer package assignment
-
-Assigns a package to a customer by email.
-
-### Open offers
-
-Displays currently available opportunity records.
-
-### Lifecycle summary
-
-Shows delivery and popup lifecycle activity, including delivered, noticed, opened, dismissed, traded, and settled states.
-
-### Retention cleanup
-
-Runs the configured opportunity-retention process to archive or remove records according to policy.
+All actual fields, validation, permissions, defaults, state transitions, worker semantics, accounting, settlement and acceptance criteria are defined only in docs/TRADING_SYSTEM_SPECIFICATION.md. Menu presence does not prove that a control is implemented or production-ready. Do not create a duplicate Opportunity Engine policy surface or conflicting settings.
 
 ---
 
@@ -546,19 +477,7 @@ For complete SMTP transport and composer functions, use **SMTP & Reports**.
 
 ### Trade tab
 
-Controls settlement and opportunity timing:
-
-- Settlement delay
-- Credit delay
-- Cooldown period
-- Next-popup formula delay
-- Popup cooldown
-- Popup display duration
-- Pre-alert duration
-- Timing jitter
-- Maximum popups per hour
-- Market refresh interval
-- Block-until-settled behaviour
+All trading schedule, opportunity, timing and settlement policy is maintained through Trade Settings as defined in docs/TRADING_SYSTEM_SPECIFICATION.md. Do not add a second set of trading controls under general Settings. This menu guide is not an independent trading requirements source.
 
 ### Password/security tab
 
