@@ -63,7 +63,7 @@ This section makes the intended customer experience unambiguous and takes preced
 6. **No opportunity is not an execution failure.** The worker processes only real, eligible opportunities according to the configured schedule. It must not create artificial opportunities or transactions just to make activity appear continuous. A package may be active while awaiting the next eligible opportunity.
 7. **Customer UI reports status; it does not drive execution.** Pages, refreshes, browser timers, notifications, and customer sign-in may display persisted status but must not be required to trigger the worker, allocate capital, submit orders, or settle trades. Refreshing the page must never create a second allocation or execution.
 8. **Manual administrative review is not customer execution.** Any explicitly supported administrator verification or exceptional settlement workflow is a controlled exception with authorization, evidence, audit records, and idempotency. It must not turn ordinary customer trades into a manual customer workflow or be represented as automatic provider verification when no provider evidence was checked.
-9. **Required proof before declaring this implemented.** Tests must demonstrate that an eligible customer is processed by a server-side worker while logged out and with no browser open; an ineligible customer is not allocated; sufficient funds are reserved exactly once; insufficient funds do not debit; retries and duplicate jobs do not duplicate orders or ledger entries; adapter outages remain visibly pending/failed without synthetic success; and verified execution results reconcile exactly once to the ledger and settlement records.
+9. **Required proof before declaring this implemented.** Tests must demonstrate that an eligible customer is processed by a server-side worker while logged out and with no browser open; an ineligible customer is not allocated; sufficient funds are reserved exactly once; insufficient funds do not debit; retries and duplicate jobs do not duplicate internal workflow items or account postings; internal dependency outages remain visibly pending/failed without synthetic success; and persisted outcomes reconcile exactly once to account and settlement records.
 
 If any source code, UI, test, comment, older specification, AI-generated change, or implementation proposal conflicts with this contract, update the implementation to comply with this canonical guide. Do not create a second guide to explain the same rule.
 
@@ -532,10 +532,10 @@ The current default platform fee is 15% of realized positive gross profit only. 
 
 Administrators need a single operational view for configured data sources and trading instruments as well as the company reference catalogue. As applicable to the configured product mode, controls include:
 
-- Enabled/disabled venue or data-source connection, environment, permission scope, credential health (never the credential value), last successful request, latency, error rate and maintenance state.
+- Enabled/disabled market-data source connection, environment, permission scope, credential health (never the credential value), last successful request, latency, error rate and maintenance state. Market-data connections must not submit external trade orders.
 - Allowed assets, networks, market pairs, exchanges, security/instrument IDs, supported transfer routes and customer/product restrictions.
 - Quote freshness/staleness thresholds, minimum liquidity and depth, allowed slippage, minimum net spread after costs, maximum notional/capacity, exposure limits and route risk boundaries.
-- Source/venue outage handling, circuit breakers, per-venue or per-instrument pause, global trading pause, controlled recovery/resume, and a record of who changed the policy and why.
+- Market-data source outage handling, circuit breakers, per-instrument pause where applicable, global internal-workflow pause, controlled recovery/resume, and a record of who changed the policy and why.
 - Opportunity calculation version, quote snapshot source, source timestamps, fee assumptions, publication/replay history and data-quality exceptions.
 - Catalogue size, stable IDs, names, local image paths, country assignment, verification status, supplied symbol/exchange metadata and rotation policy.
 
@@ -606,7 +606,7 @@ Qualifying-deposit totals must be built from uniquely identifiable ledger credit
 
 ## 22. Failure handling, retries, pause and observability
 
-For database locks/timeouts, stale quotes, unavailable execution endpoints, malformed provider responses, rejected orders, partial fills, result-feed delays, settlement conflicts, and notification failures:
+For database locks/timeouts, stale reference data, unavailable internal processing dependencies, malformed market-data responses, rejected internal workflow items, result-calculation delays, settlement conflicts, and notification failures:
 
 1. Persist the actual error class, operation/correlation ID, retryability, attempt count and next-attempt time without exposing secrets.
 2. Roll back financial operations that did not commit fully. Do not leave a partial balance update or duplicated reservation.
@@ -743,11 +743,11 @@ The opportunity engine must not equate a headline price difference with an execu
 
 Where the selected strategy uses market venues, the calculation should use, where available and relevant:
 
-- Instrument identity, asset/network, source and destination venue, market/pair, and exact route.
+- Instrument identity, asset/network, source and destination market-data references, market/pair, and the internal workflow route. These references are informational and must not imply external order routing.
 - Actual executable bid/ask prices and order-book depth for the proposed side and amount, not unrelated last-traded prices alone.
 - Quote source, provider instrument ID, observed-at timestamp, received-at timestamp, freshness limit, and quote expiry.
 - Market/trading fees, withdrawal and transfer fees, network or gas costs, payment/conversion costs, currency conversion, expected slippage, minimum notional, precision/lot-size rules and supported networks.
-- Liquidity/depth, capacity at the requested amount, venue status, network congestion, counterparty/bridge/stablecoin/network risks where relevant, and the likelihood of partial/no fill.
+- Where supported by the source data, reference-market liquidity/depth, estimated capacity, data-source status, network congestion, and asset/network risks. These are informational inputs and must not be described as evidence of an external order or fill.
 - Calculation algorithm version, applied assumptions, configured risk limits, and a unique immutable opportunity version.
 
 A route must be blocked from automatic execution when critical data is missing, stale, malformed, internally inconsistent, below liquidity/capacity requirements, or outside authorized risk limits. Show a clear unavailable/error state and retain diagnostic evidence. Never silently substitute stale quotes, a default exchange rate, guessed ticker mappings, or fabricated market prices.
@@ -760,9 +760,9 @@ An estimate is a decision-support value only. It is not a realized trade result,
 
 ### 26.3 Customer market-intelligence features
 
-Where supported by approved data sources, the Trade menu may provide an opportunity feed, detail view with source venues/networks, timestamps and expiry, fee/cost breakdown, depth/capacity, confidence/data-quality indicators, risk flags, historical opportunity replay, watchlists, filters/search, price/volume charts, order-book/depth views, network/gas indicators and venue health. These are advisory presentation features unless an explicit persisted execution state proves an order was submitted or filled. Replays and charts must identify historical data and cannot emit financial postings.
+Where supported by approved data sources, the Trade menu may provide an opportunity feed, detail view with market-data sources/networks, timestamps and expiry, fee/cost breakdown, reference depth/capacity, data-quality indicators, risk flags, historical opportunity replay, watchlists, filters/search, price/volume charts, and network/gas indicators. These are informational inputs to the internal-only workflow, not external execution capabilities. Replays and charts must identify historical data and cannot emit financial postings.
 
-Portfolio/history views should distinguish cost basis, realized and unrealized P&L, exposure by asset/network/venue/currency, concentration warnings, benchmark and performance history where the supporting data exists. Do not display unsupported metrics or infer unrecorded performance.
+Portfolio/history views should distinguish cost basis, realized and unrealized P&L, exposure by asset/network/currency, concentration warnings, benchmark and performance history where the supporting data exists. Do not display unsupported metrics or infer unrecorded performance.
 
 ## 27. Execution modes and integration boundaries
 
@@ -797,7 +797,7 @@ Exact table and procedure names follow the existing repository schema, but the p
 - Notification/outbox event, risk/authorization decision, policy audit record, and reconciliation finding.
 - Company identity/catalogue record separated from tradable instrument/security identity and independent verification evidence.
 
-Keep references and constraints that prevent duplicate qualifying-credit attribution, duplicate tier recalculation effects, duplicate allocation within the same opportunity, duplicate external submissions when idempotency is supported, duplicate settlement references, duplicate terminal ledger postings, and duplicate notification events. Any constraint or index change must be delivered in an ordered forward migration and tested against existing data assumptions. Do not casually add a unique customer/currency wallet constraint before investigating historical duplicate wallet rows.
+Keep references and constraints that prevent duplicate qualifying-credit attribution, duplicate tier recalculation effects, duplicate allocation within the same opportunity, duplicate internal workflow submissions, duplicate settlement references, duplicate terminal ledger postings, and duplicate notification events. Any constraint or index change must be delivered in an ordered forward migration and tested against existing data assumptions. Do not casually add a unique customer/currency wallet constraint before investigating historical duplicate wallet rows.
 
 Keep the business logic in server-side modules/procedures and bounded workers. The customer/admin UI uses authenticated APIs and displays server-confirmed state; it must not own qualifying-deposit calculation, tier assignment, eligibility, scheduling, timing, allocation, quote validity, fee calculation, settlement, or balance authority. Use transactions for atomic database effects and an outbox or equivalent reliable boundary for post-commit external notifications. Avoid treating an in-memory queue or process-local lock as the only guarantee when multiple instances or restarts are possible.
 
@@ -813,18 +813,18 @@ Customer-facing restrictions must be clear and reasoned without exposing sensiti
 
 ## 30. Additional market-data and execution acceptance scenarios
 
-Add focused automated tests and, where applicable, integration tests for each supported adapter and product mode:
+Add focused automated tests and, where applicable, integration tests for the internal trading engine and each supported market-data source:
 
 - Stale, missing, malformed and divergent quote sources; provider clock skew and delayed quote delivery.
 - Actual side-specific order-book depth and minimum order sizes at the customer-requested amount; fee, currency conversion, gas, withdrawal, network and expected slippage calculations.
 - Quote changes between opportunity display and allocation; opportunity expiry before allocation; immutable version preservation when a new quote creates a new opportunity version.
 - Internal engine outage, dependency timeout, permission failure, duplicate job retry, idempotency behavior, and recovery after restart.
-- Duplicate, missing, invalidly signed, replayed or out-of-order webhook/result events.
-- Partial fills, rejected orders, canceled orders, order status that disagrees with fill events, fee discrepancies and late fills after an initial timeout.
+- Duplicate, missing, invalidly signed, replayed or out-of-order internal result events.
+- Rejected or cancelled internal workflow items, state/result inconsistencies, fee discrepancies, and late result events after an initial timeout.
 - Network congestion, chain reorganization or delayed transfer confirmation when relevant to the selected route.
-- Disabled/paused venue, instrument or network; emergency pause and authorized resume; customer/jurisdiction/product restrictions.
+- Disabled/paused internal workflow or market-data source; emergency pause and authorized resume; customer/jurisdiction/product restrictions.
 - A company image or unverified ticker is presented in the informational catalogue but rejected as an unverified trading instrument.
 - Internal processing dependency absence or outage after tier eligibility: worker produces an actionable technical status and preserves funds safely without silently ignoring the work or fabricating completion.
 - Result/settlement evidence arriving more than once or out of order; reconciliation must remain idempotent and never credit the same result twice.
 
-Test fixtures may model these inputs, but production financial state must never be populated from simulated test outcomes. Each adapter must have a contract test that proves how successful submission, rejected submission, timeout, partial fill, final result, fee and cancellation are represented before the adapter is enabled in production.
+Test fixtures may model these inputs, but production financial state must never be populated from simulated test outcomes. The internal engine and each market-data integration must have contract tests for accepted work, rejection, timeout, final internal result, fee calculation, and cancellation before production enablement.
