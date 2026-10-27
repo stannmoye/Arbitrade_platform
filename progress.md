@@ -19,7 +19,13 @@ On the baseline main SHA, all four GitHub Actions workflows failed:
 - The customer package history now shows “Activation date unavailable” when the stored activation timestamp is null; valid timestamps keep their existing display. Commit: `136985524c34e37420dfdcbb8f4be2b9dabd593f`.
 - The catalogue diagnostics contract test now expects the existing sanitized, phase-specific error message rather than the old generic message. Commit: `70c75eb2f192e79390f8f6308736218fa7b2f496`.
 - Added this handoff convention to `AGENTS.md` and the repository guide so future sessions discover and verify this file. Commits: `6eabb9b93bac1195d0178820c7149a0b0c3a43cb` and `70aac5392ac5fa50ff56ced2707bcba343048138`.
-- PR #203 is open. At the time of this checkpoint, Actions for its latest branch head had not yet been verified. Inspect the live runs and exact SHA before treating the changes as passing.
+- PR #203 is open and unmerged. The exact code/test head `e5a3b6a3dc7a8f8882acc10d483f8594ea38e5f4` passed all five GitHub Actions workflows:
+  - [Installer validation #40595242266](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40595242266)
+  - [Verify application #40595242269](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40595242269)
+  - [Trading recovery verification #40595242285](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40595242285)
+  - [Mining regression #40595242385](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40595242385)
+  - [Production source build and test #40595242386](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40595242386), including type-check, automated tests, production build, and customer-portal browser acceptance.
+- This progress update is documentation-only; no application source or test files changed after the validated code/test head above. Resolve PR #203's live head and check its current Actions state before starting additional work.
 
 ## Verified project decisions and boundaries
 
