@@ -34,9 +34,13 @@ describe("Trading customer package subscription schema repair", () => {
   it("registers the repair as a forward-only migration after the current journal", () => {
     const entries = journal.entries;
     const entry = entries.find((item) => item.tag === "0078_trading_customer_package_subscription_repair");
+    const latest = entries.at(-1);
     expect(entry).toBeDefined();
-    expect(entry.idx).toBe(entries.length - 1);
-    expect(entry.when).toBeGreaterThan(entries.slice(0, -1).reduce((latest, item) => Math.max(latest, item.when), 0));
+    expect(entry.idx).toBe(entries.length - 2);
+    expect(entry.when).toBeGreaterThan(entries.slice(0, entry.idx).reduce((value, item) => Math.max(value, item.when), 0));
+    expect(latest.tag).toBe("0079_internal_ledger_execution_mode");
+    expect(latest.idx).toBe(entry.idx + 1);
+    expect(latest.when).toBeGreaterThan(entry.when);
   });
 
   it("repairs live schema drift even when migration history says the files were already applied", () => {
