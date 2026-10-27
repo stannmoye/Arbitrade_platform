@@ -1,5 +1,7 @@
 # Agent instructions for Arbitrade Platform
 
+Before starting work, read root `progress.md` as a handoff index and verify its branch and commit SHA against GitHub. It is a status aid, not the source of truth: current code, canonical requirements, and exact-SHA CI evidence take precedence. Update it after each substantive development increment with changes, checks, and next steps.
+
 Read these files before changing the application:
 
 1. `BUILD_SOURCE.json` — canonical branch/build requirements and acceptance boundary.
