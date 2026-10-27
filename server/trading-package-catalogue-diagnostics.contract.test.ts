@@ -13,7 +13,6 @@ describe("customer Trading package catalogue diagnostics", () => {
     expect(end).toBeGreaterThan(start);
     for (const phase of [
       "database_connection",
-      "expire_stale_subscriptions",
       "read_activation_settings",
       "read_qualifying_wallet_balances",
       "calculate_qualifying_balance",
@@ -35,8 +34,10 @@ describe("customer Trading package catalogue diagnostics", () => {
     expect(implementation).toContain('throw new Error("Unable to load the Trading package catalogue.');
   });
 
-  it("keeps the customer-facing failure generic and does not attempt activation", () => {
+  it("keeps catalogue reads read-only and does not attempt activation", () => {
     expect(implementation).toContain("Unable to load the Trading package catalogue");
+    expect(implementation).not.toContain("db.update(customerPackageSubscriptions)");
+    expect(implementation).not.toContain('phase = "expire_stale_subscriptions"');
     expect(implementation).not.toContain("activateCustomerTradingPackage(");
     expect(implementation).not.toContain("SQL query failed");
   });
