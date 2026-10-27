@@ -63,21 +63,15 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "mining-operations", target: "mining", label: "Mining", detail: "Simulated mining packages, rewards, conversions and ledger controls", icon: Coins },
   ]},
   { id: "trade-settings", label: "Trade Settings", detail: "Admin-controlled trading policy, automation and settlement", items: [
-    { id: "trade-settings-overview", target: "opportunity", label: "Overview", detail: "Trading operations, current offers and delivery health", icon: Gauge },
-    { id: "trade-packages-eligibility", target: "packages", label: "Packages & Eligibility", detail: "Package definitions, activation eligibility and entitlements", icon: PackageCheck },
-    { id: "trade-package-quotas", target: "packages", label: "Package Quotas & Customer Limits", detail: "Per-package opportunity quotas and customer limits", icon: Layers3 },
-    { id: "trade-opportunity-schedule", target: "opportunity", label: "Opportunity Schedule", detail: "Admin-configured delivery schedules and quotas", icon: Zap },
-    { id: "trade-duration-closing", target: "opportunity", label: "Trade Duration & Closing Rules", detail: "Configure duration policy; authoritative timing remains server-owned", icon: Clock3 },
-    { id: "trade-capital-wallet", target: "transactionReview", label: "Capital Allocation & Wallet Rules", detail: "Review wallet balances, ledger movements and allocation records", icon: WalletCards },
-    { id: "trade-profit-fees-limits", target: "opportunity", label: "Profit, Fees & Earnings Limits", detail: "Configure reward policy and package/customer ceilings", icon: CircleDollarSign },
-    { id: "trade-retries-carry-forward", target: "deliveryMonitor", label: "Retries & Carry-Forward", detail: "Inspect delivery lifecycle, retry and pending work", icon: Activity },
-    { id: "trade-company-catalogue", target: "opportunity", label: "Company Catalogue & Rotation", detail: "Manage informational company references and rotation policy", icon: Globe2 },
-    { id: "trade-popup-display", target: "deliveryMonitor", label: "Trade Pop-up & Customer Display", detail: "Review customer delivery and popup lifecycle", icon: SlidersHorizontal },
-    { id: "trade-notifications", target: "notificationCenter", label: "Notifications", detail: "Trading-related customer and administrator notifications", icon: Bell },
-    { id: "trade-active-pending", target: "deliveryMonitor", label: "Active Trades & Pending Work", detail: "Review delivery states and unresolved work", icon: Activity },
-    { id: "trade-settlement-reconciliation", target: "transactionReview", label: "Settlement & Reconciliation", detail: "Inspect ledger-backed movements and reconciliation records", icon: ReceiptText },
-    { id: "trade-system-health", target: "tradeSystemHealth", label: "System Health & Pause Controls", detail: "Global pause for new allocations and operational safety status", icon: ShieldAlert },
-    { id: "trade-audit-policy-versions", target: "audit", label: "Audit Log & Policy Versions", detail: "Review administrator actions and audit history", icon: FileText },
+    { id: "trade-settings-overview", target: "tradeOverview", label: "Overview", detail: "Read persisted offer, delivery, settlement, exception and allocation-pause status", icon: Gauge },
+    { id: "trade-packages-eligibility", target: "packages", label: "Packages & Eligibility", detail: "Manage package terms, activation rules, eligibility and package-level limits", icon: PackageCheck },
+    { id: "trade-opportunity-operations", target: "opportunity", label: "Opportunity Operations", detail: "Publish/import offer records and manage configured delivery policy", icon: Zap },
+    { id: "trade-delivery-activity", target: "deliveryMonitor", label: "Delivery Activity", detail: "Read saved customer delivery and popup lifecycle events", icon: Activity },
+    { id: "trade-timing-display", target: "tradeDisplaySettings", label: "Trade Timing & Display", detail: "Configure saved settlement, credit, cooldown and popup timing values", icon: SlidersHorizontal },
+    { id: "trade-notifications", target: "notificationCenter", label: "Trade Notifications", detail: "Manage customer notices and notification categories, including Trading", icon: Bell },
+    { id: "trade-settlement-reconciliation", target: "transactionReview", label: "Ledger, Fees & Settlement", detail: "Review wallet ledger, fee rules, pending settlements and reconciliation records", icon: ReceiptText },
+    { id: "trade-system-health", target: "tradeSystemHealth", label: "Allocation Pause", detail: "View or change the audited pause for new allocations; existing trades remain unchanged", icon: ShieldAlert },
+    { id: "trade-audit-log", target: "audit", label: "Audit Log", detail: "Review persisted administrator actions; policy-version history is not available here", icon: FileText },
   ]},
   { id: "verification-risk", label: "Verification & Risk", detail: "KYC, review, risk and session oversight", items: [
     { id: "kyc-overview", target: "kycCenter", label: "KYC Overview", detail: "Stages, metrics, settings and review posture", icon: ShieldCheck },
@@ -126,3 +120,18 @@ export const quickActionItems = [
 
 export const allAdminNavigationItems = adminNavigationGroups.flatMap((group) => group.items);
 export function getAdminNavigationItem(target: string) { return allAdminNavigationItems.find((item) => item.target === target); }
+
+export function isAdminNavigationItemActive(input: {
+  groupId: string;
+  itemId: string;
+  target: string;
+  section: string;
+  selectedTradeItemId: string | null;
+}) {
+  if (input.selectedTradeItemId) {
+    return input.groupId === "trade-settings" &&
+      input.selectedTradeItemId === input.itemId &&
+      input.section === input.target;
+  }
+  return input.section === input.target;
+}

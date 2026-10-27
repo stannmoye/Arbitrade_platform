@@ -31,11 +31,11 @@ describe("customer Trading package catalogue diagnostics", () => {
     expect(diagnosticEnd).toBeGreaterThan(diagnosticStart);
     const diagnosticFields = implementation.slice(diagnosticStart, diagnosticEnd);
     expect(diagnosticFields).not.toContain("userId");
-    expect(implementation).toContain('throw new Error("Unable to load the Trading package catalogue.');
+    expect(implementation).toContain('throw new Error("Trading package catalogue unavailable (phase: " + phase + ", code: " + safeCode + ").");');
   });
 
   it("keeps catalogue reads read-only and does not attempt activation", () => {
-    expect(implementation).toContain("Unable to load the Trading package catalogue");
+    expect(implementation).toContain("Trading package catalogue unavailable (phase: ");
     expect(implementation).not.toContain("db.update(customerPackageSubscriptions)");
     expect(implementation).not.toContain('phase = "expire_stale_subscriptions"');
     expect(implementation).not.toContain("activateCustomerTradingPackage(");

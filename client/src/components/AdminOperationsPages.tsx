@@ -114,6 +114,93 @@ function timestamp(value: Date | string | null | undefined) {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString();
 }
 
+export function AdminTradeOverview({
+  onNavigate,
+}: {
+  onNavigate: (section: string) => void;
+}) {
+  const offers = trpc.adminOperations.offers.useQuery(undefined, { refetchInterval: 15_000 });
+  const lifecycle = trpc.adminOperations.popupLifecycleSummary.useQuery(undefined, { refetchInterval: 15_000 });
+  const settlements = trpc.adminOperations.pendingSettlements.useQuery(undefined, { refetchInterval: 15_000 });
+  const integrity = trpc.adminOperations.settlementIntegrityIssues.useQuery({ limit: 1000 }, { refetchInterval: 30_000 });
+  const allocation = trpc.adminOperations.tradeAllocationControls.useQuery(undefined, { refetchInterval: 15_000 });
+  const refresh = () => {
+    void Promise.all([
+      offers.refetch(),
+      lifecycle.refetch(),
+      settlements.refetch(),
+      integrity.refetch(),
+      allocation.refetch(),
+    ]);
+  };
+  const errors = [
+    offers.isError && "Open opportunity records",
+    lifecycle.isError && "Delivery activity",
+    settlements.isError && "Pending settlements",
+    integrity.isError && "Settlement integrity scan",
+    allocation.isError && "Allocation safety status",
+  ].filter(Boolean);
+  const latest = lifecycle.data?.last24Hours ?? {};
+  const issues = integrity.data?.issues ?? [];
+  const scanned = integrity.data?.scan?.candidatesExamined ?? 0;
+  const allocationLabel = allocation.isError
+    ? "Unavailable"
+    : allocation.data
+      ? allocation.data.allocationsPaused ? "Paused" : "Active"
+      : "—";
+  const metrics: Array<[string, string, string, typeof Activity]> = [
+    ["Open offer records", offers.isError ? "Unavailable" : offers.data ? offers.data.length.toLocaleString() : "—", "Records with open status; timing is checked by the server", Activity],
+    ["Pending settlements", settlements.isError ? "Unavailable" : settlements.data ? settlements.data.length.toLocaleString() : "—", "Confirmed trades awaiting settlement", Clock3],
+    ["Integrity exceptions", integrity.isError ? "Unavailable" : integrity.data ? issues.length.toLocaleString() : "—", `Latest scan examined ${scanned.toLocaleString()} candidate records`, AlertTriangle],
+    ["Delivered · last 24 hours", lifecycle.isError ? "Unavailable" : lifecycle.data ? Number(latest.delivered ?? 0).toLocaleString() : "—", "Persisted delivery lifecycle events", CheckCircle2],
+    ["Settled · last 24 hours", lifecycle.isError ? "Unavailable" : lifecycle.data ? Number(latest.settled ?? 0).toLocaleString() : "—", "Recorded settlement events", CircleDollarSign],
+    ["New allocations", allocationLabel, allocation.data?.allocationsPaused ? "New reservations are currently blocked" : "Durable server-side allocation control", ShieldCheck],
+  ];
+  const anyLoading = [offers, lifecycle, settlements, integrity, allocation].some(query => query.isLoading);
+
+  return (
+    <ToolPage
+      eyebrow="Trade Settings · read-only snapshot"
+      title="Trading overview"
+      description="Review current offer records, persisted delivery activity, pending settlements, reconciliation exceptions, and the administrator-controlled allocation pause. This page reads saved records; it does not create, allocate, or settle trades."
+      icon={Activity}
+      action={<button className="admin-ops-button" type="button" onClick={refresh} disabled={[offers, lifecycle, settlements, integrity, allocation].some(query => query.isFetching)}><RefreshCw size={14} /> Refresh snapshot</button>}
+    >
+      <div className="admin-ops-meta-line">
+        <span><Clock3 size={14} /> Values refresh from their database-backed admin queries.</span>
+        <span>Delivery data updated {timestamp(lifecycle.data?.generatedAt)}</span>
+      </div>
+      {errors.length > 0 && (
+        <div className="admin-ops-empty error trade-overview-error" role="alert">
+          <AlertTriangle size={16} />
+          <span>{errors.join(", ")} could not be loaded. Unavailable values are not shown as zero.</span>
+          <button className="admin-ops-button" type="button" onClick={refresh}>Retry</button>
+        </div>
+      )}
+      {anyLoading && <LoadingState>Loading saved Trading records…</LoadingState>}
+      <section className="admin-ops-metrics trade-overview-metrics" aria-label="Trading status metrics">
+        {metrics.map(([label, value, detail, icon]) => <Metric key={label} label={label} value={value} detail={detail} icon={icon} />)}
+      </section>
+      <div className="trade-overview-grid">
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Next review</span><h2>Open the source records</h2></div><span className="admin-ops-subtle">Read-only navigation</span></div>
+          <div className="trade-overview-links">
+            <button type="button" onClick={() => onNavigate("opportunity")}><span><strong>Opportunity management</strong><small>Review published offers and package delivery policy.</small></span><Activity size={16} /></button>
+            <button type="button" onClick={() => onNavigate("deliveryMonitor")}><span><strong>Delivery activity</strong><small>Compare delivered, noticed, opened, traded, and settled events.</small></span><CheckCircle2 size={16} /></button>
+            <button type="button" onClick={() => onNavigate("transactionReview")}><span><strong>Settlement & reconciliation</strong><small>Review pending settlement records and ledger exceptions.</small></span><CircleDollarSign size={16} /></button>
+            <button type="button" onClick={() => onNavigate("tradeSystemHealth")}><span><strong>Allocation pause</strong><small>Check or change the audited global new-allocation safety control.</small></span><ShieldCheck size={16} /></button>
+          </div>
+        </section>
+        <section className="admin-ops-panel trade-overview-note-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">How to read this page</span><h2>Counts are not execution proof</h2></div><ShieldCheck size={17} /></div>
+          <p>Offer status, delivery events, pending settlement records, and completed settlements are separate stages. A delivery or estimate does not prove a trade was allocated, and a countdown does not prove settlement. Use the linked persisted records for the authoritative status.</p>
+          {integrity.data?.scan?.hasMore && <div className="admin-ops-note"><AlertTriangle size={15} /><span>The reconciliation scan reached its 1,000-record page limit. Additional candidates remain; the exception count shown covers only this scan page.</span></div>}
+        </section>
+      </div>
+    </ToolPage>
+  );
+}
+
 export function AdminOpportunityDelivery() {
   const query = trpc.adminOperations.popupLifecycleSummary.useQuery(undefined, { refetchInterval: 10_000 });
   const data = (query.data ?? {}) as unknown as LifecycleSummary;

@@ -502,3 +502,154 @@
 .admin-payout-history-head{margin-top:20px}
 .admin-ops-table td input[aria-label^="External transfer reference"],.admin-ops-table td textarea[aria-label^="Resolution note"]{box-sizing:border-box;width:100%;min-width:150px;margin:0 0 7px;padding:8px 9px;border:1px solid var(--border-color,rgba(128,150,172,.35));border-radius:7px;background:var(--input-bg,rgba(4,15,27,.4));color:inherit;font:inherit;font-size:11px}
 @media(max-width:760px){.admin-payout-destination{max-width:180px}.admin-payout-actions{min-width:116px}}
+
+
+/* Trade overview: clear hierarchy, generous spacing, and responsive source-record links. */
+.admin-ops-page .trade-overview-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-block: 16px 20px;
+}
+.trade-overview-error {
+  justify-content: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+.trade-overview-error > span {
+  flex: 1 1 260px;
+}
+.trade-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, .85fr);
+  align-items: stretch;
+  gap: 16px;
+}
+.trade-overview-grid .admin-ops-panel {
+  margin-top: 0;
+  padding: 22px;
+}
+.trade-overview-links {
+  display: grid;
+  gap: 10px;
+}
+.trade-overview-links button {
+  display: flex;
+  min-height: 70px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid rgba(132, 164, 177, .15);
+  border-radius: 13px;
+  color: #dce9eb;
+  background: linear-gradient(140deg, rgba(20, 38, 49, .75), rgba(11, 23, 34, .7));
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, transform .18s ease, background .18s ease;
+}
+.trade-overview-links button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(124, 231, 194, .38);
+  background: rgba(124, 231, 194, .055);
+}
+.trade-overview-links button > span {
+  display: grid;
+  gap: 5px;
+}
+.trade-overview-links strong {
+  color: #e8f2f0;
+  font-size: 12px;
+}
+.trade-overview-links small {
+  color: #8da5ae;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.trade-overview-links svg {
+  flex: 0 0 auto;
+  color: #7ce7c2;
+}
+.trade-overview-note-panel > p {
+  margin: 0;
+  color: #96adb5;
+  font-size: 11px;
+  line-height: 1.75;
+}
+:root[data-arb-theme] .admin-ops-page .trade-overview-links button {
+  border-color: var(--arb-color-border);
+  color: var(--arb-color-text);
+  background: var(--arb-color-surface);
+}
+:root[data-arb-theme] .admin-ops-page .trade-overview-links :where(strong, small) {
+  color: var(--arb-color-text);
+}
+:root[data-arb-theme] .admin-ops-page .trade-overview-links svg {
+  color: var(--arb-color-accent);
+}
+.trade-allocation-page .portal-page-top {
+  margin-bottom: 24px;
+}
+.trade-allocation-page .portal-page-top > div > p {
+  max-width: 800px;
+  line-height: 1.7;
+}
+.trade-allocation-card {
+  max-width: 1050px;
+  padding: clamp(20px, 3vw, 30px) !important;
+  border-radius: 18px;
+}
+.trade-allocation-card > p {
+  max-width: 780px;
+  line-height: 1.7;
+}
+.trade-allocation-confirm {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 16px;
+  border: 1px solid rgba(235, 184, 97, .28);
+  border-radius: 14px;
+  color: #f1c77d;
+  background: rgba(235, 184, 97, .07);
+}
+.trade-allocation-confirm p {
+  margin: 0;
+  color: #b8c9cd;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.trade-allocation-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 4px;
+}
+@media (max-width: 900px) {
+  .admin-ops-page .trade-overview-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .trade-overview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .admin-ops-page .trade-overview-metrics {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .trade-overview-grid .admin-ops-panel {
+    padding: 15px;
+  }
+  .trade-overview-links button {
+    min-height: 78px;
+    padding: 13px;
+  }
+  .trade-allocation-confirm-actions {
+    justify-content: stretch;
+  }
+  .trade-allocation-confirm-actions > button {
+    flex: 1 1 150px;
+  }
+}

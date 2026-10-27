@@ -110,13 +110,13 @@ export function CustomerTradingPackages() {
           {subscriptions.map(subscription => (
             <div className="trading-active-subscription" key={subscription.id}>
               <strong>{subscription.packageName}</strong>
-              <span>Activated {new Date(subscription.activatedAt).toLocaleDateString()}</span>
+              <span>Activated {subscription.activatedAt ? new Date(subscription.activatedAt).toLocaleDateString() : "Date pending"}</span>
               <span>Expires {subscription.expiresAt ? new Date(subscription.expiresAt).toLocaleDateString() : "No expiry configured"}</span>
             </div>
           ))}
         </div>
       )}
-      <p className="trading-package-note"><CheckCircle2 size={14} /> A package activation does not itself debit trade capital. The trading worker allocates only when an eligible opportunity occurs and the server confirms sufficient spendable funds.</p>
+      <p className="trading-package-note"><CheckCircle2 size={14} /> Trade allocations are handled by authorized server-side processing when the configured rules and spendable-balance checks allow. This page does not provide manual trade controls.</p>
     </section>
   );
 }

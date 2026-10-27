@@ -59,9 +59,12 @@ describe("global trade allocation pause", () => {
     expect(router).toContain("updateTradeAllocationControls: adminProcedure.input");
     expect(adminUi).toContain("trpc.adminOperations.tradeAllocationControls.useQuery");
     expect(adminUi).toContain("trpc.adminOperations.updateTradeAllocationControls.useMutation");
-    expect(adminUi).toContain("Pause new allocations");
-    expect(adminUi).toContain("Resume new allocations");
+    expect(adminUi).toContain("Review pause request");
+    expect(adminUi).toContain("Review resume request");
+    expect(adminUi).toContain("Confirm pause of new allocations");
+    expect(adminUi).toContain("Confirm resuming new allocations");
     expect(adminUi).toContain("Existing open trades are not changed");
-    expect(adminUi).toContain('{section==="tradeSystemHealth"&&<AdminTradeAllocationControl/>}');
+    expect(adminUi).toContain('{section==="tradeSystemHealth"&&<div className="arb-page portal-page trade-allocation-page">');
+    expect(adminUi).toContain("<AdminTradeAllocationControl/>");
   });
 });
