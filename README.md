@@ -66,8 +66,6 @@ Customer and administrator accounts, roles, packages, opportunities, balances, l
 
 Before production launch, configure HTTPS, SMTP, rate limiting, CSRF protections appropriate to the deployment, admin 2FA, backups, reconciliation, and provider secrets through the host environment.
 
-The trading workflow records real-money trading allocations, capital movements, realized results, fees, and settlement in the customer's internal ledger. Financial changes must be supported by recorded trade lifecycle/result data and posted transactionally and idempotently; configured estimates alone must never be recorded as realized profit.
-
 ## Trade/Trading implementation guide
 
 All requirements for the customer Trade menu, package activation, automatic processing, admin Trade Settings, execution, fees, settlement, company catalogue, notifications, reconciliation, recovery, and tests are maintained in the [single canonical Trade/Trading implementation guide](docs/TRADING_SYSTEM_SPECIFICATION.md). Do not use this README or another document as a competing source of trading requirements.
