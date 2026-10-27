@@ -36,7 +36,7 @@ describe("Trading customer package subscription schema repair", () => {
     const entry = entries.find((item) => item.tag === "0078_trading_customer_package_subscription_repair");
     expect(entry).toBeDefined();
     expect(entry.idx).toBe(entries.length - 2);
-    expect(entry.when).toBeGreaterThan(entries.slice(0, -1).reduce((latest, item) => Math.max(latest, item.when), 0));
+    expect(entry.when).toBeGreaterThan(entries.slice(0, entry.idx).reduce((latest, item) => Math.max(latest, item.when), 0));
   });
 
   it("repairs live schema drift even when migration history says the files were already applied", () => {
