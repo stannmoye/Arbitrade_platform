@@ -1,23 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PoolConnection } from "mysql2/promise";
 import {
-  presentSimulatedActivity,
   transactionConsoleEventLockName,
+  recordTransactionConsolePulse,
   withTransactionConsoleEventLock,
 } from "./transactionConsole";
 
-describe("transaction-console simulated activity labeling", () => {
-  it.each(["COMPLETED", "FAILED", "STALLED", "PROCESSING", "DELAYED"] as const)(
-    "never presents generated %s telemetry as a real transaction", (outcome) => {
-      const presentation = presentSimulatedActivity(outcome, "Example activity phrase");
-
-      expect(presentation.status).toBe("SIMULATED");
-      expect(presentation.title).toMatch(/simulated/i);
-      expect(presentation.message).toMatch(/^SIMULATION ONLY — no wallet movement was performed\./);
-      expect(presentation.message).toContain("Example activity phrase");
-      expect(presentation.simulatedOutcome).toBe(outcome);
-    },
-  );
+describe("transaction-console activity integrity", () => {
+  it("does not create activity without a confirmed ledger-backed event", async () => {
+    await expect(recordTransactionConsolePulse(42, {} as any)).resolves.toEqual({
+      inserted: false,
+      paused: false,
+      reason: "NO_CONFIRMED_LEDGER_EVENT",
+    });
+  });
 });
 
 
@@ -69,7 +65,7 @@ describe("transaction-console event deduplication locks", () => {
       return sql.includes("GET_LOCK") ? [[{ acquired: 1 }], []] : [[{ released: 1 }], []];
     });
     const connection = { query } as unknown as PoolConnection;
-    const failure = new Error("simulated insert failure");
+    const failure = new Error("database insert failure");
 
     await expect(withTransactionConsoleEventLock(connection, "arb_evt:test", async () => {
       calls.push("work");

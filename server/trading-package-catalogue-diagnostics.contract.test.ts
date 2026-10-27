@@ -21,21 +21,21 @@ describe("customer Trading package catalogue diagnostics", () => {
     ]) {
       expect(implementation).toContain(`phase = "${phase}"`);
     }
-    expect(implementation).toContain('[Trading] Customer package catalogue read failed');
+    expect(implementation).toContain('[Trading] Customer package catalogue dependency unavailable');
     expect(implementation).toContain("errorCode:");
     expect(implementation).toContain("sqlState:");
 
-    const diagnosticStart = implementation.indexOf('console.error("[Trading] Customer package catalogue read failed"');
+    const diagnosticStart = implementation.indexOf('console.error("[Trading] Customer package catalogue dependency unavailable"');
     const diagnosticEnd = implementation.indexOf("\n    });", diagnosticStart);
     expect(diagnosticStart).toBeGreaterThanOrEqual(0);
     expect(diagnosticEnd).toBeGreaterThan(diagnosticStart);
     const diagnosticFields = implementation.slice(diagnosticStart, diagnosticEnd);
     expect(diagnosticFields).not.toContain("userId");
-    expect(implementation).toContain('throw new Error("Unable to load the Trading package catalogue.');
+    expect(implementation).toContain('throw new Error("Trading package catalogue unavailable (phase: ');
   });
 
   it("keeps catalogue reads read-only and does not attempt activation", () => {
-    expect(implementation).toContain("Unable to load the Trading package catalogue");
+    expect(implementation).toContain("Trading package catalogue unavailable (phase: ");
     expect(implementation).not.toContain("db.update(customerPackageSubscriptions)");
     expect(implementation).not.toContain('phase = "expire_stale_subscriptions"');
     expect(implementation).not.toContain("activateCustomerTradingPackage(");

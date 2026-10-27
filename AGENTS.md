@@ -6,13 +6,46 @@ Read these files before changing the application:
 2. `BUILD_AND_RELEASE.md` — build and release process.
 3. `docs/REPOSITORY_GUIDE.md` — repository layout and source ownership.
 4. **`docs/TRADING_SYSTEM_SPECIFICATION.md` — mandatory canonical trading requirements.**
-5. The acceptance or implementation document relevant to the files being changed.
+5. The relevant acceptance or implementation evidence for the specific task. For all Trade/Trading requirements, the canonical guide in item 4 is the only detailed product contract.
 
 ## Mandatory trading-system rule
 
-Before modifying the Trading page, opportunity engine, package entitlements, wallet allocation, trade lifecycle, settlement, fees, company catalogue, or related admin controls, read `docs/TRADING_SYSTEM_SPECIFICATION.md` in full. Treat it as the canonical product contract for trading behaviour. It covers package defaults, free activation/qualifying balance, same-package repurchase controls, combined customer earnings ceiling, insufficient-balance opportunity pop-ups, server-side automatic processing, 15% fee on realized positive profit, retries/carry-forward, company rotation, wallet notifications, and admin controls.
+Before modifying any customer Trade menu, trading API, package entitlement, opportunity worker, wallet allocation, trade lifecycle, settlement, fee, company-catalogue or trading-admin feature, read `docs/TRADING_SYSTEM_SPECIFICATION.md` in full. That file is the single detailed Trade/Trading implementation guide and takes precedence over trading-related statements in all general or historical documents. Do not reproduce a competing set of trading requirements in this file or create another trading guide. When an intended trading requirement changes, update the canonical guide and its tests; no companion PDF is tracked. Never claim a requirement is implemented without inspecting the code and validating it.
 
-Do not introduce behaviour that conflicts with the specification. If a codebase constraint or later user instruction appears to conflict, stop and document the conflict before implementing. Update the canonical specification and its PDF together when requirements are formally revised. Never claim a requirement is implemented without inspecting the code and validating it.
+## Financial safety and release discipline
+
+### Approved trading-model decision — Option B (authoritative)
+
+- Use the documented internal-ledger trading model. Do **not** make an external broker/exchange execution provider a prerequisite for implementing or operating this internal-ledger model.
+- This decision does **not** permit simulated, fabricated, or estimated financial outcomes to be presented or credited as real. Every trade result and settlement must be genuine, recorded in durable internal trade/settlement records, supported by auditable evidence, and reconciled to the customer's ledger.
+- Opportunity estimates, countdowns, animations, ticker search results, and UI state are never evidence of execution or realized profit and must never trigger a financial credit.
+- Do not describe internal-ledger processing as execution on an external market. If a feature explicitly claims external-market execution, it must separately use an appropriate authorized integration and independently verifiable result references before making that claim.
+- This is the approved resolution of the prior provider-prerequisite conflict and aligns with Section 1 of `docs/TRADING_SYSTEM_SPECIFICATION.md`. If another repository document contradicts this decision, do not silently reintroduce the provider prerequisite; report the exact conflicting text and request clarification before changing the approved model.
+- Admin changes to financial policy must be permissioned and auditable. Passing build checks, source inclusion, hosted acceptance, deployment, and production certification are separate gates.
+
+## Owner-locked coding rule — no invented product rules
+
+The owner-approved rules in `docs/TRADING_SYSTEM_SPECIFICATION.md` control Trade/Trading, packages, wallet credits, currency conversion, and the internal-only trading workflow. During coding, review, testing, refactoring, and AI-assisted work, do not invent or silently substitute product rules or modify the guide. Implement the guide as written. If legacy code/docs conflict, correct the conflicting artifact rather than weakening the guide. Ask the owner before resolving product-policy ambiguity. Do not claim tests or deployment succeeded without evidence. These instructions do not authorize bypassing applicable law, security requirements, or platform safety requirements; if one creates a concrete blocker, explain it rather than silently changing the product rules.
+
+The term `internal ledger` is engineering-only and must never appear in customer-facing UI, API messages, notifications, emails, help text, or other customer communications. The product's trading workflow is internal-only; do not claim external exchange or broker execution.
+
+## Owner-locked trading and wallet requirements — do not override
+
+Before any Trade/Trading, package, wallet credit/debit, ledger, currency conversion, or admin-control work, read the complete `docs/TRADING_SYSTEM_SPECIFICATION.md`. Its section titled **“Binding owner-approved rules — permanent requirements”** is the controlling owner-approved policy.
+
+The following rules are permanent unless the owner personally and explicitly requests a change:
+
+1. Customers do not subscribe to, purchase, select, or activate packages. The customer portal must not expose the package catalogue or package-management actions. Only authorized administrators may see/manage the complete catalogue.
+2. Package tiers are automatically assigned from cumulative qualifying deposit credits, with each qualifying tier's daily pop-up/opportunity quota added together.
+3. Only a successfully committed manual wallet credit submitted by an authorized administrator through the admin portal and explicitly classified server-side as a qualifying deposit counts toward tier thresholds. Profit, reward, returned principal, bonus, transfer, swap, conversion, imported/opening balance, and all other credit sources do not qualify.
+4. Every package field and behavior-affecting setting must be editable in the authorized admin editor. No hidden hard-coded package behavior is allowed.
+5. User-entered fiat amounts are real major-currency values. USD 10000 means $10,000; EUR 100 means €100; GBP 100 means £100. Apply internal minor-unit scaling exactly once. Never use confusing hidden units or double-scale values.
+6. Preserve native BTC/ETH quantities and use a configured live exchange-rate API with recorded rate/source/timestamp for fiat conversion. Fail closed for required missing/stale rates. USDT uses the owner-approved nominal 1 USDT = 1 USD conversion rule while retaining native USDT amounts.
+7. Never silently reinterpret these requirements to fit legacy code, old docs, tests, schema, seed values, or another AI-generated plan. Fix the conflicting artifact. If a technical conflict cannot be resolved while preserving the rules, stop and report it. Do not edit the canonical guide to accommodate a conflict unless the owner explicitly requests the change.
+
+## Mandatory implementation TODO
+
+Before declaring this policy implemented, the responsible agent must verify and complete all applicable items in the canonical guide's **“Mandatory implementation TODO — owner-approved rules”** checklist, including customer API/UI removal, admin-only package CRUD, complete package editor, qualifying-deposit ledger attribution, cumulative tier quota calculation, exact currency scaling, live BTC/ETH conversion, USDT nominal conversion, migrations, regression tests, and exact-commit validation. Do not claim completion based on documentation alone. Do not merge or deploy without explicit authorization.
 
 ## Canonical source
 
@@ -36,58 +69,3 @@ pnpm build
 Never commit `node_modules/`, generated `dist/` output, release archives, actual `.env` files, credentials, private keys, customer data, or production database dumps.
 
 Database changes should use ordered forward migrations and retry-safe server-side behaviour. Do not run a fresh install against a populated database.
-
-## Financial safety and release discipline
-
-### Approved trading-model decision — Option B (authoritative)
-
-- Use the documented internal-ledger trading model. Do **not** make an external broker/exchange execution provider a prerequisite for implementing or operating this internal-ledger model.
-- This decision does **not** permit simulated, fabricated, or estimated financial outcomes to be presented or credited as real. Every trade result and settlement must be genuine, recorded in durable internal trade/settlement records, supported by auditable evidence, and reconciled to the customer's ledger.
-- Opportunity estimates, countdowns, animations, ticker search results, and UI state are never evidence of execution or realized profit and must never trigger a financial credit.
-- Do not describe internal-ledger processing as execution on an external market. If a feature explicitly claims external-market execution, it must separately use an appropriate authorized integration and independently verifiable result references before making that claim.
-- This is the approved resolution of the prior provider-prerequisite conflict and aligns with Section 1 of `docs/TRADING_SYSTEM_SPECIFICATION.md`. If another repository document contradicts this decision, do not silently reintroduce the provider prerequisite; report the exact conflicting text and request clarification before changing the approved model.
-- Admin changes to financial policy must be permissioned and auditable. Passing build checks, source inclusion, hosted acceptance, deployment, and production certification are separate gates.
-
-
-## Ticker candidate data safeguards
-
-- The imported candidate snapshot is `server/data/company-trading-symbol-candidates-1811.json.gz.b64`; the service validates its 1,811 rows and 814 public candidates at startup.
-- Join candidate ticker data to the image catalogue using the stable sequential logo ID, never fuzzy name matching.
-- The source workbook includes 637 invented placeholder codes, 265 parent-brand ticker references, and 95 historical tickers. Those values must not be exposed as active candidates.
-- The 814 rows marked Public are still unverified research candidates. Keep all entries ineligible for verified trade rotation until independent authoritative verification, source URL, provider instrument ID, and verification timestamp are recorded.
-- Do not use ticker search results to authorize live orders, market quotes, or settlement.
-
-
-### Company catalogue UI integration
-- The company catalogue contains 1,811 logo-ID-aligned records and is searchable from the customer Trading Opportunities page.
-- Keep company ID, local logo, country folder, supplied ticker, exchange, and dataset status associated on the same result.
-- Search endpoint may return up to 1,811 records, but the customer UI should request and render at most 100 results at a time.
-- Display supplied ticker values as supplied; do not imply they are verified or guaranteed to resolve with a market-data provider.
-
-- Import every row and every column from `company_trading_symbols.xlsx` aligned by its 1-based `#` field to Logo ID; preserve supplied ticker, exchange, status, parent ticker, and reason fields even for placeholder, parent, and historical rows.
-- Placeholder codes are display-only and must not be passed to market-data or order APIs. Historical and parent-company ticker references must remain visibly classified; do not silently convert them into direct listings.
-
-### Trade Settings admin navigation and removal of customer trade switches
-
-- The admin portal must use **Trade Settings** as the top-level navigation group for trading configuration and operations. Follow the submenu structure in Section 12 of `docs/TRADING_SYSTEM_SPECIFICATION.md`, including packages/eligibility, quotas, opportunity schedules, duration/closing rules, wallet allocation, fees/earnings limits, retries/carry-forward, company rotation, pop-up/customer display, notifications, active/pending trades, settlement/reconciliation, system health/pause, and audit/policy versions.
-- Remove customer-side manual trade-engine controls such as Trading On/Off, Opportunity On/Off, Auto Trade On/Off, and equivalent start/stop switches. Trades are automatic and server-controlled under active customer package entitlements and admin-configured opportunity quotas, schedules, balances, and limits.
-- Package entitlements and admin-configured package opportunity counts govern eligible opportunity presentation; do not hard-code one global pop-up count for all customers. Display an insufficient-balance opportunity only when an eligible opportunity actually occurs and the funds check fails.
-- Customer-side Minimize/Maximize controls are display-only and must not change trade execution, countdown, or settlement. Keep all financial and policy-changing actions server-side, authorized, validated, idempotent, and auditable.
-
-### Admin authority and trade closing time
-
-- The admin portal is the source of truth for all admin-configurable customer-side trading behaviour. Customer UI must reflect authorized admin settings and server-persisted state; it must not independently override or hard-code policy values.
-- Trade close time and countdown target are based on the admin-configured duration/schedule plus the server-recorded trade opening/start timestamp. The browser only renders the countdown; it cannot determine or change the authoritative close time.
-- Customer sign-out, refresh, local clock drift, scrolling, minimizing, or maximizing must not alter trade timing or settlement.
-- Admin configuration changes must be authorized, validated, audited, and versioned where they affect existing trades. Follow the documented effective-time policy; never silently rewrite a trade's historical timestamps.
-- If the configured close time is missing or invalid, show a pending/unavailable state rather than inventing a duration or timestamp.
-
-### Trade pop-up and minimized dock requirements
-
-- The canonical UI requirements are in Section 10 of `docs/TRADING_SYSTEM_SPECIFICATION.md`; read and follow that section before changing the trade pop-up.
-- Show company name, local logo, country name and country flag together with the supplied symbol/code and exchange classification. Derive the flag from country metadata; never guess a flag for an unverified country.
-- Include invested/allocated amount, gross profit, net profit, platform-fee percentage and amount, profit percentage, total amount credited/returned, trade opening and closing times, countdown, status, and available trade references. Keep principal, gross profit, fee, net profit, and total return distinct.
-- Never invent financial values or timestamps. Label estimates clearly and replace them with persisted, ledger-supported actual values after settlement.
-- The expanded pop-up must have Minimize; its fixed bottom-of-viewport dock must remain visible during scrolling and show the countdown/status plus Maximize. Minimize/maximize must not alter server-owned trade timing or accounting.
-- Do not dismiss a card solely because its expanded timeout expires or countdown reaches zero. Dismiss only after countdown completion and an authoritative terminal status; keep pending/retrying/unsettled items accessible.
-- Update the canonical specification and acceptance checklist alongside relevant implementation changes. Test country/flag fallback, scrolling persistence, minimize/maximize, multiple concurrent cards, countdown expiry, terminal dismissal, and unavailable/estimated/settled financial fields.

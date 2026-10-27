@@ -62,9 +62,9 @@ Start/restart the cPanel Node application, then verify:
 
 Use cPanel Cron Jobs with UTC schedules for the scheduled handlers documented in `docs/deployment-v5.md`. Use the application's signed scheduler secret or protected server route; never expose a cron endpoint without authentication. The installer cannot create or verify cPanel cron entries unless your hosting account exposes an authorized cPanel API; verify each entry in cPanel after configuring it.
 
-## 5. Production boundary
+## 5. Trading and production boundary
 
-The product is production-deployable, but real-money execution and verified returns remain disabled until an actual execution/settlement provider is configured and approved. The application must not credit configured rates as real profit. Do not import development/demo seed data into production.
+Trade/Trading behavior is defined only by [`docs/TRADING_SYSTEM_SPECIFICATION.md`](../docs/TRADING_SYSTEM_SPECIFICATION.md). The internal-ledger trading model does not require an external broker/exchange execution provider as a prerequisite. Trade results and settlements must be based on genuine, persisted internal trade/settlement records, auditable result evidence, and ledger reconciliation; never credit configured rates, estimates, or UI state as realized profit. Any feature claiming execution on an external market requires its own authorized integration and independently verifiable references. Do not import development/demo seed data into production.
 
 ## 6. Recovery
 

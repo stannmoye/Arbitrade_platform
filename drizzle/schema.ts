@@ -612,7 +612,7 @@ export const v5Opportunities = mysqlTable("v5_opportunities", {
   companyId: int("companyId").notNull(),
   tradingTypeId: int("tradingTypeId").notNull(),
   title: varchar("title", { length: 200 }).notNull(),
-  practiceMode: mysqlEnum("practiceMode", ["PRACTICE", "SIMULATION", "RESEARCH"]).default("PRACTICE").notNull(),
+  executionMode: mysqlEnum("executionMode", ["INTERNAL_LEDGER", "LIVE"]).default("INTERNAL_LEDGER").notNull(),
   currency: varchar("currency", { length: 32 }).notNull(),
   fixedInvestment: varchar("fixedInvestment", { length: 128 }).notNull(),
   grossProfitRate: varchar("grossProfitRate", { length: 128 }).notNull(),

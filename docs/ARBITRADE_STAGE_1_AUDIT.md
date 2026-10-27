@@ -1,7 +1,10 @@
 # Arbitrade Stage 1 — Application Audit and Development Baseline
 
+> **Trade/Trading authority:** This roadmap, work queue, audit or acceptance record is not the current trading requirements source. Any trading-related status or observations here refer to the code/evidence and scope recorded in this file; they do not define the intended current behavior. The only detailed current requirements are in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). Update that guide when trading requirements change; do not create competing trading instructions here.
+
+
 **Audit date:** 2026-10-18  
-**Roadmap:** `docs/ARBITRADE_MASTER_DEVELOPMENT_ROADMAP.md` (version 2.0; 30 stages)  
+**Roadmap:** Removed during documentation simplification; current Trade/Trading requirements are maintained only in `docs/TRADING_SYSTEM_SPECIFICATION.md`.  
 **Audited branch:** `integration/auth-installer-vps-safety`  
 **Audit status:** In progress — source inventory and CI baseline are recorded. GitHub Actions run 39121401277 passed, but route/API/access mapping and measured browser/viewport acceptance remain outstanding.  
 **Rule:** This is a source inspection, not a claim that the application has been built, tested, or production-validated.
@@ -130,7 +133,7 @@ These are source-level observations, not end-to-end proof of event timing or fin
 - Customer financial and account endpoints generally pass `ctx.user.id` into the relevant service layer. The customer-facing `settle` mutation explicitly rejects direct settlement and states that settlement requires administrator confirmation after external payment confirmation. This is an important control to preserve.
 - The customer sound-settings query reads the global `sound.settings` application setting through an authenticated procedure; administrator settings updates are guarded by `adminProcedure`. The persisted sound schema currently supports only `opportunity`, `credit`, `debit`, `enabled`, and `loopOpportunity`; event-specific deposit/withdrawal/mining/swap/support mappings are not present in that schema.
 - The customer `opportunities` query records transaction-console events for auto-trades, settlements, and missed opportunities as it reads results. `recordTransactionConsoleEvent` deduplicates events with a transaction code per user and session, which mitigates repeated polling duplicates. This read-with-side-effects pattern still deserves tests for concurrency, missing session cookies, cross-session duplication, and event ordering before expanding notification triggers.
-- `recordTransactionConsolePulse` creates `SYSTEM_ACTIVITY` rows that its own source comments explicitly describe as simulated and not wallet mutations. Some generated titles/messages resemble transaction lifecycle updates, so the UI should keep such activity unmistakably separate from actual ledger-confirmed debits, credits, investments, and settlements. Future sound effects must never play as if a simulated pulse were a real financial event.
+- **Corrective change (2026-10-27):** the transaction-console pulse no longer generates system-activity rows or probabilistic outcomes. It returns without inserting an event when no confirmed ledger-backed event exists. The generated-outcome helper and pulse insertion logic have been removed. This closes the synthetic activity issue identified in this historical audit; allocation and settlement correctness still require the canonical Trading System Specification's evidence and tests.
 
 These findings are source inspection only; they do not replace authorization tests or end-to-end event verification.
 
@@ -190,8 +193,8 @@ These are source-based risk findings for test planning, not proof of a productio
 ### Transaction-console event semantics
 - `server/transactionConsole.ts` stores session-scoped console rows. `openTransactionConsoleSession` generates a random cookie-backed session and deletes existing console-event rows for that user before inserting a `SESSION_OPENED` entry. Confirm this retention behavior is intentional before treating the console as a durable audit history.
 - `recordTransactionConsoleEvent` skips insertion when the transaction-console cookie is absent. Its duplicate check is a SELECT followed by INSERT scoped to user, session and transaction code. Unless a matching database uniqueness constraint exists, concurrent requests may race and insert duplicates; schema/index and concurrency tests remain required.
-- `recordTransactionConsolePulse` explicitly describes its rows as simulated and non-wallet-mutating. It creates `SYSTEM_ACTIVITY` entries using configurable phrase templates. These rows are not ledger evidence and must not trigger financial-success sounds.
-- Simulated status/copy can resemble real transaction lifecycle language. Customer-facing labels and sound routing must preserve the distinction between simulated telemetry and ledger-backed transactions.
+- **Historical finding superseded (2026-10-27):** `recordTransactionConsolePulse` now inserts no event without a confirmed ledger-backed event; generated `SYSTEM_ACTIVITY` rows and probabilistic outcomes have been removed.
+- Transaction-console status and sound routing must be driven only by persisted, ledger-backed events; never generate activity to imitate a transaction lifecycle.
 
 ### Mining and swap API
 - Mining endpoints use `protectedProcedure` and pass `ctx.user.id` into service functions. Swap quote accepts token amount and target asset; confirmation accepts quote ID and an idempotency key; mining transaction history is authenticated.

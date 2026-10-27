@@ -64,13 +64,9 @@ Controls whether an account is:
 - Suspended
 - Restricted
 
-### Trading controls
+### Trading eligibility and restrictions
 
-Enables or disables customer trading.
-
-### Opportunity controls
-
-Enables or disables delivery of opportunities to the customer.
+Trading eligibility and behavior are defined only in [the canonical Trade/Trading guide](TRADING_SYSTEM_SPECIFICATION.md). This menu guide does not define trading policy.
 
 ### Withdrawal control
 
@@ -91,10 +87,6 @@ Marks the customer’s email as verified or unverified in the customer controls.
 ### Risk tier
 
 Stores the customer risk classification used by account and opportunity policies.
-
-### Daily trade limit
-
-Stores the customer’s maximum daily trading allowance.
 
 ### Admin note
 
@@ -226,7 +218,7 @@ Provider choices include:
 - **Amazon SES** — uses region-specific SES SMTP endpoints and SES-generated SMTP credentials
 - **Other SMTP provider** — supports a standards-compliant SMTP endpoint
 
-Provider presets populate safe starting values, but the administrator can edit the host, port, TLS, authentication method, username, and secret. AWS region selection updates the SES endpoint. The form also includes from name, from address, optional reply-to, and daily trading-close time in UTC.
+Provider presets populate safe starting values, but the administrator can edit the host, port, TLS, authentication method, username, and secret. AWS region selection updates the SES endpoint. The form also includes from name, from address, and optional reply-to.
 
 SMTP passwords are encrypted in the database, never returned to the browser, and can be retained by leaving the password field blank. Switching providers explicitly clears the previous provider secret unless a new one is saved. The administrator should send a test email after saving and verify sender/domain authentication with the selected provider.
 
@@ -370,20 +362,7 @@ These controls define how new customers are screened and onboarded. Country-spec
 
 **Purpose:** View the authoritative package and entitlement registry.
 
-**Package information includes:**
-
-- Package name
-- Enabled status
-- Opportunities per day
-- Maximum active allocations
-- Minimum and maximum trade amounts
-- Hourly delivery targets
-- Burst size
-- Entitlements
-
-Package data is read from the database and is used by customer eligibility, opportunity delivery, and account provisioning logic.
-
-Detailed policy editing is handled through the Opportunity Engine controls.
+This general menu may display package name, enabled status and assigned entitlements. For all trading-package terms, qualifying-balance checks, activation, duration, quota, repeat/cooldown, allocation and expiry behavior, follow the single canonical guide: docs/TRADING_SYSTEM_SPECIFICATION.md. Do not implement or document separate trading package rules here.
 
 ---
 
@@ -458,65 +437,13 @@ The settings are stored in the application settings registry and are consumed by
 
 ---
 
-## 2.16 Opportunity Engine
+## 2.16 Trade Settings
 
-**Purpose:** Manage opportunity creation, delivery policy, package rules, customer package assignment, lifecycle monitoring, and retention.
+**Purpose:** Provide one administrator control plane for trading configuration, operations and financial review.
 
-### Global delivery settings
+All Trade Settings scope, controls, permissions and behavior are defined only in [the canonical Trade/Trading guide](TRADING_SYSTEM_SPECIFICATION.md). This section documents the navigation destination only.
 
-Controls include:
-
-- Maximum opportunities per day
-- Emergency ceiling
-- Drain mode
-- Countdown duration
-- Signup credit amount
-- Signup credit currency
-
-### Package policy editor
-
-Controls package-specific:
-
-- Daily popup limit
-- Maximum visible offers
-- Minimum and maximum trade units
-- Minimum and normal hourly targets
-- Market influence basis points
-- Burst mode
-- Maximum burst size
-- Enabled status
-
-### Offer creation
-
-Creates one opportunity offer with:
-
-- Symbol
-- Source venue
-- Destination venue
-- Currency
-- Minimum amount
-- Expected reward
-- Duration
-
-### Bulk offer import
-
-Creates multiple opportunity offers in one operation.
-
-### Customer package assignment
-
-Assigns a package to a customer by email.
-
-### Open offers
-
-Displays currently available opportunity records.
-
-### Lifecycle summary
-
-Shows delivery and popup lifecycle activity, including delivered, noticed, opened, dismissed, traded, and settled states.
-
-### Retention cleanup
-
-Runs the configured opportunity-retention process to archive or remove records according to policy.
+All actual fields, validation, permissions, defaults, state transitions, worker semantics, accounting, settlement and acceptance criteria are defined only in docs/TRADING_SYSTEM_SPECIFICATION.md. Menu presence does not prove that a control is implemented or production-ready. Do not create a duplicate Opportunity Engine policy surface or conflicting settings.
 
 ---
 
@@ -546,19 +473,7 @@ For complete SMTP transport and composer functions, use **SMTP & Reports**.
 
 ### Trade tab
 
-Controls settlement and opportunity timing:
-
-- Settlement delay
-- Credit delay
-- Cooldown period
-- Next-popup formula delay
-- Popup cooldown
-- Popup display duration
-- Pre-alert duration
-- Timing jitter
-- Maximum popups per hour
-- Market refresh interval
-- Block-until-settled behaviour
+Trading policy is defined only in [the canonical Trade/Trading guide](TRADING_SYSTEM_SPECIFICATION.md); this Settings tab must not define a second policy.
 
 ### Password/security tab
 
@@ -596,7 +511,7 @@ Controls customer watchlists, smart alerts, spread thresholds, and browser-notif
 
 ### Allocation policy
 
-Controls recurring allocation eligibility by package, country rule, customer balance, and daily limits.
+Trade/Trading allocation eligibility, limits, and behavior are defined only in the [canonical Trade/Trading guide](TRADING_SYSTEM_SPECIFICATION.md). This menu guide does not define allocation policy.
 
 ### Risk watchlist
 

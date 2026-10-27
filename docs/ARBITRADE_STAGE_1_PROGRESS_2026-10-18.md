@@ -1,5 +1,8 @@
 # ARBITRADE Stage 1 Progress Report — 2026-10-18
 
+> **Trade/Trading authority:** This roadmap, work queue, audit or acceptance record is not the current trading requirements source. Any trading-related status or observations here refer to the code/evidence and scope recorded in this file; they do not define the intended current behavior. The only detailed current requirements are in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). Update that guide when trading requirements change; do not create competing trading instructions here.
+
+
 **Repository:** `stannmoye/Arbitrade_platform`  
 **Working branch:** `integration/auth-installer-vps-safety`  
 **Current stage:** Stage 1 of 30 — Complete Application Audit and Development Baseline  
@@ -76,7 +79,7 @@ No production database, production VPS, customer financial data, or live transac
 - **Current reviewed candidate:** PR #58 head `7922f2832534af383fd84813121b008335aee32b`; PR remains open and draft.
 - **Parallel validation evidence:** GitHub Actions run [#39143923462](https://github.com/stannmoye/Arbitrade_platform/actions/runs/39143923462) completed successfully on that exact head in approximately 89 seconds. Syntax/installer CLI safety, TypeScript, application unit tests, installer/migration regression tests, disposable fresh MariaDB, disposable MySQL 8 compatibility/recovery, production build/bundle budgets/server smoke test, deployment-package validation, and the Stage 1 summary job all concluded `success`.
 - **Workflow commit:** `06f3596b14fed4480ff511f661675c458d90c232` added parallel CI lanes and the Stage 1 dashboard; queue commit: `7922f2832534af383fd84813121b008335aee32b`.
-- **Durable task queue:** `docs/ARBITRADE_STAGE1_AUTOMATION_QUEUE.md` now lists prioritized acceptance tasks and safety rules.
+- **Task queue:** Removed during documentation simplification. Current Trade/Trading requirements are maintained only in `docs/TRADING_SYSTEM_SPECIFICATION.md`.
 - **Automation prompt:** updated to use the queue and report actual evidence. An immediate run was requested; its completion is not confirmed by this checkpoint.
 - **Progress estimate:** remains **40%**. The passing CI run is meaningful validation progress but does not close database-backed wallet/settlement concurrency, cross-account API tests, browser/accessibility acceptance, or host failure-injection gaps.
 - **Orchestration limitation:** CI automatically validates repository events, but the available connected tools do not provide a persistent AI coding-agent runner or automatic task handoff after every execution window. Do not claim continuous autonomous code authoring until that worker is configured and verified.

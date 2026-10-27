@@ -106,13 +106,15 @@ describe("worker schema contracts", () => {
     const boostRewards = journal.entries.find((entry) => entry.tag === "0048_pending_boost_rewards");
     const last = journal.entries.at(-1);
     const previous = journal.entries.at(-2);
+    const executionModeMigration = await readFile(new URL("drizzle/0079_internal_ledger_execution_mode.sql", root), "utf8");
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(previous.tag).toBe("0077_trading_package_catalogue_schema_repair");
-    expect(last.tag).toBe("0078_trading_customer_package_subscription_repair");
+    expect(previous.tag).toBe("0078_trading_customer_package_subscription_repair");
+    expect(last.tag).toBe("0079_internal_ledger_execution_mode");
+    expect(executionModeMigration).toContain("SET `mode` = 'INTERNAL_LEDGER'");
+    expect(executionModeMigration).toContain("CHANGE COLUMN `practiceMode` `executionMode`");
     expect(journal.entries.slice(-8).map((entry) => entry.tag)).toEqual([
-      "0071_trade_allocation_pause",
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
       "0074_trade_execution_retries",
@@ -120,6 +122,7 @@ describe("worker schema contracts", () => {
       "0076_trading_admin_policy_read_repair",
       "0077_trading_package_catalogue_schema_repair",
       "0078_trading_customer_package_subscription_repair",
+      "0079_internal_ledger_execution_mode",
     ]);
     expect(portalRunner).toContain('"0076_trading_admin_policy_read_repair.sql"');
     expect(portalRunner).toContain('"0077_trading_package_catalogue_schema_repair.sql"');

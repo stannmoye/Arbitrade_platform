@@ -66,11 +66,9 @@ Customer and administrator accounts, roles, packages, opportunities, balances, l
 
 Before production launch, configure HTTPS, SMTP, rate limiting, CSRF protections appropriate to the deployment, admin 2FA, backups, reconciliation, and provider secrets through the host environment.
 
-The trading workflow records real-money trading allocations, capital movements, realized results, fees, and settlement in the customer's internal ledger. Financial changes must be supported by recorded trade lifecycle/result data and posted transactionally and idempotently; configured estimates alone must never be recorded as realized profit.
+## Trade/Trading implementation guide
 
-## Trading financial accounting
-
-Trading is treated as a real-money operation. Trading allocations, capital debits and returns, realized profits, platform fees, losses, and settlement records must be posted to the customer's internal ledger as appropriate to the actual trade lifecycle. Every posting must be durable, auditable, transactional, and idempotent. The interface must display committed ledger results, not create financial changes on its own. Deposit and withdrawal workflows are specified separately.
+All requirements for the customer Trade menu, admin-only package tiers, qualifying manual deposits, automatic tier assignment and processing, admin Trade Settings, execution, fees, settlement, company catalogue, notifications, reconciliation, recovery, and tests are maintained in the [single canonical Trade/Trading implementation guide](docs/TRADING_SYSTEM_SPECIFICATION.md). Do not use this README or another document as a competing source of trading requirements.
 
 ## OAuth and email
 
@@ -97,14 +95,3 @@ All CI and external deployment tools should use the repository-root `Dockerfile`
 Read [`AGENTS.md`](AGENTS.md), [`BUILD_SOURCE.json`](BUILD_SOURCE.json), [`docs/REPOSITORY_GUIDE.md`](docs/REPOSITORY_GUIDE.md), and [`BUILD_AND_RELEASE.md`](BUILD_AND_RELEASE.md) before building or changing this application. Resolve the current full SHA of `main` at build time. Use repository root as the build context and the root `Dockerfile` as the production container definition; do not use an unmerged feature branch, a cached main SHA, or a historical Stage 4/Pass 4-only ZIP as the latest source.
 
 The current full-application release workflow is [`.github/workflows/full-production-release.yml`](.github/workflows/full-production-release.yml). It packages the integrated application from `main`, verifies Stages 1–5 and the six theme variants, and attaches a detached SHA-256 checksum. See `BUILD_SOURCE.json` for artifact scope and acceptance status. Passing build checks does not by itself mean hosted Stage 5 acceptance or production certification is complete.
-
-
-## Canonical trading system requirements
-
-### Company image catalogue instructions
-
-The current company-image reference collection contains 1,811 indexed records (IDs 1–1811), with company names and local images organized under `client/public/assets/company-logo-source/by-country/{Country}/`. Use `company-logo-index.json` as the ID/name/path source of truth and `company-logo-country-groups.json` for country groupings. The latest country audit has 1,799 assigned records and 12 still under `Unverified`; do not describe all 1,811 countries as verified. Earlier 950- and 1,000-company figures refer to separate legacy/catalogue datasets and are not the size of this image pool.
-
-The Trading page may use these records for the informational company pop-up/spotlight. A logo ID is not a ticker or trading number, and a country folder is not proof of a public listing or verified headquarters. Company symbols, exchange/security identifiers, listing status, and platform trading numbers must be researched and verified separately before any record is presented as tradable. Rotation must never create a trade or financial ledger entry. See [the canonical Trading System Specification](docs/TRADING_SYSTEM_SPECIFICATION.md) for the full contract and [the company catalogue source guide](docs/COMPANY_CATALOGUE_SOURCE_GUIDE.md) for the data-handling checklist.
-
-Before changing the customer Trading page or any trading-related backend, read [docs/TRADING_SYSTEM_SPECIFICATION.md](docs/TRADING_SYSTEM_SPECIFICATION.md). This is the canonical product contract for package eligibility, automatic opportunity processing, insufficient-balance opportunity cards, trade lifecycle, fee and wallet accounting, company catalogue/rotation, notifications, and admin controls. All developers and AI coding agents must follow it and keep the source policy in [docs/COMPANY_CATALOGUE_SOURCE_GUIDE.md](docs/COMPANY_CATALOGUE_SOURCE_GUIDE.md) aligned with the catalogue implementation. The repository currently has no tracked companion PDF at docs/TRADING_SYSTEM_SPECIFICATION.pdf.

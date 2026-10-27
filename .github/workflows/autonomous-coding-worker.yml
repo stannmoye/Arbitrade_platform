@@ -77,7 +77,7 @@ jobs:
             Work on the checked-out revision only. This run is task ${{ steps.task_number.outputs.number }} of a maximum chain of five.
 
             First inspect the current branch, recent commits, package scripts, relevant code/tests, and, if present,
-            docs/ARBITRADE_STAGE1_AUTOMATION_QUEUE.md and docs/ARBITRADE_STAGE_1_PROGRESS_2026-10-18.md.
+            docs/ARBITRADE_STAGE_1_PROGRESS_2026-10-18.md.
             Choose the highest-priority unblocked task supported by the repository evidence. Prefer a small,
             test-backed P0 financial-correctness task (wallet concurrency, settlement single-winner/rollback,
             mining idempotency/reconciliation). Do not merely rewrite documentation or claim completion without evidence.
@@ -162,7 +162,7 @@ jobs:
           fi
           while IFS= read -r path; do
             case "$path" in
-              server/*|client/*|shared/*|tests/*|docs/ARBITRADE_STAGE1_AUTOMATION_QUEUE.md|docs/ARBITRADE_STAGE_1_PROGRESS_2026-10-18.md)
+              server/*|client/*|shared/*|tests/*|docs/ARBITRADE_STAGE_1_PROGRESS_2026-10-18.md)
                 ;;
               *.test.*|*.spec.*)
                 if [[ "$path" == */* ]]; then
