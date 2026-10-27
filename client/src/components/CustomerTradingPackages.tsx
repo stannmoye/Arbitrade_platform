@@ -16,6 +16,7 @@ function activationBlockReason(reason: string | null, minimum: number) {
   if (reason === "same_package_owned") return "This package is already active under the current repeat-purchase policy.";
   if (reason === "max_copies_reached") return "The configured maximum number of copies of this package has been reached.";
   if (reason === "activation_cooldown") return "Package activation is temporarily unavailable while the activation cooldown is active.";
+  if (reason === "eligibility_unavailable") return "Package terms are visible, but wallet, policy, or subscription checks are temporarily unavailable. Activation is disabled until eligibility can be verified.";
   return null;
 }
 
@@ -62,6 +63,7 @@ export function CustomerTradingPackages() {
         </div>
       )}
 
+      {data?.eligibilityWarning && <div className="admin-ops-empty error" role="status">{data.eligibilityWarning}</div>}
       {notice && <div className={activation.error ? "admin-ops-empty error" : "test-notice"} role="status">{notice}</div>}
       {packagesQuery.isLoading ? <div className="empty-state">Loading configured package terms…</div>
         : packagesQuery.isError ? <div className="admin-ops-empty error">Trading packages could not be loaded. No activation was attempted.</div>
