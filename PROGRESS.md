@@ -14,22 +14,38 @@ Repository: [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrad
 
 | Item | Status | Evidence / remaining review |
 |---|---|---|
-| Confirm correct repository and latest source | WORKING | Current main was verified at the base commit below; PR #181 is already merged. |
-| Preserve the customer Trading package panel | WORKING | The panel is mounted on the customer home page; its activation message is aligned with the no-trade-on-activation rule. |
-| Prevent customer activation and refresh from allocating trades | WORKING | Targeted source-contract assertions passed; the new Vitest contract and full repository checks still need CI/local execution. |
-| Align agent instructions and trading specification | WORKING | Both documents explicitly state free activation, eligibility-only balance, and worker-only allocation; review the diff and full checks before merge. |
+| Confirm repository and continuation point | WORKING | Base `main` is `8e610823941cb49f45e8bff0f35759994a395221`; PR #181 is merged. Current work continues on draft PR #202. |
+| Keep activation separate from worker allocation | WORKING | PR #202 keeps customer activation/catalogue reads out of the allocation path; the scheduled worker explicitly opts in. Contract and recovery checks pass on the validated code commit below. |
+| Preserve customer Trading package panel | WORKING | Panel stays mounted; activation messaging distinguishes entitlement from trade execution. Nullable activation dates now show a safe fallback. |
+| Keep catalogue diagnostics contract aligned | WORKING | Stale assertions now match the current main-branch diagnostic/error contract; full application tests pass. |
+| Complete the broader Trading system | NEEDS FURTHER REVIEW | This checkpoint verifies the worker-boundary slice only. Remaining lifecycle, settlement/idempotency, ledger reconciliation, admin controls, and acceptance behavior still need review against the canonical specification. |
 
 ## Verification
 
-- Base branch: main
-- Base commit: 8e610823941cb49f45e8bff0f35759994a395221
-- Prior PR: [#181](https://github.com/stannmoye/Arbitrade_platform/pull/181), merged.
-- Targeted source-contract assertions in this session: PASS (activation has no worker call; customer query defaults to no allocation; existing scheduled worker explicitly opts in; package panel remains mounted). Vitest and full checks remain pending.
-- Full pnpm check, pnpm test, and pnpm build: not yet run. Do not treat source changes as verified until repository checks or CI run.
-- No production deployment, live trading, or financial balance changes were performed.
+- Base branch/commit: `main` / `8e610823941cb49f45e8bff0f35759994a395221`.
+- Validated code commit: `182f1b175ef9f16548ad3e94d36aaf9a7ca4ca02` on `fix/trading-worker-only-allocation-20261027`.
+- `pnpm check`: PASS in GitHub Actions (TypeScript validation).
+- `pnpm test`: PASS — 90 test files passed, 3 skipped (93 total).
+- `pnpm build`: PASS in the production-source workflow.
+- Customer portal real-browser recovery checks: PASS; artifact `customer-portal-browser-acceptance` (ID `12768879236`).
+- Installer and migration regression tests, fresh MariaDB and MySQL compatibility/recovery checks, production build/bundle budget/server smoke, deployment-package validation, Mining regression checks, and Trading recovery checks: PASS.
+- All five workflow groups completed successfully for the validated code commit:
+  - [Trading recovery](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40581873424)
+  - [Production source build and tests](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40581873243)
+  - [Installer validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40581873155)
+  - [Mining regressions](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40581873157)
+  - [Application verification](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40581873162)
+- The earlier exact-head failures were a nullable activation timestamp passed to `Date` and stale catalogue diagnostic assertions; both are fixed in the validated code commit.
+- No production deployment, production database change, live trade, or financial balance change was performed.
+
+## Current GitHub state
+
+- [PR #202](https://github.com/stannmoye/Arbitrade_platform/pull/202) is open and remains a draft against `main`.
+- The code checks above are tied to commit `182f1b175ef9f16548ad3e94d36aaf9a7ca4ca02`; this progress update is a documentation-only follow-up commit.
+- Nothing has been merged or deployed.
 
 ## Next work
 
-1. Run the new worker-boundary contract test and repository checks on the feature branch.
-2. If any check fails or is unavailable, mark the affected item NEEDS FURTHER REVIEW and record the exact failure or blocker here.
-3. Review the branch diff and CI results before merging; do not deploy or initiate live trades as part of testing.
+1. Continue the canonical Trading audit with the next non-overlapping implementation gap; inspect existing open Trading changes first to avoid conflicting fixes.
+2. Verify settlement/recovery idempotency, ledger reconciliation, and admin Trading controls against the canonical specification before marking the wider Trading system complete.
+3. Keep production and live-trading operations out of this coding/verification work.
