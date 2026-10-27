@@ -204,21 +204,19 @@ Deliverable: improved wallet and transaction experience.
 
 Exit criteria: financial workflows pass regression tests and displayed balances/statuses match authoritative records.
 
-### Stage 6 — Trading, Mining and Swap Experience
-**Objective:** Improve the remaining core customer operations.
+### Stage 6 — Mining and Swap Experience
+**Objective:** Improve the remaining non-trading customer operations. All Trade/Trading implementation work and acceptance criteria are maintained only in [the canonical Trade/Trading guide](TRADING_SYSTEM_SPECIFICATION.md).
 
 Tasks:
-- Improve trading screens, forms, status and history.
 - Improve mining dashboard, packages and reward history where those features exist.
 - Improve swap source/destination amounts, rate, fees, estimates and confirmed results where supported.
-- Improve processing, completion, cancellation and failure states.
+- Improve processing, completion, cancellation and failure states for these non-trading workflows.
 - Ensure debits and credits reflect actual ledger events.
-- Never present estimates or simulated results as verified real-world profit or withdrawable funds.
 - Apply all themes and responsive layouts.
 
-Deliverable: improved trading, mining and swap interfaces.
+Deliverable: improved mining and swap interfaces.
 
-Exit criteria: interfaces reflect actual backend state and preserve existing financial rules.
+Exit criteria: interfaces reflect actual backend state and preserve their documented financial rules.
 
 ### Stage 7 — Button Feedback, Animations and Interaction Quality
 **Objective:** Make interaction immediate and understandable.
