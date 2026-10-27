@@ -37,9 +37,9 @@
 This section makes the intended customer experience unambiguous and takes precedence over any older wording or implementation that implies customer-initiated execution.
 
 1. **Customers do not manually execute individual trades.** The customer-facing product is automatic trading. A customer must not be required to press a Trade/Execute/Buy/Sell button, approve each opportunity, stay signed in, or keep the page open for an eligible trade to be processed.
-2. **Eligibility starts the automatic workflow.** When a customer has a valid active package entitlement, meets the package and account eligibility rules, and an eligible opportunity occurs within the configured schedule, the server-side worker must evaluate and process it automatically. Package activation is not a one-time manual trade and does not itself mean a trade has executed.
+2. **Eligibility starts the automatic workflow.** When a customer's recorded qualifying admin deposits meet one or more enabled tier thresholds and an eligible opportunity occurs within the configured schedule, the server-side worker must evaluate and process it automatically. Tier eligibility is not a trade execution and does not itself mean a trade has executed.
 3. **The server makes each allocation decision.** For every eligible opportunity, server-side code must check current package entitlements, account and jurisdiction controls, risk limits, quotas, daily ceilings, opportunity validity, and the customer's persisted spendable ledger balance. If every required check passes, the system automatically reserves/allocates the permitted capital and advances the execution workflow. If a check fails, it must record and show the correct non-execution reason without debiting or fabricating a trade.
-4. **No customer-facing per-trade approval gate.** Do not add a customer action or hidden confirmation state that blocks otherwise eligible opportunities from being processed. Customer package activation and any legally required account-level consent are separate from approving each individual trade.
+4. **No customer-facing per-trade approval gate.** Do not add a customer action or hidden confirmation state that blocks otherwise eligible opportunities from being processed. Any legally required account-level consent is separate from approving each individual trade. Tier eligibility is calculated automatically from qualifying deposits.
 5. **Automatic does not mean fabricated.** The worker must run without customer interaction, but may only claim an external trade was executed when the configured execution adapter returns verifiable order/fill/result evidence. If the required adapter or market/execution service is unavailable, report an actionable technical failure or pending state, preserve funds safely, retry according to policy, and alert operations as appropriate. Do not silently ignore eligible work, simulate successful execution, invent market outcomes, or credit estimated profit.
 6. **No opportunity is not an execution failure.** The worker processes only real, eligible opportunities according to the configured schedule. It must not create artificial opportunities or transactions just to make activity appear continuous. A package may be active while awaiting the next eligible opportunity.
 7. **Customer UI reports status; it does not drive execution.** Pages, refreshes, browser timers, notifications, and customer sign-in may display persisted status but must not be required to trigger the worker, allocate capital, submit orders, or settle trades. Refreshing the page must never create a second allocation or execution.
@@ -56,10 +56,10 @@ These rules apply to every customer-facing Trade/Trading path, server worker, AP
 2. **No off-ledger trading money.** Every allocation, reservation, committed debit, principal return, realized profit or loss, fee, reversal, and settlement must have durable, balanced, auditable ledger entries linked to a stable trade/opportunity ID. Wallet balance projections and ledger entries must be updated atomically and idempotently. Never treat a frontend value, cached balance, opportunity card, countdown, generated activity line, or trade row alone as a financial posting.
 3. **No synthetic activity or fabricated results.** Do not generate pseudo-random outcomes, fake transaction logs, placeholder success/failure events, mock balances, fabricated prices, or estimated rewards and then represent them as completed trading. A transaction console may show only persisted events with a verified source; a financial-success state requires committed ledger evidence and the associated trade/settlement record. If no confirmed event exists, show no event rather than filling the screen with generated activity.
 4. **Estimates are not ledger entries.** Configured reward rates, expected reward fields, countdown expiry, and modelled values are not realized results. They must never be credited as profit. Credit positive or negative realized results only from the actual, auditable result of the trade lifecycle, with the required evidence and settlement controls. Store principal, gross result, fee, net result, and total returned as distinct amounts.
-5. **Execution status must be represented honestly.** The internal ledger is the mandatory source of customer capital and accounting. Package activation starts automatic processing according to saved package settings. Track each trade's real state and outcome; do not fabricate external orders, fills, or market profit. Where an external venue is used, retain its order/result references and reconcile them against ledger postings.
+5. **Execution status must be represented honestly.** The internal ledger is the mandatory source of customer capital and accounting. Automatic tier eligibility from qualifying deposits enables processing according to saved admin settings. Track each trade's real state and outcome; do not fabricate external orders, fills, or market profit. Where an external venue is used, retain its order/result references and reconcile them against ledger postings.
 6. **No fallback to pretend trading.** If market data, execution, ledger access, reservation, or settlement evidence is missing or inconsistent, stop or retain the trade in an explicit pending/failed state, preserve the funds safely, and log an actionable error. Never replace the missing dependency with a simulation, generated result, default profit, or UI-only balance change.
 7. **Tests must prove ledger invariants.** Cover insufficient funds, competing allocations, idempotent retries, duplicate settlement, missing provider evidence, failed execution, losses and zero-profit outcomes, fee calculations, and reconciliation. Verify ledger rows, wallet available/locked balances, trade state, and settlement references together. Do not claim production readiness from a source-only inspection.
-8. **Package-driven processing must not be disabled by an undocumented provider gate.** After activation, the automatic worker must process eligible opportunities according to saved package settings, enforce wallet and risk controls, and preserve retries for temporary failures. Execution adapters must report truthful order states and actual results; unavailable integrations must be surfaced as technical failures rather than fabricated successful trades or silently ignored package activation.
+8. **Package-driven processing must not be disabled by an undocumented provider gate.** When qualifying tier eligibility exists, the automatic worker must process eligible opportunities according to saved admin settings, enforce wallet and risk controls, and preserve retries for temporary failures. Execution adapters must report truthful order states and actual results; unavailable integrations must be surfaced as technical failures rather than fabricated successful trades or silently ignored package activation.
 9. **Manual settlement must preserve the evidence trail.** An administrator must provide a unique settlement reference and meaningful verification notes describing the source checked and the actual result; the server records the administrator identity, reference, notes, signed gross result, fee policy, and ledger postings in one transaction. A free-text note is an audit attestation, not independent proof by itself. Never describe a result as provider-verified unless the relevant authorized-provider evidence was actually checked and retained.
 
 ## 2. Admin-managed package tiers and qualifying deposits
@@ -170,7 +170,7 @@ Example: capital $200; realized gross profit $20; fee $3 (15% of $20); net profi
 - Record returned capital, gross profit, platform fee, net profit, and losses separately in the ledger.
 - Store the fee policy/version used for settlement.
 - Apply trade-related debits and credits to the customer's internal ledger when required by the actual trade lifecycle, using the recorded trade result and settlement state. Ledger changes must be committed transactionally and idempotently; UI animations are not accounting.
-- The combined daily earnings ceiling is one customer-level limit across all packages and wallets. Default measurement should be net realized profit, excluding returned principal. Admin must define daily reset timezone/period.
+- The combined daily earnings ceiling is one customer-level limit across all qualifying tiers and wallets. Default measurement should be net realized profit, excluding returned principal. Admin must define daily reset timezone/period.
 - Wallet reservations must be distinguished from completed debits. Prevent the same funds from backing multiple concurrent trades.
 - Wallet ledger and displayed balances must reconcile. Use idempotent, transactional operations.
 
@@ -287,13 +287,13 @@ The expanded-card display duration is configurable in seconds. The minimized doc
 
 ### Admin navigation: Trade Settings
 
-The admin portal's main navigation must contain one clear top-level menu named **Trade Settings**. All admin pages and submenus that configure, monitor, or operate trading belong beneath this menu, rather than being scattered as unrelated top-level menu items. Respect existing admin roles and permissions for each submenu; a menu grouping must not grant access by itself.
+The admin portal's main navigation must contain one clear top-level menu named **Trade Settings**. All admin pages and submenus that configure, monitor, or operate trading belong beneath this menu. Respect existing admin roles and permissions for each submenu; a menu grouping must not grant access by itself.
 
 Required Trade Settings submenu structure (reuse existing working screens where they already provide the relevant function; do not create duplicate or placeholder screens):
 
 1. **Overview** — trading system status, today's allocations/opportunities, active and pending trades, settlements, exceptions, and key health indicators.
-2. **Packages & Eligibility** — package names, minimum qualifying balances, activation rules, terms, status, and eligibility.
-3. **Package Quotas & Customer Limits** — opportunities per package/day, combined quotas, account limits, and customer-level controls.
+2. **Package Tiers & Deposit Thresholds** — the complete admin-only tier catalogue, qualifying-deposit thresholds, tier ordering, enabled state, and automatic eligibility.
+3. **Package Configuration & Pop-up Quotas** — all package fields, cumulative daily quotas, duration, allocation bounds, schedules, pop-up timing, retry/carry-forward, currency/country eligibility, and risk controls.
 4. **Opportunity Schedule** — opportunity generation windows, schedule/time zone, company selection/filters, and cadence.
 5. **Trade Duration & Closing Rules** — admin-configured duration, scheduled close calculation, timing policy, effective-time rules, and countdown target policy.
 6. **Capital Allocation & Wallet Rules** — eligible internal wallets, allocation amounts, reservations, spendable-balance checks, and capital return routing.
@@ -306,34 +306,36 @@ Required Trade Settings submenu structure (reuse existing working screens where 
 13. **Settlement & Reconciliation** — ledger reconciliation, settlement exceptions, idempotency status, and traceable settlement records.
 14. **System Health & Pause Controls** — worker/integration health, emergency pause of new allocations, and recovery controls. Pausing new allocations must not discard or silently abandon pending trades or required settlement.
 15. **Audit Log & Policy Versions** — administrator, timestamp, reason, old/new values, approvals, and configuration versions.
+16. **Wallet Crediting & Currency Rules** — authorized manual credits/debits, qualifying-deposit classification, exact entered major-currency amounts, crypto-rate status, and audit history.
 
-Only show a submenu when the corresponding capability exists or is being implemented as a real, permission-protected feature. If a feature is not yet implemented, record it as pending in development documentation rather than presenting a fake working control. Every consequential setting must be validated server-side and audited. Financial ledger history is immutable through normal admin settings; corrections must use an auditable adjustment/reconciliation workflow.
+Only show a submenu when the corresponding capability exists or is being implemented as a real, permission-protected feature. If a feature is not yet implemented, record it as pending rather than presenting a fake working control. Every consequential setting must be validated server-side and audited. Financial ledger history is immutable through normal admin settings; corrections must use an auditable adjustment/reconciliation workflow.
 
-### Customer-side trade controls must be removed
+### Customer-side trade controls and package visibility
 
-The customer portal must not expose buttons or switches that let a customer manually control the automatic trade engine. Remove existing customer-side controls such as Trading On/Off, Opportunity On/Off, Auto Trade On/Off, manual start/stop, or any equivalent toggle that conflicts with this specification. Do not replace them with another customer-side switch that changes allocation, schedules, duration, trade closing time, fees, package quotas, or settlement policy.
+The customer portal must not expose buttons or switches that let a customer manually control the automatic trade engine. Remove Trading On/Off, Opportunity On/Off, Auto Trade On/Off, manual start/stop, package catalogue, package offer cards, subscribe/purchase/activate controls, and customer package-management history. Do not replace them with equivalent controls under different labels.
 
-The customer portal is for viewing package eligibility, opportunities, trade cards, countdowns, status, and ledger-backed financial information. Trades are allocated automatically by the server when the customer has an eligible active package and an eligible opportunity occurs, subject to admin-configured quotas, schedule, balance, account status, risk controls, and earnings limits. Customer sign-in state must not control server-side opportunity processing or settlement.
+The customer portal may show the server-computed eligible daily pop-up/opportunity allowance, remaining quota, opportunity cards, trade status, and ledger-backed financial information. It must not show the package catalogue or allow customers to select, activate, or edit a tier. Customer sign-in state must not control server-side opportunity processing or settlement.
 
-Customer-side presentation controls such as **Minimize** and **Maximize** are permitted because they change only how the trade card is displayed; they must never pause or modify a trade. Any customer action that affects money or trade execution must be explicitly supported by the canonical specification and implemented server-side with authorization, validation, idempotency, and ledger audit.
+Customer-side presentation controls such as **Minimize** and **Maximize** are permitted because they change only how the trade card is displayed; they must never pause or modify a trade. Any customer action that affects money or trade execution must be explicitly supported by this guide and implemented server-side with authorization, validation, idempotency, and ledger audit.
 
-### Package-driven opportunity presentation
+### Deposit-tier-driven opportunity presentation
 
-Opportunity generation and trade-card presentation must follow the customer's active package entitlements and the opportunity counts/quotas configured for those packages in the admin portal. Do not use one hard-coded global number of pop-ups for every customer. Sum eligible quotas across active entitlements according to the package policy, enforce the combined customer limits and daily earnings ceiling, and ensure retries do not count as additional completed opportunities. Only present an eligible opportunity when it actually occurs; an insufficient-balance card is shown only when a real eligible opportunity occurs and the funds check fails. A pop-up is not itself proof that a trade was allocated or executed.
-
+Opportunity generation and trade-card presentation must follow the server-computed set of qualifying tiers, based on qualifying admin manual-deposit credits and persisted admin settings. Sum the configured daily quota for every enabled tier whose threshold is met. Do not select only the highest tier, use a hard-coded global pop-up count, or count profit/other credits toward thresholds. Only present an eligible opportunity when it actually occurs; an insufficient-balance card is shown only when a real eligible opportunity occurs and the funds check fails. A pop-up is not itself proof that a trade was allocated or executed.
 
 Provide configurable sections for:
-- Packages: names, amounts, durations, quotas, qualification, activation, status, and terms-change policy.
-- Repurchases: same-package repeat toggle, maximum copies, and cooldown.
-- Opportunities: schedules, quotas, admin-configured trade duration/closing-time rules, company filters, retry rules, carry-forward caps, and eligibility.
+- Package/tier fields: names, threshold amounts/currencies, duration, quotas, allocation bounds, eligibility, status, schedule, display timing, and every other behavior-affecting setting.
+- Qualifying deposits: admin manual-credit classification, attribution, reversals/corrections, and audit trail.
+- Opportunities: schedules, cumulative quotas, admin-configured duration/closing-time rules, company filters, retry rules, carry-forward caps, and eligibility.
 - Earnings/fees: combined daily net earnings ceiling, fee rate, calculation/rounding rules, and reset timezone.
 - Company catalogue: import, search, verify, logo/flag, ticker, headquarters, exchange, sector, and listing status.
 - Trading operations: pause new allocations, provider health, pending work, failures, retries, settlement, and reconciliation.
 - Wallets: eligible wallet types, reservation rules, allocation and settlement routing.
-- Customer experience: pop-up display duration, minimized dock, notification position/duration, visible fields, locale/currency formatting, and other customer-side presentation settings.
+- Currency handling: major-unit input/display, currency precision, BTC/ETH live-rate conversions, USDT nominal USD equivalence, and conversion audit data.
+- Customer experience: pop-up display duration, minimized dock, notification position/duration, visible fields, locale/currency formatting, and other presentation settings.
 - Audit/security: role permissions, change history, policy versioning, approval for sensitive settings, and immutable ledger history.
 
 Every consequential admin change should record administrator, timestamp, old/new values, and reason. Emergency pause stops new allocations but does not erase pending work or prevent required settlement/reconciliation. Admins must not silently edit/delete historical financial ledger records.
+
 
 ## 13. Company and financial integrity boundaries
 
@@ -341,32 +343,31 @@ Trading operates as a real-money workflow recorded in the customer's internal le
 
 ## 14. Acceptance checklist
 
-- Customer portal has no manual Trading On/Off, Opportunity On/Off, Auto Trade On/Off, or equivalent trade-engine switches; automatic server-side processing follows the admin-controlled rules.
-- Admin portal has a top-level **Trade Settings** menu grouping all trading controls into permission-protected, functional submenus; no fake placeholder controls are presented as working features.
-- Trade Settings includes package/eligibility, package quotas, opportunity schedule, duration/closing rules, wallet allocation, fees/earnings limits, retries/carry-forward, company rotation, customer pop-up/display, notifications, active/pending trades, settlement/reconciliation, system health/pause, and audit/policy versions.
-- Opportunity/pop-up cadence respects each customer's active package entitlements and admin-configured package quotas, plus combined limits; no hard-coded global popup count overrides admin policy.
-
-- No active package => no automatic trade allocation; no fallback package.
-- Active eligible package => server evaluates opportunities even when customer is signed out.
-- Package quotas sum correctly across entitlements and respect admin limits.
-- Same-package repeat purchase obeys admin toggle and maximum copies.
-- Package activation checks qualifying balance and creates no artificial debit/credit.
-- An eligible opportunity with insufficient funds is displayed only when it occurs, with required amount, available balance, shortfall, and timestamp.
-- Insufficient-balance opportunity never debits or allocates capital.
+- Customer portal contains no manual trading toggles, package catalogue, package offers, subscription/purchase/activation actions, or customer package-management history.
+- Customer APIs do not leak admin-only package records and reject customer attempts to list/edit package tiers.
+- Admin Trade Settings contains complete, functional, permission-protected package tier management and wallet crediting controls.
+- Every package field and behavior-affecting setting is editable by an authorized administrator; no hidden hard-coded package behavior remains.
+- Qualifying tiers are assigned automatically from cumulative qualifying admin manual-deposit credits without customer action.
+- Only the qualifying manual-credit workflow increases the qualifying-deposit total. Profit and all other nonqualifying credits are excluded, including when the wallet balance crosses a threshold due to profit.
+- The daily pop-up quota sums the configured quotas of every qualifying enabled tier.
+- Tier thresholds and quotas are database-driven, administrator-editable values, not hard-coded constants.
+- Customer sign-in status does not affect automatic processing.
+- An eligible opportunity with insufficient funds is displayed only when it occurs, with required amount, available balance, shortfall, and timestamp; it never debits or allocates capital.
 - Trade lifecycle applies the correct capital debit/return, realized profit, fee, or loss to the customer's internal ledger exactly once, supported by recorded trade/settlement state.
 - Default 15% fee is calculated from realized positive gross profit only.
 - Failed trades follow retry/carry-forward policy and do not incur a profit fee.
-- Combined daily net earnings ceiling applies across all packages and wallets.
+- Combined daily net earnings ceiling applies across all qualifying tiers and wallets.
 - Pop-up has a minimize control; minimized dock remains fixed at the viewport bottom while scrolling and exposes the live countdown and maximize control.
-- Pop-up displays company name, local logo, country and correctly mapped flag, supplied symbol/exchange classification, invested amount, profit/total return, opening/closing times, countdown, profit percentage, platform-fee percentage/amount, and relevant trade references without inventing unavailable values.
-- Trade closing time and countdown target come from the active admin configuration and server-recorded trade timestamps; the browser cannot override them. Pop-up dismissal requires countdown completion and an authoritative terminal trade/opportunity status; a zero countdown alone never proves execution or settlement.
-- All customer-side trade behaviour and configurable displays are driven by authorized admin settings and persisted server state; no frontend hard-coded defaults may override admin policy.
+- Pop-up displays supported company/trade/financial details without inventing unavailable values.
+- Trade closing time and countdown target come from active admin configuration and server-recorded timestamps; the browser cannot override them. A zero countdown alone never proves execution or settlement.
+- All customer-side trade behavior and configurable displays are driven by authorized admin settings and persisted server state.
 - Green/red notifications correspond to confirmed credits/debits only.
 - The company-image reference collection has 1,811 stable indexed IDs (1–1811), matching index/mapping/country-group data and valid local file paths; 1,799 country assignments are recorded and 12 remain explicitly Unverified.
-- The company pop-up/spotlight uses the 1,811-image reference pool only for informational display; it does not imply a verified listing or trigger trade execution/accounting.
-- Ticker, exchange, security identifier, listing status, and trading number are separately verified and never inferred from a logo ID or country folder.
-- Admin changes are permissioned, versioned, and audited.
-- Catalogue tests cover ID completeness, index/group agreement, every local image path, preservation of duplicates under distinct IDs, and visibility of unresolved country assignments. Trading and settlement tests cover concurrency, insufficient balance, retries, worker restarts, fees, ceiling enforcement, and duplicate settlement.
+- Admin changes and qualifying manual credits are permissioned and audited.
+- Currency inputs/displays preserve exact major-unit values: USD 10000 = $10,000; EUR 100 = €100; GBP 100 = £100.
+- BTC/ETH native amounts are preserved and fiat conversions use a live API with rate metadata; USDT uses the owner-approved nominal 1:1 USD rule.
+- Tests cover tier stacking, profit exclusion, credit replay/reversal, currency scaling, conversion outages, concurrency, insufficient funds, retries, worker restarts, fees, ceiling enforcement, and duplicate settlement.
+
 
 ## 15. Implementation workflow requirement
 
@@ -404,17 +405,18 @@ The customer-facing navigation label must be Trade or Trading consistently with 
 
 ### 17.1 Customer Trade landing page
 
-The landing page must present the following logically distinct regions, adapting layout to mobile and desktop without changing server behavior:
+The landing page presents these regions, adapting layout to mobile and desktop without changing server behavior:
 
-- **Package eligibility and activation:** the package catalogue, active package(s), qualifying-balance requirement, saved package terms, activation state, expiry, remaining opportunity quota, and next eligible processing window when known.
-- **Trading overview:** current active/pending trade count, today’s eligible opportunities, completed opportunities, missed opportunities, items awaiting execution or settlement, and any actionable errors. Counts must be derived from persisted server data and clearly scoped by time and account.
-- **Opportunities:** currently eligible opportunity cards, including company identity, classification, schedule/expiry, package eligibility, available capital, costs and risks when supported, and the current authoritative state.
-- **Active and pending trades:** records that are allocated, executing, open, retrying, awaiting confirmation, awaiting settlement, or otherwise non-terminal. The page must not hide unsettled or failed/retrying records simply because a timer reached zero.
+- **Automatic eligibility summary:** server-computed daily pop-up/opportunity allowance, remaining quota, current eligibility state, and next eligible processing window when known. Do not show package names as selectable products, package offers, a package catalogue, or activation status.
+- **Trading overview:** current active/pending trade count, today's eligible opportunities, completed opportunities, missed opportunities, items awaiting execution or settlement, and actionable errors. Counts must be derived from persisted server data and clearly scoped by time and account.
+- **Opportunities:** currently eligible opportunity cards, including company identity, classification, schedule/expiry, available capital, costs and risks when supported, and current authoritative state.
+- **Active and pending trades:** records that are allocated, executing, open, retrying, awaiting confirmation, awaiting settlement, or otherwise non-terminal. Do not hide unsettled or failed/retrying records simply because a timer reached zero.
 - **Trade history and settlements:** terminal trades, actual realized results, fees, principal returned, settlement reference, execution/result evidence status, and timestamps. Pending estimates must not be presented as realized profit.
-- **Wallet impact:** available and locked/reserved amounts, committed capital, principal returned, signed realized result, fee, net result, and total returned. The system must distinguish these values instead of showing a single ambiguous “earnings” figure.
-- **Notifications and help:** authoritative package/trade state changes, funding or balance insufficiency, retry/technical errors, settlement decisions, and links to relevant disclosures and support.
+- **Wallet impact:** available and locked/reserved amounts, committed capital, principal returned, signed realized result, fee, net result, and total returned. Distinguish these values rather than showing a single ambiguous “earnings” figure.
+- **Notifications and help:** authoritative trading state changes, qualifying deposit/tier changes where useful, funding or balance insufficiency, retry/technical errors, settlement decisions, and links to relevant disclosures and support.
 
-Show a useful empty state when no active package or eligible opportunity exists. Do not generate sample trades, simulated account activity, fake order rows, or made-up transaction-console entries to fill an empty screen. Loading, empty, unavailable, error, pending, and confirmed states must be visually distinct and accessible.
+Show a useful empty state when no qualifying tier or eligible opportunity exists. Do not generate sample trades, simulated account activity, fake order rows, or made-up transaction-console entries to fill an empty screen. Loading, empty, unavailable, error, pending, and confirmed states must be visually distinct and accessible.
+
 
 ### 17.2 Customer tier visibility (no package catalogue)
 
@@ -443,7 +445,7 @@ Minimize and maximize only change presentation. The minimized dock stays fixed t
 
 ### 18.1 Server-controlled workflow
 
-The worker must evaluate eligible customers and package entitlements according to the saved package settings, configured schedule, daily/hourly quotas, active-allocation limits, and authorized admin controls. It must work independently of whether the customer is signed in.
+The worker must evaluate eligible customers and qualifying tiers according to the saved admin settings, configured schedule, daily/hourly quotas, active-allocation limits, and authorized admin controls. It must work independently of whether the customer is signed in.
 
 Each processing cycle must:
 
@@ -463,14 +465,15 @@ An external-market order may be reported as executed only when authoritative ord
 
 ### 18.2 Required semantic states
 
-Persisted enum names may differ, but the application behavior must distinguish these semantic states:
+Persisted enum names may differ, but application behavior must distinguish these semantic states:
 
-- **Package:** offered, disabled, eligible, activation pending, active, expired, suspended/restricted, or activation failed.
+- **Tier eligibility:** below threshold, eligible, temporarily restricted, disabled by admin policy, duration-expired where configured, or pending review. This is computed from qualifying deposit attribution and persisted tier settings; it is not a customer subscription or activation state.
 - **Opportunity/delivery:** scheduled, created, eligible, delivered, viewed/acknowledged where required, missed for a recorded reason, allocated, expired, cancelled, or unavailable.
 - **Trade:** allocation pending, reserved/allocated, execution pending, submitted, partially filled where supported, open, execution failed, retry scheduled, awaiting result/settlement, settled, cancelled, reversed under an audited correction, or manual review required.
 - **Settlement:** not due, due for verification, evidence checked, settlement pending, settled, reconciliation mismatch, or manual review required.
 
 Only transitions allowed by the server-side lifecycle may be applied. Terminal records cannot be silently reopened or rewritten. Corrections must be represented by explicit linked events or compensating ledger entries with audit history. Keep exact timestamps, source references, failure reasons, and actor identity where relevant.
+
 
 ### 18.3 Schedule, quotas, and concurrency
 
@@ -744,10 +747,10 @@ Portfolio/history views should distinguish cost basis, realized and unrealized P
 
 ## 27. Execution modes and integration boundaries
 
-The product's configured mode and permissions must be explicit, persisted, versioned and reviewed before an execution path is enabled. A marketing label, package activation, internal trade row, opportunity card, countdown or wallet movement cannot by itself authorize external orders or prove their execution.
+The product's configured mode and permissions must be explicit, persisted, versioned and reviewed before an execution path is enabled. A marketing label, qualifying-deposit tier assignment, internal trade row, opportunity card, countdown or wallet movement cannot by itself authorize external orders or prove their execution.
 
 - **Analytics:** display sourced market information and estimates without accepting trade capital or claiming an executed trade.
-- **Customer per-trade assisted execution is not the Arbitrade trading model.** Do not implement a workflow that requires customers to approve, submit, or manually execute each individual opportunity/order. A customer-level agreement, required onboarding consent, and package activation are separate from per-trade approval.
+- **Customer per-trade assisted execution is not the Arbitrade trading model.** Do not implement a workflow that requires customers to approve, submit, or manually execute each individual opportunity/order. A customer-level agreement and required onboarding consent are separate from per-trade approval; tier eligibility is computed automatically from qualifying deposits.
 - **Managed automatic execution is the required customer trading model.** When an eligible active package and eligible opportunity exist, the server automatically processes the workflow without customer start/stop toggles, per-trade confirmation, an open browser, or a signed-in customer session. External execution still requires the configured adapter, verifiable order/fill evidence, and all applicable legal, jurisdiction, customer-agreement, risk/compliance, custody/funding, and operational authorization controls. If these prerequisites are missing, record an explicit actionable blocked/failed/pending state and preserve capital safely; do not silently ignore work or fabricate execution.
 
 These definitions are not a separate provider gate that can silently stop package workflow. The worker must evaluate due work, apply the chosen product mode and saved controls, and record what happened. If an external execution adapter, required market-data input, authorization, permission, or credential is unavailable, the worker must report an explicit actionable blocked/failed/pending state and preserve capital safely; it must not claim an order was submitted or fabricate a result. Ordinary internal workflow processing and actual external order execution are distinct states.
@@ -760,22 +763,25 @@ Secrets and access tokens remain server-side. Connector health and execution per
 
 Exact table and procedure names follow the existing repository schema, but the persisted model must support the following distinct concepts and stable relationships. Do not create shadow or duplicate stores if an authoritative existing table already provides the requirement.
 
-- Package catalogue and versioned policy.
-- Customer package entitlement with activation/expiry status and immutable terms/policy snapshot.
+- Admin-managed package/tier catalogue and versioned policy, with all behavior-affecting fields editable.
+- Qualifying-deposit attribution for each qualifying manual admin wallet credit, linked to its immutable ledger entry, administrator audit record, currency, amount, and any reversal/correction.
+- Server-computed customer tier eligibility and cumulative quota state, derived idempotently from qualifying deposit records and current applicable admin settings; customers cannot create or edit this state.
 - Opportunity and immutable opportunity/calculation versions.
 - Customer opportunity-delivery/lifecycle record, including idempotency identity and missed-opportunity reason.
-- Trade/allocation record linked to the customer, entitlement, opportunity, currency, and committed amount.
+- Trade/allocation record linked to the customer, qualifying tier policy version, opportunity, currency, and committed amount.
 - Reservation/locked-funds record with owner, trade identity, amount, currency, state and exactly-once transition.
 - External execution request/order and fill/result evidence where external execution applies; keep external IDs separate from internal IDs.
 - Trade lifecycle event history with timestamp, actor or worker identity, attempt, correlation ID and error classification.
 - Settlement record with unique reference claim, actual signed gross result, fee/net calculation, fee-policy/rounding snapshot, principal-return amount and result-evidence reference.
 - Ledger entries and wallet state projections linked transactionally to the relevant allocation, reservation, return, realized result, fee, loss, reversal or correction.
+- Currency conversion evidence for BTC/ETH valuation, including source/provider, base/quote currencies, rate, timestamp, and precision. Preserve native crypto quantities; USDT uses the owner-approved nominal USD equivalence.
 - Notification/outbox event, risk/authorization decision, policy audit record, and reconciliation finding.
 - Company identity/catalogue record separated from tradable instrument/security identity and independent verification evidence.
 
-Keep references and constraints that prevent duplicate active entitlements where prohibited, duplicate allocation within the same opportunity, duplicate external submissions when idempotency is supported, duplicate settlement references, duplicate terminal ledger postings, and duplicate notification events. Any constraint or index change must be delivered in an ordered forward migration and tested against existing data assumptions. Do not casually add a unique customer/currency wallet constraint before investigating historical duplicate wallet rows.
+Keep references and constraints that prevent duplicate qualifying-credit attribution, duplicate tier recalculation effects, duplicate allocation within the same opportunity, duplicate external submissions when idempotency is supported, duplicate settlement references, duplicate terminal ledger postings, and duplicate notification events. Any constraint or index change must be delivered in an ordered forward migration and tested against existing data assumptions. Do not casually add a unique customer/currency wallet constraint before investigating historical duplicate wallet rows.
 
-Keep the business logic in server-side modules/procedures and bounded workers. The customer/admin UI uses authenticated APIs and displays server-confirmed state; it must not own eligibility, scheduling, timing, allocation, quote validity, fee calculation, settlement, or balance authority. Use transactions for atomic database effects and an outbox or equivalent reliable boundary for post-commit external notifications. Avoid treating an in-memory queue or process-local lock as the only guarantee when multiple instances or restarts are possible.
+Keep the business logic in server-side modules/procedures and bounded workers. The customer/admin UI uses authenticated APIs and displays server-confirmed state; it must not own qualifying-deposit calculation, tier assignment, eligibility, scheduling, timing, allocation, quote validity, fee calculation, settlement, or balance authority. Use transactions for atomic database effects and an outbox or equivalent reliable boundary for post-commit external notifications. Avoid treating an in-memory queue or process-local lock as the only guarantee when multiple instances or restarts are possible.
+
 
 ## 29. Compliance, fair presentation and customer protections
 
@@ -799,7 +805,7 @@ Add focused automated tests and, where applicable, integration tests for each su
 - Network congestion, chain reorganization or delayed transfer confirmation when relevant to the selected route.
 - Disabled/paused venue, instrument or network; emergency pause and authorized resume; customer/jurisdiction/product restrictions.
 - A company image or unverified ticker is presented in the informational catalogue but rejected as an unverified trading instrument.
-- Execution adapter absence or outage after activation: worker produces an actionable technical status and preserves funds safely without silently ignoring the work or fabricating a trade.
+- Execution adapter absence or outage after tier eligibility: worker produces an actionable technical status and preserves funds safely without silently ignoring the work or fabricating a trade.
 - Result/settlement evidence arriving more than once or out of order; reconciliation must remain idempotent and never credit the same result twice.
 
 Test fixtures may model these inputs, but production financial state must never be populated from simulated test outcomes. Each adapter must have a contract test that proves how successful submission, rejected submission, timeout, partial fill, final result, fee and cancellation are represented before the adapter is enabled in production.
