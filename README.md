@@ -68,7 +68,7 @@ Before production launch, configure HTTPS, SMTP, rate limiting, CSRF protections
 
 ## Trade/Trading implementation guide
 
-All requirements for the customer Trade menu, package activation, automatic processing, admin Trade Settings, execution, fees, settlement, company catalogue, notifications, reconciliation, recovery, and tests are maintained in the [single canonical Trade/Trading implementation guide](docs/TRADING_SYSTEM_SPECIFICATION.md). Do not use this README or another document as a competing source of trading requirements.
+All requirements for the customer Trade menu, admin-only package tiers, qualifying manual deposits, automatic tier assignment and processing, admin Trade Settings, execution, fees, settlement, company catalogue, notifications, reconciliation, recovery, and tests are maintained in the [single canonical Trade/Trading implementation guide](docs/TRADING_SYSTEM_SPECIFICATION.md). Do not use this README or another document as a competing source of trading requirements.
 
 ## OAuth and email
 
