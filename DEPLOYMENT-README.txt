@@ -37,7 +37,11 @@ SAFETY
   database dumps, database snapshots, or nested release ZIPs.
 - Back up existing databases before migration.
 - Never delete installer locks to force a reinstall.
-- Real-money execution remains blocked until approved providers and an
-  independently verified settlement mechanism are configured.
+- Trade/Trading follows docs/TRADING_SYSTEM_SPECIFICATION.md and uses the
+  internal ledger as its accounting system of record; an external broker/exchange
+  provider is not a prerequisite for that model. Require genuine persisted trade
+  results, auditable evidence, and ledger reconciliation; never fabricate or
+  credit estimates. External-market execution requires a separately authorized
+  integration and independently verifiable references.
 - Do not deploy to production or apply migrations without explicit owner
   authorization and the required acceptance evidence.
