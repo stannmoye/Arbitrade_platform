@@ -20,7 +20,7 @@ Repository: [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrad
 | Keep catalogue diagnostics contract aligned | WORKING | Stale assertions now match the current main-branch diagnostic/error contract; full application tests pass. |
 | Route Trading Overview to recorded activity | COMPLETE | Trade Settings → Overview now opens the persisted opportunity lifecycle dashboard rather than the offer-configuration screen; a regression assertion is in `client/src/admin-navigation.test.ts`. |
 | Flag reward-reservation/reward contradictions in recovery | COMPLETE | The read-only classifier escalates released-with-positive-reward and credited-with-zero-reward evidence to `MANUAL_FINANCIAL_REVIEW`; regression tests cover both cases. |
-| Guard settlement wallet arithmetic at safe precision | NEEDS FURTHER REVIEW | Settlement now calculates post-update available, locked, and earned totals with `BigInt` before any ledger insert and rejects unsafe values. Focused unit/contract tests are added; exact-commit GitHub checks are pending. Local dependency install stopped at a Replit package-proxy `403` for `proxy-addr@2.0.7`. |
+| Guard settlement wallet arithmetic at safe precision | WORKING | Settlement calculates post-update available, locked, and earned totals with `BigInt` before any ledger insert and rejects unsafe values. Focused unit/contract tests, TypeScript validation, test/build, trading recovery, installer, mining, and browser recovery checks pass on code commit `ea83b6a05a83ed5411574cfb8b3ace0f72872269`. |
 | Complete the broader Trading system | NEEDS FURTHER REVIEW | Worker-boundary, Overview routing, and reservation/reward recovery checks are done; settlement/replay idempotency, full ledger reconciliation, admin controls, and acceptance behavior remain under audit. |
 
 ## Verification
@@ -40,18 +40,20 @@ Repository: [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrad
   - [Application verification](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40581873162)
 - Latest recovery-classification code/test commit: `026da0cad938ac6fcdbcd899e274fb706b6afb79`; all 14 reported GitHub checks completed successfully, including the browser recovery check. [Primary validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40588181514) · [Operational validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40588181402) · [Typecheck/build](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40588181476)
 - Latest overview-route code/test commit: `be8976bdc515c49bad82ec29c2977fd870b65fef`; all 14 reported GitHub check runs completed successfully, including TypeScript, application unit tests, production build/smoke, browser recovery, installer/migration, MySQL/MariaDB compatibility, deployment-package, and Mining regression checks. [Primary validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40586408341) · [Operational validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40586408170) · [Install/type/test/build](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40586408186)
+- Settlement wallet safe-integer guard code/test commit: `ea83b6a05a83ed5411574cfb8b3ace0f72872269`; all five workflow groups completed successfully on this exact SHA: [Trading recovery](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40592029089) · [Application](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40592028844) · [Installer validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40592029051) · [Mining regressions](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40592028989) · [Production source, tests, build, and browser recovery](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40592028843).
+- Local `pnpm install --frozen-lockfile` was blocked by a Replit package-proxy `403` for `proxy-addr@2.0.7`; exact-commit GitHub Actions completed dependency installation and required checks successfully.
 - The earlier exact-head failures were a nullable activation timestamp passed to `Date` and stale catalogue diagnostic assertions; both are fixed in the validated code commit.
 - No production deployment, production database change, live trade, or financial balance change was performed.
 
 ## Current GitHub state
 
 - [PR #202](https://github.com/stannmoye/Arbitrade_platform/pull/202) is open and remains a draft against `main`.
-- Validated code/test commits: worker-boundary `182f1b175ef9f16548ad3e94d36aaf9a7ca4ca02`; overview routing `be8976bdc515c49bad82ec29c2977fd870b65fef`; recovery classification `026da0cad938ac6fcdbcd899e274fb706b6afb79`. This progress entry is a documentation-only follow-up.
+- Validated code/test commits: worker-boundary `182f1b175ef9f16548ad3e94d36aaf9a7ca4ca02`; overview routing `be8976bdc515c49bad82ec29c2977fd870b65fef`; recovery classification `026da0cad938ac6fcdbcd899e274fb706b6afb79`; settlement wallet precision `ea83b6a05a83ed5411574cfb8b3ace0f72872269`. The five exact-SHA workflow groups for the settlement change passed; this progress entry is a documentation-only follow-up.
 - Draft PR #200 proposes package/deposit behavior that conflicts with the approved free-activation model above; no changes from that draft were applied in this recovery fix.
 - Nothing has been merged or deployed.
 
 ## Next work
 
-1. Verify the settlement wallet safe-integer guard on the exact commit, then continue the settlement retry/idempotency audit alongside open PR #197’s timing-schema repair; do not duplicate its migration work.
+1. Continue the settlement retry/idempotency audit alongside open PR #197’s timing-schema repair; do not duplicate its migration work.
 2. Continue admin Trading controls and acceptance review; resolve PR #200’s competing package-model proposal before making package-policy changes.
 3. Keep production and live-trading operations out of this coding/verification work.
