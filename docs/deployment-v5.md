@@ -36,9 +36,9 @@ PHP-only hosting cannot run this Express application. A cPanel account must prov
 - To enable daily customer summaries, set both `EMAIL_DAILY_DIGEST_TIME` (`HH:MM`, 24-hour local wall time) and `EMAIL_DAILY_DIGEST_TIMEZONE` (an IANA zone such as `Europe/London`). Digests are queued once per customer/local day only when SMTP is configured, the customer inbox is verified, and the customer has not opted out. No schedule is active while either setting is blank.
 - The mail worker and daily scheduler run inside the application process. Keep that process continuously running; if the host sleeps or restarts, jobs resume after restart and the daily scheduler catches the configured minute when it next runs. For multi-instance production, use a durable external scheduler/worker and retain the outbox idempotency guarantees.
 
-## Financial safety boundary
+## Trade/Trading requirements
 
-Activating an eligible trading package must initiate automatic trade processing according to its saved settings and the configured opportunity schedule. Do not silently disable package-driven processing with a separate provider gate. Record actual execution states and results truthfully; never present simulated outcomes or configured rates as verified real profit or withdrawable funds.
+All customer Trade menu behavior, package-driven processing, execution states, ledger accounting, fee policy, settlement, recovery and admin Trade Settings are defined only in the [canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). This deployment document covers hosting and recovery procedures; it must not define a second trading policy. Deployment readiness and external execution authorization must be verified separately, and no deployment may fabricate trade outcomes or realized profit.
 
 ## Mining simulation and earnings persistence
 
