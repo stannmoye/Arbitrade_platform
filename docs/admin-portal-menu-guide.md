@@ -218,7 +218,7 @@ Provider choices include:
 - **Amazon SES** — uses region-specific SES SMTP endpoints and SES-generated SMTP credentials
 - **Other SMTP provider** — supports a standards-compliant SMTP endpoint
 
-Provider presets populate safe starting values, but the administrator can edit the host, port, TLS, authentication method, username, and secret. AWS region selection updates the SES endpoint. The form also includes from name, from address, optional reply-to, and daily trading-close time in UTC.
+Provider presets populate safe starting values, but the administrator can edit the host, port, TLS, authentication method, username, and secret. AWS region selection updates the SES endpoint. The form also includes from name, from address, and optional reply-to.
 
 SMTP passwords are encrypted in the database, never returned to the browser, and can be retained by leaving the password field blank. Switching providers explicitly clears the previous provider secret unless a new one is saved. The administrator should send a test email after saving and verify sender/domain authentication with the selected provider.
 
@@ -511,7 +511,7 @@ Controls customer watchlists, smart alerts, spread thresholds, and browser-notif
 
 ### Allocation policy
 
-Controls recurring allocation eligibility by package, country rule, customer balance, and daily limits.
+Trade/Trading allocation eligibility, limits, and behavior are defined only in the [canonical Trade/Trading guide](TRADING_SYSTEM_SPECIFICATION.md). This menu guide does not define allocation policy.
 
 ### Risk watchlist
 
