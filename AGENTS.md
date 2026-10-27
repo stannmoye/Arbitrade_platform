@@ -12,6 +12,24 @@ Read these files before changing the application:
 
 Before modifying any customer Trade menu, trading API, package entitlement, opportunity worker, wallet allocation, trade lifecycle, settlement, fee, company-catalogue or trading-admin feature, read `docs/TRADING_SYSTEM_SPECIFICATION.md` in full. That file is the single detailed Trade/Trading implementation guide and takes precedence over trading-related statements in all general or historical documents. Do not reproduce a competing set of trading requirements in this file or create another trading guide. When an intended trading requirement changes, update the canonical guide and its tests; no companion PDF is tracked. Never claim a requirement is implemented without inspecting the code and validating it.
 
+## Owner-locked trading and wallet requirements — do not override
+
+Before any Trade/Trading, package, wallet credit/debit, ledger, currency conversion, or admin-control work, read the complete `docs/TRADING_SYSTEM_SPECIFICATION.md`. Its section titled **“Binding owner-approved rules — permanent requirements”** is the controlling owner-approved policy.
+
+The following rules are permanent unless the owner personally and explicitly requests a change:
+
+1. Customers do not subscribe to, purchase, select, or activate packages. The customer portal must not expose the package catalogue or package-management actions. Only authorized administrators may see/manage the complete catalogue.
+2. Package tiers are automatically assigned from cumulative qualifying deposit credits, with each qualifying tier's daily pop-up/opportunity quota added together.
+3. Only a successfully committed manual wallet credit submitted by an authorized administrator through the admin portal and explicitly classified server-side as a qualifying deposit counts toward tier thresholds. Profit, reward, returned principal, bonus, transfer, swap, conversion, imported/opening balance, and all other credit sources do not qualify.
+4. Every package field and behavior-affecting setting must be editable in the authorized admin editor. No hidden hard-coded package behavior is allowed.
+5. User-entered fiat amounts are real major-currency values. USD 10000 means $10,000; EUR 100 means €100; GBP 100 means £100. Apply internal minor-unit scaling exactly once. Never use confusing hidden units or double-scale values.
+6. Preserve native BTC/ETH quantities and use a configured live exchange-rate API with recorded rate/source/timestamp for fiat conversion. Fail closed for required missing/stale rates. USDT uses the owner-approved nominal 1 USDT = 1 USD conversion rule while retaining native USDT amounts.
+7. Never silently reinterpret these requirements to fit legacy code, old docs, tests, schema, seed values, or another AI-generated plan. Fix the conflicting artifact. If a technical conflict cannot be resolved while preserving the rules, stop and report it. Do not edit the canonical guide to accommodate a conflict unless the owner explicitly requests the change.
+
+## Mandatory implementation TODO
+
+Before declaring this policy implemented, the responsible agent must verify and complete all applicable items in the canonical guide's **“Mandatory implementation TODO — owner-approved rules”** checklist, including customer API/UI removal, admin-only package CRUD, complete package editor, qualifying-deposit ledger attribution, cumulative tier quota calculation, exact currency scaling, live BTC/ETH conversion, USDT nominal conversion, migrations, regression tests, and exact-commit validation. Do not claim completion based on documentation alone. Do not merge or deploy without explicit authorization.
+
 ## Canonical source
 
 - The application source of truth is `stannmoye/Arbitrade_platform` on `main`.
