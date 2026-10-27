@@ -39,7 +39,14 @@ Database changes should use ordered forward migrations and retry-safe server-sid
 
 ## Financial safety and release discipline
 
-Live execution requires a named, authorized provider, verified result references, and settlement reconciliation. Configured opportunity estimates are never sufficient to credit real profit. Admin changes to financial policy must be permissioned and auditable. Passing build checks, source inclusion, hosted acceptance, deployment, and production certification are separate gates.
+### Approved trading-model decision — Option B (authoritative)
+
+- Use the documented internal-ledger trading model. Do **not** make an external broker/exchange execution provider a prerequisite for implementing or operating this internal-ledger model.
+- This decision does **not** permit simulated, fabricated, or estimated financial outcomes to be presented or credited as real. Every trade result and settlement must be genuine, recorded in durable internal trade/settlement records, supported by auditable evidence, and reconciled to the customer's ledger.
+- Opportunity estimates, countdowns, animations, ticker search results, and UI state are never evidence of execution or realized profit and must never trigger a financial credit.
+- Do not describe internal-ledger processing as execution on an external market. If a feature explicitly claims external-market execution, it must separately use an appropriate authorized integration and independently verifiable result references before making that claim.
+- This is the approved resolution of the prior provider-prerequisite conflict and aligns with Section 1 of `docs/TRADING_SYSTEM_SPECIFICATION.md`. If another repository document contradicts this decision, do not silently reintroduce the provider prerequisite; report the exact conflicting text and request clarification before changing the approved model.
+- Admin changes to financial policy must be permissioned and auditable. Passing build checks, source inclusion, hosted acceptance, deployment, and production certification are separate gates.
 
 
 ## Ticker candidate data safeguards
