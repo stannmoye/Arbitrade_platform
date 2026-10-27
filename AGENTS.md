@@ -12,6 +12,12 @@ Read these files before changing the application:
 
 Before modifying any customer Trade menu, trading API, package entitlement, opportunity worker, wallet allocation, trade lifecycle, settlement, fee, company-catalogue or trading-admin feature, read `docs/TRADING_SYSTEM_SPECIFICATION.md` in full. That file is the single detailed Trade/Trading implementation guide and takes precedence over trading-related statements in all general or historical documents. Do not reproduce a competing set of trading requirements in this file or create another trading guide. When an intended trading requirement changes, update the canonical guide and its tests; no companion PDF is tracked. Never claim a requirement is implemented without inspecting the code and validating it.
 
+## Owner-locked coding rule — no invented product rules
+
+The owner-approved rules in `docs/TRADING_SYSTEM_SPECIFICATION.md` control Trade/Trading, packages, wallet credits, currency conversion, and the internal-only trading workflow. During coding, review, testing, refactoring, and AI-assisted work, do not invent or silently substitute product rules or modify the guide. Implement the guide as written. If legacy code/docs conflict, correct the conflicting artifact rather than weakening the guide. Ask the owner before resolving product-policy ambiguity. Do not claim tests or deployment succeeded without evidence. These instructions do not authorize bypassing applicable law, security requirements, or platform safety requirements; if one creates a concrete blocker, explain it rather than silently changing the product rules.
+
+The term `internal ledger` is engineering-only and must never appear in customer-facing UI, API messages, notifications, emails, help text, or other customer communications. The product's trading workflow is internal-only; do not claim external exchange or broker execution.
+
 ## Owner-locked trading and wallet requirements — do not override
 
 Before any Trade/Trading, package, wallet credit/debit, ledger, currency conversion, or admin-control work, read the complete `docs/TRADING_SYSTEM_SPECIFICATION.md`. Its section titled **“Binding owner-approved rules — permanent requirements”** is the controlling owner-approved policy.
