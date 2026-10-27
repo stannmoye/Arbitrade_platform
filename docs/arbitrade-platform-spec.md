@@ -340,7 +340,7 @@ Every restriction needs a reason code, scope, start time, review date, creator, 
 5. **Ledger service:** append-only double-entry records; never calculate balances from browser state.
 6. **Market-data service:** ingestion, normalization, timestamping, quality checks.
 7. **Opportunity service:** route construction, fee modeling, stress cases, publishing.
-8. **Execution service:** explicit customer approvals and provider orders.
+8. **Execution service:** automatic server-side processing for eligible active package entitlements, with provider orders and verifiable order/fill evidence; no per-trade customer approval.
 9. **Wallet/custody service:** addresses, policies, approvals, transaction status.
 10. **Notification service:** in-app, email, SMS, push, sound permission.
 11. **Admin and policy service:** RBAC, feature flags, provider switches, content approvals.
