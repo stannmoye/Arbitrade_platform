@@ -16,7 +16,7 @@ describe("live trading execution safety gate", () => {
     expect(gate).toBeGreaterThan(replay);
     expect(walletMutation).toBeGreaterThan(gate);
     expect(implementation).toContain("fail closed before any new funds are reserved");
-    expect(implementation).toContain("verified execution and settlement mechanism");
+    expect(implementation).toContain('assertExecutionAllowed("LIVE")');
   });
 
   it("preserves an opportunity for retry instead of marking it missed when the provider is unavailable", () => {
