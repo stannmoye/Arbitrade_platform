@@ -66,7 +66,7 @@ export function CustomerTradingPackages() {
       {data?.eligibilityWarning && <div className="admin-ops-empty error" role="status">{data.eligibilityWarning}</div>}
       {notice && <div className={activation.error ? "admin-ops-empty error" : "test-notice"} role="status">{notice}</div>}
       {packagesQuery.isLoading ? <div className="empty-state">Loading configured package terms…</div>
-        : packagesQuery.isError ? <div className="admin-ops-empty error">Trading packages could not be loaded. No activation was attempted.</div>
+        : packagesQuery.isError ? <div className="admin-ops-empty error" role="alert">Trading packages could not be loaded. No activation was attempted. <span>{packagesQuery.error instanceof Error ? packagesQuery.error.message : "The package service returned an unknown error."}</span></div>
         : packages.length === 0 ? <div className="empty-state">No trading packages are currently available.</div>
         : <div className="trading-package-grid">
           {packages.map(pkg => {
