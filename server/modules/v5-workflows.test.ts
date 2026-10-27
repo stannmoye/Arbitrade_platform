@@ -1,17 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { assertExecutionAllowed, assertIdempotencyKey, calculateVerifiedSettlement, reportingWindowUtc, validateLedgerCorrection } from "./v5-workflows";
+import { assertExecutionAllowed, assertIdempotencyKey, calculateRecordedSettlement, reportingWindowUtc, validateLedgerCorrection } from "./v5-workflows";
 import { fixed } from "./v5-rules";
 
 describe("V5 workflow safety boundaries", () => {
-  it("blocks live execution without a named, verifiable mechanism", () => {
-    expect(() => assertExecutionAllowed("LIVE")).toThrow("Live execution is blocked");
-    expect(() => assertExecutionAllowed("PRACTICE")).not.toThrow();
-    expect(() => assertExecutionAllowed("LIVE", { provider: "broker", executionReference: "exec-1", resultRetrieval: "settlement-api" })).not.toThrow();
+  it("does not require an external provider for the internal-ledger model", () => {
+    expect(() => assertExecutionAllowed("INTERNAL_LEDGER")).not.toThrow();
+    expect(() => assertExecutionAllowed("LIVE")).not.toThrow();
   });
 
-  it("requires verified result data before calculating settlement", () => {
-    expect(() => calculateVerifiedSettlement({ principal: fixed("100", "USD"), verifiedGrossProfit: "10", verifiedFees: "2", resultReference: "" })).toThrow("verified settlement");
-    const result = calculateVerifiedSettlement({ principal: fixed("100", "USD"), verifiedGrossProfit: "10", verifiedFees: "2", resultReference: "provider-result-1" });
+  it("requires a persisted internal result reference before calculating settlement", () => {
+    expect(() => calculateRecordedSettlement({ principal: fixed("100", "USD"), recordedGrossProfit: "10", recordedFees: "2", internalSettlementReference: "" })).toThrow("internal settlement reference");
+    const result = calculateRecordedSettlement({ principal: fixed("100", "USD"), recordedGrossProfit: "10", recordedFees: "2", internalSettlementReference: "settlement-record-1" });
     expect(result.status).toBe("SETTLED_PROFIT");
     expect(result.totalReturned.toString()).toBe("108.00");
   });
