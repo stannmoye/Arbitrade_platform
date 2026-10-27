@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(new URL("../drizzle/0078_trading_customer_package_subscription_repair.sql", import.meta.url), "utf8");
 const journal = JSON.parse(readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8"));
+const migrationRunner = readFileSync(new URL("./guarded-main-migrate.mjs", import.meta.url), "utf8");
 
 describe("Trading customer package subscription schema repair", () => {
   it("repairs every subscription field read by the customer package catalogue", () => {
@@ -36,5 +37,14 @@ describe("Trading customer package subscription schema repair", () => {
     expect(entry).toBeDefined();
     expect(entry.idx).toBe(entries.length - 1);
     expect(entry.when).toBeGreaterThan(entries.slice(0, -1).reduce((latest, item) => Math.max(latest, item.when), 0));
+  });
+
+  it("repairs live schema drift even when migration history says the files were already applied", () => {
+    expect(migrationRunner).toContain("async function reconcileTradingPackageSchema(");
+    expect(migrationRunner).toContain("information_schema.columns");
+    expect(migrationRunner).toContain("0077_trading_package_catalogue_schema_repair.sql");
+    expect(migrationRunner).toContain("0078_trading_customer_package_subscription_repair.sql");
+    expect(migrationRunner).toContain("Trading package schema verification failed after additive repair");
+    expect(migrationRunner).toContain('currentMigration = "trading-package-schema-drift-reconciliation"');
   });
 });
