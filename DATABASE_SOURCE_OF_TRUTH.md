@@ -52,11 +52,10 @@ The current schema stores the administrator-editable mining controls in `mining_
 
 When upgrading an older database, `pnpm db:mining-schema` also assigns a configured current package rate to legacy active contracts whose old snapshot was null. This is a one-time schema alignment, not a cross-customer balance merge.
 
-## Global Hash Power and trading eligibility
+## Global Hash Power and Mining status
 
 - `mining_economics_versions.globalHashPowerThs` is the canonical, versioned administrator-controlled **Global Hash Power** readout shown to every customer.
 - Customer-owned mining power remains account-specific and is calculated only from that customer's active purchased packages; a customer with no active package has Mining Status Inactive and earns no mining rewards.
-- Trading is fail-closed: customers with no positive available balance in any wallet receive no opportunities and cannot create trades.
 - The UI labels the engine state **Mining Status Active** or **Mining Status Inactive**. The bright green engine indicator flashes only while the customer has active mining power.
 
 ## Daily CKI reward settlement
