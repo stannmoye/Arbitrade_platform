@@ -43,7 +43,10 @@ describe("customer Trading package catalogue diagnostics", () => {
   });
 
   it("returns the configured package terms but blocks activation when eligibility data cannot be verified", () => {
-    expect(implementation).toContain("const catalog=await db.select().from(packages)");
+    expect(implementation).toContain("const catalog=await db.select({");
+    expect(implementation).toContain("minimumQualifyingBalanceUsdMinor:packages.minimumQualifyingBalanceUsdMinor");
+    expect(implementation).not.toContain("db.select().from(packages)");
+    expect(implementation).toContain("Trading package catalogue unavailable (phase: ");
     expect(implementation).toContain("eligibilityAvailable=Boolean(policy)&&walletBalanceAvailable&&subscriptionHistoryAvailable");
     expect(implementation).toContain("eligibilityWarning:");
     expect(implementation).toContain('blockReason=!eligibilityAvailable?"eligibility_unavailable"');
