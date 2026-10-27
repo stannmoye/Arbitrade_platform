@@ -3,7 +3,7 @@
 ## Outcome
 Rebuild the Arbitrade customer portal, admin portal, backend, database model, financial workflows, reporting and deployment around `AI ENGINEER MASTER UNIFIED SPECIFICATION — V5`. Preserve compatible existing authentication and support behavior where safe; replace hard-coded demo finance behavior with database-driven, auditable application behavior.
 
-Trading is a real-money workflow recorded in the customer's internal ledger. Apply required trade capital debits/returns, realized profit, fees, losses, and settlement changes to the ledger transactionally and idempotently, based on the actual recorded trade lifecycle. Do not label trading as practice or simulation.
+Trade/Trading requirements are defined only in `docs/TRADING_SYSTEM_SPECIFICATION.md`; this general platform plan is not a trading requirements source.
 
 ## Architecture
 - **Web application:** React + TypeScript + Vite for customer and admin portals, split by route and feature modules rather than a single monolithic page.
@@ -24,8 +24,8 @@ Trading is a real-money workflow recorded in the customer's internal ledger. App
 - **Animation:** 150–240 ms state transitions, reduced-motion support, no countdown manipulation, server timestamps rendered as countdowns only.
 - **Typography:** modern sans-serif UI with tabular numerals for amounts and a restrained condensed display treatment for totals.
 - **Brand essence:** a calm, auditable opportunity workspace for customers and operators; precise, honest, controlled.
-- **Brand voice:** “Review the assumptions behind this opportunity.” / “Eligible trades are processed automatically by the server under package, balance, risk, and policy controls.” / “This result reflects the recorded trade and internal-ledger settlement status.”
-- **Trading authority:** This plan is a design/visual reference, not a trading requirements source. The sole detailed trading requirements are in [`docs/TRADING_SYSTEM_SPECIFICATION.md`](docs/TRADING_SYSTEM_SPECIFICATION.md); customers never approve or execute each individual trade.
+- **Brand voice:** “Review the assumptions behind this opportunity.”
+- **Trading authority:** See only [`docs/TRADING_SYSTEM_SPECIFICATION.md`](docs/TRADING_SYSTEM_SPECIFICATION.md) for trading behavior.
 - **Wordmark & logo:** retain the existing compass/route mark and use it as the navigation and status motif.
 - **Signature brand color:** `#7CE7C2` mint signal.
 
@@ -79,7 +79,7 @@ docs/
 - Active investments continue their recorded lifecycle after package expiry by default.
 - Automatic Swap defaults OFF and only authorizes the required conversion for the current investment.
 - Invalid/expired/out-of-tolerance FX quotes cause zero deduction and no investment.
-- Trading capital and realized outcomes must be posted to the internal ledger using actual recorded trade/settlement results; never fabricate execution, returns, or loss outcomes.
+- Trading-specific acceptance criteria are maintained only in `docs/TRADING_SYSTEM_SPECIFICATION.md`.
 
 ## Delivery and validation
 Use `pnpm check`, `pnpm test`, `pnpm build`, targeted financial concurrency tests, API health checks, seed verification and a production container smoke test. Publish only a version whose build and health path are verified. The final delivery will include the hosted URL and clearly labeled test credentials; no production credentials will be created or exposed.
@@ -87,7 +87,7 @@ Use `pnpm check`, `pnpm test`, `pnpm build`, targeted financial concurrency test
 
 ## CoinKi Mining database-driven implementation addendum
 
-The user's latest clarification supersedes the earlier demo-only reward model for Mining: customers purchase hash power in a real farm, the operator sells farm capacity to a third party, and no mining-pool connection is required. Reward credits must flow from actual third-party earnings, allocated by each customer's purchased eligible package power. Do not invent reward values from hashrate alone or label a settlement as verified before its source data is recorded. Trading behavior is governed exclusively by `docs/TRADING_SYSTEM_SPECIFICATION.md`; eligible package-driven trading must run automatically on the server, while any external-market execution must retain the guide's evidence and authorization requirements.
+The user's latest clarification supersedes the earlier demo-only reward model for Mining: customers purchase hash power in a real farm, the operator sells farm capacity to a third party, and no mining-pool connection is required. Reward credits must flow from actual third-party earnings, allocated by each customer's purchased eligible package power. Do not invent reward values from hashrate alone or label a settlement as verified before its source data is recorded. All trading behavior is governed exclusively by `docs/TRADING_SYSTEM_SPECIFICATION.md`.
 
 ### Persisted configuration and data flow
 
