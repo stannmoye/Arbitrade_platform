@@ -657,3 +657,76 @@ Before each future Trade/Trading task, the developer or coding agent must:
 6. Update this guide when intended behavior changes. Update other general documents only to maintain accurate status or point readers here; do not copy trading rules into a second guide.
 7. Run checks on the exact resulting commit, inspect the final diff, verify all links and search for conflicting trading instructions.
 8. Report what changed, what was deleted, what tests actually passed, what remains blocked/unverified, and whether the PR is still open, merged, deployed or production-certified. Never infer these states from each other.
+
+
+## 26. Market data, opportunity quality and risk disclosure
+
+The opportunity engine must not equate a headline price difference with an executable net opportunity. Every opportunity intended for customer display or automatic allocation must be traceable to a reproducible route and a versioned calculation snapshot.
+
+### 26.1 Required inputs and data-quality checks
+
+Where the selected strategy uses market venues, the calculation should use, where available and relevant:
+
+- Instrument identity, asset/network, source and destination venue, market/pair, and exact route.
+- Actual executable bid/ask prices and order-book depth for the proposed side and amount, not unrelated last-traded prices alone.
+- Quote source, provider instrument ID, observed-at timestamp, received-at timestamp, freshness limit, and quote expiry.
+- Market/trading fees, withdrawal and transfer fees, network or gas costs, payment/conversion costs, currency conversion, expected slippage, minimum notional, precision/lot-size rules and supported networks.
+- Liquidity/depth, capacity at the requested amount, venue status, network congestion, counterparty/bridge/stablecoin/network risks where relevant, and the likelihood of partial/no fill.
+- Calculation algorithm version, applied assumptions, configured risk limits, and a unique immutable opportunity version.
+
+A route must be blocked from automatic execution when critical data is missing, stale, malformed, internally inconsistent, below liquidity/capacity requirements, or outside authorized risk limits. Show a clear unavailable/error state and retain diagnostic evidence. Never silently substitute stale quotes, a default exchange rate, guessed ticker mappings, or fabricated market prices.
+
+### 26.2 Net calculation and estimate labeling
+
+Calculate the estimated net result using the actual supported route, the proposed size, executable prices and all configured applicable costs. The user-visible amount must distinguish estimated cost, estimated gross spread/result, estimated costs, estimated net result, quote age/expiry, capacity, and uncertainty. Store the inputs and algorithm version so a later reviewer can reproduce the estimate. Publish a new opportunity version when material source data or calculation assumptions change; do not mutate a prior snapshot without an audit trail.
+
+An estimate is a decision-support value only. It is not a realized trade result, accounting entry, guaranteed return, or proof of market execution. Partial fills, slippage, latency, rejected orders, transfer delays, liquidity changes and negative results must remain possible and be reflected honestly.
+
+### 26.3 Customer market-intelligence features
+
+Where supported by approved data sources, the Trade menu may provide an opportunity feed, detail view with source venues/networks, timestamps and expiry, fee/cost breakdown, depth/capacity, confidence/data-quality indicators, risk flags, historical opportunity replay, watchlists, filters/search, price/volume charts, order-book/depth views, network/gas indicators and venue health. These are advisory presentation features unless an explicit persisted execution state proves an order was submitted or filled. Replays and charts must identify historical data and cannot emit financial postings.
+
+Portfolio/history views should distinguish cost basis, realized and unrealized P&L, exposure by asset/network/venue/currency, concentration warnings, benchmark and performance history where the supporting data exists. Do not display unsupported metrics or infer unrecorded performance.
+
+## 27. Execution modes and integration boundaries
+
+The product's configured mode and permissions must be explicit, persisted, versioned and reviewed before an execution path is enabled. A marketing label, package activation, internal trade row, opportunity card, countdown or wallet movement cannot by itself authorize external orders or prove their execution.
+
+- **Analytics:** display sourced market information and estimates without accepting trade capital or claiming an executed trade.
+- **Assisted execution:** present complete order details and obtain the required customer instruction/confirmation before passing the order to the authorized external integration.
+- **Managed automatic execution:** activate only when the product, jurisdiction, customer agreement, risk/compliance controls, custody/funding model and execution arrangement have the necessary authorization. Under this mode, an eligible active package initiates the configured automatic server workflow without a customer start/stop toggle.
+
+These definitions are not a separate provider gate that can silently stop package workflow. The worker must evaluate due work, apply the chosen product mode and saved controls, and record what happened. If an external execution adapter, required market-data input, authorization, permission, or credential is unavailable, the worker must report an explicit actionable blocked/failed/pending state and preserve capital safely; it must not claim an order was submitted or fabricate a result. Ordinary internal workflow processing and actual external order execution are distinct states.
+
+Every external order request must use a stable idempotency/client-order key where supported and retain the integration name, instrument/market identity, external order ID, submission timestamp, acknowledgements, fill IDs, fill amounts/prices, fees, status transitions, result event/reference and reconciliation status. Verify webhook signatures or equivalent authorization, enforce replay resistance and reconcile external results against internal trade and ledger entries. Never trust a client-submitted result, redirect URL, webhook body or administrator free-text note as sufficient independent market evidence.
+
+Secrets and access tokens remain server-side. Connector health and execution permissions must be observable to authorized operators, with safe credential rotation, least privilege, bounded timeouts, retry limits and a documented emergency disable procedure.
+
+## 28. Persistent data and service-boundary contract
+
+Exact table and procedure names follow the existing repository schema, but the persisted model must support the following distinct concepts and stable relationships. Do not create shadow or duplicate stores if an authoritative existing table already provides the requirement.
+
+- Package catalogue and versioned policy.
+- Customer package entitlement with activation/expiry status and immutable terms/policy snapshot.
+- Opportunity and immutable opportunity/calculation versions.
+- Customer opportunity-delivery/lifecycle record, including idempotency identity and missed-opportunity reason.
+- Trade/allocation record linked to the customer, entitlement, opportunity, currency, and committed amount.
+- Reservation/locked-funds record with owner, trade identity, amount, currency, state and exactly-once transition.
+- External execution request/order and fill/result evidence where external execution applies; keep external IDs separate from internal IDs.
+- Trade lifecycle event history with timestamp, actor or worker identity, attempt, correlation ID and error classification.
+- Settlement record with unique reference claim, actual signed gross result, fee/net calculation, fee-policy/rounding snapshot, principal-return amount and result-evidence reference.
+- Ledger entries and wallet state projections linked transactionally to the relevant allocation, reservation, return, realized result, fee, loss, reversal or correction.
+- Notification/outbox event, risk/authorization decision, policy audit record, and reconciliation finding.
+- Company identity/catalogue record separated from tradable instrument/security identity and independent verification evidence.
+
+Keep references and constraints that prevent duplicate active entitlements where prohibited, duplicate allocation within the same opportunity, duplicate external submissions when idempotency is supported, duplicate settlement references, duplicate terminal ledger postings, and duplicate notification events. Any constraint or index change must be delivered in an ordered forward migration and tested against existing data assumptions. Do not casually add a unique customer/currency wallet constraint before investigating historical duplicate wallet rows.
+
+Keep the business logic in server-side modules/procedures and bounded workers. The customer/admin UI uses authenticated APIs and displays server-confirmed state; it must not own eligibility, scheduling, timing, allocation, quote validity, fee calculation, settlement, or balance authority. Use transactions for atomic database effects and an outbox or equivalent reliable boundary for post-commit external notifications. Avoid treating an in-memory queue or process-local lock as the only guarantee when multiple instances or restarts are possible.
+
+## 29. Compliance, fair presentation and customer protections
+
+Before accepting customer funds or enabling any product mode that executes or manages trades, the responsible business must confirm the legal and operational basis for the target jurisdictions, customer eligibility, custody/funding model, risk disclosures, complaints/reversal process, record-retention needs, sanctions/AML controls where applicable, and required licensed/authorized partners. This guide is an engineering contract, not legal, tax, accounting or investment advice.
+
+The interface and communications must not promise fixed returns, guaranteed profit, risk-free arbitrage, insurance, instant withdrawal, certain execution or certainty of settlement unless the exact claim is demonstrably true and approved. Show meaningful downside/uncertainty, applicable fees and assumptions before a customer commits. Do not use resetting countdowns, false scarcity, fake popularity/other-investor counters, synthetic transaction histories, fake testimonials, or animations intended to substitute for evidence.
+
+Customer-facing restrictions must be clear and reasoned without exposing sensitive risk rules or private review data. Keep required consents and disclosure versions attached to the relevant operation. Provide accessible, non-coercive handling of notifications and time-sensitive opportunities; sound must be opt-in and must never be the only way the customer can learn an important financial status.
