@@ -1,5 +1,8 @@
 # Arbitrade Stage 1 — Application Audit and Development Baseline
 
+> **Trade/Trading authority:** This roadmap, work queue, audit or acceptance record is not the current trading requirements source. Any trading-related status or observations here refer to the code/evidence and scope recorded in this file; they do not define the intended current behavior. The only detailed current requirements are in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). Update that guide when trading requirements change; do not create competing trading instructions here.
+
+
 **Audit date:** 2026-10-18  
 **Roadmap:** `docs/ARBITRADE_MASTER_DEVELOPMENT_ROADMAP.md` (version 2.0; 30 stages)  
 **Audited branch:** `integration/auth-installer-vps-safety`  
