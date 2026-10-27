@@ -3365,13 +3365,14 @@ export async function listWalletLedgerReconciliation(input?: {
   });
 }
 
-export async function manuallySettleTrade(tradeId:number, adminId:number, input:{grossProfitMinor:number; settlementReference:string; notes?:string}){
+export async function manuallySettleTrade(tradeId:number, adminId:number, input:{grossProfitMinor:number; settlementReference:string; notes:string}){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   if(!Number.isSafeInteger(input.grossProfitMinor)) throw new Error("Actual gross profit or loss must be a signed safe integer");
   const reference=input.settlementReference.trim();
   if(reference.length<3) throw new Error("Settlement reference must contain at least 3 characters");
   if(reference.length>160) throw new Error("Settlement reference must not exceed 160 characters");
-  if(input.notes!==undefined&&input.notes.trim().length>2000) throw new Error("Settlement notes must not exceed 2000 characters");
+  if(input.notes.trim().length<20) throw new Error("Settlement evidence notes must describe the verification source and actual result (at least 20 characters)");
+  if(input.notes.trim().length>2000) throw new Error("Settlement notes must not exceed 2000 characters");
   const result=await db.transaction(async tx=>{
     const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,tradeId)).limit(1).for("update"))[0];
     if(!trade) throw new Error("Trade not found");
