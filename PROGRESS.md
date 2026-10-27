@@ -19,7 +19,8 @@ Repository: [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrad
 | Preserve customer Trading package panel | WORKING | Panel stays mounted; activation messaging distinguishes entitlement from trade execution. Nullable activation dates now show a safe fallback. |
 | Keep catalogue diagnostics contract aligned | WORKING | Stale assertions now match the current main-branch diagnostic/error contract; full application tests pass. |
 | Route Trading Overview to recorded activity | COMPLETE | Trade Settings → Overview now opens the persisted opportunity lifecycle dashboard rather than the offer-configuration screen; a regression assertion is in `client/src/admin-navigation.test.ts`. |
-| Complete the broader Trading system | NEEDS FURTHER REVIEW | This checkpoint verifies the worker-boundary slice only. Remaining lifecycle, settlement/idempotency, ledger reconciliation, admin controls, and acceptance behavior still need review against the canonical specification. |
+| Flag reward-reservation/reward contradictions in recovery | COMPLETE | The read-only classifier escalates released-with-positive-reward and credited-with-zero-reward evidence to `MANUAL_FINANCIAL_REVIEW`; regression tests cover both cases. |
+| Complete the broader Trading system | NEEDS FURTHER REVIEW | Worker-boundary, Overview routing, and reservation/reward recovery checks are done; settlement/replay idempotency, full ledger reconciliation, admin controls, and acceptance behavior remain under audit. |
 
 ## Verification
 
@@ -36,6 +37,7 @@ Repository: [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrad
   - [Installer validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40581873155)
   - [Mining regressions](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40581873157)
   - [Application verification](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40581873162)
+- Latest recovery-classification code/test commit: `026da0cad938ac6fcdbcd899e274fb706b6afb79`; all 14 reported GitHub checks completed successfully, including the browser recovery check. [Primary validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40588181514) · [Operational validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40588181402) · [Typecheck/build](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40588181476)
 - Latest overview-route code/test commit: `be8976bdc515c49bad82ec29c2977fd870b65fef`; all 14 reported GitHub check runs completed successfully, including TypeScript, application unit tests, production build/smoke, browser recovery, installer/migration, MySQL/MariaDB compatibility, deployment-package, and Mining regression checks. [Primary validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40586408341) · [Operational validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40586408170) · [Install/type/test/build](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40586408186)
 - The earlier exact-head failures were a nullable activation timestamp passed to `Date` and stale catalogue diagnostic assertions; both are fixed in the validated code commit.
 - No production deployment, production database change, live trade, or financial balance change was performed.
@@ -43,11 +45,12 @@ Repository: [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrad
 ## Current GitHub state
 
 - [PR #202](https://github.com/stannmoye/Arbitrade_platform/pull/202) is open and remains a draft against `main`.
-- The worker-boundary slice is validated at `182f1b175ef9f16548ad3e94d36aaf9a7ca4ca02`; the overview-route code/test slice is validated at `be8976bdc515c49bad82ec29c2977fd870b65fef`. This progress entry is a documentation-only follow-up.
+- Validated code/test commits: worker-boundary `182f1b175ef9f16548ad3e94d36aaf9a7ca4ca02`; overview routing `be8976bdc515c49bad82ec29c2977fd870b65fef`; recovery classification `026da0cad938ac6fcdbcd899e274fb706b6afb79`. This progress entry is a documentation-only follow-up.
+- Draft PR #200 proposes package/deposit behavior that conflicts with the approved free-activation model above; no changes from that draft were applied in this recovery fix.
 - Nothing has been merged or deployed.
 
 ## Next work
 
-1. Continue the canonical Trading audit with the next non-overlapping implementation gap; inspect existing open Trading changes first to avoid conflicting fixes.
-2. Verify settlement/recovery idempotency, ledger reconciliation, and admin Trading controls against the canonical specification before marking the wider Trading system complete.
+1. Continue the settlement retry/idempotency audit alongside open PR #197’s timing-schema repair; do not duplicate its migration work.
+2. Continue admin Trading controls and acceptance review; resolve PR #200’s competing package-model proposal before making package-policy changes.
 3. Keep production and live-trading operations out of this coding/verification work.
