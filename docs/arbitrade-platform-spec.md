@@ -1,4 +1,4 @@
-> **Trading requirements precedence notice (2026-10-24):** For all trading-specific behaviour, `docs/TRADING_SYSTEM_SPECIFICATION.md` is the sole canonical product contract and takes precedence over any conflicting trading details in this older platform specification. Read the canonical trading specification before changing trading code. This file remains useful for non-trading platform architecture and historical context; do not treat conflicting older trading guidance here as current requirements. Update this notice if the canonical document is renamed.
+> **Single-source notice:** This is the older platform-wide architecture specification, not a Trade/Trading implementation guide. All trading-specific behavior—including customer Trade UI, package activation, opportunity data/calculation, automatic processing, execution, admin Trade Settings, ledger accounting, settlement, company catalogue, recovery and acceptance—is maintained only in `docs/TRADING_SYSTEM_SPECIFICATION.md`. The trading-specific sections that were previously in this file have been consolidated or replaced with pointers. Do not implement Trade/Trading behavior from historical snippets in this document.
 
 # Arbitrade: Hosted Crypto-Arbitrage Platform Specification
 
@@ -6,19 +6,9 @@
 **Date:** 30 September 2026  
 **Audience:** Founders, compliance counsel, product designers, solution architects, engineering teams, security teams, payment and custody partners
 
-## 1. Product definition
+## 1. Product definition and scope
 
-Arbitrade should be built as a **hosted, jurisdiction-aware crypto-market opportunity and execution platform**. It can aggregate prices from multiple exchanges and blockchains, calculate net spreads after fees and slippage, show time-limited opportunities, and let an eligible customer place a clearly disclosed order or allocation request.
-
-It should **not** promise fixed returns, display fabricated “profit” figures, pool customer money into an unlicensed wallet, or imply that every opportunity is risk-free. The phrase “likely make” should mean an estimate based on an identified route, current quotes, fees, slippage assumptions, liquidity, and an expiry timestamp. The interface must display the assumptions and the possibility of partial fill or loss next to the estimate.
-
-There are three product modes:
-
-1. **Analytics mode:** show live market data and hypothetical net arbitrage opportunities. No customer funds are accepted.
-2. **Assisted-execution mode:** a verified customer approves each transaction; regulated exchange, broker, payment, and custody partners execute it. The platform records the instruction but does not silently trade.
-3. **Managed-investment mode:** only after legal authorization, custody arrangements, investor disclosures, suitability controls, safeguarding, complaints handling, and jurisdiction-specific approvals. This mode must be separately enabled by country and product.
-
-The system should launch in analytics or assisted-execution mode first. Managed investment is a regulated business model, not simply a software feature.
+This document retains general platform architecture, compliance, security and deployment context. The detailed product contract for the Trade menu and all trading-related behavior is the [single canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). That guide defines the supported product mode, customer journey, opportunity workflow, execution boundary, admin controls, risk policy, accounting and acceptance. This section does not define a competing trading mode or execution policy.
 
 ## 2. Regulatory and trust boundary
 
@@ -112,38 +102,9 @@ The portal should expose only features allowed by the customer’s country, acco
 24. Refund, reversal, chargeback, and failed-payment statuses.
 25. Downloadable statements and tax-lot exports.
 
-### Opportunity and market intelligence
+### Opportunity and market intelligence; participation and portfolio
 
-26. Real-time opportunity feed.
-27. Opportunity detail panel with source venues and networks.
-28. Net-spread calculation after trading fees, gas, payment fees, and estimated slippage.
-29. Available capacity and maximum investable amount.
-30. Quote timestamp and expiry countdown.
-31. Confidence and data-quality indicator.
-32. Liquidity depth and estimated fill probability.
-33. Risk flags for bridge, exchange, counterparty, stablecoin, and network risk.
-34. Historical opportunity replay.
-35. Watchlists for assets, venues, and routes.
-36. Search and filtering by asset, region, minimum spread, risk tier, and duration.
-37. Price and volume charts.
-38. Order-book or depth visualization where licensed data permits.
-39. Gas-fee and network-congestion panel.
-40. Market-status and venue-health indicators.
-
-### Participation and portfolio
-
-41. Opportunity reservation or intent flow.
-42. Customer confirmation showing full cost and downside scenarios.
-43. Manual approval for every assisted-execution trade.
-44. Portfolio allocation view.
-45. Cost basis and realized/unrealized P&L.
-46. Exposure by asset, chain, venue, and currency.
-47. Portfolio risk limits.
-48. Performance history with benchmark selection.
-49. Diversification and concentration warnings.
-50. Pending, partially filled, completed, failed, and cancelled order states.
-51. Withdrawal and settlement tracking.
-52. Customer-generated reports.
+Market/opportunity features and their source, data quality, risk, calculation, freshness, display and eligibility rules are defined only in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). Package activation, automatic processing, configured customer confirmations, allocation, active-trade states, portfolio values, exposure, profit/loss and settlement display are also defined only by that guide. This list is intentionally not repeated here.
 
 ### Trust, communications, and support
 
@@ -176,20 +137,7 @@ Every balance card should show asset, network, valuation source, timestamp, and 
 
 ### 4.2 Trading and funds controls
 
-Customers need separate flows for **deposit, reserve, invest, trade, swap, settle, release, and withdraw**. A customer should be able to view the reason and expected release condition for every locked amount.
-
-- Reserve funds for a displayed opportunity without treating reservation as execution.
-- Approve, reject, cancel, or let an opportunity expire before execution.
-- Cancel an order only while the provider and order state allow cancellation.
-- See whether cancellation is requested, accepted, partially filled, or impossible.
-- View filled quantity, average price, fees, network costs, and remaining quantity.
-- Request release of unused reserved funds.
-- See when locked funds are scheduled for release.
-- Prevent withdrawals while a chargeback, fraud review, sanctions review, or settlement rule applies.
-- Allow an authorized admin to release or continue a lock only with dual approval and a reason.
-- Apply customer-specific limits on funding, order size, daily turnover, asset exposure, withdrawal, and earning products.
-
-The portal must never label a customer’s unavailable funds as “lost” when they are pending, and must never label locked funds as available. Cancellation and release actions must create ledger events and customer notifications.
+All trading-related funds controls are specified only in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md), including qualification, allocation/reservation, spending limits, active entitlements, trade lifecycle, ledger posting, return of principal, fees, realized results and reconciliation. Do not use this older platform specification to create a second trading policy.
 
 ### 4.3 Five additional customer earning modules
 
@@ -205,69 +153,7 @@ Each module should have a lifecycle of `DRAFT → REVIEW → APPROVED → SCHEDU
 
 ## 5. Opportunity engine
 
-The opportunity engine is the core of the product. It should not calculate a headline spread from two unconnected prices and call it profit. Each opportunity needs a reproducible route and an evidence record.
-
-### Opportunity inputs
-
-- Asset pair and exact contract or token address.
-- Source exchange, broker, DEX, or liquidity venue.
-- Destination venue.
-- Fiat currency and settlement currency.
-- Bid/ask prices and quote sizes.
-- Order-book depth.
-- Trading fees and withdrawal fees.
-- Network fee and expected confirmation time.
-- Bridge or cross-chain fee, if any.
-- Payment-rail fee and settlement delay.
-- Slippage model.
-- Counterparty and venue status.
-- Customer eligibility and regional restrictions.
-- Opportunity expiry and stale-data threshold.
-
-### Net opportunity calculation
-
-For a notional amount `N`, the engine should calculate at least:
-
-```text
-entry_cost = N + entry_fee + payment_fee + estimated_slippage
-transfer_cost = network_fee + bridge_fee + withdrawal_fee
-exit_value = executable_exit_quantity × executable_exit_price
-exit_cost = exit_fee + estimated_exit_slippage
-net_result = exit_value - entry_cost - transfer_cost - exit_cost
-net_return_pct = net_result / entry_cost × 100
-```
-
-The engine should show a base case, conservative case, and stress case. It must reserve a safety buffer for quote movement, partial fill, failed transfer, and fee changes. If the result becomes negative under conservative assumptions, the display should say so rather than highlighting the optimistic case.
-
-### Opportunity state machine
-
-`DETECTED → VALIDATING → ELIGIBLE → PUBLISHED → RESERVED → CUSTOMER_APPROVAL → EXECUTING → PARTIALLY_FILLED → SETTLING → COMPLETED`
-
-Failure states are `EXPIRED`, `STALE_DATA`, `LIQUIDITY_INSUFFICIENT`, `RISK_BLOCKED`, `PROVIDER_ERROR`, `CUSTOMER_DECLINED`, `COMPLIANCE_HOLD`, and `CANCELLED`.
-
-Every published opportunity needs an immutable calculation snapshot. If a quote changes, publish a new version rather than silently changing the customer’s expected result.
-
-### Real-time delivery
-
-Use a market-data ingestion layer, normalized event model, and event bus. Publish only validated events to WebSockets or Server-Sent Events. The browser should receive:
-
-```json
-{
-  "event": "opportunity.published",
-  "id": "opp_123",
-  "version": 4,
-  "asset": "BTC/USDC",
-  "route": ["venue_a", "venue_b"],
-  "net_return_estimate": {"base": 0.82, "conservative": 0.18, "stress": -0.44, "currency": "USD"},
-  "maximum_eligible_amount": 1250,
-  "expires_at": "2026-09-30T11:15:20Z",
-  "risk_tier": "high",
-  "data_quality": "good",
-  "requires_customer_approval": true
-}
-```
-
-The front end must visually distinguish **available capacity** from a guaranteed allocation. It should display “maximum currently estimated capacity” and explain that actual execution can be lower.
+The complete opportunity input contract, quote freshness, instrument verification, route and net-result calculation, opportunity states, delivery/eligibility, package-based automatic processing, idempotency, retries, failure behavior and audit requirements are defined in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). This older file is not an independent opportunity-engine specification.
 
 ## 6. Payments and asset support
 
@@ -359,16 +245,7 @@ The admin portal needs a registry with:
 
 ### Market and opportunity controls
 
-- Source-venue configuration.
-- Asset and network allowlist.
-- Minimum liquidity thresholds.
-- Spread thresholds.
-- Fee schedules.
-- Slippage assumptions.
-- Opportunity publishing rules.
-- Per-customer and global capacity limits.
-- Kill switch by asset, venue, chain, country, or provider.
-- Replay and audit of every published opportunity.
+Market-data source configuration, instrument and network allowlists, quote freshness, liquidity/capacity thresholds, fee/slippage assumptions, publishing rules, customer/global limits, emergency pause controls and opportunity replay/audit are defined only in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md).
 
 ### Treasury and reconciliation
 
@@ -551,22 +428,7 @@ The visual direction can be premium and animated without imitating a casino. Use
 
 ### Opportunity popup
 
-The popup should include:
-
-- “New opportunity detected” rather than “profit guaranteed.”
-- asset and exact route;
-- estimated base, conservative, and stress outcomes;
-- maximum eligible amount;
-- fees, gas, slippage, and assumed fill;
-- source venues and quote timestamps;
-- expiry countdown;
-- liquidity and risk indicators;
-- “Review details” and “Dismiss” actions;
-- a mandatory confirmation step;
-- no preselected investment amount;
-- no auto-execution unless separately authorized and legally supported.
-
-Animations should use 150–250 ms transitions, respect `prefers-reduced-motion`, and never hide a risk warning behind animation. Sound should be a short, optional neutral chime; customers must be able to disable it.
+The customer Trade pop-up, minimized dock, field requirements, estimate labels, accessibility, confirmation behavior, authoritative countdown, dismissal state and presentation-only controls are defined only in Section 10 and the customer portal sections of [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md).
 
 ## 13. Security and privacy
 
@@ -593,21 +455,7 @@ Minimum controls:
 
 ## 14. Risk controls specific to arbitrage
 
-The opportunity engine must block publication when:
-
-- quotes are stale or come from only one source;
-- executable liquidity is below the proposed amount;
-- the asset or contract address is not allowlisted;
-- bridge or network risk exceeds policy;
-- the route requires an unsupported or unverified transfer;
-- the provider is degraded or in maintenance;
-- the calculated result depends on an unrealistic fill;
-- the net result is negative after conservative costs;
-- the customer is not eligible;
-- a market, sanctions, fraud, or counterparty rule triggers;
-- the opportunity would exceed customer or platform exposure limits.
-
-Do not use an opportunity feed to manipulate behavior. Avoid countdowns that reset, fake “other investors are buying” counters, or claims that an opportunity will never appear again. Store the exact inputs and algorithm version for each opportunity so customers and auditors can reproduce the display.
+All trading risk conditions, quote validation, liquidity checks, stale-data handling, customer/platform exposure limits, instrument and venue allowlists, network/bridge/counterparty risk, pause controls and honest risk presentation are defined only in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md), especially its market-data and compliance sections.
 
 ## 15. Reliability and real-time operation
 
@@ -753,19 +601,9 @@ Upgrades must be staged, backed up, health-checked, and observable. If health ch
 - Withdrawal cooling rules.
 - Notification consent and quiet hours.
 
-### Simulation and scenario tests
+### Trade failure and scenario tests
 
-- Exchange outage during an active route.
-- Chain reorganization or delayed confirmation.
-- Gas price spike.
-- Partial fill.
-- Card chargeback after a crypto withdrawal attempt.
-- Duplicate webhook.
-- Price-feed divergence.
-- Customer loses MFA device.
-- Malicious connector package.
-- Admin account compromise.
-- Database restore and reconciliation break.
+Trade-related tests—including venue outages, delayed network confirmation, gas-cost changes, partial fills, duplicate callbacks, divergent/stale quotes, settlement conflicts, worker restart, failed execution, losses, idempotency and evidence reconciliation—are required by Section 24 of [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). Test fixtures may use synthetic input records, but no simulated result may be presented as a real trade or posted as realized profit.
 
 ### Security testing
 
@@ -789,15 +627,15 @@ Build landing pages, account registration, passkeys/MFA, customer profile, KYC i
 
 ### Phase 2: opportunity analytics
 
-Add normalized market data, opportunity calculation, historical replay, fee model, conservative and stress cases, WebSocket feed, sound/push preferences, and internal opportunity approval.
+For any opportunity analytics, market-data integration, risk modeling, customer presentation or automatic processing implementation, follow the [canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). This roadmap entry is historical planning context, not an alternate implementation specification.
 
 ### Phase 3: payments and ledger
 
 Add provider-hosted card checkout, bank-transfer deposits, crypto deposit addresses, double-entry ledger, reconciliation, limits, chargeback states, statements, and withdrawal controls. Keep assets with regulated providers.
 
-### Phase 4: assisted execution
+### Phase 4: execution
 
-Add explicit customer approval, provider adapters, order and fill states, partial-fill handling, settlement tracking, kill switches, and complete audit replay. Begin with a small allowlist of assets and venues.
+The current supported execution mode, package-driven automatic workflow, customer instruction requirements, legal/operational authorization, execution adapter, order/fill evidence and settlement behavior are defined only by the [canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). Do not implement execution from this older roadmap text.
 
 ### Phase 5: scale and governance
 
@@ -860,42 +698,11 @@ A 120 MB deliverable is not a useful engineering target. The repository should b
 
 ## 20. Launch acceptance checklist
 
-Before accepting the first customer deposit, confirm:
-
-- launch jurisdiction and regulated-business classification are documented;
-- every customer-facing promotion and risk claim has compliance approval;
-- KYC, sanctions, transaction monitoring, and case management work end to end;
-- payment, custody, exchange, and banking contracts are signed;
-- card data is handled through an approved architecture;
-- the ledger reconciles against every provider;
-- withdrawals have step-up authentication and review controls;
-- opportunity estimates include fees, slippage, capacity, and expiry;
-- the platform never presents an estimate as a guarantee;
-- all admin actions are attributable and auditable;
-- connectors can be disabled without redeploying the whole platform;
-- backups and restore have been tested;
-- penetration testing and remediation are complete;
-- customer complaints and incident-response playbooks are staffed;
-- terms, privacy notice, disclosures, and data-retention rules are published;
-- accessibility and reduced-motion requirements are tested;
-- the first release is limited to an allowlisted set of assets, countries, providers, and transaction sizes.
+All trading-specific acceptance criteria are maintained in Section 24 of the [canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). That guide is the checklist for packages, automatic processing, customer/admin UI, market data, execution, fees, ledger entries, settlement, recovery, company data, authorization and production evidence. This general platform document must not restate those checks.
 
 ## 21. Recommended first release
 
-The safest and fastest credible MVP is:
-
-- one jurisdiction;
-- one regulated fiat/payment provider;
-- one KYC/AML provider;
-- two or three exchange data providers;
-- read-only opportunity analytics;
-- no pooled funds;
-- no guaranteed returns;
-- customer-confirmed execution only in a later controlled release;
-- one fiat currency and a small allowlist of cryptoassets and networks;
-- full ledger, audit trail, disclosures, and support from day one.
-
-This still permits a beautiful, animated portal and real-time opportunity notifications, but it avoids making visual sophistication a substitute for licensing, custody, financial-crime controls, or honest risk communication.
+General platform rollout and non-trading services should be planned using the current repository roadmap, security review and deployment acceptance process. All Trade/Trading rollout requirements—including the product mode, authorization, package-driven workflow, permitted execution, risk controls, evidence, accounting and customer disclosures—are defined only in the [canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md).
 
 ## References
 
