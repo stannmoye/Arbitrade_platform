@@ -31,6 +31,11 @@ describe("Trade Settings administrator navigation", () => {
     ]);
   });
 
+  it("routes Trade Settings Overview to recorded lifecycle metrics", () => {
+    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
+    expect(group?.items.find((item) => item.id === "trade-settings-overview")?.target).toBe("deliveryMonitor");
+  });
+
   it("routes every Trade Settings item to an existing portal destination", () => {
     const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
     expect(group).toBeDefined();
