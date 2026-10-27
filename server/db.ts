@@ -2242,7 +2242,17 @@ export async function listCustomerTradingPackages(userId:number) {
     // eligibility data may be temporarily unavailable without making package
     // terms disappear from the customer page.
     phase = "read_enabled_package_catalogue";
-    const catalog=await db.select().from(packages).where(and(
+    const catalog=await db.select({
+      id:packages.id,
+      name:packages.name,
+      minimumQualifyingBalanceUsdMinor:packages.minimumQualifyingBalanceUsdMinor,
+      durationMonths:packages.durationMonths,
+      opportunitiesPerDay:packages.opportunitiesPerDay,
+      termsVersion:packages.termsVersion,
+      enabled:packages.enabled,
+      startsAt:packages.startsAt,
+      expiresAt:packages.expiresAt,
+    }).from(packages).where(and(
       eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,now)),
       or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
     )).orderBy(packages.minimumQualifyingBalanceUsdMinor,packages.id);
@@ -2348,7 +2358,8 @@ export async function listCustomerTradingPackages(userId:number) {
       sqlState: typeof cause?.sqlState === "string" ? cause.sqlState : undefined,
       message: typeof cause?.message === "string" ? cause.message : "Unknown database error",
     });
-    throw new Error("Unable to load the Trading package catalogue. Please retry; server logs contain the diagnostic phase.");
+    const safeCode = String(cause?.code ?? "UNKNOWN").replace(/[^A-Z0-9_]/gi, "").slice(0, 40) || "UNKNOWN";
+    throw new Error("Trading package catalogue unavailable (phase: " + phase + ", code: " + safeCode + ").");
   }
 }
 export async function activateCustomerTradingPackage(userId:number,input:{packageId:number;idempotencyKey:string}) {
