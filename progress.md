@@ -43,3 +43,12 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 2. Fix any remaining failures, then verify the new exact SHA rather than reusing older run results.
 3. Review PR #203's final diff and status. Do not merge, deploy, touch production data, or initiate live trades without the appropriate authorization.
 4. Continue the broader Trading audit in small steps, following `AGENTS.md`, `BUILD_SOURCE.json`, `BUILD_AND_RELEASE.md`, `docs/REPOSITORY_GUIDE.md`, and `docs/TRADING_SYSTEM_SPECIFICATION.md`. Record each code change, exact SHA, test outcome, and next concrete task here. Do not invent an overall completion percentage.
+
+
+## Continuation update — 2026-10-27
+
+- Re-verified canonical `main` at `8e610823941cb49f45e8bff0f35759994a395221` and PR #203 at `daa61cbb40f39a827788e96cf81b19417b79d97f` before this follow-up. PR #203 remains open/unmerged; all 14 check runs and all five workflow groups passed on that exact head.
+- This follow-up adds a pure customer package activation-date formatter and focused regression tests for missing, malformed, and valid dates. It changes presentation only; no eligibility, allocation, ledger, migration, or settlement behavior changes. Validation for the new head is pending until its exact-SHA CI completes.
+- Verified PR #202 separately at `80b0884f3cdabe6219d7285e3683e9cf108c18ea`: all 14 reported checks passed. Its worker-only allocation boundary and settlement wallet precision work remain in an open draft PR and are not yet part of `main`.
+- PR #197 proposes migration `0079_trade_settlement_timing_schema_repair.sql`; draft PR #200 independently proposes `0079_internal_ledger_execution_mode.sql` and package-policy changes that differ from the current canonical model. Do not combine either migration or adopt the draft policy without resolving the branch/specification conflicts.
+- Next: verify this formatter/test commit on its exact GitHub Actions head, then continue the settlement retry/idempotency and Trade Settings admin audit without duplicating open PR work. No production database, live trade, deployment, or merge was performed.

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CheckCircle2, Clock3, PackageCheck, RefreshCw, ShieldCheck } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { formatCustomerTradingPackageActivationDate } from "@/lib/trading-package-dates";
 
 function formatUsdMinor(amount: number) {
   return "USD " + (Number(amount || 0) / 100).toLocaleString(undefined, {
@@ -110,7 +111,7 @@ export function CustomerTradingPackages() {
           {subscriptions.map(subscription => (
             <div className="trading-active-subscription" key={subscription.id}>
               <strong>{subscription.packageName}</strong>
-              <span>Activated {subscription.activatedAt ? new Date(subscription.activatedAt).toLocaleDateString() : "Activation date unavailable"}</span>
+              <span>Activated {formatCustomerTradingPackageActivationDate(subscription.activatedAt)}</span>
               <span>Expires {subscription.expiresAt ? new Date(subscription.expiresAt).toLocaleDateString() : "No expiry configured"}</span>
             </div>
           ))}
