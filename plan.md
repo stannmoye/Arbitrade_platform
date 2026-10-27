@@ -19,7 +19,7 @@ Trade/Trading requirements are defined only in `docs/TRADING_SYSTEM_SPECIFICATIO
 - **Core principles:** trust before excitement; every number has a source/status; explicit approval for sensitive actions; estimated values and confirmed ledger results are clearly distinguished.
 - **Color philosophy:** graphite/navy foundation, warm paper surfaces, mint for valid/active states, amber for review, coral for blocked/loss states; no casino-like gradients or urgency manipulation.
 - **Layout paradigm:** persistent workspace rail with a command header, route-aware primary canvas, detail drawer/review panel and a separate chronological activity stream; mobile collapses into Home / Trade / Portfolio / Activity / Menu.
-- **Signature elements:** freshness/status bars, source-and-assumption chips, ledger-style ruled rows, a persistent trading status and ledger activity indicator.
+- **Signature elements:** freshness/status bars, source-and-assumption chips, ledger-style ruled rows, and persistent workflow status indicators.
 - **Interaction philosophy:** Idle → Processing → Success/Failure/Pending; no optimistic financial success; all final actions revalidate on the server and display a durable activity record.
 - **Animation:** 150–240 ms state transitions, reduced-motion support, no countdown manipulation, server timestamps rendered as countdowns only.
 - **Typography:** modern sans-serif UI with tabular numerals for amounts and a restrained condensed display treatment for totals.
@@ -35,7 +35,7 @@ Trade/Trading requirements are defined only in `docs/TRADING_SYSTEM_SPECIFICATIO
 3. Packages, active-package checks, opportunities, trading types and purchase limits.
 4. Multiple investments, server-authoritative timing and exactly-once settlement.
 5. Multi-wallet accounting, FX quotes, Automatic Swap, rate tolerance and conversion ledger.
-6. Implement and verify the real-money trading lifecycle with internal-ledger postings for capital, realized results, fees, losses, and settlement.
+6. Implement and verify Trade/Trading only against `docs/TRADING_SYSTEM_SPECIFICATION.md`.
 7. Customer/admin navigation and database-backed settings/entitlements.
 8. History, transactions, reports, local-timezone boundaries, PDFs, email queue and retention.
 9. Security hardening, roles, 2FA enforcement points, uploads, backups and failed-job monitoring.
@@ -79,7 +79,7 @@ docs/
 - Active investments continue their recorded lifecycle after package expiry by default.
 - Automatic Swap defaults OFF and only authorizes the required conversion for the current investment.
 - Invalid/expired/out-of-tolerance FX quotes cause zero deduction and no investment.
-- Trading-specific acceptance criteria are maintained only in `docs/TRADING_SYSTEM_SPECIFICATION.md`.
+- For Trade/Trading acceptance criteria, use only `docs/TRADING_SYSTEM_SPECIFICATION.md`.
 
 ## Delivery and validation
 Use `pnpm check`, `pnpm test`, `pnpm build`, targeted financial concurrency tests, API health checks, seed verification and a production container smoke test. Publish only a version whose build and health path are verified. The final delivery will include the hosted URL and clearly labeled test credentials; no production credentials will be created or exposed.
