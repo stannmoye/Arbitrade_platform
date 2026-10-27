@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const marketSource = readFileSync(new URL("./marketSync.ts", import.meta.url), "utf8");
 
 describe("internal-ledger trading allocation contract", () => {
   const start = source.indexOf("export async function createTrade(");
@@ -22,6 +23,20 @@ describe("internal-ledger trading allocation contract", () => {
     expect(packageCheck).toBeGreaterThan(pauseCheck);
     expect(fundsCheck).toBeGreaterThan(packageCheck);
     expect(reservation).toBeGreaterThan(fundsCheck);
+  });
+
+  it("does not derive trade estimates or opportunity economics from pseudo-random inputs", () => {
+    const termsStart = source.indexOf("function calculateTradeTerms(");
+    const termsEnd = source.indexOf("\nfunction packageUsdUnitsToNativeMinor", termsStart);
+    const terms = source.slice(termsStart, termsEnd);
+    expect(termsStart).toBeGreaterThanOrEqual(0);
+    expect(termsEnd).toBeGreaterThan(termsStart);
+    expect(terms).toContain("Number(offer.expectedRewardBps)");
+    expect(terms).not.toContain("createHash");
+    expect(terms).not.toContain("sessionEntropy");
+    expect(marketSource).not.toContain("simulationValue");
+    expect(marketSource).not.toContain("simulationSeed:");
+    expect(marketSource).toContain("generationDisabled: true");
   });
 
   it("keeps allocation pending until the separate result-evidence settlement workflow", () => {
