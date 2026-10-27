@@ -14,6 +14,17 @@ Before modifying the Trading page, opportunity engine, package entitlements, wal
 
 Do not introduce behaviour that conflicts with the specification. If a codebase constraint or later user instruction appears to conflict, stop and document the conflict before implementing. Update the canonical specification and its PDF together when requirements are formally revised. Never claim a requirement is implemented without inspecting the code and validating it.
 
+## Approved package activation and allocation boundary
+
+- Trading package activation is free. The minimum qualifying wallet balance is an eligibility threshold, not a package deposit, subscription fee, or trade amount. Activation writes the customer entitlement and its audit record only; it must not debit or reserve funds, run the opportunity allocator, or create a trade.
+- Only the existing scheduled server worker may allocate trades. runAutoTradeCycle() in server/_core/index.ts is the worker entry point. Its call to listCustomerOpportunities() must explicitly opt into worker processing. Customer package reads, activation requests, and the customer opportunities query must never opt into allocation.
+- Customer page refreshes may display persisted opportunities and report presentation status, but they must not allocate funds or create trades. Keep the existing CustomerTradingPackages panel mounted on the customer home page; activation success text must not imply a trade was created.
+
+## Progress handoff
+
+- Keep a root PROGRESS.md current for every development session. Record each fixed item, its verification status, evidence, remaining review, and the next concrete task so another developer or AI can resume without reconstructing this conversation.
+- Mark an item WORKING only after a relevant check passes. If a check fails or cannot be run, mark it NEEDS FURTHER REVIEW and state what failed or remains unverified. Separate source changes from test, build, deployment, and production evidence; never label an unverified change complete.
+
 ## Canonical source
 
 - The application source of truth is `stannmoye/Arbitrade_platform` on `main`.

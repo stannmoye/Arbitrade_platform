@@ -2433,15 +2433,9 @@ export async function activateCustomerTradingPackage(userId:number,input:{packag
     });
     return {subscriptionId,packageId:Number(pkg.id),packageName:pkg.name,activatedAt:now,expiresAt,qualifyingBalanceUsdMinor,termsSnapshotJson:JSON.stringify(snapshot),replayed:false};
   });
-  let immediateCycle:any=null;
-  if(!result.replayed){
-    try { immediateCycle=await listCustomerOpportunities(userId,{consumeDelivery:false}); }
-    catch(error) { console.error("[AutoTrade] Immediate post-activation cycle failed:",error instanceof Error?error.message:"UnknownError"); }
-  }
   return {
     ...result,
     packageName:result.packageName??String((await db.select({name:packages.name}).from(packages).where(eq(packages.id,result.packageId)).limit(1))[0]?.name||""),
-    immediateCycle:immediateCycle?{autoTrades:immediateCycle.autoTrades||[],missed:immediateCycle.missed||[]}:null,
   };
 }
 
@@ -2587,14 +2581,14 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
   }
   return {executed,missed:await listMissedOpportunities(userId)};
 }
-export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean}={}) {
+export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean;workerCycle?:boolean}={}) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const now=new Date();
   const quotaDay=now.toISOString().slice(0,10);
   const quotaDayStartUtc=new Date(`${quotaDay}T00:00:00.000Z`);
   const nextQuotaDayStartUtc=new Date(quotaDayStartUtc.getTime()+24*60*60*1000);
   const settled:Array<{tradeId:number;rewardMinor:number;currency:string;totalMinor:number}>=[];
-  await markDueTradesAwaitingConfirmation(userId);
+  if(options.workerCycle===true) await markDueTradesAwaitingConfirmation(userId);
   const controls=await ensureCustomerControls(userId);
   const emptyResult=async (delivery:any)=>({offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery});
   if(controls.accountStatus!=="active") return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,accountInactive:true,popupPolicy:{}});
@@ -2771,7 +2765,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     return !packagePolicy || (Boolean(packagePolicy.enabled) && packagePolicy.automaticTradingEnabled!==false);
   });
   const effectiveControls=controls;
-  const auto=await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls);
+  const auto=options.workerCycle===true
+    ? await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls)
+    : {executed:[],missed:await listMissedOpportunities(userId)};
   const executedByOffer=new Map(auto.executed.map((trade:any)=>[Number(trade.offerId),trade]));
   const enrichedOffers=popupRows.map(row=>{
     const base:any=tradeCandidates.find(offer=>Number(offer.offerId)===Number(row.offerId))||{};
@@ -2785,7 +2781,29 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   });
   return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
 }
-export async function runAutoTradeCycle(){const db=await getDb();if(!db)throw new Error("Database is not available");const customers=await db.select({id:users.id}).from(users).where(eq(users.role,"user"));let allocations=0;for(const customer of customers){try{const result=await listCustomerOpportunities(customer.id,{consumeDelivery:false});allocations+=result.autoTrades.length;}catch(error){console.error(`[AutoTrade] Customer ${customer.id} cycle failed:`,error instanceof Error?error.message:error);}}return {customers:customers.length,allocations};}
+export async function runAutoTradeCycle(){
+  const db=await getDb();
+  if(!db) throw new Error("Database is not available");
+  const customers=await db.select({id:users.id}).from(users).where(eq(users.role,"user"));
+  let allocations=0;
+  for(const customer of customers){
+    try{
+      const result=await listCustomerOpportunities(customer.id,{workerCycle:true,consumeDelivery:false});
+      allocations+=result.autoTrades.length;
+      for(const trade of result.autoTrades){
+        const notices=[
+          {title:"Automatic trading allocation confirmed",body:trade.symbol+" was allocated from your available "+trade.currency+" balance.",eventKey:"auto-trade-allocation:"+trade.tradeId,category:"trading",priority:"normal"},
+          {title:"Balance reserved for trade",body:trade.amountMinor+" minor units of "+trade.currency+" were reserved for the automatic allocation.",eventKey:"auto-trade-debit:"+trade.tradeId,category:"ledger_debit",priority:"normal"},
+        ] as const;
+        const outcomes=await Promise.allSettled(notices.map(notice=>createNotification(customer.id,notice.title,notice.body,{eventKey:notice.eventKey,category:notice.category,priority:notice.priority})));
+        if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] Automatic allocation notice failed after ledger commit.");
+      }
+    }catch(error){
+      console.error(`[AutoTrade] Customer ${customer.id} cycle failed:`,error instanceof Error?error.message:error);
+    }
+  }
+  return {customers:customers.length,allocations};
+}
 export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number;packageId?:number}){
  const db=await getDb();if(!db)throw new Error("Database is not available");
  return db.transaction(async tx=>{

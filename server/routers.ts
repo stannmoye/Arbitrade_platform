@@ -186,21 +186,7 @@ export const appRouter = router({
     })).mutation(async ({ ctx, input }) => {
       if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Only customer accounts can activate a trading package." });
       const result = await activateCustomerTradingPackage(ctx.user.id, input);
-      const cycle = result.immediateCycle as any;
-      for (const trade of cycle?.autoTrades || []) {
-        await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{
-          eventType:"DEBIT",status:"COMPLETED",title:"Automatic wallet reservation confirmed",
-          message:"An opportunity was automatically allocated after package activation; "+trade.amountMinor+" minor units of "+trade.currency+" were committed.",
-          transactionCode:"auto-debit:"+trade.tradeId,amountMinor:-trade.amountMinor,asset:trade.currency,
-        });
-        const notices=[
-          {title:"Automatic trading allocation confirmed",body:trade.symbol+" was allocated from your available "+trade.currency+" balance.",eventKey:"auto-trade-allocation:"+trade.tradeId,category:"trading",priority:"normal"},
-          {title:"Balance reserved for trade",body:trade.amountMinor+" minor units of "+trade.currency+" were reserved for the automatic allocation.",eventKey:"auto-trade-debit:"+trade.tradeId,category:"ledger_debit",priority:"normal"},
-        ] as const;
-        const outcomes=await Promise.allSettled(notices.map(notice=>createNotification(ctx.user.id,notice.title,notice.body,{eventKey:notice.eventKey,category:notice.category,priority:notice.priority})));
-        if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] Post-activation allocation notice failed after ledger commit.");
-      }
-      return {subscriptionId:result.subscriptionId,packageId:result.packageId,packageName:result.packageName,activatedAt:result.activatedAt,expiresAt:result.expiresAt,qualifyingBalanceUsdMinor:result.qualifyingBalanceUsdMinor,replayed:result.replayed,automaticTradeCount:cycle?.autoTrades?.length||0};
+      return {subscriptionId:result.subscriptionId,packageId:result.packageId,packageName:result.packageName,activatedAt:result.activatedAt,expiresAt:result.expiresAt,qualifyingBalanceUsdMinor:result.qualifyingBalanceUsdMinor,replayed:result.replayed};
     }),
     communicationOptions: protectedProcedure.query(({ ctx }) => getCustomerCommunicationOptions(ctx.user.name, ctx.user.email)),
     authenticatorStatus: protectedProcedure.query(({ ctx }) => getCustomerAuthenticatorStatus(ctx.user.id)),
