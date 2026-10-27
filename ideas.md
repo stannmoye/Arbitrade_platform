@@ -22,7 +22,7 @@ Ink navy and graphite create a quiet base. Warm ivory panels make dense data fee
 A fixed left rail, wide primary canvas, top utility bar, and asymmetric grid of balance, opportunity, allocation, and activity cards. Mobile collapses into a bottom navigation and stacked cards.
 
 ## Signature elements
-A compact compass-mark logo, opportunity cards with a live freshness bar, pill-shaped status tags, thin ruled separators, and a small “simulation mode” ribbon that never looks like production money.
+A compact compass-mark logo, opportunity cards with a live freshness bar, pill-shaped status tags, and thin ruled separators. Trade/Trading status must identify the internal-ledger workflow accurately and must never imply external-market execution without an authorized, independently verifiable integration.
 
 ## Interaction philosophy
 Actions are explicit and reversible when possible. Sensitive actions wait for confirmation. Admin controls are visible but gated. Popups are concise, dismissible, and explain assumptions.
