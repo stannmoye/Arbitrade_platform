@@ -4,7 +4,7 @@
 
 
 **Audit date:** 2026-10-18  
-**Roadmap:** `docs/ARBITRADE_MASTER_DEVELOPMENT_ROADMAP.md` (version 2.0; 30 stages)  
+**Roadmap:** Removed during documentation simplification; current Trade/Trading requirements are maintained only in `docs/TRADING_SYSTEM_SPECIFICATION.md`.  
 **Audited branch:** `integration/auth-installer-vps-safety`  
 **Audit status:** In progress — source inventory and CI baseline are recorded. GitHub Actions run 39121401277 passed, but route/API/access mapping and measured browser/viewport acceptance remain outstanding.  
 **Rule:** This is a source inspection, not a claim that the application has been built, tested, or production-validated.
