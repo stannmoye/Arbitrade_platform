@@ -110,7 +110,7 @@ export function CustomerTradingPackages() {
           {subscriptions.map(subscription => (
             <div className="trading-active-subscription" key={subscription.id}>
               <strong>{subscription.packageName}</strong>
-              <span>Activated {new Date(subscription.activatedAt).toLocaleDateString()}</span>
+              <span>Activated {subscription.activatedAt ? new Date(subscription.activatedAt).toLocaleDateString() : "Activation date unavailable"}</span>
               <span>Expires {subscription.expiresAt ? new Date(subscription.expiresAt).toLocaleDateString() : "No expiry configured"}</span>
             </div>
           ))}
