@@ -48,7 +48,7 @@ Database changes should use ordered forward migrations and retry-safe server-sid
 
 ## Financial safety and release discipline
 
-Live execution requires a named, authorized provider, verified result references, and settlement reconciliation. Configured opportunity estimates are never sufficient to credit real profit. Admin changes to financial policy must be permissioned and auditable. Passing build checks, source inclusion, hosted acceptance, deployment, and production certification are separate gates.
+Package activation must initiate automatic trade workflow processing according to the package's saved settings. Configured opportunity estimates are never sufficient to credit real profit. Admin changes to financial policy must be permissioned and auditable. Passing build checks, source inclusion, hosted acceptance, deployment, and production certification are separate gates.
 
 
 ## Ticker candidate data safeguards
