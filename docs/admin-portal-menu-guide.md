@@ -88,10 +88,6 @@ Marks the customer’s email as verified or unverified in the customer controls.
 
 Stores the customer risk classification used by account and opportunity policies.
 
-### Daily trade limit
-
-See the canonical Trade/Trading guide for the sole definition of trading limits and their enforcement.
-
 ### Admin note
 
 Stores an internal note associated with the customer account.
