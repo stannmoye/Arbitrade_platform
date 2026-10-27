@@ -47,6 +47,7 @@ const portalMigrationFiles = [
   "0076_trading_admin_policy_read_repair.sql",
   "0077_trading_package_catalogue_schema_repair.sql",
   "0078_trading_customer_package_subscription_repair.sql",
+  "0079_trade_settlement_timing_schema_repair.sql",
 ];
 let journal;
 try {
