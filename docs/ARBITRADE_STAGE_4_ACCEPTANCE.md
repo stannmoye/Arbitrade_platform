@@ -1,5 +1,8 @@
 # Arbitrade Stage 4 — Notifications, Communications & Support Acceptance
 
+> **Trade/Trading authority:** This roadmap, work queue, audit or acceptance record is not the current trading requirements source. Any trading-related status or observations here refer to the code/evidence and scope recorded in this file; they do not define the intended current behavior. The only detailed current requirements are in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). Update that guide when trading requirements change; do not create competing trading instructions here.
+
+
 **Status (reconciled 2026-10-21):** Stage 4 implementation scope is closed for the supported release; full-application package `v2.0.4-stage4-full` is published and verified. PR #95 is now merged into `integration/auth-installer-vps-safety` (merge commit `7f35d4d018b5bb1da0515ee37b1211dc045a66fb`). This merge does not mean the outstanding manual/end-to-end acceptance gates have passed; those remain open and owner-held.  
 **Branch:** `feat/stage-4-live-notifications-support`  
 **Pull request:** [#95 — Stage 4: live notifications, two-way support and real sound controls](https://github.com/stannmoye/Arbitrade_platform/pull/95)  
