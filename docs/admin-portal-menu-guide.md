@@ -66,7 +66,7 @@ Controls whether an account is:
 
 ### Trading eligibility and restrictions
 
-Trading is automatic for customers with an eligible active package, according to the server-persisted package and Trade Settings policies. Customer-facing Trading On/Off, Opportunity On/Off and Auto Trade On/Off switches must not be added. Any authorized account restriction, eligibility flag or administrator pause is server-controlled, permissioned and audited. The full behavior is defined only in docs/TRADING_SYSTEM_SPECIFICATION.md.
+Trading eligibility and behavior are defined only in [the canonical Trade/Trading guide](TRADING_SYSTEM_SPECIFICATION.md). This menu guide does not define trading policy.
 
 ### Withdrawal control
 
@@ -90,7 +90,7 @@ Stores the customer risk classification used by account and opportunity policies
 
 ### Daily trade limit
 
-Stores the customer’s maximum daily trading allowance.
+See the canonical Trade/Trading guide for the sole definition of trading limits and their enforcement.
 
 ### Admin note
 
@@ -445,7 +445,7 @@ The settings are stored in the application settings registry and are consumed by
 
 **Purpose:** Provide one administrator control plane for trading configuration, operations and financial review.
 
-The Trade Settings area covers the trading overview and worker health; packages and eligibility; quotas and schedules; trade duration and closing rules; wallet allocation, fee and earnings limits; company catalogue and rotation; customer opportunity display and notifications; active/pending trades; settlement and reconciliation; execution/integration status; system pause/resume; audit and policy versions.
+All Trade Settings scope, controls, permissions and behavior are defined only in [the canonical Trade/Trading guide](TRADING_SYSTEM_SPECIFICATION.md). This section documents the navigation destination only.
 
 All actual fields, validation, permissions, defaults, state transitions, worker semantics, accounting, settlement and acceptance criteria are defined only in docs/TRADING_SYSTEM_SPECIFICATION.md. Menu presence does not prove that a control is implemented or production-ready. Do not create a duplicate Opportunity Engine policy surface or conflicting settings.
 
@@ -477,7 +477,7 @@ For complete SMTP transport and composer functions, use **SMTP & Reports**.
 
 ### Trade tab
 
-All trading schedule, opportunity, timing and settlement policy is maintained through Trade Settings as defined in docs/TRADING_SYSTEM_SPECIFICATION.md. Do not add a second set of trading controls under general Settings. This menu guide is not an independent trading requirements source.
+Trading policy is defined only in [the canonical Trade/Trading guide](TRADING_SYSTEM_SPECIFICATION.md); this Settings tab must not define a second policy.
 
 ### Password/security tab
 
