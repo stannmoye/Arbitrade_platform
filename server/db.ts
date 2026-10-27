@@ -2224,11 +2224,11 @@ export async function listCustomerTradingPackages(userId:number) {
   try {
     const db=await getDb(); if(!db) throw new Error("Database is not available");
     const now=new Date();
-    phase = "expire_stale_subscriptions";
-    await db.update(customerPackageSubscriptions).set({status:"expired"}).where(and(
-      eq(customerPackageSubscriptions.userId,userId),eq(customerPackageSubscriptions.status,"active"),
-      isNotNull(customerPackageSubscriptions.expiresAt),lte(customerPackageSubscriptions.expiresAt,now),
-    ));
+    // This endpoint is a read-only query. Expired entitlements are filtered by
+    // expiresAt below; do not issue an UPDATE from a GET request. A customer page
+    // read must not fail because the database role lacks write access or a legacy
+    // status enum cannot store "expired". Activation validates all policy and
+    // subscription state inside its own transaction before making any changes.
     phase = "read_activation_settings";
     const settingRows=await db.select({settingKey:appSettings.settingKey,settingValue:appSettings.settingValue})
       .from(appSettings).where(inArray(appSettings.settingKey,[...PACKAGE_ACTIVATION_SETTING_KEYS]));
