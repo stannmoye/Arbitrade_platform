@@ -126,7 +126,7 @@ The customer portal must distinguish accounting states instead of showing one am
 - **Total balance:** all settled customer assets valued in the selected display currency.
 - **Available balance:** settled funds that are not locked, reserved, under review, or required to satisfy a chargeback or margin rule.
 - **Current balance:** the latest provider and ledger position, including clearly labelled pending movements.
-- **Locked balance:** funds reserved for an open order, dispute, compliance review, withdrawal cooling period, or earning-module position.
+- **Locked balance:** funds reserved for an active financial operation, dispute, compliance review, withdrawal cooling period, or product position. Trade/Trading reservation rules are defined only in the canonical guide.
 - **Pending balance:** deposits, withdrawals, swaps, settlements, and network confirmations not yet final.
 - **Total invested:** principal allocated to open and completed products, with a definition and date range.
 - **Total earned:** realized net gains, rewards, rebates, or distributions after fees, shown separately from unrealized estimates.
@@ -455,15 +455,14 @@ Set measurable service objectives:
 
 - 99.9% monthly availability for authenticated portal access.
 - 99.95% for the ledger and critical payment webhooks.
-- Market-data freshness displayed to customers, not hidden.
-- Opportunity publication only after validation.
+- Trade/Trading market-data freshness and opportunity-publication requirements are defined only in the canonical guide.
 - Recovery point and recovery time objectives defined per service.
 - Provider outages isolated through circuit breakers.
 - Multi-region backups for critical records.
 - Queue-based retry with dead-letter queues.
-- No duplicate payment or order creation after retries.
+- Payment retries must be idempotent. Trade/Trading order and allocation idempotency requirements are defined only in the canonical guide.
 
-Every customer-facing quote should show its data timestamp. “Real time” should mean the system’s measured freshness window, such as “updated 1.2 seconds ago,” not an absolute promise.
+Every customer-facing quote should show its data timestamp. For Trade/Trading market quotes, freshness windows and display requirements are defined only in the canonical guide. “Real time” should mean a measured freshness window, not an absolute promise.
 
 ## 16. Guided installer and portable deployment
 
@@ -577,7 +576,7 @@ If a shared host cannot remove setup files, the application should refuse to mar
 
 Each release should contain a manifest with application version, schema version, runtime requirements, migration list, dependency lockfile checksum, security advisories, and rollback notes. An admin may request an upgrade from the portal, but the actual package installation should run through a signed deployment pipeline or provider-supported job.
 
-Upgrades must be staged, backed up, health-checked, and observable. If health checks fail, the system should stop new deposits, trades, swaps, and earning-product entries according to policy, preserve withdrawals and support access where safe, and provide a controlled rollback or recovery path. Never roll back by rewriting ledger history.
+Upgrades must be staged, backed up, health-checked, and observable. If health checks fail, stop new product entries according to each product's approved policy and preserve withdrawals and support access where safe. Trade/Trading pause and recovery behavior is defined only in the canonical guide. Provide a controlled rollback or recovery path; never roll back by rewriting ledger history.
 
 ## 17. Testing plan
 
