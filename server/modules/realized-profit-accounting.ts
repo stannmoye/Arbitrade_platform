@@ -70,3 +70,48 @@ export function calculateRealizedProfitSettlement(input: {
     outcome: input.grossProfitMinor > 0 ? "profit" : input.grossProfitMinor < 0 ? "loss" : "zero_profit",
   };
 }
+
+/**
+ * Validate and calculate the locked-wallet update before settlement postings.
+ * BigInt keeps the additions exact; returned values are safe to persist through
+ * Drizzle's number-mode BIGINT columns and the application's minor-unit APIs.
+ */
+export function calculateSettlementWalletBalanceUpdate(
+  current: { availableMinor: number; lockedMinor: number; earnedMinor: number },
+  settlement: Pick<RealizedProfitSettlement, "principalMinor" | "totalReturnedMinor" | "netProfitMinor">,
+) {
+  if (!Number.isSafeInteger(current.availableMinor) || current.availableMinor < 0) {
+    throw new RangeError("Settlement wallet available balance is invalid or outside safe integer precision");
+  }
+  if (!Number.isSafeInteger(current.lockedMinor) || current.lockedMinor < settlement.principalMinor) {
+    throw new Error("Settlement wallet locked balance is inconsistent with the trade principal");
+  }
+  if (!Number.isSafeInteger(current.earnedMinor)) {
+    throw new RangeError("Settlement wallet earned balance is outside safe integer precision");
+  }
+  if (
+    !Number.isSafeInteger(settlement.principalMinor) || settlement.principalMinor <= 0 ||
+    !Number.isSafeInteger(settlement.totalReturnedMinor) || settlement.totalReturnedMinor < 0 ||
+    !Number.isSafeInteger(settlement.netProfitMinor)
+  ) {
+    throw new RangeError("Settlement wallet update contains invalid minor-unit values");
+  }
+
+  const nextAvailableMinor = BigInt(current.availableMinor) + BigInt(settlement.totalReturnedMinor);
+  const nextLockedMinor = BigInt(current.lockedMinor) - BigInt(settlement.principalMinor);
+  const nextEarnedMinor = BigInt(current.earnedMinor) + BigInt(settlement.netProfitMinor);
+  const safeMin = BigInt(Number.MIN_SAFE_INTEGER);
+  const safeMax = BigInt(Number.MAX_SAFE_INTEGER);
+  if (
+    nextAvailableMinor < 0n || nextLockedMinor < 0n ||
+    [nextAvailableMinor, nextLockedMinor, nextEarnedMinor].some(value => value < safeMin || value > safeMax)
+  ) {
+    throw new RangeError("Settlement wallet balance update exceeds safe integer precision");
+  }
+
+  return {
+    availableMinor: Number(nextAvailableMinor),
+    lockedMinor: Number(nextLockedMinor),
+    earnedMinor: Number(nextEarnedMinor),
+  };
+}

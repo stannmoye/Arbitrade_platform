@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const accountingSource = readFileSync(new URL("./modules/realized-profit-accounting.ts", import.meta.url), "utf8");
 const start = source.indexOf("export async function manuallySettleTrade(");
 const end = source.indexOf("\nexport async function createOpportunityOffer(", start);
 const implementation = source.slice(start, end);
@@ -92,11 +93,22 @@ describe("manual trade settlement idempotency", () => {
   });
 
   it("fails closed instead of silently clamping an inconsistent locked principal", () => {
-    expect(implementation).toContain("const lockedMinor=Number(wallet.lockedMinor)");
-    expect(implementation).toContain("!Number.isSafeInteger(lockedMinor)||lockedMinor<principal");
-    expect(implementation).toContain("Settlement wallet locked balance is inconsistent with the trade principal");
-    expect(implementation).toContain("lockedMinor:sql`${customerBalances.lockedMinor}-${principal}`");
+    expect(implementation).toContain("calculateSettlementWalletBalanceUpdate({");
+    expect(implementation).toContain("lockedMinor:Number(wallet.lockedMinor)");
+    expect(implementation).toContain("lockedMinor:walletBalances.lockedMinor");
+    expect(accountingSource).toContain("Settlement wallet locked balance is inconsistent with the trade principal");
+    expect(accountingSource).toContain("nextAvailableMinor < 0n || nextLockedMinor < 0n");
     expect(implementation).not.toContain("GREATEST(${customerBalances.lockedMinor}-${principal},0)");
+  });
+
+  it("validates resulting available and earned wallet totals before settlement ledger postings", () => {
+    const walletValidation = implementation.indexOf("calculateSettlementWalletBalanceUpdate({");
+    const firstLedgerPost = implementation.indexOf("tx.insert(balanceLedger)");
+    expect(walletValidation).toBeGreaterThanOrEqual(0);
+    expect(firstLedgerPost).toBeGreaterThan(walletValidation);
+    expect(accountingSource).toContain("nextAvailableMinor");
+    expect(accountingSource).toContain("nextEarnedMinor");
+    expect(accountingSource).toContain("safeMax");
   });
 
   it("locks and validates the reward reservation before financial postings", () => {

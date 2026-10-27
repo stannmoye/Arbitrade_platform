@@ -20,6 +20,7 @@ Repository: [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrad
 | Keep catalogue diagnostics contract aligned | WORKING | Stale assertions now match the current main-branch diagnostic/error contract; full application tests pass. |
 | Route Trading Overview to recorded activity | COMPLETE | Trade Settings → Overview now opens the persisted opportunity lifecycle dashboard rather than the offer-configuration screen; a regression assertion is in `client/src/admin-navigation.test.ts`. |
 | Flag reward-reservation/reward contradictions in recovery | COMPLETE | The read-only classifier escalates released-with-positive-reward and credited-with-zero-reward evidence to `MANUAL_FINANCIAL_REVIEW`; regression tests cover both cases. |
+| Guard settlement wallet arithmetic at safe precision | NEEDS FURTHER REVIEW | Settlement now calculates post-update available, locked, and earned totals with `BigInt` before any ledger insert and rejects unsafe values. Focused unit/contract tests are added; exact-commit GitHub checks are pending. Local dependency install stopped at a Replit package-proxy `403` for `proxy-addr@2.0.7`. |
 | Complete the broader Trading system | NEEDS FURTHER REVIEW | Worker-boundary, Overview routing, and reservation/reward recovery checks are done; settlement/replay idempotency, full ledger reconciliation, admin controls, and acceptance behavior remain under audit. |
 
 ## Verification
@@ -51,6 +52,6 @@ Repository: [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrad
 
 ## Next work
 
-1. Continue the settlement retry/idempotency audit alongside open PR #197’s timing-schema repair; do not duplicate its migration work.
+1. Verify the settlement wallet safe-integer guard on the exact commit, then continue the settlement retry/idempotency audit alongside open PR #197’s timing-schema repair; do not duplicate its migration work.
 2. Continue admin Trading controls and acceptance review; resolve PR #200’s competing package-model proposal before making package-policy changes.
 3. Keep production and live-trading operations out of this coding/verification work.

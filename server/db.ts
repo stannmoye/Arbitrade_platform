@@ -6,7 +6,7 @@ import { ENV } from "./_core/env";
 import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
-import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
+import { calculateRealizedProfitSettlement, calculateSettlementWalletBalanceUpdate, type FeeRoundingMode } from "./modules/realized-profit-accounting";
 import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostings, inspectWalletLedgerSnapshot } from "./modules/wallet-ledger-reconciliation";
 import { addCalendarMonths, calculateQualifyingBalanceUsdMinor, parsePackageQualificationPolicy, type PackageQualificationPolicy, type EligibleWalletBalance } from "./modules/trading-package-activation";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
@@ -3462,10 +3462,11 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
 
     const wallet=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,trade.userId),eq(customerBalances.currency,trade.currency))).limit(1).for("update"))[0];
     if(!wallet) throw new Error("Customer settlement wallet is not configured");
-    const lockedMinor=Number(wallet.lockedMinor);
-    if(!Number.isSafeInteger(lockedMinor)||lockedMinor<principal) {
-      throw new Error("Settlement wallet locked balance is inconsistent with the trade principal");
-    }
+    const walletBalances=calculateSettlementWalletBalanceUpdate({
+      availableMinor:Number(wallet.availableMinor),
+      lockedMinor:Number(wallet.lockedMinor),
+      earnedMinor:Number(wallet.earnedMinor),
+    },accounting);
 
     // Keep ledger references within balance_ledger.reference's 80-character limit.
     // Short references retain their existing readable form for audit/recovery tools.
@@ -3476,9 +3477,9 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     if(accounting.grossProfitMinor<0) await tx.insert(balanceLedger).values({userId:trade.userId,currency:trade.currency,amountMinor:accounting.grossProfitMinor,entryType:"trade_loss",reference:`${ledgerBase}:loss`,withdrawable:false});
 
     const walletUpdate=await tx.update(customerBalances).set({
-      availableMinor:sql`${customerBalances.availableMinor}+${accounting.totalReturnedMinor}`,
-      lockedMinor:sql`${customerBalances.lockedMinor}-${principal}`,
-      earnedMinor:sql`${customerBalances.earnedMinor}+${accounting.netProfitMinor}`,
+      availableMinor:walletBalances.availableMinor,
+      lockedMinor:walletBalances.lockedMinor,
+      earnedMinor:walletBalances.earnedMinor,
       updatedAt:new Date(),
     }).where(eq(customerBalances.id,wallet.id));
     assertExactlyOneAffectedRow(walletUpdate,"Manual settlement wallet update");
