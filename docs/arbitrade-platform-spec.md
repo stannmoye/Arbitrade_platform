@@ -104,7 +104,7 @@ The portal should expose only features allowed by the customer’s country, acco
 
 ### Opportunity and market intelligence; participation and portfolio
 
-Market/opportunity features and their source, data quality, risk, calculation, freshness, display and eligibility rules are defined only in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). Package activation, automatic processing, configured customer confirmations, allocation, active-trade states, portfolio values, exposure, profit/loss and settlement display are also defined only by that guide. This list is intentionally not repeated here.
+Market/opportunity features and their source, data quality, risk, calculation, freshness, display and eligibility rules are defined only in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). Package activation, automatic processing without per-trade customer approval, allocation, active-trade states, portfolio values, exposure, profit/loss and settlement display are also defined only by that guide. This list is intentionally not repeated here.
 
 ### Trust, communications, and support
 
@@ -428,7 +428,7 @@ The visual direction can be premium and animated without imitating a casino. Use
 
 ### Opportunity popup
 
-The customer Trade pop-up, minimized dock, field requirements, estimate labels, accessibility, confirmation behavior, authoritative countdown, dismissal state and presentation-only controls are defined only in Section 10 and the customer portal sections of [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md).
+The customer Trade pop-up, minimized dock, field requirements, estimate labels, accessibility, the prohibition on per-trade customer confirmation, authoritative countdown, dismissal state and presentation-only controls are defined only in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md).
 
 ## 13. Security and privacy
 
@@ -635,7 +635,7 @@ Add provider-hosted card checkout, bank-transfer deposits, crypto deposit addres
 
 ### Phase 4: execution
 
-The current supported execution mode, package-driven automatic workflow, customer instruction requirements, legal/operational authorization, execution adapter, order/fill evidence and settlement behavior are defined only by the [canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). Do not implement execution from this older roadmap text.
+The required customer execution mode is automatic and does not require per-trade customer instructions or approval. Package-driven processing, legal/operational authorization, execution adapter, order/fill evidence and settlement behavior are defined only by the [canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). Do not implement execution from this older roadmap text.
 
 ### Phase 5: scale and governance
 
