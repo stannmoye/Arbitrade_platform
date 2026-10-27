@@ -18,6 +18,7 @@ Repository: [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrad
 | Keep activation separate from worker allocation | WORKING | PR #202 keeps customer activation/catalogue reads out of the allocation path; the scheduled worker explicitly opts in. Contract and recovery checks pass on the validated code commit below. |
 | Preserve customer Trading package panel | WORKING | Panel stays mounted; activation messaging distinguishes entitlement from trade execution. Nullable activation dates now show a safe fallback. |
 | Keep catalogue diagnostics contract aligned | WORKING | Stale assertions now match the current main-branch diagnostic/error contract; full application tests pass. |
+| Route Trading Overview to recorded activity | COMPLETE | Trade Settings → Overview now opens the persisted opportunity lifecycle dashboard rather than the offer-configuration screen; a regression assertion is in `client/src/admin-navigation.test.ts`. |
 | Complete the broader Trading system | NEEDS FURTHER REVIEW | This checkpoint verifies the worker-boundary slice only. Remaining lifecycle, settlement/idempotency, ledger reconciliation, admin controls, and acceptance behavior still need review against the canonical specification. |
 
 ## Verification
@@ -35,13 +36,14 @@ Repository: [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrad
   - [Installer validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40581873155)
   - [Mining regressions](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40581873157)
   - [Application verification](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40581873162)
+- Latest overview-route code/test commit: `be8976bdc515c49bad82ec29c2977fd870b65fef`; all 14 reported GitHub check runs completed successfully, including TypeScript, application unit tests, production build/smoke, browser recovery, installer/migration, MySQL/MariaDB compatibility, deployment-package, and Mining regression checks. [Primary validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40586408341) · [Operational validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40586408170) · [Install/type/test/build](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40586408186)
 - The earlier exact-head failures were a nullable activation timestamp passed to `Date` and stale catalogue diagnostic assertions; both are fixed in the validated code commit.
 - No production deployment, production database change, live trade, or financial balance change was performed.
 
 ## Current GitHub state
 
 - [PR #202](https://github.com/stannmoye/Arbitrade_platform/pull/202) is open and remains a draft against `main`.
-- The code checks above are tied to commit `182f1b175ef9f16548ad3e94d36aaf9a7ca4ca02`; this progress update is a documentation-only follow-up commit.
+- The worker-boundary slice is validated at `182f1b175ef9f16548ad3e94d36aaf9a7ca4ca02`; the overview-route code/test slice is validated at `be8976bdc515c49bad82ec29c2977fd870b65fef`. This progress entry is a documentation-only follow-up.
 - Nothing has been merged or deployed.
 
 ## Next work
