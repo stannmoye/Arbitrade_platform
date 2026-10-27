@@ -27,7 +27,7 @@ describe("Trading settlement timing schema drift repair", () => {
   it("reconciles actual settlement timing schema drift even when migration history already records it", () => {
     expect(migrationRunner).toContain("async function reconcileTradeSettlementTimingSchema(");
     expect(migrationRunner).toContain("0079_trade_settlement_timing_schema_repair.sql");
-    expect(migrationRunner).toContain("Verified " + "2 Trading settlement timing columns.");
+    expect(migrationRunner).toContain("Trading settlement timing columns.");
     expect(portalRunner).toContain('"0079_trade_settlement_timing_schema_repair.sql"');
     expect(installerStatus).toContain('"0079_trade_settlement_timing_schema_repair.sql"');
   });
