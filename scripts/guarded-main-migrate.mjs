@@ -112,6 +112,38 @@ async function reconcileTradingPackageSchema(connection, root) {
   return { checkedTables: 2 };
 }
 
+
+async function reconcileTradeSettlementTimingSchema(connection, root) {
+  const readColumns = async () => {
+    const [rows] = await connection.query(
+      "SELECT column_name AS columnName FROM information_schema.columns " +
+      "WHERE table_schema=DATABASE() AND table_name=?",
+      ["trade_positions"],
+    );
+    return new Set(rows.map(row => String(row.columnName ?? row.COLUMN_NAME ?? "")));
+  };
+
+  let columns = await readColumns();
+  if (columns.size === 0) {
+    throw new Error("Trading settlement schema verification failed: trade_positions table is missing.");
+  }
+
+  const repairableColumns = ["creditAt", "lifecycleStage"];
+  if (repairableColumns.some(column => !columns.has(column))) {
+    const migrationPath = resolve(root, "drizzle", "0079_trade_settlement_timing_schema_repair.sql");
+    const sql = await readFile(migrationPath, "utf8");
+    await executeCompatibleMigrationSql(connection, sql);
+    console.log("[main-migrate] Reconciled safe Trading settlement timing schema drift using the idempotent 0079 repair.");
+    columns = await readColumns();
+  }
+
+  const remaining = repairableColumns.filter(column => !columns.has(column));
+  if (remaining.length) {
+    throw new Error("Trading settlement timing schema verification failed after additive repair: trade_positions missing columns: " + remaining.join(", "));
+  }
+  return { checkedColumns: repairableColumns.length };
+}
+
 async function main() {
   if (!databaseUrl) {
     console.error("[main-migrate] ERROR: DATABASE_URL is required.");
@@ -299,6 +331,8 @@ async function main() {
     currentStatement = { index: null, label: "Trading package schema verification and additive repair" };
     const tradingPackageSchema = await reconcileTradingPackageSchema(connection, root);
     console.log("[main-migrate] Verified " + tradingPackageSchema.checkedTables + " Trading package schema contracts.");
+    const tradeSettlementSchema = await reconcileTradeSettlementTimingSchema(connection, root);
+    console.log("[main-migrate] Verified " + tradeSettlementSchema.checkedColumns + " Trading settlement timing columns.");
     currentMigration = null;
     currentStatement = null;
 
