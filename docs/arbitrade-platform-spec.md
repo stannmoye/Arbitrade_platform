@@ -180,9 +180,7 @@ Crypto deposits should require an exact asset and network selection, address che
 
 Use a connector interface so every integration has common methods such as `healthCheck`, `capabilities`, `getQuote`, `createPaymentIntent`, `createOrder`, `getOrder`, `cancelOrder`, `getBalances`, `subscribeEvents`, and `reconcile`.
 
-1. **Market-data API:** ticker, order book, trades, candles, liquidity.
-2. **Centralized-exchange API:** balances, quotes, orders, fills, withdrawals.
-3. **DEX and RPC API:** quotes, route simulation, gas estimates, transaction status.
+1. Trade/Trading market-data, exchange, DEX/RPC, execution, and settlement integrations are defined only in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md).
 4. **Blockchain-indexing API:** addresses, transfers, token balances, confirmations.
 5. **Custody API:** segregated wallets, policy approvals, signing, withdrawal status.
 6. **Fiat on-ramp API:** card or local payment initiation.
@@ -221,10 +219,8 @@ The admin portal needs a registry with:
 ### Operations dashboard
 
 - Live platform health.
-- Active opportunity count.
-- Stale-data count.
-- Provider error map.
-- Deposit, withdrawal, and settlement queues.
+- Trade/Trading opportunity, market-data freshness, and provider-health metrics: see the canonical Trade/Trading guide.
+- Deposit and withdrawal queues; Trade/Trading settlement queues are defined only in the canonical guide.
 - Suspended customer count.
 - Unresolved compliance cases.
 - Chargeback and fraud indicators.
@@ -325,7 +321,7 @@ Every restriction needs a reason code, scope, start time, review date, creator, 
 - **Web application:** Next.js or React with TypeScript, responsive design, server-side rendering for public pages, and an accessible component system.
 - **Mobile:** responsive web first; native apps later only if the notification and device-security case justifies them.
 - **API layer:** TypeScript or Go REST API plus WebSocket gateway.
-- **Core services:** identity, customer profile, KYC orchestration, payments, ledger, market data, opportunity engine, order orchestration, custody, notifications, reporting, support, and audit.
+- **Core services:** identity, customer profile, KYC orchestration, payments, ledger, custody, notifications, reporting, support, and audit. Trade/Trading service boundaries are defined only in the canonical guide.
 - **Data:** PostgreSQL for transactional data, Redis for short-lived caches and locks, Kafka or NATS for events, object storage for documents, ClickHouse or TimescaleDB for high-volume market and opportunity history.
 - **Secrets:** cloud KMS and secrets manager with short-lived credentials.
 - **Infrastructure:** managed Kubernetes or serverless containers, private networks, managed database, WAF, CDN, centralized logs, metrics, tracing, and backup vault.
@@ -338,9 +334,7 @@ Every restriction needs a reason code, scope, start time, review date, creator, 
 3. **Compliance service:** KYC, KYB, sanctions, risk cases, travel rule.
 4. **Payment orchestration service:** intents, provider routing, webhooks, refunds, chargebacks.
 5. **Ledger service:** append-only double-entry records; never calculate balances from browser state.
-6. **Market-data service:** ingestion, normalization, timestamping, quality checks.
-7. **Opportunity service:** route construction, fee modeling, stress cases, publishing.
-8. **Execution service:** automatic server-side processing for eligible active package entitlements, with provider orders and verifiable order/fill evidence; no per-trade customer approval.
+6. Trade/Trading market-data, opportunity, and execution services: follow the canonical guide; this platform specification does not define their behavior.
 9. **Wallet/custody service:** addresses, policies, approvals, transaction status.
 10. **Notification service:** in-app, email, SMS, push, sound permission.
 11. **Admin and policy service:** RBAC, feature flags, provider switches, content approvals.
@@ -372,9 +366,8 @@ Important tables or collections include:
 - `kyc_cases`, `kyb_cases`, `documents`, `screening_hits`, `risk_cases`;
 - `payment_methods`, `payment_intents`, `bank_accounts`, `card_events`, `chargebacks`;
 - `assets`, `networks`, `venues`, `provider_connectors`, `connector_versions`;
-- `market_quotes`, `order_books`, `liquidity_snapshots`, `gas_snapshots`;
-- `opportunities`, `opportunity_versions`, `opportunity_calculations`, `opportunity_reservations`;
-- `orders`, `fills`, `settlements`, `withdrawals`, `deposits`;
+- `withdrawals`, `deposits`;
+- Trade/Trading market-data, opportunity, order, fill, and settlement persistence is defined only in the canonical guide.
 - `ledger_accounts`, `ledger_entries`, `reconciliation_runs`, `suspense_items`;
 - `notifications`, `support_tickets`, `complaints`, `audit_events`, `admin_actions`;
 - `risk_limits`, `policy_versions`, `feature_flags`, `feature_entitlements`, `maintenance_windows`;
@@ -421,8 +414,7 @@ The visual direction can be premium and animated without imitating a casino. Use
 
 - Header: verification status, account selector, notifications, security centre.
 - Main card: net account value, available balance, pending settlements, and a visible “not guaranteed” label.
-- Opportunity rail: live cards sorted by eligibility and freshness.
-- Center panel: opportunity chart, route diagram, fee breakdown, and stress-case outcomes.
+- Trade/Trading customer workspace, opportunity presentation, route details, and fee breakdown: follow the canonical guide.
 - Right panel: portfolio exposure, risk limits, and provider status.
 - Bottom panel: activity ledger, support, and education.
 
@@ -547,7 +539,7 @@ The wizard should create roles, not just two accounts. Recommended initial roles
 - **Security admin:** authentication, sessions, MFA policies, device revocation, and security events.
 - **Compliance admin:** KYC, sanctions, risk cases, customer restrictions, and compliance holds.
 - **Treasury admin:** provider balances, reconciliation, settlement, and fund-release requests.
-- **Trading operations admin:** opportunities, venues, order states, cancellations where permitted, and trading limits.
+- **Trade/Trading operator role and permissions:** defined only in the canonical guide.
 - **Product admin:** feature definitions, earning modules, content, notifications, and rollout flags.
 - **Support admin:** customer support, status viewing, and ticket actions without raw financial secrets.
 - **Read-only auditor:** reports, logs, configurations, and immutable history without mutation rights.
@@ -557,7 +549,7 @@ The first super admin must enroll phishing-resistant MFA before installation com
 
 ### Permissions and automatic privilege configuration
 
-Permissions should be granular and deny-by-default. Examples include `customer.view_masked`, `customer.restrict`, `funds.lock_request`, `funds.release_approve`, `trade.cancel_request`, `trade.cancel_approve`, `feature.publish`, `connector.disable`, `ledger.adjust_request`, `ledger.adjust_approve`, and `deployment.rollback`.
+Permissions should be granular and deny-by-default. Examples include `customer.view_masked`, `customer.restrict`, `funds.lock_request`, `funds.release_approve`, `feature.publish`, `connector.disable`, `ledger.adjust_request`, `ledger.adjust_approve`, and `deployment.rollback`. Trade/Trading permissions are defined only in the canonical guide.
 
 High-impact permissions require dual control. The installer can assign the baseline role matrix automatically, but all resulting grants must be visible, exportable, and editable by an authorized super admin. No role should combine customer-data export, secret access, ledger adjustment, and withdrawal approval without a documented exception and compensating controls.
 
@@ -591,8 +583,7 @@ Upgrades must be staged, backed up, health-checked, and observable. If health ch
 
 ### Unit and integration tests
 
-- Fee, slippage, and net-return calculation.
-- Quote versioning and expiry.
+- Trade/Trading fee, slippage, net-result, quote-versioning, and expiry tests are defined only in the canonical guide.
 - Ledger invariants and reversal entries.
 - Payment webhook idempotency.
 - KYC status transitions.
@@ -635,7 +626,7 @@ Add provider-hosted card checkout, bank-transfer deposits, crypto deposit addres
 
 ### Phase 4: execution
 
-The required customer execution mode is automatic and does not require per-trade customer instructions or approval. Package-driven processing, legal/operational authorization, execution adapter, order/fill evidence and settlement behavior are defined only by the [canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). Do not implement execution from this older roadmap text.
+All execution-mode, package-driven processing, authorization, adapter, order/fill evidence, and settlement requirements are defined only by the [canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md).
 
 ### Phase 5: scale and governance
 
