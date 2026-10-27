@@ -516,7 +516,7 @@ export const appRouter = router({
       tradeId: z.number().int().positive(),
       grossProfitMinor: z.number().int(),
       settlementReference: z.string().trim().min(3).max(160),
-      notes: z.string().trim().max(2000).optional(),
+      notes: z.string().trim().min(20, "Describe the evidence source and actual result (at least 20 characters)").max(2000),
     })).mutation(async ({ ctx, input }) => {
       const result=await manuallySettleTrade(input.tradeId,ctx.user.id,input);
       const notices=buildTradeSettlementNotices({
