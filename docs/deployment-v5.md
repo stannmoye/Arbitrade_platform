@@ -38,7 +38,7 @@ PHP-only hosting cannot run this Express application. A cPanel account must prov
 
 ## Financial safety boundary
 
-The application is production-deployable, but real-money execution and verified returns are **blocked** until a named, approved execution/settlement provider supplies verifiable results. Before that integration exists, opportunities must be classified as Practice, Simulation, or Research; no configured rate may be credited as real profit and no simulated balance may be presented as withdrawable funds.
+Activating an eligible trading package must initiate automatic trade processing according to its saved settings and the configured opportunity schedule. Do not silently disable package-driven processing with a separate provider gate. Record actual execution states and results truthfully; never present simulated outcomes or configured rates as verified real profit or withdrawable funds.
 
 ## Mining simulation and earnings persistence
 
