@@ -6,7 +6,7 @@
 
 ## Current continuation point
 
-The immediate task is restoring the Trading package changes to a clean validation state. The current work is on `fix/trading-package-ci-2026-10-27`, branched from main at `8e610823941cb49f45e8bff0f35759994a395221`. PR #181 was merged on 2026-10-26; its older feature branch is not the canonical source.
+The immediate task is restoring the Trading package changes to a clean validation state. The current work is on `fix/trading-package-ci-2026-10-27`, branched from main at `8e610823941cb49f45e8bff0f35759994a395221`. PR #181 was merged on 2026-10-26; its older feature branch is not the canonical source. The current fix is under review in [PR #203](https://github.com/stannmoye/Arbitrade_platform/pull/203).
 
 On the baseline main SHA, all four GitHub Actions workflows failed:
 
@@ -19,7 +19,7 @@ On the baseline main SHA, all four GitHub Actions workflows failed:
 - The customer package history now shows “Activation date unavailable” when the stored activation timestamp is null; valid timestamps keep their existing display. Commit: `136985524c34e37420dfdcbb8f4be2b9dabd593f`.
 - The catalogue diagnostics contract test now expects the existing sanitized, phase-specific error message rather than the old generic message. Commit: `70c75eb2f192e79390f8f6308736218fa7b2f496`.
 - Added this handoff convention to `AGENTS.md` and the repository guide so future sessions discover and verify this file. Commits: `6eabb9b93bac1195d0178820c7149a0b0c3a43cb` and `70aac5392ac5fa50ff56ced2707bcba343048138`.
-- These branch changes have **not yet been validated** by GitHub Actions at the branch head. Do not report the fix as passing until the exact current SHA has successful checks.
+- PR #203 is open. At the time of this checkpoint, Actions for its latest branch head had not yet been verified. Inspect the live runs and exact SHA before treating the changes as passing.
 
 ## Verified project decisions and boundaries
 
@@ -33,7 +33,7 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 
 ## Next steps
 
-1. Open a review PR from the current work branch to main.
-2. Verify the PR's latest branch SHA and run results for `pnpm install --frozen-lockfile`, `pnpm check`, `pnpm test`, and `pnpm build`; fix any remaining failures and re-check the new exact SHA.
-3. Review the resulting diff and PR status. Do not merge, deploy, touch production data, or initiate live trades without the appropriate authorization.
+1. Resolve PR #203's latest head SHA and check its GitHub Actions results; required checks are `pnpm install --frozen-lockfile`, `pnpm check`, `pnpm test`, and `pnpm build`.
+2. Fix any remaining failures, then verify the new exact SHA rather than reusing older run results.
+3. Review PR #203's final diff and status. Do not merge, deploy, touch production data, or initiate live trades without the appropriate authorization.
 4. Continue the broader Trading audit in small steps, following `AGENTS.md`, `BUILD_SOURCE.json`, `BUILD_AND_RELEASE.md`, `docs/REPOSITORY_GUIDE.md`, and `docs/TRADING_SYSTEM_SPECIFICATION.md`. Record each code change, exact SHA, test outcome, and next concrete task here. Do not invent an overall completion percentage.
