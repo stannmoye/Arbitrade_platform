@@ -12,6 +12,17 @@ Read these files before changing the application:
 
 Before modifying any customer Trade menu, trading API, package entitlement, opportunity worker, wallet allocation, trade lifecycle, settlement, fee, company-catalogue or trading-admin feature, read `docs/TRADING_SYSTEM_SPECIFICATION.md` in full. That file is the single detailed Trade/Trading implementation guide and takes precedence over trading-related statements in all general or historical documents. Do not reproduce a competing set of trading requirements in this file or create another trading guide. When an intended trading requirement changes, update the canonical guide and its tests; no companion PDF is tracked. Never claim a requirement is implemented without inspecting the code and validating it.
 
+## Financial safety and release discipline
+
+### Approved trading-model decision — Option B (authoritative)
+
+- Use the documented internal-ledger trading model. Do **not** make an external broker/exchange execution provider a prerequisite for implementing or operating this internal-ledger model.
+- This decision does **not** permit simulated, fabricated, or estimated financial outcomes to be presented or credited as real. Every trade result and settlement must be genuine, recorded in durable internal trade/settlement records, supported by auditable evidence, and reconciled to the customer's ledger.
+- Opportunity estimates, countdowns, animations, ticker search results, and UI state are never evidence of execution or realized profit and must never trigger a financial credit.
+- Do not describe internal-ledger processing as execution on an external market. If a feature explicitly claims external-market execution, it must separately use an appropriate authorized integration and independently verifiable result references before making that claim.
+- This is the approved resolution of the prior provider-prerequisite conflict and aligns with Section 1 of `docs/TRADING_SYSTEM_SPECIFICATION.md`. If another repository document contradicts this decision, do not silently reintroduce the provider prerequisite; report the exact conflicting text and request clarification before changing the approved model.
+- Admin changes to financial policy must be permissioned and auditable. Passing build checks, source inclusion, hosted acceptance, deployment, and production certification are separate gates.
+
 ## Owner-locked coding rule — no invented product rules
 
 The owner-approved rules in `docs/TRADING_SYSTEM_SPECIFICATION.md` control Trade/Trading, packages, wallet credits, currency conversion, and the internal-only trading workflow. During coding, review, testing, refactoring, and AI-assisted work, do not invent or silently substitute product rules or modify the guide. Implement the guide as written. If legacy code/docs conflict, correct the conflicting artifact rather than weakening the guide. Ask the owner before resolving product-policy ambiguity. Do not claim tests or deployment succeeded without evidence. These instructions do not authorize bypassing applicable law, security requirements, or platform safety requirements; if one creates a concrete blocker, explain it rather than silently changing the product rules.
