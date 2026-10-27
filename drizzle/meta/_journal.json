@@ -337,6 +337,13 @@
       "when": 1793063000000,
       "tag": "0078_trading_customer_package_subscription_repair",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793129274142,
+      "tag": "0079_internal_ledger_execution_mode",
+      "breakpoints": true
     }
   ]
 }
