@@ -257,7 +257,7 @@ export function AdminTransactionReview() {
   const payoutQuery = trpc.adminOperations.payoutRequests.useQuery(undefined, { refetchInterval: 5_000 });
   const resolvePayout = trpc.adminOperations.resolvePayoutRequest.useMutation({ onSuccess: () => { payoutQuery.refetch(); ledgerQuery.refetch(); } });
   const [payoutDrafts, setPayoutDrafts] = useState<Record<number, { externalReference: string; note: string }>>({});
-  const [drafts, setDrafts] = useState<Record<number, { grossProfitMinor: string; reference: string }>>({});
+  const [drafts, setDrafts] = useState<Record<number, { grossProfitMinor: string; reference: string; notes: string }>>({});
   const currencyQuery = trpc.adminOperations.currencies.useQuery(undefined, { staleTime: 60_000 });
   const rows = (ledgerQuery.data ?? []) as unknown as LedgerRecord[];
   const currencies = (currencyQuery.data ?? []) as unknown as Array<{ code: string; scale: number }>;
@@ -300,9 +300,9 @@ export function AdminTransactionReview() {
           {pendingQuery.isError && <div className="admin-ops-empty error">Pending settlements could not be loaded. Refresh before attempting any settlement.</div>}
           {confirmSettlement.error && <div className="admin-ops-empty error" role="alert">Settlement was not confirmed: {confirmSettlement.error.message}. Verify the trade's due time and evidence reference before retrying.</div>}
           {confirmSettlement.isSuccess && <div className="admin-ops-note" role="status">Settlement recorded. The queue and ledger are being refreshed.</div>}
-          {pendingQuery.isLoading ? <LoadingState /> : !pendingQuery.data?.length ? <div className="admin-ops-empty compact">No trades are awaiting manual settlement.</div> : <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Trades awaiting manual settlement" onKeyDown={(event) => { if (event.key === "ArrowRight") { event.preventDefault(); event.currentTarget.scrollLeft += 80; } else if (event.key === "ArrowLeft") { event.preventDefault(); event.currentTarget.scrollLeft -= 80; } }}><table className="admin-ops-table"><thead><tr><th>Trade / customer</th><th>Due status / evidence health</th><th>Principal</th><th>Reserved reward (estimate)</th><th>Actual gross profit/loss (minor units)</th><th>Settlement evidence reference</th><th>Action</th></tr></thead><tbody>
+          {pendingQuery.isLoading ? <LoadingState /> : !pendingQuery.data?.length ? <div className="admin-ops-empty compact">No trades are awaiting manual settlement.</div> : <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Trades awaiting manual settlement" onKeyDown={(event) => { if (event.key === "ArrowRight") { event.preventDefault(); event.currentTarget.scrollLeft += 80; } else if (event.key === "ArrowLeft") { event.preventDefault(); event.currentTarget.scrollLeft -= 80; } }}><table className="admin-ops-table"><thead><tr><th>Trade / customer</th><th>Due status / evidence health</th><th>Principal</th><th>Reserved reward (estimate)</th><th>Actual gross profit/loss (minor units)</th><th>Settlement evidence reference / verification notes</th><th>Action</th></tr></thead><tbody>
             {(pendingQuery.data as any[]).map((trade) => {
-              const draft = drafts[trade.id] || { grossProfitMinor: "", reference: "" };
+              const draft = drafts[trade.id] || { grossProfitMinor: "", reference: "", notes: "" };
               const enteredGross = Number(draft.grossProfitMinor);
               const reserved = Number(trade.rewardReservedMinor || 0);
               const reservationAmount = trade.reservationAmountMinor == null ? null : Number(trade.reservationAmountMinor);
@@ -311,15 +311,15 @@ export function AdminTransactionReview() {
                 : Number.isSafeInteger(reservationAmount) && reservationAmount === reserved && trade.reservationStatus === "reserved";
               const dueAt = trade.creditAt || trade.settlesAt;
               const isDue = !!dueAt && Number.isFinite(new Date(dueAt).getTime()) && new Date(dueAt).getTime() <= Date.now();
-              const canConfirm = isDue && reservationConsistent && draft.grossProfitMinor.trim() !== "" && Number.isSafeInteger(enteredGross) && draft.reference.trim().length >= 3;
+              const canConfirm = isDue && reservationConsistent && draft.grossProfitMinor.trim() !== "" && Number.isSafeInteger(enteredGross) && draft.reference.trim().length >= 3 && draft.notes.trim().length >= 20;
               return <tr key={trade.id}>
                 <td><strong>Trade {trade.id} · {trade.symbol || "Opportunity"}</strong><small>{trade.customerName || trade.customerEmail || ("Account " + trade.userId)} · {trade.currency}</small><small>Subscription: {trade.packageSubscriptionId ?? "Legacy / none"}</small></td>
                 <td><strong>{trade.lifecycleStage || "Stage not recorded"}</strong><small>{dueAt ? (isDue ? "Due " : "Not due ") + new Date(dueAt).toLocaleString() : "Missing settlement due timestamp"}</small><small>{reservationConsistent ? "Reward reservation consistent" : "Reservation mismatch — investigate before settlement"}</small><small>{trade.reservationStatus ? "Reservation: " + trade.reservationStatus : "No reservation record"}</small></td>
                 <td>{trade.principalMinor}</td>
                 <td>{trade.rewardReservedMinor}<small>Estimate only; not a settlement result.</small></td>
                 <td><input type="number" step={1} value={draft.grossProfitMinor} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, grossProfitMinor: event.target.value } }))} placeholder="Positive profit or negative loss" aria-label={"Actual gross profit/loss in minor units for trade " + trade.id} /></td>
-                <td><input value={draft.reference} maxLength={160} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, reference: event.target.value } }))} placeholder="Actual settlement reference (required)" aria-label={"Settlement evidence reference for trade " + trade.id} /></td>
-                <td><button className="admin-ops-button" type="button" disabled={confirmSettlement.isPending || !canConfirm} onClick={() => confirmSettlement.mutate({ tradeId: trade.id, grossProfitMinor: enteredGross, settlementReference: draft.reference.trim() })}><CheckCircle2 size={14} /> Confirm actual result</button></td>
+                <td><input value={draft.reference} maxLength={160} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, reference: event.target.value } }))} placeholder="Actual settlement reference (required)" aria-label={"Settlement evidence reference for trade " + trade.id} /><input value={draft.notes} maxLength={2000} onChange={(event) => setDrafts((current) => ({ ...current, [trade.id]: { ...draft, notes: event.target.value } }))} placeholder="Describe source and verification of actual result (20+ characters)" aria-label={"Settlement evidence verification notes for trade " + trade.id} /></td>
+                <td><button className="admin-ops-button" type="button" disabled={confirmSettlement.isPending || !canConfirm} onClick={() => confirmSettlement.mutate({ tradeId: trade.id, grossProfitMinor: enteredGross, settlementReference: draft.reference.trim(), notes: draft.notes.trim() })}><CheckCircle2 size={14} /> Confirm actual result</button></td>
               </tr>;
             })}
           </tbody></table></div>}
