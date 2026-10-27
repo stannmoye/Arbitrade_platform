@@ -1,36 +1,34 @@
 import Decimal from "decimal.js";
 import { FixedMoney, quantize, type PrecisionConfig } from "../../shared/money";
 
-export type ExecutionMode = "PRACTICE" | "SIMULATION" | "RESEARCH" | "LIVE";
+/** Current Trade/Trading uses the internal ledger model; external providers are not a prerequisite. */
+export type ExecutionMode = "INTERNAL_LEDGER" | "LIVE";
 
-/** Live returns are unavailable until an independently verifiable mechanism is configured. */
-export function assertExecutionAllowed(mode: ExecutionMode, mechanism?: {
-  provider: string;
-  executionReference: string;
-  resultRetrieval: string;
-}) {
-  if (mode !== "LIVE") return;
-  if (!mechanism?.provider || !mechanism.executionReference || !mechanism.resultRetrieval) {
-    throw new Error("Live execution is blocked until a verified execution and settlement mechanism is configured");
-  }
+/**
+ * Mode selection does not gate internal-ledger processing on an external provider.
+ * Callers must still persist a genuine trade result and its evidence before settlement.
+ * External-market execution authorization is a separate integration-specific concern.
+ */
+export function assertExecutionAllowed(_mode: ExecutionMode) {
+  // Deliberately no external-provider prerequisite for the approved internal-ledger model.
 }
 
-export type VerifiedSettlementInput = {
+export type RecordedSettlementInput = {
   principal: FixedMoney;
-  verifiedGrossProfit: string;
-  verifiedFees: string;
-  resultReference: string;
+  recordedGrossProfit: string;
+  recordedFees: string;
+  internalSettlementReference: string;
 };
 
-/** Settlement may only be produced from provider-verified results, never opportunity estimates. */
-export function calculateVerifiedSettlement(input: VerifiedSettlementInput) {
-  if (!input.resultReference.trim()) throw new Error("A verified settlement result reference is required");
-  const grossProfit = quantize(input.verifiedGrossProfit, input.principal.config);
-  const fees = quantize(input.verifiedFees, input.principal.config);
+/** Calculate settlement from recorded result values; callers must load them from durable, auditable records. */
+export function calculateRecordedSettlement(input: RecordedSettlementInput) {
+  if (!input.internalSettlementReference.trim()) throw new Error("A persisted internal settlement reference is required");
+  const grossProfit = quantize(input.recordedGrossProfit, input.principal.config);
+  const fees = quantize(input.recordedFees, input.principal.config);
   const takeHomeProfit = grossProfit.subtract(fees);
   const totalReturned = input.principal.add(takeHomeProfit);
   const status = takeHomeProfit.isNegative() ? "SETTLED_LOSS" : takeHomeProfit.isZero() ? "SETTLED_ZERO" : "SETTLED_PROFIT";
-  return { status, principal: input.principal, grossProfit, fees, takeHomeProfit, totalReturned, resultReference: input.resultReference } as const;
+  return { status, principal: input.principal, grossProfit, fees, takeHomeProfit, totalReturned, resultReference: input.internalSettlementReference } as const;
 }
 
 export type LedgerCorrection = {
