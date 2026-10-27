@@ -24,7 +24,8 @@ Trading is a real-money workflow recorded in the customer's internal ledger. App
 - **Animation:** 150–240 ms state transitions, reduced-motion support, no countdown manipulation, server timestamps rendered as countdowns only.
 - **Typography:** modern sans-serif UI with tabular numerals for amounts and a restrained condensed display treatment for totals.
 - **Brand essence:** a calm, auditable opportunity workspace for customers and operators; precise, honest, controlled.
-- **Brand voice:** “Review the assumptions before you approve.” / “This result reflects the recorded trade and internal-ledger settlement status.”
+- **Brand voice:** “Review the assumptions behind this opportunity.” / “Eligible trades are processed automatically by the server under package, balance, risk, and policy controls.” / “This result reflects the recorded trade and internal-ledger settlement status.”
+- **Trading authority:** This plan is a design/visual reference, not a trading requirements source. The sole detailed trading requirements are in [`docs/TRADING_SYSTEM_SPECIFICATION.md`](docs/TRADING_SYSTEM_SPECIFICATION.md); customers never approve or execute each individual trade.
 - **Wordmark & logo:** retain the existing compass/route mark and use it as the navigation and status motif.
 - **Signature brand color:** `#7CE7C2` mint signal.
 
