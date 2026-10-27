@@ -39,6 +39,79 @@ function parseDatabaseUrl(value) {
   };
 }
 
+
+async function reconcileTradingPackageSchema(connection, root) {
+  const readColumns = async () => {
+    const [rows] = await connection.query(
+      "SELECT table_name AS tableName, column_name AS columnName FROM information_schema.columns " +
+      "WHERE table_schema=DATABASE() AND table_name IN (?, ?)",
+      ["packages", "customer_package_subscriptions"],
+    );
+    const result = new Map();
+    for (const row of rows) {
+      const table = String(row.tableName ?? row.TABLE_NAME ?? "");
+      const column = String(row.columnName ?? row.COLUMN_NAME ?? "");
+      if (!result.has(table)) result.set(table, new Set());
+      result.get(table).add(column);
+    }
+    return result;
+  };
+
+  let columns = await readColumns();
+  if (!columns.has("packages")) {
+    throw new Error("Trading package schema verification failed: the packages table is missing; automatic repair cannot safely reconstruct package terms.");
+  }
+
+  const packageColumns = [
+    "id", "name", "minimumQualifyingBalanceUsdMinor", "durationMonths",
+    "opportunitiesPerDay", "termsVersion", "startsAt", "expiresAt",
+    "maxPopupsPerDay", "maxActiveInvestments", "enabled", "createdAt",
+  ];
+  const packageRepairableColumns = [
+    "startsAt", "expiresAt", "maxPopupsPerDay", "maxActiveInvestments", "enabled", "createdAt",
+  ];
+  const missingPackageColumns = packageColumns.filter(column => !columns.get("packages").has(column));
+  if (missingPackageColumns.some(column => packageRepairableColumns.includes(column))) {
+    const migrationPath = resolve(root, "drizzle", "0077_trading_package_catalogue_schema_repair.sql");
+    const sql = await readFile(migrationPath, "utf8");
+    await executeCompatibleMigrationSql(connection, sql);
+    console.log("[main-migrate] Reconciled Trading package catalogue schema drift using the idempotent 0077 repair.");
+    columns = await readColumns();
+  }
+
+  const subscriptionColumns = [
+    "id", "userId", "packageId", "startsAt", "expiresAt", "status",
+    "activationKey", "termsSnapshotJson", "qualifyingBalanceUsdMinor",
+    "packageTermsVersion", "activatedAt", "createdAt",
+  ];
+  const subscriptionRepairableColumns = subscriptionColumns.filter(column => column !== "id");
+  const presentSubscriptionColumns = columns.get("customer_package_subscriptions") ?? new Set();
+  const missingSubscriptionColumns = subscriptionColumns.filter(column => !presentSubscriptionColumns.has(column));
+  if (missingSubscriptionColumns.length) {
+    if (missingSubscriptionColumns.some(column => subscriptionRepairableColumns.includes(column)) ||
+        !columns.has("customer_package_subscriptions")) {
+      const migrationPath = resolve(root, "drizzle", "0078_trading_customer_package_subscription_repair.sql");
+      const sql = await readFile(migrationPath, "utf8");
+      await executeCompatibleMigrationSql(connection, sql);
+      console.log("[main-migrate] Reconciled Trading customer subscription schema drift using the idempotent 0078 repair.");
+      columns = await readColumns();
+    }
+  }
+
+  const finalPackages = columns.get("packages") ?? new Set();
+  const finalSubscriptions = columns.get("customer_package_subscriptions") ?? new Set();
+  const remainingPackageColumns = packageColumns.filter(column => !finalPackages.has(column));
+  const remainingSubscriptionColumns = subscriptionColumns.filter(column => !finalSubscriptions.has(column));
+  if (remainingPackageColumns.length || remainingSubscriptionColumns.length) {
+    const details = [
+      remainingPackageColumns.length ? "packages missing columns: " + remainingPackageColumns.join(", ") : "",
+      remainingSubscriptionColumns.length ? "customer_package_subscriptions missing columns: " + remainingSubscriptionColumns.join(", ") : "",
+    ].filter(Boolean).join("; ");
+    throw new Error("Trading package schema verification failed after additive repair: " + details);
+  }
+  return { checkedTables: 2 };
+}
+
 async function main() {
   if (!databaseUrl) {
     console.error("[main-migrate] ERROR: DATABASE_URL is required.");
@@ -221,6 +294,13 @@ async function main() {
       currentMigration = null;
       currentStatement = null;
     }
+
+    currentMigration = "trading-package-schema-drift-reconciliation";
+    currentStatement = { index: null, label: "Trading package schema verification and additive repair" };
+    const tradingPackageSchema = await reconcileTradingPackageSchema(connection, root);
+    console.log("[main-migrate] Verified " + tradingPackageSchema.checkedTables + " Trading package schema contracts.");
+    currentMigration = null;
+    currentStatement = null;
 
     currentMigration = "post-migration-schema-verification";
     currentStatement = { index: null, label: "worker schema contract verification" };
