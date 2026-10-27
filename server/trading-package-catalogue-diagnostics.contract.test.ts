@@ -41,4 +41,13 @@ describe("customer Trading package catalogue diagnostics", () => {
     expect(implementation).not.toContain("activateCustomerTradingPackage(");
     expect(implementation).not.toContain("SQL query failed");
   });
+
+  it("returns the configured package terms but blocks activation when eligibility data cannot be verified", () => {
+    expect(implementation).toContain("const catalog=await db.select().from(packages)");
+    expect(implementation).toContain("eligibilityAvailable=Boolean(policy)&&walletBalanceAvailable&&subscriptionHistoryAvailable");
+    expect(implementation).toContain("eligibilityWarning:");
+    expect(implementation).toContain('blockReason=!eligibilityAvailable?"eligibility_unavailable"');
+    expect(implementation).toContain("canActivate:eligibilityAvailable&&!blockReason");
+    expect(implementation).toContain("logPhaseError(phase,error)");
+  });
 });
