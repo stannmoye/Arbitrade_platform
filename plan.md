@@ -32,10 +32,8 @@ Trade/Trading requirements are defined only in `docs/TRADING_SYSTEM_SPECIFICATIO
 ## Implementation phases
 1. Audit and matrix (this plan and `docs/implementation-matrix.md`).
 2. Schema, precision, immutable ledger, idempotency and reconciliation.
-3. Packages, active-package checks, opportunities, trading types and purchase limits.
-4. Multiple investments, server-authoritative timing and exactly-once settlement.
-5. Multi-wallet accounting, FX quotes, Automatic Swap, rate tolerance and conversion ledger.
-6. Implement and verify Trade/Trading only against `docs/TRADING_SYSTEM_SPECIFICATION.md`.
+3. Implement and verify all Trade/Trading packages, opportunities, automatic processing, accounting, timing, and settlement only against `docs/TRADING_SYSTEM_SPECIFICATION.md`.
+4. Multi-wallet accounting, FX quotes, Automatic Swap, rate tolerance and conversion ledger.
 7. Customer/admin navigation and database-backed settings/entitlements.
 8. History, transactions, reports, local-timezone boundaries, PDFs, email queue and retention.
 9. Security hardening, roles, 2FA enforcement points, uploads, backups and failed-job monitoring.
@@ -74,9 +72,7 @@ docs/
 - All money-changing commands require an idempotency key and a database transaction.
 - Balances are stored but never trusted without ledger reconciliation.
 - Ledger entries are append-only. Corrections are linked compensating entries.
-- A customer can purchase the same opportunity successfully once; many customers may purchase until an atomic global cap is reached.
-- Failed/cancelled attempts do not consume successful-purchase entitlement.
-- Active investments continue their recorded lifecycle after package expiry by default.
+- Trade/Trading purchase limits, failed-attempt handling, package expiry, lifecycle, and settlement are defined only in `docs/TRADING_SYSTEM_SPECIFICATION.md`.
 - Automatic Swap defaults OFF and only authorizes the required conversion for the current investment.
 - Invalid/expired/out-of-tolerance FX quotes cause zero deduction and no investment.
 - For Trade/Trading acceptance criteria, use only `docs/TRADING_SYSTEM_SPECIFICATION.md`.
