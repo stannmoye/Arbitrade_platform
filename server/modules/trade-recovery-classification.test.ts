@@ -295,6 +295,23 @@ describe("trade recovery evidence classification (read-only)", () => {
     expect(result.reasons.join(" ")).toContain("safe integer arithmetic");
   });
 
+  it("escalates reward reservation states that contradict the credited reward", () => {
+    const releasedWithPositiveReward = classifyTradeRecoveryEvidence(settledEvidence({
+      rewardReservationStatus: "released",
+    }));
+    expect(releasedWithPositiveReward.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(releasedWithPositiveReward.reasons.join(" ")).toContain("marked released despite a positive credited reward");
+
+    const creditedWithoutReward = classifyTradeRecoveryEvidence(settledEvidence({
+      rewardCreditedMinor: 0,
+      rewardLedgerCount: 0,
+      rewardLedgerAmountMinor: null,
+      rewardReservationStatus: "credited",
+    }));
+    expect(creditedWithoutReward.classification).toBe("MANUAL_FINANCIAL_REVIEW");
+    expect(creditedWithoutReward.reasons.join(" ")).toContain("marked credited but no reward was credited");
+  });
+
   it("never authorizes automated writes for any classification", () => {
     const examples = [
       settledEvidence(),
