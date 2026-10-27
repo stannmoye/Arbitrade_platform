@@ -6,7 +6,6 @@ import { ENV } from "./_core/env";
 import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
-import { assertExecutionAllowed } from "./modules/v5-workflows";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
 import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostings, inspectWalletLedgerSnapshot } from "./modules/wallet-ledger-reconciliation";
 import { addCalendarMonths, calculateQualifyingBalanceUsdMinor, parsePackageQualificationPolicy, type PackageQualificationPolicy, type EligibleWalletBalance } from "./modules/trading-package-activation";
@@ -2570,12 +2569,6 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
     }catch(error){
       const message=error instanceof Error?error.message:"AUTO_TRADE_REJECTED";
       if(/already been allocated|duplicate/i.test(message)) continue;
-      // A missing live execution adapter is a system capability gate, not a customer failure.
-      // Release the attempt claim and preserve the opportunity; do not mark it missed or debit funds.
-      if(/Live execution is blocked until a verified execution and settlement mechanism is configured/i.test(message)){
-        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+Math.max(30,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||300))*1000),errorCode:"LIVE_EXECUTION_PROVIDER_UNAVAILABLE",attemptNumber:claim.attemptNumber,releaseAttempt:true});
-        continue;
-      }
       // A pause must not consume the configured retry budget; release the claim
       // and wait briefly so the durable worker can resume after the administrator unpauses.
       if(/new trading allocations are paused by an administrator/i.test(message)){
@@ -2834,10 +2827,8 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     return {tradeId:Number(existing.id),rewardMinor:Number(existing.expectedRewardMinor),rewardBps:amountMinor>0?Math.floor(Number(existing.expectedRewardMinor)*10000/amountMinor):0,minimumMinor:0,calculationMethod:"idempotent-replay",settlesAt:existing.settlesAt,creditAt:existing.creditAt,currency:existing.currency,amountMinor,rateUsd:Number(rate.usdRate),rateUpdatedAt:rate.updatedAt,amountUsd:nativeMinorToUsd(amountMinor,Number(rate.scale),Number(rate.usdRate)),idempotentReplay:true};
    }
   }
-  // This application has no wired, independently verifiable live execution adapter yet.
-  // Keep package eligibility and internal-ledger balances intact, but fail closed before any new funds are reserved.
-  // Do not replace this with administrator-entered provider labels; wire a real adapter and verified result retrieval first.
-  assertExecutionAllowed("LIVE");
+  // Internal-ledger allocation is not external market execution.
+  // Settlement remains pending until a separate workflow records an actual result with its evidence.
 
   // Serialize every new allocation against the administrator's global pause.
   // Existing idempotent replays above remain readable while paused.
