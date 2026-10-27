@@ -87,7 +87,7 @@ Use `pnpm check`, `pnpm test`, `pnpm build`, targeted financial concurrency test
 
 ## CoinKi Mining database-driven implementation addendum
 
-The user's latest clarification supersedes the earlier demo-only reward model for Mining: customers purchase hash power in a real farm, the operator sells farm capacity to a third party, and no mining-pool connection is required. Reward credits must flow from actual third-party earnings, allocated by each customer's purchased eligible package power. Do not invent reward values from hashrate alone or label a settlement as verified before its source data is recorded. Other investment/trading modules retain their existing live-execution safety gates.
+The user's latest clarification supersedes the earlier demo-only reward model for Mining: customers purchase hash power in a real farm, the operator sells farm capacity to a third party, and no mining-pool connection is required. Reward credits must flow from actual third-party earnings, allocated by each customer's purchased eligible package power. Do not invent reward values from hashrate alone or label a settlement as verified before its source data is recorded. Trading behavior is governed exclusively by `docs/TRADING_SYSTEM_SPECIFICATION.md`; eligible package-driven trading must run automatically on the server, while any external-market execution must retain the guide's evidence and authorization requirements.
 
 ### Persisted configuration and data flow
 
