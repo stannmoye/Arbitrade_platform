@@ -63,7 +63,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "mining-operations", target: "mining", label: "Mining", detail: "Simulated mining packages, rewards, conversions and ledger controls", icon: Coins },
   ]},
   { id: "trade-settings", label: "Trade Settings", detail: "Admin-controlled trading policy, automation and settlement", items: [
-    { id: "trade-settings-overview", target: "opportunity", label: "Overview", detail: "Trading operations, current offers and delivery health", icon: Gauge },
+    { id: "trade-settings-overview", target: "deliveryMonitor", label: "Overview", detail: "Recorded opportunity delivery and customer activity", icon: Gauge },
     { id: "trade-packages-eligibility", target: "packages", label: "Packages & Eligibility", detail: "Package definitions, activation eligibility and entitlements", icon: PackageCheck },
     { id: "trade-package-quotas", target: "packages", label: "Package Quotas & Customer Limits", detail: "Per-package opportunity quotas and customer limits", icon: Layers3 },
     { id: "trade-opportunity-schedule", target: "opportunity", label: "Opportunity Schedule", detail: "Admin-configured delivery schedules and quotas", icon: Zap },
