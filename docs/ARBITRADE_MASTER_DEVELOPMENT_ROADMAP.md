@@ -94,7 +94,7 @@ Implement themes through shared design tokens and reusable components. Do not du
 3. Five-Theme Architecture and Administrator Theme Controls
 4. Customer Navigation and Dashboard Redesign
 5. Wallet, Deposit, Withdrawal and Transaction History
-6. Trading, Mining and Swap Experience
+6. Mining and Swap Experience (Trade/Trading requirements are maintained only in the canonical guide)
 7. Button Feedback, Animations and Interaction Quality
 8. Centralized Notification Infrastructure
 9. Notification Sound Library and Playback Engine
@@ -127,7 +127,7 @@ Implement themes through shared design tokens and reusable components. Do not du
 Tasks:
 - Inventory customer and administrator routes/pages.
 - Identify reusable components, current styling and any theme support.
-- Map wallet, deposit, withdrawal, trade, mining, swap, account and support workflows.
+- Map wallet, deposit, withdrawal, mining, swap, account and support workflows. Trade/Trading customer journey and lifecycle are defined only in the canonical guide.
 - Map real backend transaction statuses, ledger effects and event sources.
 - Inspect current notification mechanisms and any audio assets.
 - Review authentication, permissions, sessions, database schema and migrations.
@@ -258,7 +258,7 @@ Proposed event catalogue, subject to the actual supported backend events:
 - Deposit initiated, confirmed, failed and wallet credited.
 - Withdrawal requested, processing, approved, rejected and completed.
 - Wallet credit and debit.
-- Trade opened, debit recorded, credit recorded, completed, profit recorded, loss recorded, cancelled and failed.
+- Trade/Trading lifecycle states and status events are defined only in the canonical guide.
 - Mining purchase, reward credited, cycle completed, delayed and failed.
 - Swap initiated, completed, cancelled and failed.
 - Optional login acknowledgement, security events, support replies, announcements, session warnings and background-operation notices.
@@ -506,7 +506,7 @@ Tasks:
 - Apply rate limits and cooldowns where justified.
 - Add clear warnings for consequential or unusual actions where supported by backend rules.
 - Ensure risk signals are advisory unless a documented backend policy authorizes an action.
-- Never silently alter balances, trading outcomes or withdrawal status from frontend logic.
+- Never silently alter balances or withdrawal status from frontend logic. Trade/Trading outcomes are defined only in the canonical guide.
 - Add auditability for privileged overrides and sensitive administrative actions.
 - Avoid exposing internal risk heuristics to unauthorized users.
 - Test false positives and safe recovery paths.
