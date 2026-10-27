@@ -25,7 +25,7 @@ describe("customer Trading package catalogue diagnostics", () => {
     expect(implementation).toContain("errorCode:");
     expect(implementation).toContain("sqlState:");
 
-    const diagnosticStart = implementation.indexOf('console.error("[Trading] Customer package catalogue read failed"');
+    const diagnosticStart = implementation.indexOf('console.error("[Trading] Customer package catalogue dependency unavailable"');
     const diagnosticEnd = implementation.indexOf("\n    });", diagnosticStart);
     expect(diagnosticStart).toBeGreaterThanOrEqual(0);
     expect(diagnosticEnd).toBeGreaterThan(diagnosticStart);
