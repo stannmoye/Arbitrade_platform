@@ -469,9 +469,18 @@ Administrators can view and manage the versioned policy for supported wallet cur
 
 The current default platform fee is 15% of realized positive gross profit only. It is not 15% of principal or total balance. No positive-profit fee is charged on zero or negative gross result. The precise fee and net result are calculated in integer minor units using the rounding convention saved with the trade. An authorized change to the default must be versioned and its effective scope explicit.
 
-### 19.5 Company catalogue, rotation and data quality
+### 19.5 Market data, venues, instruments and company catalogue
 
-Administrators need visibility into catalogue size, stable IDs, names, local image paths, country assignment, verification status, supplied symbol/exchange metadata, and rotation policy. Rotation controls may determine which informational company spotlight appears next; they must not create a trade, authorize a security, submit an order, or move money.
+Administrators need a single operational view for configured data sources and trading instruments as well as the company reference catalogue. As applicable to the configured product mode, controls include:
+
+- Enabled/disabled venue or data-source connection, environment, permission scope, credential health (never the credential value), last successful request, latency, error rate and maintenance state.
+- Allowed assets, networks, market pairs, exchanges, security/instrument IDs, supported transfer routes and customer/product restrictions.
+- Quote freshness/staleness thresholds, minimum liquidity and depth, allowed slippage, minimum net spread after costs, maximum notional/capacity, exposure limits and route risk boundaries.
+- Source/venue outage handling, circuit breakers, per-venue or per-instrument pause, global trading pause, controlled recovery/resume, and a record of who changed the policy and why.
+- Opportunity calculation version, quote snapshot source, source timestamps, fee assumptions, publication/replay history and data-quality exceptions.
+- Catalogue size, stable IDs, names, local image paths, country assignment, verification status, supplied symbol/exchange metadata and rotation policy.
+
+Configuration must be persisted, validated, versioned and audited. Only authorized roles can change it. A disabled or unhealthy integration must cause an explicit technical state and alert, never a fabricated quote or successful order. Rotation controls may determine which informational company spotlight appears next; they must not create a trade, authorize a security, submit an order, or move money.
 
 ### 19.6 Active trades, pending work and settlement queue
 
@@ -730,3 +739,22 @@ Before accepting customer funds or enabling any product mode that executes or ma
 The interface and communications must not promise fixed returns, guaranteed profit, risk-free arbitrage, insurance, instant withdrawal, certain execution or certainty of settlement unless the exact claim is demonstrably true and approved. Show meaningful downside/uncertainty, applicable fees and assumptions before a customer commits. Do not use resetting countdowns, false scarcity, fake popularity/other-investor counters, synthetic transaction histories, fake testimonials, or animations intended to substitute for evidence.
 
 Customer-facing restrictions must be clear and reasoned without exposing sensitive risk rules or private review data. Keep required consents and disclosure versions attached to the relevant operation. Provide accessible, non-coercive handling of notifications and time-sensitive opportunities; sound must be opt-in and must never be the only way the customer can learn an important financial status.
+
+
+## 30. Additional market-data and execution acceptance scenarios
+
+Add focused automated tests and, where applicable, integration tests for each supported adapter and product mode:
+
+- Stale, missing, malformed and divergent quote sources; provider clock skew and delayed quote delivery.
+- Actual side-specific order-book depth and minimum order sizes at the customer-requested amount; fee, currency conversion, gas, withdrawal, network and expected slippage calculations.
+- Quote changes between opportunity display and allocation; opportunity expiry before allocation; immutable version preservation when a new quote creates a new opportunity version.
+- Venue outage, rate limit, credential expiry, API permission failure, high latency, timeout-after-submit, duplicate submit retry and external order-idempotency behavior.
+- Duplicate, missing, invalidly signed, replayed or out-of-order webhook/result events.
+- Partial fills, rejected orders, canceled orders, order status that disagrees with fill events, fee discrepancies and late fills after an initial timeout.
+- Network congestion, chain reorganization or delayed transfer confirmation when relevant to the selected route.
+- Disabled/paused venue, instrument or network; emergency pause and authorized resume; customer/jurisdiction/product restrictions.
+- A company image or unverified ticker is presented in the informational catalogue but rejected as an unverified trading instrument.
+- Execution adapter absence or outage after activation: worker produces an actionable technical status and preserves funds safely without silently ignoring the work or fabricating a trade.
+- Result/settlement evidence arriving more than once or out of order; reconciliation must remain idempotent and never credit the same result twice.
+
+Test fixtures may model these inputs, but production financial state must never be populated from simulated test outcomes. Each adapter must have a contract test that proves how successful submission, rejected submission, timeout, partial fill, final result, fee and cancellation are represented before the adapter is enabled in production.
