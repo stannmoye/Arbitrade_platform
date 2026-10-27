@@ -1,8 +1,8 @@
-# Canonical Trading System Specification
+# Arbitrade Trade/Trading — Canonical Implementation Guide
 
-**Status:** Mandatory product and financial-integrity baseline; implementation must be verified against tests and the actual repository. The internal ledger is the authoritative source for all customer trading capital and accounting.  
-**Applies to:** Customer Trading page, opportunity engine, package entitlements, wallet allocation, settlement, notifications, admin operations, and related database jobs.  
-**Read this before changing trading behaviour.** This document is the canonical implementation reference for developers, engineers, and AI coding agents. If a proposed code change conflicts with this document, stop and reconcile the difference before implementation. Keep this file and the companion PDF aligned when requirements are formally revised.
+**Status:** The single authoritative product and implementation guide for all Trade/Trading work. It defines intended behavior; implementation claims must still be verified against source, tests, and the target environment. The internal ledger is the authoritative source for all customer trading capital and accounting.  
+**Applies to:** Customer Trade menu and trading pages, opportunity engine, packages and entitlements, wallet allocation, execution workflow, trade lifecycle, fees, settlement, company catalogue and rotation, notifications, admin Trade Settings, recovery, reconciliation, migrations, jobs, and acceptance testing.  
+**Mandatory rule:** Developers, engineers, and AI coding agents must read this guide before changing any trading-related source, data, workflow, tests, or documentation. This document supersedes trading requirements in all older/general documents. Keep only this guide as the detailed trading requirement source; general engineering, security, deployment, legal, and historical audit records may remain but must not define competing trading behavior.
 
 ## 1. Core operating rules
 
@@ -325,7 +325,7 @@ Trading operates as a real-money workflow recorded in the customer's internal le
 
 Before changing trading code, read this specification and inspect the current repository state. Identify relevant frontend, API, database, worker, and migration paths. Implement in small stages with forward migrations and tests. Run project checks/tests/build where possible and report exactly what passed. Do not claim implementation, live execution, or production acceptance unless verified.
 
-When a requirement changes, update this canonical file and its companion PDF together if that PDF exists in the repository; the repository currently has no tracked docs/TRADING_SYSTEM_SPECIFICATION.pdf, so do not describe an absent PDF as updated. The README and root AGENTS.md must continue linking to this document and the source guide.
+When a trading requirement changes, update this canonical guide. There is no tracked companion PDF, and no second trading or company-catalogue guide is required. README.md, AGENTS.md, and .github/copilot-instructions.md must point to this guide as the one source of trading requirements.
 
 
 ## Wallet, ledger, and settlement reconciliation
@@ -338,3 +338,322 @@ When a requirement changes, update this canonical file and its companion PDF tog
 - Never infer execution or realized result from a countdown, expected reward, reserved estimate, or a legacy default field. Missing historical results/references are inconclusive and require evidence collection.
 - Financial recovery is a separate, permissioned workflow. It must record source evidence, independent approval, reason, and an idempotency key; preserve original ledger entries; and use a uniquely referenced compensating ledger entry where a correction is proven. Ambiguous historical cases remain unresolved rather than automatically crediting estimated rewards.
 - Reconciliation indexes must remain non-unique on wallet customer/currency until duplicate wallet records have been investigated. The audit detects duplicates instead of arbitrarily selecting an authoritative row.
+
+
+## 16. One-guide authority and conflict resolution
+
+This file is the only detailed implementation contract for Trade/Trading. The following rules apply to future work:
+
+1. Read this guide in full before implementing, testing, reviewing, or changing trading behavior.
+2. When a trading requirement in a generic platform specification, admin-menu description, README, roadmap, implementation matrix, old prompt, code comment, or historical note differs from this guide, this guide controls the intended product behavior.
+3. General documentation may describe where a page is found, how to build or deploy the application, or what has been tested. It must not reproduce a separate set of trading rules or override this guide.
+4. Update this guide first when the owner changes a requirement, then change the code and tests, and finally simplify any other documents to link here. Do not create a new trading guide, company-catalogue guide, package guide, settlement guide, or recovery guide.
+5. Keep historical audit/evidence records and generic platform documentation when they serve other purposes. Label historical trading statements as historical/non-authoritative or replace the trading subsection with a pointer to this guide. Do not delete database migrations, source code, tests, or financial audit evidence as a side effect of documentation consolidation.
+6. A written requirement is not proof that code implements it. State implementation and production status separately, with the exact tested commit and the evidence available.
+
+## 17. Customer portal: Trade menu information architecture
+
+The customer-facing navigation label must be Trade or Trading consistently with the currently established product navigation. It must lead to a server-backed experience and must not be a decorative page whose values exist only in local React state.
+
+### 17.1 Customer Trade landing page
+
+The landing page must present the following logically distinct regions, adapting layout to mobile and desktop without changing server behavior:
+
+- **Package eligibility and activation:** the package catalogue, active package(s), qualifying-balance requirement, saved package terms, activation state, expiry, remaining opportunity quota, and next eligible processing window when known.
+- **Trading overview:** current active/pending trade count, today’s eligible opportunities, completed opportunities, missed opportunities, items awaiting execution or settlement, and any actionable errors. Counts must be derived from persisted server data and clearly scoped by time and account.
+- **Opportunities:** currently eligible opportunity cards, including company identity, classification, schedule/expiry, package eligibility, available capital, costs and risks when supported, and the current authoritative state.
+- **Active and pending trades:** records that are allocated, executing, open, retrying, awaiting confirmation, awaiting settlement, or otherwise non-terminal. The page must not hide unsettled or failed/retrying records simply because a timer reached zero.
+- **Trade history and settlements:** terminal trades, actual realized results, fees, principal returned, settlement reference, execution/result evidence status, and timestamps. Pending estimates must not be presented as realized profit.
+- **Wallet impact:** available and locked/reserved amounts, committed capital, principal returned, signed realized result, fee, net result, and total returned. The system must distinguish these values instead of showing a single ambiguous “earnings” figure.
+- **Notifications and help:** authoritative package/trade state changes, funding or balance insufficiency, retry/technical errors, settlement decisions, and links to relevant disclosures and support.
+
+Show a useful empty state when no active package or eligible opportunity exists. Do not generate sample trades, simulated account activity, fake order rows, or made-up transaction-console entries to fill an empty screen. Loading, empty, unavailable, error, pending, and confirmed states must be visually distinct and accessible.
+
+### 17.2 Package selection and activation journey
+
+1. Load enabled package offers from the server. Each offer shows its minimum qualifying balance, duration, daily opportunity entitlement, applicable limits, and material terms.
+2. Explain that activation is free under the current product policy. The minimum qualifying balance is an eligibility threshold, not a subscription fee, not money to transfer, and not the default size of each trade.
+3. On activation, validate the authenticated customer, package state, configured eligibility currency or currencies, spendable balance, package availability, repeat-purchase/cooldown rules, and all applicable risk, customer, country, and administrator controls on the server.
+4. Write the entitlement and immutable terms snapshot transactionally and idempotently. A repeated network request must not create duplicate entitlements or duplicate financial postings.
+5. Return the persisted activation result. The customer UI must not display an active package before the server confirms it.
+6. Once an eligible package is active, it enters the automatic server-controlled workflow under its saved terms and the configured opportunity schedule. Customer sign-in, browser tab visibility, refresh, or local clock does not start, pause, or settle trading.
+7. If qualification fails, show the exact requirement, the authoritative available balance, the shortfall, and the reason. Do not activate the package or allocate capital.
+8. If a technical dependency prevents the next step, retain an explicit diagnosable pending/failed state and an actionable server log. Never silently ignore activation and never invent a successful trade as a fallback.
+
+Existing active entitlements retain their saved terms snapshot when administrators change package defaults. An authorized migration may modify existing entitlements only under an explicit versioned and audited policy.
+
+### 17.3 Opportunity card and insufficient-balance behavior
+
+Every displayed opportunity must correspond to a persisted opportunity/delivery record and a server-calculated eligibility decision. A card is not a trade and is not proof of execution.
+
+An eligible opportunity that occurs while the customer lacks sufficient spendable funds must remain visible as the configured insufficient-balance opportunity. It must state the amount required, current authoritative available amount, shortfall, currency, expiry or schedule when known, and why allocation did not proceed. This state must not create a capital debit, trade allocation, profit, fee, reservation, or completed-trade record. The missed opportunity and its reason should be recorded once with an idempotent identity.
+
+A successful funds check is not the same as a committed allocation. Recheck spendable funds inside the allocation transaction, after locking and validating the authoritative wallet and policy records. If funds are no longer sufficient, roll back all allocation postings and record the appropriate missed/blocked reason without a partial debit.
+
+### 17.4 Opportunity pop-up and minimized dock
+
+Follow Section 10 for the complete trade-card field contract. In summary, the expanded pop-up shows the company name, local image, country and supported country flag, supplied symbol/security/exchange classification, opportunity and trade status, allocation amount, result amounts, platform-fee rate and amount, profit percentage when mathematically meaningful, open and close times, countdown, total returned, and stable references when those values exist. Unknown values must be shown as unavailable, not inferred.
+
+Minimize and maximize only change presentation. The minimized dock stays fixed to the viewport bottom while scrolling and exposes the active countdown and status plus a way to reopen the card. Browser visibility, display timeout, minimizing, maximizing, refresh, or local-clock changes must not update a trade state or affect settlement. Dismissal requires both countdown completion and a persisted authoritative terminal state. An expired timer alone never proves that a market execution or settlement happened.
+
+## 18. Trade lifecycle and automatic processing
+
+### 18.1 Server-controlled workflow
+
+The worker must evaluate eligible customers and package entitlements according to the saved package settings, configured schedule, daily/hourly quotas, active-allocation limits, and authorized admin controls. It must work independently of whether the customer is signed in.
+
+Each processing cycle must:
+
+1. Load due schedules and eligible package entitlements using bounded database queries.
+2. Apply customer, package, account, jurisdiction, currency, risk, global-pause, and quota rules.
+3. Create or reuse a stable idempotency key for the relevant customer, entitlement, schedule window, and opportunity.
+4. Validate any opportunity and its delivery state. The configured policy determines whether presentation/receipt acknowledgement is required before allocation; this must be consistent and tested, not an accidental frontend race.
+5. Lock and re-read the customer entitlement, spendable wallet, relevant reservations, administrator pause state, and applicable limits within the transaction that allocates capital.
+6. Record a missed opportunity with a specific reason when an eligible opportunity occurs but a deterministic eligibility or funds check prevents allocation. Do not debit money or create a trade on this path.
+7. Reserve/commit only the capital actually allocated. Write the trade/opportunity linkage, wallet updates, ledger entries, reservation, lifecycle event, and idempotency claim in a transaction, rolling all of them back if a required write fails.
+8. Enqueue notifications only from committed business events, with stable event keys to prevent duplicate customer messages.
+9. Submit authorized execution work to the execution adapter or internal trading engine configured for this product mode. Track truthful execution states and actual result evidence.
+10. Retry only retryable failures under a bounded, persisted backoff policy. Exceeding the retry budget must leave a visible terminal or reviewable state with an actionable reason, not an endlessly spinning card.
+11. Run due settlement and reconciliation as separate idempotent operations. Neither an elapsed timer nor a worker restart is proof of execution or profit.
+
+An external-market order may be reported as executed only when authoritative order/fill/result evidence is recorded. Internal workflow states must be named and displayed distinctly from external exchange/broker execution. If the selected product mode or required execution adapter is unavailable, the package worker still records and surfaces the processing failure; it must not silently do nothing, pretend an external order was sent, or create a simulated success.
+
+### 18.2 Required semantic states
+
+Persisted enum names may differ, but the application behavior must distinguish these semantic states:
+
+- **Package:** offered, disabled, eligible, activation pending, active, expired, suspended/restricted, or activation failed.
+- **Opportunity/delivery:** scheduled, created, eligible, delivered, viewed/acknowledged where required, missed for a recorded reason, allocated, expired, cancelled, or unavailable.
+- **Trade:** allocation pending, reserved/allocated, execution pending, submitted, partially filled where supported, open, execution failed, retry scheduled, awaiting result/settlement, settled, cancelled, reversed under an audited correction, or manual review required.
+- **Settlement:** not due, due for verification, evidence checked, settlement pending, settled, reconciliation mismatch, or manual review required.
+
+Only transitions allowed by the server-side lifecycle may be applied. Terminal records cannot be silently reopened or rewritten. Corrections must be represented by explicit linked events or compensating ledger entries with audit history. Keep exact timestamps, source references, failure reasons, and actor identity where relevant.
+
+### 18.3 Schedule, quotas, and concurrency
+
+Schedules are defined and saved by authorized administrators. A package daily opportunity limit is an entitlement ceiling, not a promise that every scheduled slot results in a trade. Enforce daily and hourly quotas, burst controls, maximum active allocations, amount bounds, customer limits, and the combined earnings ceiling on the server using a stable definition of the customer/business day and timezone. Do not hard-code a single global count for every package or customer.
+
+Concurrent cycles, duplicate messages, retries, browser refreshes, and repeated API calls must not exceed quota or allocate funds twice. Use database-backed uniqueness/idempotency and row-level locking where appropriate; browser disabled buttons are not concurrency controls. Worker health, last successful run, due backlog, attempts, failures, and stale records must be observable by administrators. Administrative pause should prevent new allocations while preserving safe management of existing open trades, returns, and settlement.
+
+## 19. Admin portal: Trade Settings control plane
+
+Trade configuration and operations belong in one role-protected **Trade Settings** area. The exact screen components can evolve, but the following capabilities must be addressable there and must use persisted, authorized server operations.
+
+### 19.1 Trading overview and health
+
+Show active package/entitlement counts, eligible customers, due opportunities, delivery failures, allocation success/failure, pending and open trades, due settlements, retry backlog, ledger/reconciliation exceptions, last worker run, integration health, global pause state, and recent high-severity events. Every metric must expose its scope and timestamp. An incomplete/paginated audit must not be represented as a complete healthy database scan.
+
+### 19.2 Package catalogue and eligibility policy
+
+Administrators need a searchable package table and editor with, where supported by the current schema:
+
+- Stable package ID, display name, enabled/disabled state and version.
+- Minimum qualifying balance, qualification currency policy and wallet combination rule.
+- Calendar-based duration and expiry policy.
+- Opportunities per day and relevant hourly delivery targets.
+- Minimum/maximum allocation amount, maximum active allocations and burst controls.
+- Same-package repurchase, simultaneous-copy, cooldown, and eligibility rules.
+- Maintenance-balance/grace-period rule when explicitly enabled.
+- Country/customer eligibility and restriction policy.
+- Clear customer-facing description, risk disclosure, terms version and effective time.
+
+Validation must reject invalid amounts, negative quotas, impossible min/max ranges, unsupported currencies, unknown policy values and conflicting schedule settings. Changes require appropriate permission, reason, version/effective time and audit log. New defaults must not silently rewrite already-active entitlement snapshots.
+
+### 19.3 Schedule, duration and closing policy
+
+Allow authorized administrators to configure schedule windows, delivery cadence, timezone/day boundary, opportunity quotas, trade duration, expected closing time, retry policy, and display timing within validated bounds. The authoritative close timestamp derives from persisted server timestamps and the versioned policy snapshot. The browser only renders a countdown and must not calculate or submit settlement time as authority. Missing/invalid policy must produce an unavailable/review state, not an invented time.
+
+### 19.4 Wallet allocation, fees and earnings limits
+
+Administrators can view and manage the versioned policy for supported wallet currencies, minimum/maximum allocation, reservation behavior, default fee rate, rounding convention, daily combined earnings cap, and risk limits. Customer capital and accounting remain internal-ledger-backed. Administrative changes to policy do not alter historical fee snapshots or settled results. An admin must never bypass spendable-balance checks with a frontend amount or an unlogged override.
+
+The current default platform fee is 15% of realized positive gross profit only. It is not 15% of principal or total balance. No positive-profit fee is charged on zero or negative gross result. The precise fee and net result are calculated in integer minor units using the rounding convention saved with the trade. An authorized change to the default must be versioned and its effective scope explicit.
+
+### 19.5 Company catalogue, rotation and data quality
+
+Administrators need visibility into catalogue size, stable IDs, names, local image paths, country assignment, verification status, supplied symbol/exchange metadata, and rotation policy. Rotation controls may determine which informational company spotlight appears next; they must not create a trade, authorize a security, submit an order, or move money.
+
+### 19.6 Active trades, pending work and settlement queue
+
+The admin portal must support searching/filtering by customer, package/entitlement, opportunity, trade ID, status, currency, time range, and exception type. Show capital and reservation state, execution state, actual result evidence, settlement reference, fee-policy snapshot, principal return, profit/loss, fees, and linked ledger rows. Let authorized operators inspect and perform only lifecycle actions permitted by policy. Confirmation buttons must be disabled in the UI when clear prerequisites fail, and the server must independently revalidate every prerequisite in the transaction.
+
+Manual settlement must require a unique settlement reference, signed actual gross result, source verification notes, applicable policy snapshot, authorized administrator identity, and all necessary reconciliation checks. A free-text note is an audit attestation, not independent evidence by itself. Never label a result provider-verified unless the supporting source was actually checked and retained. Duplicate references, a trade-owner mismatch, reservation mismatch, insufficient locked principal, invalid arithmetic, early settlement, and duplicate/ambiguous postings must fail closed.
+
+### 19.7 Reconciliation, integrity scans and recovery
+
+Provide read-only scans for duplicate or missing wallet rows, available-balance versus ledger differences, known locked-fund obligations, settlement reference uniqueness/claims, ledger entry count/sign/amount, reward reservation identity/status, fee/net arithmetic, lifecycle state, and source-evidence completeness. Display affected rows, number of rows examined, pagination/limit, truncation, and confidence. Never call a partial scan a complete audit.
+
+Financial correction and release are separate, permissioned operations. Preserve the original entries and evidence. A confirmed correction uses a uniquely referenced, linked compensating entry and approval/audit trail. Ambiguous history remains unresolved for human review; no administrator or automated script may manufacture a missing ledger entry from a timer, expected reward, default zero, or the trade status alone.
+
+### 19.8 Access control and audit
+
+Use deny-by-default, role-specific permissions for package editing, allocation policy, global pause/resume, execution configuration, settlement, financial correction, risk overrides, data exports, and read-only review. High-impact financial actions should have reason capture, step-up authorization or dual approval where configured, before/after policy versions, actor ID, timestamp, affected IDs, correlation/idempotency ID and an immutable audit event. Mask customer information and restrict evidence downloads to authorized operators. Secrets, credentials and private customer evidence must never be returned in normal browser payloads or committed to the repository.
+
+## 20. Company catalogue and identifier rules
+
+The supplied informational company-image collection is 1,811 stable records with IDs 1–1811. The local company logo index, mapping, country-group data and country folders must remain aligned. The current recorded country audit has 1,799 assigned records and 12 explicitly Unverified; never label all countries or listings as verified.
+
+- Use the stable logo ID to match an indexed image record. Do not fuzzy-match a company name when an exact ID exists.
+- A logo ID, company name, folder name or country assignment does not establish a public listing, headquarters, ticker, exchange, security identifier or tradability.
+- Keep supplied ticker/exchange/status/parent/historical fields attached to the same indexed record when they exist. Display placeholder codes as placeholders and never send them to quote/order APIs.
+- Public candidate tickers are research candidates, not live instruments. Do not make a candidate tradable until an authoritative source URL, provider instrument ID, verification timestamp, security/exchange identity and the necessary eligibility checks are recorded.
+- The customer pop-up may rotate informational company images without financial side effects. Rotation must not seed a trade, reserve/debit funds, increment an executed-trade count, calculate profit, or trigger settlement.
+- Preserve the distinction among this 1,811-image pool and any separate legacy 950- or 1,000-company datasets. Do not rename or merge the datasets merely because their counts differ.
+- Validate ID completeness, index-to-group agreement, local file paths, duplicate names under distinct IDs, unresolved country classification, and non-leakage of unverified candidates. Never guess a country flag; show a neutral fallback if country metadata is unverified.
+
+The local assets and catalogue are content data, not market data or execution authorization. The system must not treat an image catalogue as evidence that a real order can be placed.
+
+## 21. Ledger, result, fees and customer notifications
+
+### 21.1 Financial invariant
+
+Every monetary operation must be linked to the authenticated customer, currency, trade/opportunity/settlement identity and immutable ledger record. Reserve/commit, principal return, realized gross result, fee, net result, loss, reversal, and any other correction must be durable, balanced according to the accounting model, atomic, idempotent and auditable. Use integer minor units or another rigorously decimal-safe representation consistent with the database's currency precision. Never use binary floating point for authoritative money calculations.
+
+The display should separately define:
+
+- **Principal/allocation:** capital committed to a trade.
+- **Gross realized result:** signed actual gain or loss, excluding principal.
+- **Platform fee:** fee calculated according to the saved fee-policy version; under the current default it applies only to positive realized gross gain.
+- **Net realized result:** gross realized result minus applicable fee, with losses retained as signed losses.
+- **Principal returned:** principal actually returned in the settlement ledger entries.
+- **Total returned:** principal returned plus the realized net result as supported by persisted postings.
+
+Pending expected returns can be shown only with an explicit estimate label and must never be posted or summed as realized earnings. A countdown ending does not create a financial result. Failed, cancelled, zero-profit and loss trades must have truthful states and correct ledger treatment without a made-up reward or positive fee.
+
+### 21.2 Notification semantics
+
+Create transaction-console entries, in-app notices, sound events and email events only from real persisted business events after the transaction boundary is safely committed, or through a transactional outbox. Use stable recipient-scoped event keys. A debit/reservation notice requires a committed ledger debit/reservation; a credit/return notice requires the committed credit/return. Failure notifications must describe a real persisted failure. Do not generate random logs, placeholder “completed” rows, future events or fake transaction codes.
+
+Sound or animation is presentation only. A green animation must not independently alter balances or signal financial success. Respect customer sound preference, mute and accessibility controls; never use a notification as a substitute for displaying an authoritative status in the Trade area.
+
+## 22. Failure handling, retries, pause and observability
+
+For database locks/timeouts, stale quotes, unavailable execution endpoints, malformed provider responses, rejected orders, partial fills, result-feed delays, settlement conflicts, and notification failures:
+
+1. Persist the actual error class, operation/correlation ID, retryability, attempt count and next-attempt time without exposing secrets.
+2. Roll back financial operations that did not commit fully. Do not leave a partial balance update or duplicated reservation.
+3. Preserve committed funds in the appropriate available/locked/reserved state until the authorized lifecycle allows release. Never release or credit funds merely to clear a UI error.
+4. Retry only idempotent, retryable operations with bounded backoff. Recheck eligibility and state under lock before retrying.
+5. Expose pending, failed or manual-review states in customer/admin views. Distinguish a failure to display a notification from a failure of the financial operation.
+6. Global pause blocks new allocations according to the configured rule but does not delete open trades or bypass safe settlement/withdrawal controls. Resume is an auditable administrator action.
+7. Monitor stale pending states, repeated retries, queue lag, worker heartbeat, provider health, allocation failures, settlement delays and reconciliation warnings. Alerts must link to the affected persisted records.
+
+## 23. Read-only trade recovery and evidence procedure
+
+Recovery is an evidence-gathering and review process, not an automatic way to credit funds. The source scripts may remain in the repository, but this section replaces separate trading recovery guides.
+
+### 23.1 Collect a bounded evidence sample
+
+Run from the project root with a private environment containing a valid DATABASE_URL:
+
+~~~sh
+pnpm db:collect-trade-recovery-evidence -- --limit 100 --output ./trade-recovery-evidence.json
+pnpm db:plan-trade-recovery ./trade-recovery-evidence.json
+~~~
+
+The collector uses a read-only transaction and SELECT queries. It gathers trade and settlement data with matching wallet snapshots, principal/reward ledger entries, reward reservations, lifecycle events, popup-event references when available, and relevant identity/settlement context. It checks for required columns and fails closed if required evidence is unavailable. It refuses to overwrite an existing output file; omit the output option to emit JSON to standard output if supported by the CLI. Evidence files may contain sensitive account details: keep them private, do not share broadly and never commit them.
+
+The default limit is 100 newest trades and the supported capped maximum is 1,000. This is not a whole-database audit. Any capped/incomplete scan must be labelled incomplete and escalated; the absence of an issue in an incomplete sample is not evidence that all trades are healthy. The collector does not reconstruct every historical balance from the entire ledger.
+
+### 23.2 Planner outcomes and mandatory interpretation
+
+The planner must require the collector context, trade identity, wallet/reservation snapshots, exact source amounts, and scan-coverage metadata. It validates actual safe integer/numeric-string fields, counts, signs, amounts, owner/trade/currency identity, reservation status, gross-result/fee/net arithmetic, stored fee policy and rounding, settlement reference, and lifecycle evidence. Null or malformed amounts are not silently converted to zero. Unsafe derived values are rejected. A legacy record marked as having no recorded outcome must not be treated as a zero-profit result merely because a migration filled an amount field with zero.
+
+The only recovery classifications are review decisions, not financial mutations:
+
+- NO_ACTION means only that the supplied evidence shows no identified conflict within its scope; it is not a whole-database guarantee.
+- STATUS_REVIEW_ONLY means lifecycle metadata or timestamps require review. It does not authorize an automatic status repair.
+- MANUAL_FINANCIAL_REVIEW means amounts, ledger rows, references, reservation identity/state, wallet ownership, coverage or other financial evidence are missing, malformed, duplicated or inconsistent.
+
+Every planner result must set automatedMutationAllowed to false and contain no planned financial mutations. The tooling does not authorize principal release, reward credit, fee reversal, status patch, or wallet update. Human reviewers must inspect complete relevant wallet and ledger history, opening-balance evidence, trade and reservation ownership, settlement reference claims, and result evidence before an independently authorized correction is considered.
+
+### 23.3 Reconciliation rules
+
+- Compare signed ledger changes to the available-balance model using the correct known opening balance. Do not compare a signed ledger sum with available plus locked funds; reservations transfer between balance states.
+- Without a trusted opening-balance snapshot or complete historical evidence, available-versus-ledger differences are inconclusive rather than proof of missing earnings or losses.
+- Reconcile known open-trade and pending-payout obligations separately against locked funds. Duplicate/missing wallet rows are structural exceptions; do not arbitrarily choose one duplicate row as authoritative.
+- Verify settlement reference uniqueness and ownership, fee-policy version and rounding, gross/fee/net arithmetic, principal and result ledger entry signs/counts/amounts, reservation identity/status and terminal lifecycle evidence.
+- Never recompute historical settlements with today's fee settings. Do not interpret missing historical outcomes as zero.
+- Keep audit results paginated and disclose number of rows examined, total count where available, remaining pages, evidence truncation and scan limits.
+- Corrections must preserve original entries and use separately permissioned, approved, uniquely referenced compensating entries. Ambiguous cases remain unresolved for manual financial review. Never rewrite ledger history or automatically invent the missing event.
+
+## 24. Required automated and manual acceptance
+
+A change is not complete merely because code or this guide exists. Add or update focused tests and run the required repository checks on the exact head commit.
+
+### 24.1 Customer interface
+
+- Trade menu navigation and direct-link access require authentication and respect account restrictions.
+- Package list, terms, qualification currency, duration, quotas, activation loading/success/failure, duplicate requests and insufficient qualifying balance all reflect server-confirmed state.
+- Activation is free and does not debit the qualifying balance merely for subscription.
+- No customer Trading On/Off, Opportunity On/Off or Auto Trade On/Off controls exist.
+- Opportunity cards reflect persisted delivery/eligibility states; insufficient balance shows required/available/shortfall and creates no financial movement.
+- Active, retrying, failed, awaiting settlement and terminal records remain distinguishable.
+- Every displayed financial amount is sourced from persisted records or explicitly labelled as an estimate/unavailable.
+- Expanded pop-ups, minimized dock, countdown, terminal dismissal, scrolling, refresh, multiple active cards, mobile view, keyboard navigation and screen-reader labels behave correctly without affecting server timing.
+- Empty/error/loading/retry states contain no fake trades or generated transactions.
+
+### 24.2 Package and worker behavior
+
+- A valid activation creates exactly one entitlement and triggers automatic server-side processing according to saved settings.
+- Expired, disabled, suspended, ineligible, restricted, unqualified and over-quota package entitlements do not allocate new capital.
+- A worker can process eligible work while the customer is signed out.
+- Concurrent workers/API calls, repeated jobs, timeouts and restarts do not duplicate the opportunity, allocation, reservation, ledger movement, notification or settlement.
+- Schedules, daily/hourly limits, burst sizes, maximum active allocations and combined earnings caps are enforced transactionally.
+- Global pause prevents new allocations as designed while existing trades remain safely observable and settle only with valid evidence.
+- Retry/backoff bounds and stale-work alerts behave as documented.
+
+### 24.3 Accounting and settlement
+
+- Insufficient funds, simultaneous allocation contention, lock conflict, transaction rollback and duplicate idempotency claims.
+- Principal reservation/commit and principal return are recorded once with correct available/locked balances.
+- Positive, zero, negative, rejected, cancelled and partially filled results are represented truthfully.
+- Fifteen-percent default fee is applied only to realized positive gross profit under the saved fee policy and exact rounding rule.
+- Fee, gross, net and principal-return arithmetic is tested with exact integer values.
+- Duplicate/missing/foreign settlement references, owner/currency mismatch, inconsistent reservation, early confirmation, insufficient locked principal, missing result evidence and repeated settlement are rejected or routed to explicit review.
+- Failed notification delivery does not turn a committed trade into a failure; notification success does not imply trade settlement.
+- Reconciliation detects duplicate wallet rows, incomplete coverage, malformed values, inconsistent fee snapshots and legacy unrecorded outcomes without mutating records.
+- Recovery tools remain read-only and cannot propose automated financial mutations.
+
+### 24.4 Admin portal and audit
+
+- Every Trade Settings area is reachable only with the correct role/permission.
+- Package, schedule, fee, risk, quota, retry and pause policy validation rejects invalid values and writes an audit record.
+- Policy version/effective-time and entitlement snapshots are honored.
+- Admin queues show real persisted trade, settlement and reconciliation records with clear pending/failed/review states.
+- Sensitive evidence and credentials are masked and unauthorized access is denied.
+- Financial corrections require explicit evidence, reason, authorization, idempotency key, and linked compensating entries.
+
+### 24.5 Company catalogue
+
+- IDs 1–1811 remain stable; the index, mapping, country groups and local image paths agree.
+- The 1,799 assigned and 12 Unverified country classifications remain accurately displayed.
+- Duplicate display names under different IDs are preserved; no fuzzy joins replace exact ID joins.
+- Unverified ticker/security data is not passed to live quote or order APIs.
+- Rotation is presentation-only and cannot allocate a trade, post to the ledger, or create a profit event.
+
+### 24.6 Repository checks and honest release evidence
+
+Use the repository-prescribed Node.js and pnpm versions and run, where the environment permits:
+
+~~~sh
+pnpm install --frozen-lockfile
+pnpm check
+pnpm test
+pnpm build
+~~~
+
+Also run focused package, worker, trade lifecycle, settlement, reconciliation, and admin-policy tests. Review changed files and links. Report the exact commit SHA, commands executed and their real outcomes. Automated checks, source review, database reconciliation, browser acceptance, hosted acceptance, deployment and production certification are separate gates. Never report a test as passed when it was not run, a provider order as executed when evidence is absent, or a deployment as complete because a PR was updated.
+
+## 25. Future implementation handoff checklist
+
+Before each future Trade/Trading task, the developer or coding agent must:
+
+1. Confirm the latest repository main SHA, the actual working branch and pull-request head, and current uncommitted changes.
+2. Read this full guide and inspect the relevant source, schema, migrations, server procedures, worker/schedule path, UI, tests and current deployed configuration when available.
+3. List the precise behavior gap and source evidence before changing code; do not repeat completed changes from earlier commits.
+4. Make the smallest coherent implementation, using ordered forward migrations and preserving existing financial history.
+5. Add tests for both the requested behavior and its security, concurrency, failure and accounting boundaries.
+6. Update this guide when intended behavior changes. Update other general documents only to maintain accurate status or point readers here; do not copy trading rules into a second guide.
+7. Run checks on the exact resulting commit, inspect the final diff, verify all links and search for conflicting trading instructions.
+8. Report what changed, what was deleted, what tests actually passed, what remains blocked/unverified, and whether the PR is still open, merged, deployed or production-certified. Never infer these states from each other.
