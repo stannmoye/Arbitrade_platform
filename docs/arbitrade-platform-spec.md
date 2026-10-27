@@ -1,4 +1,4 @@
-> **Single-source notice:** This is the older platform-wide architecture specification, not a Trade/Trading implementation guide. All trading-specific behavior—including customer Trade UI, package activation, opportunity data/calculation, automatic processing, execution, admin Trade Settings, ledger accounting, settlement, company catalogue, recovery and acceptance—is maintained only in `docs/TRADING_SYSTEM_SPECIFICATION.md`. The trading-specific sections that were previously in this file have been consolidated or replaced with pointers. Do not implement Trade/Trading behavior from historical snippets in this document.
+> **Single-source notice:** This is the older platform-wide architecture specification, not a Trade/Trading implementation guide. All trading-specific behavior—including customer Trade UI, admin-only package tiers and qualifying manual deposits, opportunity data/calculation, automatic processing, execution, admin Trade Settings, ledger accounting, settlement, company catalogue, recovery and acceptance—is maintained only in `docs/TRADING_SYSTEM_SPECIFICATION.md`. The trading-specific sections that were previously in this file have been consolidated or replaced with pointers. Do not implement Trade/Trading behavior from historical snippets in this document.
 
 # Arbitrade Platform Architecture, Compliance, and Deployment Context
 
@@ -104,7 +104,7 @@ The portal should expose only features allowed by the customer’s country, acco
 
 ### Opportunity and market intelligence; participation and portfolio
 
-Market/opportunity features and their source, data quality, risk, calculation, freshness, display and eligibility rules are defined only in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). Package activation, automatic processing without per-trade customer approval, allocation, active-trade states, portfolio values, exposure, profit/loss and settlement display are also defined only by that guide. This list is intentionally not repeated here.
+Market/opportunity features and their source, data quality, risk, calculation, freshness, display and eligibility rules are defined only in [the canonical Trade/Trading implementation guide](TRADING_SYSTEM_SPECIFICATION.md). Automatic tier assignment from qualifying admin manual deposits, processing without per-trade customer approval, allocation, active-trade states, portfolio values, exposure, profit/loss and settlement display are also defined only by that guide. This list is intentionally not repeated here.
 
 ### Trust, communications, and support
 
