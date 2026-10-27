@@ -65,4 +65,4 @@ pnpm installer:verify
 pnpm installer:diagnose
 ```
 
-Check `GET /api/health`, registration/login, password reset/email delivery if configured, admin role enforcement, private support upload/download authorization, generated assets, and local scheduled-job failure reporting. The source change alone cannot configure VPS secrets, provision local AI models, install OS packages, configure DNS/TLS, or validate external provider integrations. Trade/Trading acceptance remains governed by the canonical guide.
+Check `GET /api/health`, registration/login, password reset/email delivery if configured, admin role enforcement, private support upload/download authorization, generated assets, and local scheduled-job failure reporting. The source change alone cannot configure VPS secrets, provision local AI models, install OS packages, configure DNS/TLS, or validate integrations that claim external-market execution. An external execution provider is not a prerequisite for the internal-ledger Trade/Trading model; its acceptance criteria remain governed by the canonical guide, including persisted result evidence and ledger reconciliation.
