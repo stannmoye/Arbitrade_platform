@@ -5,8 +5,8 @@ const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 
 describe("server-side trading package eligibility", () => {
   it("blocks automatic opportunity delivery without a matching active subscription", () => {
-    const start = source.indexOf("export async function listCustomerOpportunities(");
-    const end = source.indexOf("export async function runAutoTradeCycle(", start);
+    const start = source.indexOf("export async function runCustomerOpportunityCycle(");
+    const end = source.indexOf("\nexport async function listCustomerOpportunities(", start);
     const implementation = source.slice(start, end);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
@@ -48,7 +48,7 @@ describe("server-side trading package eligibility", () => {
   });
   it("never auto-allocates a pending or retrying popup that was not delivered", () => {
     const start = source.indexOf("async function autoTradeOpenOpportunities(");
-    const end = source.indexOf("\nexport async function listCustomerOpportunities(", start);
+    const end = source.indexOf("\nexport async function runCustomerOpportunityCycle(", start);
     const implementation = source.slice(start, end);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
@@ -58,7 +58,7 @@ describe("server-side trading package eligibility", () => {
 
   it("does not permanently mark a delivered opportunity missed when an admin pauses allocations", () => {
     const start = source.indexOf("async function autoTradeOpenOpportunities(");
-    const end = source.indexOf("\nexport async function listCustomerOpportunities(", start);
+    const end = source.indexOf("\nexport async function runCustomerOpportunityCycle(", start);
     const implementation = source.slice(start, end);
     expect(implementation).toContain("if(/new trading allocations are paused by an administrator/i.test(message))");
     expect(implementation).toContain('status:"RETRYING"');

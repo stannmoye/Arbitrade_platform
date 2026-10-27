@@ -4,6 +4,7 @@ import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool } from "mysql2/promise";
 import { ENV } from "./_core/env";
 import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
+import { marketInstruments } from "../drizzle/schema";
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
@@ -2433,19 +2434,13 @@ export async function activateCustomerTradingPackage(userId:number,input:{packag
     });
     return {subscriptionId,packageId:Number(pkg.id),packageName:pkg.name,activatedAt:now,expiresAt,qualifyingBalanceUsdMinor,termsSnapshotJson:JSON.stringify(snapshot),replayed:false};
   });
-  let immediateCycle:any=null;
-  if(!result.replayed){
-    try { immediateCycle=await listCustomerOpportunities(userId,{consumeDelivery:false}); }
-    catch(error) { console.error("[AutoTrade] Immediate post-activation cycle failed:",error instanceof Error?error.message:"UnknownError"); }
-  }
   return {
     ...result,
     packageName:result.packageName??String((await db.select({name:packages.name}).from(packages).where(eq(packages.id,result.packageId)).limit(1))[0]?.name||""),
-    immediateCycle:immediateCycle?{autoTrades:immediateCycle.autoTrades||[],missed:immediateCycle.missed||[]}:null,
   };
 }
 
-export async function listOpportunityPackagePolicies() { const db=await getDb(); if(!db) throw new Error("Database is not available"); const existing=await db.select().from(opportunityPackagePolicies); const names=new Set(existing.map(row=>row.packageName)); for(const policy of DEFAULT_OPPORTUNITY_PACKAGE_POLICIES) if(!names.has(policy.packageName)) await db.insert(opportunityPackagePolicies).values(policy); return db.select().from(opportunityPackagePolicies); }
+export async function listOpportunityPackagePolicies(options:{seedDefaults?:boolean}={}) { const db=await getDb(); if(!db) throw new Error("Database is not available"); const existing=await db.select().from(opportunityPackagePolicies); if(options.seedDefaults===false) return existing; const names=new Set(existing.map(row=>row.packageName)); for(const policy of DEFAULT_OPPORTUNITY_PACKAGE_POLICIES) if(!names.has(policy.packageName)) await db.insert(opportunityPackagePolicies).values(policy); return db.select().from(opportunityPackagePolicies); }
 export async function updateOpportunityPackagePolicies(updatedBy:number, policies:any[]) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   for (const policy of policies) {
@@ -2587,7 +2582,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
   }
   return {executed,missed:await listMissedOpportunities(userId)};
 }
-export async function listCustomerOpportunities(userId:number, options:{consumeDelivery?:boolean}={}) {
+export async function runCustomerOpportunityCycle(userId:number) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const now=new Date();
   const quotaDay=now.toISOString().slice(0,10);
@@ -2781,11 +2776,118 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       balanceStatus:row.balanceStatus,expectedRewardBps:Number(row.expectedRewardBps),eventStatus:row.eventStatus,deliveredAt:row.deliveredAt,
       venueFrom:row.venueFrom||base.venueFrom||"",venueTo:row.venueTo||base.venueTo||"",opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,
       durationSeconds:Number(row.durationSeconds||base.durationSeconds||0),marketObservedAt:row.marketObservedAt,sector:row.sector,industry:row.industry,
-      listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus),automaticTrade:executed};
+      listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered"].includes(String(row.deliveryStatus)),automaticTrade:executed};
   });
   return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
 }
-export async function runAutoTradeCycle(){const db=await getDb();if(!db)throw new Error("Database is not available");const customers=await db.select({id:users.id}).from(users).where(eq(users.role,"user"));let allocations=0;for(const customer of customers){try{const result=await listCustomerOpportunities(customer.id,{consumeDelivery:false});allocations+=result.autoTrades.length;}catch(error){console.error(`[AutoTrade] Customer ${customer.id} cycle failed:`,error instanceof Error?error.message:error);}}return {customers:customers.length,allocations};}
+export async function listCustomerOpportunities(userId:number) {
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const now=new Date();
+  const emptyResult=async (delivery:any)=>({offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled:[],delivery});
+  const controls=(await db.select({accountStatus:customerControls.accountStatus}).from(customerControls).where(eq(customerControls.userId,userId)).limit(1))[0];
+  if((controls?.accountStatus??"active")!=="active") return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,accountInactive:true,popupPolicy:{}});
+  const subscriptions=await db.select({
+    subscriptionId:customerPackageSubscriptions.id,packageId:packages.id,packageName:packages.name,
+    packageQuota:packages.opportunitiesPerDay,termsVersion:packages.termsVersion,termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
+    expiresAt:customerPackageSubscriptions.expiresAt,startsAt:customerPackageSubscriptions.startsAt,
+  }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
+    .where(and(eq(customerPackageSubscriptions.userId,userId),eq(customerPackageSubscriptions.status,"active"),
+      lte(customerPackageSubscriptions.startsAt,now),or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,now)),
+      eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,now)),
+      or(isNull(packages.expiresAt),gt(packages.expiresAt,now)))).orderBy(customerPackageSubscriptions.expiresAt);
+  if(!subscriptions.length) return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,noPackage:true,popupPolicy:{}});
+  const packagePolicies=await listOpportunityPackagePolicies({seedDefaults:false});
+  const policyByName=new Map<string,typeof packagePolicies[number]>();
+  for(const policyRow of packagePolicies) policyByName.set(policyRow.packageName,policyRow);
+  const eligibleSubscriptions=subscriptions.filter(subscription=>{
+    const configured=policyByName.get(subscription.packageName);
+    return !configured||(Boolean(configured.enabled)&&configured.automaticDelivery!==false);
+  });
+  if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}});
+  const quotaFor=(subscription:any)=>{
+    try { const snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}")); const value=Number(snapshot.opportunitiesPerDay??subscription.packageQuota); return Number.isSafeInteger(value)&&value>0?value:0; }
+    catch { const value=Number(subscription.packageQuota); return Number.isSafeInteger(value)&&value>0?value:0; }
+  };
+  const quotaByPackage=new Map<string,number>();
+  for(const subscription of eligibleSubscriptions) quotaByPackage.set(subscription.packageName,(quotaByPackage.get(subscription.packageName)||0)+quotaFor(subscription));
+  const combinedQuota=[...quotaByPackage.values()].reduce((sum,value)=>sum+value,0);
+  if(combinedQuota<=0) return emptyResult({packageName:eligibleSubscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packageQuotaExhausted:true,popupPolicy:{}});
+  const configuredPolicies=eligibleSubscriptions.map(subscription=>policyByName.get(subscription.packageName)).filter((row:any)=>Boolean(row));
+  const policy=configuredPolicies[0]||null;
+  const packageName=[...new Set(eligibleSubscriptions.map(subscription=>subscription.packageName))].join(", ");
+  const adminDeliveryCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);return sum+(row?Math.max(0,Number(row.maxPopupsPerDay)||0):quotaFor(subscription));},0);
+  const adminVisibleCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);return sum+(row?Math.max(0,Number(row.maxVisibleOffers)||0):quotaFor(subscription));},0);
+  const maxPopupsPerDay=Math.min(combinedQuota,adminDeliveryCap||combinedQuota);
+  const maxVisibleOffers=Math.min(combinedQuota,adminVisibleCap||combinedQuota);
+  const dailyCap=Math.min(maxPopupsPerDay,maxVisibleOffers);
+  const popupPolicy={
+    popupMinGapSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
+    popupDisplaySeconds:Math.max(1,Number(policy?.popupDisplayTargetSeconds||120)),
+    popupMaxPerHour:maxPopupsPerDay,
+    popupPreAlertProbabilityBps:0,popupPreAlertSeconds:0,popupWithdrawalProbabilityBps:0,
+    popupJitterSeconds:Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)),
+  };
+  const activePopupRows=await db.select({
+    eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
+    offerStatus:opportunityOffers.status,instrumentId:opportunityOffers.instrumentId,
+    companyName:marketInstruments.name,country:marketInstruments.country,exchange:marketInstruments.exchange,
+    instrumentListingStatus:marketInstruments.listingStatus,
+    symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
+    expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
+    balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,
+    deliveredAt:opportunityPopupEvents.deliveredAt,venueFrom:opportunityOffers.venueFrom,venueTo:opportunityOffers.venueTo,
+    opensAt:opportunityOffers.opensAt,closesAt:opportunityOffers.closesAt,rewardAt:opportunityOffers.rewardAt,
+    durationSeconds:opportunityOffers.durationSeconds,marketObservedAt:opportunityOffers.marketObservedAt,
+    marketSnapshotId:opportunityOffers.marketSnapshotId,sector:opportunityOffers.sector,industry:opportunityOffers.industry,
+    listingStatus:opportunityOffers.listingStatus,
+  }).from(opportunityPopupEvents).leftJoin(opportunityOffers,eq(opportunityPopupEvents.offerId,opportunityOffers.id))
+    .leftJoin(marketInstruments,eq(opportunityOffers.instrumentId,marketInstruments.id))
+    .where(and(eq(opportunityPopupEvents.userId,userId),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED"])))
+    .orderBy(desc(opportunityPopupEvents.deliveredAt));
+  const lastDelivery=Number(policy?.postCompletionIntervalSeconds||0)>0
+    ?(await db.select({deliveredAt:opportunityDeliveryEvents.deliveredAt}).from(opportunityDeliveryEvents).where(eq(opportunityDeliveryEvents.userId,userId)).orderBy(desc(opportunityDeliveryEvents.deliveredAt)).limit(1))[0]
+    :undefined;
+  const formulaReadyAt=lastDelivery?new Date(new Date(lastDelivery.deliveredAt).getTime()+Number(policy?.postCompletionIntervalSeconds||0)*1000):null;
+  const formulaCooling=Boolean(formulaReadyAt&&formulaReadyAt.getTime()>now.getTime());
+  const offers=activePopupRows.map(row=>({
+    id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageName:row.packageName,
+    offerStatus:row.offerStatus,instrumentId:row.instrumentId,companyName:row.companyName,country:row.country,
+    exchange:row.exchange,instrumentListingStatus:row.instrumentListingStatus,
+    symbol:row.symbol,currency:row.currency,minimumMinor:Number(row.popupMinimumMinor),
+    balanceAvailableMinor:Number(row.balanceAvailableMinor),balanceStatus:row.balanceStatus,
+    expectedRewardBps:Number(row.expectedRewardBps||0),eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus,deliveredAt:row.deliveredAt,
+    venueFrom:row.venueFrom||"",venueTo:row.venueTo||"",opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,
+    durationSeconds:Number(row.durationSeconds||0),marketObservedAt:row.marketObservedAt,marketSnapshotId:row.marketSnapshotId,
+    sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,
+    popupEligible:row.offerStatus==="open"&&row.closesAt!==null&&row.closesAt.getTime()>now.getTime()&&["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered"].includes(String(row.deliveryStatus)),
+  }));
+  return {
+    offers,missed:await listMissedOpportunities(userId),autoTrades:[],settled:[],
+    delivery:{packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers,enabled:dailyCap>0,formulaCooling,formulaReadyAt,
+      nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),
+      rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy},
+  };
+}
+export async function runAutoTradeCycle(){
+  const db=await getDb();if(!db)throw new Error("Database is not available");
+  const customers=await db.select({id:users.id}).from(users).where(eq(users.role,"user"));
+  let allocations=0;
+  for(const customer of customers){
+    try{
+      const result=await runCustomerOpportunityCycle(customer.id);
+      allocations+=result.autoTrades.length;
+      for(const trade of result.autoTrades){
+        const notices=[
+          {title:"Automatic trading allocation confirmed",body:`${trade.symbol} was allocated from your available ${trade.currency} balance.`,eventKey:`auto-trade-allocation:${trade.tradeId}`,category:"trading",priority:"normal"},
+          {title:"Balance debited",body:`${trade.amountMinor} minor units of ${trade.currency} were reserved for the automatic allocation.`,eventKey:`auto-trade-debit:${trade.tradeId}`,category:"ledger_debit",priority:"normal"},
+        ] as const;
+        const outcomes=await Promise.allSettled(notices.map(notice=>createNotification(customer.id,notice.title,notice.body,{eventKey:notice.eventKey,category:notice.category,priority:notice.priority})));
+        if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] Automatic allocation notices failed after ledger commit.");
+      }
+    }catch(error){console.error(`[AutoTrade] Customer ${customer.id} cycle failed:`,error instanceof Error?error.message:error);}
+  }
+  return {customers:customers.length,allocations};
+}
 export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number;packageId?:number}){
  const db=await getDb();if(!db)throw new Error("Database is not available");
  return db.transaction(async tx=>{
@@ -2980,10 +3082,16 @@ export async function listTrades(userId:number){
     creditAt:tradePositions.creditAt,
     settledAt:tradePositions.settledAt,
     symbol:opportunityOffers.symbol,
+    instrumentId:opportunityOffers.instrumentId,
+    companyName:marketInstruments.name,
+    country:marketInstruments.country,
+    exchange:marketInstruments.exchange,
+    instrumentListingStatus:marketInstruments.listingStatus,
     venueFrom:opportunityOffers.venueFrom,
     venueTo:opportunityOffers.venueTo,
   }).from(tradePositions)
     .leftJoin(opportunityOffers,eq(opportunityOffers.id,tradePositions.offerId))
+    .leftJoin(marketInstruments,eq(opportunityOffers.instrumentId,marketInstruments.id))
     .where(eq(tradePositions.userId,userId))
     .orderBy(desc(tradePositions.confirmedAt));
   return rows.map(row=>{
