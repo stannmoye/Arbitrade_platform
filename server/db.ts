@@ -1696,12 +1696,25 @@ export async function listAdminCustomers(){
       or(isNull(packages.expiresAt),gt(packages.expiresAt,now))));
   const packageByUser=new Map<number,string[]>();
   for(const subscription of activePackages){const names=packageByUser.get(subscription.userId)||[];names.push(subscription.packageName);packageByUser.set(subscription.userId,names);}
+  const qualifyingLedgerRows=await db.select({
+    userId:balanceLedger.userId,
+    qualifyingDepositUsdMinor:balanceLedger.qualifyingDepositUsdMinor,
+    entryType:balanceLedger.entryType,
+  }).from(balanceLedger).where(inArray(balanceLedger.entryType,["admin_manual_deposit_credit","admin_manual_deposit_reversal"]));
+  const qualifyingUsdMinorByUser=new Map<number,number>();
+  for(const entry of qualifyingLedgerRows){
+    const attributed=Number(entry.qualifyingDepositUsdMinor||0);
+    if(!Number.isSafeInteger(attributed)) continue;
+    qualifyingUsdMinorByUser.set(entry.userId,(qualifyingUsdMinorByUser.get(entry.userId)||0)+attributed);
+  }
   return rows.filter(row=>row.role!=="admin").map(row=>{
     const control=byUser.get(row.id);
-    const purchasedPackages=[...new Set(packageByUser.get(row.id)||[])];
-    const packageLabel=purchasedPackages.length?purchasedPackages.join(", "):"No active package";
+    const assignedTiers=[...new Set(packageByUser.get(row.id)||[])];
+    const packageLabel=assignedTiers.length?assignedTiers.join(", "):"No active tier";
+    const qualifyingUsdMinor=Math.max(0,qualifyingUsdMinorByUser.get(row.id)||0);
     return {id:row.id,name:row.name||row.email||"Customer",email:row.email||"",package:packageLabel,group:packageLabel,
-      status:control?.accountStatus||"active",accountState:control?.accountStatus||"active",opportunities:"Package-based automatic execution",
+      qualifyingDepositUsd:qualifyingUsdMinor/100,
+      status:control?.accountStatus||"active",accountState:control?.accountStatus||"active",opportunities:"Automatically assigned tier allowance",
       kyc:control?.kycRequired??true,withdrawals:control?.withdrawalsEnabled??false,twofa:control?.twoFactorRequired??false,
       facial:false,emailVerified:control?.emailVerified??false,riskTier:control?.riskTier||"standard",adminNote:control?.adminNote||"",createdAt:row.createdAt};
   });
