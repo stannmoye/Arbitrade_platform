@@ -710,7 +710,7 @@ function AdminCurrencies(){const q=trpc.adminOperations.currencies.useQuery(unde
 
 function AdminTradingPackageCatalogue(){
   const q=trpc.adminOperations.tradingPackages.useQuery(undefined,{refetchInterval:30000});
-  const update=trpc.adminOperations.updateTradingPackage.useMutation({onSuccess:()=>{q.refetch();setMessage("Tier terms saved. Runtime eligibility and limits use the persisted configuration.")},onError:e=>setMessage(e.message)});
+  const update=trpc.adminOperations.updateTradingPackage.useMutation({onSuccess:()=>{q.refetch();setMessage("Tier terms saved. Future automatic assignments use the updated terms; existing entitlement snapshots retain their saved threshold, quota, duration and caps. Enabled state and effective dates govern current eligibility.")},onError:e=>setMessage(e.message)});
   const [drafts,setDrafts]=useState<Record<number,any>>({});
   const [newTier,setNewTier]=useState<any>({name:"",minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6,maxPopupsPerDay:0,maxActiveInvestments:0,startsAt:"",expiresAt:"",enabled:false});
   const create=trpc.adminOperations.createTradingPackage.useMutation({onSuccess:()=>{q.refetch();setNewTier({name:"",minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6,maxPopupsPerDay:0,maxActiveInvestments:0,startsAt:"",expiresAt:"",enabled:false});setMessage("New Trading tier created and audited.")},onError:e=>setMessage(e.message)});
