@@ -10,6 +10,8 @@ const policyMigrationSource = readFileSync(new URL("../drizzle/0081_trading_tier
 const customerAppSource = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const eligibilityComponent = readFileSync(new URL("../client/src/components/CustomerTradingEligibility.tsx", import.meta.url), "utf8");
 const specification = readFileSync(new URL("../docs/TRADING_SYSTEM_SPECIFICATION.md", import.meta.url), "utf8");
+const serverEntrypointSource = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
+const qualificationQueueMigrationSource = readFileSync(new URL("../drizzle/0082_trading_tier_qualification_jobs.sql", import.meta.url), "utf8");
 
 describe("Automatic Trading tier qualification", () => {
   it("records qualifying-deposit attribution and conversion evidence on ledger entries", () => {
@@ -205,6 +207,34 @@ describe("Automatic Trading tier qualification", () => {
     expect(routerSource).toContain("maxActiveInvestments: z.number().int().min(0).max(10000)");
     expect(customerAppSource).toContain("Tier starts at (your local time; blank = immediately)");
     expect(customerAppSource).toContain("Maximum active investments (0 = no tier-specific cap)");
+  });
+
+  it("atomically queues each qualifying administrator credit or reversal for server-side tier reconciliation", () => {
+    expect(schemaSource).toContain('export const tradingTierQualificationJobs = mysqlTable("trading_tier_qualification_jobs"');
+    expect(schemaSource).toContain('sourceLedgerId: int("sourceLedgerId").notNull().unique()');
+    expect(qualificationQueueMigrationSource).toContain("UNIQUE KEY `trading_tier_qualification_jobs_source_ledger_uq` (`sourceLedgerId`)");
+    expect(databaseSource).toContain("await tx.insert(tradingTierQualificationJobs).values");
+    expect(databaseSource).toContain("sourceLedgerId:ledgerId,status:\"pending\"");
+    expect(databaseSource).toContain("Atomic outbox: the ledger entry and its tier-qualification job commit together.");
+  });
+
+  it("runs an indexed, bounded, retryable qualification queue worker independently of customer sessions", () => {
+    expect(databaseSource).toContain("export async function runTradingTierQualificationWorkerCycle");
+    expect(databaseSource).toContain(".limit(batchSize).for(\"update\")");
+    expect(databaseSource).toContain("staleLeaseBefore");
+    expect(databaseSource).toContain("status:exhausted?\"dead\":\"pending\"");
+    expect(databaseSource).toContain("await ensureAutomaticTradingTierEntitlements(Number(job.userId))");
+    expect(serverEntrypointSource).toContain("runTradingTierQualificationWorkerCycle({batchSize:20})");
+    expect(serverEntrypointSource).toContain("},5_000)");
+    expect(serverEntrypointSource).toContain("tradingTierQualificationTimer.unref()");
+  });
+
+  it("keeps qualification jobs durable and observable without scanning all customers on idle worker cycles", () => {
+    expect(schemaSource).toContain('statusAvailableIdx: index("trading_tier_qualification_jobs_status_available_idx")');
+    expect(qualificationQueueMigrationSource).toContain("KEY `trading_tier_qualification_jobs_status_available_idx` (`status`, `availableAt`, `id`)");
+    expect(databaseSource).toContain("return {claimed:jobs.length,completed,retrying,dead}");
+    expect(databaseSource).toContain('console.error("[TradingTierWorker] qualification job failed"');
+    expect(specification).toContain("The idle worker performs an indexed queue lookup");
   });
 
   it("documents the owner-approved automatic-deposit policy", () => {
