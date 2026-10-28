@@ -2891,6 +2891,11 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     throw new Error("New trading allocations are paused by an administrator: " + (allocationControls.reason || "system safety pause"));
   }
 
+  // The ceiling spans currencies and packages, so wallet-row locks alone are insufficient.
+  // Serialize this customer's allocation transactions before aggregating realized and reserved capacity.
+  const ceilingUserLock=(await tx.select({id:users.id}).from(users).where(eq(users.id,userId)).limit(1).for("update"))[0];
+  if(!ceilingUserLock) throw new Error("Customer account is unavailable for allocation");
+
   const settlementPolicy=await getTradeSettlementPolicy();
 
   const totalWalletFunds=(await tx.select({availableMinor:sql`COALESCE(SUM(${customerBalances.availableMinor}),0)`}).from(customerBalances).where(eq(customerBalances.userId,userId)))[0]; if(Number(totalWalletFunds?.availableMinor||0)<=0) throw new Error("Trading is unavailable until at least one wallet has available funds");

@@ -145,3 +145,10 @@ Next: add database-backed integration coverage for concurrent cross-currency res
 Completed the next acceptance slice on top of `ca73fce3`. Calendar-day ceiling windows now resolve actual local midnights from the configured IANA timezone, including 23-hour spring-forward and 25-hour fall-back days, instead of assuming every day is 24 UTC hours. Added regression coverage for `America/New_York` daylight-saving boundaries.
 
 Validation passed: `pnpm check`; `pnpm test` (746 passed, 15 skipped); `pnpm build`; focused earnings-ceiling and Trading tests. The remaining acceptance gap is database-backed concurrency testing against a MySQL-compatible test database, which was not available in this sandbox; no production database was touched.
+
+
+## Follow-up — 2026-10-28 — earnings-ceiling concurrency hardening
+
+Completed the remaining code-side concurrency acceptance work on top of `e9d8e02a`. New customer allocations now acquire a `FOR UPDATE` lock on the customer row before aggregating realized net profit and active reservations, because wallet-row locks alone do not serialize different-currency allocations. Added a contract guard and an optional disposable MySQL/MariaDB integration test that starts two transactions and proves the second customer lock waits for the first to commit.
+
+The integration test uses `CEILING_TEST_DATABASE_URL` and is safely skipped in this sandbox because no disposable MySQL/MariaDB test database is configured. Validation passed locally: `pnpm check`; `pnpm test` (747 passed, 16 skipped); `pnpm build`; focused concurrency and ceiling tests. No production database or live trade was touched.
