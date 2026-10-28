@@ -93,3 +93,11 @@ Database changes should use ordered forward migrations and retry-safe server-sid
 - The expanded pop-up must have Minimize; its fixed bottom-of-viewport dock must remain visible during scrolling and show the countdown/status plus Maximize. Minimize/maximize must not alter server-owned trade timing or accounting.
 - Do not dismiss a card solely because its expanded timeout expires or countdown reaches zero. Dismiss only after countdown completion and an authoritative terminal status; keep pending/retrying/unsettled items accessible.
 - Update the canonical specification and acceptance checklist alongside relevant implementation changes. Test country/flag fallback, scrolling persistence, minimize/maximize, multiple concurrent cards, countdown expiry, terminal dismissal, and unavailable/estimated/settled financial fields.
+
+## Trading tier qualification — credit-time wallet FX (authoritative)
+
+- Only qualifying credits manually submitted by an authorized administrator through the admin portal's Credit Customer / wallet-credit form may count toward Trading tier thresholds.
+- For a qualifying credit in any enabled non-USD wallet, fetch and validate a live USD conversion rate from the currency-appropriate API at credit time (Frankfurter/ECB for supported fiat; CoinGecko for registered crypto/tokens using their configured external asset ID). Store the exact rate, provider, source timestamp, USD-minor attribution and FX snapshot evidence with the committed ledger credit. USD uses a 1:1 rate.
+- Never use a manually edited or stale currency-registry rate as a fallback. Fail closed for qualifying classification if the provider cannot price the wallet or the rate is invalid/stale. Do not silently turn a failed qualifying credit into a non-qualifying credit.
+- The administrator customer directory must show automatically assigned active Trading tiers and the customer's cumulative qualifying USD amount.
+- This qualification-only valuation must not alter ordinary wallet transfers, transfer balances, or transfer ledger semantics.
