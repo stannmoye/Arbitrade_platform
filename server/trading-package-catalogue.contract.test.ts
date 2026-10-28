@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(new URL("../drizzle/0069_trading_package_activation.sql", import.meta.url), "utf8");
+const automaticPolicyMigration = readFileSync(new URL("../drizzle/0080_qualifying_admin_deposit_attribution.sql", import.meta.url), "utf8");
+const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
+const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const insert = migration.match(/INSERT INTO `packages` \(`name`,`minimumQualifyingBalanceUsdMinor`,`durationMonths`,`opportunitiesPerDay`,`termsVersion`,`enabled`\)\s*VALUES([\s\S]*?)ON DUPLICATE KEY UPDATE/i)?.[1] ?? "";
 const seededPackages = [...insert.matchAll(/\('([^']+)',(\d+),(\d+),(\d+),1,1\)/g)].map((match) => ({
   name: match[1],
@@ -29,7 +32,7 @@ const expectedPackages = [
   ["Paramount Capital Reserve", 15000000, 24, 30],
 ] as const;
 
-describe("canonical 16-package trading catalogue", () => {
+describe("administrator-managed 16-tier Trading catalogue", () => {
   it("seeds every approved package with the specified threshold, calendar duration and daily quota", () => {
     expect(seededPackages).toEqual(expectedPackages.map(([name, minimumUsdMinor, durationMonths, opportunitiesPerDay]) => ({
       name, minimumUsdMinor, durationMonths, opportunitiesPerDay,
@@ -48,9 +51,13 @@ describe("canonical 16-package trading catalogue", () => {
     expect(migration).toContain("UPDATE `packages` SET `enabled`=0 WHERE `name` IN ('Starter','Growth','Pro','Institutional')");
   });
 
-  it("preserves the six-hour activation cooldown default and repeat-purchase controls", () => {
-    expect(migration).toContain("('trading.packagePurchase.cooldownSeconds','21600')");
-    expect(migration).toContain("('trading.packagePurchase.repeatAllowed','false')");
-    expect(migration).toContain("('trading.packagePurchase.repeatRestriction','active_only')");
+  it("removes legacy customer activation settings and endpoints in the forward policy migration", () => {
+    expect(automaticPolicyMigration).toContain("DELETE FROM `app_settings`");
+    expect(automaticPolicyMigration).toContain("trading.packagePurchase.repeatAllowed");
+    expect(automaticPolicyMigration).toContain("trading.packagePurchase.cooldownSeconds");
+    expect(router).not.toContain("activateTradingPackage:");
+    expect(router).not.toContain("tradingPackages: protectedProcedure.query");
+    expect(database).not.toContain("activateCustomerTradingPackage");
+    expect(database).not.toContain("listCustomerTradingPackages");
   });
 });
