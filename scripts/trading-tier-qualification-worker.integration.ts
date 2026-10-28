@@ -280,9 +280,11 @@ try {
   // schema without executing trades or touching wallet balances.
   const firstOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
   const secondOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
+  const endOfPassBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
   const wrappedOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
   assert.equal(firstOpportunityBatch.customers.length, 1);
   assert.equal(secondOpportunityBatch.customers.length, 1);
+  assert.equal(endOfPassBatch.customers.length, 0, "The end-of-pass tick must not immediately re-claim the first page.");
   assert.equal(wrappedOpportunityBatch.customers.length, 1);
   const scheduledUserIds = [
     Number(firstOpportunityBatch.customers[0].id),
@@ -291,7 +293,7 @@ try {
   assert.notEqual(scheduledUserIds[0], scheduledUserIds[1], "The locked cursor must advance to a different eligible customer.");
   assert.deepEqual(new Set(scheduledUserIds), new Set([userId, creditPathUserId]));
   assert.equal(Number(wrappedOpportunityBatch.customers[0].id), scheduledUserIds[0],
-    "When the cursor reaches the last eligible customer, the scheduler must wrap to the first.");
+    "The next tick after cursor reset must restart at the first eligible customer.");
 
   const jobRows = await db.select().from(tradingTierQualificationJobs)
     .where(inArray(tradingTierQualificationJobs.id, createdJobIds));
