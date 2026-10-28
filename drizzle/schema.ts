@@ -379,6 +379,7 @@ export const balanceLedger = mysqlTable("balance_ledger", {
   qualifyingDepositRate: varchar("qualifyingDepositRate", { length: 64 }),
   qualifyingDepositRateProvider: varchar("qualifyingDepositRateProvider", { length: 120 }),
   qualifyingDepositRateAt: timestamp("qualifyingDepositRateAt"),
+  qualifyingDepositReversalOfId: int("qualifyingDepositReversalOfId"),
   entryType: varchar("entryType", { length: 40 }).notNull(),
   reference: varchar("reference", { length: 80 }).notNull(),
   withdrawable: boolean("withdrawable").default(false).notNull(),
