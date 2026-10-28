@@ -2724,10 +2724,11 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const today=new Date().toISOString().slice(0,10);
   const todayStartUtc=new Date(`${today}T00:00:00.000Z`);
   const tomorrowStartUtc=new Date(todayStartUtc.getTime()+24*60*60*1000);
-  const activePackageSubscriptions=await tx.select({
+  const activePackageSubscriptions=(await tx.select({
     subscriptionId:customerPackageSubscriptions.id,
     packageId:packages.id,
     packageName:packages.name,
+    activationKey:customerPackageSubscriptions.activationKey,
     packageQuota:packages.opportunitiesPerDay,
     maxActiveInvestments:packages.maxActiveInvestments,
     termsVersion:packages.termsVersion,
@@ -2742,8 +2743,9 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
       eq(packages.enabled,true),
       or(isNull(packages.startsAt),lte(packages.startsAt,now)),
       or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
-    )).orderBy(customerPackageSubscriptions.expiresAt).for("update");
-  if(!activePackageSubscriptions.length) throw new Error("An eligible active trading package subscription is required");
+    )).orderBy(customerPackageSubscriptions.expiresAt).for("update"))
+    .filter(subscription=>String(subscription.activationKey||"").startsWith("auto-tier:"));
+  if(!activePackageSubscriptions.length) throw new Error("An automatically assigned eligible Trading tier is required");
 
   const packagePolicies=await tx.select().from(opportunityPackagePolicies)
     .where(inArray(opportunityPackagePolicies.packageName,activePackageSubscriptions.map(row=>row.packageName))).for("update");
@@ -2753,7 +2755,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     const configured=policyByName.get(subscription.packageName);
     return !configured||(Boolean(configured.enabled)&&configured.automaticTradingEnabled!==false);
   });
-  if(!eligibleSubscriptions.length) throw new Error("New allocations are paused for all active package policies");
+  if(!eligibleSubscriptions.length) throw new Error("New allocations are paused for all eligible Trading tier policies");
   const quotaRows=await tx.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL AND confirmedAt>=${todayStartUtc} AND confirmedAt<${tomorrowStartUtc} AND status<>'cancelled' GROUP BY packageSubscriptionId`) as any;
   const usedBySubscription=new Map<number,number>();
   for(const row of (quotaRows?.[0]||[])) usedBySubscription.set(Number(row.packageSubscriptionId),Number(row.used||0));
@@ -2764,7 +2766,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     const used=usedBySubscription.get(Number(subscription.subscriptionId))||0;
     return Number.isSafeInteger(dailyQuota)&&dailyQuota>0&&used<dailyQuota;
   });
-  if(!subscriptionsWithQuota.length) throw new Error("All active package opportunity quotas have been used for today");
+  if(!subscriptionsWithQuota.length) throw new Error("All eligible Trading tier opportunity quotas have been used for today");
   const requestedSubscription=input.packageSubscriptionId
     ? subscriptionsWithQuota.find(subscription=>Number(subscription.subscriptionId)===input.packageSubscriptionId&&(!input.packageId||Number(subscription.packageId)===input.packageId))
     : undefined;
@@ -2772,7 +2774,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     ? subscriptionsWithQuota.find(subscription=>Number(subscription.packageId)===input.packageId)
     : undefined;
   if((input.packageSubscriptionId||input.packageId)&&!requestedSubscription&&!samePackageSubscription) {
-    throw new Error("The selected package has no remaining quota or is no longer eligible");
+    throw new Error("The selected Trading tier has no remaining quota or is no longer eligible");
   }
   const activePackageSubscription=requestedSubscription||samePackageSubscription||(!input.packageSubscriptionId&&!input.packageId?subscriptionsWithQuota[0]:undefined);
   if(!activePackageSubscription) throw new Error("No eligible package subscription remains for this allocation");
