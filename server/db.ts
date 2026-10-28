@@ -2581,7 +2581,8 @@ export async function getCustomerTradingEligibility(userId:number) {
     eq(packages.enabled,true),
     or(isNull(packages.startsAt),lte(packages.startsAt,now)),
     or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
-  )).orderBy(asc(packages.minimumQualifyingBalanceUsdMinor));
+  ));
+  tiers.sort((a,b)=>Number(a.minimumQualifyingBalanceUsdMinor)-Number(b.minimumQualifyingBalanceUsdMinor));
   const nextTier=tiers.find(tier=>Number(tier.minimumQualifyingBalanceUsdMinor)>qualifyingDepositUsdMinor);
   const currentPackage=activePackages[0]||null;
   const nextPackage=nextTier?{
