@@ -1,9 +1,55 @@
 import { describe, expect, it } from "vitest";
-import { canReserveReward, chooseNextEligibleAt, getWindowKey, remainingRewardAllowance, validatePackageAutomationPolicy, type PackageAutomationPolicy } from "./advanced-auto-trading";
+import { canReserveReward, chooseNextEligibleAt, getChangedPackagePolicyFields, getWindowKey, mergePackageAutomationPolicySettings, remainingRewardAllowance, validatePackageAutomationPolicy, type PackageAutomationPolicy } from "./advanced-auto-trading";
 
 const base: PackageAutomationPolicy = { packageName: "Pro", automaticDelivery: true, dailyPopupTarget: 10, schedulingPeriod: "calendar_day", minIntervalSeconds: 45, maxIntervalSeconds: 3600, randomizationEnabled: true, popupDisplayTargetSeconds: 120, completionDisplaySeconds: 8, postCompletionIntervalSeconds: 30, maxPendingDeliveries: 3, maxDeliveryAttempts: 3, automaticTradingEnabled: true, maxTradeAttemptsPerDay: 5, tradeRetryDelaySeconds: 30, maxSuccessfulTradesPerDay: 5, maxConcurrentActiveTrades: 1, requirePreviousSettlement: true, minSettlementDelaySeconds: 900, maxSettlementDelaySeconds: 900, minimumRewardBps: 0, maxDailyRewardMinor: 10000, maxRewardPerTradeMinor: 3000, closePolicy: "after_final_display" };
 
 describe("advanced automatic trading policy", () => {
+  it("preserves stored automation settings when the admin form submits only package limits", () => {
+    const existing = {
+      ...base,
+      enabled: false,
+      automaticDelivery: false,
+      dailyPopupTarget: 17,
+      minIntervalSeconds: 120,
+      maxIntervalSeconds: 600,
+      randomizationEnabled: false,
+      automaticTradingEnabled: false,
+    };
+    const merged = mergePackageAutomationPolicySettings(
+      { packageName: "Pro", maxPopupsPerDay: 30 },
+      existing,
+    );
+
+    expect(merged).toMatchObject({
+      enabled: false,
+      automaticDelivery: false,
+      dailyPopupTarget: 17,
+      minIntervalSeconds: 120,
+      maxIntervalSeconds: 600,
+      randomizationEnabled: false,
+      automaticTradingEnabled: false,
+      maxDailyRewardMinor: base.maxDailyRewardMinor,
+    });
+  });
+
+  it("applies explicitly submitted automation values and detects only changed fields", () => {
+    const merged = mergePackageAutomationPolicySettings(
+      { packageName: "Pro", maxPopupsPerDay: 30, dailyPopupTarget: 22, randomizationEnabled: true },
+      { ...base, dailyPopupTarget: 17, randomizationEnabled: false },
+    );
+
+    expect(merged.dailyPopupTarget).toBe(22);
+    expect(merged.randomizationEnabled).toBe(true);
+    expect(getChangedPackagePolicyFields(
+      { packageName: "Pro", dailyPopupTarget: 17, randomizationEnabled: false },
+      { packageName: "Pro", dailyPopupTarget: 22, randomizationEnabled: true },
+    )).toEqual(["dailyPopupTarget", "randomizationEnabled"]);
+    expect(getChangedPackagePolicyFields(
+      { packageName: "Pro", dailyPopupTarget: 22 },
+      { packageName: "Pro", dailyPopupTarget: 22 },
+    )).toEqual([]);
+  });
+
   it("rejects unsafe interval and cap combinations", () => {
     expect(() => validatePackageAutomationPolicy({ ...base, minIntervalSeconds: 500, maxIntervalSeconds: 10 })).toThrow(/interval/);
     expect(() => validatePackageAutomationPolicy({ ...base, maxRewardPerTradeMinor: 10001, maxDailyRewardMinor: 10000 })).toThrow(/per trade/);

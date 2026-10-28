@@ -13,7 +13,7 @@ import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportuni
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
 import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
-import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
+import { getChangedPackagePolicyFields, mergePackageAutomationPolicySettings, validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
@@ -2452,19 +2452,54 @@ export async function listPersistedOpportunityPackagePolicies() {
   if (!db) throw new Error("Database is not available");
   return db.select().from(opportunityPackagePolicies);
 }
-export async function updateOpportunityPackagePolicies(updatedBy:number, policies:any[]) {
-  const db=await getDb(); if(!db) throw new Error("Database is not available");
-  for (const policy of policies) {
+export async function updateOpportunityPackagePolicies(updatedBy:number, policies:any[], reason:string) {
+  if(!Number.isSafeInteger(updatedBy)||updatedBy<=0) throw new Error("Administrator identity is required");
+  const changeReason=String(reason??"").trim();
+  if(changeReason.length<10||changeReason.length>500) throw new Error("Provide a package-policy change reason between 10 and 500 characters");
+  if(!Array.isArray(policies)||policies.length<1||policies.length>20) throw new Error("Submit between 1 and 20 package policies");
+  const packageNames=new Set<string>();
+  for(const policy of policies){
+    if(!policy||typeof policy.packageName!=="string"||!policy.packageName.trim()||policy.packageName.length>40) throw new Error("A valid package name is required");
+    const packageNameKey=policy.packageName.trim().toLowerCase();
+    if(packageNames.has(packageNameKey)) throw new Error(`Package policy ${policy.packageName} appears more than once`);
+    packageNames.add(packageNameKey);
     if(policy.minHourlyTarget>policy.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
-    if(policy.normalHourlyTarget*24>policy.maxPopupsPerDay && policy.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
+    if(policy.normalHourlyTarget*24>policy.maxPopupsPerDay&&policy.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
     if(!Number.isSafeInteger(policy.minimumTradeUnits)||!Number.isSafeInteger(policy.maximumTradeUnits)||policy.minimumTradeUnits<1||policy.maximumTradeUnits<policy.minimumTradeUnits) throw new Error(`Trade amount bounds are invalid for ${policy.packageName}`);
-    const automation={packageName:policy.packageName,enabled:true,automaticDelivery:true,dailyPopupTarget:policy.dailyPopupTarget??policy.maxPopupsPerDay,schedulingPeriod:policy.schedulingPeriod??"rolling_24h",minIntervalSeconds:policy.minIntervalSeconds??45,maxIntervalSeconds:policy.maxIntervalSeconds??3600,randomizationEnabled:policy.randomizationEnabled??true,popupDisplayTargetSeconds:policy.popupDisplayTargetSeconds??120,completionDisplaySeconds:policy.completionDisplaySeconds??8,postCompletionIntervalSeconds:policy.postCompletionIntervalSeconds??30,maxPendingDeliveries:policy.maxPendingDeliveries??3,maxDeliveryAttempts:policy.maxDeliveryAttempts??3,automaticTradingEnabled:true,maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay??5,tradeRetryDelaySeconds:policy.tradeRetryDelaySeconds??30,maxSuccessfulTradesPerDay:policy.maxSuccessfulTradesPerDay??5,maxConcurrentActiveTrades:policy.maxConcurrentActiveTrades??1,requirePreviousSettlement:policy.requirePreviousSettlement??true,minSettlementDelaySeconds:policy.minSettlementDelaySeconds??900,maxSettlementDelaySeconds:policy.maxSettlementDelaySeconds??900,minimumRewardBps:policy.minimumRewardBps??0,maxDailyRewardMinor:policy.maxDailyRewardMinor??0,maxRewardPerTradeMinor:policy.maxRewardPerTradeMinor??0,closePolicy:policy.closePolicy??"after_final_display"};
-    validatePackageAutomationPolicy(automation);
-    const values:any={...policy,...automation,updatedBy};
-    delete values.id; delete values.updatedAt;
-    await db.insert(opportunityPackagePolicies).values(values).onDuplicateKeyUpdate({set:values});
   }
-  return listOpportunityPackagePolicies();
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const orderedPolicies=[...policies].sort((a,b)=>a.packageName.localeCompare(b.packageName));
+  await db.transaction(async tx=>{
+    for(const policy of orderedPolicies){
+      const existing=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,policy.packageName)).limit(1).for("update"))[0];
+      if(!existing) throw new Error(`Package policy ${policy.packageName} is missing; refresh the policy list before saving`);
+      const automation=mergePackageAutomationPolicySettings(policy,existing);
+      validatePackageAutomationPolicy(automation);
+      const values:any={...policy,...automation};
+      delete values.id; delete values.updatedAt; delete values.updatedBy; delete values.policyVersion;
+      const changedFields=getChangedPackagePolicyFields(existing as Record<string,unknown>,values);
+      if(!changedFields.length) continue;
+      const currentVersion=Number(existing.policyVersion);
+      if(!Number.isSafeInteger(currentVersion)||currentVersion<1) throw new Error(`Package policy version is invalid for ${policy.packageName}`);
+      const nextVersion=currentVersion+1;
+      if(!Number.isSafeInteger(nextVersion)) throw new Error(`Package policy version has reached its limit for ${policy.packageName}`);
+      const oldValues=Object.fromEntries(changedFields.map(field=>[field,(existing as any)[field]??null]));
+      const newValues=Object.fromEntries(changedFields.map(field=>[field,values[field]]));
+      const updatedAt=new Date();
+      const result=await tx.update(opportunityPackagePolicies).set({...values,policyVersion:nextVersion,updatedBy,updatedAt}).where(eq(opportunityPackagePolicies.packageName,policy.packageName));
+      assertExactlyOneAffectedRow(result,`Package policy ${policy.packageName} update`);
+      await tx.insert(v5AuditEvents).values({
+        actorUserId:updatedBy,
+        action:"trading_package_policy_updated",
+        entityType:"opportunity_package_policy",
+        entityId:policy.packageName,
+        reason:changeReason,
+        reference:`trading-package-policy:${policy.packageName}:v${nextVersion}:${crypto.randomUUID()}`,
+        metadataJson:JSON.stringify({policyVersion:{old:currentVersion,new:nextVersion},changedFields,old:oldValues,new:newValues}),
+      });
+    }
+  });
+  return listPersistedOpportunityPackagePolicies();
 }
 async function listMissedOpportunities(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");return db.select().from(missedOpportunities).where(and(eq(missedOpportunities.userId,userId),eq(missedOpportunities.status,"MISSED"))).orderBy(desc(missedOpportunities.createdAt)).limit(50);}
 async function markMissedOpportunity(userId:number,offer:any,amountMinor:number,reason:string){

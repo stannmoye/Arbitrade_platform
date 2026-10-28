@@ -28,6 +28,56 @@ export type PackageAutomationPolicy = {
   closePolicy: "after_completion" | "after_final_display";
 };
 
+export type PackageAutomationPolicyInput = Partial<PackageAutomationPolicy> & {
+  packageName: string;
+  enabled?: boolean;
+  automaticDelivery?: boolean;
+  maxPopupsPerDay?: number;
+};
+
+/** Preserve stored automation controls when a form submits only package limits. */
+export function mergePackageAutomationPolicySettings(
+  input: PackageAutomationPolicyInput,
+  existing?: PackageAutomationPolicyInput | null,
+) {
+  return {
+    packageName: input.packageName,
+    enabled: input.enabled ?? existing?.enabled ?? true,
+    automaticDelivery: input.automaticDelivery ?? existing?.automaticDelivery ?? true,
+    dailyPopupTarget: input.dailyPopupTarget ?? existing?.dailyPopupTarget ?? input.maxPopupsPerDay ?? 10,
+    schedulingPeriod: input.schedulingPeriod ?? existing?.schedulingPeriod ?? "rolling_24h",
+    minIntervalSeconds: input.minIntervalSeconds ?? existing?.minIntervalSeconds ?? 45,
+    maxIntervalSeconds: input.maxIntervalSeconds ?? existing?.maxIntervalSeconds ?? 3600,
+    randomizationEnabled: input.randomizationEnabled ?? existing?.randomizationEnabled ?? true,
+    popupDisplayTargetSeconds: input.popupDisplayTargetSeconds ?? existing?.popupDisplayTargetSeconds ?? 120,
+    completionDisplaySeconds: input.completionDisplaySeconds ?? existing?.completionDisplaySeconds ?? 8,
+    postCompletionIntervalSeconds: input.postCompletionIntervalSeconds ?? existing?.postCompletionIntervalSeconds ?? 30,
+    maxPendingDeliveries: input.maxPendingDeliveries ?? existing?.maxPendingDeliveries ?? 3,
+    maxDeliveryAttempts: input.maxDeliveryAttempts ?? existing?.maxDeliveryAttempts ?? 3,
+    automaticTradingEnabled: input.automaticTradingEnabled ?? existing?.automaticTradingEnabled ?? true,
+    maxTradeAttemptsPerDay: input.maxTradeAttemptsPerDay ?? existing?.maxTradeAttemptsPerDay ?? 5,
+    tradeRetryDelaySeconds: input.tradeRetryDelaySeconds ?? existing?.tradeRetryDelaySeconds ?? 30,
+    maxSuccessfulTradesPerDay: input.maxSuccessfulTradesPerDay ?? existing?.maxSuccessfulTradesPerDay ?? 5,
+    maxConcurrentActiveTrades: input.maxConcurrentActiveTrades ?? existing?.maxConcurrentActiveTrades ?? 1,
+    requirePreviousSettlement: input.requirePreviousSettlement ?? existing?.requirePreviousSettlement ?? true,
+    minSettlementDelaySeconds: input.minSettlementDelaySeconds ?? existing?.minSettlementDelaySeconds ?? 900,
+    maxSettlementDelaySeconds: input.maxSettlementDelaySeconds ?? existing?.maxSettlementDelaySeconds ?? 900,
+    minimumRewardBps: input.minimumRewardBps ?? existing?.minimumRewardBps ?? 0,
+    maxDailyRewardMinor: input.maxDailyRewardMinor ?? existing?.maxDailyRewardMinor ?? 0,
+    maxRewardPerTradeMinor: input.maxRewardPerTradeMinor ?? existing?.maxRewardPerTradeMinor ?? 0,
+    closePolicy: input.closePolicy ?? existing?.closePolicy ?? "after_final_display",
+  };
+}
+
+export function getChangedPackagePolicyFields(
+  current: Record<string, unknown>,
+  next: Record<string, unknown>,
+) {
+  return Object.entries(next)
+    .filter(([field, value]) => field !== "packageName" && current[field] !== value)
+    .map(([field]) => field);
+}
+
 export function validatePackageAutomationPolicy(policy: PackageAutomationPolicy) {
   const errors: string[] = [];
   const nonNegative = [
