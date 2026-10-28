@@ -2285,30 +2285,49 @@ export async function ensureAutomaticTradingTierEntitlements(userId:number) {
       .from(users).where(eq(users.id,userId)).limit(1).for("update"))[0];
     if(!user||user.role!=="user"||user.loginMethod==="closed") return;
     const creditedRows=await tx.select({amount:balanceLedger.qualifyingDepositUsdMinor})
-      .from(balanceLedger).where(and(eq(balanceLedger.userId,userId),eq(balanceLedger.entryType,"admin_manual_deposit_credit"),isNotNull(balanceLedger.qualifyingDepositUsdMinor)));
+      .from(balanceLedger).where(and(
+        eq(balanceLedger.userId,userId),
+        inArray(balanceLedger.entryType,["admin_manual_deposit_credit","admin_manual_deposit_reversal"]),
+        isNotNull(balanceLedger.qualifyingDepositUsdMinor),
+      ));
     const qualifyingTotal=creditedRows.reduce((sum,row)=>sum+Number(row.amount||0),0);
-    if(!Number.isSafeInteger(qualifyingTotal)||qualifyingTotal<=0) return;
+    if(!Number.isSafeInteger(qualifyingTotal)||qualifyingTotal<0) throw new Error("Cumulative qualifying deposit total is invalid.");
     const now=new Date();
-    const tiers=await tx.select().from(packages).where(and(
-      eq(packages.enabled,true),
-      or(isNull(packages.startsAt),lte(packages.startsAt,now)),
-      or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
-    )).orderBy(packages.minimumQualifyingBalanceUsdMinor,packages.id).for("update");
+    const tiers=await tx.select().from(packages)
+      .orderBy(packages.minimumQualifyingBalanceUsdMinor,packages.id).for("update");
     const history=await tx.select().from(customerPackageSubscriptions)
       .where(eq(customerPackageSubscriptions.userId,userId))
       .orderBy(desc(customerPackageSubscriptions.activatedAt)).for("update");
+
     for(const tier of tiers){
-      if(qualifyingTotal<Number(tier.minimumQualifyingBalanceUsdMinor)) continue;
+      const threshold=Number(tier.minimumQualifyingBalanceUsdMinor);
       const tierHistory=history.filter(row=>Number(row.packageId)===Number(tier.id)&&String(row.activationKey||"").startsWith("auto-tier:"));
-      const active=tierHistory.some(row=>row.status==="active"&&(!row.expiresAt||new Date(row.expiresAt)>now));
-      if(active) continue;
+      const activeRows=tierHistory.filter(row=>row.status==="active"&&(!row.expiresAt||new Date(row.expiresAt)>now));
+
+      if(qualifyingTotal<threshold){
+        for(const entitlement of activeRows){
+          await tx.update(customerPackageSubscriptions).set({status:"expired"})
+            .where(and(eq(customerPackageSubscriptions.id,entitlement.id),eq(customerPackageSubscriptions.status,"active")));
+          await tx.insert(v5AuditEvents).values({
+            actorUserId:null,action:"trading_tier_auto_disqualified",entityType:"customer_package_subscription",entityId:String(entitlement.id),
+            reason:"A qualifying deposit reversal reduced cumulative qualifying deposits below the configured tier threshold.",
+            reference:"trading-tier-revoked:"+userId+":"+tier.id+":"+now.getTime()+":"+crypto.randomUUID().slice(0,8),
+            metadataJson:JSON.stringify({userId,packageId:Number(tier.id),subscriptionId:Number(entitlement.id),qualifyingDepositUsdMinor:qualifyingTotal,thresholdUsdMinor:threshold,termsVersion:Number(tier.termsVersion),source:"scheduled_worker_reconciliation"}),
+          });
+        }
+        continue;
+      }
+
+      const tierAvailable=Boolean(tier.enabled)&&(!tier.startsAt||new Date(tier.startsAt)<=now)&&(!tier.expiresAt||new Date(tier.expiresAt)>now);
+      if(!tierAvailable||activeRows.length>0) continue;
       const latest=tierHistory[0];
       // Do not silently renew an expired entitlement every worker tick. A new
-      // qualifying credit or a new admin terms version can trigger re-assignment.
+      // qualifying credit or a new administrator terms version can re-assign it.
       if(latest&&Number(latest.qualifyingBalanceUsdMinor)>=qualifyingTotal&&Number(latest.packageTermsVersion)===Number(tier.termsVersion)) continue;
+
       const expiresAt=addCalendarMonths(now,Number(tier.durationMonths));
       const activationKey="auto-tier:"+userId+":"+tier.id+":"+now.getTime()+":"+crypto.randomUUID().slice(0,8);
-      const snapshot={id:Number(tier.id),name:tier.name,minimumQualifyingBalanceUsdMinor:Number(tier.minimumQualifyingBalanceUsdMinor),durationMonths:Number(tier.durationMonths),opportunitiesPerDay:Number(tier.opportunitiesPerDay),termsVersion:Number(tier.termsVersion),qualificationSource:"cumulative_authorized_admin_manual_deposit_credits",qualifyingDepositUsdMinor:qualifyingTotal};
+      const snapshot={id:Number(tier.id),name:tier.name,minimumQualifyingBalanceUsdMinor:threshold,durationMonths:Number(tier.durationMonths),opportunitiesPerDay:Number(tier.opportunitiesPerDay),termsVersion:Number(tier.termsVersion),qualificationSource:"cumulative_authorized_admin_manual_deposit_credits",qualifyingDepositUsdMinor:qualifyingTotal};
       const inserted=await tx.insert(customerPackageSubscriptions).values({
         userId,packageId:Number(tier.id),startsAt:now,expiresAt,status:"active",activationKey,
         termsSnapshotJson:JSON.stringify(snapshot),qualifyingBalanceUsdMinor:qualifyingTotal,
@@ -2319,7 +2338,7 @@ export async function ensureAutomaticTradingTierEntitlements(userId:number) {
         actorUserId:null,action:"trading_tier_auto_qualified",entityType:"customer_package_subscription",entityId:String(subscriptionId),
         reason:"Scheduled worker reconciled tier eligibility from cumulative qualifying administrator manual deposit credits.",
         reference:"trading-auto-tier:"+userId+":"+tier.id+":"+now.getTime()+":"+crypto.randomUUID().slice(0,8),
-        metadataJson:JSON.stringify({subscriptionId,userId,packageId:Number(tier.id),qualifyingDepositUsdMinor:qualifyingTotal,thresholdUsdMinor:Number(tier.minimumQualifyingBalanceUsdMinor),dailyQuota:Number(tier.opportunitiesPerDay),termsVersion:Number(tier.termsVersion),expiresAt:expiresAt.toISOString(),source:"scheduled_worker"}),
+        metadataJson:JSON.stringify({subscriptionId,userId,packageId:Number(tier.id),qualifyingDepositUsdMinor:qualifyingTotal,thresholdUsdMinor:threshold,dailyQuota:Number(tier.opportunitiesPerDay),termsVersion:Number(tier.termsVersion),expiresAt:expiresAt.toISOString(),source:"scheduled_worker"}),
       });
       history.unshift({id:subscriptionId,userId,packageId:Number(tier.id),startsAt:now,expiresAt,status:"active",activationKey,termsSnapshotJson:JSON.stringify(snapshot),qualifyingBalanceUsdMinor:qualifyingTotal,packageTermsVersion:Number(tier.termsVersion),activatedAt:now,createdAt:now} as typeof history[number]);
     }
