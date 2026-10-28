@@ -86,7 +86,7 @@ try {
         sourceLedgerId: ledgerId,
         status: "pending",
         attempts: 0,
-        availableAt: new Date(),
+        availableAt: new Date(Date.now() - 10_000),
       });
       createdJobIds.push(Number(job[0].insertId));
     }
@@ -178,7 +178,7 @@ try {
       sourceLedgerId: ledgerId,
       status: "pending",
       attempts: 0,
-      availableAt: new Date(),
+      availableAt: new Date(Date.now() - 10_000),
     });
     createdJobIds.push(Number(job[0].insertId));
   });
@@ -224,7 +224,7 @@ try {
       sourceLedgerId: ledgerId,
       status: "pending",
       attempts: 0,
-      availableAt: new Date(),
+      availableAt: new Date(Date.now() - 10_000),
     });
     createdJobIds.push(Number(job[0].insertId));
   });
