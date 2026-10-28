@@ -39,9 +39,21 @@ export function CustomerTradingEligibility() {
         <div className="trading-journey-intro">
           <div className="trading-journey-eyebrow"><Sparkles size={14} aria-hidden="true" /> Your Trading Journey</div>
           <h2 className="trading-journey-title" id="trading-eligibility-heading">Your package progress</h2>
-          <p className="trading-journey-description">
-            Your package and daily opportunities update automatically when an authorized administrator records a qualifying wallet credit.
-          </p>
+          <div className={`trading-bot-status ${eligibilityQuery.isLoading ? "is-loading" : eligibilityQuery.isError ? "is-error" : currentPackage ? "is-active" : "is-inactive"}`} role="status" aria-live="polite">
+            <span className="trading-bot-status-icon" aria-hidden="true">
+              {eligibilityQuery.isLoading ? <Clock3 size={15} /> : eligibilityQuery.isError ? <Info size={15} /> : currentPackage ? <Activity size={15} /> : <Clock3 size={15} />}
+            </span>
+            <span>
+              {eligibilityQuery.isLoading
+                ? "Checking package status…"
+                : eligibilityQuery.isError
+                  ? "Package status unavailable — try again."
+                  : currentPackage
+                    ? `Automatic Trading Bot is active — ${currentPackage.name} allocated.`
+                    : "Automatic Trading Bot is not yet active — No package is currently allocated."}
+            </span>
+            {!eligibilityQuery.isLoading && !eligibilityQuery.isError && currentPackage && <span className="trading-bot-live-dot" aria-hidden="true" />}
+          </div>
         </div>
         <button
           className="trading-journey-refresh"
@@ -87,19 +99,13 @@ export function CustomerTradingEligibility() {
                   <strong className="trading-tier-metric-value">{currentPackage.opportunitiesPerDay}</strong>
                 </div>
               </div>
-              <p className="trading-tier-explainer">
-                <Info size={14} aria-hidden="true" />
-                Opportunities are processed automatically when eligible. The allowance is a limit, not a promise that every opportunity becomes a trade or generates profit.
-              </p>
+              <p className="trading-tier-explainer"><Info size={14} aria-hidden="true" />Your daily opportunity allowance updates automatically.</p>
             </article>
           ) : (
             <article className="trading-tier-card trading-tier-card-current" aria-labelledby="not-yet-qualified">
               <div className="trading-tier-kicker"><WalletCards size={14} aria-hidden="true" /> Your first milestone</div>
               <h3 className="trading-tier-name" id="not-yet-qualified">You’re not yet qualified for a package</h3>
-              <p className="trading-tier-explainer">
-                <Info size={14} aria-hidden="true" />
-                Reach the qualifying threshold below to become eligible for your first package. Eligibility is assigned by the server; there is nothing to select or activate.
-              </p>
+              <p className="trading-tier-explainer"><Info size={14} aria-hidden="true" />Reach the threshold to unlock your first package.</p>
             </article>
           )}
 
@@ -118,9 +124,7 @@ export function CustomerTradingEligibility() {
                   {currentPackage ? "Additional qualifying amount needed" : "Minimum qualifying amount"}
                 </span>
                 <div className="trading-threshold-value-row"><strong className="trading-threshold-amount">{usdEquivalent(nextPackage.amountNeededUsdMinor)}</strong><span className="trading-threshold-unit">USD equivalent</span></div>
-                <p className="trading-threshold-context">
-                  Supported ledger-wallet credits are valued in USD when an administrator records a qualifying credit. This is a qualification threshold, not a fee or a trade amount; the native wallet amount depends on the wallet type and credit-time rate.
-                </p>
+                <p className="trading-threshold-context">USD equivalent of qualifying admin wallet credits, valued at the rate recorded when credited.</p>
                 <div className="trading-progress-block">
                   <div className="trading-progress-copy">
                     <span>Progress toward this milestone</span>
@@ -151,10 +155,7 @@ export function CustomerTradingEligibility() {
                   <strong className="trading-tier-metric-value">+{nextPackage.additionalDailyOpportunities}</strong>
                 </div>
               </div>
-              <p className="trading-tier-explainer">
-                <Info size={14} aria-hidden="true" />
-                Qualifying for this package adds its configured daily opportunity allowance to the quotas of your other active packages, subject to the platform’s eligibility rules.
-              </p>
+              <p className="trading-tier-explainer"><Info size={14} aria-hidden="true" />Unlocks additional daily opportunities.</p>
             </article>
           ) : (
             <div className="trading-no-next" aria-live="polite">
@@ -179,10 +180,6 @@ export function CustomerTradingEligibility() {
             </div>
           )}
 
-          <p className="trading-tier-explainer">
-            <Clock3 size={14} aria-hidden="true" />
-            Only qualifying credits made through the administrator’s wallet-credit process count toward the threshold. Other wallet activity and ordinary transfers do not change your qualification total.
-          </p>
         </div>
       )}
     </section>
