@@ -133,3 +133,28 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 - Removed generated transaction-console pulses; no pulse is emitted without a confirmed ledger-backed event. Regression coverage now asserts `NO_CONFIRMED_LEDGER_EVENT`. Exact final-head CI is pending.
 - PR #200 was not merged wholesale: its deposit-tier documentation conflicts with the approved free-activation model, and its `0079` migration conflicts with the merged settlement-timing repair. Its proposed shutdown of automatic offer generation was also kept out because it changes opportunity availability; review the market-derived estimate path separately before changing that behavior.
 - Time-based reconciliation only marks due trades as awaiting settlement confirmation; it does not credit an estimated reward. A manual settlement path still requires an explicit settlement reference. No production deployment, database operation, balance change, or live trade was performed.
+
+## Verified continuation — 2026-10-28 — free activation and worker-only allocation
+
+**Working branch:** `fix/trading-worker-only-allocation-20261027` (draft PR #202).
+**Code/test SHA:** `4fe1c696973574c9ae0a1dec651fb014124e6cfb`. The earlier pending-CI notes above are superseded: all 14 reported check runs on this exact code/test commit completed successfully. Workflow runs: [application/build checks](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40651541203), [type-check/test/build and browser recovery](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40651541356), [install/type-check/test/build](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40651541169), [Mining regression](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40651541079), and [typecheck/tests/production build](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40651541058).
+
+### WORKING — source contract and exact-head CI verified
+
+- Free activation checks the customer’s qualifying available wallet balance and creates the package entitlement/audit record only; activation does not debit funds or call opportunity processing.
+- Customer opportunity reads default to non-worker mode. Due-trade processing and automatic allocation are gated behind `workerCycle === true`.
+- The existing scheduled server worker calls `runAutoTradeCycle()` and is the only code path that opts into worker processing.
+- The customer package panel is imported and mounted on the customer dashboard. Its activation message does not claim that a trade was created.
+- `server/trading-worker-boundary.contract.test.ts` covers activation separation, read-only customer queries, worker opt-in/scheduling, and the mounted panel.
+
+### NEEDS FURTHER REVIEW
+
+- These results verify source and CI only; no hosted acceptance, production database, customer balance, deployment, or live trade was exercised.
+- PR #202 remains open and unmerged. PR #200 remains open/draft with conflicting deposit-tier documentation and a removed dashboard panel; do not merge it as-is. Its migration conflict is documented above.
+- Continue the remaining Trading-spec audit in small, evidence-backed increments. Record exact code/test SHA and checks for each increment; do not claim full application readiness from this slice.
+
+### Next
+
+1. Reconcile or close the obsolete PR #200 draft only after confirming no unique wanted changes would be lost.
+2. Continue auditing the remaining required Trading Settings routes and persisted behavior against the canonical guide.
+3. Keep merge, production deployment, production database changes, and live trades out of scope unless separately authorized.
