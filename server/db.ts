@@ -2927,7 +2927,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   });
   return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
 }
-export async function runAutoTradeCycle(input:{batchSize?:number}={}){
+export async function claimAutoTradeCycleCustomers(input:{batchSize?:number}={}){
   const db=await getDb();
   if(!db) throw new Error("Database is not available");
   const requestedBatchSize=input.batchSize??100;
@@ -2966,7 +2966,11 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
     await tx.update(appSettings).set({settingValue:String(nextCursor)}).where(eq(appSettings.settingKey,cursorKey));
     return batch;
   });
+  return {customers,batchSize};
+}
 
+export async function runAutoTradeCycle(input:{batchSize?:number}={}){
+  const {customers,batchSize}=await claimAutoTradeCycleCustomers(input);
   let allocations=0;
   for(const customer of customers){
     try{
@@ -2984,7 +2988,7 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
       console.error(`[AutoTrade] Customer ${customer.id} cycle failed:`,error instanceof Error?error.message:error);
     }
   }
-  return {customers:customers.length,allocations,batchSize,hasMore:customers.length===batchSize};
+  return {customers:customers.length,allocations,batchSize};
 }
 export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number;packageId?:number}){
  const db=await getDb();if(!db)throw new Error("Database is not available");
