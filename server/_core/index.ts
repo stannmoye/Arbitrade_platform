@@ -7,7 +7,7 @@ import { registerProviderOAuthRoutes } from "./providerOAuth";
 import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getUserByEmail, getUserById, processNotificationCampaignLifecycle, reconcileAllDueTradesAwaitingConfirmation, runAutoTradeCycle } from "../db";
+import { countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getUserByEmail, getUserById, processNotificationCampaignLifecycle, reconcileAllDueTradesAwaitingConfirmation, runAutoTradeCycle, runTradingTierQualificationWorkerCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
@@ -237,6 +237,24 @@ async function startServer() {
   if (process.env.DATABASE_URL) {
     startEmailWorkers();
     startHeartbeatWorker();
+    // Durable queue polling is cheap while idle (indexed lookup only), processes
+    // new qualifying credits promptly, and recovers jobs left by process restarts.
+    let tradingTierQualificationCycleRunning=false;
+    const runTradingTierQualificationCycle=async()=>{
+      if(tradingTierQualificationCycleRunning)return;
+      tradingTierQualificationCycleRunning=true;
+      try{
+        const result=await runTradingTierQualificationWorkerCycle({batchSize:20});
+        if(result.claimed||result.retrying||result.dead)console.log("[TradingTierWorker] cycle",result);
+      }catch(error){
+        console.error("[TradingTierWorker] cycle failed",error instanceof Error?error.message:"UnknownError");
+      }finally{
+        tradingTierQualificationCycleRunning=false;
+      }
+    };
+    const tradingTierQualificationTimer=setInterval(()=>{void runTradingTierQualificationCycle();},5_000);
+    tradingTierQualificationTimer.unref();
+    void runTradingTierQualificationCycle();
     let notificationCampaignCycleRunning = false;
     const runNotificationCampaignCycle = async () => {
       if(notificationCampaignCycleRunning)return;
