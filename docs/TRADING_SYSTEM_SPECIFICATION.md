@@ -7,7 +7,7 @@
 ## 1. Core operating rules
 
 1. Package eligibility, trade capital, execution, realized profit, platform fees, and wallet accounting are separate concepts.
-2. The server automatically qualifies customer tiers from cumulative, ledger-attributed manual administrator deposit credits. A customer without an active automatically assigned tier must not receive an automatic trade allocation; eligible tier quotas add together.
+2. The server automatically qualifies customer tiers only from cumulative, ledger-attributed qualifying credits manually submitted by an authorized administrator through the admin portal's Credit Customer / wallet-credit form. A customer without an active automatically assigned tier must not receive an automatic trade allocation; eligible tier quotas add together.
 3. Customer sign-in status must not determine server-side opportunity processing, countdowns, retries, or settlement.
 4. Do not add customer-facing Trading On/Off, Opportunity On/Off, or Auto Trade On/Off switches to this automatic model.
 5. Do not silently fall back to a default tier or quota when no automatically assigned tier qualifies.
@@ -16,7 +16,7 @@
 
 ## 2. Automatic package-tier qualification from qualifying deposits
 
-Customers never browse, select, subscribe to, purchase, or activate a package. Package tiers are administrator-managed configuration only. The server automatically determines each customer's eligible tiers from cumulative qualifying manual administrator wallet credits recorded in authoritative account records. No customer action is required.
+Customers never browse, select, subscribe to, purchase, or activate a package. Package tiers are administrator-managed configuration only. The server automatically determines each customer's eligible tiers from cumulative qualifying credits originating exclusively from the admin portal's Credit Customer / wallet-credit form and recorded in authoritative ledger entries. No customer action is required.
 
 - **The sole qualifying source is a positive credit that an authorized administrator manually submits for a customer through the admin portal's Credit Customer / wallet-credit form**, explicitly classifies as `qualifying_deposit`, and successfully commits to that customer's ledger as `admin_manual_deposit_credit`. No other deposit or credit pathway qualifies, regardless of its label or where its funds originated.
 - Customer-initiated deposits, payment-provider deposits, bank/card/crypto gateway deposits, signup credits, imported/opening balances, generic wallet adjustments, credits entered outside the admin portal's Credit Customer flow, profits, trading rewards, returned principal, bonuses, swaps, transfers, conversions, and every other credit/deposit pathway do not qualify. A credit is not qualifying merely because an administrator reviewed it or because it appears in the wallet. Never infer qualifying deposits from current wallet balance, transaction descriptions, external references, or source-of-funds.
@@ -229,7 +229,7 @@ Trading operates as a real-money workflow recorded in the customer's internal le
 
 - No customer-facing tier catalogue, tier names, thresholds, detail pages, purchase, subscription, activation or management controls exist in the portal or customer API.
 - Authorized admins can configure tier thresholds, durations, cumulative daily quotas, effective dates and enabled state; persisted values are consumed by runtime eligibility and allocation.
-- Only explicitly classified, authorized administrator manual customer wallet credits count toward cumulative qualifying deposits. Profits, returned principal, rewards, bonuses, transfers, swaps, conversions, opening balances, imports and unclassified credits do not qualify.
+- Only explicitly classified, authorized administrator credits submitted through the admin portal's Credit Customer / wallet-credit form count toward cumulative qualifying deposits. Customer/provider deposits, signup credits, imports, opening balances, generic adjustments, profits, returned principal, rewards, bonuses, transfers, swaps, conversions and unclassified credits do not qualify.
 - Qualifying USD-equivalent amount and its rate/provider/timestamp evidence are persisted on the ledger entry; invalid/stale crypto rate evidence fails closed.
 - Cumulative qualifying deposits automatically assign each applicable enabled tier without customer action; eligible tier daily quotas add together.
 - Customer reads, logins, page refreshes and opportunity viewing do not create entitlements, allocate capital or settle trades.
