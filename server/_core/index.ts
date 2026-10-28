@@ -344,8 +344,8 @@ async function startServer() {
       name: error.name,
       code: (error as NodeJS.ErrnoException).code,
       syscall: (error as NodeJS.ErrnoException).syscall,
-      address: (error as NodeJS.ErrnoException).address,
-      port: (error as NodeJS.ErrnoException).port,
+      address: (error as NodeJS.ErrnoException & { address?: string }).address,
+      port: (error as NodeJS.ErrnoException & { port?: number }).port,
       message: String(error.message || "HTTP server error").replace(/\b(?:mysql|mariadb):\/\/[^\s"'<>]+/gi, "[database-url-redacted]"),
       stack: String(error.stack || "").replace(/\b(?:mysql|mariadb):\/\/[^\s"'<>]+/gi, "[database-url-redacted]").slice(0, 12000),
     }));
