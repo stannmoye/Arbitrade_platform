@@ -97,7 +97,7 @@ Database changes should use ordered forward migrations and retry-safe server-sid
 ## Trading tier qualification — credit-time wallet FX (authoritative)
 
 - Only qualifying credits manually submitted by an authorized administrator through the admin portal's Credit Customer / wallet-credit form may count toward Trading tier thresholds.
-- For a qualifying credit in any enabled non-USD wallet, fetch and validate a live USD conversion rate from the currency-appropriate API at credit time (Frankfurter/ECB for supported fiat; CoinGecko for registered crypto/tokens using their configured external asset ID). Store the exact rate, provider, source timestamp, USD-minor attribution and FX snapshot evidence with the committed ledger credit. USD uses a 1:1 rate.
+- For a qualifying credit in any enabled non-USD wallet, fetch and validate a live USD conversion rate from the currency-appropriate API at credit time (Frankfurter/ECB with Open ExchangeRate API fallback for supported fiat; CoinGecko for registered crypto/tokens using their configured external asset ID). Store the exact rate, provider, source timestamp, USD-minor attribution and FX snapshot evidence with the committed ledger credit. USD uses a 1:1 rate.
 - Never use a manually edited or stale currency-registry rate as a fallback. Fail closed for qualifying classification if the provider cannot price the wallet or the rate is invalid/stale. Do not silently turn a failed qualifying credit into a non-qualifying credit.
 - The administrator customer directory must show automatically assigned active Trading tiers and the customer's cumulative qualifying USD amount.
 - This qualification-only valuation must not alter ordinary wallet transfers, transfer balances, or transfer ledger semantics.
