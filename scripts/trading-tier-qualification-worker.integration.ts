@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
-import { adjustCustomerBalance, getDb, runTradingTierQualificationWorkerCycle } from "../server/db";
+import { adjustCustomerBalance, claimAutoTradeCycleCustomers, getDb, runTradingTierQualificationWorkerCycle } from "../server/db";
 import {
   balanceLedger,
   customerBalances,
@@ -275,6 +275,23 @@ try {
   }, 0);
   assert.equal(activeQuota, 10, "Active qualifying tier quotas must accumulate to 6 + 4 = 10 per day.");
   assert.ok(!active.some((row) => Number(row.packageId) === tierIds[2]), "The USD 500 tier must remain unassigned.");
+
+  // Exercise the actual scheduler SQL against the migrated disposable MySQL
+  // schema without executing trades or touching wallet balances.
+  const firstOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
+  const secondOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
+  const wrappedOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
+  assert.equal(firstOpportunityBatch.customers.length, 1);
+  assert.equal(secondOpportunityBatch.customers.length, 1);
+  assert.equal(wrappedOpportunityBatch.customers.length, 1);
+  const scheduledUserIds = [
+    Number(firstOpportunityBatch.customers[0].id),
+    Number(secondOpportunityBatch.customers[0].id),
+  ];
+  assert.notEqual(scheduledUserIds[0], scheduledUserIds[1], "The locked cursor must advance to a different eligible customer.");
+  assert.deepEqual(new Set(scheduledUserIds), new Set([userId, creditPathUserId]));
+  assert.equal(Number(wrappedOpportunityBatch.customers[0].id), scheduledUserIds[0],
+    "When the cursor reaches the last eligible customer, the scheduler must wrap to the first.");
 
   const jobRows = await db.select().from(tradingTierQualificationJobs)
     .where(inArray(tradingTierQualificationJobs.id, createdJobIds));
