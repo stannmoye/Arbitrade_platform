@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const routerSource = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const start = source.indexOf("export async function adjustCustomerBalance(");
 const end = source.indexOf("export async function listOpenOffers(", start);
 const implementation = source.slice(start, end);
@@ -24,6 +25,13 @@ describe("administrator wallet adjustment notification boundary", () => {
     expect(implementation).toContain("eventKey:`wallet-adjustment:${result.ledgerReference}`");
     expect(implementation).toContain('const entryType=qualifyingDepositReversalOfId!==null?"admin_manual_deposit_reversal":qualifyingDepositUsdMinor!==null?"admin_manual_deposit_credit":`admin_${input.mode}`');
     expect(implementation).toContain('input.creditClassification==="qualifying_deposit"');
+  });
+
+  it("retains qualifying deposit and reversal references in the admin transaction-console audit event", () => {
+    expect(routerSource).toContain("debitClassification:input.debitClassification");
+    expect(routerSource).toContain("reversalLedgerId:input.reversalLedgerId");
+    expect(routerSource).toContain("qualifyingDepositReversalOfId:result.qualifyingDepositReversalOfId");
+    expect(routerSource).toContain("qualifyingDepositRateProvider:result.qualifyingDepositRateProvider");
   });
 
   it("keeps notice delivery best-effort and does not reverse a committed ledger adjustment", () => {
