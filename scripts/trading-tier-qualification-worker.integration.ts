@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { getDb, runTradingTierQualificationWorkerCycle } from "../server/db";
 import {
   balanceLedger,
@@ -22,6 +22,7 @@ let invalidUserId;
 let tierIds = [];
 const createdLedgerIds = [];
 const createdJobIds = [];
+let testPassed = false;
 
 try {
   // Isolated database: turn off migration-seeded tiers so the expected cumulative
@@ -108,7 +109,7 @@ try {
   assert.equal(activeQuota, 10, "Active qualifying tier quotas must accumulate to 6 + 4 = 10 per day.");
   assert.ok(!active.some((row) => Number(row.packageId) === tierIds[2]), "The USD 500 tier must remain unassigned.");
 
-  const [jobRows] = await db.select().from(tradingTierQualificationJobs)
+  const jobRows = await db.select().from(tradingTierQualificationJobs)
     .where(inArray(tradingTierQualificationJobs.id, createdJobIds));
   assert.ok(jobRows.length === 2 && jobRows.every((row) => row.status === "completed"));
 
@@ -140,7 +141,7 @@ try {
   });
   await runTradingTierQualificationWorkerCycle({ batchSize: 20 });
   const staleJobId = createdJobIds[2];
-  const [staleJobRows] = await db.select().from(tradingTierQualificationJobs)
+  const staleJobRows = await db.select().from(tradingTierQualificationJobs)
     .where(eq(tradingTierQualificationJobs.id, staleJobId));
   assert.equal(staleJobRows[0]?.status, "completed", "The real worker must recover an expired lease.");
 
@@ -172,7 +173,7 @@ try {
   });
   const invalidJobId = createdJobIds[3];
   await runTradingTierQualificationWorkerCycle({ batchSize: 20 });
-  let [invalidRows] = await db.select().from(tradingTierQualificationJobs)
+  let invalidRows = await db.select().from(tradingTierQualificationJobs)
     .where(eq(tradingTierQualificationJobs.id, invalidJobId));
   assert.equal(invalidRows[0]?.status, "pending", "A transient worker failure must be retried.");
   assert.equal(Number(invalidRows[0]?.attempts), 1);
@@ -184,7 +185,7 @@ try {
     lockedAt: null,
   }).where(eq(tradingTierQualificationJobs.id, invalidJobId));
   await runTradingTierQualificationWorkerCycle({ batchSize: 20 });
-  [invalidRows] = await db.select().from(tradingTierQualificationJobs)
+  invalidRows = await db.select().from(tradingTierQualificationJobs)
     .where(eq(tradingTierQualificationJobs.id, invalidJobId));
   assert.equal(invalidRows[0]?.status, "dead", "The eighth failed attempt must be dead-lettered.");
   assert.equal(Number(invalidRows[0]?.attempts), 8);
@@ -230,11 +231,12 @@ try {
   }, 0);
   assert.equal(remainingQuota, 6);
 
-  const [allJobs] = await db.select().from(tradingTierQualificationJobs)
+  const allJobs = await db.select().from(tradingTierQualificationJobs)
     .where(inArray(tradingTierQualificationJobs.id, createdJobIds));
   assert.ok(allJobs.some((row) => row.status === "dead"));
   assert.ok(allJobs.filter((row) => row.userId === userId).every((row) => ["completed", "dead"].includes(row.status)));
 
+  testPassed = true;
   console.log("Trading qualification worker integration passed: concurrent real-worker tier assignment, cumulative quotas, reversal revocation, stale-lease recovery, bounded retries, and dead-letter persistence.");
 } finally {
   // Keep the disposable database clean even if an assertion fails.
@@ -252,5 +254,5 @@ try {
   if (tierIds.length) {
     await db.delete(packages).where(inArray(packages.id, tierIds)).catch(() => {});
   }
-  process.exit(0);
+  if (testPassed) process.exit(0);
 }
