@@ -193,3 +193,16 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 - Not carried: PR #200 removes the customer package panel and adds deposit-assigned tiers, conflicting with the approved free balance-threshold activation model. Its canonical spec/AGENTS changes also contain those conflicting rules. Its migration 0079_internal_ledger_execution_mode.sql collides with the merged idx-48 migration and rewrites every trading_types / v5_opportunities mode (including existing mode values); no renumbering or data migration was attempted. The V5 schema/domain rewrite is held for explicit policy and migration review.
 - Also held: PR #200's 20-character settlement-notes requirement and matching UI changes introduce an additional admin validation rule; the current #202 form submits no notes, so it was not applied.
 - No merge, deployment, production database operation, balance/ledger change, or live trade was performed. The exact SHA and CI result for this code/test update must be appended after GitHub Actions completes.
+
+## Exact-head verification — PR #202 anti-synthetic economics — 2026-10-28
+
+- Code/test commit b4a716dce6fb8f9c7f2d9cc309b645a19c020dc4 completed all five GitHub Actions workflow groups successfully on that exact SHA:
+  - Mining regression checks: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40657387606
+  - Verify application: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40657387648
+  - Verify Arbitrade trading recovery changes: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40657387773
+  - Installer validation: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40657387644
+  - Build and test production source: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40657387709
+- The new contract tests verify published estimate inputs, disabled synthetic market-offer generation, and the pending-allocation / separate-settlement boundary. No workflow failure was reported.
+- This validates source and CI only. Hosted acceptance, production database reconciliation, deployment, balance movement, and live trading were not performed.
+- PR #202 remains open/draft. PR #200 remains open/draft at 8f379fe5a179de73973f51b12ea3f08e08eb58cd; compatible synthetic-activity/economics work is now represented on PR #202, while its conflicting deposit-tier rules and 0079 V5 mode rewrite remain excluded. No close action was taken.
+- Next: continue the canonical Trading-spec audit against persisted routes and behavior; keep the PR #200 migration and settlement-notes policy held for explicit review; request confirmation before closing PR #200.
