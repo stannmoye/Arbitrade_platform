@@ -20,6 +20,29 @@ describe("trade execution retry policy", () => {
     if (decision.kind === "retry") expect(decision.retryAt.toISOString()).toBe("2026-10-26T12:02:00.000Z");
   });
 
+  it("recognizes a known transient code wrapped in an error cause", () => {
+    const decision = decideTradeExecutionRetry({ code: "ERR_DATABASE_WRAPPER", cause: { code: "ETIMEDOUT" } }, 1, 3, now);
+    expect(decision).toEqual({
+      kind: "retry",
+      attemptNumber: 1,
+      retryAt: new Date("2026-10-26T12:00:30.000Z"),
+      errorCode: "ETIMEDOUT",
+    });
+  });
+
+  it("detects transient cause messages and terminates cyclic cause chains", () => {
+    const nestedMessage = decideTradeExecutionRetry({ code: "ERR_DATABASE_WRAPPER", cause: { message: "Service temporarily unavailable" } }, 1, 3, now);
+    expect(nestedMessage.kind).toBe("retry");
+
+    const cyclic: { code: string; cause?: unknown } = { code: "ERR_WRAPPER" };
+    cyclic.cause = cyclic;
+    expect(decideTradeExecutionRetry(cyclic, 1, 3, now)).toEqual({
+      kind: "failed",
+      attemptNumber: 1,
+      errorCode: "ERR_WRAPPER",
+    });
+  });
+
   it("fails closed when the configured attempt limit is reached", () => {
     expect(decideTradeExecutionRetry({ code: "ETIMEDOUT" }, 5, 5, now)).toEqual({
       kind: "failed",
