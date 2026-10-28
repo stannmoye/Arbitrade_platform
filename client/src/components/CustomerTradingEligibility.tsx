@@ -46,8 +46,8 @@ export function CustomerTradingEligibility() {
                 </div>
                 <div>
                   <Target size={18} aria-hidden="true" />
-                  <span>Daily opportunities</span>
-                  <strong>{data?.dailyOpportunityAllowance ?? 0}</strong>
+                  <span>This package’s daily opportunities</span>
+                  <strong>{currentPackage.opportunitiesPerDay}</strong>
                 </div>
               </div>
               <p className="trading-package-note"><ShieldCheck size={15} aria-hidden="true" /> Your package is assigned automatically. Opportunities depend on eligibility, schedule, and available wallet balance; an allowance is not a promise of a trade or profit.</p>
