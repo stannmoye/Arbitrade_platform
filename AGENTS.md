@@ -101,3 +101,10 @@ Database changes should use ordered forward migrations and retry-safe server-sid
 - Never use a manually edited or stale currency-registry rate as a fallback. Fail closed for qualifying classification if the provider cannot price the wallet or the rate is invalid/stale. Do not silently turn a failed qualifying credit into a non-qualifying credit.
 - The administrator customer directory must show automatically assigned active Trading tiers and the customer's cumulative qualifying USD amount.
 - This qualification-only valuation must not alter ordinary wallet transfers, transfer balances, or transfer ledger semantics.
+
+## Automatic Trading tier qualification worker (mandatory)
+
+- Qualifying administrator credits and their auditable reversals must insert a durable `trading_tier_qualification_jobs` row in the same database transaction as the corresponding ledger entry. The unique `sourceLedgerId` is the idempotency key; never enqueue transfers or non-qualifying credits.
+- Run `runTradingTierQualificationWorkerCycle` from the database-enabled server entrypoint on a five-second timer, with a bounded batch, an overlap guard, and an unreferenced timer. The worker must operate without customer sessions.
+- Use indexed queue reads, database row locks, a recoverable processing lease, bounded exponential retry, and a terminal dead-letter status after eight attempts. Never spin continuously or scan all customers on an idle queue cycle. Do not claim 100% correctness without running tests and verifying migration/CI results.
+- Preserve normal wallet transfer behavior. Test atomic enqueue, duplicate prevention, retry/restart recovery, tier assignment, reversals, and multi-instance locking.
