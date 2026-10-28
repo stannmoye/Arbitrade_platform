@@ -20,8 +20,9 @@ describe("Trading settlement timing schema drift repair", () => {
     const entries = journal.entries;
     const entry = entries.find((item) => item.tag === "0079_trade_settlement_timing_schema_repair");
     expect(entry).toBeDefined();
-    expect(entry.idx).toBe(entries.length - 1);
-    expect(entry.when).toBeGreaterThan(entries.at(-2).when);
+    expect(entry.idx).toBe(entries.length - 2);
+    expect(entries.at(-1).tag).toBe("0080_qualifying_admin_deposit_attribution");
+    expect(entry.when).toBeGreaterThan(entries.at(-3).when);
   });
 
   it("reconciles actual settlement timing schema drift even when migration history already records it", () => {
