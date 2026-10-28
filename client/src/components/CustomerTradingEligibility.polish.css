@@ -164,7 +164,7 @@
   min-height: 20px;
   transform: translateY(var(--candle-shift));
   animation: trading-candle-float 2.8s ease-in-out infinite alternate;
-  animation-delay: calc(var(--candle-shift) * -80ms);
+  animation-delay: 0s;
 }
 .trading-candle::before {
   content: "";
@@ -185,7 +185,7 @@
   background: currentColor;
   box-shadow: 0 0 7px color-mix(in srgb, currentColor 32%, transparent);
 }
-.trading-candle.is-up { color: #42edaa; }
+.trading-candle:nth-child(2), .trading-candle:nth-child(5), .trading-candle:nth-child(8) { animation-delay: -.7s; }\n.trading-candle:nth-child(3), .trading-candle:nth-child(6), .trading-candle:nth-child(9) { animation-delay: -1.4s; }\n.trading-candle.is-up { color: #42edaa; }
 .trading-candle.is-down { color: #ff788a; }
 .trading-candle-chart-foot { color: #648da2; }
 .trading-candle-chart-foot svg { color: #57d9ff; }
