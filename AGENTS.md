@@ -14,7 +14,7 @@ Read these files before changing the application:
 
 Before modifying the Trading page, opportunity engine, package entitlements, wallet allocation, trade lifecycle, settlement, fees, company catalogue, or related admin controls, read `docs/TRADING_SYSTEM_SPECIFICATION.md` in full. Treat it as the canonical product contract for trading behaviour. It covers administrator-managed tiers, automatic qualification from cumulative qualifying manual administrator deposit credits, cumulative opportunity quotas, combined customer earnings ceiling, insufficient-balance opportunity pop-ups, server-side automatic processing, 15% fee on realized positive profit, retries/carry-forward, company rotation, wallet notifications, and admin controls.
 
-Do not introduce behaviour that conflicts with the specification. If a codebase constraint or later user instruction appears to conflict, stop and document the conflict before implementing. Update the canonical specification and its PDF together when requirements are formally revised. Never claim a requirement is implemented without inspecting the code and validating it.
+Do not introduce behaviour that conflicts with the specification. If a codebase constraint or later user instruction appears to conflict, stop and document the conflict before implementing. Update the canonical specification and its companion PDF together when requirements are formally revised. If the PDF is absent from the repository, record that gap rather than claiming it was updated. Never claim a requirement is implemented without inspecting the code and validating it.
 
 ## Canonical source
 
