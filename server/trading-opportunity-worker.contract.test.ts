@@ -33,11 +33,13 @@ describe("automatic Trading opportunity scheduler", () => {
     expect(schedulerSource).toContain("Math.min(250,requestedBatchSize)");
   });
 
-  it("locks and advances a durable round-robin cursor, wrapping when the end is reached", () => {
+  it("locks and advances a durable round-robin cursor without re-claiming the first page in the same tick", () => {
     expect(schedulerSource).toContain('const cursorKey="trade.autoTradeCycle.lastUserId"');
     expect(schedulerSource).toContain('.limit(1).for("update")');
     expect(schedulerSource).toContain("gt(customerPackageSubscriptions.userId,afterUserId)");
-    expect(schedulerSource).toContain("if(!batch.length&&cursor>0) batch=await selectAfter(0)");
+    expect(schedulerSource).toContain('if(!batch.length&&cursor>0){');
+    expect(schedulerSource).toContain('set({settingValue:"0"})');
+    expect(schedulerSource).toContain("return [];");
     expect(schedulerSource).toContain("settingValue:String(nextCursor)");
   });
 
