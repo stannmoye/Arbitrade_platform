@@ -35,6 +35,24 @@ The browser wizard generates independent session and password-pepper secrets and
 
 Do not run the fresh-VPS provisioning flow on a server with existing applications unless every proposed host change has been reviewed and an operator-approved recovery plan exists. The universal ZIP contains no database snapshot or deployment secrets.
 
+## Trading tier qualification worker: post-install verification
+
+The Trading tier qualification worker is designed to run inside the Node.js application process. On the supported production startup path, `pnpm start` runs the worker-runtime schema guard and then launches `dist/index.js`; the worker polls its durable database queue on its configured interval. **Do not create a cron job by default.** A second scheduler is unnecessary when the application service remains running.
+
+After the installer wizard and database migrations have completed:
+
+1. Rebuild and restart the application using the hosting platform's normal service controls. For cPanel, restart the Node.js app in **Setup Node.js App**. For a VPS, restart the actual configured Arbitrade systemd service if you used the supplied VPS setup; do not assume a service name without checking the host.
+2. From the private application root, run:
+   ```bash
+   pnpm installer:verify
+   pnpm installer:diagnose
+   ```
+   Confirm that the production startup command, production build, database connection, required worker schema, and migration checks pass. Check the private application/service logs for Trading tier qualification worker startup or processing errors.
+3. Keep the Node.js application service enabled at boot and configured to restart after process failure. The worker runs server-side and does not depend on a customer being signed in or keeping a browser open.
+4. If the hosting provider cannot keep the Node.js application process alive, resolve that service/process-manager limitation first (for example, cPanel's Node.js app manager or the VPS service manager). **Only use a cron-triggered fallback if a future deployment explicitly changes the worker to a documented one-shot command.** Do not schedule the current long-running application entry point with cron or invent a cron command to invoke the worker directly.
+
+The worker uses a durable, indexed queue populated transactionally with qualifying administrator-credit ledger entries and qualifying-deposit reversals. It processes bounded batches, uses database locking and idempotent reconciliation, recovers stale leases, retries failures with backoff, and leaves terminal failures visible for operator investigation. Ordinary transfers and non-qualifying credits do not enqueue qualification work. If verification reports a missing worker table, run the documented guarded migration workflow after taking the required backup; do not create tables manually or mark jobs complete by hand.
+
 ## Browser wizard
 
 1. Upload/extract the repository into a private application root. Create a MySQL database and dedicated user in cPanel and grant that user privileges on the database.
