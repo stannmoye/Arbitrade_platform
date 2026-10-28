@@ -5,6 +5,7 @@
 | Item | Source of truth | Purpose |
 | --- | --- | --- |
 | Application revision | `main` in this repository | Current integrated customer/admin app |
+| Development handoff | `progress.md` | Current continuation summary; verify its branch, commit, and CI state against GitHub before relying on it. |
 | Machine-readable build contract | `BUILD_SOURCE.json` | Branch, toolchain, artifact scope, required checks, and acceptance boundary |
 | Human build/release process | `BUILD_AND_RELEASE.md` | Reproducible source and full-application release steps |
 | Agent instructions | `AGENTS.md` and `.github/copilot-instructions.md` | Instructions for connected coding assistants |

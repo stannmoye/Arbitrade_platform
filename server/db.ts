@@ -2446,6 +2446,13 @@ export async function activateCustomerTradingPackage(userId:number,input:{packag
 }
 
 export async function listOpportunityPackagePolicies() { const db=await getDb(); if(!db) throw new Error("Database is not available"); const existing=await db.select().from(opportunityPackagePolicies); const names=new Set(existing.map(row=>row.packageName)); for(const policy of DEFAULT_OPPORTUNITY_PACKAGE_POLICIES) if(!names.has(policy.packageName)) await db.insert(opportunityPackagePolicies).values(policy); return db.select().from(opportunityPackagePolicies); }
+
+/** Returns persisted package-policy rows without seeding defaults; safe for read-only snapshots. */
+export async function listPersistedOpportunityPackagePolicies() {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.select().from(opportunityPackagePolicies);
+}
 export async function updateOpportunityPackagePolicies(updatedBy:number, policies:any[]) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   for (const policy of policies) {
