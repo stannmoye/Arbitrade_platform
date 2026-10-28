@@ -43,7 +43,7 @@ try {
   );
 
   const migration = await readFile(new URL("../drizzle/0082_trading_tier_qualification_jobs.sql", import.meta.url), "utf8");
-  for (const chunk of migration.split(/-->\\s*statement-breakpoint\\s*/i).map((part) => part.trim()).filter(Boolean)) {
+  for (const chunk of migration.split("--> statement-breakpoint").map((part) => part.trim()).filter(Boolean)) {
     await first.query(chunk);
   }
 
