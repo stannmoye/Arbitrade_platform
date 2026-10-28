@@ -158,3 +158,26 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 1. Reconcile or close the obsolete PR #200 draft only after confirming no unique wanted changes would be lost.
 2. Continue auditing the remaining required Trading Settings routes and persisted behavior against the canonical guide.
 3. Keep merge, production deployment, production database changes, and live trades out of scope unless separately authorized.
+
+## Exact-head verification — 2026-10-28 — PR #202
+
+- Source/test commit `4fe1c696973574c9ae0a1dec651fb014124e6cfb`: all 14 reported checks passed. The free activation, worker-only allocation boundary, and mounted customer package panel are verified by the source-contract test and the full CI suite on that SHA.
+- Progress-only commit `440b008fe63cea7788d69bcdec2117f32fdc4e1a`: all 14 reported checks completed successfully. The last check to finish was customer-portal real-browser recovery, which also passed.
+- Exact check outcomes for `440b008fe63cea7788d69bcdec2117f32fdc4e1a`:
+- **Stage 1 validation dashboard: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **Customer portal real-browser recovery checks: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883161).
+- **deployment-packages: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **Installer and migration regression tests: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **TypeScript validation: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **syntax: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **installer-mysql8-compatibility-and-recovery: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **installer-fresh-mariadb: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **Application unit tests: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **Production build, bundle budgets, and server smoke test: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **Mining unit tests and TypeScript check: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883137).
+- **Install, type-check, test, and build: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883191).
+- **Typecheck, tests, and production build: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883066).
+- **Type-check, test, and build: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883161).
+- Current status: **WORKING** for the source/test contract and CI-verified behavior on `4fe1c696973574c9ae0a1dec651fb014124e6cfb`; **NEEDS FURTHER REVIEW** for hosted/production acceptance, which was not performed.
+- PR #202 is still open and draft. PR #200 is also still open and draft, unchanged at `8f379fe5a179de73973f51b12ea3f08e08eb58cd`; do not merge its deposit-tier documentation as-is.
+- No merge, deployment, production database operation, balance change, or live trade occurred.
