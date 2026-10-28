@@ -96,13 +96,21 @@ describe("Automatic Trading tier qualification", () => {
     expect(routerSource).not.toContain("activateTradingPackage:");
     expect(routerSource).not.toContain("tradingPackages: protectedProcedure.query");
     expect(databaseSource).toContain("export async function getCustomerTradingEligibility");
+    expect(databaseSource).toContain("const nextTier=tiers.find(tier=>Number(tier.minimumQualifyingBalanceUsdMinor)>qualifyingDepositUsdMinor)");
+    expect(databaseSource).toContain("const currentPackage=activePackages[0]||null");
+    expect(databaseSource).toContain("amountNeededUsdMinor:Math.max(0,Number(nextTier.minimumQualifyingBalanceUsdMinor)-qualifyingDepositUsdMinor)");
+    expect(databaseSource).toContain("The customer receives only their highest active tier and the single next threshold");
     expect(customerAppSource).not.toContain("CustomerTradingPackages");
     expect(customerAppSource).toContain("CustomerTradingEligibility");
     expect(eligibilityComponent).toContain("trpc.customer.tradingEligibility.useQuery");
-    expect(eligibilityComponent).toContain("qualifying manual administrator wallet credits");
-    expect(customerAppSource).toContain("The threshold is an eligibility rule, not a fee or an automatic trade amount.");
+    expect(eligibilityComponent).toContain("You’re not yet qualified for a package");
+    expect(eligibilityComponent).toContain("Additional daily opportunities");
+    expect(eligibilityComponent).toContain("currentPackage.name");
+    expect(eligibilityComponent).toContain("nextPackage.name");
     expect(eligibilityComponent).not.toContain("Activate free package");
     expect(eligibilityComponent).not.toContain("packageId");
+    expect(specification).toContain("the single next enabled tier");
+    expect(specification).toContain("must never expose the full administrator-managed tier catalogue");
   });
 
   it("retires legacy customer-activated entitlements without deleting historical rows", () => {
