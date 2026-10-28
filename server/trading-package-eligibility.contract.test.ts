@@ -3,14 +3,15 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 
-describe("server-side trading package eligibility", () => {
-  it("blocks automatic opportunity delivery without a matching active subscription", () => {
+describe("server-side automatic Trading tier eligibility", () => {
+  it("blocks automatic opportunity delivery without a matching active auto-assigned tier", () => {
     const start = source.indexOf("export async function listCustomerOpportunities(");
     const end = source.indexOf("export async function runAutoTradeCycle(", start);
     const implementation = source.slice(start, end);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
     expect(implementation).toContain("customerPackageSubscriptions");
+    expect(implementation).toContain('.filter(subscription=>String(subscription.activationKey||"").startsWith("auto-tier:"))');
     expect(implementation).toContain('eq(customerPackageSubscriptions.status,"active")');
     expect(implementation).toContain(".innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))");
     expect(implementation).toContain("noPackage:true");
@@ -29,7 +30,7 @@ describe("server-side trading package eligibility", () => {
     expect(implementation).not.toContain("drainMode");
   });
 
-  it("rechecks active package eligibility inside the trade-allocation transaction", () => {
+  it("rechecks auto-assigned tier eligibility inside the trade-allocation transaction", () => {
     const start = source.indexOf("export async function createTrade(");
     const end = source.indexOf("\nexport async function ", start + 5);
     const implementation = source.slice(start, end);
@@ -38,8 +39,8 @@ describe("server-side trading package eligibility", () => {
     expect(implementation).toContain('eq(customerPackageSubscriptions.status,"active")');
     expect(implementation).toContain('.for("update")');
     expect(implementation).toContain("SELECT id,loginMethod FROM users WHERE id=${userId} FOR UPDATE");
-    expect(implementation).toContain('if(!activePackageSubscriptions.length) throw new Error("An eligible active trading package subscription is required")');
-    expect(implementation).toContain('if(!subscriptionsWithQuota.length) throw new Error("All active package opportunity quotas have been used for today")');
+    expect(implementation).toContain('if(!activePackageSubscriptions.length) throw new Error("An automatically assigned eligible Trading tier is required")');
+    expect(implementation).toContain('if(!subscriptionsWithQuota.length) throw new Error("All eligible Trading tier opportunity quotas have been used for today")');
     expect(implementation).toContain("samePackageSubscription");
     expect(implementation).toContain("No eligible package subscription remains for this allocation");
     expect(implementation).toContain("Number(subscription.packageId)===input.packageId");
