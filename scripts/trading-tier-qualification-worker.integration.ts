@@ -302,6 +302,12 @@ try {
   const secondOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
   const endOfPassBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
   const wrappedOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
+  console.log("Scheduler batch diagnostics:", JSON.stringify({
+    first: firstOpportunityBatch.customers.map(row => row.id),
+    second: secondOpportunityBatch.customers.map(row => row.id),
+    endOfPass: endOfPassBatch.customers.map(row => row.id),
+    wrapped: wrappedOpportunityBatch.customers.map(row => row.id),
+  }));
   assert.equal(firstOpportunityBatch.customers.length, 1);
   assert.equal(secondOpportunityBatch.customers.length, 1);
   assert.equal(endOfPassBatch.customers.length, 0, "The end-of-pass tick must not immediately re-claim the first page.");
