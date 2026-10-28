@@ -2454,7 +2454,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const controls=await ensureCustomerControls(userId);
   const emptyResult=async (delivery:any)=>({offers:[],missed:await listMissedOpportunities(userId),autoTrades:[],settled,delivery});
   if(controls.accountStatus!=="active") return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,accountInactive:true,popupPolicy:{}});
-  const subscriptions=await db.select({
+  const subscriptions=(await db.select({
     subscriptionId:customerPackageSubscriptions.id,packageId:packages.id,packageName:packages.name,
     activationKey:customerPackageSubscriptions.activationKey,
     packageQuota:packages.opportunitiesPerDay,termsVersion:packages.termsVersion,termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
