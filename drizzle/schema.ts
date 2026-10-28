@@ -289,7 +289,7 @@ export const appSettings = mysqlTable("app_settings", {
 
 export const opportunityPackagePolicies = mysqlTable("opportunity_package_policies", {
   id: int("id").autoincrement().primaryKey(),
-  packageName: varchar("packageName", { length: 40 }).notNull().unique(),
+  packageName: varchar("packageName", { length: 80 }).notNull().unique(),
   maxPopupsPerDay: int("maxPopupsPerDay").default(10).notNull(),
   maxVisibleOffers: int("maxVisibleOffers").default(10).notNull(),
   minimumTradeUnits: int("minimumTradeUnits").default(1000).notNull(),
