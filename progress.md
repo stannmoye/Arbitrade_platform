@@ -116,3 +116,21 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 - All 14 reported check runs completed successfully, including TypeScript validation, application tests, production build/smoke, browser recovery, installer and MySQL/MariaDB checks, deployment-package validation, Mining regression, and Trading recovery.
 - These results apply to code/test SHA 6cc2f27ffad80ce43e6956799c46ace5312439ca. This handoff update is documentation-only; verify Actions against its resulting head before treating that newer head as validated.
 - PR #203 remains open and unmerged. No deployment, production database operation, or live trade was performed.
+
+## Live GitHub recheck — 2026-10-28 (supersedes stale PR-status statements above)
+
+- Canonical `main` was rechecked at `bf940d02baeb39c92fed66eeea7ed44b1843119f` (commit: [Repair Trading settlement timing schema drift](https://github.com/stannmoye/Arbitrade_platform/commit/bf940d02baeb39c92fed66eeea7ed44b1843119f)). This latest main commit has no GitHub Actions workflow runs or status checks returned by the current connector; do not infer that it passed CI.
+- PR #203 is **merged and closed**, not open. Merge commit is `e0593a4e043153cff813ba1f72dccc400d7bbe37`. Do not redo its merged work. Its final merge added the admin route/read-only overview change after the earlier package-date/test fixes.
+- PR #202 remains open and draft at `58e37a4645d13d3aacbbeed20d30dac513445e8a`, 27 commits ahead of main and 0 behind at the time of comparison. Five workflow groups passed on that exact head. Those results are not proof of acceptance against the owner-locked package policy below.
+- PR #200 remains open and draft at `8f379fe5a179de73973f51b12ea3f08e08eb58cd`; GitHub reports it is not mergeable. Its current branch has not had fresh automated test/build validation in the PR description. It contains useful no-synthetic-economics and ledger-safety work, but must not be merged as-is.
+- **Product-policy conflict requires explicit owner resolution before changing customer package behavior:** PR #202 retains customer package browsing/activation and treats activation as a free entitlement step. PR #200's owner-locked section says customers must not browse/select/subscribe/activate packages and that tiers qualify automatically from cumulative qualifying manual admin wallet credits. The canonical spec currently on main still contains package activation language, so the branch policy and main spec are inconsistent. Do not silently choose either behavior; obtain the owner's explicit decision, then update the canonical specification and implementation together.
+- Migration conflict: PR #200 proposes `drizzle/0079_internal_ledger_execution_mode.sql`; PR #202's description says the settlement-timing repair `0079_trade_settlement_timing_schema_repair` is already in main through PR #197. Do not merge duplicate/conflicting `0079` migration numbering. Rebase/renumber only after checking the actual migration journal and preserving the already-merged schema repair.
+- The current main `progress.md` previously contained stale claims that PR #203 was open. This entry records the current live state; continue to verify exact heads and checks before every code change.
+- No code, production data, deployment, or live trade was changed during this status audit. A documentation-only handoff branch is being used to correct the stale status; it must pass the repository's applicable checks before merge.
+
+## Next execution steps
+
+1. Ask the owner to resolve the package policy conflict: (A) customer can activate a free package after eligibility checks, or (B) no customer package catalogue/activation; admin-entered qualifying deposits automatically determine tier eligibility.
+2. Inspect `drizzle/meta/_journal.json` and the exact current migration files before integrating any migration from PR #200.
+3. After policy selection, make the smallest focused changes on an existing feature branch, add regression tests, and run `pnpm install --frozen-lockfile`, `pnpm check`, `pnpm test`, and `pnpm build` against the resulting exact SHA.
+4. Keep PR #202/PR #200 unmerged until policy, migration sequence, exact-head CI, and final diff review are resolved. No deployment or production data operations without separate authorization.
