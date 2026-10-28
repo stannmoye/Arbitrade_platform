@@ -699,3 +699,189 @@
 @media (prefers-reduced-motion: reduce) {
   .trading-trajectory-live > span, .orbit-outer, .orbit-middle { animation: none !important; }
 }
+
+
+/* Screenshot-matched package progress layout (mobile-first, read-only). */
+.trading-packages-panel {
+  gap: 14px;
+  padding: clamp(14px, 2.2vw, 24px);
+  color: #e4f5ff;
+  background: linear-gradient(155deg, #071b2b 0%, #04111d 74%, #020b13 100%);
+  border: 1px solid #14374a;
+  border-radius: 0;
+  box-shadow: inset 0 0 34px rgb(25 210 203 / 5%);
+}
+.trading-journey-header { display: block; }
+.trading-journey-intro { max-width: none; }
+.trading-journey-eyebrow {
+  color: #3fe2ca;
+  font-size: 10px;
+  letter-spacing: .19em;
+}
+.trading-journey-title {
+  margin: 5px 0 8px;
+  color: #e9f6ff;
+  font-size: clamp(24px, 4.6vw, 34px);
+  font-weight: 750;
+  letter-spacing: -.035em;
+}
+.trading-bot-status {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 0;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-color: #1d5364;
+  border-radius: 999px;
+  background: #071c2b;
+  color: #68d9d0;
+  font-size: 11px;
+  font-weight: 500;
+}
+.trading-bot-status-icon { display: none; }
+.trading-bot-status.is-active { border-color: #1d5364; background: #071c2b; }
+.trading-status-label { display: none; }
+.trading-status-message { color: #68d9d0; }
+.trading-journey-refresh { display: none; }
+.trading-journey-content { gap: 16px; }
+.trading-tier-card {
+  padding: clamp(15px, 2.8vw, 22px);
+  border: 1px solid #176074;
+  border-radius: 2px;
+  background: #071b2a;
+  box-shadow: 0 0 18px rgb(22 214 200 / 8%);
+}
+.trading-tier-card-current,
+.trading-tier-card-next {
+  border-color: #176074;
+  background: #071b2a;
+  box-shadow: 0 0 18px rgb(22 214 200 / 8%);
+}
+.trading-tier-card-head { display: block; }
+.trading-tier-kicker {
+  color: #4ce2cf;
+  font-size: 10px;
+  letter-spacing: .16em;
+}
+.trading-tier-name {
+  margin-top: 8px;
+  color: #e6f5ff;
+  font-size: clamp(22px, 4.3vw, 29px);
+  letter-spacing: -.025em;
+}
+.trading-tier-state { display: none; }
+.trading-tier-metrics { gap: 9px; margin-top: 15px; }
+.trading-tier-metric {
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 3px;
+  padding: 12px 10px;
+  border-color: #263e50;
+  border-radius: 3px;
+  background: #081e2e;
+}
+.trading-tier-metric-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: transparent;
+  color: #43dfcc;
+}
+.trading-tier-metric-label {
+  color: #8aaec0;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.trading-tier-metric-value {
+  color: #e8f5ff;
+  font-size: clamp(16px, 3.2vw, 20px);
+  line-height: 1.2;
+}
+.trading-tier-explainer { display: none; }
+.trading-threshold-panel {
+  display: grid;
+  grid-template-columns: minmax(112px, .72fr) minmax(0, 1.28fr);
+  align-items: center;
+  gap: clamp(14px, 3vw, 24px);
+  margin-top: 18px;
+}
+.trading-milestone-ring {
+  display: grid;
+  place-items: center;
+  width: min(100%, 132px);
+  aspect-ratio: 1;
+  padding: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 20px rgb(44 194 218 / 7%);
+  animation: milestone-ring-enter .65s ease-out both;
+}
+.trading-milestone-ring::before {
+  content: "";
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #071b2a;
+}
+.trading-milestone-ring span {
+  grid-area: 1 / 1;
+  z-index: 1;
+  color: #e6f8ff;
+  font-size: clamp(22px, 4.4vw, 29px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.trading-threshold-details { min-width: 0; }
+.trading-threshold-label {
+  display: block;
+  color: #91b1c1;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.trading-threshold-value-row { margin-top: 5px; }
+.trading-threshold-amount {
+  color: #e9f6ff;
+  font-size: clamp(29px, 6.8vw, 43px);
+  font-weight: 800;
+  letter-spacing: -.04em;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+.trading-threshold-unit {
+  display: block;
+  margin-top: 7px;
+  color: #8aaec0;
+  font-size: 12px;
+}
+.trading-total-allowance {
+  margin-top: 62px;
+  padding: 18px 16px;
+  border: 1px solid #176074;
+  border-radius: 2px;
+  background: #071b2a;
+  box-shadow: 0 0 18px rgb(22 214 200 / 8%);
+}
+.trading-total-allowance-icon { display: none; }
+.trading-total-allowance-label { color: #e4f5ff; font-size: clamp(16px, 3.4vw, 21px); }
+.trading-total-allowance-note { color: #8aaec0; font-size: 11px; }
+.trading-total-allowance-value { color: #e4f5ff; font-size: clamp(28px, 5.5vw, 38px); }
+.trading-no-next {
+  border-color: #176074;
+  border-radius: 2px;
+  background: #071b2a;
+}
+@keyframes milestone-ring-enter {
+  from { opacity: .45; transform: rotate(-18deg) scale(.96); }
+  to { opacity: 1; transform: rotate(0) scale(1); }
+}
+@media (max-width: 420px) {
+  .trading-threshold-panel { grid-template-columns: minmax(96px, .72fr) minmax(0, 1.28fr); gap: 13px; }
+  .trading-milestone-ring { width: 100%; padding: 8px; }
+  .trading-tier-metrics { gap: 7px; }
+  .trading-tier-metric { padding: 10px 7px; grid-template-columns: 24px minmax(0, 1fr); column-gap: 6px; }
+  .trading-total-allowance { margin-top: 42px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trading-milestone-ring { animation: none; }
+}
