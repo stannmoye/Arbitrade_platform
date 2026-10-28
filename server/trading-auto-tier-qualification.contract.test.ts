@@ -103,6 +103,9 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).not.toContain("CustomerTradingPackages");
     expect(customerAppSource).toContain("CustomerTradingEligibility");
     expect(eligibilityComponent).toContain("trpc.customer.tradingEligibility.useQuery");
+    expect(eligibilityComponent).toContain('"TIER ACTIVE"');
+    expect(eligibilityComponent).toContain('"AWAITING TIER"');
+    expect(eligibilityComponent).toContain('"RETRY NEEDED"');
     expect(eligibilityComponent).toContain("You’re not yet qualified for a package");
     expect(eligibilityComponent).toContain("Additional qualifying amount needed");
     expect(eligibilityComponent).toContain("currentPackage.name");
@@ -115,6 +118,9 @@ describe("Automatic Trading tier qualification", () => {
     expect(eligibilityComponent).not.toContain("packageId");
     expect(eligibilityStyles).toContain("@media (max-width: 560px)");
     expect(eligibilityStyles).toContain("prefers-reduced-motion: reduce");
+    expect(eligibilityStyles).toContain("@keyframes trading-card-glint");
+    expect(eligibilityStyles).toContain("@keyframes trading-progress-shimmer");
+    expect(eligibilityStyles).toContain(".trading-status-label");
     expect(eligibilityStyles).toContain("var(--arb-color-surface-raised)");
     expect(specification).toContain("the single next enabled tier");
     expect(specification).toContain("must never expose the full administrator-managed tier catalogue");
