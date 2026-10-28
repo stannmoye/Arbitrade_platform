@@ -109,8 +109,8 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(previous.tag).toBe("0079_trade_settlement_timing_schema_repair");
-    expect(last.tag).toBe("0080_qualifying_admin_deposit_attribution");
+    expect(previous.tag).toBe("0080_qualifying_admin_deposit_attribution");
+    expect(last.tag).toBe("0081_trading_tier_policy_alignment");
     expect(journal.entries.slice(-9).map((entry) => entry.tag)).toEqual([
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
@@ -121,12 +121,14 @@ describe("worker schema contracts", () => {
       "0078_trading_customer_package_subscription_repair",
       "0079_trade_settlement_timing_schema_repair",
       "0080_qualifying_admin_deposit_attribution",
+      "0081_trading_tier_policy_alignment",
     ]);
     expect(portalRunner).toContain('"0076_trading_admin_policy_read_repair.sql"');
     expect(portalRunner).toContain('"0077_trading_package_catalogue_schema_repair.sql"');
     expect(portalRunner).toContain('"0078_trading_customer_package_subscription_repair.sql"');
     expect(portalRunner).toContain('"0079_trade_settlement_timing_schema_repair.sql"');
     expect(portalRunner).toContain('"0080_qualifying_admin_deposit_attribution.sql"');
+    expect(portalRunner).toContain('"0081_trading_tier_policy_alignment.sql"');
     expect(last.idx).toBe(previous.idx + 1);
     expect(last.when).toBeGreaterThan(previous.when);
     expect(portalRunner).toContain('"0055_notification_campaign_delivery_tracking.sql"');
