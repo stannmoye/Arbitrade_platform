@@ -3,7 +3,7 @@ import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, not
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool } from "mysql2/promise";
 import { ENV } from "./_core/env";
-import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
+import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
@@ -1971,9 +1971,17 @@ if(input.mode==="credit"&&input.creditClassification==="qualifying_deposit"&&use
     provider=currencyCode==="USDT"?"product-rule:USDT-nominal-1-to-1":"product-rule:USD-1-to-1";
     rateAt=new Date();
   }else if(currencyCode==="BTC"||currencyCode==="ETH"){
-    if(!rateAt||Date.now()-rateAt.getTime()>5*60*1000||!provider||provider.toLowerCase().includes("manual")){
+    const liveSnapshot=(await tx.select().from(fxRateSnapshots).where(and(
+      eq(fxRateSnapshots.baseAsset,currencyCode),
+      eq(fxRateSnapshots.quoteAsset,"USD"),
+      eq(fxRateSnapshots.provider,"coingecko"),
+    )).orderBy(desc(fxRateSnapshots.observedAt)).limit(1).for("update"))[0];
+    if(!liveSnapshot||Date.now()-new Date(liveSnapshot.observedAt).getTime()>5*60*1000||new Date(liveSnapshot.observedAt).getTime()>Date.now()+60_000){
       throw new Error("A current verified BTC/ETH-to-USD rate is required before this qualifying deposit can be credited.");
     }
+    rate=Number(liveSnapshot.rate);
+    provider=liveSnapshot.provider;
+    rateAt=new Date(liveSnapshot.observedAt);
   }
   if(!Number.isFinite(rate)||rate<=0||!rateAt||rateAt.getTime()>Date.now()+60_000){
     throw new Error("A valid, timestamped currency-to-USD rate is required before this qualifying deposit can be credited.");
