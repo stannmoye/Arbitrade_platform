@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import "./CustomerTradingEligibility.css";
+import "./CustomerTradingEligibility.polish.css";
 
 const usdEquivalent = (minor: number) => new Intl.NumberFormat(undefined, {
   minimumFractionDigits: 2,
