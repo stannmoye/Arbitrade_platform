@@ -117,3 +117,11 @@ This policy is final and must be followed throughout the application:
 - Post-merge CI is running against the merge commit. Check the exact main SHA and all post-merge workflow results before deployment.
 - Ordinary wallet-transfer implementation was not modified by this qualification change. The new integration test proves non-qualifying admin credits are excluded; do not describe this as a separate end-to-end transfer test.
 - No production database has been touched. Do not begin the next worker until post-merge CI is green and this first worker has been verified after deployment.
+
+
+## Progressive customer Trading package journey (2026-10-28)
+
+- Customer Trading UI now presents a progressive, read-only journey: customers without an active tier see the first qualifying milestone; customers with an active tier see their highest active package and only the next enabled qualifying package.
+- The customer eligibility API derives qualifying USD-minor attribution from the explicit admin manual credit/reversal ledger types and returns only the current tier, one next tier, the remaining qualifying amount, durations, and quota values. It does not expose the full package catalogue or any activation route.
+- Updated the canonical Trading specification, root agent rules, administrator menu guide, and contract tests to reflect this limited progressive display while retaining the ban on customer browsing, selection, subscription, purchase, and activation.
+- Validation remains pending for the exact feature branch head. No production deployment or database migration was performed for this UI change.
