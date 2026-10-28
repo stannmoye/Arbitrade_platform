@@ -2960,8 +2960,14 @@ export async function claimAutoTradeCycleCustomers(input:{batchSize?:number}={})
       .where(and(activeTierFilter,gt(customerPackageSubscriptions.userId,afterUserId)))
       .orderBy(customerPackageSubscriptions.userId)
       .limit(batchSize);
-    let batch=await selectAfter(cursor);
-    if(!batch.length&&cursor>0) batch=await selectAfter(0);
+    const batch=await selectAfter(cursor);
+    // Do not wrap and re-claim the first page in the same tick: another server
+    // instance may already be processing that page. Reset the cursor and let the
+    // next scheduled tick start a fresh pass.
+    if(!batch.length&&cursor>0){
+      await tx.update(appSettings).set({settingValue:"0"}).where(eq(appSettings.settingKey,cursorKey));
+      return [];
+    }
     const nextCursor=batch.length?Number(batch[batch.length-1].id):0;
     await tx.update(appSettings).set({settingValue:String(nextCursor)}).where(eq(appSettings.settingKey,cursorKey));
     return batch;
