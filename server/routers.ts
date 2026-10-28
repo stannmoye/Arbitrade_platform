@@ -564,7 +564,7 @@ export const appRouter = router({
         title:`Wallet ${input.mode} transaction completed`,
         message:`${input.currency} wallet adjustment was committed to the ledger for account ${input.userId}.`,
         amountMinor:input.amountMinor,asset:input.currency,
-        metadata:{targetUserId:input.userId,reason:input.reason,creditClassification:input.creditClassification,rateUsd:result.rateUsd,amountUsd:result.amountUsd,rateUpdatedAt:result.rateUpdatedAt},
+        metadata:{targetUserId:input.userId,reason:input.reason,creditClassification:input.creditClassification,debitClassification:input.debitClassification,reversalLedgerId:input.reversalLedgerId,qualifyingDepositReversalOfId:result.qualifyingDepositReversalOfId,ledgerId:result.ledgerId,entryType:result.entryType,rateUsd:result.rateUsd,amountUsd:result.amountUsd,rateUpdatedAt:result.rateUpdatedAt,qualifyingDepositRateProvider:result.qualifyingDepositRateProvider},
       });
       return result;
     }),
