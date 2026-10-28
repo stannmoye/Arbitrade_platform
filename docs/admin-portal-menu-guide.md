@@ -9,7 +9,7 @@ The admin portal has two navigation layers:
 
 The admin portal is role-protected. Pages use the database-backed admin session, and the server applies admin-only access checks to protected operations.
 
-> **Important operating model:** The portal is database-connected. Customer, KYC, wallet, currency, package, email, audit, opportunity, and policy operations are intended to use persisted records. Some provider integrations are still shown as unavailable until their external credentials and approval controls are configured.
+> **Important trading-tier policy:** Trading tiers are administrator-managed configuration, not customer products. Customers must not browse, select, subscribe to, purchase, or activate tiers. A customer's eligible tiers are assigned automatically only from cumulative qualifying credits manually issued by an authorized administrator through **Credit Customer** in the admin portal. The administrator must explicitly select the qualifying-deposit classification; the committed customer ledger entry must be `admin_manual_deposit_credit`. Only the customer eligibility summary and combined daily opportunity allowance may be shown in the customer portal. Historical references to customer package assignment or activation are superseded by this policy.
 
 ---
 
@@ -22,9 +22,9 @@ The admin portal is role-protected. Pages use the database-backed admin session,
 **What it shows:**
 
 - Total customer accounts
-- Active customer packages
+- Customers with active automatically assigned Trading tiers
 - Opportunity delivery ceiling
-- Current customer status and package information
+- Current customer status and read-only Trading eligibility summary
 - Database-controlled opportunity and security configuration
 
 **How it functions:**
@@ -48,13 +48,12 @@ Creates a new customer account with:
 - Name
 - Email address
 - Initial password
-- Package assignment
 
-The account is written to the shared `users` table and associated customer-control records are created.
+Trading tiers are not assigned manually during account creation. Tier eligibility is determined automatically only from credits manually submitted through the admin portal's Credit Customer flow, explicitly classified as qualifying, and committed as `admin_manual_deposit_credit`. Signup credits and all other credit/deposit pathways are excluded.
 
 ### Edit customer
 
-Updates the customer’s name, email, and package assignment.
+Updates the customer’s account details. Trading-tier eligibility is not manually assigned or edited on the customer record.
 
 ### Account status
 
@@ -259,6 +258,8 @@ SMTP credentials are kept server-side and are not exposed to the browser.
 
 ## 2.7 Credit Customer
 
+**Trading tier threshold rule:** This admin-portal form is the only source that can create a qualifying Trading deposit attribution. For a customer credit, the administrator must explicitly select **Qualifying admin-portal credit for Trading tier threshold**. The server records `admin_manual_deposit_credit` and verified USD attribution/rate evidence only for this path. Credits from signup, customer/provider deposit flows, imports, generic adjustments or any other source never qualify. Admin self-wallet credits are always non-qualifying.
+
 **Purpose:** Add funds to a selected customer wallet through the database ledger.
 
 **Inputs:**
@@ -327,7 +328,7 @@ Saving a currency uses an upsert operation, so an existing code is updated rathe
 
 ### Automatic signup credit
 
-Defines the initial recorded credit and currency for approved new accounts.
+Defines the initial recorded credit and currency for approved new accounts. Signup credits never count toward Trading tier thresholds.
 
 ### Default access rule
 
@@ -368,22 +369,20 @@ These controls define how new customers are screened and onboarded. Country-spec
 
 ## 2.11 Packages & Groups
 
-**Purpose:** View the authoritative package and entitlement registry.
+**Purpose:** Manage administrator-defined Trading tier configuration and review automatically assigned entitlements. These tiers are not customer-facing products.
 
-**Package information includes:**
+**Tier configuration includes:**
 
-- Package name
-- Enabled status
-- Opportunities per day
-- Maximum active allocations
-- Minimum and maximum trade amounts
-- Hourly delivery targets
-- Burst size
-- Entitlements
+- Tier name and enabled status
+- Qualifying deposit threshold in USD minor units
+- Duration and effective dates
+- Daily opportunity quota and allocation limits
+- Opportunity schedule, display and risk controls
+- Versioned terms and audit history
 
-Package data is read from the database and is used by customer eligibility, opportunity delivery, and account provisioning logic.
+Only authorized administrators can configure tiers. Customer eligibility is derived automatically from persisted qualifying-deposit attribution; administrators must not manually assign a tier to a customer. Customer-created legacy subscription rows are historical records only and must not grant eligibility.
 
-Detailed policy editing is handled through the Opportunity Engine controls.
+Detailed policy editing is handled through Trade Settings / Opportunity Engine controls.
 
 ---
 
@@ -460,7 +459,7 @@ The settings are stored in the application settings registry and are consumed by
 
 ## 2.16 Opportunity Engine
 
-**Purpose:** Manage opportunity creation, delivery policy, package rules, customer package assignment, lifecycle monitoring, and retention.
+**Purpose:** Manage opportunity creation, delivery policy, administrator-managed tier rules, automatic qualification policy, lifecycle monitoring, and retention.
 
 ### Global delivery settings
 
@@ -473,9 +472,9 @@ Controls include:
 - Signup credit amount
 - Signup credit currency
 
-### Package policy editor
+### Trading tier policy editor
 
-Controls package-specific:
+Controls administrator-managed tier-specific:
 
 - Daily popup limit
 - Maximum visible offers
@@ -502,9 +501,9 @@ Creates one opportunity offer with:
 
 Creates multiple opportunity offers in one operation.
 
-### Customer package assignment
+### Automatic tier qualification
 
-Assigns a package to a customer by email.
+There is no manual customer tier-assignment control. The server evaluates only cumulative credits manually submitted by an authorized administrator through the admin portal's **Credit Customer** flow, explicitly classified as qualifying and committed as `admin_manual_deposit_credit`. Customer/provider deposits, signup credits, imports, generic adjustments, profits, rewards, returned principal, bonuses, transfers, swaps, conversions and all other credit paths are excluded. The server creates audited entitlements automatically. Use customer ledger and eligibility records to investigate qualification; do not override eligibility by assigning a tier.
 
 ### Open offers
 
@@ -596,7 +595,7 @@ Controls customer watchlists, smart alerts, spread thresholds, and browser-notif
 
 ### Allocation policy
 
-Controls recurring allocation eligibility by package, country rule, customer balance, and daily limits.
+Controls recurring allocation eligibility by automatically assigned tier, country rule, eligible spendable balance, and daily limits. Current wallet balance alone does not qualify a customer for a tier.
 
 ### Risk watchlist
 
@@ -781,3 +780,7 @@ Several operational pages refresh automatically so that queues, customer states,
 - Request submission and review actions are recorded in a dedicated privacy audit stream.
 
 Privacy requests do not themselves delete records, alter financial records, close accounts, or override statutory retention requirements. Any fulfilment requiring changes to retained personal or financial data needs an authorized, separately reviewed operational process. The privacy-specific SQL migration is applied by the existing portal migration runner in both fresh-install and existing-database installer flows.
+
+## Trading tier qualification and wallet-credit conversion
+
+When an authorized administrator credits a customer through **Credit Customer**, the administrator must choose whether the credit is a qualifying deposit or a non-qualifying credit. For a qualifying credit, the server fetches a current API exchange rate for the selected wallet currency (Frankfurter/ECB with Open ExchangeRate API fallback for fiat, and CoinGecko for registered crypto/tokens) and stores the USD-equivalent value and rate evidence at credit time. This applies to every enabled wallet currency its configured provider can price; USD is 1:1. An unavailable, stale or invalid rate blocks the qualifying classification rather than using a manually entered currency-registry rate. The admin customer list must show each customer's automatically assigned active Trading tiers and cumulative qualifying USD amount. No customer package selection or activation is offered. Ordinary transfers remain unchanged.

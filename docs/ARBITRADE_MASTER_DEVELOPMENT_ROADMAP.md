@@ -202,20 +202,26 @@ Deliverable: improved wallet and transaction experience.
 Exit criteria: financial workflows pass regression tests and displayed balances/statuses match authoritative records.
 
 ### Stage 6 — Trading, Mining and Swap Experience
-**Objective:** Improve the remaining core customer operations.
+**Objective:** Improve the remaining core customer operations while enforcing the canonical automatic-deposit Trading tier policy.
+
+**Authoritative Trading tier rule:** Trading tiers are administrator-managed configuration, not customer-facing products. Customers must not browse, select, subscribe to, purchase, or activate Trading packages/tiers. The server assigns tier entitlements automatically only when cumulative qualifying credits manually submitted by an authorized administrator through the admin portal's Credit Customer / wallet-credit form reach configured thresholds. The administrator must explicitly classify the credit as qualifying and the server must persist it as `admin_manual_deposit_credit` with USD attribution and conversion evidence. No other deposit or credit pathway counts: customer/provider deposits, signup credits, imports, generic adjustments, profits, rewards, returned principal, bonuses, transfers, swaps, conversions and unclassified credits are excluded. Qualifying USD-equivalent amounts and conversion evidence must be recorded at credit time, and stale/unverifiable rates fail closed. Active qualifying tier quotas add together. Customer UI/API shows only read-only eligibility and total daily opportunity allowance; tier configuration is admin-only.
 
 Tasks:
-- Improve trading screens, forms, status and history.
-- Improve mining dashboard, packages and reward history where those features exist.
+- Implement and verify automatic deposit-attributed tier qualification, entitlement lifecycle and cumulative quotas against `docs/TRADING_SYSTEM_SPECIFICATION.md`.
+- Keep tier catalogue, thresholds, terms, entitlement IDs and activation/management actions out of customer routes and screens.
+- Ensure the admin-portal Credit Customer route is the sole qualifying source; enforce admin-only authorization, explicit classification, `admin_manual_deposit_credit` ledger typing, conversion evidence and audited reversals server-side and cover alternate credit paths with regression tests proving they cannot affect tier thresholds.
+- Improve trading screens, forms, status and history without introducing customer package browsing, selection, subscription, purchase, activation or manual tier assignment.
+- Improve mining dashboard, packages and reward history where those features exist; Mining packages are separate from Trading tiers.
 - Improve swap source/destination amounts, rate, fees, estimates and confirmed results where supported.
 - Improve processing, completion, cancellation and failure states.
 - Ensure debits and credits reflect actual ledger events.
 - Never present estimates or simulated results as verified real-world profit or withdrawable funds.
 - Apply all themes and responsive layouts.
+- Preserve forward-only migration history; retire obsolete Trading behavior through reviewed forward migrations rather than deleting historical migrations.
 
-Deliverable: improved trading, mining and swap interfaces.
+Deliverable: Trading eligibility and tier assignment follow the canonical automatic-deposit policy; improved trading, mining and swap interfaces are validated against their respective requirements.
 
-Exit criteria: interfaces reflect actual backend state and preserve existing financial rules.
+Exit criteria: interfaces reflect actual backend state, automatic tier qualification and cumulative quotas match the canonical specification, and financial rules are preserved.
 
 ### Stage 7 — Button Feedback, Animations and Interaction Quality
 **Objective:** Make interaction immediate and understandable.
@@ -700,3 +706,21 @@ When continuing this project:
 5. Verify prior claims against actual files and test evidence.
 6. Update this document with stage status, completed work, tests, failures, commit references and next actions.
 7. Do not silently skip stages or mark unverified work complete.
+
+## Trading tier qualification — wallet currency and admin visibility (authoritative)
+
+- Only qualifying credits manually submitted by an authorized administrator through the admin portal's Credit Customer form count toward Trading thresholds.
+- Convert every qualifying credit from its selected native wallet currency to USD at credit time using a validated currency-appropriate live API rate. USD is 1:1; supported fiat currencies use Frankfurter/ECB with Open ExchangeRate API fallback, and configured crypto/token asset IDs use CoinGecko. Persist the native amount, USD-minor equivalent, exact rate, provider, source timestamp, and an FX snapshot tied to the ledger credit.
+- Never use a manual/stale currency-registry rate as a fallback. If the API cannot provide a valid, fresh rate for the selected wallet, reject the qualifying classification with an actionable administrator error. The ordinary wallet credit must not be silently reclassified as qualifying.
+- The administrator customer directory must show each customer's automatically assigned active Trading tiers and cumulative qualifying USD value. Customer package browsing, selection and activation remain prohibited.
+- Do not modify ordinary transfers or use tier FX conversion to reprice or classify transfers. Add contract tests for every wallet asset type, stale/unavailable API rates, USD 1:1, and unchanged transfer behavior before marking this requirement complete.
+
+## Automatic Trading tier qualification worker — implementation and verification
+
+- [x] Add a durable MySQL queue keyed uniquely by the source qualifying ledger entry, with status, attempts, availability time, lease, error and timestamps.
+- [x] Enqueue qualifying administrator credits and qualifying-deposit reversals atomically with the ledger transaction; transfers and other credits are excluded.
+- [x] Run a bounded server-side worker every five seconds, independent of customer sessions, with an overlap guard and indexed idle polling.
+- [x] Add row-lock-based claims, stale-lease recovery, bounded exponential retries, and a terminal dead-letter state with structured error logging.
+- [ ] Verify migration `0082_trading_tier_qualification_jobs` against the target database, run typecheck/build/contract tests and inspect CI for the exact commit before deployment.
+- [ ] Exercise restart recovery, retry/dead-letter behavior, multi-instance claims, tier upgrade/reversal and unchanged normal transfers in an integration environment.
+

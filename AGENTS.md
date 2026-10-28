@@ -12,9 +12,9 @@ Read these files before changing the application:
 
 ## Mandatory trading-system rule
 
-Before modifying the Trading page, opportunity engine, package entitlements, wallet allocation, trade lifecycle, settlement, fees, company catalogue, or related admin controls, read `docs/TRADING_SYSTEM_SPECIFICATION.md` in full. Treat it as the canonical product contract for trading behaviour. It covers package defaults, free activation/qualifying balance, same-package repurchase controls, combined customer earnings ceiling, insufficient-balance opportunity pop-ups, server-side automatic processing, 15% fee on realized positive profit, retries/carry-forward, company rotation, wallet notifications, and admin controls.
+Before modifying the Trading page, opportunity engine, package entitlements, wallet allocation, trade lifecycle, settlement, fees, company catalogue, or related admin controls, read `docs/TRADING_SYSTEM_SPECIFICATION.md` in full. Treat it as the canonical product contract for trading behaviour. It covers administrator-managed tiers, automatic qualification exclusively from cumulative qualifying credits manually issued by an authorized administrator through the admin portal's Credit Customer / wallet-credit flow, cumulative opportunity quotas, combined customer earnings ceiling, insufficient-balance opportunity pop-ups, server-side automatic processing, 15% fee on realized positive profit, retries/carry-forward, company rotation, wallet notifications, and admin controls.
 
-Do not introduce behaviour that conflicts with the specification. If a codebase constraint or later user instruction appears to conflict, stop and document the conflict before implementing. Update the canonical specification and its PDF together when requirements are formally revised. Never claim a requirement is implemented without inspecting the code and validating it.
+Do not introduce behaviour that conflicts with the specification. If a codebase constraint or later user instruction appears to conflict, stop and document the conflict before implementing. Update the canonical specification and its companion PDF together when requirements are formally revised. If the PDF is absent from the repository, record that gap rather than claiming it was updated. Never claim a requirement is implemented without inspecting the code and validating it.
 
 ## Canonical source
 
@@ -72,8 +72,8 @@ Database changes should use ordered forward migrations and retry-safe server-sid
 ### Trade Settings admin navigation and removal of customer trade switches
 
 - The admin portal must use **Trade Settings** as the top-level navigation group for trading configuration and operations. Follow the submenu structure in Section 12 of `docs/TRADING_SYSTEM_SPECIFICATION.md`, including packages/eligibility, quotas, opportunity schedules, duration/closing rules, wallet allocation, fees/earnings limits, retries/carry-forward, company rotation, pop-up/customer display, notifications, active/pending trades, settlement/reconciliation, system health/pause, and audit/policy versions.
-- Remove customer-side manual trade-engine controls such as Trading On/Off, Opportunity On/Off, Auto Trade On/Off, and equivalent start/stop switches. Trades are automatic and server-controlled under active customer package entitlements and admin-configured opportunity quotas, schedules, balances, and limits.
-- Package entitlements and admin-configured package opportunity counts govern eligible opportunity presentation; do not hard-code one global pop-up count for all customers. Display an insufficient-balance opportunity only when an eligible opportunity actually occurs and the funds check fails.
+- Remove customer-side manual trade-engine controls such as Trading On/Off, Opportunity On/Off, Auto Trade On/Off, package catalogues, package selection, package subscriptions, package activation, and equivalent start/stop switches. Trades are automatic and server-controlled under tiers assigned from qualifying manual administrator deposit credits and admin-configured opportunity quotas, schedules, balances, and limits.
+- Automatically assigned tier entitlements and admin-configured tier opportunity counts govern eligible opportunity presentation; do not hard-code one global pop-up count for all customers. Only distinct, auditable credits manually issued by an authorized administrator through the admin portal's Credit Customer / wallet-credit flow, explicitly classified as qualifying and persisted as `admin_manual_deposit_credit`, qualify. Customer/provider deposits, signup credits, imports, profits, rewards, principal returns, bonuses, transfers, swaps, conversions, generic adjustments and all other credit paths do not. Display an insufficient-balance opportunity only when an eligible opportunity actually occurs and the funds check fails.
 - Customer-side Minimize/Maximize controls are display-only and must not change trade execution, countdown, or settlement. Keep all financial and policy-changing actions server-side, authorized, validated, idempotent, and auditable.
 
 ### Admin authority and trade closing time
@@ -93,3 +93,18 @@ Database changes should use ordered forward migrations and retry-safe server-sid
 - The expanded pop-up must have Minimize; its fixed bottom-of-viewport dock must remain visible during scrolling and show the countdown/status plus Maximize. Minimize/maximize must not alter server-owned trade timing or accounting.
 - Do not dismiss a card solely because its expanded timeout expires or countdown reaches zero. Dismiss only after countdown completion and an authoritative terminal status; keep pending/retrying/unsettled items accessible.
 - Update the canonical specification and acceptance checklist alongside relevant implementation changes. Test country/flag fallback, scrolling persistence, minimize/maximize, multiple concurrent cards, countdown expiry, terminal dismissal, and unavailable/estimated/settled financial fields.
+
+## Trading tier qualification — credit-time wallet FX (authoritative)
+
+- Only qualifying credits manually submitted by an authorized administrator through the admin portal's Credit Customer / wallet-credit form may count toward Trading tier thresholds.
+- For a qualifying credit in any enabled non-USD wallet, fetch and validate a live USD conversion rate from the currency-appropriate API at credit time (Frankfurter/ECB with Open ExchangeRate API fallback for supported fiat; CoinGecko for registered crypto/tokens using their configured external asset ID). Store the exact rate, provider, source timestamp, USD-minor attribution and FX snapshot evidence with the committed ledger credit. USD uses a 1:1 rate.
+- Never use a manually edited or stale currency-registry rate as a fallback. Fail closed for qualifying classification if the provider cannot price the wallet or the rate is invalid/stale. Do not silently turn a failed qualifying credit into a non-qualifying credit.
+- The administrator customer directory must show automatically assigned active Trading tiers and the customer's cumulative qualifying USD amount.
+- This qualification-only valuation must not alter ordinary wallet transfers, transfer balances, or transfer ledger semantics.
+
+## Automatic Trading tier qualification worker (mandatory)
+
+- Qualifying administrator credits and their auditable reversals must insert a durable `trading_tier_qualification_jobs` row in the same database transaction as the corresponding ledger entry. The unique `sourceLedgerId` is the idempotency key; never enqueue transfers or non-qualifying credits.
+- Run `runTradingTierQualificationWorkerCycle` from the database-enabled server entrypoint on a five-second timer, with a bounded batch, an overlap guard, and an unreferenced timer. The worker must operate without customer sessions.
+- Use indexed queue reads, database row locks, a recoverable processing lease, bounded exponential retry, and a terminal dead-letter status after eight attempts. Never spin continuously or scan all customers on an idle queue cycle. Do not claim 100% correctness without running tests and verifying migration/CI results.
+- Preserve normal wallet transfer behavior. Test atomic enqueue, duplicate prevention, retry/restart recovery, tier assignment, reversals, and multi-instance locking.

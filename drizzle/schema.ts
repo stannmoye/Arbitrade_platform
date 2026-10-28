@@ -289,7 +289,7 @@ export const appSettings = mysqlTable("app_settings", {
 
 export const opportunityPackagePolicies = mysqlTable("opportunity_package_policies", {
   id: int("id").autoincrement().primaryKey(),
-  packageName: varchar("packageName", { length: 40 }).notNull().unique(),
+  packageName: varchar("packageName", { length: 80 }).notNull().unique(),
   maxPopupsPerDay: int("maxPopupsPerDay").default(10).notNull(),
   maxVisibleOffers: int("maxVisibleOffers").default(10).notNull(),
   minimumTradeUnits: int("minimumTradeUnits").default(1000).notNull(),
@@ -374,6 +374,12 @@ export const balanceLedger = mysqlTable("balance_ledger", {
   userId: int("userId").notNull(),
   currency: varchar("currency", { length: 12 }).notNull(),
   amountMinor: bigint("amountMinor", { mode: "number" }).notNull(),
+  /** Positive, evidence-backed USD-minor snapshot for an authorized admin-entered qualifying deposit; null for all other ledger entries. */
+  qualifyingDepositUsdMinor: bigint("qualifyingDepositUsdMinor", { mode: "number" }),
+  qualifyingDepositRate: varchar("qualifyingDepositRate", { length: 64 }),
+  qualifyingDepositRateProvider: varchar("qualifyingDepositRateProvider", { length: 120 }),
+  qualifyingDepositRateAt: timestamp("qualifyingDepositRateAt"),
+  qualifyingDepositReversalOfId: int("qualifyingDepositReversalOfId"),
   entryType: varchar("entryType", { length: 40 }).notNull(),
   reference: varchar("reference", { length: 80 }).notNull(),
   withdrawable: boolean("withdrawable").default(false).notNull(),
@@ -1074,3 +1080,25 @@ export const localScheduledJobs = mysqlTable("local_scheduled_jobs", {
 }));
 
 
+
+/**
+ * Durable queue for qualifying administrator wallet credits. Jobs are inserted
+ * in the same transaction as their ledger entry, so worker restarts cannot lose
+ * a tier-assignment trigger.
+ */
+export const tradingTierQualificationJobs = mysqlTable("trading_tier_qualification_jobs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  sourceLedgerId: int("sourceLedgerId").notNull(),
+  status: mysqlEnum("status", ["pending", "processing", "completed", "dead"]).default("pending").notNull(),
+  attempts: int("attempts").default(0).notNull(),
+  availableAt: timestamp("availableAt").defaultNow().notNull(),
+  lockedAt: timestamp("lockedAt"),
+  lastError: varchar("lastError", { length: 1000 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  sourceLedgerUnique: uniqueIndex("trading_tier_qualification_jobs_source_ledger_uq").on(table.sourceLedgerId),
+  statusAvailableIdx: index("trading_tier_qualification_jobs_status_available_idx").on(table.status, table.availableAt, table.id),
+  userStatusIdx: index("trading_tier_qualification_jobs_user_status_idx").on(table.userId, table.status),
+}));

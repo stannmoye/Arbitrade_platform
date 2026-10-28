@@ -19,7 +19,8 @@ describe("global trade allocation pause", () => {
 
   it("logs actionable sanitized diagnostics when policy reads fail", () => {
     expect(db).toContain("[Trading] Admin allocation safety status read failed");
-    expect(db).toContain("[Trading] Admin package activation policy read failed");
+    expect(db).not.toContain("getPackageActivationPolicy");
+    expect(router).not.toContain("packageActivationPolicy:");
     expect(db).toContain("errorCode:");
     expect(db).toContain("sqlState:");
     expect(db).toContain("Check server logs for the underlying database error");

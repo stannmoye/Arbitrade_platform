@@ -96,6 +96,13 @@ async function main() {
     const workerMigration = await readFile(resolve(root, "drizzle/0062_worker_runtime_tables.sql"), "utf8");
     await executeCompatibleMigrationSql(db, workerMigration);
 
+    // The Trading tier queue is worker-critical too. Apply its idempotent DDL
+    // here so hosts using this runtime-schema bridge cannot start with the
+    // ledger writer enqueueing into a missing table. The journal still tracks
+    // migration 0082 for standard migration history.
+    const tierQualificationMigration = await readFile(resolve(root, "drizzle/0082_trading_tier_qualification_jobs.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, tierQualificationMigration);
+
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],
       ["category", "VARCHAR(40) NOT NULL DEFAULT 'account'"],

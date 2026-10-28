@@ -7,64 +7,56 @@
 ## 1. Core operating rules
 
 1. Package eligibility, trade capital, execution, realized profit, platform fees, and wallet accounting are separate concepts.
-2. A customer without a valid active trading package must not receive an automatic trade allocation. A customer with eligible active package entitlements is evaluated automatically when opportunities occur.
+2. The server automatically qualifies customer tiers only from cumulative, ledger-attributed qualifying credits manually submitted by an authorized administrator through the admin portal's Credit Customer / wallet-credit form. A customer without an active automatically assigned tier must not receive an automatic trade allocation; eligible tier quotas add together.
 3. Customer sign-in status must not determine server-side opportunity processing, countdowns, retries, or settlement.
 4. Do not add customer-facing Trading On/Off, Opportunity On/Off, or Auto Trade On/Off switches to this automatic model.
-5. Do not silently fall back to a default package when a customer has no valid active package.
+5. Do not silently fall back to a default tier or quota when no automatically assigned tier qualifies.
 6. All trade-related money movements must be recorded in the customer's internal ledger. When capital is committed, returned, or adjusted, and when realized profit, fees, or losses are due, apply the appropriate debit or credit to the correct customer wallet as part of a durable, auditable, transactional, idempotent database operation. The UI must reflect committed ledger records; it must never be the only place a financial change exists.
 7. Trading is a real-money operation using Arbitrade's internal ledger as the system of record for trading allocations, capital movements, realized results, fees, and settlement. Do not label trading as Practice, Simulation, or Research, and do not impose a requirement for an external broker/exchange execution provider as a prerequisite in this trading specification. Record the actual result and its supporting internal trade/settlement records; never fabricate a result or credit an estimate as a realized result.
 
-## 2. Free package activation and qualifying balance
+## 2. Automatic package-tier qualification from qualifying deposits
 
-Package subscription is free under this proposal. A customer must meet the package's minimum qualifying wallet balance to activate it. Do not debit and immediately credit the same amount merely to create the appearance of a subscription transaction.
+Customers never browse, select, subscribe to, purchase, or activate a package. Package tiers are administrator-managed configuration only. The server automatically determines each customer's eligible tiers from cumulative qualifying credits originating exclusively from the admin portal's Credit Customer / wallet-credit form and recorded in authoritative ledger entries. No customer action is required.
 
-- Qualifying balance is an eligibility threshold, not the subscription price and not an automatic per-trade capital amount.
-- At activation, check the configured eligible wallet balance. Admin policy must define whether multiple eligible wallets can be combined.
-- Recommended default: check at activation, then apply an admin-configurable maintenance rule and grace period if the balance later falls below the threshold.
-- Do not lock the entire qualifying balance by default. Reserve only capital actually committed to a trade unless a separate, disclosed reserve rule is approved.
-- If the customer cannot qualify, show: “Your available balance is not sufficient to activate this package. Minimum qualifying balance: [amount].”
-- Existing entitlements should retain a snapshot of their package terms when defaults change, unless an authorized, logged migration explicitly changes them.
+- **The sole qualifying source is a positive credit that an authorized administrator manually submits for a customer through the admin portal's Credit Customer / wallet-credit form**, explicitly classifies as `qualifying_deposit`, and successfully commits to that customer's ledger as `admin_manual_deposit_credit`. No other deposit or credit pathway qualifies, regardless of its label or where its funds originated.
+- Customer-initiated deposits, payment-provider deposits, bank/card/crypto gateway deposits, signup credits, imported/opening balances, generic wallet adjustments, credits entered outside the admin portal's Credit Customer flow, profits, trading rewards, returned principal, bonuses, swaps, transfers, conversions, and every other credit/deposit pathway do not qualify. A credit is not qualifying merely because an administrator reviewed it or because it appears in the wallet. Never infer qualifying deposits from current wallet balance, transaction descriptions, external references, or source-of-funds.
+- For every enabled wallet currency, calculate the qualifying USD equivalent at the time an authorized administrator submits a qualifying Credit Customer entry. USD is exactly 1:1; every other currency must use a live, currency-appropriate exchange-rate API (Frankfurter/ECB for supported fiat currencies, with Open ExchangeRate API as a broader fiat-code fallback; CoinGecko for registered crypto/token assets using the configured external asset ID). Never use the editable currency-registry USD rate as the qualifying-credit rate or silently fall back to a stale/manual value. Validate the provider response, positive finite rate, source timestamp and freshness (fiat source date no older than four days; crypto/token observation no older than five minutes). If the selected wallet's currency cannot be priced by its configured provider, fail closed for a qualifying credit and show the administrator a clear error; do not guess a rate. Persist native amount/currency, USD-minor equivalent, exact rate, provider, provider source timestamp and credit-time FX evidence with the ledger record. Record the FX evidence in the rate-snapshot store as well. The ledger's committed creation time records when the credit was applied.
+- Sum only persisted positive qualifying-deposit attribution amounts. A later profit, reward, transfer, or withdrawal must not be counted as a deposit or silently change the historical qualifying-deposit total. A proven correction/reversal must be separately auditable and reverse the qualifying amount; do not treat an ordinary debit as proof that a prior deposit was reversed.
+- Thresholds are measured in USD minor units using the recorded qualifying-deposit USD value. Do not double-apply currency scale. Keep native currency amount and conversion evidence intact.
+- Package qualification uses only this recorded USD value. This rule is confined to classifying an explicitly qualifying administrator credit; ordinary wallet transfers between customers or between wallets retain their existing native-currency transfer and ledger semantics and must not be reclassified, repriced, blocked, or otherwise changed by Trading tier qualification.
+- When a cumulative qualifying-deposit threshold is reached, the server automatically creates the applicable tier entitlement using the configured package duration, quota and terms version. The entitlement is server-owned; it must not be created by a customer route or browser interaction.
+- Every qualifying administrator credit and qualifying-deposit reversal must enqueue a durable `trading_tier_qualification_jobs` record in the same database transaction as its ledger entry. The unique source-ledger key prevents duplicate jobs and the atomic enqueue prevents a committed qualifying credit from losing its worker trigger.
+- A server-side Trading tier qualification worker runs independently of customer sessions and polls the indexed queue every five seconds with a bounded batch. Idle cycles perform an indexed queue lookup only; they must not scan every customer or run tight loops. The worker claims jobs under database row locks, reconciles cumulative USD qualification, assigns/upgrades or revokes entitlements as appropriate, and records completed status.
+- Worker failures are retried with bounded exponential backoff; stale processing leases are recoverable after process restarts. Completion and retry/dead-letter writes must be fenced by the claimed lease timestamp so a worker whose lease expired cannot overwrite a newer worker's state; lease timestamps must use the database column's precision. After eight failed attempts a job becomes terminal `dead`, with a bounded error message and structured log for operator investigation. Jobs must be idempotent so multiple server instances cannot assign the same tier twice. A dead job must remain visible in durable storage for manual recovery, not be silently deleted.
+- Normal wallet transfers do not create qualification jobs and remain unchanged. The worker only processes ledger IDs explicitly classified as qualifying administrator credits or their auditable reversals.
+- Every qualifying tier contributes its configured daily opportunity quota. Quotas are cumulative: if multiple tiers qualify, add each applicable tier's quota and enforce the global/customer limits. Opportunity counts are allowances, not guaranteed trades or profits.
+- A missing or invalid catalogue, conversion rate, ledger attribution or database dependency must fail closed for new eligibility/allocations. Never silently assign a fallback tier.
 
-## 3. Proposed package defaults
+## 3. Administrator-managed package tiers
 
-Amounts are USD minimum qualifying balances, not subscription fees, guaranteed returns, or automatic trade amounts. All fields are editable by an authorized administrator.
+Package records are configuration, not customer-facing products. Only authorized administrators can list, create, edit, enable/disable, order, or retire tiers. Every persisted behavior-affecting field must be exposed through the administrator editor and validated server-side, including threshold amount/currency, daily opportunity quota, duration and duration unit, start/expiry rules, schedule/cadence, allocation amount bounds, per-day/per-hour limits, popup timing, eligibility, allowed countries/currencies, risk/exposure limits, retries/carry-forward rules, display settings, status, version/effective time, and any future behavior-affecting field.
 
-| # | Package name | Minimum balance | Duration | Opportunities/day |
-|---:|---|---:|---:|---:|
-| 1 | Aureate Capital | $100 | 1 month | 6 |
-| 2 | Sterling Reserve | $250 | 2 months | 8 |
-| 3 | Sovereign Crest | $500 | 3 months | 10 |
-| 4 | Meridian Equity | $1,000 | 3 months | 12 |
-| 5 | Crownstone Capital | $2,000 | 6 months | 14 |
-| 6 | Imperial Ledger | $3,500 | 6 months | 16 |
-| 7 | Pinnacle Treasury | $5,000 | 6 months | 18 |
-| 8 | Obsidian Reserve | $7,500 | 9 months | 20 |
-| 9 | Sovereign Meridian | $10,000 | 9 months | 22 |
-| 10 | Regalia Capital | $15,000 | 12 months | 24 |
-| 11 | Apex Treasury | $20,000 | 12 months | 25 |
-| 12 | Monarch Equity | $30,000 | 12 months | 26 |
-| 13 | Grand Meridian | $50,000 | 18 months | 27 |
-| 14 | Crown Imperial Reserve | $75,000 | 18 months | 28 |
-| 15 | Sovereign Apex | $100,000 | 24 months | 29 |
-| 16 | Paramount Capital Reserve | $150,000 | 24 months | 30 |
+- No customer package catalogue, package cards, package detail/offer pages, subscription history, package activation or package-management journey may be exposed in the customer portal or customer API.
+- The customer portal may show only the resulting eligibility status and total daily opportunity allowance. It must not reveal the administrator's tier catalogue, tier names, thresholds or editor.
+- Thresholds, quotas, durations, allocation values and other settings come from persisted administrator-managed records. Do not hard-code a customer tier or fallback quota.
+- Existing customer-created subscription rows must not grant new eligibility under this policy. Preserve historical rows for audit, but retire legacy customer-activated entitlements through a forward migration.
+- Package duration starts when the server automatically assigns the tier after qualification. A later qualifying credit may cause an expired tier to be assigned again if its threshold remains satisfied; each entitlement is versioned and auditable.
+- Admin changes to thresholds or quotas must be validated, audited and versioned. Follow the documented effective-time policy; never silently rewrite historical trade timestamps or settlements.
 
-Each package needs a stable internal ID. Package duration is in calendar months. Active eligible package quotas add together; for example, quotas of 6 + 10 + 30 give a baseline allowance of 46 opportunities/day, subject to system controls and the combined customer earnings ceiling.
+## 4. Cumulative tiers and entitlement lifecycle
 
-## 4. Multiple packages, repeat purchases, cooldown
-
-- Customers may own different packages at the same time.
-- Admin setting controls whether a customer may purchase multiple copies of the same package.
-- If repeat purchases are disabled, block another copy while the configured ownership restriction applies. Admin can define whether the restriction ends at expiry or also includes expired/cancelled copies.
-- If enabled, each copy is a separate entitlement with its own activation, expiry, quota, and terms snapshot; enforce an optional maximum copies setting.
-- Proposed default: six-hour cooldown between successful package activations, configurable by admin. Start after successful activation/payment confirmation. The cooldown must not pause existing trades or settlement.
-- Prevent customers from bypassing daily earnings ceilings by stacking packages, switching wallets, or duplicating activity.
+- Evaluate each enabled tier against the customer's cumulative qualifying deposit total, not the current wallet balance.
+- On a qualifying manual admin credit, re-evaluate all enabled tiers in threshold order and create each newly qualified entitlement that is not already active. Use a transaction and row locks so concurrent credits cannot create duplicate entitlements.
+- Entitlements have their own start time, expiry, quota and package-terms snapshot. Multiple eligible tiers contribute cumulative quotas while active.
+- Customer eligibility is a read-only server query. Refreshing the page, viewing an opportunity, logging in/out, or opening a customer portal must never create an entitlement, allocate capital, or settle a trade.
+- There is no customer package purchase/activation cooldown or repeat-purchase flow. Any repeat entitlement behavior is server-controlled by tier eligibility and the administrator-configured duration/limits.
+- Do not let a customer's current wallet balance, realized profit, returned principal, rewards, bonus credits, swaps or transfers increase the qualifying-deposit total.
 
 ## 5. Opportunity generation and insufficient-balance opportunities
 
-**Mandatory behaviour:** customers continue to see opportunities permitted by their active package eligibility even if their available balance is insufficient. An insufficient-balance opportunity must be displayed only when an eligible opportunity actually occurs and the funds check fails. Do not show continuous low-balance warnings when there is no opportunity.
+For each generated opportunity, the server evaluates the customer's automatically assigned, active tier entitlements, remaining cumulative quotas, account status, schedule, risk limits, and combined daily earnings ceiling. Customers never select a package or manually activate eligibility.
 
-For each generated eligible opportunity:
-1. Evaluate active package entitlements, remaining quotas, account status, schedule, risk limits, and the combined daily earnings ceiling.
+1. Evaluate all active server-assigned tier entitlements and cumulative quota allowance.
 2. Check spendable balances in eligible wallets, excluding capital reserved for other trades.
 3. If enough capital exists and all controls pass, automatically allocate the trade; reserve/debit the actual capital and record it.
 4. If capital is insufficient, show a persistent opportunity card marked **“Missed — insufficient balance”** or **“Insufficient balance — not allocated.”** It must not execute or debit any funds.
@@ -72,7 +64,7 @@ For each generated eligible opportunity:
 6. Log a missed-opportunity event with opportunity ID, timestamp, eligibility, required capital, available balance, and reason. A missed opportunity is not a completed trade, realized profit, or proof that the customer was owed a profit.
 7. Recheck current funds for later opportunities. Never create a negative balance or automatically debit funds just to fill a shortfall.
 
-Suggested card fields for insufficient balance:
+Suggested insufficient-balance card fields:
 - Company name, ticker, logo, headquarters country, and flag.
 - Status: “Missed — insufficient balance.”
 - Required trade capital, eligible available balance, and shortfall.
@@ -224,55 +216,15 @@ The expanded-card display duration is configurable in seconds. The minimized doc
 
 ## 12. Admin portal controls
 
-### Admin navigation: Trade Settings
+The admin portal is the only interface for managing tier configuration. Only authorized administrators may list, create, edit, enable/disable, order or retire tiers. All persisted behavior-affecting fields must be validated, audited and versioned.
 
-The admin portal's main navigation must contain one clear top-level menu named **Trade Settings**. All admin pages and submenus that configure, monitor, or operate trading belong beneath this menu, rather than being scattered as unrelated top-level menu items. Respect existing admin roles and permissions for each submenu; a menu grouping must not grant access by itself.
-
-Required Trade Settings submenu structure (reuse existing working screens where they already provide the relevant function; do not create duplicate or placeholder screens):
-
-1. **Overview** — trading system status, today's allocations/opportunities, active and pending trades, settlements, exceptions, and key health indicators.
-2. **Packages & Eligibility** — package names, minimum qualifying balances, activation rules, terms, status, and eligibility.
-3. **Package Quotas & Customer Limits** — opportunities per package/day, combined quotas, account limits, and customer-level controls.
-4. **Opportunity Schedule** — opportunity generation windows, schedule/time zone, company selection/filters, and cadence.
-5. **Trade Duration & Closing Rules** — admin-configured duration, scheduled close calculation, timing policy, effective-time rules, and countdown target policy.
-6. **Capital Allocation & Wallet Rules** — eligible internal wallets, allocation amounts, reservations, spendable-balance checks, and capital return routing.
-7. **Profit, Fees & Earnings Limits** — gross/net profit handling, platform fee rate and calculation base, rounding, daily net earnings ceiling, and reset timezone.
-8. **Retries & Carry-Forward** — retry limits, failure classification, next-day carry-forward caps, and make-good policy.
-9. **Company Catalogue & Rotation** — company/logo/country/flag metadata, supplied symbol classifications, company eligibility/filters, and rotation policy.
-10. **Trade Pop-up & Customer Display** — identity and financial fields, expanded display duration, minimize/maximize dock, countdown presentation, and dismissal rules.
-11. **Notifications** — customer trade notices, confirmed credit/debit notifications, toast placement, and display duration.
-12. **Active Trades & Pending Work** — current lifecycle status, scheduled closes, pending/retrying items, and safe operational actions.
-13. **Settlement & Reconciliation** — ledger reconciliation, settlement exceptions, idempotency status, and traceable settlement records.
-14. **System Health & Pause Controls** — worker/integration health, emergency pause of new allocations, and recovery controls. Pausing new allocations must not discard or silently abandon pending trades or required settlement.
-15. **Audit Log & Policy Versions** — administrator, timestamp, reason, old/new values, approvals, and configuration versions.
-
-Only show a submenu when the corresponding capability exists or is being implemented as a real, permission-protected feature. If a feature is not yet implemented, record it as pending in development documentation rather than presenting a fake working control. Every consequential setting must be validated server-side and audited. Financial ledger history is immutable through normal admin settings; corrections must use an auditable adjustment/reconciliation workflow.
-
-### Customer-side trade controls must be removed
-
-The customer portal must not expose buttons or switches that let a customer manually control the automatic trade engine. Remove existing customer-side controls such as Trading On/Off, Opportunity On/Off, Auto Trade On/Off, manual start/stop, or any equivalent toggle that conflicts with this specification. Do not replace them with another customer-side switch that changes allocation, schedules, duration, trade closing time, fees, package quotas, or settlement policy.
-
-The customer portal is for viewing package eligibility, opportunities, trade cards, countdowns, status, and ledger-backed financial information. Trades are allocated automatically by the server when the customer has an eligible active package and an eligible opportunity occurs, subject to admin-configured quotas, schedule, balance, account status, risk controls, and earnings limits. Customer sign-in state must not control server-side opportunity processing or settlement.
-
-Customer-side presentation controls such as **Minimize** and **Maximize** are permitted because they change only how the trade card is displayed; they must never pause or modify a trade. Any customer action that affects money or trade execution must be explicitly supported by the canonical specification and implemented server-side with authorization, validation, idempotency, and ledger audit.
-
-### Package-driven opportunity presentation
-
-Opportunity generation and trade-card presentation must follow the customer's active package entitlements and the opportunity counts/quotas configured for those packages in the admin portal. Do not use one hard-coded global number of pop-ups for every customer. Sum eligible quotas across active entitlements according to the package policy, enforce the combined customer limits and daily earnings ceiling, and ensure retries do not count as additional completed opportunities. Only present an eligible opportunity when it actually occurs; an insufficient-balance card is shown only when a real eligible opportunity occurs and the funds check fails. A pop-up is not itself proof that a trade was allocated or executed.
-
-
-Provide configurable sections for:
-- Packages: names, amounts, durations, quotas, qualification, activation, status, and terms-change policy.
-- Repurchases: same-package repeat toggle, maximum copies, and cooldown.
-- Opportunities: schedules, quotas, admin-configured trade duration/closing-time rules, company filters, retry rules, carry-forward caps, and eligibility.
-- Earnings/fees: combined daily net earnings ceiling, fee rate, calculation/rounding rules, and reset timezone.
-- Company catalogue: import, search, verify, logo/flag, ticker, headquarters, exchange, sector, and listing status.
-- Trading operations: pause new allocations, provider health, pending work, failures, retries, settlement, and reconciliation.
-- Wallets: eligible wallet types, reservation rules, allocation and settlement routing.
-- Customer experience: pop-up display duration, minimized dock, notification position/duration, visible fields, locale/currency formatting, and other customer-side presentation settings.
-- Audit/security: role permissions, change history, policy versioning, approval for sensitive settings, and immutable ledger history.
-
-Every consequential admin change should record administrator, timestamp, old/new values, and reason. Emergency pause stops new allocations but does not erase pending work or prevent required settlement/reconciliation. Admins must not silently edit/delete historical financial ledger records.
+- **Trading Tiers & Eligibility** — administrator-only tier thresholds, duration, daily opportunity quota, eligibility rules, status, effective time and terms version.
+- **Tier Quotas & Customer Limits** — daily opportunity quota per qualifying tier, cumulative allowance, account limits, and customer-level controls.
+- **Trade Settings** — opportunity schedule, duration/closing rules, wallet allocation, fees/earnings limits, retries/carry-forward, company rotation, customer opportunity display, notifications, active/pending trades, settlement/reconciliation, system health/pause, and audit/policy versions.
+- **Wallet Credits** — only the admin portal's Credit Customer / wallet-credit flow may originate a qualifying credit. An authorized administrator must explicitly choose `qualifying_deposit`; the server must commit the customer ledger entry as `admin_manual_deposit_credit` with USD attribution and rate evidence. Every other credit path—including customer/provider deposits, signup credits, imports, bonuses, profits, rewards, returns, transfers, swaps, conversions and generic adjustments—must remain non-qualifying.
+- Admin tier editing must persist to the database and the runtime must consume the same persisted values. Do not create UI-only settings or settings that have no defined runtime effect.
+- Admins may pause new allocations or a faulty integration for safety. This must not delete pending work or block required settlement/reconciliation.
+- Every tier/configuration change and manual qualifying credit must be auditable with actor, timestamp, reason, previous/new values, and associated ledger/configuration records.
 
 ## 13. Company and financial integrity boundaries
 
@@ -280,32 +232,19 @@ Trading operates as a real-money workflow recorded in the customer's internal le
 
 ## 14. Acceptance checklist
 
-- Customer portal has no manual Trading On/Off, Opportunity On/Off, Auto Trade On/Off, or equivalent trade-engine switches; automatic server-side processing follows the admin-controlled rules.
-- Admin portal has a top-level **Trade Settings** menu grouping all trading controls into permission-protected, functional submenus; no fake placeholder controls are presented as working features.
-- Trade Settings includes package/eligibility, package quotas, opportunity schedule, duration/closing rules, wallet allocation, fees/earnings limits, retries/carry-forward, company rotation, customer pop-up/display, notifications, active/pending trades, settlement/reconciliation, system health/pause, and audit/policy versions.
-- Opportunity/pop-up cadence respects each customer's active package entitlements and admin-configured package quotas, plus combined limits; no hard-coded global popup count overrides admin policy.
+- No customer-facing tier catalogue, tier names, thresholds, detail pages, purchase, subscription, activation or management controls exist in the portal or customer API.
+- Authorized admins can configure tier thresholds, durations, cumulative daily quotas, effective dates and enabled state; persisted values are consumed by runtime eligibility and allocation.
+- Only explicitly classified, authorized administrator credits submitted through the admin portal's Credit Customer / wallet-credit form count toward cumulative qualifying deposits. Customer/provider deposits, signup credits, imports, opening balances, generic adjustments, profits, returned principal, rewards, bonuses, transfers, swaps, conversions and unclassified credits do not qualify.
+- Qualifying USD-equivalent amount and its rate/provider/timestamp evidence are persisted on the ledger entry; invalid/stale crypto rate evidence fails closed.
+- Cumulative qualifying deposits automatically assign each applicable enabled tier without customer action; eligible tier daily quotas add together.
+- Customer reads, logins, page refreshes and opportunity viewing do not create entitlements, allocate capital or settle trades.
+- Existing customer-created subscription rows are preserved for audit but cannot grant new eligibility; migration is forward-only and retry-safe.
+- No active automatically assigned tier => no automatic trade allocation and no fallback tier.
+- Eligible automatic tier => server evaluates opportunities even when customer is signed out.
+- Cumulative tier quotas respect account/system limits and combined daily earnings ceiling.
+- Insufficient-balance cards appear only for real eligible opportunities and never debit funds.
+- All trade capital and realized outcomes are ledger-backed, idempotent, auditable, and based on actual persisted execution/settlement records.
 
-- No active package => no automatic trade allocation; no fallback package.
-- Active eligible package => server evaluates opportunities even when customer is signed out.
-- Package quotas sum correctly across entitlements and respect admin limits.
-- Same-package repeat purchase obeys admin toggle and maximum copies.
-- Package activation checks qualifying balance and creates no artificial debit/credit.
-- An eligible opportunity with insufficient funds is displayed only when it occurs, with required amount, available balance, shortfall, and timestamp.
-- Insufficient-balance opportunity never debits or allocates capital.
-- Trade lifecycle applies the correct capital debit/return, realized profit, fee, or loss to the customer's internal ledger exactly once, supported by recorded trade/settlement state.
-- Default 15% fee is calculated from realized positive gross profit only.
-- Failed trades follow retry/carry-forward policy and do not incur a profit fee.
-- Combined daily net earnings ceiling applies across all packages and wallets.
-- Pop-up has a minimize control; minimized dock remains fixed at the viewport bottom while scrolling and exposes the live countdown and maximize control.
-- Pop-up displays company name, local logo, country and correctly mapped flag, supplied symbol/exchange classification, invested amount, profit/total return, opening/closing times, countdown, profit percentage, platform-fee percentage/amount, and relevant trade references without inventing unavailable values.
-- Trade closing time and countdown target come from the active admin configuration and server-recorded trade timestamps; the browser cannot override them. Pop-up dismissal requires countdown completion and an authoritative terminal trade/opportunity status; a zero countdown alone never proves execution or settlement.
-- All customer-side trade behaviour and configurable displays are driven by authorized admin settings and persisted server state; no frontend hard-coded defaults may override admin policy.
-- Green/red notifications correspond to confirmed credits/debits only.
-- The company-image reference collection has 1,811 stable indexed IDs (1–1811), matching index/mapping/country-group data and valid local file paths; 1,799 country assignments are recorded and 12 remain explicitly Unverified.
-- The company pop-up/spotlight uses the 1,811-image reference pool only for informational display; it does not imply a verified listing or trigger trade execution/accounting.
-- Ticker, exchange, security identifier, listing status, and trading number are separately verified and never inferred from a logo ID or country folder.
-- Admin changes are permissioned, versioned, and audited.
-- Catalogue tests cover ID completeness, index/group agreement, every local image path, preservation of duplicates under distinct IDs, and visibility of unresolved country assignments. Trading and settlement tests cover concurrency, insufficient balance, retries, worker restarts, fees, ceiling enforcement, and duplicate settlement.
 
 ## 15. Implementation workflow requirement
 

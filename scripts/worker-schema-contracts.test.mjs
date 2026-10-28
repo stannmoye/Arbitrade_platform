@@ -38,6 +38,21 @@ describe("worker schema contracts", () => {
     expect(findWorkerSchemaContractFailures(columns, indexes)).toEqual([]);
   });
 
+  it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
+    const root = new URL("../", import.meta.url);
+    const [runtimeSchema, migration] = await Promise.all([
+      readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
+      readFile(new URL("drizzle/0082_trading_tier_qualification_jobs.sql", root), "utf8"),
+    ]);
+    expect(WORKER_SCHEMA_CONTRACTS.trading_tier_qualification_jobs.indexes)
+      .toHaveProperty("trading_tier_qualification_jobs_source_ledger_uq");
+    expect(WORKER_SCHEMA_CONTRACTS.trading_tier_qualification_jobs.indexes)
+      .toHaveProperty("trading_tier_qualification_jobs_status_available_idx");
+    expect(runtimeSchema).toContain('drizzle/0082_trading_tier_qualification_jobs.sql');
+    expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, tierQualificationMigration)");
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS `trading_tier_qualification_jobs`");
+  });
+
   it("rejects present tables whose shape would still break worker SQL", () => {
     const { columns, indexes } = validMetadata();
     const brokenColumns = columns
@@ -109,10 +124,9 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(previous.tag).toBe("0078_trading_customer_package_subscription_repair");
-    expect(last.tag).toBe("0079_trade_settlement_timing_schema_repair");
-    expect(journal.entries.slice(-9).map((entry) => entry.tag)).toEqual([
-      "0071_trade_allocation_pause",
+    expect(previous.tag).toBe("0081_trading_tier_policy_alignment");
+    expect(last.tag).toBe("0082_trading_tier_qualification_jobs");
+    expect(journal.entries.slice(-11).map((entry) => entry.tag)).toEqual([
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
       "0074_trade_execution_retries",
@@ -121,11 +135,17 @@ describe("worker schema contracts", () => {
       "0077_trading_package_catalogue_schema_repair",
       "0078_trading_customer_package_subscription_repair",
       "0079_trade_settlement_timing_schema_repair",
+      "0080_qualifying_admin_deposit_attribution",
+      "0081_trading_tier_policy_alignment",
+      "0082_trading_tier_qualification_jobs",
     ]);
     expect(portalRunner).toContain('"0076_trading_admin_policy_read_repair.sql"');
     expect(portalRunner).toContain('"0077_trading_package_catalogue_schema_repair.sql"');
     expect(portalRunner).toContain('"0078_trading_customer_package_subscription_repair.sql"');
     expect(portalRunner).toContain('"0079_trade_settlement_timing_schema_repair.sql"');
+    expect(portalRunner).toContain('"0080_qualifying_admin_deposit_attribution.sql"');
+    expect(portalRunner).toContain('"0081_trading_tier_policy_alignment.sql"');
+    expect(portalRunner).toContain('"0082_trading_tier_qualification_jobs.sql"');
     expect(last.idx).toBe(previous.idx + 1);
     expect(last.when).toBeGreaterThan(previous.when);
     expect(portalRunner).toContain('"0055_notification_campaign_delivery_tracking.sql"');
@@ -134,7 +154,7 @@ describe("worker schema contracts", () => {
     // 0048 and 0055 remain authoritative standalone/portal-chain sources.
     // The journaled 0062 bridge intentionally provides their worker tables to
     // deployments that run only Drizzle's standard migration path.
-    for (const table of Object.keys(WORKER_SCHEMA_CONTRACTS)) {
+    for (const table of Object.keys(WORKER_SCHEMA_CONTRACTS).filter((name) => name !== "trading_tier_qualification_jobs")) {
       expect(mainSql).toContain(table);
     }
     for (const column of WORKER_SCHEMA_CONTRACTS.mining_pending_boost_rewards.columns) {

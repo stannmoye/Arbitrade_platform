@@ -23,6 +23,23 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
       idx_pending_boost_day_status: { unique: false, columns: ["rewardDay", "status", "userId"] },
     },
   },
+  trading_tier_qualification_jobs: {
+    columns: [
+      "id", "userId", "sourceLedgerId", "status", "attempts", "availableAt",
+      "lockedAt", "lastError", "createdAt", "updatedAt",
+    ],
+    dataTypes: { status: "enum" },
+    exactColumnTypes: {
+      status: "enum('pending','processing','completed','dead')",
+    },
+    nullable: { lockedAt: true, lastError: true },
+    indexes: {
+      PRIMARY: { unique: true, columns: ["id"] },
+      trading_tier_qualification_jobs_source_ledger_uq: { unique: true, columns: ["sourceLedgerId"] },
+      trading_tier_qualification_jobs_status_available_idx: { unique: false, columns: ["status", "availableAt", "id"] },
+      trading_tier_qualification_jobs_user_status_idx: { unique: false, columns: ["userId", "status"] },
+    },
+  },
   notification_campaigns: {
     columns: [
       "id", "createdBy", "eventKey", "title", "body", "category", "priority",

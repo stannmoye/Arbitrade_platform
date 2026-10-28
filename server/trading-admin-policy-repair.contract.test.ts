@@ -5,6 +5,8 @@ const migration = readFileSync(new URL("../drizzle/0076_trading_admin_policy_rea
 const journal = readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8");
 const portalRunner = readFileSync(new URL("../scripts/apply-portal-migrations.mjs", import.meta.url), "utf8");
 const recoveryReport = readFileSync(new URL("../installer/migration-recovery-status.mjs", import.meta.url), "utf8");
+const automaticPolicyMigration = readFileSync(new URL("../drizzle/0080_qualifying_admin_deposit_attribution.sql", import.meta.url), "utf8");
+const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 
 describe("Trading administration policy schema repair", () => {
   it("restores package columns required by the terms query", () => {
@@ -32,6 +34,14 @@ describe("Trading administration policy schema repair", () => {
     expect(migration).toContain('"allocationsPaused":true');
     expect(migration).toContain("administrator review is required before resuming allocations");
     expect(migration.split("ON DUPLICATE KEY UPDATE `settingKey`=VALUES(`settingKey`)").length - 1).toBe(2);
+  });
+
+  it("supersedes legacy activation settings with the owner-approved automatic deposit policy", () => {
+    expect(automaticPolicyMigration).toContain("DELETE FROM `app_settings`");
+    expect(automaticPolicyMigration).toContain("trading.packageQualification.eligibleCurrencies");
+    expect(automaticPolicyMigration).toContain("trading.packagePurchase.repeatAllowed");
+    expect(router).not.toContain("activateTradingPackage:");
+    expect(router).toContain("tradingEligibility: protectedProcedure.query");
   });
 
   it("is included in main migrations, portal migration runs, and recovery diagnostics", () => {
