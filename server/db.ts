@@ -2270,7 +2270,6 @@ export async function getCustomerTradingEligibility(userId:number) {
   if(!db) throw new Error("Trading eligibility is temporarily unavailable.");
   const now=new Date();
   const rows=await db.select({
-    subscriptionId:customerPackageSubscriptions.id,
     activationKey:customerPackageSubscriptions.activationKey,
     dailyQuota:packages.opportunitiesPerDay,
   }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
@@ -2288,7 +2287,6 @@ export async function getCustomerTradingEligibility(userId:number) {
   if(!Number.isSafeInteger(dailyOpportunityAllowance)||dailyOpportunityAllowance<0) throw new Error("Trading eligibility quota is invalid.");
   return {
     eligible:eligibleRows.length>0,
-    qualifiedTierCount:eligibleRows.length,
     dailyOpportunityAllowance,
     status:eligibleRows.length>0?"eligible":"not_eligible",
   };
