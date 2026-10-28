@@ -5,9 +5,11 @@ import { adjustCustomerBalance, getDb, runTradingTierQualificationWorkerCycle } 
 import {
   balanceLedger,
   customerBalances,
+  currencyRegistry,
   customerPackageSubscriptions,
   packages,
   tradingTierQualificationJobs,
+  fxRateSnapshots,
   users,
   v5AuditEvents,
 } from "../drizzle/schema";
@@ -20,11 +22,13 @@ const userOpenId = "tier-worker-test-" + token;
 const invalidUserOpenId = "tier-worker-invalid-test-" + token;
 const creditPathUserOpenId = "tier-credit-path-test-" + token;
 const adminOpenId = "tier-credit-path-admin-" + token;
+const testCurrencyCode = ("T" + token.slice(0, 6)).toUpperCase();
 const packageNames = ["100", "300", "500"].map((threshold) => "WorkerTest-" + token + "-" + threshold);
 let userId;
 let invalidUserId;
 let creditPathUserId;
 let adminId;
+let testCurrencyId;
 let tierIds = [];
 const createdLedgerIds = [];
 const createdJobIds = [];
@@ -109,23 +113,69 @@ try {
   assert.equal(nonQualifyingCredit.entryType, "admin_credit");
   assert.equal(nonQualifyingCredit.qualifyingDepositUsdMinor, null);
 
+  // Stub only the external HTTP boundary to prove the real credit path stores
+  // a fresh API-derived non-USD conversion rather than the editable registry rate.
+  const currencyInsert = await db.insert(currencyRegistry).values({
+    code: testCurrencyCode,
+    name: "Integration Test Currency",
+    symbol: "T",
+    scale: 2,
+    assetType: "fiat",
+    usdRate: "99",
+    rateProvider: "manual",
+    enabled: true,
+  });
+  testCurrencyId = Number(currencyInsert[0].insertId);
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (!url.startsWith("https://api.frankfurter.dev/v2/rates?base=USD&quotes=")) {
+      throw new Error("Unexpected external request in FX integration test: " + url);
+    }
+    return new Response(JSON.stringify([{
+      base: "USD",
+      quote: testCurrencyCode,
+      rate: 2,
+      date: new Date().toISOString().slice(0, 10),
+    }]), { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  let nonUsdQualifyingCredit;
+  try {
+    nonUsdQualifyingCredit = await adjustCustomerBalance(adminId, {
+      userId: creditPathUserId,
+      currency: testCurrencyCode,
+      amountMinor: 10000,
+      mode: "credit",
+      creditClassification: "qualifying_deposit",
+      reason: "integration test non-USD qualifying admin wallet credit",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assert.equal(nonUsdQualifyingCredit.entryType, "admin_manual_deposit_credit");
+  assert.equal(nonUsdQualifyingCredit.qualifyingDepositUsdMinor, 5000,
+    "100 units at 0.5 USD per unit must be recorded as USD 50.00, not the manual registry rate.");
+  assert.equal(nonUsdQualifyingCredit.qualifyingDepositRateProvider, "frankfurter-ecb");
+  assert.equal(nonUsdQualifyingCredit.rateUsd, 0.5);
+
   const creditPathLedger = await db.select().from(balanceLedger)
     .where(eq(balanceLedger.userId, creditPathUserId));
-  assert.equal(creditPathLedger.length, 2);
-  assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_manual_deposit_credit").length, 1);
+  assert.equal(creditPathLedger.length, 3);
+  assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_manual_deposit_credit").length, 2);
   assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_credit").length, 1);
   const creditPathJobs = await db.select().from(tradingTierQualificationJobs)
     .where(eq(tradingTierQualificationJobs.userId, creditPathUserId));
-  assert.equal(creditPathJobs.length, 1, "Only a qualifying admin credit may enqueue a qualification job.");
-  assert.equal(Number(creditPathJobs[0].sourceLedgerId), qualifyingCreditOne.ledgerId);
-  assert.equal(creditPathJobs[0].status, "pending");
+  assert.equal(creditPathJobs.length, 2, "Only qualifying admin credits may enqueue qualification jobs.");
+  assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === qualifyingCreditOne.ledgerId));
+  assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === nonUsdQualifyingCredit.ledgerId));
+  assert.equal(creditPathJobs.every((row) => row.status === "pending"), true);
   await db.update(tradingTierQualificationJobs).set({
     availableAt: new Date(Date.now() - 10_000),
-  }).where(eq(tradingTierQualificationJobs.id, creditPathJobs[0].id));
+  }).where(eq(tradingTierQualificationJobs.userId, creditPathUserId));
   await runTradingTierQualificationWorkerCycle({ batchSize: 20 });
   const processedCreditPathJobs = await db.select().from(tradingTierQualificationJobs)
-    .where(eq(tradingTierQualificationJobs.id, creditPathJobs[0].id));
-  assert.equal(processedCreditPathJobs[0]?.status, "completed");
+    .where(eq(tradingTierQualificationJobs.userId, creditPathUserId));
+  assert.ok(processedCreditPathJobs.every((row) => row.status === "completed"));
   const creditPathSubscriptions = await db.select().from(customerPackageSubscriptions)
     .where(eq(customerPackageSubscriptions.userId, creditPathUserId));
   assert.ok(creditPathSubscriptions.some((row) => row.status === "active" && Number(row.packageId) === tierIds[0]));
@@ -337,6 +387,10 @@ try {
     await db.delete(customerBalances).where(eq(customerBalances.userId, creditPathUserId)).catch(() => {});
     await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.userId, creditPathUserId)).catch(() => {});
     await db.delete(users).where(eq(users.id, creditPathUserId)).catch(() => {});
+  }
+  if (testCurrencyId) {
+    await db.delete(fxRateSnapshots).where(eq(fxRateSnapshots.baseAsset, testCurrencyCode)).catch(() => {});
+    await db.delete(currencyRegistry).where(eq(currencyRegistry.id, testCurrencyId)).catch(() => {});
   }
   if (adminId) {
     await db.delete(v5AuditEvents).where(eq(v5AuditEvents.actorUserId, adminId)).catch(() => {});
