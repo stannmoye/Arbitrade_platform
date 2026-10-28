@@ -115,6 +115,13 @@ describe("Automatic Trading tier qualification", () => {
     expect(terms).not.toContain("sessionEntropy");
   });
 
+  it("snapshots tier limits and applies them to each entitlement", () => {
+    expect(databaseSource).toContain("maxPopupsPerDay:Number(tier.maxPopupsPerDay||0)");
+    expect(databaseSource).toContain("maxActiveInvestments:Number(tier.maxActiveInvestments||0)");
+    expect(databaseSource).toContain("snapshot.maxPopupsPerDay??subscription.packageMaxPopupsPerDay");
+    expect(databaseSource).toContain("activeTermsSnapshot.maxActiveInvestments??activePackageSubscription.maxActiveInvestments");
+  });
+
   it("enforces the tier popup cap in the runtime delivery allowance", () => {
     expect(databaseSource).toContain("packageMaxPopupsPerDay:packages.maxPopupsPerDay");
     expect(databaseSource).toContain("Math.min(policyCap,tierCap)");
