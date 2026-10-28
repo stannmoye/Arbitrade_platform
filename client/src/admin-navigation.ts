@@ -74,7 +74,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "trade-company-catalogue", target: "opportunity", label: "Company Catalogue & Rotation", detail: "Manage informational company references and rotation policy", icon: Globe2 },
     { id: "trade-popup-display", target: "tradeCustomerDisplay", label: "Trade Pop-up & Customer Display", detail: "Configure per-package pop-up and completed-card display duration; this does not change execution or settlement", icon: SlidersHorizontal },
     { id: "trade-notifications", target: "notificationCenter", label: "Notifications", detail: "Trading-related customer and administrator notifications", icon: Bell },
-    { id: "trade-active-pending", target: "deliveryMonitor", label: "Active Trades & Pending Work", detail: "Review delivery states and unresolved work", icon: Activity },
+    { id: "trade-active-pending", target: "transactionReview", label: "Active Trades & Pending Work", detail: "Review confirmed trades awaiting settlement, due times and reservation checks", icon: Activity },
     { id: "trade-settlement-reconciliation", target: "transactionReview", label: "Settlement & Reconciliation", detail: "Inspect ledger-backed movements and reconciliation records", icon: ReceiptText },
     { id: "trade-system-health", target: "tradeSystemHealth", label: "System Health & Pause Controls", detail: "Global pause for new allocations and operational safety status", icon: ShieldAlert },
     { id: "trade-audit-policy-versions", target: "audit", label: "Audit Log & Policy Versions", detail: "Review administrator actions and audit history", icon: FileText },
