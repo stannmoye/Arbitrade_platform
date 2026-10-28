@@ -13,3 +13,21 @@ describe("Trading fee-policy navigation", () => {
     expect(operationsUi).toContain("trpc.adminOperations.updateTradeFeePolicy.useMutation");
   });
 });
+
+describe("Trading retry-policy navigation", () => {
+  it("opens the package retry controls instead of the read-only delivery summary", () => {
+    const item = navigation.match(/id: "trade-retries-carry-forward", target: "([^"]+)"/);
+    expect(item?.[1]).toBe("tradeRetryPolicy");
+    expect(adminApp).toContain('{section==="tradeRetryPolicy"&&<AdminPackages focus="retries"/>}');
+
+    const start = adminApp.indexOf("function AdminPackages({focus}");
+    const end = adminApp.indexOf("function AdminTradeAllocationControl()", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const packageEditor = adminApp.slice(start, end);
+    expect(packageEditor).toContain("maxTradeAttemptsPerDay");
+    expect(packageEditor).toContain("tradeRetryDelaySeconds");
+    expect(packageEditor).toContain("Carry-forward controls are not yet implemented.");
+    expect(packageEditor).toContain('{focus!=="retries"&&<AdminTradingPackageCatalogue/>');
+  });
+});
