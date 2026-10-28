@@ -69,7 +69,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "trade-opportunity-schedule", target: "opportunity", label: "Opportunity Schedule", detail: "Admin-configured delivery schedules and quotas", icon: Zap },
     { id: "trade-duration-closing", target: "opportunity", label: "Trade Duration & Closing Rules", detail: "Configure duration policy; authoritative timing remains server-owned", icon: Clock3 },
     { id: "trade-capital-wallet", target: "transactionReview", label: "Capital Allocation & Wallet Rules", detail: "Review wallet balances, ledger movements and allocation records", icon: WalletCards },
-    { id: "trade-profit-fees-limits", target: "opportunity", label: "Profit, Fees & Earnings Limits", detail: "Configure reward policy and package/customer ceilings", icon: CircleDollarSign },
+    { id: "trade-profit-fees-limits", target: "transactionReview", label: "Profit, Fees & Earnings Limits", detail: "Review realized-profit fee policy; package reward ceilings remain under Package Quotas", icon: CircleDollarSign },
     { id: "trade-retries-carry-forward", target: "deliveryMonitor", label: "Retries & Carry-Forward", detail: "Inspect delivery lifecycle, retry and pending work", icon: Activity },
     { id: "trade-company-catalogue", target: "opportunity", label: "Company Catalogue & Rotation", detail: "Manage informational company references and rotation policy", icon: Globe2 },
     { id: "trade-popup-display", target: "deliveryMonitor", label: "Trade Pop-up & Customer Display", detail: "Review customer delivery and popup lifecycle", icon: SlidersHorizontal },
