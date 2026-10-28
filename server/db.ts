@@ -2504,7 +2504,11 @@ export async function listPersistedOpportunityPackagePolicies() {
     db.select().from(opportunityPackagePolicies),
   ]);
   const tierNames=new Set(tiers.map(tier=>tier.name));
-  return rows.filter(row=>tierNames.has(row.packageName));
+  const matchingRows=rows.filter(row=>tierNames.has(row.packageName));
+  const policyNames=new Set(matchingRows.map(row=>row.packageName));
+  const missing=tiers.filter(tier=>!policyNames.has(tier.name)).map(tier=>tier.name);
+  if(missing.length) throw new Error("Trading tier opportunity policy is missing for: "+missing.join(", "));
+  return matchingRows;
 }
 export async function updateOpportunityPackagePolicies(updatedBy:number, policies:any[]) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
