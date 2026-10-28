@@ -167,16 +167,44 @@ try {
   assert.equal(fxRaw.sourceDate, fxSourceDate, "The raw snapshot must preserve the fiat provider source date.");
   assert.ok(String(fxRaw.fetchedAt).includes("T"), "The raw snapshot must preserve the full API fetch timestamp.");
 
+  const qualifyingReversal = await adjustCustomerBalance(adminId, {
+    userId: creditPathUserId,
+    currency: "USD",
+    amountMinor: 5000,
+    mode: "debit",
+    debitClassification: "qualifying_deposit_reversal",
+    reversalLedgerId: qualifyingCreditOne.ledgerId,
+    reason: "integration test partial qualifying deposit reversal",
+  });
+  assert.equal(qualifyingReversal.entryType, "admin_manual_deposit_reversal");
+  assert.equal(qualifyingReversal.qualifyingDepositUsdMinor, -5000);
+  assert.equal(qualifyingReversal.qualifyingDepositReversalOfId, qualifyingCreditOne.ledgerId);
+
+  await assert.rejects(
+    adjustCustomerBalance(adminId, {
+      userId: creditPathUserId,
+      currency: "USD",
+      amountMinor: 16000,
+      mode: "debit",
+      debitClassification: "qualifying_deposit_reversal",
+      reversalLedgerId: qualifyingCreditOne.ledgerId,
+      reason: "integration test over-reversal must be rejected",
+    }),
+    /reversal exceeds/i,
+  );
+
   const creditPathLedger = await db.select().from(balanceLedger)
     .where(eq(balanceLedger.userId, creditPathUserId));
-  assert.equal(creditPathLedger.length, 3);
+  assert.equal(creditPathLedger.length, 4);
   assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_manual_deposit_credit").length, 2);
   assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_credit").length, 1);
+  assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_manual_deposit_reversal").length, 1);
   const creditPathJobs = await db.select().from(tradingTierQualificationJobs)
     .where(eq(tradingTierQualificationJobs.userId, creditPathUserId));
-  assert.equal(creditPathJobs.length, 2, "Only qualifying admin credits may enqueue qualification jobs.");
+  assert.equal(creditPathJobs.length, 3, "Only qualifying credits and valid reversals may enqueue qualification jobs.");
   assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === qualifyingCreditOne.ledgerId));
   assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === nonUsdQualifyingCredit.ledgerId));
+  assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === qualifyingReversal.ledgerId));
   assert.equal(creditPathJobs.every((row) => row.status === "pending"), true);
   await db.update(tradingTierQualificationJobs).set({
     availableAt: new Date(Date.now() - 10_000),
