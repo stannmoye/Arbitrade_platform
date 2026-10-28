@@ -1,12 +1,12 @@
 # Development Progress — Arbitrade Platform
 
-**Last reviewed:** 2026-10-27  
+**Last reviewed:** 2026-10-28  
 **Repository:** [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrade_platform)  
 **Canonical source:** main (verify the current 40-character SHA before each change or build)
 
 ## Current continuation point
 
-The immediate task is restoring the Trading package changes to a clean validation state. The current work is on `fix/trading-package-ci-2026-10-27`, branched from main at `8e610823941cb49f45e8bff0f35759994a395221`. PR #181 was merged on 2026-10-26; its older feature branch is not the canonical source. The current fix is under review in [PR #203](https://github.com/stannmoye/Arbitrade_platform/pull/203).
+The initial Trading-package CI repair is complete. Continue from `fix/trading-package-ci-2026-10-27`, which was branched from canonical `main` at `8e610823941cb49f45e8bff0f35759994a395221`; PR #181 was merged on 2026-10-26 and its older feature branch is not the canonical source. At the start of this follow-up, GitHub reported `main` at `8e610823941cb49f45e8bff0f35759994a395221` and open PR #203 at `4a1b498428d2fcad31f39b2194e100179de9e7d4`, with all 14 check runs successful on that exact head. This follow-up continues the Trading Settings route audit on PR #203; its new code/test head must receive fresh CI verification.
 
 On the baseline main SHA, all four GitHub Actions workflows failed:
 
@@ -58,8 +58,17 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 - On PR #203 branch `fix/trading-package-ci-2026-10-27`, updated `server/modules/trade-execution-retry.ts` to inspect a bounded, cycle-safe chain of nested error causes. This preserves the existing transient-code allowlist and the existing attempt/delay policy; it only recognizes known transient errors when a driver wraps them.
 - Added regression coverage for a wrapped `ETIMEDOUT`, a transient nested message, and a cyclic cause chain. Source commit: `9866c1b7a6966797943f1c8d27339f1c224f676b`; test commit: `714d1dbdb8112c247d8290e082ac429a433d81e5`.
 - Exact test commit `714d1dbdb8112c247d8290e082ac429a433d81e5` completed with all 14 GitHub checks successful, including TypeScript validation, application unit tests, production build/smoke, installer/MariaDB/MySQL compatibility, Mining regression, Trading recovery, and browser recovery. [Production build and browser-recovery run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40639860710) · [Application verification](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40639860744) · [Trading recovery](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40639860714) · [Installer validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40639860706) · [Mining regression](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40639860702).
-- Remaining admin mapping issue: `Retries & Carry-Forward` still opens the read-only delivery-summary screen, while per-package retry-attempt and retry-delay settings are on the package-policy screen. Carry-forward controls are not present there; no business policy was invented or changed. Next work should route to the real retry controls and clearly distinguish the still-unimplemented carry-forward capability.
+- Retry navigation was corrected in later commits on PR #203: it now opens focused package retry settings and clearly states that carry-forward controls are not implemented. This supersedes the earlier routing observation in this historical audit.
 - PR #203 remains open and unmerged. PR #202’s worker-only allocation boundary remains a separate open draft; no merge, production deployment, database change, or live trade was performed.
 
-- Next: fix the retry-menu destination without implying carry-forward is implemented, then continue the remaining Trade Settings mapping audit. Recheck open PR heads and CI before any further edit.
+- Next: audit the Trading Overview and Trade Duration & Closing Rules destinations against real database-backed screens; keep unsupported metrics and controls out of the menu. Recheck open PR heads and exact-SHA CI before further edits.
 
+
+## Follow-up — 2026-10-28 — customer display settings route
+
+- Verified canonical `main` at `8e610823941cb49f45e8bff0f35759994a395221` and PR #203 at `4a1b498428d2fcad31f39b2194e100179de9e7d4` before editing; all 14 check runs were successful on that prior head.
+- Mapping audit found `Trade Pop-up & Customer Display` pointed to the read-only persisted delivery-lifecycle report, while the existing package policy editor owns `popupDisplayTargetSeconds` and `completionDisplaySeconds`.
+- This change routes the menu item to a focused, per-package display editor that exposes only those existing presentation fields and clarifies they do not alter allocation, execution, or settlement. It reuses the existing versioned package-policy mutation; no policy, ledger, migration, or worker behavior changes.
+- Added navigation and source-contract regression coverage for the focused route and display fields.
+- Validation for the new code/test commit is pending GitHub Actions on the exact new SHA; do not reuse the successful checks from `4a1b498`. No merge, deployment, production data change, or live trade was performed.
+- Next: inspect the Trading Overview and Trade Duration & Closing Rules routes against their actual persisted controls and data before choosing the next code increment.

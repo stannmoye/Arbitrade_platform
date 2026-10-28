@@ -72,7 +72,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "trade-profit-fees-limits", target: "transactionReview", label: "Profit, Fees & Earnings Limits", detail: "Review realized-profit fee policy; package reward ceilings remain under Package Quotas", icon: CircleDollarSign },
     { id: "trade-retries-carry-forward", target: "tradeRetryPolicy", label: "Retries & Carry-Forward", detail: "Configure per-package retry attempts and delay; carry-forward controls are not yet implemented", icon: Activity },
     { id: "trade-company-catalogue", target: "opportunity", label: "Company Catalogue & Rotation", detail: "Manage informational company references and rotation policy", icon: Globe2 },
-    { id: "trade-popup-display", target: "deliveryMonitor", label: "Trade Pop-up & Customer Display", detail: "Review customer delivery and popup lifecycle", icon: SlidersHorizontal },
+    { id: "trade-popup-display", target: "tradeCustomerDisplay", label: "Trade Pop-up & Customer Display", detail: "Configure per-package pop-up and completed-card display duration; this does not change execution or settlement", icon: SlidersHorizontal },
     { id: "trade-notifications", target: "notificationCenter", label: "Notifications", detail: "Trading-related customer and administrator notifications", icon: Bell },
     { id: "trade-active-pending", target: "deliveryMonitor", label: "Active Trades & Pending Work", detail: "Review delivery states and unresolved work", icon: Activity },
     { id: "trade-settlement-reconciliation", target: "transactionReview", label: "Settlement & Reconciliation", detail: "Inspect ledger-backed movements and reconciliation records", icon: ReceiptText },

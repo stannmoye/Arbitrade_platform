@@ -38,12 +38,19 @@ describe("Trade Settings administrator navigation", () => {
     expect(item?.detail).toBe("Configure per-package retry attempts and delay; carry-forward controls are not yet implemented");
   });
 
+  it("routes customer display settings to their focused editor", () => {
+    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
+    const item = group?.items.find((candidate) => candidate.id === "trade-popup-display");
+    expect(item?.target).toBe("tradeCustomerDisplay");
+    expect(item?.detail).toContain("does not change execution or settlement");
+  });
+
   it("routes every Trade Settings item to an existing portal destination", () => {
     const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
     expect(group).toBeDefined();
     const supportedTargets = new Set([
       "overview", "customers", "transactionReview", "credit", "debit", "currencies",
-      "mining", "opportunity", "deliveryMonitor", "packages", "tradeRetryPolicy", "kycCenter",
+      "mining", "opportunity", "deliveryMonitor", "packages", "tradeRetryPolicy", "tradeCustomerDisplay", "kycCenter",
       "verificationOversight", "riskWatchlist", "emailCenter", "smtpCenter",
       "suiteTickets", "notificationCenter", "communicationSettings", "signup",
       "policies", "privacyManagement", "settings", "sound", "branding",
