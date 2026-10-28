@@ -525,3 +525,177 @@
   .trading-tier-card-current:hover,
   .trading-tier-card-next:hover { transform: none; }
 }
+
+
+/* Mission-control orbital journey inspired by the supplied moving reference. */
+.trading-trajectory {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  padding: 16px clamp(12px, 2.5vw, 24px) 12px;
+  border: 1px solid rgb(38 193 220 / 35%);
+  border-radius: 14px;
+  color: #dff8ff;
+  background:
+    radial-gradient(ellipse at 50% 52%, rgb(0 112 174 / 26%), transparent 48%),
+    radial-gradient(ellipse at 10% 0%, rgb(0 217 190 / 9%), transparent 42%),
+    linear-gradient(145deg, #061b30, #03101f 72%);
+  box-shadow: 0 10px 34px rgb(0 13 28 / 24%), inset 0 1px 0 rgb(255 255 255 / 5%);
+}
+.trading-trajectory::before,
+.trading-trajectory::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  background: #c9faff;
+  box-shadow: 0 0 7px #37e9ff, 0 0 18px rgb(55 233 255 / 70%);
+}
+.trading-trajectory::before { width: 2px; height: 2px; top: 19%; left: 12%; }
+.trading-trajectory::after { width: 3px; height: 3px; right: 15%; top: 31%; }
+.trading-trajectory-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  position: relative;
+  z-index: 2;
+}
+.trading-trajectory-kicker {
+  color: #45e6d0;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+.trading-trajectory-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #59e8d3;
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.trading-trajectory-live > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #42f5d0;
+  box-shadow: 0 0 10px rgb(66 245 208 / 90%);
+  animation: trajectory-live-pulse 1.8s ease-out infinite;
+}
+.trading-orbit-stage {
+  position: relative;
+  width: min(100%, 360px);
+  aspect-ratio: 1 / .78;
+  margin: 4px auto 0;
+  isolation: isolate;
+}
+.trading-orbit-grid {
+  position: absolute;
+  inset: 9%;
+  border-radius: 50%;
+  opacity: .38;
+  background-image: radial-gradient(rgb(91 180 218 / 36%) .7px, transparent .7px);
+  background-size: 12px 12px;
+  mask-image: radial-gradient(ellipse, #000 15%, transparent 74%);
+}
+.trading-orbit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: 1px solid rgb(78 161 203 / 28%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.orbit-outer { width: 86%; height: 86%; border-style: dashed; animation: trajectory-orbit-spin 32s linear infinite; }
+.orbit-middle { width: 68%; height: 68%; border-color: rgb(48 212 226 / 72%); box-shadow: 0 0 13px rgb(34 205 230 / 8%); animation: trajectory-orbit-spin 24s linear infinite reverse; }
+.orbit-inner { width: 38%; height: 38%; border-color: rgb(52 174 255 / 72%); box-shadow: 0 0 22px rgb(38 175 255 / 12%), inset 0 0 20px rgb(38 175 255 / 8%); }
+.trading-orbit-dot {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #b4fbff;
+  border-radius: 50%;
+  background: #29c9ec;
+  box-shadow: 0 0 12px #25caff;
+  transform: translate(-50%, -50%);
+}
+.dot-middle { width: 7px; height: 7px; background: #41e8cf; border-color: #b8fff0; }
+.trading-orbit-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 25%;
+  aspect-ratio: 1;
+  border: 1px solid rgb(52 183 255 / 85%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 20%, #123e68, #06172b 72%);
+  box-shadow: 0 0 0 5px rgb(36 156 223 / 7%), 0 0 24px rgb(34 177 255 / 25%), inset 0 0 16px rgb(37 176 255 / 12%);
+  transform: translate(-50%, -50%);
+}
+.trading-orbit-center strong { color: #f0fdff; font-size: clamp(22px, 4vw, 30px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; text-shadow: 0 0 14px rgb(67 210 255 / 45%); }
+.trading-orbit-center span { margin-top: 4px; color: #81b9d0; font-size: 8px; letter-spacing: .13em; text-transform: uppercase; }
+.trading-orbit-node {
+  position: absolute;
+  display: grid;
+  gap: 3px;
+  width: 32%;
+  min-width: 0;
+  color: #dff9ff;
+  font-size: 10px;
+  line-height: 1.25;
+}
+.trading-orbit-node strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; font-weight: 750; }
+.trading-orbit-node small { color: #80aabd; font-size: 8px; }
+.trading-orbit-node-dot { width: 7px; height: 7px; border-radius: 50%; background: #40e6d0; box-shadow: 0 0 11px rgb(64 230 208 / 75%); }
+.trading-orbit-current { left: 0; top: 63%; }
+.trading-orbit-next { right: 0; top: 42%; text-align: right; justify-items: end; }
+.trading-orbit-next .trading-orbit-node-dot { background: #f7c86a; box-shadow: 0 0 11px rgb(247 200 106 / 70%); }
+.trading-orbit-percent {
+  position: absolute;
+  top: 17%;
+  left: 50%;
+  display: grid;
+  gap: 2px;
+  color: #e8fdff;
+  font-size: 17px;
+  font-weight: 800;
+  text-align: center;
+  text-shadow: 0 0 12px rgb(55 219 255 / 40%);
+  transform: translateX(-50%);
+}
+.trading-orbit-percent small { color: #77a6bc; font-size: 7px; font-weight: 650; letter-spacing: .14em; text-transform: uppercase; }
+.trading-trajectory-foot {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: #7faabd;
+  font-size: 9px;
+}
+.trading-trajectory-foot > span { display: inline-flex; align-items: center; gap: 6px; }
+.trajectory-key { width: 6px; height: 6px; border-radius: 50%; }
+.current-key { background: #40e6d0; box-shadow: 0 0 7px rgb(64 230 208 / 70%); }
+.next-key { background: #f7c86a; box-shadow: 0 0 7px rgb(247 200 106 / 55%); }
+@keyframes trajectory-orbit-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes trajectory-live-pulse { 70% { box-shadow: 0 0 0 6px rgb(66 245 208 / 0%); } 100% { box-shadow: 0 0 0 0 rgb(66 245 208 / 0%); } }
+@media (max-width: 420px) {
+  .trading-trajectory { padding-inline: 10px; }
+  .trading-orbit-stage { width: 100%; aspect-ratio: 1 / .9; }
+  .trading-orbit-node { width: 30%; }
+  .trading-orbit-node strong { font-size: 9px; }
+  .trading-orbit-current { left: 1%; top: 65%; }
+  .trading-orbit-next { right: 1%; top: 42%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trading-trajectory-live > span, .orbit-outer, .orbit-middle { animation: none !important; }
+}
