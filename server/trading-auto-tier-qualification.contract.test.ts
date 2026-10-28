@@ -115,6 +115,17 @@ describe("Automatic Trading tier qualification", () => {
     expect(terms).not.toContain("sessionEntropy");
   });
 
+  it("persists administrator-controlled effective dates and tier caps", () => {
+    expect(databaseSource).toContain("maxPopupsPerDay:input.maxPopupsPerDay");
+    expect(databaseSource).toContain("maxActiveInvestments:input.maxActiveInvestments");
+    expect(databaseSource).toContain("startsAt:input.startsAt");
+    expect(databaseSource).toContain("expiresAt:input.expiresAt");
+    expect(routerSource).toContain("startsAt: z.string().datetime().nullable()");
+    expect(routerSource).toContain("maxActiveInvestments: z.number().int().min(0).max(10000)");
+    expect(customerAppSource).toContain("Tier starts at (your local time; blank = immediately)");
+    expect(customerAppSource).toContain("Maximum active investments (0 = no tier-specific cap)");
+  });
+
   it("documents the owner-approved automatic-deposit policy", () => {
     expect(specification).toContain("Customers never browse, select, subscribe to, purchase, or activate a package.");
     expect(specification).toContain("Profits, trading rewards, returned principal, bonuses, swaps, transfers");
