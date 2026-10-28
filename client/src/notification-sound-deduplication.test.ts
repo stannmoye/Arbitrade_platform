@@ -167,8 +167,8 @@ describe("authoritative financial-event notification contracts", () => {
     expect(end).toBeGreaterThan(start);
     expect(adjustment).toContain("await db.transaction(async tx=>");
     expect(adjustment).toContain("await tx.insert(balanceLedger).values(");
-    expect(adjustment).toContain("return {success:true,newAvailableMinor:next");
-    const transactionEnd = adjustment.indexOf("}); try { await createNotification(");
+    expect(adjustment).toContain("success:true,newAvailableMinor:next,");
+    const transactionEnd = adjustment.indexOf("\n\n  if(result.entryType===", adjustment.indexOf("await db.transaction(async tx=>"));
     expect(transactionEnd).toBeGreaterThan(adjustment.indexOf("await tx.insert(balanceLedger).values("));
     expect(transactionEnd).toBeLessThan(adjustment.indexOf("await createNotification("));
     expect(adjustment).toContain("after ledger commit");
