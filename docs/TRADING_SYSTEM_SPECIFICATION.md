@@ -219,7 +219,7 @@ The admin portal's main navigation must contain one clear top-level menu named *
 Required Trade Settings submenu structure (reuse existing working screens where they already provide the relevant function; do not create duplicate or placeholder screens):
 
 1. **Overview** — trading system status, today's allocations/opportunities, active and pending trades, settlements, exceptions, and key health indicators.
-2. **Packages & Eligibility** — package names, minimum qualifying balances, activation rules, terms, status, and eligibility.
+2. **Packages & Eligibility** — administrator-only tier names, qualifying-deposit thresholds, terms, status, and automatic eligibility rules.
 3. **Package Quotas & Customer Limits** — opportunities per package/day, combined quotas, account limits, and customer-level controls.
 4. **Opportunity Schedule** — opportunity generation windows, schedule/time zone, company selection/filters, and cadence.
 5. **Trade Duration & Closing Rules** — admin-configured duration, scheduled close calculation, timing policy, effective-time rules, and countdown target policy.
