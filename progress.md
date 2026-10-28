@@ -116,3 +116,15 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 - All 14 reported check runs completed successfully, including TypeScript validation, application tests, production build/smoke, browser recovery, installer and MySQL/MariaDB checks, deployment-package validation, Mining regression, and Trading recovery.
 - These results apply to code/test SHA 6cc2f27ffad80ce43e6956799c46ace5312439ca. This handoff update is documentation-only; verify Actions against its resulting head before treating that newer head as validated.
 - PR #203 remains open and unmerged. No deployment, production database operation, or live trade was performed.
+
+## Owner-confirmed Trading tier policy B — implementation in progress (2026-10-28)
+
+The owner explicitly confirmed that customers must not browse or activate packages. Authorized administrators configure tiers; qualifying manual administrator wallet credits determine eligibility automatically and tier daily opportunity quotas add together.
+
+- Canonical base reviewed: `main` at `bf940d02baeb39c92fed66eeea7ed44b1843119f`.
+- Implementation branch: `feature/automatic-trading-tier-qualification-20261028`.
+- Source work to date: removed the customer package catalogue/activation UI and API; added a customer-safe eligibility summary; added explicit admin credit classification; recorded qualifying USD-value and rate/provider/timestamp evidence; auto-assigned enabled tiers when cumulative qualifying deposits reach configured thresholds; added regression contract tests.
+- Migration `0080_qualifying_admin_deposit_attribution.sql` adds the attribution/evidence fields to `balance_ledger` and retires legacy customer-activated entitlements by marking them expired while preserving the rows for audit. Historical `admin_credit` rows are not backfilled because their purpose cannot be proven from the old classification alone.
+- The admin wallet-credit form now requires the administrator to choose either **Qualifying manual deposit** or **Non-qualifying credit**. Only the former is eligible for tier qualification. BTC/ETH qualifying credits fail closed if the USD rate is not from a non-manual provider and is older than five minutes; USD and USDT use the product's nominal 1:1 rule.
+- No application tests, type-check, build, database migration, production deployment, or live trade has yet been run by this branch. Do not treat these changes as validated until exact-head GitHub Actions or a local run completes.
+- Remaining implementation review before merge: verify tier re-evaluation when admin configuration changes and when a future tier start date arrives; review the credit-time FX evidence rules against the market-rate refresh schedule; run all required commands on the exact final SHA; inspect all changed files and migration ordering.
