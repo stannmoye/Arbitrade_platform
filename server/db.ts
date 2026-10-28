@@ -2271,6 +2271,7 @@ export async function getCustomerTradingEligibility(userId:number) {
   const now=new Date();
   const rows=await db.select({
     subscriptionId:customerPackageSubscriptions.id,
+    activationKey:customerPackageSubscriptions.activationKey,
     dailyQuota:packages.opportunitiesPerDay,
   }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
     .where(and(
@@ -2282,13 +2283,14 @@ export async function getCustomerTradingEligibility(userId:number) {
       or(isNull(packages.startsAt),lte(packages.startsAt,now)),
       or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
     ));
-  const dailyOpportunityAllowance=rows.reduce((total,row)=>total+Number(row.dailyQuota||0),0);
+  const eligibleRows=rows.filter(row=>String(row.activationKey||"").startsWith("auto-tier:"));
+  const dailyOpportunityAllowance=eligibleRows.reduce((total,row)=>total+Number(row.dailyQuota||0),0);
   if(!Number.isSafeInteger(dailyOpportunityAllowance)||dailyOpportunityAllowance<0) throw new Error("Trading eligibility quota is invalid.");
   return {
-    eligible:rows.length>0,
-    qualifiedTierCount:rows.length,
+    eligible:eligibleRows.length>0,
+    qualifiedTierCount:eligibleRows.length,
     dailyOpportunityAllowance,
-    status:rows.length>0?"eligible":"not_eligible",
+    status:eligibleRows.length>0?"eligible":"not_eligible",
   };
 }
 
@@ -2454,13 +2456,15 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   if(controls.accountStatus!=="active") return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,accountInactive:true,popupPolicy:{}});
   const subscriptions=await db.select({
     subscriptionId:customerPackageSubscriptions.id,packageId:packages.id,packageName:packages.name,
+    activationKey:customerPackageSubscriptions.activationKey,
     packageQuota:packages.opportunitiesPerDay,termsVersion:packages.termsVersion,termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
     expiresAt:customerPackageSubscriptions.expiresAt,startsAt:customerPackageSubscriptions.startsAt,
   }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
     .where(and(eq(customerPackageSubscriptions.userId,userId),eq(customerPackageSubscriptions.status,"active"),
       lte(customerPackageSubscriptions.startsAt,now),or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,now)),
       eq(packages.enabled,true),or(isNull(packages.startsAt),lte(packages.startsAt,now)),
-      or(isNull(packages.expiresAt),gt(packages.expiresAt,now)))).orderBy(customerPackageSubscriptions.expiresAt);
+      or(isNull(packages.expiresAt),gt(packages.expiresAt,now)))).orderBy(customerPackageSubscriptions.expiresAt))
+    .filter(subscription=>String(subscription.activationKey||"").startsWith("auto-tier:"));
   if(!subscriptions.length) return emptyResult({packageName:"",maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,noPackage:true,popupPolicy:{}});
   const packagePolicies=await listOpportunityPackagePolicies();
   const policyByName=new Map<string,typeof packagePolicies[number]>();
@@ -2646,6 +2650,7 @@ export async function runAutoTradeCycle(){
   let allocations=0;
   for(const customer of customers){
     try{
+      await ensureAutomaticTradingTierEntitlements(customer.id);
       const result=await listCustomerOpportunities(customer.id,{workerCycle:true,consumeDelivery:false});
       allocations+=result.autoTrades.length;
       for(const trade of result.autoTrades){
