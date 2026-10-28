@@ -296,6 +296,11 @@ export function AdminTransactionReview() {
   const feePolicy = tradeFeePolicyQuery.data;
   const feeDraft = feePolicyDraft ?? { feePercent: feePolicy ? String(feePolicy.feeRateBps / 100) : "15", roundingMode: feePolicy?.roundingMode ?? "half_up" };
   const updateTradeFeePolicy = trpc.adminOperations.updateTradeFeePolicy.useMutation({ onSuccess: () => { setFeePolicyDraft(null); tradeFeePolicyQuery.refetch(); } });
+  const customerEarningsCeilingQuery = trpc.adminOperations.customerEarningsCeiling.useQuery(undefined, { staleTime: 60_000 });
+  const [earningsCeilingDraft, setEarningsCeilingDraft] = useState<{ amountMinor: string; referenceCurrency: string; window: "rolling_24h" | "calendar_day"; timezone: string } | null>(null);
+  const earningsCeiling = customerEarningsCeilingQuery.data;
+  const earningsDraft = earningsCeilingDraft ?? { amountMinor: earningsCeiling?.configured ? String(earningsCeiling.amountMinor) : "", referenceCurrency: earningsCeiling?.referenceCurrency ?? "USD", window: earningsCeiling?.window ?? "rolling_24h", timezone: earningsCeiling?.timezone ?? "UTC" };
+  const updateCustomerEarningsCeiling = trpc.adminOperations.updateCustomerEarningsCeiling.useMutation({ onSuccess: () => { setEarningsCeilingDraft(null); customerEarningsCeilingQuery.refetch(); } });
   const payoutQuery = trpc.adminOperations.payoutRequests.useQuery(undefined, { refetchInterval: 5_000 });
   const resolvePayout = trpc.adminOperations.resolvePayoutRequest.useMutation({ onSuccess: () => { payoutQuery.refetch(); ledgerQuery.refetch(); } });
   const [payoutDrafts, setPayoutDrafts] = useState<Record<number, { externalReference: string; note: string }>>({});
@@ -336,6 +341,20 @@ export function AdminTransactionReview() {
             </div>
           </div>
           <div className="admin-ops-note"><ShieldCheck size={16} /><span>Changes are audited and versioned. Each settlement stores the fee rate, rounding rule, and policy version used.</span></div>
+        </section>
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Customer-wide earnings ceiling</span><h2>Global realized-profit limit</h2></div><span className="admin-ops-subtle">Policy v{earningsCeiling?.policyVersion ?? 1}</span></div>
+          <p>This limit is measured across all trading packages in one reference currency. Realized net profit and active reservations both consume capacity; settlement records the actual result and never clips it. New allocations remain paused until a valid policy is configured.</p>
+          {customerEarningsCeilingQuery.isError && <div className="admin-ops-empty error">Customer earnings ceiling could not be loaded; changes are disabled.</div>}
+          {updateCustomerEarningsCeiling.error && <div className="admin-ops-empty error">{updateCustomerEarningsCeiling.error.message}</div>}
+          <div className="admin-ops-form-grid">
+            <label>Ceiling (reference minor units)<input type="number" min={1} step={1} value={earningsDraft.amountMinor} disabled={customerEarningsCeilingQuery.isLoading || customerEarningsCeilingQuery.isError} onChange={(event) => setEarningsCeilingDraft({ ...earningsDraft, amountMinor: event.target.value })} placeholder="Configure before enabling allocations" /></label>
+            <label>Reference currency<input value={earningsDraft.referenceCurrency} maxLength={12} disabled={customerEarningsCeilingQuery.isLoading || customerEarningsCeilingQuery.isError} onChange={(event) => setEarningsCeilingDraft({ ...earningsDraft, referenceCurrency: event.target.value.toUpperCase() })} /></label>
+            <label>Window<select value={earningsDraft.window} disabled={customerEarningsCeilingQuery.isLoading || customerEarningsCeilingQuery.isError} onChange={(event) => setEarningsCeilingDraft({ ...earningsDraft, window: event.target.value as "rolling_24h" | "calendar_day" })}><option value="rolling_24h">Rolling 24 hours</option><option value="calendar_day">Calendar day</option></select></label>
+            <label>Timezone (IANA)<input value={earningsDraft.timezone} maxLength={80} disabled={customerEarningsCeilingQuery.isLoading || customerEarningsCeilingQuery.isError} onChange={(event) => setEarningsCeilingDraft({ ...earningsDraft, timezone: event.target.value })} /></label>
+            <div className="admin-ops-form-actions"><button className="admin-ops-button" type="button" disabled={customerEarningsCeilingQuery.isLoading || customerEarningsCeilingQuery.isError || updateCustomerEarningsCeiling.isPending || !Number.isSafeInteger(Number(earningsDraft.amountMinor)) || Number(earningsDraft.amountMinor) <= 0 || !earningsDraft.referenceCurrency.trim() || !earningsDraft.timezone.trim()} onClick={() => updateCustomerEarningsCeiling.mutate({ amountMinor: Number(earningsDraft.amountMinor), referenceCurrency: earningsDraft.referenceCurrency.trim(), window: earningsDraft.window, timezone: earningsDraft.timezone.trim() })}>{updateCustomerEarningsCeiling.isPending ? "Saving…" : "Save earnings ceiling"}</button></div>
+          </div>
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span>{earningsCeiling?.configured ? `Configured: ${earningsCeiling.amountMinor.toLocaleString()} ${earningsCeiling.referenceCurrency} minor units per ${earningsCeiling.window === "rolling_24h" ? "rolling 24 hours" : "calendar day"}.` : "Not configured: allocations are fail-closed until an administrator saves a positive ceiling."} Changes are audited and versioned.</span></div>
         </section>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Manual settlement queue</span><h2>Trades awaiting administrator confirmation</h2></div><span className="admin-ops-subtle">{pendingQuery.data?.length ?? 0} pending</span></div>

@@ -14,6 +14,7 @@ import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./module
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
 import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
+import { canReserveCustomerEarnings, convertMinorToReferenceMinor, earningsWindow, validateCustomerEarningsCeilingPolicy, type CustomerEarningsCeilingPolicy, type CustomerEarningsCeilingWindow } from "./modules/customer-earnings-ceiling";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
@@ -70,6 +71,8 @@ export async function setAppSetting(key: string, value: string, updatedBy?: numb
 export async function listAdminAuditEvents(){ const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(v5AuditEvents).orderBy(desc(v5AuditEvents.createdAt)).limit(200); }
 const TRADE_FEE_SETTING_KEYS = ["trade.platformFeeBps", "trade.feeRoundingMode", "trade.feePolicyVersion"] as const;
 const DEFAULT_TRADE_FEE_POLICY = { feeRateBps: 1500, roundingMode: "half_up" as FeeRoundingMode, policyVersion: 1 };
+const CUSTOMER_EARNINGS_CEILING_KEYS = ["trade.customerEarningsCeilingMinor", "trade.customerEarningsCeilingCurrency", "trade.customerEarningsCeilingWindow", "trade.customerEarningsCeilingTimezone", "trade.customerEarningsCeilingPolicyVersion"] as const;
+const DEFAULT_CUSTOMER_EARNINGS_CEILING = { amountMinor: 0, referenceCurrency: "USD", window: "rolling_24h" as CustomerEarningsCeilingWindow, timezone: "UTC", policyVersion: 1 };
 function normalizeTradeFeePolicy(values: { feeRateBps: unknown; roundingMode: unknown; policyVersion: unknown }) {
   const feeRateBps=Number(values.feeRateBps);
   const policyVersion=Number(values.policyVersion);
@@ -124,6 +127,51 @@ export async function setTradeFeePolicy(input:{feeRateBps:number;roundingMode:Fe
     });
     return {...next,feePercent:next.feeRateBps/100};
   });
+}
+
+export async function getCustomerEarningsCeilingPolicy(): Promise<CustomerEarningsCeilingPolicy> {
+  const [amountMinor, referenceCurrency, window, timezone, policyVersion] = await Promise.all(CUSTOMER_EARNINGS_CEILING_KEYS.map((key) => getAppSetting(key)));
+  const amount = Number(amountMinor ?? DEFAULT_CUSTOMER_EARNINGS_CEILING.amountMinor);
+  if (amount === 0) return { ...DEFAULT_CUSTOMER_EARNINGS_CEILING, configured: false };
+  const normalized = validateCustomerEarningsCeilingPolicy({ amountMinor: amount, referenceCurrency: String(referenceCurrency ?? DEFAULT_CUSTOMER_EARNINGS_CEILING.referenceCurrency), window: String(window ?? DEFAULT_CUSTOMER_EARNINGS_CEILING.window) as CustomerEarningsCeilingWindow, timezone: String(timezone ?? DEFAULT_CUSTOMER_EARNINGS_CEILING.timezone) });
+  const version = Number(policyVersion ?? DEFAULT_CUSTOMER_EARNINGS_CEILING.policyVersion);
+  if (!Number.isSafeInteger(version) || version < 1) throw new Error("Customer earnings ceiling policy version is invalid");
+  return { ...normalized, policyVersion: version, configured: true };
+}
+
+export async function setCustomerEarningsCeilingPolicy(input: { amountMinor: number; referenceCurrency: string; window: CustomerEarningsCeilingWindow; timezone: string }, updatedBy: number) {
+  const normalized = validateCustomerEarningsCeilingPolicy(input);
+  const db = await getDb(); if (!db) throw new Error("Database is not available");
+  return db.transaction(async (tx) => {
+    const rows = await tx.select().from(appSettings).where(inArray(appSettings.settingKey, [...CUSTOMER_EARNINGS_CEILING_KEYS])).for("update");
+    const currentVersion = Number(rows.find((row) => row.settingKey === "trade.customerEarningsCeilingPolicyVersion")?.settingValue ?? DEFAULT_CUSTOMER_EARNINGS_CEILING.policyVersion);
+    if (!Number.isSafeInteger(currentVersion) || currentVersion < 1) throw new Error("Customer earnings ceiling policy version is invalid");
+    const existing = new Set(rows.map((row) => row.settingKey));
+    const save = async (settingKey: string, settingValue: string) => { if (existing.has(settingKey)) await tx.update(appSettings).set({ settingValue, updatedBy, updatedAt: new Date() }).where(eq(appSettings.settingKey, settingKey)); else await tx.insert(appSettings).values({ settingKey, settingValue, updatedBy }); };
+    await save("trade.customerEarningsCeilingMinor", String(normalized.amountMinor));
+    await save("trade.customerEarningsCeilingCurrency", normalized.referenceCurrency);
+    await save("trade.customerEarningsCeilingWindow", normalized.window);
+    await save("trade.customerEarningsCeilingTimezone", normalized.timezone);
+    await save("trade.customerEarningsCeilingPolicyVersion", String(currentVersion + 1));
+    await tx.insert(v5AuditEvents).values({ actorUserId: updatedBy, action: "customer_earnings_ceiling_updated", entityType: "customer_earnings_ceiling", entityId: String(currentVersion + 1), reason: "Administrator updated the customer-wide realized earnings ceiling.", reference: `customer-earnings-ceiling:${currentVersion + 1}`, metadataJson: JSON.stringify({ ...normalized, policyVersion: currentVersion + 1 }) });
+    return { ...normalized, policyVersion: currentVersion + 1, configured: true };
+  });
+}
+
+async function assertCustomerEarningsCeilingAllowsTrade(tx: any, userId: number, policy: CustomerEarningsCeilingPolicy, requestedRewardMinor: number, currency: string, now: Date) {
+  if (!policy.configured) throw new Error("Customer earnings ceiling is not configured; new allocations are paused");
+  const rates = await tx.select({ code: currencyRegistry.code, scale: currencyRegistry.scale, usdRate: currencyRegistry.usdRate }).from(currencyRegistry).where(inArray(currencyRegistry.code, [policy.referenceCurrency, currency])).limit(2);
+  const reference = rates.find((row: any) => row.code === policy.referenceCurrency);
+  const source = rates.find((row: any) => row.code === currency);
+  if (!reference || !source || Number(reference.usdRate) <= 0 || Number(source.usdRate) <= 0) throw new Error("Customer earnings ceiling currency conversion is unavailable");
+  const window = earningsWindow(now, policy.window, policy.timezone);
+  const realizedRows = await tx.execute(sql`SELECT tp.netProfitMinor, cr.scale, cr.usdRate FROM trade_positions tp INNER JOIN currency_registry cr ON cr.code=tp.currency WHERE tp.userId=${userId} AND tp.status='settled' AND tp.settlementStatus='completed' AND tp.netProfitMinor>0 AND tp.settledAt>=${window.start} AND tp.settledAt<${window.end}`) as any;
+  const reservedRows = await tx.execute(sql`SELECT trr.reservedMinor, cr.scale, cr.usdRate FROM trade_reward_reservations trr INNER JOIN currency_registry cr ON cr.code=trr.currency WHERE trr.userId=${userId} AND trr.status='reserved' AND trr.createdAt>=${window.start} AND trr.createdAt<${window.end}`) as any;
+  const convertRows = (rows: any[], field: string) => rows.reduce((sum, row) => sum + convertMinorToReferenceMinor(Number(row[field] || 0), Number(row.scale), Number(row.usdRate), Number(reference.scale), Number(reference.usdRate)), 0);
+  const realized = convertRows(realizedRows?.[0] ?? [], "netProfitMinor");
+  const reserved = convertRows(reservedRows?.[0] ?? [], "reservedMinor");
+  const requested = convertMinorToReferenceMinor(requestedRewardMinor, Number(source.scale), Number(source.usdRate), Number(reference.scale), Number(reference.usdRate));
+  if (!canReserveCustomerEarnings(policy.amountMinor, realized, reserved, requested)) throw new Error("Customer-wide earnings ceiling reached for the configured window");
 }
 
 export async function getTradeSettlementPolicy() {
@@ -2934,6 +2982,8 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const uncappedReward=Math.floor(input.amountMinor*terms.rewardBps/10000);
   const reward=packagePolicy&&Number(packagePolicy.maxRewardPerTradeMinor||0)>0?Math.min(uncappedReward,Number(packagePolicy.maxRewardPerTradeMinor)):uncappedReward;
   if (packagePolicy&&Number(packagePolicy.minimumRewardBps||0)>terms.rewardBps) throw new Error("Opportunity reward rate is below the package minimum");
+  const customerEarningsCeiling=await getCustomerEarningsCeilingPolicy();
+  await assertCustomerEarningsCeilingAllowsTrade(tx,userId,customerEarningsCeiling,reward,offer.currency,new Date());
   if (packagePolicy&&Number(packagePolicy.maxDailyRewardMinor||0)>0) {
     const reservationRows=await tx.execute(sql`SELECT COALESCE(SUM(reservedMinor),0) AS reserved FROM trade_reward_reservations WHERE userId=${userId} AND packageName=${activePackageSubscription.packageName} AND windowKey=${today} AND status='reserved'`) as any;
     // The daily reward ceiling counts realized net profit actually retained by the

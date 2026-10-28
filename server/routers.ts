@@ -27,6 +27,7 @@ import { getLocalSessionFromRequest } from "./_core/localAuth";
 import * as privacyService from "./privacy";
 import { localIdentityService } from "./_core/localIdentityService";
 import { createHeartbeatJob, deleteHeartbeatJob, listHeartbeatJobs, updateHeartbeatJob } from "./_core/heartbeat";
+import { getCustomerEarningsCeilingPolicy, setCustomerEarningsCeilingPolicy } from "./db";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -495,6 +496,8 @@ export const appRouter = router({
     audit: adminProcedure.query(() => listAdminAuditEvents()),
     ledgerActivity: adminProcedure.query(() => listAdminRecentLedgerActivity()),
     tradeFeePolicy: adminProcedure.query(() => getTradeFeePolicy()),
+    customerEarningsCeiling: adminProcedure.query(() => getCustomerEarningsCeilingPolicy()),
+    updateCustomerEarningsCeiling: adminProcedure.input(z.object({ amountMinor: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), referenceCurrency: z.string().trim().min(2).max(12), window: z.enum(["rolling_24h", "calendar_day"]), timezone: z.string().trim().min(1).max(80) })).mutation(({ ctx, input }) => setCustomerEarningsCeilingPolicy(input, ctx.user.id)),
     updateTradeFeePolicy: adminProcedure.input(z.object({
       feeRateBps: z.number().int().min(0).max(10000),
       roundingMode: z.enum(["half_up","down","up","half_even"]),

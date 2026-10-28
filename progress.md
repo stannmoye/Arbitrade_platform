@@ -127,3 +127,14 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 - Customer Trading progress/history now labels the authoritative close time and explicitly explains that closing is not proof of settlement.
 - Checks passed on this local increment: `pnpm check`; `pnpm test` (741 passed, 15 skipped); `pnpm build`; focused Trading settlement/navigation contracts passed after the compatibility assertion was retained. No production database, deployment, or live trade was performed.
 - Next: add browser-level acceptance for close-time rendering and then continue the customer-wide earnings-ceiling policy implementation. Do not invent a cap amount, reset timezone, or FX rule; the previously approved admin-configurable defaults still need to be implemented as a separate policy slice.
+
+
+## Follow-up — 2026-10-28 — customer-wide earnings ceiling
+
+Continued on `fix/trading-server-close-time-20261028` from commit `ef60d535`. Implemented an administrator-configurable customer-wide earnings ceiling with reference currency, rolling-24-hour or calendar-day window, IANA timezone, policy versioning, and immutable audit records. The default state is intentionally unconfigured; allocations fail closed until an administrator saves a positive ceiling, so no policy amount was invented.
+
+Allocation enforcement aggregates positive realized net profit and active reward reservations across all trading packages and supported currencies, converting through the current enabled currency registry rates into the configured reference currency. The check occurs transactionally before wallet reservation. Manual settlement still records the actual signed gross/net result and does not clip it to the ceiling.
+
+Added admin controls to Transaction Review, new router endpoints, pure policy/conversion helpers, and focused tests. Validation passed: `pnpm check`; `pnpm test` (745 passed, 15 skipped); `pnpm build`; focused ceiling and Trading contracts (30 passed). No production database, deployment, policy amount, or live trade was changed.
+
+Next: add database-backed integration coverage for concurrent cross-currency reservations and timezone boundary behavior before considering the ceiling slice acceptance-complete.
