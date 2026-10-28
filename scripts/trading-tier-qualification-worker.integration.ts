@@ -1,13 +1,15 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
-import { getDb, runTradingTierQualificationWorkerCycle } from "../server/db";
+import { adjustCustomerBalance, getDb, runTradingTierQualificationWorkerCycle } from "../server/db";
 import {
   balanceLedger,
+  customerBalances,
   customerPackageSubscriptions,
   packages,
   tradingTierQualificationJobs,
   users,
+  v5AuditEvents,
 } from "../drizzle/schema";
 
 const db = await getDb();
@@ -16,9 +18,13 @@ if (!db) throw new Error("Worker integration requires DATABASE_URL to point to t
 const token = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
 const userOpenId = "tier-worker-test-" + token;
 const invalidUserOpenId = "tier-worker-invalid-test-" + token;
+const creditPathUserOpenId = "tier-credit-path-test-" + token;
+const adminOpenId = "tier-credit-path-admin-" + token;
 const packageNames = ["100", "300", "500"].map((threshold) => "WorkerTest-" + token + "-" + threshold);
 let userId;
 let invalidUserId;
+let creditPathUserId;
+let adminId;
 let tierIds = [];
 const createdLedgerIds = [];
 const createdJobIds = [];
@@ -46,6 +52,23 @@ try {
   });
   invalidUserId = Number(invalidUserInsert[0].insertId);
 
+  const creditPathUserInsert = await db.insert(users).values({
+    openId: creditPathUserOpenId,
+    name: "Admin Credit Path Integration",
+    email: creditPathUserOpenId + "@example.invalid",
+    role: "user",
+    packageName: "Starter",
+  });
+  creditPathUserId = Number(creditPathUserInsert[0].insertId);
+  const adminInsert = await db.insert(users).values({
+    openId: adminOpenId,
+    name: "Admin Credit Path Integration Operator",
+    email: adminOpenId + "@example.invalid",
+    role: "admin",
+    packageName: "Starter",
+  });
+  adminId = Number(adminInsert[0].insertId);
+
   const tierTerms = [
     { name: packageNames[0], minimumQualifyingBalanceUsdMinor: 10000, opportunitiesPerDay: 6 },
     { name: packageNames[1], minimumQualifyingBalanceUsdMinor: 30000, opportunitiesPerDay: 4 },
@@ -62,6 +85,52 @@ try {
     });
     tierIds.push(Number(inserted[0].insertId));
   }
+
+  // Exercise the actual admin wallet-credit service, not synthetic ledger rows.
+  // USD uses the product-defined 1:1 rate and needs no external API dependency.
+  const qualifyingCreditOne = await adjustCustomerBalance(adminId, {
+    userId: creditPathUserId,
+    currency: "USD",
+    amountMinor: 20000,
+    mode: "credit",
+    creditClassification: "qualifying_deposit",
+    reason: "integration test qualifying admin wallet credit",
+  });
+  assert.equal(qualifyingCreditOne.entryType, "admin_manual_deposit_credit");
+  assert.equal(qualifyingCreditOne.qualifyingDepositUsdMinor, 20000);
+  const nonQualifyingCredit = await adjustCustomerBalance(adminId, {
+    userId: creditPathUserId,
+    currency: "USD",
+    amountMinor: 50000,
+    mode: "credit",
+    creditClassification: "non_qualifying_credit",
+    reason: "integration test non-qualifying admin credit",
+  });
+  assert.equal(nonQualifyingCredit.entryType, "admin_credit");
+  assert.equal(nonQualifyingCredit.qualifyingDepositUsdMinor, null);
+
+  const creditPathLedger = await db.select().from(balanceLedger)
+    .where(eq(balanceLedger.userId, creditPathUserId));
+  assert.equal(creditPathLedger.length, 2);
+  assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_manual_deposit_credit").length, 1);
+  assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_credit").length, 1);
+  const creditPathJobs = await db.select().from(tradingTierQualificationJobs)
+    .where(eq(tradingTierQualificationJobs.userId, creditPathUserId));
+  assert.equal(creditPathJobs.length, 1, "Only a qualifying admin credit may enqueue a qualification job.");
+  assert.equal(Number(creditPathJobs[0].sourceLedgerId), qualifyingCreditOne.ledgerId);
+  assert.equal(creditPathJobs[0].status, "pending");
+  await db.update(tradingTierQualificationJobs).set({
+    availableAt: new Date(Date.now() - 10_000),
+  }).where(eq(tradingTierQualificationJobs.id, creditPathJobs[0].id));
+  await runTradingTierQualificationWorkerCycle({ batchSize: 20 });
+  const processedCreditPathJobs = await db.select().from(tradingTierQualificationJobs)
+    .where(eq(tradingTierQualificationJobs.id, creditPathJobs[0].id));
+  assert.equal(processedCreditPathJobs[0]?.status, "completed");
+  const creditPathSubscriptions = await db.select().from(customerPackageSubscriptions)
+    .where(eq(customerPackageSubscriptions.userId, creditPathUserId));
+  assert.ok(creditPathSubscriptions.some((row) => row.status === "active" && Number(row.packageId) === tierIds[0]));
+  assert.ok(!creditPathSubscriptions.some((row) => row.status === "active" && Number(row.packageId) === tierIds[1]),
+    "The non-qualifying USD 500 credit must not contribute to tier thresholds.");
 
   // Insert two qualifying ledger entries and their queue jobs atomically, as the
   // production credit path does. Their cumulative value is USD 300.00.
@@ -261,6 +330,17 @@ try {
     await db.delete(tradingTierQualificationJobs).where(eq(tradingTierQualificationJobs.userId, invalidUserId)).catch(() => {});
     await db.delete(balanceLedger).where(eq(balanceLedger.userId, invalidUserId)).catch(() => {});
     await db.delete(users).where(eq(users.id, invalidUserId)).catch(() => {});
+  }
+  if (creditPathUserId) {
+    await db.delete(tradingTierQualificationJobs).where(eq(tradingTierQualificationJobs.userId, creditPathUserId)).catch(() => {});
+    await db.delete(balanceLedger).where(eq(balanceLedger.userId, creditPathUserId)).catch(() => {});
+    await db.delete(customerBalances).where(eq(customerBalances.userId, creditPathUserId)).catch(() => {});
+    await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.userId, creditPathUserId)).catch(() => {});
+    await db.delete(users).where(eq(users.id, creditPathUserId)).catch(() => {});
+  }
+  if (adminId) {
+    await db.delete(v5AuditEvents).where(eq(v5AuditEvents.actorUserId, adminId)).catch(() => {});
+    await db.delete(users).where(eq(users.id, adminId)).catch(() => {});
   }
   if (tierIds.length) {
     await db.delete(packages).where(inArray(packages.id, tierIds)).catch(() => {});
