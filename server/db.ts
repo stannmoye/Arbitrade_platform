@@ -2005,6 +2005,8 @@ export async function adjustCustomerBalance(adminId:number,input:{
         rate=Number(liveSnapshot.rate);
         provider=liveSnapshot.provider;
         rateAt=new Date(liveSnapshot.observedAt);
+      }else if(!provider||provider.toLowerCase().includes("manual")||!rateAt||Date.now()-rateAt.getTime()>5*60*1000){
+        throw new Error("A current non-manual currency-to-USD rate is required before this qualifying deposit can be credited.");
       }
       if(!Number.isFinite(rate)||rate<=0||!rateAt||rateAt.getTime()>Date.now()+60_000){
         throw new Error("A valid, timestamped currency-to-USD rate is required before this qualifying deposit can be credited.");
@@ -2078,8 +2080,10 @@ export async function adjustCustomerBalance(adminId:number,input:{
     return {
       success:true,newAvailableMinor:next,currency:currency.code,amountMinor:input.amountMinor,ledgerReference,ledgerId,entryType,
       qualifyingDepositUsdMinor,qualifyingDepositReversalOfId,
-      rateUsd:Number(currency.usdRate),rateUpdatedAt:currency.updatedAt,
-      amountUsd:nativeMinorToUsd(input.amountMinor,Number(currency.scale),Number(currency.usdRate)),
+      rateUsd:qualifyingDepositRate!==null?Number(qualifyingDepositRate):Number(currency.usdRate),
+      rateUpdatedAt:qualifyingDepositRateAt??currency.updatedAt,
+      amountUsd:qualifyingDepositUsdMinor!==null?Math.abs(qualifyingDepositUsdMinor)/100:nativeMinorToUsd(input.amountMinor,Number(currency.scale),Number(currency.usdRate)),
+      qualifyingDepositRateProvider,
     };
   });
 
