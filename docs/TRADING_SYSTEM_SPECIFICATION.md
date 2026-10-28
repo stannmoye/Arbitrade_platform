@@ -235,7 +235,7 @@ Trading operates as a real-money workflow recorded in the customer's internal le
 
 ## 14. Acceptance checklist
 
-- No customer-facing tier catalogue, tier names, thresholds, detail pages, purchase, subscription, activation or management controls exist in the portal or customer API.
+- No full customer-facing tier catalogue, browsing, selection, subscription, purchase, activation or management controls exist in the portal or customer API. The read-only eligibility summary may show only the highest active tier and the single next enabled milestone, with the amount needed, duration and quota benefit; when no tier is active, show only the first milestone.
 - Authorized admins can configure tier thresholds, durations, cumulative daily quotas, effective dates and enabled state; persisted values are consumed by runtime eligibility and allocation.
 - Only explicitly classified, authorized administrator credits submitted through the admin portal's Credit Customer / wallet-credit form count toward cumulative qualifying deposits. Customer/provider deposits, signup credits, imports, opening balances, generic adjustments, profits, returned principal, rewards, bonuses, transfers, swaps, conversions and unclassified credits do not qualify.
 - Qualifying USD-equivalent amount and its rate/provider/timestamp evidence are persisted on the ledger entry; invalid/stale crypto rate evidence fails closed.
