@@ -8,7 +8,7 @@ import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generate
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
 import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostings, inspectWalletLedgerSnapshot } from "./modules/wallet-ledger-reconciliation";
-import { addCalendarMonths, calculateQualifyingBalanceUsdMinor, parsePackageQualificationPolicy, type PackageQualificationPolicy, type EligibleWalletBalance } from "./modules/trading-package-activation";
+import { addCalendarMonths, parsePackageQualificationPolicy, type PackageQualificationPolicy } from "./modules/trading-package-activation";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
@@ -2065,7 +2065,6 @@ async function getPackageActivationPolicyInTransaction(tx:any) {
     .from(appSettings).where(inArray(appSettings.settingKey,[...PACKAGE_ACTIVATION_SETTING_KEYS])).for("update");
   return packageActivationPolicyFromRows(rows);
 }
-function packageQualificationWalletRows(rows:any[]): EligibleWalletBalance[] {
   return rows.map(row=>({
     currency:String(row.currency),
     availableMinor:Number(row.availableMinor),
