@@ -217,3 +217,11 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
   - Build and test production source: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40658009903
 - The code/test SHA remains b4a716dce6fb8f9c7f2d9cc309b645a19c020dc4; its five successful run IDs are recorded in the preceding exact-head verification section. This commit changes progress.md only.
 - Current remaining work is unchanged: continue the canonical Trading settings/behavior audit; do not merge or deploy; ask before closing PR #200; do not apply its conflicting V5 mode migration.
+
+
+## 2026-10-28 — Active trades navigation and exact-head verification
+
+- Corrected the Trading Settings Active Trades & Pending Work submenu to open Transaction Review, where the persisted confirmed-trade settlement queue exposes due timing and reservation checks. The previous destination was an opportunity-delivery event summary, not the active/pending trade queue.
+- Added a navigation regression test asserting this destination and its user-facing description.
+- Exact code/test head 8e79213b08c22ff110672a2589050e16b162d3f6: all 14 GitHub check-runs completed successfully. The runs were Stage 1 validation dashboard; Customer portal real-browser recovery checks; deployment-packages; Application unit tests; TypeScript validation; installer-fresh-mariadb; installer-mysql8-compatibility-and-recovery; syntax; Production build, bundle budgets, and server smoke test; Installer and migration regression tests; Typecheck, tests, and production build; Install, type-check, test, and build; Type-check, test, and build; and Mining unit tests and TypeScript check. Results checked through commit check-runs for that exact SHA (workflow run 40659629943 plus associated runs).
+- PR #202 remains open and in draft; no merge, deployment, or production change was made. The progress-only commit below is to be checked separately as the new PR head.
