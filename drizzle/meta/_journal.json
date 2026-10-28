@@ -344,6 +344,13 @@
       "when": 1793064000000,
       "tag": "0079_trade_settlement_timing_schema_repair",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793145600000,
+      "tag": "0080_qualifying_admin_deposit_attribution",
+      "breakpoints": true
     }
   ]
 }
