@@ -65,6 +65,13 @@ describe("Trade Settings administrator navigation", () => {
     expect(item?.detail).toContain("does not change execution or settlement");
   });
 
+  it("discloses that the safety screen reports the allocation gate, not worker health", () => {
+    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
+    const item = group?.items.find((candidate) => candidate.id === "trade-system-health");
+    expect(item?.target).toBe("tradeSystemHealth");
+    expect(item?.detail).toBe("Pause new allocations; worker and provider health are not reported in this view");
+  });
+
   it("routes every Trade Settings item to an existing portal destination", () => {
     const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
     expect(group).toBeDefined();
