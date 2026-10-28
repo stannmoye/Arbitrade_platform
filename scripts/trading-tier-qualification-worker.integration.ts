@@ -93,13 +93,24 @@ try {
   });
 
   // Multiple worker instances must not double-assign tiers for the same user.
-  await Promise.all([
+  const initialCycles = await Promise.all([
     runTradingTierQualificationWorkerCycle({ batchSize: 20 }),
     runTradingTierQualificationWorkerCycle({ batchSize: 20 }),
   ]);
   let subscriptions = await db.select().from(customerPackageSubscriptions)
     .where(eq(customerPackageSubscriptions.userId, userId));
   let active = subscriptions.filter((row) => row.status === "active");
+  if (active.length !== 2) {
+    const queueRows = await db.select().from(tradingTierQualificationJobs).where(inArray(tradingTierQualificationJobs.id, createdJobIds));
+    const creditRows = await db.select({ entryType: balanceLedger.entryType, amount: balanceLedger.qualifyingDepositUsdMinor }).from(balanceLedger).where(eq(balanceLedger.userId, userId));
+    console.error("Worker integration diagnostics:", JSON.stringify({
+      cycles: initialCycles,
+      jobs: queueRows.map((row) => ({ id: row.id, status: row.status, attempts: row.attempts, lastError: row.lastError })),
+      credits: creditRows,
+      tierIds,
+      subscriptions,
+    }));
+  }
   assert.equal(active.length, 2, "USD 300 must assign the USD 100 and USD 300 tiers exactly once.");
   assert.ok(active.every((row) => tierIds.slice(0, 2).includes(Number(row.packageId))));
   const activeQuota = active.reduce((sum, row) => {
