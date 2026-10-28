@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const databaseSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const marketProvidersSource = readFileSync(new URL("./marketProviders.ts", import.meta.url), "utf8");
 const routerSource = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const schemaSource = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
 const migrationSource = readFileSync(new URL("../drizzle/0080_qualifying_admin_deposit_attribution.sql", import.meta.url), "utf8");
@@ -51,26 +52,39 @@ describe("Automatic Trading tier qualification", () => {
     expect(specification).toContain("signup credits");
   });
 
-  it("fails closed for stale or manually entered non-stablecoin qualifying-credit rates", () => {
-    expect(databaseSource).toContain('provider.toLowerCase().includes("manual")||!rateAt||Date.now()-rateAt.getTime()>5*60*1000');
-    expect(databaseSource).toContain("A current non-manual currency-to-USD rate is required");
+  it("uses a live API rate for every non-USD qualifying wallet credit and never falls back to the manual registry rate", () => {
+    expect(databaseSource).toContain("fetchCurrencyUsdRate");
+    expect(databaseSource).toContain("creditTimeRate=await fetchCurrencyUsdRate");
+    expect(databaseSource).toContain("A fresh API conversion rate for this exact wallet configuration is required");
+    expect(databaseSource).not.toContain('let rate=Number(currency.usdRate)');
+    expect(databaseSource).toContain("rate: String(creditTimeRate.rate)");
+    expect(databaseSource).toContain("fetchedAt:creditTimeRate.fetchedAt.toISOString()");
     expect(databaseSource).toContain("qualifyingDepositUsdMinor!==null?Math.abs(qualifyingDepositUsdMinor)/100");
   });
 
-  it("requires a fresh recorded official FX snapshot for EUR and GBP qualifying credits", () => {
-    expect(databaseSource).toContain('currencyCode==="EUR"||currencyCode==="GBP"');
-    expect(databaseSource).toContain('eq(fxRateSnapshots.provider,"frankfurter-ecb")');
-    expect(databaseSource).toContain("Date.now()-sourceObservedAt.getTime()>4*24*60*60*1000");
-    expect(databaseSource).toContain("rate=1/Number(liveSnapshot.rate)");
+  it("supports fiat wallet codes through current FX APIs and fails closed for stale or unsupported rates", () => {
+    expect(marketProvidersSource).toContain("export async function fetchCurrencyUsdRate");
+    expect(marketProvidersSource).toContain("api.frankfurter.dev/v2/rates?base=USD&quotes=");
+    expect(marketProvidersSource).toContain('provider: "frankfurter-ecb"');
+    expect(marketProvidersSource).toContain("4 * 24 * 60 * 60 * 1000");
+    expect(marketProvidersSource).toContain("A current Frankfurter/ECB rate");
   });
 
-  it("fails closed when BTC or ETH qualifying-credit rates are stale or manual", () => {
-    expect(databaseSource).toContain('currencyCode==="BTC"||currencyCode==="ETH"');
-    expect(databaseSource).toContain("Date.now()-snapshotObservedAt.getTime()>5*60*1000");
-    expect(databaseSource).toContain("current verified BTC/ETH-to-USD rate is required");
-    expect(databaseSource).toContain("eq(fxRateSnapshots.provider,\"coingecko\")");
-    expect(databaseSource).toContain("const sourceObservedAt=liveSnapshot?.sourceDate?new Date(liveSnapshot.sourceDate):null");
-    expect(databaseSource).toContain("Date.now()-sourceObservedAt.getTime()>5*60*1000");
+  it("supports registered crypto/token wallets through a timestamp-validated CoinGecko API rate", () => {
+    expect(marketProvidersSource).toContain("api.coingecko.com/api/v3/simple/price?ids=");
+    expect(marketProvidersSource).toContain("include_last_updated_at=true");
+    expect(marketProvidersSource).toContain("A current CoinGecko USD rate");
+    expect(marketProvidersSource).toContain("5 * 60 * 1000");
+    expect(databaseSource).toContain('if(qualifyingDepositUsdMinor!==null&&creditTimeRate)');
+  });
+
+  it("shows assigned Trading tiers and cumulative qualifying USD on the admin customer view without changing transfers", () => {
+    expect(databaseSource).toContain("qualifyingDepositUsd:qualifyingUsdMinor/100");
+    expect(databaseSource).toContain('inArray(balanceLedger.entryType,["admin_manual_deposit_credit","admin_manual_deposit_reversal"])');
+    expect(customerAppSource).toContain("Qualifying USD:");
+    expect(customerAppSource).toContain("c.package");
+    expect(customerAppSource).toContain("Normal transfers are unaffected.");
+    expect(specification).toContain("ordinary wallet transfers between customers or between wallets");
   });
 
   it("exposes only a read-only eligibility summary to customers", () => {
