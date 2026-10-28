@@ -64,6 +64,14 @@ describe("Automatic Trading tier qualification", () => {
     expect(routerSource.slice(start, end)).not.toContain("workerCycle:true");
   });
 
+  it("reconciles tier assignments from the worker and strips tier metadata from customer responses", () => {
+    expect(databaseSource).toContain("export async function ensureAutomaticTradingTierEntitlements");
+    expect(databaseSource).toContain("await ensureAutomaticTradingTierEntitlements(customer.id)");
+    expect(databaseSource).toContain('.filter(subscription=>String(subscription.activationKey||"").startsWith("auto-tier:"))');
+    expect(routerSource).toContain("delivery:safeObject(result.delivery)");
+    expect(routerSource).toContain("delete safe.packageSubscriptionId");
+  });
+
   it("uses published opportunity values instead of hash-derived trade estimates", () => {
     const start = databaseSource.indexOf("function calculateTradeTerms(");
     const end = databaseSource.indexOf("\nfunction packageUsdUnitsToNativeMinor", start);
