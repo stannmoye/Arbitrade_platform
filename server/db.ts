@@ -2331,7 +2331,7 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
     await tx.insert(v5AuditEvents).values({
       actorUserId:updatedBy,action:"trading_package_terms_updated",
       entityType:"trading_package",entityId:String(input.id),
-      reason:"Administrator updated package terms. Existing entitlement snapshots retain their captured quota and duration; enabled state and tier effective dates govern current eligibility.",
+      reason:"Administrator updated tier terms. Existing entitlement snapshots retain their captured threshold, quota, duration and caps; enabled state and tier effective dates govern current eligibility.",
       reference:"trading-package-terms:"+input.id+":"+nextVersion,
       metadataJson:JSON.stringify({old:{name:current.name,minimumQualifyingBalanceUsdMinor:Number(current.minimumQualifyingBalanceUsdMinor),durationMonths:current.durationMonths,opportunitiesPerDay:current.opportunitiesPerDay,maxPopupsPerDay:current.maxPopupsPerDay,maxActiveInvestments:current.maxActiveInvestments,startsAt:current.startsAt,expiresAt:current.expiresAt,enabled:current.enabled,termsVersion:current.termsVersion},new:{...input,name:input.name.trim(),termsVersion:nextVersion}}),
     });
