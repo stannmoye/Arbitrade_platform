@@ -93,3 +93,13 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 - Fix: restore the customer strategy filter tabs as normal content, hide the unrelated ticket/email/password tabs and panes when `AdminSettings` is rendered with `focus="tradeDuration"`, and add a contract assertion that the focused route exposes only its settlement-timing pane.
 - This increment is presentation/navigation-only. No trade rules, financial values, database schema, ledger, worker, or production data are changed. No merge, deployment, or live trade was performed.
 - Verification for the new exact branch head is pending; wait for GitHub Actions on the resulting code/test commit and record those exact-SHA outcomes here.
+
+
+## Follow-up — 2026-10-28 — keep the trading overview read-only
+
+- Revalidated canonical main at 8e610823941cb49f45e8bff0f35759994a395221 and PR #203 branch fix/trading-package-ci-2026-10-27 at fc4b8ff94306c3531647b30f8db432f793ec2256; all 14 reported checks were successful on that baseline.
+- Found that the Overview's prior packagePolicies query called listOpportunityPackagePolicies(), which lazily inserts missing default rows. That contradicted the page's read-only snapshot description.
+- Added a separate admin-protected overviewPackagePolicies query backed by listPersistedOpportunityPackagePolicies(), a SELECT-only reader of existing rows. The package editor retains its existing default-seeding behavior. Added a contract regression test for the Overview's read-only data path.
+- Timing audit across the current branch: package-level minSettlementDelaySeconds / maxSettlementDelaySeconds are persisted and used to derive settlement timestamps; they are not a package trade-close duration. Offer durationSeconds belongs to an individual opportunity. closePolicy is persisted and validated but no runtime consumer was found in the inspected server/client source, so it is not presented as an effective control.
+- This increment changes only the Overview read path and tests/docs; no schema, ledger, worker, trading, or financial behavior changes. Exact-SHA verification for the new commit is pending. No merge, deployment, production database change, or live trade was performed.
+- Next: continue the Trade Settings audit against real persisted capabilities; keep actual trade close-duration policy pending until server-owned close-time fields and their effective-time behavior are implemented and verified.

@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 const navigation = readFileSync(new URL("../client/src/admin-navigation.ts", import.meta.url), "utf8");
 const adminApp = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const operationsUi = readFileSync(new URL("../client/src/components/AdminOperationsPages.tsx", import.meta.url), "utf8");
+const serverDb = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const serverRouters = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 
 describe("Trading fee-policy navigation", () => {
   it("opens the administrator screen that actually edits realized-profit fees", () => {
@@ -78,5 +80,20 @@ describe("Trading overview and duration navigation", () => {
     expect(focusedSettings).toContain('{tab==="email"&&!focus&&<div className="settings-card">');
     expect(focusedSettings).toContain('{tab==="password"&&!focus&&<div className="settings-card">');
     expect(focusedSettings).toContain('{tab==="trade"&&<div className="settings-card">');
+  });
+});
+
+describe("Trading overview package-policy read", () => {
+  it("counts persisted package policies without invoking the lazy initializer", () => {
+    expect(operationsUi).toContain("trpc.adminOperations.overviewPackagePolicies.useQuery");
+    expect(serverRouters).toContain("overviewPackagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),");
+
+    const start = serverDb.indexOf("export async function listPersistedOpportunityPackagePolicies()");
+    const end = serverDb.indexOf("\n}", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const reader = serverDb.slice(start, end);
+    expect(reader).toContain("db.select().from(opportunityPackagePolicies)");
+    expect(reader).not.toContain(".insert(");
   });
 });

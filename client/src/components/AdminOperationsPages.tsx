@@ -170,7 +170,7 @@ export function AdminOpportunityDelivery() {
 export function AdminTradeSettingsOverview() {
   const lifecycle = trpc.adminOperations.popupLifecycleSummary.useQuery(undefined, { refetchInterval: 15_000 });
   const offers = trpc.adminOperations.offers.useQuery(undefined, { refetchInterval: 15_000 });
-  const policies = trpc.adminOperations.packagePolicies.useQuery(undefined, { refetchInterval: 30_000 });
+  const policies = trpc.adminOperations.overviewPackagePolicies.useQuery(undefined, { refetchInterval: 30_000 });
   const pending = trpc.adminOperations.pendingSettlements.useQuery(undefined, { refetchInterval: 10_000 });
   const allocation = trpc.adminOperations.tradeAllocationControls.useQuery(undefined, { refetchInterval: 10_000 });
   const data = (lifecycle.data ?? {}) as unknown as LifecycleSummary;
