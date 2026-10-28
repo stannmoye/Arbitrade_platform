@@ -279,6 +279,25 @@ try {
 
   // Exercise the actual scheduler SQL against the migrated disposable MySQL
   // schema without executing trades or touching wallet balances.
+  const schedulerDiagnostics = await db.select({
+    userId: customerPackageSubscriptions.userId,
+    activationKey: customerPackageSubscriptions.activationKey,
+    subscriptionStatus: customerPackageSubscriptions.status,
+    subscriptionStartsAt: customerPackageSubscriptions.startsAt,
+    subscriptionExpiresAt: customerPackageSubscriptions.expiresAt,
+    packageEnabled: packages.enabled,
+    packageStartsAt: packages.startsAt,
+    packageExpiresAt: packages.expiresAt,
+  }).from(customerPackageSubscriptions).innerJoin(packages, eq(customerPackageSubscriptions.packageId, packages.id))
+    .where(eq(customerPackageSubscriptions.status, "active"));
+  console.log("Scheduler fixture diagnostics:", JSON.stringify(schedulerDiagnostics.map(row => ({
+    ...row,
+    activationKey: row.activationKey,
+    subscriptionStartsAt: row.subscriptionStartsAt?.toISOString?.() ?? row.subscriptionStartsAt,
+    subscriptionExpiresAt: row.subscriptionExpiresAt?.toISOString?.() ?? row.subscriptionExpiresAt,
+    packageStartsAt: row.packageStartsAt?.toISOString?.() ?? row.packageStartsAt,
+    packageExpiresAt: row.packageExpiresAt?.toISOString?.() ?? row.packageExpiresAt,
+  }))));
   const firstOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
   const secondOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
   const endOfPassBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
