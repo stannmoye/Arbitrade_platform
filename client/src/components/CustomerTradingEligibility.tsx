@@ -43,14 +43,19 @@ export function CustomerTradingEligibility() {
             <span className="trading-bot-status-icon" aria-hidden="true">
               {eligibilityQuery.isLoading ? <Clock3 size={15} /> : eligibilityQuery.isError ? <Info size={15} /> : currentPackage ? <Activity size={15} /> : <Clock3 size={15} />}
             </span>
-            <span>
-              {eligibilityQuery.isLoading
-                ? "Checking package status…"
-                : eligibilityQuery.isError
-                  ? "Package status unavailable — try again."
-                  : currentPackage
-                    ? `Automatic Trading Bot is active — ${currentPackage.name} allocated.`
-                    : "Automatic Trading Bot is not yet active — No package is currently allocated."}
+            <span className="trading-status-copy">
+              <strong className="trading-status-label">
+                {eligibilityQuery.isLoading ? "CHECKING" : eligibilityQuery.isError ? "RETRY NEEDED" : currentPackage ? "TIER ACTIVE" : "AWAITING TIER"}
+              </strong>
+              <span className="trading-status-message">
+                {eligibilityQuery.isLoading
+                  ? "Checking your latest progress."
+                  : eligibilityQuery.isError
+                    ? "Your status could not load. Refresh to retry."
+                    : currentPackage
+                      ? `${currentPackage.name} is assigned automatically.`
+                      : "Your first tier unlocks when the qualifying threshold is met."}
+              </span>
             </span>
             {!eligibilityQuery.isLoading && !eligibilityQuery.isError && currentPackage && <span className="trading-bot-live-dot" aria-hidden="true" />}
           </div>
