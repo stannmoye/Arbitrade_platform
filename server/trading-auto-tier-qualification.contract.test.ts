@@ -79,6 +79,13 @@ describe("Automatic Trading tier qualification", () => {
     expect(routerSource.slice(start, end)).not.toContain("workerCycle:true");
   });
 
+  it("preserves assigned tier threshold and quota snapshots for existing entitlements", () => {
+    expect(databaseSource).toContain("const assignedThreshold=Number(snapshot.minimumQualifyingBalanceUsdMinor??threshold)");
+    expect(databaseSource).toContain("termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson");
+    expect(databaseSource).toContain("const quota=Number(snapshot.opportunitiesPerDay??row.dailyQuota)");
+    expect(databaseSource).toContain("below the threshold recorded in this entitlement's terms snapshot");
+  });
+
   it("reconciles tier assignments from the worker and strips tier metadata from customer responses", () => {
     expect(databaseSource).toContain("export async function ensureAutomaticTradingTierEntitlements");
     expect(databaseSource).toContain("await ensureAutomaticTradingTierEntitlements(customer.id)");
