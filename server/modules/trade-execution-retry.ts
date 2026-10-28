@@ -15,12 +15,30 @@ const RETRYABLE_CODES = new Set([
   "POOL_CONNLIMIT",
 ]);
 
-function errorCodeOf(error: unknown): string {
-  if (error && typeof error === "object" && "code" in error) {
-    const code = String((error as { code?: unknown }).code ?? "").toUpperCase();
-    if (/^[A-Z0-9_]{1,80}$/.test(code)) return code;
+function retryErrorMetadata(error: unknown): { code: string; transientMessage: boolean } {
+  const codes: string[] = [];
+  const messages: string[] = [];
+  const visited = new Set<object>();
+  let current: unknown = error;
+
+  // Database and network clients sometimes wrap their original error in cause.
+  // Inspect a bounded, cycle-safe chain but keep the retry allowlist unchanged.
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (current === null || typeof current !== "object" || visited.has(current)) break;
+    visited.add(current);
+    const record = current as { code?: unknown; message?: unknown; cause?: unknown };
+    if (typeof record.message === "string") messages.push(record.message);
+    if ("code" in record) {
+      const code = String(record.code ?? "").toUpperCase();
+      if (/^[A-Z0-9_]{1,80}$/.test(code)) codes.push(code);
+    }
+    current = record.cause;
   }
-  return "TRADE_ALLOCATION_REJECTED";
+
+  return {
+    code: codes.find(code => RETRYABLE_CODES.has(code)) ?? codes[0] ?? "TRADE_ALLOCATION_REJECTED",
+    transientMessage: messages.some(message => /temporarily unavailable|connection (?:reset|lost|closed)|socket hang up|deadlock|lock wait timeout|timed out|try again later/i.test(message)),
+  };
 }
 
 /**
@@ -42,11 +60,10 @@ export function decideTradeExecutionRetry(
     throw new Error("Invalid trade execution retry policy inputs");
   }
 
-  let code = errorCodeOf(error);
-  const message = error instanceof Error ? error.message : "";
-  const transientMessage = /temporarily unavailable|connection (?:reset|lost|closed)|socket hang up|deadlock|lock wait timeout|timed out|try again later/i.test(message);
-  if (transientMessage && code === "TRADE_ALLOCATION_REJECTED") code = "TEMPORARY_EXECUTION_FAILURE";
-  if (!RETRYABLE_CODES.has(code) && !transientMessage) {
+  const metadata = retryErrorMetadata(error);
+  let code = metadata.code;
+  if (metadata.transientMessage && code === "TRADE_ALLOCATION_REJECTED") code = "TEMPORARY_EXECUTION_FAILURE";
+  if (!RETRYABLE_CODES.has(code) && !metadata.transientMessage) {
     return { kind: "failed", attemptNumber: failedAttempts, errorCode: code };
   }
   if (failedAttempts >= maxAttempts) {

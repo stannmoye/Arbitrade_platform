@@ -1,5 +1,7 @@
 # Agent instructions for Arbitrade Platform
 
+Before starting work, read root `progress.md` as a handoff index and verify its branch and commit SHA against GitHub. It is a status aid, not the source of truth: current code, canonical requirements, and exact-SHA CI evidence take precedence. Update it after each substantive development increment with changes, checks, and next steps.
+
 Read these files before changing the application:
 
 1. `BUILD_SOURCE.json` — canonical branch/build requirements and acceptance boundary.
@@ -19,11 +21,6 @@ Do not introduce behaviour that conflicts with the specification. If a codebase 
 - Trading package activation is free. The minimum qualifying wallet balance is an eligibility threshold, not a package deposit, subscription fee, or trade amount. Activation writes the customer entitlement and its audit record only; it must not debit or reserve funds, run the opportunity allocator, or create a trade.
 - Only the existing scheduled server worker may allocate trades. runAutoTradeCycle() in server/_core/index.ts is the worker entry point. Its call to listCustomerOpportunities() must explicitly opt into worker processing. Customer package reads, activation requests, and the customer opportunities query must never opt into allocation.
 - Customer page refreshes may display persisted opportunities and report presentation status, but they must not allocate funds or create trades. Keep the existing CustomerTradingPackages panel mounted on the customer home page; activation success text must not imply a trade was created.
-
-## Progress handoff
-
-- Keep a root PROGRESS.md current for every development session. Record each fixed item, its verification status, evidence, remaining review, and the next concrete task so another developer or AI can resume without reconstructing this conversation.
-- Mark an item WORKING only after a relevant check passes. If a check fails or cannot be run, mark it NEEDS FURTHER REVIEW and state what failed or remains unverified. Separate source changes from test, build, deployment, and production evidence; never label an unverified change complete.
 
 ## Canonical source
 

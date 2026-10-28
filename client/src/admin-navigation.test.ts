@@ -31,9 +31,31 @@ describe("Trade Settings administrator navigation", () => {
     ]);
   });
 
-  it("routes Trade Settings Overview to recorded lifecycle metrics", () => {
+  it("opens focused retry settings and discloses that carry-forward is unavailable", () => {
     const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
-    expect(group?.items.find((item) => item.id === "trade-settings-overview")?.target).toBe("deliveryMonitor");
+    const item = group?.items.find((candidate) => candidate.id === "trade-retries-carry-forward");
+    expect(item?.target).toBe("tradeRetryPolicy");
+    expect(item?.detail).toBe("Configure per-package retry attempts and delay; carry-forward controls are not yet implemented");
+  });
+
+  it("routes the trading overview to persisted operational data", () => {
+    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
+    const item = group?.items.find((candidate) => candidate.id === "trade-settings-overview");
+    expect(item?.target).toBe("tradeSystemOverview");
+  });
+
+  it("routes duration and closing rules to the persisted timing policy", () => {
+    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
+    const item = group?.items.find((candidate) => candidate.id === "trade-duration-closing");
+    expect(item?.target).toBe("tradeDurationRules");
+    expect(item?.detail).toContain("elapsed time never settles a trade");
+  });
+
+  it("routes customer display settings to their focused editor", () => {
+    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
+    const item = group?.items.find((candidate) => candidate.id === "trade-popup-display");
+    expect(item?.target).toBe("tradeCustomerDisplay");
+    expect(item?.detail).toContain("does not change execution or settlement");
   });
 
   it("routes every Trade Settings item to an existing portal destination", () => {
@@ -41,10 +63,10 @@ describe("Trade Settings administrator navigation", () => {
     expect(group).toBeDefined();
     const supportedTargets = new Set([
       "overview", "customers", "transactionReview", "credit", "debit", "currencies",
-      "mining", "opportunity", "deliveryMonitor", "packages", "kycCenter",
+      "mining", "opportunity", "deliveryMonitor", "packages", "tradeRetryPolicy", "tradeCustomerDisplay", "kycCenter",
       "verificationOversight", "riskWatchlist", "emailCenter", "smtpCenter",
       "suiteTickets", "notificationCenter", "communicationSettings", "signup",
-      "policies", "privacyManagement", "settings", "sound", "branding",
+      "policies", "privacyManagement", "settings", "tradeSystemOverview", "tradeDurationRules", "sound", "branding",
       "appearance", "apis", "audit", "reportsExports", "tradeSystemHealth",
     ]);
     for (const item of group!.items) expect(supportedTargets.has(item.target), item.label).toBe(true);
