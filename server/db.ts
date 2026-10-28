@@ -1999,12 +1999,17 @@ export async function adjustCustomerBalance(adminId:number,input:{
         const liveSnapshot=(await tx.select().from(fxRateSnapshots).where(and(
           eq(fxRateSnapshots.baseAsset,currencyCode),eq(fxRateSnapshots.quoteAsset,"USD"),eq(fxRateSnapshots.provider,"coingecko"),
         )).orderBy(desc(fxRateSnapshots.observedAt)).limit(1).for("update"))[0];
-        if(!liveSnapshot||Date.now()-new Date(liveSnapshot.observedAt).getTime()>5*60*1000||new Date(liveSnapshot.observedAt).getTime()>Date.now()+60_000){
+        const sourceObservedAt=liveSnapshot?.sourceDate?new Date(liveSnapshot.sourceDate):null;
+        const snapshotObservedAt=liveSnapshot?new Date(liveSnapshot.observedAt):null;
+        if(!liveSnapshot||!sourceObservedAt||!Number.isFinite(sourceObservedAt.getTime())||
+          !snapshotObservedAt||!Number.isFinite(snapshotObservedAt.getTime())||
+          Date.now()-sourceObservedAt.getTime()>5*60*1000||sourceObservedAt.getTime()>Date.now()+60_000||
+          Date.now()-snapshotObservedAt.getTime()>5*60*1000||snapshotObservedAt.getTime()>Date.now()+60_000){
           throw new Error("A current verified BTC/ETH-to-USD rate is required before this qualifying deposit can be credited.");
         }
         rate=Number(liveSnapshot.rate);
         provider=liveSnapshot.provider;
-        rateAt=new Date(liveSnapshot.observedAt);
+        rateAt=sourceObservedAt;
       }else if(!provider||provider.toLowerCase().includes("manual")||!rateAt||Date.now()-rateAt.getTime()>5*60*1000){
         throw new Error("A current non-manual currency-to-USD rate is required before this qualifying deposit can be credited.");
       }
