@@ -2078,7 +2078,7 @@ export async function adjustCustomerBalance(adminId:number,input:{
     if(qualifyingDepositUsdMinor!==null&&creditTimeRate){
       await tx.insert(fxRateSnapshots).values({
         baseAsset:currency.code,quoteAsset:"USD",rate:String(creditTimeRate.rate),
-        provider:creditTimeRate.provider,sourceDate:creditTimeRate.sourceDate,
+        provider:creditTimeRate.provider,sourceDate:creditTimeRate.sourceDate.slice(0,16),
         rawJson:JSON.stringify({currency:currency.code,usdRate:creditTimeRate.rate,provider:creditTimeRate.provider,
           sourceDate:creditTimeRate.sourceDate,fetchedAt:creditTimeRate.fetchedAt.toISOString(),ledgerReference}),
       });
