@@ -82,6 +82,23 @@ export function CustomerTradingEligibility() {
         </div>
       ) : (
         <div className="trading-journey-content">
+          <div className="trading-trajectory" aria-label="Animated package tier progress visualization">
+            <div className="trading-trajectory-heading">
+              <span className="trading-trajectory-kicker">Mission control · Your trading journey</span>
+              <span className="trading-trajectory-live"><span /> Tier {currentPackage ? "active" : "pending"}</span>
+            </div>
+            <div className="trading-orbit-stage" aria-hidden="true">
+              <div className="trading-orbit-grid" />
+              <div className="trading-orbit orbit-outer"><span className="trading-orbit-dot dot-outer" /></div>
+              <div className="trading-orbit orbit-middle"><span className="trading-orbit-dot dot-middle" /></div>
+              <div className="trading-orbit orbit-inner" />
+              <div className="trading-orbit-center"><strong>{data?.dailyOpportunityAllowance ?? 0}</strong><span>per day</span></div>
+              <span className="trading-orbit-node trading-orbit-current"><span className="trading-orbit-node-dot" /><strong>{currentPackage?.name ?? "First tier"}</strong><small>Current status</small></span>
+              <span className="trading-orbit-node trading-orbit-next"><span className="trading-orbit-node-dot" /><strong>{nextPackage?.name ?? "Top tier reached"}</strong><small>{nextPackage ? "+" + nextPackage.additionalDailyOpportunities + "/day at next tier" : "No higher tier"}</small></span>
+              <span className="trading-orbit-percent">{progressPercent}%<small>progress</small></span>
+            </div>
+            <div className="trading-trajectory-foot"><span><i className="trajectory-key current-key" /> Current tier</span><span><i className="trajectory-key next-key" /> Next milestone</span></div>
+          </div>
           {currentPackage ? (
             <article className="trading-tier-card trading-tier-card-current" aria-labelledby="current-trading-package">
               <div className="trading-tier-card-head">
