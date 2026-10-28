@@ -28,7 +28,12 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).toContain('debitClassification:mode==="debit"?debitClassification||undefined:undefined');
   });
 
-  it("qualifies tiers only from classified administrator manual customer credits", () => {
+  it("qualifies tiers only from the admin portal Credit Customer flow", () => {
+    expect(routerSource).toContain("adjustCustomerBalance: adminProcedure.input");
+    expect(routerSource).toContain('creditClassification: z.enum(["qualifying_deposit","non_qualifying_credit"]).optional()');
+    expect(databaseSource).toContain('if(input.mode==="credit"&&input.creditClassification==="qualifying_deposit"&&user.role==="user")');
+    expect(databaseSource).toContain('qualifyingDepositUsdMinor!==null?"admin_manual_deposit_credit":');
+    expect(databaseSource).not.toContain('entryType:"deposit"');
     expect(databaseSource).toContain('const entryType=qualifyingDepositReversalOfId!==null?"admin_manual_deposit_reversal":qualifyingDepositUsdMinor!==null?"admin_manual_deposit_credit":');
     expect(databaseSource).toContain('eq(balanceLedger.entryType,"admin_manual_deposit_credit")');
     expect(databaseSource).toContain("if(qualifyingTotal<threshold) continue;");
@@ -36,6 +41,14 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain('action:"trading_tier_auto_qualified"');
     expect(databaseSource).not.toContain("export async function activateCustomerTradingPackage");
     expect(databaseSource).not.toContain("export async function listCustomerTradingPackages");
+  });
+
+  it("keeps signup credits outside Trading tier qualification", () => {
+    expect(databaseSource).toContain('entryType: "signup_credit"');
+    expect(databaseSource).toContain('eq(balanceLedger.entryType, "signup_credit")');
+    expect(databaseSource).toContain('inArray(balanceLedger.entryType,["admin_manual_deposit_credit","admin_manual_deposit_reversal"])');
+    expect(specification).toContain("The sole qualifying source is a positive credit that an authorized administrator manually submits for a customer through the admin portal");
+    expect(specification).toContain("signup credits");
   });
 
   it("fails closed for stale or manually entered non-stablecoin qualifying-credit rates", () => {
