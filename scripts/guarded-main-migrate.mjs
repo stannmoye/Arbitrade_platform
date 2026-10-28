@@ -27,13 +27,23 @@ function parseDatabaseUrl(value) {
   if (!["mysql:", "mariadb:"].includes(url.protocol) || !url.pathname.replace(/^\/+/, "")) {
     throw new Error("DATABASE_URL must identify a MySQL/MariaDB database.");
   }
+  const sslParam = url.searchParams.get("ssl");
+  let ssl;
+  if (sslParam) {
+    try {
+      const parsed = JSON.parse(sslParam);
+      ssl = parsed === true ? {} : parsed && typeof parsed === "object" ? parsed : undefined;
+    } catch {
+      ssl = undefined;
+    }
+  }
   return {
     host: url.hostname,
     port: Number(url.port || 3306),
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
     database: decodeURIComponent(url.pathname.replace(/^\/+/, "")),
-    ssl: url.searchParams.get("ssl") === "true" ? {} : undefined,
+    ssl,
     connectTimeout: 10000,
     multipleStatements: true,
   };
