@@ -27,4 +27,15 @@ describe("Trading package-policy versioning", () => {
     expect(mutationSource).toContain("changedFields,old:oldValues,new:newValues");
     expect(mutationSource).not.toContain("onDuplicateKeyUpdate({set:values})");
   });
+  it("requires a valid reason in the Trade Settings package-policy editor", () => {
+    const start = adminUiSource.indexOf("function AdminPackages(");
+    expect(start).toBeGreaterThanOrEqual(0);
+    const end = adminUiSource.indexOf("\nfunction ", start + 1);
+    expect(end).toBeGreaterThan(start);
+    const editor = adminUiSource.slice(start, end);
+    expect(editor).toContain('window.prompt("Reason for this package-policy change (10–500 characters):")');
+    expect(editor).toContain("normalizedReason.length<10||normalizedReason.length>500");
+    expect(editor).toContain("save.mutate({reason:normalizedReason,policies:draft.map");
+  });
+
 });
