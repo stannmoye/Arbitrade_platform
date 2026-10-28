@@ -122,6 +122,11 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("activeTermsSnapshot.maxActiveInvestments??activePackageSubscription.maxActiveInvestments");
   });
 
+  it("uses the tier popup cap when the admin policy has no explicit cap", () => {
+    expect(databaseSource).toContain("const policyCap=configuredCap>0?configuredCap:quotaFor(subscription)");
+    expect(databaseSource).toContain("tierCap>0?Math.min(policyCap,tierCap):policyCap");
+  });
+
   it("enforces the tier popup cap in the runtime delivery allowance", () => {
     expect(databaseSource).toContain("packageMaxPopupsPerDay:packages.maxPopupsPerDay");
     expect(databaseSource).toContain("Math.min(policyCap,tierCap)");
