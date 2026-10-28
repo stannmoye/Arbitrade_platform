@@ -49,6 +49,7 @@ const migrationFiles = [
   "0080_qualifying_admin_deposit_attribution.sql",
   "0081_trading_tier_policy_alignment.sql",
   "0082_trading_tier_qualification_jobs.sql",
+  "0083_trading_opportunity_worker_indexes.sql",
 ];
 // These tables are schema-baseline indicators for first-time portal migration tracking.
 // Some also belong to the main Drizzle chain; none of them alone proves that a
