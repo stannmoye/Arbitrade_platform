@@ -2243,13 +2243,19 @@ export async function listAdminTradingPackages() {
 }
 export async function updateAdminTradingPackage(updatedBy:number,input:{
   id:number; name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
-  opportunitiesPerDay:number; enabled:boolean;
+  opportunitiesPerDay:number; maxPopupsPerDay:number; maxActiveInvestments:number;
+  startsAt:Date|null; expiresAt:Date|null; enabled:boolean;
 }) {
   if(!Number.isSafeInteger(input.id)||input.id<=0) throw new Error("Package ID is invalid");
   if(!input.name.trim()||input.name.trim().length>80) throw new Error("Package name must contain 1–80 characters");
   if(!Number.isSafeInteger(input.minimumQualifyingBalanceUsdMinor)||input.minimumQualifyingBalanceUsdMinor<=0) throw new Error("Minimum qualifying balance must be a positive USD minor-unit integer");
   if(!Number.isSafeInteger(input.durationMonths)||input.durationMonths<1||input.durationMonths>1200) throw new Error("Package duration must be 1–1200 calendar months");
   if(!Number.isSafeInteger(input.opportunitiesPerDay)||input.opportunitiesPerDay<1||input.opportunitiesPerDay>10000) throw new Error("Daily opportunity quota must be between 1 and 10000");
+  if(!Number.isSafeInteger(input.maxPopupsPerDay)||input.maxPopupsPerDay<0||input.maxPopupsPerDay>10000) throw new Error("Package popup cap must be between 0 and 10000; zero means use the admin policy cap");
+  if(!Number.isSafeInteger(input.maxActiveInvestments)||input.maxActiveInvestments<0||input.maxActiveInvestments>10000) throw new Error("Package active-investment cap must be between 0 and 10000; zero means no tier-specific cap");
+  if(input.startsAt&&!Number.isFinite(input.startsAt.getTime())) throw new Error("Package start time is invalid");
+  if(input.expiresAt&&!Number.isFinite(input.expiresAt.getTime())) throw new Error("Package expiry time is invalid");
+  if(input.startsAt&&input.expiresAt&&input.expiresAt<=input.startsAt) throw new Error("Package expiry must be later than its start time");
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   return db.transaction(async tx=>{
     const current=(await tx.select().from(packages).where(eq(packages.id,input.id)).limit(1).for("update"))[0];
@@ -2263,17 +2269,21 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
       minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,
       durationMonths:input.durationMonths,
       opportunitiesPerDay:input.opportunitiesPerDay,
+      maxPopupsPerDay:input.maxPopupsPerDay,
+      maxActiveInvestments:input.maxActiveInvestments,
+      startsAt:input.startsAt,
+      expiresAt:input.expiresAt,
       enabled:input.enabled,
       termsVersion:nextVersion,
     }).where(eq(packages.id,input.id));
     await tx.insert(v5AuditEvents).values({
       actorUserId:updatedBy,action:"trading_package_terms_updated",
       entityType:"trading_package",entityId:String(input.id),
-      reason:"Administrator updated package terms. Existing subscription snapshots remain unchanged.",
+      reason:"Administrator updated package terms. Existing entitlement snapshots retain their captured quota and duration; enabled state and tier effective dates govern current eligibility.",
       reference:"trading-package-terms:"+input.id+":"+nextVersion,
-      metadataJson:JSON.stringify({old:{name:current.name,minimumQualifyingBalanceUsdMinor:Number(current.minimumQualifyingBalanceUsdMinor),durationMonths:current.durationMonths,opportunitiesPerDay:current.opportunitiesPerDay,enabled:current.enabled,termsVersion:current.termsVersion},new:{...input,name:input.name.trim(),termsVersion:nextVersion}}),
+      metadataJson:JSON.stringify({old:{name:current.name,minimumQualifyingBalanceUsdMinor:Number(current.minimumQualifyingBalanceUsdMinor),durationMonths:current.durationMonths,opportunitiesPerDay:current.opportunitiesPerDay,maxPopupsPerDay:current.maxPopupsPerDay,maxActiveInvestments:current.maxActiveInvestments,startsAt:current.startsAt,expiresAt:current.expiresAt,enabled:current.enabled,termsVersion:current.termsVersion},new:{...input,name:input.name.trim(),termsVersion:nextVersion}}),
     });
-    return {id:input.id,name:input.name.trim(),minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,enabled:input.enabled,termsVersion:nextVersion};
+    return {id:input.id,name:input.name.trim(),minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:nextVersion};
   });
 }
 
