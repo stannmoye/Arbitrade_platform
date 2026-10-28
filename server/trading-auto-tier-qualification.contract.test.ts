@@ -120,6 +120,14 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("Math.min(policyCap,tierCap)");
   });
 
+  it("creates tiers through the authorized audited admin route", () => {
+    expect(routerSource).toContain("createTradingPackage: adminProcedure.input");
+    expect(routerSource).toContain("createAdminTradingPackage(ctx.user.id");
+    expect(databaseSource).toContain('action:"trading_package_created"');
+    expect(customerAppSource).toContain("New administrator-managed tier");
+    expect(customerAppSource).toContain('trpc.adminOperations.createTradingPackage.useMutation');
+  });
+
   it("persists administrator-controlled effective dates and tier caps", () => {
     expect(databaseSource).toContain("maxPopupsPerDay:input.maxPopupsPerDay");
     expect(databaseSource).toContain("maxActiveInvestments:input.maxActiveInvestments");
