@@ -611,7 +611,9 @@ export const customerPackageSubscriptions = mysqlTable("customer_package_subscri
   packageTermsVersion: int("packageTermsVersion").default(1).notNull(),
   activatedAt: timestamp("activatedAt").defaultNow().notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => ({
+  tradingWorkerStatusUserIdx: index("customer_package_subscriptions_worker_status_user_idx").on(table.status, table.userId, table.startsAt),
+}));
 
 export const v5Opportunities = mysqlTable("v5_opportunities", {
   id: int("id").autoincrement().primaryKey(),
