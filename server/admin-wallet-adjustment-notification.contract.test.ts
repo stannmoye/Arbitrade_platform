@@ -9,7 +9,7 @@ const implementation = source.slice(start, end);
 describe("administrator wallet adjustment notification boundary", () => {
   it("persists the authoritative balance and ledger entry before attempting notification", () => {
     const transactionStart = implementation.indexOf("await db.transaction(async tx=>");
-    const transactionEnd = implementation.indexOf("}); try { await createNotification", transactionStart);
+    const transactionEnd = implementation.indexOf("\n\n  if(result.entryType===", transactionStart);
     const noticeAttempt = implementation.indexOf("await createNotification", transactionEnd);
     expect(transactionStart).toBeGreaterThanOrEqual(0);
     expect(transactionEnd).toBeGreaterThan(transactionStart);
@@ -22,7 +22,7 @@ describe("administrator wallet adjustment notification boundary", () => {
     expect(implementation).toContain('input.mode==="credit"?"ledger_credit":"ledger_debit"');
     expect(implementation).toContain('category:input.mode==="credit"?"ledger_credit":"ledger_debit"');
     expect(implementation).toContain("eventKey:`wallet-adjustment:${result.ledgerReference}`");
-    expect(implementation).toContain('entryType:qualifyingDepositUsdMinor!==null?"admin_manual_deposit_credit":`admin_${input.mode}`');
+    expect(implementation).toContain('const entryType=qualifyingDepositReversalOfId!==null?"admin_manual_deposit_reversal":qualifyingDepositUsdMinor!==null?"admin_manual_deposit_credit":`admin_${input.mode}`');
     expect(implementation).toContain('input.creditClassification==="qualifying_deposit"');
   });
 
@@ -34,7 +34,8 @@ describe("administrator wallet adjustment notification boundary", () => {
 
   it("rejects unsafe minor-unit amounts and locks the target wallet row before reading its balance", () => {
     expect(implementation).toContain("!Number.isSafeInteger(input.amountMinor)||input.amountMinor<=0");
-    expect(implementation).toContain('.limit(1).for("update"))[0];const current=balance?.availableMinor??0');
+    expect(implementation).toContain('.limit(1).for("update"))[0];');
+    expect(implementation).toContain("const current=balance?.availableMinor??0");
     expect(implementation).toContain("!Number.isSafeInteger(current)||current<0");
     expect(implementation).toContain("!Number.isSafeInteger(next)");
   });
