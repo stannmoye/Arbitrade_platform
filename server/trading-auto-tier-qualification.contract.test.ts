@@ -5,6 +5,7 @@ const databaseSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8")
 const routerSource = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const schemaSource = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
 const migrationSource = readFileSync(new URL("../drizzle/0080_qualifying_admin_deposit_attribution.sql", import.meta.url), "utf8");
+const policyMigrationSource = readFileSync(new URL("../drizzle/0081_trading_tier_policy_alignment.sql", import.meta.url), "utf8");
 const customerAppSource = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const eligibilityComponent = readFileSync(new URL("../client/src/components/CustomerTradingEligibility.tsx", import.meta.url), "utf8");
 const specification = readFileSync(new URL("../docs/TRADING_SYSTEM_SPECIFICATION.md", import.meta.url), "utf8");
@@ -139,6 +140,17 @@ describe("Automatic Trading tier qualification", () => {
   it("enforces the tier popup cap in the runtime delivery allowance", () => {
     expect(databaseSource).toContain("packageMaxPopupsPerDay:packages.maxPopupsPerDay");
     expect(databaseSource).toContain("Math.min(policyCap,tierCap)");
+  });
+
+  it("keeps opportunity-policy rows aligned with every administrator-managed tier", () => {
+    expect(schemaSource).toContain('packageName: varchar("packageName", { length: 80 }).notNull().unique()');
+    expect(policyMigrationSource).toContain("MODIFY COLUMN `packageName` varchar(80) NOT NULL");
+    expect(policyMigrationSource).toContain("INSERT INTO `opportunity_package_policies` (`packageName`)");
+    expect(databaseSource).toContain("const tiers=await db.select({name:packages.name}).from(packages)");
+    expect(databaseSource).toContain("values({packageName:tier.name})");
+    expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy})");
+    expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
+    expect(databaseSource).toContain("return rows.filter(row=>tierNames.has(row.packageName))");
   });
 
   it("creates tiers through the authorized audited admin route", () => {
