@@ -211,7 +211,8 @@ describe("Automatic Trading tier qualification", () => {
 
   it("atomically queues each qualifying administrator credit or reversal for server-side tier reconciliation", () => {
     expect(schemaSource).toContain('export const tradingTierQualificationJobs = mysqlTable("trading_tier_qualification_jobs"');
-    expect(schemaSource).toContain('sourceLedgerId: int("sourceLedgerId").notNull().unique()');
+    expect(schemaSource).toContain('sourceLedgerId: int("sourceLedgerId").notNull()');
+    expect(schemaSource).toContain('sourceLedgerUnique: uniqueIndex("trading_tier_qualification_jobs_source_ledger_uq")');
     expect(qualificationQueueMigrationSource).toContain("UNIQUE KEY `trading_tier_qualification_jobs_source_ledger_uq` (`sourceLedgerId`)");
     expect(databaseSource).toContain("await tx.insert(tradingTierQualificationJobs).values");
     expect(databaseSource).toContain("sourceLedgerId:ledgerId,status:\"pending\"");
