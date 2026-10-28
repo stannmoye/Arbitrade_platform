@@ -298,18 +298,25 @@ async function startServer() {
     const popupRetentionTimer = setInterval(() => { void runOpportunityRetention().then(result => { if (result.deletedEvents || result.deletedDeliveryRows) console.log("[PopupRetention] archived and removed", result); }).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error)); }, 60 * 60_000);
     popupRetentionTimer.unref();
     void runOpportunityRetention().catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error));
+    let tradeCycleRunning = false;
     const runTradeCycle = async () => {
-      let settlementReconciliation: Awaited<ReturnType<typeof reconcileAllDueTradesAwaitingConfirmation>> | null = null;
+      if (tradeCycleRunning) return;
+      tradeCycleRunning = true;
       try {
-        settlementReconciliation = await reconcileAllDueTradesAwaitingConfirmation();
-        if (settlementReconciliation.marked) console.log("[SettlementReconciliation] overdue trades marked for confirmation", settlementReconciliation);
-      } catch (error) {
-        console.error("[SettlementReconciliation] sweep failed", error instanceof Error ? error.message : error);
+        let settlementReconciliation: Awaited<ReturnType<typeof reconcileAllDueTradesAwaitingConfirmation>> | null = null;
+        try {
+          settlementReconciliation = await reconcileAllDueTradesAwaitingConfirmation();
+          if (settlementReconciliation.marked) console.log("[SettlementReconciliation] overdue trades marked for confirmation", settlementReconciliation);
+        } catch (error) {
+          console.error("[SettlementReconciliation] sweep failed", error instanceof Error ? error.message : error);
+        }
+        const result = await runAutoTradeCycle();
+        const outstandingTrades = await countOutstandingTrades();
+        const opportunities = await ensureMarketDrivenOpportunities(new Date());
+        console.log("[AutoTrade] cycle", { ...result, outstandingTrades, opportunities, settlementReconciliation });
+      } finally {
+        tradeCycleRunning = false;
       }
-      const result = await runAutoTradeCycle();
-      const outstandingTrades = await countOutstandingTrades();
-      const opportunities = await ensureMarketDrivenOpportunities(new Date());
-      console.log("[AutoTrade] cycle", { ...result, outstandingTrades, opportunities, settlementReconciliation });
     };
     const autoTradeTimer = setInterval(() => { void runTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error)); }, 30_000);
     autoTradeTimer.unref();
