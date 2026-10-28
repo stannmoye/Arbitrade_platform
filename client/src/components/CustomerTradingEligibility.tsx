@@ -86,6 +86,25 @@ const candleSticks = [
         </button>
       </header>
 
+      {!eligibilityQuery.isLoading && !eligibilityQuery.isError && (
+        <div className={`trading-package-hero ${currentPackage ? "has-current-package" : "has-no-package"}`} aria-live="polite">
+          <div className="trading-package-hero-emblem" aria-hidden="true">
+            {currentPackage ? <ShieldCheck size={70} strokeWidth={1.7} /> : <WalletCards size={70} strokeWidth={1.7} />}
+          </div>
+          <div className="trading-package-hero-copy">
+            <span className="trading-package-hero-eyebrow">PACKAGE PROGRESS</span>
+            <h3>{currentPackage ? currentPackage.name : "No Package Assigned"}</h3>
+            <p>{currentPackage ? "Your package is assigned automatically. Your daily opportunity allowance is shown below." : "Your account has not been assigned a trading package yet. You will be automatically assigned when you qualify."}</p>
+          </div>
+          <div className="trading-package-hero-chart" aria-hidden="true">
+            <div className="trading-package-hero-chart-line" />
+            {candleSticks.map((candle, index) => (
+              <span className={`trading-hero-candle ${candle.up ? "is-up" : "is-down"}`} key={index} style={{ "--hero-candle-height": `${candle.height}%`, "--hero-candle-shift": `${candle.shift}px` } as React.CSSProperties}><i /></span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {eligibilityQuery.isLoading ? (
         <div className="trading-package-loading" role="status" aria-live="polite">Loading package details…</div>
       ) : eligibilityQuery.isError ? (
