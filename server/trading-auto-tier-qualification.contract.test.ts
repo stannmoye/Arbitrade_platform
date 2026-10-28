@@ -156,6 +156,9 @@ describe("Automatic Trading tier qualification", () => {
 
   it("creates tiers through the authorized audited admin route", () => {
     expect(routerSource).toContain("createTradingPackage: adminProcedure.input");
+    expect(routerSource).toContain("packageName: z.string().trim().min(1).max(80)");
+    expect(routerSource).toContain(" })).min(1).max(1000) })).mutation(({ ctx, input }) => updateOpportunityPackagePolicies");
+    expect(databaseSource).toContain("Opportunity policy references an unknown Trading tier");
     expect(routerSource).toContain("createAdminTradingPackage(ctx.user.id");
     expect(databaseSource).toContain('action:"trading_package_created"');
     expect(customerAppSource).toContain("New administrator-managed tier");
