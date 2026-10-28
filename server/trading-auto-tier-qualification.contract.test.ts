@@ -214,6 +214,9 @@ describe("Automatic Trading tier qualification", () => {
     expect(schemaSource).toContain('sourceLedgerId: int("sourceLedgerId").notNull()');
     expect(schemaSource).toContain('sourceLedgerUnique: uniqueIndex("trading_tier_qualification_jobs_source_ledger_uq")');
     expect(qualificationQueueMigrationSource).toContain("UNIQUE KEY `trading_tier_qualification_jobs_source_ledger_uq` (`sourceLedgerId`)");
+    expect(qualificationQueueMigrationSource).toContain("INSERT IGNORE INTO `trading_tier_qualification_jobs`");
+    expect(qualificationQueueMigrationSource).toContain("SELECT `userId`, `id`, 'pending', CURRENT_TIMESTAMP");
+    expect(qualificationQueueMigrationSource).toContain("AND `qualifyingDepositUsdMinor` IS NOT NULL");
     expect(databaseSource).toContain("await tx.insert(tradingTierQualificationJobs).values");
     expect(databaseSource).toContain("sourceLedgerId:ledgerId,status:\"pending\"");
     expect(databaseSource).toContain("Atomic outbox: the ledger entry and its tier-qualification job commit together.");
