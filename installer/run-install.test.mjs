@@ -199,7 +199,7 @@ describe("main migration preflight integration", () => {
   it("keeps failed or interrupted main migration runs blocked from blind retry", async () => {
     const source = await readFile(new URL("../scripts/guarded-main-migrate.mjs", import.meta.url), "utf8");
     expect(source).toContain('previousStatus === "failed" || previousStatus === "running"');
-    expect(source).toContain("automatic retry is blocked");
+    expect(source).toContain("Automatic retry is blocked because the previous main migration run is ");
     expect(source).toContain('SET status=\'failed\'');
   });
 });
