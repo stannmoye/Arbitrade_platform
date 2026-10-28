@@ -2462,7 +2462,8 @@ export async function runTradingTierQualificationWorkerCycle(options?: { batchSi
   const db=await getDb();
   if(!db) throw new Error("Trading qualification worker database is unavailable.");
   const batchSize=Math.max(1,Math.min(50,Math.floor(options?.batchSize??20)));
-  const now=new Date();
+  // MySQL TIMESTAMP has second precision here; use a stable persisted lease token.
+  const now=new Date(Math.floor(Date.now()/1000)*1000);
   const staleLeaseBefore=new Date(now.getTime()-5*60_000);
   const jobs=await db.transaction(async tx=>{
     const eligible=await tx.select({
@@ -2479,7 +2480,7 @@ export async function runTradingTierQualificationWorkerCycle(options?: { batchSi
         status:"processing",attempts:Number(job.attempts||0)+1,lockedAt:now,updatedAt:now,
       }).where(eq(tradingTierQualificationJobs.id,job.id));
     }
-    return eligible.map(job=>({...job,attempts:Number(job.attempts||0)+1}));
+    return eligible.map(job=>({...job,attempts:Number(job.attempts||0)+1,lockedAt:now}));
   });
   let completed=0,retrying=0,dead=0;
   for(const job of jobs){
@@ -2487,7 +2488,11 @@ export async function runTradingTierQualificationWorkerCycle(options?: { batchSi
       await ensureAutomaticTradingTierEntitlements(Number(job.userId));
       await db.update(tradingTierQualificationJobs).set({
         status:"completed",lockedAt:null,lastError:null,updatedAt:new Date(),
-      }).where(and(eq(tradingTierQualificationJobs.id,job.id),eq(tradingTierQualificationJobs.status,"processing")));
+      }).where(and(
+        eq(tradingTierQualificationJobs.id,job.id),
+        eq(tradingTierQualificationJobs.status,"processing"),
+        eq(tradingTierQualificationJobs.lockedAt,job.lockedAt),
+      ));
       completed++;
     }catch(error){
       const message=(error instanceof Error?error.message:"Unknown qualification worker error").slice(0,950);
@@ -2497,7 +2502,11 @@ export async function runTradingTierQualificationWorkerCycle(options?: { batchSi
         status:exhausted?"dead":"pending",
         availableAt:new Date(Date.now()+delayMs),
         lockedAt:null,lastError:message,updatedAt:new Date(),
-      }).where(and(eq(tradingTierQualificationJobs.id,job.id),eq(tradingTierQualificationJobs.status,"processing")));
+      }).where(and(
+        eq(tradingTierQualificationJobs.id,job.id),
+        eq(tradingTierQualificationJobs.status,"processing"),
+        eq(tradingTierQualificationJobs.lockedAt,job.lockedAt),
+      ));
       if(exhausted) dead++; else retrying++;
       console.error("[TradingTierWorker] qualification job failed",{
         jobId:job.id,userId:job.userId,sourceLedgerId:job.sourceLedgerId,
