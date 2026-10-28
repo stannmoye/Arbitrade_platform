@@ -2626,7 +2626,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   // Preserve the entitlement selected for newly created popups during this cycle,
   // so the later automatic-trade pass does not count that same quota slot twice.
   const assignedSubscriptionByOffer=new Map<number,any>();
-  if(!formulaCooling&&remainingQuota>0){
+  if(options.workerCycle===true&&!formulaCooling&&remainingQuota>0){
     for(const offer of offerRows){
       if(remainingQuota<=0) break;
       const offerId=Number(offer.id);
