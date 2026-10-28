@@ -126,6 +126,7 @@ try {
     enabled: true,
   });
   testCurrencyId = Number(currencyInsert[0].insertId);
+  const fxSourceDate = new Date().toISOString().slice(0, 10);
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = String(input);
@@ -136,7 +137,7 @@ try {
       base: "USD",
       quote: testCurrencyCode,
       rate: 2,
-      date: new Date().toISOString().slice(0, 10),
+      date: fxSourceDate,
     }]), { status: 200, headers: { "content-type": "application/json" } });
   }) as typeof fetch;
   let nonUsdQualifyingCredit;
@@ -163,7 +164,8 @@ try {
   assert.equal(fxEvidence[0].rate, "0.5");
   const fxRaw = JSON.parse(String(fxEvidence[0].rawJson));
   assert.equal(fxRaw.provider, "frankfurter-ecb");
-  assert.ok(String(fxRaw.sourceDate).includes("T"), "The raw snapshot must preserve the full source timestamp.");
+  assert.equal(fxRaw.sourceDate, fxSourceDate, "The raw snapshot must preserve the fiat provider source date.");
+  assert.ok(String(fxRaw.fetchedAt).includes("T"), "The raw snapshot must preserve the full API fetch timestamp.");
 
   const creditPathLedger = await db.select().from(balanceLedger)
     .where(eq(balanceLedger.userId, creditPathUserId));
