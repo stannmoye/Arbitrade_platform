@@ -2525,6 +2525,9 @@ export async function getCustomerTradingEligibility(userId:number) {
     activationKey:customerPackageSubscriptions.activationKey,
     termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
     dailyQuota:packages.opportunitiesPerDay,
+    packageName:packages.name,
+    minimumQualifyingBalanceUsdMinor:packages.minimumQualifyingBalanceUsdMinor,
+    durationMonths:packages.durationMonths,
   }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
     .where(and(
       eq(customerPackageSubscriptions.userId,userId),
@@ -2536,21 +2539,66 @@ export async function getCustomerTradingEligibility(userId:number) {
       or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
     ));
   const eligibleRows=rows.filter(row=>String(row.activationKey||"").startsWith("auto-tier:"));
+  const snapshotFor=(row:typeof rows[number])=>{
+    try { return JSON.parse(String(row.termsSnapshotJson||"{}")); } catch { return {}; }
+  };
   const dailyOpportunityAllowance=eligibleRows.reduce((total,row)=>{
-    try {
-      const snapshot=JSON.parse(String(row.termsSnapshotJson||"{}"));
-      const quota=Number(snapshot.opportunitiesPerDay??row.dailyQuota);
-      return total+(Number.isSafeInteger(quota)&&quota>=0?quota:0);
-    } catch {
-      const quota=Number(row.dailyQuota||0);
-      return total+(Number.isSafeInteger(quota)&&quota>=0?quota:0);
-    }
+    const quota=Number(snapshotFor(row).opportunitiesPerDay??row.dailyQuota);
+    return total+(Number.isSafeInteger(quota)&&quota>=0?quota:0);
   },0);
   if(!Number.isSafeInteger(dailyOpportunityAllowance)||dailyOpportunityAllowance<0) throw new Error("Trading eligibility quota is invalid.");
+
+  // The customer receives only their highest active tier and the single next threshold,
+  // never the full administrator-managed catalogue.
+  const activePackages=eligibleRows.map(row=>{
+    const snapshot=snapshotFor(row);
+    return {
+      name:String(row.packageName),
+      minimumQualifyingBalanceUsdMinor:Number(snapshot.minimumQualifyingBalanceUsdMinor??row.minimumQualifyingBalanceUsdMinor),
+      durationMonths:Number(snapshot.durationMonths??row.durationMonths),
+      opportunitiesPerDay:Number(snapshot.opportunitiesPerDay??row.dailyQuota),
+    };
+  }).filter(tier=>Number.isSafeInteger(tier.minimumQualifyingBalanceUsdMinor)&&tier.minimumQualifyingBalanceUsdMinor>0)
+    .sort((a,b)=>b.minimumQualifyingBalanceUsdMinor-a.minimumQualifyingBalanceUsdMinor);
+  const qualifyingRows=await db.select({
+    qualifyingDepositUsdMinor:balanceLedger.qualifyingDepositUsdMinor,
+  }).from(balanceLedger).where(and(
+    eq(balanceLedger.userId,userId),
+    inArray(balanceLedger.entryType,["admin_manual_deposit_credit","admin_manual_deposit_reversal"]),
+  ));
+  const qualifyingUsdMinor=qualifyingRows.reduce((total,row)=>{
+    const amount=Number(row.qualifyingDepositUsdMinor||0);
+    return Number.isSafeInteger(amount)?total+amount:total;
+  },0);
+  if(!Number.isSafeInteger(qualifyingUsdMinor)) throw new Error("Trading qualifying-deposit total is invalid.");
+  const qualifyingDepositUsdMinor=Math.max(0,qualifyingUsdMinor);
+  const tiers=await db.select({
+    name:packages.name,
+    minimumQualifyingBalanceUsdMinor:packages.minimumQualifyingBalanceUsdMinor,
+    durationMonths:packages.durationMonths,
+    opportunitiesPerDay:packages.opportunitiesPerDay,
+  }).from(packages).where(and(
+    eq(packages.enabled,true),
+    or(isNull(packages.startsAt),lte(packages.startsAt,now)),
+    or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
+  ));
+  tiers.sort((a,b)=>Number(a.minimumQualifyingBalanceUsdMinor)-Number(b.minimumQualifyingBalanceUsdMinor));
+  const nextTier=tiers.find(tier=>Number(tier.minimumQualifyingBalanceUsdMinor)>qualifyingDepositUsdMinor);
+  const currentPackage=activePackages[0]||null;
+  const nextPackage=nextTier?{
+    name:nextTier.name,
+    minimumQualifyingBalanceUsdMinor:Number(nextTier.minimumQualifyingBalanceUsdMinor),
+    amountNeededUsdMinor:Math.max(0,Number(nextTier.minimumQualifyingBalanceUsdMinor)-qualifyingDepositUsdMinor),
+    durationMonths:Number(nextTier.durationMonths),
+    additionalDailyOpportunities:Number(nextTier.opportunitiesPerDay),
+  }:null;
   return {
     eligible:eligibleRows.length>0,
     dailyOpportunityAllowance,
     status:eligibleRows.length>0?"eligible":"not_eligible",
+    qualifyingDepositUsdMinor,
+    currentPackage,
+    nextPackage,
   };
 }
 
