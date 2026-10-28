@@ -152,3 +152,13 @@ This policy is final and must be followed throughout the application:
 - Refined the read-only customer journey with theme-aware responsive cards, compact typography, current-package and next-milestone metrics, an accessible progress indicator, refresh/loading/error states, and reduced-motion support. The page does not expose a full catalogue or activation controls.
 - Exact-head validation is pending for the UI refinement. No production deployment or database migration was performed.
 
+
+
+## 2026-10-28 — Animated package progress design
+
+- Added a dark navy mission-control/orbital visualization to the customer package-progress component, based on the supplied screenshot and 3.8-second reference video.
+- The orbit animation is decorative only: it displays the already-returned current tier, next milestone, progress percentage, and daily allowance; it does not trigger or imply trade execution or financial changes.
+- Added responsive styling and a `prefers-reduced-motion` fallback.
+- Changed files: `client/src/components/CustomerTradingEligibility.tsx`, `client/src/components/CustomerTradingEligibility.css`.
+- Validation status: source edits committed to `design/animated-package-progress`; build, type-check, and test suite have not yet been run in this environment. Customer/admin package-detail loading errors are intentionally deferred until the visual design increment is reviewed, per the user's instruction.
+- Next step: run exact-branch CI and inspect the rendered UI at mobile and desktop widths before merging.
