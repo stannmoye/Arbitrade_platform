@@ -13,6 +13,9 @@ const workerSource = databaseSource.slice(workerStart, workerEnd);
 const cycleStart = serverSource.indexOf("let tradeCycleRunning = false;");
 const cycleEnd = serverSource.indexOf("const autoTradeTimer", cycleStart);
 const cycleSource = serverSource.slice(cycleStart, cycleEnd);
+const reconciliationStart = databaseSource.indexOf("export async function reconcileAllDueTradesAwaitingConfirmation(");
+const reconciliationEnd = databaseSource.indexOf("\\nexport async function listPendingSettlements(", reconciliationStart);
+const reconciliationSource = databaseSource.slice(reconciliationStart, reconciliationEnd);
 
 describe("automatic Trading opportunity scheduler", () => {
   it("selects a bounded batch of active auto-assigned tiers instead of scanning all users", () => {
@@ -40,6 +43,14 @@ describe("automatic Trading opportunity scheduler", () => {
     expect(migrationSource).toContain("CREATE INDEX IF NOT EXISTS `customer_package_subscriptions_worker_status_user_idx`");
     expect(migrationSource).toContain("(`status`, `userId`, `startsAt`)");
     expect(JSON.parse(journalSource).entries.some((entry: { tag: string }) => entry.tag === "0083_trading_opportunity_worker_indexes")).toBe(true);
+  });
+
+  it("includes legacy due trades whose lifecycle stage is null in global reconciliation", () => {
+    expect(reconciliationStart).toBeGreaterThanOrEqual(0);
+    expect(reconciliationEnd).toBeGreaterThan(reconciliationStart);
+    expect(reconciliationSource).toContain('or(isNull(tradePositions.lifecycleStage),notInArray(tradePositions.lifecycleStage,["Awaiting Settlement Confirmation"]))');
+    expect(reconciliationSource).toContain('eq(tradePositions.status,"confirmed")');
+    expect(reconciliationSource).toContain('eq(tradePositions.settlementStatus,"pending")');
   });
 
   it("prevents overlapping Trading cycles within one server process", () => {
