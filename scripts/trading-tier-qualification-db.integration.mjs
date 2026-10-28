@@ -5,7 +5,7 @@ import mysql from "mysql2/promise";
 const databaseUrl = process.env.TRADING_QUALIFICATION_TEST_DATABASE_URL;
 if (!databaseUrl) throw new Error("TRADING_QUALIFICATION_TEST_DATABASE_URL is required for the isolated database test.");
 const url = new URL(databaseUrl);
-if (!["mysql:", "mariadb:"].includes(url.protocol) || !url.pathname.replace(/^\\/+/, "")) {
+if (!["mysql:", "mariadb:"].includes(url.protocol) || !url.pathname.replace("/", "")) {
   throw new Error("The test URL must target an isolated MySQL/MariaDB database.");
 }
 const connectionOptions = {
@@ -13,7 +13,7 @@ const connectionOptions = {
   port: Number(url.port || 3306),
   user: decodeURIComponent(url.username),
   password: decodeURIComponent(url.password),
-  database: decodeURIComponent(url.pathname.replace(/^\\/+/, "")),
+  database: decodeURIComponent(url.pathname.replace("/", "")),
   connectTimeout: 10000,
   multipleStatements: false,
   timezone: "Z",
