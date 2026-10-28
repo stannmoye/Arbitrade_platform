@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { adjustCustomerBalance, claimAutoTradeCycleCustomers, getDb, runTradingTierQualificationWorkerCycle } from "../server/db";
 import {
   appSettings,
@@ -277,9 +277,18 @@ try {
   assert.equal(activeQuota, 10, "Active qualifying tier quotas must accumulate to 6 + 4 = 10 per day.");
   assert.ok(!active.some((row) => Number(row.packageId) === tierIds[2]), "The USD 500 tier must remain unassigned.");
 
+  // Normalize fixture start times into the past because MySQL TIMESTAMP columns
+  // use second precision; the worker must not see a freshly inserted entitlement
+  // as not-yet-started due only to fractional-second rounding.
+  await db.update(customerPackageSubscriptions).set({
+    startsAt: new Date(Date.now() - 60_000),
+  }).where(and(
+    inArray(customerPackageSubscriptions.userId, [userId, creditPathUserId]),
+    eq(customerPackageSubscriptions.status, "active"),
+  ));
+
   // Exercise the actual scheduler SQL against the migrated disposable MySQL
   // schema without executing trades or touching wallet balances.
-
   const firstOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
   const secondOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
   const endOfPassBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
