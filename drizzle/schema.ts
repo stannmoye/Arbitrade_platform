@@ -1089,7 +1089,7 @@ export const localScheduledJobs = mysqlTable("local_scheduled_jobs", {
 export const tradingTierQualificationJobs = mysqlTable("trading_tier_qualification_jobs", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
-  sourceLedgerId: int("sourceLedgerId").notNull().unique(),
+  sourceLedgerId: int("sourceLedgerId").notNull(),
   status: mysqlEnum("status", ["pending", "processing", "completed", "dead"]).default("pending").notNull(),
   attempts: int("attempts").default(0).notNull(),
   availableAt: timestamp("availableAt").defaultNow().notNull(),
@@ -1098,6 +1098,7 @@ export const tradingTierQualificationJobs = mysqlTable("trading_tier_qualificati
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
+  sourceLedgerUnique: uniqueIndex("trading_tier_qualification_jobs_source_ledger_uq").on(table.sourceLedgerId),
   statusAvailableIdx: index("trading_tier_qualification_jobs_status_available_idx").on(table.status, table.availableAt, table.id),
   userStatusIdx: index("trading_tier_qualification_jobs_user_status_idx").on(table.userId, table.status),
 }));
