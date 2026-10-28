@@ -59,7 +59,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("creditTimeRate=await fetchCurrencyUsdRate");
     expect(databaseSource).toContain("A fresh API conversion rate for this exact wallet configuration is required");
     expect(databaseSource).not.toContain('let rate=Number(currency.usdRate)');
-    expect(databaseSource).toContain("rate: String(creditTimeRate.rate)");
+    expect(databaseSource).toContain("rate:String(creditTimeRate.rate)");
     expect(databaseSource).toContain("fetchedAt:creditTimeRate.fetchedAt.toISOString()");
     expect(databaseSource).toContain("qualifyingDepositUsdMinor!==null?Math.abs(qualifyingDepositUsdMinor)/100");
   });
@@ -234,12 +234,12 @@ describe("Automatic Trading tier qualification", () => {
     expect(qualificationQueueMigrationSource).toContain("KEY `trading_tier_qualification_jobs_status_available_idx` (`status`, `availableAt`, `id`)");
     expect(databaseSource).toContain("return {claimed:jobs.length,completed,retrying,dead}");
     expect(databaseSource).toContain('console.error("[TradingTierWorker] qualification job failed"');
-    expect(specification).toContain("The idle worker performs an indexed queue lookup");
+    expect(specification).toContain("Idle cycles perform an indexed queue lookup only");
   });
 
   it("documents the owner-approved automatic-deposit policy", () => {
     expect(specification).toContain("Customers never browse, select, subscribe to, purchase, or activate a package.");
-    expect(specification).toContain("Profits, trading rewards, returned principal, bonuses, swaps, transfers");
+    expect(specification).toContain("profits, trading rewards, returned principal, bonuses, swaps, transfers, conversions");
     expect(specification).toContain("The customer portal may show only the resulting eligibility status and total daily opportunity allowance.");
   });
 });
