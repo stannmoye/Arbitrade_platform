@@ -504,6 +504,7 @@ export const tradePositions = mysqlTable("trade_positions", {
   expectedRewardMinor: bigint("expectedRewardMinor", { mode: "number" }).notNull(),
   status: mysqlEnum("status", ["pending", "confirmed", "settled", "cancelled"]).default("confirmed").notNull(),
   confirmedAt: timestamp("confirmedAt").defaultNow().notNull(),
+  closesAt: timestamp("closesAt"),
   settlesAt: timestamp("settlesAt").notNull(),
   creditAt: timestamp("creditAt"),
   settledAt: timestamp("settledAt"),
@@ -1072,5 +1073,4 @@ export const localScheduledJobs = mysqlTable("local_scheduled_jobs", {
   dueIndex: index("local_scheduled_jobs_due_idx").on(table.isEnable, table.nextExecutionAt, table.lockedUntil),
   ownerIndex: index("local_scheduled_jobs_owner_idx").on(table.ownerUserId, table.createdAt),
 }));
-
 

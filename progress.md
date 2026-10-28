@@ -116,3 +116,14 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 - All 14 reported check runs completed successfully, including TypeScript validation, application tests, production build/smoke, browser recovery, installer and MySQL/MariaDB checks, deployment-package validation, Mining regression, and Trading recovery.
 - These results apply to code/test SHA 6cc2f27ffad80ce43e6956799c46ace5312439ca. This handoff update is documentation-only; verify Actions against its resulting head before treating that newer head as validated.
 - PR #203 remains open and unmerged. No deployment, production database operation, or live trade was performed.
+
+
+## Follow-up — 2026-10-28 — server-owned trade close timing
+
+- Continued from canonical `main` at `bf940d02` after re-cloning the repository and verifying the current GitHub state. The previous customer-navigation slice was not repeated.
+- Added nullable `trade_positions.closesAt` with forward migration `0080_trade_server_close_timestamp.sql`; historical rows remain NULL because their opening/close policy cannot be reconstructed safely.
+- New allocations snapshot the offer's server-side `durationSeconds` from the server-recorded opening time. The close timestamp is returned by allocation/replay and customer trade history.
+- Settlement reconciliation and manual settlement now require both the configured settlement due time and the server-owned close time; close time never credits funds and remains distinct from settlement confirmation.
+- Customer Trading progress/history now labels the authoritative close time and explicitly explains that closing is not proof of settlement.
+- Checks passed on this local increment: `pnpm check`; `pnpm test` (741 passed, 15 skipped); `pnpm build`; focused Trading settlement/navigation contracts passed after the compatibility assertion was retained. No production database, deployment, or live trade was performed.
+- Next: add browser-level acceptance for close-time rendering and then continue the customer-wide earnings-ceiling policy implementation. Do not invent a cap amount, reset timezone, or FX rule; the previously approved admin-configurable defaults still need to be implemented as a separate policy slice.
