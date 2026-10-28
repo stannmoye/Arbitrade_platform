@@ -38,6 +38,21 @@ describe("worker schema contracts", () => {
     expect(findWorkerSchemaContractFailures(columns, indexes)).toEqual([]);
   });
 
+  it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
+    const root = new URL("../", import.meta.url);
+    const [runtimeSchema, migration] = await Promise.all([
+      readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
+      readFile(new URL("drizzle/0082_trading_tier_qualification_jobs.sql", root), "utf8"),
+    ]);
+    expect(WORKER_SCHEMA_CONTRACTS.trading_tier_qualification_jobs.indexes)
+      .toHaveProperty("trading_tier_qualification_jobs_source_ledger_uq");
+    expect(WORKER_SCHEMA_CONTRACTS.trading_tier_qualification_jobs.indexes)
+      .toHaveProperty("trading_tier_qualification_jobs_status_available_idx");
+    expect(runtimeSchema).toContain('drizzle/0082_trading_tier_qualification_jobs.sql');
+    expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, tierQualificationMigration)");
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS `trading_tier_qualification_jobs`");
+  });
+
   it("rejects present tables whose shape would still break worker SQL", () => {
     const { columns, indexes } = validMetadata();
     const brokenColumns = columns
