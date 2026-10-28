@@ -17,3 +17,12 @@ CREATE TABLE IF NOT EXISTS `trading_tier_qualification_jobs` (
   KEY `trading_tier_qualification_jobs_status_available_idx` (`status`, `availableAt`, `id`),
   KEY `trading_tier_qualification_jobs_user_status_idx` (`userId`, `status`)
 ) ENGINE=InnoDB;
+--> statement-breakpoint
+-- Recover qualifying credits/reversals committed before the durable queue was introduced.
+-- INSERT IGNORE is safe if this migration is retried or a job was already enqueued.
+INSERT IGNORE INTO `trading_tier_qualification_jobs`
+  (`userId`, `sourceLedgerId`, `status`, `availableAt`)
+SELECT `userId`, `id`, 'pending', CURRENT_TIMESTAMP
+FROM `balance_ledger`
+WHERE `entryType` IN ('admin_manual_deposit_credit', 'admin_manual_deposit_reversal')
+  AND `qualifyingDepositUsdMinor` IS NOT NULL;
