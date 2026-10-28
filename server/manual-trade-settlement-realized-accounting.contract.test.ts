@@ -33,9 +33,10 @@ describe("actual trade result ledger accounting", () => {
   });
 
   it("uses the same calculated net result for wallet return and earned balance", () => {
-    expect(implementation).toContain("availableMinor:sql");
+    expect(implementation).toContain("availableMinor:walletBalances.availableMinor");
+    expect(implementation).toContain("lockedMinor:walletBalances.lockedMinor");
     expect(implementation).toContain("accounting.totalReturnedMinor");
-    expect(implementation).toContain("earnedMinor:sql");
+    expect(implementation).toContain("earnedMinor:walletBalances.earnedMinor");
     expect(implementation).toContain("accounting.netProfitMinor");
     expect(implementation).toContain("accounting.totalReturnedMinor");
     expect(implementation).toContain("accounting.netProfitMinor");

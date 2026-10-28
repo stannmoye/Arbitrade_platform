@@ -116,3 +116,130 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 - All 14 reported check runs completed successfully, including TypeScript validation, application tests, production build/smoke, browser recovery, installer and MySQL/MariaDB checks, deployment-package validation, Mining regression, and Trading recovery.
 - These results apply to code/test SHA 6cc2f27ffad80ce43e6956799c46ace5312439ca. This handoff update is documentation-only; verify Actions against its resulting head before treating that newer head as validated.
 - PR #203 remains open and unmerged. No deployment, production database operation, or live trade was performed.
+
+## Current handoff — 2026-10-28
+
+- Canonical source is `main` at `bf940d02baeb39c92fed66eeea7ed44b1843119f`. PR #197 was merged as `bf940d02`; all five workflows passed on its refreshed head `528600ce`, and all four main-branch workflow groups passed on the resulting main SHA.
+- PR #203 is merged; older status notes below that call it open are superseded by this handoff.
+- The approved Trading eligibility model is free balance-threshold activation: the qualifying balance is not a fee or trade capital. Activation must only create the entitlement/audit record; only the scheduled worker may allocate trades.
+- PR #202 is being reconciled onto the latest main with the worker-only allocation gate, safe settlement-wallet arithmetic, recovery classification, and truthful activation messaging. Its exact updated head still needs fresh CI before merge.
+- PR #200 is not included wholesale: its deposit-tier documentation conflicts with the approved model, and its `0079` migration conflicts with the merged settlement repair. Review only compatible, separately verifiable changes.
+- No production deployment, production database operation, balance/ledger change, or live trade was performed.
+- Next: verify the exact PR #202 head, resolve any CI failures, and merge only after all required checks pass; then review remaining safe Trading work separately.
+
+
+### Additional integrity review — 2026-10-28
+
+- Removed generated transaction-console pulses; no pulse is emitted without a confirmed ledger-backed event. Regression coverage now asserts `NO_CONFIRMED_LEDGER_EVENT`. Exact final-head CI is pending.
+- PR #200 was not merged wholesale: its deposit-tier documentation conflicts with the approved free-activation model, and its `0079` migration conflicts with the merged settlement-timing repair. Its proposed shutdown of automatic offer generation was also kept out because it changes opportunity availability; review the market-derived estimate path separately before changing that behavior.
+- Time-based reconciliation only marks due trades as awaiting settlement confirmation; it does not credit an estimated reward. A manual settlement path still requires an explicit settlement reference. No production deployment, database operation, balance change, or live trade was performed.
+
+## Verified continuation — 2026-10-28 — free activation and worker-only allocation
+
+**Working branch:** `fix/trading-worker-only-allocation-20261027` (draft PR #202).
+**Code/test SHA:** `4fe1c696973574c9ae0a1dec651fb014124e6cfb`. The earlier pending-CI notes above are superseded: all 14 reported check runs on this exact code/test commit completed successfully. Workflow runs: [application/build checks](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40651541203), [type-check/test/build and browser recovery](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40651541356), [install/type-check/test/build](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40651541169), [Mining regression](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40651541079), and [typecheck/tests/production build](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40651541058).
+
+### WORKING — source contract and exact-head CI verified
+
+- Free activation checks the customer’s qualifying available wallet balance and creates the package entitlement/audit record only; activation does not debit funds or call opportunity processing.
+- Customer opportunity reads default to non-worker mode. Due-trade processing and automatic allocation are gated behind `workerCycle === true`.
+- The existing scheduled server worker calls `runAutoTradeCycle()` and is the only code path that opts into worker processing.
+- The customer package panel is imported and mounted on the customer dashboard. Its activation message does not claim that a trade was created.
+- `server/trading-worker-boundary.contract.test.ts` covers activation separation, read-only customer queries, worker opt-in/scheduling, and the mounted panel.
+
+### NEEDS FURTHER REVIEW
+
+- These results verify source and CI only; no hosted acceptance, production database, customer balance, deployment, or live trade was exercised.
+- PR #202 remains open and unmerged. PR #200 remains open/draft with conflicting deposit-tier documentation and a removed dashboard panel; do not merge it as-is. Its migration conflict is documented above.
+- Continue the remaining Trading-spec audit in small, evidence-backed increments. Record exact code/test SHA and checks for each increment; do not claim full application readiness from this slice.
+
+### Next
+
+1. Reconcile or close the obsolete PR #200 draft only after confirming no unique wanted changes would be lost.
+2. Continue auditing the remaining required Trading Settings routes and persisted behavior against the canonical guide.
+3. Keep merge, production deployment, production database changes, and live trades out of scope unless separately authorized.
+
+## Exact-head verification — 2026-10-28 — PR #202
+
+- Source/test commit `4fe1c696973574c9ae0a1dec651fb014124e6cfb`: all 14 reported checks passed. The free activation, worker-only allocation boundary, and mounted customer package panel are verified by the source-contract test and the full CI suite on that SHA.
+- Progress-only commit `440b008fe63cea7788d69bcdec2117f32fdc4e1a`: all 14 reported checks completed successfully. The last check to finish was customer-portal real-browser recovery, which also passed.
+- Exact check outcomes for `440b008fe63cea7788d69bcdec2117f32fdc4e1a`:
+- **Stage 1 validation dashboard: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **Customer portal real-browser recovery checks: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883161).
+- **deployment-packages: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **Installer and migration regression tests: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **TypeScript validation: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **syntax: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **installer-mysql8-compatibility-and-recovery: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **installer-fresh-mariadb: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **Application unit tests: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **Production build, bundle budgets, and server smoke test: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883267).
+- **Mining unit tests and TypeScript check: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883137).
+- **Install, type-check, test, and build: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883191).
+- **Typecheck, tests, and production build: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883066).
+- **Type-check, test, and build: SUCCESS** — [run](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40653883161).
+- Current status: **WORKING** for the source/test contract and CI-verified behavior on `4fe1c696973574c9ae0a1dec651fb014124e6cfb`; **NEEDS FURTHER REVIEW** for hosted/production acceptance, which was not performed.
+- PR #202 is still open and draft. PR #200 is also still open and draft, unchanged at `8f379fe5a179de73973f51b12ea3f08e08eb58cd`; do not merge its deposit-tier documentation as-is.
+- No merge, deployment, production database operation, balance change, or live trade occurred.
+
+## Follow-up — 2026-10-28 — cross-draft audit and anti-synthetic safeguards
+
+- Baseline checked before this increment: main bf940d02baeb39c92fed66eeea7ed44b1843119f; PR #202 branch fix/trading-worker-only-allocation-20261027 at e758ee32dbe28b6c4926d0c2c5c172f292f88abd; PR #200 branch fix/internal-ledger-trading-no-simulated-activity at 8f379fe5a179de73973f51b12ea3f08e08eb58cd.
+- PR #197 is merged into current main at bf940d02; migration journal idx 48 is already 0079_trade_settlement_timing_schema_repair.
+- Compare results: PR #202 is 16 commits ahead / 0 behind current main; PR #200 is diverged, 101 ahead / 14 behind, with merge base 8e610823941cb49f45e8bff0f35759994a395221 and 41 changed files. PR #200 history includes repeated policy/documentation commits; its final 101st commit is 8f379fe5.
+- Exact baseline Actions: all five workflows succeeded on PR #200 head 8f379fe5a179de73973f51b12ea3f08e08eb58cd (runs 40572373502, 40572373520, 40572373472, 40572373503, 40572373501); all five succeeded on PR #202 baseline e758ee32dbe28b6c4926d0c2c5c172f292f88abd (runs 40654463979, 40654464146, 40654463880, 40654463975, 40654464051). These are CI/source checks, not hosted or production acceptance.
+- Already accounted for: PR #200's transaction-console removal is byte-identical to PR #202's blob a4115e5acc5cc4a87ab161277cbf611372e74e64; its nullable activation-date display fix is already in current main and therefore the active branch.
+- Carried into PR #202 in this increment: server/db.ts now validates the published offer minimum/reward estimate instead of deriving them from a hash/rotation formula; server/marketSync.ts no longer seeds pseudo-random market offers, durations, reward rates, or simulation hashes. Explicitly published offers remain available. Added server/trading-no-synthetic-economics.contract.test.ts for these boundaries. This supersedes the earlier handoff note that deferred this market-generation audit.
+- Not carried: PR #200 removes the customer package panel and adds deposit-assigned tiers, conflicting with the approved free balance-threshold activation model. Its canonical spec/AGENTS changes also contain those conflicting rules. Its migration 0079_internal_ledger_execution_mode.sql collides with the merged idx-48 migration and rewrites every trading_types / v5_opportunities mode (including existing mode values); no renumbering or data migration was attempted. The V5 schema/domain rewrite is held for explicit policy and migration review.
+- Also held: PR #200's 20-character settlement-notes requirement and matching UI changes introduce an additional admin validation rule; the current #202 form submits no notes, so it was not applied.
+- No merge, deployment, production database operation, balance/ledger change, or live trade was performed. The exact SHA and CI result for this code/test update must be appended after GitHub Actions completes.
+
+## Exact-head verification — PR #202 anti-synthetic economics — 2026-10-28
+
+- Code/test commit b4a716dce6fb8f9c7f2d9cc309b645a19c020dc4 completed all five GitHub Actions workflow groups successfully on that exact SHA:
+  - Mining regression checks: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40657387606
+  - Verify application: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40657387648
+  - Verify Arbitrade trading recovery changes: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40657387773
+  - Installer validation: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40657387644
+  - Build and test production source: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40657387709
+- The new contract tests verify published estimate inputs, disabled synthetic market-offer generation, and the pending-allocation / separate-settlement boundary. No workflow failure was reported.
+- This validates source and CI only. Hosted acceptance, production database reconciliation, deployment, balance movement, and live trading were not performed.
+- PR #202 remains open/draft. PR #200 remains open/draft at 8f379fe5a179de73973f51b12ea3f08e08eb58cd; compatible synthetic-activity/economics work is now represented on PR #202, while its conflicting deposit-tier rules and 0079 V5 mode rewrite remain excluded. No close action was taken.
+- Next: continue the canonical Trading-spec audit against persisted routes and behavior; keep the PR #200 migration and settlement-notes policy held for explicit review; request confirmation before closing PR #200.
+
+## Exact-head verification — progress-only follow-up — 2026-10-28
+
+- Documentation-only commit c0a53f14944c553e2946d4d596d7a51532c34ebf completed all five GitHub Actions workflows successfully on that exact head:
+  - Mining regression checks: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40658009834
+  - Verify application: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40658009830
+  - Verify Arbitrade trading recovery changes: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40658009883
+  - Installer validation: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40658009815
+  - Build and test production source: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40658009903
+- The code/test SHA remains b4a716dce6fb8f9c7f2d9cc309b645a19c020dc4; its five successful run IDs are recorded in the preceding exact-head verification section. This commit changes progress.md only.
+- Current remaining work is unchanged: continue the canonical Trading settings/behavior audit; do not merge or deploy; ask before closing PR #200; do not apply its conflicting V5 mode migration.
+
+
+## 2026-10-28 — Active trades navigation and exact-head verification
+
+- Corrected the Trading Settings Active Trades & Pending Work submenu to open Transaction Review, where the persisted confirmed-trade settlement queue exposes due timing and reservation checks. The previous destination was an opportunity-delivery event summary, not the active/pending trade queue.
+- Added a navigation regression test asserting this destination and its user-facing description.
+- Exact code/test head 8e79213b08c22ff110672a2589050e16b162d3f6: all 14 GitHub check-runs completed successfully. The runs were Stage 1 validation dashboard; Customer portal real-browser recovery checks; deployment-packages; Application unit tests; TypeScript validation; installer-fresh-mariadb; installer-mysql8-compatibility-and-recovery; syntax; Production build, bundle budgets, and server smoke test; Installer and migration regression tests; Typecheck, tests, and production build; Install, type-check, test, and build; Type-check, test, and build; and Mining unit tests and TypeScript check. Results checked through commit check-runs for that exact SHA (workflow run 40659629943 plus associated runs).
+- PR #202 remains open and in draft; no merge, deployment, or production change was made. The progress-only commit below is to be checked separately as the new PR head.
+
+## Audit continuation — 2026-10-28 — package-policy controls
+
+- Verified current baseline before this increment: `main` at `bf940d02baeb39c92fed66eeea7ed44b1843119f`; PR #202 at `6c8076adfa17b49b7e1a19d544a4989887346c68`. All five exact-head workflow groups passed: Mining (`40660355186`), Trading recovery (`40660355156`), Application (`40660355146`), Installer (`40660355162`), and Build/test production source (`40660355158`). This supersedes the pending-check note above for the then-current head.
+- Source audit confirmed package-policy saves were nontransactional upserts without a required reason, audit entry, or version increment. The admin form submits only base limits while the server was replacing omitted automation values with defaults.
+- Implemented: package-policy saves now preserve omitted automation settings, lock rows in one transaction, require an admin reason, and increment/audit only changed rows. Added merge/change-detection unit coverage and an API/UI/audit contract test; exact-head GitHub Actions are pending for the source/test commit.
+- Local checks: `git diff --check`, direct Node TypeScript-strip behavior checks for merge/validation/change detection, and source assertions passed. Full Vitest/typecheck could not start because the fresh clone's offline pnpm store lacks `proxy-addr@2.0.7`; no dependency or lockfile changes were made.
+- Held policy gap: the canonical Trading specification requires one daily earnings ceiling per customer across packages and wallets, but current settings are package-specific. No global amount or reset timezone/period is specified; do not invent or change that financial policy until it is defined.
+- No production deployment, database operation, balance change, or live trade was performed.
+
+## Exact-head verification — package-policy audit reason — 2026-10-28
+
+- On PR #202 head `0a406b44e77918bad25d835f320e5bbcfeadb4a1`, all five workflow groups failed because TypeScript reported TS2345 at `client/src/App.tsx(752,770)`: the focused Trade Settings `AdminPackages` editor omitted the newly required audit `reason` field. The opportunity-engine editor already passed a reason; this was the remaining package-policy save call site.
+- Code/test commit `2cf0493bc98b915e72e3cc4504aec5679d179539` adds reason collection to the focused editor, cancels cleanly, trims and validates the 10–500 character limit, and passes the reason with the existing policy payload. The contract test now covers this editor path. No package values, financial rules, schema, or ledger behavior changed.
+- All 14 GitHub check runs passed on that exact code/test SHA. The five workflow groups were: [Verify application](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40667753923), [Build and test production source](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40667753936) (including type-check, automated tests, production build, and browser recovery), [Trading recovery](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40667753902), [Installer validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40667753957), and [Mining regression](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40667753897).
+- PR #202 remains open and draft against `main` at `bf940d02baeb39c92fed66eeea7ed44b1843119f`. No merge, deployment, production database operation, balance change, or live trade was performed.
+- This progress-only update creates a new branch head. Resolve the live PR head and verify its exact-SHA Actions before starting additional changes.
+- Next: keep the review PR in draft until the owner is ready to test/review; continue the remaining Trading acceptance audit in separate, evidence-backed increments.

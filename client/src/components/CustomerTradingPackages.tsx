@@ -25,10 +25,8 @@ export function CustomerTradingPackages() {
   const packagesQuery = trpc.customer.tradingPackages.useQuery(undefined, { refetchInterval: 30_000 });
   const [notice, setNotice] = useState<string | null>(null);
   const activation = trpc.customer.activateTradingPackage.useMutation({
-    onSuccess: async result => {
-      setNotice(result.automaticTradeCount > 0
-        ? "Package activated. " + result.automaticTradeCount + " eligible opportunity allocation(s) were recorded automatically."
-        : "Package activated. The server will evaluate eligible opportunities automatically; no trade is created without an eligible opportunity and sufficient spendable funds.");
+    onSuccess: async () => {
+      setNotice("Package activated. Activation does not create a trade or debit your balance; the server worker evaluates eligible opportunities separately.");
       await packagesQuery.refetch();
     },
     onError: error => setNotice(error.message),

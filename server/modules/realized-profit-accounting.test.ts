@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateRealizedProfitSettlement } from "./realized-profit-accounting";
+import { calculateRealizedProfitSettlement, calculateSettlementWalletBalanceUpdate } from "./realized-profit-accounting";
 
 describe("realized trade profit accounting", () => {
   it("charges the canonical 15% fee only on actual positive gross profit", () => {
@@ -61,6 +61,80 @@ describe("realized trade profit accounting", () => {
       feeRateBps: 1500,
       roundingMode: "half_up",
     })).toMatchObject({ netProfitMinor: -1000, totalReturnedMinor: 0, platformFeeMinor: 0, outcome: "loss" });
+  });
+
+  it("updates available, locked, and earned balances using exact settlement totals", () => {
+    const settlement = calculateRealizedProfitSettlement({
+      principalMinor: 1_000,
+      grossProfitMinor: 200,
+      feeRateBps: 1500,
+      roundingMode: "half_up",
+    });
+    expect(calculateSettlementWalletBalanceUpdate({
+      availableMinor: 2_000,
+      lockedMinor: 1_000,
+      earnedMinor: 700,
+    }, settlement)).toEqual({
+      availableMinor: 3_170,
+      lockedMinor: 0,
+      earnedMinor: 870,
+    });
+  });
+
+  it("preserves realized losses in earned totals without creating a negative available balance", () => {
+    const settlement = calculateRealizedProfitSettlement({
+      principalMinor: 1_000,
+      grossProfitMinor: -250,
+      feeRateBps: 1500,
+      roundingMode: "half_up",
+    });
+    expect(calculateSettlementWalletBalanceUpdate({
+      availableMinor: 10,
+      lockedMinor: 1_000,
+      earnedMinor: 100,
+    }, settlement)).toEqual({
+      availableMinor: 760,
+      lockedMinor: 0,
+      earnedMinor: -150,
+    });
+  });
+
+  it("rejects wallet totals that would overflow safe integer precision", () => {
+    const settlement = calculateRealizedProfitSettlement({
+      principalMinor: 1_000,
+      grossProfitMinor: 200,
+      feeRateBps: 1500,
+      roundingMode: "half_up",
+    });
+    expect(() => calculateSettlementWalletBalanceUpdate({
+      availableMinor: Number.MAX_SAFE_INTEGER - 100,
+      lockedMinor: 1_000,
+      earnedMinor: 0,
+    }, settlement)).toThrow("Settlement wallet balance update exceeds safe integer precision");
+    expect(() => calculateSettlementWalletBalanceUpdate({
+      availableMinor: 0,
+      lockedMinor: 1_000,
+      earnedMinor: Number.MAX_SAFE_INTEGER - 50,
+    }, settlement)).toThrow("Settlement wallet balance update exceeds safe integer precision");
+  });
+
+  it("fails closed for invalid stored wallet balances or insufficient locked principal", () => {
+    const settlement = calculateRealizedProfitSettlement({
+      principalMinor: 1_000,
+      grossProfitMinor: 0,
+      feeRateBps: 1500,
+      roundingMode: "half_up",
+    });
+    expect(() => calculateSettlementWalletBalanceUpdate({
+      availableMinor: Number.MAX_SAFE_INTEGER + 1,
+      lockedMinor: 1_000,
+      earnedMinor: 0,
+    }, settlement)).toThrow("available balance is invalid or outside safe integer precision");
+    expect(() => calculateSettlementWalletBalanceUpdate({
+      availableMinor: 0,
+      lockedMinor: 999,
+      earnedMinor: 0,
+    }, settlement)).toThrow("locked balance is inconsistent with the trade principal");
   });
 
   it("rejects invalid precision and fee policies", () => {

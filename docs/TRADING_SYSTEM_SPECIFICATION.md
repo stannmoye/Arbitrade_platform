@@ -16,7 +16,7 @@
 
 ## 2. Free package activation and qualifying balance
 
-Package subscription is free under this proposal. A customer must meet the package's minimum qualifying wallet balance to activate it. Do not debit and immediately credit the same amount merely to create the appearance of a subscription transaction.
+Package activation is free under the approved model; there is no package deposit or subscription payment. A customer must meet the package's minimum qualifying wallet balance to activate it. The qualifying balance is checked in the customer's existing eligible wallet and is not transferred, debited, or reserved by activation. Do not debit and immediately credit the same amount merely to create the appearance of a subscription transaction. Activation creates an entitlement and audit record only; it does not run an opportunity cycle or create a trade.
 
 - Qualifying balance is an eligibility threshold, not the subscription price and not an automatic per-trade capital amount.
 - At activation, check the configured eligible wallet balance. Admin policy must define whether multiple eligible wallets can be combined.
@@ -50,13 +50,13 @@ Amounts are USD minimum qualifying balances, not subscription fees, guaranteed r
 
 Each package needs a stable internal ID. Package duration is in calendar months. Active eligible package quotas add together; for example, quotas of 6 + 10 + 30 give a baseline allowance of 46 opportunities/day, subject to system controls and the combined customer earnings ceiling.
 
-## 4. Multiple packages, repeat purchases, cooldown
+## 4. Multiple packages, repeat activation, cooldown
 
 - Customers may own different packages at the same time.
-- Admin setting controls whether a customer may purchase multiple copies of the same package.
-- If repeat purchases are disabled, block another copy while the configured ownership restriction applies. Admin can define whether the restriction ends at expiry or also includes expired/cancelled copies.
+- Admin setting controls whether a customer may activate multiple copies of the same package.
+- If repeat activations are disabled, block another copy while the configured ownership restriction applies. Admin can define whether the restriction ends at expiry or also includes expired/cancelled copies.
 - If enabled, each copy is a separate entitlement with its own activation, expiry, quota, and terms snapshot; enforce an optional maximum copies setting.
-- Proposed default: six-hour cooldown between successful package activations, configurable by admin. Start after successful activation/payment confirmation. The cooldown must not pause existing trades or settlement.
+- Proposed default: six-hour cooldown between successful package activations, configurable by admin. Start when the free activation transaction commits; there is no package payment to confirm. The cooldown must not pause existing trades or settlement.
 - Prevent customers from bypassing daily earnings ceilings by stacking packages, switching wallets, or duplicating activity.
 
 ## 5. Opportunity generation and insufficient-balance opportunities
@@ -83,6 +83,8 @@ Suggested card fields for insufficient balance:
 ## 6. Automatic processing and trade lifecycle
 
 Server-side worker must operate independently of customer sessions and recover safely after restarts. Use explicit statuses such as Scheduled, Presented, Insufficient Balance, Pending, Retrying, Successful, Failed, Carried Forward, and Settled. Use database transactions and idempotency keys so the same opportunity cannot allocate or settle twice.
+
+Only the existing scheduled server worker (runAutoTradeCycle() in server/_core/index.ts) may invoke the automatic allocator. Customer-facing package activation and opportunity queries must not trigger allocations; the worker must opt into allocation explicitly, and the default customer query path must remain allocation-disabled. Customer refreshes may read or report presentation state but are not evidence that a trade should be created.
 
 Admin may pause new allocations or a faulty integration for safety; this is not a customer trading toggle. The global pause must be persisted in the application database, enforced inside the trade-allocation transaction, fail closed if its safety setting is missing or malformed, and record the administrator, timestamp, old/new values, and reason in the audit log. Pausing new allocations must not delete pending work or block required settlement/reconciliation. Do not add customer-facing Trading On/Off, Opportunity On/Off, or Auto Trade On/Off controls.
 
@@ -263,7 +265,7 @@ Opportunity generation and trade-card presentation must follow the customer's ac
 
 Provide configurable sections for:
 - Packages: names, amounts, durations, quotas, qualification, activation, status, and terms-change policy.
-- Repurchases: same-package repeat toggle, maximum copies, and cooldown.
+- Repeat activations: same-package toggle, maximum copies, and cooldown.
 - Opportunities: schedules, quotas, admin-configured trade duration/closing-time rules, company filters, retry rules, carry-forward caps, and eligibility.
 - Earnings/fees: combined daily net earnings ceiling, fee rate, calculation/rounding rules, and reset timezone.
 - Company catalogue: import, search, verify, logo/flag, ticker, headquarters, exchange, sector, and listing status.
@@ -288,8 +290,9 @@ Trading operates as a real-money workflow recorded in the customer's internal le
 - No active package => no automatic trade allocation; no fallback package.
 - Active eligible package => server evaluates opportunities even when customer is signed out.
 - Package quotas sum correctly across entitlements and respect admin limits.
-- Same-package repeat purchase obeys admin toggle and maximum copies.
-- Package activation checks qualifying balance and creates no artificial debit/credit.
+- Same-package repeat activation obeys the admin toggle and maximum copies.
+- Package activation is free, checks the qualifying balance only, and creates no package deposit, debit, reserve, trade, or artificial credit.
+- Customer package activation and opportunity-page refresh do not create trades; only the existing scheduled server worker allocates eligible opportunities.
 - An eligible opportunity with insufficient funds is displayed only when it occurs, with required amount, available balance, shortfall, and timestamp.
 - Insufficient-balance opportunity never debits or allocates capital.
 - Trade lifecycle applies the correct capital debit/return, realized profit, fee, or loss to the customer's internal ledger exactly once, supported by recorded trade/settlement state.

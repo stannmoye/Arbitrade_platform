@@ -269,6 +269,12 @@ export function classifyTradeRecoveryEvidence(
   if (evidence.rewardReservationStatus === "reserved") {
     reasons.push("Reward reservation is still reserved for a settled trade.");
   }
+  if (evidence.rewardReservationStatus === "released" && evidence.rewardCreditedMinor > 0) {
+    reasons.push("Trade reward reservation is marked released despite a positive credited reward.");
+  }
+  if (evidence.rewardReservationStatus === "credited" && evidence.rewardCreditedMinor === 0) {
+    reasons.push("Trade reward reservation is marked credited but no reward was credited.");
+  }
   if (reasons.length > 0) {
     return result("MANUAL_FINANCIAL_REVIEW", reasons);
   }
