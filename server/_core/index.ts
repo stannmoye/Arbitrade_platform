@@ -39,7 +39,9 @@ const emailVerificationRequestRateLimit = createAuthRateLimiter({ windowMs: 15 *
 const emailVerificationConfirmRateLimit = createAuthRateLimiter({ windowMs: 15 * 60_000, max: 10, message: "Too many email-verification attempts. Try again later.", store: configuredAuthRateLimitStore, scope: "email-verification-confirm" });
 
 async function startServer() {
+  console.info("[StartupDiagnostics] " + JSON.stringify({ timestamp: new Date().toISOString(), event: "application-bootstrap-entered", nodeVersion: process.version, nodeEnv: process.env.NODE_ENV || "unset", portConfigured: Boolean(process.env.PORT), databaseUrlConfigured: Boolean(process.env.DATABASE_URL) }));
   if (process.env.NODE_ENV === "production") {
+    console.info("[StartupDiagnostics] " + JSON.stringify({ timestamp: new Date().toISOString(), event: "session-secret-initialization-start" }));
     try {
       const result = await ensureSessionSecret({ root: process.cwd(), env: process.env });
       if (result.generated) {
@@ -50,6 +52,7 @@ async function startServer() {
       throw new Error("Production session-secret initialization failed.");
     }
   }
+  console.info("[StartupDiagnostics] " + JSON.stringify({ timestamp: new Date().toISOString(), event: "session-secret-initialization-complete" }));
   const app = express();
   registerLocalStorageRoutes(app);
   if (process.env.NODE_ENV === "production" && !configuredAuthRateLimitStore) {
@@ -226,11 +229,13 @@ async function startServer() {
     })
   );
   // development mode uses Vite, production mode uses static files
+  console.info("[StartupDiagnostics] " + JSON.stringify({ timestamp: new Date().toISOString(), event: "routes-registered-and-static-setup-start", nodeEnv: process.env.NODE_ENV || "unset" }));
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
+  console.info("[StartupDiagnostics] " + JSON.stringify({ timestamp: new Date().toISOString(), event: "routes-and-static-setup-complete" }));
 
   const port = Number(process.env.PORT || "3000");
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
@@ -331,8 +336,39 @@ async function startServer() {
   } else {
     console.warn("[Database] DATABASE_URL is not configured; database workers are paused until production configuration is supplied.");
   }
-  server.on("error", error => { console.error("Server failed:", error.message); process.exit(1); });
-  server.listen(port, "0.0.0.0", () => console.log(`Server listening on port ${port}`));
+  server.on("error", error => {
+    console.error("[StartupDiagnostics] " + JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: "error",
+      event: "http-server-error",
+      name: error.name,
+      code: (error as NodeJS.ErrnoException).code,
+      syscall: (error as NodeJS.ErrnoException).syscall,
+      address: (error as NodeJS.ErrnoException).address,
+      port: (error as NodeJS.ErrnoException).port,
+      message: String(error.message || "HTTP server error").replace(/\\b(?:mysql|mariadb):\\/\\/[^\\s"'<>]+/gi, "[database-url-redacted]"),
+      stack: String(error.stack || "").replace(/\\b(?:mysql|mariadb):\\/\\/[^\\s"'<>]+/gi, "[database-url-redacted]").slice(0, 12000),
+    }));
+    process.exit(1);
+  });
+  console.info("[StartupDiagnostics] " + JSON.stringify({ timestamp: new Date().toISOString(), event: "http-listener-starting", host: "0.0.0.0", port }));
+  server.listen(port, "0.0.0.0", () => {
+    console.log("[StartupDiagnostics] " + JSON.stringify({ timestamp: new Date().toISOString(), event: "http-listener-ready", host: "0.0.0.0", port, healthPath: "/api/health" }));
+    console.log(`Server listening on port ${port}`);
+  });
 }
 
-startServer().catch(error => { console.error(error); process.exit(1); });
+startServer().catch(error => {
+  const details = error && typeof error === "object" ? error as { name?: unknown; message?: unknown; code?: unknown; stack?: unknown } : {};
+  const redact = (value: unknown) => String(value ?? "").replace(/\\b(?:mysql|mariadb):\\/\\/[^\\s"'<>]+/gi, "[database-url-redacted]");
+  console.error("[StartupDiagnostics] " + JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level: "error",
+    event: "application-bootstrap-failed",
+    name: typeof details.name === "string" ? details.name : "UnknownError",
+    code: details.code == null ? undefined : String(details.code).replace(/[^A-Z0-9_]/gi, "").slice(0, 80),
+    message: redact(details.message || "Startup failed without an error message").slice(0, 2000),
+    stack: redact(details.stack || "").slice(0, 12000),
+  }));
+  process.exit(1);
+});
