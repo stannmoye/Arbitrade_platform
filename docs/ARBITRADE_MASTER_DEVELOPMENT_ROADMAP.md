@@ -714,3 +714,13 @@ When continuing this project:
 - Never use a manual/stale currency-registry rate as a fallback. If the API cannot provide a valid, fresh rate for the selected wallet, reject the qualifying classification with an actionable administrator error. The ordinary wallet credit must not be silently reclassified as qualifying.
 - The administrator customer directory must show each customer's automatically assigned active Trading tiers and cumulative qualifying USD value. Customer package browsing, selection and activation remain prohibited.
 - Do not modify ordinary transfers or use tier FX conversion to reprice or classify transfers. Add contract tests for every wallet asset type, stale/unavailable API rates, USD 1:1, and unchanged transfer behavior before marking this requirement complete.
+
+## Automatic Trading tier qualification worker — implementation and verification
+
+- [x] Add a durable MySQL queue keyed uniquely by the source qualifying ledger entry, with status, attempts, availability time, lease, error and timestamps.
+- [x] Enqueue qualifying administrator credits and qualifying-deposit reversals atomically with the ledger transaction; transfers and other credits are excluded.
+- [x] Run a bounded server-side worker every five seconds, independent of customer sessions, with an overlap guard and indexed idle polling.
+- [x] Add row-lock-based claims, stale-lease recovery, bounded exponential retries, and a terminal dead-letter state with structured error logging.
+- [ ] Verify migration `0082_trading_tier_qualification_jobs` against the target database, run typecheck/build/contract tests and inspect CI for the exact commit before deployment.
+- [ ] Exercise restart recovery, retry/dead-letter behavior, multi-instance claims, tier upgrade/reversal and unchanged normal transfers in an integration environment.
+
