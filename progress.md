@@ -19,7 +19,7 @@ Customers must not browse, select, subscribe to, purchase, or activate packages.
 - Automatically reconciles tier entitlements from cumulative attributed credits, including reversal-driven disqualification.
 - Restricted opportunity delivery creation, due-trade processing, and automatic allocation to the scheduled worker; customer reads are read-only for these lifecycle actions.
 - Removed tier names, internal subscription IDs, terms snapshots and tier-specific allocation limits from customer-facing Trading API objects.
-- Updated canonical Trading policy, `AGENTS.md`, implementation matrix, migration runners/journal tests, and policy regression contracts.
+- Updated canonical Trading policy, `AGENTS.md`, migration runners/journal tests, and policy regression contracts. The duplicate `docs/implementation-matrix.md` was removed to preserve the canonical-specification-only documentation rule; current status and evidence remain in this handoff.
 
 ## Exact-SHA validation status
 
