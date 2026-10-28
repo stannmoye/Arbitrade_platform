@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { adjustCustomerBalance, claimAutoTradeCycleCustomers, getDb, runTradingTierQualificationWorkerCycle } from "../server/db";
 import {
+  appSettings,
   balanceLedger,
   customerBalances,
   currencyRegistry,
@@ -426,6 +427,7 @@ try {
   console.log("Trading qualification worker integration passed: concurrent real-worker tier assignment, cumulative quotas, reversal revocation, stale-lease recovery, bounded retries, and dead-letter persistence.");
 } finally {
   // Keep the disposable database clean even if an assertion fails.
+  await db.delete(appSettings).where(eq(appSettings.settingKey, "trade.autoTradeCycle.lastUserId")).catch(() => {});
   if (userId) {
     await db.delete(tradingTierQualificationJobs).where(eq(tradingTierQualificationJobs.userId, userId)).catch(() => {});
     await db.delete(balanceLedger).where(eq(balanceLedger.userId, userId)).catch(() => {});
