@@ -70,5 +70,16 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 - Mapping audit found `Trade Pop-up & Customer Display` pointed to the read-only persisted delivery-lifecycle report, while the existing package policy editor owns `popupDisplayTargetSeconds` and `completionDisplaySeconds`.
 - This change routes the menu item to a focused, per-package display editor that exposes only those existing presentation fields and clarifies they do not alter allocation, execution, or settlement. It reuses the existing versioned package-policy mutation; no policy, ledger, migration, or worker behavior changes.
 - Added navigation and source-contract regression coverage for the focused route and display fields.
-- Validation on display-route commit `fdb21f23cf1beef1fdd2d28384743535d56c6d00` failed. GitHub annotations isolated an extra JSX closing tag in `AdminPackages` and a stale retry contract assertion that still expected the old focused-editor markup; both are corrected in the following commit. The other failing jobs cascaded from those two issues. CI on the corrected SHA is pending; do not reuse the successful checks from `4a1b498`. No merge, deployment, production data change, or live trade was performed.
-- Next: inspect the Trading Overview and Trade Duration & Closing Rules routes against their actual persisted controls and data before choosing the next code increment.
+- The first display-route commit `fdb21f23cf1beef1fdd2d28384743535d56c6d00` failed because of an extra JSX closing tag and a stale retry-contract assertion; both were fixed in `f07a1c820648b59b6c7a36ec908f97fbd2299471`. All 14 GitHub Actions check runs passed on that exact code/test SHA, including TypeScript, application tests, installer checks, production build/smoke, and browser recovery. No merge, deployment, production data change, or live trade was performed.
+- Next: validate the overview and duration-route alignment changes below on their exact PR head, then audit the remaining Trade Settings destinations against real persisted functionality.
+
+
+## Follow-up — 2026-10-28 — overview and duration route alignment
+
+- Baseline before this increment: PR #203 code/test commit `f07a1c820648b59b6c7a36ec908f97fbd2299471` had 14/14 successful GitHub Actions check runs.
+- Audit confirmed both Overview and Trade Duration & Closing Rules opened the general Opportunity Engine. The duration control there creates an individual offer; it is not the persisted settlement-timing policy.
+- Overview now uses the existing admin-protected database queries for open opportunities, enabled package policies, rolling 24-hour lifecycle events, manual settlement queue, and global allocation gate. Metrics are read-only and display unavailable sources separately from zero; calendar-day totals, complete in-flight status, and worker/provider health are not inferred.
+- Duration & Closing Rules now opens a focused view of the existing persisted settlement estimate, wallet-credit delay, cooldown, and block-until-settled controls. The view explains that schedule time is not proof of execution or settlement; unrelated settings are hidden in this focused route.
+- Added client navigation and source-contract coverage. No financial business logic, worker behavior, schema, or external provider configuration changed.
+- CI for the new code/test commit is pending and must be checked on its exact SHA. PR #203 remains open; no merge, deployment, database write, or live trade was performed.
+- Remaining: duration fields are global timing policy only; verify any per-package duration/close-policy support before exposing it. Extend the overview only when calendar-day activity, full in-flight work, exceptions, or worker-health data have a trustworthy persisted source.

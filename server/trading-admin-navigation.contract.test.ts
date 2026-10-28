@@ -50,3 +50,24 @@ describe("Trading retry-policy navigation", () => {
     expect(packageEditor).toContain('{!focus&&<div className="package-policy-section"><strong>Opportunity delivery & scheduling</strong>');
   });
 });
+
+
+describe("Trading overview and duration navigation", () => {
+  it("renders an operations snapshot using real persisted admin queries", () => {
+    expect(navigation).toContain('id: "trade-settings-overview", target: "tradeSystemOverview"');
+    expect(adminApp).toContain("<AdminTradeSettingsOverview/>");
+    expect(operationsUi).toContain("trpc.adminOperations.popupLifecycleSummary.useQuery");
+    expect(operationsUi).toContain("trpc.adminOperations.offers.useQuery");
+    expect(operationsUi).toContain("trpc.adminOperations.pendingSettlements.useQuery");
+    expect(operationsUi).toContain("trpc.adminOperations.tradeAllocationControls.useQuery");
+    expect(operationsUi).toContain("Rolling 24-hour lifecycle events");
+  });
+
+  it("opens persisted settlement timing controls and keeps schedule estimates distinct from settlement", () => {
+    expect(navigation).toContain('id: "trade-duration-closing", target: "tradeDurationRules"');
+    expect(adminApp).toContain('<AdminSettings focus="tradeDuration"/>');
+    expect(adminApp).toContain("Configure the persisted settlement estimate, wallet credit delay and global block-until-settled rule.");
+    expect(adminApp).toContain("Scheduled time is not proof of execution or settlement.");
+    expect(adminApp).toContain("settlementDelaySeconds");
+  });
+});

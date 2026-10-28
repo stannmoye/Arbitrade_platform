@@ -63,11 +63,11 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "mining-operations", target: "mining", label: "Mining", detail: "Simulated mining packages, rewards, conversions and ledger controls", icon: Coins },
   ]},
   { id: "trade-settings", label: "Trade Settings", detail: "Admin-controlled trading policy, automation and settlement", items: [
-    { id: "trade-settings-overview", target: "opportunity", label: "Overview", detail: "Trading operations, current offers and delivery health", icon: Gauge },
+    { id: "trade-settings-overview", target: "tradeSystemOverview", label: "Overview", detail: "Persisted opportunities, lifecycle events, pending settlements and allocation status", icon: Gauge },
     { id: "trade-packages-eligibility", target: "packages", label: "Packages & Eligibility", detail: "Package definitions, activation eligibility and entitlements", icon: PackageCheck },
     { id: "trade-package-quotas", target: "packages", label: "Package Quotas & Customer Limits", detail: "Per-package opportunity quotas and customer limits", icon: Layers3 },
     { id: "trade-opportunity-schedule", target: "opportunity", label: "Opportunity Schedule", detail: "Admin-configured delivery schedules and quotas", icon: Zap },
-    { id: "trade-duration-closing", target: "opportunity", label: "Trade Duration & Closing Rules", detail: "Configure duration policy; authoritative timing remains server-owned", icon: Clock3 },
+    { id: "trade-duration-closing", target: "tradeDurationRules", label: "Trade Duration & Closing Rules", detail: "Configure persisted settlement timing and closing gates; elapsed time never settles a trade", icon: Clock3 },
     { id: "trade-capital-wallet", target: "transactionReview", label: "Capital Allocation & Wallet Rules", detail: "Review wallet balances, ledger movements and allocation records", icon: WalletCards },
     { id: "trade-profit-fees-limits", target: "transactionReview", label: "Profit, Fees & Earnings Limits", detail: "Review realized-profit fee policy; package reward ceilings remain under Package Quotas", icon: CircleDollarSign },
     { id: "trade-retries-carry-forward", target: "tradeRetryPolicy", label: "Retries & Carry-Forward", detail: "Configure per-package retry attempts and delay; carry-forward controls are not yet implemented", icon: Activity },

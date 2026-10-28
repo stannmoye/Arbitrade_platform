@@ -167,6 +167,48 @@ export function AdminOpportunityDelivery() {
   );
 }
 
+export function AdminTradeSettingsOverview() {
+  const lifecycle = trpc.adminOperations.popupLifecycleSummary.useQuery(undefined, { refetchInterval: 15_000 });
+  const offers = trpc.adminOperations.offers.useQuery(undefined, { refetchInterval: 15_000 });
+  const policies = trpc.adminOperations.packagePolicies.useQuery(undefined, { refetchInterval: 30_000 });
+  const pending = trpc.adminOperations.pendingSettlements.useQuery(undefined, { refetchInterval: 10_000 });
+  const allocation = trpc.adminOperations.tradeAllocationControls.useQuery(undefined, { refetchInterval: 10_000 });
+  const data = (lifecycle.data ?? {}) as unknown as LifecycleSummary;
+  const totals = data.last24Hours ?? {};
+  const count = (loading: boolean, failed: boolean, value: unknown) => {
+    if (loading) return "Loading";
+    if (failed) return "Unavailable";
+    const parsed = Number(value ?? 0);
+    return Number.isFinite(parsed) ? parsed.toLocaleString() : "—";
+  };
+  const allocationState = allocation.isLoading ? "Loading" : allocation.isError ? "Unavailable" : allocation.data?.allocationsPaused === undefined ? "Unavailable" : allocation.data.allocationsPaused ? "Paused" : "Open";
+  const refresh = () => { void Promise.all([lifecycle.refetch(), offers.refetch(), policies.refetch(), pending.refetch(), allocation.refetch()]); };
+
+  return (
+    <ToolPage
+      eyebrow="Trading operations"
+      title="Trading overview"
+      description="A read-only snapshot of persisted opportunity, lifecycle, settlement-queue and allocation-control data."
+      icon={Activity}
+      action={<button className="admin-ops-button" type="button" onClick={refresh} disabled={lifecycle.isFetching || offers.isFetching || policies.isFetching || pending.isFetching || allocation.isFetching}><RefreshCw size={14} /> Refresh</button>}
+    >
+      <div className="admin-ops-meta-line"><span><CalendarClock size={14} /> Rolling 24-hour lifecycle window</span><span>Updated {timestamp(data.generatedAt)}</span></div>
+      <section className="admin-ops-metrics">
+        <Metric label="Global allocation gate" value={allocationState} detail="Open means new allocations are not paused" icon={Activity} />
+        <Metric label="Enabled package policies" value={count(policies.isLoading, policies.isError, (policies.data ?? []).filter((policy) => policy.enabled).length)} icon={BadgeCheck} />
+        <Metric label="Open opportunities" value={count(offers.isLoading, offers.isError, offers.data?.length)} detail="Current database offer registry" icon={Activity} />
+        <Metric label="Opportunities delivered" value={count(lifecycle.isLoading, lifecycle.isError, totals.delivered)} detail="Rolling 24-hour lifecycle events" icon={Activity} />
+        <Metric label="Trades recorded" value={count(lifecycle.isLoading, lifecycle.isError, totals.traded)} detail="Rolling 24-hour lifecycle events" icon={CircleDollarSign} />
+        <Metric label="Settled trade events" value={count(lifecycle.isLoading, lifecycle.isError, totals.settled)} detail="Rolling 24-hour lifecycle events" icon={CheckCircle2} />
+        <Metric label="Insufficient-balance events" value={count(lifecycle.isLoading, lifecycle.isError, totals.zeroBalance)} detail="Rolling 24-hour lifecycle events" icon={AlertTriangle} />
+        <Metric label="Manual settlements pending" value={count(pending.isLoading, pending.isError, pending.data?.length)} detail="Current administrator queue" icon={Clock3} />
+      </section>
+      {(lifecycle.isError || offers.isError || policies.isError || pending.isError || allocation.isError) && <div className="admin-ops-empty error" role="status">One or more data sources could not be loaded. Unavailable metrics are not zero; refresh after verifying the database-backed service.</div>}
+      <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Data scope</strong> This view reports open opportunity records, enabled package-policy rows, the global new-allocation gate, the current manual-settlement queue, and rolling 24-hour lifecycle events. It does not infer calendar-day totals, all in-flight trade states, or worker/provider health from these sources.</span></div>
+    </ToolPage>
+  );
+}
+
 export function AdminVerificationOversight() {
   const query = trpc.adminOperations.customers.useQuery(undefined, { refetchInterval: 10_000 });
   const customers = (query.data ?? []) as unknown as CustomerRecord[];

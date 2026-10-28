@@ -38,6 +38,19 @@ describe("Trade Settings administrator navigation", () => {
     expect(item?.detail).toBe("Configure per-package retry attempts and delay; carry-forward controls are not yet implemented");
   });
 
+  it("routes the trading overview to persisted operational data", () => {
+    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
+    const item = group?.items.find((candidate) => candidate.id === "trade-settings-overview");
+    expect(item?.target).toBe("tradeSystemOverview");
+  });
+
+  it("routes duration and closing rules to the persisted timing policy", () => {
+    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
+    const item = group?.items.find((candidate) => candidate.id === "trade-duration-closing");
+    expect(item?.target).toBe("tradeDurationRules");
+    expect(item?.detail).toContain("elapsed time never settles a trade");
+  });
+
   it("routes customer display settings to their focused editor", () => {
     const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
     const item = group?.items.find((candidate) => candidate.id === "trade-popup-display");
@@ -53,7 +66,7 @@ describe("Trade Settings administrator navigation", () => {
       "mining", "opportunity", "deliveryMonitor", "packages", "tradeRetryPolicy", "tradeCustomerDisplay", "kycCenter",
       "verificationOversight", "riskWatchlist", "emailCenter", "smtpCenter",
       "suiteTickets", "notificationCenter", "communicationSettings", "signup",
-      "policies", "privacyManagement", "settings", "sound", "branding",
+      "policies", "privacyManagement", "settings", "tradeSystemOverview", "tradeDurationRules", "sound", "branding",
       "appearance", "apis", "audit", "reportsExports", "tradeSystemHealth",
     ]);
     for (const item of group!.items) expect(supportedTargets.has(item.target), item.label).toBe(true);
