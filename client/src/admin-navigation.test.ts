@@ -31,12 +31,19 @@ describe("Trade Settings administrator navigation", () => {
     ]);
   });
 
+  it("opens focused retry settings and discloses that carry-forward is unavailable", () => {
+    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
+    const item = group?.items.find((candidate) => candidate.id === "trade-retries-carry-forward");
+    expect(item?.target).toBe("tradeRetryPolicy");
+    expect(item?.detail).toBe("Configure per-package retry attempts and delay; carry-forward controls are not yet implemented");
+  });
+
   it("routes every Trade Settings item to an existing portal destination", () => {
     const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
     expect(group).toBeDefined();
     const supportedTargets = new Set([
       "overview", "customers", "transactionReview", "credit", "debit", "currencies",
-      "mining", "opportunity", "deliveryMonitor", "packages", "kycCenter",
+      "mining", "opportunity", "deliveryMonitor", "packages", "tradeRetryPolicy", "kycCenter",
       "verificationOversight", "riskWatchlist", "emailCenter", "smtpCenter",
       "suiteTickets", "notificationCenter", "communicationSettings", "signup",
       "policies", "privacyManagement", "settings", "sound", "branding",
