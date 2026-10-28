@@ -9,6 +9,7 @@ const migrationSource = readFileSync(new URL("../drizzle/0080_qualifying_admin_d
 const policyMigrationSource = readFileSync(new URL("../drizzle/0081_trading_tier_policy_alignment.sql", import.meta.url), "utf8");
 const customerAppSource = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const eligibilityComponent = readFileSync(new URL("../client/src/components/CustomerTradingEligibility.tsx", import.meta.url), "utf8");
+const eligibilityStyles = readFileSync(new URL("../client/src/components/CustomerTradingEligibility.css", import.meta.url), "utf8");
 const specification = readFileSync(new URL("../docs/TRADING_SYSTEM_SPECIFICATION.md", import.meta.url), "utf8");
 const serverEntrypointSource = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
 const qualificationQueueMigrationSource = readFileSync(new URL("../drizzle/0082_trading_tier_qualification_jobs.sql", import.meta.url), "utf8");
@@ -24,7 +25,7 @@ describe("Automatic Trading tier qualification", () => {
 
   it("requires explicit debit classification and validates qualifying-deposit reversal references", () => {
     expect(routerSource).toContain('debitClassification: z.enum(["ordinary_debit","qualifying_deposit_reversal"]).optional()');
-    expect(routerSource).toContain('input.reversalLedgerId');
+    expect(routerSource).toContain("input.reversalLedgerId");
     expect(databaseSource).toContain('eq(balanceLedger.entryType,"admin_manual_deposit_credit")');
     expect(databaseSource).toContain("qualifyingDepositReversalOfId");
     expect(customerAppSource).toContain("Original qualifying deposit ledger ID");
@@ -104,11 +105,16 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).toContain("CustomerTradingEligibility");
     expect(eligibilityComponent).toContain("trpc.customer.tradingEligibility.useQuery");
     expect(eligibilityComponent).toContain("You’re not yet qualified for a package");
-    expect(eligibilityComponent).toContain("Additional daily opportunities");
+    expect(eligibilityComponent).toContain("Additional qualifying amount needed");
     expect(eligibilityComponent).toContain("currentPackage.name");
     expect(eligibilityComponent).toContain("nextPackage.name");
+    expect(eligibilityComponent).toContain("USD equivalent across qualifying ledger-wallet credits");
+    expect(eligibilityComponent).not.toContain("₦");
     expect(eligibilityComponent).not.toContain("Activate free package");
     expect(eligibilityComponent).not.toContain("packageId");
+    expect(eligibilityStyles).toContain("@media (max-width: 560px)");
+    expect(eligibilityStyles).toContain("prefers-reduced-motion: reduce");
+    expect(eligibilityStyles).toContain("var(--arb-color-surface-raised)");
     expect(specification).toContain("the single next enabled tier");
     expect(specification).toContain("must never expose the full administrator-managed tier catalogue");
   });
@@ -201,7 +207,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(routerSource).toContain("createAdminTradingPackage(ctx.user.id");
     expect(databaseSource).toContain('action:"trading_package_created"');
     expect(customerAppSource).toContain("New administrator-managed tier");
-    expect(customerAppSource).toContain('trpc.adminOperations.createTradingPackage.useMutation');
+    expect(customerAppSource).toContain("trpc.adminOperations.createTradingPackage.useMutation");
     expect(customerAppSource).toContain('maxActiveInvestments:0,startsAt:"",expiresAt:"",enabled:false}');
     expect(customerAppSource).toContain("New tiers start disabled.");
   });
@@ -246,7 +252,7 @@ describe("Automatic Trading tier qualification", () => {
 
   it("keeps qualification jobs durable and observable without scanning all customers on idle worker cycles", () => {
     expect(schemaSource).toContain('statusAvailableIdx: index("trading_tier_qualification_jobs_status_available_idx")');
-    expect(qualificationQueueMigrationSource).toContain("KEY `trading_tier_qualification_jobs_status_available_idx` (`status`, `availableAt`, `id`)");
+    expect(qualificationQueueMigrationSource).toContain("KEY `trading_tier_qualification_jobs_status_available_idx` (`status`, `availableAt`, `id`)"); 
     expect(databaseSource).toContain("return {claimed:jobs.length,completed,retrying,dead}");
     expect(databaseSource).toContain('console.error("[TradingTierWorker] qualification job failed"');
     expect(specification).toContain("Idle cycles perform an indexed queue lookup only");
