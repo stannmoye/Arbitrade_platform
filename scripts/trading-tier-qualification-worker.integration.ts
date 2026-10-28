@@ -157,6 +157,13 @@ try {
     "100 units at 0.5 USD per unit must be recorded as USD 50.00, not the manual registry rate.");
   assert.equal(nonUsdQualifyingCredit.qualifyingDepositRateProvider, "frankfurter-ecb");
   assert.equal(nonUsdQualifyingCredit.rateUsd, 0.5);
+  const fxEvidence = await db.select().from(fxRateSnapshots)
+    .where(eq(fxRateSnapshots.baseAsset, testCurrencyCode));
+  assert.equal(fxEvidence.length, 1, "The credit-time API rate must also be persisted in the FX snapshot store.");
+  assert.equal(fxEvidence[0].rate, "0.5");
+  const fxRaw = JSON.parse(String(fxEvidence[0].rawJson));
+  assert.equal(fxRaw.provider, "frankfurter-ecb");
+  assert.ok(String(fxRaw.sourceDate).includes("T"), "The raw snapshot must preserve the full source timestamp.");
 
   const creditPathLedger = await db.select().from(balanceLedger)
     .where(eq(balanceLedger.userId, creditPathUserId));
