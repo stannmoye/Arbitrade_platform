@@ -36,6 +36,12 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).not.toContain("export async function listCustomerTradingPackages");
   });
 
+  it("fails closed for stale or manually entered non-stablecoin qualifying-credit rates", () => {
+    expect(databaseSource).toContain('provider.toLowerCase().includes("manual")||!rateAt||Date.now()-rateAt.getTime()>5*60*1000');
+    expect(databaseSource).toContain("A current non-manual currency-to-USD rate is required");
+    expect(databaseSource).toContain("qualifyingDepositUsdMinor!==null?Math.abs(qualifyingDepositUsdMinor)/100");
+  });
+
   it("fails closed when BTC or ETH qualifying-credit rates are stale or manual", () => {
     expect(databaseSource).toContain('currencyCode==="BTC"||currencyCode==="ETH"');
     expect(databaseSource).toContain("Date.now()-new Date(liveSnapshot.observedAt).getTime()>5*60*1000");
