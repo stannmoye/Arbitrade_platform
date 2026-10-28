@@ -780,3 +780,7 @@ Several operational pages refresh automatically so that queues, customer states,
 - Request submission and review actions are recorded in a dedicated privacy audit stream.
 
 Privacy requests do not themselves delete records, alter financial records, close accounts, or override statutory retention requirements. Any fulfilment requiring changes to retained personal or financial data needs an authorized, separately reviewed operational process. The privacy-specific SQL migration is applied by the existing portal migration runner in both fresh-install and existing-database installer flows.
+
+## Trading tier qualification and wallet-credit conversion
+
+When an authorized administrator credits a customer through **Credit Customer**, the administrator must choose whether the credit is a qualifying deposit or a non-qualifying credit. For a qualifying credit, the server fetches a current API exchange rate for the selected wallet currency and stores the USD-equivalent value and rate evidence at credit time. This applies to every enabled wallet currency its configured provider can price; USD is 1:1. An unavailable, stale or invalid rate blocks the qualifying classification rather than using a manually entered currency-registry rate. The admin customer list must show each customer's automatically assigned active Trading tiers and cumulative qualifying USD amount. No customer package selection or activation is offered. Ordinary transfers remain unchanged.
