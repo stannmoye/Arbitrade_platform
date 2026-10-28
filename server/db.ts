@@ -2512,7 +2512,10 @@ export async function listPersistedOpportunityPackagePolicies() {
 }
 export async function updateOpportunityPackagePolicies(updatedBy:number, policies:any[]) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
+  const tiers=await db.select({name:packages.name}).from(packages);
+  const tierNames=new Set(tiers.map(tier=>tier.name));
   for (const policy of policies) {
+    if(typeof policy.packageName!=="string"||!tierNames.has(policy.packageName)) throw new Error("Opportunity policy references an unknown Trading tier");
     if(policy.minHourlyTarget>policy.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
     if(policy.normalHourlyTarget*24>policy.maxPopupsPerDay && policy.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
     if(!Number.isSafeInteger(policy.minimumTradeUnits)||!Number.isSafeInteger(policy.maximumTradeUnits)||policy.minimumTradeUnits<1||policy.maximumTradeUnits<policy.minimumTradeUnits) throw new Error(`Trade amount bounds are invalid for ${policy.packageName}`);
