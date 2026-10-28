@@ -22,7 +22,8 @@ describe("administrator wallet adjustment notification boundary", () => {
     expect(implementation).toContain('input.mode==="credit"?"ledger_credit":"ledger_debit"');
     expect(implementation).toContain('category:input.mode==="credit"?"ledger_credit":"ledger_debit"');
     expect(implementation).toContain("eventKey:`wallet-adjustment:${result.ledgerReference}`");
-    expect(implementation).toContain('entryType:`admin_${input.mode}`');
+    expect(implementation).toContain('entryType:qualifyingDepositUsdMinor!==null?"admin_manual_deposit_credit":`admin_${input.mode}`');
+    expect(implementation).toContain('input.creditClassification==="qualifying_deposit"');
   });
 
   it("keeps notice delivery best-effort and does not reverse a committed ledger adjustment", () => {
