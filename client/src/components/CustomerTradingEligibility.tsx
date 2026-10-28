@@ -10,7 +10,7 @@ export function CustomerTradingEligibility() {
         <div>
           <div className="eyebrow">Automatic eligibility</div>
           <h2 id="trading-eligibility-heading">Trading eligibility</h2>
-          <p>Your eligibility and daily opportunity allowance are calculated automatically from qualifying deposits. No package selection or activation is required.</p>
+          <p>Your eligibility and daily opportunity allowance are calculated automatically from qualifying manual administrator wallet credits. No tier selection or activation is required.</p>
         </div>
         <button className="text-button" type="button" onClick={() => void eligibilityQuery.refetch()} disabled={eligibilityQuery.isFetching}>
           Refresh <RefreshCw size={14} />
