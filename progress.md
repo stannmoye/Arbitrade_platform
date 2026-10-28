@@ -138,3 +138,10 @@ Allocation enforcement aggregates positive realized net profit and active reward
 Added admin controls to Transaction Review, new router endpoints, pure policy/conversion helpers, and focused tests. Validation passed: `pnpm check`; `pnpm test` (745 passed, 15 skipped); `pnpm build`; focused ceiling and Trading contracts (30 passed). No production database, deployment, policy amount, or live trade was changed.
 
 Next: add database-backed integration coverage for concurrent cross-currency reservations and timezone boundary behavior before considering the ceiling slice acceptance-complete.
+
+
+## Follow-up — 2026-10-28 — earnings-ceiling timezone hardening
+
+Completed the next acceptance slice on top of `ca73fce3`. Calendar-day ceiling windows now resolve actual local midnights from the configured IANA timezone, including 23-hour spring-forward and 25-hour fall-back days, instead of assuming every day is 24 UTC hours. Added regression coverage for `America/New_York` daylight-saving boundaries.
+
+Validation passed: `pnpm check`; `pnpm test` (746 passed, 15 skipped); `pnpm build`; focused earnings-ceiling and Trading tests. The remaining acceptance gap is database-backed concurrency testing against a MySQL-compatible test database, which was not available in this sandbox; no production database was touched.

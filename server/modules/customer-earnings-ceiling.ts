@@ -32,11 +32,30 @@ function zonedParts(date: Date, timezone: string) {
   return { year: Number(values.year), month: Number(values.month), day: Number(values.day) };
 }
 
+function zonedDateTimeParts(date: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(date);
+  const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return { year: Number(values.year), month: Number(values.month), day: Number(values.day), hour: Number(values.hour), minute: Number(values.minute), second: Number(values.second) };
+}
+
+function localMidnightUtc(year: number, month: number, day: number, timezone: string) {
+  const targetAsUtc = Date.UTC(year, month - 1, day);
+  let guess = targetAsUtc;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const actual = zonedDateTimeParts(new Date(guess), timezone);
+    const actualAsUtc = Date.UTC(actual.year, actual.month - 1, actual.day, actual.hour, actual.minute, actual.second);
+    guess += targetAsUtc - actualAsUtc;
+  }
+  return new Date(guess);
+}
+
 export function earningsWindow(now: Date, window: CustomerEarningsCeilingWindow, timezone: string) {
   if (window === "rolling_24h") return { key: `rolling:${now.toISOString()}`, start: new Date(now.getTime() - 24 * 60 * 60 * 1000), end: now };
   const local = zonedParts(now, timezone);
-  const dayStart = new Date(Date.UTC(local.year, local.month - 1, local.day));
-  return { key: `calendar:${local.year.toString().padStart(4, "0")}-${String(local.month).padStart(2, "0")}-${String(local.day).padStart(2, "0")}:${timezone}`, start: dayStart, end: new Date(dayStart.getTime() + 24 * 60 * 60 * 1000) };
+  const dayStart = localMidnightUtc(local.year, local.month, local.day, timezone);
+  const nextLocal = new Date(Date.UTC(local.year, local.month - 1, local.day + 1));
+  const dayEnd = localMidnightUtc(nextLocal.getUTCFullYear(), nextLocal.getUTCMonth() + 1, nextLocal.getUTCDate(), timezone);
+  return { key: `calendar:${local.year.toString().padStart(4, "0")}-${String(local.month).padStart(2, "0")}-${String(local.day).padStart(2, "0")}:${timezone}`, start: dayStart, end: dayEnd };
 }
 
 export function convertMinorToReferenceMinor(amountMinor: number, sourceScale: number, sourceUsdRate: number, referenceScale: number, referenceUsdRate: number) {
