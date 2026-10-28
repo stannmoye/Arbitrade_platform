@@ -6,6 +6,9 @@ const serverSource = readFileSync(new URL("./_core/index.ts", import.meta.url), 
 const schemaSource = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
 const journalSource = readFileSync(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8");
 const migrationSource = readFileSync(new URL("../drizzle/0083_trading_opportunity_worker_indexes.sql", import.meta.url), "utf8");
+const portalMigrationSource = readFileSync(new URL("../scripts/apply-portal-migrations.mjs", import.meta.url), "utf8");
+const installerRecoverySource = readFileSync(new URL("../installer/migration-recovery-status.mjs", import.meta.url), "utf8");
+const runtimeSchemaSource = readFileSync(new URL("../scripts/ensure-worker-runtime-schema.mjs", import.meta.url), "utf8");
 
 const workerStart = databaseSource.indexOf("export async function runAutoTradeCycle(");
 const workerEnd = databaseSource.indexOf("\nexport async function createTrade(", workerStart);
@@ -43,6 +46,9 @@ describe("automatic Trading opportunity scheduler", () => {
     expect(migrationSource).toContain("CREATE INDEX IF NOT EXISTS `customer_package_subscriptions_worker_status_user_idx`");
     expect(migrationSource).toContain("(`status`, `userId`, `startsAt`)");
     expect(JSON.parse(journalSource).entries.some((entry: { tag: string }) => entry.tag === "0083_trading_opportunity_worker_indexes")).toBe(true);
+    expect(portalMigrationSource).toContain('"0083_trading_opportunity_worker_indexes.sql"');
+    expect(installerRecoverySource).toContain('"0083_trading_opportunity_worker_indexes.sql"');
+    expect(runtimeSchemaSource).toContain('drizzle/0083_trading_opportunity_worker_indexes.sql');
   });
 
   it("includes legacy due trades whose lifecycle stage is null in global reconciliation", () => {
