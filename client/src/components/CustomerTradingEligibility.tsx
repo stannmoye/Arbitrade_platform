@@ -139,6 +139,7 @@ export function CustomerTradingEligibility() {
                 <div className="trading-threshold-details">
                   <span className="trading-threshold-label">
                     {currentPackage ? "Additional amount needed" : "Minimum amount needed"}
+                    {currentPackage && <span className="sr-only">Additional qualifying amount needed</span>}
                   </span>
                   <div className="trading-threshold-value-row">
                     <strong className="trading-threshold-amount">{usdEquivalent(nextPackage.amountNeededUsdMinor)}</strong>
