@@ -12,3 +12,15 @@ UPDATE `customer_package_subscriptions`
 SET `status` = 'expired'
 WHERE `status` = 'active'
   AND (`activationKey` IS NULL OR `activationKey` NOT LIKE 'auto-tier:%');
+
+--> statement-breakpoint
+-- Remove obsolete customer activation, repeat-purchase and wallet-balance qualification settings.
+DELETE FROM `app_settings`
+WHERE `settingKey` IN (
+  'trading.packageQualification.eligibleCurrencies',
+  'trading.packageQualification.combineEligibleWallets',
+  'trading.packagePurchase.repeatAllowed',
+  'trading.packagePurchase.maxCopies',
+  'trading.packagePurchase.repeatRestriction',
+  'trading.packagePurchase.cooldownSeconds'
+);
