@@ -2927,14 +2927,49 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   });
   return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
 }
-export async function runAutoTradeCycle(){
+export async function runAutoTradeCycle(input:{batchSize?:number}={}){
   const db=await getDb();
   if(!db) throw new Error("Database is not available");
-  const customers=await db.select({id:users.id}).from(users).where(eq(users.role,"user"));
+  const requestedBatchSize=input.batchSize??100;
+  const batchSize=Number.isSafeInteger(requestedBatchSize)?Math.max(1,Math.min(250,requestedBatchSize)):100;
+  const now=new Date();
+  const cursorKey="trade.autoTradeCycle.lastUserId";
+
+  // Select only customers with a currently active, server-assigned tier. A locked
+  // durable cursor makes work bounded and round-robin across server instances;
+  // the worker never scans the full users table on every timer tick.
+  const customers=await db.transaction(async tx=>{
+    await tx.insert(appSettings).values({settingKey:cursorKey,settingValue:"0"})
+      .onDuplicateKeyUpdate({set:{settingKey:cursorKey}});
+    const cursorRow=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings)
+      .where(eq(appSettings.settingKey,cursorKey)).limit(1).for("update"))[0];
+    const rawCursor=Number(cursorRow?.settingValue??0);
+    const cursor=Number.isSafeInteger(rawCursor)&&rawCursor>=0?rawCursor:0;
+    const activeTierFilter=and(
+      eq(customerPackageSubscriptions.status,"active"),
+      sql`${customerPackageSubscriptions.activationKey} LIKE 'auto-tier:%'`,
+      lte(customerPackageSubscriptions.startsAt,now),
+      or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,now)),
+      eq(packages.enabled,true),
+      or(isNull(packages.startsAt),lte(packages.startsAt,now)),
+      or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
+    );
+    const selectAfter=(afterUserId:number)=>tx.selectDistinct({id:customerPackageSubscriptions.userId})
+      .from(customerPackageSubscriptions)
+      .innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
+      .where(and(activeTierFilter,gt(customerPackageSubscriptions.userId,afterUserId)))
+      .orderBy(customerPackageSubscriptions.userId)
+      .limit(batchSize);
+    let batch=await selectAfter(cursor);
+    if(!batch.length&&cursor>0) batch=await selectAfter(0);
+    const nextCursor=batch.length?Number(batch[batch.length-1].id):0;
+    await tx.update(appSettings).set({settingValue:String(nextCursor)}).where(eq(appSettings.settingKey,cursorKey));
+    return batch;
+  });
+
   let allocations=0;
   for(const customer of customers){
     try{
-      await ensureAutomaticTradingTierEntitlements(customer.id);
       const result=await listCustomerOpportunities(customer.id,{workerCycle:true,consumeDelivery:false});
       allocations+=result.autoTrades.length;
       for(const trade of result.autoTrades){
@@ -2949,7 +2984,7 @@ export async function runAutoTradeCycle(){
       console.error(`[AutoTrade] Customer ${customer.id} cycle failed:`,error instanceof Error?error.message:error);
     }
   }
-  return {customers:customers.length,allocations};
+  return {customers:customers.length,allocations,batchSize,hasMore:customers.length===batchSize};
 }
 export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number;packageId?:number}){
  const db=await getDb();if(!db)throw new Error("Database is not available");
