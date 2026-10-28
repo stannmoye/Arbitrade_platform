@@ -16,8 +16,7 @@ import { trpc } from "@/lib/trpc";
 import "./CustomerTradingEligibility.css";
 
 const usdEquivalent = (minor: number) => new Intl.NumberFormat(undefined, {
-  style: "currency",
-  currency: "USD",
+  minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 }).format(minor / 100);
 
@@ -118,9 +117,9 @@ export function CustomerTradingEligibility() {
                 <span className="trading-threshold-label">
                   {currentPackage ? "Additional qualifying amount needed" : "Minimum qualifying amount"}
                 </span>
-                <strong className="trading-threshold-amount">{usdEquivalent(nextPackage.amountNeededUsdMinor)}</strong>
+                <div className="trading-threshold-value-row"><strong className="trading-threshold-amount">{usdEquivalent(nextPackage.amountNeededUsdMinor)}</strong><span className="trading-threshold-unit">USD equivalent</span></div>
                 <p className="trading-threshold-context">
-                  USD equivalent across qualifying ledger-wallet credits. The value is recorded when an administrator makes the qualifying credit; this is not a fee or a trade amount.
+                  Supported ledger-wallet credits are valued in USD when an administrator records a qualifying credit. This is a qualification threshold, not a fee or a trade amount; the native wallet amount depends on the wallet type and credit-time rate.
                 </p>
                 <div className="trading-progress-block">
                   <div className="trading-progress-copy">
