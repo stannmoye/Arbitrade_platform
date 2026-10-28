@@ -2062,6 +2062,14 @@ export async function adjustCustomerBalance(adminId:number,input:{
     if(balance) await tx.update(customerBalances).set({availableMinor:next,promotionalMinor:input.mode==="credit"?balance.promotionalMinor+input.amountMinor:balance.promotionalMinor}).where(eq(customerBalances.id,balance.id));
     else await tx.insert(customerBalances).values({userId:input.userId,currency:currency.code,availableMinor:input.amountMinor,promotionalMinor:input.mode==="credit"?input.amountMinor:0,earnedMinor:0});
 
+    if(qualifyingDepositUsdMinor!==null&&creditTimeRate){
+      await tx.insert(fxRateSnapshots).values({
+        baseAsset:currency.code,quoteAsset:"USD",rate:String(creditTimeRate.rate),
+        provider:creditTimeRate.provider,sourceDate:creditTimeRate.sourceDate,
+        rawJson:JSON.stringify({currency:currency.code,usdRate:creditTimeRate.rate,provider:creditTimeRate.provider,
+          sourceDate:creditTimeRate.sourceDate,fetchedAt:creditTimeRate.fetchedAt.toISOString(),ledgerReference}),
+      });
+    }
     const entryType=qualifyingDepositReversalOfId!==null?"admin_manual_deposit_reversal":qualifyingDepositUsdMinor!==null?"admin_manual_deposit_credit":`admin_${input.mode}`;
     const inserted=await tx.insert(balanceLedger).values({
       userId:input.userId,currency:currency.code,amountMinor:input.mode==="credit"?input.amountMinor:-input.amountMinor,
