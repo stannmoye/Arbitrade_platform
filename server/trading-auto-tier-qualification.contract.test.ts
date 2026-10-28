@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const databaseSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+const qualificationWorkerStart = databaseSource.indexOf("export async function runTradingTierQualificationWorkerCycle(");
+const qualificationWorkerEnd = databaseSource.indexOf("\nexport async function getCustomerTradingEligibility(", qualificationWorkerStart);
+const qualificationWorkerSource = databaseSource.slice(qualificationWorkerStart, qualificationWorkerEnd);
 const marketProvidersSource = readFileSync(new URL("./marketProviders.ts", import.meta.url), "utf8");
 const routerSource = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const schemaSource = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
@@ -132,7 +135,9 @@ describe("Automatic Trading tier qualification", () => {
 
   it("reconciles tier assignments from the worker and strips tier metadata from customer responses", () => {
     expect(databaseSource).toContain("export async function ensureAutomaticTradingTierEntitlements");
-    expect(databaseSource).toContain("await ensureAutomaticTradingTierEntitlements(customer.id)");
+    expect(qualificationWorkerStart).toBeGreaterThanOrEqual(0);
+    expect(qualificationWorkerEnd).toBeGreaterThan(qualificationWorkerStart);
+    expect(qualificationWorkerSource).toContain("await ensureAutomaticTradingTierEntitlements(Number(job.userId))");
     expect(databaseSource).toContain('.filter(subscription=>String(subscription.activationKey||"").startsWith("auto-tier:"))');
     expect(routerSource).toContain("delivery:safeObject(result.delivery)");
     expect(routerSource).toContain("delete safe.packageSubscriptionId");
