@@ -18,7 +18,7 @@ describe("production startup diagnostics contract", () => {
     expect(launcher).toContain('"phase-start"');
     expect(launcher).toContain('"phase-failed"');
     expect(launcher).toContain('"startup-aborted"');
-    expect(launcher).toContain('"stack"');
+    expect(launcher).toContain("stack:");
     expect(launcher).toContain('[database-url-redacted]');
     expect(launcher).toContain('"--unhandled-rejections=strict"');
   });
@@ -30,6 +30,6 @@ describe("production startup diagnostics contract", () => {
     expect(server).toContain('"http-listener-starting"');
     expect(server).toContain('"http-listener-ready"');
     expect(server).toContain('"application-bootstrap-failed"');
-    expect(server).toContain('"stack"');
+    expect(server).toContain("stack:");
   });
 });
