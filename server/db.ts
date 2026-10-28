@@ -1957,89 +1957,150 @@ export async function deleteAdminCustomer(_userId: number): Promise<never> {
     "Direct customer deletion is disabled. Use the customer's account-closure request and the explicit administrator decision workflow.",
   );
 }
-export async function adjustCustomerBalance(adminId:number,input:{userId:number;currency:string;amountMinor:number;mode:"credit"|"debit";creditClassification?:"qualifying_deposit"|"non_qualifying_credit";reason:string}){const db=await getDb();if(!db)throw new Error("Database is not available");if(!Number.isSafeInteger(input.amountMinor)||input.amountMinor<=0)throw new Error("Amount must be a positive safe integer in minor units");const ledgerReference=`admin-${adminId}-${input.userId}-${crypto.randomUUID()}`;const result=await db.transaction(async tx=>{const user=(await tx.select({id:users.id,role:users.role,loginMethod:users.loginMethod}).from(users).where(input.userId===adminId?eq(users.id,input.userId):and(eq(users.id,input.userId),eq(users.role,"user"))).limit(1).for("update"))[0];if(!user)throw new Error("Customer account not found");if(user.role==="user"&&user.loginMethod==="closed")throw new Error("Cannot adjust the wallet of a closed customer account");if(user.role==="admin"&&user.id!==adminId)throw new Error("Administrators may adjust only their own wallet");const currency=(await tx.select().from(currencyRegistry).where(and(eq(currencyRegistry.code,input.currency.toUpperCase()),eq(currencyRegistry.enabled,true))).limit(1))[0];if(!currency)throw new Error(`Currency ${input.currency} is not enabled. Add it in Currency registry first.`);const balance=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,input.userId),eq(customerBalances.currency,currency.code))).limit(1).for("update"))[0];const current=balance?.availableMinor??0;if(!Number.isSafeInteger(current)||current<0)throw new Error("Wallet available balance is invalid; reconcile the wallet before adjusting it");const next=input.mode==="credit"?current+input.amountMinor:current-input.amountMinor;if(!Number.isSafeInteger(next))throw new Error("Wallet adjustment exceeds the safe integer range");if(next<0)throw new Error("Debit exceeds available wallet balance");if(balance&&input.mode==="credit"&&(!Number.isSafeInteger(balance.promotionalMinor)||balance.promotionalMinor<0||!Number.isSafeInteger(balance.promotionalMinor+input.amountMinor)))throw new Error("Wallet promotional balance is invalid or exceeds the safe integer range");if(balance)await tx.update(customerBalances).set({availableMinor:next,promotionalMinor:input.mode==="credit"?balance.promotionalMinor+input.amountMinor:balance.promotionalMinor}).where(eq(customerBalances.id,balance.id));else await tx.insert(customerBalances).values({userId:input.userId,currency:currency.code,availableMinor:input.amountMinor,promotionalMinor:input.mode==="credit"?input.amountMinor:0,earnedMinor:0});let qualifyingDepositUsdMinor:number|null=null;
-let qualifyingDepositRate:string|null=null;
-let qualifyingDepositRateProvider:string|null=null;
-let qualifyingDepositRateAt:Date|null=null;
-if(input.mode==="credit"&&input.creditClassification==="qualifying_deposit"&&user.role==="user"){
-  const currencyCode=String(currency.code).toUpperCase();
-  let rate=Number(currency.usdRate);
-  let provider=String(currency.rateProvider||"");
-  let rateAt=currency.updatedAt?new Date(currency.updatedAt):null;
-  if(currencyCode==="USD"||currencyCode==="USDT"){
-    rate=1;
-    provider=currencyCode==="USDT"?"product-rule:USDT-nominal-1-to-1":"product-rule:USD-1-to-1";
-    rateAt=new Date();
-  }else if(currencyCode==="BTC"||currencyCode==="ETH"){
-    const liveSnapshot=(await tx.select().from(fxRateSnapshots).where(and(
-      eq(fxRateSnapshots.baseAsset,currencyCode),
-      eq(fxRateSnapshots.quoteAsset,"USD"),
-      eq(fxRateSnapshots.provider,"coingecko"),
-    )).orderBy(desc(fxRateSnapshots.observedAt)).limit(1).for("update"))[0];
-    if(!liveSnapshot||Date.now()-new Date(liveSnapshot.observedAt).getTime()>5*60*1000||new Date(liveSnapshot.observedAt).getTime()>Date.now()+60_000){
-      throw new Error("A current verified BTC/ETH-to-USD rate is required before this qualifying deposit can be credited.");
-    }
-    rate=Number(liveSnapshot.rate);
-    provider=liveSnapshot.provider;
-    rateAt=new Date(liveSnapshot.observedAt);
-  }
-  if(!Number.isFinite(rate)||rate<=0||!rateAt||rateAt.getTime()>Date.now()+60_000){
-    throw new Error("A valid, timestamped currency-to-USD rate is required before this qualifying deposit can be credited.");
-  }
-  const usdValue=nativeMinorToUsd(input.amountMinor,Number(currency.scale),rate);
-  const usdMinor=Math.round(usdValue*100);
-  if(!Number.isSafeInteger(usdMinor)||usdMinor<=0) throw new Error("Qualifying deposit USD value is invalid or below the supported precision.");
-  qualifyingDepositUsdMinor=usdMinor;
-  qualifyingDepositRate=String(rate);
-  qualifyingDepositRateProvider=provider;
-  qualifyingDepositRateAt=rateAt;
-}
-await tx.insert(balanceLedger).values({
-  userId:input.userId,currency:currency.code,
-  amountMinor:input.mode==="credit"?input.amountMinor:-input.amountMinor,
-  qualifyingDepositUsdMinor,
-  qualifyingDepositRate,
-  qualifyingDepositRateProvider,
-  qualifyingDepositRateAt,
-  entryType:qualifyingDepositUsdMinor!==null?"admin_manual_deposit_credit":`admin_${input.mode}`,
-  reference:ledgerReference,withdrawable:false
-});
-if(qualifyingDepositUsdMinor!==null){
-  const creditedRows=await tx.select({amount:balanceLedger.qualifyingDepositUsdMinor})
-    .from(balanceLedger).where(and(eq(balanceLedger.userId,input.userId),eq(balanceLedger.entryType,"admin_manual_deposit_credit"),isNotNull(balanceLedger.qualifyingDepositUsdMinor)));
-  const qualifyingTotal=creditedRows.reduce((sum,row)=>sum+Number(row.amount||0),0);
-  if(!Number.isSafeInteger(qualifyingTotal)||qualifyingTotal<=0) throw new Error("Cumulative qualifying deposit total is invalid.");
-  const now=new Date();
-  const eligibleTiers=await tx.select().from(packages).where(and(
-    eq(packages.enabled,true),
-    or(isNull(packages.startsAt),lte(packages.startsAt,now)),
-    or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
-  )).orderBy(packages.minimumQualifyingBalanceUsdMinor,packages.id).for("update");
-  const currentEntitlements=await tx.select().from(customerPackageSubscriptions)
-    .where(eq(customerPackageSubscriptions.userId,input.userId)).for("update");
-  for(const tier of eligibleTiers){
-    if(qualifyingTotal<Number(tier.minimumQualifyingBalanceUsdMinor)) continue;
-    const active=currentEntitlements.some(row=>Number(row.packageId)===Number(tier.id)&&row.status==="active"&&(!row.expiresAt||new Date(row.expiresAt)>now));
-    if(active) continue;
-    const expiresAt=addCalendarMonths(now,Number(tier.durationMonths));
-    const activationKey=`auto-tier:${input.userId}:${tier.id}:${now.getTime()}`;
-    const snapshot={id:Number(tier.id),name:tier.name,minimumQualifyingBalanceUsdMinor:Number(tier.minimumQualifyingBalanceUsdMinor),durationMonths:Number(tier.durationMonths),opportunitiesPerDay:Number(tier.opportunitiesPerDay),termsVersion:Number(tier.termsVersion),qualificationSource:"cumulative_authorized_admin_manual_deposit_credits",qualifyingDepositUsdMinor:qualifyingTotal};
-    const inserted=await tx.insert(customerPackageSubscriptions).values({
-      userId:input.userId,packageId:Number(tier.id),startsAt:now,expiresAt,status:"active",
-      activationKey,termsSnapshotJson:JSON.stringify(snapshot),qualifyingBalanceUsdMinor:qualifyingTotal,
-      packageTermsVersion:Number(tier.termsVersion),activatedAt:now,createdAt:now,
-    });
-    const subscriptionId=Number(inserted[0].insertId);
-    await tx.insert(v5AuditEvents).values({
-      actorUserId:adminId,action:"trading_tier_auto_qualified",entityType:"customer_package_subscription",entityId:String(subscriptionId),
-      reason:"Customer tier was assigned automatically from cumulative qualifying administrator manual deposit credits.",
-      reference:"trading-auto-tier:"+input.userId+":"+tier.id+":"+now.getTime(),
-      metadataJson:JSON.stringify({subscriptionId,userId:input.userId,packageId:Number(tier.id),qualifyingDepositUsdMinor:qualifyingTotal,thresholdUsdMinor:Number(tier.minimumQualifyingBalanceUsdMinor),dailyQuota:Number(tier.opportunitiesPerDay),termsVersion:Number(tier.termsVersion),expiresAt:expiresAt.toISOString(),rate:qualifyingDepositRate,rateProvider:qualifyingDepositRateProvider,rateAt:qualifyingDepositRateAt?.toISOString()}),
-    });
+export async function adjustCustomerBalance(adminId:number,input:{
+  userId:number;currency:string;amountMinor:number;mode:"credit"|"debit";
+  creditClassification?:"qualifying_deposit"|"non_qualifying_credit";
+  debitClassification?:"ordinary_debit"|"qualifying_deposit_reversal";
+  reversalLedgerId?:number;reason:string;
+}){
+  const db=await getDb();
+  if(!db) throw new Error("Database is not available");
+  if(!Number.isSafeInteger(input.amountMinor)||input.amountMinor<=0) throw new Error("Amount must be a positive safe integer in minor units");
+  if(input.mode==="credit"&&!input.creditClassification) throw new Error("Choose whether the manual credit is a qualifying deposit or non-qualifying credit");
+  if(input.mode==="debit"&&!input.debitClassification) throw new Error("Choose whether this debit is ordinary or reverses a qualifying deposit");
+  if(input.mode==="debit"&&input.debitClassification==="qualifying_deposit_reversal"&&!Number.isSafeInteger(input.reversalLedgerId)) throw new Error("Select the qualifying deposit being reversed");
+  const ledgerReference=`admin-${adminId}-${input.userId}-${crypto.randomUUID()}`;
+  const result=await db.transaction(async tx=>{
+    const user=(await tx.select({id:users.id,role:users.role,loginMethod:users.loginMethod}).from(users)
+      .where(input.userId===adminId?eq(users.id,input.userId):and(eq(users.id,input.userId),eq(users.role,"user")))
+      .limit(1).for("update"))[0];
+    if(!user) throw new Error("Customer account not found");
+    if(user.role==="user"&&user.loginMethod==="closed") throw new Error("Cannot adjust the wallet of a closed customer account");
+    if(user.role==="admin"&&user.id!==adminId) throw new Error("Administrators may adjust only their own wallet");
+    const currency=(await tx.select().from(currencyRegistry).where(and(eq(currencyRegistry.code,input.currency.toUpperCase()),eq(currencyRegistry.enabled,true))).limit(1))[0];
+    if(!currency) throw new Error(`Currency ${input.currency} is not enabled. Add it in Currency registry first.`);
 
+    let qualifyingDepositUsdMinor:number|null=null;
+    let qualifyingDepositRate:string|null=null;
+    let qualifyingDepositRateProvider:string|null=null;
+    let qualifyingDepositRateAt:Date|null=null;
+    let qualifyingDepositReversalOfId:number|null=null;
+
+    if(input.mode==="credit"&&input.creditClassification==="qualifying_deposit"&&user.role==="user"){
+      const currencyCode=String(currency.code).toUpperCase();
+      let rate=Number(currency.usdRate);
+      let provider=String(currency.rateProvider||"");
+      let rateAt=currency.updatedAt?new Date(currency.updatedAt):null;
+      if(currencyCode==="USD"||currencyCode==="USDT"){
+        rate=1;
+        provider=currencyCode==="USDT"?"product-rule:USDT-nominal-1-to-1":"product-rule:USD-1-to-1";
+        rateAt=new Date();
+      }else if(currencyCode==="BTC"||currencyCode==="ETH"){
+        const liveSnapshot=(await tx.select().from(fxRateSnapshots).where(and(
+          eq(fxRateSnapshots.baseAsset,currencyCode),eq(fxRateSnapshots.quoteAsset,"USD"),eq(fxRateSnapshots.provider,"coingecko"),
+        )).orderBy(desc(fxRateSnapshots.observedAt)).limit(1).for("update"))[0];
+        if(!liveSnapshot||Date.now()-new Date(liveSnapshot.observedAt).getTime()>5*60*1000||new Date(liveSnapshot.observedAt).getTime()>Date.now()+60_000){
+          throw new Error("A current verified BTC/ETH-to-USD rate is required before this qualifying deposit can be credited.");
+        }
+        rate=Number(liveSnapshot.rate);
+        provider=liveSnapshot.provider;
+        rateAt=new Date(liveSnapshot.observedAt);
+      }
+      if(!Number.isFinite(rate)||rate<=0||!rateAt||rateAt.getTime()>Date.now()+60_000){
+        throw new Error("A valid, timestamped currency-to-USD rate is required before this qualifying deposit can be credited.");
+      }
+      const usdValue=nativeMinorToUsd(input.amountMinor,Number(currency.scale),rate);
+      const usdMinor=Math.round(usdValue*100);
+      if(!Number.isSafeInteger(usdMinor)||usdMinor<=0) throw new Error("Qualifying deposit USD value is invalid or below the supported precision.");
+      qualifyingDepositUsdMinor=usdMinor;
+      qualifyingDepositRate=String(rate);
+      qualifyingDepositRateProvider=provider;
+      qualifyingDepositRateAt=rateAt;
+    }
+
+    if(input.mode==="debit"&&input.debitClassification==="qualifying_deposit_reversal"){
+      if(user.role!=="user") throw new Error("Only a customer qualifying deposit can be reversed");
+      const original=(await tx.select().from(balanceLedger).where(and(
+        eq(balanceLedger.id,Number(input.reversalLedgerId)),
+        eq(balanceLedger.userId,input.userId),
+        eq(balanceLedger.currency,currency.code),
+        eq(balanceLedger.entryType,"admin_manual_deposit_credit"),
+        isNotNull(balanceLedger.qualifyingDepositUsdMinor),
+      )).limit(1).for("update"))[0];
+      if(!original) throw new Error("The selected qualifying deposit was not found for this customer and currency");
+      const priorReversals=await tx.select({
+        amountMinor:balanceLedger.amountMinor,
+        qualifyingDepositUsdMinor:balanceLedger.qualifyingDepositUsdMinor,
+      }).from(balanceLedger).where(eq(balanceLedger.qualifyingDepositReversalOfId,original.id)).for("update");
+      const reversedNative=priorReversals.reduce((sum,row)=>sum+Math.abs(Number(row.amountMinor)),0);
+      const reversedUsd=priorReversals.reduce((sum,row)=>sum+Math.abs(Number(row.qualifyingDepositUsdMinor||0)),0);
+      const remainingNative=Number(original.amountMinor)-reversedNative;
+      const originalUsd=Number(original.qualifyingDepositUsdMinor);
+      const remainingUsd=originalUsd-reversedUsd;
+      if(!Number.isSafeInteger(remainingNative)||remainingNative<=0||input.amountMinor>remainingNative){
+        throw new Error("The reversal exceeds the unreversed amount of the selected qualifying deposit");
+      }
+      if(!Number.isSafeInteger(remainingUsd)||remainingUsd<0) throw new Error("The qualifying deposit reversal history is inconsistent");
+      const reversalUsd=input.amountMinor===remainingNative?remainingUsd:Math.min(remainingUsd,Math.round(originalUsd*input.amountMinor/Number(original.amountMinor)));
+      if(!Number.isSafeInteger(reversalUsd)||reversalUsd<0) throw new Error("The qualifying deposit reversal value is invalid");
+      qualifyingDepositUsdMinor=-reversalUsd;
+      qualifyingDepositRate=original.qualifyingDepositRate;
+      qualifyingDepositRateProvider=original.qualifyingDepositRateProvider;
+      qualifyingDepositRateAt=original.qualifyingDepositRateAt?new Date(original.qualifyingDepositRateAt):null;
+      qualifyingDepositReversalOfId=Number(original.id);
+    }
+
+    const balance=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,input.userId),eq(customerBalances.currency,currency.code))).limit(1).for("update"))[0];
+    const current=balance?.availableMinor??0;
+    if(!Number.isSafeInteger(current)||current<0) throw new Error("Wallet available balance is invalid; reconcile the wallet before adjusting it");
+    const next=input.mode==="credit"?current+input.amountMinor:current-input.amountMinor;
+    if(!Number.isSafeInteger(next)) throw new Error("Wallet adjustment exceeds the safe integer range");
+    if(next<0) throw new Error("Debit exceeds available wallet balance");
+    if(balance&&input.mode==="credit"&&(!Number.isSafeInteger(balance.promotionalMinor)||balance.promotionalMinor<0||!Number.isSafeInteger(balance.promotionalMinor+input.amountMinor))) throw new Error("Wallet promotional balance is invalid or exceeds the safe integer range");
+    if(balance) await tx.update(customerBalances).set({availableMinor:next,promotionalMinor:input.mode==="credit"?balance.promotionalMinor+input.amountMinor:balance.promotionalMinor}).where(eq(customerBalances.id,balance.id));
+    else await tx.insert(customerBalances).values({userId:input.userId,currency:currency.code,availableMinor:input.amountMinor,promotionalMinor:input.mode==="credit"?input.amountMinor:0,earnedMinor:0});
+
+    const entryType=qualifyingDepositReversalOfId!==null?"admin_manual_deposit_reversal":qualifyingDepositUsdMinor!==null?"admin_manual_deposit_credit":`admin_${input.mode}`;
+    const inserted=await tx.insert(balanceLedger).values({
+      userId:input.userId,currency:currency.code,amountMinor:input.mode==="credit"?input.amountMinor:-input.amountMinor,
+      qualifyingDepositUsdMinor,qualifyingDepositRate,qualifyingDepositRateProvider,qualifyingDepositRateAt,
+      qualifyingDepositReversalOfId,entryType,reference:ledgerReference,withdrawable:false,
+    });
+    const ledgerId=Number(inserted[0].insertId);
+    if(entryType==="admin_manual_deposit_credit"||entryType==="admin_manual_deposit_reversal"){
+      await tx.insert(v5AuditEvents).values({
+        actorUserId:adminId,
+        action:entryType==="admin_manual_deposit_credit"?"trading_qualifying_deposit_credited":"trading_qualifying_deposit_reversed",
+        entityType:"balance_ledger",entityId:String(ledgerId),reason:input.reason,reference:ledgerReference,
+        metadataJson:JSON.stringify({ledgerId,userId:input.userId,currency:currency.code,amountMinor:input.amountMinor,entryType,qualifyingDepositUsdMinor,qualifyingDepositReversalOfId,rate:qualifyingDepositRate,rateProvider:qualifyingDepositRateProvider,rateAt:qualifyingDepositRateAt?.toISOString()}),
+      });
+    }
+    return {
+      success:true,newAvailableMinor:next,currency:currency.code,amountMinor:input.amountMinor,ledgerReference,ledgerId,entryType,
+      qualifyingDepositUsdMinor,qualifyingDepositReversalOfId,
+      rateUsd:Number(currency.usdRate),rateUpdatedAt:currency.updatedAt,
+      amountUsd:nativeMinorToUsd(input.amountMinor,Number(currency.scale),Number(currency.usdRate)),
+    };
+  });
+
+  if(result.entryType==="admin_manual_deposit_credit"||result.entryType==="admin_manual_deposit_reversal"){
+    try{await ensureAutomaticTradingTierEntitlements(input.userId);}
+    catch(error){console.error("[Trading] Automatic tier reconciliation deferred to scheduled worker:",error instanceof Error?error.message:"UnknownError");}
   }
+  try {
+    await createNotification(input.userId,`Wallet ${input.mode==="credit"?"credited":"debited"}`,`An administrator ${input.mode}ed ${input.amountMinor} native ledger units to your ${input.currency.toUpperCase()} wallet. Reason: ${input.reason}`,{eventKey:`wallet-adjustment:${result.ledgerReference}`,category:input.mode==="credit"?"ledger_credit":"ledger_debit",priority:"normal"});
+  } catch(error) {
+    console.error("[Notifications] Wallet adjustment notice failed after ledger commit:",error instanceof Error?error.name:"UnknownError");
+  }
+  try {
+    const { enqueueWalletAdjustmentEmail } = await import("./emailQueue");
+    await enqueueWalletAdjustmentEmail(input.userId,input.mode,input.amountMinor,input.currency,`admin-ledger:${adminId}:${input.userId}:${Date.now()}`);
+  } catch(error) {
+    console.error("[Email] Wallet alert enqueue failed:",error instanceof Error?error.name:"UnknownError");
+  }
+  return result;
 }
-return {success:true,newAvailableMinor:next,currency:currency.code,amountMinor:input.amountMinor,ledgerReference,rateUsd:Number(currency.usdRate),rateUpdatedAt:currency.updatedAt,amountUsd:nativeMinorToUsd(input.amountMinor,Number(currency.scale),Number(currency.usdRate))};}); try { await createNotification(input.userId,`Wallet ${input.mode==="credit"?"credited":"debited"}`,`An administrator ${input.mode}ed ${input.amountMinor} native ledger units to your ${input.currency.toUpperCase()} wallet. Reason: ${input.reason}`,{eventKey:`wallet-adjustment:${result.ledgerReference}`,category:input.mode==="credit"?"ledger_credit":"ledger_debit",priority:"normal"}); } catch(error) { console.error("[Notifications] Wallet adjustment notice failed after ledger commit:",error instanceof Error?error.name:"UnknownError"); } try { const { enqueueWalletAdjustmentEmail } = await import("./emailQueue"); await enqueueWalletAdjustmentEmail(input.userId,input.mode,input.amountMinor,input.currency,`admin-ledger:${adminId}:${input.userId}:${Date.now()}`); } catch(error) { console.error("[Email] Wallet alert enqueue failed:",error instanceof Error?error.name:"UnknownError"); } return result; }
+
 export async function listOpenOffers(){const db=await getDb();if(!db)throw new Error("Database is not available");const now=new Date();return db.select().from(opportunityOffers).where(and(eq(opportunityOffers.status,"open"),lte(opportunityOffers.opensAt,now),gt(opportunityOffers.closesAt,now))).orderBy(opportunityOffers.closesAt);}
 /**
  * Use only values explicitly published on the opportunity. These are estimates
