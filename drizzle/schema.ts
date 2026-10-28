@@ -374,6 +374,11 @@ export const balanceLedger = mysqlTable("balance_ledger", {
   userId: int("userId").notNull(),
   currency: varchar("currency", { length: 12 }).notNull(),
   amountMinor: bigint("amountMinor", { mode: "number" }).notNull(),
+  /** Positive, evidence-backed USD-minor snapshot for an authorized admin-entered qualifying deposit; null for all other ledger entries. */
+  qualifyingDepositUsdMinor: bigint("qualifyingDepositUsdMinor", { mode: "number" }),
+  qualifyingDepositRate: varchar("qualifyingDepositRate", { length: 64 }),
+  qualifyingDepositRateProvider: varchar("qualifyingDepositRateProvider", { length: 120 }),
+  qualifyingDepositRateAt: timestamp("qualifyingDepositRateAt"),
   entryType: varchar("entryType", { length: 40 }).notNull(),
   reference: varchar("reference", { length: 80 }).notNull(),
   withdrawable: boolean("withdrawable").default(false).notNull(),
