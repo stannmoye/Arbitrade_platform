@@ -67,7 +67,9 @@ describe("Automatic Trading tier qualification", () => {
     expect(marketProvidersSource).toContain("api.frankfurter.dev/v2/rates?base=USD&quotes=");
     expect(marketProvidersSource).toContain('provider: "frankfurter-ecb"');
     expect(marketProvidersSource).toContain("4 * 24 * 60 * 60 * 1000");
-    expect(marketProvidersSource).toContain("A current Frankfurter/ECB rate");
+    expect(marketProvidersSource).toContain("No fresh supported fiat-to-USD API rate is available");
+    expect(marketProvidersSource).toContain("open.er-api.com/v6/latest/USD");
+    expect(marketProvidersSource).toContain('provider: "open-er-api"');
   });
 
   it("supports registered crypto/token wallets through a timestamp-validated CoinGecko API rate", () => {
