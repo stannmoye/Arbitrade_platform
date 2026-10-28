@@ -2308,22 +2308,36 @@ export async function ensureAutomaticTradingTierEntitlements(userId:number) {
       const tierHistory=history.filter(row=>Number(row.packageId)===Number(tier.id)&&String(row.activationKey||"").startsWith("auto-tier:"));
       const activeRows=tierHistory.filter(row=>row.status==="active"&&(!row.expiresAt||new Date(row.expiresAt)>now));
 
-      if(qualifyingTotal<threshold){
-        for(const entitlement of activeRows){
-          await tx.update(customerPackageSubscriptions).set({status:"expired"})
-            .where(and(eq(customerPackageSubscriptions.id,entitlement.id),eq(customerPackageSubscriptions.status,"active")));
-          await tx.insert(v5AuditEvents).values({
-            actorUserId:null,action:"trading_tier_auto_disqualified",entityType:"customer_package_subscription",entityId:String(entitlement.id),
-            reason:"A qualifying deposit reversal reduced cumulative qualifying deposits below the configured tier threshold.",
-            reference:"trading-tier-revoked:"+userId+":"+tier.id+":"+now.getTime()+":"+crypto.randomUUID().slice(0,8),
-            metadataJson:JSON.stringify({userId,packageId:Number(tier.id),subscriptionId:Number(entitlement.id),qualifyingDepositUsdMinor:qualifyingTotal,thresholdUsdMinor:threshold,termsVersion:Number(tier.termsVersion),source:"scheduled_worker_reconciliation"}),
-          });
+      const belowSnapshotThreshold=activeRows.filter(entitlement=>{
+        try {
+          const snapshot=JSON.parse(String(entitlement.termsSnapshotJson||"{}"));
+          const assignedThreshold=Number(snapshot.minimumQualifyingBalanceUsdMinor??threshold);
+          return !Number.isSafeInteger(assignedThreshold)||assignedThreshold<=0||qualifyingTotal<assignedThreshold;
+        } catch {
+          return qualifyingTotal<threshold;
         }
-        continue;
+      });
+      for(const entitlement of belowSnapshotThreshold){
+        let assignedThreshold=threshold;
+        try {
+          const snapshot=JSON.parse(String(entitlement.termsSnapshotJson||"{}"));
+          assignedThreshold=Number(snapshot.minimumQualifyingBalanceUsdMinor??threshold);
+        } catch {}
+        await tx.update(customerPackageSubscriptions).set({status:"expired"})
+          .where(and(eq(customerPackageSubscriptions.id,entitlement.id),eq(customerPackageSubscriptions.status,"active")));
+        await tx.insert(v5AuditEvents).values({
+          actorUserId:null,action:"trading_tier_auto_disqualified",entityType:"customer_package_subscription",entityId:String(entitlement.id),
+          reason:"A qualifying deposit reversal reduced cumulative qualifying deposits below the threshold recorded in this entitlement's terms snapshot.",
+          reference:"trading-tier-revoked:"+userId+":"+tier.id+":"+now.getTime()+":"+crypto.randomUUID().slice(0,8),
+          metadataJson:JSON.stringify({userId,packageId:Number(tier.id),subscriptionId:Number(entitlement.id),qualifyingDepositUsdMinor:qualifyingTotal,thresholdUsdMinor:assignedThreshold,configuredThresholdUsdMinor:threshold,termsVersion:Number(tier.termsVersion),source:"scheduled_worker_reconciliation"}),
+        });
       }
+      const stillActive=activeRows.length>belowSnapshotThreshold.length;
+      if(stillActive) continue;
+      if(qualifyingTotal<threshold) continue;
 
       const tierAvailable=Boolean(tier.enabled)&&(!tier.startsAt||new Date(tier.startsAt)<=now)&&(!tier.expiresAt||new Date(tier.expiresAt)>now);
-      if(!tierAvailable||activeRows.length>0) continue;
+      if(!tierAvailable) continue;
       const latest=tierHistory[0];
       // Do not silently renew an expired entitlement every worker tick. A new
       // qualifying credit or a new administrator terms version can re-assign it.
@@ -2355,6 +2369,7 @@ export async function getCustomerTradingEligibility(userId:number) {
   const now=new Date();
   const rows=await db.select({
     activationKey:customerPackageSubscriptions.activationKey,
+    termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson,
     dailyQuota:packages.opportunitiesPerDay,
   }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
     .where(and(
@@ -2367,7 +2382,16 @@ export async function getCustomerTradingEligibility(userId:number) {
       or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
     ));
   const eligibleRows=rows.filter(row=>String(row.activationKey||"").startsWith("auto-tier:"));
-  const dailyOpportunityAllowance=eligibleRows.reduce((total,row)=>total+Number(row.dailyQuota||0),0);
+  const dailyOpportunityAllowance=eligibleRows.reduce((total,row)=>{
+    try {
+      const snapshot=JSON.parse(String(row.termsSnapshotJson||"{}"));
+      const quota=Number(snapshot.opportunitiesPerDay??row.dailyQuota);
+      return total+(Number.isSafeInteger(quota)&&quota>=0?quota:0);
+    } catch {
+      const quota=Number(row.dailyQuota||0);
+      return total+(Number.isSafeInteger(quota)&&quota>=0?quota:0);
+    }
+  },0);
   if(!Number.isSafeInteger(dailyOpportunityAllowance)||dailyOpportunityAllowance<0) throw new Error("Trading eligibility quota is invalid.");
   return {
     eligible:eligibleRows.length>0,
