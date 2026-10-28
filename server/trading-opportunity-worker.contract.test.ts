@@ -14,7 +14,7 @@ const cycleStart = serverSource.indexOf("let tradeCycleRunning = false;");
 const cycleEnd = serverSource.indexOf("const autoTradeTimer", cycleStart);
 const cycleSource = serverSource.slice(cycleStart, cycleEnd);
 const reconciliationStart = databaseSource.indexOf("export async function reconcileAllDueTradesAwaitingConfirmation(");
-const reconciliationEnd = databaseSource.indexOf("\\nexport async function listPendingSettlements(", reconciliationStart);
+const reconciliationEnd = databaseSource.indexOf("\nexport async function listPendingSettlements(", reconciliationStart);
 const reconciliationSource = databaseSource.slice(reconciliationStart, reconciliationEnd);
 
 describe("automatic Trading opportunity scheduler", () => {
