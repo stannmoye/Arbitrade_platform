@@ -76,6 +76,8 @@ Suggested insufficient-balance card fields:
 
 Server-side worker must operate independently of customer sessions and recover safely after restarts. Use explicit statuses such as Scheduled, Presented, Insufficient Balance, Pending, Retrying, Successful, Failed, Carried Forward, and Settled. Use database transactions and idempotency keys so the same opportunity cannot allocate or settle twice.
 
+The opportunity scheduler must use bounded, round-robin batches of customers with currently active, automatically assigned tier entitlements; it must not scan the entire customer table on every timer tick. Persist and lock the batch cursor so multiple server instances advance the work queue rather than repeatedly processing the same first page. Index the entitlement lookup, cap each batch, and guard each process against overlapping cycles. Settlement reconciliation must remain independently recoverable and must never treat elapsed time alone as proof of a realized trade result or permission to credit a wallet.
+
 Admin may pause new allocations or a faulty integration for safety; this is not a customer trading toggle. The global pause must be persisted in the application database, enforced inside the trade-allocation transaction, fail closed if its safety setting is missing or malformed, and record the administrator, timestamp, old/new values, and reason in the audit log. Pausing new allocations must not delete pending work or block required settlement/reconciliation. Do not add customer-facing Trading On/Off, Opportunity On/Off, or Auto Trade On/Off controls.
 
 A countdown is a display of expected timing, not proof of execution. Only confirmed execution/settlement may trigger final success status and wallet credit.

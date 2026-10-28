@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { eq, inArray } from "drizzle-orm";
-import { adjustCustomerBalance, getDb, runTradingTierQualificationWorkerCycle } from "../server/db";
+import { and, eq, inArray } from "drizzle-orm";
+import { adjustCustomerBalance, claimAutoTradeCycleCustomers, getDb, runTradingTierQualificationWorkerCycle } from "../server/db";
 import {
+  appSettings,
   balanceLedger,
   customerBalances,
   currencyRegistry,
@@ -276,6 +277,35 @@ try {
   assert.equal(activeQuota, 10, "Active qualifying tier quotas must accumulate to 6 + 4 = 10 per day.");
   assert.ok(!active.some((row) => Number(row.packageId) === tierIds[2]), "The USD 500 tier must remain unassigned.");
 
+  // Normalize fixture start times into the past because MySQL TIMESTAMP columns
+  // use second precision; the worker must not see a freshly inserted entitlement
+  // as not-yet-started due only to fractional-second rounding.
+  await db.update(customerPackageSubscriptions).set({
+    startsAt: new Date(Date.now() - 60_000),
+  }).where(and(
+    inArray(customerPackageSubscriptions.userId, [userId, creditPathUserId]),
+    eq(customerPackageSubscriptions.status, "active"),
+  ));
+
+  // Exercise the actual scheduler SQL against the migrated disposable MySQL
+  // schema without executing trades or touching wallet balances.
+  const firstOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
+  const secondOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
+  const endOfPassBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
+  const wrappedOpportunityBatch = await claimAutoTradeCycleCustomers({ batchSize: 1 });
+  assert.equal(firstOpportunityBatch.customers.length, 1);
+  assert.equal(secondOpportunityBatch.customers.length, 1);
+  assert.equal(endOfPassBatch.customers.length, 0, "The end-of-pass tick must not immediately re-claim the first page.");
+  assert.equal(wrappedOpportunityBatch.customers.length, 1);
+  const scheduledUserIds = [
+    Number(firstOpportunityBatch.customers[0].id),
+    Number(secondOpportunityBatch.customers[0].id),
+  ];
+  assert.notEqual(scheduledUserIds[0], scheduledUserIds[1], "The locked cursor must advance to a different eligible customer.");
+  assert.deepEqual(new Set(scheduledUserIds), new Set([userId, creditPathUserId]));
+  assert.equal(Number(wrappedOpportunityBatch.customers[0].id), scheduledUserIds[0],
+    "The next tick after cursor reset must restart at the first eligible customer.");
+
   const jobRows = await db.select().from(tradingTierQualificationJobs)
     .where(inArray(tradingTierQualificationJobs.id, createdJobIds));
   assert.ok(jobRows.length === 2 && jobRows.every((row) => row.status === "completed"));
@@ -404,9 +434,10 @@ try {
   assert.ok(allJobs.filter((row) => row.userId === userId).every((row) => ["completed", "dead"].includes(row.status)));
 
   testPassed = true;
-  console.log("Trading qualification worker integration passed: concurrent real-worker tier assignment, cumulative quotas, reversal revocation, stale-lease recovery, bounded retries, and dead-letter persistence.");
+  console.log("Trading qualification worker integration passed: concurrent tier assignment, bounded scheduler cursor rotation, cumulative quotas, reversal revocation, stale-lease recovery, retries, and dead-letter persistence.");
 } finally {
   // Keep the disposable database clean even if an assertion fails.
+  await db.delete(appSettings).where(eq(appSettings.settingKey, "trade.autoTradeCycle.lastUserId")).catch(() => {});
   if (userId) {
     await db.delete(tradingTierQualificationJobs).where(eq(tradingTierQualificationJobs.userId, userId)).catch(() => {});
     await db.delete(balanceLedger).where(eq(balanceLedger.userId, userId)).catch(() => {});

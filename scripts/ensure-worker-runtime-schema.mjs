@@ -103,6 +103,11 @@ async function main() {
     const tierQualificationMigration = await readFile(resolve(root, "drizzle/0082_trading_tier_qualification_jobs.sql"), "utf8");
     await executeCompatibleMigrationSql(db, tierQualificationMigration);
 
+    // Keep the runtime-schema bridge aligned with the journaled Trading worker
+    // index migration so direct runtime repairs and normal installs converge.
+    const tradingOpportunityWorkerMigration = await readFile(resolve(root, "drizzle/0083_trading_opportunity_worker_indexes.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, tradingOpportunityWorkerMigration);
+
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],
       ["category", "VARCHAR(40) NOT NULL DEFAULT 'account'"],
