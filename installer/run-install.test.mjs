@@ -199,11 +199,19 @@ describe("main migration preflight integration", () => {
   it("keeps failed or interrupted main migration runs blocked from blind retry", async () => {
     const source = await readFile(new URL("../scripts/guarded-main-migrate.mjs", import.meta.url), "utf8");
     expect(source).toContain('previousStatus === "failed" || previousStatus === "running"');
-    expect(source).toContain("automatic retry is blocked");
+    expect(source).toContain("Automatic retry is blocked because the previous main migration run is ");
     expect(source).toContain('SET status=\'failed\'');
   });
 });
 
+
+
+  it("uses the same JSON SSL URL handling as the application database connection", async () => {
+    const source = await readFile(new URL("../scripts/guarded-main-migrate.mjs", import.meta.url), "utf8");
+    expect(source).toContain('const sslParam = url.searchParams.get("ssl");');
+    expect(source).toContain("const parsed = JSON.parse(sslParam);");
+    expect(source).toContain('ssl = parsed === true ? {} : parsed && typeof parsed === "object" ? parsed : undefined;');
+  });
 
 describe("installer cleanup error privacy", () => {
   it("sanitizes database connection cleanup failures", async () => {
