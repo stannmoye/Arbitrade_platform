@@ -3,7 +3,7 @@ import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, not
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool } from "mysql2/promise";
 import { ENV } from "./_core/env";
-import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
+import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, tradingTierQualificationJobs, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
@@ -2091,6 +2091,13 @@ export async function adjustCustomerBalance(adminId:number,input:{
     });
     const ledgerId=Number(inserted[0].insertId);
     if(entryType==="admin_manual_deposit_credit"||entryType==="admin_manual_deposit_reversal"){
+      // Atomic outbox: the ledger entry and its tier-qualification job commit together.
+      // sourceLedgerId is unique, so a retry cannot enqueue the same ledger credit twice.
+      await tx.insert(tradingTierQualificationJobs).values({
+        userId:input.userId,sourceLedgerId:ledgerId,status:"pending",attempts:0,availableAt:new Date(),
+      });
+    }
+    if(entryType==="admin_manual_deposit_credit"||entryType==="admin_manual_deposit_reversal"){
       await tx.insert(v5AuditEvents).values({
         actorUserId:adminId,
         action:entryType==="admin_manual_deposit_credit"?"trading_qualifying_deposit_credited":"trading_qualifying_deposit_reversed",
@@ -2444,6 +2451,61 @@ export async function ensureAutomaticTradingTierEntitlements(userId:number) {
       history.unshift({id:subscriptionId,userId,packageId:Number(tier.id),startsAt:now,expiresAt,status:"active",activationKey,termsSnapshotJson:JSON.stringify(snapshot),qualifyingBalanceUsdMinor:qualifyingTotal,packageTermsVersion:Number(tier.termsVersion),activatedAt:now,createdAt:now} as typeof history[number]);
     }
   });
+}
+
+/**
+ * Process durable qualification jobs created atomically with administrator
+ * qualifying-credit/reversal ledger entries. Idle cycles perform only one
+ * indexed queue lookup; no full customer scan is required.
+ */
+export async function runTradingTierQualificationWorkerCycle(options?: { batchSize?: number }) {
+  const db=await getDb();
+  if(!db) throw new Error("Trading qualification worker database is unavailable.");
+  const batchSize=Math.max(1,Math.min(50,Math.floor(options?.batchSize??20)));
+  const now=new Date();
+  const staleLeaseBefore=new Date(now.getTime()-5*60_000);
+  const jobs=await db.transaction(async tx=>{
+    const eligible=await tx.select({
+      id:tradingTierQualificationJobs.id,
+      userId:tradingTierQualificationJobs.userId,
+      sourceLedgerId:tradingTierQualificationJobs.sourceLedgerId,
+      attempts:tradingTierQualificationJobs.attempts,
+    }).from(tradingTierQualificationJobs).where(or(
+      and(eq(tradingTierQualificationJobs.status,"pending"),lte(tradingTierQualificationJobs.availableAt,now)),
+      and(eq(tradingTierQualificationJobs.status,"processing"),lt(tradingTierQualificationJobs.lockedAt,staleLeaseBefore)),
+    )).orderBy(tradingTierQualificationJobs.id).limit(batchSize).for("update");
+    for(const job of eligible){
+      await tx.update(tradingTierQualificationJobs).set({
+        status:"processing",attempts:Number(job.attempts||0)+1,lockedAt:now,updatedAt:now,
+      }).where(eq(tradingTierQualificationJobs.id,job.id));
+    }
+    return eligible.map(job=>({...job,attempts:Number(job.attempts||0)+1}));
+  });
+  let completed=0,retrying=0,dead=0;
+  for(const job of jobs){
+    try{
+      await ensureAutomaticTradingTierEntitlements(Number(job.userId));
+      await db.update(tradingTierQualificationJobs).set({
+        status:"completed",lockedAt:null,lastError:null,updatedAt:new Date(),
+      }).where(and(eq(tradingTierQualificationJobs.id,job.id),eq(tradingTierQualificationJobs.status,"processing")));
+      completed++;
+    }catch(error){
+      const message=(error instanceof Error?error.message:"Unknown qualification worker error").slice(0,950);
+      const exhausted=job.attempts>=8;
+      const delayMs=Math.min(5*60_000,1000*2**Math.min(job.attempts,8));
+      await db.update(tradingTierQualificationJobs).set({
+        status:exhausted?"dead":"pending",
+        availableAt:new Date(Date.now()+delayMs),
+        lockedAt:null,lastError:message,updatedAt:new Date(),
+      }).where(and(eq(tradingTierQualificationJobs.id,job.id),eq(tradingTierQualificationJobs.status,"processing")));
+      if(exhausted) dead++; else retrying++;
+      console.error("[TradingTierWorker] qualification job failed",{
+        jobId:job.id,userId:job.userId,sourceLedgerId:job.sourceLedgerId,
+        attempt:job.attempts,terminal:exhausted,error:message,
+      });
+    }
+  }
+  return {claimed:jobs.length,completed,retrying,dead};
 }
 
 export async function getCustomerTradingEligibility(userId:number) {
