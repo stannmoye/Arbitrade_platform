@@ -81,7 +81,6 @@ export async function fetchCurrencyUsdRate(input: {
   }
 
   if (input.assetType === "fiat") {
-    let frankfurterFailure: unknown = null;
     try {
       const payload = await json(`https://api.frankfurter.dev/v2/rates?base=USD&quotes=${encodeURIComponent(code)}`);
       const row = Array.isArray(payload) ? payload.find((item: any) => String(item?.quote || "").toUpperCase() === code) : null;
@@ -92,9 +91,8 @@ export async function fetchCurrencyUsdRate(input: {
         sourceMs <= Date.now() + 60_000 && Date.now() - sourceMs <= 4 * 24 * 60 * 60 * 1000) {
         return { rate: String(1 / usdToNative), provider: "frankfurter-ecb", sourceDate, fetchedAt };
       }
-      frankfurterFailure = new Error(`Frankfurter/ECB returned no fresh rate for ${code}.`);
-    } catch (error) {
-      frankfurterFailure = error;
+    } catch {
+      // Try the broader fiat-code API below.
     }
 
     // Broader fiat-code fallback for currencies not covered by the ECB feed.
