@@ -202,20 +202,26 @@ Deliverable: improved wallet and transaction experience.
 Exit criteria: financial workflows pass regression tests and displayed balances/statuses match authoritative records.
 
 ### Stage 6 — Trading, Mining and Swap Experience
-**Objective:** Improve the remaining core customer operations.
+**Objective:** Improve the remaining core customer operations while enforcing the canonical automatic-deposit Trading tier policy.
+
+**Authoritative Trading tier rule:** Trading tiers are administrator-managed configuration, not customer-facing products. Customers must not browse, select, subscribe to, purchase, or activate Trading packages/tiers. The server assigns tier entitlements automatically when cumulative qualifying manual administrator wallet credits reach configured thresholds. Only positive, explicitly classified qualifying deposit credits committed to the customer ledger count; profits, rewards, returned principal, bonuses, transfers, swaps, conversions, opening/imported balances and unclassified credits do not. Qualifying USD-equivalent amounts and conversion evidence must be recorded at credit time, and stale/unverifiable rates fail closed. Active qualifying tier quotas add together. Customer UI/API shows only read-only eligibility and total daily opportunity allowance; tier configuration is admin-only.
 
 Tasks:
-- Improve trading screens, forms, status and history.
-- Improve mining dashboard, packages and reward history where those features exist.
+- Implement and verify automatic deposit-attributed tier qualification, entitlement lifecycle and cumulative quotas against `docs/TRADING_SYSTEM_SPECIFICATION.md`.
+- Keep tier catalogue, thresholds, terms, entitlement IDs and activation/management actions out of customer routes and screens.
+- Ensure administrator wallet-credit classification, conversion evidence and audited reversals are enforced server-side and covered by regression tests.
+- Improve trading screens, forms, status and history without introducing customer package browsing, selection, subscription, purchase, activation or manual tier assignment.
+- Improve mining dashboard, packages and reward history where those features exist; Mining packages are separate from Trading tiers.
 - Improve swap source/destination amounts, rate, fees, estimates and confirmed results where supported.
 - Improve processing, completion, cancellation and failure states.
 - Ensure debits and credits reflect actual ledger events.
 - Never present estimates or simulated results as verified real-world profit or withdrawable funds.
 - Apply all themes and responsive layouts.
+- Preserve forward-only migration history; retire obsolete Trading behavior through reviewed forward migrations rather than deleting historical migrations.
 
-Deliverable: improved trading, mining and swap interfaces.
+Deliverable: Trading eligibility and tier assignment follow the canonical automatic-deposit policy; improved trading, mining and swap interfaces are validated against their respective requirements.
 
-Exit criteria: interfaces reflect actual backend state and preserve existing financial rules.
+Exit criteria: interfaces reflect actual backend state, automatic tier qualification and cumulative quotas match the canonical specification, and financial rules are preserved.
 
 ### Stage 7 — Button Feedback, Animations and Interaction Quality
 **Objective:** Make interaction immediate and understandable.
