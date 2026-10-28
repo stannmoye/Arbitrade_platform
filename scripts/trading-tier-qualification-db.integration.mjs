@@ -103,6 +103,7 @@ try {
     [claimed.id]
   );
   assert.equal(recovered.length, 1, "Expired processing leases must be reclaimable.");
+  const persistedOldLease = recovered[0].lockedAt;
   const newLease = new Date(Math.floor(Date.now() / 1000) * 1000);
   await first.query(
     "UPDATE trading_tier_qualification_jobs SET lockedAt=?,attempts=attempts+1 WHERE id=? AND status='processing'",
@@ -110,7 +111,7 @@ try {
   );
   const [staleCompletion] = await first.query(
     "UPDATE trading_tier_qualification_jobs SET status='completed',lockedAt=NULL WHERE id=? AND status='processing' AND lockedAt=?",
-    [claimed.id, oldLease]
+    [claimed.id, persistedOldLease]
   );
   assert.equal(staleCompletion.affectedRows, 0, "A stale worker must not overwrite a newer lease.");
 
