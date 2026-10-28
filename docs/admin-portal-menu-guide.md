@@ -9,7 +9,7 @@ The admin portal has two navigation layers:
 
 The admin portal is role-protected. Pages use the database-backed admin session, and the server applies admin-only access checks to protected operations.
 
-> **Important trading-tier policy:** Trading tiers are administrator-managed configuration, not customer products. Customers must not browse, select, subscribe to, purchase, or activate tiers. A customer's eligible tiers are assigned automatically from cumulative, explicitly classified qualifying manual administrator wallet credits. Only the customer eligibility summary and combined daily opportunity allowance may be shown in the customer portal. Historical references to customer package assignment or activation are superseded by this policy.
+> **Important trading-tier policy:** Trading tiers are administrator-managed configuration, not customer products. Customers must not browse, select, subscribe to, purchase, or activate tiers. A customer's eligible tiers are assigned automatically only from cumulative qualifying credits manually issued by an authorized administrator through **Credit Customer** in the admin portal. The administrator must explicitly select the qualifying-deposit classification; the committed customer ledger entry must be `admin_manual_deposit_credit`. Only the customer eligibility summary and combined daily opportunity allowance may be shown in the customer portal. Historical references to customer package assignment or activation are superseded by this policy.
 
 ---
 
@@ -258,6 +258,8 @@ SMTP credentials are kept server-side and are not exposed to the browser.
 
 ## 2.7 Credit Customer
 
+**Trading tier threshold rule:** This admin-portal form is the only source that can create a qualifying Trading deposit attribution. For a customer credit, the administrator must explicitly select **Qualifying admin-portal credit for Trading tier threshold**. The server records `admin_manual_deposit_credit` and verified USD attribution/rate evidence only for this path. Credits from signup, customer/provider deposit flows, imports, generic adjustments or any other source never qualify. Admin self-wallet credits are always non-qualifying.
+
 **Purpose:** Add funds to a selected customer wallet through the database ledger.
 
 **Inputs:**
@@ -326,7 +328,7 @@ Saving a currency uses an upsert operation, so an existing code is updated rathe
 
 ### Automatic signup credit
 
-Defines the initial recorded credit and currency for approved new accounts.
+Defines the initial recorded credit and currency for approved new accounts. Signup credits never count toward Trading tier thresholds.
 
 ### Default access rule
 
@@ -501,7 +503,7 @@ Creates multiple opportunity offers in one operation.
 
 ### Automatic tier qualification
 
-There is no manual customer tier-assignment control. The server evaluates cumulative qualifying manual administrator deposit credits against enabled tier thresholds and creates audited entitlements automatically. Use customer ledger and eligibility records to investigate qualification; do not override eligibility by assigning a tier.
+There is no manual customer tier-assignment control. The server evaluates only cumulative credits manually submitted by an authorized administrator through the admin portal's **Credit Customer** flow, explicitly classified as qualifying and committed as `admin_manual_deposit_credit`. Customer/provider deposits, signup credits, imports, generic adjustments, profits, rewards, returned principal, bonuses, transfers, swaps, conversions and all other credit paths are excluded. The server creates audited entitlements automatically. Use customer ledger and eligibility records to investigate qualification; do not override eligibility by assigning a tier.
 
 ### Open offers
 
