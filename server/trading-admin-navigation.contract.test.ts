@@ -69,5 +69,14 @@ describe("Trading overview and duration navigation", () => {
     expect(adminApp).toContain("Configure the persisted settlement estimate, wallet credit delay and global block-until-settled rule.");
     expect(adminApp).toContain("Scheduled time is not proof of execution or settlement.");
     expect(adminApp).toContain("settlementDelaySeconds");
+
+    const settingsStart = adminApp.indexOf("function AdminSettings({focus}");
+    const settingsEnd = adminApp.indexOf("function AdminSoundSettings()", settingsStart);
+    const focusedSettings = adminApp.slice(settingsStart, settingsEnd);
+    expect(focusedSettings).toContain("{!focus&&<div className=\"settings-tabs\">");
+    expect(focusedSettings).toContain('{tab==="ticket"&&!focus&&<div className="settings-card">');
+    expect(focusedSettings).toContain('{tab==="email"&&!focus&&<div className="settings-card">');
+    expect(focusedSettings).toContain('{tab==="password"&&!focus&&<div className="settings-card">');
+    expect(focusedSettings).toContain('{tab==="trade"&&<div className="settings-card">');
   });
 });

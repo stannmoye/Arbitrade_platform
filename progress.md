@@ -83,3 +83,13 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 - Added client navigation and source-contract coverage. No financial business logic, worker behavior, schema, or external provider configuration changed.
 - CI for the new code/test commit is pending and must be checked on its exact SHA. PR #203 remains open; no merge, deployment, database write, or live trade was performed.
 - Remaining: duration fields are global timing policy only; verify any per-package duration/close-policy support before exposing it. Extend the overview only when calendar-day activity, full in-flight work, exceptions, or worker-health data have a trustworthy persisted source.
+
+## Follow-up — 2026-10-28 — route alignment CI repair
+
+- Re-verified canonical `main` at `8e610823941cb49f45e8bff0f35759994a395221` and open PR #203 on `fix/trading-package-ci-2026-10-27`, head `8ce54747f09fa65dc174aedb0e55d72d4a119b11`; `progress.md` was read from that PR branch, not `main`.
+- Read the PR-branch `AGENTS.md` and the canonical `BUILD_SOURCE.json`, `BUILD_AND_RELEASE.md`, repository guide, and full Trading specification before changing Trading settings UI.
+- All five Actions workflows failed on head `8ce54747f09fa65dc174aedb0e55d72d4a119b11`. The repeated type-check/build errors point to JSX syntax in `client/src/App.tsx`; the MySQL/MariaDB installer jobs completed migrations and then failed at the same production build parse error. The application unit-test job passed; other dependent checks were skipped after type-check failure.
+- Root causes found: `CustomerYieldStrategies` had a stale `!focus` condition without a `focus` prop and a missing JSX expression close; `AdminSettings` rendered its settings tab strip without a matching condition close.
+- Fix: restore the customer strategy filter tabs as normal content, hide the unrelated ticket/email/password tabs and panes when `AdminSettings` is rendered with `focus="tradeDuration"`, and add a contract assertion that the focused route exposes only its settlement-timing pane.
+- This increment is presentation/navigation-only. No trade rules, financial values, database schema, ledger, worker, or production data are changed. No merge, deployment, or live trade was performed.
+- Verification for the new exact branch head is pending; wait for GitHub Actions on the resulting code/test commit and record those exact-SHA outcomes here.
