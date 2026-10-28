@@ -108,7 +108,9 @@ describe("Automatic Trading tier qualification", () => {
     expect(eligibilityComponent).toContain("Additional qualifying amount needed");
     expect(eligibilityComponent).toContain("currentPackage.name");
     expect(eligibilityComponent).toContain("nextPackage.name");
-    expect(eligibilityComponent).toContain("USD equivalent across qualifying ledger-wallet credits");
+    expect(eligibilityComponent).toContain("Supported ledger-wallet credits are valued in USD");
+    expect(eligibilityComponent).toContain("trading-threshold-unit");
+    expect(eligibilityComponent).not.toContain('style: "currency"');
     expect(eligibilityComponent).not.toContain("₦");
     expect(eligibilityComponent).not.toContain("Activate free package");
     expect(eligibilityComponent).not.toContain("packageId");
