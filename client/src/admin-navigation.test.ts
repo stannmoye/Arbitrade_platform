@@ -38,6 +38,13 @@ describe("Trade Settings administrator navigation", () => {
     expect(item?.detail).toBe("Configure per-package retry attempts and delay; carry-forward controls are not yet implemented");
   });
 
+  it("routes active trades and pending work to the persisted settlement queue", () => {
+    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
+    const item = group?.items.find((candidate) => candidate.id === "trade-active-pending");
+    expect(item?.target).toBe("transactionReview");
+    expect(item?.detail).toContain("confirmed trades awaiting settlement");
+  });
+
   it("routes the trading overview to persisted operational data", () => {
     const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
     const item = group?.items.find((candidate) => candidate.id === "trade-settings-overview");
