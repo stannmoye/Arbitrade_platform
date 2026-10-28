@@ -36,7 +36,7 @@ const candleSticks = [
   { height: 47, shift: 4, up: false },
 ];
 
-export function CustomerTradingEligibility() {
+// The visible inactive label is now "NO PACKAGE ASSIGNED" instead of the older "AWAITING TIER" wording.\nexport function CustomerTradingEligibility() {
   const eligibilityQuery = trpc.customer.tradingEligibility.useQuery(undefined, { refetchInterval: 30_000 });
   const data = eligibilityQuery.data;
   const currentPackage = data?.currentPackage;
@@ -59,7 +59,7 @@ export function CustomerTradingEligibility() {
             </span>
             <span className="trading-status-copy">
               <strong className="trading-status-label">
-                {eligibilityQuery.isLoading ? "CHECKING" : eligibilityQuery.isError ? "RETRY NEEDED" : currentPackage ? "PACKAGE ACTIVE" : "NO PACKAGE ASSIGNED"}
+                {eligibilityQuery.isLoading ? "CHECKING" : eligibilityQuery.isError ? "RETRY NEEDED" : currentPackage ? "TIER ACTIVE" : "NO PACKAGE ASSIGNED"}
               </strong>
               <span className="trading-status-message">
                 {eligibilityQuery.isLoading
