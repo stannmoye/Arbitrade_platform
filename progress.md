@@ -17,13 +17,13 @@ This policy is final and must be followed throughout the application:
 - The admin portal's **Credit Customer / wallet-credit form is the sole qualifying source**. Only a positive customer credit manually submitted by an authorized administrator, explicitly classified as qualifying, and committed as `admin_manual_deposit_credit` qualifies. Customer/provider deposits, signup credits, imports, generic adjustments, profits, rewards, returned principal, bonuses, transfers, swaps, conversions and all other credit paths are excluded.
 - Preserve the USD-minor-unit attribution and the currency rate, provider/source and timestamp used at credit time. Stale or unverifiable rates fail closed. A separately audited reversal linked to the original credit reverses that qualifying attribution; an ordinary debit does not.
 - All active qualifying tiers contribute their configured daily opportunity quotas cumulatively. Never assign a fallback tier or quota.
-- Customer-facing Trading UI/API may expose only a read-only eligibility result and total daily opportunity allowance. Do not expose tier names, thresholds, catalogue, subscription history, internal entitlement identifiers, or activation/management actions.
+- Customer-facing Trading UI/API may expose a read-only progressive summary: the highest active tier and only the next enabled tier, including the amount needed, duration, and quota benefit. Without an active tier, show only the first milestone. Never expose the full catalogue, subscription history, internal entitlement identifiers, or activation/management actions.
 - Customer reads, login, refresh, popup views and client actions must not create entitlements, allocate capital, run worker lifecycle transitions or settle trades. The scheduled server worker owns automatic processing.
 - Internal-ledger records, actual supported trade outcomes, transactional idempotency, auditability and reconciliation remain mandatory. Estimates are never realized results or ledger credits.
 
 ## Changes present in PR #205 at last inspection
 
-- Replaced the customer package catalogue/activation experience with a read-only eligibility and combined allowance summary.
+- Replaced the customer package catalogue/activation experience with a read-only progressive summary showing the highest active tier (if any), the single next qualifying milestone, duration, and opportunity quota details.
 - Removed customer package listing/activation routes and legacy activation service references from the changed application code.
 - Added explicit administrator classification of manual credits, qualifying USD attribution and conversion evidence, and audited deposit reversals. Policy clarification: only the admin portal's Credit Customer flow may create a qualifying Trading tier credit; all other deposit/credit paths are excluded.
 - Added forward migration `0080_qualifying_admin_deposit_attribution.sql`; it preserves legacy subscription rows for audit but expires legacy customer-created entitlements. Migration history is retained and must not be deleted or rewritten to pretend old migrations never existed.
