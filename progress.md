@@ -1,3 +1,40 @@
+# CURRENT HANDOFF — verified 2026-10-28 15:28 UTC
+
+**Canonical main SHA:** `bf940d02baeb39c92fed66eeea7ed44b1843119f`  
+**Active implementation branch:** `feature/automatic-trading-tier-qualification-20261028`  
+**Current exact code/test SHA before this handoff-only commit:** `b2d0ccd82d87bc92ae3537070e2e385e95ea0252`  
+**Pull request:** [#205 — automatic deposit-based tier qualification](https://github.com/stannmoye/Arbitrade_platform/pull/205)  
+**PR state:** open; GitHub currently reports mergeable, but required checks are not all complete. No merge, deployment, or production database migration has occurred.
+
+## Owner-confirmed policy B
+
+Customers must not browse, select, subscribe to, purchase, or activate packages. Authorized administrators configure tiers. Cumulative qualifying manual administrator wallet credits determine tier eligibility automatically; eligible tier daily opportunity quotas add together. Only positive, explicitly classified manual credits to customer accounts count. Profits, returned principal, bonuses, rewards, transfers, swaps, conversions, opening/imported balances and unclassified credits do not count. Qualifying crypto credits require fresh recorded FX evidence. Explicit deposit reversals are linked to the original ledger credit, audited, and subtracted from the qualifying total.
+
+## Implementation changed on PR #205
+
+- Removed customer package catalogue/activation UI, customer activation routes, and legacy activation helpers.
+- Added customer read-only eligibility and total daily allowance response.
+- Added admin classification for qualifying/non-qualifying credits and explicit reversal handling.
+- Added qualifying USD attribution/rate/provider/timestamp fields and forward migration `0080_qualifying_admin_deposit_attribution.sql`. Migration `0079` remains the canonical settlement-timing repair; this branch does not reuse PR #200's conflicting `0079_internal_ledger_execution_mode.sql`.
+- Automatically reconciles tier entitlements from cumulative attributed credits, including reversal-driven disqualification.
+- Restricted opportunity delivery creation, due-trade processing, and automatic allocation to the scheduled worker; customer reads are read-only for these lifecycle actions.
+- Removed tier names, internal subscription IDs, terms snapshots and tier-specific allocation limits from customer-facing Trading API objects.
+- Updated canonical Trading policy, `AGENTS.md`, implementation matrix, migration runners/journal tests, and policy regression contracts.
+
+## Exact-SHA validation status
+
+The preceding code SHA `5a747ecf0a0d30f22ea802398ff65b2237b57d91` failed **TypeScript check** in `server/routers.ts` because the wallet-adjustment input schema lacked a closing parenthesis; automated tests and production build were skipped. That syntax issue was corrected in `88b20f4956e66d2dca43d642bcde68ddb2575138`. Further worker-only lifecycle and API-sanitization changes followed, making `b2d0ccd82d87bc92ae3537070e2e385e95ea0252` the current code/test SHA. Its GitHub Actions workflows are queued/running; no successful result has yet been verified for this SHA. Recheck all five workflows on the exact final SHA, including type-check, automated tests, production build, browser checks, installer validation, Trading recovery checks and Mining regressions.
+
+## Related pull requests and migration caution
+
+- PR #203 is merged into main; do not treat it as unfinished.
+- PR #202 remains open/draft. PR #205's branch includes the related work in its history; review the full PR #205 diff before merge and do not merge PR #202 independently first.
+- PR #200 remains open/draft and has a conflicting migration numbered `0079_internal_ledger_execution_mode.sql`. Do not integrate it until its migration numbering and requirements are reconciled with canonical main.
+- PR #205 is 63 commits ahead of main at the last compare. This includes prior Trading recovery changes, not just the new Policy B commits; review the complete diff and exact CI results before any merge.
+- No production database or deployment was touched. Do not merge or deploy until exact-head checks pass and the full diff has been reviewed.
+
+---
+
 # Development Progress — Arbitrade Platform
 
 **Last reviewed:** 2026-10-28  
