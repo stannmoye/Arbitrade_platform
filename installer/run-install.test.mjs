@@ -205,6 +205,14 @@ describe("main migration preflight integration", () => {
 });
 
 
+
+  it("uses the same JSON SSL URL handling as the application database connection", async () => {
+    const source = await readFile(new URL("../scripts/guarded-main-migrate.mjs", import.meta.url), "utf8");
+    expect(source).toContain('const sslParam = url.searchParams.get("ssl");');
+    expect(source).toContain("const parsed = JSON.parse(sslParam);");
+    expect(source).toContain('ssl = parsed === true ? {} : parsed && typeof parsed === "object" ? parsed : undefined;');
+  });
+
 describe("installer cleanup error privacy", () => {
   it("sanitizes database connection cleanup failures", async () => {
     const source = await readFile(installer, "utf8");
