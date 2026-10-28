@@ -81,16 +81,38 @@ export async function fetchCurrencyUsdRate(input: {
   }
 
   if (input.assetType === "fiat") {
-    const payload = await json(`https://api.frankfurter.dev/v2/rates?base=USD&quotes=${encodeURIComponent(code)}`);
-    const row = Array.isArray(payload) ? payload.find((item: any) => String(item?.quote || "").toUpperCase() === code) : null;
-    const usdToNative = Number(row?.rate);
-    const sourceDate = row?.date ? String(row.date) : "";
-    const sourceMs = sourceDate ? new Date(sourceDate).getTime() : NaN;
-    if (!Number.isFinite(usdToNative) || usdToNative <= 0 || !Number.isFinite(sourceMs) ||
-      sourceMs > Date.now() + 60_000 || Date.now() - sourceMs > 4 * 24 * 60 * 60 * 1000) {
-      throw new Error(`A current Frankfurter/ECB rate for ${code} is unavailable.`);
+    let frankfurterFailure: unknown = null;
+    try {
+      const payload = await json(`https://api.frankfurter.dev/v2/rates?base=USD&quotes=${encodeURIComponent(code)}`);
+      const row = Array.isArray(payload) ? payload.find((item: any) => String(item?.quote || "").toUpperCase() === code) : null;
+      const usdToNative = Number(row?.rate);
+      const sourceDate = row?.date ? String(row.date) : "";
+      const sourceMs = sourceDate ? new Date(sourceDate).getTime() : NaN;
+      if (Number.isFinite(usdToNative) && usdToNative > 0 && Number.isFinite(sourceMs) &&
+        sourceMs <= Date.now() + 60_000 && Date.now() - sourceMs <= 4 * 24 * 60 * 60 * 1000) {
+        return { rate: String(1 / usdToNative), provider: "frankfurter-ecb", sourceDate, fetchedAt };
+      }
+      frankfurterFailure = new Error(`Frankfurter/ECB returned no fresh rate for ${code}.`);
+    } catch (error) {
+      frankfurterFailure = error;
     }
-    return { rate: String(1 / usdToNative), provider: "frankfurter-ecb", sourceDate, fetchedAt };
+
+    // Broader fiat-code fallback for currencies not covered by the ECB feed.
+    // This remains an API-sourced rate and is never replaced by registry input.
+    try {
+      const payload = await json("https://open.er-api.com/v6/latest/USD");
+      const usdToNative = Number(payload?.rates?.[code]);
+      const sourceSeconds = Number(payload?.time_last_update_unix);
+      const sourceDate = Number.isFinite(sourceSeconds) && sourceSeconds > 0 ? new Date(sourceSeconds * 1000).toISOString() : "";
+      const sourceMs = sourceDate ? new Date(sourceDate).getTime() : NaN;
+      if (!Number.isFinite(usdToNative) || usdToNative <= 0 || !Number.isFinite(sourceMs) ||
+        sourceMs > Date.now() + 60_000 || Date.now() - sourceMs > 24 * 60 * 60 * 1000) {
+        throw new Error(`ExchangeRate-API returned no fresh rate for ${code}.`);
+      }
+      return { rate: String(1 / usdToNative), provider: "open-er-api", sourceDate, fetchedAt };
+    } catch {
+      throw new Error(`No fresh supported fiat-to-USD API rate is available for wallet ${code}.`);
+    }
   }
 
   const id = String(input.externalCode || "").trim();
