@@ -29,8 +29,9 @@ describe("Automatic Trading tier qualification", () => {
 
   it("fails closed when BTC or ETH qualifying-credit rates are stale or manual", () => {
     expect(databaseSource).toContain('currencyCode==="BTC"||currencyCode==="ETH"');
-    expect(databaseSource).toContain("Date.now()-rateAt.getTime()>5*60*1000");
+    expect(databaseSource).toContain("Date.now()-new Date(liveSnapshot.observedAt).getTime()>5*60*1000");
     expect(databaseSource).toContain("current verified BTC/ETH-to-USD rate is required");
+    expect(databaseSource).toContain("eq(fxRateSnapshots.provider,\"coingecko\")");
   });
 
   it("exposes only a read-only eligibility summary to customers", () => {
