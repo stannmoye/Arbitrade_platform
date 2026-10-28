@@ -18,6 +18,15 @@ describe("Automatic Trading tier qualification", () => {
     expect(migrationSource).toContain("ADD COLUMN IF NOT EXISTS `qualifyingDepositRateProvider`");
   });
 
+  it("requires explicit debit classification and validates qualifying-deposit reversal references", () => {
+    expect(routerSource).toContain('debitClassification: z.enum(["ordinary_debit","qualifying_deposit_reversal"]).optional()');
+    expect(routerSource).toContain('input.reversalLedgerId');
+    expect(databaseSource).toContain('eq(balanceLedger.entryType,"admin_manual_deposit_credit")');
+    expect(databaseSource).toContain("qualifyingDepositReversalOfId");
+    expect(customerAppSource).toContain("Original qualifying deposit ledger ID");
+    expect(customerAppSource).toContain('debitClassification:mode==="debit"?debitClassification||undefined:undefined');
+  });
+
   it("qualifies tiers only from classified administrator manual customer credits", () => {
     expect(databaseSource).toContain('entryType:qualifyingDepositUsdMinor!==null?"admin_manual_deposit_credit":');
     expect(databaseSource).toContain('eq(balanceLedger.entryType,"admin_manual_deposit_credit")');
