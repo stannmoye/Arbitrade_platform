@@ -2396,7 +2396,7 @@ export async function ensureAutomaticTradingTierEntitlements(userId:number) {
 
       const expiresAt=addCalendarMonths(now,Number(tier.durationMonths));
       const activationKey="auto-tier:"+userId+":"+tier.id+":"+now.getTime()+":"+crypto.randomUUID().slice(0,8);
-      const snapshot={id:Number(tier.id),name:tier.name,minimumQualifyingBalanceUsdMinor:threshold,durationMonths:Number(tier.durationMonths),opportunitiesPerDay:Number(tier.opportunitiesPerDay),termsVersion:Number(tier.termsVersion),qualificationSource:"cumulative_authorized_admin_manual_deposit_credits",qualifyingDepositUsdMinor:qualifyingTotal};
+      const snapshot={id:Number(tier.id),name:tier.name,minimumQualifyingBalanceUsdMinor:threshold,durationMonths:Number(tier.durationMonths),opportunitiesPerDay:Number(tier.opportunitiesPerDay),maxPopupsPerDay:Number(tier.maxPopupsPerDay||0),maxActiveInvestments:Number(tier.maxActiveInvestments||0),startsAt:tier.startsAt?new Date(tier.startsAt).toISOString():null,expiresAt:tier.expiresAt?new Date(tier.expiresAt).toISOString():null,termsVersion:Number(tier.termsVersion),qualificationSource:"cumulative_authorized_admin_manual_deposit_credits",qualifyingDepositUsdMinor:qualifyingTotal};
       const inserted=await tx.insert(customerPackageSubscriptions).values({
         userId,packageId:Number(tier.id),startsAt:now,expiresAt,status:"active",activationKey,
         termsSnapshotJson:JSON.stringify(snapshot),qualifyingBalanceUsdMinor:qualifyingTotal,
@@ -2646,7 +2646,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const configuredPolicies=eligibleSubscriptions.map(subscription=>policyByName.get(subscription.packageName)).filter((row:any)=>Boolean(row));
   const policy=configuredPolicies[0]||null;
   const packageName=[...new Set(eligibleSubscriptions.map(row=>row.packageName))].join(", ");
-  const adminDeliveryCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);const policyCap=row?Math.max(0,Number(row.maxPopupsPerDay)||0):quotaFor(subscription);const tierCap=Math.max(0,Number(subscription.packageMaxPopupsPerDay)||0);return sum+(tierCap>0?Math.min(policyCap,tierCap):policyCap);},0);
+  const adminDeliveryCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);const policyCap=row?Math.max(0,Number(row.maxPopupsPerDay)||0):quotaFor(subscription);let snapshot:any={};try{snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}"))}catch{snapshot={}}const tierCap=Math.max(0,Number(snapshot.maxPopupsPerDay??subscription.packageMaxPopupsPerDay)||0);return sum+(tierCap>0?Math.min(policyCap,tierCap):policyCap);},0);
   const adminVisibleCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);return sum+(row?Math.max(0,Number(row.maxVisibleOffers)||0):quotaFor(subscription));},0);
   const maxPopupsPerDay=Math.min(combinedQuota,adminDeliveryCap||combinedQuota);
   const maxVisibleOffers=Math.min(combinedQuota,adminVisibleCap||combinedQuota);
@@ -2939,11 +2939,13 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   if(!activePackageSubscription) throw new Error("No eligible package subscription remains for this allocation");
   const selectedSubscriptionId=Number(activePackageSubscription.subscriptionId);
   const packagePolicy=policyByName.get(activePackageSubscription.packageName);
-  if(activePackageSubscription.maxActiveInvestments>0){
+  let activeTermsSnapshot:any={};try{activeTermsSnapshot=JSON.parse(String(activePackageSubscription.termsSnapshotJson||"{}"))}catch{activeTermsSnapshot={}}
+  const tierActiveLimit=Number(activeTermsSnapshot.maxActiveInvestments??activePackageSubscription.maxActiveInvestments??0);
+  if(tierActiveLimit>0){
     const activePositions=await tx.select({id:tradePositions.id}).from(tradePositions)
       .where(and(eq(tradePositions.userId,userId),eq(tradePositions.packageSubscriptionId,selectedSubscriptionId),eq(tradePositions.status,"confirmed")))
-      .limit(Number(activePackageSubscription.maxActiveInvestments)+1);
-    if(activePositions.length>=Number(activePackageSubscription.maxActiveInvestments)) throw new Error("Package maximum active investments reached");
+      .limit(tierActiveLimit+1);
+    if(activePositions.length>=tierActiveLimit) throw new Error("Package maximum active investments reached");
   }
   if(packagePolicy){
     const activeRows=await tx.select({id:tradePositions.id}).from(tradePositions)
