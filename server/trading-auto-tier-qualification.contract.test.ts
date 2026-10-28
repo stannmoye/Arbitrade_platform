@@ -223,6 +223,9 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("export async function runTradingTierQualificationWorkerCycle");
     expect(databaseSource).toContain(".limit(batchSize).for(\"update\")");
     expect(databaseSource).toContain("staleLeaseBefore");
+    expect(databaseSource).toContain("const now=new Date(Math.floor(Date.now()/1000)*1000)");
+    expect(databaseSource).toContain("lockedAt:now");
+    expect(databaseSource).toContain('eq(tradingTierQualificationJobs.lockedAt,job.lockedAt)');
     expect(databaseSource).toContain("status:exhausted?\"dead\":\"pending\"");
     expect(databaseSource).toContain("await ensureAutomaticTradingTierEntitlements(Number(job.userId))");
     expect(serverEntrypointSource).toContain("runTradingTierQualificationWorkerCycle({batchSize:20})");
