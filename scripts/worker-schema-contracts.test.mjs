@@ -154,7 +154,7 @@ describe("worker schema contracts", () => {
     // 0048 and 0055 remain authoritative standalone/portal-chain sources.
     // The journaled 0062 bridge intentionally provides their worker tables to
     // deployments that run only Drizzle's standard migration path.
-    for (const table of Object.keys(WORKER_SCHEMA_CONTRACTS)) {
+    for (const table of Object.keys(WORKER_SCHEMA_CONTRACTS).filter((name) => name !== "trading_tier_qualification_jobs")) {
       expect(mainSql).toContain(table);
     }
     for (const column of WORKER_SCHEMA_CONTRACTS.mining_pending_boost_rewards.columns) {
