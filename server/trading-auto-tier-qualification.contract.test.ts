@@ -67,6 +67,8 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).not.toContain("CustomerTradingPackages");
     expect(customerAppSource).toContain("CustomerTradingEligibility");
     expect(eligibilityComponent).toContain("trpc.customer.tradingEligibility.useQuery");
+    expect(eligibilityComponent).toContain("qualifying manual administrator wallet credits");
+    expect(customerAppSource).toContain("The threshold is an eligibility rule, not a fee or an automatic trade amount.");
     expect(eligibilityComponent).not.toContain("Activate free package");
     expect(eligibilityComponent).not.toContain("packageId");
   });
