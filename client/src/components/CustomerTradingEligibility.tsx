@@ -38,7 +38,7 @@ export function CustomerTradingEligibility() {
       <header className="trading-journey-header">
         <div className="trading-journey-intro">
           <div className="trading-journey-eyebrow"><Sparkles size={14} aria-hidden="true" /> Your Trading Journey</div>
-          <h2 className="trading-journey-title" id="trading-eligibility-heading">Your package progress</h2>
+          <h2 className="trading-journey-title" id="trading-eligibility-heading">Package progress</h2>
           <div className={`trading-bot-status ${eligibilityQuery.isLoading ? "is-loading" : eligibilityQuery.isError ? "is-error" : currentPackage ? "is-active" : "is-inactive"}`} role="status" aria-live="polite">
             <span className="trading-bot-status-icon" aria-hidden="true">
               {eligibilityQuery.isLoading ? <Clock3 size={15} /> : eligibilityQuery.isError ? <Info size={15} /> : currentPackage ? <Activity size={15} /> : <Clock3 size={15} />}
@@ -82,23 +82,6 @@ export function CustomerTradingEligibility() {
         </div>
       ) : (
         <div className="trading-journey-content">
-          <div className="trading-trajectory" aria-label="Animated package tier progress visualization">
-            <div className="trading-trajectory-heading">
-              <span className="trading-trajectory-kicker">Mission control · Your trading journey</span>
-              <span className="trading-trajectory-live"><span /> Tier {currentPackage ? "active" : "pending"}</span>
-            </div>
-            <div className="trading-orbit-stage" aria-hidden="true">
-              <div className="trading-orbit-grid" />
-              <div className="trading-orbit orbit-outer"><span className="trading-orbit-dot dot-outer" /></div>
-              <div className="trading-orbit orbit-middle"><span className="trading-orbit-dot dot-middle" /></div>
-              <div className="trading-orbit orbit-inner" />
-              <div className="trading-orbit-center"><strong>{data?.dailyOpportunityAllowance ?? 0}</strong><span>per day</span></div>
-              <span className="trading-orbit-node trading-orbit-current"><span className="trading-orbit-node-dot" /><strong>{currentPackage?.name ?? "First tier"}</strong><small>Current status</small></span>
-              <span className="trading-orbit-node trading-orbit-next"><span className="trading-orbit-node-dot" /><strong>{nextPackage?.name ?? "Top tier reached"}</strong><small>{nextPackage ? "+" + nextPackage.additionalDailyOpportunities + "/day at next tier" : "No higher tier"}</small></span>
-              <span className="trading-orbit-percent">{progressPercent}%<small>progress</small></span>
-            </div>
-            <div className="trading-trajectory-foot"><span><i className="trajectory-key current-key" /> Current tier</span><span><i className="trajectory-key next-key" /> Next milestone</span></div>
-          </div>
           {currentPackage ? (
             <article className="trading-tier-card trading-tier-card-current" aria-labelledby="current-trading-package">
               <div className="trading-tier-card-head">
@@ -117,7 +100,7 @@ export function CustomerTradingEligibility() {
                 </div>
                 <div className="trading-tier-metric">
                   <span className="trading-tier-metric-icon"><Target size={17} aria-hidden="true" /></span>
-                  <span className="trading-tier-metric-label">Opportunities from this package per day</span>
+                  <span className="trading-tier-metric-label">Opportunities per day</span>
                   <strong className="trading-tier-metric-value">{currentPackage.opportunitiesPerDay}</strong>
                 </div>
               </div>
@@ -142,42 +125,43 @@ export function CustomerTradingEligibility() {
               </div>
 
               <div className="trading-threshold-panel">
-                <span className="trading-threshold-label">
-                  {currentPackage ? "Additional qualifying amount needed" : "Minimum qualifying amount"}
-                </span>
-                <div className="trading-threshold-value-row"><strong className="trading-threshold-amount">{usdEquivalent(nextPackage.amountNeededUsdMinor)}</strong><span className="trading-threshold-unit">USD equivalent</span></div>
-                <p className="trading-threshold-context">USD equivalent of qualifying admin wallet credits, valued at the rate recorded when credited.</p>
-                <div className="trading-progress-block">
-                  <div className="trading-progress-copy">
-                    <span>Progress toward this milestone</span>
-                    <strong>{progressPercent}%</strong>
+                <div
+                  className="trading-milestone-ring"
+                  role="progressbar"
+                  aria-label="Progress toward the next package qualification threshold"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progressPercent}
+                  style={{ background: `conic-gradient(from -90deg, #4aa8ff 0%, #36e3d0 ${progressPercent}%, #203b4e ${progressPercent}%, #203b4e 100%)` }}
+                >
+                  <span>{progressPercent}%</span>
+                </div>
+                <div className="trading-threshold-details">
+                  <span className="trading-threshold-label">
+                    {currentPackage ? "Additional amount needed" : "Minimum amount needed"}
+                    {currentPackage && <span className="sr-only">Additional qualifying amount needed</span>}
+                  </span>
+                  <div className="trading-threshold-value-row">
+                    <strong className="trading-threshold-amount">{usdEquivalent(nextPackage.amountNeededUsdMinor)}</strong>
                   </div>
-                  <div
-                    className="trading-progress-track"
-                    role="progressbar"
-                    aria-label="Progress toward the next package qualification threshold"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={progressPercent}
-                  >
-                    <div className="trading-progress-value" style={{ width: `${progressPercent}%` }} />
-                  </div>
+                  <span className="trading-threshold-unit">USD equivalent</span>
+                  <span className="sr-only">USD equivalent of qualifying admin wallet credits, valued at the rate recorded when credited.</span>
                 </div>
               </div>
 
               <div className="trading-tier-metrics">
                 <div className="trading-tier-metric">
                   <span className="trading-tier-metric-icon"><CalendarClock size={17} aria-hidden="true" /></span>
-                  <span className="trading-tier-metric-label">Next package duration</span>
+                  <span className="trading-tier-metric-label">Next duration</span>
                   <strong className="trading-tier-metric-value">{durationLabel(nextPackage.durationMonths)}</strong>
                 </div>
                 <div className="trading-tier-metric">
                   <span className="trading-tier-metric-icon"><Target size={17} aria-hidden="true" /></span>
-                  <span className="trading-tier-metric-label">Additional daily opportunities</span>
+                  <span className="trading-tier-metric-label">Extra daily opportunities</span>
                   <strong className="trading-tier-metric-value">+{nextPackage.additionalDailyOpportunities}</strong>
                 </div>
               </div>
-              <p className="trading-tier-explainer"><Info size={14} aria-hidden="true" />Unlocks additional daily opportunities.</p>
+              <p className="trading-tier-explainer"><Info size={14} aria-hidden="true" />Unlocks extra daily opportunities.</p>
             </article>
           ) : (
             <div className="trading-no-next" aria-live="polite">
