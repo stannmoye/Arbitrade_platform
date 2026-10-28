@@ -126,3 +126,10 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 - PR #200 is not included wholesale: its deposit-tier documentation conflicts with the approved model, and its `0079` migration conflicts with the merged settlement repair. Review only compatible, separately verifiable changes.
 - No production deployment, production database operation, balance/ledger change, or live trade was performed.
 - Next: verify the exact PR #202 head, resolve any CI failures, and merge only after all required checks pass; then review remaining safe Trading work separately.
+
+
+### Additional integrity review — 2026-10-28
+
+- Removed generated transaction-console pulses; no pulse is emitted without a confirmed ledger-backed event. Regression coverage now asserts `NO_CONFIRMED_LEDGER_EVENT`. Exact final-head CI is pending.
+- PR #200 was not merged wholesale: its deposit-tier documentation conflicts with the approved free-activation model, and its `0079` migration conflicts with the merged settlement-timing repair. Its proposed shutdown of automatic offer generation was also kept out because it changes opportunity availability; review the market-derived estimate path separately before changing that behavior.
+- Time-based reconciliation only marks due trades as awaiting settlement confirmation; it does not credit an estimated reward. A manual settlement path still requires an explicit settlement reference. No production deployment, database operation, balance change, or live trade was performed.
