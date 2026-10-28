@@ -151,7 +151,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy})");
     expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
     expect(databaseSource).toContain("const matchingRows=rows.filter(row=>tierNames.has(row.packageName))");
-    expect(databaseSource).toContain("if(missing.length) throw new Error(\"Trading tier opportunity policy is missing for: \"+missing.join(", \"));");
+    expect(databaseSource).toContain('if(missing.length) throw new Error("Trading tier opportunity policy is missing for: "+missing.join(", "));');
   });
 
   it("creates tiers through the authorized audited admin route", () => {
