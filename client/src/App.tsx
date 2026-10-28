@@ -712,8 +712,8 @@ function AdminTradingPackageCatalogue(){
   const q=trpc.adminOperations.tradingPackages.useQuery(undefined,{refetchInterval:30000});
   const update=trpc.adminOperations.updateTradingPackage.useMutation({onSuccess:()=>{q.refetch();setMessage("Tier terms saved. Runtime eligibility and limits use the persisted configuration.")},onError:e=>setMessage(e.message)});
   const [drafts,setDrafts]=useState<Record<number,any>>({});
-  const [newTier,setNewTier]=useState<any>({name:"",minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6,maxPopupsPerDay:0,maxActiveInvestments:0,startsAt:"",expiresAt:"",enabled:true});
-  const create=trpc.adminOperations.createTradingPackage.useMutation({onSuccess:()=>{q.refetch();setNewTier({name:"",minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6,maxPopupsPerDay:0,maxActiveInvestments:0,startsAt:"",expiresAt:"",enabled:true});setMessage("New Trading tier created and audited.")},onError:e=>setMessage(e.message)});
+  const [newTier,setNewTier]=useState<any>({name:"",minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6,maxPopupsPerDay:0,maxActiveInvestments:0,startsAt:"",expiresAt:"",enabled:false});
+  const create=trpc.adminOperations.createTradingPackage.useMutation({onSuccess:()=>{q.refetch();setNewTier({name:"",minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6,maxPopupsPerDay:0,maxActiveInvestments:0,startsAt:"",expiresAt:"",enabled:false});setMessage("New Trading tier created and audited.")},onError:e=>setMessage(e.message)});
   const [message,setMessage]=useState("");
   useEffect(()=>{if(q.data)setDrafts(Object.fromEntries((q.data as any[]).map((p:any)=>[Number(p.id),{...p,minimumQualifyingBalanceUsdMinor:Number(p.minimumQualifyingBalanceUsdMinor)}])))},[q.data]);
   const patch=(id:number,key:string,value:any)=>setDrafts(rows=>({...rows,[id]:{...rows[id],[key]:value}}));
@@ -724,7 +724,7 @@ function AdminTradingPackageCatalogue(){
     {message&&<div className="test-notice" role="status">{message}</div>}
     <article className="package-admin-card" style={{marginBottom:20}}>
       <div className="eyebrow">Create tier</div><h2>New administrator-managed tier</h2>
-      <p>New tiers are internal configuration only. Customers cannot see or activate them.</p>
+      <p>New tiers start disabled. Review the threshold and limits before explicitly enabling them; customers cannot see or activate tiers.</p>
       <label>Tier name<input maxLength={80} value={newTier.name} onChange={e=>setNewTier((old:any)=>({...old,name:e.target.value}))} placeholder="Enter a unique tier name"/></label>
       <label>Qualifying deposit threshold (USD)<input type="number" min="0.01" step="0.01" value={(Number(newTier.minimumQualifyingBalanceUsdMinor)/100).toFixed(2)} onChange={e=>setNewTier((old:any)=>({...old,minimumQualifyingBalanceUsdMinor:Math.round(Number(e.target.value)*100)}))}/></label>
       <div className="form-two"><label>Duration (calendar months)<input type="number" min="1" max="1200" value={newTier.durationMonths} onChange={e=>setNewTier((old:any)=>({...old,durationMonths:Number(e.target.value)}))}/></label><label>Daily opportunity quota<input type="number" min="1" max="10000" value={newTier.opportunitiesPerDay} onChange={e=>setNewTier((old:any)=>({...old,opportunitiesPerDay:Number(e.target.value)}))}/></label></div>
