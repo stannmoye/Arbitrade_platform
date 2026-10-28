@@ -43,6 +43,13 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("qualifyingDepositUsdMinor!==null?Math.abs(qualifyingDepositUsdMinor)/100");
   });
 
+  it("requires a fresh recorded official FX snapshot for EUR and GBP qualifying credits", () => {
+    expect(databaseSource).toContain('currencyCode==="EUR"||currencyCode==="GBP"');
+    expect(databaseSource).toContain('eq(fxRateSnapshots.provider,"frankfurter-ecb")');
+    expect(databaseSource).toContain("Date.now()-sourceObservedAt.getTime()>4*24*60*60*1000");
+    expect(databaseSource).toContain("rate=1/Number(liveSnapshot.rate)");
+  });
+
   it("fails closed when BTC or ETH qualifying-credit rates are stale or manual", () => {
     expect(databaseSource).toContain('currencyCode==="BTC"||currencyCode==="ETH"');
     expect(databaseSource).toContain("Date.now()-snapshotObservedAt.getTime()>5*60*1000");
