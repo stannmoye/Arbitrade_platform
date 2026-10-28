@@ -13,8 +13,8 @@ This policy is final and must be followed throughout the application:
 
 - Customers must not browse, select, subscribe to, purchase, or activate Trading packages/tiers.
 - Only authorized administrators configure tiers and their thresholds, duration, quota, schedule, allocation limits, risk controls and display settings.
-- Tier entitlement is assigned automatically by the server when cumulative, persisted qualifying manual administrator wallet credits meet an enabled tier's threshold.
-- Only a positive manual credit explicitly classified as a qualifying deposit and successfully committed to the customer's ledger qualifies. Profits, trading rewards, returned principal, bonuses, transfers, swaps, conversions, opening/imported balances, adjustments and unclassified credits do not qualify.
+- Tier entitlement is assigned automatically by the server only when cumulative, persisted qualifying credits manually submitted by an authorized administrator through the admin portal's **Credit Customer / wallet-credit form** meet an enabled tier's threshold.
+- The admin portal's **Credit Customer / wallet-credit form is the sole qualifying source**. Only a positive customer credit manually submitted by an authorized administrator, explicitly classified as qualifying, and committed as `admin_manual_deposit_credit` qualifies. Customer/provider deposits, signup credits, imports, generic adjustments, profits, rewards, returned principal, bonuses, transfers, swaps, conversions and all other credit paths are excluded.
 - Preserve the USD-minor-unit attribution and the currency rate, provider/source and timestamp used at credit time. Stale or unverifiable rates fail closed. A separately audited reversal linked to the original credit reverses that qualifying attribution; an ordinary debit does not.
 - All active qualifying tiers contribute their configured daily opportunity quotas cumulatively. Never assign a fallback tier or quota.
 - Customer-facing Trading UI/API may expose only a read-only eligibility result and total daily opportunity allowance. Do not expose tier names, thresholds, catalogue, subscription history, internal entitlement identifiers, or activation/management actions.
@@ -25,7 +25,7 @@ This policy is final and must be followed throughout the application:
 
 - Replaced the customer package catalogue/activation experience with a read-only eligibility and combined allowance summary.
 - Removed customer package listing/activation routes and legacy activation service references from the changed application code.
-- Added explicit administrator classification of manual credits, qualifying USD attribution and conversion evidence, and audited deposit reversals.
+- Added explicit administrator classification of manual credits, qualifying USD attribution and conversion evidence, and audited deposit reversals. Policy clarification: only the admin portal's Credit Customer flow may create a qualifying Trading tier credit; all other deposit/credit paths are excluded.
 - Added forward migration `0080_qualifying_admin_deposit_attribution.sql`; it preserves legacy subscription rows for audit but expires legacy customer-created entitlements. Migration history is retained and must not be deleted or rewritten to pretend old migrations never existed.
 - Added/reconciled automatic tier entitlement creation, cumulative quota evaluation, worker-only lifecycle operations, API sanitization and policy contract tests.
 - Updated `docs/TRADING_SYSTEM_SPECIFICATION.md` and `AGENTS.md`, removed the duplicate `docs/implementation-matrix.md`, and updated this handoff and the administrator menu guide to the authoritative policy.
