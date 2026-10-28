@@ -4,7 +4,7 @@
 **Canonical base:** `main` at `bf940d02baeb39c92fed66eeea7ed44b1843119f` (re-check before further changes)  
 **Active branch:** `feature/automatic-trading-tier-qualification-20261028`  
 **Pull request:** [#205 — automatic deposit-based tier qualification](https://github.com/stannmoye/Arbitrade_platform/pull/205)  
-**Last inspected PR head:** `6443fdb762f24fd2577397032eba4c54c53d4793`  
+**Baseline PR head inspected before the 2026-10-28 policy clarification:** `e5b4e34513e776cd3cbc0398ee1697a9f9a9da71`. This clarification adds subsequent commits; re-fetch the live PR head before validation or further writes.  
 **PR state at last inspection:** open, unmerged; GitHub reported mergeable. Exact-head checks and full diff review are still required. No merge, deployment, or production database migration has occurred.
 
 ## Authoritative Trading tier policy
@@ -29,6 +29,13 @@ This policy is final and must be followed throughout the application:
 - Added forward migration `0080_qualifying_admin_deposit_attribution.sql`; it preserves legacy subscription rows for audit but expires legacy customer-created entitlements. Migration history is retained and must not be deleted or rewritten to pretend old migrations never existed.
 - Added/reconciled automatic tier entitlement creation, cumulative quota evaluation, worker-only lifecycle operations, API sanitization and policy contract tests.
 - Updated `docs/TRADING_SYSTEM_SPECIFICATION.md` and `AGENTS.md`, removed the duplicate `docs/implementation-matrix.md`, and updated this handoff and the administrator menu guide to the authoritative policy.
+
+## Admin-portal-only qualifying-credit clarification (2026-10-28)
+
+- Reaffirmed the sole qualifying source: a positive credit manually submitted by an authorized administrator through the admin portal's **Credit Customer / wallet-credit form**, explicitly classified as `qualifying_deposit`, and committed to the customer's ledger as `admin_manual_deposit_credit`.
+- Explicitly excluded customer/provider/payment-gateway deposits, signup credits, imported/opening balances, generic adjustments, profits, rewards, returned principal, bonuses, transfers, swaps, conversions and all other credit/deposit paths.
+- Updated the canonical Trading specification, `AGENTS.md`, README, admin menu guide, master roadmap and this handoff. Updated the Credit Customer form copy to state the sole source and strengthened the Trading qualification contract tests to check admin-only route protection and signup-credit exclusion.
+- The server-side implementation already gates qualifying attribution on the admin-only `adjustCustomerBalance` route, an explicit qualifying classification, a customer account, and the `admin_manual_deposit_credit` ledger type; tier reconciliation sums only that ledger type and linked audited reversals. The regression suite still needs to run on the exact final branch head.
 
 ## Required remaining work
 
