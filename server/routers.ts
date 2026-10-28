@@ -349,6 +349,19 @@ export const appRouter = router({
       reason: z.string().trim().max(500),
     })).mutation(({ ctx, input }) => setTradeAllocationControls(ctx.user.id, input)),
     tradingPackages: adminProcedure.query(() => listAdminTradingPackages()),
+    createTradingPackage: adminProcedure.input(z.object({
+      name: z.string().trim().min(1).max(80),
+      minimumQualifyingBalanceUsdMinor: z.number().int().positive().max(9007199254740991),
+      durationMonths: z.number().int().min(1).max(1200),
+      opportunitiesPerDay: z.number().int().min(1).max(10000),
+      maxPopupsPerDay: z.number().int().min(0).max(10000),
+      maxActiveInvestments: z.number().int().min(0).max(10000),
+      startsAt: z.string().datetime().nullable(),
+      expiresAt: z.string().datetime().nullable(),
+      enabled: z.boolean(),
+    })).mutation(({ ctx, input }) => createAdminTradingPackage(ctx.user.id, {
+      ...input, startsAt:input.startsAt?new Date(input.startsAt):null, expiresAt:input.expiresAt?new Date(input.expiresAt):null,
+    })),
     updateTradingPackage: adminProcedure.input(z.object({
       id: z.number().int().positive(),
       name: z.string().trim().min(1).max(80),
