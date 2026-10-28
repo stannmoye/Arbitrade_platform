@@ -111,7 +111,7 @@ describe("worker schema contracts", () => {
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
     expect(previous.tag).toBe("0080_qualifying_admin_deposit_attribution");
     expect(last.tag).toBe("0081_trading_tier_policy_alignment");
-    expect(journal.entries.slice(-9).map((entry) => entry.tag)).toEqual([
+    expect(journal.entries.slice(-10).map((entry) => entry.tag)).toEqual([
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
       "0074_trade_execution_retries",
