@@ -46,7 +46,7 @@ describe("Trading retry-policy navigation", () => {
     expect(packageEditor).toContain("maxTradeAttemptsPerDay");
     expect(packageEditor).toContain("tradeRetryDelaySeconds");
     expect(packageEditor).toContain("Carry-forward controls are not yet implemented.");
-    expect(packageEditor).toContain('{focus!=="retries"&&<><AdminTradingPackageCatalogue/><AdminTradeAllocationControl/></>}');
-    expect(packageEditor).toContain('{focus!=="retries"&&<div className="package-policy-section"><strong>Opportunity delivery & scheduling</strong>');
+    expect(packageEditor).toContain('{!focus&&<><AdminTradingPackageCatalogue/><AdminTradeAllocationControl/></>}');
+    expect(packageEditor).toContain('{!focus&&<div className="package-policy-section"><strong>Opportunity delivery & scheduling</strong>');
   });
 });
