@@ -12,6 +12,7 @@ const migrationSource = readFileSync(new URL("../drizzle/0080_qualifying_admin_d
 const policyMigrationSource = readFileSync(new URL("../drizzle/0081_trading_tier_policy_alignment.sql", import.meta.url), "utf8");
 const customerAppSource = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const eligibilityComponent = readFileSync(new URL("../client/src/components/CustomerTradingEligibility.tsx", import.meta.url), "utf8");
+const eligibilityStyles = readFileSync(new URL("../client/src/components/CustomerTradingEligibility.css", import.meta.url), "utf8");
 const specification = readFileSync(new URL("../docs/TRADING_SYSTEM_SPECIFICATION.md", import.meta.url), "utf8");
 const serverEntrypointSource = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
 const qualificationQueueMigrationSource = readFileSync(new URL("../drizzle/0082_trading_tier_qualification_jobs.sql", import.meta.url), "utf8");
@@ -102,10 +103,27 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).not.toContain("CustomerTradingPackages");
     expect(customerAppSource).toContain("CustomerTradingEligibility");
     expect(eligibilityComponent).toContain("trpc.customer.tradingEligibility.useQuery");
-    expect(eligibilityComponent).toContain("qualifying manual administrator wallet credits");
-    expect(customerAppSource).toContain("The threshold is an eligibility rule, not a fee or an automatic trade amount.");
+    expect(eligibilityComponent).toContain('"TIER ACTIVE"');
+    expect(eligibilityComponent).toContain('"AWAITING TIER"');
+    expect(eligibilityComponent).toContain('"RETRY NEEDED"');
+    expect(eligibilityComponent).toContain("You’re not yet qualified for a package");
+    expect(eligibilityComponent).toContain("Additional qualifying amount needed");
+    expect(eligibilityComponent).toContain("currentPackage.name");
+    expect(eligibilityComponent).toContain("nextPackage.name");
+    expect(eligibilityComponent).toContain("USD equivalent of qualifying admin wallet credits, valued at the rate recorded when credited.");
+    expect(eligibilityComponent).toContain("trading-threshold-unit");
+    expect(eligibilityComponent).not.toContain('style: "currency"');
+    expect(eligibilityComponent).not.toContain("₦");
     expect(eligibilityComponent).not.toContain("Activate free package");
     expect(eligibilityComponent).not.toContain("packageId");
+    expect(eligibilityStyles).toContain("@media (max-width: 560px)");
+    expect(eligibilityStyles).toContain("prefers-reduced-motion: reduce");
+    expect(eligibilityStyles).toContain("@keyframes trading-card-glint");
+    expect(eligibilityStyles).toContain("@keyframes trading-progress-shimmer");
+    expect(eligibilityStyles).toContain(".trading-status-label");
+    expect(eligibilityStyles).toContain("var(--arb-color-surface-raised)");
+    expect(specification).toContain("the single next enabled tier");
+    expect(specification).toContain("must never expose the full administrator-managed tier catalogue");
   });
 
   it("retires legacy customer-activated entitlements without deleting historical rows", () => {
@@ -129,7 +147,7 @@ describe("Automatic Trading tier qualification", () => {
   it("preserves assigned tier threshold and quota snapshots for existing entitlements", () => {
     expect(databaseSource).toContain("const assignedThreshold=Number(snapshot.minimumQualifyingBalanceUsdMinor??threshold)");
     expect(databaseSource).toContain("termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson");
-    expect(databaseSource).toContain("const quota=Number(snapshot.opportunitiesPerDay??row.dailyQuota)");
+    expect(databaseSource).toContain("const quota=Number(snapshotFor(row).opportunitiesPerDay??row.dailyQuota)");
     expect(databaseSource).toContain("below the threshold recorded in this entitlement's terms snapshot");
   });
 
@@ -252,6 +270,7 @@ describe("Automatic Trading tier qualification", () => {
   it("documents the owner-approved automatic-deposit policy", () => {
     expect(specification).toContain("Customers never browse, select, subscribe to, purchase, or activate a package.");
     expect(specification).toContain("profits, trading rewards, returned principal, bonuses, swaps, transfers, conversions");
-    expect(specification).toContain("The customer portal may show only the resulting eligibility status and total daily opportunity allowance.");
+    expect(specification).toContain("The customer portal must never expose the full administrator-managed tier catalogue");
+    expect(specification).toContain("the single next enabled tier");
   });
 });
