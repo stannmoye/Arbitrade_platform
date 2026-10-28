@@ -69,11 +69,11 @@ export function CustomerTradingEligibility() {
 
       {eligibilityQuery.isLoading ? (
         <div className="trading-package-loading" role="status" aria-live="polite">
-          Checking your package progress and next milestone…
+          Loading package details…
         </div>
       ) : eligibilityQuery.isError ? (
         <div className="trading-package-error" role="alert">
-          Your package progress could not be verified right now. Your eligibility has not been changed. Please refresh shortly.
+          Couldn’t load package details. Refresh to retry.
         </div>
       ) : (
         <div className="trading-journey-content">
@@ -163,8 +163,8 @@ export function CustomerTradingEligibility() {
               <div className="trading-no-next-copy">
                 <h3>{currentPackage ? "You’ve reached the highest currently available package" : "No package milestone is available right now"}</h3>
                 <p>{currentPackage
-                  ? "There is no higher enabled package at this time. Your current package details remain available above."
-                  : "A first qualifying milestone will appear here when an administrator enables a package."}</p>
+                  ? "No higher package is available right now."
+                  : "Your first milestone will appear when a package is available."}</p>
               </div>
             </div>
           )}
