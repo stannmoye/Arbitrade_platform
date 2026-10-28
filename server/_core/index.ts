@@ -346,8 +346,8 @@ async function startServer() {
       syscall: (error as NodeJS.ErrnoException).syscall,
       address: (error as NodeJS.ErrnoException).address,
       port: (error as NodeJS.ErrnoException).port,
-      message: String(error.message || "HTTP server error").replace(/\\b(?:mysql|mariadb):\\/\\/[^\\s"'<>]+/gi, "[database-url-redacted]"),
-      stack: String(error.stack || "").replace(/\\b(?:mysql|mariadb):\\/\\/[^\\s"'<>]+/gi, "[database-url-redacted]").slice(0, 12000),
+      message: String(error.message || "HTTP server error").replace(/\b(?:mysql|mariadb):\/\/[^\s"'<>]+/gi, "[database-url-redacted]"),
+      stack: String(error.stack || "").replace(/\b(?:mysql|mariadb):\/\/[^\s"'<>]+/gi, "[database-url-redacted]").slice(0, 12000),
     }));
     process.exit(1);
   });
@@ -360,7 +360,7 @@ async function startServer() {
 
 startServer().catch(error => {
   const details = error && typeof error === "object" ? error as { name?: unknown; message?: unknown; code?: unknown; stack?: unknown } : {};
-  const redact = (value: unknown) => String(value ?? "").replace(/\\b(?:mysql|mariadb):\\/\\/[^\\s"'<>]+/gi, "[database-url-redacted]");
+  const redact = (value: unknown) => String(value ?? "").replace(/\b(?:mysql|mariadb):\/\/[^\s"'<>]+/gi, "[database-url-redacted]");
   console.error("[StartupDiagnostics] " + JSON.stringify({
     timestamp: new Date().toISOString(),
     level: "error",
