@@ -1080,3 +1080,24 @@ export const localScheduledJobs = mysqlTable("local_scheduled_jobs", {
 }));
 
 
+
+/**
+ * Durable queue for qualifying administrator wallet credits. Jobs are inserted
+ * in the same transaction as their ledger entry, so worker restarts cannot lose
+ * a tier-assignment trigger.
+ */
+export const tradingTierQualificationJobs = mysqlTable("trading_tier_qualification_jobs", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  sourceLedgerId: int("sourceLedgerId").notNull().unique(),
+  status: mysqlEnum("status", ["pending", "processing", "completed", "dead"]).default("pending").notNull(),
+  attempts: int("attempts").default(0).notNull(),
+  availableAt: timestamp("availableAt").defaultNow().notNull(),
+  lockedAt: timestamp("lockedAt"),
+  lastError: varchar("lastError", { length: 1000 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  statusAvailableIdx: index("trading_tier_qualification_jobs_status_available_idx").on(table.status, table.availableAt, table.id),
+  userStatusIdx: index("trading_tier_qualification_jobs_user_status_idx").on(table.userId, table.status),
+}));
