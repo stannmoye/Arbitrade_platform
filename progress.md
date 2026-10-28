@@ -206,3 +206,14 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 - This validates source and CI only. Hosted acceptance, production database reconciliation, deployment, balance movement, and live trading were not performed.
 - PR #202 remains open/draft. PR #200 remains open/draft at 8f379fe5a179de73973f51b12ea3f08e08eb58cd; compatible synthetic-activity/economics work is now represented on PR #202, while its conflicting deposit-tier rules and 0079 V5 mode rewrite remain excluded. No close action was taken.
 - Next: continue the canonical Trading-spec audit against persisted routes and behavior; keep the PR #200 migration and settlement-notes policy held for explicit review; request confirmation before closing PR #200.
+
+## Exact-head verification — progress-only follow-up — 2026-10-28
+
+- Documentation-only commit c0a53f14944c553e2946d4d596d7a51532c34ebf completed all five GitHub Actions workflows successfully on that exact head:
+  - Mining regression checks: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40658009834
+  - Verify application: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40658009830
+  - Verify Arbitrade trading recovery changes: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40658009883
+  - Installer validation: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40658009815
+  - Build and test production source: SUCCESS — https://github.com/stannmoye/Arbitrade_platform/actions/runs/40658009903
+- The code/test SHA remains b4a716dce6fb8f9c7f2d9cc309b645a19c020dc4; its five successful run IDs are recorded in the preceding exact-head verification section. This commit changes progress.md only.
+- Current remaining work is unchanged: continue the canonical Trading settings/behavior audit; do not merge or deploy; ask before closing PR #200; do not apply its conflicting V5 mode migration.
