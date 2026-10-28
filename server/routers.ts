@@ -523,11 +523,22 @@ export const appRouter = router({
       amountMinor: z.number().int().positive(),
       mode: z.enum(["credit","debit"]),
       creditClassification: z.enum(["qualifying_deposit","non_qualifying_credit"]).optional(),
+      debitClassification: z.enum(["ordinary_debit","qualifying_deposit_reversal"]).optional(),
+      reversalLedgerId: z.number().int().positive().optional(),
       reason: z.string().trim().min(3).max(500),
-    }).refine(input => input.mode !== "credit" || Boolean(input.creditClassification), {
-      message: "Choose whether this manual credit is a qualifying deposit or a non-qualifying credit.",
-      path: ["creditClassification"],
-    })).mutation(async ({ ctx, input }) => {
+    })
+      .refine(input => input.mode !== "credit" || Boolean(input.creditClassification), {
+        message: "Choose whether this manual credit is a qualifying deposit or a non-qualifying credit.",
+        path: ["creditClassification"],
+      })
+      .refine(input => input.mode !== "debit" || Boolean(input.debitClassification), {
+        message: "Choose whether this debit is ordinary or reverses a qualifying deposit.",
+        path: ["debitClassification"],
+      })
+      .refine(input => input.mode !== "debit" || input.debitClassification !== "qualifying_deposit_reversal" || Boolean(input.reversalLedgerId), {
+        message: "Select the original qualifying deposit ledger ID to reverse.",
+        path: ["reversalLedgerId"],
+      }).mutation(async ({ ctx, input }) => {
       const result=await adjustCustomerBalance(ctx.user.id, input);
       await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{
         eventType:`ADMIN_${input.mode.toUpperCase()}`,status:"COMPLETED",
