@@ -11,7 +11,7 @@ import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostin
 import { addCalendarMonths } from "./modules/calendar-months";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
-import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
+import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
@@ -1967,6 +1967,19 @@ export async function adjustCustomerBalance(adminId:number,input:{
   if(input.mode==="credit"&&!input.creditClassification) throw new Error("Choose whether the manual credit is a qualifying deposit or non-qualifying credit");
   if(input.mode==="debit"&&!input.debitClassification) throw new Error("Choose whether this debit is ordinary or reverses a qualifying deposit");
   if(input.mode==="debit"&&input.debitClassification==="qualifying_deposit_reversal"&&!Number.isSafeInteger(input.reversalLedgerId)) throw new Error("Select the qualifying deposit being reversed");
+  let creditTimeRate: Awaited<ReturnType<typeof fetchCurrencyUsdRate>> | null = null;
+  let creditTimeCurrency: { code: string; scale: number; assetType: "fiat" | "crypto" | "token"; externalCode: string | null } | null = null;
+  if(input.mode==="credit"&&input.creditClassification==="qualifying_deposit"&&input.userId!==adminId){
+    const preflightUser=(await db.select({id:users.id,role:users.role}).from(users).where(eq(users.id,input.userId)).limit(1))[0];
+    if(preflightUser?.role==="user"){
+      const preflightCurrency=(await db.select().from(currencyRegistry).where(and(eq(currencyRegistry.code,input.currency.toUpperCase()),eq(currencyRegistry.enabled,true))).limit(1))[0];
+      if(!preflightCurrency) throw new Error(`Currency ${input.currency} is not enabled. Add it in Currency registry first.`);
+      const assetType=String(preflightCurrency.assetType) as "fiat"|"crypto"|"token";
+      if(!["fiat","crypto","token"].includes(assetType)) throw new Error(`Wallet ${preflightCurrency.code} has an unsupported asset type for USD conversion.`);
+      creditTimeCurrency={code:String(preflightCurrency.code).toUpperCase(),scale:Number(preflightCurrency.scale),assetType,externalCode:preflightCurrency.externalCode?String(preflightCurrency.externalCode):null};
+      creditTimeRate=await fetchCurrencyUsdRate({code:creditTimeCurrency.code,assetType,externalCode:creditTimeCurrency.externalCode});
+    }
+  }
   const ledgerReference=`admin-${adminId}-${input.userId}-${crypto.randomUUID()}`;
   const result=await db.transaction(async tx=>{
     const user=(await tx.select({id:users.id,role:users.role,loginMethod:users.loginMethod}).from(users)
@@ -1986,49 +1999,17 @@ export async function adjustCustomerBalance(adminId:number,input:{
 
     if(input.mode==="credit"&&input.creditClassification==="qualifying_deposit"&&user.role==="user"){
       const currencyCode=String(currency.code).toUpperCase();
-      let rate=Number(currency.usdRate);
-      let provider=String(currency.rateProvider||"");
-      let rateAt=currency.updatedAt?new Date(currency.updatedAt):null;
-      if(currencyCode==="USD"||currencyCode==="USDT"){
-        rate=1;
-        provider=currencyCode==="USDT"?"product-rule:USDT-nominal-1-to-1":"product-rule:USD-1-to-1";
-        rateAt=new Date();
-      }else if(currencyCode==="EUR"||currencyCode==="GBP"){
-        const liveSnapshot=(await tx.select().from(fxRateSnapshots).where(and(
-          eq(fxRateSnapshots.baseAsset,"USD"),eq(fxRateSnapshots.quoteAsset,currencyCode),eq(fxRateSnapshots.provider,"frankfurter-ecb"),
-        )).orderBy(desc(fxRateSnapshots.observedAt)).limit(1).for("update"))[0];
-        const sourceObservedAt=liveSnapshot?.sourceDate?new Date(liveSnapshot.sourceDate):null;
-        const snapshotObservedAt=liveSnapshot?new Date(liveSnapshot.observedAt):null;
-        if(!liveSnapshot||!sourceObservedAt||!Number.isFinite(sourceObservedAt.getTime())||
-          !snapshotObservedAt||!Number.isFinite(snapshotObservedAt.getTime())||
-          Date.now()-sourceObservedAt.getTime()>4*24*60*60*1000||sourceObservedAt.getTime()>Date.now()+60_000||
-          Date.now()-snapshotObservedAt.getTime()>5*60*1000||snapshotObservedAt.getTime()>Date.now()+60_000||
-          !Number.isFinite(Number(liveSnapshot.rate))||Number(liveSnapshot.rate)<=0){
-          throw new Error("A current verified EUR/GBP-to-USD rate is required before this qualifying deposit can be credited.");
-        }
-        rate=1/Number(liveSnapshot.rate);
-        provider=liveSnapshot.provider;
-        rateAt=sourceObservedAt;
-      }else if(currencyCode==="BTC"||currencyCode==="ETH"){
-        const liveSnapshot=(await tx.select().from(fxRateSnapshots).where(and(
-          eq(fxRateSnapshots.baseAsset,currencyCode),eq(fxRateSnapshots.quoteAsset,"USD"),eq(fxRateSnapshots.provider,"coingecko"),
-        )).orderBy(desc(fxRateSnapshots.observedAt)).limit(1).for("update"))[0];
-        const sourceObservedAt=liveSnapshot?.sourceDate?new Date(liveSnapshot.sourceDate):null;
-        const snapshotObservedAt=liveSnapshot?new Date(liveSnapshot.observedAt):null;
-        if(!liveSnapshot||!sourceObservedAt||!Number.isFinite(sourceObservedAt.getTime())||
-          !snapshotObservedAt||!Number.isFinite(snapshotObservedAt.getTime())||
-          Date.now()-sourceObservedAt.getTime()>5*60*1000||sourceObservedAt.getTime()>Date.now()+60_000||
-          Date.now()-snapshotObservedAt.getTime()>5*60*1000||snapshotObservedAt.getTime()>Date.now()+60_000){
-          throw new Error("A current verified BTC/ETH-to-USD rate is required before this qualifying deposit can be credited.");
-        }
-        rate=Number(liveSnapshot.rate);
-        provider=liveSnapshot.provider;
-        rateAt=sourceObservedAt;
-      }else if(!provider||provider.toLowerCase().includes("manual")||!rateAt||Date.now()-rateAt.getTime()>5*60*1000){
-        throw new Error("A current non-manual currency-to-USD rate is required before this qualifying deposit can be credited.");
+      if(!creditTimeRate||!creditTimeCurrency||creditTimeCurrency.code!==currencyCode||
+        creditTimeCurrency.scale!==Number(currency.scale)||
+        creditTimeCurrency.assetType!==String(currency.assetType)||
+        creditTimeCurrency.externalCode!==(currency.externalCode?String(currency.externalCode):null)){
+        throw new Error("A fresh API conversion rate for this exact wallet configuration is required before this qualifying credit can be committed. Retry the credit.");
       }
-      if(!Number.isFinite(rate)||rate<=0||!rateAt||rateAt.getTime()>Date.now()+60_000){
-        throw new Error("A valid, timestamped currency-to-USD rate is required before this qualifying deposit can be credited.");
+      const rate=Number(creditTimeRate.rate);
+      const provider=creditTimeRate.provider;
+      const rateAt=new Date(creditTimeRate.sourceDate);
+      if(!Number.isFinite(rate)||rate<=0||!Number.isFinite(rateAt.getTime())||rateAt.getTime()>Date.now()+60_000){
+        throw new Error("A valid, timestamped API currency-to-USD rate is required before this qualifying deposit can be credited.");
       }
       const usdValue=nativeMinorToUsd(input.amountMinor,Number(currency.scale),rate);
       const usdMinor=Math.round(usdValue*100);
