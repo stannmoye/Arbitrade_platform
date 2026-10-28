@@ -2,7 +2,7 @@
 
 **Repository:** [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrade_platform)  
 **Canonical branch:** `main`  
-**Latest main commit at handoff update:** `a51682da54b9e70434728de3e81fc088ce3f7148` (PR #205 squash merge)  
+**Latest main commit at handoff update:** `d3f85084354f009c44236fb2e5c1dd0d0cf17435` (latest observed main; includes the follow-up Trading worker-index work)  
 **Completed PR:** [#205 — automatic deposit-based tier qualification](https://github.com/stannmoye/Arbitrade_platform/pull/205)  
 **Merged feature head:** `9d3e31ef521e62dd95447c1d1a867b80ad87cc8b`  
 **Status:** PR #205 merged after all exact-head automated checks passed. Post-merge checks are running on main. No production migration or deployment has been run. The worker has only been tested against disposable MySQL/MariaDB databases; production readiness still requires post-merge CI to finish and deployment-time verification on the user's own server.
@@ -127,6 +127,8 @@ This policy is final and must be followed throughout the application:
 - Validation remains pending for the exact feature branch head. No production deployment or database migration was performed for this UI change.
 
 ## Customer Trading package journey UI refinement (2026-10-28)
+
+**Active PR:** [#208](https://github.com/stannmoye/Arbitrade_platform/pull/208) on `feature/customer-progressive-trading-tier-ui`. Latest observed feature head: `37ed34658aaf92bdbcf5f7bdbc13c37ab1324e74`. The branch is currently one commit behind `main`; reconcile the overlapping Trading specification, database, test, and handoff updates before merge.
 
 - Removed any local-currency assumption from the customer milestone display. The qualification threshold is labelled as a USD equivalent because the authoritative ledger attribution is stored in USD minor units; explanatory copy makes clear that supported ledger-wallet credits are valued at the time an authorized administrator records a qualifying credit.
 - Refined the read-only customer journey with theme-aware responsive cards, compact typography, current-package and next-milestone metrics, an accessible progress indicator, refresh/loading/error states, and reduced-motion support. The page does not expose a full catalogue or activation controls.
