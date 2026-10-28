@@ -2293,6 +2293,37 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
   });
 }
 
+/**
+ * Customer-safe eligibility summary. Never returns package names, thresholds,
+ * catalogue records, or activation controls to the customer portal.
+ */
+export async function getCustomerTradingEligibility(userId:number) {
+  const db=await getDb();
+  if(!db) throw new Error("Trading eligibility is temporarily unavailable.");
+  const now=new Date();
+  const rows=await db.select({
+    subscriptionId:customerPackageSubscriptions.id,
+    dailyQuota:packages.opportunitiesPerDay,
+  }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
+    .where(and(
+      eq(customerPackageSubscriptions.userId,userId),
+      eq(customerPackageSubscriptions.status,"active"),
+      lte(customerPackageSubscriptions.startsAt,now),
+      or(isNull(customerPackageSubscriptions.expiresAt),gt(customerPackageSubscriptions.expiresAt,now)),
+      eq(packages.enabled,true),
+      or(isNull(packages.startsAt),lte(packages.startsAt,now)),
+      or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
+    ));
+  const dailyOpportunityAllowance=rows.reduce((total,row)=>total+Number(row.dailyQuota||0),0);
+  if(!Number.isSafeInteger(dailyOpportunityAllowance)||dailyOpportunityAllowance<0) throw new Error("Trading eligibility quota is invalid.");
+  return {
+    eligible:rows.length>0,
+    qualifiedTierCount:rows.length,
+    dailyOpportunityAllowance,
+    status:rows.length>0?"eligible":"not_eligible",
+  };
+}
+
 export async function listCustomerTradingPackages(userId:number) {
   let phase = "database_connection";
   const logPhaseError = (failedPhase:string,error:unknown) => {
