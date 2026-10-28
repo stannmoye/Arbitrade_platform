@@ -122,6 +122,14 @@ if (!url) {
       const [admins] = await db.query("SELECT COUNT(*) AS count FROM users WHERE role='admin'");
       report("Administrator", Number(admins[0].count) > 0, `${Number(admins[0].count)} administrator account(s) found.`);
     }
+    const tradingQueueTable = "trading_tier_qualification_jobs";
+    report(
+      "Trading tier qualification queue",
+      names.has(tradingQueueTable),
+      names.has(tradingQueueTable)
+        ? "Durable Trading tier qualification queue exists."
+        : "Trading tier qualification queue is missing; after deploying the Trading worker migration, run the guarded main migration workflow.",
+    );
     report("Database schema", names.size > 0, names.size ? "Database is not empty." : "Database contains no tables.");
 
     if (names.has("__drizzle_migrations")) {
