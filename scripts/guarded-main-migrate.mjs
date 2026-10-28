@@ -369,7 +369,11 @@ async function main() {
       : "";
     const sqlMessage = String(error?.sqlMessage || "");
     const unknownColumn = sqlMessage.match(/Unknown column ['"\x60]([^'"\x60]+)['"\x60] in ['"\x60]([^'"\x60]+)['"\x60]/i);
-    console.error("[main-migrate] ERROR: Main migration run failed" + location + " (code: " + code + "). The run is marked failed and automatic retry is blocked pending review.");
+    if (!connection && code === "ECONNREFUSED") {
+      console.error("[main-migrate] ERROR: Database connection was refused before migration SQL ran (code: ECONNREFUSED). This attempt could not inspect or update the migration guard; any existing guard state remains unchanged. Check database service availability, DATABASE_URL host/port, and network access from the app runtime.");
+    } else {
+      console.error("[main-migrate] ERROR: Main migration run failed" + location + " (code: " + code + "). Review the migration guard and database state before retrying; do not assume this attempt updated the guard unless the connection and migration run had started.");
+    }
     if (code === "MIGRATION_RENAME_COLUMNS_MISSING" || code === "MIGRATION_RENAME_COLUMNS_CONFLICT") {
       const renameDetail = String(error?.message || "").replace(/[^A-Za-z0-9 _.,;:()'.-]/g, "").slice(0, 240);
       if (renameDetail) console.error("[main-migrate] Schema diagnostic: " + renameDetail);
