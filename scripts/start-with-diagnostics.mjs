@@ -45,7 +45,7 @@ for (const signal of ["SIGTERM", "SIGINT"]) {
   });
 }
 
-function runPhase(name, args, extraEnv = {}) {
+function runPhase(name, args, extraEnv = {}, requirePersistent = false) {
   return new Promise((resolve, reject) => {
     log("info", "phase-start", { phase: name, command: args[0], args: args.slice(1) });
     let child;
@@ -90,8 +90,15 @@ function runPhase(name, args, extraEnv = {}) {
 
     child.on("exit", (code, signal) => {
       activeChild = undefined;
-      if (code === 0) {
-        log("info", "phase-complete", { phase: name, exitCode: 0 });
+      if (requirePersistent && !shuttingDown) {
+        log("error", "persistent-process-exited-unexpectedly", { phase: name, exitCode: code, signal: signal || undefined });
+        const error = new Error(`Persistent startup phase "${name}" exited before a shutdown signal was received (exit code ${code ?? "null"}).`);
+        error.code = "PERSISTENT_PROCESS_EXITED";
+        reject(error);
+        return;
+      }
+      if (code === 0 || (requirePersistent && shuttingDown)) {
+        log("info", "phase-complete", { phase: name, exitCode: code, shutdownRequested: shuttingDown });
         resolve();
         return;
       }
@@ -116,7 +123,7 @@ async function main() {
 
   await runPhase("main-database-migrations", ["scripts/guarded-main-migrate.mjs"]);
   await runPhase("worker-runtime-schema-preflight", ["scripts/ensure-worker-runtime-schema.mjs"]);
-  await runPhase("application-server", ["--trace-uncaught", "--unhandled-rejections=strict", "dist/index.js"]);
+  await runPhase("application-server", ["--trace-uncaught", "--unhandled-rejections=strict", "dist/index.js"], {}, true);
 
   log("info", "all-startup-phases-complete", {
     note: "The server process exited normally. A separate listening-ready message should be emitted by the application.",
