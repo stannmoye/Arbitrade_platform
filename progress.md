@@ -103,3 +103,16 @@ There was no root `progress.md` on main at the starting SHA. `docs/ARBITRADE_STA
 - Timing audit across the current branch: package-level minSettlementDelaySeconds / maxSettlementDelaySeconds are persisted and used to derive settlement timestamps; they are not a package trade-close duration. Offer durationSeconds belongs to an individual opportunity. closePolicy is persisted and validated but no runtime consumer was found in the inspected server/client source, so it is not presented as an effective control.
 - This increment changes only the Overview read path and tests/docs; no schema, ledger, worker, trading, or financial behavior changes. Exact-SHA verification for the new commit is pending. No merge, deployment, production database change, or live trade was performed.
 - Next: continue the Trade Settings audit against real persisted capabilities; keep actual trade close-duration policy pending until server-owned close-time fields and their effective-time behavior are implemented and verified.
+
+## Verification — 2026-10-28 — read-only overview package-policy query
+
+- Code/test commit verified: 6cc2f27ffad80ce43e6956799c46ace5312439ca (overview now reads persisted package-policy rows through an admin-protected SELECT-only query; default seeding remains in the package editor path).
+- All five workflow groups completed successfully on this exact SHA:
+  - Verify application: https://github.com/stannmoye/Arbitrade_platform/actions/runs/40647469499
+  - Build and test production source: https://github.com/stannmoye/Arbitrade_platform/actions/runs/40647469595
+  - Mining regression checks: https://github.com/stannmoye/Arbitrade_platform/actions/runs/40647469614
+  - Verify Arbitrade trading recovery changes: https://github.com/stannmoye/Arbitrade_platform/actions/runs/40647469535
+  - Installer validation: https://github.com/stannmoye/Arbitrade_platform/actions/runs/40647469556
+- All 14 reported check runs completed successfully, including TypeScript validation, application tests, production build/smoke, browser recovery, installer and MySQL/MariaDB checks, deployment-package validation, Mining regression, and Trading recovery.
+- These results apply to code/test SHA 6cc2f27ffad80ce43e6956799c46ace5312439ca. This handoff update is documentation-only; verify Actions against its resulting head before treating that newer head as validated.
+- PR #203 remains open and unmerged. No deployment, production database operation, or live trade was performed.
