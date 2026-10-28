@@ -57,7 +57,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("options.workerCycle===true ? await autoTradeOpenOpportunities");
     expect(databaseSource).toContain("listCustomerOpportunities(customer.id,{workerCycle:true,consumeDelivery:false})");
     const start = routerSource.indexOf("opportunities: protectedProcedure.query(");
-    const end = routerSource.indexOf("\\n    trades: protectedProcedure.query", start);
+    const end = routerSource.indexOf("\n    trades: protectedProcedure.query", start);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
     expect(routerSource.slice(start, end)).not.toContain("workerCycle:true");
@@ -65,7 +65,7 @@ describe("Automatic Trading tier qualification", () => {
 
   it("uses published opportunity values instead of hash-derived trade estimates", () => {
     const start = databaseSource.indexOf("function calculateTradeTerms(");
-    const end = databaseSource.indexOf("\\nfunction packageUsdUnitsToNativeMinor", start);
+    const end = databaseSource.indexOf("\nfunction packageUsdUnitsToNativeMinor", start);
     const terms = databaseSource.slice(start, end);
     expect(terms).toContain("Number(offer.minimumMinor)");
     expect(terms).toContain("Number(offer.expectedRewardBps)");
