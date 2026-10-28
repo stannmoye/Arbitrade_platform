@@ -2273,7 +2273,7 @@ export async function createAdminTradingPackage(createdBy:number,input:{
       reference:"trading-package-created:"+id+":1",
       metadataJson:JSON.stringify({id,...input,name,termsVersion:1}),
     });
-    return {id,name,...input,termsVersion:1};
+    return {id,name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1};
   });
 }
 
