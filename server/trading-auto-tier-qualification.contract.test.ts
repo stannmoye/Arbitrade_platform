@@ -107,7 +107,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(eligibilityComponent).toContain("Additional qualifying amount needed");
     expect(eligibilityComponent).toContain("currentPackage.name");
     expect(eligibilityComponent).toContain("nextPackage.name");
-    expect(eligibilityComponent).toContain("Supported ledger-wallet credits are valued in USD");
+    expect(eligibilityComponent).toContain("USD equivalent of qualifying admin wallet credits, valued at the rate recorded when credited.");
     expect(eligibilityComponent).toContain("trading-threshold-unit");
     expect(eligibilityComponent).not.toContain('style: "currency"');
     expect(eligibilityComponent).not.toContain("₦");
@@ -141,7 +141,7 @@ describe("Automatic Trading tier qualification", () => {
   it("preserves assigned tier threshold and quota snapshots for existing entitlements", () => {
     expect(databaseSource).toContain("const assignedThreshold=Number(snapshot.minimumQualifyingBalanceUsdMinor??threshold)");
     expect(databaseSource).toContain("termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson");
-    expect(databaseSource).toContain("const quota=Number(snapshot.opportunitiesPerDay??row.dailyQuota)");
+    expect(databaseSource).toContain("const quota=Number(snapshotFor(row).opportunitiesPerDay??row.dailyQuota)");
     expect(databaseSource).toContain("below the threshold recorded in this entitlement's terms snapshot");
   });
 
