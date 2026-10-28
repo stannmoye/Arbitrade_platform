@@ -218,6 +218,17 @@ export function verifyScheduledCallback(taskUid: string, timestamp: string, body
   } catch { return false; }
 }
 
+function describeSchedulerError(error: unknown): { name: string; message: string; stack?: string } {
+  if (!(error instanceof Error)) {
+    return { name: "UnknownError", message: String(error).slice(0, 1000) };
+  }
+  return {
+    name: error.name || "Error",
+    message: error.message.replace(/[\\r\\n]/g, " ").slice(0, 1000),
+    ...(error.stack ? { stack: error.stack.slice(0, 4000) } : {}),
+  };
+}
+
 let workerTimer: NodeJS.Timeout | null = null;
 let workerRunning = false;
 export async function runDueHeartbeatJobs(now = new Date(), limit = 20): Promise<{ claimed: number; succeeded: number; failed: number }> {
@@ -270,7 +281,7 @@ export async function runDueHeartbeatJobs(now = new Date(), limit = 20): Promise
           updatedAt: new Date(),
         }).where(eq(localScheduledJobs.id, job.id));
         failed++;
-        console.error("[LocalScheduler] Callback failed", { taskUid: job.taskUid, error: error instanceof Error ? error.name : "UnknownError" });
+        console.error("[LocalScheduler] Callback failed", { taskUid: job.taskUid, ...describeSchedulerError(error) });
       }
     }
   } finally {
@@ -282,7 +293,7 @@ export async function runDueHeartbeatJobs(now = new Date(), limit = 20): Promise
 export function startHeartbeatWorker(): void {
   if (workerTimer) return;
   workerTimer = setInterval(() => {
-    void runDueHeartbeatJobs().catch((error) => console.error("[LocalScheduler] Worker cycle failed:", error instanceof Error ? error.name : "UnknownError"));
+    void runDueHeartbeatJobs().catch((error) => console.error("[LocalScheduler] Worker cycle failed", describeSchedulerError(error)));
   }, 15_000);
   workerTimer.unref();
 }
