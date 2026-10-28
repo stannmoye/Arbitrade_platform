@@ -358,6 +358,13 @@
       "when": 1793232000000,
       "tag": "0081_trading_tier_policy_alignment",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1793232000001,
+      "tag": "0082_trading_tier_qualification_jobs",
+      "breakpoints": true
     }
   ]
 }
