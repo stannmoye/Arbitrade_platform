@@ -51,6 +51,28 @@ describe("Automatic Trading tier qualification", () => {
     expect(migrationSource).toContain("Preserve the historical rows for audit");
   });
 
+  it("keeps allocation and due-trade processing in the scheduled worker", () => {
+    expect(databaseSource).toContain("workerCycle?:boolean");
+    expect(databaseSource).toContain("if(options.workerCycle===true) await markDueTradesAwaitingConfirmation(userId)");
+    expect(databaseSource).toContain("options.workerCycle===true ? await autoTradeOpenOpportunities");
+    expect(databaseSource).toContain("listCustomerOpportunities(customer.id,{workerCycle:true,consumeDelivery:false})");
+    const start = routerSource.indexOf("opportunities: protectedProcedure.query(");
+    const end = routerSource.indexOf("\\n    trades: protectedProcedure.query", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(routerSource.slice(start, end)).not.toContain("workerCycle:true");
+  });
+
+  it("uses published opportunity values instead of hash-derived trade estimates", () => {
+    const start = databaseSource.indexOf("function calculateTradeTerms(");
+    const end = databaseSource.indexOf("\\nfunction packageUsdUnitsToNativeMinor", start);
+    const terms = databaseSource.slice(start, end);
+    expect(terms).toContain("Number(offer.minimumMinor)");
+    expect(terms).toContain("Number(offer.expectedRewardBps)");
+    expect(terms).not.toContain("createHash");
+    expect(terms).not.toContain("sessionEntropy");
+  });
+
   it("documents the owner-approved automatic-deposit policy", () => {
     expect(specification).toContain("Customers never browse, select, subscribe to, purchase, or activate a package.");
     expect(specification).toContain("Profits, trading rewards, returned principal, bonuses, swaps, transfers");
