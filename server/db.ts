@@ -1995,6 +1995,22 @@ export async function adjustCustomerBalance(adminId:number,input:{
         rate=1;
         provider=currencyCode==="USDT"?"product-rule:USDT-nominal-1-to-1":"product-rule:USD-1-to-1";
         rateAt=new Date();
+      }else if(currencyCode==="EUR"||currencyCode==="GBP"){
+        const liveSnapshot=(await tx.select().from(fxRateSnapshots).where(and(
+          eq(fxRateSnapshots.baseAsset,"USD"),eq(fxRateSnapshots.quoteAsset,currencyCode),eq(fxRateSnapshots.provider,"frankfurter-ecb"),
+        )).orderBy(desc(fxRateSnapshots.observedAt)).limit(1).for("update"))[0];
+        const sourceObservedAt=liveSnapshot?.sourceDate?new Date(liveSnapshot.sourceDate):null;
+        const snapshotObservedAt=liveSnapshot?new Date(liveSnapshot.observedAt):null;
+        if(!liveSnapshot||!sourceObservedAt||!Number.isFinite(sourceObservedAt.getTime())||
+          !snapshotObservedAt||!Number.isFinite(snapshotObservedAt.getTime())||
+          Date.now()-sourceObservedAt.getTime()>4*24*60*60*1000||sourceObservedAt.getTime()>Date.now()+60_000||
+          Date.now()-snapshotObservedAt.getTime()>5*60*1000||snapshotObservedAt.getTime()>Date.now()+60_000||
+          !Number.isFinite(Number(liveSnapshot.rate))||Number(liveSnapshot.rate)<=0){
+          throw new Error("A current verified EUR/GBP-to-USD rate is required before this qualifying deposit can be credited.");
+        }
+        rate=1/Number(liveSnapshot.rate);
+        provider=liveSnapshot.provider;
+        rateAt=sourceObservedAt;
       }else if(currencyCode==="BTC"||currencyCode==="ETH"){
         const liveSnapshot=(await tx.select().from(fxRateSnapshots).where(and(
           eq(fxRateSnapshots.baseAsset,currencyCode),eq(fxRateSnapshots.quoteAsset,"USD"),eq(fxRateSnapshots.provider,"coingecko"),
