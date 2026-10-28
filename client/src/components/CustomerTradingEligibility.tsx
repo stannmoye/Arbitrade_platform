@@ -145,6 +145,7 @@ export function CustomerTradingEligibility() {
                     <strong className="trading-threshold-amount">{usdEquivalent(nextPackage.amountNeededUsdMinor)}</strong>
                   </div>
                   <span className="trading-threshold-unit">USD equivalent</span>
+                  <span className="sr-only">USD equivalent of qualifying admin wallet credits, valued at the rate recorded when credited.</span>
                 </div>
               </div>
 
