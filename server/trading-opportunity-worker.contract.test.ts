@@ -10,9 +10,9 @@ const portalMigrationSource = readFileSync(new URL("../scripts/apply-portal-migr
 const installerRecoverySource = readFileSync(new URL("../installer/migration-recovery-status.mjs", import.meta.url), "utf8");
 const runtimeSchemaSource = readFileSync(new URL("../scripts/ensure-worker-runtime-schema.mjs", import.meta.url), "utf8");
 
-const workerStart = databaseSource.indexOf("export async function runAutoTradeCycle(");
-const workerEnd = databaseSource.indexOf("\nexport async function createTrade(", workerStart);
-const workerSource = databaseSource.slice(workerStart, workerEnd);
+const schedulerStart = databaseSource.indexOf("export async function claimAutoTradeCycleCustomers(");
+const schedulerEnd = databaseSource.indexOf("\nexport async function runAutoTradeCycle(", schedulerStart);
+const schedulerSource = databaseSource.slice(schedulerStart, schedulerEnd);
 const cycleStart = serverSource.indexOf("let tradeCycleRunning = false;");
 const cycleEnd = serverSource.indexOf("const autoTradeTimer", cycleStart);
 const cycleSource = serverSource.slice(cycleStart, cycleEnd);
@@ -22,23 +22,23 @@ const reconciliationSource = databaseSource.slice(reconciliationStart, reconcili
 
 describe("automatic Trading opportunity scheduler", () => {
   it("selects a bounded batch of active auto-assigned tiers instead of scanning all users", () => {
-    expect(workerStart).toBeGreaterThanOrEqual(0);
-    expect(workerEnd).toBeGreaterThan(workerStart);
-    expect(workerSource).toContain("selectDistinct({id:customerPackageSubscriptions.userId})");
-    expect(workerSource).toContain("LIKE 'auto-tier:%'");
-    expect(workerSource).toContain('eq(customerPackageSubscriptions.status,"active")');
-    expect(workerSource).toContain(".limit(batchSize)");
-    expect(workerSource).not.toContain('.from(users).where(eq(users.role,"user"))');
-    expect(workerSource).not.toContain("ensureAutomaticTradingTierEntitlements");
-    expect(workerSource).toContain("Math.min(250,requestedBatchSize)");
+    expect(schedulerStart).toBeGreaterThanOrEqual(0);
+    expect(schedulerEnd).toBeGreaterThan(schedulerStart);
+    expect(schedulerSource).toContain("selectDistinct({id:customerPackageSubscriptions.userId})");
+    expect(schedulerSource).toContain("LIKE 'auto-tier:%'");
+    expect(schedulerSource).toContain('eq(customerPackageSubscriptions.status,"active")');
+    expect(schedulerSource).toContain(".limit(batchSize)");
+    expect(schedulerSource).not.toContain('.from(users).where(eq(users.role,"user"))');
+    expect(schedulerSource).not.toContain("ensureAutomaticTradingTierEntitlements");
+    expect(schedulerSource).toContain("Math.min(250,requestedBatchSize)");
   });
 
   it("locks and advances a durable round-robin cursor, wrapping when the end is reached", () => {
-    expect(workerSource).toContain('const cursorKey="trade.autoTradeCycle.lastUserId"');
-    expect(workerSource).toContain('.limit(1).for("update")');
-    expect(workerSource).toContain("gt(customerPackageSubscriptions.userId,afterUserId)");
-    expect(workerSource).toContain("if(!batch.length&&cursor>0) batch=await selectAfter(0)");
-    expect(workerSource).toContain("settingValue:String(nextCursor)");
+    expect(schedulerSource).toContain('const cursorKey="trade.autoTradeCycle.lastUserId"');
+    expect(schedulerSource).toContain('.limit(1).for("update")');
+    expect(schedulerSource).toContain("gt(customerPackageSubscriptions.userId,afterUserId)");
+    expect(schedulerSource).toContain("if(!batch.length&&cursor>0) batch=await selectAfter(0)");
+    expect(schedulerSource).toContain("settingValue:String(nextCursor)");
   });
 
   it("registers the entitlement lookup index in schema, migration, and journal", () => {
