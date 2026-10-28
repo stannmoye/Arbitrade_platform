@@ -1,11 +1,11 @@
 # Current Trading Handoff — 2026-10-28
 
 **Repository:** [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrade_platform)  
-**Canonical base:** `main` at `bf940d02baeb39c92fed66eeea7ed44b1843119f` (re-check before further changes)  
-**Active branch:** `feature/automatic-trading-tier-qualification-20261028`  
-**Pull request:** [#205 — automatic deposit-based tier qualification](https://github.com/stannmoye/Arbitrade_platform/pull/205)  
-**Baseline PR head inspected before the 2026-10-28 policy clarification:** `e5b4e34513e776cd3cbc0398ee1697a9f9a9da71`. This clarification adds subsequent commits; re-fetch the live PR head before validation or further writes.  
-**PR state at last inspection:** open, unmerged; GitHub reported mergeable. Exact-head checks and full diff review are still required. No merge, deployment, or production database migration has occurred.
+**Canonical branch:** `main`  
+**Latest main commit at handoff update:** `a51682da54b9e70434728de3e81fc088ce3f7148` (PR #205 squash merge)  
+**Completed PR:** [#205 — automatic deposit-based tier qualification](https://github.com/stannmoye/Arbitrade_platform/pull/205)  
+**Merged feature head:** `9d3e31ef521e62dd95447c1d1a867b80ad87cc8b`  
+**Status:** PR #205 merged after all exact-head automated checks passed. Post-merge checks are running on main. No production migration or deployment has been run. The worker has only been tested against disposable MySQL/MariaDB databases; production readiness still requires post-merge CI to finish and deployment-time verification on the user's own server.
 
 ## Authoritative Trading tier policy
 
@@ -106,3 +106,14 @@ This policy is final and must be followed throughout the application:
 - Follow-up exact-head run confirmed the source-date column-size issue was fixed, then exposed an overly strict test assertion: Frankfurter publishes a calendar date for fiat rates, while the full request/fetch timestamp is recorded separately. The integration assertion now checks the provider's calendar source date and the full `fetchedAt` timestamp independently. The exact latest head must pass the full suite before acceptance.
 
 - Extended the actual admin-service integration coverage again to verify a partial reversal links to its original qualifying ledger entry, enqueues its own durable job, subtracts the recorded USD attribution, and rejects an over-reversal without creating a ledger entry/job. The exact latest head is `1527835cbb196b5287adc03c8027d15e1c65befd`; its full CI run is the acceptance gate.
+
+
+## Latest acceptance and merge status — 2026-10-28
+
+- PR #205 was squash-merged into `main` as `a51682da54b9e70434728de3e81fc088ce3f7148` after the exact feature-head checks were all green.
+- Verified actual `adjustCustomerBalance` service integration on a disposable migrated MySQL database: qualifying USD credit, excluded non-qualifying credit, atomic durable queue creation, mocked API-derived non-USD rate and persisted FX evidence, linked partial reversal, over-reversal rejection, and worker processing.
+- Verified worker behavior: cumulative tier/quota assignment, reversal-driven tier revocation, concurrent-cycle idempotency, stale-lease recovery, transient retry, and dead-letter after attempt eight.
+- Verified queue migration/backfill/concurrency on disposable MySQL 8.4 and MariaDB 11.4. Type-check, unit tests, production build, browser checks, installer/migration recovery, application verification, and Trading recovery checks all passed on the exact feature head.
+- Post-merge CI is running against the merge commit. Check the exact main SHA and all post-merge workflow results before deployment.
+- Ordinary wallet-transfer implementation was not modified by this qualification change. The new integration test proves non-qualifying admin credits are excluded; do not describe this as a separate end-to-end transfer test.
+- No production database has been touched. Do not begin the next worker until post-merge CI is green and this first worker has been verified after deployment.
