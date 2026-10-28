@@ -1,102 +1,189 @@
-import { Activity, CalendarClock, Clock3, RefreshCw, ShieldCheck, Target, TrendingUp } from "lucide-react";
+import {
+  Activity,
+  ArrowUpRight,
+  CalendarClock,
+  CheckCircle2,
+  Clock3,
+  Info,
+  RefreshCw,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  TrendingUp,
+  WalletCards,
+} from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import "./CustomerTradingEligibility.css";
 
-const usd = (minor: number) => new Intl.NumberFormat(undefined, {
+const usdEquivalent = (minor: number) => new Intl.NumberFormat(undefined, {
   style: "currency",
   currency: "USD",
   maximumFractionDigits: 2,
 }).format(minor / 100);
+
+const durationLabel = (months: number) => `${months} ${months === 1 ? "month" : "months"}`;
 
 export function CustomerTradingEligibility() {
   const eligibilityQuery = trpc.customer.tradingEligibility.useQuery(undefined, { refetchInterval: 30_000 });
   const data = eligibilityQuery.data;
   const currentPackage = data?.currentPackage;
   const nextPackage = data?.nextPackage;
+  const qualifyingTotal = Number(data?.qualifyingDepositUsdMinor ?? 0);
+  const nextThreshold = Number(nextPackage?.minimumQualifyingBalanceUsdMinor ?? 0);
+  const progressPercent = nextThreshold > 0
+    ? Math.min(100, Math.max(0, Math.round((qualifyingTotal / nextThreshold) * 100)))
+    : 0;
 
   return (
     <section className="customer-panel trading-packages-panel" aria-labelledby="trading-eligibility-heading">
-      <div className="customer-panel-head">
-        <div>
-          <div className="eyebrow">Your Trading Journey</div>
-          <h2 id="trading-eligibility-heading">Your package progress</h2>
-          <p>Your eligibility updates automatically from qualifying credits made by an authorized administrator. You never need to select or activate a package.</p>
+      <header className="trading-journey-header">
+        <div className="trading-journey-intro">
+          <div className="trading-journey-eyebrow"><Sparkles size={14} aria-hidden="true" /> Your Trading Journey</div>
+          <h2 className="trading-journey-title" id="trading-eligibility-heading">Your package progress</h2>
+          <p className="trading-journey-description">
+            Your package and daily opportunities update automatically when an authorized administrator records a qualifying wallet credit.
+          </p>
         </div>
-        <button className="text-button" type="button" onClick={() => void eligibilityQuery.refetch()} disabled={eligibilityQuery.isFetching}>
-          Refresh <RefreshCw size={14} />
+        <button
+          className="trading-journey-refresh"
+          type="button"
+          onClick={() => void eligibilityQuery.refetch()}
+          disabled={eligibilityQuery.isFetching}
+          aria-label="Refresh Trading package progress"
+        >
+          <RefreshCw size={14} aria-hidden="true" className={eligibilityQuery.isFetching ? "animate-spin" : undefined} />
+          {eligibilityQuery.isFetching ? "Updating…" : "Refresh"}
         </button>
-      </div>
+      </header>
 
       {eligibilityQuery.isLoading ? (
-        <div className="empty-state">Checking your package progress…</div>
+        <div className="trading-package-loading" role="status" aria-live="polite">
+          Checking your package progress and next milestone…
+        </div>
       ) : eligibilityQuery.isError ? (
-        <div className="admin-ops-empty error" role="alert">
-          Your Trading eligibility could not be verified right now. Please refresh shortly.
+        <div className="trading-package-error" role="alert">
+          Your package progress could not be verified right now. Your eligibility has not been changed. Please refresh shortly.
         </div>
       ) : (
-        <div className="trading-package-qualification">
+        <div className="trading-journey-content">
           {currentPackage ? (
-            <article className="customer-panel" aria-labelledby="current-trading-package">
-              <div className="eyebrow">Your current package</div>
-              <h3 id="current-trading-package">{currentPackage.name}</h3>
-              <div className="trading-package-benefits">
-                <div>
-                  <CalendarClock size={18} aria-hidden="true" />
-                  <span>Duration</span>
-                  <strong>{currentPackage.durationMonths} {currentPackage.durationMonths === 1 ? "month" : "months"}</strong>
+            <article className="trading-tier-card trading-tier-card-current" aria-labelledby="current-trading-package">
+              <div className="trading-tier-card-head">
+                <div className="trading-tier-heading">
+                  <div className="trading-tier-kicker"><CheckCircle2 size={14} aria-hidden="true" /> Your current package</div>
+                  <h3 className="trading-tier-name" id="current-trading-package">{currentPackage.name}</h3>
                 </div>
-                <div>
-                  <Target size={18} aria-hidden="true" />
-                  <span>This package’s daily opportunities</span>
-                  <strong>{currentPackage.opportunitiesPerDay}</strong>
+                <span className="trading-tier-state"><ShieldCheck size={13} aria-hidden="true" /> Automatically assigned</span>
+              </div>
+
+              <div className="trading-tier-metrics">
+                <div className="trading-tier-metric">
+                  <span className="trading-tier-metric-icon"><CalendarClock size={17} aria-hidden="true" /></span>
+                  <span className="trading-tier-metric-label">Package duration</span>
+                  <strong className="trading-tier-metric-value">{durationLabel(currentPackage.durationMonths)}</strong>
+                </div>
+                <div className="trading-tier-metric">
+                  <span className="trading-tier-metric-icon"><Target size={17} aria-hidden="true" /></span>
+                  <span className="trading-tier-metric-label">Opportunities from this package per day</span>
+                  <strong className="trading-tier-metric-value">{currentPackage.opportunitiesPerDay}</strong>
                 </div>
               </div>
-              <p className="trading-package-note"><ShieldCheck size={15} aria-hidden="true" /> Your package is assigned automatically. Opportunities depend on eligibility, schedule, and available wallet balance; an allowance is not a promise of a trade or profit.</p>
+              <p className="trading-tier-explainer">
+                <Info size={14} aria-hidden="true" />
+                Opportunities are processed automatically when eligible. The allowance is a limit, not a promise that every opportunity becomes a trade or generates profit.
+              </p>
             </article>
           ) : (
-            <article className="customer-panel" aria-labelledby="not-yet-qualified">
-              <div className="eyebrow">Your first milestone</div>
-              <h3 id="not-yet-qualified">You’re not yet qualified for a package</h3>
-              <p>Your first package unlocks when your cumulative qualifying admin credits reach the minimum threshold below.</p>
+            <article className="trading-tier-card trading-tier-card-current" aria-labelledby="not-yet-qualified">
+              <div className="trading-tier-kicker"><WalletCards size={14} aria-hidden="true" /> Your first milestone</div>
+              <h3 className="trading-tier-name" id="not-yet-qualified">You’re not yet qualified for a package</h3>
+              <p className="trading-tier-explainer">
+                <Info size={14} aria-hidden="true" />
+                Reach the qualifying threshold below to become eligible for your first package. Eligibility is assigned by the server; there is nothing to select or activate.
+              </p>
             </article>
           )}
 
           {nextPackage ? (
-            <article className="customer-panel trading-next-package" aria-labelledby="next-trading-package">
-              <div className="eyebrow">{currentPackage ? "Your next milestone" : "Your first package"}</div>
-              <h3 id="next-trading-package">{nextPackage.name}</h3>
-              <div className="trading-next-threshold">
-                <span>{currentPackage ? "Additional qualifying amount needed" : "Minimum qualifying amount"}</span>
-                <strong>{usd(nextPackage.amountNeededUsdMinor)}</strong>
-                <small>USD equivalent of qualifying credits submitted through the admin portal only.</small>
-              </div>
-              <div className="trading-package-benefits">
-                <div>
-                  <CalendarClock size={18} aria-hidden="true" />
-                  <span>Package duration</span>
-                  <strong>{nextPackage.durationMonths} {nextPackage.durationMonths === 1 ? "month" : "months"}</strong>
+            <article className="trading-tier-card trading-tier-card-next" aria-labelledby="next-trading-package">
+              <div className="trading-tier-card-head">
+                <div className="trading-tier-heading">
+                  <div className="trading-tier-kicker"><TrendingUp size={14} aria-hidden="true" /> {currentPackage ? "Your next milestone" : "Your first package"}</div>
+                  <h3 className="trading-tier-name" id="next-trading-package">{nextPackage.name}</h3>
                 </div>
-                <div>
-                  <Target size={18} aria-hidden="true" />
-                  <span>Additional daily opportunities</span>
-                  <strong>+{nextPackage.additionalDailyOpportunities}</strong>
+                <span className="trading-tier-state"><ArrowUpRight size={13} aria-hidden="true" /> Next level</span>
+              </div>
+
+              <div className="trading-threshold-panel">
+                <span className="trading-threshold-label">
+                  {currentPackage ? "Additional qualifying amount needed" : "Minimum qualifying amount"}
+                </span>
+                <strong className="trading-threshold-amount">{usdEquivalent(nextPackage.amountNeededUsdMinor)}</strong>
+                <p className="trading-threshold-context">
+                  USD equivalent across qualifying ledger-wallet credits. The value is recorded when an administrator makes the qualifying credit; this is not a fee or a trade amount.
+                </p>
+                <div className="trading-progress-block">
+                  <div className="trading-progress-copy">
+                    <span>Progress toward this milestone</span>
+                    <strong>{progressPercent}%</strong>
+                  </div>
+                  <div
+                    className="trading-progress-track"
+                    role="progressbar"
+                    aria-label="Progress toward the next package qualification threshold"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={progressPercent}
+                  >
+                    <div className="trading-progress-value" style={{ width: `${progressPercent}%` }} />
+                  </div>
                 </div>
               </div>
-              <p className="trading-package-note"><TrendingUp size={15} aria-hidden="true" /> Qualifying for this tier adds its configured daily opportunity allowance to your active tiers while they remain eligible.</p>
+
+              <div className="trading-tier-metrics">
+                <div className="trading-tier-metric">
+                  <span className="trading-tier-metric-icon"><CalendarClock size={17} aria-hidden="true" /></span>
+                  <span className="trading-tier-metric-label">Next package duration</span>
+                  <strong className="trading-tier-metric-value">{durationLabel(nextPackage.durationMonths)}</strong>
+                </div>
+                <div className="trading-tier-metric">
+                  <span className="trading-tier-metric-icon"><Target size={17} aria-hidden="true" /></span>
+                  <span className="trading-tier-metric-label">Additional daily opportunities</span>
+                  <strong className="trading-tier-metric-value">+{nextPackage.additionalDailyOpportunities}</strong>
+                </div>
+              </div>
+              <p className="trading-tier-explainer">
+                <Info size={14} aria-hidden="true" />
+                Qualifying for this package adds its configured daily opportunity allowance to the quotas of your other active packages, subject to the platform’s eligibility rules.
+              </p>
             </article>
           ) : (
-            <article className="customer-panel" aria-live="polite">
-              <div className="eyebrow">Package progress</div>
-              <h3>{currentPackage ? "You’ve reached the highest currently available tier" : "No package is currently available"}</h3>
-              <p>{currentPackage ? "There is no higher enabled tier available at this time. Check back after the administrator updates the tier catalogue." : "A higher package milestone will appear here when an administrator enables a qualifying tier."}</p>
-            </article>
+            <div className="trading-no-next" aria-live="polite">
+              <span className="trading-no-next-icon"><CheckCircle2 size={18} aria-hidden="true" /></span>
+              <div className="trading-no-next-copy">
+                <h3>{currentPackage ? "You’ve reached the highest currently available package" : "No package milestone is available right now"}</h3>
+                <p>{currentPackage
+                  ? "There is no higher enabled package at this time. Your current package details remain available above."
+                  : "A first qualifying milestone will appear here when an administrator enables a package."}</p>
+              </div>
+            </div>
           )}
 
-          <div className="trading-package-allowance" aria-live="polite">
-            <Activity size={16} aria-hidden="true" />
-            <span>Current combined daily opportunity allowance</span>
-            <strong>{data?.dailyOpportunityAllowance ?? 0}</strong>
-          </div>
-          <small><Clock3 size={13} aria-hidden="true" /> Package qualification is processed automatically by the server. No customer package list, selection, purchase, or activation is available.</small>
+          {currentPackage && (
+            <div className="trading-total-allowance" aria-live="polite">
+              <span className="trading-total-allowance-icon"><Activity size={18} aria-hidden="true" /></span>
+              <span className="trading-total-allowance-copy">
+                <strong className="trading-total-allowance-label">Your total daily opportunity allowance</strong>
+                <span className="trading-total-allowance-note">Combined allowance across your currently active packages</span>
+              </span>
+              <strong className="trading-total-allowance-value">{data?.dailyOpportunityAllowance ?? 0}</strong>
+            </div>
+          )}
+
+          <p className="trading-tier-explainer">
+            <Clock3 size={14} aria-hidden="true" />
+            Only qualifying credits made through the administrator’s wallet-credit process count toward the threshold. Other wallet activity and ordinary transfers do not change your qualification total.
+          </p>
         </div>
       )}
     </section>
