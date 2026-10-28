@@ -49,7 +49,7 @@ Creates a new customer account with:
 - Email address
 - Initial password
 
-Trading tiers are not assigned manually during account creation. Tier eligibility is determined automatically from qualifying deposit credits.
+Trading tiers are not assigned manually during account creation. Tier eligibility is determined automatically only from credits manually submitted through the admin portal's Credit Customer flow, explicitly classified as qualifying, and committed as `admin_manual_deposit_credit`. Signup credits and all other credit/deposit pathways are excluded.
 
 ### Edit customer
 
