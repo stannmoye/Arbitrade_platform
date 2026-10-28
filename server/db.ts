@@ -884,8 +884,6 @@ export async function getTicketAttachmentAccess(storageKey:string) {
 // Controlled opportunity engine: this is an internal paper-ledger boundary. Real execution requires licensed providers/custody.
 // Legacy Starter/Growth/Pro/Institutional defaults are no longer seeded.
 // Trading entitlements now come from the canonical package catalogue and subscriptions.
-const DEFAULT_OPPORTUNITY_PACKAGE_POLICIES: readonly any[] = [];
-
 export async function provisionSignupCredit(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
@@ -2276,6 +2274,8 @@ export async function createAdminTradingPackage(createdBy:number,input:{
   return db.transaction(async tx=>{
     const duplicate=(await tx.select({id:packages.id}).from(packages).where(eq(packages.name,name)).limit(1).for("update"))[0];
     if(duplicate) throw new Error("A package with this name already exists");
+    const policyConflict=(await tx.select({id:opportunityPackagePolicies.id}).from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,name)).limit(1).for("update"))[0];
+    if(policyConflict) throw new Error("A tier policy with this name already exists; reconcile the orphan policy before creating the tier.");
     const inserted=await tx.insert(packages).values({
       name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,
       durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,
@@ -2283,6 +2283,7 @@ export async function createAdminTradingPackage(createdBy:number,input:{
       startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1,
     });
     const id=Number(inserted[0].insertId);
+    await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy});
     await tx.insert(v5AuditEvents).values({
       actorUserId:createdBy,action:"trading_package_created",entityType:"trading_package",entityId:String(id),
       reason:"Administrator created an automatic Trading tier.",
@@ -2312,8 +2313,21 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
   return db.transaction(async tx=>{
     const current=(await tx.select().from(packages).where(eq(packages.id,input.id)).limit(1).for("update"))[0];
     if(!current) throw new Error("Trading package not found");
-    const conflicting=(await tx.select({id:packages.id}).from(packages).where(eq(packages.name,input.name.trim())).limit(1))[0];
-    if(conflicting&&conflicting.id!==input.id) throw new Error("A package with this name already exists");
+    const nextName=input.name.trim();
+    const conflicting=(await tx.select({id:packages.id}).from(packages).where(eq(packages.name,nextName)).limit(1))[0];
+    if(conflicting&&conflicting.id!==input.id) throw new Error("A tier with this name already exists");
+    if(current.name!==nextName){
+      const currentPolicy=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,current.name)).limit(1).for("update"))[0];
+      const targetPolicy=(await tx.select({id:opportunityPackagePolicies.id}).from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,nextName)).limit(1).for("update"))[0];
+      if(targetPolicy&&targetPolicy.id!==currentPolicy?.id) throw new Error("A tier policy with the new name already exists; reconcile it before renaming this tier.");
+      if(currentPolicy){
+        const nextPolicyVersion=Number(currentPolicy.policyVersion||1)+1;
+        if(!Number.isSafeInteger(nextPolicyVersion)) throw new Error("Tier policy version has reached its limit");
+        await tx.update(opportunityPackagePolicies).set({packageName:nextName,updatedBy,policyVersion:nextPolicyVersion,updatedAt:new Date()}).where(eq(opportunityPackagePolicies.id,currentPolicy.id));
+      }else{
+        await tx.insert(opportunityPackagePolicies).values({packageName:nextName,updatedBy});
+      }
+    }
     const nextVersion=Number(current.termsVersion||1)+1;
     if(!Number.isSafeInteger(nextVersion)) throw new Error("Package terms version has reached its limit");
     await tx.update(packages).set({
@@ -2467,13 +2481,30 @@ export async function getCustomerTradingEligibility(userId:number) {
   };
 }
 
-export async function listOpportunityPackagePolicies() { const db=await getDb(); if(!db) throw new Error("Database is not available"); const existing=await db.select().from(opportunityPackagePolicies); const names=new Set(existing.map(row=>row.packageName)); for(const policy of DEFAULT_OPPORTUNITY_PACKAGE_POLICIES) if(!names.has(policy.packageName)) await db.insert(opportunityPackagePolicies).values(policy); return db.select().from(opportunityPackagePolicies); }
+export async function listOpportunityPackagePolicies() {
+  const db=await getDb();
+  if(!db) throw new Error("Database is not available");
+  const tiers=await db.select({name:packages.name}).from(packages);
+  const existing=await db.select({packageName:opportunityPackagePolicies.packageName}).from(opportunityPackagePolicies);
+  const names=new Set(existing.map(row=>row.packageName));
+  for(const tier of tiers){
+    if(names.has(tier.name)) continue;
+    await db.insert(opportunityPackagePolicies).values({packageName:tier.name}).onDuplicateKeyUpdate({set:{packageName:tier.name}});
+  }
+  const tierNames=new Set(tiers.map(tier=>tier.name));
+  return (await db.select().from(opportunityPackagePolicies)).filter(row=>tierNames.has(row.packageName));
+}
 
-/** Returns persisted package-policy rows without seeding defaults; safe for read-only snapshots. */
+/** Read-only policy snapshot; missing rows fail closed until admin/worker reconciliation creates them. */
 export async function listPersistedOpportunityPackagePolicies() {
-  const db = await getDb();
-  if (!db) throw new Error("Database is not available");
-  return db.select().from(opportunityPackagePolicies);
+  const db=await getDb();
+  if(!db) throw new Error("Database is not available");
+  const [tiers,rows]=await Promise.all([
+    db.select({name:packages.name}).from(packages),
+    db.select().from(opportunityPackagePolicies),
+  ]);
+  const tierNames=new Set(tiers.map(tier=>tier.name));
+  return rows.filter(row=>tierNames.has(row.packageName));
 }
 export async function updateOpportunityPackagePolicies(updatedBy:number, policies:any[]) {
   const db=await getDb(); if(!db) throw new Error("Database is not available");
