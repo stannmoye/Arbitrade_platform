@@ -538,7 +538,7 @@ export const appRouter = router({
       .refine(input => input.mode !== "debit" || input.debitClassification !== "qualifying_deposit_reversal" || Boolean(input.reversalLedgerId), {
         message: "Select the original qualifying deposit ledger ID to reverse.",
         path: ["reversalLedgerId"],
-      }).mutation(async ({ ctx, input }) => {
+      })).mutation(async ({ ctx, input }) => {
       const result=await adjustCustomerBalance(ctx.user.id, input);
       await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{
         eventType:`ADMIN_${input.mode.toUpperCase()}`,status:"COMPLETED",
