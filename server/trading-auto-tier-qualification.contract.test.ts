@@ -28,7 +28,7 @@ describe("Automatic Trading tier qualification", () => {
   });
 
   it("qualifies tiers only from classified administrator manual customer credits", () => {
-    expect(databaseSource).toContain('entryType:qualifyingDepositUsdMinor!==null?"admin_manual_deposit_credit":');
+    expect(databaseSource).toContain('const entryType=qualifyingDepositReversalOfId!==null?"admin_manual_deposit_reversal":qualifyingDepositUsdMinor!==null?"admin_manual_deposit_credit":');
     expect(databaseSource).toContain('eq(balanceLedger.entryType,"admin_manual_deposit_credit")');
     expect(databaseSource).toContain("qualifyingTotal<Number(tier.minimumQualifyingBalanceUsdMinor)");
     expect(databaseSource).toContain('action:"trading_tier_auto_qualified"');
