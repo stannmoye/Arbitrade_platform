@@ -1,4 +1,4 @@
-import { Activity, ArrowUpRight, CalendarClock, Clock3, RefreshCw, ShieldCheck, Target, TrendingUp } from "lucide-react";
+import { Activity, CalendarClock, Clock3, RefreshCw, ShieldCheck, Target, TrendingUp } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 
 const usd = (minor: number) => new Intl.NumberFormat(undefined, {
