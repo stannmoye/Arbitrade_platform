@@ -134,7 +134,7 @@ describe("Automatic Trading tier qualification", () => {
   it("preserves assigned tier threshold and quota snapshots for existing entitlements", () => {
     expect(databaseSource).toContain("const assignedThreshold=Number(snapshot.minimumQualifyingBalanceUsdMinor??threshold)");
     expect(databaseSource).toContain("termsSnapshotJson:customerPackageSubscriptions.termsSnapshotJson");
-    expect(databaseSource).toContain("const quota=Number(snapshot.opportunitiesPerDay??row.dailyQuota)");
+    expect(databaseSource).toContain("const quota=Number(snapshotFor(row).opportunitiesPerDay??row.dailyQuota)");
     expect(databaseSource).toContain("below the threshold recorded in this entitlement's terms snapshot");
   });
 
@@ -255,6 +255,7 @@ describe("Automatic Trading tier qualification", () => {
   it("documents the owner-approved automatic-deposit policy", () => {
     expect(specification).toContain("Customers never browse, select, subscribe to, purchase, or activate a package.");
     expect(specification).toContain("profits, trading rewards, returned principal, bonuses, swaps, transfers, conversions");
-    expect(specification).toContain("The customer portal may show only the resulting eligibility status and total daily opportunity allowance.");
+    expect(specification).toContain("The customer portal must never expose the full administrator-managed tier catalogue");
+    expect(specification).toContain("the single next enabled tier");
   });
 });
