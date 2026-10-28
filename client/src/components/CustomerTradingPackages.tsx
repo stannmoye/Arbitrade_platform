@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CheckCircle2, Clock3, PackageCheck, RefreshCw, ShieldCheck } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { formatCustomerTradingPackageActivationDate } from "@/lib/trading-package-dates";
 
 function formatUsdMinor(amount: number) {
   return "USD " + (Number(amount || 0) / 100).toLocaleString(undefined, {
@@ -16,6 +17,7 @@ function activationBlockReason(reason: string | null, minimum: number) {
   if (reason === "same_package_owned") return "This package is already active under the current repeat-purchase policy.";
   if (reason === "max_copies_reached") return "The configured maximum number of copies of this package has been reached.";
   if (reason === "activation_cooldown") return "Package activation is temporarily unavailable while the activation cooldown is active.";
+  if (reason === "eligibility_unavailable") return "Package terms are visible, but wallet, policy, or subscription checks are temporarily unavailable. Activation is disabled until eligibility can be verified.";
   return null;
 }
 
@@ -62,9 +64,10 @@ export function CustomerTradingPackages() {
         </div>
       )}
 
+      {data?.eligibilityWarning && <div className="admin-ops-empty error" role="status">{data.eligibilityWarning}</div>}
       {notice && <div className={activation.error ? "admin-ops-empty error" : "test-notice"} role="status">{notice}</div>}
       {packagesQuery.isLoading ? <div className="empty-state">Loading configured package terms…</div>
-        : packagesQuery.isError ? <div className="admin-ops-empty error">Trading packages could not be loaded. No activation was attempted.</div>
+        : packagesQuery.isError ? <div className="admin-ops-empty error" role="alert">Trading packages could not be loaded. No activation was attempted. <span>{packagesQuery.error instanceof Error ? packagesQuery.error.message : "The package service returned an unknown error."}</span></div>
         : packages.length === 0 ? <div className="empty-state">No trading packages are currently available.</div>
         : <div className="trading-package-grid">
           {packages.map(pkg => {
@@ -108,7 +111,7 @@ export function CustomerTradingPackages() {
           {subscriptions.map(subscription => (
             <div className="trading-active-subscription" key={subscription.id}>
               <strong>{subscription.packageName}</strong>
-              <span>Activated {new Date(subscription.activatedAt).toLocaleDateString()}</span>
+              <span>Activated {formatCustomerTradingPackageActivationDate(subscription.activatedAt)}</span>
               <span>Expires {subscription.expiresAt ? new Date(subscription.expiresAt).toLocaleDateString() : "No expiry configured"}</span>
             </div>
           ))}

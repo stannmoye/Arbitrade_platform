@@ -13,7 +13,6 @@ describe("customer Trading package catalogue diagnostics", () => {
     expect(end).toBeGreaterThan(start);
     for (const phase of [
       "database_connection",
-      "expire_stale_subscriptions",
       "read_activation_settings",
       "read_qualifying_wallet_balances",
       "calculate_qualifying_balance",
@@ -32,12 +31,26 @@ describe("customer Trading package catalogue diagnostics", () => {
     expect(diagnosticEnd).toBeGreaterThan(diagnosticStart);
     const diagnosticFields = implementation.slice(diagnosticStart, diagnosticEnd);
     expect(diagnosticFields).not.toContain("userId");
-    expect(implementation).toContain('throw new Error("Unable to load the Trading package catalogue.');
+    expect(implementation).toContain('throw new Error("Trading package catalogue unavailable (phase: "');
   });
 
-  it("keeps the customer-facing failure generic and does not attempt activation", () => {
-    expect(implementation).toContain("Unable to load the Trading package catalogue");
+  it("keeps catalogue reads read-only and does not attempt activation", () => {
+    expect(implementation).toContain("Trading package catalogue unavailable (phase: ");
+    expect(implementation).not.toContain("db.update(customerPackageSubscriptions)");
+    expect(implementation).not.toContain('phase = "expire_stale_subscriptions"');
     expect(implementation).not.toContain("activateCustomerTradingPackage(");
     expect(implementation).not.toContain("SQL query failed");
+  });
+
+  it("returns the configured package terms but blocks activation when eligibility data cannot be verified", () => {
+    expect(implementation).toContain("const catalog=await db.select({");
+    expect(implementation).toContain("minimumQualifyingBalanceUsdMinor:packages.minimumQualifyingBalanceUsdMinor");
+    expect(implementation).not.toContain("db.select().from(packages)");
+    expect(implementation).toContain("Trading package catalogue unavailable (phase: ");
+    expect(implementation).toContain("eligibilityAvailable=Boolean(policy)&&walletBalanceAvailable&&subscriptionHistoryAvailable");
+    expect(implementation).toContain("eligibilityWarning:");
+    expect(implementation).toContain('blockReason=!eligibilityAvailable?"eligibility_unavailable"');
+    expect(implementation).toContain("canActivate:eligibilityAvailable&&!blockReason");
+    expect(implementation).toContain("logPhaseError(phase,error)");
   });
 });
