@@ -2241,6 +2241,42 @@ export async function listAdminTradingPackages() {
     throw new Error("Unable to load the Trading package catalogue. Check server logs for the underlying database error.");
   }
 }
+export async function createAdminTradingPackage(createdBy:number,input:{
+  name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
+  opportunitiesPerDay:number; maxPopupsPerDay:number; maxActiveInvestments:number;
+  startsAt:Date|null; expiresAt:Date|null; enabled:boolean;
+}) {
+  const name=input.name.trim();
+  if(!name||name.length>80) throw new Error("Package name must contain 1–80 characters");
+  if(!Number.isSafeInteger(input.minimumQualifyingBalanceUsdMinor)||input.minimumQualifyingBalanceUsdMinor<=0) throw new Error("Minimum qualifying balance must be a positive USD minor-unit integer");
+  if(!Number.isSafeInteger(input.durationMonths)||input.durationMonths<1||input.durationMonths>1200) throw new Error("Package duration must be 1–1200 calendar months");
+  if(!Number.isSafeInteger(input.opportunitiesPerDay)||input.opportunitiesPerDay<1||input.opportunitiesPerDay>10000) throw new Error("Daily opportunity quota must be between 1 and 10000");
+  if(!Number.isSafeInteger(input.maxPopupsPerDay)||input.maxPopupsPerDay<0||input.maxPopupsPerDay>10000) throw new Error("Package popup cap must be between 0 and 10000");
+  if(!Number.isSafeInteger(input.maxActiveInvestments)||input.maxActiveInvestments<0||input.maxActiveInvestments>10000) throw new Error("Package active-investment cap must be between 0 and 10000");
+  if(input.startsAt&&!Number.isFinite(input.startsAt.getTime())) throw new Error("Package start time is invalid");
+  if(input.expiresAt&&!Number.isFinite(input.expiresAt.getTime())) throw new Error("Package expiry time is invalid");
+  if(input.startsAt&&input.expiresAt&&input.expiresAt<=input.startsAt) throw new Error("Package expiry must be later than its start time");
+  const db=await getDb(); if(!db) throw new Error("Database is not available");
+  return db.transaction(async tx=>{
+    const duplicate=(await tx.select({id:packages.id}).from(packages).where(eq(packages.name,name)).limit(1).for("update"))[0];
+    if(duplicate) throw new Error("A package with this name already exists");
+    const inserted=await tx.insert(packages).values({
+      name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,
+      durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,
+      maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,
+      startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1,
+    });
+    const id=Number(inserted[0].insertId);
+    await tx.insert(v5AuditEvents).values({
+      actorUserId:createdBy,action:"trading_package_created",entityType:"trading_package",entityId:String(id),
+      reason:"Administrator created an automatic Trading tier.",
+      reference:"trading-package-created:"+id+":1",
+      metadataJson:JSON.stringify({id,...input,name,termsVersion:1}),
+    });
+    return {id,name,...input,termsVersion:1};
+  });
+}
+
 export async function updateAdminTradingPackage(updatedBy:number,input:{
   id:number; name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
   opportunitiesPerDay:number; maxPopupsPerDay:number; maxActiveInvestments:number;
