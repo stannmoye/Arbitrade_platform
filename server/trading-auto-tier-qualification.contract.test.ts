@@ -48,6 +48,8 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("Date.now()-new Date(liveSnapshot.observedAt).getTime()>5*60*1000");
     expect(databaseSource).toContain("current verified BTC/ETH-to-USD rate is required");
     expect(databaseSource).toContain("eq(fxRateSnapshots.provider,\"coingecko\")");
+    expect(databaseSource).toContain("const sourceObservedAt=liveSnapshot?.sourceDate?new Date(liveSnapshot.sourceDate):null");
+    expect(databaseSource).toContain("Date.now()-sourceObservedAt.getTime()>5*60*1000");
   });
 
   it("exposes only a read-only eligibility summary to customers", () => {
