@@ -8,7 +8,7 @@ import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generate
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
 import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostings, inspectWalletLedgerSnapshot } from "./modules/wallet-ledger-reconciliation";
-import { addCalendarMonths, parsePackageQualificationPolicy, type PackageQualificationPolicy } from "./modules/trading-package-activation";
+import { addCalendarMonths } from "./modules/trading-package-activation";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
@@ -2046,102 +2046,6 @@ function calculateTradeTerms(userId:number, offer:any, amountMinor:number) {
   return { minimumMinor, rewardBps, method:TRADE_MATH_METHODS[rotation], rotation, factors:{sessionEntropy,amountCurve,routeVolatility,liquidityDepth,customerRisk,rotationIndex} };
 }
 function packageUsdUnitsToNativeMinor(usdUnits:number, currency:string, currencies:any[]):number { const row=currencies.find((item:any)=>item.code===currency); if(!row) throw new Error(`Currency ${currency} is not configured`); return usdUnitsToNativeMinor(usdUnits,Number(row.scale),Number(row.usdRate)); }
-const PACKAGE_ACTIVATION_SETTING_KEYS = [
-  "trading.packageQualification.eligibleCurrencies",
-  "trading.packageQualification.combineEligibleWallets",
-  "trading.packagePurchase.repeatAllowed",
-  "trading.packagePurchase.maxCopies",
-  "trading.packagePurchase.repeatRestriction",
-  "trading.packagePurchase.cooldownSeconds",
-] as const;
-
-function packageActivationPolicyFromRows(rows: Array<{settingKey:string;settingValue:string}>): PackageQualificationPolicy {
-  const values:Record<string,string>={};
-  for(const row of rows) values[row.settingKey]=row.settingValue;
-  return parsePackageQualificationPolicy(values);
-}
-async function getPackageActivationPolicyInTransaction(tx:any) {
-  const rows=await tx.select({settingKey:appSettings.settingKey,settingValue:appSettings.settingValue})
-    .from(appSettings).where(inArray(appSettings.settingKey,[...PACKAGE_ACTIVATION_SETTING_KEYS])).for("update");
-  return packageActivationPolicyFromRows(rows);
-}
-  return rows.map(row=>({
-    currency:String(row.currency),
-    availableMinor:Number(row.availableMinor),
-    scale:Number(row.scale),
-    usdRate:Number(row.usdRate),
-  }));
-}
-
-export async function getPackageActivationPolicy() {
-  try {
-    const db=await getDb(); if(!db) throw new Error("Database is not available");
-    const rows=await db.select({settingKey:appSettings.settingKey,settingValue:appSettings.settingValue})
-      .from(appSettings).where(inArray(appSettings.settingKey,[...PACKAGE_ACTIVATION_SETTING_KEYS]));
-    const policy=packageActivationPolicyFromRows(rows);
-    return {...policy,qualifyingBalanceCurrency:"USD"};
-  } catch (error) {
-    const cause = error as { name?: unknown; message?: unknown; code?: unknown; errno?: unknown; sqlState?: unknown };
-    console.error("[Trading] Admin package activation policy read failed", {
-      errorName: typeof cause?.name === "string" ? cause.name : "UnknownError",
-      errorCode: typeof cause?.code === "string" || typeof cause?.code === "number" ? cause.code : undefined,
-      errorNumber: typeof cause?.errno === "number" ? cause.errno : undefined,
-      sqlState: typeof cause?.sqlState === "string" ? cause.sqlState : undefined,
-      message: typeof cause?.message === "string" ? cause.message : "Unknown database error",
-    });
-    throw new Error("Unable to load the Trading package activation policy. Check server logs for the underlying database error.");
-  }
-}
-
-export async function setPackageActivationPolicy(updatedBy:number,input:{
-  eligibleCurrencies:string[];
-  combineEligibleWallets:boolean;
-  repeatAllowed:boolean;
-  maxCopies:number;
-  repeatRestriction:"active_only"|"all_history";
-  cooldownSeconds:number;
-}) {
-  const currencies=[...new Set(input.eligibleCurrencies.map(value=>value.trim().toUpperCase()))];
-  if(!currencies.length||currencies.some(value=>!/^[A-Z0-9._-]{2,32}$/.test(value))) throw new Error("Select at least one valid eligible wallet currency");
-  if(!Number.isSafeInteger(input.maxCopies)||input.maxCopies<0) throw new Error("Maximum package copies must be a non-negative integer");
-  if(!Number.isSafeInteger(input.cooldownSeconds)||input.cooldownSeconds<0||input.cooldownSeconds>31536000) throw new Error("Package activation cooldown must be between 0 and 31536000 seconds");
-  if(!["active_only","all_history"].includes(input.repeatRestriction)) throw new Error("Invalid package repeat restriction");
-  const db=await getDb(); if(!db) throw new Error("Database is not available");
-  const configured=await db.select({code:currencyRegistry.code}).from(currencyRegistry).where(and(inArray(currencyRegistry.code,currencies),eq(currencyRegistry.enabled,true)));
-  const configuredCodes=new Set(configured.map(row=>row.code.toUpperCase()));
-  const unknown=currencies.filter(code=>!configuredCodes.has(code));
-  if(unknown.length) throw new Error("These eligible currencies are not enabled: "+unknown.join(", "));
-  const values:Record<string,string>={
-    "trading.packageQualification.eligibleCurrencies":JSON.stringify(currencies),
-    "trading.packageQualification.combineEligibleWallets":String(input.combineEligibleWallets),
-    "trading.packagePurchase.repeatAllowed":String(input.repeatAllowed),
-    "trading.packagePurchase.maxCopies":String(input.maxCopies),
-    "trading.packagePurchase.repeatRestriction":input.repeatRestriction,
-    "trading.packagePurchase.cooldownSeconds":String(input.cooldownSeconds),
-  };
-  return db.transaction(async tx=>{
-    const current=await tx.select({settingKey:appSettings.settingKey,settingValue:appSettings.settingValue})
-      .from(appSettings).where(inArray(appSettings.settingKey,[...PACKAGE_ACTIVATION_SETTING_KEYS])).for("update");
-    const previous:Record<string,string>={};
-    for(const row of current) previous[row.settingKey]=row.settingValue;
-    for(const [settingKey,settingValue] of Object.entries(values)){
-      if(Object.prototype.hasOwnProperty.call(previous,settingKey)){
-        await tx.update(appSettings).set({settingValue,updatedBy,updatedAt:new Date()}).where(eq(appSettings.settingKey,settingKey));
-      }else{
-        await tx.insert(appSettings).values({settingKey,settingValue,updatedBy});
-      }
-    }
-    await tx.insert(v5AuditEvents).values({
-      actorUserId:updatedBy,action:"trading_package_activation_policy_updated",
-      entityType:"trading_package_activation_policy",entityId:"global",
-      reason:"Administrator updated package qualification and repeat-activation policy.",
-      reference:"trading-package-activation-policy:"+crypto.randomUUID(),
-      metadataJson:JSON.stringify({old:previous,new:values}),
-    });
-    return {...parsePackageQualificationPolicy(values),qualifyingBalanceCurrency:"USD"};
-  });
-}
-
 const TRADE_ALLOCATION_CONTROL_KEY = "trading.allocations.paused";
 
 export type TradeAllocationControls = {
