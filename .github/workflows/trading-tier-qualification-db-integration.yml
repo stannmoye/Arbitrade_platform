@@ -10,13 +10,21 @@ permissions:
   contents: read
 
 jobs:
-  mysql-qualification-queue:
-    name: MySQL migration, backfill, and concurrency checks
+  qualification-queue:
+    name: ${{ matrix.database }} migration, backfill, and concurrency checks
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: MySQL 8.4
+            image: mysql:8.4
+          - database: MariaDB 11.4
+            image: mariadb:11.4
     services:
-      mysql:
-        image: mysql:8.4
+      database:
+        image: ${{ matrix.image }}
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: arbitrade_qualification_test
