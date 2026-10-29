@@ -269,3 +269,62 @@ When a requirement changes, update this canonical file and its companion PDF tog
 - Never infer execution or realized result from a countdown, expected reward, reserved estimate, or a legacy default field. Missing historical results/references are inconclusive and require evidence collection.
 - Financial recovery is a separate, permissioned workflow. It must record source evidence, independent approval, reason, and an idempotency key; preserve original ledger entries; and use a uniquely referenced compensating ledger entry where a correction is proven. Ambiguous historical cases remain unresolved rather than automatically crediting estimated rewards.
 - Reconciliation indexes must remain non-unique on wallet customer/currency until duplicate wallet records have been investigated. The audit detects duplicates instead of arbitrarily selecting an authoritative row.
+
+
+## Canonical Trading pop-up, package policy, and worker requirements (2026-10-29)
+
+This section is binding and supplements the existing specification. The dedicated operator-facing control manual is `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md`; the implementation roadmap and acceptance gates are tracked in GitHub Issue #228. Do not treat documentation as evidence of code completion.
+
+### Server-owned settings and opportunity snapshots
+
+- The authorized admin portal is the source of truth for every behavior-affecting package and pop-up setting. Customer UI renders saved server policy and persisted opportunity/trade records only. Do not hardcode package values, capital, rates, duration, popup timing, company arrays, quotas, or fallback defaults in active code.
+- Persist a versioned policy and audit each change with administrator identity, timestamp, reason, old/new values, and policy version. Package edits apply to future opportunities by default; already-created opportunities retain immutable snapshots of policy version, capital, selected rate, start time, deadline, and applicable rules.
+- Admin controls must have accurate labels/help text, server-side validation, authorization, loading/error/success states, confirmation for destructive or financially significant actions, and a persistence/reload check. Never show a control as implemented when its behavior is not implemented.
+
+### Required admin editor controls
+
+Provide functional create, edit, save/publish, enable/pause, and delete/archive controls (archive rather than destructive deletion where historical references exist), plus:
+- Package name and approved badge text/appearance.
+- Qualifying cumulative USD threshold, package duration/unit, effective dates, and daily quota contribution.
+- Per-opportunity capital fixed amount or minimum/maximum bounds, supported wallet funding policy, and exposure limits.
+- Inclusive minimum/maximum payout/return rate, stored as integer basis points (for example 200–500 basis points for 2.00%–5.00%).
+- Minimum/maximum trade lifetime/expiry duration, stored in explicit units, and separate expanded pop-up display duration.
+- Company catalogue filters, eligible pool, rotation scope, repeat avoidance, and read-only “preview next company.”
+- Schedule/cadence, processing/display concurrency, fees, combined daily earnings ceiling, retry/backoff/carry-forward rules, and recovery limits.
+- Policy version/effective-time behavior, audit history, worker health/recovery visibility, and a clear preview of customer-facing behavior.
+
+Every persisted field that changes behavior must be editable or explicitly documented as system-owned and why. Validate minimum <= maximum, supported precision, safe bounds, valid schedule/time units, and all cross-field constraints on the server. Preview must not advance live rotation.
+
+### Customer pop-up and company catalogue
+
+- Use the existing local catalogue of 1,811 company records, keyed by stable Logo ID. Keep each Logo ID, company name, logo asset, and country metadata associated correctly. Never replace it with a hardcoded array, invent a company record, or treat catalogue membership as proof that a company is verified.
+- Rotate companies according to each eligible package's saved policy. Persist rotation cursor/history and the selected company in the durable opportunity record; avoid repeating a company for the same customer/package until the eligible pool has been traversed where possible. Concurrent workers must not allocate the same cursor position twice.
+- The customer card must display the company name, matching logo and Logo ID, country, package badge/name where authorized by the customer display contract, stable opportunity/trade reference and status, required/committed capital, funding wallets and native amounts, FX rate/provider/source timestamp, configured range and persisted selected rate, accurately labelled return/result, server-recorded start/deadline/countdown, and a clear insufficient-balance/pending state when allocation cannot proceed.
+- Expanded/minimized/maximized states, scrolling, browser refresh, sign-out, animation, and display timeout are presentation only. They must never change the server deadline, allocation, rate, capital, lifecycle, or settlement.
+
+### Mathematical and financial invariants
+
+- Use integer minor units for money and integer basis points for percentages, with a documented deterministic rounding rule. Never use floating-point arithmetic as the financial source of truth.
+- Select a percentage and duration inside the configured inclusive range, validate both, and persist the selected values exactly once before processing. Retries, restarts, or duplicate delivery must reuse the saved values; never reroll or recalculate historical terms.
+- A formulaic percentage return is a configured/contractual return, not evidence of market-earned profit. Disclose the actual model accurately. Do not fabricate trades, market evidence, or realized profit; where market-earned profit is claimed, require auditable execution/result and settlement evidence before crediting it.
+- Capital funding across wallets requires a fresh, valid, timestamped, currency-appropriate FX quote with provider/source evidence. Lock relevant wallet rows in stable order and commit all debits/reservations plus the opportunity atomically, or commit none. Missing/stale FX or insufficient total eligible balance must fail closed without partial debit or guessed conversion. Normal transfers remain unchanged.
+- Ledger debits, reservations, releases, returns, fees, and credits must be transactional, idempotent, auditable, and reconciled. Customer/package IDs must be scoped in every query, lock, job, and mutation.
+
+### Durable worker and restart requirements
+
+- Use the existing managed server worker runtime, not a process or timer per customer. Use durable database jobs, indexed bounded batches, database claims/leases, lease fencing, uniqueness constraints, idempotency keys, backoff, and dead-letter visibility. Avoid full-customer scans and tight idle loops.
+- On restart, recover expired leases and discover due/overdue jobs using indexed queries. Catch up missed lifecycle work in a defined order without losing state, rerolling values, resetting deadlines, advancing company rotation twice, or duplicating ledger movements.
+- Worker work must be independent of customer sessions. Persist heartbeat, last success/failure, run duration, queue depth, stale leases and terminal failures; log safe diagnostic context without exposing secrets or cross-customer data. Graceful shutdown stops new ticks, drains active work within a bounded deadline, and releases/lets leases expire safely.
+- Define the behavior of overdue trades explicitly. Recovery must not invent a successful outcome merely because a deadline passed; settlement requires the approved internal-ledger result model and supporting evidence.
+
+### Roadmap and release gate
+
+1. Audit canonical `main`, all active code paths, settings/schema/migrations, customer/admin APIs, UI, catalogue, workers, and tests for hardcoded values and conflicting instructions.
+2. Reconcile versioned policy schema, validation, authorization, audit trail, admin editor, and safe effective-time behavior.
+3. Implement persisted opportunity snapshots, customer pop-up contract, stable-ID catalogue rotation, and preview-without-advance.
+4. Implement exact arithmetic, FX evidence, all-or-none cross-wallet funding, ledger reconciliation, and accurate return disclosures.
+5. Implement durable scheduling, claims/leases, restart and overdue recovery, customer isolation, idempotency, bounded processing, and graceful shutdown.
+6. Remove active hardcoded/obsolete Trading behavior and customer package selection/activation; preserve immutable migration/audit history and mark superseded docs as historical.
+7. Run unit, contract, concurrency, UI persistence, disposable-database integration, migration/installer, and recovery tests; run `pnpm check`, `pnpm test`, `pnpm build`, then exact-head GitHub CI. Record the exact SHA and results. Do not claim production readiness without hosted verification.
+
+**Known follow-up at the 2026-10-29 handoff:** the repository search found a navigation description in `client/src/admin-navigation.ts` stating carry-forward controls are not implemented, and previous audit notes identify hardcoded opportunity-setting defaults in `server/db.ts`. These are outstanding audit targets, not proof that they have been fixed. Issue #228 tracks implementation. No production deployment or production database change is implied by this documentation.

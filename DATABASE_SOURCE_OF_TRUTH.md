@@ -65,3 +65,8 @@ When upgrading an older database, `pnpm db:mining-schema` also assigns a configu
 - The boost portion is stored in `mining_pending_boost_rewards` during the UTC day; it is not added to the customer's spendable/main CKI wallet immediately.
 - The mining worker settles pending rows from prior UTC days exactly once into the customer's CKI wallet and writes a `mining_boost_daily_settlement` ledger entry.
 - Automatic CKI conversion only uses the immediately wallet-creditable amount; pending boost earnings cannot be converted before daily settlement.
+
+
+## Trading policy precedence
+
+The canonical Trading product contract is `docs/TRADING_SYSTEM_SPECIFICATION.md`, supplemented by `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md`. Trading package records are admin-managed configuration, not customer-purchasable products. Only qualifying manual admin wallet credits contribute to tier eligibility; the customer portal must not expose a Trading catalogue or activation controls. Admin-saved, versioned policy drives pop-up fields and behavior. Use the existing company catalogue and stable Logo IDs. Exact financial values and opportunity snapshots must be persisted, with atomic ledger operations and restart-safe idempotent workers. Mining package purchases described elsewhere in this document are a separate product and must not be applied to Trading. Historical migrations are schema history, not a statement of current product behavior.

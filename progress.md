@@ -219,3 +219,14 @@ This policy is final and must be followed throughout the application:
 - Adding forward migration `0085_trade_settlement_schema_reconciliation.sql` to restore the settlement columns/tables/indexes idempotently, and extending the guarded main migration's post-run schema verification to repair and verify the actual columns and lifecycle/reservation tables. Historical migration files/journal history are preserved.
 - The repair migration applied successfully in the follow-up MariaDB job, but the integration fixture then hit the existing unique `(userId, offerId)` trade constraint because all test rows reused offer ID 1. The fixture now gives each disposable trade a unique offer ID. Two journal-order contract tests also required their expected latest migration sequence to be updated for 0085.
 - The real-database integration still needs to pass on both MySQL 8.4 and MariaDB 11.4 after these fixture/contract fixes. This is verification-only; no production database or server was accessed, and no financial outcomes are rewritten.
+
+
+## Canonical pop-up/admin/worker documentation handoff — 2026-10-29
+
+- Added `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md` as the operator-facing source for every required package editor control, its meaning, customer pop-up contents, stable company rotation, financial invariants, worker recovery and acceptance checklist.
+- Reaffirmed the canonical contract in `docs/TRADING_SYSTEM_SPECIFICATION.md` and agent instructions. The admin portal owns saved policy; customer UI renders persisted server state only.
+- Existing 1,811-record catalogue and stable Logo IDs are mandatory. No hardcoded company arrays or active hardcoded package/pop-up/rate/capital/duration behavior. Rotation state and selected company must survive retries/restarts.
+- Rates use integer basis points, money minor units, deterministic rounding, immutable opportunity snapshots, and fresh timestamped FX evidence. Cross-wallet funding is all-or-none. Formulaic returns must not be described as market-earned profit without auditable execution/settlement evidence.
+- Worker contract: durable indexed queues, bounded batches, database claims/leases/fencing, idempotency, customer isolation, overdue recovery, graceful shutdown, and no duplicate ledger movements or rerolled values after restart.
+- Implementation remains tracked by [Issue #228](https://github.com/stannmoye/Arbitrade_platform/issues/228); documentation is not proof of implementation. Known audit targets include hardcoded opportunity defaults in `server/db.ts` and carry-forward controls noted as unimplemented in `client/src/admin-navigation.ts`.
+- Documentation branch created from `main` for review. No tests, build, exact-head CI, merge, production deployment, or production DB changes have been claimed in this documentation-only increment. Run and record checks on the final commit before acceptance.
