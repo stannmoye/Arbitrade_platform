@@ -300,3 +300,12 @@ This policy is final and must be followed throughout the application:
 - Expanded the worker schema contract to validate delivery diagnostics, event-to-trade linkage, policy version, and execution lease token.
 - The earlier installer regression suite passed after the 0062 assertion correction. The new opportunity integration run exposed the missing `tradeId` column, so the run is correctly treated as failed; the expanded migration fix is awaiting a fresh exact-head run.
 - Current source head at this note: `39d7ffbfffedf5c45858420add9da63b627c0868`. Keep PR #235 draft and do not merge/deploy pending a successful fresh MySQL/MariaDB opportunity integration run and exact-head CI.
+
+
+## 2026-10-29 — Part 3 final worker acceptance
+
+- Added forward migration `0087_trading_package_policy_schema_reconciliation.sql` after a real fresh-database allocation test exposed historical package-policy fields missing from the guarded main migration chain. The repair is registered in the Drizzle journal, portal runner, runtime bridge, startup drift reconciliation, and installer recovery diagnostics.
+- Expanded disposable-database coverage to kill the actual child Node worker after it claims an opportunity, reclaim the expired lease, and prove both prior lease tokens are fenced.
+- Added a cross-event contention test with a one-opportunity daily quota. Competing allocations must leave exactly one trade and one wallet/ledger reservation; duplicate requests replay safely and the losing opportunity is rejected for quota exhaustion.
+- Exact-head source revision `d3ed24aa75afa7d4242c252e04aea2bc9d8831ca` passed the worker lifecycle integration on MySQL 8.4 and MariaDB 11.4, tier qualification integration, settlement integration, installer regression tests, fresh MariaDB install, MySQL installer compatibility/recovery, TypeScript validation, application tests, production build/smoke, browser recovery checks, application verification, trading recovery verification, and mining regression checks.
+- PR #235 remains open/draft/unmerged/undeployed. No production database was accessed or migrated.
