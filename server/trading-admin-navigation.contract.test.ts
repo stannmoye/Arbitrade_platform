@@ -32,7 +32,7 @@ describe("Trading tier creation defaults", () => {
 describe("Admin customer Trading tier visibility", () => {
   it("exposes automatic assignment package IDs, statuses, and saved terms without exposing the full catalogue", () => {
     const start = serverDb.indexOf("export async function listAdminCustomers()");
-    const end = serverDb.indexOf("\\nexport async function createAdminCustomer", start);
+    const end = serverDb.indexOf("\nexport async function createAdminCustomer", start);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
     const listing = serverDb.slice(start, end);
