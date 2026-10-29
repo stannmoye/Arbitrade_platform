@@ -24,7 +24,7 @@ describe("Trading tier creation defaults", () => {
     expect(editFields).toContain('e.target.value===""?"":Number(e.target.value)');
     expect(editFields).toContain('draft.maxPopupsPerDay===""');
     expect(editFields).toContain('draft.maxActiveInvestments===""');
-    expect(editFields).toContain("required value={draft.name}");
+    expect(editFields).toContain("required maxLength={80} value={draft.name}");
   });
 });
 
