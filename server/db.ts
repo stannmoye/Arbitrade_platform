@@ -2339,14 +2339,11 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
     if(current.name!==nextName){
       const currentPolicy=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,current.name)).limit(1).for("update"))[0];
       const targetPolicy=(await tx.select({id:opportunityPackagePolicies.id}).from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,nextName)).limit(1).for("update"))[0];
-      if(targetPolicy&&targetPolicy.id!==currentPolicy?.id) throw new Error("A tier policy with the new name already exists; reconcile it before renaming this tier.");
-      if(currentPolicy){
-        const nextPolicyVersion=Number(currentPolicy.policyVersion||1)+1;
-        if(!Number.isSafeInteger(nextPolicyVersion)) throw new Error("Tier policy version has reached its limit");
-        await tx.update(opportunityPackagePolicies).set({packageName:nextName,updatedBy,policyVersion:nextPolicyVersion,updatedAt:new Date()}).where(eq(opportunityPackagePolicies.id,currentPolicy.id));
-      }else{
-        await tx.insert(opportunityPackagePolicies).values({packageName:nextName,updatedBy});
-      }
+      if(!currentPolicy) throw new Error("Saved Trading policy is missing for "+current.name+"; reconcile it explicitly before renaming this tier.");
+      if(targetPolicy&&targetPolicy.id!==currentPolicy.id) throw new Error("A tier policy with the new name already exists; reconcile it before renaming this tier.");
+      const nextPolicyVersion=Number(currentPolicy.policyVersion||1)+1;
+      if(!Number.isSafeInteger(nextPolicyVersion)) throw new Error("Tier policy version has reached its limit");
+      await tx.update(opportunityPackagePolicies).set({packageName:nextName,updatedBy,policyVersion:nextPolicyVersion,updatedAt:new Date()}).where(eq(opportunityPackagePolicies.id,currentPolicy.id));
     }
     const nextVersion=Number(current.termsVersion||1)+1;
     if(!Number.isSafeInteger(nextVersion)) throw new Error("Package terms version has reached its limit");
@@ -2644,18 +2641,16 @@ export async function getNextCustomerCompanySpotlight(userId:number) {
   });
 }
 
+/** Runtime reads never create policy rows from schema defaults; tiers without saved policy are ineligible. */
 export async function listOpportunityPackagePolicies() {
   const db=await getDb();
   if(!db) throw new Error("Database is not available");
-  const tiers=await db.select({name:packages.name}).from(packages);
-  const existing=await db.select({packageName:opportunityPackagePolicies.packageName}).from(opportunityPackagePolicies);
-  const names=new Set(existing.map(row=>row.packageName));
-  for(const tier of tiers){
-    if(names.has(tier.name)) continue;
-    await db.insert(opportunityPackagePolicies).values({packageName:tier.name}).onDuplicateKeyUpdate({set:{packageName:tier.name}});
-  }
+  const [tiers,rows]=await Promise.all([
+    db.select({name:packages.name}).from(packages),
+    db.select().from(opportunityPackagePolicies),
+  ]);
   const tierNames=new Set(tiers.map(tier=>tier.name));
-  return (await db.select().from(opportunityPackagePolicies)).filter(row=>tierNames.has(row.packageName));
+  return rows.filter(row=>tierNames.has(row.packageName));
 }
 
 /** Read-only policy snapshot; missing rows fail closed until admin/worker reconciliation creates them. */
@@ -2890,7 +2885,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   // remains available for an administrator-configured review workflow.
   const eligibleSubscriptions=subscriptions.filter(subscription=>{
     const configured=policyByName.get(subscription.packageName);
-    return !configured||(Boolean(configured.enabled)&&configured.automaticDelivery!==false);
+    return Boolean(configured && configured.enabled && configured.automaticDelivery);
   });
   if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}});
   const quotaFor=(subscription:any)=>{
@@ -3074,7 +3069,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const packagePolicy=policyByName.get(String(offer.packageName));
     // Disabled package policies or automatic execution must stop new allocations
     // without turning a merely visible/pending popup into a trade request.
-    return !packagePolicy || (Boolean(packagePolicy.enabled) && packagePolicy.automaticTradingEnabled!==false);
+    return Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled);
   });
   const effectiveControls=controls;
   const auto=options.workerCycle===true ? await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls) : {executed:[],missed:await listMissedOpportunities(userId)};
