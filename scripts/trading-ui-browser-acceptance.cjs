@@ -255,15 +255,43 @@ async function main() {
     assert.equal(forbiddenProbe.hasResult, false,
       "Forbidden administrator request must not return customer eligibility data.");
 
-    await adminPage.getByText("Trade Settings", { exact: true }).waitFor({ timeout: 20_000 });
-    await adminPage.getByText(/packages & eligibility/i).waitFor({ timeout: 20_000 });
+    await adminPage.setViewportSize({ width: 1365, height: 900 });
+    const adminNavigation = adminPage.locator(".admin-canonical-nav");
+    const tradeSettingsGroup = adminNavigation.locator(".admin-nav-group-heading")
+      .filter({ hasText: "Trade Settings" }).first();
+    await tradeSettingsGroup.waitFor({ state: "visible", timeout: 20_000 });
+    assert.equal(await tradeSettingsGroup.getAttribute("aria-expanded"), "true",
+      "Trade Settings navigation group must be expanded and available.");
+    const packagesNavigation = adminNavigation.getByRole("button", { name: /packages & eligibility/i });
+    await packagesNavigation.waitFor({ state: "visible", timeout: 20_000 });
+    await packagesNavigation.click();
+    const packageEditorHeading = adminPage.getByRole("heading", { name: /trading tiers & automation policy/i });
+    await packageEditorHeading.waitFor({ state: "visible", timeout: 20_000 });
+    await adminPage.getByRole("button", { name: /save all tier policies/i }).waitFor({ state: "visible", timeout: 20_000 });
+
+    // Repeat the package-settings navigation through the actual mobile menu.
+    await adminPage.setViewportSize({ width: 390, height: 844 });
+    const mobileMenuButton = adminPage.locator(".admin-mobile-nav-trigger");
+    await mobileMenuButton.waitFor({ state: "visible", timeout: 20_000 });
+    await mobileMenuButton.click();
+    const mobileNavigation = adminPage.locator(".admin-canonical-nav");
+    await mobileNavigation.waitFor({ state: "visible", timeout: 20_000 });
+    const mobilePackagesNavigation = mobileNavigation.getByRole("button", { name: /packages & eligibility/i });
+    await mobilePackagesNavigation.waitFor({ state: "visible", timeout: 20_000 });
+    await mobilePackagesNavigation.click();
+    const mobileHeadingBounds = await packageEditorHeading.boundingBox();
+    assert.ok(mobileHeadingBounds && mobileHeadingBounds.width > 0 && mobileHeadingBounds.height > 0,
+      "Package settings heading must remain visible in the mobile administrator workflow.");
+
     const adminBodyText = await adminPage.locator("body").innerText();
     assert.match(adminBodyText, /trade settings/i);
     assert.match(adminBodyText, /packages & eligibility/i);
+    assert.match(adminBodyText, /trading tiers & automation policy/i);
     results.push({
-      journey: "administrator Trading navigation and package API",
+      journey: "administrator Trade Settings and package configuration navigation",
       status: "passed",
       packageCatalogueApi: "authorized real application response",
+      adminResponsiveViewports: ["1365x900", "390x844"],
       mutationsSubmitted: 0,
     });
     await adminContext.close();
