@@ -2858,7 +2858,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const tradeOfferIds=new Set(tradeHistory.map((row:any)=>Number(row.offerId)));
   const missedHistory=await listMissedOpportunities(userId);
   const missedOfferIds=new Set(missedHistory.map((row:any)=>Number(row.offerId)));
-  const deliveredToday=await db.select({offerId:opportunityDeliveryEvents.offerId}).from(opportunityDeliveryEvents).where(and(eq(opportunityDeliveryEvents.userId,userId),eq(opportunityDeliveryEvents.quotaDay,quotaDay)));
+  const deliveredToday=await db.select({offerId:opportunityPopupEvents.offerId}).from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.quotaDay,quotaDay)));
   const deliveredOfferIds=new Set(deliveredToday.map(row=>Number(row.offerId)));
   // Package copies are separate entitlements: count allocations against each
   // subscription's own daily quota instead of pooling copies under package name.
@@ -2889,7 +2889,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     .where(and(eq(opportunityPopupEvents.userId,userId),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN"])))
     .orderBy(desc(opportunityPopupEvents.deliveredAt));
   const activePopupOfferIds=new Set(activePopupRows.map(row=>Number(row.offerId)));
-  const lastDelivery=Number(policy?.postCompletionIntervalSeconds||0)>0?(await db.select({deliveredAt:opportunityDeliveryEvents.deliveredAt}).from(opportunityDeliveryEvents).where(eq(opportunityDeliveryEvents.userId,userId)).orderBy(desc(opportunityDeliveryEvents.deliveredAt)).limit(1))[0]:undefined;
+  const lastDelivery=Number(policy?.postCompletionIntervalSeconds||0)>0?(await db.select({deliveredAt:opportunityPopupEvents.deliveredAt}).from(opportunityPopupEvents).where(eq(opportunityPopupEvents.userId,userId)).orderBy(desc(opportunityPopupEvents.deliveredAt)).limit(1))[0]:undefined;
   const formulaReadyAt=lastDelivery?new Date(new Date(lastDelivery.deliveredAt).getTime()+Number(policy?.postCompletionIntervalSeconds||0)*1000):null;
   const formulaCooling=Boolean(formulaReadyAt&&formulaReadyAt.getTime()>now.getTime());
   const dailyCap=Math.min(maxPopupsPerDay,maxVisibleOffers);
@@ -2932,7 +2932,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     }
   }
   if(newlyEligible.length){
-    await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({userId,offerId:offer.id,quotaDay,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1)}))).onDuplicateKeyUpdate({set:{deliveredAt:new Date()}});
+    // Persist the customer-scoped pop-up and its rotation/rate/duration snapshot
+    // before recording the secondary delivery index. The popup event is the
+    // quota source of truth, so a restart between these writes cannot duplicate it.
     const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{
       const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
       return {userId,offerId:offer.id,quotaDay,packageName:offer.packageName,symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
@@ -2941,6 +2943,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
         marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt})};
     }));
+    await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({userId,offerId:offer.id,quotaDay,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1)}))).onDuplicateKeyUpdate({set:{deliveredAt:new Date()}});
     for(const offer of newlyEligible){offer.deliveryEventId=lifecycleIds.get(userId+":"+offer.id+":"+quotaDay)||null; deliveredOfferIds.add(Number(offer.id));}
   }
   const popupRows=await db.select({
