@@ -57,3 +57,43 @@ Do not duplicate these changes or assume any PR is merged merely because its bra
 3. Keep migrations unique and sequential. Do not rewrite migration history to hide superseded behavior.
 4. Run focused tests while developing, then exact-head `pnpm install --frozen-lockfile`, `pnpm check`, `pnpm test`, and `pnpm build` where an executable workspace is available. Record unavailable checks explicitly.
 5. Do not merge or deploy from a part branch. Part 6 owns integration review and final cross-part validation.
+
+
+## Part 1 final acceptance snapshot — 2026-10-29
+
+**Evidence SHA:** `41092475d50a9e4a2337233d143c9d380cf15c91`  
+**Main SHA checked:** `07b17ca401d5f0582bf09fba8b6625f4a8af42e6`  
+**PR #234:** open draft; no merge/deployment.
+
+### Exact-head verification
+
+All seven required workflows passed on the evidence SHA:
+- [Production source build/test](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40905977492) — 96 test files passed, 3 skipped; 783 tests passed, 16 skipped; production build/type-check and browser recovery checks passed.
+- [Installer validation](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40905977646) — 30 test files and 169 tests passed; TypeScript validation, migration regression, fresh MariaDB install, MySQL 8 compatibility/recovery, bundle budget and server smoke test passed.
+- [Trading tier qualification DB integration](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40905977623) — MySQL 8.4 and MariaDB 11.4 integration jobs passed.
+- [Trading settlement reconciliation DB integration](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40905977402) — MySQL 8.4 and MariaDB 11.4 passed.
+- [Application verification](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40905977545) — passed.
+- [Trading recovery verification](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40905977734) — passed.
+- [Mining regression checks](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40905977408) — passed.
+
+### Acceptance checklist at the Part 1 boundary
+
+- [x] Required new-tier threshold, duration and daily quota are not silently defaulted; server create/update validation and date-order checks are present.
+- [x] Policy editor covers allocation, delivery schedule/display/audio, retries, trade concurrency, settlement and reward caps.
+- [x] Policy batch validation rejects duplicate and unknown tier rows; persistence increments policy versions and writes actor/reason/before-after audit evidence in the same transaction.
+- [x] Opt-in disposable-DB policy integration exercises save/reload, version/audit persistence, customer-write rejection and unchanged state after rejected customer writes.
+- [x] Admin customer listing uses persisted automatic assignment/subscription data for tier identifiers, status, terms version, qualifying-balance snapshot and expiry.
+- [x] Exact-head CI has seven successful workflows on the evidence SHA.
+- [ ] Cross-PR integration and final integrated-head acceptance — Part 6 responsibility, still outstanding.
+
+### Overlapping PR and migration plan
+
+- **#234 first as the Part 1 baseline** for admin tier forms, schemas, audit/version persistence and customer assignment display.
+- **#231** must be reconciled next for fail-closed policy reads and explicit enablement; retain Part 1's transactional audit/version behavior and avoid reintroducing silent policy-row creation/defaults.
+- **#230** supplies popup snapshots and wallet-funding/FX behavior; preserve its snapshot semantics and coordinate shared `server/db.ts`, `server/routers.ts`, `client/src/App.tsx` and schema changes.
+- **#233** supplies advanced policy editor and company rotation/snapshot work; preserve its controls while avoiding duplicate UI and conflicting policy defaults.
+- **#232** is largely superseded by the explicit blank/default behavior already in #234; take only any unique tests/behavior not already present.
+- **Known migration collision:** main ends at migration `0085`. #230 adds `0086_trading_popup_policy_snapshots.sql`; #233 independently adds `0086_trading_popup_policy_ranges.sql`, followed by `0087_trading_company_spotlight_rotation.sql` and `0088_trading_popup_trade_snapshots.sql`. Integrate #230's 0086, then renumber the three #233 migrations to 0087, 0088 and 0089 respectively. Update the migration journal, installer migration registry, recovery/status diagnostics, schema checks and tests consistently. Validate fresh install and recovery after renumbering. Do not rewrite any migration already applied on main.
+- **Integration blocker:** all four overlapping PRs were open when reviewed; their shared-file changes are not yet reconciled on a single branch. Do not merge/deploy until Part 6 has one integrated head and reruns installer, policy persistence, tier qualification, settlement, recovery and full source checks on that exact SHA.
+
+**Disposition:** Part 1 is ready for Part 6 integration review. It is not a declaration that final cross-part acceptance or production release is complete.
