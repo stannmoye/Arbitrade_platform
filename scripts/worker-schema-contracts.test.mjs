@@ -68,7 +68,7 @@ describe("worker schema contracts", () => {
     expect(leaseMigration).toContain("ADD COLUMN IF NOT EXISTS `tradeId` int NULL");
     expect(leaseMigration).toContain("ADD COLUMN IF NOT EXISTS `policyVersion` int NOT NULL DEFAULT 1");
     expect(leaseMigration).toContain("ADD COLUMN IF NOT EXISTS `deliveryStatus` enum('pending','delivered','received','rendered','failed','expired')");
-    expect(mainMigrationRunner).toContain("const requiredColumns = [\"deliveryStatus\", \"deliveryAttemptCount\", \"lastErrorCode\", \"receivedAt\", \"renderedAt\", \"expiredAt\", \"executionLeaseToken\"]");
+    expect(mainMigrationRunner).toContain("const requiredColumns = [\"deliveryStatus\", \"deliveryAttemptCount\", \"lastErrorCode\", \"receivedAt\", \"renderedAt\", \"expiredAt\", \"tradeId\", \"policyVersion\", \"executionLeaseToken\"]");
     expect(mainMigrationRunner).toContain("async function reconcileOpportunityExecutionLeaseSchema(connection, root)");
     expect(mainMigrationRunner).toContain("Trading opportunity execution lease schema verification failed after additive repair");
     expect(healthMigration).toContain("CREATE TABLE IF NOT EXISTS `worker_health_registry`");
