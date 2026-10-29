@@ -136,3 +136,11 @@ Part 1 package/policy persistence and focused authorization/audit acceptance wor
 - Seven required workflows previously passed at `584f55390a6f5136ece1f4db27d0feb14fcfd0ef`; that result predates the latest policy persistence/enablement edits and is not proof for the new head.
 - On code head `0ba2a39b97b5901d7888492fef2eae702c029cb0`, the seven required workflows were queued/pending at the time of inspection. The documentation commit creates a new head, so Part 6 must inspect workflow runs for the final SHA.
 - No new DB-backed test counts are claimed. Required DB acceptance includes partial-update preservation, duplicate/unknown-tier rejection, all-or-nothing rollback, persisted audit identity/reason/old+new values/version, and unauthorized-write state invariance.
+
+## Part 1 latest verification delta — 2026-10-29 16:42 UTC
+
+The latest source head before this documentation checkpoint is `b2d6db69b7c69eb6c01b08e20fe41b70ad5e7a7d`; current `main` observed as `07b17ca401d5f0582bf09fba8b6625f4a8af42e6`. A disposable-DB integration test now submits a true partial policy update (required base fields only) and asserts omitted delivery/trading enablement, display, retry and settlement values remain unchanged. It also checks audit metadata's previous/next values and version. Package update integration now rejects inverted effective dates and verifies the database row remains unchanged.
+
+An exact-head run had previously failed because a source contract still expected the old default-enabled initializer text. That assertion was corrected at `0861f791cd329c583c471c3c81e4dedcce62ca8d`; its rerun was still in progress when this checkpoint was prepared. Workflows for `b2d6db69b7c69eb6c01b08e20fe41b70ad5e7a7d` were also in progress. **No exact-head success is claimed until all seven final-head workflows complete.**
+
+The DB integration fixture is opt-in and CI provisions a disposable MariaDB database; no production data was accessed. Part 1 remains unaccepted until final-head CI passes and Part 6 reconciles PRs #230–#233, including the conflicting 0086 migration identities.
