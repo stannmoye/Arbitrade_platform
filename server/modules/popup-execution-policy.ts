@@ -7,7 +7,8 @@ export type PopupExecutionEligibilityInput = {
 /**
  * Presentation dismissal is deliberately not an execution cancellation.
  * A dismissed popup remains eligible for the server-owned automatic worker
- * while its delivery was successful and execution has not reached a terminal state.
+ * while delivery succeeded and execution is explicitly READY or RETRYING. Unknown
+ * states fail closed; RUNNING attempts must not be claimed a second time.
  */
 export function isPopupExecutionEligible(input: PopupExecutionEligibilityInput): boolean {
   const eventStatus = String(input.eventStatus ?? "").toUpperCase();
