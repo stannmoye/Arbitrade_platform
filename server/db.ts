@@ -2161,6 +2161,7 @@ function calculateTradeTerms(_userId:number, offer:any, _amountMinor:number) {
   return { minimumMinor, rewardBps, method:"admin-published-estimate" };
 }
 function packageUsdUnitsToNativeMinor(usdUnits:number, currency:string, currencies:any[]):number { const row=currencies.find((item:any)=>item.code===currency); if(!row) throw new Error(`Currency ${currency} is not configured`); return usdUnitsToNativeMinor(usdUnits,Number(row.scale),Number(row.usdRate)); }
+function packageUsdMinorToNativeMinor(usdMinor:number, currency:string, currencies:any[], rounding:"ceil"|"floor"):number { const row=currencies.find((item:any)=>item.code===currency); if(!row) throw new Error(`Currency ${currency} is not configured`); return usdMinorToNativeMinor(usdMinor,Number(row.scale),String(row.usdRate),rounding); }
 const TRADE_ALLOCATION_CONTROL_KEY = "trading.allocations.paused";
 
 export type TradeAllocationControls = {
@@ -2882,7 +2883,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const activePopupRows=await db.select({
     eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
-    expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
+    expectedRewardBps:opportunityPopupEvents.expectedRewardBps,tradeDurationSeconds:opportunityPopupEvents.tradeDurationSeconds,companyLogoId:opportunityPopupEvents.companyLogoId,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
     balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,quotaDay:opportunityPopupEvents.quotaDay,
     deliveredAt:opportunityPopupEvents.deliveredAt,venueFrom:opportunityOffers.venueFrom,venueTo:opportunityOffers.venueTo,
     offerStatus:opportunityOffers.status,offerMinimumMinor:opportunityOffers.minimumMinor,opensAt:opportunityOffers.opensAt,
@@ -2913,15 +2914,18 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const configured=policyByName.get(subscription.packageName);
       const currencyRow=currencyRows.find((row:any)=>String(row.code).toUpperCase()===String(offer.currency).toUpperCase());
       if(!currencyRow) continue;
-      const configuredMinimum=configured?packageUsdUnitsToNativeMinor(Number(configured.minimumTradeUnits),String(offer.currency),currencyRows):Number(offer.minimumMinor);
-      const configuredMaximum=configured?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(configured.maximumTradeUnits),String(offer.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
-      const terms=calculateTradeTerms(userId,offer,Math.max(Number(offer.minimumMinor),configuredMinimum));
-      const minimumMinor=Math.max(Number(offer.minimumMinor),Number(terms.minimumMinor||0),configuredMinimum);
+      const configuredMinimum=configured?packageUsdMinorToNativeMinor(Number(configured.minimumCapitalUsdMinor??Number(configured.minimumTradeUnits)*100),String(offer.currency),currencyRows,"ceil"):Number(offer.minimumMinor);
+      const configuredMaximum=configured?packageUsdMinorToNativeMinor(Number(configured.maximumCapitalUsdMinor??Number(configured.maximumTradeUnits)*100),String(offer.currency),currencyRows,"floor"):Number.MAX_SAFE_INTEGER;
+      const publishedTerms=calculateTradeTerms(userId,offer,Math.max(Number(offer.minimumMinor),configuredMinimum));
+      const minimumMinor=Math.max(Number(offer.minimumMinor),Number(publishedTerms.minimumMinor||0),configuredMinimum);
       if(!Number.isSafeInteger(minimumMinor)||minimumMinor<=0||minimumMinor>configuredMaximum) continue;
+      const expectedRewardBps=configured?chooseProfitRateBps(Number(configured.minimumRewardBps),Number(configured.maximumRewardBps)):publishedTerms.rewardBps;
+      const tradeDurationSeconds=configured?chooseTradeDurationSeconds(Number(configured.minimumTradeDurationSeconds),Number(configured.maximumTradeDurationSeconds)):Number(offer.durationSeconds);
+      if(!Number.isSafeInteger(tradeDurationSeconds)||tradeDurationSeconds<1) continue;
       newlyEligible.push({...offer,packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
         minimumMinor,packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
-        expectedRewardBps:terms.rewardBps,calculationMethod:terms.method});
+        expectedRewardBps,tradeDurationSeconds,companyRotationEnabled:configured?.companyRotationEnabled!==false,calculationMethod:configured?"admin-configured-range":publishedTerms.method});
       assignedSubscriptionByOffer.set(Number(offer.id),subscription);
       usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
       remainingQuota--;
@@ -2932,7 +2936,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{
       const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
       return {userId,offerId:offer.id,quotaDay,packageName:offer.packageName,symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
-        expectedRewardBps:Number(offer.expectedRewardBps),balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
+        expectedRewardBps:Number(offer.expectedRewardBps),tradeDurationSeconds:Number(offer.tradeDurationSeconds),companyRotationEnabled:Boolean(offer.companyRotationEnabled),balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
         marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt})};
     }));
     for(const offer of newlyEligible){offer.deliveryEventId=lifecycleIds.get(userId+":"+offer.id+":"+quotaDay)||null; deliveredOfferIds.add(Number(offer.id));}
@@ -2941,7 +2945,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
     executionStatus:opportunityPopupEvents.executionStatus,executionAttemptCount:opportunityPopupEvents.executionAttemptCount,executionRetryAfter:opportunityPopupEvents.executionRetryAfter,executionRetryDay:opportunityPopupEvents.executionRetryDay,executionLastErrorCode:opportunityPopupEvents.executionLastErrorCode,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
-    expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
+    expectedRewardBps:opportunityPopupEvents.expectedRewardBps,tradeDurationSeconds:opportunityPopupEvents.tradeDurationSeconds,companyLogoId:opportunityPopupEvents.companyLogoId,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
     balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,quotaDay:opportunityPopupEvents.quotaDay,
     deliveredAt:opportunityPopupEvents.deliveredAt,venueFrom:opportunityOffers.venueFrom,venueTo:opportunityOffers.venueTo,
     offerStatus:opportunityOffers.status,offerMinimumMinor:opportunityOffers.minimumMinor,opensAt:opportunityOffers.opensAt,
@@ -2995,9 +2999,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const executed=executedByOffer.get(Number(row.offerId))||null;
     return {...base,id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageName:row.packageName,
       symbol:row.symbol,currency:row.currency,minimumMinor:Number(row.popupMinimumMinor),balanceAvailableMinor:Number(row.balanceAvailableMinor),
-      balanceStatus:row.balanceStatus,expectedRewardBps:Number(row.expectedRewardBps),eventStatus:row.eventStatus,deliveredAt:row.deliveredAt,
+      balanceStatus:row.balanceStatus,expectedRewardBps:Number(row.expectedRewardBps),tradeDurationSeconds:Number(row.tradeDurationSeconds||row.durationSeconds||base.durationSeconds||0),companyLogoId:row.companyLogoId==null?null:Number(row.companyLogoId),eventStatus:row.eventStatus,deliveredAt:row.deliveredAt,
       venueFrom:row.venueFrom||base.venueFrom||"",venueTo:row.venueTo||base.venueTo||"",opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,
-      durationSeconds:Number(row.durationSeconds||base.durationSeconds||0),marketObservedAt:row.marketObservedAt,sector:row.sector,industry:row.industry,
+      durationSeconds:Number(row.tradeDurationSeconds||row.durationSeconds||base.durationSeconds||0),marketObservedAt:row.marketObservedAt,sector:row.sector,industry:row.industry,
       listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus),automaticTrade:executed};
   });
   return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
