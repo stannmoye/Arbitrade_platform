@@ -2002,7 +2002,7 @@ export async function adjustCustomerBalance(adminId:number,input:{
     if(!row.resultJson) throw new Error("This wallet adjustment request is still being finalized; retry with the same idempotency key");
     const replay=JSON.parse(String(row.resultJson));
     if(replay.rateUpdatedAt) replay.rateUpdatedAt=new Date(replay.rateUpdatedAt);
-    return replay;
+    return { ...replay, idempotentReplay: true };
   };
   const priorRequest=(await db.select().from(adminWalletAdjustmentRequests).where(and(
     eq(adminWalletAdjustmentRequests.adminId,adminId),eq(adminWalletAdjustmentRequests.idempotencyKey,idempotencyKey),
