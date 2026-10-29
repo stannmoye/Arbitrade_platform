@@ -35,8 +35,9 @@ describe("Trading customer package subscription schema repair", () => {
     const entries = journal.entries;
     const entry = entries.find((item) => item.tag === "0078_trading_customer_package_subscription_repair");
     expect(entry).toBeDefined();
-    expect(entry.idx).toBe(entries.length - 6);
-    expect(entries.at(-1).tag).toBe("0083_trading_opportunity_worker_indexes");
+    expect(entry.idx).toBe(entries.length - 7);
+    expect(entries.at(-2).tag).toBe("0083_trading_opportunity_worker_indexes");
+    expect(entries.at(-1).tag).toBe("0084_worker_health_registry");
     expect(entry.when).toBeGreaterThan(entries.slice(0, entry.idx).reduce((latest, item) => Math.max(latest, item.when), 0));
   });
 
