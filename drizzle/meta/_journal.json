@@ -449,6 +449,13 @@
       "when": 1793404800010,
       "tag": "0094_trading_policy_duration_bounds_nullable",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1793404800011,
+      "tag": "0095_fx_snapshot_source_timestamp_precision",
+      "breakpoints": true
     }
   ]
 }

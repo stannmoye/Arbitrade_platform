@@ -2183,7 +2183,7 @@ export async function adjustCustomerBalance(adminId:number,input:{
     if(qualifyingDepositUsdMinor!==null&&creditTimeRate){
       await tx.insert(fxRateSnapshots).values({
         baseAsset:currency.code,quoteAsset:"USD",rate:String(creditTimeRate.rate),
-        provider:creditTimeRate.provider,sourceDate:creditTimeRate.sourceDate.slice(0,16),
+        provider:creditTimeRate.provider,sourceDate:creditTimeRate.sourceDate,
         rawJson:JSON.stringify({currency:currency.code,usdRate:creditTimeRate.rate,provider:creditTimeRate.provider,
           sourceDate:creditTimeRate.sourceDate,fetchedAt:creditTimeRate.fetchedAt.toISOString(),ledgerReference}),
       });
@@ -3628,7 +3628,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     const targetRate=tradeFxRates.get(String(offer.currency).toUpperCase())!;
     await tx.insert(fxRateSnapshots).values({
       baseAsset:String(offer.currency).toUpperCase(),quoteAsset:"USD",rate:targetRate.rateUsdPerUnit,
-      provider:targetRate.provider,sourceDate:targetRate.sourceDate.slice(0,16),
+      provider:targetRate.provider,sourceDate:targetRate.sourceDate,
       rawJson:JSON.stringify({purpose:"trade_cross_wallet_conversion",tradeReference:ref,fetchedAt:targetRate.fetchedAt.toISOString(),scale:targetRate.scale}),
     });
     for(const debit of fundingPlan.sourceDebits){
@@ -3646,7 +3646,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
       ]);
       await tx.insert(fxRateSnapshots).values({
         baseAsset:debit.currency,quoteAsset:"USD",rate:debit.rate.rateUsdPerUnit,
-        provider:debit.rate.provider,sourceDate:debit.rate.sourceDate.slice(0,16),
+        provider:debit.rate.provider,sourceDate:debit.rate.sourceDate,
         rawJson:JSON.stringify({purpose:"trade_cross_wallet_conversion",tradeReference:ref,targetCurrency:offer.currency,
           targetCreditMinor:debit.convertedTargetMinor,sourceDebitMinor:debit.amountMinor,
           roundingExcessSourceMinor:debit.roundingExcessSourceMinor,roundingExcessUsdScaled:debit.roundingExcessUsdScaled,

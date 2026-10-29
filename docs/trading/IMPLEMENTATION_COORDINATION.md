@@ -3,6 +3,12 @@
 **Updated:** 2026-10-29  
 **Scope:** Trade/Trading only. Do not change Mining or unrelated application menus.
 
+## 2026-10-29 — Mainline Trading audit fixes
+
+- **FX evidence precision:** the qualifying-credit and cross-wallet allocation paths truncated provider source timestamps to 16 characters, while `fx_rate_snapshots.sourceDate` was also limited to `varchar(16)`. This discarded seconds and offset/provenance detail required by the FX contract. The paths now persist the complete provider timestamp; forward-only migration `0095_fx_snapshot_source_timestamp_precision.sql` widens the column to `varchar(64)` and is registered in the Drizzle journal, portal runner, installer recovery diagnostics, and worker runtime-schema bridge. Existing truncated rows cannot be reconstructed and remain historical evidence of the prior schema.
+- **Customer return copy:** the customer home opportunity feed rendered configured return rates as `+…%` / “estimated reward” and missed amounts as “Potential reward”. Those labels could be read as market-earned or credited results. The cards now say “Configured return”; missed rows explicitly say “Not allocated · no ledger credit”; the supporting safety copy uses “configured returns”.
+- Regression coverage is in `server/trading-audit-fixes.contract.test.ts`; migration registration coverage is extended in `scripts/worker-schema-contracts.test.mjs`.
+
 ## Part 4 — Company Rotation & Opportunity Presentation
 
 ### Ownership

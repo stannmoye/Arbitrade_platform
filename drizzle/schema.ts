@@ -466,7 +466,7 @@ export const fxRateSnapshots = mysqlTable("fx_rate_snapshots", {
   quoteAsset: varchar("quoteAsset", { length: 16 }).notNull(),
   rate: varchar("rate", { length: 64 }).notNull(),
   provider: varchar("provider", { length: 80 }).notNull(),
-  sourceDate: varchar("sourceDate", { length: 16 }),
+  sourceDate: varchar("sourceDate", { length: 64 }),
   observedAt: timestamp("observedAt").defaultNow().notNull(),
   rawJson: text("rawJson").notNull(),
 });
