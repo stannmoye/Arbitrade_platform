@@ -502,3 +502,87 @@
 .admin-payout-history-head{margin-top:20px}
 .admin-ops-table td input[aria-label^="External transfer reference"],.admin-ops-table td textarea[aria-label^="Resolution note"]{box-sizing:border-box;width:100%;min-width:150px;margin:0 0 7px;padding:8px 9px;border:1px solid var(--border-color,rgba(128,150,172,.35));border-radius:7px;background:var(--input-bg,rgba(4,15,27,.4));color:inherit;font:inherit;font-size:11px}
 @media(max-width:760px){.admin-payout-destination{max-width:180px}.admin-payout-actions{min-width:116px}}
+
+
+/* Trading policy editor: consistent spacing, legible controls, and clear focus states. */
+.package-admin-card {
+  min-width: 0;
+  border: 1px solid var(--arb-color-border, #294355);
+  border-radius: 16px;
+  padding: clamp(14px, 2vw, 22px);
+  background: var(--arb-color-surface, #081b2a);
+  box-shadow: 0 8px 26px rgb(0 0 0 / 12%);
+}
+.package-admin-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.package-admin-head h2 { margin: 0; overflow-wrap: anywhere; }
+.package-policy-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+  margin: 14px 0;
+  padding: clamp(12px, 1.8vw, 18px);
+  border: 1px solid var(--arb-color-border, #294355);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--arb-color-surface-raised, #10293a) 78%, transparent);
+}
+.package-policy-section > strong {
+  display: block;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--arb-color-border, #294355);
+  color: var(--arb-color-text, #eef7ff);
+  font-size: 13px;
+  letter-spacing: .025em;
+}
+.package-policy-section label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: var(--arb-color-text, #eef7ff);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+.package-policy-section input:not([type="checkbox"]),
+.package-policy-section select,
+.package-admin-card > label input:not([type="checkbox"]) {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid var(--arb-color-border, #355366);
+  border-radius: 9px;
+  background: var(--arb-color-surface-raised, #10293a);
+  color: var(--arb-color-text, #eef7ff);
+  font: inherit;
+  font-size: 13px;
+  box-sizing: border-box;
+  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+.package-policy-section input:focus-visible,
+.package-policy-section select:focus-visible,
+.package-admin-card input:focus-visible {
+  outline: 2px solid var(--arb-focus-ring, #4fdcca);
+  outline-offset: 2px;
+  border-color: var(--arb-color-accent, #4fdcca);
+}
+.package-policy-section label small {
+  color: var(--arb-color-text-muted, #9bb4c4);
+  font-size: 11px;
+  font-weight: 450;
+  line-height: 1.5;
+}
+.package-policy-section .form-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.package-policy-section input:disabled,
+.package-policy-section select:disabled,
+.package-admin-card button:disabled { opacity: .62; cursor: not-allowed; }
+@media (max-width: 620px) {
+  .package-policy-section .form-two { grid-template-columns: minmax(0, 1fr); }
+  .package-admin-head { align-items: flex-start; flex-direction: column; }
+  .package-admin-card { padding: 13px; }
+}
