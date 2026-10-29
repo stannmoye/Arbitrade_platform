@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import mysql from "mysql2/promise";
 import { mysqlConnectionOptions } from "./_core/mysql";
+import { buildCompanySpotlightPool, nextCompanySpotlight, type CompanySpotlightState, type CompanySpotlightRepeatPolicy } from "./modules/company-spotlight-rotation";
 
 type PopupDelivery = {
   userId: number;
@@ -11,10 +12,18 @@ type PopupDelivery = {
   currency: string;
   minimumMinor: number;
   expectedRewardBps: number;
+  configuredProfitRateBps: number;
+  configuredDurationSeconds: number;
+  configuredPopupDisplaySeconds: number;
+  packagePolicyVersionSnapshot: number;
   policyVersion: number;
   durationSeconds: number;
   badgeLabel: string | null;
+  packageBadgeLabel: string | null;
   badgeStyle: string;
+  companyRotationEnabled: boolean;
+  companyRotationCountryNames: string;
+  companyRotationRepeatPolicy: CompanySpotlightRepeatPolicy;
   balanceAvailableMinor: number;
   balanceStatus: "sufficient" | "insufficient" | "unknown";
   marketObservedAt?: Date | null;
@@ -31,13 +40,91 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
   if (!deliveries.length || !process.env.DATABASE_URL) return new Map<string, number>();
   return withConnection(async connection => {
     for (const item of deliveries) {
-      await connection.execute(
-        `INSERT INTO opportunity_popup_events
-          (eventKey,userId,offerId,quotaDay,packageName,symbol,currency,minimumMinor,expectedRewardBps,balanceAvailableMinor,balanceStatus,marketObservedAt,marketSnapshotJson,policyVersion,durationSeconds,badgeLabel,badgeStyle,eventStatus,deliveredAt,createdAt,updatedAt)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
-         ON DUPLICATE KEY UPDATE updatedAt=CURRENT_TIMESTAMP`,
-        [`${item.userId}:${item.offerId}:${item.quotaDay}`, item.userId, item.offerId, item.quotaDay, item.packageName, item.symbol, item.currency, item.minimumMinor, item.expectedRewardBps, item.balanceAvailableMinor, item.balanceStatus, item.marketObservedAt || null, item.marketSnapshotJson || null, item.policyVersion, item.durationSeconds, item.badgeLabel, item.badgeStyle],
-      );
+      const eventKey = `${item.userId}:${item.offerId}:${item.quotaDay}`;
+      await connection.beginTransaction();
+      try {
+        const [alreadyCreated] = await connection.query<any[]>(
+          "SELECT id FROM opportunity_popup_events WHERE eventKey=? LIMIT 1",
+          [eventKey],
+        );
+        if (alreadyCreated.length) {
+          await connection.commit();
+          continue;
+        }
+
+        let company: { id: string; name: string; logoUrl: string } | null = null;
+        if (item.companyRotationEnabled) {
+          const stateKey = "trading.companyRotation." + item.userId + "." + item.packageName;
+          if (stateKey.length > 120) throw new Error("Company rotation scope key exceeds the storage limit.");
+          const pool = buildCompanySpotlightPool(item.companyRotationCountryNames);
+          await connection.execute(
+            "INSERT INTO app_settings (settingKey,settingValue,updatedBy) VALUES (?,?,?) ON DUPLICATE KEY UPDATE settingKey=VALUES(settingKey)",
+            [stateKey, "", item.userId],
+          );
+          const [stateRows] = await connection.query<any[]>(
+            "SELECT settingValue FROM app_settings WHERE settingKey=? FOR UPDATE",
+            [stateKey],
+          );
+
+          // The per-customer/per-tier lock also serializes concurrent workers.
+          // Re-check idempotency after waiting for that lock before advancing rotation.
+          const [racedEvent] = await connection.query<any[]>(
+            "SELECT id FROM opportunity_popup_events WHERE eventKey=? LIMIT 1",
+            [eventKey],
+          );
+          if (racedEvent.length) {
+            await connection.commit();
+            continue;
+          }
+
+          let priorState: CompanySpotlightState | null = null;
+          try {
+            const parsed = JSON.parse(String(stateRows[0]?.settingValue || ""));
+            if (parsed && typeof parsed === "object") priorState = parsed as CompanySpotlightState;
+          } catch {
+            priorState = null;
+          }
+          const selection = nextCompanySpotlight(
+            pool,
+            priorState,
+            item.userId,
+            item.packageName,
+            item.companyRotationRepeatPolicy,
+          );
+          company = {
+            id: String(selection.company.id),
+            name: String(selection.company.name),
+            logoUrl: String(selection.company.logoUrl),
+          };
+          await connection.execute(
+            "UPDATE app_settings SET settingValue=?,updatedBy=?,updatedAt=CURRENT_TIMESTAMP WHERE settingKey=?",
+            [JSON.stringify(selection.state), item.userId, stateKey],
+          );
+        }
+
+        await connection.execute(
+          `INSERT INTO opportunity_popup_events
+            (eventKey,userId,offerId,quotaDay,packageName,symbol,currency,minimumMinor,expectedRewardBps,
+             configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds,packagePolicyVersionSnapshot,packageBadgeLabel,
+             companyReferenceId,companyDisplayName,companyLogoUrl,companyReferenceOnly,
+             balanceAvailableMinor,balanceStatus,marketObservedAt,marketSnapshotJson,durationSeconds,badgeLabel,badgeStyle,policyVersion,
+             eventStatus,deliveredAt,createdAt,updatedAt)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+           ON DUPLICATE KEY UPDATE updatedAt=CURRENT_TIMESTAMP`,
+          [
+            eventKey, item.userId, item.offerId, item.quotaDay, item.packageName, item.symbol, item.currency,
+            item.minimumMinor, item.expectedRewardBps, item.configuredProfitRateBps, item.configuredDurationSeconds,
+            item.configuredPopupDisplaySeconds, item.packagePolicyVersionSnapshot, item.packageBadgeLabel || null,
+            company?.id || null, company?.name || null, company?.logoUrl || null, company ? 1 : 0,
+            item.balanceAvailableMinor, item.balanceStatus, item.marketObservedAt || null, item.marketSnapshotJson || null,
+            item.durationSeconds, item.badgeLabel || null, item.badgeStyle, item.policyVersion,
+          ],
+        );
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      }
     }
     const keys = deliveries.map(item => `${item.userId}:${item.offerId}:${item.quotaDay}`);
     const placeholders = keys.map(() => "?").join(",");
