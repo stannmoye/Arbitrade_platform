@@ -32,6 +32,7 @@ describe("Trading pop-up policy", () => {
 
   it("rejects inverted ranges, unsafe durations, and invalid capital bounds", () => {
     expect(() => validateTradingPopupPolicy({ ...policy, minimumProfitBps: 501 })).toThrow(/percentage/);
+    expect(() => validateTradingPopupPolicy({ ...policy, minimumProfitBps: 0, maximumProfitBps: 500 })).toThrow(/positive minimum/);
     expect(() => validateTradingPopupPolicy({ ...policy, minimumDurationSeconds: 301 })).toThrow(/duration/);
     expect(() => validateTradingPopupPolicy({ ...policy, minimumCapitalMinor: 100_001 })).toThrow(/capital/i);
     expect(() => validateTradingPopupPolicy({ ...policy, popupDisplaySeconds: 0 })).toThrow(/popupDisplaySeconds/);
