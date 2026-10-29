@@ -25,3 +25,6 @@ SET `minimumCapitalUsdMinor` = GREATEST(1, `minimumTradeUnits`) * 100,
 UPDATE `opportunity_package_policies`
 SET `minimumRewardBps` = 200
 WHERE `minimumRewardBps` = 0;
+
+--> statement-breakpoint
+INSERT IGNORE INTO `app_settings` (`settingKey`,`settingValue`) VALUES ('trading.companyRotation.cursor','0');
