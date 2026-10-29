@@ -2724,6 +2724,8 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     const values:any={...current,...automation,policyVersion:nextPolicyVersion,updatedBy,updatedAt:new Date()};
     delete values.id;
     await db.insert(opportunityPackagePolicies).values(values).onDuplicateKeyUpdate({set:values});
+    // Policy edits invalidate undelivered popup terms from older policy versions. Already traded/settled records remain immutable.
+    await db.update(opportunityPopupEvents).set({eventStatus:"WITHDRAWN",deliveryStatus:"expired",withdrawnAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.packageName,policy.packageName),lt(opportunityPopupEvents.policyVersion,nextPolicyVersion),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN"])));
     await db.insert(v5AuditEvents).values({
       actorUserId:updatedBy,action:"trading_package_policy_updated",entityType:"trading_package_policy",entityId:policy.packageName,
       reason:"Administrator saved the Trading tier automation policy.",reference:"trading-policy:"+policy.packageName+":"+nextPolicyVersion+":"+crypto.randomUUID(),
