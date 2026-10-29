@@ -21,7 +21,7 @@ describe("Trading settlement timing schema drift repair", () => {
     const entries = journal.entries;
     const entry = entries.find((item) => item.tag === "0079_trade_settlement_timing_schema_repair");
     expect(entry).toBeDefined();
-    expect(entry.idx).toBe(entries.length - 8);
+    expect(entry.idx).toBe(entries.length - 9);
     expect(entries.at(-5).tag).toBe("0083_trading_opportunity_worker_indexes");
     expect(entries.at(-4).tag).toBe("0084_worker_health_registry");
     expect(entries.at(-3).tag).toBe("0085_trade_settlement_schema_reconciliation");
