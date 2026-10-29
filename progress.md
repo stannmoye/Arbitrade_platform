@@ -239,3 +239,12 @@ This policy is final and must be followed throughout the application:
 - Use integer basis points, minor-unit money math, explicit rounding, exact fee/payout reconciliation, and persisted UTC deadlines. Startup recovery must find overdue work without resetting timers or duplicating debits, payouts, or company rotation.
 - A configured percentage formula is a platform-defined contractual payout unless supported by actual execution/result evidence; UI and terms must not misrepresent it as market-earned profit.
 - Documentation changes are on `docs/admin-editable-trading-popups` and await exact-head CI/review before merge. No production deployment or database operation was performed.
+
+
+## 2026-10-29 — PART 2 — FINANCIAL INTEGRITY & FX FUNDING
+
+- Based the work on current `main` at `7356c5870807592c8e890a3937cf3fb0f2a403fc`; created dedicated branch `part2/financial-integrity-fx-funding-20261029`.
+- Added `nativeMinorToUsdMinorExact` in `shared/money.ts`, using the existing `decimal.js` dependency to convert native minor units to USD minor units with a single half-up quantization at the USD-cent boundary.
+- Routed qualifying admin-credit attribution in `server/db.ts` through the decimal-safe conversion helper and added rounding, precision, invalid-rate and safe-integer regression cases in `shared/money.test.ts`.
+- Existing code already persists qualifying-credit rate/provider/source-time evidence and atomically enqueues tier-qualification jobs. Existing FX provider code rejects stale/missing rates for configured fiat/crypto paths; these paths still require exact-head integration verification.
+- Outstanding: request-level idempotency for admin wallet adjustments is not yet implemented by this increment; multi-wallet funding in PR #230 must be reviewed/integrated before its atomicity can be accepted. No local checkout/network was available, so no local test/build result is claimed. No merge or deployment performed.
