@@ -29,6 +29,32 @@ describe("Trading tier creation defaults", () => {
 });
 
 
+describe("Trading tier audit reasons", () => {
+  it("requires a reason in the admin UI and persists the supplied reason with old/new terms", () => {
+    const start = adminApp.indexOf("function AdminTradingPackageCatalogue()");
+    const end = adminApp.indexOf("function AdminPackages({focus}", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const editor = adminApp.slice(start, end);
+    expect(editor).toContain("Reason for creating this tier (required for audit)");
+    expect(editor).toContain("Reason for changing this tier (required for audit)");
+    expect(editor).toContain('reason:String(newTier.reason).trim()');
+    expect(editor).toContain('reason:String(draft.reason??"").trim()');
+
+    const createStart = serverDb.indexOf("export async function createAdminTradingPackage");
+    const updateStart = serverDb.indexOf("export async function updateAdminTradingPackage", createStart);
+    const nextFunction = serverDb.indexOf("export async function ensureAutomaticTradingTierEntitlements", updateStart);
+    expect(createStart).toBeGreaterThanOrEqual(0);
+    expect(updateStart).toBeGreaterThan(createStart);
+    expect(nextFunction).toBeGreaterThan(updateStart);
+    const dbFunctions = serverDb.slice(createStart, nextFunction);
+    expect(dbFunctions).toContain('Provide an audit reason of 5–500 characters');
+    expect(dbFunctions).toContain('reason,');
+    expect(dbFunctions).toContain('metadataJson:JSON.stringify({old:');
+    expect(serverRouters).toContain('reason: z.string().trim().min(5).max(500)');
+  });
+});
+
 describe("Trading tier effective-date validation", () => {
   it("rejects an expiry that is not later than the configured start time on create and update", () => {
     const createStart = serverRouters.indexOf("createTradingPackage: adminProcedure.input(z.object({");
