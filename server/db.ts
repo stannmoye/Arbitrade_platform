@@ -2759,14 +2759,16 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
       }
       continue;
     }
+    const executionLeaseToken=claim.executionLeaseToken;
+    if(!executionLeaseToken) continue;
     try{
       const result=await createTrade(userId,{
-        offerId:offer.id,amountMinor:requestedAmount,executionLeaseToken:claim.executionLeaseToken,
+        offerId:offer.id,amountMinor:requestedAmount,executionLeaseToken,
         deliveryEventId:offer.deliveryEventId ? Number(offer.deliveryEventId) : undefined,
         packageSubscriptionId:Number(offer.packageSubscriptionId||0)||undefined,
         packageId:Number(offer.packageId||0)||undefined,
       });
-      await markOpportunityExecuted(userId,offer.id,claim.executionLeaseToken);
+      await markOpportunityExecuted(userId,offer.id,executionLeaseToken);
       executed.push({...result,offerId:offer.id,symbol:offer.symbol,amountMinor:requestedAmount,rewardBps:terms.rewardBps,calculationMethod:terms.method});
       existingTrades.push({offerId:offer.id,confirmedAt:new Date()});
       break;
@@ -2779,12 +2781,12 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
       // A pause must not consume the configured retry budget; release the claim
       // and wait briefly so the durable worker can resume after the administrator unpauses.
       if(/new trading allocations are paused by an administrator/i.test(message)){
-        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),errorCode:"ALLOCATION_PAUSED",attemptNumber:claim.attemptNumber,releaseAttempt:true,executionLeaseToken:claim.executionLeaseToken});
+        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),errorCode:"ALLOCATION_PAUSED",attemptNumber:claim.attemptNumber,releaseAttempt:true,executionLeaseToken});
         continue;
       }
       const decision=decideTradeExecutionRetry(error,Number(claim.attemptNumber),Math.max(1,maxAttempts),new Date(),Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30)));
       if(decision.kind==="retry"){
-        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:decision.retryAt,errorCode:decision.errorCode,executionLeaseToken:claim.executionLeaseToken});
+        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:decision.retryAt,errorCode:decision.errorCode,executionLeaseToken});
         continue;
       }
       await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"FAILED",errorCode:decision.errorCode,executionLeaseToken:claim.executionLeaseToken});
