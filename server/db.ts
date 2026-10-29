@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, notInArray, or, sql } from "drizzle-orm";
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
-import { createPool } from "mysql2/promise";
+import { createPool, type Pool } from "mysql2/promise";
 import { ENV } from "./_core/env";
 import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, tradingTierQualificationJobs, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
@@ -22,6 +22,7 @@ import { assertNotificationPayloadMatches, buildNotificationEventKey, filterNoti
 import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityEligibility";
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
+let _pool: Pool | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
@@ -46,6 +47,7 @@ export async function getDb() {
         database: decodeURIComponent(connectionUrl.pathname.slice(1)),
         ssl,
       });
+      _pool = pool;
       _db = drizzle(pool);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
@@ -53,6 +55,14 @@ export async function getDb() {
     }
   }
   return _db;
+}
+
+/** Close the shared MySQL pool after server requests and worker cycles have drained. */
+export async function closeDbPool(): Promise<void> {
+  const pool = _pool;
+  _pool = null;
+  _db = null;
+  if (pool) await pool.end();
 }
 
 export async function getAppSetting(key: string, fallback?: string) {
