@@ -203,6 +203,28 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       const unchanged = afterRejectedWrite.find((row: any) => row.packageName === before.packageName) as any;
       expect(unchanged.maxVisibleOffers).toBe(nextVisibleOffers);
       expect(Number(unchanged.policyVersion)).toBe(Number(persisted.policyVersion));
+
+      await expect(admin.adminOperations.updatePackagePolicies({
+        policies: [
+          { ...unchanged, maxVisibleOffers: Number(unchanged.maxVisibleOffers) + 1 },
+          { ...unchanged, maxVisibleOffers: Number(unchanged.maxVisibleOffers) + 2 },
+        ],
+        reason: "Reject duplicate tier rows " + Date.now(),
+      })).rejects.toThrow("Each Trading tier may appear only once in a policy update");
+      const afterDuplicate = (await admin.adminOperations.packagePolicies()).find((row: any) => row.packageName === before.packageName) as any;
+      expect(afterDuplicate.maxVisibleOffers).toBe(nextVisibleOffers);
+      expect(Number(afterDuplicate.policyVersion)).toBe(Number(persisted.policyVersion));
+
+      await expect(admin.adminOperations.updatePackagePolicies({
+        policies: [
+          { ...unchanged, maxVisibleOffers: Number(unchanged.maxVisibleOffers) + 1 },
+          { ...unchanged, packageName: "__unknown_disposable_tier_" + Date.now() },
+        ],
+        reason: "Reject unknown tier atomically " + Date.now(),
+      })).rejects.toThrow("Opportunity policy references an unknown Trading tier");
+      const afterAtomicReject = (await admin.adminOperations.packagePolicies()).find((row: any) => row.packageName === before.packageName) as any;
+      expect(afterAtomicReject.maxVisibleOffers).toBe(nextVisibleOffers);
+      expect(Number(afterAtomicReject.policyVersion)).toBe(Number(persisted.policyVersion));
     } finally {
       if (updateCommitted) {
         await admin.adminOperations.updatePackagePolicies({
