@@ -241,7 +241,7 @@ export function getCompanyReferenceForRotation(input: {
   if (!Number.isSafeInteger(userId) || userId < 1 ||
       !Number.isSafeInteger(packageId) || packageId < 1 ||
       !Number.isSafeInteger(slotIndex) || slotIndex < 0 ||
-      !/^\\d{4}-\\d{2}-\\d{2}$/.test(quotaDay)) {
+      !/^\d{4}-\d{2}-\d{2}$/.test(quotaDay)) {
     throw new Error("Invalid company-rotation delivery identity.");
   }
   const dayOrdinal = Math.floor(Date.parse(`${quotaDay}T00:00:00.000Z`) / 86_400_000);
