@@ -1,6 +1,8 @@
 -- Persist immutable per-popup Trading terms and their trade-allocation snapshot.
 -- Keep this after 0086 policy ranges and 0087 company spotlight settings.
 -- Existing rows are preserved; legacy popups can use their published offer values.
+ALTER TABLE `opportunity_popup_events` MODIFY COLUMN `packageName` VARCHAR(80) NOT NULL;
+
 ALTER TABLE `opportunity_popup_events`
   ADD COLUMN IF NOT EXISTS `configuredProfitRateBps` INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS `configuredDurationSeconds` INT NOT NULL DEFAULT 0,
