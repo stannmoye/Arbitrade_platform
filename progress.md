@@ -262,3 +262,12 @@ This policy is final and must be followed throughout the application:
 - Use integer basis points, minor-unit money math, explicit rounding, exact fee/payout reconciliation, and persisted UTC deadlines. Startup recovery must find overdue work without resetting timers or duplicating debits, payouts, or company rotation.
 - A configured percentage formula is a platform-defined contractual payout unless supported by actual execution/result evidence; UI and terms must not misrepresent it as market-earned profit.
 - Documentation changes are on `docs/admin-editable-trading-popups` and await exact-head CI/review before merge. No production deployment or database operation was performed.
+
+
+## 2026-10-29 — Part 3 worker log privacy hardening
+
+- Updated the automatic Trading per-customer failure log to emit only the error class name (or `UnknownError`), not a customer ID or raw exception message.
+- Added a worker contract assertion that protects this logging boundary.
+- Commit: `f6910d86ecf473ea928ea14306b6c075632aa26c` (implementation); `1801d1bd45817ad6e2c4357a1a70607b9a89f7f2` (regression test).
+- CI has been triggered for the new head. Earlier exact-head workflow results were green for the recovery workflow, app validation, tier-qualification DB integration, and settlement reconciliation on MySQL 8.4/MariaDB 11.4. The new commit's complete CI set is queued/running and must be checked again before acceptance.
+- This change is intentionally narrow: it does not claim to add distributed opportunity leases, durable crash recovery, or multi-instance fencing. Those remain acceptance gaps for Part 3.
