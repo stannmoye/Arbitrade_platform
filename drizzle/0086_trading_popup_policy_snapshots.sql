@@ -10,6 +10,7 @@ ALTER TABLE `opportunity_popup_events`
   ADD COLUMN IF NOT EXISTS `configuredProfitRateBps` INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS `configuredDurationSeconds` INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS `configuredPopupDisplaySeconds` INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `packagePolicyVersionSnapshot` INT NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS `packageBadgeLabel` VARCHAR(48) NULL,
   ADD COLUMN IF NOT EXISTS `companyReferenceId` VARCHAR(80) NULL,
   ADD COLUMN IF NOT EXISTS `companyDisplayName` VARCHAR(240) NULL,
