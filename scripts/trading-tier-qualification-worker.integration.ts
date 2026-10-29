@@ -363,6 +363,18 @@ try {
   assert.ok(!creditPathSubscriptions.some((row) => row.status === "active" && Number(row.packageId) === tierIds[1]),
     "The non-qualifying USD 500 credit must not contribute to tier thresholds.");
 
+  // A large ordinary wallet-transfer ledger entry must not count toward Trading
+  // thresholds; only explicitly classified qualifying admin credits are eligible.
+  const ordinaryTransfer = await db.insert(balanceLedger).values({
+    userId,
+    currency: "USD",
+    amountMinor: 900000,
+    entryType: "wallet_transfer_credit",
+    reference: "worker-integration:" + token + ":ordinary-transfer",
+    withdrawable: false,
+  });
+  createdLedgerIds.push(Number(ordinaryTransfer[0].insertId));
+
   // Insert two qualifying ledger entries and their queue jobs atomically, as the
   // production credit path does. Their cumulative value is USD 300.00.
   await db.transaction(async (tx) => {
