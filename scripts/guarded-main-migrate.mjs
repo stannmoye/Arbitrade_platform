@@ -123,6 +123,25 @@ async function reconcileTradingPackageSchema(connection, root) {
 }
 
 
+async function reconcileOpportunityExecutionLeaseSchema(connection, root) {
+  const [rows] = await connection.query(
+    "SELECT column_name AS columnName FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1",
+    ["opportunity_popup_events", "executionLeaseToken"],
+  );
+  if (rows.length) return { repaired: false };
+  const migrationPath = resolve(root, "drizzle", "0086_trading_opportunity_execution_leases.sql");
+  const sql = await readFile(migrationPath, "utf8");
+  await executeCompatibleMigrationSql(connection, sql);
+  const [verified] = await connection.query(
+    "SELECT column_name AS columnName FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1",
+    ["opportunity_popup_events", "executionLeaseToken"],
+  );
+  if (!verified.length) throw new Error("Trading opportunity execution lease schema verification failed after additive repair.");
+  console.log("[main-migrate] Reconciled Trading opportunity execution lease schema using the idempotent 0086 repair.");
+  return { repaired: true };
+}
+
+
 async function reconcileTradeSettlementTimingSchema(connection, root) {
   const readSchema = async () => {
     const [rows] = await connection.query(
@@ -369,6 +388,9 @@ async function main() {
     console.log("[main-migrate] Verified " + tradingPackageSchema.checkedTables + " Trading package schema contracts.");
     const tradeSettlementSchema = await reconcileTradeSettlementTimingSchema(connection, root);
     console.log("[main-migrate] Verified " + tradeSettlementSchema.checkedColumns + " Trading settlement timing columns.");
+    currentMigration = "trading-opportunity-execution-lease-schema-reconciliation";
+    currentStatement = { index: null, label: "Trading opportunity execution lease schema verification and additive repair" };
+    await reconcileOpportunityExecutionLeaseSchema(connection, root);
     currentMigration = null;
     currentStatement = null;
 
