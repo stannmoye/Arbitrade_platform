@@ -236,6 +236,7 @@ export const opportunityPopupEvents = mysqlTable("opportunity_popup_events", {
   expectedRewardBps: int("expectedRewardBps").notNull(),
   configuredProfitRateBps: int("configuredProfitRateBps").default(0).notNull(),
   configuredDurationSeconds: int("configuredDurationSeconds").default(0).notNull(),
+  configuredPopupDisplaySeconds: int("configuredPopupDisplaySeconds").default(0).notNull(),
   packageBadgeLabel: varchar("packageBadgeLabel", { length: 48 }),
   companyReferenceId: varchar("companyReferenceId", { length: 80 }),
   companyDisplayName: varchar("companyDisplayName", { length: 240 }),
