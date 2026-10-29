@@ -555,6 +555,7 @@ export const appRouter = router({
       debitClassification: z.enum(["ordinary_debit","qualifying_deposit_reversal"]).optional(),
       reversalLedgerId: z.number().int().positive().optional(),
       reason: z.string().trim().min(3).max(500),
+      idempotencyKey: z.string().trim().min(8).max(160),
     })
       .refine(input => input.mode !== "credit" || Boolean(input.creditClassification), {
         message: "Choose whether this manual credit is a qualifying deposit or a non-qualifying credit.",
