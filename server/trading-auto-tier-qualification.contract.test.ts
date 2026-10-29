@@ -217,7 +217,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("const [tiers,rows]=await Promise.all([");
     expect(databaseSource).toContain("const matchingRows=rows.filter(row=>tierNames.has(row.packageName))");
     expect(databaseSource).toContain('if(missing.length) throw new Error("Trading tier opportunity policy is missing for: "+missing.join(", "));');
-    expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy})");
+    expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy,...UNCONFIGURED_TIER_POLICY_SENTINELS})");
     expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
   });
 
