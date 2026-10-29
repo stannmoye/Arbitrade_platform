@@ -301,8 +301,8 @@ export const opportunityPackagePolicies = mysqlTable("opportunity_package_polici
   marketInfluenceBps: int("marketInfluenceBps").default(5000).notNull(),
   burstEnabled: boolean("burstEnabled").default(false).notNull(),
   maxBurstSize: int("maxBurstSize").default(0).notNull(),
-  enabled: boolean("enabled").default(true).notNull(),
-  automaticDelivery: boolean("automaticDelivery").default(true).notNull(),
+  enabled: boolean("enabled").default(false).notNull(),
+  automaticDelivery: boolean("automaticDelivery").default(false).notNull(),
   dailyPopupTarget: int("dailyPopupTarget").default(10).notNull(),
   schedulingPeriod: mysqlEnum("schedulingPeriod", ["rolling_24h", "calendar_day"]).default("rolling_24h").notNull(),
   minIntervalSeconds: int("minIntervalSeconds").default(45).notNull(),
@@ -318,7 +318,7 @@ export const opportunityPackagePolicies = mysqlTable("opportunity_package_polici
   duplicatePrevention: boolean("duplicatePrevention").default(true).notNull(),
   audioEnabled: boolean("audioEnabled").default(true).notNull(),
   audioSound: varchar("audioSound", { length: 80 }).default("soft-chime").notNull(),
-  automaticTradingEnabled: boolean("automaticTradingEnabled").default(true).notNull(),
+  automaticTradingEnabled: boolean("automaticTradingEnabled").default(false).notNull(),
   maxTradeAttemptsPerDay: int("maxTradeAttemptsPerDay").default(5).notNull(),
   tradeRetryDelaySeconds: int("tradeRetryDelaySeconds").default(30).notNull(),
   maxSuccessfulTradesPerDay: int("maxSuccessfulTradesPerDay").default(5).notNull(),
@@ -346,7 +346,7 @@ export const opportunityPackagePolicies = mysqlTable("opportunity_package_polici
   settlementRetryPolicy: mysqlEnum("settlementRetryPolicy", ["temporary", "manual"]).default("temporary").notNull(),
   maxSettlementAttempts: int("maxSettlementAttempts").default(3).notNull(),
   closePolicy: mysqlEnum("closePolicy", ["after_completion", "after_final_display"]).default("after_final_display").notNull(),
-  policyVersion: int("policyVersion").default(1).notNull(),
+  policyVersion: int("policyVersion").default(0).notNull(),
   updatedBy: int("updatedBy"),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -599,7 +599,7 @@ export const packages = mysqlTable("packages", {
   expiresAt: timestamp("expiresAt"),
   maxPopupsPerDay: int("maxPopupsPerDay").default(0).notNull(),
   maxActiveInvestments: int("maxActiveInvestments").default(0).notNull(),
-  enabled: boolean("enabled").default(true).notNull(),
+  enabled: boolean("enabled").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
