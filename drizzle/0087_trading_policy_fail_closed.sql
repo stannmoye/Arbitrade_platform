@@ -13,6 +13,8 @@ ALTER TABLE `opportunity_package_policies` ALTER COLUMN `policyVersion` SET DEFA
 --> statement-breakpoint
 ALTER TABLE `opportunity_popup_events` ALTER COLUMN `tradeDurationSeconds` DROP DEFAULT;
 --> statement-breakpoint
+ALTER TABLE `opportunity_delivery_events` ALTER COLUMN `policyVersion` DROP DEFAULT;
+--> statement-breakpoint
 ALTER TABLE `opportunity_popup_events` ALTER COLUMN `policyVersion` DROP DEFAULT;
 --> statement-breakpoint
 UPDATE `packages` SET `enabled`=0;
