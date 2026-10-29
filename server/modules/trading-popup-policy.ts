@@ -72,6 +72,24 @@ export function chooseTradeDurationSeconds(
 }
 
 /** Round half-up using integer arithmetic; no floating-point money multiplication. */
+export function usdMinorToNativeMinor(usdMinor: number, nativeScale: number, usdRate: string | number, rounding: "ceil" | "floor") {
+  if (!Number.isSafeInteger(usdMinor) || usdMinor <= 0) throw new Error("USD capital must be a positive safe integer in cents.");
+  if (!Number.isSafeInteger(nativeScale) || nativeScale < 0 || nativeScale > 18) throw new Error("Currency precision is invalid.");
+  const rateText = String(usdRate).trim();
+  const match = /^(\d+)(?:\.(\d+))?$/.exec(rateText);
+  if (!match) throw new Error("Exchange rate must be a positive decimal without exponent notation.");
+  const fractional = match[2] ?? "";
+  const denominator = 10n ** BigInt(fractional.length);
+  const numerator = BigInt(match[1] + fractional);
+  if (numerator <= 0n) throw new Error("Exchange rate must be positive.");
+  const top = BigInt(usdMinor) * (10n ** BigInt(nativeScale)) * denominator;
+  const bottom = 100n * numerator;
+  const quotient = top / bottom;
+  const remainder = top % bottom;
+  const result = rounding === "ceil" && remainder > 0n ? quotient + 1n : quotient;
+  if (result > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("Converted capital exceeds the safe integer range.");
+  return Number(result);
+}
 export function calculateConfiguredProfitMinor(capitalMinor: number, profitRateBps: number) {
   if (!Number.isSafeInteger(capitalMinor) || capitalMinor <= 0) throw new Error("Capital must be a positive safe integer in native minor units.");
   if (!Number.isSafeInteger(profitRateBps) || profitRateBps < 0 || profitRateBps > 10_000) throw new Error("Profit rate must be between 0 and 10000 basis points.");
