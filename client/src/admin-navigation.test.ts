@@ -35,7 +35,8 @@ describe("Trade Settings administrator navigation", () => {
     const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
     const item = group?.items.find((candidate) => candidate.id === "trade-retries-carry-forward");
     expect(item?.target).toBe("tradeRetryPolicy");
-    expect(item?.detail).toBe("Configure per-package retry attempts and delay; carry-forward controls are not yet implemented");
+    expect(item?.label).toBe("Retry Policy (Carry-Forward Unavailable)");
+    expect(item?.detail).toBe("Configure saved retry attempts and delay. Missed opportunities do not roll over; no carry-forward setting is active.");
   });
 
   it("routes the trading overview to persisted operational data", () => {
