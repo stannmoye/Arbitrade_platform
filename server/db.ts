@@ -2772,6 +2772,9 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
       break;
     }catch(error){
       const message=error instanceof Error?error.message:"AUTO_TRADE_REJECTED";
+      // A reclaimed event belongs to the newer lease owner. The stale worker must
+      // not convert that event into a missed opportunity or overwrite retry state.
+      if(/execution lease was lost/i.test(message)) continue;
       if(/already been allocated|duplicate/i.test(message)) continue;
       // A pause must not consume the configured retry budget; release the claim
       // and wait briefly so the durable worker can resume after the administrator unpauses.
