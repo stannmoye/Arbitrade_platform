@@ -40,13 +40,14 @@ describe("worker schema contracts", () => {
 
   it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
     const root = new URL("../", import.meta.url);
-    const [runtimeSchema, migration, opportunityWorkerMigration, healthMigration, popupRangeMigration, companyRotationMigration] = await Promise.all([
+    const [runtimeSchema, migration, opportunityWorkerMigration, healthMigration, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration] = await Promise.all([
       readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
       readFile(new URL("drizzle/0082_trading_tier_qualification_jobs.sql", root), "utf8"),
       readFile(new URL("drizzle/0083_trading_opportunity_worker_indexes.sql", root), "utf8"),
       readFile(new URL("drizzle/0084_worker_health_registry.sql", root), "utf8"),
       readFile(new URL("drizzle/0086_trading_popup_policy_ranges.sql", root), "utf8"),
       readFile(new URL("drizzle/0087_trading_company_spotlight_rotation.sql", root), "utf8"),
+      readFile(new URL("drizzle/0088_trading_popup_trade_snapshots.sql", root), "utf8"),
     ]);
     expect(WORKER_SCHEMA_CONTRACTS.trading_tier_qualification_jobs.indexes)
       .toHaveProperty("trading_tier_qualification_jobs_source_ledger_uq");
@@ -66,6 +67,9 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, popupPolicyRangeMigration)");
     expect(runtimeSchema).toContain('drizzle/0087_trading_company_spotlight_rotation.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, companySpotlightRotationMigration)");
+    expect(runtimeSchema).toContain('drizzle/0088_trading_popup_trade_snapshots.sql');
+    expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, popupTradeSnapshotsMigration)");
+    for (const column of ["configuredProfitRateBps", "configuredDurationSeconds", "configuredPopupDisplaySeconds", "packagePolicyVersionSnapshot", "companyReferenceId", "companyDisplayName", "companyLogoUrl", "companyReferenceOnly"]) expect(popupTradeSnapshotsMigration).toContain(column);
     for (const column of ["companyRotationEnabled", "companyRotationCountryNames", "companyRotationRepeatPolicy"]) expect(companyRotationMigration).toContain(column);
     for (const column of ["badgeLabel", "badgeStyle", "minimumPayoutRateBps", "maximumPayoutRateBps", "minimumTradeDurationSeconds", "maximumTradeDurationSeconds", "durationSeconds"]) expect(popupRangeMigration).toContain(column);
     expect(healthMigration).toContain("CREATE TABLE IF NOT EXISTS `worker_health_registry`");
@@ -125,7 +129,7 @@ describe("worker schema contracts", () => {
 
   it("keeps the standalone mining and portal campaign migrations covered by the standard journal bridge", async () => {
     const root = new URL("../", import.meta.url);
-    const [journalText, mainSql, miningSql, portalSql, portalRunner, popupLifecycleSql, popupRangeMigration, companyRotationMigration] = await Promise.all([
+    const [journalText, mainSql, miningSql, portalSql, portalRunner, popupLifecycleSql, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration] = await Promise.all([
       readFile(new URL("drizzle/meta/_journal.json", root), "utf8"),
       readFile(new URL("drizzle/0062_worker_runtime_tables.sql", root), "utf8"),
       readFile(new URL("drizzle/0048_pending_boost_rewards.sql", root), "utf8"),
@@ -134,6 +138,7 @@ describe("worker schema contracts", () => {
       readFile(new URL("drizzle/0022_popup_lifecycle_reporting.sql", root), "utf8"),
       readFile(new URL("drizzle/0086_trading_popup_policy_ranges.sql", root), "utf8"),
       readFile(new URL("drizzle/0087_trading_company_spotlight_rotation.sql", root), "utf8"),
+      readFile(new URL("drizzle/0088_trading_popup_trade_snapshots.sql", root), "utf8"),
     ]);
     const journal = JSON.parse(journalText);
     expect(journal.entries.some((entry) => entry.tag === "0062_worker_runtime_tables")).toBe(true);
@@ -147,9 +152,9 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(previous.tag).toBe("0086_trading_popup_policy_ranges");
-    expect(last.tag).toBe("0087_trading_company_spotlight_rotation");
-    expect(journal.entries.slice(-16).map((entry) => entry.tag)).toEqual([
+    expect(previous.tag).toBe("0087_trading_company_spotlight_rotation");
+    expect(last.tag).toBe("0088_trading_popup_trade_snapshots");
+    expect(journal.entries.slice(-17).map((entry) => entry.tag)).toEqual([
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
       "0074_trade_execution_retries",
@@ -166,6 +171,7 @@ describe("worker schema contracts", () => {
       "0085_trade_settlement_schema_reconciliation",
       "0086_trading_popup_policy_ranges",
       "0087_trading_company_spotlight_rotation",
+      "0088_trading_popup_trade_snapshots",
     ]);
     expect(portalRunner).toContain('"0076_trading_admin_policy_read_repair.sql"');
     expect(portalRunner).toContain('"0077_trading_package_catalogue_schema_repair.sql"');
@@ -178,6 +184,8 @@ describe("worker schema contracts", () => {
     expect(portalRunner).toContain('"0085_trade_settlement_schema_reconciliation.sql"');
     expect(portalRunner).toContain('"0086_trading_popup_policy_ranges.sql"');
     expect(portalRunner).toContain('"0087_trading_company_spotlight_rotation.sql"');
+    expect(portalRunner).toContain('"0088_trading_popup_trade_snapshots.sql"');
+    expect(popupTradeSnapshotsMigration).toContain("ADD COLUMN IF NOT EXISTS `configuredProfitRateBps`");
     expect(companyRotationMigration).toContain("ADD COLUMN IF NOT EXISTS `companyRotationEnabled`");
     expect(popupLifecycleSql).toContain("opportunity_popup_events");
     expect(popupRangeMigration).toContain("ADD COLUMN IF NOT EXISTS `durationSeconds`");
