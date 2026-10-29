@@ -1706,6 +1706,35 @@ export async function listAdminCustomers(){
       or(isNull(packages.expiresAt),gt(packages.expiresAt,now))));
   const packageByUser=new Map<number,string[]>();
   for(const subscription of activePackages){const names=packageByUser.get(subscription.userId)||[];names.push(subscription.packageName);packageByUser.set(subscription.userId,names);}
+  const assignmentRows=await db.select({
+    userId:customerPackageSubscriptions.userId,
+    subscriptionId:customerPackageSubscriptions.id,
+    packageId:customerPackageSubscriptions.packageId,
+    packageName:packages.name,
+    status:customerPackageSubscriptions.status,
+    activationKey:customerPackageSubscriptions.activationKey,
+    startsAt:customerPackageSubscriptions.startsAt,
+    expiresAt:customerPackageSubscriptions.expiresAt,
+    packageTermsVersion:customerPackageSubscriptions.packageTermsVersion,
+    qualifyingBalanceUsdMinor:customerPackageSubscriptions.qualifyingBalanceUsdMinor,
+  }).from(customerPackageSubscriptions).innerJoin(packages,eq(customerPackageSubscriptions.packageId,packages.id))
+    .orderBy(desc(customerPackageSubscriptions.createdAt));
+  const assignmentsByUser=new Map<number,Array<Record<string,unknown>>>();
+  for(const row of assignmentRows){
+    if(!String(row.activationKey||"").startsWith("auto-tier:")) continue;
+    const assignments=assignmentsByUser.get(row.userId)||[];
+    assignments.push({
+      subscriptionId:row.subscriptionId,
+      packageId:row.packageId,
+      packageName:row.packageName,
+      status:row.status,
+      startsAt:row.startsAt,
+      expiresAt:row.expiresAt,
+      termsVersion:row.packageTermsVersion,
+      qualifyingBalanceUsdMinor:Number(row.qualifyingBalanceUsdMinor||0),
+    });
+    assignmentsByUser.set(row.userId,assignments);
+  }
   const qualifyingLedgerRows=await db.select({
     userId:balanceLedger.userId,
     qualifyingDepositUsdMinor:balanceLedger.qualifyingDepositUsdMinor,
@@ -1723,6 +1752,7 @@ export async function listAdminCustomers(){
     const packageLabel=assignedTiers.length?assignedTiers.join(", "):"No active tier";
     const qualifyingUsdMinor=Math.max(0,qualifyingUsdMinorByUser.get(row.id)||0);
     return {id:row.id,name:row.name||row.email||"Customer",email:row.email||"",package:packageLabel,group:packageLabel,
+      assignedTierDetails:assignmentsByUser.get(row.id)||[],
       qualifyingDepositUsd:qualifyingUsdMinor/100,
       status:control?.accountStatus||"active",accountState:control?.accountStatus||"active",opportunities:"Automatically assigned tier allowance",
       kyc:control?.kycRequired??true,withdrawals:control?.withdrawalsEnabled??false,twofa:control?.twoFactorRequired??false,
