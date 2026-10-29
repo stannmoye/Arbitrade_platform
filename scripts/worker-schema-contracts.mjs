@@ -41,9 +41,9 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
     },
   },
   opportunity_popup_events: {
-    columns: ["id", "eventKey", "policyVersion", "durationSeconds", "badgeLabel", "badgeStyle"],
-    dataTypes: { id: "int", eventKey: "varchar", policyVersion: "int", durationSeconds: "int", badgeLabel: "varchar", badgeStyle: "varchar" },
-    nullable: { durationSeconds: true, badgeLabel: true },
+    columns: ["id", "eventKey", "policyVersion", "durationSeconds", "badgeLabel", "badgeStyle", "configuredProfitRateBps", "configuredDurationSeconds", "configuredPopupDisplaySeconds", "packagePolicyVersionSnapshot", "packageBadgeLabel", "companyReferenceId", "companyDisplayName", "companyLogoUrl", "companyReferenceOnly"],
+    dataTypes: { id: "int", eventKey: "varchar", policyVersion: "int", durationSeconds: "int", badgeLabel: "varchar", badgeStyle: "varchar", configuredProfitRateBps: "int", configuredDurationSeconds: "int", configuredPopupDisplaySeconds: "int", packagePolicyVersionSnapshot: "int", packageBadgeLabel: "varchar", companyReferenceId: "varchar", companyDisplayName: "varchar", companyLogoUrl: "varchar", companyReferenceOnly: "tinyint" },
+    nullable: { durationSeconds: true, badgeLabel: true, packageBadgeLabel: true, companyReferenceId: true, companyDisplayName: true, companyLogoUrl: true },
     indexes: {
       PRIMARY: { unique: true, columns: ["id"] },
       opportunity_popup_event_key_unique: { unique: true, columns: ["eventKey"] },
