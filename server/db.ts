@@ -14,7 +14,7 @@ import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./module
 import { calculateConfiguredProfitMinor, chooseInclusiveInteger } from "./modules/trading-popup-policy";
 import { planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
-import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
+import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, usdUnitsToNativeMinor } from "../shared/money";
 import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
@@ -2078,11 +2078,10 @@ export async function adjustCustomerBalance(adminId:number,input:{
       if(!Number.isFinite(rate)||rate<=0||!Number.isFinite(rateAt.getTime())||rateAt.getTime()>Date.now()+60_000){
         throw new Error("A valid, timestamped API currency-to-USD rate is required before this qualifying deposit can be credited.");
       }
-      const usdValue=nativeMinorToUsd(input.amountMinor,Number(currency.scale),rate);
-      const usdMinor=Math.round(usdValue*100);
+      const usdMinor=nativeMinorToUsdMinorExact(input.amountMinor,Number(currency.scale),creditTimeRate.rate);
       if(!Number.isSafeInteger(usdMinor)||usdMinor<=0) throw new Error("Qualifying deposit USD value is invalid or below the supported precision.");
       qualifyingDepositUsdMinor=usdMinor;
-      qualifyingDepositRate=String(rate);
+      qualifyingDepositRate=String(creditTimeRate.rate);
       qualifyingDepositRateProvider=provider;
       qualifyingDepositRateAt=rateAt;
     }
@@ -2110,7 +2109,7 @@ export async function adjustCustomerBalance(adminId:number,input:{
         throw new Error("The reversal exceeds the unreversed amount of the selected qualifying deposit");
       }
       if(!Number.isSafeInteger(remainingUsd)||remainingUsd<0) throw new Error("The qualifying deposit reversal history is inconsistent");
-      const reversalUsd=input.amountMinor===remainingNative?remainingUsd:Math.min(remainingUsd,Math.round(originalUsd*input.amountMinor/Number(original.amountMinor)));
+      const reversalUsd=input.amountMinor===remainingNative?remainingUsd:Math.min(remainingUsd,proportionalMinorAmount(originalUsd,input.amountMinor,Number(original.amountMinor)));
       if(!Number.isSafeInteger(reversalUsd)||reversalUsd<0) throw new Error("The qualifying deposit reversal value is invalid");
       qualifyingDepositUsdMinor=-reversalUsd;
       qualifyingDepositRate=original.qualifyingDepositRate;
