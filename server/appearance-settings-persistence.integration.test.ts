@@ -476,7 +476,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     const name = "Part1 disposable tier " + suffix;
     const reasonCreate = "Disposable Part 1 tier creation " + suffix;
     const reasonUpdate = "Disposable Part 1 tier edit " + suffix;
-    const startsAt = new Date(Date.now() + 60_000);
+    const startsAt = new Date(Math.floor((Date.now() + 60_000) / 1000) * 1000);
     const expiresAt = new Date(startsAt.getTime() + 30 * 24 * 60 * 60 * 1000);
     let created = false;
 
