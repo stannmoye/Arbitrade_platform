@@ -19,6 +19,7 @@ export type CrossWalletDebit = {
   amountMinor: number;
   convertedTargetMinor: number;
   roundingExcessSourceMinor: number;
+  roundingExcessUsdScaled: string;
   rate: FxRateSnapshot;
 };
 
@@ -123,6 +124,9 @@ export function planCrossWalletFunding(input: {
       targetScaleFactor * sourceRateScaled,
     );
     const roundingExcess = sourceDebit > minimumSourceForCredit ? sourceDebit - minimumSourceForCredit : 0n;
+    const sourceValueUsdScaled = (sourceDebit * sourceRateScaled) / sourceScaleFactor;
+    const targetValueUsdScaled = (targetCredit * targetRateScaled) / targetScaleFactor;
+    const roundingExcessUsdScaled = sourceValueUsdScaled > targetValueUsdScaled ? sourceValueUsdScaled - targetValueUsdScaled : 0n;
     const sourceAmountMinor = safeNumber(sourceDebit, "Source debit");
     const convertedTargetMinor = safeNumber(targetCredit, "Converted target credit");
     sourceDebits.push({
@@ -130,6 +134,7 @@ export function planCrossWalletFunding(input: {
       amountMinor: sourceAmountMinor,
       convertedTargetMinor,
       roundingExcessSourceMinor: safeNumber(roundingExcess, "FX rounding excess"),
+      roundingExcessUsdScaled: roundingExcessUsdScaled.toString(),
       rate: wallet.rate,
     });
     remainingTargetMinor -= convertedTargetMinor;
