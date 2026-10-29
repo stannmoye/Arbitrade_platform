@@ -2691,7 +2691,7 @@ function hasConfiguredTradingOfferPolicy(policy:any):boolean {
   const maxRate=policy.maximumPayoutRateBps==null?NaN:Number(policy.maximumPayoutRateBps);
   const minDuration=policy.minimumTradeDurationSeconds==null?NaN:Number(policy.minimumTradeDurationSeconds);
   const maxDuration=policy.maximumTradeDurationSeconds==null?NaN:Number(policy.maximumTradeDurationSeconds);
-  return Number.isSafeInteger(minRate)&&Number.isSafeInteger(maxRate)&&minRate>=0&&maxRate>=minRate&&maxRate<=5000&&
+  return Number.isSafeInteger(minRate)&&Number.isSafeInteger(maxRate)&&minRate>=1&&maxRate>=minRate&&maxRate<=5000&&
     Number.isSafeInteger(minDuration)&&Number.isSafeInteger(maxDuration)&&minDuration>=10&&maxDuration>=minDuration&&maxDuration<=86400;
 }
 
@@ -2779,7 +2779,7 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     };
     const requiresConfiguredOfferTerms=automation.enabled&&automation.automaticDelivery;
     if(requiresConfiguredOfferTerms&&(
-      minimumPayoutRateBps===null||maximumPayoutRateBps===null||
+      minimumPayoutRateBps===null||maximumPayoutRateBps===null||minimumPayoutRateBps<1||
       minimumTradeDurationSeconds===null||maximumTradeDurationSeconds===null
     )) throw new Error(`Set valid published reward-rate and duration bounds before enabling delivery for ${policy.packageName}`);
     if(automation.automaticTradingEnabled&&(!automation.enabled||!automation.automaticDelivery)) throw new Error(`Automatic trading requires an enabled delivery policy for ${policy.packageName}`);
