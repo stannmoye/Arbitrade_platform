@@ -60,6 +60,8 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, workerHealthMigration)");
     expect(runtimeSchema).toContain('drizzle/0085_trade_settlement_schema_reconciliation.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, settlementSchemaMigration)");
+    expect(runtimeSchema).toContain('drizzle/0087_admin_wallet_adjustment_idempotency.sql');
+    expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, walletAdjustmentIdempotencyMigration)");
     expect(healthMigration).toContain("CREATE TABLE IF NOT EXISTS `worker_health_registry`");
     expect(healthMigration).toContain("worker_health_worker_instance_uq");
     expect(healthMigration).toContain("worker_health_heartbeat_idx");
@@ -133,12 +135,14 @@ describe("worker schema contracts", () => {
     const boostRewards = journal.entries.find((entry) => entry.tag === "0048_pending_boost_rewards");
     const last = journal.entries.at(-1);
     const previous = journal.entries.at(-2);
+    const settlementReconciliation = journal.entries.at(-3);
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(previous.tag).toBe("0084_worker_health_registry");
-    expect(last.tag).toBe("0085_trade_settlement_schema_reconciliation");
-    expect(journal.entries.slice(-14).map((entry) => entry.tag)).toEqual([
+    expect(settlementReconciliation.tag).toBe("0085_trade_settlement_schema_reconciliation");
+    expect(previous.tag).toBe("0085_trade_settlement_schema_reconciliation");
+    expect(last.tag).toBe("0087_admin_wallet_adjustment_idempotency");
+    expect(journal.entries.slice(-15).map((entry) => entry.tag)).toEqual([
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
       "0074_trade_execution_retries",
@@ -153,6 +157,7 @@ describe("worker schema contracts", () => {
       "0083_trading_opportunity_worker_indexes",
       "0084_worker_health_registry",
       "0085_trade_settlement_schema_reconciliation",
+      "0087_admin_wallet_adjustment_idempotency",
     ]);
     expect(portalRunner).toContain('"0076_trading_admin_policy_read_repair.sql"');
     expect(portalRunner).toContain('"0077_trading_package_catalogue_schema_repair.sql"');
