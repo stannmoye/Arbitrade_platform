@@ -88,6 +88,29 @@ describe("Admin customer Trading tier visibility", () => {
   });
 });
 
+describe("Trading tier policy audit and versioning", () => {
+  it("requires an audit reason and persists each policy update with its previous and next values in one transaction", () => {
+    const start = serverDb.indexOf("export async function updateOpportunityPackagePolicies");
+    const end = serverDb.indexOf("\\nasync function listMissedOpportunities", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const update = serverDb.slice(start, end);
+    expect(update).toContain("reason:string");
+    expect(update).toContain("auditReason.length<5||auditReason.length>500");
+    expect(update).toContain("await db.transaction(async tx=>");
+    expect(update).toContain("policyVersion:nextVersion");
+    expect(update).toContain('action:"trading_opportunity_package_policy_updated"');
+    expect(update).toContain("previousPolicy:current||null");
+    expect(update).toContain("nextPolicy:{...values}");
+    expect(update).toContain("Each Trading tier may appear only once");
+    expect(serverRouters).toContain("reason: z.string().trim().min(5).max(500)");
+    expect(serverRouters).toContain("updateOpportunityPackagePolicies(ctx.user.id, input.policies, input.reason)");
+    expect(adminApp).toContain("Reason for changing Trading tier policies (required for audit)");
+    expect(adminApp).toContain("policyReason.trim().length<5");
+    expect(adminApp).toContain("policyReason.trim(),policies:draft.map");
+  });
+});
+
 describe("Trading fee-policy navigation", () => {
   it("opens the administrator screen that actually edits realized-profit fees", () => {
     const item = navigation.match(/id: "trade-profit-fees-limits", target: "([^"]+)"/);
