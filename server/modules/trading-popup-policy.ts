@@ -66,8 +66,8 @@ export function validateTradingPopupPolicy(policy: TradingPopupPackagePolicy): T
   if (policy.minimumProfitBps > policy.maximumProfitBps) {
     throw new RangeError("Minimum profit percentage cannot exceed maximum profit percentage");
   }
-  if (policy.maximumProfitBps > 100_000) {
-    throw new RangeError("Maximum configured profit rate exceeds the supported 1000% safety bound");
+  if (policy.maximumProfitBps > 10_000) {
+    throw new RangeError("Maximum configured profit rate exceeds the supported 100% safety bound");
   }
   if (policy.minimumDurationSeconds > policy.maximumDurationSeconds) {
     throw new RangeError("Minimum trade duration cannot exceed maximum trade duration");
@@ -93,7 +93,7 @@ export function chooseInclusiveInteger(
   assertSafeInteger("minimum", minimum, 0);
   assertSafeInteger("maximum", maximum, 0);
   if (minimum > maximum) throw new RangeError("Minimum cannot exceed maximum");
-  if (maximum - minimum >= 2 ** 48) throw new RangeError("Selection range exceeds secure sampler limits");
+  if (maximum >= Number.MAX_SAFE_INTEGER || maximum - minimum + 1 >= 2 ** 48) throw new RangeError("Selection range exceeds secure sampler limits");
   const selected = sampler(minimum, maximum + 1);
   if (!Number.isSafeInteger(selected) || selected < minimum || selected > maximum) {
     throw new RangeError("Random sampler returned a value outside the configured range");
