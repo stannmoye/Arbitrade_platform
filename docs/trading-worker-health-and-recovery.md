@@ -30,3 +30,13 @@ The dashboard permits a guarded retry of dead-lettered tier-qualification jobs o
 ## Validation boundary
 
 The status classifier and error-sanitization functions have unit tests; the disposable-database tier worker integration also exercises valid audited requeue, invalid source rejection, and duplicate-entitlement prevention. CI must run the full lockfile install, TypeScript check, test suite, production build and migration/installer checks on the exact feature-branch commit. Migration `0084` is forward-only and adds `worker_health_registry`; deployment/runtime-schema bridge and installer tracking include it. It does not modify existing customer ledger or trade rows. Production migration and live-host acceptance have not been run by this change.
+
+
+## Trading pop-up rotation and admin policy
+
+The detailed package-edit and customer pop-up contract is defined in [Trading Pop-up & Admin Configuration Manual](TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md) and [Trading System Specification](TRADING_SYSTEM_SPECIFICATION.md). Worker health should make durable rotation/scheduling state, due work, stale leases, retries and dead letters observable. A worker restart must resume from persisted state without duplicate opportunity creation, rotation advancement, allocation or settlement. Company catalogue rotation is reference presentation data, not proof of execution or realized profit. A configured profit range must never be converted into a fabricated/random result.
+
+
+### Per-opportunity values and restart recovery
+
+The durable opportunity record must preserve selected capital, selected payout rate in integer basis points, selected duration, UTC opened/due timestamps, policy version, wallet funding plan and each FX quote snapshot. On restart or lease recovery, workers reuse these values exactly; they must not reroll a rate, reset a countdown, reprice a committed debit, or double-advance company rotation. Startup reconciliation identifies overdue items and resumes their defined lifecycle in bounded, idempotent batches. Cross-wallet debits and payouts must be atomic and idempotent. A policy-defined payout is not evidence of market execution; see the canonical Trading specification and pop-up manual.

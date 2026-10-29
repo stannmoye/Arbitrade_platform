@@ -76,6 +76,19 @@ Suggested insufficient-balance card fields:
 - Estimates may be shown only when based on a valid pricing model, clearly labelled as estimates—not earnings.
 - Clear explanation that the opportunity was not executed because funds were insufficient.
 
+## 5A. Per-pop-up capital, configured payout rate, duration and multi-wallet funding
+
+This section supplements package configuration and the opportunity lifecycle. Admin-saved settings govern customer behaviour; no customer UI constants may override them.
+
+- Each eligible pop-up snapshots required capital, profit-rate minimum/maximum, trade-duration minimum/maximum, package/badge/version, company Logo ID, and relevant fee/limit settings. The server chooses a single capital amount (if a range is configured), a single rate and a single integer duration in seconds within the inclusive admin bounds. Select the rate as a cryptographically secure uniform integer number of basis points from min through max (where 1 bp = 0.01 percentage point); choose the duration using an approved secure uniform method. Persist these values before proceeding with financial processing; never choose them again on retry or restart.
+- Rates must support decimal percentages such as 2.0%, 2.7%, 3.2% and 4.9%. Store rates as integer basis points (2.70% = 270 bps); store ledger money as integer minor units or the existing decimal-safe representation. Validate min ≤ max, positive duration bounds, safe system caps and arithmetic overflow. Do not use binary floating-point for money.
+- For a configured payout policy, gross payout = round(capital_minor_units × selected_rate_bps / 10,000) using one documented currency-specific rounding rule. Calculate any fee separately against its specified base; then reconcile gross payout, fee, net payout, principal return and total credit. Example: 10,000 minor units × 270 / 10,000 = 270 minor units before fees.
+- **Financial semantics must be explicit.** If the selected range itself determines the platform-defined payout, customer terms and UI must call it a configured/contractual return or payout, not a market-earned trading profit. A company logo or elapsed timer is not evidence of a market trade. Any value represented as market-derived profit requires authoritative, auditable execution and result evidence. Never fabricate market quotes, fills or external settlement records.
+- Required capital is compared in a canonical configured currency (USD minor units by default). The worker may fund it from one or multiple eligible customer wallets. If the preferred wallet lacks enough spendable value, calculate the equivalent of other eligible wallets using a fresh currency-appropriate FX quote at allocation time. Persist provider, rate, quote/source timestamp, currency pair, native debit and canonical equivalent with the trade/ledger evidence. If any required quote is stale, invalid or unavailable, fail closed.
+- Apply a documented wallet priority. Inside one database transaction, lock affected wallet rows in stable order, recheck spendable balances, and reserve/debit all required native amounts atomically. Commit all entries and the opportunity or none. Do not partially debit, create a negative balance, or mutate balances without auditable ledger entries. Record conversion fees/spreads explicitly and round only at documented minor-unit boundaries.
+- Persist UTC opening and due timestamps, selected duration, rate, capital, wallet funding plan, FX snapshots, policy version and idempotency key. Restarts and delayed cycles reuse these exact values. They must not reset countdowns, reroll the rate, reprice a committed debit, or create duplicate debits/credits. Startup reconciliation must find overdue scheduled/pending items and resume their defined lifecycle in bounded batches; time elapsed alone must not be treated as proof of market execution.
+- Admin edits affect future opportunities by default. Already committed/open opportunities retain their saved snapshot unless a separately reviewed policy explicitly defines a safe migration.
+
 ## 6. Automatic processing and trade lifecycle
 
 Server-side worker must operate independently of customer sessions and recover safely after restarts. Use explicit statuses such as Scheduled, Presented, Insufficient Balance, Pending, Retrying, Successful, Failed, Carried Forward, and Settled. Use database transactions and idempotency keys so the same opportunity cannot allocate or settle twice.
@@ -211,6 +224,20 @@ Never invent missing trade details, timestamps, returns, fees, percentages, or r
 
 The expanded-card display duration is configurable in seconds. The minimized dock remains fixed and accessible until the dismissal conditions above are satisfied.
 
+### Administrator-editable package and pop-up configuration
+
+The detailed button-by-button manual is `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md`; it is a companion to this canonical specification and must be kept aligned with it. Admin controls must be persisted server settings, not frontend-only values.
+
+At minimum, authorized administrators need editable controls for package name, badge label/style, qualifying USD threshold, package duration, enabled state/effective time, daily opportunity quota, minimum capital per opportunity, fixed capital or validated capital bounds, minimum and maximum configured profit percentage, expanded pop-up display duration, opportunity schedule, company rotation filters/repeat policy, visible-card concurrency, daily earnings ceiling, retry/carry-forward rules, and any authorized platform-fee policy/version. Each control must explain its meaning in plain language, validate inputs, show the saved value after reload, and record actor, timestamp, reason, old/new values, policy version and effective time. A badge is decorative only; it cannot change eligibility or financial terms.
+
+The minimum/maximum profit percentage fields define an administrator-configured policy/estimate range. They do **not** permit a worker to randomly choose and present a percentage as earned profit. Before settlement, the customer UI must label a configured range as an estimate/policy range. Actual realized profit and any wallet credit must be based on the approved, auditable result and persisted settlement records. If an implementation cannot derive a genuine result, it must not fabricate one or silently treat the configured range as a realized outcome.
+
+Capital controls must distinguish (a) required/minimum capital, (b) actual committed capital, and (c) available balance. If the customer does not have the required amount, display an insufficient-balance card with required capital, available balance, shortfall and “not allocated” status; do not debit the wallet or show a successful trade. Package duration is the entitlement lifetime; pop-up display duration is presentation time only; trade duration/close time is a separate server-owned lifecycle setting.
+
+Company rotation must use the existing local catalogue and stable Logo IDs, preserving name/logo/country metadata together. Rotation state must be durable and transactional, avoid repeats for the configured customer/package scope until the eligible pool is traversed where possible, and resume correctly after restarts. The catalogue is reference data, not proof of a listing, execution, or result. A preview action must not advance production rotation or create a trade.
+
+The server worker must resume persisted due work after restart, recover expired leases, and use idempotency keys, database locks/fencing, bounded batches, retries/backoff, dead-letter visibility and health heartbeats. It must not depend on customer login or browser uptime. Every opportunity must retain the policy version and stable company/trade IDs that were selected when it was created. Configuration changes must not silently rewrite terms or timestamps for already-open trades.
+
 ## 11. Credit/debit animations and notifications
 
 - Green for confirmed credits; red for confirmed debits.
@@ -250,6 +277,11 @@ Trading operates as a real-money workflow recorded in the customer's internal le
 - Cumulative tier quotas respect account/system limits and combined daily earnings ceiling.
 - Insufficient-balance cards appear only for real eligible opportunities and never debit funds.
 - All trade capital and realized outcomes are ledger-backed, idempotent, auditable, and based on actual persisted execution/settlement records.
+- All package/pop-up controls listed in `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md` persist and drive server/customer behaviour; no admin-controlled amount, duration, badge, quota, capital bound, percentage range, or rotation rule is hardcoded in customer UI.
+- Company rotation uses stable catalogue Logo IDs and durable rotation state, preserves correct local logo/name/country metadata, avoids configured repeats, and survives worker restarts without duplicate rotation/allocation.
+- Pop-up display timeout only affects presentation; package duration, trade duration, and display duration remain separate settings.
+- Profit percentage bounds are configuration/estimate policy only; no random/synthetic profit, execution, or settlement is presented or credited as real.
+- Worker restart/retry tests prove durable resumption, expired-lease recovery and idempotent opportunity/allocation/settlement behaviour.
 
 
 ## 15. Implementation workflow requirement
