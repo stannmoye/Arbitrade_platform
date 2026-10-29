@@ -111,3 +111,28 @@ All seven required workflows passed on the evidence SHA:
 ### Final Part 1 disposition
 
 Part 1 package/policy persistence and focused authorization/audit acceptance work is ready for Part 6 integration review. It is **not merge-ready** until the branch is reconciled with current main and PRs #230–#233. The branch was 2 commits behind main at this check. Resolve shared-file conflicts and the duplicate 0086 migration number on the Part 6 integration branch, run final integrated installer/settlement/worker checks there, and keep PR #234 draft/unmerged until that gate passes. No deployment or production database mutation occurred.
+
+
+## Part 1 / Part 6 handoff checkpoint — 2026-10-29
+
+**Current Part 1 branch:** `part1/package-configuration-admin-controls-20261029`  
+**Code head inspected before this documentation checkpoint:** `0ba2a39b97b5901d7888492fef2eae702c029cb0`  
+**Acceptance:** not complete; PR #234 stays draft and unmerged.
+
+### Additional policy persistence safeguards
+- Policy update now loads and locks the current row inside the same transaction, merges submitted values over persisted values, validates the merged effective policy, and versions/audits each accepted update in that transaction.
+- Missing policy rows are initialized disabled, with automatic delivery and automatic trading explicitly disabled. The admin editor has separate enablement controls; router input accepts the corresponding optional booleans.
+- Duplicate tier names and unknown tier names are rejected; a thrown validation/audit/DB error aborts the enclosing transaction.
+- These safeguards have been source-reviewed but still require disposable-DB acceptance tests on the exact final head. Source-text contract assertions alone are insufficient evidence.
+
+### Integration status and recommended order
+1. **PR #232** — preserve explicit blank defaults for new tiers and required values. Avoid duplicating its form changes.
+2. **PR #231** — reconcile fail-closed reads and explicit policy enablement with this branch's disabled missing-row initialization. Verify customer/runtime readers use the persisted fail-closed query and never invoke lazy initialization.
+3. **PR #230** — integrate wallet funding and popup policy snapshots with the package editor; inspect migration 0086 and shared `db.ts`, router, UI and tests.
+4. **PR #233** — integrate versioned delivery editor, rotation and opportunity snapshots; resolve its migration 0086 collision with PR #230's different migration purpose, plus migrations 0087/0088, journal ordering, installer registration and recovery checks. Never rewrite an already-applied migration.
+5. Re-run the full seven-workflow acceptance suite on the integrated candidate, then review all exact-head results before any merge. Keep Part 1 draft until Part 6 accepts the integrated code.
+
+### Verified CI evidence and limitations
+- Seven required workflows previously passed at `584f55390a6f5136ece1f4db27d0feb14fcfd0ef`; that result predates the latest policy persistence/enablement edits and is not proof for the new head.
+- On code head `0ba2a39b97b5901d7888492fef2eae702c029cb0`, the seven required workflows were queued/pending at the time of inspection. The documentation commit creates a new head, so Part 6 must inspect workflow runs for the final SHA.
+- No new DB-backed test counts are claimed. Required DB acceptance includes partial-update preservation, duplicate/unknown-tier rejection, all-or-nothing rollback, persisted audit identity/reason/old+new values/version, and unauthorized-write state invariance.
