@@ -11,6 +11,7 @@ import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostin
 import { addCalendarMonths } from "./modules/calendar-months";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
+import { calculateConfiguredProfitMinor, chooseInclusiveInteger } from "./modules/trading-popup-policy";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
@@ -3057,18 +3058,6 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       for(const candidate of eligibleSubscriptions){
         if(!subscriptionHasQuota(candidate)) continue;
         const candidatePolicy=policyByName.get(candidate.packageName);
-        if(candidatePolicy){
-          const minRate=candidatePolicy.minimumPayoutRateBps;
-          const maxRate=candidatePolicy.maximumPayoutRateBps;
-          if(minRate!=null||maxRate!=null){
-            if(minRate==null||maxRate==null||publishedRewardBps<Number(minRate)||publishedRewardBps>Number(maxRate)) continue;
-          }
-          const minDuration=candidatePolicy.minimumTradeDurationSeconds;
-          const maxDuration=candidatePolicy.maximumTradeDurationSeconds;
-          if(minDuration!=null||maxDuration!=null){
-            if(minDuration==null||maxDuration==null||publishedDurationSeconds<Number(minDuration)||publishedDurationSeconds>Number(maxDuration)) continue;
-          }
-        }
         const configuredMinimum=candidatePolicy?packageUsdUnitsToNativeMinor(Number(candidatePolicy.minimumTradeUnits),String(offer.currency),currencyRows):Number(offer.minimumMinor);
         const configuredMaximum=candidatePolicy?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(candidatePolicy.maximumTradeUnits),String(offer.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
         const terms=calculateTradeTerms(userId,offer,Math.max(Number(offer.minimumMinor),configuredMinimum));
@@ -3080,13 +3069,23 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       if(!selected) continue;
       const subscription=selected.subscription;
       const configured=selected.configured;
+      if(!configured||!hasConfiguredTradingOfferPolicy(configured)) continue;
+      // Select one administrator-configured rate and duration exactly once. The
+      // selection is persisted with the popup and reused by retries/trade allocation.
+      const configuredProfitRateBps=chooseInclusiveInteger(Number(configured.minimumPayoutRateBps),Number(configured.maximumPayoutRateBps));
+      const configuredDurationSeconds=chooseInclusiveInteger(Number(configured.minimumTradeDurationSeconds),Number(configured.maximumTradeDurationSeconds));
+      const configuredPopupDisplaySeconds=Number(configured.popupDisplayTargetSeconds);
+      if(!Number.isSafeInteger(configuredPopupDisplaySeconds)||configuredPopupDisplaySeconds<1||configuredPopupDisplaySeconds>86400) continue;
       newlyEligible.push({...offer,packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
         minimumMinor:selected.minimumMinor,packageMinimumTradeMinor:selected.configuredMinimum,packageMaximumTradeMinor:selected.configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
-        expectedRewardBps:selected.terms.rewardBps,calculationMethod:selected.terms.method,
-        durationSeconds:publishedDurationSeconds,policyVersion:Number(configured?.policyVersion||1),
-        badgeLabel:configured?.badgeLabel==null?null:String(configured.badgeLabel),
-        badgeStyle:["neutral","blue","purple","gold","green"].includes(String(configured?.badgeStyle))?String(configured?.badgeStyle):"neutral"});
+        expectedRewardBps:configuredProfitRateBps,configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds,
+        durationSeconds:configuredDurationSeconds,policyVersion:Number(configured.policyVersion||1),packagePolicyVersionSnapshot:Number(configured.policyVersion||1),
+        badgeLabel:configured.badgeLabel==null?null:String(configured.badgeLabel),packageBadgeLabel:configured.badgeLabel==null?null:String(configured.badgeLabel),
+        badgeStyle:["neutral","blue","purple","gold","green"].includes(String(configured.badgeStyle))?String(configured.badgeStyle):"neutral",
+        companyRotationEnabled:Boolean(configured.companyRotationEnabled),
+        companyRotationCountryNames:String(configured.companyRotationCountryNames||""),
+        companyRotationRepeatPolicy:configured.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted"});
       assignedSubscriptionByOffer.set(Number(offer.id),subscription);
       usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
       remainingQuota--;
@@ -3097,9 +3096,14 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{
       const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
       return {userId,offerId:offer.id,quotaDay,packageName:offer.packageName,symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
-        expectedRewardBps:Number(offer.expectedRewardBps),policyVersion:Number(offer.policyVersion||1),durationSeconds:Number(offer.durationSeconds||0),badgeLabel:offer.badgeLabel??null,badgeStyle:offer.badgeStyle||"neutral",
+        expectedRewardBps:Number(offer.expectedRewardBps),configuredProfitRateBps:Number(offer.configuredProfitRateBps),
+        configuredDurationSeconds:Number(offer.configuredDurationSeconds),configuredPopupDisplaySeconds:Number(offer.configuredPopupDisplaySeconds),
+        policyVersion:Number(offer.policyVersion||1),packagePolicyVersionSnapshot:Number(offer.packagePolicyVersionSnapshot||offer.policyVersion||1),
+        durationSeconds:Number(offer.configuredDurationSeconds),badgeLabel:offer.badgeLabel??null,packageBadgeLabel:offer.packageBadgeLabel??null,badgeStyle:offer.badgeStyle||"neutral",
+        companyRotationEnabled:Boolean(offer.companyRotationEnabled),companyRotationCountryNames:String(offer.companyRotationCountryNames||""),
+        companyRotationRepeatPolicy:offer.companyRotationRepeatPolicy==="allow_repeats"?"allow_repeats":"avoid_until_exhausted",
         balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
-        marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt})};
+        marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt,publishedExpectedRewardBps:Number(offer.expectedRewardBps),publishedDurationSeconds:Number(offer.durationSeconds),configuredProfitRateBps:Number(offer.configuredProfitRateBps),configuredDurationSeconds:Number(offer.configuredDurationSeconds)})};
     }));
     for(const offer of newlyEligible){offer.deliveryEventId=lifecycleIds.get(userId+":"+offer.id+":"+quotaDay)||null; deliveredOfferIds.add(Number(offer.id));}
   }
@@ -3108,6 +3112,11 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     executionStatus:opportunityPopupEvents.executionStatus,executionAttemptCount:opportunityPopupEvents.executionAttemptCount,executionRetryAfter:opportunityPopupEvents.executionRetryAfter,executionRetryDay:opportunityPopupEvents.executionRetryDay,executionLastErrorCode:opportunityPopupEvents.executionLastErrorCode,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,policyVersion:opportunityPopupEvents.policyVersion,
+    configuredProfitRateBps:opportunityPopupEvents.configuredProfitRateBps,configuredDurationSeconds:opportunityPopupEvents.configuredDurationSeconds,
+    configuredPopupDisplaySeconds:opportunityPopupEvents.configuredPopupDisplaySeconds,packagePolicyVersionSnapshot:opportunityPopupEvents.packagePolicyVersionSnapshot,
+    packageBadgeLabel:opportunityPopupEvents.packageBadgeLabel,companyReferenceId:opportunityPopupEvents.companyReferenceId,
+    companyDisplayName:opportunityPopupEvents.companyDisplayName,companyLogoUrl:opportunityPopupEvents.companyLogoUrl,
+    companyReferenceOnly:opportunityPopupEvents.companyReferenceOnly,
     popupDurationSeconds:opportunityPopupEvents.durationSeconds,badgeLabel:opportunityPopupEvents.badgeLabel,badgeStyle:opportunityPopupEvents.badgeStyle,
     balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
     balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,quotaDay:opportunityPopupEvents.quotaDay,
