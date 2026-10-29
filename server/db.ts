@@ -2738,7 +2738,40 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     const maximumTradeDurationSeconds=policy.maximumTradeDurationSeconds==null?null:Number(policy.maximumTradeDurationSeconds);
     if((minimumTradeDurationSeconds===null)!==(maximumTradeDurationSeconds===null)) throw new Error(`Set both published duration bounds or leave both blank for ${policy.packageName}`);
     if(minimumTradeDurationSeconds!==null&&(maximumTradeDurationSeconds===null||!Number.isSafeInteger(minimumTradeDurationSeconds)||!Number.isSafeInteger(maximumTradeDurationSeconds)||minimumTradeDurationSeconds<10||maximumTradeDurationSeconds<minimumTradeDurationSeconds||maximumTradeDurationSeconds>86400)) throw new Error(`Published duration bounds must satisfy 10 ≤ minimum ≤ maximum ≤ 86400 seconds for ${policy.packageName}`);
-    const automation={packageName:policy.packageName,enabled:true,automaticDelivery:true,dailyPopupTarget:policy.dailyPopupTarget??policy.maxPopupsPerDay,schedulingPeriod:policy.schedulingPeriod??"rolling_24h",minIntervalSeconds:policy.minIntervalSeconds??45,maxIntervalSeconds:policy.maxIntervalSeconds??3600,randomizationEnabled:policy.randomizationEnabled??true,popupDisplayTargetSeconds:policy.popupDisplayTargetSeconds??120,completionDisplaySeconds:policy.completionDisplaySeconds??8,postCompletionIntervalSeconds:policy.postCompletionIntervalSeconds??30,maxPendingDeliveries:policy.maxPendingDeliveries??3,maxDeliveryAttempts:policy.maxDeliveryAttempts??3,automaticTradingEnabled:true,maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay??5,tradeRetryDelaySeconds:policy.tradeRetryDelaySeconds??30,maxSuccessfulTradesPerDay:policy.maxSuccessfulTradesPerDay??5,maxConcurrentActiveTrades:policy.maxConcurrentActiveTrades??1,requirePreviousSettlement:policy.requirePreviousSettlement??true,minSettlementDelaySeconds:policy.minSettlementDelaySeconds??900,maxSettlementDelaySeconds:policy.maxSettlementDelaySeconds??900,minimumRewardBps:policy.minimumRewardBps??0,maxDailyRewardMinor:policy.maxDailyRewardMinor??0,maxRewardPerTradeMinor:policy.maxRewardPerTradeMinor??0,closePolicy:policy.closePolicy??"after_final_display"};
+    if(typeof policy.enabled!=="boolean"||typeof policy.automaticDelivery!=="boolean"||typeof policy.automaticTradingEnabled!=="boolean") throw new Error(`Policy and automation switches must be explicitly set for ${policy.packageName}`);
+    const automation={
+      packageName:policy.packageName,
+      enabled:policy.enabled,
+      automaticDelivery:policy.automaticDelivery,
+      dailyPopupTarget:policy.dailyPopupTarget,
+      schedulingPeriod:policy.schedulingPeriod,
+      minIntervalSeconds:policy.minIntervalSeconds,
+      maxIntervalSeconds:policy.maxIntervalSeconds,
+      randomizationEnabled:policy.randomizationEnabled,
+      popupDisplayTargetSeconds:policy.popupDisplayTargetSeconds,
+      completionDisplaySeconds:policy.completionDisplaySeconds,
+      postCompletionIntervalSeconds:policy.postCompletionIntervalSeconds,
+      maxPendingDeliveries:policy.maxPendingDeliveries,
+      maxDeliveryAttempts:policy.maxDeliveryAttempts,
+      automaticTradingEnabled:policy.automaticTradingEnabled,
+      maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay,
+      tradeRetryDelaySeconds:policy.tradeRetryDelaySeconds,
+      maxSuccessfulTradesPerDay:policy.maxSuccessfulTradesPerDay,
+      maxConcurrentActiveTrades:policy.maxConcurrentActiveTrades,
+      requirePreviousSettlement:policy.requirePreviousSettlement,
+      minSettlementDelaySeconds:policy.minSettlementDelaySeconds,
+      maxSettlementDelaySeconds:policy.maxSettlementDelaySeconds,
+      minimumRewardBps:policy.minimumRewardBps,
+      maxDailyRewardMinor:policy.maxDailyRewardMinor,
+      maxRewardPerTradeMinor:policy.maxRewardPerTradeMinor,
+      closePolicy:policy.closePolicy,
+    };
+    const requiresConfiguredOfferTerms=automation.enabled&&automation.automaticDelivery;
+    if(requiresConfiguredOfferTerms&&(
+      minimumPayoutRateBps===null||maximumPayoutRateBps===null||
+      minimumTradeDurationSeconds===null||maximumTradeDurationSeconds===null
+    )) throw new Error(`Set valid published reward-rate and duration bounds before enabling delivery for ${policy.packageName}`);
+    if(automation.automaticTradingEnabled&&(!automation.enabled||!automation.automaticDelivery)) throw new Error(`Automatic trading requires an enabled delivery policy for ${policy.packageName}`);
     validatePackageAutomationPolicy(automation);
     if(automation.minIntervalSeconds>automation.maxIntervalSeconds) throw new Error(`Delivery interval minimum exceeds maximum for ${policy.packageName}`);
     if(automation.minSettlementDelaySeconds>automation.maxSettlementDelaySeconds) throw new Error(`Settlement delay minimum exceeds maximum for ${policy.packageName}`);
