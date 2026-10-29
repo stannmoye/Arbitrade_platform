@@ -79,7 +79,6 @@ export async function setAppSetting(key: string, value: string, updatedBy?: numb
 
 export async function listAdminAuditEvents(){ const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(v5AuditEvents).orderBy(desc(v5AuditEvents.createdAt)).limit(200); }
 const TRADE_FEE_SETTING_KEYS = ["trade.platformFeeBps", "trade.feeRoundingMode", "trade.feePolicyVersion"] as const;
-const DEFAULT_TRADE_FEE_POLICY = { feeRateBps: 1500, roundingMode: "half_up" as FeeRoundingMode, policyVersion: 1 };
 function normalizeTradeFeePolicy(values: { feeRateBps: unknown; roundingMode: unknown; policyVersion: unknown }) {
   const feeRateBps=Number(values.feeRateBps);
   const policyVersion=Number(values.policyVersion);
@@ -89,11 +88,18 @@ function normalizeTradeFeePolicy(values: { feeRateBps: unknown; roundingMode: un
   if(!Number.isSafeInteger(policyVersion)||policyVersion<1) throw new Error("Trading fee policy version is invalid");
   return {feeRateBps,roundingMode,policyVersion};
 }
+async function requireTradePolicySetting(key:string):Promise<string> {
+  const value=await getAppSetting(key);
+  if(value===undefined||value===null||value.trim()==="") {
+    throw new Error(`Trading policy setting ${key} is not configured; an administrator must save the Trading Settings before this operation can continue.`);
+  }
+  return value;
+}
 export async function getTradeFeePolicy() {
   const [feeRateBps,roundingMode,policyVersion]=await Promise.all([
-    getAppSetting("trade.platformFeeBps",String(DEFAULT_TRADE_FEE_POLICY.feeRateBps)),
-    getAppSetting("trade.feeRoundingMode",DEFAULT_TRADE_FEE_POLICY.roundingMode),
-    getAppSetting("trade.feePolicyVersion",String(DEFAULT_TRADE_FEE_POLICY.policyVersion)),
+    requireTradePolicySetting("trade.platformFeeBps"),
+    requireTradePolicySetting("trade.feeRoundingMode"),
+    requireTradePolicySetting("trade.feePolicyVersion"),
   ]);
   const policy=normalizeTradeFeePolicy({feeRateBps,roundingMode,policyVersion});
   return {...policy,feePercent:policy.feeRateBps/100};
@@ -106,12 +112,15 @@ export async function setTradeFeePolicy(input:{feeRateBps:number;roundingMode:Fe
     const rows=await tx.select().from(appSettings).where(inArray(appSettings.settingKey,[...TRADE_FEE_SETTING_KEYS])).for("update");
     const byKey=new Map<string,string>();
     for(const row of rows) byKey.set(row.settingKey,row.settingValue);
-    const current=normalizeTradeFeePolicy({
-      feeRateBps:byKey.get("trade.platformFeeBps")??String(DEFAULT_TRADE_FEE_POLICY.feeRateBps),
-      roundingMode:byKey.get("trade.feeRoundingMode")??DEFAULT_TRADE_FEE_POLICY.roundingMode,
-      policyVersion:byKey.get("trade.feePolicyVersion")??String(DEFAULT_TRADE_FEE_POLICY.policyVersion),
-    });
-    const next={feeRateBps:input.feeRateBps,roundingMode:input.roundingMode,policyVersion:current.policyVersion+1};
+    const storedVersion=byKey.get("trade.feePolicyVersion");
+    const currentVersion=storedVersion===undefined?0:Number(storedVersion);
+    if(!Number.isSafeInteger(currentVersion)||currentVersion<0) throw new Error("Trading fee policy version setting is invalid");
+    const oldFeeRate=byKey.get("trade.platformFeeBps");
+    const oldRounding=byKey.get("trade.feeRoundingMode");
+    const current=oldFeeRate!==undefined&&oldRounding!==undefined&&storedVersion!==undefined
+      ? normalizeTradeFeePolicy({feeRateBps:oldFeeRate,roundingMode:oldRounding,policyVersion:storedVersion})
+      : null;
+    const next={feeRateBps:input.feeRateBps,roundingMode:input.roundingMode,policyVersion:currentVersion+1};
     if(!Number.isSafeInteger(next.policyVersion)) throw new Error("Trading fee policy version has reached its limit");
     const updateSetting=async(settingKey:string,settingValue:string)=>{
       if(byKey.has(settingKey)) {
@@ -130,31 +139,39 @@ export async function setTradeFeePolicy(input:{feeRateBps:number;roundingMode:Fe
       entityId:String(next.policyVersion),
       reason:"Administrator updated realized-profit fee settings.",
       reference:`trade-fee-policy:${next.policyVersion}`,
-      metadataJson:JSON.stringify({old:{...current,feePercent:current.feeRateBps/100},new:{...next,feePercent:next.feeRateBps/100}}),
+      metadataJson:JSON.stringify({old:current?{...current,feePercent:current.feeRateBps/100}:{configured:false,policyVersion:currentVersion},new:{...next,feePercent:next.feeRateBps/100}}),
     });
     return {...next,feePercent:next.feeRateBps/100};
   });
 }
 
 export async function getTradeSettlementPolicy() {
-  const delaySeconds = Number(await getAppSetting("trade.settlementDelaySeconds", "900"));
-  const creditDelaySeconds = Number(await getAppSetting("trade.creditDelaySeconds", "0"));
-  const cooldownSeconds = Number(await getAppSetting("trade.interTradeCooldownSeconds", "30"));
-  const nextPopupFormulaDelaySeconds = Number(await getAppSetting("opportunity.nextPopupFormulaDelaySeconds", "30"));
-  const popupCooldownSeconds = Number(await getAppSetting("opportunity.popup.minGapSeconds", "45"));
-  const popupDisplaySeconds = Number(await getAppSetting("opportunity.popup.displaySeconds", "8"));
-  const popupPreAlertSeconds = Number(await getAppSetting("opportunity.popup.preAlertSeconds", "4"));
-  const popupJitterSeconds = Number(await getAppSetting("opportunity.popup.jitterSeconds", "90"));
-  const popupMaxPerHour = Number(await getAppSetting("opportunity.popup.maxPerHour", "12"));
-  const marketRefreshIntervalMinutes = Number(await getAppSetting("market.refreshIntervalMinutes", "120"));
-  const blockUntilSettled = (await getAppSetting("trade.blockOpportunitiesUntilSettled", "true")) === "true";
-  const values = { delaySeconds, creditDelaySeconds, cooldownSeconds, nextPopupFormulaDelaySeconds, popupCooldownSeconds, popupDisplaySeconds, popupPreAlertSeconds, popupJitterSeconds, popupMaxPerHour, marketRefreshIntervalMinutes };
-  if (!Number.isInteger(delaySeconds) || delaySeconds < 1) throw new Error("Settlement time must be a positive integer");
-  if (!Number.isInteger(creditDelaySeconds) || creditDelaySeconds < 0) throw new Error("Credit delay must be a non-negative integer");
-  if (!Number.isInteger(cooldownSeconds) || cooldownSeconds < 0) throw new Error("Inter-trade cooldown must be a non-negative integer");
-  const invalid = Object.entries(values).find(([, value]) => !Number.isInteger(value) || value < 0);
-  if (invalid) throw new Error(`Invalid timing setting: ${invalid[0]}`);
-  return { ...values, settlementDelaySeconds: delaySeconds, blockUntilSettled };
+  const [delayRaw,creditDelayRaw,cooldownRaw,formulaRaw,popupCooldownRaw,displayRaw,preAlertRaw,jitterRaw,maxPerHourRaw,marketRefreshRaw,blockRaw] = await Promise.all([
+    requireTradePolicySetting("trade.settlementDelaySeconds"),
+    requireTradePolicySetting("trade.creditDelaySeconds"),
+    requireTradePolicySetting("trade.interTradeCooldownSeconds"),
+    requireTradePolicySetting("opportunity.nextPopupFormulaDelaySeconds"),
+    requireTradePolicySetting("opportunity.popup.minGapSeconds"),
+    requireTradePolicySetting("opportunity.popup.displaySeconds"),
+    requireTradePolicySetting("opportunity.popup.preAlertSeconds"),
+    requireTradePolicySetting("opportunity.popup.jitterSeconds"),
+    requireTradePolicySetting("opportunity.popup.maxPerHour"),
+    requireTradePolicySetting("market.refreshIntervalMinutes"),
+    requireTradePolicySetting("trade.blockOpportunitiesUntilSettled"),
+  ]);
+  if(blockRaw!=="true"&&blockRaw!=="false") throw new Error("Trading policy setting trade.blockOpportunitiesUntilSettled must be true or false");
+  const delaySeconds=Number(delayRaw),creditDelaySeconds=Number(creditDelayRaw),cooldownSeconds=Number(cooldownRaw);
+  const nextPopupFormulaDelaySeconds=Number(formulaRaw),popupCooldownSeconds=Number(popupCooldownRaw),popupDisplaySeconds=Number(displayRaw);
+  const popupPreAlertSeconds=Number(preAlertRaw),popupJitterSeconds=Number(jitterRaw),popupMaxPerHour=Number(maxPerHourRaw);
+  const marketRefreshIntervalMinutes=Number(marketRefreshRaw),blockUntilSettled=blockRaw==="true";
+  const values={delaySeconds,creditDelaySeconds,cooldownSeconds,nextPopupFormulaDelaySeconds,popupCooldownSeconds,popupDisplaySeconds,popupPreAlertSeconds,popupJitterSeconds,popupMaxPerHour,marketRefreshIntervalMinutes};
+  if(!Number.isInteger(delaySeconds)||delaySeconds<1) throw new Error("Settlement time must be a positive integer");
+  if(!Number.isInteger(creditDelaySeconds)||creditDelaySeconds<0) throw new Error("Credit delay must be a non-negative integer");
+  if(!Number.isInteger(cooldownSeconds)||cooldownSeconds<0) throw new Error("Inter-trade cooldown must be a non-negative integer");
+  const invalid=Object.entries(values).find(([,value])=>!Number.isInteger(value)||value<0);
+  if(invalid) throw new Error(`Invalid timing setting: ${invalid[0]}`);
+  if(popupDisplaySeconds<1||popupMaxPerHour<1||marketRefreshIntervalMinutes<1) throw new Error("Trading display, hourly quota and market refresh settings must be positive");
+  return {...values,settlementDelaySeconds:delaySeconds,blockUntilSettled};
 }
 export async function setTradeSettlementPolicy(input:{delaySeconds:number;creditDelaySeconds:number;cooldownSeconds:number;nextPopupFormulaDelaySeconds:number;popupCooldownSeconds:number;popupDisplaySeconds:number;popupPreAlertSeconds:number;popupJitterSeconds:number;popupMaxPerHour:number;marketRefreshIntervalMinutes:number;blockUntilSettled:boolean}, updatedBy:number) {
   const bounded = [["settlement",input.delaySeconds,1,604800],["credit",input.creditDelaySeconds,0,604800],["cooldown",input.cooldownSeconds,0,604800],["formula",input.nextPopupFormulaDelaySeconds,0,604800],["popup cooldown",input.popupCooldownSeconds,0,604800],["popup display",input.popupDisplaySeconds,1,3600],["popup pre-alert",input.popupPreAlertSeconds,0,3600],["popup jitter",input.popupJitterSeconds,0,604800],["popup hourly cap",input.popupMaxPerHour,1,10000],["market refresh",input.marketRefreshIntervalMinutes,1,10080]] as const;
@@ -3149,7 +3166,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   for(const row of packagePolicies) policyByName.set(row.packageName,row);
   const eligibleSubscriptions=activePackageSubscriptions.filter(subscription=>{
     const configured=policyByName.get(subscription.packageName);
-    return !configured||(Boolean(configured.enabled)&&configured.automaticTradingEnabled!==false);
+    return Boolean(configured && configured.enabled && configured.automaticDelivery && configured.automaticTradingEnabled);
   });
   if(!eligibleSubscriptions.length) throw new Error("New allocations are paused for all eligible Trading tier policies");
   const quotaRows=await tx.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL AND confirmedAt>=${todayStartUtc} AND confirmedAt<${tomorrowStartUtc} AND status<>'cancelled' GROUP BY packageSubscriptionId`) as any;
@@ -3683,9 +3700,9 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     const feeByKey=new Map<string,string>();
     for(const row of feeSettings) feeByKey.set(row.settingKey,row.settingValue);
     const feePolicy=normalizeTradeFeePolicy({
-      feeRateBps:feeByKey.get("trade.platformFeeBps")??String(DEFAULT_TRADE_FEE_POLICY.feeRateBps),
-      roundingMode:feeByKey.get("trade.feeRoundingMode")??DEFAULT_TRADE_FEE_POLICY.roundingMode,
-      policyVersion:feeByKey.get("trade.feePolicyVersion")??String(DEFAULT_TRADE_FEE_POLICY.policyVersion),
+      feeRateBps:feeByKey.get("trade.platformFeeBps"),
+      roundingMode:feeByKey.get("trade.feeRoundingMode"),
+      policyVersion:feeByKey.get("trade.feePolicyVersion"),
     });
     const principal=Number(trade.principalMinor);
     const accounting=calculateRealizedProfitSettlement({
