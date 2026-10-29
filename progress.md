@@ -1,3 +1,11 @@
+## 2026-10-29 — Durable package-scoped company spotlight rotation
+
+- Added administrator-controlled package settings for informational company spotlight rotation: enabled state, exact country-folder filters, and repeat behavior. The pool uses the existing 1,811-record catalogue and preserves each stable Logo ID, name, logo and country-folder metadata.
+- Added a transactional per-customer/per-package cursor in the existing app-settings table. A row lock serializes concurrent requests; stable ordering avoids repeats until the filtered pool is traversed. A changed filter fingerprint resets only the affected scope's cycle.
+- Replaced random company-reference polling with a protected customer endpoint that advances the durable cursor on demand, reducing periodic database work. Spotlight records remain reference-only and cannot create trades or alter financial state.
+- Added additive migration 0087 and registered it in Drizzle, portal migration, installer recovery and worker runtime preflight. Added rotation unit and integration contract tests.
+- Validation pending on the new commit; the previous validated head passed TypeScript, automated tests, production build, installer validation, and both Trading database integration suites.
+
 ## 2026-10-29 — Administrator badge and published-offer bounds for Trading pop-ups
 
 - Extended the existing Trading policy editor and admin-only persistence path with an allowlisted badge label/style, inclusive minimum/maximum published reward-rate filters stored in integer basis points, and minimum/maximum published duration filters in seconds.
