@@ -2682,9 +2682,9 @@ async function markOpportunityExecuted(userId:number,offerId:number,executionLea
   await db.update(missedOpportunities).set({status:"EXECUTED",updatedAt:new Date()})
     .where(and(eq(missedOpportunities.userId,userId),eq(missedOpportunities.offerId,offerId)));
   await db.update(opportunityPopupEvents).set({executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,updatedAt:new Date()})
-    .where(and(eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offerId),eq(opportunityPopupEvents.eventStatus,"TRADED"),eq(opportunityPopupEvents.executionLeaseToken,executionLeaseToken)));
+    .where(and(eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offerId),eq(opportunityPopupEvents.eventStatus,"TRADED"),eq(opportunityPopupEvents.executionLeaseToken,executionLeaseToken),eq(opportunityPopupEvents.executionLeaseToken,executionLeaseToken)));
 }
-async function claimOpportunityExecutionAttempt(userId:number, offer:any, maxAttempts:number){
+export async function claimOpportunityExecutionAttempt(userId:number, offer:any, maxAttempts:number){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   return db.transaction(async tx=>{
     const event=(await tx.select({
