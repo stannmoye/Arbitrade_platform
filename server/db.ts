@@ -3301,7 +3301,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
  // Fetch FX quotes before opening the financial transaction. The transaction below
  // locks every affected wallet in stable order and rechecks all spendable balances.
  const preflightWallets=await db.select({currency:customerBalances.currency,availableMinor:customerBalances.availableMinor}).from(customerBalances).where(eq(customerBalances.userId,userId));
- const targetCurrency=String((await db.select({currency:opportunityOffers.currency}).from(opportunityOffers).where(eq(opportunityOffers.id,input.offerId).limit(1))[0]?.currency||"").toUpperCase();
+ const targetCurrency=String((await db.select({currency:opportunityOffers.currency}).from(opportunityOffers).where(eq(opportunityOffers.id,input.offerId)).limit(1))[0]?.currency||"").toUpperCase();
  if(!targetCurrency) throw new Error("Trading opportunity currency is unavailable");
  const targetPreflightBalance=Number(preflightWallets.find(row=>String(row.currency).toUpperCase()===targetCurrency)?.availableMinor||0);
  const replayEvent=input.deliveryEventId===undefined?null:(await db.select({eventStatus:opportunityPopupEvents.eventStatus,tradeId:opportunityPopupEvents.tradeId})
