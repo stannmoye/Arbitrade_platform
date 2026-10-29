@@ -7,7 +7,7 @@ import { registerProviderOAuthRoutes } from "./providerOAuth";
 import { publicPlatformScript } from "./publicConfig";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getUserByEmail, getUserById, processNotificationCampaignLifecycle, reconcileAllDueTradesAwaitingConfirmation, runAutoTradeCycle, runTradingTierQualificationWorkerCycle } from "../db";
+import { closeDbPool, countOutstandingTrades, createLocalCustomer, getAppSetting, getCustomerTicket, getUserByEmail, getUserById, processNotificationCampaignLifecycle, reconcileAllDueTradesAwaitingConfirmation, runAutoTradeCycle, runTradingTierQualificationWorkerCycle } from "../db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./cookies";
 import { configuredAuthRateLimitStore, createAuthRateLimiter } from "./authRateLimit";
@@ -24,7 +24,8 @@ import { getLocalSessionFromRequest } from "./localAuth";
 import { confirmEmailVerification, requestEmailVerification, requestPasswordReset, resetPasswordWithCode } from "../emailAuth";
 import { startEmailWorkers } from "../emailQueue";
 import { startHeartbeatWorker } from "./heartbeat";
-import { runMonitoredWorkerCycle } from "./workerHealth";
+import { runMonitoredWorkerCycle, waitForMonitoredWorkerCycles } from "./workerHealth";
+import { registerGracefulShutdown, registerWorkerInterval } from "./workerRuntime";
 import { registerLocalStorageRoutes } from "./localStorageRoutes";
 import { refreshMiningPriceFeeds } from "../mining-admin";
 import { runMiningWorkerCycle } from "../mining";
@@ -69,6 +70,7 @@ async function startServer() {
   }
   app.set("trust proxy", trustedProxyHops);
   const server = createServer(app);
+  registerGracefulShutdown({ server, drainWorkers: waitForMonitoredWorkerCycles, closeDatabase: closeDbPool });
   // Rate-limit local upload preparation requests before JSON parsing so oversized request
   // bodies cannot consume parser resources before the route limiter runs.
   app.use((req, res, next) => {
@@ -258,7 +260,7 @@ async function startServer() {
         tradingTierQualificationCycleRunning=false;
       }
     };
-    const tradingTierQualificationTimer=setInterval(()=>{void runTradingTierQualificationCycle();},5_000);
+    const tradingTierQualificationTimer=registerWorkerInterval(()=>{void runTradingTierQualificationCycle();},5_000);
     tradingTierQualificationTimer.unref();
     void runTradingTierQualificationCycle();
     let notificationCampaignCycleRunning = false;
@@ -283,7 +285,7 @@ async function startServer() {
         });
       } finally { notificationCampaignCycleRunning=false; }
     };
-    const notificationCampaignTimer=setInterval(()=>{void runNotificationCampaignCycle();},30_000);
+    const notificationCampaignTimer=registerWorkerInterval(()=>{void runNotificationCampaignCycle();},30_000);
     notificationCampaignTimer.unref();
     void runNotificationCampaignCycle();
     let miningCycleRunning = false;
@@ -296,12 +298,12 @@ async function startServer() {
       } catch (error) { console.error("[MiningWorker]", error instanceof Error ? error.message : error); }
       finally { miningCycleRunning = false; }
     };
-    const miningWorkerTimer = setInterval(() => { void runMiningCycle(); }, 30_000);
+    const miningWorkerTimer = registerWorkerInterval(() => { void runMiningCycle(); }, 30_000);
     miningWorkerTimer.unref();
     void runMiningCycle();
-    const miningFeedTimer = setInterval(() => { void runMonitoredWorkerCycle("mining-price-feeds", () => refreshMiningPriceFeeds()).then(result => console.log("[MiningFeeds] refreshed", result)).catch(error => console.error("[MiningFeeds]", error instanceof Error ? error.message : error)); }, 5 * 60_000);
+    const miningFeedTimer = registerWorkerInterval(() => { void runMonitoredWorkerCycle("mining-price-feeds", () => refreshMiningPriceFeeds()).then(result => console.log("[MiningFeeds] refreshed", result)).catch(error => console.error("[MiningFeeds]", error instanceof Error ? error.message : error)); }, 5 * 60_000);
     miningFeedTimer.unref();
-    const popupRetentionTimer = setInterval(() => { void runMonitoredWorkerCycle("popup-retention", () => runOpportunityRetention()).then(result => { if (result.deletedEvents || result.deletedDeliveryRows) console.log("[PopupRetention] archived and removed", result); }).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error)); }, 60 * 60_000);
+    const popupRetentionTimer = registerWorkerInterval(() => { void runMonitoredWorkerCycle("popup-retention", () => runOpportunityRetention()).then(result => { if (result.deletedEvents || result.deletedDeliveryRows) console.log("[PopupRetention] archived and removed", result); }).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error)); }, 60 * 60_000);
     popupRetentionTimer.unref();
     void runMonitoredWorkerCycle("popup-retention", () => runOpportunityRetention()).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error));
     let tradeCycleRunning = false;
@@ -327,14 +329,14 @@ async function startServer() {
         tradeCycleRunning = false;
       }
     };
-    const autoTradeTimer = setInterval(() => { void runTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error)); }, 30_000);
+    const autoTradeTimer = registerWorkerInterval(() => { void runTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error)); }, 30_000);
     autoTradeTimer.unref();
     void runTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error));
     const refreshMinutes = Number(await getAppSetting("market.refreshIntervalMinutes", "120"));
     if (!Number.isFinite(refreshMinutes) || refreshMinutes < 1) { console.error("[MarketSync] Invalid market.refreshIntervalMinutes; using safe 120-minute fallback"); }
     const safeRefreshMinutes = Number.isFinite(refreshMinutes) && refreshMinutes >= 1 ? refreshMinutes : 120;
     const runMarketRefresh = async () => { const refreshed = await runMonitoredWorkerCycle("market-data-refresh", async () => { const result = await refreshMarketData(); const opportunities = await ensureMarketDrivenOpportunities(result.refreshedAt); return { result, opportunities }; }); console.log("[MarketSync] refreshed", { ...refreshed.result, opportunities: refreshed.opportunities }); };
-    const marketSyncTimer = setInterval(() => { void runMarketRefresh().catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error)); }, safeRefreshMinutes * 60_000);
+    const marketSyncTimer = registerWorkerInterval(() => { void runMarketRefresh().catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error)); }, safeRefreshMinutes * 60_000);
     marketSyncTimer.unref();
     void runMarketRefresh().catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error));
   } else {
