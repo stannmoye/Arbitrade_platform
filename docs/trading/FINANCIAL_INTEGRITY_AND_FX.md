@@ -22,9 +22,9 @@
 
 Multi-wallet funding is covered by overlapping PR #230 and must be reviewed as part of integration, not duplicated in this branch. Acceptance requires stable-order row locks, a fresh quote per required currency pair, persisted native/USD snapshots, documented rounding and fees, and a single database transaction that commits every debit/reservation and ledger posting or none. Normal wallet transfers must retain their existing behavior and must not create Trading qualification attribution.
 
-## Idempotency boundary and known gap
+## Idempotency boundary and remaining review
 
-The current admin adjustment path generates a new random ledger reference per call and does not yet require a caller-supplied request idempotency key. Consequently, a client retry after an uncertain response can still create a second wallet adjustment even though each individual write is transactional. This remains a blocking integrity gap for release. A follow-up must add database-backed request idempotency, bind a key to a canonical request fingerprint, return the original committed result on a matching replay, reject key reuse with different parameters, and test concurrent duplicates. The same principle must be reviewed for funding, debit, refund and settlement entry points.
+The administrator wallet adjustment path now requires a caller-supplied request idempotency key, binds it to a canonical request fingerprint, and persists the key plus serialized result in the same transaction as the wallet/ledger mutation. Matching replays return the original result before FX lookup; reuse with different parameters is rejected. The client retains the same key when retrying the same payload. Exact-head database concurrency tests are in progress on PR #239 and must pass before acceptance. Review the same boundary for other independent funding, debit, refund and settlement entry points rather than assuming this one mutation protects them all.
 
 ## Required verification
 
