@@ -16,5 +16,5 @@ export function isPopupExecutionEligible(input: PopupExecutionEligibilityInput):
 
   return ["DELIVERED", "NOTICED", "OPENED", "DISMISSED"].includes(eventStatus)
     && ["delivered", "received", "rendered"].includes(deliveryStatus)
-    && !["SUCCEEDED", "FAILED", "RUNNING"].includes(executionStatus);
+    && ["READY", "RETRYING"].includes(executionStatus);
 }
