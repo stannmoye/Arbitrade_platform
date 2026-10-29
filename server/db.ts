@@ -2293,6 +2293,25 @@ export async function listAdminTradingPackages() {
     throw new Error("Unable to load the Trading package catalogue. Check server logs for the underlying database error.");
   }
 }
+const UNCONFIGURED_TIER_POLICY_SENTINELS = {
+  maxPopupsPerDay:0,maxVisibleOffers:0,minimumTradeUnits:0,maximumTradeUnits:0,
+  minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:false,maxBurstSize:0,
+  enabled:false,automaticDelivery:false,dailyPopupTarget:0,schedulingPeriod:"rolling_24h" as const,
+  minIntervalSeconds:0,maxIntervalSeconds:0,randomizationEnabled:false,popupDisplayTargetSeconds:0,
+  completionDisplaySeconds:0,postCompletionIntervalSeconds:0,maxPendingDeliveries:0,
+  deliveryRetryPolicy:"none" as const,maxDeliveryAttempts:0,expiryHandling:"expire" as const,
+  duplicatePrevention:false,audioEnabled:false,audioSound:"",automaticTradingEnabled:false,
+  maxTradeAttemptsPerDay:0,tradeRetryDelaySeconds:0,maxSuccessfulTradesPerDay:0,maxConcurrentActiveTrades:0,
+  requirePreviousSettlement:true,minSettlementDelaySeconds:0,maxSettlementDelaySeconds:0,
+  minimumRewardBps:0,maximumRewardBps:0,minimumTradeDurationSeconds:0,maximumTradeDurationSeconds:0,
+  minimumCapitalUsdMinor:0,maximumCapitalUsdMinor:0,badgeLabel:"",badgeColor:"violet",
+  companyRotationEnabled:false,maxDailyRewardMinor:0,rewardLimitCurrency:"USD",
+  dailyRewardWindow:"calendar_day" as const,maxRewardPerTradeMinor:0,unsettledRewardPolicy:"reserve" as const,
+  capReachedPolicy:"stop_new_trades" as const,settlementConfirmationState:"ledger_and_wallet" as const,
+  settlementRetryPolicy:"manual" as const,maxSettlementAttempts:0,closePolicy:"after_completion" as const,
+  policyVersion:0,
+} as const;
+
 export async function createAdminTradingPackage(createdBy:number,input:{
   name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
   opportunitiesPerDay:number; maxPopupsPerDay:number; maxActiveInvestments:number;
@@ -2322,7 +2341,7 @@ export async function createAdminTradingPackage(createdBy:number,input:{
       startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:false,termsVersion:1,
     });
     const id=Number(inserted[0].insertId);
-    await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy,enabled:false,automaticDelivery:false,automaticTradingEnabled:false,policyVersion:0});
+    await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy,...UNCONFIGURED_TIER_POLICY_SENTINELS});
     await tx.insert(v5AuditEvents).values({
       actorUserId:createdBy,action:"trading_package_created",entityType:"trading_package",entityId:String(id),
       reason:"Administrator created an automatic Trading tier.",
@@ -2364,7 +2383,7 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
         if(!Number.isSafeInteger(nextPolicyVersion)) throw new Error("Tier policy version has reached its limit");
         await tx.update(opportunityPackagePolicies).set({packageName:nextName,updatedBy,policyVersion:nextPolicyVersion,updatedAt:new Date()}).where(eq(opportunityPackagePolicies.id,currentPolicy.id));
       }else{
-        await tx.insert(opportunityPackagePolicies).values({packageName:nextName,updatedBy,enabled:false,automaticDelivery:false,automaticTradingEnabled:false,policyVersion:0});
+        await tx.insert(opportunityPackagePolicies).values({packageName:nextName,updatedBy,...UNCONFIGURED_TIER_POLICY_SENTINELS});
       }
     }
     const effectivePolicy=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,nextName)).limit(1).for("update"))[0];
