@@ -3,6 +3,7 @@ import {
   calculateConfiguredProfitMinor,
   chooseProfitRateBps,
   chooseTradeDurationSeconds,
+  usdMinorToNativeMinor,
   validateTradingPopupRange,
 } from "./trading-popup-policy";
 
@@ -27,6 +28,13 @@ describe("admin-configured Trading popup ranges", () => {
     expect(calculateConfiguredProfitMinor(10_000, 270)).toBe(270);
     expect(calculateConfiguredProfitMinor(101, 250)).toBe(3);
     expect(calculateConfiguredProfitMinor(100, 200)).toBe(2);
+  });
+
+  it("converts USD minor units to native minor units with explicit ceiling/floor rounding", () => {
+    expect(usdMinorToNativeMinor(10_000, 2, "2", "ceil")).toBe(5000);
+    expect(usdMinorToNativeMinor(10_001, 2, "2", "ceil")).toBe(5001);
+    expect(usdMinorToNativeMinor(10_001, 2, "2", "floor")).toBe(5000);
+    expect(usdMinorToNativeMinor(10_000, 8, "50000", "ceil")).toBe(20000);
   });
 
   it("rejects reversed, out-of-range, or invalid-precision settings", () => {
