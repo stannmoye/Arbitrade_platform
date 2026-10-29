@@ -124,34 +124,60 @@ async function reconcileTradingPackageSchema(connection, root) {
 
 
 async function reconcileTradeSettlementTimingSchema(connection, root) {
-  const readColumns = async () => {
+  const readSchema = async () => {
     const [rows] = await connection.query(
-      "SELECT column_name AS columnName FROM information_schema.columns " +
-      "WHERE table_schema=DATABASE() AND table_name=?",
-      ["trade_positions"],
+      "SELECT table_name AS tableName, column_name AS columnName FROM information_schema.columns " +
+      "WHERE table_schema=DATABASE() AND table_name IN (?, ?, ?)",
+      ["trade_positions", "trade_lifecycle_events", "trade_reward_reservations"],
     );
-    return new Set(rows.map(row => String(row.columnName ?? row.COLUMN_NAME ?? "")));
+    const tables = new Map();
+    for (const row of rows) {
+      const table = String(row.tableName ?? row.TABLE_NAME ?? "");
+      const column = String(row.columnName ?? row.COLUMN_NAME ?? "");
+      if (!tables.has(table)) tables.set(table, new Set());
+      tables.get(table).add(column);
+    }
+    return tables;
   };
 
-  let columns = await readColumns();
-  if (columns.size === 0) {
+  const requiredTradeColumns = [
+    "id", "userId", "offerId", "packageSubscriptionId", "currency", "principalMinor",
+    "expectedRewardMinor", "status", "confirmedAt", "settlesAt", "creditAt", "settledAt",
+    "lifecycleStage", "settlementStatus", "rewardReservedMinor", "rewardCreditedMinor",
+    "realizedGrossProfitMinor", "platformFeeMinor", "netProfitMinor", "feePolicyVersion",
+    "platformFeeRateBps", "platformFeeRoundingMode", "settlementOutcome", "walletUpdatedAt",
+    "completionAt", "transactionReference", "settlementReference", "settlementConfirmedAt",
+    "settlementConfirmedBy", "settlementNotes", "policyVersion",
+  ];
+  const requiredLifecycleColumns = ["id", "tradeId", "userId", "eventType", "stage", "payloadJson", "createdAt"];
+  const requiredReservationColumns = ["id", "userId", "tradeId", "packageName", "windowKey", "currency", "reservedMinor", "status", "createdAt", "updatedAt"];
+  let schema = await readSchema();
+  if (!schema.has("trade_positions")) {
     throw new Error("Trading settlement schema verification failed: trade_positions table is missing.");
   }
 
-  const repairableColumns = ["creditAt", "lifecycleStage"];
-  if (repairableColumns.some(column => !columns.has(column))) {
-    const migrationPath = resolve(root, "drizzle", "0079_trade_settlement_timing_schema_repair.sql");
+  const missing = [
+    ...requiredTradeColumns.filter(column => !schema.get("trade_positions").has(column)).map(column => "trade_positions." + column),
+    ...requiredLifecycleColumns.filter(column => !schema.get("trade_lifecycle_events")?.has(column)).map(column => "trade_lifecycle_events." + column),
+    ...requiredReservationColumns.filter(column => !schema.get("trade_reward_reservations")?.has(column)).map(column => "trade_reward_reservations." + column),
+  ];
+  if (missing.length) {
+    const migrationPath = resolve(root, "drizzle", "0085_trade_settlement_schema_reconciliation.sql");
     const sql = await readFile(migrationPath, "utf8");
     await executeCompatibleMigrationSql(connection, sql);
-    console.log("[main-migrate] Reconciled safe Trading settlement timing schema drift using the idempotent 0079 repair.");
-    columns = await readColumns();
+    console.log("[main-migrate] Reconciled Trading settlement schema drift using the idempotent 0085 repair.");
+    schema = await readSchema();
   }
 
-  const remaining = repairableColumns.filter(column => !columns.has(column));
+  const remaining = [
+    ...requiredTradeColumns.filter(column => !schema.get("trade_positions")?.has(column)).map(column => "trade_positions." + column),
+    ...requiredLifecycleColumns.filter(column => !schema.get("trade_lifecycle_events")?.has(column)).map(column => "trade_lifecycle_events." + column),
+    ...requiredReservationColumns.filter(column => !schema.get("trade_reward_reservations")?.has(column)).map(column => "trade_reward_reservations." + column),
+  ];
   if (remaining.length) {
-    throw new Error("Trading settlement timing schema verification failed after additive repair: trade_positions missing columns: " + remaining.join(", "));
+    throw new Error("Trading settlement schema verification failed after additive repair: missing " + remaining.join(", "));
   }
-  return { checkedColumns: repairableColumns.length };
+  return { checkedColumns: requiredTradeColumns.length + requiredLifecycleColumns.length + requiredReservationColumns.length, checkedTables: 3 };
 }
 
 async function main() {

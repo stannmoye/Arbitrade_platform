@@ -114,6 +114,11 @@ async function main() {
     const workerHealthMigration = await readFile(resolve(root, "drizzle/0084_worker_health_registry.sql"), "utf8");
     await executeCompatibleMigrationSql(db, workerHealthMigration);
 
+    // Settlement reconciliation and manual confirmation use the same canonical schema
+    // even when an older migration tracker says settlement DDL was already applied.
+    const settlementSchemaMigration = await readFile(resolve(root, "drizzle/0085_trade_settlement_schema_reconciliation.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, settlementSchemaMigration);
+
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],
       ["category", "VARCHAR(40) NOT NULL DEFAULT 'account'"],

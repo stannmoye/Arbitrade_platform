@@ -8,6 +8,14 @@ const MIGRATION_PREREQUISITES = Object.freeze({
     ["opportunity_package_policies", "minimumTradeMinor"],
     ["opportunity_package_policies", "maximumTradeMinor"],
   ],
+  "0085_trade_settlement_schema_reconciliation": [
+    { label: "trade_positions settlement lifecycle columns", columns: [
+      ["trade_positions", "rewardReservedMinor"], ["trade_positions", "rewardCreditedMinor"],
+      ["trade_positions", "lifecycleStage"], ["trade_positions", "settlementStatus"],
+      ["trade_positions", "settlementReference"], ["trade_positions", "settlementConfirmedAt"],
+      ["trade_positions", "settlementConfirmedBy"], ["trade_positions", "settlementNotes"],
+    ] },
+  ],
   "0068_trade_realized_profit_accounting": [
     ["trade_positions", "id"],
     ["trade_positions", "status"],

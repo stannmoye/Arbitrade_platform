@@ -2,7 +2,7 @@
 
 **Repository:** [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrade_platform)  
 **Canonical branch:** `main`  
-**Latest main commit at this handoff update:** `b07ef3b8bf87b723e975a92127fcbd1b83f2b750` (PR #217 squash merge)  
+**Baseline `main` before this increment:** `6befd5ed7036818abf05144a2b522f49e3715645` (PR #220 squash merge)  
 **Completed task:** Task 3 — durable worker health, recovery visibility and Trade Settings dashboard.  
 **Status:** PR #217 was merged after exact-head CI passed. Post-merge checks on `main` were started and must be verified before considering this increment fully accepted. No production migration or deployment has been run. Automated checks do not certify the user's live server.
 
@@ -208,3 +208,14 @@ This policy is final and must be followed throughout the application:
 - Shutdown stops future timer ticks, closes idle HTTP connections, drains active requests and monitored worker cycles, then closes the shared MySQL pool. A bounded deadline force-closes remaining HTTP connections if drain does not complete.
 - Added a database-pool close function, a monitored-worker drain function, unit tests for timer cancellation and cycle draining, and `docs/server-worker-shutdown.md`.
 - Validation is pending on the exact feature head. No production server or database was accessed; no financial records or migrations were changed.
+
+
+## 2026-10-29 — Database-backed settlement reconciliation verification
+
+- Started branch `test/settlement-reconciliation-db-integration` from the verified `main` commit `6befd5ed7036818abf05144a2b522f49e3715645`.
+- Adding an isolated integration test that applies the guarded migration chain and calls the actual `reconcileAllDueTradesAwaitingConfirmation` worker against disposable MySQL 8.4 and MariaDB 11.4 databases.
+- The first disposable MariaDB run exposed schema drift: after the guarded main migration chain, `trade_positions.rewardReservedMinor` was missing even though the application schema and trade-allocation code require it. The current post-migration verifier only checked `creditAt` and `lifecycleStage`, so this mismatch passed migration startup verification.
+- Root-cause inspection found legacy settlement migrations `0051_advanced_auto_trading.sql` and `0053_manual_settlement_lifecycle.sql` are listed in the portal migration runner but absent from the canonical main journal. The main runtime startup does not guarantee that separate portal migration chain runs before workers use those fields.
+- Adding forward migration `0085_trade_settlement_schema_reconciliation.sql` to restore the settlement columns/tables/indexes idempotently, and extending the guarded main migration's post-run schema verification to repair and verify the actual columns and lifecycle/reservation tables. Historical migration files/journal history are preserved.
+- The repair migration applied successfully in the follow-up MariaDB job, but the integration fixture then hit the existing unique `(userId, offerId)` trade constraint because all test rows reused offer ID 1. The fixture now gives each disposable trade a unique offer ID. Two journal-order contract tests also required their expected latest migration sequence to be updated for 0085.
+- The real-database integration still needs to pass on both MySQL 8.4 and MariaDB 11.4 after these fixture/contract fixes. This is verification-only; no production database or server was accessed, and no financial outcomes are rewritten.

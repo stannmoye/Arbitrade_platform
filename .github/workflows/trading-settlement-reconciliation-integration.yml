@@ -1,0 +1,61 @@
+name: Trading settlement reconciliation database integration
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  settlement-reconciliation:
+    name: Settlement reconciliation on ${{ matrix.database }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: MySQL 8.4
+            image: mysql:8.4
+            health_cmd: mysqladmin ping -h 127.0.0.1 -uroot -proot
+          - database: MariaDB 11.4
+            image: mariadb:11.4
+            health_cmd: mariadb-admin ping --silent
+    services:
+      database:
+        image: ${{ matrix.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: arbitrade_settlement_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="${{ matrix.health_cmd }}"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - name: Check out exact commit
+        uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Apply the guarded migration chain to the disposable database
+        run: node scripts/guarded-main-migrate.mjs
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_settlement_test
+      - name: Exercise real settlement reconciliation lifecycle and financial safety
+        run: pnpm exec tsx scripts/trading-settlement-reconciliation.integration.ts
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_settlement_test
