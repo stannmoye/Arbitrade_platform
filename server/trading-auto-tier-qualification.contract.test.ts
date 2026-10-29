@@ -204,7 +204,12 @@ describe("Automatic Trading tier qualification", () => {
     expect(schemaSource).toContain('packageName: varchar("packageName", { length: 80 }).notNull().unique()');
     expect(policyMigrationSource).toContain("MODIFY COLUMN `packageName` varchar(80) NOT NULL");
     expect(policyMigrationSource).toContain("INSERT INTO `opportunity_package_policies` (`packageName`)");
-    expect(databaseSource).toContain("const tiers=await db.select({name:packages.name}).from(packages)");
+    expect(databaseSource).toContain("await db.transaction(async tx=>");
+    expect(databaseSource).toContain("const tierByName=new Map(tiers.map(tier=>[tier.name,tier.id]))");
+    expect(databaseSource).toContain("Each Trading tier may appear only once in a policy update");
+    expect(databaseSource).toContain("policyVersion:nextVersion");
+    expect(databaseSource).toContain('action:"trading_opportunity_package_policy_updated"');
+    expect(databaseSource).toContain("await tx.insert(v5AuditEvents).values");
     expect(databaseSource).toContain("values({packageName:tier.name})");
     expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy})");
     expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
@@ -215,7 +220,8 @@ describe("Automatic Trading tier qualification", () => {
   it("creates tiers through the authorized audited admin route", () => {
     expect(routerSource).toContain("createTradingPackage: adminProcedure.input");
     expect(routerSource).toContain("packageName: z.string().trim().min(1).max(80)");
-    expect(routerSource).toContain(" })).min(1).max(1000) })).mutation(({ ctx, input }) => updateOpportunityPackagePolicies");
+    expect(routerSource).toContain("reason: z.string().trim().min(5).max(500)");
+    expect(routerSource).toContain("updateOpportunityPackagePolicies(ctx.user.id, input.policies, input.reason)");
     expect(databaseSource).toContain("Opportunity policy references an unknown Trading tier");
     expect(routerSource).toContain("createAdminTradingPackage(ctx.user.id");
     expect(databaseSource).toContain('action:"trading_package_created"');
@@ -223,6 +229,9 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).toContain('trpc.adminOperations.createTradingPackage.useMutation');
     expect(customerAppSource).toContain('maxActiveInvestments:0,startsAt:"",expiresAt:"",enabled:false,reason:""');
     expect(customerAppSource).toContain("New tiers start disabled.");
+    expect(customerAppSource).toContain("const [policyReason,setPolicyReason]=useState(\"\")");
+    expect(customerAppSource).toContain("reason:policyReason.trim()");
+    expect(customerAppSource).toContain("Provide a reason for this policy change");
   });
 
   it("persists administrator-controlled effective dates and tier caps", () => {
