@@ -47,7 +47,7 @@ describe("Trading retry-policy navigation", () => {
     const packageEditor = adminApp.slice(start, end);
     expect(packageEditor).toContain("maxTradeAttemptsPerDay");
     expect(packageEditor).toContain("tradeRetryDelaySeconds");
-    expect(packageEditor).toContain("Carry-forward controls are not yet implemented.");
+    expect(packageEditor).toContain("Carry-forward is unavailable: missed opportunities do not roll over and no carry-forward setting is active.");
     expect(packageEditor).toContain('{!focus&&<><AdminTradingPackageCatalogue/><AdminTradeAllocationControl/></>}');
     expect(packageEditor).toContain('{!focus&&<div className="package-policy-section"><strong>Opportunity delivery & scheduling</strong>');
   });
@@ -95,5 +95,42 @@ describe("Trading overview package-policy read", () => {
     const reader = serverDb.slice(start, end);
     expect(reader).toContain("db.select().from(opportunityPackagePolicies)");
     expect(reader).not.toContain(".insert(");
+  });
+});
+
+
+describe("Trading policy reconciliation", () => {
+  it("does not supply hardcoded runtime fee, settlement, popup or market timing policy values", () => {
+    expect(serverDb).not.toContain("DEFAULT_TRADE_FEE_POLICY");
+    expect(serverDb).toContain('requireTradePolicySetting("trade.platformFeeBps")');
+    expect(serverDb).toContain('requireTradePolicySetting("trade.settlementDelaySeconds")');
+    expect(serverDb).toContain('requireTradePolicySetting("opportunity.popup.displaySeconds")');
+    expect(serverDb).toContain('requireTradePolicySetting("market.refreshIntervalMinutes")');
+  });
+
+  it("does not allow a missing or unreviewed tier policy to qualify, deliver, or allocate automatically", () => {
+    expect(serverDb).toContain("Number(configured.policyVersion)>=1");
+    expect(serverDb).toContain("return Boolean(configured && Number(configured.policyVersion)>=1 && configured.enabled && configured.automaticDelivery && configured.automaticTradingEnabled");
+    expect(serverDb).toContain("savedPolicy && Number(savedPolicy.policyVersion)>=1 && savedPolicy.enabled && savedPolicy.automaticDelivery && savedPolicy.automaticTradingEnabled");
+    expect(serverDb).not.toContain("return !configured");
+    expect(serverDb).not.toContain("configured?chooseProfitRateBps");
+    expect(serverDb).not.toContain("configured?chooseTradeDurationSeconds");
+  });
+
+  it("creates new Trading tiers and their policies disabled until the administrator saves and enables them", () => {
+    expect(serverDb).toContain("New Trading tiers must be created disabled.");
+    expect(serverDb).toContain("enabled:false,automaticDelivery:false,automaticTradingEnabled:false,policyVersion:0");
+    expect(serverDb).toContain("Configure and explicitly enable the saved tier delivery and automatic-trading policy");
+    expect(serverDb).toContain("const nextPolicyVersion=Number(existing.policyVersion||0)+1");
+  });
+
+  it("does not prefill manual allocation windows with invented market symbols, venues, capital, return or duration values", () => {
+    expect(adminApp).not.toContain('const [symbol,setSymbol]=useState("NVDA")');
+    expect(adminApp).not.toContain('const [from,setFrom]=useState("Market venue A")');
+    expect(adminApp).not.toContain('const [to,setTo]=useState("Market venue B")');
+    expect(adminApp).not.toContain('const [minimum,setMinimum]=useState(1000)');
+    expect(adminApp).not.toContain('const [reward,setReward]=useState(85)');
+    expect(adminApp).not.toContain('const [duration,setDuration]=useState(600)');
+    expect(adminApp).toContain("Only an authoritative, auditable settlement may create a financial result.");
   });
 });
