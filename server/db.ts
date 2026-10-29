@@ -2473,8 +2473,11 @@ export async function runTradingTierQualificationWorkerCycle(options?: { batchSi
   if(!db) throw new Error("Trading qualification worker database is unavailable.");
   const batchSize=Math.max(1,Math.min(50,Math.floor(options?.batchSize??20)));
   // MySQL TIMESTAMP has second precision here; use a stable persisted lease token.
-  const now=new Date(Math.floor(Date.now()/1000)*1000);
-  const staleLeaseBefore=new Date(now.getTime()-5*60_000);
+  // Eligibility keeps full precision; a just-requeued TIMESTAMP may round into the next second.
+  // Persist only second-aligned lease tokens for compare-and-set fencing.
+  const eligibilityNow=new Date();
+  const leaseNow=new Date(Math.floor(eligibilityNow.getTime()/1000)*1000);
+  const staleLeaseBefore=new Date(leaseNow.getTime()-5*60_000);
   const jobs=await db.transaction(async tx=>{
     const eligible=await tx.select({
       id:tradingTierQualificationJobs.id,
@@ -2482,15 +2485,15 @@ export async function runTradingTierQualificationWorkerCycle(options?: { batchSi
       sourceLedgerId:tradingTierQualificationJobs.sourceLedgerId,
       attempts:tradingTierQualificationJobs.attempts,
     }).from(tradingTierQualificationJobs).where(or(
-      and(eq(tradingTierQualificationJobs.status,"pending"),lte(tradingTierQualificationJobs.availableAt,now)),
+      and(eq(tradingTierQualificationJobs.status,"pending"),lte(tradingTierQualificationJobs.availableAt,eligibilityNow)),
       and(eq(tradingTierQualificationJobs.status,"processing"),lt(tradingTierQualificationJobs.lockedAt,staleLeaseBefore)),
     )).orderBy(tradingTierQualificationJobs.id).limit(batchSize).for("update");
     for(const job of eligible){
       await tx.update(tradingTierQualificationJobs).set({
-        status:"processing",attempts:Number(job.attempts||0)+1,lockedAt:now,updatedAt:now,
+        status:"processing",attempts:Number(job.attempts||0)+1,lockedAt:leaseNow,updatedAt:leaseNow,
       }).where(eq(tradingTierQualificationJobs.id,job.id));
     }
-    return eligible.map(job=>({...job,attempts:Number(job.attempts||0)+1,lockedAt:now}));
+    return eligible.map(job=>({...job,attempts:Number(job.attempts||0)+1,lockedAt:leaseNow}));
   });
   let completed=0,retrying=0,dead=0;
   for(const job of jobs){
