@@ -26,13 +26,8 @@ const MIGRATION_PREREQUISITES = Object.freeze({
     ["opportunity_package_policies", "companyRotationRepeatPolicy"],
   ],
   "0088_trading_popup_trade_snapshots": [
-    ["opportunity_popup_events", "configuredProfitRateBps"],
-    ["opportunity_popup_events", "configuredDurationSeconds"],
-    ["opportunity_popup_events", "configuredPopupDisplaySeconds"],
-    ["opportunity_popup_events", "packagePolicyVersionSnapshot"],
-    ["trade_positions", "configuredProfitRateBps"],
-    ["trade_positions", "configuredDurationSeconds"],
-    ["trade_positions", "packagePolicyVersionSnapshot"],
+    ["opportunity_popup_events", "packageName"],
+    ["trade_positions", "id"],
   ],
   "0068_trade_realized_profit_accounting": [
     ["trade_positions", "id"],
@@ -97,6 +92,20 @@ const MIGRATION_PROGRESS_COLUMNS = Object.freeze({
     { label: "durable popup snapshot columns", columns: [
       ["opportunity_popup_events", "policyVersion"], ["opportunity_popup_events", "durationSeconds"],
       ["opportunity_popup_events", "badgeLabel"], ["opportunity_popup_events", "badgeStyle"],
+    ] },
+  ],
+  "0088_trading_popup_trade_snapshots": [
+    { label: "immutable popup snapshot columns", columns: [
+      ["opportunity_popup_events", "configuredProfitRateBps"], ["opportunity_popup_events", "configuredDurationSeconds"],
+      ["opportunity_popup_events", "configuredPopupDisplaySeconds"], ["opportunity_popup_events", "packagePolicyVersionSnapshot"],
+      ["opportunity_popup_events", "packageBadgeLabel"], ["opportunity_popup_events", "companyReferenceId"],
+      ["opportunity_popup_events", "companyDisplayName"], ["opportunity_popup_events", "companyLogoUrl"],
+      ["opportunity_popup_events", "companyReferenceOnly"],
+    ] },
+    { label: "immutable trade snapshot columns", columns: [
+      ["trade_positions", "configuredProfitRateBps"], ["trade_positions", "configuredDurationSeconds"],
+      ["trade_positions", "packagePolicyVersionSnapshot"], ["trade_positions", "companyReferenceId"],
+      ["trade_positions", "companyDisplayName"], ["trade_positions", "companyLogoUrl"], ["trade_positions", "companyReferenceOnly"],
     ] },
   ],
   "0088_trading_popup_trade_snapshots": [
