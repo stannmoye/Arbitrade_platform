@@ -103,7 +103,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).not.toContain("CustomerTradingPackages");
     expect(customerAppSource).toContain("CustomerTradingEligibility");
     expect(eligibilityComponent).toContain("trpc.customer.tradingEligibility.useQuery");
-    expect(eligibilityComponent).toContain('"TIER ACTIVE"');
+    expect(eligibilityComponent).toContain('"PACKAGE ACTIVE"');
     expect(eligibilityComponent).toContain('"NO PACKAGE ASSIGNED"');
     expect(eligibilityComponent).toContain('"RETRY NEEDED"');
     expect(eligibilityComponent).toContain("No Package Assigned");
