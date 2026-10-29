@@ -21,6 +21,8 @@ describe("trading opportunity economics integrity", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(implementation).toContain('return { created: 0, available: availableOffers.length, generationDisabled: true };');
     expect(implementation).toContain('.set({ status: "closed" })');
+    expect(implementation).toContain('lt(opportunityOffers.closesAt, now)');
+    expect(implementation).not.toContain('marketObservedAt, refreshedAt');
     expect(implementation).toContain('eq(opportunityOffers.status, "open")');
     expect(implementation).toContain('gt(opportunityOffers.closesAt, now)');
   });
