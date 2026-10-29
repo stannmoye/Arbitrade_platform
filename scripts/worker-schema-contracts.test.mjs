@@ -40,12 +40,13 @@ describe("worker schema contracts", () => {
 
   it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
     const root = new URL("../", import.meta.url);
-    const [runtimeSchema, migration, opportunityWorkerMigration, healthMigration, leaseMigration] = await Promise.all([
+    const [runtimeSchema, migration, opportunityWorkerMigration, healthMigration, leaseMigration, mainMigrationRunner] = await Promise.all([
       readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
       readFile(new URL("drizzle/0082_trading_tier_qualification_jobs.sql", root), "utf8"),
       readFile(new URL("drizzle/0083_trading_opportunity_worker_indexes.sql", root), "utf8"),
       readFile(new URL("drizzle/0084_worker_health_registry.sql", root), "utf8"),
       readFile(new URL("drizzle/0086_trading_opportunity_execution_leases.sql", root), "utf8"),
+      readFile(new URL("scripts/guarded-main-migrate.mjs", root), "utf8"),
     ]);
     expect(WORKER_SCHEMA_CONTRACTS.trading_tier_qualification_jobs.indexes)
       .toHaveProperty("trading_tier_qualification_jobs_source_ledger_uq");
@@ -64,6 +65,8 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain('drizzle/0086_trading_opportunity_execution_leases.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, opportunityExecutionLeaseMigration)");
     expect(leaseMigration).toContain("ADD COLUMN IF NOT EXISTS `executionLeaseToken` varchar(64) NULL");
+    expect(mainMigrationRunner).toContain("async function reconcileOpportunityExecutionLeaseSchema(connection, root)");
+    expect(mainMigrationRunner).toContain("Trading opportunity execution lease schema verification failed after additive repair");
     expect(healthMigration).toContain("CREATE TABLE IF NOT EXISTS `worker_health_registry`");
     expect(healthMigration).toContain("worker_health_worker_instance_uq");
     expect(healthMigration).toContain("worker_health_heartbeat_idx");
