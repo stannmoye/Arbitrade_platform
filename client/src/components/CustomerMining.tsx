@@ -39,6 +39,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
   const [swapQuote, setSwapQuote] = useState<any | null>(null);
   const [swapTarget, setSwapTarget] = useState("");
   const [packageTab, setPackageTab] = useState("all");
+  const [acceptedPackageTerms, setAcceptedPackageTerms] = useState<Record<number, boolean>>({});
   const [historyPage, setHistoryPage] = useState(0);
   const [prefEnabled, setPrefEnabled] = useState(false);
   const [prefTarget, setPrefTarget] = useState("USD");
@@ -289,6 +290,7 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
             const intent=Number(item.baseThs)>activeBase?"Add hash power":"Buy package";
             const color=palette[index%palette.length];
             const canPurchase=item.purchaseAvailable===true;
+            const acceptedTerms=acceptedPackageTerms[item.versionId]===true;
             const purchaseInProgress=purchaseMutation.isPending&&purchaseMutation.variables?.packageVersionId===item.versionId;
             const unavailableReason=String(item.purchaseUnavailableReason||"");
             const statusLabel=activeSame?"ACTIVE":item.alreadyPurchased?"PURCHASED":canPurchase?"AVAILABLE":item.status!=="published"?"PAUSED":"PURCHASES PAUSED";
@@ -299,7 +301,8 @@ export function CustomerMining({ push }: { push: (message: string) => void }) {
               <div className="cm-package-price"><strong>{fmt(item.priceAmount,2)}</strong><small>{item.priceAsset}</small></div>
               <div className="cm-package-facts"><b>{fmt(item.baseThs,3)} <small>TH/s</small></b><span>Boost +{fmt(item.boostBonusThs,3)} TH/s</span><span>Term {item.durationMonths==null?"not set":`${item.durationMonths} months`}</span><span>{item.expectedDailyRewardCki==null?"Daily CKI rate not configured":`${fmt(item.expectedDailyRewardCki,8)} CKI/day · prorated by eligible seconds`}</span></div>
               {item.termsText&&<details className="cm-package-terms"><summary>Review package terms</summary><p>{item.termsText}</p></details>}
-              <button type="button" className="cm-package-buy" disabled={!canPurchase||purchaseMutation.isPending} title={canPurchase?"Click to purchase now; the saved main wallet will be charged immediately.":(unavailableReason||"Unavailable")} aria-label={`Buy ${item.name} now; the saved main wallet will be charged immediately`} onClick={()=>{if(!canPurchase||purchaseMutation.isPending)return;setMessage("");purchaseMutation.mutate({packageVersionId:item.versionId,idempotencyKey:requestId()})}}>{buttonLabel}<ArrowRight size={13}/></button>
+              {canPurchase&&<label className="cm-package-consent" style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:12,lineHeight:1.45,margin:"10px 0",cursor:"pointer"}}><input type="checkbox" checked={acceptedTerms} onChange={event=>setAcceptedPackageTerms(current=>({...current,[item.versionId]:event.target.checked}))} style={{marginTop:2,flexShrink:0}}/><span>I have reviewed the package terms and authorize the immediate debit from my main wallet.</span></label>}
+              <button type="button" className="cm-package-buy" disabled={!canPurchase||!acceptedTerms||purchaseMutation.isPending} title={!canPurchase?(unavailableReason||"Unavailable"):!acceptedTerms?"Review and accept the package terms before purchasing":"Click to purchase now; the saved main wallet will be charged immediately."} aria-label={`Buy ${item.name} now; the saved main wallet will be charged immediately`} onClick={()=>{if(!canPurchase||!acceptedTerms||purchaseMutation.isPending)return;setMessage("");purchaseMutation.mutate({packageVersionId:item.versionId,idempotencyKey:requestId(),acceptedTerms:true})}}>{buttonLabel}<ArrowRight size={13}/></button>
             </article>;
           })}
         </div>
