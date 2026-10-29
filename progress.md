@@ -1,3 +1,14 @@
+## 2026-10-29 — Part 3 CI regression follow-up
+
+- Part identity: **PART 3 — AUTOMATIC TRADING WORKER & CUSTOMER ISOLATION**.
+- Follow-up commit `606f6d7460078b127c31f9da8c0d7acd64da8c79` on `feat/trading-worker-isolation-recovery-part3` updates the worker-cycle contract assertion to match the combined in-flight/backoff guard and sanitizes the initial startup-cycle catch log.
+- Exact-head GitHub Actions for prior head `e2ce4db72490857ba178e53473aee60dc2e9b4b6` showed TypeScript check passed, but test failed in `server/trading-opportunity-worker.contract.test.ts`: the old assertion expected `if (tradeCycleRunning) return;`, while the implementation correctly checks both overlap and retry deferral. The assertion was updated; CI for the new head has not yet reported a run.
+- Prior CI run had 776 passing tests, 15 skipped and one failing assertion; production build was skipped after the test failure. This is not a green validation result.
+- Remaining worker gaps are unchanged: process-local backoff is not a distributed lease; no acceptance evidence yet for durable multi-instance claiming, stale-lease recovery, crash/restart, quota concurrency, financial idempotency, or strict customer isolation.
+- Do not merge or deploy until exact-head CI and database-backed worker tests pass.
+
+---
+
 ## 2026-10-29 — Part 3 worker failure backoff and ownership alignment
 
 - Part identity: **PART 3 — AUTOMATIC TRADING WORKER & CUSTOMER ISOLATION**.
