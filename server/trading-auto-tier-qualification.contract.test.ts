@@ -200,16 +200,28 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("Math.min(policyCap,tierCap)");
   });
 
-  it("keeps opportunity-policy rows aligned with every administrator-managed tier", () => {
+  it("keeps opportunity-policy reads aligned with saved administrator-managed tiers and fails closed when policy is missing", () => {
     expect(schemaSource).toContain('packageName: varchar("packageName", { length: 80 }).notNull().unique()');
     expect(policyMigrationSource).toContain("MODIFY COLUMN `packageName` varchar(80) NOT NULL");
     expect(policyMigrationSource).toContain("INSERT INTO `opportunity_package_policies` (`packageName`)");
-    expect(databaseSource).toContain("const tiers=await db.select({name:packages.name}).from(packages)");
-    expect(databaseSource).toContain("values({packageName:tier.name})");
-    expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy})");
-    expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
+
+    expect(databaseSource).toContain("const [tiers,rows]=await Promise.all([");
     expect(databaseSource).toContain("const matchingRows=rows.filter(row=>tierNames.has(row.packageName))");
     expect(databaseSource).toContain('if(missing.length) throw new Error("Trading tier opportunity policy is missing for: "+missing.join(", "));');
+    expect(databaseSource).toContain("return rows.filter(row=>tierNames.has(row.packageName))");
+    expect(databaseSource).not.toContain("values({packageName:tier.name})");
+
+    const readerStart = databaseSource.indexOf("export async function listOpportunityPackagePolicies()");
+    const readerEnd = databaseSource.indexOf("\n}", readerStart);
+    expect(readerStart).toBeGreaterThanOrEqual(0);
+    expect(readerEnd).toBeGreaterThan(readerStart);
+    const policyReader = databaseSource.slice(readerStart, readerEnd);
+    expect(policyReader).not.toContain(".insert(");
+
+    expect(routerSource).toContain("packagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),");
+    expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy})");
+    expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
+    expect(databaseSource).not.toContain("values({packageName:nextName,updatedBy})");
   });
 
   it("creates tiers through the authorized audited admin route", () => {
