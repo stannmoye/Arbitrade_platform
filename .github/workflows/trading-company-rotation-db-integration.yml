@@ -51,8 +51,18 @@ jobs:
           cache: pnpm
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
-      - name: Apply the guarded migration chain to disposable database
+      - name: Apply the guarded main migration chain to disposable database
         run: node scripts/guarded-main-migrate.mjs
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_company_rotation_test
+      - name: Apply the portal migration registry used by installer fresh-install and upgrade flows
+        run: pnpm db:portal-migrate
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_company_rotation_test
+      - name: Bridge and verify worker runtime schema contracts
+        run: |
+          node scripts/ensure-worker-runtime-schema.mjs
+          node scripts/verify-worker-schema.mjs
         env:
           DATABASE_URL: mysql://root:root@127.0.0.1:3306/arbitrade_company_rotation_test
       - name: Exercise durable rotation, duplicate delivery, restart, rollback, and snapshots
