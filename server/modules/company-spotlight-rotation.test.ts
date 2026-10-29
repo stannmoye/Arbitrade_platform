@@ -20,8 +20,10 @@ describe("package-scoped company spotlight rotation",()=>{
     let state:unknown=null;const seen=new Set<string>();
     for(let i=0;i<pool.length;i++){const result=nextCompanySpotlight(pool,state,42,"Starter","avoid_until_exhausted");expect(seen.has(result.company.id)).toBe(false);seen.add(result.company.id);state=result.state;}
     expect(seen.size).toBe(pool.length);
-    const next=nextCompanySpotlight(pool,state,42,"Starter","avoid_until_exhausted");
-    expect(next.state.cycleNumber).toBe(2);expect(next.state.requestCount).toBe(pool.length+1);
+    const last=nextCompanySpotlight(pool,state,42,"Starter","avoid_until_exhausted");
+    expect(last.rotationCycle).toBe(2);
+    expect(last.rotationSequence).toBe(pool.length+1);
+    expect(last.state.cycleNumber).toBe(2);expect(last.state.requestCount).toBe(pool.length+1);
   });
   it("resets its cursor when country filters change and validates customer/package scope",()=>{
     const first=COMPANY_REFERENCE_CATALOGUE[0]!;
@@ -33,6 +35,16 @@ describe("package-scoped company spotlight rotation",()=>{
     expect(changed.state.nextIndex).toBe(0);
     expect(()=>nextCompanySpotlight(pool,null,0,"Starter","avoid_until_exhausted")).toThrow("customer identity");
     expect(()=>nextCompanySpotlight(pool,null,11,"","avoid_until_exhausted")).toThrow("package scope");
+  });
+  it("resumes the exact next company from a JSON-persisted cursor after restart",()=>{
+    const pool=buildCompanySpotlightPool("",COMPANY_REFERENCE_CATALOGUE.slice(0,12));
+    const first=nextCompanySpotlight(pool,null,91,"Tier A","avoid_until_exhausted");
+    const restartedState=JSON.parse(JSON.stringify(first.state));
+    const afterRestart=nextCompanySpotlight(pool,restartedState,91,"Tier A","avoid_until_exhausted");
+    const uninterrupted=nextCompanySpotlight(pool,first.state,91,"Tier A","avoid_until_exhausted");
+    expect(afterRestart.company.id).toBe(uninterrupted.company.id);
+    expect(afterRestart.rotationCycle).toBe(uninterrupted.rotationCycle);
+    expect(afterRestart.rotationSequence).toBe(uninterrupted.rotationSequence);
   });
   it("supports repeat mode without changing reference-only classification",()=>{
     const pool=COMPANY_REFERENCE_CATALOGUE.slice(0,8);
