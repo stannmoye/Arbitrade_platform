@@ -4,6 +4,8 @@ import {
   countCompanyReferences,
   findCompanyReferencesBySymbol,
   getCompanyReferenceById,
+  getCompanyReferenceAtOffset,
+  getCompanyReferenceCatalogueSize,
   getCompanyReferenceSummary,
   getRandomCompanyReference,
   searchCompanyReferences,
@@ -35,6 +37,14 @@ describe("Logo.dev brand-only static reference catalogue", () => {
     expect(result.referenceOnly).toBe(true);
     expect(result.logoReusePermissionVerified).toBe(false);
     expect(result.eligibleForVerifiedTradeRotation).toBe(false);
+  });
+
+  it("supports stable, bounded offsets for a durable round-robin display cursor", () => {
+    expect(getCompanyReferenceCatalogueSize()).toBe(1811);
+    expect(getCompanyReferenceAtOffset(0).id).toBe(COMPANY_REFERENCE_CATALOGUE[0]!.id);
+    expect(getCompanyReferenceAtOffset(1810).id).toBe(COMPANY_REFERENCE_CATALOGUE[1810]!.id);
+    expect(() => getCompanyReferenceAtOffset(-1)).toThrow(/offset/);
+    expect(() => getCompanyReferenceAtOffset(1811)).toThrow(/offset/);
   });
 
   it("supports ID lookup and bounded name/domain search without a database", () => {
