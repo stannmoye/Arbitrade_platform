@@ -2701,7 +2701,7 @@ export async function getCustomerTradingEligibility(userId:number) {
 }
 
 
-export async function getNextCustomerCompanySpotlight(userId:number) {
+export async function previewNextCustomerCompanySpotlight(userId:number) {
   const eligibility=await getCustomerTradingEligibility(userId);
   const packageName=String(eligibility.currentPackage?.name||"").trim();
   if(!eligibility.eligible||!packageName) throw new Error("An active automatically assigned Trading tier is required for company spotlight preview.");
