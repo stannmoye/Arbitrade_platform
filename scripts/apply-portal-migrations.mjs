@@ -54,6 +54,7 @@ const migrationFiles = [
   "0085_trade_settlement_schema_reconciliation.sql",
   "0086_trading_popup_policy_ranges.sql",
   "0087_trading_company_spotlight_rotation.sql",
+  "0088_trading_popup_trade_snapshots.sql",
 ];
 // These tables are schema-baseline indicators for first-time portal migration tracking.
 // Some also belong to the main Drizzle chain; none of them alone proves that a
