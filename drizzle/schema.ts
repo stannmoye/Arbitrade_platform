@@ -532,6 +532,7 @@ export const tradePositions = mysqlTable("trade_positions", {
   companyReferenceId: varchar("companyReferenceId", { length: 80 }),
   companyDisplayName: varchar("companyDisplayName", { length: 240 }),
   companyLogoUrl: varchar("companyLogoUrl", { length: 512 }),
+  companyReferenceOnly: boolean("companyReferenceOnly").default(true).notNull(),
   status: mysqlEnum("status", ["pending", "confirmed", "settled", "cancelled"]).default("confirmed").notNull(),
   confirmedAt: timestamp("confirmedAt").defaultNow().notNull(),
   settlesAt: timestamp("settlesAt").notNull(),
