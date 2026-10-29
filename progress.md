@@ -183,3 +183,11 @@ This policy is final and must be followed throughout the application:
 - Worker status query limits historical reads to 500 recent rows; per-cycle monitoring skips overlapping cycles; error output is sanitized before storing/displaying.
 - Exact feature-head CI passed for commit `002dcf0eed39c27ab7adc4d33fcd5b4686661bdd`; PR #217 was squash-merged as `b07ef3b8bf87b723e975a92127fcbd1b83f2b750`. The main branch now points to that merge commit.
 - Post-merge checks on the exact `main` commit were queued at the time of this update. Check all resulting workflow runs before calling the increment fully accepted. No production migration, deployment, or live-host verification is claimed.
+
+
+## 2026-10-29 — Installer worker-runtime verification increment
+
+- Created branch `feat/installer-worker-runtime-verification` from the current canonical `main`.
+- Added `pnpm installer:verify-workers`, a read-only diagnostic for the production startup wrapper, guarded migration and worker-schema preflight phases, persistent application process, server-managed Trading worker registration, durable qualification queue table, and worker health registry column/index contracts.
+- Added unit tests for valid startup wiring, missing worker registrations, missing health columns, and malformed index definitions. Registered syntax checks in the installer validation workflow and documented the post-install command.
+- Validation status: implementation committed to the feature branch; exact-head CI and test results are pending. No production database, migration, or server was accessed or changed.
