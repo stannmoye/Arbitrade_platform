@@ -26,7 +26,7 @@ describe("Trading settlement timing schema drift repair", () => {
     expect(entries.at(-3).tag).toBe("0084_worker_health_registry");
     expect(entries.at(-2).tag).toBe("0085_trade_settlement_schema_reconciliation");
     expect(entries.at(-1).tag).toBe("0087_admin_wallet_adjustment_idempotency");
-    expect(entry.when).toBeGreaterThan(entries.at(-8).when);
+    expect(entry.when).toBeGreaterThan(entries.at(-9).when);
   });
 
   it("reconciles actual settlement timing schema drift even when migration history already records it", () => {
