@@ -161,9 +161,15 @@ try {
   for (const row of COMPANY_REFERENCE_CATALOGUE) {
     countryCounts.set(row.countryName, (countryCounts.get(row.countryName) || 0) + 1);
   }
-  const smallestCountry = [...countryCounts.entries()].sort((a, b) => a[1] - b[1])[0]?.[0];
-  assert.ok(smallestCountry, "catalogue must provide a bounded pool for exhaustion testing");
+  // Require multiple entries so exhaustion verifies a real no-repeat traversal,
+  // not just a one-company pool whose second assignment immediately starts cycle 2.
+  const boundedPools = [...countryCounts.entries()]
+    .filter(([, count]) => count >= 3)
+    .sort((a, b) => a[1] - b[1]);
+  const smallestCountry = boundedPools[0]?.[0];
+  assert.ok(smallestCountry, "catalogue must provide a country pool with at least three companies");
   const exhaustionPool = buildCompanySpotlightPool(smallestCountry);
+  assert.ok(exhaustionPool.length >= 3, "exhaustion test requires a multi-company filtered pool");
   assert.equal(exhaustionPool.length, countryCounts.get(smallestCountry), "test fixture count must agree with the runtime filter");
 
   const requiredOffers = 8 + exhaustionPool.length + 1;
