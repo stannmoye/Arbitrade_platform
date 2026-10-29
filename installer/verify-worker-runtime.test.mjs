@@ -39,6 +39,18 @@ describe("worker runtime installer verification", () => {
     expect(failures.some((failure) => failure.includes("five-second tier qualification poll"))).toBe(true);
   });
 
+
+  it("keeps the existing installer diagnostics aligned with the canonical startup wrapper", async () => {
+    const [installerVerifier, deploymentDiagnostic] = await Promise.all([
+      readFile(new URL("./verify-install.mjs", import.meta.url), "utf8"),
+      readFile(new URL("./diagnose-deployment.mjs", import.meta.url), "utf8"),
+    ]);
+    expect(installerVerifier).toContain('startCommand.includes("scripts/start-with-diagnostics.mjs")');
+    expect(deploymentDiagnostic).toContain('start.includes("scripts/start-with-diagnostics.mjs")');
+    expect(installerVerifier).not.toContain('startCommand.includes("NODE_ENV=production") && startCommand.includes("node dist/index.js")');
+    expect(deploymentDiagnostic).not.toContain('start.includes("NODE_ENV=production") && start.includes("node dist/index.js")');
+  });
+
   it("accepts the expected worker-health columns and unique/index ordering", () => {
     expect(inspectWorkerHealthSchema(validColumns, validIndexes)).toEqual([]);
   });
