@@ -210,6 +210,39 @@ try {
   });
   assert.equal(qualifyingReversal.entryType, "admin_manual_deposit_reversal");
   assert.equal(qualifyingReversal.qualifyingDepositUsdMinor, -5000);
+
+  // Different concurrent reversal requests must serialize on the original ledger
+  // row. Together they consume exactly the remaining 15,000 native minor units.
+  const concurrentReversals = await Promise.all([
+    adjustCustomerBalance(adminId, {
+      userId: creditPathUserId,
+      currency: "USD",
+      amountMinor: 5000,
+      mode: "debit",
+      debitClassification: "qualifying_deposit_reversal",
+      reversalLedgerId: qualifyingCreditOne.ledgerId,
+      reason: "integration test concurrent partial qualifying deposit reversal A",
+      idempotencyKey: "it-reversal-concurrent-a",
+    }),
+    adjustCustomerBalance(adminId, {
+      userId: creditPathUserId,
+      currency: "USD",
+      amountMinor: 10000,
+      mode: "debit",
+      debitClassification: "qualifying_deposit_reversal",
+      reversalLedgerId: qualifyingCreditOne.ledgerId,
+      reason: "integration test concurrent partial qualifying deposit reversal B",
+      idempotencyKey: "it-reversal-concurrent-b",
+    }),
+  ]);
+  assert.deepEqual(
+    concurrentReversals.map((item) => item.entryType),
+    ["admin_manual_deposit_reversal", "admin_manual_deposit_reversal"],
+  );
+  assert.equal(
+    concurrentReversals.reduce((sum, item) => sum + Math.abs(Number(item.qualifyingDepositUsdMinor)), 0),
+    15000,
+  );
   assert.equal(qualifyingReversal.qualifyingDepositReversalOfId, qualifyingCreditOne.ledgerId);
 
   await assert.rejects(
