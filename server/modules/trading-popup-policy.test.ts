@@ -33,7 +33,7 @@ describe("Trading pop-up policy", () => {
   it("rejects inverted ranges, unsafe durations, and invalid capital bounds", () => {
     expect(() => validateTradingPopupPolicy({ ...policy, minimumProfitBps: 501 })).toThrow(/percentage/);
     expect(() => validateTradingPopupPolicy({ ...policy, minimumDurationSeconds: 301 })).toThrow(/duration/);
-    expect(() => validateTradingPopupPolicy({ ...policy, minimumCapitalMinor: 100_001 })).toThrow(/Capital/);
+    expect(() => validateTradingPopupPolicy({ ...policy, minimumCapitalMinor: 100_001 })).toThrow(/capital/i);
     expect(() => validateTradingPopupPolicy({ ...policy, popupDisplaySeconds: 0 })).toThrow(/popupDisplaySeconds/);
   });
 
@@ -90,6 +90,6 @@ describe("Trading pop-up policy", () => {
     })).toThrow(/company ID/);
     expect(() => createTradingPopupSnapshot({
       customerId: 101, customerPackageId: 202, companyId: "company", capitalMinor: 9_999, policy,
-    })).toThrow(/capital/);
+    })).toThrow(/capital/i);
   });
 });
