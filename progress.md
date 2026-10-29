@@ -259,3 +259,15 @@ This policy is final and must be followed throughout the application:
 - Updated `docs/trading/IMPLEMENTATION_COORDINATION.md` with the correction and explicit validation boundary.
 - Latest commits in this increment: runner fix `65bd614da0fc47865385d3012f48f2c7ffca25f8`; coordination note `5a7766ff8eedd2050ef94b5e15afcc14a97620bf`. The progress update itself is being committed now.
 - No claim that the runner or full suite passes: authenticated browser execution and exact-head CI are still pending. PR #236 remains draft/unmerged; no deployment or database mutation performed.
+
+
+## 2026-10-29 — PART 5 final acceptance audit
+
+- Audited current Part 5 branch `test/trading-ui-e2e-acceptance`, PR #236, Issue #228, `AGENTS.md`, build/repository guidance, canonical Trading specification, admin configuration manual, and shared coordination document.
+- Exact audited code/documentation head before this audit update: `91f95dd205ac9c82be78b1bf7b5862e43805a5e4`; repository `main` at audit time: `7356c5870807592c8e890a3937cf3fb0f2a403fc`.
+- All seven GitHub Actions workflows passed on that exact audited head: production source install/typecheck/tests/build and generic browser checks (run 40899685306), installer validation (40899684950), Trading tier qualification DB integration (40899684576), settlement reconciliation DB integration (40899684520), application verification (40899684766), Trading recovery verification (40899684885), Mining regression checks (40899684464). Generic customer portal browser workflow reports 1,021 checks passed and 0 failed.
+- The dedicated authenticated runner `scripts/trading-ui-browser-acceptance.cjs` remains unexecuted. Blockers: no dedicated non-production base URL, seeded customer/admin accounts, authenticated storage-state files, or disposable hosted database setup were provided. Required environment values are `TRADING_ACCEPTANCE_BASE_URL`, `TRADING_CUSTOMER_STORAGE_STATE`, `TRADING_ADMIN_STORAGE_STATE`.
+- Still not hosted-verified: persisted eligibility/quotas and opportunity snapshots, dismissal isolation, dedicated forbidden-role probe, admin setting save/reload, invalid form, empty/error/retry/stale-data behavior, and complete responsive admin/customer journeys.
+- Upstream dependencies remain open: Part 1 PR #234, Part 2 PR #237, Part 3 PR #235, Part 4 PR #238 (stacked on PR #233). Part 5 can independently retain customer eligibility UI and source-level contracts; persisted admin settings/opportunity lifecycle acceptance requires agreed upstream contracts.
+- Updated `docs/trading/IMPLEMENTATION_COORDINATION.md` with the exact-head CI links, browser count, explicit external blocker, upstream dependency status, and honest acceptance boundary. PR #236 remains draft and unmerged. No production deployment or production database mutation.
+- Note: this progress/coordination documentation update creates a new commit; verify CI on the resulting exact head before treating this audit note itself as validated. Do not merge/deploy until Part 6 reconciles the complete set of latest heads and acceptance gates.
