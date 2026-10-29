@@ -23,6 +23,14 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
       idx_pending_boost_day_status: { unique: false, columns: ["rewardDay", "status", "userId"] },
     },
   },
+  opportunity_popup_events: {
+    // The automatic Trading worker requires this fencing field to exist even when
+    // a legacy migration tracker claims the schema is already current.
+    columns: ["executionLeaseToken"],
+    dataTypes: { executionLeaseToken: "varchar" },
+    nullable: { executionLeaseToken: true },
+    indexes: {},
+  },
   trading_tier_qualification_jobs: {
     columns: [
       "id", "userId", "sourceLedgerId", "status", "attempts", "availableAt",
