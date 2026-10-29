@@ -95,7 +95,7 @@ async function main() {
       if (!["mysql:", "mariadb:"].includes(url.protocol)) throw new Error("unsupported database protocol");
       if (url.protocol === "mariadb:") url.protocol = "mysql:";
       url.searchParams.set("timezone", "Z");
-      db = await mysql.createConnection({ uri: url.toString(), connectTimeout: 8000 });
+      db = await mysql.createConnection(url.toString());
       const [tableRows] = await db.query(
         "SELECT table_name AS tableName FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN (?, ?)",
         ["trading_tier_qualification_jobs", "worker_health_registry"],
