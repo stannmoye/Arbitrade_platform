@@ -2617,18 +2617,9 @@ export async function getCustomerTradingEligibility(userId:number) {
   };
 }
 
+/** Reads saved policy only. Missing policy rows are errors; reads never create defaults. */
 export async function listOpportunityPackagePolicies() {
-  const db=await getDb();
-  if(!db) throw new Error("Database is not available");
-  const tiers=await db.select({name:packages.name}).from(packages);
-  const existing=await db.select({packageName:opportunityPackagePolicies.packageName}).from(opportunityPackagePolicies);
-  const names=new Set(existing.map(row=>row.packageName));
-  for(const tier of tiers){
-    if(names.has(tier.name)) continue;
-    await db.insert(opportunityPackagePolicies).values({packageName:tier.name}).onDuplicateKeyUpdate({set:{packageName:tier.name}});
-  }
-  const tierNames=new Set(tiers.map(tier=>tier.name));
-  return (await db.select().from(opportunityPackagePolicies)).filter(row=>tierNames.has(row.packageName));
+  return listPersistedOpportunityPackagePolicies();
 }
 
 /** Read-only policy snapshot; missing rows fail closed until admin/worker reconciliation creates them. */
@@ -2655,7 +2646,7 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     if(policy.minHourlyTarget>policy.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
     if(policy.normalHourlyTarget*24>policy.maxPopupsPerDay && policy.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
     if(!Number.isSafeInteger(policy.minimumTradeUnits)||!Number.isSafeInteger(policy.maximumTradeUnits)||policy.minimumTradeUnits<1||policy.maximumTradeUnits<policy.minimumTradeUnits) throw new Error(`Trade amount bounds are invalid for ${policy.packageName}`);
-    const automation={packageName:policy.packageName,enabled:true,automaticDelivery:true,dailyPopupTarget:policy.dailyPopupTarget??policy.maxPopupsPerDay,schedulingPeriod:policy.schedulingPeriod??"rolling_24h",minIntervalSeconds:policy.minIntervalSeconds??45,maxIntervalSeconds:policy.maxIntervalSeconds??3600,randomizationEnabled:policy.randomizationEnabled??true,popupDisplayTargetSeconds:policy.popupDisplayTargetSeconds??120,completionDisplaySeconds:policy.completionDisplaySeconds??8,postCompletionIntervalSeconds:policy.postCompletionIntervalSeconds??30,maxPendingDeliveries:policy.maxPendingDeliveries??3,maxDeliveryAttempts:policy.maxDeliveryAttempts??3,automaticTradingEnabled:true,maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay??5,tradeRetryDelaySeconds:policy.tradeRetryDelaySeconds??30,maxSuccessfulTradesPerDay:policy.maxSuccessfulTradesPerDay??5,maxConcurrentActiveTrades:policy.maxConcurrentActiveTrades??1,requirePreviousSettlement:policy.requirePreviousSettlement??true,minSettlementDelaySeconds:policy.minSettlementDelaySeconds??900,maxSettlementDelaySeconds:policy.maxSettlementDelaySeconds??900,minimumRewardBps:policy.minimumRewardBps??0,maxDailyRewardMinor:policy.maxDailyRewardMinor??0,maxRewardPerTradeMinor:policy.maxRewardPerTradeMinor??0,closePolicy:policy.closePolicy??"after_final_display"};
+    const automation={packageName:policy.packageName,enabled:policy.enabled,automaticDelivery:policy.automaticDelivery,dailyPopupTarget:policy.dailyPopupTarget,schedulingPeriod:policy.schedulingPeriod,minIntervalSeconds:policy.minIntervalSeconds,maxIntervalSeconds:policy.maxIntervalSeconds,randomizationEnabled:policy.randomizationEnabled,popupDisplayTargetSeconds:policy.popupDisplayTargetSeconds,completionDisplaySeconds:policy.completionDisplaySeconds,postCompletionIntervalSeconds:policy.postCompletionIntervalSeconds,maxPendingDeliveries:policy.maxPendingDeliveries,maxDeliveryAttempts:policy.maxDeliveryAttempts,automaticTradingEnabled:policy.automaticTradingEnabled,maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay,tradeRetryDelaySeconds:policy.tradeRetryDelaySeconds,maxSuccessfulTradesPerDay:policy.maxSuccessfulTradesPerDay,maxConcurrentActiveTrades:policy.maxConcurrentActiveTrades,requirePreviousSettlement:policy.requirePreviousSettlement,minSettlementDelaySeconds:policy.minSettlementDelaySeconds,maxSettlementDelaySeconds:policy.maxSettlementDelaySeconds,minimumRewardBps:policy.minimumRewardBps,maxDailyRewardMinor:policy.maxDailyRewardMinor,maxRewardPerTradeMinor:policy.maxRewardPerTradeMinor,closePolicy:policy.closePolicy};
     validatePackageAutomationPolicy(automation);
     const values:any={...policy,...automation,updatedBy};
     delete values.id; delete values.updatedAt;
@@ -2748,7 +2739,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
       continue;
     }
     const terms=calculateTradeTerms(userId,offer,requestedAmount);
-    const maxAttempts=Number.isSafeInteger(Number(offer.maxTradeAttemptsPerDay))?Number(offer.maxTradeAttemptsPerDay):5;
+    const maxAttempts=Number(offer.maxTradeAttemptsPerDay);
     const claim=await claimOpportunityExecutionAttempt(userId,offer,maxAttempts);
     if(!claim.claimed){
       if(claim.reason==="retry-window-expired"||claim.reason==="attempts-exhausted"||claim.reason==="failed"){
@@ -2963,8 +2954,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,durationSeconds:Number(row.durationSeconds||0),marketObservedAt:row.marketObservedAt,
       marketSnapshotId:row.marketSnapshotId,sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,
       executionStatus:row.executionStatus,executionAttemptCount:Number(row.executionAttemptCount||0),executionRetryAfter:row.executionRetryAfter,executionRetryDay:row.executionRetryDay,executionLastErrorCode:row.executionLastErrorCode,
-      maxTradeAttemptsPerDay:Number(policyByName.get(String(row.packageName))?.maxTradeAttemptsPerDay??5),
-      tradeRetryDelaySeconds:Number(policyByName.get(String(row.packageName))?.tradeRetryDelaySeconds??30),
+      maxTradeAttemptsPerDay:policyByName.get(String(row.packageName))?.maxTradeAttemptsPerDay,
+      tradeRetryDelaySeconds:policyByName.get(String(row.packageName))?.tradeRetryDelaySeconds,
       popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered"].includes(String(row.deliveryStatus)),eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus};
   }).filter((offer) => offer !== null);
   const allocationControls=await getTradeAllocationControls();
@@ -2973,7 +2964,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const packagePolicy=policyByName.get(String(offer.packageName));
     // Disabled package policies or automatic execution must stop new allocations
     // without turning a merely visible/pending popup into a trade request.
-    return !packagePolicy || (Boolean(packagePolicy.enabled) && packagePolicy.automaticTradingEnabled!==false);
+    return Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled);
   });
   const effectiveControls=controls;
   const auto=options.workerCycle===true ? await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls) : {executed:[],missed:await listMissedOpportunities(userId)};
