@@ -314,3 +314,6 @@ This policy is final and must be followed throughout the application:
 - Integration remains blocked: PRs #230–#237 remain open/unmerged in the latest refresh; PR #230 reports a merge conflict; main's historical `0086_trading_popup_policy_snapshots.sql` and PR #233/#235 same-numbered migrations require an explicit forward-only migration sequence. Do not merge #238 independently.
 - Part 5 PR #236 current head `e9184988c9dbfde346278e697d8a9b64f47ec229` has seven successful generic workflows. Its dedicated authenticated UI runner and persisted-settings server acceptance are not verified; the real-server run was explicitly deferred.
 - Disposition: Part 4 is not integration-complete or acceptance-complete. Exact-head CI and the integrated migration/lifecycle checks remain required; dedicated server acceptance remains deferred.
+
+
+- Exact source correction commit: `6f8da2dde430b15ad060eb7883f9642e342d4609`. Immediately after pushing that commit, the exact-SHA workflow and combined-status APIs returned no checks; the new source is not yet reported as passing. Refresh the PR head and CI results before acceptance.
