@@ -2650,17 +2650,42 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const tiers=await db.select({name:packages.name}).from(packages);
   const tierNames=new Set(tiers.map(tier=>tier.name));
-  for (const policy of policies) {
+  // Validate the entire form before writing so one invalid tier cannot leave
+  // the administrator's batch partially saved.
+  const prepared=policies.map(policy=>{
     if(typeof policy.packageName!=="string"||!tierNames.has(policy.packageName)) throw new Error("Opportunity policy references an unknown Trading tier");
     if(policy.minHourlyTarget>policy.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
     if(policy.normalHourlyTarget*24>policy.maxPopupsPerDay && policy.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
     if(!Number.isSafeInteger(policy.minimumTradeUnits)||!Number.isSafeInteger(policy.maximumTradeUnits)||policy.minimumTradeUnits<1||policy.maximumTradeUnits<policy.minimumTradeUnits) throw new Error(`Trade amount bounds are invalid for ${policy.packageName}`);
     const automation={packageName:policy.packageName,enabled:true,automaticDelivery:true,dailyPopupTarget:policy.dailyPopupTarget??policy.maxPopupsPerDay,schedulingPeriod:policy.schedulingPeriod??"rolling_24h",minIntervalSeconds:policy.minIntervalSeconds??45,maxIntervalSeconds:policy.maxIntervalSeconds??3600,randomizationEnabled:policy.randomizationEnabled??true,popupDisplayTargetSeconds:policy.popupDisplayTargetSeconds??120,completionDisplaySeconds:policy.completionDisplaySeconds??8,postCompletionIntervalSeconds:policy.postCompletionIntervalSeconds??30,maxPendingDeliveries:policy.maxPendingDeliveries??3,maxDeliveryAttempts:policy.maxDeliveryAttempts??3,automaticTradingEnabled:true,maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay??5,tradeRetryDelaySeconds:policy.tradeRetryDelaySeconds??30,maxSuccessfulTradesPerDay:policy.maxSuccessfulTradesPerDay??5,maxConcurrentActiveTrades:policy.maxConcurrentActiveTrades??1,requirePreviousSettlement:policy.requirePreviousSettlement??true,minSettlementDelaySeconds:policy.minSettlementDelaySeconds??900,maxSettlementDelaySeconds:policy.maxSettlementDelaySeconds??900,minimumRewardBps:policy.minimumRewardBps??0,maxDailyRewardMinor:policy.maxDailyRewardMinor??0,maxRewardPerTradeMinor:policy.maxRewardPerTradeMinor??0,closePolicy:policy.closePolicy??"after_final_display"};
     validatePackageAutomationPolicy(automation);
+    if(automation.minIntervalSeconds>automation.maxIntervalSeconds) throw new Error(`Delivery interval minimum exceeds maximum for ${policy.packageName}`);
+    if(automation.minSettlementDelaySeconds>automation.maxSettlementDelaySeconds) throw new Error(`Settlement delay minimum exceeds maximum for ${policy.packageName}`);
     const values:any={...policy,...automation,updatedBy};
-    delete values.id; delete values.updatedAt;
-    await db.insert(opportunityPackagePolicies).values(values).onDuplicateKeyUpdate({set:values});
-  }
+    delete values.id; delete values.updatedAt; delete values.policyVersion;
+    return {packageName:policy.packageName,values};
+  });
+  await db.transaction(async tx=>{
+    for(const item of prepared){
+      const current=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,item.packageName)).limit(1).for("update"))[0];
+      const currentVersion=Number(current?.policyVersion||0);
+      const nextVersion=current?currentVersion+1:1;
+      if(!Number.isSafeInteger(nextVersion)||nextVersion<1) throw new Error(`Trading policy version is invalid for ${item.packageName}`);
+      const next={...item.values,policyVersion:nextVersion,updatedAt:new Date()};
+      if(current){
+        await tx.update(opportunityPackagePolicies).set(next).where(eq(opportunityPackagePolicies.id,current.id));
+      }else{
+        await tx.insert(opportunityPackagePolicies).values(next);
+      }
+      await tx.insert(v5AuditEvents).values({
+        actorUserId:updatedBy,action:"trading_delivery_policy_updated",
+        entityType:"opportunity_package_policy",entityId:String(current?.id??item.packageName),
+        reason:"Administrator saved Trading delivery, display, retry and reward eligibility limits. Saved policy version applies under the existing trade snapshot rules.",
+        reference:"trading-delivery-policy:"+item.packageName+":"+nextVersion,
+        metadataJson:JSON.stringify({packageName:item.packageName,previousVersion:currentVersion||null,nextVersion,oldPolicy:current||null,newPolicy:next}),
+      });
+    }
+  });
   return listOpportunityPackagePolicies();
 }
 async function listMissedOpportunities(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");return db.select().from(missedOpportunities).where(and(eq(missedOpportunities.userId,userId),eq(missedOpportunities.status,"MISSED"))).orderBy(desc(missedOpportunities.createdAt)).limit(50);}

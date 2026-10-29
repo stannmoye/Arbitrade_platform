@@ -1,3 +1,11 @@
+## 2026-10-29 — Expanded administrator Trading delivery policy controls
+
+- Branch: `feat/trading-package-popup-policy`, based on canonical `main` SHA `7356c5870807592c8e890a3937cf3fb0f2a403fc`.
+- Extended the existing **Trade Settings → Opportunity Engine** tier-policy editor to load and edit persisted delivery window, cadence bounds, expanded/completed pop-up display times, post-completion gap, pending-delivery caps, delivery/trade retry limits, concurrency, settlement timing, minimum eligible reward basis points, daily/per-trade reward caps, and card-close policy.
+- Strengthened the existing admin-only save path: validate the entire submitted batch before writes, persist all tier changes in one database transaction, bump the per-tier policy version, and record previous/next policy plus actor in the audit stream. The UI requires confirmation, reports server errors, and refreshes only after success. Active trade snapshots remain intact.
+- Added a source-contract test for UI/schema/router/service wiring. This increment does not yet implement configurable package badges, inclusive minimum/maximum per-pop-up reward-rate bounds, per-pop-up trade-duration bounds, stable-ID company rotation or restart-safe opportunity snapshots; those need a separate schema and worker integration increment.
+- Validation: source checks have not yet run on this commit. No production migration or deployment was performed.
+
 ## 2026-10-29 — Admin-editable Trading pop-up and company rotation requirements
 
 - Verified that PR #226, **Disable synthetic Trading opportunity generation**, merged into `main` as `21a9f6a95aa72d464886c1c164016491ec7391dd`. Its six main-commit workflows all completed successfully: Trading settlement DB integration, Trading tier qualification DB integration, Mining regression checks, application verification, installer validation, and production source build/test. No production deployment or production database change was performed.
