@@ -7,6 +7,7 @@ const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const lifecycle = readFileSync(new URL("./opportunityLifecycle.ts", import.meta.url), "utf8");
 const adminNavigation = readFileSync(new URL("../client/src/admin-navigation.ts", import.meta.url), "utf8");
 const adminApp = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+const workerPreflight = readFileSync(new URL("../scripts/ensure-worker-runtime-schema.mjs", import.meta.url), "utf8");
 
 describe("Trading policy reconciliation migration", () => {
   it("pauses existing tiers until an administrator reviews and saves their policy", () => {
@@ -47,5 +48,13 @@ describe("Trading policy reconciliation migration", () => {
     expect(adminApp).toContain("Carry-forward is unavailable: missed opportunities do not roll over and no carry-forward setting is active.");
     expect(adminApp).not.toContain('minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6');
     expect(database).toContain("New Trading tiers must be created disabled.");
+  });
+});
+
+describe("Trading migration replay safety", () => {
+  it("does not replay one-time package-policy backfills during every server startup", () => {
+    expect(workerPreflight).toContain("Do not replay migration 0086 from runtime preflight");
+    expect(workerPreflight).not.toContain("executeCompatibleMigrationSql(db, tradingPopupPolicyMigration)");
+    expect(workerPreflight).not.toContain('readFile(resolve(root, "drizzle/0086_trading_popup_policy_ranges.sql")');
   });
 });
