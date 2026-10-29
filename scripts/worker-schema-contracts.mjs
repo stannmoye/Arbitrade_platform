@@ -40,6 +40,15 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
       trading_tier_qualification_jobs_user_status_idx: { unique: false, columns: ["userId", "status"] },
     },
   },
+  opportunity_popup_events: {
+    columns: ["id", "eventKey", "policyVersion", "durationSeconds", "badgeLabel", "badgeStyle"],
+    dataTypes: { id: "int", eventKey: "varchar", policyVersion: "int", durationSeconds: "int", badgeLabel: "varchar", badgeStyle: "varchar" },
+    nullable: { durationSeconds: true, badgeLabel: true },
+    indexes: {
+      PRIMARY: { unique: true, columns: ["id"] },
+      opportunity_popup_event_key_unique: { unique: true, columns: ["eventKey"] },
+    },
+  },
   notification_campaigns: {
     columns: [
       "id", "createdBy", "eventKey", "title", "body", "category", "priority",

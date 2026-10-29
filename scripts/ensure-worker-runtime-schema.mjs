@@ -119,6 +119,11 @@ async function main() {
     const settlementSchemaMigration = await readFile(resolve(root, "drizzle/0085_trade_settlement_schema_reconciliation.sql"), "utf8");
     await executeCompatibleMigrationSql(db, settlementSchemaMigration);
 
+    // Ensure saved Trading popup ranges and durable per-delivery badge/duration
+    // snapshots exist even when a host has an older migration tracker.
+    const popupPolicyRangeMigration = await readFile(resolve(root, "drizzle/0086_trading_popup_policy_ranges.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, popupPolicyRangeMigration);
+
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],
       ["category", "VARCHAR(40) NOT NULL DEFAULT 'account'"],

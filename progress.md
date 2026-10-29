@@ -1,3 +1,10 @@
+## 2026-10-29 — Administrator badge and published-offer bounds for Trading pop-ups
+
+- Extended the existing Trading policy editor and admin-only persistence path with an allowlisted badge label/style, inclusive minimum/maximum published reward-rate filters stored in integer basis points, and minimum/maximum published duration filters in seconds.
+- Future pop-up delivery filters existing administrator-published offers against those bounds. It does not invent new reward rates or durations, and saves policy version, badge and original published duration on the durable popup event so existing events retain their original snapshot.
+- Added forward migration 0086 and registered it with Drizzle, portal migration, installer recovery and worker runtime preflight. Added runtime schema-contract checks and migration-tail test updates.
+- Validation for this new increment has not run on its eventual commit yet. The previous commit `3ed9264e436de9a150b7acbddfd8807fc7900fd9` passed the application, installer, Mining, Trading DB and recovery checks, including production type-check/test/build and the real-browser job. No production migration or deployment was run.
+
 ## 2026-10-29 — Expanded administrator Trading delivery policy controls
 
 - Branch: `feat/trading-package-popup-policy`, based on canonical `main` SHA `7356c5870807592c8e890a3937cf3fb0f2a403fc`.

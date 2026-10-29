@@ -11,6 +11,10 @@ type PopupDelivery = {
   currency: string;
   minimumMinor: number;
   expectedRewardBps: number;
+  policyVersion: number;
+  durationSeconds: number;
+  badgeLabel: string | null;
+  badgeStyle: string;
   balanceAvailableMinor: number;
   balanceStatus: "sufficient" | "insufficient" | "unknown";
   marketObservedAt?: Date | null;
@@ -29,10 +33,10 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
     for (const item of deliveries) {
       await connection.execute(
         `INSERT INTO opportunity_popup_events
-          (eventKey,userId,offerId,quotaDay,packageName,symbol,currency,minimumMinor,expectedRewardBps,balanceAvailableMinor,balanceStatus,marketObservedAt,marketSnapshotJson,eventStatus,deliveredAt,createdAt,updatedAt)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+          (eventKey,userId,offerId,quotaDay,packageName,symbol,currency,minimumMinor,expectedRewardBps,balanceAvailableMinor,balanceStatus,marketObservedAt,marketSnapshotJson,policyVersion,durationSeconds,badgeLabel,badgeStyle,eventStatus,deliveredAt,createdAt,updatedAt)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
          ON DUPLICATE KEY UPDATE updatedAt=CURRENT_TIMESTAMP`,
-        [`${item.userId}:${item.offerId}:${item.quotaDay}`, item.userId, item.offerId, item.quotaDay, item.packageName, item.symbol, item.currency, item.minimumMinor, item.expectedRewardBps, item.balanceAvailableMinor, item.balanceStatus, item.marketObservedAt || null, item.marketSnapshotJson || null],
+        [`${item.userId}:${item.offerId}:${item.quotaDay}`, item.userId, item.offerId, item.quotaDay, item.packageName, item.symbol, item.currency, item.minimumMinor, item.expectedRewardBps, item.balanceAvailableMinor, item.balanceStatus, item.marketObservedAt || null, item.marketSnapshotJson || null, item.policyVersion, item.durationSeconds, item.badgeLabel, item.badgeStyle],
       );
     }
     const keys = deliveries.map(item => `${item.userId}:${item.offerId}:${item.quotaDay}`);

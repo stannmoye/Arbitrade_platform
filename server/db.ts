@@ -2657,11 +2657,23 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     if(policy.minHourlyTarget>policy.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
     if(policy.normalHourlyTarget*24>policy.maxPopupsPerDay && policy.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
     if(!Number.isSafeInteger(policy.minimumTradeUnits)||!Number.isSafeInteger(policy.maximumTradeUnits)||policy.minimumTradeUnits<1||policy.maximumTradeUnits<policy.minimumTradeUnits) throw new Error(`Trade amount bounds are invalid for ${policy.packageName}`);
+    const badgeLabel=policy.badgeLabel==null||String(policy.badgeLabel).trim()===""?null:String(policy.badgeLabel).trim();
+    const badgeStyle=String(policy.badgeStyle??"neutral");
+    if(badgeLabel!==null&&badgeLabel.length>40) throw new Error(`Badge label must be at most 40 characters for ${policy.packageName}`);
+    if(!["neutral","blue","purple","gold","green"].includes(badgeStyle)) throw new Error(`Badge style is not allowed for ${policy.packageName}`);
+    const minimumPayoutRateBps=policy.minimumPayoutRateBps==null?null:Number(policy.minimumPayoutRateBps);
+    const maximumPayoutRateBps=policy.maximumPayoutRateBps==null?null:Number(policy.maximumPayoutRateBps);
+    if((minimumPayoutRateBps===null)!==(maximumPayoutRateBps===null)) throw new Error(`Set both published reward-rate bounds or leave both blank for ${policy.packageName}`);
+    if(minimumPayoutRateBps!==null&&(!Number.isSafeInteger(minimumPayoutRateBps)||!Number.isSafeInteger(maximumPayoutRateBps)||minimumPayoutRateBps<0||maximumPayoutRateBps<minimumPayoutRateBps||maximumPayoutRateBps>5000)) throw new Error(`Published reward-rate bounds must satisfy 0 ≤ minimum ≤ maximum ≤ 5000 bps for ${policy.packageName}`);
+    const minimumTradeDurationSeconds=policy.minimumTradeDurationSeconds==null?null:Number(policy.minimumTradeDurationSeconds);
+    const maximumTradeDurationSeconds=policy.maximumTradeDurationSeconds==null?null:Number(policy.maximumTradeDurationSeconds);
+    if((minimumTradeDurationSeconds===null)!==(maximumTradeDurationSeconds===null)) throw new Error(`Set both published duration bounds or leave both blank for ${policy.packageName}`);
+    if(minimumTradeDurationSeconds!==null&&(!Number.isSafeInteger(minimumTradeDurationSeconds)||!Number.isSafeInteger(maximumTradeDurationSeconds)||minimumTradeDurationSeconds<10||maximumTradeDurationSeconds<minimumTradeDurationSeconds||maximumTradeDurationSeconds>86400)) throw new Error(`Published duration bounds must satisfy 10 ≤ minimum ≤ maximum ≤ 86400 seconds for ${policy.packageName}`);
     const automation={packageName:policy.packageName,enabled:true,automaticDelivery:true,dailyPopupTarget:policy.dailyPopupTarget??policy.maxPopupsPerDay,schedulingPeriod:policy.schedulingPeriod??"rolling_24h",minIntervalSeconds:policy.minIntervalSeconds??45,maxIntervalSeconds:policy.maxIntervalSeconds??3600,randomizationEnabled:policy.randomizationEnabled??true,popupDisplayTargetSeconds:policy.popupDisplayTargetSeconds??120,completionDisplaySeconds:policy.completionDisplaySeconds??8,postCompletionIntervalSeconds:policy.postCompletionIntervalSeconds??30,maxPendingDeliveries:policy.maxPendingDeliveries??3,maxDeliveryAttempts:policy.maxDeliveryAttempts??3,automaticTradingEnabled:true,maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay??5,tradeRetryDelaySeconds:policy.tradeRetryDelaySeconds??30,maxSuccessfulTradesPerDay:policy.maxSuccessfulTradesPerDay??5,maxConcurrentActiveTrades:policy.maxConcurrentActiveTrades??1,requirePreviousSettlement:policy.requirePreviousSettlement??true,minSettlementDelaySeconds:policy.minSettlementDelaySeconds??900,maxSettlementDelaySeconds:policy.maxSettlementDelaySeconds??900,minimumRewardBps:policy.minimumRewardBps??0,maxDailyRewardMinor:policy.maxDailyRewardMinor??0,maxRewardPerTradeMinor:policy.maxRewardPerTradeMinor??0,closePolicy:policy.closePolicy??"after_final_display"};
     validatePackageAutomationPolicy(automation);
     if(automation.minIntervalSeconds>automation.maxIntervalSeconds) throw new Error(`Delivery interval minimum exceeds maximum for ${policy.packageName}`);
     if(automation.minSettlementDelaySeconds>automation.maxSettlementDelaySeconds) throw new Error(`Settlement delay minimum exceeds maximum for ${policy.packageName}`);
-    const values:any={...policy,...automation,updatedBy};
+    const values:any={...policy,...automation,badgeLabel,badgeStyle,minimumPayoutRateBps,maximumPayoutRateBps,minimumTradeDurationSeconds,maximumTradeDurationSeconds,updatedBy};
     delete values.id; delete values.updatedAt; delete values.policyVersion;
     return {packageName:policy.packageName,values};
   });
@@ -2921,20 +2933,48 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       if(remainingQuota<=0) break;
       const offerId=Number(offer.id);
       if(deliveredOfferIds.has(offerId)||activePopupOfferIds.has(offerId)||tradeOfferIds.has(offerId)||missedOfferIds.has(offerId)) continue;
-      const subscription=eligibleSubscriptions.find(subscriptionHasQuota);
-      if(!subscription) break;
-      const configured=policyByName.get(subscription.packageName);
       const currencyRow=currencyRows.find((row:any)=>String(row.code).toUpperCase()===String(offer.currency).toUpperCase());
       if(!currencyRow) continue;
-      const configuredMinimum=configured?packageUsdUnitsToNativeMinor(Number(configured.minimumTradeUnits),String(offer.currency),currencyRows):Number(offer.minimumMinor);
-      const configuredMaximum=configured?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(configured.maximumTradeUnits),String(offer.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
-      const terms=calculateTradeTerms(userId,offer,Math.max(Number(offer.minimumMinor),configuredMinimum));
-      const minimumMinor=Math.max(Number(offer.minimumMinor),Number(terms.minimumMinor||0),configuredMinimum);
-      if(!Number.isSafeInteger(minimumMinor)||minimumMinor<=0||minimumMinor>configuredMaximum) continue;
+      // The administrator's rate/duration bounds filter published opportunities.
+      // They never synthesize a reward rate or reroll a duration.
+      const publishedRewardBps=Number(offer.expectedRewardBps);
+      const publishedDurationSeconds=Number(offer.durationSeconds);
+      if(!Number.isSafeInteger(publishedRewardBps)||publishedRewardBps<0||publishedRewardBps>10000||
+         !Number.isSafeInteger(publishedDurationSeconds)||publishedDurationSeconds<10||publishedDurationSeconds>86400) continue;
+      let selected:any=null;
+      for(const candidate of eligibleSubscriptions){
+        if(!subscriptionHasQuota(candidate)) continue;
+        const candidatePolicy=policyByName.get(candidate.packageName);
+        if(candidatePolicy){
+          const minRate=candidatePolicy.minimumPayoutRateBps;
+          const maxRate=candidatePolicy.maximumPayoutRateBps;
+          if(minRate!=null||maxRate!=null){
+            if(minRate==null||maxRate==null||publishedRewardBps<Number(minRate)||publishedRewardBps>Number(maxRate)) continue;
+          }
+          const minDuration=candidatePolicy.minimumTradeDurationSeconds;
+          const maxDuration=candidatePolicy.maximumTradeDurationSeconds;
+          if(minDuration!=null||maxDuration!=null){
+            if(minDuration==null||maxDuration==null||publishedDurationSeconds<Number(minDuration)||publishedDurationSeconds>Number(maxDuration)) continue;
+          }
+        }
+        const configuredMinimum=candidatePolicy?packageUsdUnitsToNativeMinor(Number(candidatePolicy.minimumTradeUnits),String(offer.currency),currencyRows):Number(offer.minimumMinor);
+        const configuredMaximum=candidatePolicy?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(candidatePolicy.maximumTradeUnits),String(offer.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
+        const terms=calculateTradeTerms(userId,offer,Math.max(Number(offer.minimumMinor),configuredMinimum));
+        const minimumMinor=Math.max(Number(offer.minimumMinor),Number(terms.minimumMinor||0),configuredMinimum);
+        if(!Number.isSafeInteger(minimumMinor)||minimumMinor<=0||minimumMinor>configuredMaximum) continue;
+        selected={subscription:candidate,configured:candidatePolicy,configuredMinimum,configuredMaximum,minimumMinor,terms};
+        break;
+      }
+      if(!selected) continue;
+      const subscription=selected.subscription;
+      const configured=selected.configured;
       newlyEligible.push({...offer,packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
-        minimumMinor,packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,
+        minimumMinor:selected.minimumMinor,packageMinimumTradeMinor:selected.configuredMinimum,packageMaximumTradeMinor:selected.configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
-        expectedRewardBps:terms.rewardBps,calculationMethod:terms.method});
+        expectedRewardBps:selected.terms.rewardBps,calculationMethod:selected.terms.method,
+        durationSeconds:publishedDurationSeconds,policyVersion:Number(configured?.policyVersion||1),
+        badgeLabel:configured?.badgeLabel==null?null:String(configured.badgeLabel),
+        badgeStyle:["neutral","blue","purple","gold","green"].includes(String(configured?.badgeStyle))?String(configured?.badgeStyle):"neutral"});
       assignedSubscriptionByOffer.set(Number(offer.id),subscription);
       usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
       remainingQuota--;
@@ -2945,7 +2985,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{
       const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
       return {userId,offerId:offer.id,quotaDay,packageName:offer.packageName,symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
-        expectedRewardBps:Number(offer.expectedRewardBps),balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
+        expectedRewardBps:Number(offer.expectedRewardBps),policyVersion:Number(offer.policyVersion||1),durationSeconds:Number(offer.durationSeconds||0),badgeLabel:offer.badgeLabel??null,badgeStyle:offer.badgeStyle||"neutral",
+        balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
         marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt})};
     }));
     for(const offer of newlyEligible){offer.deliveryEventId=lifecycleIds.get(userId+":"+offer.id+":"+quotaDay)||null; deliveredOfferIds.add(Number(offer.id));}
@@ -2954,7 +2995,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
     executionStatus:opportunityPopupEvents.executionStatus,executionAttemptCount:opportunityPopupEvents.executionAttemptCount,executionRetryAfter:opportunityPopupEvents.executionRetryAfter,executionRetryDay:opportunityPopupEvents.executionRetryDay,executionLastErrorCode:opportunityPopupEvents.executionLastErrorCode,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
-    expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
+    expectedRewardBps:opportunityPopupEvents.expectedRewardBps,policyVersion:opportunityPopupEvents.policyVersion,
+    popupDurationSeconds:opportunityPopupEvents.durationSeconds,badgeLabel:opportunityPopupEvents.badgeLabel,badgeStyle:opportunityPopupEvents.badgeStyle,
+    balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
     balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,quotaDay:opportunityPopupEvents.quotaDay,
     deliveredAt:opportunityPopupEvents.deliveredAt,venueFrom:opportunityOffers.venueFrom,venueTo:opportunityOffers.venueTo,
     offerStatus:opportunityOffers.status,offerMinimumMinor:opportunityOffers.minimumMinor,opensAt:opportunityOffers.opensAt,
@@ -2985,6 +3028,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     return {id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageId:Number(subscription.packageId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
       symbol:row.symbol,venueFrom:row.venueFrom||"",venueTo:row.venueTo||"",currency:row.currency,minimumMinor:Math.max(offerMinimum,Number(row.popupMinimumMinor||0),configuredMinimum),
       packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,expectedRewardBps:Number(row.expectedRewardBps||0),
+      durationSeconds:Number(row.popupDurationSeconds??row.durationSeconds??0),badgeLabel:row.badgeLabel??null,badgeStyle:["neutral","blue","purple","gold","green"].includes(String(row.badgeStyle))?String(row.badgeStyle):"neutral",policyVersion:Number(row.policyVersion||1),
       opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,durationSeconds:Number(row.durationSeconds||0),marketObservedAt:row.marketObservedAt,
       marketSnapshotId:row.marketSnapshotId,sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,
       executionStatus:row.executionStatus,executionAttemptCount:Number(row.executionAttemptCount||0),executionRetryAfter:row.executionRetryAfter,executionRetryDay:row.executionRetryDay,executionLastErrorCode:row.executionLastErrorCode,
@@ -3010,7 +3054,9 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       symbol:row.symbol,currency:row.currency,minimumMinor:Number(row.popupMinimumMinor),balanceAvailableMinor:Number(row.balanceAvailableMinor),
       balanceStatus:row.balanceStatus,expectedRewardBps:Number(row.expectedRewardBps),eventStatus:row.eventStatus,deliveredAt:row.deliveredAt,
       venueFrom:row.venueFrom||base.venueFrom||"",venueTo:row.venueTo||base.venueTo||"",opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,
-      durationSeconds:Number(row.durationSeconds||base.durationSeconds||0),marketObservedAt:row.marketObservedAt,sector:row.sector,industry:row.industry,
+      durationSeconds:Number(row.popupDurationSeconds??row.durationSeconds??base.durationSeconds??0),
+      badgeLabel:row.badgeLabel??null,badgeStyle:["neutral","blue","purple","gold","green"].includes(String(row.badgeStyle))?String(row.badgeStyle):"neutral",
+      policyVersion:Number(row.policyVersion||base.policyVersion||1),marketObservedAt:row.marketObservedAt,sector:row.sector,industry:row.industry,
       listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus),automaticTrade:executed};
   });
   return {offers:enrichedOffers,missed:auto.missed,autoTrades:auto.executed,settled,delivery:{packageName,maxPopupsPerDay:dailyCap,maxVisibleOffers:maxVisibleOffers,formulaCooling,formulaReadyAt,nextPopupFormulaDelaySeconds:Number(policy?.postCompletionIntervalSeconds||0),rateProfile:{minHourlyTarget:Number(policy?.minHourlyTarget||0),normalHourlyTarget:Number(policy?.normalHourlyTarget||0),marketInfluenceBps:Number(policy?.marketInfluenceBps||0),burstEnabled:Boolean(policy?.burstEnabled),maxBurstSize:Number(policy?.maxBurstSize||0)},popupPolicy}};
