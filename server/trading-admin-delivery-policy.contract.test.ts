@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const app = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
@@ -25,7 +26,7 @@ describe("administrator Trading delivery policy controls", () => {
       "value={row.popupDisplayTargetSeconds}", "value={row.minIntervalSeconds}",
       "value={row.maxIntervalSeconds}", "value={row.maxTradeAttemptsPerDay}",
       "value={row.maxDailyRewardMinor}",
-    ]) expect(app).toContain(binding);
+    ]) expect(policyEditor).toContain(binding);
   });
 
   it("validates the whole policy batch before a transactional, versioned and audited write", () => {
@@ -41,9 +42,9 @@ describe("administrator Trading delivery policy controls", () => {
   });
 
   it("keeps display timeout presentation-only and avoids promising a configured reward as earned profit", () => {
-    expect(app).toContain("Controls display only; must not cancel an active trade.");
+    expect(policyEditor).toContain("Controls display only; must not cancel an active trade.");
     expect(app).toContain("active trade snapshots are preserved");
-    expect(app).toContain("This is a minimum eligibility constraint, not a generated or guaranteed return.");
+    expect(policyEditor).toContain("This is a minimum eligibility constraint, not a generated or guaranteed return.");
     expect(database).toContain("Saved policy version applies under the existing trade snapshot rules.");
   });
 });
