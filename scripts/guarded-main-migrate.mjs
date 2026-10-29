@@ -123,6 +123,60 @@ async function reconcileTradingPackageSchema(connection, root) {
 }
 
 
+async function reconcileTradingPackagePolicySchema(connection, root) {
+  const requiredColumns = [
+    "automaticDelivery", "dailyPopupTarget", "schedulingPeriod", "minIntervalSeconds",
+    "maxIntervalSeconds", "randomizationEnabled", "popupDisplayTargetSeconds",
+    "completionDisplaySeconds", "postCompletionIntervalSeconds", "maxPendingDeliveries",
+    "deliveryRetryPolicy", "maxDeliveryAttempts", "expiryHandling", "duplicatePrevention",
+    "audioEnabled", "audioSound", "automaticTradingEnabled", "maxTradeAttemptsPerDay",
+    "maxSuccessfulTradesPerDay", "maxConcurrentActiveTrades", "requirePreviousSettlement",
+    "minSettlementDelaySeconds", "maxSettlementDelaySeconds", "minimumRewardBps",
+    "allowedOpportunityTypes", "maxDailyRewardMinor", "rewardLimitCurrency",
+    "dailyRewardWindow", "maxRewardPerTradeMinor", "unsettledRewardPolicy",
+    "capReachedPolicy", "settlementConfirmationState", "settlementRetryPolicy",
+    "maxSettlementAttempts", "closePolicy", "policyVersion",
+  ];
+  const [columnRows] = await connection.query(
+    "SELECT column_name AS columnName FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name IN (" +
+      requiredColumns.map(() => "?").join(",") + ")",
+    ["opportunity_package_policies", ...requiredColumns],
+  );
+  const [tableRows] = await connection.query(
+    "SELECT table_name AS tableName FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN (?, ?)",
+    ["trade_reward_reservations", "opportunity_schedule_decisions"],
+  );
+  const existingColumns = new Set(columnRows.map((row) => String(row.columnName)));
+  const existingTables = new Set(tableRows.map((row) => String(row.tableName)));
+  if (requiredColumns.every((column) => existingColumns.has(column)) &&
+      existingTables.has("trade_reward_reservations") &&
+      existingTables.has("opportunity_schedule_decisions")) return { repaired: false };
+
+  const migrationPath = resolve(root, "drizzle", "0087_trading_package_policy_schema_reconciliation.sql");
+  const sql = await readFile(migrationPath, "utf8");
+  await executeCompatibleMigrationSql(connection, sql);
+  const [verifiedRows] = await connection.query(
+    "SELECT column_name AS columnName FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name IN (" +
+      requiredColumns.map(() => "?").join(",") + ")",
+    ["opportunity_package_policies", ...requiredColumns],
+  );
+  const [verifiedTablesRows] = await connection.query(
+    "SELECT table_name AS tableName FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN (?, ?)",
+    ["trade_reward_reservations", "opportunity_schedule_decisions"],
+  );
+  const verifiedColumns = new Set(verifiedRows.map((row) => String(row.columnName)));
+  const verifiedTables = new Set(verifiedTablesRows.map((row) => String(row.tableName)));
+  const missingColumns = requiredColumns.filter((column) => !verifiedColumns.has(column));
+  const missingTables = ["trade_reward_reservations", "opportunity_schedule_decisions"].filter((table) => !verifiedTables.has(table));
+  if (missingColumns.length || missingTables.length) {
+    throw new Error("Trading package policy schema verification failed after additive repair: " +
+      [...missingColumns.map((column) => "opportunity_package_policies." + column), ...missingTables].join(", "));
+  }
+  console.log("[main-migrate] Reconciled Trading package policy schema using the idempotent 0087 repair.");
+  return { repaired: true };
+}
+
+
 async function reconcileOpportunityExecutionLeaseSchema(connection, root) {
   const requiredColumns = ["deliveryStatus", "deliveryAttemptCount", "lastErrorCode", "receivedAt", "renderedAt", "expiredAt", "tradeId", "policyVersion", "executionLeaseToken"];
   const [rows] = await connection.query(
@@ -395,6 +449,9 @@ async function main() {
     currentMigration = "trading-opportunity-execution-lease-schema-reconciliation";
     currentStatement = { index: null, label: "Trading opportunity execution lease schema verification and additive repair" };
     await reconcileOpportunityExecutionLeaseSchema(connection, root);
+    currentMigration = "trading-package-policy-schema-reconciliation";
+    currentStatement = { index: null, label: "Trading package policy and reservation schema verification and additive repair" };
+    await reconcileTradingPackagePolicySchema(connection, root);
     currentMigration = null;
     currentStatement = null;
 
