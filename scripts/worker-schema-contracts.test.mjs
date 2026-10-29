@@ -58,6 +58,8 @@ describe("worker schema contracts", () => {
     expect(opportunityWorkerMigration).toContain("customer_package_subscriptions_worker_status_user_idx");
     expect(runtimeSchema).toContain('drizzle/0084_worker_health_registry.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, workerHealthMigration)");
+    expect(runtimeSchema).toContain('drizzle/0085_trade_settlement_schema_reconciliation.sql');
+    expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, settlementSchemaMigration)");
     expect(healthMigration).toContain("CREATE TABLE IF NOT EXISTS `worker_health_registry`");
     expect(healthMigration).toContain("worker_health_worker_instance_uq");
     expect(healthMigration).toContain("worker_health_heartbeat_idx");

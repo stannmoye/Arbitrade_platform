@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
-import { getDb, reconcileAllDueTradesAwaitingConfirmation } from "../server/db";
+import { closeDbPool, getDb, reconcileAllDueTradesAwaitingConfirmation } from "../server/db";
 import { balanceLedger, customerBalances, tradeLifecycleEvents, tradePositions, users } from "../drizzle/schema";
 
 const db = await getDb();
@@ -123,13 +123,17 @@ try {
     walletAndLedgerUnchanged: true,
   }));
 } finally {
-  if (tradeIds.length) {
-    await db.delete(tradeLifecycleEvents).where(inArray(tradeLifecycleEvents.tradeId, tradeIds));
-    await db.delete(tradePositions).where(inArray(tradePositions.id, tradeIds));
-  }
-  if (userId !== undefined) {
-    await db.delete(balanceLedger).where(eq(balanceLedger.userId, userId));
-    await db.delete(customerBalances).where(eq(customerBalances.userId, userId));
-    await db.delete(users).where(eq(users.id, userId));
+  try {
+    if (tradeIds.length) {
+      await db.delete(tradeLifecycleEvents).where(inArray(tradeLifecycleEvents.tradeId, tradeIds));
+      await db.delete(tradePositions).where(inArray(tradePositions.id, tradeIds));
+    }
+    if (userId !== undefined) {
+      await db.delete(balanceLedger).where(eq(balanceLedger.userId, userId));
+      await db.delete(customerBalances).where(eq(customerBalances.userId, userId));
+      await db.delete(users).where(eq(users.id, userId));
+    }
+  } finally {
+    await closeDbPool();
   }
 }
