@@ -123,6 +123,10 @@ async function main() {
     const opportunityExecutionLeaseMigration = await readFile(resolve(root, "drizzle/0086_trading_opportunity_execution_leases.sql"), "utf8");
     await executeCompatibleMigrationSql(db, opportunityExecutionLeaseMigration);
 
+    // Reconcile package-policy columns and reservation tables omitted by historical 0051 on some main-journal installs.
+    const tradingPackagePolicyMigration = await readFile(resolve(root, "drizzle/0087_trading_package_policy_schema_reconciliation.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, tradingPackagePolicyMigration);
+
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],
       ["category", "VARCHAR(40) NOT NULL DEFAULT 'account'"],
