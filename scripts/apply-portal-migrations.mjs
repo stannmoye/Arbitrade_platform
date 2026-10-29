@@ -52,6 +52,7 @@ const migrationFiles = [
   "0083_trading_opportunity_worker_indexes.sql",
   "0084_worker_health_registry.sql",
   "0085_trade_settlement_schema_reconciliation.sql",
+  "0086_trading_popup_policy_snapshots.sql",
 ];
 // These tables are schema-baseline indicators for first-time portal migration tracking.
 // Some also belong to the main Drizzle chain; none of them alone proves that a
