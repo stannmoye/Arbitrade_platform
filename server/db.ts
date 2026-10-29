@@ -2275,6 +2275,28 @@ export async function listAdminTradingPackages() {
     throw new Error("Unable to load the Trading package catalogue. Check server logs for the underlying database error.");
   }
 }
+const UNCONFIGURED_TIER_POLICY_SENTINELS = {
+  badgeLabel:null,badgeStyle:"neutral",
+  minimumPayoutRateBps:null,maximumPayoutRateBps:null,
+  minimumTradeDurationSeconds:null,maximumTradeDurationSeconds:null,
+  companyRotationEnabled:false,companyRotationCountryNames:null,
+  companyRotationRepeatPolicy:"avoid_until_exhausted" as const,
+  maxPopupsPerDay:0,maxVisibleOffers:0,minimumTradeUnits:0,maximumTradeUnits:0,
+  minHourlyTarget:0,normalHourlyTarget:0,marketInfluenceBps:0,burstEnabled:false,maxBurstSize:0,
+  enabled:false,automaticDelivery:false,dailyPopupTarget:0,schedulingPeriod:"rolling_24h" as const,
+  minIntervalSeconds:0,maxIntervalSeconds:0,randomizationEnabled:false,popupDisplayTargetSeconds:0,
+  completionDisplaySeconds:0,postCompletionIntervalSeconds:0,maxPendingDeliveries:0,
+  deliveryRetryPolicy:"none" as const,maxDeliveryAttempts:0,expiryHandling:"expire" as const,
+  duplicatePrevention:false,audioEnabled:false,audioSound:"",automaticTradingEnabled:false,
+  maxTradeAttemptsPerDay:0,tradeRetryDelaySeconds:0,maxSuccessfulTradesPerDay:0,maxConcurrentActiveTrades:0,
+  requirePreviousSettlement:true,minSettlementDelaySeconds:0,maxSettlementDelaySeconds:0,
+  minimumRewardBps:0,allowedOpportunityTypes:null,maxDailyRewardMinor:0,rewardLimitCurrency:"USD",
+  dailyRewardWindow:"calendar_day" as const,maxRewardPerTradeMinor:0,unsettledRewardPolicy:"reserve" as const,
+  capReachedPolicy:"stop_new_trades" as const,settlementConfirmationState:"ledger_and_wallet" as const,
+  settlementRetryPolicy:"manual" as const,maxSettlementAttempts:0,closePolicy:"after_completion" as const,
+  policyVersion:0,
+} as const;
+
 export async function createAdminTradingPackage(createdBy:number,input:{
   name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
   opportunitiesPerDay:number; maxPopupsPerDay:number; maxActiveInvestments:number;
@@ -2282,6 +2304,7 @@ export async function createAdminTradingPackage(createdBy:number,input:{
 }) {
   const name=input.name.trim();
   if(!name||name.length>80) throw new Error("Package name must contain 1–80 characters");
+  if(input.enabled) throw new Error("New Trading tiers must be created disabled. Save and review the delivery policy, then explicitly enable the tier.");
   if(!Number.isSafeInteger(input.minimumQualifyingBalanceUsdMinor)||input.minimumQualifyingBalanceUsdMinor<=0) throw new Error("Minimum qualifying balance must be a positive USD minor-unit integer");
   if(!Number.isSafeInteger(input.durationMonths)||input.durationMonths<1||input.durationMonths>1200) throw new Error("Package duration must be 1–1200 calendar months");
   if(!Number.isSafeInteger(input.opportunitiesPerDay)||input.opportunitiesPerDay<1||input.opportunitiesPerDay>10000) throw new Error("Daily opportunity quota must be between 1 and 10000");
@@ -2300,17 +2323,17 @@ export async function createAdminTradingPackage(createdBy:number,input:{
       name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,
       durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,
       maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,
-      startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1,
+      startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:false,termsVersion:1,
     });
     const id=Number(inserted[0].insertId);
-    await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy});
+    await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy,...UNCONFIGURED_TIER_POLICY_SENTINELS});
     await tx.insert(v5AuditEvents).values({
       actorUserId:createdBy,action:"trading_package_created",entityType:"trading_package",entityId:String(id),
       reason:"Administrator created an automatic Trading tier.",
       reference:"trading-package-created:"+id+":1",
       metadataJson:JSON.stringify({id,...input,name,termsVersion:1}),
     });
-    return {id,name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1};
+    return {id,name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:false,termsVersion:1};
   });
 }
 
@@ -2341,9 +2364,28 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
       const targetPolicy=(await tx.select({id:opportunityPackagePolicies.id}).from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,nextName)).limit(1).for("update"))[0];
       if(!currentPolicy) throw new Error("Saved Trading policy is missing for "+current.name+"; reconcile it explicitly before renaming this tier.");
       if(targetPolicy&&targetPolicy.id!==currentPolicy.id) throw new Error("A tier policy with the new name already exists; reconcile it before renaming this tier.");
-      const nextPolicyVersion=Number(currentPolicy.policyVersion||1)+1;
+      const nextPolicyVersion=Number(currentPolicy.policyVersion||0)+1;
       if(!Number.isSafeInteger(nextPolicyVersion)) throw new Error("Tier policy version has reached its limit");
       await tx.update(opportunityPackagePolicies).set({packageName:nextName,updatedBy,policyVersion:nextPolicyVersion,updatedAt:new Date()}).where(eq(opportunityPackagePolicies.id,currentPolicy.id));
+    }
+    const activationPolicy=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,nextName)).limit(1).for("update"))[0];
+    if(input.enabled&&(
+      !activationPolicy||
+      Number(activationPolicy.policyVersion)<1||
+      !activationPolicy.enabled||
+      !activationPolicy.automaticDelivery||
+      !activationPolicy.automaticTradingEnabled||
+      !Number.isSafeInteger(Number(activationPolicy.minimumPayoutRateBps))||
+      !Number.isSafeInteger(Number(activationPolicy.maximumPayoutRateBps))||
+      Number(activationPolicy.minimumPayoutRateBps)<0||
+      Number(activationPolicy.maximumPayoutRateBps)<Number(activationPolicy.minimumPayoutRateBps)||
+      !Number.isSafeInteger(Number(activationPolicy.minimumTradeDurationSeconds))||
+      !Number.isSafeInteger(Number(activationPolicy.maximumTradeDurationSeconds))||
+      Number(activationPolicy.minimumTradeDurationSeconds)<10||
+      Number(activationPolicy.maximumTradeDurationSeconds)<Number(activationPolicy.minimumTradeDurationSeconds)||
+      Number(activationPolicy.maximumTradeDurationSeconds)>86400
+    )) {
+      throw new Error("Save and enable a valid delivery policy with payout-rate and duration bounds before enabling this Trading tier.");
     }
     const nextVersion=Number(current.termsVersion||1)+1;
     if(!Number.isSafeInteger(nextVersion)) throw new Error("Package terms version has reached its limit");
