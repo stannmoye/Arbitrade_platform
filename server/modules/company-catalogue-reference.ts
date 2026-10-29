@@ -225,6 +225,32 @@ export function getCompanyReferenceById(id: string): CompanyReferenceResponse | 
   return company ? asReferenceResponse(company) : undefined;
 }
 
+/**
+ * Select a stable company-logo reference for a package quota slot.
+ * The same delivery inputs always resolve to the same catalogue record, so
+ * retries and worker restarts cannot change a popup's company identity.
+ * This is informational brand metadata only, never a tradable-security claim.
+ */
+export function getCompanyReferenceForRotation(input: {
+  userId: number;
+  packageId: number;
+  quotaDay: string;
+  slotIndex: number;
+}): CompanyReferenceResponse {
+  const { userId, packageId, quotaDay, slotIndex } = input;
+  if (!Number.isSafeInteger(userId) || userId < 1 ||
+      !Number.isSafeInteger(packageId) || packageId < 1 ||
+      !Number.isSafeInteger(slotIndex) || slotIndex < 0 ||
+      !/^\\d{4}-\\d{2}-\\d{2}$/.test(quotaDay)) {
+    throw new Error("Invalid company-rotation delivery identity.");
+  }
+  const dayOrdinal = Math.floor(Date.parse(`${quotaDay}T00:00:00.000Z`) / 86_400_000);
+  if (!Number.isFinite(dayOrdinal)) throw new Error("Invalid company-rotation quota day.");
+  const start = (userId * 7 + packageId * 13 + dayOrdinal) % COMPANY_REFERENCE_CATALOGUE.length;
+  const index = (start + slotIndex) % COMPANY_REFERENCE_CATALOGUE.length;
+  return asReferenceResponse(COMPANY_REFERENCE_CATALOGUE[index]!);
+}
+
 /** Random informational brand spotlight only; this is not a security listing or trade record. */
 export function getRandomCompanyReference(
   random: () => number = Math.random,
