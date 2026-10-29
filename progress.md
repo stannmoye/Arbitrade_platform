@@ -156,9 +156,20 @@ This policy is final and must be followed throughout the application:
 
 ## 2026-10-28 — Animated package progress design
 
-- Added a dark navy mission-control/orbital visualization to the customer package-progress component, based on the supplied screenshot and 3.8-second reference video.
+- Added an initial dark navy mission-control/orbital visualization to the customer package-progress component. The supplied picture is the visual reference; the video is excluded from design requirements.
 - The orbit animation is decorative only: it displays the already-returned current tier, next milestone, progress percentage, and daily allowance; it does not trigger or imply trade execution or financial changes.
 - Added responsive styling and a `prefers-reduced-motion` fallback.
 - Changed files: `client/src/components/CustomerTradingEligibility.tsx`, `client/src/components/CustomerTradingEligibility.css`.
 - Validation status: source edits committed to `design/animated-package-progress`; build, type-check, and test suite have not yet been run in this environment. Customer/admin package-detail loading errors are intentionally deferred until the visual design increment is reviewed, per the user's instruction.
 - Next step: run exact-branch CI and inspect the rendered UI at mobile and desktop widths before merging.
+
+
+## 2026-10-29 — Customer package progress visual refinement
+
+**Active PR:** [#215](https://github.com/stannmoye/Arbitrade_platform/pull/215), branch `design/match-package-progress-mockup`.
+
+- Retained the compact, screenshot-led layout and removed visual elements that distracted from the package status, progress ring, and allowance.
+- Made active state explicit as **PACKAGE ACTIVE**, added USD currency formatting, and added the qualifying-credit total against the next threshold with an animated progress fill.
+- Clarified that only qualifying administrator-issued credits count and that package assignment and extra daily opportunities are automatic. No customer browsing, purchase, or activation control is added.
+- Refined card corners, status badge contrast, helper text, mobile wrapping, and hover motion; retained `prefers-reduced-motion` support.
+- Validation: the prior PR head had successful automated workflows, but this refinement has not yet been validated on its new exact commit. Wait for the new commit's CI before merge. No browser screenshot comparison or production verification is claimed.
