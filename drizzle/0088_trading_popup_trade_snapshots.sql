@@ -13,7 +13,8 @@ ALTER TABLE `opportunity_popup_events`
   ADD COLUMN IF NOT EXISTS `companyDisplayName` VARCHAR(240) NULL,
   ADD COLUMN IF NOT EXISTS `companyLogoUrl` VARCHAR(512) NULL,
   ADD COLUMN IF NOT EXISTS `companyReferenceMetadataJson` TEXT NULL,
-  ADD COLUMN IF NOT EXISTS `companyReferenceOnly` TINYINT(1) NOT NULL DEFAULT 1;
+  ADD COLUMN IF NOT EXISTS `companyReferenceOnly` TINYINT(1) NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS `walletFundingPlanJson` TEXT NULL;
 
 ALTER TABLE `trade_positions`
   ADD COLUMN IF NOT EXISTS `configuredProfitRateBps` INT NOT NULL DEFAULT 0,
