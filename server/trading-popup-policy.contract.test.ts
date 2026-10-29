@@ -19,6 +19,7 @@ describe("administrator-configured Trading pop-up policy", () => {
     expect(schema).toContain('configuredProfitRateBps: int("configuredProfitRateBps")');
     expect(schema).toContain('configuredDurationSeconds: int("configuredDurationSeconds")');
     expect(schema).toContain('configuredPopupDisplaySeconds: int("configuredPopupDisplaySeconds")');
+    expect(schema).toContain('packagePolicyVersionSnapshot: int("packagePolicyVersionSnapshot")');
     expect(schema).toContain('companyReferenceOnly: boolean("companyReferenceOnly")');
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS `maximumRewardBps`');
     expect(migration).toContain('CREATE TABLE IF NOT EXISTS `trading_company_rotation_state`');
@@ -30,6 +31,7 @@ describe("administrator-configured Trading pop-up policy", () => {
     expect(database).toContain("Profit percentage range is invalid");
     expect(database).toContain("configuredProfitRateBps:configuredRateBps");
     expect(database).toContain("configuredDurationSeconds,packagePolicyVersionSnapshot");
+    expect(database).toContain("popupSnapshot?.packagePolicyVersionSnapshot");
     expect(database).toContain("calculateConfiguredProfitMinor(input.amountMinor,configuredRateBps)");
     expect(lifecycle).toContain("configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds");
   });
