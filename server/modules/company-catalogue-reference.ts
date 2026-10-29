@@ -226,6 +226,18 @@ export function getCompanyReferenceById(id: string): CompanyReferenceResponse | 
 }
 
 /** Random informational brand spotlight only; this is not a security listing or trade record. */
+/** Stable O(1) access for a persisted per-customer rotation cursor. This is a brand showcase only, not a verified trade instrument. */
+export function getCompanyReferenceCatalogueSize(): number {
+  return COMPANY_REFERENCE_CATALOGUE.length;
+}
+
+export function getCompanyReferenceAtOffset(offset: number): CompanyReferenceResponse {
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset >= COMPANY_REFERENCE_CATALOGUE.length) {
+    throw new RangeError("Company catalogue offset is outside the available records");
+  }
+  return asReferenceResponse(COMPANY_REFERENCE_CATALOGUE[offset]!);
+}
+
 export function getRandomCompanyReference(
   random: () => number = Math.random,
   excludeIds: readonly string[] = [],
