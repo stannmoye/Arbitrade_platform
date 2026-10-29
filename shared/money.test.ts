@@ -41,6 +41,21 @@ describe("live currency conversion helpers", () => {
     expect(nativeMinorToUsdMinorExact(12345, 2, "1.2345")).toBe(15240);
   });
 
+  it("allocates partial qualifying-deposit reversals with decimal-safe half-up rounding", async () => {
+    const { proportionalMinorAmount } = await import("./money");
+    expect(proportionalMinorAmount(101, 1, 2)).toBe(51);
+    expect(proportionalMinorAmount(100000000000001, 3, 7)).toBe(42857142857143);
+    expect(proportionalMinorAmount(100, 4, 4)).toBe(100);
+  });
+
+  it("rejects invalid proportional reversal inputs", async () => {
+    const { proportionalMinorAmount } = await import("./money");
+    expect(() => proportionalMinorAmount(-1, 1, 2)).toThrow("non-negative safe integer");
+    expect(() => proportionalMinorAmount(100, 0, 2)).toThrow("positive safe integer");
+    expect(() => proportionalMinorAmount(100, 3, 2)).toThrow("at least as large");
+    expect(() => proportionalMinorAmount(Number.MAX_SAFE_INTEGER + 1, 1, 2)).toThrow("non-negative safe integer");
+  });
+
   it("rejects invalid FX rates, invalid scales, and unsafe amounts", async () => {
     const { nativeMinorToUsdMinorExact } = await import("./money");
     expect(() => nativeMinorToUsdMinorExact(100, 2, "0")).toThrow("finite and positive");
