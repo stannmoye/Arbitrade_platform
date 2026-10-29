@@ -46,6 +46,8 @@ describe("Trading retry-policy navigation", () => {
     expect(end).toBeGreaterThan(start);
     const packageEditor = adminApp.slice(start, end);
     expect(packageEditor).toContain("maxTradeAttemptsPerDay");
+    expect(packageEditor).toContain("Tier availability & automation");
+    expect(packageEditor).toContain("automaticTradingEnabled");
     expect(packageEditor).toContain("tradeRetryDelaySeconds");
     expect(packageEditor).toContain("Carry-forward is unavailable: missed opportunities do not roll over and no carry-forward setting is active.");
     expect(navigation).toContain("Carry-Forward Unavailable");
@@ -114,6 +116,8 @@ describe("Trading policy defaults and fail-closed behavior", () => {
     expect(end).toBeGreaterThan(start);
     const updater = serverDb.slice(start, end);
     expect(updater).toContain("automaticTradingEnabled:policy.automaticTradingEnabled");
+    expect(updater).toContain("enabled:policy.enabled");
+    expect(updater).toContain("automaticDelivery:policy.automaticDelivery");
     expect(updater).toContain("maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay");
     expect(updater).toContain("tradeRetryDelaySeconds:policy.tradeRetryDelaySeconds");
     expect(updater).not.toContain("maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay??5");
