@@ -133,11 +133,14 @@ async function main() {
       }).filter(Boolean));
     const actionableText = actionableLabels.join("\n");
     assert.doesNotMatch(actionableText,
-      /(?:activate|subscribe|purchase|buy|select|choose)\s+(?:a\s+)?(?:package|tier)|(?:package|tier)\s+(?:activation|subscription|purchase|management|catalog(?:ue)?)/i,
+      /(?:activate|subscribe|purchase|buy|browse|explore|select|choose|manage)\s+(?:(?:a|all|available)\s+)?(?:packages?|tiers?)|(?:view|compare|see)\s+(?:all|available)\s+(?:packages?|tiers?)|(?:packages?|tiers?)\s+(?:activation|subscription|purchase|management|catalog(?:ue)?|selector)/i,
       "Customer must not have package browsing, purchasing, selection, or activation controls.");
     assert.doesNotMatch(actionableText,
       /(?:trading|opportunit(?:y|ies)|auto[\s-]?trade)\s*(?:on|off)/i,
       "Customer must not control the server-managed Trading engine.");
+    assert.ok(!actionableLabels.some((label) =>
+      /^(?:(?:trading\s+)?packages?|(?:trading\s+)?tiers?|all\s+(?:packages?|tiers?))$/i.test(label)),
+      "Customer must not have a standalone package/tier catalogue navigation entry.");
 
     const tierCardCount = await customerPage.locator(".trading-tier-card").count();
     assert.ok(tierCardCount <= 2,
