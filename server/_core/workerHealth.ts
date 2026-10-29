@@ -125,6 +125,13 @@ export function runMonitoredWorkerCycle<T>(workerKey: WorkerKey, task: () => Pro
   return cycle;
 }
 
+/** Wait for all currently running monitored cycles to settle during shutdown. */
+export async function waitForMonitoredWorkerCycles(): Promise<void> {
+  while (inFlightCycles.size > 0) {
+    await Promise.allSettled([...inFlightCycles.values()]);
+  }
+}
+
 export type DeadQualificationJob = {
   id: number;
   userId: number;

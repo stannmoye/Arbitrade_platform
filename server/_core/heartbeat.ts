@@ -5,6 +5,7 @@ import { getDb, getUserById } from "../db";
 import { localScheduledJobs } from "../../drizzle/schema";
 import { verifyLocalSession } from "./localAuth";
 import { runMonitoredWorkerCycle } from "./workerHealth";
+import { registerWorkerInterval } from "./workerRuntime";
 
 export type HeartbeatJob = {
   name: string;
@@ -295,7 +296,7 @@ export function startHeartbeatWorker(): void {
   if (workerTimer) return;
   const runCycle = () => runMonitoredWorkerCycle("local-scheduled-jobs", () => runDueHeartbeatJobs())
     .catch((error) => console.error("[LocalScheduler] Worker cycle failed", describeSchedulerError(error)));
-  workerTimer = setInterval(() => { void runCycle(); }, 15_000);
+  workerTimer = registerWorkerInterval(() => { void runCycle(); }, 15_000);
   workerTimer.unref();
   void runCycle();
 }
