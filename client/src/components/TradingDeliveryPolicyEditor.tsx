@@ -17,15 +17,15 @@ export default function TradingDeliveryPolicyEditor({ policyRows, policyMessage,
   <div className="eyebrow">Administrator-managed Trading policy</div>
   <h2>Tier delivery, timing and safety</h2>
   <p>Every row is loaded from saved administrator policy. Changes are validated and versioned by the server; active trade snapshots are not rewritten. Newly created tiers remain disabled until their delivery policy is configured and saved. USD capital limits in this legacy policy are expressed in whole USD units.</p>
-  <div className="eyebrow">Policy and automation switches</div>
-  <div className="form-two">
-    <label>Policy enabled<select value={row.enabled?"true":"false"} onChange={e=>updateRow(index,"enabled",e.target.value==="true")}><option value="false">Disabled</option><option value="true">Enabled</option></select><small>Enabling policy is separate from enabling the Trading tier.</small></label>
-    <label>Automatic pop-up delivery<select value={row.automaticDelivery?"true":"false"} onChange={e=>updateRow(index,"automaticDelivery",e.target.value==="true")}><option value="false">Disabled</option><option value="true">Enabled</option></select></label>
-    <label>Automatic trade execution<select value={row.automaticTradingEnabled?"true":"false"} onChange={e=>updateRow(index,"automaticTradingEnabled",e.target.value==="true")}><option value="false">Disabled</option><option value="true">Enabled</option></select><small>Requires valid published reward-rate and duration bounds.</small></label>
-  </div>
   {policyMessage&&<div className="test-notice" role="status" aria-live="polite">{policyMessage}</div>}
   {policyRows.map((row,index)=><article className="package-admin-card" key={row.packageName} style={{marginBottom:16}}>
     <div className="package-admin-head"><div><span className="eyebrow">Tier policy</span><h3>{row.packageName}</h3></div><span className="admin-live-chip">Versioned</span></div>
+    <div className="eyebrow">Policy and automation switches</div>
+    <div className="form-two">
+      <label>Policy enabled<select value={row.enabled?"true":"false"} onChange={e=>updateRow(index,"enabled",e.target.value==="true")}><option value="false">Disabled</option><option value="true">Enabled</option></select><small>Enabling policy is separate from enabling the Trading tier.</small></label>
+      <label>Automatic pop-up delivery<select value={row.automaticDelivery?"true":"false"} onChange={e=>updateRow(index,"automaticDelivery",e.target.value==="true")}><option value="false">Disabled</option><option value="true">Enabled</option></select></label>
+      <label>Automatic trade execution<select value={row.automaticTradingEnabled?"true":"false"} onChange={e=>updateRow(index,"automaticTradingEnabled",e.target.value==="true")}><option value="false">Disabled</option><option value="true">Enabled</option></select><small>Requires valid published reward-rate and duration bounds.</small></label>
+    </div>
     <div className="eyebrow">Daily delivery</div>
     <div className="form-two">
       <label>Maximum pop-ups per day<input aria-label={row.packageName+" maximum pop-ups per day"} type="number" min="1" max="1000" step="1" value={row.maxPopupsPerDay} onChange={e=>updateRow(index,"maxPopupsPerDay",Number(e.target.value))}/></label>
