@@ -173,14 +173,30 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     let updateCommitted = false;
 
     try {
+      // Exercise a real partial update: required base policy fields are supplied,
+      // while advanced optional fields must be preserved from the locked DB row.
       const saved = await admin.adminOperations.updatePackagePolicies({
-        policies: [{ ...before, maxVisibleOffers: nextVisibleOffers }],
+        policies: [{
+          packageName: before.packageName,
+          maxPopupsPerDay: Number(before.maxPopupsPerDay),
+          maxVisibleOffers: nextVisibleOffers,
+          minimumTradeUnits: Number(before.minimumTradeUnits),
+          maximumTradeUnits: Number(before.maximumTradeUnits),
+          minHourlyTarget: Number(before.minHourlyTarget),
+          normalHourlyTarget: Number(before.normalHourlyTarget),
+          marketInfluenceBps: Number(before.marketInfluenceBps),
+          burstEnabled: Boolean(before.burstEnabled),
+          maxBurstSize: Number(before.maxBurstSize),
+        }],
         reason,
       });
       updateCommitted = true;
       const persisted = saved.find((row: any) => row.packageName === before.packageName) as any;
       expect(persisted).toBeDefined();
       expect(persisted.maxVisibleOffers).toBe(nextVisibleOffers);
+      for (const field of ["enabled", "automaticDelivery", "automaticTradingEnabled", "popupDisplayTargetSeconds", "completionDisplaySeconds", "maxSettlementAttempts", "maxTradeAttemptsPerDay", "settlementConfirmationState"]) {
+        expect(persisted[field]).toEqual(before[field]);
+      }
       expect(Number(persisted.policyVersion)).toBe(Number(before.policyVersion || 0) + 1);
 
       const auditRows = await db.select().from(v5AuditEvents).where(and(
@@ -193,6 +209,11 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       expect(auditRows[0].reference).toContain(before.packageName);
       expect(auditRows[0].metadataJson).toContain('"previousPolicy"');
       expect(auditRows[0].metadataJson).toContain('"nextPolicy"');
+      const auditMetadata = JSON.parse(String(auditRows[0].metadataJson));
+      expect(auditMetadata.previousPolicy.maxVisibleOffers).toBe(before.maxVisibleOffers);
+      expect(auditMetadata.nextPolicy.maxVisibleOffers).toBe(nextVisibleOffers);
+      expect(auditMetadata.policyVersion).toBe(Number(persisted.policyVersion));
+      expect(auditRows[0].reason).toBe(reason);
 
       await expect(customer.adminOperations.updatePackagePolicies({
         policies: [{ ...persisted, maxVisibleOffers: Number(persisted.maxVisibleOffers) + 1 }],
