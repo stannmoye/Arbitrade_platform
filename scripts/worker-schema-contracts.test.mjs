@@ -139,7 +139,7 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(settlementReconciliation.tag).toBe("0085_trade_settlement_schema_reconciliation");
+    expect(settlementReconciliation.tag).toBe("0084_worker_health_registry");
     expect(previous.tag).toBe("0085_trade_settlement_schema_reconciliation");
     expect(last.tag).toBe("0087_admin_wallet_adjustment_idempotency");
     expect(journal.entries.slice(-15).map((entry) => entry.tag)).toEqual([
