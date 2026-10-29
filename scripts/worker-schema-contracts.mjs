@@ -23,6 +23,14 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
       idx_pending_boost_day_status: { unique: false, columns: ["rewardDay", "status", "userId"] },
     },
   },
+  trading_company_rotation_state: {
+    columns: ["userId", "nextCatalogueOffset", "updatedAt"],
+    dataTypes: { updatedAt: "timestamp" },
+    nullable: {},
+    indexes: {
+      PRIMARY: { unique: true, columns: ["userId"] },
+    },
+  },
   trading_tier_qualification_jobs: {
     columns: [
       "id", "userId", "sourceLedgerId", "status", "attempts", "availableAt",
