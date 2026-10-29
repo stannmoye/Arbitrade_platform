@@ -2,11 +2,9 @@
 
 **Repository:** [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrade_platform)  
 **Canonical branch:** `main`  
-**Latest main commit at this handoff update:** `ca3330891296c274caa1b04c58554a9bebe635a0` (PR #214 merge)  
-**Current development branch:** `feat/trading-worker-health-monitoring`  
-**Active pull request:** [#217 — durable Trading worker health monitoring](https://github.com/stannmoye/Arbitrade_platform/pull/217)  
-**Active increment:** Task 3 — durable worker health, recovery visibility and Trade Settings dashboard.  
-**Status:** Working branch is based on `ca3330891296c274caa1b04c58554a9bebe635a0`; do not merge until exact-head CI passes and review is complete. No production migration or deployment has been run. Worker status shown by source code is not production certification.
+**Latest main commit at this handoff update:** `b07ef3b8bf87b723e975a92127fcbd1b83f2b750` (PR #217 squash merge)  
+**Completed task:** Task 3 — durable worker health, recovery visibility and Trade Settings dashboard.  
+**Status:** PR #217 was merged after exact-head CI passed. Post-merge checks on `main` were started and must be verified before considering this increment fully accepted. No production migration or deployment has been run. Automated checks do not certify the user's live server.
 
 ## Authoritative Trading tier policy
 
@@ -172,8 +170,8 @@ This policy is final and must be followed throughout the application:
 - Added monitoring around Trading tier qualification, opportunity/lifecycle processing, settlement reconciliation, local scheduled jobs, notification campaigns, Mining reward/feed cycles, popup retention, and market-data refresh. Health writes are best-effort and do not prevent the underlying worker from processing durable work.
 - Added an admin-only read endpoint and **Trade Settings → Worker Health & Recovery** dashboard with auto-refresh, stale/degraded/not-started classification, and durable qualification queue counts. Unavailable monitoring is explicit; it is never represented as zero or healthy.
 - Added status-classifier tests and `docs/trading-worker-health-and-recovery.md`.
-- Safety limitation: dead-lettered jobs are visible, but this increment deliberately does not offer a blind retry/reset control. A future recovery action must be audited and idempotency-checked.
-- Validation status: local Node/pnpm execution was unavailable in this tool session. GitHub Actions must validate install, type-check, tests and build on the exact feature-branch commit. Migration `0084` has not been applied to a production database.
+- Safety boundary: dead-lettered jobs are visible and the audited recovery action is described below. A retry only requeues a validated job for normal idempotent worker processing; it does not directly change a wallet or settle a trade.
+- Exact feature-head CI passed before merge, including application verification, Trading qualification database integration, Mining regression, installer validation, production build/tests and browser/portal validation. Migration `0084` has not been applied to a production database.
 
 
 ## 2026-10-29 — Task 3 follow-up: audited operator recovery
@@ -183,4 +181,5 @@ This policy is final and must be followed throughout the application:
 - The integration test exercises both rejected invalid-attribution retry and a successful audited retry through the normal qualification worker, including duplicate-entitlement prevention.
 - Added `0084_worker_health_registry.sql` to the runtime worker-schema bridge, portal migration list, and installer migration-recovery catalogue. Updated existing migration-order tests to account for 0084 as the newest journal entry.
 - Worker status query limits historical reads to 500 recent rows; per-cycle monitoring skips overlapping cycles; error output is sanitized before storing/displaying.
-- Validation remains tied to the latest exact PR head. No direct push to `main`, production migration, or live-host verification is claimed.
+- Exact feature-head CI passed for commit `002dcf0eed39c27ab7adc4d33fcd5b4686661bdd`; PR #217 was squash-merged as `b07ef3b8bf87b723e975a92127fcbd1b83f2b750`. The main branch now points to that merge commit.
+- Post-merge checks on the exact `main` commit were queued at the time of this update. Check all resulting workflow runs before calling the increment fully accepted. No production migration, deployment, or live-host verification is claimed.
