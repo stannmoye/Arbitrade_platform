@@ -3261,11 +3261,20 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   if(!lockedUser||lockedUser.loginMethod==="closed") throw new Error("Customer account is missing or closed");
   // Lock and validate the popup event as an idempotency token before any wallet work.
   // If the original transaction committed but its response was lost, return that trade.
+  let popupSnapshot:any=null;
   if(input.deliveryEventId!==undefined){
    await tx.execute(sql`SELECT id FROM opportunity_popup_events WHERE id=${input.deliveryEventId} AND userId=${userId} FOR UPDATE`);
-   const event=(await tx.select({id:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,eventStatus:opportunityPopupEvents.eventStatus,tradeId:opportunityPopupEvents.tradeId}).from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId))).limit(1))[0];
+   const event=(await tx.select({
+     id:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,eventStatus:opportunityPopupEvents.eventStatus,tradeId:opportunityPopupEvents.tradeId,
+     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,configuredProfitRateBps:opportunityPopupEvents.configuredProfitRateBps,
+     configuredDurationSeconds:opportunityPopupEvents.configuredDurationSeconds,configuredPopupDisplaySeconds:opportunityPopupEvents.configuredPopupDisplaySeconds,
+     packagePolicyVersionSnapshot:opportunityPopupEvents.packagePolicyVersionSnapshot,packageBadgeLabel:opportunityPopupEvents.packageBadgeLabel,
+     companyReferenceId:opportunityPopupEvents.companyReferenceId,companyDisplayName:opportunityPopupEvents.companyDisplayName,
+     companyLogoUrl:opportunityPopupEvents.companyLogoUrl,companyReferenceOnly:opportunityPopupEvents.companyReferenceOnly,
+   }).from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId))).limit(1))[0];
    if(!event) throw new Error("Opportunity delivery event not found for this customer");
    if(Number(event.offerId)!==input.offerId) throw new Error("Opportunity delivery event does not match this offer");
+   popupSnapshot=event;
    if(event.eventStatus==="TRADED" && Number(event.tradeId)>0){
     const existing=(await tx.select().from(tradePositions).where(and(eq(tradePositions.id,Number(event.tradeId)),eq(tradePositions.userId,userId))).limit(1))[0];
     if(!existing) throw new Error("Previously allocated trade is missing; manual recovery review is required");
@@ -3339,7 +3348,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   for(const row of packagePolicies) policyByName.set(row.packageName,row);
   const eligibleSubscriptions=activePackageSubscriptions.filter(subscription=>{
     const configured=policyByName.get(subscription.packageName);
-    return !configured||(Boolean(configured.enabled)&&configured.automaticTradingEnabled!==false);
+    return Boolean(configured && configured.enabled && configured.automaticDelivery && configured.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(configured));
   });
   if(!eligibleSubscriptions.length) throw new Error("New allocations are paused for all eligible Trading tier policies");
   const quotaRows=await tx.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL AND confirmedAt>=${todayStartUtc} AND confirmedAt<${tomorrowStartUtc} AND status<>'cancelled' GROUP BY packageSubscriptionId`) as any;
@@ -3392,10 +3401,25 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const walletLock=await tx.execute(sql`SELECT id FROM customer_balances WHERE userId=${userId} AND currency=${offer.currency} FOR UPDATE`) as any;
   const bal=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,userId),eq(customerBalances.currency,offer.currency))).limit(1))[0];
   if(!walletLock?.[0]?.length || !bal || bal.availableMinor<input.amountMinor) throw new Error("Insufficient available balance");
-  // Customer-editable smart rules do not gate the approved automatic package lifecycle.
-  const uncappedReward=Math.floor(input.amountMinor*terms.rewardBps/10000);
-  const reward=packagePolicy&&Number(packagePolicy.maxRewardPerTradeMinor||0)>0?Math.min(uncappedReward,Number(packagePolicy.maxRewardPerTradeMinor)):uncappedReward;
-  if (packagePolicy&&Number(packagePolicy.minimumRewardBps||0)>terms.rewardBps) throw new Error("Opportunity reward rate is below the package minimum");
+  // A delivered popup is the immutable source of its configured rate/duration.
+  // A legacy event without these snapshots is not silently re-rated at allocation.
+  const configuredRateBps=Number(popupSnapshot?.configuredProfitRateBps||0);
+  const configuredDurationSeconds=Number(popupSnapshot?.configuredDurationSeconds||0);
+  if(input.deliveryEventId!==undefined&&(
+    !Number.isSafeInteger(configuredRateBps)||configuredRateBps<1||configuredRateBps>5000||
+    !Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<10||configuredDurationSeconds>86400
+  )) throw new Error("This pop-up has no valid saved rate and duration snapshot. Refresh opportunities after the administrator saves its tier policy.");
+  const effectiveRateBps=input.deliveryEventId!==undefined?configuredRateBps:Number(offer.expectedRewardBps||terms.rewardBps);
+  const effectiveDurationSeconds=input.deliveryEventId!==undefined?configuredDurationSeconds:Number(offer.durationSeconds);
+  if(!Number.isSafeInteger(effectiveRateBps)||effectiveRateBps<1||effectiveRateBps>5000) throw new Error("Selected Trading return rate is outside the supported policy bounds");
+  if(!Number.isSafeInteger(effectiveDurationSeconds)||effectiveDurationSeconds<10||effectiveDurationSeconds>86400) throw new Error("Selected Trading duration is outside the supported policy bounds");
+  if(!packagePolicy||!hasConfiguredTradingOfferPolicy(packagePolicy)) throw new Error("The selected tier has no complete saved Trading policy");
+  if(effectiveRateBps<Number(packagePolicy.minimumPayoutRateBps)||effectiveRateBps>Number(packagePolicy.maximumPayoutRateBps)) throw new Error("Saved pop-up return rate is outside the tier's configured range");
+  if(effectiveDurationSeconds<Number(packagePolicy.minimumTradeDurationSeconds)||effectiveDurationSeconds>Number(packagePolicy.maximumTradeDurationSeconds)) throw new Error("Saved pop-up duration is outside the tier's configured range");
+  if(Number(packagePolicy.minimumRewardBps||0)>effectiveRateBps) throw new Error("Selected return rate is below the tier's minimum eligible reward rate");
+  const uncappedReward=calculateConfiguredProfitMinor(input.amountMinor,effectiveRateBps);
+  const reward=Number(packagePolicy.maxRewardPerTradeMinor||0)>0?Math.min(uncappedReward,Number(packagePolicy.maxRewardPerTradeMinor)):uncappedReward;
+  if(reward<1) throw new Error("Configured capital and return rate do not produce a positive minor-unit reward");
   if (packagePolicy&&Number(packagePolicy.maxDailyRewardMinor||0)>0) {
     const reservationRows=await tx.execute(sql`SELECT COALESCE(SUM(reservedMinor),0) AS reserved FROM trade_reward_reservations WHERE userId=${userId} AND packageName=${activePackageSubscription.packageName} AND windowKey=${today} AND status='reserved'`) as any;
     // The daily reward ceiling counts realized net profit actually retained by the
@@ -3414,13 +3438,13 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   if(Number((balanceUpdate as any)[0]?.affectedRows||0)!==1) throw new Error("Insufficient available balance");
   const ref=`trade-${offer.id}-${userId}-${Date.now()}`;
   await tx.insert(balanceLedger).values({userId,currency:offer.currency,amountMinor:-input.amountMinor,entryType:"trade_reservation",reference:ref,withdrawable:false});
-  const settlementDelaySeconds=Math.max(Number(packagePolicy?.minSettlementDelaySeconds||0),Math.min(Number(packagePolicy?.maxSettlementDelaySeconds||settlementPolicy.delaySeconds),settlementPolicy.delaySeconds)); const creditAt=new Date(Date.now()+(settlementDelaySeconds+settlementPolicy.creditDelaySeconds)*1000); const settlesAt=new Date(Date.now()+settlementDelaySeconds*1000); const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,rewardReservedMinor:reward,settlesAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:Number(packagePolicy?.policyVersion||activePackageSubscription.termsVersion||1)} as any);
+  const settlementDelaySeconds=Math.max(Number(packagePolicy.minSettlementDelaySeconds||0),Math.min(Number(packagePolicy.maxSettlementDelaySeconds||settlementPolicy.delaySeconds),settlementPolicy.delaySeconds)); const tradeStartedAt=new Date(); const settlesAt=new Date(tradeStartedAt.getTime()+effectiveDurationSeconds*1000); const creditAt=new Date(settlesAt.getTime()+(settlementDelaySeconds+settlementPolicy.creditDelaySeconds)*1000); const snapshotVersion=Number(popupSnapshot?.packagePolicyVersionSnapshot||packagePolicy.policyVersion||activePackageSubscription.termsVersion||1); const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),rewardReservedMinor:reward,settlesAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
   const tradeId=Number(result[0].insertId);
-  await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:Number(packagePolicy?.policyVersion||activePackageSubscription.termsVersion||1)})});
+  await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:snapshotVersion,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null})});
   if(input.deliveryEventId!==undefined) await tx.update(opportunityPopupEvents).set({tradeId,eventStatus:"TRADED",executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,tradedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offer.id)));
   else await tx.execute(sql`UPDATE opportunity_popup_events SET tradeId=${tradeId},eventStatus='TRADED',executionStatus='SUCCEEDED',executionRetryAfter=NULL,executionLastErrorCode=NULL,deliveryStatus=CASE WHEN deliveryStatus='failed' THEN deliveryStatus ELSE 'rendered' END,tradedAt=COALESCE(tradedAt,CURRENT_TIMESTAMP),updatedAt=CURRENT_TIMESTAMP WHERE userId=${userId} AND offerId=${offer.id} ORDER BY deliveredAt DESC LIMIT 1`);
   await tx.insert(tradeRewardReservations).values({userId,tradeId,packageName:activePackageSubscription.packageName,windowKey:today,currency:offer.currency,reservedMinor:reward,status:"reserved"});
-  return {tradeId,rewardMinor:reward,rewardBps:terms.rewardBps,minimumMinor:terms.minimumMinor,calculationMethod:terms.method,settlesAt,creditAt,currency:offer.currency,amountMinor:input.amountMinor,rateUsd:nativeRate,rateUpdatedAt:currencyRow.updatedAt,amountUsd:nativeMinorToUsd(input.amountMinor,Number(currencyRow.scale),nativeRate)};
+  return {tradeId,rewardMinor:reward,rewardBps:effectiveRateBps,minimumMinor:terms.minimumMinor,calculationMethod:"saved-tier-policy",configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,settlesAt,creditAt,currency:offer.currency,amountMinor:input.amountMinor,rateUsd:nativeRate,rateUpdatedAt:currencyRow.updatedAt,amountUsd:nativeMinorToUsd(input.amountMinor,Number(currencyRow.scale),nativeRate)};
  });
 }
 export async function listTrades(userId:number){
