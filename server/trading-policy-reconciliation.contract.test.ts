@@ -14,6 +14,9 @@ describe("Trading policy reconciliation migration", () => {
     expect(migration).toContain("UPDATE `packages` SET `enabled`=0");
     expect(migration).toContain("SET `enabled`=0,`automaticDelivery`=0,`automaticTradingEnabled`=0,`policyVersion`=0");
     expect(migration).toContain("WHERE opp.`id` IS NULL");
+    expect(migration).toContain("`minimumCapitalUsdMinor`=0,`maximumCapitalUsdMinor`=0");
+    expect(migration).toContain("`minimumRewardBps`=0,`maximumRewardBps`=0");
+    expect(migration).toContain("SET `eventStatus`='WITHDRAWN',`deliveryStatus`='expired'");
     expect(migration).not.toContain("DELETE FROM `balance_ledger`");
     expect(migration).not.toContain("DELETE FROM `trade_positions`");
     expect(migration).not.toContain("DELETE FROM `customer_package_subscriptions`");
