@@ -124,9 +124,9 @@ async function reconcileTradingPackageSchema(connection, root) {
 
 
 async function reconcileOpportunityExecutionLeaseSchema(connection, root) {
-  const requiredColumns = ["deliveryStatus", "deliveryAttemptCount", "lastErrorCode", "receivedAt", "renderedAt", "expiredAt", "executionLeaseToken"];
+  const requiredColumns = ["deliveryStatus", "deliveryAttemptCount", "lastErrorCode", "receivedAt", "renderedAt", "expiredAt", "tradeId", "policyVersion", "executionLeaseToken"];
   const [rows] = await connection.query(
-    "SELECT column_name AS columnName FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name IN (?, ?, ?, ?, ?, ?, ?)",
+    "SELECT column_name AS columnName FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name IN (?, ?, ?, ?, ?, ?, ?, ?, ?)",
     ["opportunity_popup_events", ...requiredColumns],
   );
   const existingColumns = new Set(rows.map((row) => String(row.columnName)));
