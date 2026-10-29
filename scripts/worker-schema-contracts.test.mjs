@@ -119,12 +119,13 @@ describe("worker schema contracts", () => {
 
   it("keeps the standalone mining and portal campaign migrations covered by the standard journal bridge", async () => {
     const root = new URL("../", import.meta.url);
-    const [journalText, mainSql, miningSql, portalSql, portalRunner] = await Promise.all([
+    const [journalText, mainSql, miningSql, portalSql, portalRunner, installerVerifier] = await Promise.all([
       readFile(new URL("drizzle/meta/_journal.json", root), "utf8"),
       readFile(new URL("drizzle/0062_worker_runtime_tables.sql", root), "utf8"),
       readFile(new URL("drizzle/0048_pending_boost_rewards.sql", root), "utf8"),
       readFile(new URL("drizzle/0055_notification_campaign_delivery_tracking.sql", root), "utf8"),
       readFile(new URL("scripts/apply-portal-migrations.mjs", root), "utf8"),
+      readFile(new URL("installer/verify-install.mjs", root), "utf8"),
     ]);
     const journal = JSON.parse(journalText);
     expect(journal.entries.some((entry) => entry.tag === "0062_worker_runtime_tables")).toBe(true);
