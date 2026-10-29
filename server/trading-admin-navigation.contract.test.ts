@@ -7,6 +7,22 @@ const operationsUi = readFileSync(new URL("../client/src/components/AdminOperati
 const serverDb = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const serverRouters = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 
+describe("Trading tier creation defaults", () => {
+  it("requires an administrator to explicitly enter threshold, duration, and daily quota", () => {
+    const start = adminApp.indexOf("function AdminTradingPackageCatalogue()");
+    const end = adminApp.indexOf("function AdminPackages({focus}", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const editor = adminApp.slice(start, end);
+    expect(editor).toContain('minimumQualifyingBalanceUsdMinor:"",durationMonths:"",opportunitiesPerDay:""');
+    expect(editor).toContain('newTier.minimumQualifyingBalanceUsdMinor===""?"":');
+    expect(editor).toContain('e.target.value===""?"":Number(e.target.value)');
+    expect(editor).toContain("no package threshold or quota is preselected");
+    expect(editor).not.toContain('minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6');
+  });
+});
+
+
 describe("Trading fee-policy navigation", () => {
   it("opens the administrator screen that actually edits realized-profit fees", () => {
     const item = navigation.match(/id: "trade-profit-fees-limits", target: "([^"]+)"/);
