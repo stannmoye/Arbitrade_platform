@@ -386,6 +386,34 @@
       "when": 1793318400003,
       "tag": "0085_trade_settlement_schema_reconciliation",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1793318400005,
+      "tag": "0086_trading_popup_policy_ranges",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1793318400006,
+      "tag": "0087_trading_company_spotlight_rotation",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1793404800000,
+      "tag": "0088_trading_popup_trade_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1793404800001,
+      "tag": "0089_trading_trade_wallet_funding_plan_snapshot",
+      "breakpoints": true
     }
   ]
 }

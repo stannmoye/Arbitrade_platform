@@ -200,16 +200,33 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("Math.min(policyCap,tierCap)");
   });
 
-  it("keeps opportunity-policy rows aligned with every administrator-managed tier", () => {
+  it("keeps opportunity-policy reads aligned with saved administrator-managed tiers and fails closed when policy is missing", () => {
     expect(schemaSource).toContain('packageName: varchar("packageName", { length: 80 }).notNull().unique()');
     expect(policyMigrationSource).toContain("MODIFY COLUMN `packageName` varchar(80) NOT NULL");
     expect(policyMigrationSource).toContain("INSERT INTO `opportunity_package_policies` (`packageName`)");
-    expect(databaseSource).toContain("const tiers=await db.select({name:packages.name}).from(packages)");
-    expect(databaseSource).toContain("values({packageName:tier.name})");
-    expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy})");
-    expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
+
+    expect(databaseSource).toContain("const [tiers,rows]=await Promise.all([");
     expect(databaseSource).toContain("const matchingRows=rows.filter(row=>tierNames.has(row.packageName))");
     expect(databaseSource).toContain('if(missing.length) throw new Error("Trading tier opportunity policy is missing for: "+missing.join(", "));');
+    expect(databaseSource).toContain("return rows.filter(row=>tierNames.has(row.packageName))");
+    expect(databaseSource).not.toContain("values({packageName:tier.name})");
+
+    const readerStart = databaseSource.indexOf("export async function listOpportunityPackagePolicies()");
+    const readerEnd = databaseSource.indexOf("\n}", readerStart);
+    expect(readerStart).toBeGreaterThanOrEqual(0);
+    expect(readerEnd).toBeGreaterThan(readerStart);
+    const policyReader = databaseSource.slice(readerStart, readerEnd);
+    expect(policyReader).not.toContain(".insert(");
+
+    expect(routerSource).toContain("packagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),");
+    expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy,...UNCONFIGURED_TIER_POLICY_SENTINELS})");
+    expect(databaseSource).toContain("const UNCONFIGURED_TIER_POLICY_SENTINELS = {");
+    expect(databaseSource).toContain("minimumPayoutRateBps:null,maximumPayoutRateBps:null");
+    expect(databaseSource).toContain("New Trading tiers must be created disabled.");
+    expect(databaseSource).toContain("Save and enable a valid delivery policy with payout-rate and duration bounds before enabling this Trading tier.");
+    expect(routerSource).toContain("enabled: z.boolean(), automaticDelivery: z.boolean(), automaticTradingEnabled: z.boolean()");
+    expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
+    expect(databaseSource).not.toContain("values({packageName:nextName,updatedBy})");
   });
 
   it("creates tiers through the authorized audited admin route", () => {
@@ -221,8 +238,11 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain('action:"trading_package_created"');
     expect(customerAppSource).toContain("New administrator-managed tier");
     expect(customerAppSource).toContain('trpc.adminOperations.createTradingPackage.useMutation');
+    expect(customerAppSource).toContain('minimumQualifyingBalanceUsdMinor:"",durationMonths:"",opportunitiesPerDay:""');
     expect(customerAppSource).toContain('maxActiveInvestments:0,startsAt:"",expiresAt:"",enabled:false}');
+    expect(customerAppSource).toContain("no package threshold or quota is preselected");
     expect(customerAppSource).toContain("New tiers start disabled.");
+    expect(databaseSource).toContain("const UNCONFIGURED_TIER_POLICY_SENTINELS = {");
   });
 
   it("persists administrator-controlled effective dates and tier caps", () => {

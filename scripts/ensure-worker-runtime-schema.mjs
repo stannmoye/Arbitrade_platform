@@ -119,6 +119,18 @@ async function main() {
     const settlementSchemaMigration = await readFile(resolve(root, "drizzle/0085_trade_settlement_schema_reconciliation.sql"), "utf8");
     await executeCompatibleMigrationSql(db, settlementSchemaMigration);
 
+    // Ensure saved Trading popup ranges and durable per-delivery badge/duration
+    // snapshots exist even when a host has an older migration tracker.
+    const popupPolicyRangeMigration = await readFile(resolve(root, "drizzle/0086_trading_popup_policy_ranges.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, popupPolicyRangeMigration);
+    const companySpotlightRotationMigration = await readFile(resolve(root, "drizzle/0087_trading_company_spotlight_rotation.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, companySpotlightRotationMigration);
+    const popupTradeSnapshotsMigration = await readFile(resolve(root, "drizzle/0088_trading_popup_trade_snapshots.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, popupTradeSnapshotsMigration);
+    // Keep immutable funding-plan snapshots available on the allocated trade row.
+    const walletFundingPlanMigration = await readFile(resolve(root, "drizzle/0089_trading_trade_wallet_funding_plan_snapshot.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, walletFundingPlanMigration);
+
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],
       ["category", "VARCHAR(40) NOT NULL DEFAULT 'account'"],

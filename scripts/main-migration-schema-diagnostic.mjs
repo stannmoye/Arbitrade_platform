@@ -16,6 +16,19 @@ const MIGRATION_PREREQUISITES = Object.freeze({
       ["trade_positions", "settlementConfirmedBy"], ["trade_positions", "settlementNotes"],
     ] },
   ],
+  "0086_trading_popup_policy_ranges": [
+    ["opportunity_package_policies", "packageName"],
+    ["opportunity_popup_events", "eventKey"],
+  ],
+  "0087_trading_company_spotlight_rotation": [
+    ["opportunity_package_policies", "companyRotationEnabled"],
+    ["opportunity_package_policies", "companyRotationCountryNames"],
+    ["opportunity_package_policies", "companyRotationRepeatPolicy"],
+  ],
+  "0088_trading_popup_trade_snapshots": [
+    ["opportunity_popup_events", "packageName"],
+    ["trade_positions", "id"],
+  ],
   "0068_trade_realized_profit_accounting": [
     ["trade_positions", "id"],
     ["trade_positions", "status"],
@@ -68,6 +81,46 @@ const MIGRATION_PROGRESS_COLUMNS = Object.freeze({
       ["local_scheduled_jobs", "taskUid"], ["local_scheduled_jobs", "ownerUserId"],
       ["local_scheduled_jobs", "cronExpression"], ["local_scheduled_jobs", "callbackPath"],
       ["local_scheduled_jobs", "nextExecutionAt"], ["local_scheduled_jobs", "lockedUntil"],
+    ] },
+  ],
+  "0086_trading_popup_policy_ranges": [
+    { label: "administrator Trading policy range columns", columns: [
+      ["opportunity_package_policies", "badgeLabel"], ["opportunity_package_policies", "badgeStyle"],
+      ["opportunity_package_policies", "minimumPayoutRateBps"], ["opportunity_package_policies", "maximumPayoutRateBps"],
+      ["opportunity_package_policies", "minimumTradeDurationSeconds"], ["opportunity_package_policies", "maximumTradeDurationSeconds"],
+    ] },
+    { label: "durable popup snapshot columns", columns: [
+      ["opportunity_popup_events", "policyVersion"], ["opportunity_popup_events", "durationSeconds"],
+      ["opportunity_popup_events", "badgeLabel"], ["opportunity_popup_events", "badgeStyle"],
+    ] },
+  ],
+  "0088_trading_popup_trade_snapshots": [
+    { label: "immutable popup snapshot columns", columns: [
+      ["opportunity_popup_events", "configuredProfitRateBps"], ["opportunity_popup_events", "configuredDurationSeconds"],
+      ["opportunity_popup_events", "configuredPopupDisplaySeconds"], ["opportunity_popup_events", "packagePolicyVersionSnapshot"],
+      ["opportunity_popup_events", "packageBadgeLabel"], ["opportunity_popup_events", "companyReferenceId"],
+      ["opportunity_popup_events", "companyDisplayName"], ["opportunity_popup_events", "companyLogoUrl"],
+      ["opportunity_popup_events", "companyReferenceMetadataJson"], ["opportunity_popup_events", "companyReferenceOnly"],
+    ] },
+    { label: "immutable trade snapshot columns", columns: [
+      ["trade_positions", "configuredProfitRateBps"], ["trade_positions", "configuredDurationSeconds"],
+      ["trade_positions", "packagePolicyVersionSnapshot"], ["trade_positions", "companyReferenceId"],
+      ["trade_positions", "companyDisplayName"], ["trade_positions", "companyLogoUrl"],
+      ["trade_positions", "companyReferenceMetadataJson"], ["trade_positions", "companyReferenceOnly"],
+    ] },
+  ],
+  "0088_trading_popup_trade_snapshots": [
+    { label: "immutable popup snapshot columns", columns: [
+      ["opportunity_popup_events", "configuredProfitRateBps"], ["opportunity_popup_events", "configuredDurationSeconds"],
+      ["opportunity_popup_events", "configuredPopupDisplaySeconds"], ["opportunity_popup_events", "packagePolicyVersionSnapshot"],
+      ["opportunity_popup_events", "packageBadgeLabel"], ["opportunity_popup_events", "companyReferenceId"],
+      ["opportunity_popup_events", "companyDisplayName"], ["opportunity_popup_events", "companyLogoUrl"],
+      ["opportunity_popup_events", "companyReferenceOnly"],
+    ] },
+    { label: "immutable trade snapshot columns", columns: [
+      ["trade_positions", "configuredProfitRateBps"], ["trade_positions", "configuredDurationSeconds"],
+      ["trade_positions", "packagePolicyVersionSnapshot"], ["trade_positions", "companyReferenceId"],
+      ["trade_positions", "companyDisplayName"], ["trade_positions", "companyLogoUrl"], ["trade_positions", "companyReferenceOnly"],
     ] },
   ],
 });
