@@ -22,7 +22,7 @@ async function insertTrade(input: {
   assert.ok(userId, "Test user must exist before creating trades");
   const inserted = await db.insert(tradePositions).values({
     userId,
-    offerId: 1,
+    offerId: 100000 + tradeIds.length,
     currency: "USD",
     principalMinor: 25000,
     expectedRewardMinor: 1000,
