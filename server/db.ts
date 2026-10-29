@@ -2816,7 +2816,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   // remains available for an administrator-configured review workflow.
   const eligibleSubscriptions=subscriptions.filter(subscription=>{
     const configured=policyByName.get(subscription.packageName);
-    return !configured||(Boolean(configured.enabled)&&configured.automaticDelivery!==false);
+    return Boolean(configured && configured.enabled && configured.automaticDelivery);
   });
   if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}});
   const quotaFor=(subscription:any)=>{
