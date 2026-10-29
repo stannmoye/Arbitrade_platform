@@ -27,8 +27,8 @@ export function inspectWorkerStartupContract(packageJson, wrapperSource, serverS
     if (!pattern.test(wrapperSource)) failures.push(`startup wrapper is missing ${label}`);
   }
   for (const [label, pattern] of [
-    ["five-second tier qualification poll", /setInterval\(\s*\(\)\s*=>\s*\{\s*void runTradingTierQualificationCycle\(\);\s*\},\s*5_000\s*\)/],
-    ["bounded recurring Trading lifecycle cycle", /setInterval\(\s*\(\)\s*=>\s*\{\s*void runTradeCycle\(\)/],
+    ["five-second tier qualification poll", /(?:setInterval|registerWorkerInterval)\(\s*\(\)\s*=>\s*\{\s*void runTradingTierQualificationCycle\(\);\s*\},\s*5_000\s*\)/],
+    ["bounded recurring Trading lifecycle cycle", /(?:setInterval|registerWorkerInterval)\(\s*\(\)\s*=>\s*\{\s*void runTradeCycle\(\)/],
     ["worker health instrumentation", /runMonitoredWorkerCycle\("trading-tier-qualification"/],
   ]) {
     if (!pattern.test(serverSource)) failures.push(`server entrypoint is missing ${label}`);
