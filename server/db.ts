@@ -2150,8 +2150,10 @@ export async function adjustCustomerBalance(adminId:number,input:{
     return completedResult;
     });
   } catch(error) {
-    const dbError=error as {code?:string;errno?:number};
-    if(dbError?.code!=="ER_DUP_ENTRY"&&dbError?.errno!==1062) throw error;
+    const dbError=error as {code?:string;errno?:number;cause?:{code?:string;errno?:number}};
+    const duplicateCode=dbError?.code??dbError?.cause?.code;
+    const duplicateErrno=dbError?.errno??dbError?.cause?.errno;
+    if(duplicateCode!=="ER_DUP_ENTRY"&&duplicateErrno!==1062) throw error;
     const committedRequest=(await db.select().from(adminWalletAdjustmentRequests).where(and(
       eq(adminWalletAdjustmentRequests.adminId,adminId),eq(adminWalletAdjustmentRequests.idempotencyKey,idempotencyKey),
     )).limit(1))[0];
