@@ -204,7 +204,7 @@ try {
   }
   assert.equal(nonUsdQualifyingCredit.entryType, "admin_manual_deposit_credit");
   assert.equal(nonUsdQualifyingCredit.qualifyingDepositUsdMinor, 10000,
-    "100 units at 0.5 USD per unit must be recorded as USD 50.00, not the manual registry rate.");
+    "200 units at 0.5 USD per unit must be recorded as USD 100.00, not the manual registry rate.");
   assert.equal(nonUsdQualifyingCredit.qualifyingDepositRateProvider, "frankfurter-ecb");
   assert.equal(nonUsdQualifyingCredit.rateUsd, 0.5);
   const fxEvidence = await db.select().from(fxRateSnapshots)
