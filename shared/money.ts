@@ -98,6 +98,22 @@ export function nativeMinorToUsdMinorExact(minor: number, scale: number, usdRate
   return usdMinor.toNumber();
 }
 
+/**
+ * Allocate a persisted minor-unit attribution proportionally to a partial reversal.
+ * The final/full reversal should consume the exact remaining attribution; partial
+ * reversals use decimal arithmetic and one documented half-up rounding.
+ */
+export function proportionalMinorAmount(totalMinor: number, partMinor: number, wholeMinor: number): number {
+  if (!Number.isSafeInteger(totalMinor) || totalMinor < 0) throw new Error("Total attribution must be a non-negative safe integer");
+  if (!Number.isSafeInteger(partMinor) || partMinor <= 0) throw new Error("Partial amount must be a positive safe integer");
+  if (!Number.isSafeInteger(wholeMinor) || wholeMinor <= 0 || partMinor > wholeMinor) throw new Error("Whole amount must be a safe integer at least as large as the partial amount");
+  const allocated = new Decimal(totalMinor).times(partMinor).div(wholeMinor).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
+  if (!allocated.isFinite() || !allocated.isInteger() || allocated.lt(0) || allocated.gt(totalMinor) || !allocated.lte(Number.MAX_SAFE_INTEGER)) {
+    throw new Error("Proportional attribution exceeds the safe integer range");
+  }
+  return allocated.toNumber();
+}
+
 /** Convert whole USD units into native ledger minor units using the same live registry rate. */
 export function usdUnitsToNativeMinor(usdUnits: number, scale: number, usdRate: number): number {
   if (!Number.isFinite(usdUnits) || usdUnits < 0 || !Number.isFinite(usdRate) || usdRate <= 0) throw new Error("Invalid currency conversion inputs");
