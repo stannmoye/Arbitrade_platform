@@ -13,7 +13,6 @@ import {
   customerBalances,
   opportunityPopupEvents,
   opportunityOffers,
-  opportunityPackagePolicies,
   packages,
   customerPackageSubscriptions,
   tradeLifecycleEvents,
@@ -38,7 +37,6 @@ let tradeId;
 let currencyInserted = false;
 let offerInserted = false;
 let packageInserted = false;
-let packagePolicyInserted = false;
 
 try {
   const userInsert = await db.insert(users).values({
@@ -74,14 +72,6 @@ try {
   });
   packageId = Number(packageInsert[0].insertId);
   packageInserted = true;
-  await db.insert(opportunityPackagePolicies).values({
-    packageName,
-    minimumTradeUnits: 1,
-    maximumTradeUnits: 10000,
-    maxConcurrentActiveTrades: 1,
-    automaticTradingEnabled: true,
-  });
-  packagePolicyInserted = true;
   const subscriptionInsert = await db.insert(customerPackageSubscriptions).values({
     userId,
     packageId,
@@ -294,7 +284,6 @@ try {
       if (subscriptionId !== undefined) await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.id, subscriptionId));
       await db.delete(users).where(eq(users.id, userId));
     }
-    if (packagePolicyInserted) await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, "Wkr" + token));
     if (packageInserted && packageId !== undefined) await db.delete(packages).where(eq(packages.id, packageId));
     if (offerInserted && offerId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, offerId));
     if (currencyInserted) {
