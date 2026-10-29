@@ -52,7 +52,7 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
           continue;
         }
 
-        let company: { id: string; name: string; logoUrl: string; metadataJson: string } | null = null;
+        let company: { id: string; name: string; logoUrl: string; metadataJson: string; rotationCycle: number; rotationSequence: number; poolFingerprint: string } | null = null;
         if (item.companyRotationEnabled) {
           const stateKey = "trading.companyRotation." + item.userId + "." + item.packageName;
           if (stateKey.length > 120) throw new Error("Company rotation scope key exceeds the storage limit.");
@@ -95,7 +95,15 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
             id: String(selection.company.id),
             name: String(selection.company.name),
             logoUrl: String(selection.company.logoUrl),
+            rotationCycle: selection.rotationCycle,
+            rotationSequence: selection.rotationSequence,
+            poolFingerprint: selection.poolFingerprint,
             metadataJson: JSON.stringify({
+              rotationStateVersion: 1,
+              rotationCycle: selection.rotationCycle,
+              rotationSequence: selection.rotationSequence,
+              poolFingerprint: selection.poolFingerprint,
+              repeatPolicy: item.companyRotationRepeatPolicy,
               ticker: selection.company.ticker,
               symbol: selection.company.symbol,
               exchangeCode: selection.company.exchangeCode,
@@ -124,6 +132,8 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
             "UPDATE app_settings SET settingValue=?,updatedBy=?,updatedAt=CURRENT_TIMESTAMP WHERE settingKey=?",
             [JSON.stringify(selection.state), item.userId, stateKey],
           );
+          // The opportunity row and its company/rotation snapshot are inserted in
+          // this same transaction. A rollback therefore restores the cursor too.
         }
 
         await connection.execute(
