@@ -97,3 +97,17 @@ All seven required workflows passed on the evidence SHA:
 - **Integration blocker:** all four overlapping PRs were open when reviewed; their shared-file changes are not yet reconciled on a single branch. Do not merge/deploy until Part 6 has one integrated head and reruns installer, policy persistence, tier qualification, settlement, recovery and full source checks on that exact SHA.
 
 **Disposition:** Part 1 is ready for Part 6 integration review. It is not a declaration that final cross-part acceptance or production release is complete.
+
+
+## Latest Part 1 database-backed acceptance rerun
+
+**Code-tested SHA:** `584f55390a6f5136ece1f4db27d0feb14fcfd0ef` — all seven required workflows passed on this exact SHA. This supersedes the earlier code-tested SHA in the preceding acceptance snapshot for Part 1 code.
+
+- Production source suite: 96 test files passed, 3 skipped; 783 tests passed, 17 skipped.
+- Disposable fresh-MariaDB integration suite: 6 tests passed for Trading package create/edit/reload, required field persistence, explicit disabled-by-default creation, effective dates, terms versioning, audit evidence, invalid input rejection, and admin-only writes. Policy integration also passed duplicate-row rejection, unknown-tier rejection with transaction rollback, version/audit persistence, and unchanged-state assertions after rejected writes.
+- Installer validation, TypeScript, bundle budget/production smoke, fresh MariaDB, MySQL 8 compatibility/recovery, migration regression, tier qualification, settlement reconciliation, browser recovery, app verification, Trading recovery, and Mining regression all passed on the code-tested SHA.
+- The current docs commit(s) after this SHA must receive their own exact-head workflow result; do not reuse the code-tested SHA as evidence for the later documentation head.
+
+### Final Part 1 disposition
+
+Part 1 package/policy persistence and focused authorization/audit acceptance work is ready for Part 6 integration review. It is **not merge-ready** until the branch is reconciled with current main and PRs #230–#233. The branch was 2 commits behind main at this check. Resolve shared-file conflicts and the duplicate 0086 migration number on the Part 6 integration branch, run final integrated installer/settlement/worker checks there, and keep PR #234 draft/unmerged until that gate passes. No deployment or production database mutation occurred.
