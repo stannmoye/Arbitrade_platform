@@ -41,6 +41,8 @@ async function main() {
     });
 
     await customerPage.goto(baseURL, { waitUntil: "domcontentloaded" });
+    const tradingNav = customerPage.getByRole("button", { name: /^trading$/i }).or(customerPage.getByRole("link", { name: /^trading$/i })).first();
+    if (await tradingNav.count()) await tradingNav.click();
     await customerPage.getByRole("heading", { name: /your trading journey/i }).waitFor({ timeout: 20_000 });
     await customerPage.getByText(/total daily opportunity allowance/i).waitFor({ timeout: 20_000 });
     await customerPage.waitForTimeout(1_000);
