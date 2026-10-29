@@ -2898,6 +2898,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const tradeOfferIds=new Set(tradeHistory.map((row:any)=>Number(row.offerId)));
   const missedHistory=await listMissedOpportunities(userId);
   const missedOfferIds=new Set(missedHistory.map((row:any)=>Number(row.offerId)));
+  // Repair the secondary delivery index after a crash between the durable popup insert and index write.
+  await db.execute(sql`INSERT IGNORE INTO opportunity_delivery_events (userId,offerId,quotaDay,policyVersion,deliveredAt) SELECT userId,offerId,quotaDay,packagePolicyVersionSnapshot,deliveredAt FROM opportunity_popup_events WHERE userId=${userId} AND quotaDay=${quotaDay}`);
   const deliveredToday=await db.select({offerId:opportunityPopupEvents.offerId}).from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.quotaDay,quotaDay)));
   const deliveredOfferIds=new Set(deliveredToday.map(row=>Number(row.offerId)));
   // Package copies are separate entitlements: count allocations against each
