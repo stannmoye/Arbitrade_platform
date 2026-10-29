@@ -17,6 +17,8 @@ import "./CustomerTradingEligibility.css";
 import "./CustomerTradingEligibility.polish.css";
 
 const usdEquivalent = (minor: number) => new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 }).format(minor / 100);
@@ -47,7 +49,7 @@ export function CustomerTradingEligibility() {
             </span>
             <span className="trading-status-copy">
               <strong className="trading-status-label">
-                {eligibilityQuery.isLoading ? "CHECKING" : eligibilityQuery.isError ? "RETRY NEEDED" : currentPackage ? "TIER ACTIVE" : "NO PACKAGE ASSIGNED"}
+                {eligibilityQuery.isLoading ? "CHECKING" : eligibilityQuery.isError ? "RETRY NEEDED" : currentPackage ? "PACKAGE ACTIVE" : "NO PACKAGE ASSIGNED"}
               </strong>
               <span className="trading-status-message">
                 {eligibilityQuery.isLoading
@@ -55,7 +57,7 @@ export function CustomerTradingEligibility() {
                   : eligibilityQuery.isError
                     ? "Your status could not load. Refresh to retry."
                     : currentPackage
-                      ? `${currentPackage.name} is assigned automatically.`
+                      ? `${currentPackage.name} is active. Your daily opportunity allowance is ready.`
                       : "Your package will be assigned automatically when you qualify."}
               </span>
             </span>
@@ -153,7 +155,15 @@ export function CustomerTradingEligibility() {
                     <strong className="trading-threshold-amount">{usdEquivalent(nextPackage.amountNeededUsdMinor)}</strong>
                   </div>
                   <span className="trading-threshold-unit">USD equivalent</span>
-                  <span className="sr-only">USD equivalent of qualifying admin wallet credits, valued at the rate recorded when credited.</span>
+                  <div className="trading-progress-caption">
+                    <span>Qualifying credits</span>
+                    <strong>{usdEquivalent(qualifyingTotal)} <span aria-hidden="true">/</span> {usdEquivalent(nextThreshold)}</strong>
+                  </div>
+                  <div className="trading-progress-track" aria-hidden="true">
+                    <span style={{ width: `${progressPercent}%` }} />
+                  </div>
+                  <span className="trading-progress-note">Only qualifying credits manually issued by an administrator count. Your package is assigned automatically when you qualify.</span>
+                  <span className="sr-only">Qualifying admin wallet credits are valued in USD at the rate recorded when credited.</span>
                 </div>
 
               </div>
@@ -170,7 +180,7 @@ export function CustomerTradingEligibility() {
                   <strong className="trading-tier-metric-value trading-next-number">+{nextPackage.additionalDailyOpportunities}</strong>
                 </div>
               </div>
-              <p className="trading-tier-explainer"><Info size={17} strokeWidth={2.5} aria-hidden="true" />Unlocks extra daily opportunities.</p>
+              <p className="trading-tier-explainer"><Info size={17} strokeWidth={2.5} aria-hidden="true" />Qualify for this milestone and your package will be assigned automatically, adding +{nextPackage.additionalDailyOpportunities} extra opportunities every day.</p>
               </div>
             </article>
           ) : (
