@@ -3123,6 +3123,24 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
 }
 export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number;packageId?:number}){
  const db=await getDb();if(!db)throw new Error("Database is not available");
+ const preflightWallets=await db.select({currency:customerBalances.currency,availableMinor:customerBalances.availableMinor}).from(customerBalances).where(eq(customerBalances.userId,userId));
+ const targetCurrency=String((await db.select({currency:opportunityOffers.currency}).from(opportunityOffers).where(eq(opportunityOffers.id,input.offerId)).limit(1))[0]?.currency||"").toUpperCase();
+ if(!targetCurrency)throw new Error("Trading opportunity currency is unavailable");
+ const targetPreflightBalance=Number(preflightWallets.find(row=>String(row.currency).toUpperCase()===targetCurrency)?.availableMinor||0);
+ const tradeFxRates=new Map<string,FxRateSnapshot>();
+ const tradeFxConfigs=new Map<string,TradingFxConfig>();
+ if(targetPreflightBalance<input.amountMinor){
+   const registryRows=await db.select({code:currencyRegistry.code,scale:currencyRegistry.scale,assetType:currencyRegistry.assetType,externalCode:currencyRegistry.externalCode}).from(currencyRegistry).where(eq(currencyRegistry.enabled,true));
+   for(const row of registryRows)tradeFxConfigs.set(String(row.code).toUpperCase(),{code:String(row.code).toUpperCase(),scale:Number(row.scale),assetType:row.assetType,externalCode:row.externalCode?String(row.externalCode):null});
+   const codes=new Set<string>([targetCurrency,...preflightWallets.filter(row=>Number(row.availableMinor)>0).map(row=>String(row.currency).toUpperCase())]);
+   const fetched=await Promise.all([...codes].map(async code=>{
+     const config=tradeFxConfigs.get(code);
+     if(!config)return [code,null] as const;
+     try{return [code,await getFreshTradingFxRate(config)] as const;}catch{return [code,null] as const;}
+   }));
+   for(const [code,rate] of fetched)if(rate)tradeFxRates.set(code,rate);
+   if(!tradeFxRates.has(targetCurrency))throw new Error(`A current exchange rate for ${targetCurrency} is unavailable; no wallet funds were moved`);
+ }
  return db.transaction(async tx=>{
   // Serialize allocations for one customer. This makes daily caps and active-trade
   // checks safe when multiple workers attempt automatic trades concurrently.
