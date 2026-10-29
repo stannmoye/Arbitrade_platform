@@ -2710,7 +2710,7 @@ async function claimOpportunityExecutionAttempt(userId:number, offer:any, maxAtt
     }
     await tx.update(opportunityPopupEvents).set({
       executionStatus:"RUNNING",executionAttemptCount:attempts+1,
-      executionRetryAfter:new Date(now.getTime()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),executionRetryDay:day,updatedAt:now,
+      executionRetryAfter:new Date(now.getTime()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)))*1000),executionRetryDay:day,updatedAt:now,
     }).where(eq(opportunityPopupEvents.id,event.id));
     return {claimed:true,attemptNumber:attempts+1,eventId:Number(event.id)};
   });
@@ -2737,7 +2737,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
     const offerMinimum=Number(offer.minimumMinor);
     const packageMinimum=Number(offer.packageMinimumTradeMinor||0);
     const requestedAmount=Math.max(offerMinimum,packageMinimum);
-    const packageMaximum=Number(offer.packageMaximumTradeMinor??Number.MAX_SAFE_INTEGER);
+    const packageMaximum=Number(offer.packageMaximumTradeMinor);
     if(!Number.isSafeInteger(requestedAmount)||requestedAmount<=0||requestedAmount>packageMaximum){
       await markMissedOpportunity(userId,offer,Math.max(1,Number.isFinite(requestedAmount)?requestedAmount:offerMinimum),"PACKAGE_TRADE_LIMIT_UNSATISFIABLE");
       missedOfferIds.add(Number(offer.id));
@@ -2777,10 +2777,10 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
       // A pause must not consume the configured retry budget; release the claim
       // and wait briefly so the durable worker can resume after the administrator unpauses.
       if(/new trading allocations are paused by an administrator/i.test(message)){
-        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),errorCode:"ALLOCATION_PAUSED",attemptNumber:claim.attemptNumber,releaseAttempt:true});
+        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)))*1000),errorCode:"ALLOCATION_PAUSED",attemptNumber:claim.attemptNumber,releaseAttempt:true});
         continue;
       }
-      const decision=decideTradeExecutionRetry(error,Number(claim.attemptNumber),Math.max(1,maxAttempts),new Date(),Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30)));
+      const decision=decideTradeExecutionRetry(error,Number(claim.attemptNumber),Math.max(1,maxAttempts),new Date(),Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds))));
       if(decision.kind==="retry"){
         await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:decision.retryAt,errorCode:decision.errorCode});
         continue;
@@ -2844,7 +2844,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const maxVisibleOffers=Math.min(combinedQuota,adminVisibleCap||combinedQuota);
   const popupPolicy={
     popupMinGapSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
-    popupDisplaySeconds:Math.max(1,Number(policy?.popupDisplayTargetSeconds||120)),
+    popupDisplaySeconds:Math.max(1,Number(policy?.popupDisplayTargetSeconds)),
     popupMaxPerHour:maxPopupsPerDay,
     popupPreAlertProbabilityBps:0,popupPreAlertSeconds:0,popupWithdrawalProbabilityBps:0,
     popupJitterSeconds:Math.max(0,Number(policy?.maxIntervalSeconds||0)-Number(policy?.minIntervalSeconds||0)),
@@ -3187,7 +3187,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   if(packagePolicy){
     const activeRows=await tx.select({id:tradePositions.id}).from(tradePositions)
       .where(and(eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed")))
-      .limit(Math.max(1,Number(packagePolicy.maxConcurrentActiveTrades||1)+1));
+      .limit(Number(packagePolicy.maxConcurrentActiveTrades)+1);
     if(Number(packagePolicy.maxConcurrentActiveTrades||0)>0&&activeRows.length>=Number(packagePolicy.maxConcurrentActiveTrades)) throw new Error("Package maximum concurrent active trades reached");
     const attemptRows=await tx.execute(sql`SELECT COUNT(*) AS count FROM trade_positions WHERE userId=${userId} AND confirmedAt>=${todayStartUtc} AND confirmedAt<${tomorrowStartUtc}`) as any;
     if(Number(packagePolicy.maxTradeAttemptsPerDay||0)>0&&Number(attemptRows?.[0]?.[0]?.count||0)>=Number(packagePolicy.maxTradeAttemptsPerDay)) throw new Error("Package daily trade-attempt limit reached");
