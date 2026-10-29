@@ -3250,9 +3250,9 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   if(!Number.isSafeInteger(configuredDurationSeconds)||configuredDurationSeconds<1||configuredDurationSeconds>31536000) throw new Error("Persisted pop-up trade duration is invalid");
   const startedAt=Date.now(); const settlesAt=new Date(startedAt+configuredDurationSeconds*1000);
   const creditAt=new Date(settlesAt.getTime()+(settlementDelaySeconds+settlementPolicy.creditDelaySeconds)*1000);
-  const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:configuredRateBps,configuredDurationSeconds,packagePolicyVersionSnapshot:Number(packagePolicy?.policyVersion||1),rewardReservedMinor:reward,settlesAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:Number(packagePolicy?.policyVersion||activePackageSubscription.termsVersion||1)} as any);
+  const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:configuredRateBps,configuredDurationSeconds,packagePolicyVersionSnapshot:Number(packagePolicy?.policyVersion||1),companyReferenceId:offer.companyReferenceId||null,companyDisplayName:offer.companyName||null,companyLogoUrl:offer.companyLogoUrl||null,rewardReservedMinor:reward,settlesAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:Number(packagePolicy?.policyVersion||activePackageSubscription.termsVersion||1)} as any);
   const tradeId=Number(result[0].insertId);
-  await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:Number(packagePolicy?.policyVersion||activePackageSubscription.termsVersion||1)})});
+  await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:Number(packagePolicy?.policyVersion||activePackageSubscription.termsVersion||1),configuredProfitRateBps:configuredRateBps,configuredDurationSeconds,companyReferenceId:offer.companyReferenceId||null,companyDisplayName:offer.companyName||null})});
   if(input.deliveryEventId!==undefined) await tx.update(opportunityPopupEvents).set({tradeId,eventStatus:"TRADED",executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,tradedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offer.id)));
   else await tx.execute(sql`UPDATE opportunity_popup_events SET tradeId=${tradeId},eventStatus='TRADED',executionStatus='SUCCEEDED',executionRetryAfter=NULL,executionLastErrorCode=NULL,deliveryStatus=CASE WHEN deliveryStatus='failed' THEN deliveryStatus ELSE 'rendered' END,tradedAt=COALESCE(tradedAt,CURRENT_TIMESTAMP),updatedAt=CURRENT_TIMESTAMP WHERE userId=${userId} AND offerId=${offer.id} ORDER BY deliveredAt DESC LIMIT 1`);
   await tx.insert(tradeRewardReservations).values({userId,tradeId,packageName:activePackageSubscription.packageName,windowKey:today,currency:offer.currency,reservedMinor:reward,status:"reserved"});
@@ -3269,6 +3269,10 @@ export async function listTrades(userId:number){
     currency:tradePositions.currency,
     principalMinor:tradePositions.principalMinor,
     expectedRewardMinor:tradePositions.expectedRewardMinor,
+    configuredProfitRateBps:tradePositions.configuredProfitRateBps,
+    configuredDurationSeconds:tradePositions.configuredDurationSeconds,
+    companyDisplayName:tradePositions.companyDisplayName,
+    companyLogoUrl:tradePositions.companyLogoUrl,
     rewardCreditedMinor:tradePositions.rewardCreditedMinor,
     realizedGrossProfitMinor:tradePositions.realizedGrossProfitMinor,
     platformFeeMinor:tradePositions.platformFeeMinor,
