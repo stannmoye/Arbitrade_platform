@@ -2696,7 +2696,7 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     if(policy.minHourlyTarget>policy.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
     if(policy.normalHourlyTarget*24>policy.maxPopupsPerDay && policy.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
     const minimumRewardBps=Number(policy.minimumRewardBps??0), maximumRewardBps=Number(policy.maximumRewardBps??0);
-    if(!Number.isSafeInteger(minimumRewardBps)||!Number.isSafeInteger(maximumRewardBps)||minimumRewardBps<0||maximumRewardBps<0||maximumRewardBps>10000||(minimumRewardBps>0&&maximumRewardBps===0)||(maximumRewardBps>0&&minimumRewardBps>maximumRewardBps)) throw new Error(`Profit percentage range is invalid for ${policy.packageName}`);
+    if(!Number.isSafeInteger(minimumRewardBps)||!Number.isSafeInteger(maximumRewardBps)||minimumRewardBps<0||maximumRewardBps<0||maximumRewardBps>10000||(minimumRewardBps>0&&maximumRewardBps===0)||(maximumRewardBps>0&&minimumRewardBps<1)||(maximumRewardBps>0&&minimumRewardBps>maximumRewardBps)) throw new Error(`Profit percentage range is invalid for ${policy.packageName}`);
     const minimumTradeDurationSeconds=Number(policy.minimumTradeDurationSeconds??60), maximumTradeDurationSeconds=Number(policy.maximumTradeDurationSeconds??3600);
     if(!Number.isSafeInteger(minimumTradeDurationSeconds)||!Number.isSafeInteger(maximumTradeDurationSeconds)||minimumTradeDurationSeconds<1||maximumTradeDurationSeconds<minimumTradeDurationSeconds||maximumTradeDurationSeconds>31536000) throw new Error(`Trade duration range is invalid for ${policy.packageName}`);
     if(policy.packageBadgeLabel!=null&&(typeof policy.packageBadgeLabel!=="string"||policy.packageBadgeLabel.length>48)) throw new Error(`Package badge label is invalid for ${policy.packageName}`);
@@ -3316,11 +3316,12 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   }
   // Customer-editable smart rules do not gate the approved automatic package lifecycle.
   const configuredRateBps=Number(popupSnapshot?.configuredProfitRateBps??offer.expectedRewardBps??terms.rewardBps);
-  if(!Number.isSafeInteger(configuredRateBps)||configuredRateBps<0||configuredRateBps>10000) throw new Error("Selected Trading profit rate is outside the supported bounds");
+  if(!Number.isSafeInteger(configuredRateBps)||configuredRateBps<1||configuredRateBps>10000) throw new Error("Selected Trading profit rate is outside the supported bounds");
   const minimumConfiguredRateBps=Number(packagePolicy?.minimumRewardBps||0), maximumConfiguredRateBps=Number(packagePolicy?.maximumRewardBps||0);
   if(maximumConfiguredRateBps>0&&(configuredRateBps<minimumConfiguredRateBps||configuredRateBps>maximumConfiguredRateBps)) throw new Error("Persisted pop-up profit rate is outside the package's configured range");
   const uncappedReward=calculateConfiguredProfitMinor(input.amountMinor,configuredRateBps);
   const reward=packagePolicy&&Number(packagePolicy.maxRewardPerTradeMinor||0)>0?Math.min(uncappedReward,Number(packagePolicy.maxRewardPerTradeMinor)):uncappedReward;
+  if(reward<1) throw new Error("Configured capital and profit rate do not produce a positive minor-unit profit");
   if (packagePolicy&&Number(packagePolicy.maxDailyRewardMinor||0)>0) {
     const reservationRows=await tx.execute(sql`SELECT COALESCE(SUM(reservedMinor),0) AS reserved FROM trade_reward_reservations WHERE userId=${userId} AND packageName=${activePackageSubscription.packageName} AND windowKey=${today} AND status='reserved'`) as any;
     // The daily reward ceiling counts realized net profit actually retained by the
