@@ -83,7 +83,7 @@ If a field is not yet known, show “Pending” or “Unavailable”; never fill
 
 - **Minimize** collapses the expanded card into a fixed bottom-of-viewport dock.
 - **Maximize** reopens it without resetting countdowns or lifecycle state.
-- The expanded display timeout only changes presentation. It cannot discard the opportunity, cancel a trade, or settle an account.
+- The expanded display timeout and Dismiss control only change presentation. They cannot discard the durable opportunity, cancel or suppress server-owned automatic execution, alter entitlement/quota, debit or credit a wallet, or settle an account. A dismissed event remains eligible for automatic processing when its persisted delivery and execution states permit it.
 - Do not dismiss at countdown zero until the server reports an appropriate terminal status. Pending, retrying and awaiting-settlement items remain accessible.
 - Multiple cards must remain separately keyed; one card must not overwrite another.
 
