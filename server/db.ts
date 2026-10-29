@@ -2937,7 +2937,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     return dailyQuota>0&&(usedBySubscription.get(Number(subscription.subscriptionId))||0)<dailyQuota;
   };
   const activePopupRows=await db.select({
-    eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
+    eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,policyVersion:opportunityPopupEvents.policyVersion,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,tradeDurationSeconds:opportunityPopupEvents.tradeDurationSeconds,companyLogoId:opportunityPopupEvents.companyLogoId,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
     balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,quotaDay:opportunityPopupEvents.quotaDay,
@@ -3034,7 +3034,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       symbol:row.symbol,venueFrom:row.venueFrom||"",venueTo:row.venueTo||"",currency:row.currency,minimumMinor:Math.max(offerMinimum,Number(row.popupMinimumMinor||0),configuredMinimum),
       packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,expectedRewardBps:Number(row.expectedRewardBps||0),
       opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,durationSeconds:Number(row.durationSeconds||0),marketObservedAt:row.marketObservedAt,
-      marketSnapshotId:row.marketSnapshotId,sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,
+      marketSnapshotId:row.marketSnapshotId,policyVersion:Number(row.policyVersion),sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,
       executionStatus:row.executionStatus,executionAttemptCount:Number(row.executionAttemptCount||0),executionRetryAfter:row.executionRetryAfter,executionRetryDay:row.executionRetryDay,executionLastErrorCode:row.executionLastErrorCode,
       maxTradeAttemptsPerDay:Number(policyByName.get(String(row.packageName))?.maxTradeAttemptsPerDay??0),
       tradeRetryDelaySeconds:Number(policyByName.get(String(row.packageName))?.tradeRetryDelaySeconds??0),
@@ -3046,7 +3046,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const packagePolicy=policyByName.get(String(offer.packageName));
     // Disabled package policies or automatic execution must stop new allocations
     // without turning a merely visible/pending popup into a trade request.
-    return Boolean(packagePolicy && Number(packagePolicy.policyVersion)>=1 && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled && Number(packagePolicy.maxTradeAttemptsPerDay)>0 && Number(packagePolicy.tradeRetryDelaySeconds)>=5 && Number(packagePolicy.tradeRetryDelaySeconds)<=3600);
+    return Boolean(packagePolicy && Number(packagePolicy.policyVersion)>=1 && Number(offer.policyVersion)===Number(packagePolicy.policyVersion) && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled && Number(packagePolicy.maxTradeAttemptsPerDay)>0 && Number(packagePolicy.tradeRetryDelaySeconds)>=5 && Number(packagePolicy.tradeRetryDelaySeconds)<=3600);
   });
   const effectiveControls=controls;
   const auto=options.workerCycle===true ? await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls) : {executed:[],missed:await listMissedOpportunities(userId)};
