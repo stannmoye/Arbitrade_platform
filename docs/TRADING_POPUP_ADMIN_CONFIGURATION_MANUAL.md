@@ -12,6 +12,9 @@
 5. Catalogue membership, a company logo, country folder, supplied ticker or rotating card does not prove that a company is publicly listed, that a market trade occurred, or that a profit was earned. The current catalogue is reference data; the current ticker candidates are not verified trade-eligible instruments. Do not use rotation itself as execution evidence.
 6. **Per-pop-up capital, rate and duration are server-calculated from the saved package policy.** An eligible pop-up snapshots required capital, a profit-rate bound and a duration bound. The server selects one permitted rate and one permitted duration exactly once for that opportunity, persists them before processing continues, and calculates the configured payout from committed capital using integer minor-unit arithmetic. This is a platform-defined contractual payout rule, not evidence of a market-derived return; customer-facing wording and terms must say so clearly. Never present it as an exchange/broker-earned market profit unless supported by actual trade execution and settlement evidence. Do not invent quotes, execution records or third-party settlement. The payout rule and its financial/legal approval must be explicit before real-money rollout.
 7. All settings that affect an existing trade must follow a documented version/effective-time rule. Snapshot the relevant configuration on each opportunity/trade. Editing a package must not silently rewrite terms, countdowns, fees, or financial history of an already opened trade.
+8. **New tiers start disabled and unconfigured.** The admin must explicitly enter the qualifying threshold, entitlement duration, and daily opportunity quota. The server creates a new tier disabled and initializes its delivery/trading policy to an explicitly disabled sentinel state; it must not inherit a UI example threshold, quota, display duration, payout rate or trade duration. Enabling a tier requires an authorized administrator to save a valid policy with explicit policy-enabled, automatic-delivery and automatic-trading switches plus valid positive rate and duration ranges.
+9. Policy reads are read-only. Missing policy rows, missing/invalid payout bounds, invalid duration bounds or disabled automation fail closed: no new popup is delivered and no new automatic allocation is made. A read must never repair missing settings by inserting defaults. An administrator save or a reviewed forward-only migration is the explicit reconciliation path.
+10. The popup and trade persist the same immutable company reference metadata snapshot alongside stable Logo ID, name, logo URL, configured rate, configured trade duration, popup display duration and policy version. Snapshot metadata includes country-folder/country code, supplied ticker/symbol/exchange, ticker classification/research status, listing-status and source-confidence/verification markers. Every company reference is marked reference-only; catalogue metadata does not prove listing, price, execution or profit.
 
 ## 2. Admin portal: package list and package editor
 
@@ -46,6 +49,15 @@ Each package row should show its badge, name, enabled/disabled status, qualifyin
 
 Controls may be grouped into tabs such as **Package & Badge**, **Capital & Profit Policy**, **Pop-up Display**, **Company Rotation**, **Schedule & Quotas**, **Limits & Recovery**, and **Audit History**. Grouping must not hide any required field or imply that an unimplemented control already works.
 
+### Explicit configuration and activation gates
+
+- The create-tier form presents threshold, package duration, and daily opportunity quota as blank required fields. It does not preselect a tier threshold or quota and does not offer an enabled checkbox for a new tier.
+- A newly created tier is disabled in both package configuration and its saved opportunity policy row. Sentinel values (policy version zero, disabled automation switches, no payout/duration bounds) make the unconfigured state explicit rather than relying on database defaults.
+- To enable automatic delivery, the administrator must save both a valid inclusive positive payout-rate range and a valid inclusive trade-duration range. The server rejects incomplete, incompatible or implicitly defaulted settings.
+- Policy saves include explicit enabled, automatic-delivery and automatic-trading booleans. Automatic trading cannot be enabled unless the policy and delivery are enabled; enabling a package is rejected until the saved policy is valid.
+- Reads never create policy rows. A missing or invalid saved policy pauses delivery/allocation for that tier; reconcile it through an audited administrator save or a reviewed forward migration.
+- Migration 0088_trading_popup_trade_snapshots.sql is forward-only after migrations 0086 and 0087. It stores configured rate/duration/display duration and policy version on the popup, plus a copy of the company reference metadata, and copies the same chosen rate/duration/company snapshot to trade_positions.
+
 ## 3. Customer pop-up: required content
 
 The same server-saved package settings govern the customer's actual display. The card must be bound to a stable opportunity/trade ID and a stable company Logo ID.
@@ -55,7 +67,7 @@ The same server-saved package settings govern the customer's actual display. The
 Show fields when applicable and available:
 
 - Package badge and package display name (read-only, from the customer's automatically assigned entitlement/configuration snapshot).
-- Company logo, company name, stable Logo ID, country name and flag from verified catalogue metadata; show “Country unverified” when appropriate.
+- Company logo, company name, stable Logo ID, and country-folder/country-code metadata from the saved catalogue snapshot. Label these as company-reference metadata; do not describe a country folder as verified headquarters or listing information. Show unverified status when the source record is unverified.
 - Supplied symbol/code and exchange/status classification only as reference data, without implying listing verification.
 - Opportunity/trade reference and current authoritative status.
 - Required capital, committed capital allocation, each wallet/currency used, the native amount debited from each wallet, the exchange-rate source and timestamp used for any cross-wallet conversion, available balance and shortfall when insufficient.
