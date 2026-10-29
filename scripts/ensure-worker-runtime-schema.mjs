@@ -125,6 +125,8 @@ async function main() {
     await executeCompatibleMigrationSql(db, popupPolicyRangeMigration);
     const companySpotlightRotationMigration = await readFile(resolve(root, "drizzle/0087_trading_company_spotlight_rotation.sql"), "utf8");
     await executeCompatibleMigrationSql(db, companySpotlightRotationMigration);
+    const popupTradeSnapshotsMigration = await readFile(resolve(root, "drizzle/0088_trading_popup_trade_snapshots.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, popupTradeSnapshotsMigration);
 
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],
