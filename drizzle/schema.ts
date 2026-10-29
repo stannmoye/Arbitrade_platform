@@ -230,6 +230,7 @@ export const opportunityPopupEvents = mysqlTable("opportunity_popup_events", {
   offerId: int("offerId").notNull(),
   quotaDay: varchar("quotaDay", { length: 10 }).notNull(),
   packageName: varchar("packageName", { length: 40 }).notNull(),
+  companyLogoId: varchar("companyLogoId", { length: 32 }),
   symbol: varchar("symbol", { length: 40 }).notNull(),
   currency: varchar("currency", { length: 32 }).notNull(),
   minimumMinor: bigint("minimumMinor", { mode: "number" }).notNull(),
