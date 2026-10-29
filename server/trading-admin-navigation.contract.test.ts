@@ -19,7 +19,7 @@ describe("Trading tier creation defaults", () => {
     expect(editor).toContain('e.target.value===""?"":Number(e.target.value)');
     expect(editor).toContain("no package threshold or quota is preselected");
     expect(editor).not.toContain('minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6');
-    const editFields = editor.slice(editor.indexOf("{(q.data as any[]).map"), editor.indexOf("function AdminPackages({focus}"));
+    const editFields = editor.slice(editor.indexOf("{(q.data as any[]).map"));
     expect(editFields).toContain('draft.minimumQualifyingBalanceUsdMinor===""?"":');
     expect(editFields).toContain('e.target.value===""?"":Number(e.target.value)');
     expect(editFields).toContain('draft.maxPopupsPerDay===""');
