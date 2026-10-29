@@ -570,13 +570,15 @@ export const appRouter = router({
         path: ["reversalLedgerId"],
       })).mutation(async ({ ctx, input }) => {
       const result=await adjustCustomerBalance(ctx.user.id, input);
-      await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{
-        eventType:`ADMIN_${input.mode.toUpperCase()}`,status:"COMPLETED",
-        title:`Wallet ${input.mode} transaction completed`,
-        message:`${input.currency} wallet adjustment was committed to the ledger for account ${input.userId}.`,
-        amountMinor:input.amountMinor,asset:input.currency,
-        metadata:{targetUserId:input.userId,reason:input.reason,creditClassification:input.creditClassification,debitClassification:input.debitClassification,reversalLedgerId:input.reversalLedgerId,qualifyingDepositReversalOfId:result.qualifyingDepositReversalOfId,ledgerId:result.ledgerId,entryType:result.entryType,rateUsd:result.rateUsd,amountUsd:result.amountUsd,rateUpdatedAt:result.rateUpdatedAt,qualifyingDepositRateProvider:result.qualifyingDepositRateProvider},
-      });
+      if (!result.idempotentReplay) {
+        await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{
+          eventType:`ADMIN_${input.mode.toUpperCase()}`,status:"COMPLETED",
+          title:`Wallet ${input.mode} transaction completed`,
+          message:`${input.currency} wallet adjustment was committed to the ledger for account ${input.userId}.`,
+          amountMinor:input.amountMinor,asset:input.currency,
+          metadata:{targetUserId:input.userId,reason:input.reason,creditClassification:input.creditClassification,debitClassification:input.debitClassification,reversalLedgerId:input.reversalLedgerId,qualifyingDepositReversalOfId:result.qualifyingDepositReversalOfId,ledgerId:result.ledgerId,entryType:result.entryType,rateUsd:result.rateUsd,amountUsd:result.amountUsd,rateUpdatedAt:result.rateUpdatedAt,qualifyingDepositRateProvider:result.qualifyingDepositRateProvider},
+        });
+      }
       return result;
     }),
     settings: adminProcedure.query(async () => ({ sounds: await (async () => { const raw = await getAppSetting("sound.settings"); try { return JSON.parse(raw || "{}"); } catch { return {}; } })(), ticket: await getTicketUploadPolicy(), email: { provider: await getAppSetting("email.provider"), fromName: await getAppSetting("email.fromName"), fromAddress: await getAppSetting("email.fromAddress"), replyTo: await getAppSetting("email.replyTo", "") }, opportunity: { countdownSeconds: Number(await getAppSetting("opportunity.countdownSeconds")), signupCreditMinor: Number(await getAppSetting("signup.autoCreditMinor")), signupCreditCurrency: await getAppSetting("signup.autoCreditCurrency") }, policy: await (async()=>{ try{return JSON.parse((await getAppSetting("policy.defaults"))||"{}")}catch{return {}} })(), branding: await (async()=>{ try{return JSON.parse((await getAppSetting("branding.settings"))||"{}")}catch{return {}} })(), appearance: await normalizeAppearanceSettings(await getAppSetting("appearance.settings")), trade: await getTradeSettlementPolicy() })),
