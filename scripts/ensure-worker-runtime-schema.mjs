@@ -119,6 +119,10 @@ async function main() {
     const settlementSchemaMigration = await readFile(resolve(root, "drizzle/0085_trade_settlement_schema_reconciliation.sql"), "utf8");
     await executeCompatibleMigrationSql(db, settlementSchemaMigration);
 
+    // Keep automatic opportunity execution fenced across overlapping workers and restarts.
+    const opportunityExecutionLeaseMigration = await readFile(resolve(root, "drizzle/0086_trading_opportunity_execution_leases.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, opportunityExecutionLeaseMigration);
+
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],
       ["category", "VARCHAR(40) NOT NULL DEFAULT 'account'"],
