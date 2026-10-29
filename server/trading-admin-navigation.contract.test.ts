@@ -43,7 +43,7 @@ describe("Trading tier audit reasons", () => {
 
     const createStart = serverDb.indexOf("export async function createAdminTradingPackage");
     const updateStart = serverDb.indexOf("export async function updateAdminTradingPackage", createStart);
-    const nextFunction = serverDb.indexOf("/**\\n * Customer-safe, read-only progressive eligibility summary.", updateStart);
+    const nextFunction = serverDb.indexOf("/**\n * Customer-safe, read-only progressive eligibility summary.", updateStart);
     expect(createStart).toBeGreaterThanOrEqual(0);
     expect(updateStart).toBeGreaterThan(createStart);
     expect(nextFunction).toBeGreaterThan(updateStart);
