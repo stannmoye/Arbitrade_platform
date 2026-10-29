@@ -24,11 +24,19 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
     },
   },
   opportunity_popup_events: {
-    // The automatic Trading worker requires this fencing field to exist even when
+    // Delivery diagnostics and the execution fencing token are required even when
     // a legacy migration tracker claims the schema is already current.
-    columns: ["executionLeaseToken"],
-    dataTypes: { executionLeaseToken: "varchar" },
-    nullable: { executionLeaseToken: true },
+    columns: ["deliveryStatus", "deliveryAttemptCount", "lastErrorCode", "receivedAt", "renderedAt", "expiredAt", "executionLeaseToken"],
+    dataTypes: {
+      deliveryStatus: "enum",
+      deliveryAttemptCount: "int",
+      lastErrorCode: "varchar",
+      receivedAt: "timestamp",
+      renderedAt: "timestamp",
+      expiredAt: "timestamp",
+      executionLeaseToken: "varchar",
+    },
+    nullable: { lastErrorCode: true, receivedAt: true, renderedAt: true, expiredAt: true, executionLeaseToken: true },
     indexes: {},
   },
   trading_tier_qualification_jobs: {
