@@ -119,6 +119,11 @@ async function main() {
     const settlementSchemaMigration = await readFile(resolve(root, "drizzle/0085_trade_settlement_schema_reconciliation.sql"), "utf8");
     await executeCompatibleMigrationSql(db, settlementSchemaMigration);
 
+    // The administrator wallet writer now stores request idempotency and its
+    // committed response in this table; ensure it exists before serving requests.
+    const walletAdjustmentIdempotencyMigration = await readFile(resolve(root, "drizzle/0087_admin_wallet_adjustment_idempotency.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, walletAdjustmentIdempotencyMigration);
+
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],
       ["category", "VARCHAR(40) NOT NULL DEFAULT 'account'"],
