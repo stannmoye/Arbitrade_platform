@@ -124,19 +124,23 @@ async function reconcileTradingPackageSchema(connection, root) {
 
 
 async function reconcileOpportunityExecutionLeaseSchema(connection, root) {
+  const requiredColumns = ["deliveryStatus", "deliveryAttemptCount", "lastErrorCode", "receivedAt", "renderedAt", "expiredAt", "executionLeaseToken"];
   const [rows] = await connection.query(
-    "SELECT column_name AS columnName FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1",
-    ["opportunity_popup_events", "executionLeaseToken"],
+    "SELECT column_name AS columnName FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name IN (?, ?, ?, ?, ?, ?, ?)",
+    ["opportunity_popup_events", ...requiredColumns],
   );
-  if (rows.length) return { repaired: false };
+  const existingColumns = new Set(rows.map((row) => String(row.columnName)));
+  if (requiredColumns.every((column) => existingColumns.has(column))) return { repaired: false };
   const migrationPath = resolve(root, "drizzle", "0086_trading_opportunity_execution_leases.sql");
   const sql = await readFile(migrationPath, "utf8");
   await executeCompatibleMigrationSql(connection, sql);
   const [verified] = await connection.query(
-    "SELECT column_name AS columnName FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1",
-    ["opportunity_popup_events", "executionLeaseToken"],
+    "SELECT column_name AS columnName FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND column_name IN (?, ?, ?, ?, ?, ?, ?)",
+    ["opportunity_popup_events", ...requiredColumns],
   );
-  if (!verified.length) throw new Error("Trading opportunity execution lease schema verification failed after additive repair.");
+  const verifiedColumns = new Set(verified.map((row) => String(row.columnName)));
+  const missingColumns = requiredColumns.filter((column) => !verifiedColumns.has(column));
+  if (missingColumns.length) throw new Error("Trading opportunity execution lease schema verification failed after additive repair: " + missingColumns.join(", "));
   console.log("[main-migrate] Reconciled Trading opportunity execution lease schema using the idempotent 0086 repair.");
   return { repaired: true };
 }
