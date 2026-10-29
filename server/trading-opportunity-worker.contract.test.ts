@@ -69,6 +69,11 @@ describe("automatic Trading opportunity scheduler", () => {
     expect(cycleSource).toContain("finally");
     expect(cycleSource).toContain("tradeCycleRunning = false;");
   });
+  it("keeps per-customer worker failure logs free of customer identifiers and raw error messages", () => {
+    expect(databaseSource).toContain('console.error("[AutoTrade] Customer cycle failed:",error instanceof Error?error.name:"UnknownError");');
+    expect(databaseSource).not.toContain('`[AutoTrade] Customer ${customer.id} cycle failed:`,error instanceof Error?error.message:error');
+  });
+
   it("backs off repeated automatic-cycle failures and resets the delay after a successful cycle", () => {
     expect(cycleSource).toContain("tradeCycleConsecutiveFailures = 0");
     expect(cycleSource).toContain("tradeCycleRetryAfterMs = 0");
