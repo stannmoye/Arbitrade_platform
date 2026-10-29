@@ -3,7 +3,7 @@ import { parse as parseCookieHeader } from "cookie";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { countCompanyReferences, findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, getRandomCompanyReference, searchCompanyReferences } from "./modules/company-catalogue-reference";
+import { countCompanyReferences, findCompanyReferencesBySymbol, getCompanyReferenceById, getCompanyReferenceSummary, searchCompanyReferences } from "./modules/company-catalogue-reference";
 import { z } from "zod";
 import { communicationSettingsInput, getAdminCommunicationSettings, getCustomerCommunicationOptions, saveAdminCommunicationSettings, validateCommunicationSettingsInput } from "./communicationSettings";
 import { TRPCError } from "@trpc/server";
@@ -54,10 +54,6 @@ export const appRouter = router({
     bySymbol: publicProcedure.input(z.object({
       symbol: z.string().trim().min(1).max(40),
     })).query(({ input }) => findCompanyReferencesBySymbol(input.symbol)),
-    random: publicProcedure.query(() => getRandomCompanyReference()),
-    next: publicProcedure.input(z.object({
-      excludeId: z.string().trim().min(1).max(180).optional(),
-    }).optional()).mutation(({ input }) => getRandomCompanyReference(Math.random, input?.excludeId ? [input.excludeId] : [])),
   }),
 
   privacy: router({
