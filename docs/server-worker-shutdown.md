@@ -17,3 +17,8 @@ The worker health monitor exposes a drain function for cycles it currently track
 ## Validation
 
 Unit tests cover interval cancellation and waiting for a monitored worker cycle. CI must pass on the exact feature-branch head before merge. This source-level behavior does not replace a deployment-time restart test on the operator's actual process manager.
+
+
+## Trading opportunity and company-rotation recovery
+
+See [Trading Pop-up & Admin Configuration Manual](TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md) for the canonical configuration and rotation contract. Graceful shutdown alone is not enough: scheduled opportunities, policy versions, company rotation cursors, retry counts and lease state must be durable in the database. After restart, expired leases must be safely reclaimed and processing must resume idempotently without double-advancing rotation, allocating capital twice or duplicating settlement. Customer browser sessions must not be required. Never infer a completed trade or profit from a timer or company pop-up.
