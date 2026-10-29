@@ -2916,7 +2916,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
         packageId:Number(offer.packageId||0)||undefined,
       });
       await markOpportunityExecuted(userId,offer.id);
-      executed.push({...result,offerId:offer.id,symbol:offer.symbol,amountMinor:requestedAmount,rewardBps:terms.rewardBps,calculationMethod:terms.method});
+      executed.push({...result,offerId:offer.id,symbol:offer.symbol,amountMinor:requestedAmount,rewardBps:Number(result.rewardBps),calculationMethod:String(result.calculationMethod||"saved-tier-policy")});
       existingTrades.push({offerId:offer.id,confirmedAt:new Date()});
       break;
     }catch(error){
