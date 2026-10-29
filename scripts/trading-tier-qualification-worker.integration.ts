@@ -193,7 +193,7 @@ try {
     nonUsdQualifyingCredit = await adjustCustomerBalance(adminId, {
       userId: creditPathUserId,
       currency: testCurrencyCode,
-      amountMinor: 10000,
+      amountMinor: 20000,
       mode: "credit",
       creditClassification: "qualifying_deposit",
       reason: "integration test non-USD qualifying admin wallet credit",
@@ -203,7 +203,7 @@ try {
     globalThis.fetch = originalFetch;
   }
   assert.equal(nonUsdQualifyingCredit.entryType, "admin_manual_deposit_credit");
-  assert.equal(nonUsdQualifyingCredit.qualifyingDepositUsdMinor, 5000,
+  assert.equal(nonUsdQualifyingCredit.qualifyingDepositUsdMinor, 10000,
     "100 units at 0.5 USD per unit must be recorded as USD 50.00, not the manual registry rate.");
   assert.equal(nonUsdQualifyingCredit.qualifyingDepositRateProvider, "frankfurter-ecb");
   assert.equal(nonUsdQualifyingCredit.rateUsd, 0.5);
@@ -323,6 +323,25 @@ try {
   );
   assert.equal(qualifyingReversal.qualifyingDepositReversalOfId, qualifyingCreditOne.ledgerId);
 
+  // Concurrent duplicate full-reversal submissions must settle to one reversal
+  // ledger row and replay the same response for the second caller.
+  const fullReversalInput = {
+    userId: creditPathUserId,
+    currency: "USD",
+    amountMinor: 5000,
+    mode: "debit" as const,
+    debitClassification: "qualifying_deposit_reversal" as const,
+    reversalLedgerId: qualifyingCreditOne.ledgerId,
+    reason: "integration test final full qualifying deposit reversal",
+    idempotencyKey: "it-reversal-full-001",
+  };
+  const concurrentFullReversals = await Promise.all([
+    adjustCustomerBalance(adminId, fullReversalInput),
+    adjustCustomerBalance(adminId, fullReversalInput),
+  ]);
+  assert.equal(concurrentFullReversals[0].ledgerId, concurrentFullReversals[1].ledgerId);
+  assert.equal(concurrentFullReversals[0].qualifyingDepositUsdMinor, -5000);
+
   await assert.rejects(
     adjustCustomerBalance(adminId, {
       userId: creditPathUserId,
@@ -341,11 +360,11 @@ try {
     .where(eq(balanceLedger.userId, creditPathUserId));
   assert.equal(creditPathLedger.length, 4);
   assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_manual_deposit_credit").length, 2);
-  assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_credit").length, 1);
-  assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_manual_deposit_reversal").length, 1);
+  assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_credit").length, 2);
+  assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_manual_deposit_reversal").length, 4);
   const creditPathJobs = await db.select().from(tradingTierQualificationJobs)
     .where(eq(tradingTierQualificationJobs.userId, creditPathUserId));
-  assert.equal(creditPathJobs.length, 5, "Only qualifying credits and valid reversals may enqueue qualification jobs.");
+  assert.equal(creditPathJobs.length, 6, "Only qualifying credits and valid reversals may enqueue qualification jobs.");
   assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === qualifyingCreditOne.ledgerId));
   assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === nonUsdQualifyingCredit.ledgerId));
   assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === qualifyingReversal.ledgerId));
