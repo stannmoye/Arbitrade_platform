@@ -77,6 +77,27 @@ export function nativeMinorToUsd(minor: number, scale: number, usdRate: number):
   return minorToMajor(minor, scale) * usdRate;
 }
 
+/**
+ * Convert native ledger minor units to USD minor units without binary floating-point
+ * arithmetic. The FX rate is expressed as USD per one native currency unit. The
+ * result is quantized once at the USD ledger boundary using half-up rounding.
+ */
+export function nativeMinorToUsdMinorExact(minor: number, scale: number, usdRate: Decimal.Value): number {
+  if (!Number.isSafeInteger(minor) || minor < 0) throw new Error("Native amount must be a non-negative safe integer in minor units");
+  if (!Number.isInteger(scale) || scale < 0 || scale > 30) throw new Error("Invalid native currency precision scale");
+  let rate: Decimal;
+  try { rate = new Decimal(usdRate); } catch { throw new Error("Invalid USD conversion rate"); }
+  if (!rate.isFinite() || !rate.gt(0)) throw new Error("USD conversion rate must be finite and positive");
+  const usdMinor = new Decimal(minor)
+    .times(rate)
+    .times(new Decimal(10).pow(2 - scale))
+    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
+  if (!usdMinor.isFinite() || !usdMinor.isInteger() || !usdMinor.abs().lte(Number.MAX_SAFE_INTEGER)) {
+    throw new Error("Converted USD minor amount exceeds the safe integer range");
+  }
+  return usdMinor.toNumber();
+}
+
 /** Convert whole USD units into native ledger minor units using the same live registry rate. */
 export function usdUnitsToNativeMinor(usdUnits: number, scale: number, usdRate: number): number {
   if (!Number.isFinite(usdUnits) || usdUnits < 0 || !Number.isFinite(usdRate) || usdRate <= 0) throw new Error("Invalid currency conversion inputs");
