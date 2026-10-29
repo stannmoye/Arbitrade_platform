@@ -239,3 +239,16 @@ This policy is final and must be followed throughout the application:
 - Use integer basis points, minor-unit money math, explicit rounding, exact fee/payout reconciliation, and persisted UTC deadlines. Startup recovery must find overdue work without resetting timers or duplicating debits, payouts, or company rotation.
 - A configured percentage formula is a platform-defined contractual payout unless supported by actual execution/result evidence; UI and terms must not misrepresent it as market-earned profit.
 - Documentation changes are on `docs/admin-editable-trading-popups` and await exact-head CI/review before merge. No production deployment or database operation was performed.
+
+
+## 2026-10-29 — PART 2 — FINANCIAL INTEGRITY & FX FUNDING
+
+- Based the work on current `main` at `7356c5870807592c8e890a3937cf3fb0f2a403fc`; created dedicated branch `part2/financial-integrity-fx-funding-20261029`.
+- Added `nativeMinorToUsdMinorExact` in `shared/money.ts`, using the existing `decimal.js` dependency to convert native minor units to USD minor units with a single half-up quantization at the USD-cent boundary.
+- Routed qualifying admin-credit attribution in `server/db.ts` through the decimal-safe conversion helper and added rounding, precision, invalid-rate and safe-integer regression cases in `shared/money.test.ts`.
+- Existing code already persists qualifying-credit rate/provider/source-time evidence and atomically enqueues tier-qualification jobs. Existing FX provider code rejects stale/missing rates for configured fiat/crypto paths; these paths still require exact-head integration verification.
+- Follow-up branch `fix/part2-admin-adjustment-idempotency-20261029` adds database-backed idempotency for administrator wallet adjustments, stable client retry keys, payload fingerprint checks, and exact-result replay. It extends the disposable-database qualification integration with concurrent duplicate-credit, replayed FX snapshot, stale/mismatched/unavailable FX, concurrent reversal and ordinary-transfer exclusion cases.
+- PR #239 is draft and awaiting exact-head CI results. Multi-wallet rollback after an injected mid-transaction failure remains unverified and must be reconciled with PR #230's implementation and migration 0086 before Part 2 can be accepted. No merge or production deployment performed.
+
+
+- 2026-10-29: Added DB-backed idempotency and six financial acceptance cases to the admin-credit integration path. Exact head `c51493471d2a1eecce5b9185055878589a721d69` passed all seven workflows. Cross-wallet rollback test was added on PR #230, but its first run exposed a missing standard-journal migration for legacy policy columns; migration 0086 now reconciles those columns. Latest rollback CI evidence is still pending, so Part 2 remains incomplete and no merge/deployment has occurred.

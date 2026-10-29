@@ -11,6 +11,26 @@ import { assertWorkerSchemaContracts } from "../scripts/worker-schema-contracts.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 config({ path: resolve(root, ".env"), override: false });
 const results = [];
+try {
+  const idempotencyMigration = await readFile(resolve(root, "drizzle/0087_admin_wallet_adjustment_idempotency.sql"), "utf8");
+  reportMigrationContract(idempotencyMigration);
+} catch {
+  // The helper below reports a clear installation blocker without leaking environment details.
+  reportMigrationContract(null);
+}
+function reportMigrationContract(migration) {
+  const valid = typeof migration === "string" &&
+    migration.includes("CREATE TABLE IF NOT EXISTS admin_wallet_adjustment_requests") &&
+    migration.includes("UNIQUE KEY admin_wallet_adjustment_requests_admin_key_uq");
+  results.push({
+    name: "Administrator wallet adjustment idempotency migration",
+    status: valid ? "PASS" : "FAIL",
+    detail: valid
+      ? "The idempotency migration and unique request-key constraint are present."
+      : "The administrator wallet adjustment idempotency migration is missing or incomplete.",
+  });
+  console.log(`[${valid ? "PASS" : "FAIL"}] Administrator wallet adjustment idempotency migration: ${valid ? "Migration file and unique request-key constraint are present." : "Migration file is missing or incomplete."}`);
+}
 const report = (name, ok, detail) => {
   results.push({ name, status: ok ? "PASS" : "FAIL", detail });
   console.log(`[${ok ? "PASS" : "FAIL"}] ${name}: ${detail}`);

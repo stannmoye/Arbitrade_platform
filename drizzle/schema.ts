@@ -1127,3 +1127,19 @@ export const tradingTierQualificationJobs = mysqlTable("trading_tier_qualificati
   statusAvailableIdx: index("trading_tier_qualification_jobs_status_available_idx").on(table.status, table.availableAt, table.id),
   userStatusIdx: index("trading_tier_qualification_jobs_user_status_idx").on(table.userId, table.status),
 }));
+
+
+/**
+ * Idempotency records for administrator wallet adjustments. The result is committed
+ * in the same transaction as the ledger mutation so retries replay the original result.
+ */
+export const adminWalletAdjustmentRequests = mysqlTable("admin_wallet_adjustment_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  adminId: int("adminId").notNull(),
+  idempotencyKey: varchar("idempotencyKey", { length: 160 }).notNull(),
+  requestHash: varchar("requestHash", { length: 64 }).notNull(),
+  resultJson: longtext("resultJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  adminKeyUnique: uniqueIndex("admin_wallet_adjustment_requests_admin_key_uq").on(table.adminId, table.idempotencyKey),
+}));

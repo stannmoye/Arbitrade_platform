@@ -70,6 +70,13 @@ const MIGRATION_PROGRESS_COLUMNS = Object.freeze({
       ["local_scheduled_jobs", "nextExecutionAt"], ["local_scheduled_jobs", "lockedUntil"],
     ] },
   ],
+  "0087_admin_wallet_adjustment_idempotency": [
+    { label: "administrator wallet idempotency table columns", columns: [
+      ["admin_wallet_adjustment_requests", "id"], ["admin_wallet_adjustment_requests", "adminId"],
+      ["admin_wallet_adjustment_requests", "idempotencyKey"], ["admin_wallet_adjustment_requests", "requestHash"],
+      ["admin_wallet_adjustment_requests", "resultJson"], ["admin_wallet_adjustment_requests", "createdAt"],
+    ] },
+  ],
 });
 
 const RENAMED_COLUMNS = Object.freeze([

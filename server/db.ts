@@ -3,7 +3,7 @@ import { and, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, not
 import { drizzle, type MySql2Database } from "drizzle-orm/mysql2";
 import { createPool, type Pool } from "mysql2/promise";
 import { ENV } from "./_core/env";
-import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, tradingTierQualificationJobs, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
+import { InsertUser, appSettings, authEmailTokens, customerBalances, customerEmailPreferences, customerNotifications, customerPackageSubscriptions, packages, customerSessions, customerTotpAuthenticators, customerWalletPreferences, currencyRegistry, fxRateSnapshots, customerControls, emailOutbox, kycProfiles, payoutRequests, notificationCampaigns, notificationCampaignDeliveries, customerOpportunityRules, opportunityDeliveryEvents, opportunityOffers, opportunityPackagePolicies, opportunityPopupEvents, balanceLedger, tradingTierQualificationJobs, adminWalletAdjustmentRequests, stakePositions, tradePositions, tradeRewardReservations, tradeSettlementReferenceClaims, tradeLifecycleEvents, users, v5AuditEvents, v5Wallets, missedOpportunities } from "../drizzle/schema";
 import { consumeTotpRecoveryCode, decryptTotpSecret, encryptTotpSecret, generateTotpRecoveryCodes, generateTotpSecret, hashTotpRecoveryCode, totpProvisioningUri, verifyTotpCode } from "./modules/totp";
 import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
@@ -12,7 +12,7 @@ import { addCalendarMonths } from "./modules/calendar-months";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
-import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
+import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry } from "./modules/trade-execution-retry";
@@ -1982,7 +1982,7 @@ export async function adjustCustomerBalance(adminId:number,input:{
   userId:number;currency:string;amountMinor:number;mode:"credit"|"debit";
   creditClassification?:"qualifying_deposit"|"non_qualifying_credit";
   debitClassification?:"ordinary_debit"|"qualifying_deposit_reversal";
-  reversalLedgerId?:number;reason:string;
+  reversalLedgerId?:number;reason:string;idempotencyKey?:string;
 }){
   const db=await getDb();
   if(!db) throw new Error("Database is not available");
@@ -1990,6 +1990,25 @@ export async function adjustCustomerBalance(adminId:number,input:{
   if(input.mode==="credit"&&!input.creditClassification) throw new Error("Choose whether the manual credit is a qualifying deposit or non-qualifying credit");
   if(input.mode==="debit"&&!input.debitClassification) throw new Error("Choose whether this debit is ordinary or reverses a qualifying deposit");
   if(input.mode==="debit"&&input.debitClassification==="qualifying_deposit_reversal"&&!Number.isSafeInteger(input.reversalLedgerId)) throw new Error("Select the qualifying deposit being reversed");
+  const idempotencyKey=String(input.idempotencyKey??"").trim();
+  if(idempotencyKey.length<8||idempotencyKey.length>160) throw new Error("A stable idempotency key is required for every administrator wallet adjustment");
+  const requestHash=crypto.createHash("sha256").update(JSON.stringify({
+    adminId,userId:input.userId,currency:input.currency.toUpperCase(),amountMinor:input.amountMinor,mode:input.mode,
+    creditClassification:input.creditClassification??null,debitClassification:input.debitClassification??null,
+    reversalLedgerId:input.reversalLedgerId??null,reason:input.reason.trim(),
+  })).digest("hex");
+  const replayStoredAdjustment=(row:any)=>{
+    if(row.requestHash!==requestHash) throw new Error("This idempotency key was already used for a different wallet adjustment");
+    if(!row.resultJson) throw new Error("This wallet adjustment request is still being finalized; retry with the same idempotency key");
+    const replay=JSON.parse(String(row.resultJson));
+    if(replay.rateUpdatedAt) replay.rateUpdatedAt=new Date(replay.rateUpdatedAt);
+    return { ...replay, idempotentReplay: true };
+  };
+  const priorRequest=(await db.select().from(adminWalletAdjustmentRequests).where(and(
+    eq(adminWalletAdjustmentRequests.adminId,adminId),eq(adminWalletAdjustmentRequests.idempotencyKey,idempotencyKey),
+  )).limit(1))[0];
+  if(priorRequest) return replayStoredAdjustment(priorRequest);
+  let replayedRequest=false;
   let creditTimeRate: Awaited<ReturnType<typeof fetchCurrencyUsdRate>> | null = null;
   let creditTimeCurrency: { code: string; scale: number; assetType: "fiat" | "crypto" | "token"; externalCode: string | null } | null = null;
   if(input.mode==="credit"&&input.creditClassification==="qualifying_deposit"&&input.userId!==adminId){
@@ -2004,7 +2023,10 @@ export async function adjustCustomerBalance(adminId:number,input:{
     }
   }
   const ledgerReference=`admin-${adminId}-${input.userId}-${crypto.randomUUID()}`;
-  const result=await db.transaction(async tx=>{
+  let result:any;
+  try {
+    result=await db.transaction(async tx=>{
+    await tx.insert(adminWalletAdjustmentRequests).values({adminId,idempotencyKey,requestHash,resultJson:null});
     const user=(await tx.select({id:users.id,role:users.role,loginMethod:users.loginMethod}).from(users)
       .where(input.userId===adminId?eq(users.id,input.userId):and(eq(users.id,input.userId),eq(users.role,"user")))
       .limit(1).for("update"))[0];
@@ -2034,11 +2056,10 @@ export async function adjustCustomerBalance(adminId:number,input:{
       if(!Number.isFinite(rate)||rate<=0||!Number.isFinite(rateAt.getTime())||rateAt.getTime()>Date.now()+60_000){
         throw new Error("A valid, timestamped API currency-to-USD rate is required before this qualifying deposit can be credited.");
       }
-      const usdValue=nativeMinorToUsd(input.amountMinor,Number(currency.scale),rate);
-      const usdMinor=Math.round(usdValue*100);
+      const usdMinor=nativeMinorToUsdMinorExact(input.amountMinor,Number(currency.scale),creditTimeRate.rate);
       if(!Number.isSafeInteger(usdMinor)||usdMinor<=0) throw new Error("Qualifying deposit USD value is invalid or below the supported precision.");
       qualifyingDepositUsdMinor=usdMinor;
-      qualifyingDepositRate=String(rate);
+      qualifyingDepositRate=String(creditTimeRate.rate);
       qualifyingDepositRateProvider=provider;
       qualifyingDepositRateAt=rateAt;
     }
@@ -2066,7 +2087,7 @@ export async function adjustCustomerBalance(adminId:number,input:{
         throw new Error("The reversal exceeds the unreversed amount of the selected qualifying deposit");
       }
       if(!Number.isSafeInteger(remainingUsd)||remainingUsd<0) throw new Error("The qualifying deposit reversal history is inconsistent");
-      const reversalUsd=input.amountMinor===remainingNative?remainingUsd:Math.min(remainingUsd,Math.round(originalUsd*input.amountMinor/Number(original.amountMinor)));
+      const reversalUsd=input.amountMinor===remainingNative?remainingUsd:Math.min(remainingUsd,proportionalMinorAmount(originalUsd,input.amountMinor,Number(original.amountMinor)));
       if(!Number.isSafeInteger(reversalUsd)||reversalUsd<0) throw new Error("The qualifying deposit reversal value is invalid");
       qualifyingDepositUsdMinor=-reversalUsd;
       qualifyingDepositRate=original.qualifyingDepositRate;
@@ -2115,7 +2136,7 @@ export async function adjustCustomerBalance(adminId:number,input:{
         metadataJson:JSON.stringify({ledgerId,userId:input.userId,currency:currency.code,amountMinor:input.amountMinor,entryType,qualifyingDepositUsdMinor,qualifyingDepositReversalOfId,rate:qualifyingDepositRate,rateProvider:qualifyingDepositRateProvider,rateAt:qualifyingDepositRateAt?.toISOString()}),
       });
     }
-    return {
+    const completedResult={
       success:true,newAvailableMinor:next,currency:currency.code,amountMinor:input.amountMinor,ledgerReference,ledgerId,entryType,
       qualifyingDepositUsdMinor,qualifyingDepositReversalOfId,
       rateUsd:qualifyingDepositRate!==null?Number(qualifyingDepositRate):Number(currency.usdRate),
@@ -2123,7 +2144,26 @@ export async function adjustCustomerBalance(adminId:number,input:{
       amountUsd:qualifyingDepositUsdMinor!==null?Math.abs(qualifyingDepositUsdMinor)/100:nativeMinorToUsd(input.amountMinor,Number(currency.scale),Number(currency.usdRate)),
       qualifyingDepositRateProvider,
     };
-  });
+    await tx.update(adminWalletAdjustmentRequests).set({resultJson:JSON.stringify(completedResult)}).where(and(
+      eq(adminWalletAdjustmentRequests.adminId,adminId),eq(adminWalletAdjustmentRequests.idempotencyKey,idempotencyKey),
+    ));
+    return completedResult;
+    });
+  } catch(error) {
+    const dbError=error as {code?:string;errno?:number;cause?:{code?:string;errno?:number}};
+    const duplicateCode=dbError?.code??dbError?.cause?.code;
+    const duplicateErrno=dbError?.errno??dbError?.cause?.errno;
+    if(duplicateCode!=="ER_DUP_ENTRY"&&duplicateErrno!==1062) throw error;
+    const committedRequest=(await db.select().from(adminWalletAdjustmentRequests).where(and(
+      eq(adminWalletAdjustmentRequests.adminId,adminId),eq(adminWalletAdjustmentRequests.idempotencyKey,idempotencyKey),
+    )).limit(1))[0];
+    if(!committedRequest) throw error;
+    result=replayStoredAdjustment(committedRequest);
+    replayedRequest=true;
+  }
+  // A replay returns the original committed result without re-running notifications,
+  // tier reconciliation, email delivery or FX lookup.
+  if(replayedRequest) return result;
 
   if(result.entryType==="admin_manual_deposit_credit"||result.entryType==="admin_manual_deposit_reversal"){
     try{await ensureAutomaticTradingTierEntitlements(input.userId);}

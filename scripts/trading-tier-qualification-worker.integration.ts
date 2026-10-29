@@ -5,6 +5,7 @@ import { adjustCustomerBalance, claimAutoTradeCycleCustomers, getDb, runTradingT
 import { requeueDeadQualificationJob } from "../server/_core/workerHealth";
 import {
   appSettings,
+  adminWalletAdjustmentRequests,
   balanceLedger,
   customerBalances,
   currencyRegistry,
@@ -101,9 +102,36 @@ try {
     mode: "credit",
     creditClassification: "qualifying_deposit",
     reason: "integration test qualifying admin wallet credit",
+    idempotencyKey: "it-credit-qualifying-001",
   });
   assert.equal(qualifyingCreditOne.entryType, "admin_manual_deposit_credit");
   assert.equal(qualifyingCreditOne.qualifyingDepositUsdMinor, 20000);
+
+  // Replaying a committed request must return its original ledger result and not
+  // create a second credit. Reusing the key for a different payload must fail.
+  const qualifyingCreditReplay = await adjustCustomerBalance(adminId, {
+    userId: creditPathUserId,
+    currency: "USD",
+    amountMinor: 20000,
+    mode: "credit",
+    creditClassification: "qualifying_deposit",
+    reason: "integration test qualifying admin wallet credit",
+    idempotencyKey: "it-credit-qualifying-001",
+  });
+  assert.equal(qualifyingCreditReplay.ledgerId, qualifyingCreditOne.ledgerId);
+  assert.equal(qualifyingCreditReplay.ledgerReference, qualifyingCreditOne.ledgerReference);
+  await assert.rejects(
+    adjustCustomerBalance(adminId, {
+      userId: creditPathUserId,
+      currency: "USD",
+      amountMinor: 20001,
+      mode: "credit",
+      creditClassification: "qualifying_deposit",
+      reason: "integration test qualifying admin wallet credit",
+      idempotencyKey: "it-credit-qualifying-001",
+    }),
+    /different wallet adjustment/i,
+  );
   const nonQualifyingCredit = await adjustCustomerBalance(adminId, {
     userId: creditPathUserId,
     currency: "USD",
@@ -111,9 +139,28 @@ try {
     mode: "credit",
     creditClassification: "non_qualifying_credit",
     reason: "integration test non-qualifying admin credit",
+    idempotencyKey: "it-credit-nonqualifying-001",
   });
   assert.equal(nonQualifyingCredit.entryType, "admin_credit");
   assert.equal(nonQualifyingCredit.qualifyingDepositUsdMinor, null);
+
+  // Race two identical first submissions. The unique request key must serialize
+  // them to one committed wallet mutation and one stable response.
+  const concurrentDuplicateCreditInput = {
+    userId: creditPathUserId,
+    currency: "USD",
+    amountMinor: 7000,
+    mode: "credit" as const,
+    creditClassification: "non_qualifying_credit" as const,
+    reason: "integration test concurrent duplicate admin credit",
+    idempotencyKey: "it-credit-concurrent-001",
+  };
+  const concurrentDuplicateCredits = await Promise.all([
+    adjustCustomerBalance(adminId, concurrentDuplicateCreditInput),
+    adjustCustomerBalance(adminId, concurrentDuplicateCreditInput),
+  ]);
+  assert.equal(concurrentDuplicateCredits[0].ledgerId, concurrentDuplicateCredits[1].ledgerId);
+  assert.equal(concurrentDuplicateCredits[0].ledgerReference, concurrentDuplicateCredits[1].ledgerReference);
 
   // Stub only the external HTTP boundary to prove the real credit path stores
   // a fresh API-derived non-USD conversion rather than the editable registry rate.
@@ -147,17 +194,18 @@ try {
     nonUsdQualifyingCredit = await adjustCustomerBalance(adminId, {
       userId: creditPathUserId,
       currency: testCurrencyCode,
-      amountMinor: 10000,
+      amountMinor: 20000,
       mode: "credit",
       creditClassification: "qualifying_deposit",
       reason: "integration test non-USD qualifying admin wallet credit",
+      idempotencyKey: "it-credit-nonusd-001",
     });
   } finally {
     globalThis.fetch = originalFetch;
   }
   assert.equal(nonUsdQualifyingCredit.entryType, "admin_manual_deposit_credit");
-  assert.equal(nonUsdQualifyingCredit.qualifyingDepositUsdMinor, 5000,
-    "100 units at 0.5 USD per unit must be recorded as USD 50.00, not the manual registry rate.");
+  assert.equal(nonUsdQualifyingCredit.qualifyingDepositUsdMinor, 10000,
+    "200 units at 0.5 USD per unit must be recorded as USD 100.00, not the manual registry rate.");
   assert.equal(nonUsdQualifyingCredit.qualifyingDepositRateProvider, "frankfurter-ecb");
   assert.equal(nonUsdQualifyingCredit.rateUsd, 0.5);
   const fxEvidence = await db.select().from(fxRateSnapshots)
@@ -169,6 +217,66 @@ try {
   assert.equal(fxRaw.sourceDate, fxSourceDate, "The raw snapshot must preserve the fiat provider source date.");
   assert.ok(String(fxRaw.fetchedAt).includes("T"), "The raw snapshot must preserve the full API fetch timestamp.");
 
+  // A committed non-USD request retry must replay the persisted quote and must
+  // not call the FX provider again, even if the provider is now unavailable.
+  globalThis.fetch = (async () => { throw new Error("FX provider must not be called on committed replay"); }) as typeof fetch;
+  try {
+    const replayedFxCredit = await adjustCustomerBalance(adminId, {
+      userId: creditPathUserId,
+      currency: testCurrencyCode,
+      amountMinor: 20000,
+      mode: "credit",
+      creditClassification: "qualifying_deposit",
+      reason: "integration test non-USD qualifying admin wallet credit",
+      idempotencyKey: "it-credit-nonusd-001",
+    });
+    assert.equal(replayedFxCredit.ledgerId, nonUsdQualifyingCredit.ledgerId);
+    assert.equal(replayedFxCredit.qualifyingDepositUsdMinor, nonUsdQualifyingCredit.qualifyingDepositUsdMinor);
+    assert.equal(replayedFxCredit.rateUsd, nonUsdQualifyingCredit.rateUsd);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  // Stale, mismatched-pair and unavailable provider responses must fail closed
+  // without committing any wallet or ledger mutation.
+  for (const scenario of ["stale", "mismatched", "unavailable"] as const) {
+    const beforeRows = await db.select({ id: balanceLedger.id }).from(balanceLedger).where(and(
+      eq(balanceLedger.userId, creditPathUserId),
+      eq(balanceLedger.currency, testCurrencyCode),
+    ));
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith("https://api.frankfurter.dev/v2/rates?base=USD&quotes=")) {
+        if (scenario === "unavailable") throw new Error("simulated provider outage");
+        return new Response(JSON.stringify([{
+          base: "USD",
+          quote: scenario === "mismatched" ? "OTHER" : testCurrencyCode,
+          rate: 2,
+          date: scenario === "stale" ? "2020-01-01" : fxSourceDate,
+        }]), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      throw new Error("Simulated fallback provider unavailable");
+    }) as typeof fetch;
+    try {
+      await assert.rejects(adjustCustomerBalance(adminId, {
+        userId: creditPathUserId,
+        currency: testCurrencyCode,
+        amountMinor: 10000,
+        mode: "credit",
+        creditClassification: "qualifying_deposit",
+        reason: `integration test ${scenario} FX quote rejection`,
+        idempotencyKey: `it-fx-${scenario}-001`,
+      }));
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    const afterRows = await db.select({ id: balanceLedger.id }).from(balanceLedger).where(and(
+      eq(balanceLedger.userId, creditPathUserId),
+      eq(balanceLedger.currency, testCurrencyCode),
+    ));
+    assert.equal(afterRows.length, beforeRows.length, `${scenario} FX rejection must not commit a ledger entry`);
+  }
+
   const qualifyingReversal = await adjustCustomerBalance(adminId, {
     userId: creditPathUserId,
     currency: "USD",
@@ -177,10 +285,63 @@ try {
     debitClassification: "qualifying_deposit_reversal",
     reversalLedgerId: qualifyingCreditOne.ledgerId,
     reason: "integration test partial qualifying deposit reversal",
+    idempotencyKey: "it-reversal-partial-001",
   });
   assert.equal(qualifyingReversal.entryType, "admin_manual_deposit_reversal");
   assert.equal(qualifyingReversal.qualifyingDepositUsdMinor, -5000);
+
+  // Different concurrent reversal requests must serialize on the original ledger
+  // row. Together they consume 10,000 of the remaining 15,000 native minor units.
+  const concurrentReversals = await Promise.all([
+    adjustCustomerBalance(adminId, {
+      userId: creditPathUserId,
+      currency: "USD",
+      amountMinor: 5000,
+      mode: "debit",
+      debitClassification: "qualifying_deposit_reversal",
+      reversalLedgerId: qualifyingCreditOne.ledgerId,
+      reason: "integration test concurrent partial qualifying deposit reversal A",
+      idempotencyKey: "it-reversal-concurrent-a",
+    }),
+    adjustCustomerBalance(adminId, {
+      userId: creditPathUserId,
+      currency: "USD",
+      amountMinor: 5000,
+      mode: "debit",
+      debitClassification: "qualifying_deposit_reversal",
+      reversalLedgerId: qualifyingCreditOne.ledgerId,
+      reason: "integration test concurrent partial qualifying deposit reversal B",
+      idempotencyKey: "it-reversal-concurrent-b",
+    }),
+  ]);
+  assert.deepEqual(
+    concurrentReversals.map((item) => item.entryType),
+    ["admin_manual_deposit_reversal", "admin_manual_deposit_reversal"],
+  );
+  assert.equal(
+    concurrentReversals.reduce((sum, item) => sum + Math.abs(Number(item.qualifyingDepositUsdMinor)), 0),
+    10000,
+  );
   assert.equal(qualifyingReversal.qualifyingDepositReversalOfId, qualifyingCreditOne.ledgerId);
+
+  // Concurrent duplicate full-reversal submissions must settle to one reversal
+  // ledger row and replay the same response for the second caller.
+  const fullReversalInput = {
+    userId: creditPathUserId,
+    currency: "USD",
+    amountMinor: 5000,
+    mode: "debit" as const,
+    debitClassification: "qualifying_deposit_reversal" as const,
+    reversalLedgerId: qualifyingCreditOne.ledgerId,
+    reason: "integration test final full qualifying deposit reversal",
+    idempotencyKey: "it-reversal-full-001",
+  };
+  const concurrentFullReversals = await Promise.all([
+    adjustCustomerBalance(adminId, fullReversalInput),
+    adjustCustomerBalance(adminId, fullReversalInput),
+  ]);
+  assert.equal(concurrentFullReversals[0].ledgerId, concurrentFullReversals[1].ledgerId);
+  assert.equal(concurrentFullReversals[0].qualifyingDepositUsdMinor, -5000);
 
   await assert.rejects(
     adjustCustomerBalance(adminId, {
@@ -191,22 +352,24 @@ try {
       debitClassification: "qualifying_deposit_reversal",
       reversalLedgerId: qualifyingCreditOne.ledgerId,
       reason: "integration test over-reversal must be rejected",
+      idempotencyKey: "it-reversal-over-001",
     }),
     /reversal exceeds/i,
   );
 
   const creditPathLedger = await db.select().from(balanceLedger)
     .where(eq(balanceLedger.userId, creditPathUserId));
-  assert.equal(creditPathLedger.length, 4);
+  assert.equal(creditPathLedger.length, 8);
   assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_manual_deposit_credit").length, 2);
-  assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_credit").length, 1);
-  assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_manual_deposit_reversal").length, 1);
+  assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_credit").length, 2);
+  assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_manual_deposit_reversal").length, 4);
   const creditPathJobs = await db.select().from(tradingTierQualificationJobs)
     .where(eq(tradingTierQualificationJobs.userId, creditPathUserId));
-  assert.equal(creditPathJobs.length, 3, "Only qualifying credits and valid reversals may enqueue qualification jobs.");
+  assert.equal(creditPathJobs.length, 6, "Only qualifying credits and valid reversals may enqueue qualification jobs.");
   assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === qualifyingCreditOne.ledgerId));
   assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === nonUsdQualifyingCredit.ledgerId));
   assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === qualifyingReversal.ledgerId));
+  assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === concurrentFullReversals[0].ledgerId));
   assert.equal(creditPathJobs.every((row) => row.status === "pending"), true);
   await db.update(tradingTierQualificationJobs).set({
     availableAt: new Date(Date.now() - 10_000),
@@ -220,6 +383,18 @@ try {
   assert.ok(creditPathSubscriptions.some((row) => row.status === "active" && Number(row.packageId) === tierIds[0]));
   assert.ok(!creditPathSubscriptions.some((row) => row.status === "active" && Number(row.packageId) === tierIds[1]),
     "The non-qualifying USD 500 credit must not contribute to tier thresholds.");
+
+  // A large ordinary wallet-transfer ledger entry must not count toward Trading
+  // thresholds; only explicitly classified qualifying admin credits are eligible.
+  const ordinaryTransfer = await db.insert(balanceLedger).values({
+    userId,
+    currency: "USD",
+    amountMinor: 900000,
+    entryType: "wallet_transfer_credit",
+    reference: "worker-integration:" + token + ":ordinary-transfer",
+    withdrawable: false,
+  });
+  createdLedgerIds.push(Number(ordinaryTransfer[0].insertId));
 
   // Insert two qualifying ledger entries and their queue jobs atomically, as the
   // production credit path does. Their cumulative value is USD 300.00.
@@ -522,6 +697,7 @@ try {
     await db.delete(currencyRegistry).where(eq(currencyRegistry.id, testCurrencyId)).catch(() => {});
   }
   if (adminId) {
+    await db.delete(adminWalletAdjustmentRequests).where(eq(adminWalletAdjustmentRequests.adminId, adminId)).catch(() => {});
     await db.delete(v5AuditEvents).where(eq(v5AuditEvents.actorUserId, adminId)).catch(() => {});
     await db.delete(users).where(eq(users.id, adminId)).catch(() => {});
   }
