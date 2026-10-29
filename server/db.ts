@@ -13,6 +13,7 @@ import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportuni
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
+import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry } from "./modules/trade-execution-retry";
@@ -2617,6 +2618,32 @@ export async function getCustomerTradingEligibility(userId:number) {
   };
 }
 
+
+export async function getNextCustomerCompanySpotlight(userId:number) {
+  const eligibility=await getCustomerTradingEligibility(userId);
+  const packageName=String(eligibility.currentPackage?.name||"").trim();
+  if(!eligibility.eligible||!packageName) throw new Error("An active automatically assigned Trading tier is required for company spotlight rotation.");
+  const policies=await listPersistedOpportunityPackagePolicies();
+  const policy=policies.find(row=>row.packageName===packageName);
+  if(!policy) throw new Error("The active Trading tier has no saved company rotation policy.");
+  if(!policy.companyRotationEnabled) return null;
+  const pool=buildCompanySpotlightPool(String(policy.companyRotationCountryNames||""));
+  const stateKey="trading.companyRotation."+userId+"."+packageName;
+  if(stateKey.length>120) throw new Error("Company rotation scope key exceeds the storage limit.");
+  const db=await getDb();
+  if(!db) throw new Error("Company spotlight rotation is temporarily unavailable.");
+  return db.transaction(async tx=>{
+    await tx.insert(appSettings).values({settingKey:stateKey,settingValue:""}).onDuplicateKeyUpdate({set:{settingKey:stateKey}});
+    const row=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings).where(eq(appSettings.settingKey,stateKey)).limit(1).for("update"))[0];
+    let priorState:CompanySpotlightState|null=null;
+    try { const parsed=JSON.parse(String(row?.settingValue||"")); if(parsed&&typeof parsed==="object") priorState=parsed as CompanySpotlightState; } catch {}
+    const repeatPolicy=String(policy.companyRotationRepeatPolicy||"avoid_until_exhausted") as "avoid_until_exhausted"|"allow_repeats";
+    const result=nextCompanySpotlight(pool,priorState,userId,packageName,repeatPolicy);
+    await tx.update(appSettings).set({settingValue:JSON.stringify(result.state),updatedBy:userId}).where(eq(appSettings.settingKey,stateKey));
+    return {...result.company,referenceOnly:true as const,rotationCycle:result.state.cycleNumber,packageName};
+  });
+}
+
 export async function listOpportunityPackagePolicies() {
   const db=await getDb();
   if(!db) throw new Error("Database is not available");
@@ -2665,6 +2692,11 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     const maximumPayoutRateBps=policy.maximumPayoutRateBps==null?null:Number(policy.maximumPayoutRateBps);
     if((minimumPayoutRateBps===null)!==(maximumPayoutRateBps===null)) throw new Error(`Set both published reward-rate bounds or leave both blank for ${policy.packageName}`);
     if(minimumPayoutRateBps!==null&&(maximumPayoutRateBps===null||!Number.isSafeInteger(minimumPayoutRateBps)||!Number.isSafeInteger(maximumPayoutRateBps)||minimumPayoutRateBps<0||maximumPayoutRateBps<minimumPayoutRateBps||maximumPayoutRateBps>5000)) throw new Error(`Published reward-rate bounds must satisfy 0 ≤ minimum ≤ maximum ≤ 5000 bps for ${policy.packageName}`);
+    const companyRotationEnabled=policy.companyRotationEnabled==null?true:Boolean(policy.companyRotationEnabled);
+    const companyRotationCountryNames=normalizeCompanyRotationCountryNames(policy.companyRotationCountryNames??"");
+    const companyRotationRepeatPolicy=String(policy.companyRotationRepeatPolicy??"avoid_until_exhausted");
+    if(!["avoid_until_exhausted","allow_repeats"].includes(companyRotationRepeatPolicy)) throw new Error(`Company rotation repeat policy is invalid for ${policy.packageName}`);
+    if(companyRotationEnabled) buildCompanySpotlightPool(companyRotationCountryNames);
     const minimumTradeDurationSeconds=policy.minimumTradeDurationSeconds==null?null:Number(policy.minimumTradeDurationSeconds);
     const maximumTradeDurationSeconds=policy.maximumTradeDurationSeconds==null?null:Number(policy.maximumTradeDurationSeconds);
     if((minimumTradeDurationSeconds===null)!==(maximumTradeDurationSeconds===null)) throw new Error(`Set both published duration bounds or leave both blank for ${policy.packageName}`);
@@ -2673,7 +2705,7 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     validatePackageAutomationPolicy(automation);
     if(automation.minIntervalSeconds>automation.maxIntervalSeconds) throw new Error(`Delivery interval minimum exceeds maximum for ${policy.packageName}`);
     if(automation.minSettlementDelaySeconds>automation.maxSettlementDelaySeconds) throw new Error(`Settlement delay minimum exceeds maximum for ${policy.packageName}`);
-    const values:any={...policy,...automation,badgeLabel,badgeStyle,minimumPayoutRateBps,maximumPayoutRateBps,minimumTradeDurationSeconds,maximumTradeDurationSeconds,updatedBy};
+    const values:any={...policy,...automation,badgeLabel,badgeStyle,minimumPayoutRateBps,maximumPayoutRateBps,minimumTradeDurationSeconds,maximumTradeDurationSeconds,companyRotationEnabled,companyRotationCountryNames,companyRotationRepeatPolicy,updatedBy};
     delete values.id; delete values.updatedAt; delete values.policyVersion;
     return {packageName:policy.packageName,values};
   });

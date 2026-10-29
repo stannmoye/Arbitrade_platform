@@ -20,6 +20,11 @@ const MIGRATION_PREREQUISITES = Object.freeze({
     ["opportunity_package_policies", "packageName"],
     ["opportunity_popup_events", "eventKey"],
   ],
+  "0087_trading_company_spotlight_rotation": [
+    ["opportunity_package_policies", "companyRotationEnabled"],
+    ["opportunity_package_policies", "companyRotationCountryNames"],
+    ["opportunity_package_policies", "companyRotationRepeatPolicy"],
+  ],
   "0068_trade_realized_profit_accounting": [
     ["trade_positions", "id"],
     ["trade_positions", "status"],
