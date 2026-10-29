@@ -26,7 +26,7 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
   opportunity_popup_events: {
     // Delivery diagnostics and the execution fencing token are required even when
     // a legacy migration tracker claims the schema is already current.
-    columns: ["deliveryStatus", "deliveryAttemptCount", "lastErrorCode", "receivedAt", "renderedAt", "expiredAt", "executionLeaseToken"],
+    columns: ["deliveryStatus", "deliveryAttemptCount", "lastErrorCode", "receivedAt", "renderedAt", "expiredAt", "tradeId", "policyVersion", "executionLeaseToken"],
     dataTypes: {
       deliveryStatus: "enum",
       deliveryAttemptCount: "int",
@@ -34,9 +34,11 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
       receivedAt: "timestamp",
       renderedAt: "timestamp",
       expiredAt: "timestamp",
+      tradeId: "int",
+      policyVersion: "int",
       executionLeaseToken: "varchar",
     },
-    nullable: { lastErrorCode: true, receivedAt: true, renderedAt: true, expiredAt: true, executionLeaseToken: true },
+    nullable: { lastErrorCode: true, receivedAt: true, renderedAt: true, expiredAt: true, tradeId: true, executionLeaseToken: true },
     indexes: {},
   },
   trading_tier_qualification_jobs: {
