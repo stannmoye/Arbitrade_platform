@@ -15,6 +15,7 @@ type PopupDelivery = {
   configuredProfitRateBps: number;
   configuredDurationSeconds: number;
   configuredPopupDisplaySeconds: number;
+  packagePolicyVersionSnapshot: number;
   packageBadgeLabel?: string | null;
   balanceAvailableMinor: number;
   balanceStatus: "sufficient" | "insufficient" | "unknown";
@@ -78,13 +79,13 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
         await connection.execute(
           `INSERT INTO opportunity_popup_events
             (eventKey,userId,offerId,quotaDay,packageName,symbol,currency,minimumMinor,expectedRewardBps,
-             configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds,packageBadgeLabel,companyReferenceId,companyDisplayName,
+             configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds,packagePolicyVersionSnapshot,packageBadgeLabel,companyReferenceId,companyDisplayName,
              companyLogoUrl,companyReferenceOnly,balanceAvailableMinor,balanceStatus,marketObservedAt,marketSnapshotJson,
              eventStatus,deliveredAt,createdAt,updatedAt)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`,
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`,
           [
             eventKey, item.userId, item.offerId, item.quotaDay, item.packageName, item.symbol, item.currency,
-            item.minimumMinor, item.expectedRewardBps, item.configuredProfitRateBps, item.configuredDurationSeconds, item.configuredPopupDisplaySeconds,
+            item.minimumMinor, item.expectedRewardBps, item.configuredProfitRateBps, item.configuredDurationSeconds, item.configuredPopupDisplaySeconds, item.packagePolicyVersionSnapshot,
             item.packageBadgeLabel || null, company.id, company.name, company.logoUrl, 1, item.balanceAvailableMinor,
             item.balanceStatus, item.marketObservedAt || null, item.marketSnapshotJson || null,
           ],
