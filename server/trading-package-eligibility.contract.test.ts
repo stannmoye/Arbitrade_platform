@@ -24,7 +24,7 @@ describe("server-side automatic Trading tier eligibility", () => {
     expect(implementation).toContain("if(offer.popupEligible!==true || allocationControls.allocationsPaused) return false;");
     expect(implementation).toContain("deliveryStatus:opportunityPopupEvents.deliveryStatus");
     expect(implementation).toContain('["delivered","received","rendered"].includes(String(row.deliveryStatus))');
-    expect(implementation).toContain("Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled)");
+    expect(implementation).toContain("Boolean(packagePolicy && Number(packagePolicy.policyVersion)>=1 && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled");
     expect(implementation).toContain("if(!subscription) return null;");
     expect(implementation).toContain(".filter((offer) => offer !== null)");
     expect(implementation).not.toContain("drainMode");
