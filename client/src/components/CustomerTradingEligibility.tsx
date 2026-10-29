@@ -225,9 +225,9 @@ export function CustomerTradingEligibility() {
             </div>
           )}
 
-          {currentPackage && (
+          {(
             <div className="trading-total-allowance" aria-live="polite">
-              <span className="trading-total-allowance-icon"><Activity size={25} strokeWidth={2.5} aria-hidden="true" /></span>
+              <span className="trading-total-allowance-icon"><Sparkles size={25} strokeWidth={2.5} aria-hidden="true" /></span>
               <span className="trading-total-allowance-copy">
                 <strong className="trading-total-allowance-label">Total Daily Opportunity Allowance</strong>
                 <span className="trading-total-allowance-note">Combined across active packages</span>
