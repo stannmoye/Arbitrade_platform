@@ -12,7 +12,7 @@ import { addCalendarMonths } from "./modules/calendar-months";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
-import { nativeMinorToUsd, nativeMinorToUsdMinorExact, usdUnitsToNativeMinor } from "../shared/money";
+import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry } from "./modules/trade-execution-retry";
@@ -2065,7 +2065,7 @@ export async function adjustCustomerBalance(adminId:number,input:{
         throw new Error("The reversal exceeds the unreversed amount of the selected qualifying deposit");
       }
       if(!Number.isSafeInteger(remainingUsd)||remainingUsd<0) throw new Error("The qualifying deposit reversal history is inconsistent");
-      const reversalUsd=input.amountMinor===remainingNative?remainingUsd:Math.min(remainingUsd,Math.round(originalUsd*input.amountMinor/Number(original.amountMinor)));
+      const reversalUsd=input.amountMinor===remainingNative?remainingUsd:Math.min(remainingUsd,proportionalMinorAmount(originalUsd,input.amountMinor,Number(original.amountMinor)));
       if(!Number.isSafeInteger(reversalUsd)||reversalUsd<0) throw new Error("The qualifying deposit reversal value is invalid");
       qualifyingDepositUsdMinor=-reversalUsd;
       qualifyingDepositRate=original.qualifyingDepositRate;
