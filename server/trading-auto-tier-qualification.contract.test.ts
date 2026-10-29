@@ -288,6 +288,33 @@ describe("Automatic Trading tier qualification", () => {
     expect(specification).toContain("Idle cycles perform an indexed queue lookup only");
   });
 
+  it("covers every persisted Trading automation safeguard in the admin editor, router, and database", () => {
+    const fields = [
+      "deliveryRetryPolicy", "expiryHandling", "duplicatePrevention", "audioEnabled", "audioSound",
+      "allowedOpportunityTypes", "rewardLimitCurrency", "dailyRewardWindow", "unsettledRewardPolicy",
+      "capReachedPolicy", "settlementConfirmationState", "settlementRetryPolicy", "maxSettlementAttempts",
+    ];
+    for (const field of fields) {
+      expect(schemaSource).toContain(field);
+      expect(routerSource).toContain(field);
+      expect(customerAppSource).toContain(field);
+      expect(databaseSource).toContain(field);
+    }
+    expect(routerSource).toContain("updatePackagePolicies: adminProcedure.input");
+    expect(routerSource).not.toContain("updatePackagePolicies: protectedProcedure.input");
+    expect(customerAppSource).toContain("Every save records the administrator, reason, previous settings, next settings, and policy version in the audit log.");
+  });
+
+  it("versions and audits policy updates in the same database transaction", () => {
+    expect(databaseSource).toContain("await db.transaction(async tx=>");
+    expect(databaseSource).toContain('eq(opportunityPackagePolicies.packageName,policy.packageName)).limit(1).for("update")');
+    expect(databaseSource).toContain("policyVersion:nextVersion");
+    expect(databaseSource).toContain('action:"trading_opportunity_package_policy_updated"');
+    expect(databaseSource).toContain("previousPolicy:current||null,nextPolicy:{...values},policyVersion:nextVersion");
+    expect(databaseSource).toContain("Provide an audit reason of 5–500 characters");
+    expect(databaseSource).toContain("Each Trading tier may appear only once in a policy update");
+  });
+
   it("documents the owner-approved automatic-deposit policy", () => {
     expect(specification).toContain("Customers never browse, select, subscribe to, purchase, or activate a package.");
     expect(specification).toContain("profits, trading rewards, returned principal, bonuses, swaps, transfers, conversions");
