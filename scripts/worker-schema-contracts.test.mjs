@@ -53,6 +53,7 @@ describe("worker schema contracts", () => {
       .toHaveProperty("trading_tier_qualification_jobs_status_available_idx");
     expect(runtimeSchema).toContain('drizzle/0082_trading_tier_qualification_jobs.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, tierQualificationMigration)");
+    expect(runtimeSchema).toContain('drizzle/0086_trading_popup_policy_snapshots.sql');
     expect(migration).toContain("CREATE TABLE IF NOT EXISTS `trading_tier_qualification_jobs`");
     expect(popupPolicyMigration).toContain("CREATE TABLE IF NOT EXISTS `trading_company_rotation_state`");
     expect(popupPolicyMigration).toContain("`nextCatalogueOffset` INT NOT NULL DEFAULT 0");
