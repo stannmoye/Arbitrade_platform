@@ -36,7 +36,8 @@ const candleSticks = [
   { height: 47, shift: 4, up: false },
 ];
 
-// The visible inactive label is now "NO PACKAGE ASSIGNED" instead of the older "AWAITING TIER" wording.\nexport function CustomerTradingEligibility() {
+// The visible inactive label is now "NO PACKAGE ASSIGNED" instead of the older "AWAITING TIER" wording.
+export function CustomerTradingEligibility() {
   const eligibilityQuery = trpc.customer.tradingEligibility.useQuery(undefined, { refetchInterval: 30_000 });
   const data = eligibilityQuery.data;
   const currentPackage = data?.currentPackage;
@@ -112,7 +113,9 @@ const candleSticks = [
       ) : (
         <div className="trading-journey-content">
           {currentPackage ? (
-            <article className="trading-tier-card trading-tier-card-current" aria-labelledby="current-trading-package">
+            <article className="trading-tier-card trading-tier-card-current trading-current-package-layout" aria-labelledby="current-trading-package">
+              <div className="trading-package-emblem trading-current-emblem" aria-hidden="true"><Sparkles size={54} strokeWidth={1.8} /></div>
+              <div className="trading-current-package-main">
               <div className="trading-tier-card-head">
                 <div className="trading-tier-heading">
                   <div className="trading-tier-kicker"><CheckCircle2 size={19} strokeWidth={2.5} aria-hidden="true" /> Current Package</div>
@@ -133,6 +136,7 @@ const candleSticks = [
                 </div>
               </div>
               <p className="trading-tier-explainer"><Info size={17} strokeWidth={2.5} aria-hidden="true" />Your daily opportunity allowance updates automatically.</p>
+              </div>
             </article>
           ) : (
             <article className="trading-tier-card trading-tier-card-current trading-no-package-card" aria-labelledby="not-yet-qualified">
@@ -149,7 +153,9 @@ const candleSticks = [
           )}
 
           {nextPackage ? (
-            <article className="trading-tier-card trading-tier-card-next" aria-labelledby="next-trading-package">
+            <article className="trading-tier-card trading-tier-card-next trading-next-package-layout" aria-labelledby="next-trading-package">
+              <div className="trading-package-emblem trading-next-emblem" aria-hidden="true"><Sparkles size={54} strokeWidth={1.8} /></div>
+              <div className="trading-next-package-main">
               <div className="trading-tier-card-head">
                 <div className="trading-tier-heading">
                   <div className="trading-tier-kicker"><TrendingUp size={20} strokeWidth={2.5} aria-hidden="true" /> {currentPackage ? "Milestone Package" : "Next Milestone Package"}</div>
@@ -207,6 +213,7 @@ const candleSticks = [
                 </div>
               </div>
               <p className="trading-tier-explainer"><Info size={17} strokeWidth={2.5} aria-hidden="true" />Unlocks extra daily opportunities.</p>
+              </div>
             </article>
           ) : (
             <div className="trading-no-next" aria-live="polite">
