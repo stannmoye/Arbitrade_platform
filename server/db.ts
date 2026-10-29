@@ -2037,7 +2037,7 @@ export async function adjustCustomerBalance(adminId:number,input:{
       const usdMinor=nativeMinorToUsdMinorExact(input.amountMinor,Number(currency.scale),creditTimeRate.rate);
       if(!Number.isSafeInteger(usdMinor)||usdMinor<=0) throw new Error("Qualifying deposit USD value is invalid or below the supported precision.");
       qualifyingDepositUsdMinor=usdMinor;
-      qualifyingDepositRate=String(rate);
+      qualifyingDepositRate=String(creditTimeRate.rate);
       qualifyingDepositRateProvider=provider;
       qualifyingDepositRateAt=rateAt;
     }
