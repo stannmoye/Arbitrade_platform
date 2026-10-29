@@ -246,7 +246,8 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).toContain("New administrator-managed tier");
     expect(customerAppSource).toContain('trpc.adminOperations.createTradingPackage.useMutation');
     expect(customerAppSource).toContain('minimumQualifyingBalanceUsdMinor:"",durationMonths:"",opportunitiesPerDay:""');
-    expect(customerAppSource).toContain('maxActiveInvestments:0,startsAt:"",expiresAt:"",reason:"",enabled:false}');
+    expect(customerAppSource).toContain('startsAt:"",expiresAt:"",reason:"",enabled:false}');
+    expect(customerAppSource).toContain('maxPopupsPerDay:0,maxActiveInvestments:0');
     expect(customerAppSource).toContain("no package threshold or quota is preselected");
     expect(customerAppSource).toContain("New tiers start disabled.");
     expect(databaseSource).toContain("const UNCONFIGURED_TIER_POLICY_SENTINELS = {");
@@ -260,7 +261,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(routerSource).toContain("startsAt: z.string().datetime().nullable()");
     expect(routerSource).toContain("maxActiveInvestments: z.number().int().min(0).max(10000)");
     expect(customerAppSource).toContain("Tier starts at (your local time; blank = immediately)");
-    expect(customerAppSource).toContain("Maximum active investments (0 = no tier-specific cap)");
+    expect(customerAppSource).not.toContain("Maximum active investments (0 = no tier-specific cap)");
   });
 
   it("atomically queues each qualifying administrator credit or reversal for server-side tier reconciliation", () => {
