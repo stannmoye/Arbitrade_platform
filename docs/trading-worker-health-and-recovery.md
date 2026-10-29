@@ -1,5 +1,9 @@
 # Trading worker health and recovery
 
+## Email outbox lease fencing
+
+Email delivery is an at-least-once external side effect. The durable outbox claims each row with a lease timestamp aligned to the database's timestamp precision, and the worker must compare that exact persisted lease value before marking a message sent, retrying it, or dead-lettering it. A stale worker whose lease was reclaimed cannot overwrite the newer worker's queue state. Provider timeouts can still make the delivery outcome ambiguous; do not claim exactly-once delivery unless the provider supports and confirms an idempotency mechanism.
+
 ## Scope
 
 The Trade Settings → **Worker Health & Recovery** page reads durable health rows written by server-side cycles. It does not depend on a customer's browser session and does not infer worker health from `/api/health`, which only confirms that the web process can answer an HTTP request.
