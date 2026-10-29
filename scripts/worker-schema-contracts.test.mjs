@@ -40,10 +40,11 @@ describe("worker schema contracts", () => {
 
   it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
     const root = new URL("../", import.meta.url);
-    const [runtimeSchema, migration, opportunityWorkerMigration] = await Promise.all([
+    const [runtimeSchema, migration, opportunityWorkerMigration, healthMigration] = await Promise.all([
       readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
       readFile(new URL("drizzle/0082_trading_tier_qualification_jobs.sql", root), "utf8"),
       readFile(new URL("drizzle/0083_trading_opportunity_worker_indexes.sql", root), "utf8"),
+      readFile(new URL("drizzle/0084_worker_health_registry.sql", root), "utf8"),
     ]);
     expect(WORKER_SCHEMA_CONTRACTS.trading_tier_qualification_jobs.indexes)
       .toHaveProperty("trading_tier_qualification_jobs_source_ledger_uq");
@@ -55,6 +56,11 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain('drizzle/0083_trading_opportunity_worker_indexes.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, tradingOpportunityWorkerMigration)");
     expect(opportunityWorkerMigration).toContain("customer_package_subscriptions_worker_status_user_idx");
+    expect(runtimeSchema).toContain('drizzle/0084_worker_health_registry.sql');
+    expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, workerHealthMigration)");
+    expect(healthMigration).toContain("CREATE TABLE IF NOT EXISTS `worker_health_registry`");
+    expect(healthMigration).toContain("worker_health_worker_instance_uq");
+    expect(healthMigration).toContain("worker_health_heartbeat_idx");
   });
 
   it("rejects present tables whose shape would still break worker SQL", () => {
@@ -128,9 +134,9 @@ describe("worker schema contracts", () => {
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(previous.tag).toBe("0082_trading_tier_qualification_jobs");
-    expect(last.tag).toBe("0083_trading_opportunity_worker_indexes");
-    expect(journal.entries.slice(-12).map((entry) => entry.tag)).toEqual([
+    expect(previous.tag).toBe("0083_trading_opportunity_worker_indexes");
+    expect(last.tag).toBe("0084_worker_health_registry");
+    expect(journal.entries.slice(-13).map((entry) => entry.tag)).toEqual([
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
       "0074_trade_execution_retries",
@@ -143,6 +149,7 @@ describe("worker schema contracts", () => {
       "0081_trading_tier_policy_alignment",
       "0082_trading_tier_qualification_jobs",
       "0083_trading_opportunity_worker_indexes",
+      "0084_worker_health_registry",
     ]);
     expect(portalRunner).toContain('"0076_trading_admin_policy_read_repair.sql"');
     expect(portalRunner).toContain('"0077_trading_package_catalogue_schema_repair.sql"');

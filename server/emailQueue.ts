@@ -3,6 +3,7 @@ import { and, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { getDb } from "./db";
 import { sendRenderedEmail, isEmailDeliveryConfigured, renderEmail, isValidEmailAddress, type EmailPayload, type EmailTemplate } from "./email";
 import { authEmailTokens, customerControls, customerEmailPreferences, customerNotifications, emailOutbox, balanceLedger, users } from "../drizzle/schema";
+import { runMonitoredWorkerCycle } from "./_core/workerHealth";
 
 function encryptionKey(secret = process.env.SESSION_SECRET): Buffer {
   if (!secret && process.env.NODE_ENV === "production") throw new Error("SESSION_SECRET is required to encrypt queued email payloads");
@@ -178,9 +179,12 @@ export async function flushEmailOutbox(limit = 20) {
 let emailWorkerTimer: NodeJS.Timeout | null = null;
 export function startEmailWorkers() {
   if (emailWorkerTimer) return;
-  emailWorkerTimer = setInterval(() => {
-    void flushEmailOutbox().catch(error => console.error("[Email] Outbox worker failed:", error instanceof Error ? error.name : "UnknownError"));
-    void enqueueDailyDigests().catch(error => console.error("[Email] Daily digest scheduler failed:", error instanceof Error ? error.name : "UnknownError"));
-  }, 30_000);
+  const runOutbox = () => runMonitoredWorkerCycle("email-outbox", () => flushEmailOutbox())
+    .catch(error => console.error("[Email] Outbox worker failed:", error instanceof Error ? error.name : "UnknownError"));
+  const runDigests = () => runMonitoredWorkerCycle("daily-digests", () => enqueueDailyDigests())
+    .catch(error => console.error("[Email] Daily digest scheduler failed:", error instanceof Error ? error.name : "UnknownError"));
+  emailWorkerTimer = setInterval(() => { void runOutbox(); void runDigests(); }, 30_000);
   emailWorkerTimer.unref();
+  void runOutbox();
+  void runDigests();
 }

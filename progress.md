@@ -1,11 +1,12 @@
-# Current Trading Handoff — 2026-10-28
+# Current Trading Handoff — 2026-10-29
 
 **Repository:** [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrade_platform)  
 **Canonical branch:** `main`  
-**Latest main commit at handoff update:** `a51682da54b9e70434728de3e81fc088ce3f7148` (PR #205 squash merge)  
-**Completed PR:** [#205 — automatic deposit-based tier qualification](https://github.com/stannmoye/Arbitrade_platform/pull/205)  
-**Merged feature head:** `9d3e31ef521e62dd95447c1d1a867b80ad87cc8b`  
-**Status:** PR #205 merged after all exact-head automated checks passed. Post-merge checks are running on main. No production migration or deployment has been run. The worker has only been tested against disposable MySQL/MariaDB databases; production readiness still requires post-merge CI to finish and deployment-time verification on the user's own server.
+**Latest main commit at this handoff update:** `ca3330891296c274caa1b04c58554a9bebe635a0` (PR #214 merge)  
+**Current development branch:** `feat/trading-worker-health-monitoring`  
+**Active pull request:** [#217 — durable Trading worker health monitoring](https://github.com/stannmoye/Arbitrade_platform/pull/217)  
+**Active increment:** Task 3 — durable worker health, recovery visibility and Trade Settings dashboard.  
+**Status:** Working branch is based on `ca3330891296c274caa1b04c58554a9bebe635a0`; do not merge until exact-head CI passes and review is complete. No production migration or deployment has been run. Worker status shown by source code is not production certification.
 
 ## Authoritative Trading tier policy
 
@@ -162,3 +163,24 @@ This policy is final and must be followed throughout the application:
 - Changed files: `client/src/components/CustomerTradingEligibility.tsx`, `client/src/components/CustomerTradingEligibility.css`.
 - Validation status: source edits committed to `design/animated-package-progress`; build, type-check, and test suite have not yet been run in this environment. Customer/admin package-detail loading errors are intentionally deferred until the visual design increment is reviewed, per the user's instruction.
 - Next step: run exact-branch CI and inspect the rendered UI at mobile and desktop widths before merging.
+
+
+## 2026-10-29 — Trading worker health monitoring increment
+
+- Started from canonical `main` commit `ca3330891296c274caa1b04c58554a9bebe635a0`; the existing qualification and bounded opportunity worker code is preserved.
+- Added forward migration `0084_worker_health_registry.sql` and a matching Drizzle table to persist per-worker/per-server-instance status, heartbeat, last success/failure, run duration, consecutive failures, and sanitized error text.
+- Added monitoring around Trading tier qualification, opportunity/lifecycle processing, settlement reconciliation, local scheduled jobs, notification campaigns, Mining reward/feed cycles, popup retention, and market-data refresh. Health writes are best-effort and do not prevent the underlying worker from processing durable work.
+- Added an admin-only read endpoint and **Trade Settings → Worker Health & Recovery** dashboard with auto-refresh, stale/degraded/not-started classification, and durable qualification queue counts. Unavailable monitoring is explicit; it is never represented as zero or healthy.
+- Added status-classifier tests and `docs/trading-worker-health-and-recovery.md`.
+- Safety limitation: dead-lettered jobs are visible, but this increment deliberately does not offer a blind retry/reset control. A future recovery action must be audited and idempotency-checked.
+- Validation status: local Node/pnpm execution was unavailable in this tool session. GitHub Actions must validate install, type-check, tests and build on the exact feature-branch commit. Migration `0084` has not been applied to a production database.
+
+
+## 2026-10-29 — Task 3 follow-up: audited operator recovery
+
+- The Worker Health dashboard now lists the latest 25 dead-lettered qualification jobs and accepts a required recovery reason (8–500 characters).
+- Admin-only server mutation locks the job and source ledger, validates the source type and USD attribution (including a linked qualifying-deposit reversal), only permits a job still marked `dead`, resets the queue item and adds `trading_tier_qualification_job.requeued` to `v5_audit_events` in the same transaction. It never edits a wallet balance or directly changes tier/settlement state.
+- The integration test exercises both rejected invalid-attribution retry and a successful audited retry through the normal qualification worker, including duplicate-entitlement prevention.
+- Added `0084_worker_health_registry.sql` to the runtime worker-schema bridge, portal migration list, and installer migration-recovery catalogue. Updated existing migration-order tests to account for 0084 as the newest journal entry.
+- Worker status query limits historical reads to 500 recent rows; per-cycle monitoring skips overlapping cycles; error output is sanitized before storing/displaying.
+- Validation remains tied to the latest exact PR head. No direct push to `main`, production migration, or live-host verification is claimed.

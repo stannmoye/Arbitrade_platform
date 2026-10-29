@@ -1080,7 +1080,30 @@ export const localScheduledJobs = mysqlTable("local_scheduled_jobs", {
   dueIndex: index("local_scheduled_jobs_due_idx").on(table.isEnable, table.nextExecutionAt, table.lockedUntil),
   ownerIndex: index("local_scheduled_jobs_owner_idx").on(table.ownerUserId, table.createdAt),
 }));
-
+/**
+ * Durable last-known status for each background worker in each server process.
+ * Staleness is computed at read time; it is not inferred from HTTP health.
+ */
+export const workerHealthRegistry = mysqlTable("worker_health_registry", {
+  id: int("id").autoincrement().primaryKey(),
+  workerKey: varchar("workerKey", { length: 80 }).notNull(),
+  instanceId: varchar("instanceId", { length: 36 }).notNull(),
+  displayName: varchar("displayName", { length: 120 }).notNull(),
+  status: mysqlEnum("status", ["running", "healthy", "degraded"]).default("running").notNull(),
+  startedAt: timestamp("startedAt"),
+  heartbeatAt: timestamp("heartbeatAt").defaultNow().notNull(),
+  lastSuccessAt: timestamp("lastSuccessAt"),
+  lastFailureAt: timestamp("lastFailureAt"),
+  lastDurationMs: int("lastDurationMs"),
+  consecutiveFailures: int("consecutiveFailures").default(0).notNull(),
+  lastError: varchar("lastError", { length: 1000 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  workerInstanceUnique: uniqueIndex("worker_health_worker_instance_uq").on(table.workerKey, table.instanceId),
+  heartbeatIdx: index("worker_health_heartbeat_idx").on(table.heartbeatAt),
+  statusHeartbeatIdx: index("worker_health_status_heartbeat_idx").on(table.status, table.heartbeatAt),
+}));
 
 
 /**

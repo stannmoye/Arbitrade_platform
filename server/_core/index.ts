@@ -24,6 +24,7 @@ import { getLocalSessionFromRequest } from "./localAuth";
 import { confirmEmailVerification, requestEmailVerification, requestPasswordReset, resetPasswordWithCode } from "../emailAuth";
 import { startEmailWorkers } from "../emailQueue";
 import { startHeartbeatWorker } from "./heartbeat";
+import { runMonitoredWorkerCycle } from "./workerHealth";
 import { registerLocalStorageRoutes } from "./localStorageRoutes";
 import { refreshMiningPriceFeeds } from "../mining-admin";
 import { runMiningWorkerCycle } from "../mining";
@@ -249,7 +250,7 @@ async function startServer() {
       if(tradingTierQualificationCycleRunning)return;
       tradingTierQualificationCycleRunning=true;
       try{
-        const result=await runTradingTierQualificationWorkerCycle({batchSize:20});
+        const result=await runMonitoredWorkerCycle("trading-tier-qualification",()=>runTradingTierQualificationWorkerCycle({batchSize:20}));
         if(result.claimed||result.retrying||result.dead)console.log("[TradingTierWorker] cycle",result);
       }catch(error){
         console.error("[TradingTierWorker] cycle failed",error instanceof Error?error.message:"UnknownError");
@@ -265,7 +266,7 @@ async function startServer() {
       if(notificationCampaignCycleRunning)return;
       notificationCampaignCycleRunning=true;
       try {
-        const result=await processNotificationCampaignLifecycle();
+        const result=await runMonitoredWorkerCycle("notification-campaigns",()=>processNotificationCampaignLifecycle());
         if(result.expired||result.published||result.failed)console.log("[NotificationCampaigns] lifecycle",result);
       } catch(error) {
         const details = error && typeof error === "object" ? error as { name?: unknown; message?: unknown; code?: unknown; table?: unknown } : {};
@@ -290,7 +291,7 @@ async function startServer() {
       if (miningCycleRunning) return;
       miningCycleRunning = true;
       try {
-        const result = await runMiningWorkerCycle();
+        const result = await runMonitoredWorkerCycle("mining-rewards", () => runMiningWorkerCycle());
         if (result.intervalsProcessed || result.conversionJobs.completed || result.conversionJobs.retrying) console.log("[MiningWorker] cycle", result);
       } catch (error) { console.error("[MiningWorker]", error instanceof Error ? error.message : error); }
       finally { miningCycleRunning = false; }
@@ -298,11 +299,11 @@ async function startServer() {
     const miningWorkerTimer = setInterval(() => { void runMiningCycle(); }, 30_000);
     miningWorkerTimer.unref();
     void runMiningCycle();
-    const miningFeedTimer = setInterval(() => { void refreshMiningPriceFeeds().then(result => console.log("[MiningFeeds] refreshed", result)).catch(error => console.error("[MiningFeeds]", error instanceof Error ? error.message : error)); }, 5 * 60_000);
+    const miningFeedTimer = setInterval(() => { void runMonitoredWorkerCycle("mining-price-feeds", () => refreshMiningPriceFeeds()).then(result => console.log("[MiningFeeds] refreshed", result)).catch(error => console.error("[MiningFeeds]", error instanceof Error ? error.message : error)); }, 5 * 60_000);
     miningFeedTimer.unref();
-    const popupRetentionTimer = setInterval(() => { void runOpportunityRetention().then(result => { if (result.deletedEvents || result.deletedDeliveryRows) console.log("[PopupRetention] archived and removed", result); }).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error)); }, 60 * 60_000);
+    const popupRetentionTimer = setInterval(() => { void runMonitoredWorkerCycle("popup-retention", () => runOpportunityRetention()).then(result => { if (result.deletedEvents || result.deletedDeliveryRows) console.log("[PopupRetention] archived and removed", result); }).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error)); }, 60 * 60_000);
     popupRetentionTimer.unref();
-    void runOpportunityRetention().catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error));
+    void runMonitoredWorkerCycle("popup-retention", () => runOpportunityRetention()).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error));
     let tradeCycleRunning = false;
     const runTradeCycle = async () => {
       if (tradeCycleRunning) return;
@@ -310,15 +311,18 @@ async function startServer() {
       try {
         let settlementReconciliation: Awaited<ReturnType<typeof reconcileAllDueTradesAwaitingConfirmation>> | null = null;
         try {
-          settlementReconciliation = await reconcileAllDueTradesAwaitingConfirmation();
+          settlementReconciliation = await runMonitoredWorkerCycle("settlement-reconciliation", () => reconcileAllDueTradesAwaitingConfirmation());
           if (settlementReconciliation.marked) console.log("[SettlementReconciliation] overdue trades marked for confirmation", settlementReconciliation);
         } catch (error) {
           console.error("[SettlementReconciliation] sweep failed", error instanceof Error ? error.message : error);
         }
-        const result = await runAutoTradeCycle();
-        const outstandingTrades = await countOutstandingTrades();
-        const opportunities = await ensureMarketDrivenOpportunities(new Date());
-        console.log("[AutoTrade] cycle", { ...result, outstandingTrades, opportunities, settlementReconciliation });
+        const result = await runMonitoredWorkerCycle("trading-opportunities", async () => {
+          const cycle = await runAutoTradeCycle();
+          const outstandingTrades = await countOutstandingTrades();
+          const opportunities = await ensureMarketDrivenOpportunities(new Date());
+          return { ...cycle, outstandingTrades, opportunities };
+        });
+        console.log("[AutoTrade] cycle", { ...result, settlementReconciliation });
       } finally {
         tradeCycleRunning = false;
       }
@@ -329,7 +333,7 @@ async function startServer() {
     const refreshMinutes = Number(await getAppSetting("market.refreshIntervalMinutes", "120"));
     if (!Number.isFinite(refreshMinutes) || refreshMinutes < 1) { console.error("[MarketSync] Invalid market.refreshIntervalMinutes; using safe 120-minute fallback"); }
     const safeRefreshMinutes = Number.isFinite(refreshMinutes) && refreshMinutes >= 1 ? refreshMinutes : 120;
-    const runMarketRefresh = async () => { const result = await refreshMarketData(); const opportunities = await ensureMarketDrivenOpportunities(result.refreshedAt); console.log("[MarketSync] refreshed", { ...result, opportunities }); };
+    const runMarketRefresh = async () => { const refreshed = await runMonitoredWorkerCycle("market-data-refresh", async () => { const result = await refreshMarketData(); const opportunities = await ensureMarketDrivenOpportunities(result.refreshedAt); return { result, opportunities }; }); console.log("[MarketSync] refreshed", { ...refreshed.result, opportunities: refreshed.opportunities }); };
     const marketSyncTimer = setInterval(() => { void runMarketRefresh().catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error)); }, safeRefreshMinutes * 60_000);
     marketSyncTimer.unref();
     void runMarketRefresh().catch(error => console.error("[MarketSync]", error instanceof Error ? error.message : error));

@@ -560,3 +560,161 @@ export function AdminReportsExports() {
     </ToolPage>
   );
 }
+
+
+type WorkerHealthEntry = {
+  workerKey: string;
+  displayName: string;
+  description: string;
+  expectedIntervalMs: number;
+  staleAfterMs: number;
+  instanceId: string;
+  status: "running" | "healthy" | "degraded" | "stale" | "not_started";
+  heartbeatAt: string | null;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastDurationMs: number | null;
+  consecutiveFailures: number;
+  lastError: string | null;
+};
+
+type DeadQualificationJob = {
+  id: number;
+  userId: number;
+  sourceLedgerId: number;
+  attempts: number;
+  lastError: string | null;
+  updatedAt: string | null;
+};
+
+type WorkerHealthData = {
+  generatedAt: string;
+  workers: WorkerHealthEntry[];
+  qualificationQueue: { pending: number; processing: number; completed: number; dead: number; total: number } | null;
+  deadQualificationJobs: DeadQualificationJob[] | null;
+};
+
+function workerStatusTone(status: WorkerHealthEntry["status"]): "neutral" | "good" | "watch" | "high" {
+  if (status === "healthy") return "good";
+  if (status === "running") return "neutral";
+  if (status === "degraded" || status === "not_started") return "high";
+  return "watch";
+}
+
+function workerStatusLabel(status: WorkerHealthEntry["status"]): string {
+  return status === "not_started" ? "Not started" : status === "stale" ? "Stale heartbeat" : status[0].toUpperCase() + status.slice(1);
+}
+
+export function AdminWorkerHealth() {
+  const query = trpc.adminOperations.workerHealth.useQuery(undefined, { refetchInterval: 15_000, refetchOnWindowFocus: true });
+  const data = (query.data ?? {}) as unknown as WorkerHealthData;
+  const workers = data.workers ?? [];
+  const healthy = workers.filter((worker) => worker.status === "healthy").length;
+  const attention = workers.filter((worker) => worker.status === "degraded" || worker.status === "stale" || worker.status === "not_started").length;
+  const queue = data.qualificationQueue;
+  const [recoveryReasons, setRecoveryReasons] = useState<Record<number, string>>({});
+  const [lastRequeuedJobId, setLastRequeuedJobId] = useState<number | null>(null);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const retryMutation = trpc.adminOperations.requeueDeadQualificationJob.useMutation({
+    onSuccess: (result, variables) => {
+      setRecoveryReasons((current) => ({ ...current, [variables.jobId]: "" }));
+      setLastRequeuedJobId(result.jobId);
+      setRecoveryError(null);
+      void query.refetch();
+    },
+    onError: (error) => {
+      setRecoveryError(error.message);
+      setLastRequeuedJobId(null);
+    },
+  });
+  const refresh = () => { void query.refetch(); };
+  const retryJob = (job: DeadQualificationJob) => {
+    const reason = (recoveryReasons[job.id] ?? "").trim();
+    if (reason.length < 8 || reason.length > 500 || retryMutation.isPending) return;
+    setRecoveryError(null);
+    setLastRequeuedJobId(null);
+    retryMutation.mutate({ jobId: job.id, reason });
+  };
+
+  return (
+    <ToolPage
+      eyebrow="Trading operations"
+      title="Worker health & recovery"
+      description="Server-side worker heartbeats, recent outcomes, and durable qualification-queue totals. Status is derived from persisted worker records, not browser activity."
+      icon={Activity}
+      action={<button className="admin-ops-button" type="button" onClick={refresh} disabled={query.isFetching}><RefreshCw size={14} /> Refresh</button>}
+    >
+      <div className="admin-ops-meta-line"><span><Activity size={14} /> Auto-refresh every 15 seconds</span><span>Snapshot {timestamp(data.generatedAt)}</span></div>
+      {query.isLoading ? <LoadingState /> : query.isError ? (
+        <div className="admin-ops-empty error" role="alert">Worker health could not be loaded. Verify migration 0084 and the database connection; an unavailable monitor must not be interpreted as a healthy worker.</div>
+      ) : <>
+        <section className="admin-ops-metrics">
+          <Metric label="Worker records" value={workers.length} detail="Includes recent server instances" icon={Activity} />
+          <Metric label="Healthy workers" value={healthy} detail="Last cycle completed successfully" icon={CheckCircle2} />
+          <Metric label="Needs attention" value={attention} detail="Degraded, stale, or not started" icon={AlertTriangle} />
+          <Metric label="Dead-lettered qualification jobs" value={queue === null ? "Unavailable" : queue.dead.toLocaleString()} detail="Requires operator review" icon={FileText} />
+        </section>
+
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Background services</span><h2>Worker status</h2></div><span className="admin-ops-subtle">{workers.length} rows</span></div>
+          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Background worker health"><table className="admin-ops-table"><thead><tr><th>Worker</th><th>Status</th><th>Instance</th><th>Last heartbeat</th><th>Last success</th><th>Failures</th><th>Last cycle</th><th>Last error</th></tr></thead><tbody>
+            {workers.map((worker) => <tr key={worker.workerKey + ":" + worker.instanceId}>
+              <td><strong>{worker.displayName}</strong><small>{worker.description}</small><small>Expected interval: {Math.max(1, Math.round(worker.expectedIntervalMs / 1000))} seconds</small></td>
+              <td><StatusPill tone={workerStatusTone(worker.status)}>{workerStatusLabel(worker.status)}</StatusPill></td>
+              <td><code>{worker.instanceId}</code></td>
+              <td>{timestamp(worker.heartbeatAt)}</td>
+              <td>{timestamp(worker.lastSuccessAt)}</td>
+              <td>{worker.consecutiveFailures}</td>
+              <td>{worker.lastDurationMs === null ? "—" : worker.lastDurationMs.toLocaleString() + " ms"}</td>
+              <td>{worker.lastError || "—"}</td>
+            </tr>)}
+            {!workers.length && <tr><td colSpan={8} className="admin-ops-table-empty">No worker records are available yet.</td></tr>}
+          </tbody></table></div>
+        </section>
+
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Durable qualification queue</span><h2>Tier assignment jobs</h2></div></div>
+          {queue === null ? <div className="admin-ops-empty">Queue counts are unavailable. Verify migration 0082 and database access.</div> : <section className="admin-ops-metrics compact-metrics">
+            <Metric label="Pending" value={queue.pending} icon={Clock3} />
+            <Metric label="Processing" value={queue.processing} icon={Activity} />
+            <Metric label="Completed" value={queue.completed} icon={CheckCircle2} />
+            <Metric label="Dead-lettered" value={queue.dead} icon={AlertTriangle} />
+          </section>}
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Safe recovery boundary</strong> Retry uses a guarded, audited transaction; it does not change a wallet balance, grant an entitlement directly, or force a trade settlement. A missing monitor or queue is reported as unavailable, never as zero.</span></div>
+        </section>
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Operator recovery</span><h2>Dead-lettered qualification jobs</h2></div><span className="admin-ops-subtle">Latest 25</span></div>
+          {recoveryError && <div className="admin-ops-empty error" role="alert">{recoveryError}</div>}
+          {lastRequeuedJobId !== null && <div className="admin-ops-note" role="status"><CheckCircle2 size={16} /><span>Qualification job #{lastRequeuedJobId} was requeued. The background worker will process it under the normal idempotent workflow.</span></div>}
+          {data.deadQualificationJobs === null ? <div className="admin-ops-empty">Dead-letter details are unavailable. Verify the qualification queue migration and database connection.</div> : data.deadQualificationJobs.length === 0 ? <div className="admin-ops-empty">No dead-lettered qualification jobs need review.</div> : (
+            <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Dead-lettered qualification jobs"><table className="admin-ops-table"><thead><tr><th>Job / customer</th><th>Source ledger</th><th>Attempts</th><th>Last error</th><th>Last update</th><th>Audited retry</th></tr></thead><tbody>
+              {data.deadQualificationJobs.map((job) => <tr key={job.id}>
+                <td><strong>Job #{job.id}</strong><small>Customer ID {job.userId}</small></td>
+                <td>Ledger #{job.sourceLedgerId}</td>
+                <td>{job.attempts}</td>
+                <td>{job.lastError || "No error detail retained"}</td>
+                <td>{timestamp(job.updatedAt)}</td>
+                <td><div className="admin-ops-actions" style={{ alignItems: "stretch", flexDirection: "column", gap: 8 }}>
+                  <input
+                    type="text"
+                    aria-label={"Recovery reason for qualification job " + job.id}
+                    minLength={8}
+                    maxLength={500}
+                    value={recoveryReasons[job.id] ?? ""}
+                    onChange={(event) => setRecoveryReasons((current) => ({ ...current, [job.id]: event.target.value }))}
+                    placeholder="Reason for retry (min. 8 chars)"
+                    style={{ minWidth: 220, padding: "8px 10px", border: "1px solid var(--admin-ops-border, #cbd5e1)", borderRadius: 8 }}
+                  />
+                  <button className="admin-ops-button" type="button" disabled={retryMutation.isPending || (recoveryReasons[job.id] ?? "").trim().length < 8} onClick={() => retryJob(job)}>
+                    <RefreshCw size={14} /> {retryMutation.isPending ? "Queueing…" : "Retry job"}
+                  </button>
+                </div></td>
+              </tr>)}
+            </tbody></table></div>
+          )}
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span>Retry requires an administrator session and a reason. The server locks the job, revalidates its original attributed ledger event, and writes the audit event in the same transaction as the queue update. Only jobs still marked dead can be retried.</span></div>
+        </section>
+      </>}
+    </ToolPage>
+  );
+}

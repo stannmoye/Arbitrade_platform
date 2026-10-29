@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS `worker_health_registry` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `workerKey` VARCHAR(80) NOT NULL,
+  `instanceId` VARCHAR(36) NOT NULL,
+  `displayName` VARCHAR(120) NOT NULL,
+  `status` ENUM('running','healthy','degraded') NOT NULL DEFAULT 'running',
+  `startedAt` TIMESTAMP NULL,
+  `heartbeatAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `lastSuccessAt` TIMESTAMP NULL,
+  `lastFailureAt` TIMESTAMP NULL,
+  `lastDurationMs` INT NULL,
+  `consecutiveFailures` INT NOT NULL DEFAULT 0,
+  `lastError` VARCHAR(1000) NULL,
+  `createdAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `worker_health_worker_instance_uq` (`workerKey`, `instanceId`),
+  KEY `worker_health_heartbeat_idx` (`heartbeatAt`),
+  KEY `worker_health_status_heartbeat_idx` (`status`, `heartbeatAt`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

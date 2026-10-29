@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { adjustCustomerBalance, claimAutoTradeCycleCustomers, getDb, runTradingTierQualificationWorkerCycle } from "../server/db";
+import { requeueDeadQualificationJob } from "../server/_core/workerHealth";
 import {
   appSettings,
   balanceLedger,
@@ -387,6 +388,59 @@ try {
   assert.equal(invalidRows[0]?.status, "dead", "The eighth failed attempt must be dead-lettered.");
   assert.equal(Number(invalidRows[0]?.attempts), 8);
 
+  // Exercise the guarded operator retry against a valid dead-lettered ledger job.
+  // This job previously completed; making it dead in the disposable fixture simulates a
+  // terminal failure after a server restart. Reprocessing must remain idempotent.
+  const retryCandidateJobId = createdJobIds[0];
+  await db.update(tradingTierQualificationJobs).set({
+    status: "dead",
+    attempts: 8,
+    lockedAt: null,
+    lastError: "simulated terminal worker failure",
+  }).where(eq(tradingTierQualificationJobs.id, retryCandidateJobId));
+  const retryCandidateRows = await db.select().from(tradingTierQualificationJobs)
+    .where(eq(tradingTierQualificationJobs.id, retryCandidateJobId));
+  assert.equal(retryCandidateRows[0]?.status, "dead");
+
+  // The invalid USD-minor attribution job must remain dead even after an admin asks
+  // for a retry; authorization does not bypass source-ledger validation.
+  await assert.rejects(
+    requeueDeadQualificationJob({ jobId: invalidJobId, adminId, reason: "Reject invalid attribution" }),
+    /attribution/i,
+  );
+  const requeued = await requeueDeadQualificationJob({
+    jobId: retryCandidateJobId,
+    adminId,
+    reason: "Integration test verified recovery",
+  });
+  assert.equal(requeued.success, true);
+  assert.equal(requeued.status, "pending");
+  assert.equal(requeued.jobId, retryCandidateJobId);
+  const queuedAgainRows = await db.select().from(tradingTierQualificationJobs)
+    .where(eq(tradingTierQualificationJobs.id, retryCandidateJobId));
+  assert.equal(queuedAgainRows[0]?.status, "pending");
+  assert.equal(Number(queuedAgainRows[0]?.attempts), 0);
+  assert.equal(queuedAgainRows[0]?.lockedAt, null);
+
+  const recoveryAudit = await db.select().from(v5AuditEvents).where(and(
+    eq(v5AuditEvents.actorUserId, adminId),
+    eq(v5AuditEvents.action, "trading_tier_qualification_job.requeued"),
+    eq(v5AuditEvents.entityId, String(retryCandidateJobId)),
+  ));
+  assert.equal(recoveryAudit.length, 1, "A job requeue must be audited in the same transaction.");
+  const recoveryMetadata = JSON.parse(String(recoveryAudit[0].metadataJson));
+  assert.equal(recoveryMetadata.previousAttempts, 8);
+  assert.equal(recoveryMetadata.sourceLedgerId, Number(queuedAgainRows[0]?.sourceLedgerId));
+
+  await runTradingTierQualificationWorkerCycle({ batchSize: 20 });
+  const processedAgainRows = await db.select().from(tradingTierQualificationJobs)
+    .where(eq(tradingTierQualificationJobs.id, retryCandidateJobId));
+  assert.equal(processedAgainRows[0]?.status, "completed", "A verified requeue must return to the normal worker.");
+  const retryActiveSubscriptions = await db.select().from(customerPackageSubscriptions)
+    .where(eq(customerPackageSubscriptions.userId, userId));
+  assert.equal(retryActiveSubscriptions.filter((row) => row.status === "active").length, 2,
+    "Retrying a previously completed qualifying event must not duplicate tier entitlements.");
+
   // An audited qualifying-deposit reversal drops the cumulative total to USD 210,
   // expiring the USD 300 tier while retaining the USD 100 tier.
   await db.transaction(async (tx) => {
@@ -434,7 +488,7 @@ try {
   assert.ok(allJobs.filter((row) => row.userId === userId).every((row) => ["completed", "dead"].includes(row.status)));
 
   testPassed = true;
-  console.log("Trading qualification worker integration passed: concurrent tier assignment, bounded scheduler cursor rotation, cumulative quotas, reversal revocation, stale-lease recovery, retries, and dead-letter persistence.");
+  console.log("Trading qualification worker integration passed: concurrent tier assignment, bounded scheduler cursor rotation, cumulative quotas, audited safe retry, invalid-source retry rejection, reversal revocation, stale-lease recovery, automatic retries, and dead-letter persistence.");
 } finally {
   // Keep the disposable database clean even if an assertion fails.
   await db.delete(appSettings).where(eq(appSettings.settingKey, "trade.autoTradeCycle.lastUserId")).catch(() => {});

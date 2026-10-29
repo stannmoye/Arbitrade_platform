@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { getDb, getUserById } from "../db";
 import { localScheduledJobs } from "../../drizzle/schema";
 import { verifyLocalSession } from "./localAuth";
+import { runMonitoredWorkerCycle } from "./workerHealth";
 
 export type HeartbeatJob = {
   name: string;
@@ -292,8 +293,9 @@ export async function runDueHeartbeatJobs(now = new Date(), limit = 20): Promise
 
 export function startHeartbeatWorker(): void {
   if (workerTimer) return;
-  workerTimer = setInterval(() => {
-    void runDueHeartbeatJobs().catch((error) => console.error("[LocalScheduler] Worker cycle failed", describeSchedulerError(error)));
-  }, 15_000);
+  const runCycle = () => runMonitoredWorkerCycle("local-scheduled-jobs", () => runDueHeartbeatJobs())
+    .catch((error) => console.error("[LocalScheduler] Worker cycle failed", describeSchedulerError(error)));
+  workerTimer = setInterval(() => { void runCycle(); }, 15_000);
   workerTimer.unref();
+  void runCycle();
 }
