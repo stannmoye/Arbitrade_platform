@@ -237,6 +237,10 @@ export const opportunityPopupEvents = mysqlTable("opportunity_popup_events", {
   configuredProfitRateBps: int("configuredProfitRateBps").default(0).notNull(),
   configuredDurationSeconds: int("configuredDurationSeconds").default(0).notNull(),
   packageBadgeLabel: varchar("packageBadgeLabel", { length: 48 }),
+  companyReferenceId: varchar("companyReferenceId", { length: 80 }),
+  companyDisplayName: varchar("companyDisplayName", { length: 240 }),
+  companyLogoUrl: varchar("companyLogoUrl", { length: 512 }),
+  companyReferenceOnly: boolean("companyReferenceOnly").default(true).notNull(),
   balanceAvailableMinor: bigint("balanceAvailableMinor", { mode: "number" }).default(0).notNull(),
   balanceStatus: mysqlEnum("balanceStatus", ["sufficient", "insufficient", "unknown"]).default("unknown").notNull(),
   marketObservedAt: timestamp("marketObservedAt"),
@@ -265,6 +269,12 @@ export const opportunityPopupEvents = mysqlTable("opportunity_popup_events", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
+export const tradingCompanyRotationState = mysqlTable("trading_company_rotation_state", {
+  userId: int("userId").primaryKey(),
+  nextCatalogueOffset: int("nextCatalogueOffset").default(0).notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export const opportunityPopupDaily = mysqlTable("opportunity_popup_daily", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
