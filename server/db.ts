@@ -12,6 +12,7 @@ import { addCalendarMonths } from "./modules/calendar-months";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { calculateConfiguredProfitMinor } from "./modules/trading-popup-policy";
+import { planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
@@ -40,7 +41,45 @@ export async function getDb() {
           ssl = undefined;
         }
       }
-      const pool = createPool({
+      type TradingFxConfig = { code: string; scale: number; assetType: "fiat" | "crypto" | "token"; externalCode: string | null };
+type TradingFxCacheEntry = { expiresAt: number; value?: FxRateSnapshot; pending?: Promise<FxRateSnapshot> };
+const tradingFxRateCache = new Map<string, TradingFxCacheEntry>();
+
+async function getFreshTradingFxRate(config: TradingFxConfig): Promise<FxRateSnapshot> {
+  const code = config.code.trim().toUpperCase();
+  const key = `${code}:${config.assetType}:${config.externalCode || ""}`;
+  const now = Date.now();
+  const cached = tradingFxRateCache.get(key);
+  if (cached && cached.expiresAt > now) {
+    if (cached.value) return cached.value;
+    if (cached.pending) return cached.pending;
+  }
+  const pending = fetchCurrencyUsdRate({ code, assetType: config.assetType, externalCode: config.externalCode })
+    .then(result => ({
+      currency: code,
+      scale: config.scale,
+      rateUsdPerUnit: result.rate,
+      provider: result.provider,
+      sourceDate: result.sourceDate,
+      fetchedAt: result.fetchedAt,
+    }));
+  tradingFxRateCache.set(key, { expiresAt: now + 30_000, pending });
+  try {
+    const value = await pending;
+    tradingFxRateCache.set(key, { expiresAt: Date.now() + 30_000, value });
+    while (tradingFxRateCache.size > 256) {
+      const oldest = tradingFxRateCache.keys().next().value;
+      if (oldest === undefined) break;
+      tradingFxRateCache.delete(oldest);
+    }
+    return value;
+  } catch (error) {
+    tradingFxRateCache.delete(key);
+    throw error;
+  }
+}
+
+const pool = createPool({
         host: connectionUrl.hostname,
         port: Number(connectionUrl.port || 3306),
         user: decodeURIComponent(connectionUrl.username),
