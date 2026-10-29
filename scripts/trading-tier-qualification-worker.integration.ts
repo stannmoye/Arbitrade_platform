@@ -223,7 +223,7 @@ try {
     const replayedFxCredit = await adjustCustomerBalance(adminId, {
       userId: creditPathUserId,
       currency: testCurrencyCode,
-      amountMinor: 10000,
+      amountMinor: 20000,
       mode: "credit",
       creditClassification: "qualifying_deposit",
       reason: "integration test non-USD qualifying admin wallet credit",
