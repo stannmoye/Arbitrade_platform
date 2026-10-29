@@ -119,6 +119,10 @@ async function main() {
     const settlementSchemaMigration = await readFile(resolve(root, "drizzle/0085_trade_settlement_schema_reconciliation.sql"), "utf8");
     await executeCompatibleMigrationSql(db, settlementSchemaMigration);
 
+    // Admin-controlled Trading popup ranges are durable policy, not process memory.
+    const tradingPopupPolicyMigration = await readFile(resolve(root, "drizzle/0086_trading_popup_policy_ranges.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, tradingPopupPolicyMigration);
+
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],
       ["category", "VARCHAR(40) NOT NULL DEFAULT 'account'"],
