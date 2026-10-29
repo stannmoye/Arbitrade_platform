@@ -2877,7 +2877,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,configuredProfitRateBps:opportunityPopupEvents.configuredProfitRateBps,
-    configuredDurationSeconds:opportunityPopupEvents.configuredDurationSeconds,packageBadgeLabel:opportunityPopupEvents.packageBadgeLabel,
+    configuredDurationSeconds:opportunityPopupEvents.configuredDurationSeconds,configuredPopupDisplaySeconds:opportunityPopupEvents.configuredPopupDisplaySeconds,packageBadgeLabel:opportunityPopupEvents.packageBadgeLabel,companyReferenceId:opportunityPopupEvents.companyReferenceId,companyDisplayName:opportunityPopupEvents.companyDisplayName,companyLogoUrl:opportunityPopupEvents.companyLogoUrl,companyReferenceOnly:opportunityPopupEvents.companyReferenceOnly,
     balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
     balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,quotaDay:opportunityPopupEvents.quotaDay,
     deliveredAt:opportunityPopupEvents.deliveredAt,venueFrom:opportunityOffers.venueFrom,venueTo:opportunityOffers.venueTo,
@@ -2925,7 +2925,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
         minimumMinor,packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
         expectedRewardBps:configuredProfitRateBps,configuredProfitRateBps,configuredDurationSeconds,
-        packageBadgeLabel:configured?.packageBadgeLabel||null,calculationMethod:terms.method});
+        packageBadgeLabel:configured?.packageBadgeLabel||null,configuredPopupDisplaySeconds:Number(configured?.popupDisplayTargetSeconds||0),calculationMethod:terms.method});
       assignedSubscriptionByOffer.set(Number(offer.id),subscription);
       usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
       remainingQuota--;
@@ -2937,7 +2937,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
       return {userId,offerId:offer.id,quotaDay,packageName:offer.packageName,symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
         expectedRewardBps:Number(offer.expectedRewardBps),configuredProfitRateBps:Number(offer.configuredProfitRateBps||offer.expectedRewardBps),
-        configuredDurationSeconds:Number(offer.configuredDurationSeconds||offer.durationSeconds||0),packageBadgeLabel:offer.packageBadgeLabel||null,
+        configuredDurationSeconds:Number(offer.configuredDurationSeconds||offer.durationSeconds||0),configuredPopupDisplaySeconds:Number(offer.configuredPopupDisplaySeconds||0),packageBadgeLabel:offer.packageBadgeLabel||null,
         balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
         marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt})};
     }));
@@ -3003,7 +3003,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       symbol:row.symbol,currency:row.currency,minimumMinor:Number(row.popupMinimumMinor),balanceAvailableMinor:Number(row.balanceAvailableMinor),
       balanceStatus:row.balanceStatus,expectedRewardBps:Number(row.configuredProfitRateBps||row.expectedRewardBps),
       configuredProfitRateBps:Number(row.configuredProfitRateBps||row.expectedRewardBps),configuredDurationSeconds:Number(row.configuredDurationSeconds||row.durationSeconds||0),
-      packageBadgeLabel:row.packageBadgeLabel||null,eventStatus:row.eventStatus,deliveredAt:row.deliveredAt,
+      packageBadgeLabel:row.packageBadgeLabel||null,configuredPopupDisplaySeconds:Number(row.configuredPopupDisplaySeconds||0),companyName:row.companyDisplayName||null,companyReferenceId:row.companyReferenceId||null,companyLogoUrl:row.companyLogoUrl||null,companyReferenceOnly:Boolean(row.companyReferenceOnly),eventStatus:row.eventStatus,deliveredAt:row.deliveredAt,
       venueFrom:row.venueFrom||base.venueFrom||"",venueTo:row.venueTo||base.venueTo||"",opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,
       durationSeconds:Number(row.configuredDurationSeconds||row.durationSeconds||base.durationSeconds||0),configuredDurationSeconds:Number(row.configuredDurationSeconds||row.durationSeconds||base.durationSeconds||0),packageBadgeLabel:row.packageBadgeLabel||null,marketObservedAt:row.marketObservedAt,sector:row.sector,industry:row.industry,
       listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus),automaticTrade:executed};
