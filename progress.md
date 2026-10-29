@@ -1,11 +1,14 @@
 ## 2026-10-29 — PART 4 handoff status (latest verified source review)
 
-- Branch: `part4/company-rotation-opportunity-presentation-20261029`; draft PR #238 targets `feat/trading-package-popup-policy`, intentionally not `main`.
-- Latest code review correction: popup execution eligibility is restricted to schema-defined `READY`/`RETRYING`; `OPENED` and `DISMISSED` presentation events remain eligible when delivery succeeded. `RUNNING`, terminal, unknown, and invalid statuses fail closed.
-- Reviewed `package.json`: project verification commands are `pnpm check`, `pnpm test`, and `pnpm build`. Attempted a shallow Git clone for execution, but this environment cannot resolve `github.com`; these commands and database integration tests therefore remain unrun.
-- Latest verified PR head before this handoff note: `9cdfdf17f0b1cd7d5b62c6ac9e5b356b05746a55`. No GitHub Actions workflow runs or commit status checks were returned for that head.
-- Part 4 implementation slice is committed and ready for integration review, but it is **not acceptance-complete** until executable checks and MySQL concurrency/restart/idempotency/pool-exhaustion tests pass on the final combined head. Do not merge independently into `main` or deploy.
-- Related PR state checked: #230, #231, #232, #233, #234 and #238 remain open/unmerged. PR #238 is based on #233; Part 6 must reconcile overlapping schema/lifecycle/documentation changes before final merge.
+- Repository `stannmoye/Arbitrade_platform`; current `main`: `07b17ca401d5f0582bf09fba8b6625f4a8af42e6`.
+- PR #238 remains open/draft at head `1932435c93c04b46675d86ee44eb837c1a1f112f`, based on PR #233 branch `feat/trading-package-popup-policy` at `0c7302a6fd418af95d42e426b1e715976e7e7b5e`. Do not merge #238 independently to `main`.
+- Validation-only draft PR #242 targets `main` to trigger current workflows against the Part 4 head. Do not merge #242.
+- Added forward-only migration 0089 for `trade_positions.walletFundingPlanJson` and registered it in the journal, portal runner, installer recovery and worker runtime-schema path. Corrected migration-order tests, the popup INSERT bound-value count and duplicate-delivery current read. Added a disposable MySQL 8.4/MariaDB 11.4 integration workflow that follows installer migration order and tests durable rotation.
+- Exact-head rotation database run [40929821492](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821492) passed on both DBs; final fixture uses at least 3 companies and verifies one duplicate cursor advance, four unique concurrent assignments, snapshots, fresh-process restart, rollback and cycle 2 only after exhaustion.
+- Also passed exact-head application [40929821517](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821517), Trading recovery [40929821444](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821444), settlement DB integration [40929821435](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821435), tier/worker DB integration [40929821422](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821422), installer [40929821482](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821482), and Mining regression [40929821644](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821644). The type-check/test/build job in run [40929821416](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821416) passed; its separate generic customer portal browser-recovery job was still in progress, so the full workflow is not claimed completed.
+- Local `pnpm check`, `pnpm test`, and `pnpm build` were unavailable because GitHub DNS prevented local checkout. No production database/server was accessed.
+- Remaining blockers: PR #230 has a merge conflict; PR #233/#235 have conflicting 0086/0087 migration histories requiring a unified forward-only sequence. No source PR has been merged to main, so Part 4 is not integration-complete or final acceptance-complete.
+- PR #236 stays open/draft. Dedicated authenticated UI and persisted-settings acceptance on a suitable non-production server is explicitly deferred and remains unverified.
 
 ---
 
@@ -333,3 +336,12 @@ This policy is final and must be followed throughout the application:
 - The first workflow pass exposed stale contract tests asserting the old `popupEligible` variable in execution guards, plus the legacy worker-bridge assertion applied to the new trade snapshot contract. Those assertions were corrected; the follow-up exact-head CI above passed on the revised source-test commit.
 - Local `pnpm check`, `pnpm test` and `pnpm build` were not executed because this environment could not resolve GitHub for a repository checkout. GitHub CI executed the project’s install/check/test/build workflows. No production database or server was used.
 - Current status remains **not integration-complete and not acceptance-complete**: PR #230 reports a merge conflict; PR #233 and #235 remain open and their overlapping 0086/0087 migration histories require a forward-only reconciliation against main's historical 0086 before merge. The dedicated authenticated Part 5 UI runner and persisted-settings server acceptance remain deferred by user decision. PR #242 is validation-only, draft, and must never be merged.
+
+
+## 2026-10-29 — Current Part 4 database acceptance and integration handoff
+
+- Exact tested source head: `1932435c93c04b46675d86ee44eb837c1a1f112f`. Rotation DB run [40929821492](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821492) passed MySQL 8.4 and MariaDB 11.4 with a three-company pool; duplicate idempotency, concurrent sequence ordering, restart restoration, rollback and snapshot stability passed.
+- The same head passed application, Trading recovery, settlement DB integration, tier qualification/worker integration, installer validation and Mining regression workflows. The production build/test workflow's main build/test job passed; its generic browser-recovery subjob was still running at last check.
+- Database findings fixed: missing INSERT placeholder, stale-snapshot duplicate check, incomplete portal-migration setup in the initial test workflow, and a one-company exhaustion fixture that did not prove full traversal.
+- Part 4 remains not integration-complete because PR #230 is merge-conflicted and PR #233/#235 migrations collide numerically with the main branch's older 0086 file. Preserve historical migration files and reconcile the combined forward-only sequence before merge.
+- Dedicated Part 5 authenticated Playwright/persisted-settings acceptance remains deferred. No live production server/database was accessed.
