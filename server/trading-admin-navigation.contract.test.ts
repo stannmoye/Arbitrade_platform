@@ -108,6 +108,8 @@ describe("Trading tier policy audit and versioning", () => {
     expect(adminApp).toContain("Reason for changing Trading tier policies (required for audit)");
     expect(adminApp).toContain("policyReason.trim().length<5");
     expect(adminApp).toContain("policyReason.trim(),policies:draft.map");
+    expect(adminApp).toContain("policies.data.map(x=>({...x,packageName:x.packageName");
+    expect(adminApp).toContain("updatePolicies.mutate({policies:policyRows,reason:policyReason.trim()})");
   });
 });
 
