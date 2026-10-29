@@ -12,6 +12,12 @@ import {
   currencyRegistry,
   customerBalances,
   opportunityPopupEvents,
+  opportunityOffers,
+  opportunityPackagePolicies,
+  packages,
+  customerPackageSubscriptions,
+  tradeLifecycleEvents,
+  tradeRewardReservations,
   tradePositions,
   users,
 } from "../drizzle/schema";
@@ -23,11 +29,16 @@ const token = crypto.randomUUID().replace(/-/g, "").slice(0, 10);
 const openId = "opportunity-worker-" + token;
 const eventKey = "worker-event-" + token;
 const currency = "T" + token.slice(0, 7).toUpperCase();
-const offerId = 900000 + Math.floor(Math.random() * 90000);
 let userId;
 let eventId;
+let offerId;
+let packageId;
+let subscriptionId;
 let tradeId;
 let currencyInserted = false;
+let offerInserted = false;
+let packageInserted = false;
+let packagePolicyInserted = false;
 
 try {
   const userInsert = await db.insert(users).values({
@@ -50,6 +61,62 @@ try {
     enabled: true,
   });
   currencyInserted = true;
+
+  const packageName = "Wkr" + token;
+  const packageInsert = await db.insert(packages).values({
+    name: packageName,
+    minimumQualifyingBalanceUsdMinor: 1,
+    durationMonths: 1,
+    opportunitiesPerDay: 6,
+    termsVersion: 1,
+    maxActiveInvestments: 5,
+    enabled: true,
+  });
+  packageId = Number(packageInsert[0].insertId);
+  packageInserted = true;
+  await db.insert(opportunityPackagePolicies).values({
+    packageName,
+    minimumTradeUnits: 1,
+    maximumTradeUnits: 10000,
+    maxConcurrentActiveTrades: 1,
+    automaticTradingEnabled: true,
+  });
+  packagePolicyInserted = true;
+  const subscriptionInsert = await db.insert(customerPackageSubscriptions).values({
+    userId,
+    packageId,
+    startsAt: new Date(Date.now() - 60000),
+    expiresAt: new Date(Date.now() + 86400000),
+    status: "active",
+    activationKey: "auto-tier:" + token,
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 6, maxActiveInvestments: 5 }),
+    qualifyingBalanceUsdMinor: 10000,
+    packageTermsVersion: 1,
+  });
+  subscriptionId = Number(subscriptionInsert[0].insertId);
+  await db.insert(customerBalances).values({
+    userId,
+    currency,
+    availableMinor: 100000,
+    lockedMinor: 0,
+    promotionalMinor: 0,
+    earnedMinor: 0,
+  });
+  const offerInsert = await db.insert(opportunityOffers).values({
+    symbol: "TEST",
+    venueFrom: "integration-source",
+    venueTo: "integration-destination",
+    currency,
+    minimumMinor: 25000,
+    expectedRewardBps: 400,
+    durationSeconds: 3600,
+    opensAt: new Date(Date.now() - 60000),
+    closesAt: new Date(Date.now() + 3600000),
+    rewardAt: new Date(Date.now() + 3600000),
+    status: "open",
+  });
+  offerId = Number(offerInsert[0].insertId);
+  offerInserted = true;
 
   const eventInsert = await db.insert(opportunityPopupEvents).values({
     eventKey,
@@ -123,33 +190,53 @@ try {
     "A stale lease must not change wallet balances.",
   );
 
-  const tradeInsert = await db.insert(tradePositions).values({
-    userId,
-    offerId,
-    currency,
-    principalMinor: 25000,
-    expectedRewardMinor: 1000,
-    settlesAt: new Date(Date.now() + 3600000),
-    status: "confirmed",
-    settlementStatus: "pending",
-    lifecycleStage: "Trade Allocated",
-  });
-  tradeId = Number(tradeInsert[0].insertId);
-  await db.update(opportunityPopupEvents).set({
-    eventStatus: "TRADED",
-    tradeId,
-    executionStatus: "SUCCEEDED",
-    executionLeaseToken: recoveredClaim.executionLeaseToken,
-  }).where(eq(opportunityPopupEvents.id, eventId));
-
-  const ledgerBeforeReplay = await db.select({ id: balanceLedger.id })
+  const ledgerBeforeAllocation = await db.select({ id: balanceLedger.id, amountMinor: balanceLedger.amountMinor })
     .from(balanceLedger).where(eq(balanceLedger.userId, userId));
-  const balancesBeforeReplay = await db.select({
+  const balancesBeforeAllocation = await db.select({
     id: customerBalances.id,
     availableMinor: customerBalances.availableMinor,
     lockedMinor: customerBalances.lockedMinor,
     earnedMinor: customerBalances.earnedMinor,
   }).from(customerBalances).where(eq(customerBalances.userId, userId));
+
+  const allocationResults = await Promise.all([
+    createTrade(userId, {
+      offerId,
+      amountMinor: 25000,
+      deliveryEventId: eventId,
+      executionLeaseToken: recoveredClaim.executionLeaseToken,
+    }),
+    createTrade(userId, {
+      offerId,
+      amountMinor: 25000,
+      deliveryEventId: eventId,
+      executionLeaseToken: recoveredClaim.executionLeaseToken,
+    }),
+  ]);
+  assert.equal(allocationResults[0].tradeId, allocationResults[1].tradeId,
+    "Competing fresh allocations for one event must resolve to one trade ID.");
+  tradeId = allocationResults[0].tradeId;
+  assert.equal(allocationResults.filter((result) => result.idempotentReplay === true).length, 1,
+    "Exactly one concurrent request should take the committed-allocation replay path.");
+  const allocatedTrades = await db.select({ id: tradePositions.id, principalMinor: tradePositions.principalMinor })
+    .from(tradePositions).where(and(eq(tradePositions.userId, userId), eq(tradePositions.offerId, offerId)));
+  assert.equal(allocatedTrades.length, 1, "Concurrent fresh allocation must create exactly one trade.");
+  assert.equal(Number(allocatedTrades[0].principalMinor), 25000);
+  const ledgerAfterAllocation = await db.select({ id: balanceLedger.id, amountMinor: balanceLedger.amountMinor })
+    .from(balanceLedger).where(eq(balanceLedger.userId, userId));
+  assert.equal(ledgerAfterAllocation.length, ledgerBeforeAllocation.length + 1,
+    "Concurrent fresh allocation must post exactly one wallet reservation ledger entry.");
+  assert.equal(Number(ledgerAfterAllocation.at(-1)?.amountMinor), -25000);
+  const balancesAfterAllocation = await db.select({
+    id: customerBalances.id,
+    availableMinor: customerBalances.availableMinor,
+    lockedMinor: customerBalances.lockedMinor,
+    earnedMinor: customerBalances.earnedMinor,
+  }).from(customerBalances).where(eq(customerBalances.userId, userId));
+  assert.equal(Number(balancesAfterAllocation[0].availableMinor), Number(balancesBeforeAllocation[0].availableMinor) - 25000,
+    "Concurrent fresh allocation must debit available balance once.");
+  assert.equal(Number(balancesAfterAllocation[0].lockedMinor), Number(balancesBeforeAllocation[0].lockedMinor) + 25000,
+    "Concurrent fresh allocation must lock principal once.");
 
   const replayResults = await Promise.all([
     createTrade(userId, { offerId, amountMinor: 25000, deliveryEventId: eventId, executionLeaseToken: recoveredClaim.executionLeaseToken }),
@@ -164,8 +251,8 @@ try {
   assert.deepEqual(tradeRows.map((row) => row.id), [tradeId],
     "Concurrent replay must not create another trade position.");
   assert.deepEqual(
-    await db.select({ id: balanceLedger.id }).from(balanceLedger).where(eq(balanceLedger.userId, userId)),
-    ledgerBeforeReplay,
+    await db.select({ id: balanceLedger.id, amountMinor: balanceLedger.amountMinor }).from(balanceLedger).where(eq(balanceLedger.userId, userId)),
+    ledgerAfterAllocation,
     "Idempotent replay must not create additional ledger postings.",
   );
   assert.deepEqual(
@@ -175,7 +262,7 @@ try {
       lockedMinor: customerBalances.lockedMinor,
       earnedMinor: customerBalances.earnedMinor,
     }).from(customerBalances).where(eq(customerBalances.userId, userId)),
-    balancesBeforeReplay,
+    balancesAfterAllocation,
     "Idempotent replay must not mutate wallet balances.",
   );
 
@@ -185,6 +272,8 @@ try {
     winningClaims: competingClaims.filter((claim) => claim.claimed).length,
     leaseRecovered: recoveredClaim.claimed,
     staleWorkerFenced: true,
+    concurrentFreshAllocations: allocationResults.length,
+    freshAllocationReplayCount: allocationResults.filter((result) => result.idempotentReplay === true).length,
     concurrentIdempotentReplays: replayResults.length,
     uniqueTradeRows: tradeRows.length,
     ledgerAndWalletUnchangedOnStaleAndReplay: true,
@@ -195,13 +284,19 @@ try {
       await db.delete(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, eventId));
     }
     if (tradeId !== undefined) {
+      await db.delete(tradeLifecycleEvents).where(eq(tradeLifecycleEvents.tradeId, tradeId));
+      await db.delete(tradeRewardReservations).where(eq(tradeRewardReservations.tradeId, tradeId));
       await db.delete(tradePositions).where(eq(tradePositions.id, tradeId));
     }
     if (userId !== undefined) {
       await db.delete(balanceLedger).where(eq(balanceLedger.userId, userId));
       await db.delete(customerBalances).where(eq(customerBalances.userId, userId));
+      if (subscriptionId !== undefined) await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.id, subscriptionId));
       await db.delete(users).where(eq(users.id, userId));
     }
+    if (packagePolicyInserted) await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, "Wkr" + token));
+    if (packageInserted && packageId !== undefined) await db.delete(packages).where(eq(packages.id, packageId));
+    if (offerInserted && offerId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, offerId));
     if (currencyInserted) {
       await db.delete(currencyRegistry).where(eq(currencyRegistry.code, currency));
     }
