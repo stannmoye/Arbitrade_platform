@@ -126,3 +126,25 @@ describe("Trading policy defaults and fail-closed behavior", () => {
     expect(serverDb).not.toContain("maxTradeAttemptsPerDay:Number(policyByName.get(String(row.packageName))?.maxTradeAttemptsPerDay??5)");
   });
 });
+
+
+describe("Trading policy defaults and fail-closed execution", () => {
+  it("does not substitute hardcoded fee, settlement, popup, or market timing values when policy rows are missing", () => {
+    expect(serverDb).not.toContain("DEFAULT_TRADE_FEE_POLICY");
+    expect(serverDb).toContain('requireTradePolicySetting("trade.platformFeeBps")');
+    expect(serverDb).toContain('requireTradePolicySetting("trade.settlementDelaySeconds")');
+    expect(serverDb).toContain('requireTradePolicySetting("opportunity.popup.displaySeconds")');
+    expect(serverDb).toContain('requireTradePolicySetting("market.refreshIntervalMinutes")');
+    expect(serverDb).toContain("Trading policy setting");
+  });
+
+  it("requires a persisted enabled policy with automatic delivery and execution before allocation", () => {
+    expect(serverDb).toContain("return Boolean(configured && configured.enabled && configured.automaticDelivery && configured.automaticTradingEnabled);");
+    expect(serverDb).not.toContain("return !configured||(Boolean(configured.enabled)&&configured.automaticTradingEnabled!==false);");
+  });
+
+  it("keeps carry-forward explicitly unavailable rather than presenting an implemented control", () => {
+    expect(navigation).toContain("Carry-Forward Unavailable");
+    expect(operationsUi).toContain("Carry-forward is unavailable: missed opportunities do not roll over and no carry-forward setting is active.");
+  });
+});
