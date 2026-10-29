@@ -2659,13 +2659,15 @@ export async function listOpportunityPackagePolicies() {
   const names=new Set(existing.map(row=>row.packageName));
   for(const tier of tiers){
     if(names.has(tier.name)) continue;
-    await db.insert(opportunityPackagePolicies).values({packageName:tier.name}).onDuplicateKeyUpdate({set:{packageName:tier.name}});
+    // Missing policies must be explicit and fail closed; a read must never enable trading.
+    await db.insert(opportunityPackagePolicies).values({
+      packageName:tier.name,enabled:false,automaticDelivery:false,automaticTradingEnabled:false,
+    }).onDuplicateKeyUpdate({set:{packageName:tier.name}});
   }
   const tierNames=new Set(tiers.map(tier=>tier.name));
   return (await db.select().from(opportunityPackagePolicies)).filter(row=>tierNames.has(row.packageName));
 }
 
-/** Read-only policy snapshot; missing rows fail closed until admin/worker reconciliation creates them. */
 export async function listPersistedOpportunityPackagePolicies() {
   const db=await getDb();
   if(!db) throw new Error("Database is not available");
@@ -2692,15 +2694,16 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
     const tierByName=new Map(tiers.map(tier=>[tier.name,tier.id]));
     for (const policy of policies) {
       if(typeof policy.packageName!=="string"||!tierByName.has(policy.packageName)) throw new Error("Opportunity policy references an unknown Trading tier");
-      if(policy.minHourlyTarget>policy.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
-      if(policy.normalHourlyTarget*24>policy.maxPopupsPerDay && policy.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
-      if(!Number.isSafeInteger(policy.minimumTradeUnits)||!Number.isSafeInteger(policy.maximumTradeUnits)||policy.minimumTradeUnits<1||policy.maximumTradeUnits<policy.minimumTradeUnits) throw new Error(`Trade amount bounds are invalid for ${policy.packageName}`);
-      const automation={packageName:policy.packageName,enabled:true,automaticDelivery:true,dailyPopupTarget:policy.dailyPopupTarget??policy.maxPopupsPerDay,schedulingPeriod:policy.schedulingPeriod??"rolling_24h",minIntervalSeconds:policy.minIntervalSeconds??45,maxIntervalSeconds:policy.maxIntervalSeconds??3600,randomizationEnabled:policy.randomizationEnabled??true,popupDisplayTargetSeconds:policy.popupDisplayTargetSeconds??120,completionDisplaySeconds:policy.completionDisplaySeconds??8,postCompletionIntervalSeconds:policy.postCompletionIntervalSeconds??30,maxPendingDeliveries:policy.maxPendingDeliveries??3,maxDeliveryAttempts:policy.maxDeliveryAttempts??3,automaticTradingEnabled:true,maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay??5,tradeRetryDelaySeconds:policy.tradeRetryDelaySeconds??30,maxSuccessfulTradesPerDay:policy.maxSuccessfulTradesPerDay??5,maxConcurrentActiveTrades:policy.maxConcurrentActiveTrades??1,requirePreviousSettlement:policy.requirePreviousSettlement??true,minSettlementDelaySeconds:policy.minSettlementDelaySeconds??900,maxSettlementDelaySeconds:policy.maxSettlementDelaySeconds??900,minimumRewardBps:policy.minimumRewardBps??0,maxDailyRewardMinor:policy.maxDailyRewardMinor??0,maxRewardPerTradeMinor:policy.maxRewardPerTradeMinor??0,closePolicy:policy.closePolicy??"after_final_display",deliveryRetryPolicy:policy.deliveryRetryPolicy??"temporary",expiryHandling:policy.expiryHandling??"expire",duplicatePrevention:policy.duplicatePrevention??true,audioEnabled:policy.audioEnabled??true,audioSound:policy.audioSound??"soft-chime",allowedOpportunityTypes:policy.allowedOpportunityTypes??null,rewardLimitCurrency:policy.rewardLimitCurrency??"USD",dailyRewardWindow:policy.dailyRewardWindow??"calendar_day",unsettledRewardPolicy:policy.unsettledRewardPolicy??"reserve",capReachedPolicy:policy.capReachedPolicy??"stop_new_trades",settlementConfirmationState:policy.settlementConfirmationState??"ledger_and_wallet",settlementRetryPolicy:policy.settlementRetryPolicy??"temporary",maxSettlementAttempts:policy.maxSettlementAttempts??3};
-      validatePackageAutomationPolicy(automation);
       const current=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,policy.packageName)).limit(1).for("update"))[0];
+      const merged={...(current||{}),...policy};
+      if(merged.minHourlyTarget>merged.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
+      if(merged.normalHourlyTarget*24>merged.maxPopupsPerDay && merged.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
+      if(!Number.isSafeInteger(merged.minimumTradeUnits)||!Number.isSafeInteger(merged.maximumTradeUnits)||merged.minimumTradeUnits<1||merged.maximumTradeUnits<merged.minimumTradeUnits) throw new Error(`Trade amount bounds are invalid for ${policy.packageName}`);
+      const automation={packageName:policy.packageName,enabled:policy.enabled??current?.enabled??false,automaticDelivery:policy.automaticDelivery??current?.automaticDelivery??false,dailyPopupTarget:merged.dailyPopupTarget??merged.maxPopupsPerDay,schedulingPeriod:merged.schedulingPeriod??"rolling_24h",minIntervalSeconds:merged.minIntervalSeconds??45,maxIntervalSeconds:merged.maxIntervalSeconds??3600,randomizationEnabled:merged.randomizationEnabled??true,popupDisplayTargetSeconds:merged.popupDisplayTargetSeconds??120,completionDisplaySeconds:merged.completionDisplaySeconds??8,postCompletionIntervalSeconds:merged.postCompletionIntervalSeconds??30,maxPendingDeliveries:merged.maxPendingDeliveries??3,maxDeliveryAttempts:merged.maxDeliveryAttempts??3,automaticTradingEnabled:policy.automaticTradingEnabled??current?.automaticTradingEnabled??false,maxTradeAttemptsPerDay:merged.maxTradeAttemptsPerDay??5,tradeRetryDelaySeconds:merged.tradeRetryDelaySeconds??30,maxSuccessfulTradesPerDay:merged.maxSuccessfulTradesPerDay??5,maxConcurrentActiveTrades:merged.maxConcurrentActiveTrades??1,requirePreviousSettlement:merged.requirePreviousSettlement??true,minSettlementDelaySeconds:merged.minSettlementDelaySeconds??900,maxSettlementDelaySeconds:merged.maxSettlementDelaySeconds??900,minimumRewardBps:merged.minimumRewardBps??0,maxDailyRewardMinor:merged.maxDailyRewardMinor??0,maxRewardPerTradeMinor:merged.maxRewardPerTradeMinor??0,closePolicy:merged.closePolicy??"after_final_display",deliveryRetryPolicy:merged.deliveryRetryPolicy??"temporary",expiryHandling:merged.expiryHandling??"expire",duplicatePrevention:merged.duplicatePrevention??true,audioEnabled:merged.audioEnabled??true,audioSound:merged.audioSound??"soft-chime",allowedOpportunityTypes:merged.allowedOpportunityTypes??null,rewardLimitCurrency:merged.rewardLimitCurrency??"USD",dailyRewardWindow:merged.dailyRewardWindow??"calendar_day",unsettledRewardPolicy:merged.unsettledRewardPolicy??"reserve",capReachedPolicy:merged.capReachedPolicy??"stop_new_trades",settlementConfirmationState:merged.settlementConfirmationState??"ledger_and_wallet",settlementRetryPolicy:merged.settlementRetryPolicy??"temporary",maxSettlementAttempts:merged.maxSettlementAttempts??3};
+      validatePackageAutomationPolicy({...merged,...automation});
       const nextVersion=Number(current?.policyVersion||0)+1;
       if(!Number.isSafeInteger(nextVersion)||nextVersion<1) throw new Error(`Trading tier policy version is invalid for ${policy.packageName}`);
-      const values:any={...policy,...automation,updatedBy,policyVersion:nextVersion};
+      const values:any={...merged,...automation,updatedBy,policyVersion:nextVersion};
       delete values.id; delete values.updatedAt;
       await tx.insert(opportunityPackagePolicies).values(values).onDuplicateKeyUpdate({set:values});
       await tx.insert(v5AuditEvents).values({
