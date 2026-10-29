@@ -69,6 +69,13 @@ describe("worker schema contracts", () => {
     expect(healthMigration).toContain("worker_health_heartbeat_idx");
   });
 
+  it("requires the automatic Trading execution lease token in the popup-event table", () => {
+    const { columns, indexes } = validMetadata();
+    const missingLease = columns.filter((row) => !(row.tableName === "opportunity_popup_events" && row.columnName === "executionLeaseToken"));
+    expect(findWorkerSchemaContractFailures(missingLease, indexes))
+      .toContain("opportunity_popup_events.executionLeaseToken: required column is missing");
+  });
+
   it("rejects present tables whose shape would still break worker SQL", () => {
     const { columns, indexes } = validMetadata();
     const brokenColumns = columns
