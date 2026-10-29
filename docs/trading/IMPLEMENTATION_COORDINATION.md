@@ -51,3 +51,10 @@
 - Corrected the customer-page heading locator: “Your Trading Journey” is an eyebrow label, while the actual heading is “Package progress”. The previous locator would time out despite the component being rendered.
 - Strengthened the tRPC response assertion so an HTTP 2xx response is not treated as success when the body contains a tRPC error or lacks result data.
 - Validation boundary: this correction is source-reviewed only. The runner has not been executed with authenticated test sessions; exact-head CI and browser results must be checked before acceptance.
+
+
+## 2026-10-29 — Additional browser acceptance coverage
+
+- Extended the read-only browser runner to verify the customer eligibility heading remains visible at desktop (1365×900) and mobile (390×844) viewport sizes.
+- Added a negative authorization probe using the authenticated administrator session against the customer-only eligibility tRPC endpoint. The runner requires a 403 or tRPC `FORBIDDEN` response and asserts no eligibility result data is returned.
+- These are newly added checks, not passing results: the dedicated runner still requires a running acceptance deployment and valid authenticated customer/admin storage-state files. Exact-head CI for this increment must be checked separately.
