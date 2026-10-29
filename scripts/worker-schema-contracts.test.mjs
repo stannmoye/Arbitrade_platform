@@ -40,12 +40,13 @@ describe("worker schema contracts", () => {
 
   it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
     const root = new URL("../", import.meta.url);
-    const [runtimeSchema, migration, opportunityWorkerMigration, healthMigration, leaseMigration, mainMigrationRunner] = await Promise.all([
+    const [runtimeSchema, migration, opportunityWorkerMigration, healthMigration, leaseMigration, policyMigration, mainMigrationRunner] = await Promise.all([
       readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
       readFile(new URL("drizzle/0082_trading_tier_qualification_jobs.sql", root), "utf8"),
       readFile(new URL("drizzle/0083_trading_opportunity_worker_indexes.sql", root), "utf8"),
       readFile(new URL("drizzle/0084_worker_health_registry.sql", root), "utf8"),
       readFile(new URL("drizzle/0086_trading_opportunity_execution_leases.sql", root), "utf8"),
+      readFile(new URL("drizzle/0087_trading_package_policy_schema_reconciliation.sql", root), "utf8"),
       readFile(new URL("scripts/guarded-main-migrate.mjs", root), "utf8"),
     ]);
     expect(WORKER_SCHEMA_CONTRACTS.trading_tier_qualification_jobs.indexes)
@@ -64,12 +65,19 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, settlementSchemaMigration)");
     expect(runtimeSchema).toContain('drizzle/0086_trading_opportunity_execution_leases.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, opportunityExecutionLeaseMigration)");
+    expect(runtimeSchema).toContain('drizzle/0087_trading_package_policy_schema_reconciliation.sql');
+    expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, tradingPackagePolicyMigration)");
+    expect(policyMigration).toContain("ADD COLUMN IF NOT EXISTS `automaticDelivery`");
+    expect(policyMigration).toContain("CREATE TABLE IF NOT EXISTS `trade_reward_reservations`");
+    expect(policyMigration).toContain("CREATE TABLE IF NOT EXISTS `opportunity_schedule_decisions`");
     expect(leaseMigration).toContain("ADD COLUMN IF NOT EXISTS `executionLeaseToken` varchar(64) NULL");
     expect(leaseMigration).toContain("ADD COLUMN IF NOT EXISTS `tradeId` int NULL");
     expect(leaseMigration).toContain("ADD COLUMN IF NOT EXISTS `policyVersion` int NOT NULL DEFAULT 1");
     expect(leaseMigration).toContain("ADD COLUMN IF NOT EXISTS `deliveryStatus` enum('pending','delivered','received','rendered','failed','expired')");
     expect(mainMigrationRunner).toContain("const requiredColumns = [\"deliveryStatus\", \"deliveryAttemptCount\", \"lastErrorCode\", \"receivedAt\", \"renderedAt\", \"expiredAt\", \"tradeId\", \"policyVersion\", \"executionLeaseToken\"]");
     expect(mainMigrationRunner).toContain("async function reconcileOpportunityExecutionLeaseSchema(connection, root)");
+    expect(mainMigrationRunner).toContain("async function reconcileTradingPackagePolicySchema(connection, root)");
+    expect(mainMigrationRunner).toContain("await reconcileTradingPackagePolicySchema(connection, root)");
     expect(mainMigrationRunner).toContain("Trading opportunity execution lease schema verification failed after additive repair");
     expect(healthMigration).toContain("CREATE TABLE IF NOT EXISTS `worker_health_registry`");
     expect(healthMigration).toContain("worker_health_worker_instance_uq");
