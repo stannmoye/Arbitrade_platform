@@ -102,7 +102,7 @@ describe("Trading overview package-policy read", () => {
     const initializerEnd = serverDb.indexOf("\n}", initializerStart);
     expect(initializerStart).toBeGreaterThanOrEqual(0);
     expect(initializerEnd).toBeGreaterThan(initializerStart);
-    expect(serverDb.slice(initializerStart, initializerEnd)).toContain("return listPersistedOpportunityPackagePolicies()");
+    expect(serverDb.slice(initializerStart, initializerEnd)).toContain("return rows.filter(row=>tierNames.has(row.packageName))");
     expect(serverDb.slice(initializerStart, initializerEnd)).not.toContain(".insert(");
   });
 });
@@ -115,11 +115,11 @@ describe("Trading policy defaults and fail-closed behavior", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
     const updater = serverDb.slice(start, end);
-    expect(updater).toContain("automaticTradingEnabled:policy.automaticTradingEnabled");
-    expect(updater).toContain("enabled:policy.enabled");
-    expect(updater).toContain("automaticDelivery:policy.automaticDelivery");
-    expect(updater).toContain("maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay");
-    expect(updater).toContain("tradeRetryDelaySeconds:policy.tradeRetryDelaySeconds");
+    expect(updater).toContain("automaticTradingEnabled:current.automaticTradingEnabled");
+    expect(updater).toContain("enabled:current.enabled");
+    expect(updater).toContain("automaticDelivery:current.automaticDelivery");
+    expect(updater).toContain("maxTradeAttemptsPerDay:current.maxTradeAttemptsPerDay");
+    expect(updater).toContain("tradeRetryDelaySeconds:current.tradeRetryDelaySeconds");
     expect(updater).not.toContain("maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay??5");
     expect(updater).not.toContain("tradeRetryDelaySeconds:policy.tradeRetryDelaySeconds??30");
     expect(serverDb).toContain("return Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled)");
