@@ -82,3 +82,11 @@ Do not duplicate these changes or assume any PR is merged merely because its bra
 - The request hash, idempotency key and serialized committed result are stored in a unique database record inside the same transaction as the wallet/ledger mutation. A repeated key with a different payload is rejected; a committed retry replays the original result without re-fetching FX or repeating post-commit side effects.
 - Added migration `0087_admin_wallet_adjustment_idempotency.sql`. Because PR #230 also carries migration 0086, the final integrator must preserve sequential journal indices and apply both migrations in order when reconciling the shared schema.
 - Database concurrency/rollback integration still must be run against the exact combined head before acceptance.
+
+
+### Part 2 acceptance checkpoint — 2026-10-29 16:05 UTC
+
+- PR #239 exact head `c51493471d2a1eecce5b9185055878589a721d69` passed all seven associated workflows, including MySQL 8.4 and MariaDB 11.4 tier qualification integration and installer/migration regression tests.
+- PR #230 contains an injected mid-transaction cross-wallet rollback scenario. Its first run failed before the injected failure because the standard migration path lacked legacy `opportunity_package_policies` columns from migration 0051. The feature branch's migration 0086 was updated to add those columns idempotently.
+- The corrected PR #230 tree has not yielded an exact-head CI run yet. Therefore rollback acceptance remains blocked. Do not mark Part 2 complete until the test proves source/target wallet balances, ledger rows and FX snapshots all remain unchanged after the injected error on both supported database engines.
+- PR #239 migration 0087 depends on PR #230 migration 0086. Integrate both migrations in one sequential journal; do not merge them independently/out of order.
