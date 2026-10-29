@@ -104,7 +104,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).not.toContain("CustomerTradingPackages");
     expect(customerAppSource).toContain("CustomerTradingEligibility");
     expect(eligibilityComponent).toContain("trpc.customer.tradingEligibility.useQuery");
-    expect(eligibilityComponent).toContain('"TIER ACTIVE"');
+    expect(eligibilityComponent).toContain('"PACKAGE ACTIVE"');
     expect(eligibilityComponent).toContain('"NO PACKAGE ASSIGNED"');
     expect(eligibilityComponent).toContain('"RETRY NEEDED"');
     expect(eligibilityComponent).toContain("No Package Assigned");
@@ -113,9 +113,10 @@ describe("Automatic Trading tier qualification", () => {
     expect(eligibilityComponent).toContain("Milestone Package");
     expect(eligibilityComponent).toContain("Next Milestone Package");
     expect(eligibilityComponent).toContain("nextPackage.name");
-    expect(eligibilityComponent).toContain("USD equivalent of qualifying admin wallet credits, valued at the rate recorded when credited.");
+    expect(eligibilityComponent).toContain("Qualifying admin wallet credits are valued in USD at the rate recorded when credited.");
     expect(eligibilityComponent).toContain("trading-threshold-unit");
-    expect(eligibilityComponent).not.toContain('style: "currency"');
+    expect(eligibilityComponent).toContain('style: "currency"');
+    expect(eligibilityComponent).toContain('currency: "USD"');
     expect(eligibilityComponent).not.toContain("₦");
     expect(eligibilityComponent).not.toContain("Activate free package");
     expect(eligibilityComponent).not.toContain("packageId");

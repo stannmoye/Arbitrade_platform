@@ -419,3 +419,166 @@
 @media (prefers-reduced-motion: reduce) {
   .trading-package-hero-emblem, .trading-hero-candle, .trading-package-emblem { animation: none !important; }
 }
+
+
+/* Match the supplied package-progress mockup: remove the extra hero/chart and keep the milestone focused. */
+.trading-current-package-layout,
+.trading-next-package-layout {
+  display: block;
+}
+.trading-package-emblem {
+  display: none !important;
+}
+.trading-threshold-panel {
+  grid-template-columns: minmax(104px, .62fr) minmax(0, 1fr);
+}
+.trading-milestone-ring {
+  width: min(100%, 164px);
+  aspect-ratio: 1;
+}
+.trading-tier-card-current,
+.trading-tier-card-next {
+  border-radius: 3px;
+  box-shadow: 0 0 22px rgb(33 216 201 / 7%);
+}
+.trading-tier-card-current .trading-tier-kicker,
+.trading-tier-card-next .trading-tier-kicker {
+  color: #45e3ca;
+  font-size: 11px;
+  letter-spacing: .15em;
+}
+.trading-tier-name {
+  font-size: clamp(22px, 3vw, 30px);
+  letter-spacing: -.02em;
+}
+.trading-tier-metric {
+  border-radius: 4px;
+  min-height: 76px;
+  align-content: center;
+  padding: 12px;
+}
+.trading-tier-explainer {
+  display: none;
+}
+.trading-total-allowance {
+  border-radius: 3px;
+  margin-top: 20px;
+  border-color: #176d80;
+  background: #061c2c;
+}
+@media (max-width: 560px) {
+  .trading-threshold-panel {
+    grid-template-columns: minmax(94px, .6fr) minmax(0, 1fr);
+  }
+  .trading-milestone-ring {
+    width: min(100%, 164px);
+  }
+}
+@media (max-width: 360px) {
+  .trading-threshold-panel {
+    grid-template-columns: 86px minmax(0, 1fr);
+  }
+  .trading-milestone-ring {
+    width: 86px;
+  }
+}
+
+
+/* Final polish: readable qualification progress, softer card geometry, and accessible motion. */
+.trading-tier-card-current,
+.trading-tier-card-next {
+  border-radius: 16px;
+  transition: border-color .22s ease, box-shadow .22s ease, transform .22s ease;
+}
+.trading-tier-card-current:hover,
+.trading-tier-card-next:hover {
+  border-color: rgb(74 225 210 / 58%);
+  box-shadow: 0 12px 30px rgb(0 0 0 / 18%), 0 0 22px rgb(33 216 201 / 9%);
+}
+.trading-tier-metric {
+  border-radius: 12px;
+}
+.trading-tier-explainer {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.trading-bot-status.is-active .trading-status-label {
+  color: #93ffd0;
+}
+.trading-bot-status.is-active .trading-bot-status-icon {
+  color: #6affc0;
+  box-shadow: inset 0 0 0 1px rgb(102 255 192 / 30%), 0 0 18px rgb(52 238 166 / 14%);
+}
+.trading-progress-caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 12px;
+  color: #9fc2d2;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.trading-progress-caption strong {
+  color: #ecfbff;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.trading-progress-track {
+  height: 8px;
+  margin-top: 8px;
+  overflow: hidden;
+  border: 1px solid rgb(76 170 194 / 22%);
+  border-radius: 99px;
+  background: #112b3d;
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / 35%);
+}
+.trading-progress-track span {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #378aff 0%, #27cfea 48%, #42edc4 100%);
+  box-shadow: 0 0 12px rgb(39 207 234 / 35%);
+  transition: width .55s cubic-bezier(.2, .75, .25, 1);
+}
+.trading-progress-note {
+  display: block;
+  margin-top: 8px;
+  color: #8eb0c1;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.trading-total-allowance {
+  border-radius: 16px;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .trading-tier-card-current:hover,
+  .trading-tier-card-next:hover {
+    transform: translateY(-2px);
+  }
+}
+@media (max-width: 420px) {
+  .trading-progress-caption {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .trading-progress-caption strong {
+    font-size: 11px;
+  }
+  .trading-tier-explainer {
+    font-size: 11px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trading-tier-card-current,
+  .trading-tier-card-next,
+  .trading-progress-track span {
+    transition: none !important;
+  }
+}
