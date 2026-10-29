@@ -55,6 +55,7 @@ const portalMigrationFiles = [
   "0084_worker_health_registry.sql",
   "0085_trade_settlement_schema_reconciliation.sql",
   "0086_trading_opportunity_execution_leases.sql",
+  "0087_trading_package_policy_schema_reconciliation.sql",
 ];
 let journal;
 try {
