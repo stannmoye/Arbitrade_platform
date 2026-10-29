@@ -55,4 +55,28 @@ describe("multi-wallet Trading funding plan", () => {
       sourceWallets: [{ currency: "EUR", scale: 2, availableMinor: 100, rate: null }],
     })).toThrow(/Insufficient combined/);
   });
+
+  it("rejects FX snapshots whose currency or scale does not match the wallet", () => {
+    expect(() => planCrossWalletFunding({
+      requiredTargetMinor: 100, targetAvailableMinor: 0,
+      targetRate: rate("USD", 2, "1"),
+      sourceWallets: [{ currency: "EUR", scale: 2, availableMinor: 1_000, rate: rate("GBP", 2, "1.25") }],
+    })).toThrow(/does not match source wallet currency/);
+    expect(() => planCrossWalletFunding({
+      requiredTargetMinor: 100, targetAvailableMinor: 0,
+      targetRate: rate("USD", 2, "1"),
+      sourceWallets: [{ currency: "EUR", scale: 2, availableMinor: 1_000, rate: rate("EUR", 3, "1.1") }],
+    })).toThrow(/does not match source wallet scale/);
+  });
+
+  it("rejects duplicate source currency wallets rather than planning ambiguous debits", () => {
+    expect(() => planCrossWalletFunding({
+      requiredTargetMinor: 100, targetAvailableMinor: 0,
+      targetRate: rate("USD", 2, "1"),
+      sourceWallets: [
+        { currency: "EUR", scale: 2, availableMinor: 100, rate: rate("EUR", 2, "1.1") },
+        { currency: "eur", scale: 2, availableMinor: 100, rate: rate("EUR", 2, "1.1") },
+      ],
+    })).toThrow(/Duplicate source wallet currency/);
+  });
 });
