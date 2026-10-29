@@ -432,6 +432,12 @@ try {
   assert.equal(recoveryMetadata.previousAttempts, 8);
   assert.equal(recoveryMetadata.sourceLedgerId, Number(queuedAgainRows[0]?.sourceLedgerId));
 
+  // Normalize the requeued job into the past so database timestamp precision and
+  // scheduler timing cannot make this immediate-recovery assertion race the next tick.
+  await db.update(tradingTierQualificationJobs).set({
+    availableAt: new Date(Date.now() - 10_000),
+  }).where(eq(tradingTierQualificationJobs.id, retryCandidateJobId));
+
   await runTradingTierQualificationWorkerCycle({ batchSize: 20 });
   const processedAgainRows = await db.select().from(tradingTierQualificationJobs)
     .where(eq(tradingTierQualificationJobs.id, retryCandidateJobId));
