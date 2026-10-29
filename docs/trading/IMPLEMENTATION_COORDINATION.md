@@ -58,3 +58,12 @@
 - Extended the read-only browser runner to verify the customer eligibility heading remains visible at desktop (1365×900) and mobile (390×844) viewport sizes.
 - Added a negative authorization probe using the authenticated administrator session against the customer-only eligibility tRPC endpoint. The runner requires a 403 or tRPC `FORBIDDEN` response and asserts no eligibility result data is returned.
 - These are newly added checks, not passing results: the dedicated runner still requires a running acceptance deployment and valid authenticated customer/admin storage-state files. Exact-head CI for this increment must be checked separately.
+
+
+## 2026-10-29 — Exact-head CI reconciliation and deferred browser stage
+
+- Rechecked GitHub Actions for exact head `b0ccea57ad27098e1d0e4a89d78e759aa5218799`. All seven workflows are now completed successfully: Build and test production source (run 40898814027), Installer validation (40898813731), Trading settlement reconciliation DB integration (40898813876), Trading tier qualification DB integration (40898813982), Verify application (40898813728), Verify Arbitrade trading recovery changes (40898813725), and Mining regression checks (40898813826).
+- These successful workflows validate the repository CI suites on this commit. They do not substitute for the dedicated authenticated Playwright acceptance runner or hosted persisted-settings/opportunity journeys.
+- Per the project continuation instruction, the dedicated browser/database acceptance stage is deferred rather than blocking the next coordinated engineering stage. Required inputs for later execution remain a dedicated non-production acceptance deployment, seeded test accounts, and customer/admin Playwright storage-state files supplied outside the repository.
+- Deferred checks: dedicated browser runner; admin setting save/reload from persisted database state; customer opportunity data from persisted records; invalid admin forms; empty/error/retry/stale-data cases; and final cross-part coordination with Parts 1–4.
+- Disposition: Part 5's code/CI work is ready for handoff to Part 6 integration review, but Part 5 is **not fully acceptance-certified**. PR #236 remains draft and unmerged; no deployment is authorized or claimed. Part 6 should reconcile the latest heads of Parts 1–4 and this branch before deciding merge readiness.
