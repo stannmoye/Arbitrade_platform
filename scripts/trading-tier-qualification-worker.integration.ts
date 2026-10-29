@@ -5,6 +5,7 @@ import { adjustCustomerBalance, claimAutoTradeCycleCustomers, getDb, runTradingT
 import { requeueDeadQualificationJob } from "../server/_core/workerHealth";
 import {
   appSettings,
+  adminWalletAdjustmentRequests,
   balanceLedger,
   customerBalances,
   currencyRegistry,
@@ -696,6 +697,7 @@ try {
     await db.delete(currencyRegistry).where(eq(currencyRegistry.id, testCurrencyId)).catch(() => {});
   }
   if (adminId) {
+    await db.delete(adminWalletAdjustmentRequests).where(eq(adminWalletAdjustmentRequests.adminId, adminId)).catch(() => {});
     await db.delete(v5AuditEvents).where(eq(v5AuditEvents.actorUserId, adminId)).catch(() => {});
     await db.delete(users).where(eq(users.id, adminId)).catch(() => {});
   }
