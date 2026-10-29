@@ -68,6 +68,19 @@ function withoutReplayFlag(value: any) {
   return response;
 }
 
+function matchesInjectedSqlSignal(error: unknown, expectedMessage: string): boolean {
+  const seen = new Set<unknown>();
+  let current = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const value = current as { cause?: unknown; message?: unknown; sqlMessage?: unknown; sqlState?: unknown };
+    const message = `${String(value.sqlMessage ?? "")} ${String(value.message ?? "")}`;
+    if (value.sqlState === "45000" && message.includes(expectedMessage)) return true;
+    current = value.cause;
+  }
+  return false;
+}
+
 try {
   const usd = (await db.select().from(currencyRegistry).where(eq(currencyRegistry.code, "USD")).limit(1))[0];
   assert.ok(usd && usd.enabled && Number(usd.scale) === 2, "Disposable schema must have enabled USD at scale 2.");
@@ -185,7 +198,8 @@ try {
     userId: rollbackCustomerId, currency: "USD", amountMinor: 4400, mode: "credit" as const,
     creditClassification: "qualifying_deposit" as const, reason: key("force-rollback"), idempotencyKey: key("transaction-rollback"),
   };
-  await assert.rejects(adjustCustomerBalance(adminId, rollbackRequest), /forced wallet idempotency rollback/i);
+  await assert.rejects(adjustCustomerBalance(adminId, rollbackRequest),
+    (error) => matchesInjectedSqlSignal(error, "forced wallet idempotency rollback"));
   await pool.query(`DROP TRIGGER ${triggerName}`);
   triggerCreated = false;
   assert.equal((await rowsForUser(rollbackCustomerId)).length, 0, "Rollback must remove the ledger row.");

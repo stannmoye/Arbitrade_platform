@@ -138,6 +138,8 @@ async function main() {
     await executeCompatibleMigrationSql(db, walletFundingPlanMigration);
     const walletAdjustmentIdempotencyMigration = await readFile(resolve(root, "drizzle/0093_admin_wallet_adjustment_idempotency.sql"), "utf8");
     await executeCompatibleMigrationSql(db, walletAdjustmentIdempotencyMigration);
+    const nullablePolicyDurationBoundsMigration = await readFile(resolve(root, "drizzle/0094_trading_policy_duration_bounds_nullable.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, nullablePolicyDurationBoundsMigration);
 
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],

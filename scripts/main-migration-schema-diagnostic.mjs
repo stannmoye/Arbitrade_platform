@@ -53,6 +53,10 @@ const MIGRATION_PREREQUISITES = Object.freeze({
     ["admin_wallet_adjustment_idempotency", "requestHash"],
     ["admin_wallet_adjustment_idempotency", "responseJson"],
   ],
+  "0094_trading_policy_duration_bounds_nullable": [
+    ["opportunity_package_policies", "minimumTradeDurationSeconds"],
+    ["opportunity_package_policies", "maximumTradeDurationSeconds"],
+  ],
   "0068_trade_realized_profit_accounting": [
     ["trade_positions", "id"],
     ["trade_positions", "status"],
@@ -157,6 +161,19 @@ const MIGRATION_PROGRESS_COLUMNS = Object.freeze({
       ["admin_wallet_adjustment_idempotency", "requestHash"], ["admin_wallet_adjustment_idempotency", "responseJson"],
     ] },
   ],
+  "0094_trading_policy_duration_bounds_nullable": [
+    { label: "nullable unconfigured Trading duration bounds", columns: [
+      ["opportunity_package_policies", "minimumTradeDurationSeconds"],
+      ["opportunity_package_policies", "maximumTradeDurationSeconds"],
+    ] },
+  ],
+});
+
+const REQUIRED_NULLABLE_COLUMNS = Object.freeze({
+  "0094_trading_policy_duration_bounds_nullable": [
+    ["opportunity_package_policies", "minimumTradeDurationSeconds"],
+    ["opportunity_package_policies", "maximumTradeDurationSeconds"],
+  ],
 });
 
 const RENAMED_COLUMNS = Object.freeze([
@@ -171,9 +188,11 @@ const RENAMED_COLUMNS = Object.freeze([
  */
 export async function inspectMainMigrationSchema(connection, migrationTag) {
   const [rows] = await connection.query(
-    "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema=DATABASE()",
+    "SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema=DATABASE()",
   );
   const present = new Set(rows.map((row) => String(row.table_name) + "." + String(row.column_name)));
+  const nullable = new Set(rows.filter((row) => String(row.is_nullable).toUpperCase() === "YES")
+    .map((row) => String(row.table_name) + "." + String(row.column_name)));
   const diagnostics = [];
   const base = MIGRATION_PREREQUISITES[migrationTag] || [];
 
@@ -217,6 +236,12 @@ export async function inspectMainMigrationSchema(connection, migrationTag) {
         "Progress hint for " + migrationTag + ".sql: " + group.label +
         " is fully present in the schema. This describes resulting schema only and does not prove which statement failed.",
       );
+    }
+  }
+
+  for (const [table, column] of REQUIRED_NULLABLE_COLUMNS[migrationTag] || []) {
+    if (!nullable.has(table + "." + column)) {
+      diagnostics.push("Column " + table + "." + column + " must be nullable for " + migrationTag + ".sql.");
     }
   }
 

@@ -197,7 +197,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       expect(persisted).toBeDefined();
       expect(persisted.maxVisibleOffers).toBe(nextVisibleOffers);
       for (const field of ["enabled", "automaticDelivery", "automaticTradingEnabled", "dailyPopupTarget", "schedulingPeriod", "popupDisplayTargetSeconds", "completionDisplaySeconds", "maxSettlementAttempts", "maxTradeAttemptsPerDay", "settlementConfirmationState", "minimumPayoutRateBps", "maximumPayoutRateBps", "minimumTradeDurationSeconds", "maximumTradeDurationSeconds", "companyRotationCountryNames"]) {
-        expect(persisted[field]).toEqual(before[field]);
+        expect(persisted[field], field).toEqual(before[field]);
       }
       expect(Number(persisted.policyVersion)).toBe(Number(before.policyVersion || 0) + 1);
 

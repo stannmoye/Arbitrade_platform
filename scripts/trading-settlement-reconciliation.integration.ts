@@ -23,6 +23,19 @@ let fundingCurrencyId: number | undefined;
 let failureTriggerName: string | undefined;
 const tradeIds: number[] = [];
 
+function matchesInjectedSqlSignal(error: unknown, expectedMessage: string): boolean {
+  const seen = new Set<unknown>();
+  let current = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const value = current as { cause?: unknown; message?: unknown; sqlMessage?: unknown; sqlState?: unknown };
+    const message = `${String(value.sqlMessage ?? "")} ${String(value.message ?? "")}`;
+    if (value.sqlState === "45000" && message.includes(expectedMessage)) return true;
+    current = value.cause;
+  }
+  return false;
+}
+
 async function insertTrade(input: {
   settlesAt: Date;
   creditAt?: Date | null;
@@ -152,6 +165,8 @@ try {
   fundingPackageId = Number(packageInsert[0].insertId);
   await db.insert(opportunityPackagePolicies).values({
     packageName,
+    minimumTradeUnits: 100,
+    maximumTradeUnits: 100,
     enabled: true,
     automaticDelivery: true,
     automaticTradingEnabled: true,
@@ -214,7 +229,7 @@ try {
     await db.execute(sql.raw(`CREATE TRIGGER \`${failureTriggerName}\` BEFORE INSERT ON balance_ledger FOR EACH ROW BEGIN IF NEW.userId = ${fundingUserId} AND NEW.entryType = 'trade_reservation' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected cross-wallet rollback failure'; END IF; END`));
     await assert.rejects(
       createTrade(fundingUserId, { offerId: fundingOfferId, amountMinor: 10000, packageId: fundingPackageId }),
-      /injected cross-wallet rollback failure/i,
+      (error) => matchesInjectedSqlSignal(error, "injected cross-wallet rollback failure"),
     );
   } finally {
     globalThis.fetch = originalFetch;

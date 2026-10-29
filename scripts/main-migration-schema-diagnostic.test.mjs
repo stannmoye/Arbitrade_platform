@@ -6,7 +6,7 @@ function fakeConnection(columns) {
     async query(sql) {
       expect(sql).toContain("information_schema.columns");
       expect(sql).toContain("table_schema=DATABASE()");
-      return [columns.map(([table_name, column_name]) => ({ table_name, column_name })), []];
+      return [columns.map(([table_name, column_name, is_nullable = "YES"]) => ({ table_name, column_name, is_nullable })), []];
     },
   };
 }
@@ -45,5 +45,16 @@ describe("read-only main migration schema diagnostics", () => {
     expect(result).toContain("Missing required pre-existing column missed_opportunities.potentialRewardMinor for 0069_trading_package_activation.sql.");
     expect(result.some(message => /Missing required/.test(message))).toBe(true);
     expect(result.some(message => /Progress hint for 0069_trading_package_activation/.test(message))).toBe(true);
+  });
+
+  it("detects duration bounds that remain NOT NULL after the forward correction", async () => {
+    const result = await inspectMainMigrationSchema(fakeConnection([
+      ["opportunity_package_policies", "minimumTradeDurationSeconds", "NO"],
+      ["opportunity_package_policies", "maximumTradeDurationSeconds", "YES"],
+    ]), "0094_trading_policy_duration_bounds_nullable");
+
+    expect(result).toContain(
+      "Column opportunity_package_policies.minimumTradeDurationSeconds must be nullable for 0094_trading_policy_duration_bounds_nullable.sql.",
+    );
   });
 });

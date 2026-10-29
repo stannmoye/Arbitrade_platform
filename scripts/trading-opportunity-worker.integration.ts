@@ -79,6 +79,8 @@ try {
   packageInserted = true;
   await db.insert(opportunityPackagePolicies).values({
     packageName,
+    minimumTradeUnits: 250,
+    maximumTradeUnits: 250,
     enabled: true,
     automaticDelivery: true,
     automaticTradingEnabled: true,

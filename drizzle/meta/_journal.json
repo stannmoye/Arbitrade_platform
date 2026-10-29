@@ -442,6 +442,13 @@
       "when": 1793404800009,
       "tag": "0093_admin_wallet_adjustment_idempotency",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1793404800010,
+      "tag": "0094_trading_policy_duration_bounds_nullable",
+      "breakpoints": true
     }
   ]
 }

@@ -2857,10 +2857,11 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
       if((minimumPayoutRateBps===null)!==(maximumPayoutRateBps===null)) throw new Error(`Set both published reward-rate bounds or leave both blank for ${policy.packageName}`);
       if(minimumPayoutRateBps!==null&&(maximumPayoutRateBps===null||!Number.isSafeInteger(minimumPayoutRateBps)||!Number.isSafeInteger(maximumPayoutRateBps)||minimumPayoutRateBps<0||maximumPayoutRateBps<minimumPayoutRateBps||maximumPayoutRateBps>5000)) throw new Error(`Published reward-rate bounds must satisfy 0 ≤ minimum ≤ maximum ≤ 5000 bps for ${policy.packageName}`);
       const companyRotationEnabled=effective.companyRotationEnabled==null?false:Boolean(effective.companyRotationEnabled);
-      const companyRotationCountryNames=normalizeCompanyRotationCountryNames(effective.companyRotationCountryNames??"");
+      const normalizedCompanyRotationCountryNames=normalizeCompanyRotationCountryNames(effective.companyRotationCountryNames??"");
+      const companyRotationCountryNames=normalizedCompanyRotationCountryNames||null;
       const companyRotationRepeatPolicy=String(effective.companyRotationRepeatPolicy??"avoid_until_exhausted");
       if(!["avoid_until_exhausted","allow_repeats"].includes(companyRotationRepeatPolicy)) throw new Error(`Company rotation repeat policy is invalid for ${policy.packageName}`);
-      if(companyRotationEnabled) buildCompanySpotlightPool(companyRotationCountryNames);
+      if(companyRotationEnabled) buildCompanySpotlightPool(companyRotationCountryNames??"");
       const minimumTradeDurationSeconds=effective.minimumTradeDurationSeconds==null?null:Number(effective.minimumTradeDurationSeconds);
       const maximumTradeDurationSeconds=effective.maximumTradeDurationSeconds==null?null:Number(effective.maximumTradeDurationSeconds);
       if((minimumTradeDurationSeconds===null)!==(maximumTradeDurationSeconds===null)) throw new Error(`Set both published duration bounds or leave both blank for ${policy.packageName}`);
