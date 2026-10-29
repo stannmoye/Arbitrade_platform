@@ -40,3 +40,20 @@ The Trading navigation contract test now checks:
 - `git diff --check` passed.
 
 These changes are UI and navigation improvements only. They do not change Mining code, customer-facing Trading eligibility rules, wallet ledger rules, settlement evidence rules, or the sandbox database migration chain.
+
+## 2026-10-30 — Trading submenu simplification pass
+
+The Trading menu was reorganized into five child groups so each item answers one simple question:
+
+1. **Set up trades** — Trading home, customer tiers, daily allowance, and how trades finish.
+2. **Show offers** — when offers appear, customer pop-up timing, and company names shown.
+3. **Finish trades** — returns and fees, retrying failed trades, and checking finished trades.
+4. **Watch problems** — open/waiting work, pausing new trades, and worker health.
+5. **History** — who changed Trading settings.
+
+Removed from Trading because the same functionality already belongs elsewhere:
+
+- **Money used for trades** was a duplicate of Finance → Wallet & Ledger.
+- **Trade messages** was a duplicate of Communications → Announcements & Notifications.
+
+The navigation renderer now expands a group only when both its destination and focus match the current screen. This prevents Finance from appearing open when an administrator is viewing a focused Trading ledger screen, and prevents shared destinations from looking duplicated.

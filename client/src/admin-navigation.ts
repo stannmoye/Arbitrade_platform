@@ -63,22 +63,28 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "currencies-assets", target: "currencies", label: "Currencies & Assets", detail: "Currency registry and valuation rates", icon: Coins },
     { id: "mining-operations", target: "mining", label: "Mining", detail: "Simulated mining packages, rewards, conversions and ledger controls", icon: Coins },
   ]},
-  { id: "trade-settings", label: "Trading", detail: "Set up, watch and safely finish customer trades", items: [
+  { id: "trade-setup", label: "Set up trades", detail: "Choose who gets trades and how trades finish", items: [
     { id: "trade-settings-overview", target: "tradeSystemOverview", label: "Trading home", detail: "See what is open, what finished, and whether new trades are allowed", icon: Gauge },
     { id: "trade-packages-eligibility", target: "packages", focus: "tiers", label: "Customer tiers", detail: "Create the tiers customers receive after approved qualifying credits", icon: PackageCheck },
     { id: "trade-package-quotas", target: "packages", focus: "quotas", label: "Daily trade allowance", detail: "Set how many opportunities each tier can receive each day", icon: Layers3 },
-    { id: "trade-opportunity-schedule", target: "opportunity", focus: "delivery", label: "When offers appear", detail: "Choose how often customer trade offers can appear", icon: Zap },
     { id: "trade-duration-closing", target: "tradeDurationRules", label: "How trades finish", detail: "Set the estimated wait and the rules that stop new trades; time alone never settles a trade", icon: Clock3 },
-    { id: "trade-capital-wallet", target: "transactionReview", focus: "capital", label: "Money used for trades", detail: "Review wallet movements and the money needed before a trade can start", icon: WalletCards },
+  ]},
+  { id: "trade-offers", label: "Show offers", detail: "Choose when offers appear and what customers see", items: [
+    { id: "trade-opportunity-schedule", target: "opportunity", focus: "delivery", label: "When offers appear", detail: "Choose how often customer trade offers can appear", icon: Zap },
+    { id: "trade-popup-display", target: "tradeCustomerDisplay", label: "Customer pop-up timing", detail: "Choose how long an offer and its completed message stay visible", icon: SlidersHorizontal },
+    { id: "trade-company-catalogue", target: "opportunity", focus: "rotation", label: "Company names shown", detail: "Choose the company references customers may see; this never creates a trade", icon: Globe2 },
+  ]},
+  { id: "trade-results", label: "Finish trades", detail: "Handle returns, retries and finished trade records", items: [
     { id: "trade-profit-fees-limits", target: "transactionReview", focus: "fees", label: "Returns and fees", detail: "Review configured return limits and the fee policy for completed trades", icon: CircleDollarSign },
     { id: "trade-retries-carry-forward", target: "tradeRetryPolicy", label: "Try failed trades again", detail: "Set how many technical retries are allowed; carry-forward is not available yet", icon: Activity },
-    { id: "trade-company-catalogue", target: "opportunity", focus: "rotation", label: "Company names shown", detail: "Choose the company references customers may see; this never creates a trade", icon: Globe2 },
-    { id: "trade-popup-display", target: "tradeCustomerDisplay", label: "Customer pop-up timing", detail: "Choose how long an offer and its completed message stay visible", icon: SlidersHorizontal },
-    { id: "trade-notifications", target: "notificationCenter", label: "Trade messages", detail: "Review customer and administrator trade notifications", icon: Bell },
-    { id: "trade-active-pending", target: "deliveryMonitor", label: "Open and waiting work", detail: "Check offers that are open, waiting, or need attention", icon: Activity },
     { id: "trade-settlement-reconciliation", target: "transactionReview", focus: "reconciliation", label: "Check finished trades", detail: "Compare completed trades with wallet ledger records", icon: ReceiptText },
+  ]},
+  { id: "trade-monitoring", label: "Watch problems", detail: "Find waiting work and pause new trades safely", items: [
+    { id: "trade-active-pending", target: "deliveryMonitor", label: "Open and waiting work", detail: "Check offers that are open, waiting, or need attention", icon: Activity },
     { id: "trade-system-health", target: "tradeSystemHealth", label: "Pause new trades", detail: "Stop new allocations safely while you investigate a problem", icon: ShieldAlert },
     { id: "trade-worker-health", target: "tradeWorkerHealth", label: "Worker health", detail: "Check the background service that delivers and settles trades", icon: Activity },
+  ]},
+  { id: "trade-history", label: "History", detail: "See who changed Trading settings", items: [
     { id: "trade-audit-policy-versions", target: "audit", label: "Who changed what", detail: "Read the admin change history and policy versions", icon: FileText },
   ]},
   { id: "verification-risk", label: "Verification & Risk", detail: "KYC, review, risk and session oversight", items: [

@@ -173,19 +173,28 @@ describe("Trading retry-policy navigation", () => {
 
 describe("Trading navigation focus and plain-language controls", () => {
   it("gives shared screens distinct focus identifiers and uses the selected focus for active state", () => {
+    expect(navigation).toContain('id: "trade-setup", label: "Set up trades"');
+    expect(navigation).toContain('id: "trade-offers", label: "Show offers"');
+    expect(navigation).toContain('id: "trade-results", label: "Finish trades"');
+    expect(navigation).toContain('id: "trade-monitoring", label: "Watch problems"');
+    expect(navigation).toContain('id: "trade-history", label: "History"');
     expect(navigation).toContain('target: "packages", focus: "tiers"');
     expect(navigation).toContain('target: "packages", focus: "quotas"');
-    expect(navigation).toContain('target: "transactionReview", focus: "capital"');
     expect(navigation).toContain('target: "transactionReview", focus: "fees"');
     expect(navigation).toContain('target: "transactionReview", focus: "reconciliation"');
+    expect(navigation).not.toContain('id: "trade-capital-wallet"');
+    expect(navigation).not.toContain('id: "trade-notifications"');
     expect(adminApp).toContain('section===item.target && focus===item.focus');
     expect(adminApp).toContain('setFocus(item.focus)');
+    expect(adminApp).toContain('group.items.some((item)=>item.target===section && item.focus===focus)');
+    expect(adminApp).toContain('"trade-setup":true');
   });
 
   it("shows the explanation beside each Trading menu item", () => {
     expect(adminApp).toContain('className="admin-nav-item-detail"');
     expect(navigation).toContain('label: "When offers appear"');
     expect(navigation).toContain('label: "Try failed trades again"');
+    expect(navigation).toContain('label: "Pause new trades"');
   });
 });
 
