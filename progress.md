@@ -1,3 +1,12 @@
+## 2026-10-29 — Part 4 follow-up validation correction
+
+- Expanded automatic-execution eligibility to include the `OPENED` event status. Opening a popup is a presentation event and must not accidentally exclude an otherwise eligible server-owned automatic execution.
+- Kept `RUNNING` execution attempts excluded from new claims to avoid re-claiming in-flight work.
+- Added regression assertions for `NOTICED`, `OPENED`, and `DISMISSED` events plus failed delivery, terminal execution, in-flight execution and withdrawn events.
+- Validation remains source-level only: GitHub Actions reports zero check runs for the latest inspected commit. Local package scripts and database concurrency tests remain outstanding.
+
+---
+
 ## 2026-10-29 — PART 4 — COMPANY ROTATION & OPPORTUNITY PRESENTATION
 
 - Layered this Part 4 increment on the `feat/trading-package-popup-policy` review branch to avoid silently editing the Part 1 branch or merging into `main`.
