@@ -83,6 +83,23 @@ describe("Trading overview and duration navigation", () => {
   });
 });
 
+describe("Trading tier creation defaults", () => {
+  it("requires an administrator to enter threshold, duration and daily quota explicitly", () => {
+    const start = adminApp.indexOf("function AdminTradingPackageCatalogue()");
+    const end = adminApp.indexOf("function AdminPackages({focus}", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const editor = adminApp.slice(start, end);
+    expect(editor).toContain('minimumQualifyingBalanceUsdMinor:"",durationMonths:"",opportunitiesPerDay:""');
+    expect(editor).toContain('newTier.minimumQualifyingBalanceUsdMinor===""?"":');
+    expect(editor).toContain('e.target.value===""?"":Number(e.target.value)');
+    expect(editor).toContain("no package threshold or quota is preselected");
+    expect(editor).toContain("enabled:false})");
+    expect(editor).not.toContain('minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6');
+    expect(editor).not.toContain('<label>Enabled <input type="checkbox" checked={Boolean(newTier.enabled)}');
+  });
+});
+
 describe("Trading overview package-policy read", () => {
   it("reads saved policies without creating defaults and fails closed when a tier policy is missing", () => {
     expect(operationsUi).toContain("trpc.adminOperations.overviewPackagePolicies.useQuery");
