@@ -77,6 +77,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
     { id: "trade-active-pending", target: "deliveryMonitor", label: "Active Trades & Pending Work", detail: "Review delivery states and unresolved work", icon: Activity },
     { id: "trade-settlement-reconciliation", target: "transactionReview", label: "Settlement & Reconciliation", detail: "Inspect ledger-backed movements and reconciliation records", icon: ReceiptText },
     { id: "trade-system-health", target: "tradeSystemHealth", label: "System Health & Pause Controls", detail: "Global pause for new allocations and operational safety status", icon: ShieldAlert },
+    { id: "trade-worker-health", target: "tradeWorkerHealth", label: "Worker Health & Recovery", detail: "Server worker heartbeats, failures and qualification queue status", icon: Activity },
     { id: "trade-audit-policy-versions", target: "audit", label: "Audit Log & Policy Versions", detail: "Review administrator actions and audit history", icon: FileText },
   ]},
   { id: "verification-risk", label: "Verification & Risk", detail: "KYC, review, risk and session oversight", items: [

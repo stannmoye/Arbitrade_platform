@@ -560,3 +560,97 @@ export function AdminReportsExports() {
     </ToolPage>
   );
 }
+
+
+type WorkerHealthEntry = {
+  workerKey: string;
+  displayName: string;
+  description: string;
+  expectedIntervalMs: number;
+  staleAfterMs: number;
+  instanceId: string;
+  status: "running" | "healthy" | "degraded" | "stale" | "not_started";
+  heartbeatAt: string | null;
+  lastSuccessAt: string | null;
+  lastFailureAt: string | null;
+  lastDurationMs: number | null;
+  consecutiveFailures: number;
+  lastError: string | null;
+};
+
+type WorkerHealthData = {
+  generatedAt: string;
+  workers: WorkerHealthEntry[];
+  qualificationQueue: { pending: number; processing: number; completed: number; dead: number; total: number } | null;
+};
+
+function workerStatusTone(status: WorkerHealthEntry["status"]): "neutral" | "good" | "watch" | "high" {
+  if (status === "healthy") return "good";
+  if (status === "running") return "neutral";
+  if (status === "degraded" || status === "not_started") return "high";
+  return "watch";
+}
+
+function workerStatusLabel(status: WorkerHealthEntry["status"]): string {
+  return status === "not_started" ? "Not started" : status === "stale" ? "Stale heartbeat" : status[0].toUpperCase() + status.slice(1);
+}
+
+export function AdminWorkerHealth() {
+  const query = trpc.adminOperations.workerHealth.useQuery(undefined, { refetchInterval: 15_000, refetchOnWindowFocus: true });
+  const data = (query.data ?? {}) as unknown as WorkerHealthData;
+  const workers = data.workers ?? [];
+  const healthy = workers.filter((worker) => worker.status === "healthy").length;
+  const attention = workers.filter((worker) => worker.status === "degraded" || worker.status === "stale" || worker.status === "not_started").length;
+  const queue = data.qualificationQueue;
+  const refresh = () => { void query.refetch(); };
+
+  return (
+    <ToolPage
+      eyebrow="Trading operations"
+      title="Worker health & recovery"
+      description="Server-side worker heartbeats, recent outcomes, and durable qualification-queue totals. Status is derived from persisted worker records, not browser activity."
+      icon={Activity}
+      action={<button className="admin-ops-button" type="button" onClick={refresh} disabled={query.isFetching}><RefreshCw size={14} /> Refresh</button>}
+    >
+      <div className="admin-ops-meta-line"><span><Activity size={14} /> Auto-refresh every 15 seconds</span><span>Snapshot {timestamp(data.generatedAt)}</span></div>
+      {query.isLoading ? <LoadingState /> : query.isError ? (
+        <div className="admin-ops-empty error" role="alert">Worker health could not be loaded. Verify migration 0084 and the database connection; an unavailable monitor must not be interpreted as a healthy worker.</div>
+      ) : <>
+        <section className="admin-ops-metrics">
+          <Metric label="Worker records" value={workers.length} detail="Includes recent server instances" icon={Activity} />
+          <Metric label="Healthy workers" value={healthy} detail="Last cycle completed successfully" icon={CheckCircle2} />
+          <Metric label="Needs attention" value={attention} detail="Degraded, stale, or not started" icon={AlertTriangle} />
+          <Metric label="Dead-lettered qualification jobs" value={queue === null ? "Unavailable" : queue.dead.toLocaleString()} detail="Requires operator review" icon={FileText} />
+        </section>
+
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Background services</span><h2>Worker status</h2></div><span className="admin-ops-subtle">{workers.length} rows</span></div>
+          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Background worker health"><table className="admin-ops-table"><thead><tr><th>Worker</th><th>Status</th><th>Instance</th><th>Last heartbeat</th><th>Last success</th><th>Failures</th><th>Last cycle</th><th>Last error</th></tr></thead><tbody>
+            {workers.map((worker) => <tr key={worker.workerKey + ":" + worker.instanceId}>
+              <td><strong>{worker.displayName}</strong><small>{worker.description}</small><small>Expected interval: {Math.max(1, Math.round(worker.expectedIntervalMs / 1000))} seconds</small></td>
+              <td><StatusPill tone={workerStatusTone(worker.status)}>{workerStatusLabel(worker.status)}</StatusPill></td>
+              <td><code>{worker.instanceId}</code></td>
+              <td>{timestamp(worker.heartbeatAt)}</td>
+              <td>{timestamp(worker.lastSuccessAt)}</td>
+              <td>{worker.consecutiveFailures}</td>
+              <td>{worker.lastDurationMs === null ? "—" : worker.lastDurationMs.toLocaleString() + " ms"}</td>
+              <td>{worker.lastError || "—"}</td>
+            </tr>)}
+            {!workers.length && <tr><td colSpan={8} className="admin-ops-table-empty">No worker records are available yet.</td></tr>}
+          </tbody></table></div>
+        </section>
+
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Durable qualification queue</span><h2>Tier assignment jobs</h2></div></div>
+          {queue === null ? <div className="admin-ops-empty">Queue counts are unavailable. Verify migration 0082 and database access.</div> : <section className="admin-ops-metrics compact-metrics">
+            <Metric label="Pending" value={queue.pending} icon={Clock3} />
+            <Metric label="Processing" value={queue.processing} icon={Activity} />
+            <Metric label="Completed" value={queue.completed} icon={CheckCircle2} />
+            <Metric label="Dead-lettered" value={queue.dead} icon={AlertTriangle} />
+          </section>}
+          <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Safe recovery boundary</strong> This dashboard is read-only. A failed or dead-lettered financial job is not re-queued automatically from the UI; recovery actions must be authorized, audited, idempotent, and reviewed against the original ledger event. A missing monitor or queue is reported as unavailable, never as zero.</span></div>
+        </section>
+      </>}
+    </ToolPage>
+  );
+}

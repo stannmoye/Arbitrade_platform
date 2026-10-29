@@ -27,6 +27,7 @@ import { getLocalSessionFromRequest } from "./_core/localAuth";
 import * as privacyService from "./privacy";
 import { localIdentityService } from "./_core/localIdentityService";
 import { createHeartbeatJob, deleteHeartbeatJob, listHeartbeatJobs, updateHeartbeatJob } from "./_core/heartbeat";
+import { getWorkerHealthSummary } from "./_core/workerHealth";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -307,6 +308,7 @@ export const appRouter = router({
   }),
 
   adminOperations: router({
+    workerHealth: adminProcedure.query(() => getWorkerHealthSummary()),
     scheduledJobs: router({
       list: adminProcedure.input(z.object({ page: z.number().int().positive().optional(), pageSize: z.number().int().min(1).max(100).optional() }).optional()).query(({ ctx, input }) => {
         const token = parseCookieHeader(ctx.req.headers.cookie ?? "")[COOKIE_NAME] ?? "";
