@@ -6,6 +6,11 @@ ALTER TABLE `opportunity_package_policies`
   ADD COLUMN IF NOT EXISTS `maximumTradeDurationSeconds` INT NOT NULL DEFAULT 3600,
   ADD COLUMN IF NOT EXISTS `packageBadgeLabel` VARCHAR(48) NULL;
 
+ALTER TABLE `opportunity_popup_events`
+  ADD COLUMN IF NOT EXISTS `configuredProfitRateBps` INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `configuredDurationSeconds` INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `packageBadgeLabel` VARCHAR(48) NULL;
+
 ALTER TABLE `trade_positions`
   ADD COLUMN IF NOT EXISTS `configuredProfitRateBps` INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS `configuredDurationSeconds` INT NOT NULL DEFAULT 0,
