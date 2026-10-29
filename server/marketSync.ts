@@ -44,7 +44,7 @@ export async function ensureMarketDrivenOpportunities(refreshedAt = new Date()) 
     const outstandingTrades = await countOutstandingTrades();
     if (outstandingTrades > 0) {
       await db.update(opportunityOffers).set({ status: "closed" }).where(eq(opportunityOffers.status, "open"));
-      return { created: 0, available: 0, pausedUntilSettled: true, outstandingTrades, settlementDelaySeconds: settlementPolicy.delaySeconds, generationDisabled: true };
+      return { created: 0, available: 0, pausedUntilSettled: true, outstandingTrades, settlementDelaySeconds: settlementPolicy.delaySeconds };
     }
   }
 
