@@ -119,7 +119,10 @@ describe("Trading policy reconciliation", () => {
 
   it("creates new Trading tiers and their policies disabled until the administrator saves and enables them", () => {
     expect(serverDb).toContain("New Trading tiers must be created disabled.");
-    expect(serverDb).toContain("enabled:false,automaticDelivery:false,automaticTradingEnabled:false,policyVersion:0");
+    expect(serverDb).toContain("const UNCONFIGURED_TIER_POLICY_SENTINELS = {");
+    expect(serverDb).toContain("enabled:false,automaticDelivery:false,dailyPopupTarget:0");
+    expect(serverDb).toContain("automaticTradingEnabled:false");
+    expect(serverDb).toContain("policyVersion:0,");
     expect(serverDb).toContain("Configure and explicitly enable the saved tier delivery and automatic-trading policy");
     expect(serverDb).toContain("const nextPolicyVersion=Number(existing.policyVersion||0)+1");
   });
