@@ -90,8 +90,10 @@ if (packageExists) {
 }
 report("Application metadata", Boolean(packageJson), packageJson ? "package.json is readable." : "package.json is missing or invalid.");
 const start = String(packageJson?.scripts?.start || "");
-report("Production startup command", start.includes("NODE_ENV=production") && start.includes("node dist/index.js"),
-  start.includes("NODE_ENV=production") && start.includes("node dist/index.js") ? "Expected production entry point is configured." : "Expected start script: NODE_ENV=production node dist/index.js.");
+report("Production startup command", start.includes("scripts/start-with-diagnostics.mjs"),
+  start.includes("scripts/start-with-diagnostics.mjs")
+    ? "Supported startup wrapper is configured; it runs guarded migrations and worker-schema preflight before the persistent production server."
+    : "Expected start script to use scripts/start-with-diagnostics.mjs so guarded migrations and worker-schema preflight run before the persistent server.");
 report("Production build", await fileExists("dist/index.js"),
   await fileExists("dist/index.js") ? "dist/index.js exists." : "dist/index.js is missing; run pnpm build.");
 

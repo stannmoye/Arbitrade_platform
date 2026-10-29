@@ -55,11 +55,11 @@ report(
 const startCommand = String(packageJson?.scripts?.start || "");
 report(
   "Production startup command",
-  startCommand.includes("NODE_ENV=production") && startCommand.includes("node dist/index.js"),
+  startCommand.includes("scripts/start-with-diagnostics.mjs"),
   startCommand
-    ? startCommand.includes("NODE_ENV=production") && startCommand.includes("node dist/index.js")
-      ? "package.json start script launches dist/index.js in production mode."
-      : "The start script does not match the expected production entry point (NODE_ENV=production node dist/index.js)."
+    ? startCommand.includes("scripts/start-with-diagnostics.mjs")
+      ? "package.json start script uses the supported startup wrapper, which runs guarded migrations, worker-schema preflight, and the persistent production server."
+      : "The start script must use scripts/start-with-diagnostics.mjs so guarded migrations and worker-schema preflight run before the persistent server."
     : "package.json has no start script.",
 );
 

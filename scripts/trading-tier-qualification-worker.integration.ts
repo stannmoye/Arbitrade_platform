@@ -432,6 +432,13 @@ try {
   assert.equal(recoveryMetadata.previousAttempts, 8);
   assert.equal(recoveryMetadata.sourceLedgerId, Number(queuedAgainRows[0]?.sourceLedgerId));
 
+  // The production requeue timestamp is intentionally current-time. Normalize it
+  // into the past in this disposable test so MySQL second-precision comparisons
+  // cannot make the immediate test cycle miss a newly requeued job.
+  await db.update(tradingTierQualificationJobs).set({
+    availableAt: new Date(Date.now() - 10_000),
+  }).where(eq(tradingTierQualificationJobs.id, retryCandidateJobId));
+
   await runTradingTierQualificationWorkerCycle({ batchSize: 20 });
   const processedAgainRows = await db.select().from(tradingTierQualificationJobs)
     .where(eq(tradingTierQualificationJobs.id, retryCandidateJobId));
