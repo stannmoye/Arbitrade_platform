@@ -23,7 +23,13 @@ describe("Trading policy reconciliation migration", () => {
     const packagesStart = schema.indexOf('export const packages = mysqlTable("packages"');
     const policyStart = schema.indexOf('export const opportunityPackagePolicies = mysqlTable("opportunity_package_policies"');
     const popupStart = schema.indexOf('export const opportunityPopupEvents = mysqlTable("opportunity_popup_events"');
-    expect(schema.slice(packagesStart, schema.indexOf("\n});", packagesStart))).toContain('enabled: boolean("enabled").default(false).notNull()');
+    const packageSchema = schema.slice(packagesStart, schema.indexOf("\n});", packagesStart));
+    expect(packageSchema).toContain('enabled: boolean("enabled").default(false).notNull()');
+    expect(packageSchema).toContain('minimumQualifyingBalanceUsdMinor: bigint("minimumQualifyingBalanceUsdMinor", { mode: "number" }).notNull()');
+    expect(packageSchema).toContain('durationMonths: int("durationMonths").notNull()');
+    expect(packageSchema).toContain('opportunitiesPerDay: int("opportunitiesPerDay").notNull()');
+    expect(packageSchema).not.toContain('minimumQualifyingBalanceUsdMinor: bigint("minimumQualifyingBalanceUsdMinor", { mode: "number" }).default(10000)');
+    expect(packageSchema).not.toContain('opportunitiesPerDay: int("opportunitiesPerDay").default(6)');
     const policy = schema.slice(policyStart, schema.indexOf("\n});", policyStart));
     expect(policy).toContain('enabled: boolean("enabled").default(false).notNull()');
     expect(policy).toContain('automaticDelivery: boolean("automaticDelivery").default(false).notNull()');
@@ -34,6 +40,13 @@ describe("Trading policy reconciliation migration", () => {
     expect(popup).toContain('policyVersion: int("policyVersion").notNull()');
     expect(popup).not.toContain('tradeDurationSeconds: int("tradeDurationSeconds").default(600)');
     expect(popup).not.toContain('policyVersion: int("policyVersion").default(1)');
+    const tradeStart = schema.indexOf('export const tradePositions = mysqlTable("trade_positions"');
+    const trade = schema.slice(tradeStart, schema.indexOf("\n}, (table) => ({", tradeStart));
+    expect(trade).toContain('tradeDurationSeconds: int("tradeDurationSeconds").notNull()');
+    expect(trade).toContain('policyVersion: int("policyVersion").notNull()');
+    expect(trade).toContain('platformFeeRateBps: int("platformFeeRateBps").notNull()');
+    expect(trade).not.toContain('platformFeeRateBps: int("platformFeeRateBps").default(1500)');
+    expect(migration).toContain('ALTER TABLE `trade_positions` ALTER COLUMN `platformFeeRateBps` DROP DEFAULT;');
   });
 
   it("persists an explicit policy version on popup and delivery records", () => {
