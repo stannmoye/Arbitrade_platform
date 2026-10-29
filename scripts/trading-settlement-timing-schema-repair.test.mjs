@@ -21,12 +21,13 @@ describe("Trading settlement timing schema drift repair", () => {
     const entries = journal.entries;
     const entry = entries.find((item) => item.tag === "0079_trade_settlement_timing_schema_repair");
     expect(entry).toBeDefined();
-    expect(entry.idx).toBe(entries.length - 8);
-    expect(entries.at(-4).tag).toBe("0083_trading_opportunity_worker_indexes");
-    expect(entries.at(-3).tag).toBe("0084_worker_health_registry");
-    expect(entries.at(-2).tag).toBe("0085_trade_settlement_schema_reconciliation");
-    expect(entries.at(-1).tag).toBe("0086_trading_opportunity_execution_leases");
-    expect(entry.when).toBeGreaterThan(entries.at(-9).when);
+    expect(entry.idx).toBe(entries.length - 9);
+    expect(entries.at(-5).tag).toBe("0083_trading_opportunity_worker_indexes");
+    expect(entries.at(-4).tag).toBe("0084_worker_health_registry");
+    expect(entries.at(-3).tag).toBe("0085_trade_settlement_schema_reconciliation");
+    expect(entries.at(-2).tag).toBe("0086_trading_opportunity_execution_leases");
+    expect(entries.at(-1).tag).toBe("0087_trading_package_policy_schema_reconciliation");
+    expect(entry.when).toBeGreaterThan(entries.at(-10).when);
   });
 
   it("reconciles actual settlement timing schema drift even when migration history already records it", () => {
@@ -40,6 +41,8 @@ describe("Trading settlement timing schema drift repair", () => {
     expect(installerStatus).toContain('"0085_trade_settlement_schema_reconciliation.sql"');
     expect(portalRunner).toContain('"0086_trading_opportunity_execution_leases.sql"');
     expect(installerStatus).toContain('"0086_trading_opportunity_execution_leases.sql"');
+    expect(portalRunner).toContain('"0087_trading_package_policy_schema_reconciliation.sql"');
+    expect(installerStatus).toContain('"0087_trading_package_policy_schema_reconciliation.sql"');
   });
 
   it("repairs omitted settlement migrations additively without rewriting financial records", () => {
