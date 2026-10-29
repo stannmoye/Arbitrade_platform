@@ -382,7 +382,7 @@ These controls define how new customers are screened and onboarded. Country-spec
 
 Only authorized administrators can configure tiers. Customer eligibility is derived automatically from persisted qualifying-deposit attribution; administrators must not manually assign a tier to a customer. Customer-created legacy subscription rows are historical records only and must not grant eligibility.
 
-Detailed policy editing is handled through Trade Settings / Opportunity Engine controls.
+Detailed policy editing is handled through Trade Settings / Opportunity Engine controls. For the required package editor fields, each edit button's meaning, company rotation, customer pop-up contents, profit-range safeguards, and worker restart behaviour, follow the canonical [Trading Pop-up & Admin Configuration Manual](TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md) and [Trading System Specification](TRADING_SYSTEM_SPECIFICATION.md).
 
 ---
 
@@ -465,37 +465,33 @@ The settings are stored in the application settings registry and are consumed by
 
 Controls include:
 
-- Maximum opportunities per day
-- Emergency ceiling
-- Drain mode
-- Countdown duration
-- Signup credit amount
-- Signup credit currency
+- Maximum opportunities per day and emergency ceiling
+- Drain/pause mode for new allocations (must not block required settlement/reconciliation)
+- Server-owned opportunity schedule and trade countdown/duration policy
+- Maximum visible cards/concurrency
+- Global and per-customer limits
+- Worker health, due/queued work, retry/dead-letter visibility and audited recovery
 
-### Trading tier policy editor
+Any setting shown here must be persisted and consumed by the runtime. Signup-credit settings do not make signup credits eligible for Trading tier qualification.
 
-Controls administrator-managed tier-specific:
+### Trading tier and pop-up policy editor
 
-- Daily popup limit
-- Maximum visible offers
-- Minimum and maximum trade units
-- Minimum and normal hourly targets
-- Market influence basis points
-- Burst mode
-- Maximum burst size
-- Enabled status
+Use the package editor and Trade Settings controls defined in [Trading Pop-up & Admin Configuration Manual](TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md). The editor must cover:
+
+- Package name, badge label/style, threshold, duration, enabled status and effective time
+- Daily pop-up/opportunity quota contribution and cumulative quota policy
+- Minimum required capital and any fixed/ranged capital bounds
+- Configured profit percentage minimum and maximum, clearly treated as policy/estimate bounds rather than random realized returns
+- Expanded pop-up display duration (separate from package duration and trade duration)
+- Company catalogue filters, stable Logo ID rotation, repeat avoidance and read-only preview
+- Schedule, visible-card limits, daily earnings ceiling, retries/carry-forward and authorized fee policy/version
+- Save/publish validation, policy version, audit history and effective-time rules
+
+Do not retain controls that suggest synthetic generation of market outcomes or random profit. Opportunity offers must have explicit auditable terms; the worker must not manufacture pseudo-random amounts, rewards, durations or seeds.
 
 ### Offer creation
 
-Creates one opportunity offer with:
-
-- Symbol
-- Source venue
-- Destination venue
-- Currency
-- Minimum amount
-- Expected reward
-- Duration
+Creates or publishes an explicitly reviewed opportunity offer with auditable terms, stable identifiers, and a documented source. The offer may include symbol/reference code, source/destination where applicable, currency, required capital, permitted duration, and a clearly labelled configured reward policy. Do not derive an offer's capital, reward, duration, seed, or realized profit from pseudo-random market-snapshot values. Catalogue company rotation is reference presentation data and cannot itself create an executable offer or settlement.
 
 ### Bulk offer import
 
