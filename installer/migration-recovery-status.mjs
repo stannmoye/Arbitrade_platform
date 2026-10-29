@@ -56,6 +56,7 @@ const portalMigrationFiles = [
   "0085_trade_settlement_schema_reconciliation.sql",
   "0086_trading_popup_policy_ranges.sql",
   "0087_trading_company_spotlight_rotation.sql",
+  "0088_trading_popup_trade_snapshots.sql",
 ];
 let journal;
 try {
