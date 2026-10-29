@@ -51,3 +51,19 @@ SELECT p.`name`,0,0,0,0
 FROM `packages` p
 LEFT JOIN `opportunity_package_policies` opp ON opp.`packageName`=p.`name`
 WHERE opp.`id` IS NULL;
+--> statement-breakpoint
+-- Clear prior schema/runtime example values. Version zero and disabled flags make these rows inert until an administrator fills and saves the policy.
+UPDATE `opportunity_package_policies` SET
+  `maxPopupsPerDay`=0,`maxVisibleOffers`=0,`minimumTradeUnits`=0,`maximumTradeUnits`=0,
+  `minHourlyTarget`=0,`normalHourlyTarget`=0,`marketInfluenceBps`=0,`burstEnabled`=0,`maxBurstSize`=0,
+  `dailyPopupTarget`=0,`minIntervalSeconds`=0,`maxIntervalSeconds`=0,`randomizationEnabled`=0,
+  `popupDisplayTargetSeconds`=0,`completionDisplaySeconds`=0,`postCompletionIntervalSeconds`=0,
+  `maxPendingDeliveries`=0,`deliveryRetryPolicy`='none',`maxDeliveryAttempts`=0,`expiryHandling`='expire',
+  `duplicatePrevention`=0,`audioEnabled`=0,`audioSound`='',
+  `maxTradeAttemptsPerDay`=0,`tradeRetryDelaySeconds`=0,`maxSuccessfulTradesPerDay`=0,`maxConcurrentActiveTrades`=0,
+  `requirePreviousSettlement`=1,`minSettlementDelaySeconds`=0,`maxSettlementDelaySeconds`=0,
+  `minimumRewardBps`=0,`maximumRewardBps`=0,`minimumTradeDurationSeconds`=0,`maximumTradeDurationSeconds`=0,
+  `minimumCapitalUsdMinor`=0,`maximumCapitalUsdMinor`=0,`badgeLabel`='',`badgeColor`='violet',`companyRotationEnabled`=0,
+  `maxDailyRewardMinor`=0,`rewardLimitCurrency`='USD',`dailyRewardWindow`='calendar_day',`maxRewardPerTradeMinor`=0,
+  `unsettledRewardPolicy`='reserve',`capReachedPolicy`='stop_new_trades',`settlementConfirmationState`='ledger_and_wallet',
+  `settlementRetryPolicy`='manual',`maxSettlementAttempts`=0,`closePolicy`='after_completion';
