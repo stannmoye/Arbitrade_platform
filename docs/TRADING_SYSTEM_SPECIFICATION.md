@@ -211,6 +211,20 @@ Never invent missing trade details, timestamps, returns, fees, percentages, or r
 
 The expanded-card display duration is configurable in seconds. The minimized dock remains fixed and accessible until the dismissal conditions above are satisfied.
 
+### Administrator-editable package and pop-up configuration
+
+The detailed button-by-button manual is `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md`; it is a companion to this canonical specification and must be kept aligned with it. Admin controls must be persisted server settings, not frontend-only values.
+
+At minimum, authorized administrators need editable controls for package name, badge label/style, qualifying USD threshold, package duration, enabled state/effective time, daily opportunity quota, minimum capital per opportunity, fixed capital or validated capital bounds, minimum and maximum configured profit percentage, expanded pop-up display duration, opportunity schedule, company rotation filters/repeat policy, visible-card concurrency, daily earnings ceiling, retry/carry-forward rules, and any authorized platform-fee policy/version. Each control must explain its meaning in plain language, validate inputs, show the saved value after reload, and record actor, timestamp, reason, old/new values, policy version and effective time. A badge is decorative only; it cannot change eligibility or financial terms.
+
+The minimum/maximum profit percentage fields define an administrator-configured policy/estimate range. They do **not** permit a worker to randomly choose and present a percentage as earned profit. Before settlement, the customer UI must label a configured range as an estimate/policy range. Actual realized profit and any wallet credit must be based on the approved, auditable result and persisted settlement records. If an implementation cannot derive a genuine result, it must not fabricate one or silently treat the configured range as a realized outcome.
+
+Capital controls must distinguish (a) required/minimum capital, (b) actual committed capital, and (c) available balance. If the customer does not have the required amount, display an insufficient-balance card with required capital, available balance, shortfall and “not allocated” status; do not debit the wallet or show a successful trade. Package duration is the entitlement lifetime; pop-up display duration is presentation time only; trade duration/close time is a separate server-owned lifecycle setting.
+
+Company rotation must use the existing local catalogue and stable Logo IDs, preserving name/logo/country metadata together. Rotation state must be durable and transactional, avoid repeats for the configured customer/package scope until the eligible pool is traversed where possible, and resume correctly after restarts. The catalogue is reference data, not proof of a listing, execution, or result. A preview action must not advance production rotation or create a trade.
+
+The server worker must resume persisted due work after restart, recover expired leases, and use idempotency keys, database locks/fencing, bounded batches, retries/backoff, dead-letter visibility and health heartbeats. It must not depend on customer login or browser uptime. Every opportunity must retain the policy version and stable company/trade IDs that were selected when it was created. Configuration changes must not silently rewrite terms or timestamps for already-open trades.
+
 ## 11. Credit/debit animations and notifications
 
 - Green for confirmed credits; red for confirmed debits.
@@ -250,6 +264,11 @@ Trading operates as a real-money workflow recorded in the customer's internal le
 - Cumulative tier quotas respect account/system limits and combined daily earnings ceiling.
 - Insufficient-balance cards appear only for real eligible opportunities and never debit funds.
 - All trade capital and realized outcomes are ledger-backed, idempotent, auditable, and based on actual persisted execution/settlement records.
+- All package/pop-up controls listed in `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md` persist and drive server/customer behaviour; no admin-controlled amount, duration, badge, quota, capital bound, percentage range, or rotation rule is hardcoded in customer UI.
+- Company rotation uses stable catalogue Logo IDs and durable rotation state, preserves correct local logo/name/country metadata, avoids configured repeats, and survives worker restarts without duplicate rotation/allocation.
+- Pop-up display timeout only affects presentation; package duration, trade duration, and display duration remain separate settings.
+- Profit percentage bounds are configuration/estimate policy only; no random/synthetic profit, execution, or settlement is presented or credited as real.
+- Worker restart/retry tests prove durable resumption, expired-lease recovery and idempotent opportunity/allocation/settlement behaviour.
 
 
 ## 15. Implementation workflow requirement
