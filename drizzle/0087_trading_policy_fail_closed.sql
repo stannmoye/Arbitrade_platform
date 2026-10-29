@@ -3,6 +3,30 @@
 -- Pause existing tiers until an authorized administrator reviews/saves each policy and explicitly re-enables the tier.
 ALTER TABLE `packages` ALTER COLUMN `enabled` SET DEFAULT 0;
 --> statement-breakpoint
+ALTER TABLE `packages` ALTER COLUMN `minimumQualifyingBalanceUsdMinor` DROP DEFAULT;
+--> statement-breakpoint
+ALTER TABLE `packages` ALTER COLUMN `durationMonths` DROP DEFAULT;
+--> statement-breakpoint
+ALTER TABLE `packages` ALTER COLUMN `opportunitiesPerDay` DROP DEFAULT;
+--> statement-breakpoint
+ALTER TABLE `packages` ALTER COLUMN `termsVersion` DROP DEFAULT;
+--> statement-breakpoint
+ALTER TABLE `packages` ALTER COLUMN `maxPopupsPerDay` DROP DEFAULT;
+--> statement-breakpoint
+ALTER TABLE `packages` ALTER COLUMN `maxActiveInvestments` DROP DEFAULT;
+--> statement-breakpoint
+ALTER TABLE `trade_positions` ALTER COLUMN `profitRateBps` DROP DEFAULT;
+--> statement-breakpoint
+ALTER TABLE `trade_positions` ALTER COLUMN `tradeDurationSeconds` DROP DEFAULT;
+--> statement-breakpoint
+ALTER TABLE `trade_positions` ALTER COLUMN `feePolicyVersion` DROP DEFAULT;
+--> statement-breakpoint
+ALTER TABLE `trade_positions` ALTER COLUMN `platformFeeRateBps` DROP DEFAULT;
+--> statement-breakpoint
+ALTER TABLE `trade_positions` ALTER COLUMN `platformFeeRoundingMode` DROP DEFAULT;
+--> statement-breakpoint
+ALTER TABLE `trade_positions` ALTER COLUMN `policyVersion` DROP DEFAULT;
+--> statement-breakpoint
 ALTER TABLE `opportunity_package_policies` ALTER COLUMN `enabled` SET DEFAULT 0;
 --> statement-breakpoint
 ALTER TABLE `opportunity_package_policies` ALTER COLUMN `automaticDelivery` SET DEFAULT 0;
