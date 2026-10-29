@@ -108,3 +108,8 @@ Database changes should use ordered forward migrations and retry-safe server-sid
 - Run `runTradingTierQualificationWorkerCycle` from the database-enabled server entrypoint on a five-second timer, with a bounded batch, an overlap guard, and an unreferenced timer. The worker must operate without customer sessions.
 - Use indexed queue reads, database row locks, a recoverable processing lease, bounded exponential retry, and a terminal dead-letter status after eight attempts. Never spin continuously or scan all customers on an idle queue cycle. Do not claim 100% correctness without running tests and verifying migration/CI results.
 - Preserve normal wallet transfer behavior. Test atomic enqueue, duplicate prevention, retry/restart recovery, tier assignment, reversals, and multi-instance locking.
+
+
+### Trading policy fail-closed rule
+
+For all Trading work, treat `docs/TRADING_SYSTEM_SPECIFICATION.md` as authoritative. Do not add runtime fallbacks for administrator-controlled Trading values. Missing or unreviewed policy (`policyVersion = 0`), disabled policy, or disabled tier must block qualification, popup delivery, and automatic allocation. New tiers are disabled until the administrator saves and explicitly enables the complete policy. Carry-forward remains unavailable and must not be represented as active. The one-time `0087_trading_policy_fail_closed.sql` migration intentionally pauses existing tiers while preserving customer entitlements, popup/trade history, settlement records, audit evidence and wallet ledgers; after deployment, an administrator must review and re-enable the tiers intended to resume. Never infer actual market execution or realized profit from a company popup, a configured rate, or elapsed time.
