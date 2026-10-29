@@ -10,8 +10,10 @@ const { chromium } = require("playwright");
  * Required environment:
  *   TRADING_ACCEPTANCE_BASE_URL
  *   TRADING_ACCEPTANCE_ENVIRONMENT=non-production (required safety acknowledgement)
- *   TRADING_CUSTOMER_STORAGE_STATE
+ *   TRADING_CUSTOMER_STORAGE_STATE (seeded and automatically eligible)
+ *   TRADING_UNQUALIFIED_CUSTOMER_STORAGE_STATE (seeded with no qualifying manual admin credit)
  *   TRADING_ADMIN_STORAGE_STATE
+ *   TRADING_ACCEPTANCE_CUSTOMER_EMAIL (eligible customer shown in the admin directory)
  *
  * Uses real application APIs only. In the explicitly isolated non-production environment it
  * temporarily changes one bounded admin policy value to prove save/reload persistence, then
@@ -21,7 +23,9 @@ async function main() {
   const baseURL = process.env.TRADING_ACCEPTANCE_BASE_URL;
   const environment = process.env.TRADING_ACCEPTANCE_ENVIRONMENT;
   const customerState = process.env.TRADING_CUSTOMER_STORAGE_STATE;
+  const unqualifiedCustomerState = process.env.TRADING_UNQUALIFIED_CUSTOMER_STORAGE_STATE;
   const adminState = process.env.TRADING_ADMIN_STORAGE_STATE;
+  const acceptanceCustomerEmail = process.env.TRADING_ACCEPTANCE_CUSTOMER_EMAIL;
 
   assert.equal(environment, "non-production",
     "Set TRADING_ACCEPTANCE_ENVIRONMENT=non-production only for an isolated acceptance deployment.");
@@ -29,12 +33,17 @@ async function main() {
   for (const [name, value] of Object.entries({
     TRADING_ACCEPTANCE_BASE_URL: baseURL,
     TRADING_CUSTOMER_STORAGE_STATE: customerState,
+    TRADING_UNQUALIFIED_CUSTOMER_STORAGE_STATE: unqualifiedCustomerState,
     TRADING_ADMIN_STORAGE_STATE: adminState,
+    TRADING_ACCEPTANCE_CUSTOMER_EMAIL: acceptanceCustomerEmail,
   })) {
     assert.ok(value, `${name} must be set to run Trading browser acceptance.`);
   }
-  assert.ok(fs.existsSync(customerState), "Customer storage state file must exist.");
+  assert.ok(fs.existsSync(customerState), "Eligible customer storage state file must exist.");
+  assert.ok(fs.existsSync(unqualifiedCustomerState), "Unqualified customer storage state file must exist.");
   assert.ok(fs.existsSync(adminState), "Administrator storage state file must exist.");
+  assert.match(acceptanceCustomerEmail, /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+    "TRADING_ACCEPTANCE_CUSTOMER_EMAIL must identify the seeded eligible customer in the admin directory.");
 
   let parsedBaseURL;
   try {
@@ -48,7 +57,8 @@ async function main() {
   assert.equal(parsedBaseURL.password, "", "Acceptance URL must not embed credentials.");
 
   for (const [label, statePath] of [
-    ["Customer", customerState],
+    ["Eligible customer", customerState],
+    ["Unqualified customer", unqualifiedCustomerState],
     ["Administrator", adminState],
   ]) {
     let state;
@@ -155,8 +165,14 @@ async function main() {
       "Customer eligibility tRPC responses must contain successful result data, not only HTTP 2xx.");
     const eligibilityData = [...eligibilityResponses].reverse().find((response) => response.data)?.data;
     assert.ok(eligibilityData, "Real customer eligibility API data must include the eligibility contract.");
-    assert.ok(["eligible", "not_eligible"].includes(eligibilityData.status),
-      "Eligibility status must be one of the server contract states.");
+    assert.equal(eligibilityData.status, "eligible",
+      "TRADING_CUSTOMER_STORAGE_STATE must be an automatically qualified customer.");
+    assert.equal(eligibilityData.eligible, true,
+      "The eligible customer storage state must resolve to server-derived eligibility.");
+    assert.ok(eligibilityData.currentPackage,
+      "An eligible customer must have an automatically assigned current package.");
+    assert.ok(eligibilityData.dailyOpportunityAllowance > 0,
+      "The assigned tiers must contribute a positive cumulative daily allowance.");
     assert.equal(eligibilityData.eligible, eligibilityData.status === "eligible",
       "Eligibility boolean and status must agree.");
     assert.ok(Number.isSafeInteger(eligibilityData.qualifyingDepositUsdMinor) &&
@@ -300,6 +316,87 @@ async function main() {
       responsiveViewports: ["1365x900", "390x844"],
     });
     await customerContext.close();
+
+
+    // Use a distinct seeded customer with no qualifying manual admin credit to cover
+    // first-load skeleton and the genuine no-package/empty state. API responses remain real.
+    const unqualifiedContext = await browser.newContext({ storageState: unqualifiedCustomerState });
+    const unqualifiedPage = await unqualifiedContext.newPage();
+    const unqualifiedCdp = await unqualifiedContext.newCDPSession(unqualifiedPage);
+    await unqualifiedPage.goto(baseURL, { waitUntil: "domcontentloaded" });
+    await unqualifiedCdp.send("Network.enable");
+    await unqualifiedCdp.send("Network.emulateNetworkConditions", {
+      offline: false,
+      latency: 1500,
+      downloadThroughput: 500_000,
+      uploadThroughput: 250_000,
+      connectionType: "cellular3g",
+    });
+    const unqualifiedTradingNav = unqualifiedPage
+      .getByRole("button", { name: /^trading$/i })
+      .or(unqualifiedPage.getByRole("link", { name: /^trading$/i })).first();
+    if (await unqualifiedTradingNav.count()) await unqualifiedTradingNav.click();
+    const packageLoading = unqualifiedPage.locator(".trading-package-loading");
+    await packageLoading.waitFor({ state: "visible", timeout: 20_000 });
+    assert.match(await packageLoading.innerText(), /loading package details/i,
+      "Initial eligibility fetch must expose its loading state.");
+    await unqualifiedCdp.send("Network.emulateNetworkConditions", {
+      offline: false,
+      latency: 0,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+      connectionType: "wifi",
+    });
+
+    const unqualifiedHeading = unqualifiedPage.getByRole("heading", { name: /package progress/i });
+    await unqualifiedHeading.waitFor({ state: "visible", timeout: 20_000 });
+    const unqualifiedApi = await unqualifiedPage.evaluate(async () => {
+      const response = await fetch("/api/trpc/customer.tradingEligibility", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: { accept: "application/json" },
+      });
+      let payload;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = undefined;
+      }
+      return {
+        status: response.status,
+        errorCode: payload?.error?.data?.code ?? payload?.error?.json?.data?.code,
+        payload,
+      };
+    });
+    const unqualifiedData = summarizeEligibility(unqualifiedApi.payload);
+    assert.ok(unqualifiedApi.status >= 200 && unqualifiedApi.status < 300 &&
+      !unqualifiedApi.errorCode && unqualifiedData,
+      "Unqualified customer eligibility must come from a successful real API response.");
+    assert.equal(unqualifiedData.status, "not_eligible");
+    assert.equal(unqualifiedData.eligible, false);
+    assert.equal(unqualifiedData.currentPackage, null,
+      "The test account must not have an assigned package without qualifying credits.");
+    assert.equal(unqualifiedData.qualifyingDepositUsdMinor, 0,
+      "The empty-state test account must have no qualifying manual admin credit.");
+    assert.equal(unqualifiedData.dailyOpportunityAllowance, 0,
+      "The not-yet-qualified customer must have no active daily entitlement.");
+    await unqualifiedPage.getByText(/NO PACKAGE ASSIGNED/i).waitFor({ state: "visible", timeout: 20_000 });
+    assert.equal(await unqualifiedPage.locator(".trading-tier-card-current").count(), 1,
+      "Unqualified customer must see only the no-package current-state card.");
+    assert.match(await unqualifiedPage.locator("body").innerText(),
+      /assigned automatically when you qualify/i,
+      "Empty state must explain automatic package assignment.");
+    assert.equal(Number(await unqualifiedPage.locator(".trading-total-allowance-value").innerText()), 0,
+      "Empty-state allowance must match the server's zero quota.");
+    await unqualifiedContext.close();
+    results.push({
+      journey: "unqualified customer loading and empty/no-package state",
+      status: "passed",
+      initialLoadingState: "visible under real network throttling",
+      qualifyingDepositUsdMinor: 0,
+      assignedPackage: null,
+      dailyOpportunityAllowance: 0,
+    });
 
     const adminContext = await browser.newContext({ storageState: adminState });
     const adminPage = await adminContext.newPage();
@@ -544,6 +641,38 @@ async function main() {
     }, { name: packageName, value: originalRetryDelay }, { timeout: 20_000 });
     assert.equal(await reloadedRetryInput.inputValue(), originalRetryDelay,
       "Reload after invalid submission must show the unchanged persisted retry delay.");
+
+
+    // Verify the eligible test account's assigned package IDs, assignment statuses and
+    // terms versions in the actual admin customer directory. Part 1 owns this UI/API.
+    await adminPage.locator(".admin-canonical-nav")
+      .getByRole("button", { name: /customer directory/i }).click();
+    await adminPage.getByRole("heading", { name: /customer controls/i })
+      .waitFor({ state: "visible", timeout: 20_000 });
+    const assignedCustomerCard = adminPage.locator(".admin-customer-card")
+      .filter({ hasText: acceptanceCustomerEmail }).first();
+    await assignedCustomerCard.waitFor({ state: "visible", timeout: 20_000 });
+    assert.equal(await assignedCustomerCard.getByText(acceptanceCustomerEmail, { exact: true }).count(), 1,
+      "Configured eligible customer email must map to exactly one visible admin customer record.");
+    const assignedTierGroup = assignedCustomerCard.getByRole("group", {
+      name: /automatic trading tier assignments/i,
+    });
+    await assignedTierGroup.waitFor({ state: "visible", timeout: 20_000 });
+    const assignedTierText = await assignedTierGroup.innerText();
+    assert.match(assignedTierText, /Package ID\s+\d+/i,
+      "Admin customer directory must display the assigned package ID.");
+    assert.match(assignedTierText, /Assignment #\d+/i,
+      "Admin customer directory must display the persisted package-assignment ID.");
+    assert.match(assignedTierText, /Terms v\d+/i,
+      "Admin customer directory must display the assignment terms version.");
+    assert.match(assignedTierText, /\b(?:active|expired|cancelled|revoked|suspended|pending)\b/i,
+      "Admin customer directory must display a recognizable persisted assignment status.");
+    results.push({
+      journey: "admin customer directory assigned package IDs and statuses",
+      status: "passed",
+      seededCustomer: "identified by TRADING_ACCEPTANCE_CUSTOMER_EMAIL",
+      checks: ["package ID", "assignment ID", "status", "terms version"],
+    });
 
     const adminBodyText = await adminPage.locator("body").innerText();
     assert.match(adminBodyText, /trade settings/i);
