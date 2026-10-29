@@ -504,22 +504,12 @@ function CompanyReferenceLogo({name,logoUrl}:{name:string;logoUrl:string|null}) 
 function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:boolean;soundSettings:SoundSettings;opportunityData?:any}) {
   const balances=trpc.customer.balances.useQuery(undefined,{refetchInterval:5000});
   const trades=trpc.customer.trades.useQuery(undefined,{refetchInterval:5000});
-  const lastCompanyReferenceId=useRef<string|undefined>(undefined);
-  const companyReferenceInFlight=useRef(false);
-  const [companyReferenceData,setCompanyReferenceData]=useState<any>(null);
-  const [companyReferenceLoadError,setCompanyReferenceLoadError]=useState(false);
   const [catalogueSearch,setCatalogueSearch]=useState("");
   const [catalogueCountry,setCatalogueCountry]=useState("");
   const [catalogueOffset,setCatalogueOffset]=useState(0);
   const companyCatalogueSummary=trpc.companyCatalogueReference.summary.useQuery();
   const companyCatalogueCount=trpc.companyCatalogueReference.count.useQuery({search:catalogueSearch,countryName:catalogueCountry||undefined});
   const companyCatalogueQuery=trpc.companyCatalogueReference.search.useQuery({search:catalogueSearch,countryName:catalogueCountry||undefined,offset:catalogueOffset,limit:100});
-  const companyReference=trpc.companyCatalogueReference.next.useMutation({
-    onSuccess:(record)=>{companyReferenceInFlight.current=false;lastCompanyReferenceId.current=record.id;setCompanyReferenceData(record);setCompanyReferenceLoadError(false);},
-    onError:()=>{companyReferenceInFlight.current=false;setCompanyReferenceLoadError(true);},
-  });
-  const requestNextCompanyReference=()=>{if(companyReferenceInFlight.current)return;companyReferenceInFlight.current=true;companyReference.mutate({excludeId:lastCompanyReferenceId.current});};
-  useEffect(()=>{requestNextCompanyReference();const timer=window.setInterval(requestNextCompanyReference,15000);return()=>window.clearInterval(timer)},[]);
   const feed:any=opportunityData||{};
   const offers:any[]=feed.offers||[];
   const missed:any[]=feed.missed||[];
@@ -546,7 +536,7 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
           const shortfall=Math.max(0,required-available);
           const missedReason=shortfall>0?"Insufficient spendable balance":null;
           return <article className="trading-opportunity-row" key={offer.id}>
-            <div className="trading-opportunity-identity"><span className="trading-opportunity-symbol">{offer.symbol||"Market opportunity"}</span><div><strong>{offer.companyName||offer.name||offer.symbol||"Market opportunity"}</strong><small>{[offer.venueFrom,offer.venueTo].filter(Boolean).join(" → ")||offer.exchange||"Configured opportunity"}</small></div></div>
+            <div className="trading-opportunity-identity">{offer.companyReference?<CompanyReferenceLogo name={offer.companyReference.name} logoUrl={offer.companyReference.logoUrl}/>:<span className="trading-opportunity-symbol">{offer.symbol||"Market opportunity"}</span>}<div><strong>{offer.companyReference?.name||offer.companyName||offer.name||offer.symbol||"Market opportunity"}</strong><small>{offer.companyReference?`Company catalogue ID ${offer.companyReference.id} · ${offer.companyReference.countryName} folder · ${offer.companyReference.tickerResearchStatus}`:([offer.venueFrom,offer.venueTo].filter(Boolean).join(" → ")||offer.exchange||"Configured opportunity")}</small>{offer.companyReference&&<small>Informational company reference only; it does not verify a live listing or prove external-market execution.</small>}</div></div>
             <div className="trading-opportunity-values">
               <div><span>Required capital</span><strong>{format(required,offer.currency)}</strong></div>
               <div><span>Available balance</span><strong>{format(available,offer.currency)}</strong></div>
@@ -632,7 +622,7 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
         <button className="secondary-button" type="button" onClick={()=>setCatalogueOffset(catalogueOffset+100)} disabled={companyCatalogueQuery.isLoading||companyCatalogueCount.isLoading||catalogueOffset+(companyCatalogueQuery.data?.length??0)>=(companyCatalogueCount.data??0)}>Next 100</button>
       </div>
       <small>Search covers all 1,811 catalogue records and shows up to 100 matches. Country filtering uses the image folder label, not verified headquarters or listing evidence. All workbook rows remain aligned by stable Logo ID, including placeholder, parent-company, and historical entries. Placeholder codes are display-only and must not be used for market-data lookup or orders.</small>
-      {companyReferenceData&&<details><summary>Random company spotlight</summary><article className="trading-opportunity-row" aria-live="polite"><div className="trading-opportunity-identity"><CompanyReferenceLogo name={companyReferenceData.name} logoUrl={companyReferenceData.logoUrl}/><div><strong>{companyReferenceData.name}</strong><small>{companyReferenceData.symbol||"No symbol supplied"} · {companyReferenceData.exchangeCode||"No exchange supplied"} · {companyReferenceData.countryName}</small></div></div><button className="secondary-button" onClick={requestNextCompanyReference} disabled={companyReference.isPending}>Next reference</button></article></details>}
+
     </section>
   </div>;
 }
