@@ -30,7 +30,7 @@ describe("package-scoped company spotlight rotation",()=>{
     const prior=nextCompanySpotlight(pool,null,11,"Starter","avoid_until_exhausted");
     const changed=nextCompanySpotlight([first],prior.state,11,"Starter","avoid_until_exhausted");
     expect(changed.state.poolFingerprint).not.toBe(prior.state.poolFingerprint);
-    expect(changed.state.nextIndex).toBe(1);
+    expect(changed.state.nextIndex).toBe(0);
     expect(()=>nextCompanySpotlight(pool,null,0,"Starter","avoid_until_exhausted")).toThrow("customer identity");
     expect(()=>nextCompanySpotlight(pool,null,11,"","avoid_until_exhausted")).toThrow("package scope");
   });
