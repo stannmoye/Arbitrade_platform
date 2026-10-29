@@ -227,7 +227,7 @@ Never invent missing trade details, timestamps, returns, fees, percentages, or r
 
 - Provide a **Minimize** control on the expanded pop-up. It collapses the card into a fixed bottom dock that remains visible during vertical page scrolling.
 - The minimized dock must keep the company name and flag/logo where practical, current status, countdown, and a **Maximize** control that reopens the expanded pop-up.
-- Minimize/maximize changes presentation only. They must not pause, restart, extend, or otherwise change the server-owned countdown, trade lifecycle, allocation, settlement, or ledger.
+- Minimize/maximize/dismiss controls and expanded-card timeout change presentation only. They must not pause, restart, extend, cancel, or suppress the server-owned countdown or automatic execution, and must not change entitlements, allocation, wallet ledger, or settlement. Dismissed pop-ups remain eligible for server-owned automatic processing when their persisted delivery and execution states permit it; the expanded card may be hidden without cancelling the durable opportunity.
 - Keep each card tied to its own trade/opportunity ID. Multiple active cards must not overwrite one another; use a bounded, responsive stack/list when more than one is active.
 - The card must not disappear merely because the user scrolls, minimizes it, changes views, or the expanded-display timeout expires.
 - At countdown zero, refresh/show the authoritative server-side trade status. Dismiss the card completely only when the countdown has finished and the trade/opportunity is in an appropriate terminal state. If it is still pending, retrying, or awaiting settlement, keep it accessible and show that state; a timer reaching zero is not proof of execution, success, or settlement.
