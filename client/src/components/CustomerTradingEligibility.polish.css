@@ -419,3 +419,66 @@
 @media (prefers-reduced-motion: reduce) {
   .trading-package-hero-emblem, .trading-hero-candle, .trading-package-emblem { animation: none !important; }
 }
+
+/* Final visual pass: crisp status badges, dimensional cards, and restrained motion. */
+.trading-bot-status.is-active {
+  border-color: rgb(58 226 177 / 44%);
+  background: linear-gradient(105deg, rgb(8 57 53 / 97%), rgb(5 30 42 / 96%));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%), 0 0 22px rgb(45 231 174 / 8%);
+}
+.trading-bot-status.is-active .trading-bot-status-icon {
+  color: #65ffc0;
+  background: linear-gradient(145deg, #155e4a, #0a3a39);
+  box-shadow: inset 0 0 0 1px rgb(102 255 192 / 28%), 0 0 18px rgb(52 238 166 / 15%);
+}
+.trading-bot-status.is-active .trading-status-label { color: #9bffd0; }
+.trading-tier-card-current::after,
+.trading-tier-card-next::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 112px;
+  height: 112px;
+  border-radius: 0 16px 0 100%;
+  pointer-events: none;
+  opacity: .7;
+}
+.trading-tier-card-current { position: relative; overflow: hidden; }
+.trading-tier-card-current::after {
+  background: radial-gradient(circle at top right, rgb(69 255 200 / 16%), transparent 70%);
+}
+.trading-tier-card-next { position: relative; overflow: hidden; }
+.trading-tier-card-next::after {
+  background: radial-gradient(circle at top right, rgb(78 187 255 / 19%), transparent 70%);
+}
+.trading-tier-state {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%);
+  backdrop-filter: blur(8px);
+}
+.trading-tier-card-current .trading-tier-metric-icon,
+.trading-tier-card-next .trading-tier-metric-icon,
+.trading-total-allowance-icon {
+  transition: transform .22s ease, box-shadow .22s ease, filter .22s ease;
+}
+.trading-tier-card-current:hover .trading-tier-metric-icon,
+.trading-tier-card-next:hover .trading-tier-metric-icon,
+.trading-total-allowance:hover .trading-total-allowance-icon {
+  transform: translateY(-2px);
+  filter: brightness(1.12);
+  box-shadow: 0 0 20px rgb(75 237 216 / 16%), inset 0 0 0 1px rgb(255 255 255 / 7%);
+}
+.trading-tier-card-next .trading-tier-kicker svg { animation: trading-icon-breathe 3.2s ease-in-out infinite; }
+.trading-total-allowance-value { letter-spacing: -.035em; }
+.trading-no-package-icon { animation: trading-icon-breathe 4s ease-in-out infinite; }
+@keyframes trading-icon-breathe {
+  0%, 100% { filter: drop-shadow(0 0 1px rgb(82 255 225 / 15%)); }
+  50% { filter: drop-shadow(0 0 8px rgb(82 255 225 / 45%)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trading-tier-card-next .trading-tier-kicker svg,
+  .trading-no-package-icon { animation: none !important; }
+  .trading-tier-card-current .trading-tier-metric-icon,
+  .trading-tier-card-next .trading-tier-metric-icon,
+  .trading-total-allowance-icon { transition: none !important; }
+}
