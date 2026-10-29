@@ -29,6 +29,21 @@ describe("Trading tier creation defaults", () => {
 });
 
 
+describe("Trading tier effective-date validation", () => {
+  it("rejects an expiry that is not later than the configured start time on create and update", () => {
+    const createStart = serverRouters.indexOf("createTradingPackage: adminProcedure.input(z.object({");
+    const updateStart = serverRouters.indexOf("updateTradingPackage: adminProcedure.input(z.object({", createStart);
+    const communicationStart = serverRouters.indexOf("communicationSettings: adminProcedure.query", updateStart);
+    expect(createStart).toBeGreaterThanOrEqual(0);
+    expect(updateStart).toBeGreaterThan(createStart);
+    expect(communicationStart).toBeGreaterThan(updateStart);
+    const tierRoutes = serverRouters.slice(createStart, communicationStart);
+    expect(tierRoutes).toContain('({ startsAt, expiresAt }) => !startsAt || !expiresAt || new Date(expiresAt).getTime() > new Date(startsAt).getTime()');
+    expect(tierRoutes.match(/Expiry must be later than the start time\./g)).toHaveLength(2);
+    expect(tierRoutes).toContain('path: ["expiresAt"]');
+  });
+});
+
 describe("Admin customer Trading tier visibility", () => {
   it("exposes automatic assignment package IDs, statuses, and saved terms without exposing the full catalogue", () => {
     const start = serverDb.indexOf("export async function listAdminCustomers()");
