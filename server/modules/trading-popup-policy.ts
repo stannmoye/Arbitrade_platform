@@ -143,6 +143,7 @@ export function createTradingPopupSnapshot(input: {
 
   const sampler = input.sampler ?? defaultSampler;
   const profitRateBps = chooseInclusiveInteger(policy.minimumProfitBps, policy.maximumProfitBps, sampler);
+  if (profitRateBps < 1) throw new RangeError("Selected profit rate must be positive");
   const durationSeconds = chooseInclusiveInteger(
     policy.minimumDurationSeconds,
     policy.maximumDurationSeconds,
@@ -150,6 +151,8 @@ export function createTradingPopupSnapshot(input: {
   );
   const startedAt = input.now ?? new Date();
   if (!Number.isFinite(startedAt.getTime())) throw new RangeError("Trade start time is invalid");
+  const configuredGrossProfitMinor = calculateConfiguredProfitMinor(input.capitalMinor, profitRateBps);
+  if (configuredGrossProfitMinor < 1) throw new RangeError("Configured capital and rate do not produce a positive minor-unit profit");
   const dueAt = new Date(startedAt.getTime() + durationSeconds * 1000);
   if (!Number.isFinite(dueAt.getTime())) throw new RangeError("Trade due time is invalid");
 
@@ -161,7 +164,7 @@ export function createTradingPopupSnapshot(input: {
     companyId: input.companyId,
     capitalMinor: input.capitalMinor,
     profitRateBps,
-    configuredGrossProfitMinor: calculateConfiguredProfitMinor(input.capitalMinor, profitRateBps),
+    configuredGrossProfitMinor,
     durationSeconds,
     startedAt: startedAt.toISOString(),
     dueAt: dueAt.toISOString(),
