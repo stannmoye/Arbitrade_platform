@@ -250,3 +250,12 @@ This policy is final and must be followed throughout the application:
 - Latest Part 5 commits: browser runner `dd6a6b54c93196623aeb8c2eb5215c5dadf2ad79`; coordination document `f949e87489e926b8dc3825e770271610225ea31f`. Branch remains `test/trading-ui-e2e-acceptance`; PR #236 remains open/draft; do not merge or deploy.
 - Validation: prior CI workflow results on the earlier PR head showed Trading settlement DB integration, Trading tier qualification DB integration, Trading recovery verification, application verification, Mining regression and installer validation completed successfully; production source build/test was still in progress at that observation. Those results do **not** validate the new commits. The combined status endpoint returned no commit statuses for the earlier head. Check exact-head CI again after these commits.
 - Still pending: run the new Playwright runner against a dedicated acceptance deployment with real authenticated test sessions and a disposable database; add direct persisted admin-setting/opportunity assertions; exercise forbidden-role access, invalid forms, empty/error/retry/stale-data paths and responsive viewports. No local execution, database integration pass, merge or production deployment is claimed.
+
+
+## 2026-10-29 — PART 5 browser acceptance hardening
+
+- Corrected the Playwright customer heading locator in `scripts/trading-ui-browser-acceptance.cjs`: the rendered heading is “Package progress”, not “Your Trading Journey” (that text is an eyebrow label).
+- Strengthened real tRPC response checks to reject HTTP 2xx responses whose JSON payload reports an error or has no result data.
+- Updated `docs/trading/IMPLEMENTATION_COORDINATION.md` with the correction and explicit validation boundary.
+- Latest commits in this increment: runner fix `65bd614da0fc47865385d3012f48f2c7ffca25f8`; coordination note `5a7766ff8eedd2050ef94b5e15afcc14a97620bf`. The progress update itself is being committed now.
+- No claim that the runner or full suite passes: authenticated browser execution and exact-head CI are still pending. PR #236 remains draft/unmerged; no deployment or database mutation performed.
