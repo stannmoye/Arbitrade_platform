@@ -307,7 +307,8 @@ export async function requeueDeadQualificationJob(input: { jobId: number; adminI
       throw new TRPCError({ code: "BAD_REQUEST", message: "The source ledger entry is not an eligible qualifying event." });
     }
 
-    const now = new Date();
+    // Match the worker lease precision so a newly requeued job is immediately due.
+    const now = new Date(Math.floor(Date.now() / 1000) * 1000);
     const update = await tx.update(tradingTierQualificationJobs).set({
       status: "pending",
       attempts: 0,
