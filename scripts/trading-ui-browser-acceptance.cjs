@@ -34,16 +34,28 @@ async function main() {
     const customerContext = await browser.newContext({ storageState: customerState });
     const customerPage = await customerContext.newPage();
     const eligibilityResponses = [];
-    customerPage.on("response", (response) => {
+    customerPage.on("response", async (response) => {
       if (response.url().includes("/api/trpc/customer.tradingEligibility")) {
-        eligibilityResponses.push({ status: response.status(), url: response.url() });
+        let payload;
+        try {
+          payload = await response.json();
+        } catch {
+          payload = undefined;
+        }
+        eligibilityResponses.push({
+          status: response.status(),
+          url: response.url(),
+          hasTrpcError: Boolean(payload?.error),
+          hasTrpcResult: Boolean(payload?.result?.data),
+        });
       }
     });
 
     await customerPage.goto(baseURL, { waitUntil: "domcontentloaded" });
     const tradingNav = customerPage.getByRole("button", { name: /^trading$/i }).or(customerPage.getByRole("link", { name: /^trading$/i })).first();
     if (await tradingNav.count()) await tradingNav.click();
-    await customerPage.getByRole("heading", { name: /your trading journey/i }).waitFor({ timeout: 20_000 });
+    // "Your Trading Journey" is an eyebrow label, not a heading; the actual h2 is "Package progress".
+    await customerPage.getByRole("heading", { name: /package progress/i }).waitFor({ timeout: 20_000 });
     await customerPage.getByText(/total daily opportunity allowance/i).waitFor({ timeout: 20_000 });
     await customerPage.waitForTimeout(1_000);
 
@@ -53,8 +65,9 @@ async function main() {
       "Customer UI must not offer package activation or purchase.");
     assert.ok(eligibilityResponses.length > 0,
       "Customer eligibility must be loaded from the real tRPC API.");
-    assert.ok(eligibilityResponses.every((response) => response.status >= 200 && response.status < 300),
-      "Customer eligibility API responses must be successful.");
+    assert.ok(eligibilityResponses.every((response) =>
+      response.status >= 200 && response.status < 300 && !response.hasTrpcError && response.hasTrpcResult),
+      "Customer eligibility tRPC responses must contain successful result data, not only HTTP 2xx.");
     assert.doesNotMatch(bodyText, /retry needed|couldn.t load package details/i,
       "Customer eligibility must not remain in an API-error state.");
     results.push({
