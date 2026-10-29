@@ -41,6 +41,14 @@ ALTER TABLE `opportunity_delivery_events` ALTER COLUMN `policyVersion` DROP DEFA
 --> statement-breakpoint
 ALTER TABLE `opportunity_popup_events` ALTER COLUMN `policyVersion` DROP DEFAULT;
 --> statement-breakpoint
+UPDATE `opportunity_popup_events`
+SET `eventStatus`='WITHDRAWN',`deliveryStatus`='expired',`withdrawnAt`=COALESCE(`withdrawnAt`,CURRENT_TIMESTAMP),`updatedAt`=CURRENT_TIMESTAMP
+WHERE `eventStatus` NOT IN ('TRADED','SETTLED','WITHDRAWN');
+--> statement-breakpoint
+UPDATE `opportunity_delivery_events`
+SET `status`='expired',`lastErrorCode`='POLICY_RECONCILIATION_REQUIRED'
+WHERE `status` IN ('pending','delivered');
+--> statement-breakpoint
 UPDATE `packages` SET `enabled`=0;
 --> statement-breakpoint
 UPDATE `opportunity_package_policies`
