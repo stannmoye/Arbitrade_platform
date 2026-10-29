@@ -101,9 +101,36 @@ try {
     mode: "credit",
     creditClassification: "qualifying_deposit",
     reason: "integration test qualifying admin wallet credit",
+    idempotencyKey: "it-credit-qualifying-001",
   });
   assert.equal(qualifyingCreditOne.entryType, "admin_manual_deposit_credit");
   assert.equal(qualifyingCreditOne.qualifyingDepositUsdMinor, 20000);
+
+  // Replaying a committed request must return its original ledger result and not
+  // create a second credit. Reusing the key for a different payload must fail.
+  const qualifyingCreditReplay = await adjustCustomerBalance(adminId, {
+    userId: creditPathUserId,
+    currency: "USD",
+    amountMinor: 20000,
+    mode: "credit",
+    creditClassification: "qualifying_deposit",
+    reason: "integration test qualifying admin wallet credit",
+    idempotencyKey: "it-credit-qualifying-001",
+  });
+  assert.equal(qualifyingCreditReplay.ledgerId, qualifyingCreditOne.ledgerId);
+  assert.equal(qualifyingCreditReplay.ledgerReference, qualifyingCreditOne.ledgerReference);
+  await assert.rejects(
+    adjustCustomerBalance(adminId, {
+      userId: creditPathUserId,
+      currency: "USD",
+      amountMinor: 20001,
+      mode: "credit",
+      creditClassification: "qualifying_deposit",
+      reason: "integration test qualifying admin wallet credit",
+      idempotencyKey: "it-credit-qualifying-001",
+    }),
+    /different wallet adjustment/i,
+  );
   const nonQualifyingCredit = await adjustCustomerBalance(adminId, {
     userId: creditPathUserId,
     currency: "USD",
@@ -111,6 +138,7 @@ try {
     mode: "credit",
     creditClassification: "non_qualifying_credit",
     reason: "integration test non-qualifying admin credit",
+    idempotencyKey: "it-credit-nonqualifying-001",
   });
   assert.equal(nonQualifyingCredit.entryType, "admin_credit");
   assert.equal(nonQualifyingCredit.qualifyingDepositUsdMinor, null);
@@ -151,6 +179,7 @@ try {
       mode: "credit",
       creditClassification: "qualifying_deposit",
       reason: "integration test non-USD qualifying admin wallet credit",
+      idempotencyKey: "it-credit-nonusd-001",
     });
   } finally {
     globalThis.fetch = originalFetch;
@@ -177,6 +206,7 @@ try {
     debitClassification: "qualifying_deposit_reversal",
     reversalLedgerId: qualifyingCreditOne.ledgerId,
     reason: "integration test partial qualifying deposit reversal",
+    idempotencyKey: "it-reversal-partial-001",
   });
   assert.equal(qualifyingReversal.entryType, "admin_manual_deposit_reversal");
   assert.equal(qualifyingReversal.qualifyingDepositUsdMinor, -5000);
@@ -191,6 +221,7 @@ try {
       debitClassification: "qualifying_deposit_reversal",
       reversalLedgerId: qualifyingCreditOne.ledgerId,
       reason: "integration test over-reversal must be rejected",
+      idempotencyKey: "it-reversal-over-001",
     }),
     /reversal exceeds/i,
   );
