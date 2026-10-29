@@ -82,3 +82,19 @@ No merge into `main`, production migration, or deployment is authorized by this 
 - Status: Part 4 implementation remains partially complete; integration and acceptance are not complete. Fresh exact-head CI and database concurrency/restart/idempotency/rollback/pool-exhaustion/snapshot coverage on the reconciled dependency branch remain required.
 
 - Concrete correction commit: `6f8da2dde430b15ad060eb7883f9642e342d4609`. The handoff-only follow-up commit was `279ff07d8bcba5273ae013174bff1bf46f15c93d`. The exact-SHA workflow endpoint and combined-status endpoint returned zero runs/statuses for these inspected heads; this is missing CI evidence, not a pass.
+
+
+## 2026-10-29 — Exact-head CI results after schema and contract fixes
+
+- Code correction `6f8da2dde430b15ad060eb7883f9642e342d4609` adds migration 0089 and registers it across the Drizzle journal, portal runner, installer recovery and worker runtime-schema path. Follow-up test correction `928833c577518fad488b147f7e2cf63b73fd2edb` aligns popup contract assertions with the current `executionEligible` predicate and excludes `trade_positions` from a test that specifically asserts the legacy 0062 bridge tables. The separate migration contract asserts the 0089 column directly.
+- Validation-only draft PR #242 runs the existing `main`-targeted workflows against the exact Part 4 branch head `928833c577518fad488b147f7e2cf63b73fd2edb`; PR #238 remains stacked on #233. Exact-head run evidence:
+  - Verify application, run [40927079937](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40927079937): main install/type-check/test/build job passed.
+  - Trading recovery, run [40927079945](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40927079945): typecheck/tests/production-build job passed.
+  - Settlement integration, run [40927079950](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40927079950): MySQL 8.4 and MariaDB 11.4 passed.
+  - Tier qualification integration, run [40927080170](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40927080170): MySQL 8.4, MariaDB 11.4 and real worker assignment/reversal passed.
+  - Mining regression, run [40927079934](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40927079934): passed. No Mining files were changed.
+  - Installer validation, run [40927079996](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40927079996): application unit tests, installer/migration regressions, TypeScript, build/smoke, syntax, fresh MariaDB, MySQL compatibility/recovery and deployment package jobs passed.
+  - Build/test production, run [40927079932](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40927079932): its type-check/test/build job passed; the separate generic customer-portal real-browser recovery job was still running at this record time. This generic recovery job is not the dedicated Part 5 authenticated acceptance runner.
+- The first workflow pass exposed stale contract tests asserting the old `popupEligible` variable in execution guards, plus the legacy worker-bridge assertion applied to the new trade snapshot contract. Those assertions were corrected; the follow-up exact-head CI above passed on the revised source-test commit.
+- Local `pnpm check`, `pnpm test` and `pnpm build` were not executed because this environment could not resolve GitHub for a repository checkout. GitHub CI executed the project’s install/check/test/build workflows. No production database or server was used.
+- Current status remains **not integration-complete and not acceptance-complete**: PR #230 reports a merge conflict; PR #233 and #235 remain open and their overlapping 0086/0087 migration histories require a forward-only reconciliation against main's historical 0086 before merge. The dedicated authenticated Part 5 UI runner and persisted-settings server acceptance remain deferred by user decision. PR #242 is validation-only, draft, and must never be merged.
