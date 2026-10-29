@@ -506,7 +506,6 @@ function CompanyReferenceLogo({name,logoUrl}:{name:string;logoUrl:string|null}) 
 function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:boolean;soundSettings:SoundSettings;opportunityData?:any}) {
   const balances=trpc.customer.balances.useQuery(undefined,{refetchInterval:5000});
   const trades=trpc.customer.trades.useQuery(undefined,{refetchInterval:5000});
-  const lastCompanyReferenceId=useRef<string|undefined>(undefined);
   const companyReferenceInFlight=useRef(false);
   const [companyReferenceData,setCompanyReferenceData]=useState<any>(null);
   const [companyReferenceLoadError,setCompanyReferenceLoadError]=useState(false);
