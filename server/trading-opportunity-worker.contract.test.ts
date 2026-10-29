@@ -96,6 +96,7 @@ describe("automatic Trading execution lease fencing", () => {
     expect(migration).toContain("executionLeaseToken");
     expect(source).toContain("const executionLeaseToken=crypto.randomUUID();");
     expect(source).toContain("Opportunity execution lease was lost; stale worker fenced");
+    expect(source).toContain("if(/execution lease was lost/i.test(message)) continue;");
     expect(source).toContain("eq(opportunityPopupEvents.executionLeaseToken,state.executionLeaseToken)");
     expect(source).toContain("eq(opportunityPopupEvents.executionLeaseToken,executionLeaseToken)");
   });
