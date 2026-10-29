@@ -45,7 +45,8 @@ Shared paths requiring coordination include `server/_core/index.ts`, `server/_co
 - Worker execution is server-side and independent of browser sessions.
 - Keep one cycle per process in flight; bound customer batches and database polling.
 - On repeated transient cycle failures, use capped exponential backoff, emit structured/sanitized diagnostics, and resume normal cadence after success.
-- Durable database state remains authoritative across restarts. A process-local guard/backoff is only load protection, not a distributed lease.
+- Durable database state remains authoritative across restarts. A process-local guard/backoff is only load protection, not a distributed customer lease.
+- Automatic opportunity execution now stores a per-event UUID lease token; `createTrade` rejects stale tokens before wallet work, and completion/failure updates require the current token. `executionRetryAfter` acts as the lease expiry/retry time so a later worker can reclaim abandoned RUNNING work. This is source-implemented but not yet accepted until disposable-database concurrency and restart tests pass.
 - Recovery must not re-roll committed snapshots, double-advance catalogue rotation, double-allocate capital, duplicate ledger movements, or infer settlement from elapsed time.
 - Graceful shutdown stops scheduling, drains tracked cycles within the configured deadline, and leaves incomplete durable work recoverable.
 - Monitor heartbeat, last success/failure, duration, consecutive failures and stale/dead-letter work where supported by the existing health registry.
