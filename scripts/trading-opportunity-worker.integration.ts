@@ -32,11 +32,14 @@ const currency = "T" + token.slice(0, 7).toUpperCase();
 let userId;
 let eventId;
 let offerId;
+let secondOfferId;
+let secondEventId;
 let packageId;
 let subscriptionId;
 let tradeId;
 let currencyInserted = false;
 let offerInserted = false;
+let secondOfferInserted = false;
 let packageInserted = false;
 
 try {
@@ -66,7 +69,7 @@ try {
     name: packageName,
     minimumQualifyingBalanceUsdMinor: 1,
     durationMonths: 1,
-    opportunitiesPerDay: 6,
+    opportunitiesPerDay: 1,
     termsVersion: 1,
     maxActiveInvestments: 5,
     enabled: true,
@@ -80,7 +83,7 @@ try {
     expiresAt: new Date(Date.now() + 86400000),
     status: "active",
     activationKey: "auto-tier:" + token,
-    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 6, maxActiveInvestments: 5 }),
+    termsSnapshotJson: JSON.stringify({ opportunitiesPerDay: 1, maxActiveInvestments: 5 }),
     qualifyingBalanceUsdMinor: 10000,
     packageTermsVersion: 1,
   });
@@ -128,7 +131,42 @@ try {
   });
   eventId = Number(eventInsert[0].insertId);
 
+  const secondOfferInsert = await db.insert(opportunityOffers).values({
+    symbol: "TEST2",
+    venueFrom: "integration-source",
+    venueTo: "integration-destination",
+    currency,
+    minimumMinor: 25000,
+    expectedRewardBps: 400,
+    durationSeconds: 3600,
+    opensAt: new Date(Date.now() - 60000),
+    closesAt: new Date(Date.now() + 3600000),
+    rewardAt: new Date(Date.now() + 3600000),
+    status: "open",
+  });
+  secondOfferId = Number(secondOfferInsert[0].insertId);
+  secondOfferInserted = true;
+  const secondEventInsert = await db.insert(opportunityPopupEvents).values({
+    eventKey: eventKey + "-second",
+    userId,
+    offerId: secondOfferId,
+    quotaDay: new Date().toISOString().slice(0, 10),
+    packageName: "Integration",
+    symbol: "TEST2",
+    currency,
+    minimumMinor: 25000,
+    expectedRewardBps: 400,
+    balanceAvailableMinor: 100000,
+    balanceStatus: "sufficient",
+    eventStatus: "DELIVERED",
+    deliveryStatus: "delivered",
+    executionStatus: "READY",
+    executionAttemptCount: 0,
+  });
+  secondEventId = Number(secondEventInsert[0].insertId);
+
   const offer = { deliveryEventId: eventId, offerId, tradeRetryDelaySeconds: 30 };
+  const secondOffer = { deliveryEventId: secondEventId, offerId: secondOfferId, tradeRetryDelaySeconds: 30 };
   const competingClaims = await Promise.all([
     claimOpportunityExecutionAttempt(userId, offer, 5),
     claimOpportunityExecutionAttempt(userId, offer, 5),
@@ -261,7 +299,11 @@ try {
     earnedMinor: customerBalances.earnedMinor,
   }).from(customerBalances).where(eq(customerBalances.userId, userId));
 
-  const allocationResults = await Promise.all([
+  const secondClaim = await claimOpportunityExecutionAttempt(userId, secondOffer, 5);
+  assert.equal(secondClaim.claimed, true, "The competing opportunity must be independently claimable before quota contention.");
+  assert.ok(secondClaim.executionLeaseToken);
+
+  const allocationResults = await Promise.allSettled([
     createTrade(userId, {
       offerId,
       amountMinor: 25000,
@@ -273,17 +315,41 @@ try {
       amountMinor: 25000,
       deliveryEventId: eventId,
       executionLeaseToken: recoveredClaim.executionLeaseToken,
+    }),
+    createTrade(userId, {
+      offerId: secondOfferId,
+      amountMinor: 25000,
+      deliveryEventId: secondEventId,
+      executionLeaseToken: secondClaim.executionLeaseToken,
+    }),
+    createTrade(userId, {
+      offerId: secondOfferId,
+      amountMinor: 25000,
+      deliveryEventId: secondEventId,
+      executionLeaseToken: secondClaim.executionLeaseToken,
     }),
   ]);
-  assert.equal(allocationResults[0].tradeId, allocationResults[1].tradeId,
-    "Competing fresh allocations for one event must resolve to one trade ID.");
-  tradeId = allocationResults[0].tradeId;
-  assert.equal(allocationResults.filter((result) => result.idempotentReplay === true).length, 1,
+  const fulfilledAllocations = allocationResults.filter((result) => result.status === "fulfilled");
+  const rejectedAllocations = allocationResults.filter((result) => result.status === "rejected");
+  assert.equal(fulfilledAllocations.length, 2,
+    "Exactly one of two competing opportunities should allocate; its duplicate request should replay.");
+  assert.equal(rejectedAllocations.length, 2,
+    "Both requests for the competing opportunity must be rejected once the one-per-day quota is consumed.");
+  const successfulAllocationResults = fulfilledAllocations.map((result) => result.value);
+  assert.equal(successfulAllocationResults[0].tradeId, successfulAllocationResults[1].tradeId,
+    "The winning event's competing requests must resolve to one trade ID.");
+  tradeId = successfulAllocationResults[0].tradeId;
+  assert.equal(successfulAllocationResults.filter((result) => result.idempotentReplay === true).length, 1,
     "Exactly one concurrent request should take the committed-allocation replay path.");
-  const allocatedTrades = await db.select({ id: tradePositions.id, principalMinor: tradePositions.principalMinor })
-    .from(tradePositions).where(and(eq(tradePositions.userId, userId), eq(tradePositions.offerId, offerId)));
-  assert.equal(allocatedTrades.length, 1, "Concurrent fresh allocation must create exactly one trade.");
+  assert.ok(rejectedAllocations.every((result) => /quota.*used|no remaining quota/i.test(String(result.reason?.message || result.reason))),
+    "Losing opportunity requests must fail for quota exhaustion, not unrelated validation errors.");
+  const allocatedTrades = await db.select({ id: tradePositions.id, offerId: tradePositions.offerId, principalMinor: tradePositions.principalMinor })
+    .from(tradePositions).where(eq(tradePositions.userId, userId));
+  assert.equal(allocatedTrades.length, 1, "Concurrent cross-event allocation must create exactly one trade for a one-opportunity daily quota.");
   assert.equal(Number(allocatedTrades[0].principalMinor), 25000);
+  const winningOfferId = Number(allocatedTrades[0].offerId);
+  const winningEventId = winningOfferId === offerId ? eventId : secondEventId;
+  const winningLeaseToken = winningOfferId === offerId ? recoveredClaim.executionLeaseToken : secondClaim.executionLeaseToken;
   const ledgerAfterAllocation = await db.select({ id: balanceLedger.id, amountMinor: balanceLedger.amountMinor })
     .from(balanceLedger).where(eq(balanceLedger.userId, userId));
   assert.equal(ledgerAfterAllocation.length, ledgerBeforeAllocation.length + 1,
@@ -301,15 +367,15 @@ try {
     "Concurrent fresh allocation must lock principal once.");
 
   const replayResults = await Promise.all([
-    createTrade(userId, { offerId, amountMinor: 25000, deliveryEventId: eventId, executionLeaseToken: recoveredClaim.executionLeaseToken }),
-    createTrade(userId, { offerId, amountMinor: 25000, deliveryEventId: eventId, executionLeaseToken: recoveredClaim.executionLeaseToken }),
+    createTrade(userId, { offerId: winningOfferId, amountMinor: 25000, deliveryEventId: winningEventId, executionLeaseToken: winningLeaseToken }),
+    createTrade(userId, { offerId: winningOfferId, amountMinor: 25000, deliveryEventId: winningEventId, executionLeaseToken: winningLeaseToken }),
   ]);
   assert.deepEqual(replayResults.map((result) => result.tradeId), [tradeId, tradeId],
     "Concurrent retries after a committed allocation must return the same trade.");
   assert.ok(replayResults.every((result) => result.idempotentReplay === true),
     "A committed delivery event must take the idempotent replay path.");
   const tradeRows = await db.select({ id: tradePositions.id })
-    .from(tradePositions).where(and(eq(tradePositions.userId, userId), eq(tradePositions.offerId, offerId)));
+    .from(tradePositions).where(eq(tradePositions.userId, userId));
   assert.deepEqual(tradeRows.map((row) => row.id), [tradeId],
     "Concurrent replay must not create another trade position.");
   assert.deepEqual(
@@ -337,7 +403,9 @@ try {
     crashedWorkerTokenFenced: true,
     staleWorkerFenced: true,
     concurrentFreshAllocations: allocationResults.length,
-    freshAllocationReplayCount: allocationResults.filter((result) => result.idempotentReplay === true).length,
+    successfulAllocationRequests: fulfilledAllocations.length,
+    quotaRejectedAllocationRequests: rejectedAllocations.length,
+    freshAllocationReplayCount: successfulAllocationResults.filter((result) => result.idempotentReplay === true).length,
     concurrentIdempotentReplays: replayResults.length,
     uniqueTradeRows: tradeRows.length,
     ledgerAndWalletUnchangedOnStaleAndReplay: true,
@@ -346,6 +414,9 @@ try {
   try {
     if (eventId !== undefined) {
       await db.delete(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, eventId));
+    }
+    if (secondEventId !== undefined) {
+      await db.delete(opportunityPopupEvents).where(eq(opportunityPopupEvents.id, secondEventId));
     }
     if (tradeId !== undefined) {
       await db.delete(tradeLifecycleEvents).where(eq(tradeLifecycleEvents.tradeId, tradeId));
@@ -360,6 +431,7 @@ try {
     }
     if (packageInserted && packageId !== undefined) await db.delete(packages).where(eq(packages.id, packageId));
     if (offerInserted && offerId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, offerId));
+    if (secondOfferInserted && secondOfferId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, secondOfferId));
     if (currencyInserted) {
       await db.delete(currencyRegistry).where(eq(currencyRegistry.code, currency));
     }
