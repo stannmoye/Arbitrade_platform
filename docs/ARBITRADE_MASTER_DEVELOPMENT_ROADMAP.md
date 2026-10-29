@@ -724,3 +724,8 @@ When continuing this project:
 - [ ] Verify migration `0082_trading_tier_qualification_jobs` against the target database, run typecheck/build/contract tests and inspect CI for the exact commit before deployment.
 - [ ] Exercise restart recovery, retry/dead-letter behavior, multi-instance claims, tier upgrade/reversal and unchanged normal transfers in an integration environment.
 
+
+
+## Trading conflict-resolution rule and required implementation gate
+
+For all Trading work, the authoritative documents are `docs/TRADING_SYSTEM_SPECIFICATION.md` and `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md`. This policy supersedes any older Trading-specific package purchase, customer activation, hardcoded popup/company/rate/capital/duration, or browser-owned lifecycle instructions elsewhere in the repository. Customers cannot browse, select, subscribe to, purchase, or activate Trading tiers. Admin policy and qualifying manual admin credits govern eligibility; server workers govern opportunity lifecycle. Mining package purchase rules remain Mining-only. Do not delete historical migration files or audit evidence to resolve a policy conflict; instead make active code/docs unambiguous and test behavior. Issue #228 is the implementation and acceptance tracker.
