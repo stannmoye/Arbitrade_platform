@@ -15,6 +15,7 @@ const eligibilityComponent = readFileSync(new URL("../client/src/components/Cust
 const eligibilityStyles = readFileSync(new URL("../client/src/components/CustomerTradingEligibility.css", import.meta.url), "utf8");
 const specification = readFileSync(new URL("../docs/TRADING_SYSTEM_SPECIFICATION.md", import.meta.url), "utf8");
 const serverEntrypointSource = readFileSync(new URL("./_core/index.ts", import.meta.url), "utf8");
+const workerHealthSource = readFileSync(new URL("./_core/workerHealth.ts", import.meta.url), "utf8");
 const qualificationQueueMigrationSource = readFileSync(new URL("../drizzle/0082_trading_tier_qualification_jobs.sql", import.meta.url), "utf8");
 
 describe("Automatic Trading tier qualification", () => {
@@ -261,6 +262,12 @@ describe("Automatic Trading tier qualification", () => {
     expect(serverEntrypointSource).toContain("runTradingTierQualificationWorkerCycle({batchSize:20})");
     expect(serverEntrypointSource).toContain("},5_000)");
     expect(serverEntrypointSource).toContain("tradingTierQualificationTimer.unref()");
+  });
+
+  it("aligns audited requeue availability with the worker's persisted timestamp precision", () => {
+    expect(workerHealthSource).toContain("const now = new Date(Math.floor(Date.now() / 1000) * 1000)");
+    expect(workerHealthSource).toContain("availableAt: now");
+    expect(qualificationWorkerSource).toContain("const leaseNow=new Date(Math.floor(eligibilityNow.getTime()/1000)*1000)");
   });
 
   it("keeps qualification jobs durable and observable without scanning all customers on idle worker cycles", () => {
