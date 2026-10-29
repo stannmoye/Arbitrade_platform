@@ -246,6 +246,7 @@ export const opportunityPopupEvents = mysqlTable("opportunity_popup_events", {
   executionStatus: mysqlEnum("executionStatus", ["READY", "RUNNING", "RETRYING", "SUCCEEDED", "FAILED"]).default("READY").notNull(),
   executionAttemptCount: int("executionAttemptCount").default(0).notNull(),
   executionRetryAfter: timestamp("executionRetryAfter"),
+  executionLeaseToken: varchar("executionLeaseToken", { length: 64 }),
   executionRetryDay: varchar("executionRetryDay", { length: 10 }),
   executionLastErrorCode: varchar("executionLastErrorCode", { length: 80 }),
   receivedAt: timestamp("receivedAt"),
