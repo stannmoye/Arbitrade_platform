@@ -52,7 +52,7 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
           continue;
         }
 
-        let company: { id: string; name: string; logoUrl: string } | null = null;
+        let company: { id: string; name: string; logoUrl: string; metadataJson: string } | null = null;
         if (item.companyRotationEnabled) {
           const stateKey = "trading.companyRotation." + item.userId + "." + item.packageName;
           if (stateKey.length > 120) throw new Error("Company rotation scope key exceeds the storage limit.");
@@ -95,6 +95,30 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
             id: String(selection.company.id),
             name: String(selection.company.name),
             logoUrl: String(selection.company.logoUrl),
+            metadataJson: JSON.stringify({
+              ticker: selection.company.ticker,
+              symbol: selection.company.symbol,
+              exchangeCode: selection.company.exchangeCode,
+              tickerResearchStatus: selection.company.tickerResearchStatus,
+              tickerSource: selection.company.tickerSource,
+              parentTicker: selection.company.parentTicker,
+              whyNoRealTicker: selection.company.whyNoRealTicker,
+              tickerClassification: selection.company.tickerClassification,
+              countryCode: selection.company.countryCode,
+              countryName: selection.company.countryName,
+              domain: selection.company.domain,
+              logoSourceName: selection.company.logoSourceName,
+              logoSourceUrl: selection.company.logoSourceUrl,
+              listingStatus: selection.company.listingStatus,
+              lastVerifiedAt: selection.company.lastVerifiedAt,
+              requiresManualVerification: selection.company.requiresManualVerification,
+              sourceConfidence: selection.company.sourceConfidence,
+              sector: selection.company.sector,
+              headquartersCountry: selection.company.headquartersCountry,
+              instrumentType: selection.company.instrumentType,
+              recordCompleteness: selection.company.recordCompleteness,
+              referenceOnly: true,
+            }),
           };
           await connection.execute(
             "UPDATE app_settings SET settingValue=?,updatedBy=?,updatedAt=CURRENT_TIMESTAMP WHERE settingKey=?",
@@ -106,7 +130,7 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
           `INSERT INTO opportunity_popup_events
             (eventKey,userId,offerId,quotaDay,packageName,symbol,currency,minimumMinor,expectedRewardBps,
              configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds,packagePolicyVersionSnapshot,packageBadgeLabel,
-             companyReferenceId,companyDisplayName,companyLogoUrl,companyReferenceOnly,
+             companyReferenceId,companyDisplayName,companyLogoUrl,companyReferenceMetadataJson,companyReferenceOnly,
              balanceAvailableMinor,balanceStatus,marketObservedAt,marketSnapshotJson,durationSeconds,badgeLabel,badgeStyle,policyVersion,
              eventStatus,deliveredAt,createdAt,updatedAt)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
@@ -115,7 +139,7 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
             eventKey, item.userId, item.offerId, item.quotaDay, item.packageName, item.symbol, item.currency,
             item.minimumMinor, item.expectedRewardBps, item.configuredProfitRateBps, item.configuredDurationSeconds,
             item.configuredPopupDisplaySeconds, item.packagePolicyVersionSnapshot, item.packageBadgeLabel || null,
-            company?.id || null, company?.name || null, company?.logoUrl || null, company ? 1 : 0,
+            company?.id || null, company?.name || null, company?.logoUrl || null, company?.metadataJson || null, company ? 1 : 0,
             item.balanceAvailableMinor, item.balanceStatus, item.marketObservedAt || null, item.marketSnapshotJson || null,
             item.durationSeconds, item.badgeLabel || null, item.badgeStyle, item.policyVersion,
           ],
