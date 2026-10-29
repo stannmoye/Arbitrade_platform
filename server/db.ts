@@ -12,6 +12,7 @@ import { addCalendarMonths } from "./modules/calendar-months";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { calculateConfiguredProfitMinor, chooseInclusiveInteger } from "./modules/trading-popup-policy";
+import { planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
@@ -25,6 +26,46 @@ import { isCustomerOpportunityAllowed, isWithinQuietHours } from "./opportunityE
 import { assertExactlyOneAffectedRow } from "./db-mutation-guards";
 let _db: MySql2Database<Record<string, unknown>> | null = null;
 let _pool: Pool | null = null;
+
+type TradingFxConfig = { code: string; scale: number; assetType: "fiat" | "crypto" | "token"; externalCode: string | null };
+type TradingFxCacheEntry = { expiresAt: number; value?: FxRateSnapshot; pending?: Promise<FxRateSnapshot> };
+const tradingFxRateCache = new Map<string, TradingFxCacheEntry>();
+
+async function getFreshTradingFxRate(config: TradingFxConfig): Promise<FxRateSnapshot> {
+  const code = config.code.trim().toUpperCase();
+  const key = code + ":" + config.assetType + ":" + (config.externalCode || "");
+  const now = Date.now();
+  const cached = tradingFxRateCache.get(key);
+  if (cached && cached.expiresAt > now) {
+    if (cached.value) return cached.value;
+    if (cached.pending) return cached.pending;
+  }
+  const pending = fetchCurrencyUsdRate({ code, assetType: config.assetType, externalCode: config.externalCode })
+    .then(result => ({
+      currency: code,
+      scale: config.scale,
+      rateUsdPerUnit: result.rate,
+      provider: result.provider,
+      sourceDate: result.sourceDate,
+      fetchedAt: result.fetchedAt,
+    }));
+  tradingFxRateCache.set(key, { expiresAt: now + 30_000, pending });
+  try {
+    const value = await pending;
+    tradingFxRateCache.set(key, { expiresAt: Date.now() + 30_000, value });
+    while (tradingFxRateCache.size > 256) {
+      const oldest = tradingFxRateCache.keys().next().value;
+      if (oldest === undefined) break;
+      tradingFxRateCache.delete(oldest);
+    }
+    return value;
+  } catch (error) {
+    tradingFxRateCache.delete(key);
+    throw error;
+  }
+}
+
+
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
@@ -3257,6 +3298,33 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
 }
 export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number;packageId?:number}){
  const db=await getDb();if(!db)throw new Error("Database is not available");
+ // Fetch FX quotes before opening the financial transaction. The transaction below
+ // locks every affected wallet in stable order and rechecks all spendable balances.
+ const preflightWallets=await db.select({currency:customerBalances.currency,availableMinor:customerBalances.availableMinor}).from(customerBalances).where(eq(customerBalances.userId,userId));
+ const targetCurrency=String((await db.select({currency:opportunityOffers.currency}).from(opportunityOffers).where(eq(opportunityOffers.id,input.offerId).limit(1))[0]?.currency||"").toUpperCase();
+ if(!targetCurrency) throw new Error("Trading opportunity currency is unavailable");
+ const targetPreflightBalance=Number(preflightWallets.find(row=>String(row.currency).toUpperCase()===targetCurrency)?.availableMinor||0);
+ const replayEvent=input.deliveryEventId===undefined?null:(await db.select({eventStatus:opportunityPopupEvents.eventStatus,tradeId:opportunityPopupEvents.tradeId})
+   .from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId))).limit(1))[0]||null;
+ const tradeFxRates=new Map<string,FxRateSnapshot>();
+ const tradeFxConfigs=new Map<string,TradingFxConfig>();
+ if(targetPreflightBalance<input.amountMinor && !(replayEvent?.eventStatus==="TRADED"&&Number(replayEvent.tradeId)>0)){
+   const registryRows=await db.select({code:currencyRegistry.code,scale:currencyRegistry.scale,assetType:currencyRegistry.assetType,externalCode:currencyRegistry.externalCode})
+     .from(currencyRegistry).where(eq(currencyRegistry.enabled,true));
+   for(const row of registryRows) tradeFxConfigs.set(String(row.code).toUpperCase(),{
+     code:String(row.code).toUpperCase(),scale:Number(row.scale),assetType:row.assetType,
+     externalCode:row.externalCode?String(row.externalCode):null,
+   });
+   const codes=new Set<string>([targetCurrency,...preflightWallets.filter(row=>Number(row.availableMinor)>0).map(row=>String(row.currency).toUpperCase())]);
+   const fetched=await Promise.all([...codes].map(async code=>{
+     const config=tradeFxConfigs.get(code);
+     if(!config) return [code,null] as const;
+     try { return [code,await getFreshTradingFxRate(config)] as const; }
+     catch { return [code,null] as const; }
+   }));
+   for(const [code,rate] of fetched) if(rate) tradeFxRates.set(code,rate);
+   if(!tradeFxRates.has(targetCurrency)) throw new Error("A current exchange rate for " + targetCurrency + " is unavailable; no wallet funds were moved");
+ }
  return db.transaction(async tx=>{
   // Serialize allocations for one customer. This makes daily caps and active-trade
   // checks safe when multiple workers attempt automatic trades concurrently.
@@ -3401,11 +3469,49 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const currencyRow=(await tx.select({scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,updatedAt:currencyRegistry.updatedAt}).from(currencyRegistry).where(eq(currencyRegistry.code,offer.currency)).limit(1))[0]; if(!currencyRow) throw new Error(`Currency ${offer.currency} is not configured`); const nativeFactor=Math.pow(10,Number(currencyRow.scale)); const nativeRate=Number(currencyRow.usdRate); if(!Number.isFinite(nativeRate)||nativeRate<=0) throw new Error(`Currency ${offer.currency} has no valid conversion rate`); const terms=calculateTradeTerms(userId,offer,input.amountMinor); const packageMinimumNative=packagePolicy?usdUnitsToNativeMinor(Number(packagePolicy.minimumTradeUnits),Number(currencyRow.scale),nativeRate):Number(offer.minimumMinor); const packageMaximumNative=packagePolicy?Math.max(packageMinimumNative,usdUnitsToNativeMinor(Number(packagePolicy.maximumTradeUnits),Number(currencyRow.scale),nativeRate)):Number.MAX_SAFE_INTEGER; assertTradeAmountWithinBounds(input.amountMinor,{minimumTradeMinor:Math.max(Number(offer.minimumMinor),Number(terms.minimumMinor),packageMinimumNative),maximumTradeMinor:packageMaximumNative},Number(offer.minimumMinor));
   const already=await tx.select({id:tradePositions.id}).from(tradePositions).where(and(eq(tradePositions.userId,userId),eq(tradePositions.offerId,input.offerId))).limit(1);
   if(already[0]) throw new Error("This opportunity has already been allocated");
-  // Lock the relevant wallet row as a second line of defence against concurrent
-  // debits, including writers that do not participate in the user-level lock.
-  const walletLock=await tx.execute(sql`SELECT id FROM customer_balances WHERE userId=${userId} AND currency=${offer.currency} FOR UPDATE`) as any;
-  const bal=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,userId),eq(customerBalances.currency,offer.currency))).limit(1))[0];
-  if(!walletLock?.[0]?.length || !bal || bal.availableMinor<input.amountMinor) throw new Error("Insufficient available balance");
+  // Lock all customer wallets in stable currency order. Conversion and reservation
+  // are performed under the same transaction so partial funding cannot commit.
+  await tx.execute(sql`SELECT id FROM customer_balances WHERE userId=${userId} ORDER BY currency FOR UPDATE`);
+  let walletRows=await tx.select().from(customerBalances).where(eq(customerBalances.userId,userId)).orderBy(customerBalances.currency).for("update");
+  let bal=walletRows.find(row=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase());
+  if(!bal){
+    await tx.insert(customerBalances).values({userId,currency:offer.currency,availableMinor:0,lockedMinor:0,promotionalMinor:0,earnedMinor:0});
+    walletRows=await tx.select().from(customerBalances).where(eq(customerBalances.userId,userId)).orderBy(customerBalances.currency).for("update");
+    bal=walletRows.find(row=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase());
+  }
+  if(!bal) throw new Error("Target currency wallet could not be initialized");
+  const ref="trade-"+offer.id+"-"+userId+"-"+Date.now();
+  let fundingPlan:ReturnType<typeof planCrossWalletFunding>|null=null;
+  let convertedTargetMinor=0;
+  if(Number(bal.availableMinor)<input.amountMinor){
+    const targetRate=tradeFxRates.get(String(offer.currency).toUpperCase());
+    if(!targetRate) throw new Error("Insufficient target-wallet balance and no fresh FX snapshot is available for cross-wallet funding");
+    if(Number(targetRate.scale)!==Number(currencyRow.scale)) throw new Error("Target currency scale changed while the trade was being prepared; retry the opportunity");
+    const sourceWallets=walletRows
+      .filter(row=>String(row.currency).toUpperCase()!==String(offer.currency).toUpperCase())
+      .map(row=>{
+        const code=String(row.currency).toUpperCase();
+        const rate=tradeFxRates.get(code)||null;
+        const config=tradeFxConfigs.get(code);
+        return {currency:code,scale:Number(rate?.scale??config?.scale??2),availableMinor:Number(row.availableMinor||0),rate};
+      });
+    fundingPlan=planCrossWalletFunding({
+      requiredTargetMinor:input.amountMinor,
+      targetAvailableMinor:Number(bal.availableMinor||0),
+      targetRate,
+      sourceWallets,
+    });
+    convertedTargetMinor=fundingPlan.targetCreditMinor;
+  }
+  const walletFundingPlanJson=JSON.stringify({
+    targetCurrency:String(offer.currency).toUpperCase(),
+    requiredTargetMinor:input.amountMinor,
+    targetAvailableMinorBeforeConversion:Number(bal.availableMinor||0),
+    convertedTargetMinor,
+    sourceDebits:fundingPlan?.sourceDebits||[],
+    targetRate:convertedTargetMinor>0?tradeFxRates.get(String(offer.currency).toUpperCase())||null:null,
+    recordedAt:new Date().toISOString(),
+  });
   // A delivered popup is the immutable source of its configured rate/duration.
   // A legacy event without these snapshots is not silently re-rated at allocation.
   const configuredRateBps=Number(popupSnapshot?.configuredProfitRateBps||0);
@@ -3439,11 +3545,44 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     const reserved=Number(reservationRows?.[0]?.[0]?.reserved||0), credited=Number(creditedRows?.[0]?.[0]?.credited||0);
     if (remainingRewardAllowance(Number(packagePolicy.maxDailyRewardMinor),credited,reserved)<reward) throw new Error("Daily reward cap reached for this package");
   }
-  const balanceUpdate=await tx.update(customerBalances).set({availableMinor:sql`${customerBalances.availableMinor}-${input.amountMinor}`,lockedMinor:sql`${customerBalances.lockedMinor}+${input.amountMinor}`,updatedAt:new Date()}).where(and(eq(customerBalances.id,bal.id),gte(customerBalances.availableMinor,input.amountMinor)));
-  if(Number((balanceUpdate as any)[0]?.affectedRows||0)!==1) throw new Error("Insufficient available balance");
-  const ref=`trade-${offer.id}-${userId}-${Date.now()}`;
+  if(fundingPlan&&fundingPlan.sourceDebits.length){
+    const targetRate=tradeFxRates.get(String(offer.currency).toUpperCase())!;
+    await tx.insert(fxRateSnapshots).values({
+      baseAsset:String(offer.currency).toUpperCase(),quoteAsset:"USD",rate:targetRate.rateUsdPerUnit,
+      provider:targetRate.provider,sourceDate:targetRate.sourceDate.slice(0,16),
+      rawJson:JSON.stringify({purpose:"trade_cross_wallet_conversion",tradeReference:ref,fetchedAt:targetRate.fetchedAt.toISOString(),scale:targetRate.scale}),
+    });
+    for(const debit of fundingPlan.sourceDebits){
+      const sourceBalance=walletRows.find(row=>String(row.currency).toUpperCase()===debit.currency);
+      if(!sourceBalance) throw new Error("Source wallet " + debit.currency + " disappeared during funding");
+      const sourceUpdate=await tx.update(customerBalances).set({
+        availableMinor:sql`${customerBalances.availableMinor}-${debit.amountMinor}`,updatedAt:new Date(),
+      }).where(and(eq(customerBalances.id,sourceBalance.id),gte(customerBalances.availableMinor,debit.amountMinor)));
+      if(Number((sourceUpdate as any)[0]?.affectedRows||0)!==1) throw new Error("Insufficient spendable balance in " + debit.currency);
+      const debitReference=ref+"-fx-"+debit.currency+"-debit";
+      const creditReference=ref+"-fx-"+debit.currency+"-credit";
+      await tx.insert(balanceLedger).values([
+        {userId,currency:debit.currency,amountMinor:-debit.amountMinor,entryType:"trade_fx_conversion_debit",reference:debitReference,withdrawable:false},
+        {userId,currency:offer.currency,amountMinor:debit.convertedTargetMinor,entryType:"trade_fx_conversion_credit",reference:creditReference,withdrawable:false},
+      ]);
+      await tx.insert(fxRateSnapshots).values({
+        baseAsset:debit.currency,quoteAsset:"USD",rate:debit.rate.rateUsdPerUnit,
+        provider:debit.rate.provider,sourceDate:debit.rate.sourceDate.slice(0,16),
+        rawJson:JSON.stringify({purpose:"trade_cross_wallet_conversion",tradeReference:ref,targetCurrency:offer.currency,
+          targetCreditMinor:debit.convertedTargetMinor,sourceDebitMinor:debit.amountMinor,
+          roundingExcessSourceMinor:debit.roundingExcessSourceMinor,roundingExcessUsdScaled:debit.roundingExcessUsdScaled,
+          fetchedAt:debit.rate.fetchedAt.toISOString(),scale:debit.rate.scale}),
+      });
+    }
+  }
+  const minimumRequiredFromTarget=Math.max(0,input.amountMinor-convertedTargetMinor);
+  const balanceUpdate=await tx.update(customerBalances).set({
+    availableMinor:sql`${customerBalances.availableMinor}+${convertedTargetMinor}-${input.amountMinor}`,
+    lockedMinor:sql`${customerBalances.lockedMinor}+${input.amountMinor}`,updatedAt:new Date(),
+  }).where(and(eq(customerBalances.id,bal.id),gte(customerBalances.availableMinor,minimumRequiredFromTarget)));
+  if(Number((balanceUpdate as any)[0]?.affectedRows||0)!==1) throw new Error("Insufficient available balance after FX conversion");
   await tx.insert(balanceLedger).values({userId,currency:offer.currency,amountMinor:-input.amountMinor,entryType:"trade_reservation",reference:ref,withdrawable:false});
-  const settlementDelaySeconds=Math.max(Number(packagePolicy.minSettlementDelaySeconds||0),Math.min(Number(packagePolicy.maxSettlementDelaySeconds||settlementPolicy.delaySeconds),settlementPolicy.delaySeconds)); const tradeStartedAt=new Date(); const settlesAt=new Date(tradeStartedAt.getTime()+effectiveDurationSeconds*1000); const creditAt=new Date(settlesAt.getTime()+(settlementDelaySeconds+settlementPolicy.creditDelaySeconds)*1000); const snapshotVersion=Number(popupSnapshot?.packagePolicyVersionSnapshot||packagePolicy.policyVersion||activePackageSubscription.termsVersion||1); const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceMetadataJson:popupSnapshot?.companyReferenceMetadataJson||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),rewardReservedMinor:reward,settlesAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
+  const settlementDelaySeconds=Math.max(Number(packagePolicy.minSettlementDelaySeconds||0),Math.min(Number(packagePolicy.maxSettlementDelaySeconds||settlementPolicy.delaySeconds),settlementPolicy.delaySeconds)); const tradeStartedAt=new Date(); const settlesAt=new Date(tradeStartedAt.getTime()+effectiveDurationSeconds*1000); const creditAt=new Date(settlesAt.getTime()+(settlementDelaySeconds+settlementPolicy.creditDelaySeconds)*1000); const snapshotVersion=Number(popupSnapshot?.packagePolicyVersionSnapshot||packagePolicy.policyVersion||activePackageSubscription.termsVersion||1); const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,packagePolicyVersionSnapshot:snapshotVersion,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null,companyLogoUrl:popupSnapshot?.companyLogoUrl||null,companyReferenceMetadataJson:popupSnapshot?.companyReferenceMetadataJson||null,companyReferenceOnly:Boolean(popupSnapshot?.companyReferenceOnly??false),walletFundingPlanJson,transactionReference:ref,rewardReservedMinor:reward,settlesAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:snapshotVersion} as any);
   const tradeId=Number(result[0].insertId);
   await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:snapshotVersion,configuredProfitRateBps:effectiveRateBps,configuredDurationSeconds:effectiveDurationSeconds,companyReferenceId:popupSnapshot?.companyReferenceId||null,companyDisplayName:popupSnapshot?.companyDisplayName||null})});
   if(input.deliveryEventId!==undefined) await tx.update(opportunityPopupEvents).set({tradeId,eventStatus:"TRADED",executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,tradedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offer.id)));
