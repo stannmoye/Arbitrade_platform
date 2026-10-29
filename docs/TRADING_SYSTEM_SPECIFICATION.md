@@ -175,6 +175,16 @@ The admin portal is the authoritative control plane for the customer Trading exp
 - Admin configuration changes must be permissioned, validated, timestamped, versioned where policy affects an existing trade, and audited with administrator, old/new values, and reason. Existing trades must follow a documented policy for whether their opening-time configuration snapshot remains fixed or an authorized change applies; never silently rewrite historical timing.
 - If the admin-configured close time is missing or invalid, do not invent one. Show an appropriate pending/unavailable state and record/report the configuration issue.
 
+### Package-aware company rotation and popup content
+
+- Company display identity comes from the existing 1,811-record local company/logo reference catalogue. Do not hardcode company names, logo paths, country labels, ticker strings, or a separate replacement list in the customer UI.
+- The server worker assigns a stable catalogue Logo ID to each newly delivered opportunity popup using the customer's active package entitlement, that package's quota slot, the UTC quota day, and the customer identity. Persist the assigned Logo ID with the popup event so retries, duplicate worker cycles, page refreshes, and server restarts do not change the company identity for an existing popup.
+- Package quotas and popup timing are read from persisted administrator configuration and server-assigned entitlements. Customer browser timers, random selection, manual “next company” actions, page views, and logins must not select or rotate the company identity or create a quota event.
+- Rotate through the canonical catalogue in a stable, package-aware sequence. Use bounded batches, idempotent event keys, and existing worker lease/overlap protection. If catalogue data or the assigned Logo ID cannot be resolved, fail closed for the new popup rather than inventing a company or falling back to a hardcoded brand.
+- Keep the catalogue's supplied ticker, exchange, country folder, and workbook status as reference metadata. The catalogue currently marks every record unverified and ineligible for verified-security rotation; never imply that a brand-only record is an active tradable security or that the company itself was externally traded.
+- The popup must keep the company identity tied to its persisted popup/opportunity ID. Show the local logo, company name, stable Logo ID, country-folder label, and ticker research status when supplied. Also show the actual opportunity status, required capital, eligible available balance and shortfall when relevant, server-recorded timestamps and duration, and the configured estimate only when accurately labelled. Show realized gross result, fee, net result, and total credit only when supported by the persisted settlement and ledger records. Never fill missing financial fields with made-up values.
+- A logo/name rotation is display metadata only: it must not create an offer, select an instrument, allocate or debit funds, determine reward rates, generate a trade result, or settle a wallet. Actual allocation and settlement remain controlled by the persisted internal-ledger trade lifecycle and its audit evidence.
+
 ### Company identity
 
 Show these together in the expanded pop-up and minimized card where space allows:
