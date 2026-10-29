@@ -29,6 +29,24 @@ describe("Trading tier creation defaults", () => {
 });
 
 
+describe("Admin customer Trading tier visibility", () => {
+  it("exposes automatic assignment package IDs, statuses, and saved terms without exposing the full catalogue", () => {
+    const start = serverDb.indexOf("export async function listAdminCustomers()");
+    const end = serverDb.indexOf("\\nexport async function createAdminCustomer", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const listing = serverDb.slice(start, end);
+    expect(listing).toContain("assignedTierDetails");
+    expect(listing).toContain("customerPackageSubscriptions.packageId");
+    expect(listing).toContain("customerPackageSubscriptions.status");
+    expect(listing).toContain('startsWith("auto-tier:")');
+    expect(adminApp).toContain("Automatic Trading tier assignments");
+    expect(adminApp).toContain("Package ID {tier.packageId}");
+    expect(adminApp).toContain("{tier.status}");
+    expect(adminApp).toContain("Terms v{tier.termsVersion}");
+  });
+});
+
 describe("Trading fee-policy navigation", () => {
   it("opens the administrator screen that actually edits realized-profit fees", () => {
     const item = navigation.match(/id: "trade-profit-fees-limits", target: "([^"]+)"/);
