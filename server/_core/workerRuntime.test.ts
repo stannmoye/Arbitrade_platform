@@ -22,8 +22,7 @@ describe("server worker shutdown", () => {
       finishCycle = resolve;
     }));
     const drained = waitForMonitoredWorkerCycles();
-    await Promise.resolve();
-    expect(finishCycle).toBeTypeOf("function");
+    await vi.waitFor(() => expect(finishCycle).toBeTypeOf("function"));
     finishCycle?.();
     await expect(cycle).resolves.toBeUndefined();
     await expect(drained).resolves.toBeUndefined();
