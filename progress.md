@@ -1,3 +1,11 @@
+
+## 2026-10-29 — Part 4 execution-state fail-closed correction
+
+- Restricted popup execution eligibility to the schema's explicit retryable states `READY` and `RETRYING`; terminal, in-flight, unknown, and invalid `PENDING` states are not claimable through this presentation-policy helper.
+- Added regression assertions for retryable and unknown execution statuses. This follows the actual `opportunity_popup_events.executionStatus` enum in `drizzle/schema.ts`.
+- Exact-head GitHub Actions still reports zero PR workflow runs for the previously inspected commit; test execution remains pending.
+
+---
 ## 2026-10-29 — Part 4 follow-up validation correction
 
 - Expanded automatic-execution eligibility to include the `OPENED` event status. Opening a popup is a presentation event and must not accidentally exclude an otherwise eligible server-owned automatic execution.
