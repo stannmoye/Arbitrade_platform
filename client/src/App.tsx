@@ -596,7 +596,7 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
     </section>
     <section className="customer-panel company-reference-panel">
       <div className="customer-panel-head">
-        <div><div className="eyebrow">Company catalogue · 1,811 records</div><h2>Find a company and trading symbol</h2></div>
+        <div><div className="eyebrow">Company catalogue · 1,811 records</div><h2>Search company references</h2></div>
         <span>{companyCatalogueQuery.data?.length ?? 0} shown</span>
       </div>
       <label className="company-catalogue-search-label" htmlFor="company-catalogue-search">Search by company name, domain, ticker, or exchange</label>
@@ -633,6 +633,7 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
         <button className="secondary-button" type="button" onClick={()=>setCatalogueOffset(catalogueOffset+100)} disabled={companyCatalogueQuery.isLoading||companyCatalogueCount.isLoading||catalogueOffset+(companyCatalogueQuery.data?.length??0)>=(companyCatalogueCount.data??0)}>Next 100</button>
       </div>
       <small>Search covers all 1,811 catalogue records and shows up to 100 matches. Country filtering uses the image folder label, not verified headquarters or listing evidence. All workbook rows remain aligned by stable Logo ID, including placeholder, parent-company, and historical entries. Placeholder codes are display-only and must not be used for market-data lookup or orders.</small>
+      {companyReferenceLoadError&&<div className="test-notice" role="status" aria-live="polite"><span>Company spotlight is unavailable. Confirm an active automatically assigned tier and that rotation is enabled.</span><button type="button" className="mini-button" onClick={requestNextCompanyReference} disabled={companyReference.isPending}>Retry</button></div>}
       {companyReferenceData&&<details><summary>Company spotlight (reference only)</summary><article className="trading-opportunity-row" aria-live="polite"><div className="trading-opportunity-identity"><CompanyReferenceLogo name={companyReferenceData.name} logoUrl={companyReferenceData.logoUrl}/><div><strong>{companyReferenceData.name}</strong><small>{companyReferenceData.symbol||"No symbol supplied"} · {companyReferenceData.exchangeCode||"No exchange supplied"} · {companyReferenceData.countryName}</small></div></div><button className="secondary-button" onClick={requestNextCompanyReference} disabled={companyReference.isPending}>Next reference</button></article></details>}
     </section>
   </div>;
