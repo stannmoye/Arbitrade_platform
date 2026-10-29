@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const { chromium } = require("playwright");
 
 /**
- * Read-only Trading browser acceptance against a running Arbitrade deployment.
+ * Non-production Trading browser acceptance against a running Arbitrade deployment.
  * Uses real application APIs and existing authenticated browser storage states.
  * No API routes are intercepted and no financial mutations are submitted.
  *
@@ -652,8 +652,8 @@ async function main() {
     const assignedCustomerCard = adminPage.locator(".admin-customer-card")
       .filter({ hasText: acceptanceCustomerEmail }).first();
     await assignedCustomerCard.waitFor({ state: "visible", timeout: 20_000 });
-    assert.equal(await assignedCustomerCard.getByText(acceptanceCustomerEmail, { exact: true }).count(), 1,
-      "Configured eligible customer email must map to exactly one visible admin customer record.");
+    assert.ok((await assignedCustomerCard.innerText()).includes(acceptanceCustomerEmail),
+      "The selected admin customer card must visibly identify the configured eligible test customer.");
     const assignedTierGroup = assignedCustomerCard.getByRole("group", {
       name: /automatic trading tier assignments/i,
     });

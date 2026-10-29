@@ -218,3 +218,10 @@
 - Added an admin directory test keyed by `TRADING_ACCEPTANCE_CUSTOMER_EMAIL`; it requires the exact customer card to expose the automatic-assignment group with a Package ID, assignment ID, terms version and persisted status. This will expose the currently unmerged Part 1 UI dependency rather than silently pass without it.
 - New required dedicated-runner inputs: `TRADING_UNQUALIFIED_CUSTOMER_STORAGE_STATE` and `TRADING_ACCEPTANCE_CUSTOMER_EMAIL`, in addition to the previously documented base URL, non-production acknowledgement, eligible customer storage state, admin storage state and disposable DB/package-policy fixtures. This environment does not have these files/values or the seeded database. Both new journeys are added but unexecuted.
 - JavaScript parser compilation passed for the updated runner. This change supersedes the prior runner-code SHA `0af10f2a3cac68de2fac2c47e83003935d803398`; all seven workflows must pass on the new code commit before its CI is called green. Dedicated authenticated end-to-end and persisted financial tests remain unverified.
+
+
+## 2026-10-29 — Customer-directory locator source-review fix
+
+- Corrected the assigned-customer identity assertion to use an explicit card-text inclusion check. The UI renders the email within a combined `email · ID` label, so an exact-text locator would reject correct visible markup.
+- Updated the runner header to describe the suite as non-production acceptance (not entirely read-only), reflecting its guarded reversible admin-policy save/restore.
+- JavaScript parser compilation passed after the correction. The exact-head CI from the preceding commit is not evidence for this new source SHA; the new commit starts its own seven-workflow run.
