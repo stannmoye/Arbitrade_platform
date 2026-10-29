@@ -11,6 +11,8 @@ type PopupDelivery = {
   currency: string;
   minimumMinor: number;
   expectedRewardBps: number;
+  tradeDurationSeconds: number;
+  companyRotationEnabled: boolean;
   balanceAvailableMinor: number;
   balanceStatus: "sufficient" | "insufficient" | "unknown";
   marketObservedAt?: Date | null;
@@ -26,22 +28,38 @@ async function withConnection<T>(fn: (connection: mysql.PoolConnection) => Promi
 export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
   if (!deliveries.length || !process.env.DATABASE_URL) return new Map<string, number>();
   return withConnection(async connection => {
-    for (const item of deliveries) {
-      await connection.execute(
-        `INSERT INTO opportunity_popup_events
-          (eventKey,userId,offerId,quotaDay,packageName,symbol,currency,minimumMinor,expectedRewardBps,balanceAvailableMinor,balanceStatus,marketObservedAt,marketSnapshotJson,eventStatus,deliveredAt,createdAt,updatedAt)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
-         ON DUPLICATE KEY UPDATE updatedAt=CURRENT_TIMESTAMP`,
-        [`${item.userId}:${item.offerId}:${item.quotaDay}`, item.userId, item.offerId, item.quotaDay, item.packageName, item.symbol, item.currency, item.minimumMinor, item.expectedRewardBps, item.balanceAvailableMinor, item.balanceStatus, item.marketObservedAt || null, item.marketSnapshotJson || null],
-      );
+    await connection.beginTransaction();
+    try {
+      const cursorKey = "trading.companyRotation.cursor";
+      const [cursorRows] = await connection.query<any[]>("SELECT settingValue FROM app_settings WHERE settingKey=? FOR UPDATE", [cursorKey]);
+      let cursor = Number(cursorRows[0]?.settingValue ?? 0);
+      if (!Number.isSafeInteger(cursor) || cursor < 0 || cursor > 1811) throw new Error("Persisted company rotation cursor is invalid.");
+      const result = new Map<string, number>();
+      for (const item of deliveries) {
+        const eventKey = `${item.userId}:${item.offerId}:${item.quotaDay}`;
+        const [existingRows] = await connection.query<any[]>("SELECT id FROM opportunity_popup_events WHERE eventKey=? FOR UPDATE", [eventKey]);
+        if (existingRows[0]) { result.set(eventKey, Number(existingRows[0].id)); continue; }
+        let companyLogoId: number | null = null;
+        if (item.companyRotationEnabled) {
+          companyLogoId = (cursor % 1811) + 1;
+          cursor = companyLogoId;
+        }
+        await connection.execute(
+          "INSERT INTO opportunity_popup_events (eventKey,userId,offerId,quotaDay,packageName,symbol,currency,minimumMinor,expectedRewardBps,tradeDurationSeconds,companyLogoId,balanceAvailableMinor,balanceStatus,marketObservedAt,marketSnapshotJson,eventStatus,deliveredAt,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+          [eventKey, item.userId, item.offerId, item.quotaDay, item.packageName, item.symbol, item.currency, item.minimumMinor, item.expectedRewardBps, item.tradeDurationSeconds, companyLogoId, item.balanceAvailableMinor, item.balanceStatus, item.marketObservedAt || null, item.marketSnapshotJson || null],
+        );
+        const [insertedRows] = await connection.query<any[]>("SELECT id FROM opportunity_popup_events WHERE eventKey=?", [eventKey]);
+        if (insertedRows[0]) result.set(eventKey, Number(insertedRows[0].id));
+      }
+      await connection.execute("UPDATE app_settings SET settingValue=?,updatedAt=CURRENT_TIMESTAMP WHERE settingKey=?", [String(cursor), cursorKey]);
+      await connection.commit();
+      return result;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
     }
-    const keys = deliveries.map(item => `${item.userId}:${item.offerId}:${item.quotaDay}`);
-    const placeholders = keys.map(() => "?").join(",");
-    const [rows] = await connection.query<any[]>(`SELECT id,eventKey FROM opportunity_popup_events WHERE eventKey IN (${placeholders})`, keys);
-    return new Map<string, number>(rows.map(row => [String(row.eventKey), Number(row.id)]));
   });
 }
-
 export async function updatePopupLifecycle(userId: number, eventId: number, action: "noticed" | "opened" | "dismissed" | "withdrawn" | "traded" | "settled") {
   if (!process.env.DATABASE_URL) return;
   const timestamps: Record<string, string> = { noticed: "noticedAt", opened: "openedAt", dismissed: "dismissedAt", withdrawn: "withdrawnAt", traded: "tradedAt", settled: "settledAt" };
