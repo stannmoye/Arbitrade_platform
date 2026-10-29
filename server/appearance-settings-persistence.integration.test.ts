@@ -572,6 +572,19 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
         enabled: false, termsVersion: 1,
       });
 
+      // Tier activation requires a previously saved delivery policy with published terms.
+      await db.update(opportunityPackagePolicies).set({
+        policyVersion: 1,
+        enabled: true,
+        automaticDelivery: true,
+        automaticTradingEnabled: true,
+        minimumPayoutRateBps: 400,
+        maximumPayoutRateBps: 400,
+        minimumTradeDurationSeconds: 3600,
+        maximumTradeDurationSeconds: 3600,
+        updatedBy: administratorId,
+      }).where(eq(opportunityPackagePolicies.packageName, name));
+
       const updatedPackage = await admin.adminOperations.updateTradingPackage({
         id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
         durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
