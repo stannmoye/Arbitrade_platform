@@ -2373,8 +2373,10 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
 }
 
 /**
- * Customer-safe eligibility summary. Never returns package names, thresholds,
- * catalogue records, or activation controls to the customer portal.
+ * Customer-safe, read-only progressive eligibility summary. Returns only the
+ * current automatically assigned tier and at most one next milestone with the
+ * qualification progress and allowance fields permitted by the canonical spec;
+ * never returns a full catalogue or customer activation/management controls.
  */
 /**
  * Reconcile automatic tier entitlements from persisted qualifying-deposit
