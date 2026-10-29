@@ -2684,6 +2684,16 @@ export async function getNextCustomerCompanySpotlight(userId:number) {
 }
 
 /** Runtime reads never create policy rows from schema defaults; tiers without saved policy are ineligible. */
+function hasConfiguredTradingOfferPolicy(policy:any):boolean {
+  if(!policy) return false;
+  const minRate=policy.minimumPayoutRateBps==null?NaN:Number(policy.minimumPayoutRateBps);
+  const maxRate=policy.maximumPayoutRateBps==null?NaN:Number(policy.maximumPayoutRateBps);
+  const minDuration=policy.minimumTradeDurationSeconds==null?NaN:Number(policy.minimumTradeDurationSeconds);
+  const maxDuration=policy.maximumTradeDurationSeconds==null?NaN:Number(policy.maximumTradeDurationSeconds);
+  return Number.isSafeInteger(minRate)&&Number.isSafeInteger(maxRate)&&minRate>=0&&maxRate>=minRate&&maxRate<=5000&&
+    Number.isSafeInteger(minDuration)&&Number.isSafeInteger(maxDuration)&&minDuration>=10&&maxDuration>=minDuration&&maxDuration<=86400;
+}
+
 export async function listOpportunityPackagePolicies() {
   const db=await getDb();
   if(!db) throw new Error("Database is not available");
@@ -2960,7 +2970,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   // remains available for an administrator-configured review workflow.
   const eligibleSubscriptions=subscriptions.filter(subscription=>{
     const configured=policyByName.get(subscription.packageName);
-    return Boolean(configured && configured.enabled && configured.automaticDelivery);
+    return Boolean(configured && configured.enabled && configured.automaticDelivery && hasConfiguredTradingOfferPolicy(configured));
   });
   if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}});
   const quotaFor=(subscription:any)=>{
@@ -3144,7 +3154,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const packagePolicy=policyByName.get(String(offer.packageName));
     // Disabled package policies or automatic execution must stop new allocations
     // without turning a merely visible/pending popup into a trade request.
-    return Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled);
+    return Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled && hasConfiguredTradingOfferPolicy(packagePolicy));
   });
   const effectiveControls=controls;
   const auto=options.workerCycle===true ? await autoTradeOpenOpportunities(userId,autoTradeCandidates,effectiveControls) : {executed:[],missed:await listMissedOpportunities(userId)};
