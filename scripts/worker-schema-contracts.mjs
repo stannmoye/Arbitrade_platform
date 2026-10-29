@@ -23,6 +23,24 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
       idx_pending_boost_day_status: { unique: false, columns: ["rewardDay", "status", "userId"] },
     },
   },
+  opportunity_popup_events: {
+    // Delivery diagnostics and the execution fencing token are required even when
+    // a legacy migration tracker claims the schema is already current.
+    columns: ["deliveryStatus", "deliveryAttemptCount", "lastErrorCode", "receivedAt", "renderedAt", "expiredAt", "tradeId", "policyVersion", "executionLeaseToken"],
+    dataTypes: {
+      deliveryStatus: "enum",
+      deliveryAttemptCount: "int",
+      lastErrorCode: "varchar",
+      receivedAt: "timestamp",
+      renderedAt: "timestamp",
+      expiredAt: "timestamp",
+      tradeId: "int",
+      policyVersion: "int",
+      executionLeaseToken: "varchar",
+    },
+    nullable: { lastErrorCode: true, receivedAt: true, renderedAt: true, expiredAt: true, tradeId: true, executionLeaseToken: true },
+    indexes: {},
+  },
   trading_tier_qualification_jobs: {
     columns: [
       "id", "userId", "sourceLedgerId", "status", "attempts", "availableAt",

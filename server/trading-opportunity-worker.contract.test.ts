@@ -64,9 +64,40 @@ describe("automatic Trading opportunity scheduler", () => {
   it("prevents overlapping Trading cycles within one server process", () => {
     expect(cycleStart).toBeGreaterThanOrEqual(0);
     expect(cycleEnd).toBeGreaterThan(cycleStart);
-    expect(cycleSource).toContain("if (tradeCycleRunning) return;");
+    expect(cycleSource).toContain("if (tradeCycleRunning || Date.now() < tradeCycleRetryAfterMs) return;");
     expect(cycleSource).toContain("tradeCycleRunning = true;");
     expect(cycleSource).toContain("finally");
     expect(cycleSource).toContain("tradeCycleRunning = false;");
+  });
+  it("keeps per-customer worker failure logs free of customer identifiers and raw error messages", () => {
+    expect(databaseSource).toContain('console.error("[AutoTrade] Customer cycle failed:",error instanceof Error?error.name:"UnknownError");');
+    expect(databaseSource).not.toContain('`[AutoTrade] Customer ${customer.id} cycle failed:`,error instanceof Error?error.message:error');
+  });
+
+  it("backs off repeated automatic-cycle failures and resets the delay after a successful cycle", () => {
+    expect(cycleSource).toContain("tradeCycleConsecutiveFailures = 0");
+    expect(cycleSource).toContain("tradeCycleRetryAfterMs = 0");
+    expect(cycleSource).toContain("Date.now() < tradeCycleRetryAfterMs");
+    expect(cycleSource).toContain("Math.min(tradeCycleMaximumBackoffMs");
+    expect(cycleSource).toContain("tradeCycleBaseIntervalMs * (2 ** (tradeCycleConsecutiveFailures - 1))");
+    expect(cycleSource).toContain("retryDelayMs: backoffMs");
+    expect(cycleSource).toContain("sanitizeWorkerErrorMessage(error)");
+    expect(cycleSource).toContain("tradeCycleMaximumBackoffMs = 5 * 60_000");
+  });
+});
+
+
+describe("automatic Trading execution lease fencing", () => {
+  it("stores a durable lease token and fences stale workers before trade creation", () => {
+    const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
+    const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
+    const migration = readFileSync(new URL("../drizzle/0086_trading_opportunity_execution_leases.sql", import.meta.url), "utf8");
+    expect(schema).toContain('executionLeaseToken: varchar("executionLeaseToken", { length: 64 })');
+    expect(migration).toContain("executionLeaseToken");
+    expect(source).toContain("const executionLeaseToken=crypto.randomUUID();");
+    expect(source).toContain("Opportunity execution lease was lost; stale worker fenced");
+    expect(source).toContain("if(/execution lease was lost/i.test(message)) continue;");
+    expect(source).toContain("eq(opportunityPopupEvents.executionLeaseToken,state.executionLeaseToken)");
+    expect(source).toContain("eq(opportunityPopupEvents.executionLeaseToken,executionLeaseToken)");
   });
 });
