@@ -2404,6 +2404,8 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
       enabled:input.enabled,
       termsVersion:nextVersion,
     }).where(eq(packages.id,input.id));
+    // Package term changes invalidate all undelivered popup snapshots for this tier; traded/settled history remains intact.
+    await tx.update(opportunityPopupEvents).set({eventStatus:"WITHDRAWN",deliveryStatus:"expired",withdrawnAt:new Date(),updatedAt:new Date()}).where(and(inArray(opportunityPopupEvents.packageName,[current.name,nextName]),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN"])));
     await tx.insert(v5AuditEvents).values({
       actorUserId:updatedBy,action:"trading_package_terms_updated",
       entityType:"trading_package",entityId:String(input.id),
