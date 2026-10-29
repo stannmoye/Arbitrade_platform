@@ -2699,17 +2699,8 @@ export async function getCustomerTradingEligibility(userId:number) {
 }
 
 export async function listOpportunityPackagePolicies() {
-  const db=await getDb();
-  if(!db) throw new Error("Database is not available");
-  const tiers=await db.select({name:packages.name}).from(packages);
-  const existing=await db.select({packageName:opportunityPackagePolicies.packageName}).from(opportunityPackagePolicies);
-  const names=new Set(existing.map(row=>row.packageName));
-  for(const tier of tiers){
-    if(names.has(tier.name)) continue;
-    await db.insert(opportunityPackagePolicies).values({packageName:tier.name}).onDuplicateKeyUpdate({set:{packageName:tier.name}});
-  }
-  const tierNames=new Set(tiers.map(tier=>tier.name));
-  return (await db.select().from(opportunityPackagePolicies)).filter(row=>tierNames.has(row.packageName));
+  // Reads never create policy rows or turn schema defaults into active Trading settings.
+  return listPersistedOpportunityPackagePolicies();
 }
 
 /** Read-only policy snapshot; missing rows fail closed until admin/worker reconciliation creates them. */
@@ -2731,23 +2722,58 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const tiers=await db.select({name:packages.name}).from(packages);
   const tierNames=new Set(tiers.map(tier=>tier.name));
-  for (const policy of policies) {
+  for(const policy of policies){
     if(typeof policy.packageName!=="string"||!tierNames.has(policy.packageName)) throw new Error("Opportunity policy references an unknown Trading tier");
-    if(policy.minHourlyTarget>policy.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
-    if(policy.normalHourlyTarget*24>policy.maxPopupsPerDay && policy.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
-    const minimumRewardBps=Number(policy.minimumRewardBps??0), maximumRewardBps=Number(policy.maximumRewardBps??0);
-    if(!Number.isSafeInteger(minimumRewardBps)||!Number.isSafeInteger(maximumRewardBps)||minimumRewardBps<0||maximumRewardBps<0||maximumRewardBps>10000||(minimumRewardBps>0&&maximumRewardBps===0)||(maximumRewardBps>0&&minimumRewardBps<1)||(maximumRewardBps>0&&minimumRewardBps>maximumRewardBps)) throw new Error(`Profit percentage range is invalid for ${policy.packageName}`);
-    const minimumTradeDurationSeconds=Number(policy.minimumTradeDurationSeconds??60), maximumTradeDurationSeconds=Number(policy.maximumTradeDurationSeconds??3600);
+    const existing=(await db.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,policy.packageName)).limit(1))[0];
+    if(!existing) throw new Error(`Trading tier policy is missing for ${policy.packageName}; reconcile it explicitly before saving.`);
+    const current:any={...existing,...Object.fromEntries(Object.entries(policy).filter(([,value])=>value!==undefined))};
+    const maxPopupsPerDay=Number(current.maxPopupsPerDay),maxVisibleOffers=Number(current.maxVisibleOffers);
+    if(!Number.isSafeInteger(maxPopupsPerDay)||maxPopupsPerDay<1||maxPopupsPerDay>10000) throw new Error(`Daily popup cap must be between 1 and 10000 for ${policy.packageName}`);
+    if(!Number.isSafeInteger(maxVisibleOffers)||maxVisibleOffers<1||maxVisibleOffers>10000) throw new Error(`Visible opportunity cap must be between 1 and 10000 for ${policy.packageName}`);
+    const minHourlyTarget=Number(current.minHourlyTarget),normalHourlyTarget=Number(current.normalHourlyTarget);
+    if(!Number.isSafeInteger(minHourlyTarget)||!Number.isSafeInteger(normalHourlyTarget)||minHourlyTarget<0||normalHourlyTarget<minHourlyTarget) throw new Error(`Hourly opportunity targets are invalid for ${policy.packageName}`);
+    if(normalHourlyTarget*24>maxPopupsPerDay&&maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
+    const minimumRewardBps=Number(current.minimumRewardBps),maximumRewardBps=Number(current.maximumRewardBps);
+    if(!Number.isSafeInteger(minimumRewardBps)||!Number.isSafeInteger(maximumRewardBps)||minimumRewardBps<1||maximumRewardBps<minimumRewardBps||maximumRewardBps>10000) throw new Error(`Profit percentage range is invalid for ${policy.packageName}`);
+    const minimumTradeDurationSeconds=Number(current.minimumTradeDurationSeconds),maximumTradeDurationSeconds=Number(current.maximumTradeDurationSeconds);
     if(!Number.isSafeInteger(minimumTradeDurationSeconds)||!Number.isSafeInteger(maximumTradeDurationSeconds)||minimumTradeDurationSeconds<1||maximumTradeDurationSeconds<minimumTradeDurationSeconds||maximumTradeDurationSeconds>31536000) throw new Error(`Trade duration range is invalid for ${policy.packageName}`);
-    if(policy.packageBadgeLabel!=null&&(typeof policy.packageBadgeLabel!=="string"||policy.packageBadgeLabel.length>48)) throw new Error(`Package badge label is invalid for ${policy.packageName}`);
-    if(!Number.isSafeInteger(policy.minimumTradeUnits)||!Number.isSafeInteger(policy.maximumTradeUnits)||policy.minimumTradeUnits<1||policy.maximumTradeUnits<policy.minimumTradeUnits) throw new Error(`Trade amount bounds are invalid for ${policy.packageName}`);
-    const automation={packageName:policy.packageName,enabled:true,automaticDelivery:true,dailyPopupTarget:policy.dailyPopupTarget??policy.maxPopupsPerDay,schedulingPeriod:policy.schedulingPeriod??"rolling_24h",minIntervalSeconds:policy.minIntervalSeconds??45,maxIntervalSeconds:policy.maxIntervalSeconds??3600,randomizationEnabled:policy.randomizationEnabled??true,popupDisplayTargetSeconds:policy.popupDisplayTargetSeconds??120,completionDisplaySeconds:policy.completionDisplaySeconds??8,postCompletionIntervalSeconds:policy.postCompletionIntervalSeconds??30,maxPendingDeliveries:policy.maxPendingDeliveries??3,maxDeliveryAttempts:policy.maxDeliveryAttempts??3,automaticTradingEnabled:true,maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay??5,tradeRetryDelaySeconds:policy.tradeRetryDelaySeconds??30,maxSuccessfulTradesPerDay:policy.maxSuccessfulTradesPerDay??5,maxConcurrentActiveTrades:policy.maxConcurrentActiveTrades??1,requirePreviousSettlement:policy.requirePreviousSettlement??true,minSettlementDelaySeconds:policy.minSettlementDelaySeconds??900,maxSettlementDelaySeconds:policy.maxSettlementDelaySeconds??900,minimumRewardBps:policy.minimumRewardBps??0,maximumRewardBps:policy.maximumRewardBps??0,minimumTradeDurationSeconds:policy.minimumTradeDurationSeconds??60,maximumTradeDurationSeconds:policy.maximumTradeDurationSeconds??3600,packageBadgeLabel:policy.packageBadgeLabel??null,maxDailyRewardMinor:policy.maxDailyRewardMinor??0,maxRewardPerTradeMinor:policy.maxRewardPerTradeMinor??0,closePolicy:policy.closePolicy??"after_final_display"};
+    if(!Number.isSafeInteger(Number(current.minimumTradeUnits))||!Number.isSafeInteger(Number(current.maximumTradeUnits))||Number(current.minimumTradeUnits)<1||Number(current.maximumTradeUnits)<Number(current.minimumTradeUnits)) throw new Error(`Capital range is invalid for ${policy.packageName}`);
+    if(Number(current.popupDisplayTargetSeconds)<1||!Number.isSafeInteger(Number(current.popupDisplayTargetSeconds))) throw new Error(`Popup display duration must be a positive integer for ${policy.packageName}`);
+    if(Number(current.maxPendingDeliveries)<1||Number(current.maxDeliveryAttempts)<1) throw new Error(`Delivery retry limits must be positive for ${policy.packageName}`);
+    if(Number(current.maxTradeAttemptsPerDay)<1||Number(current.tradeRetryDelaySeconds)<5||Number(current.tradeRetryDelaySeconds)>3600) throw new Error(`Automatic trade retry settings are invalid for ${policy.packageName}`);
+    if(Number(current.maxSuccessfulTradesPerDay)<1||Number(current.maxConcurrentActiveTrades)<1) throw new Error(`Automatic trade limits must be positive for ${policy.packageName}`);
+    if(Number(current.minSettlementDelaySeconds)<0||Number(current.maxSettlementDelaySeconds)<Number(current.minSettlementDelaySeconds)) throw new Error(`Settlement delay range is invalid for ${policy.packageName}`);
+    if(current.packageBadgeLabel!=null&&(typeof current.packageBadgeLabel!=="string"||current.packageBadgeLabel.length>48)) throw new Error(`Package badge label is invalid for ${policy.packageName}`);
+    const automation={
+      packageName:policy.packageName,enabled:Boolean(current.enabled),automaticDelivery:Boolean(current.automaticDelivery),
+      dailyPopupTarget:Number(current.dailyPopupTarget),schedulingPeriod:current.schedulingPeriod,
+      minIntervalSeconds:Number(current.minIntervalSeconds),maxIntervalSeconds:Number(current.maxIntervalSeconds),
+      randomizationEnabled:Boolean(current.randomizationEnabled),popupDisplayTargetSeconds:Number(current.popupDisplayTargetSeconds),
+      completionDisplaySeconds:Number(current.completionDisplaySeconds),postCompletionIntervalSeconds:Number(current.postCompletionIntervalSeconds),
+      maxPendingDeliveries:Number(current.maxPendingDeliveries),maxDeliveryAttempts:Number(current.maxDeliveryAttempts),
+      automaticTradingEnabled:Boolean(current.automaticTradingEnabled),maxTradeAttemptsPerDay:Number(current.maxTradeAttemptsPerDay),
+      tradeRetryDelaySeconds:Number(current.tradeRetryDelaySeconds),maxSuccessfulTradesPerDay:Number(current.maxSuccessfulTradesPerDay),
+      maxConcurrentActiveTrades:Number(current.maxConcurrentActiveTrades),requirePreviousSettlement:Boolean(current.requirePreviousSettlement),
+      minSettlementDelaySeconds:Number(current.minSettlementDelaySeconds),maxSettlementDelaySeconds:Number(current.maxSettlementDelaySeconds),
+      minimumRewardBps,maximumRewardBps,minimumTradeDurationSeconds,maximumTradeDurationSeconds,
+      packageBadgeLabel:current.packageBadgeLabel??null,maxDailyRewardMinor:Number(current.maxDailyRewardMinor),
+      maxRewardPerTradeMinor:Number(current.maxRewardPerTradeMinor),closePolicy:current.closePolicy,
+    };
     validatePackageAutomationPolicy(automation);
-    const values:any={...policy,...automation,updatedBy};
-    delete values.id; delete values.updatedAt;
+    const nextPolicyVersion=Number(existing.policyVersion||0)+1;
+    if(!Number.isSafeInteger(nextPolicyVersion)||nextPolicyVersion<1) throw new Error(`Tier policy version is invalid for ${policy.packageName}`);
+    const values:any={...current,...automation,policyVersion:nextPolicyVersion,updatedBy,updatedAt:new Date()};
+    delete values.id;
     await db.insert(opportunityPackagePolicies).values(values).onDuplicateKeyUpdate({set:values});
+    await db.update(opportunityPopupEvents).set({eventStatus:"WITHDRAWN",deliveryStatus:"expired",withdrawnAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.packageName,policy.packageName),lt(opportunityPopupEvents.packagePolicyVersionSnapshot,nextPolicyVersion),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN"])));
+    await db.insert(v5AuditEvents).values({
+      actorUserId:updatedBy,action:"trading_package_policy_updated",entityType:"trading_package_policy",entityId:policy.packageName,
+      reason:"Administrator saved and versioned the Trading tier automation policy.",
+      reference:"trading-policy:"+policy.packageName+":"+nextPolicyVersion+":"+crypto.randomUUID(),
+      metadataJson:JSON.stringify({oldPolicyVersion:existing.policyVersion,newPolicyVersion:nextPolicyVersion,enabled:automation.enabled,automaticDelivery:automation.automaticDelivery,automaticTradingEnabled:automation.automaticTradingEnabled,maxPopupsPerDay,maxVisibleOffers,minimumTradeUnits:current.minimumTradeUnits,maximumTradeUnits:current.maximumTradeUnits,minimumRewardBps,maximumRewardBps,minimumTradeDurationSeconds,maximumTradeDurationSeconds,popupDisplayTargetSeconds:automation.popupDisplayTargetSeconds}),
+    });
   }
-  return listOpportunityPackagePolicies();
+  return listPersistedOpportunityPackagePolicies();
 }
 async function listMissedOpportunities(userId:number){const db=await getDb();if(!db)throw new Error("Database is not available");return db.select().from(missedOpportunities).where(and(eq(missedOpportunities.userId,userId),eq(missedOpportunities.status,"MISSED"))).orderBy(desc(missedOpportunities.createdAt)).limit(50);}
 async function markMissedOpportunity(userId:number,offer:any,amountMinor:number,reason:string){
