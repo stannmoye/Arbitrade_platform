@@ -2677,19 +2677,19 @@ async function markMissedOpportunity(userId:number,offer:any,amountMinor:number,
     reason,status:"MISSED",
   }).onDuplicateKeyUpdate({set:{updatedAt:new Date(),potentialRewardMinor,availableMinorAtOpportunity,shortfallMinor,reason}});
 }
-async function markOpportunityExecuted(userId:number,offerId:number){
+async function markOpportunityExecuted(userId:number,offerId:number,executionLeaseToken:string){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   await db.update(missedOpportunities).set({status:"EXECUTED",updatedAt:new Date()})
     .where(and(eq(missedOpportunities.userId,userId),eq(missedOpportunities.offerId,offerId)));
   await db.update(opportunityPopupEvents).set({executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,updatedAt:new Date()})
-    .where(and(eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offerId),eq(opportunityPopupEvents.eventStatus,"TRADED")));
+    .where(and(eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offerId),eq(opportunityPopupEvents.eventStatus,"TRADED"),eq(opportunityPopupEvents.executionLeaseToken,executionLeaseToken)));
 }
 async function claimOpportunityExecutionAttempt(userId:number, offer:any, maxAttempts:number){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   return db.transaction(async tx=>{
     const event=(await tx.select({
       id:opportunityPopupEvents.id,eventStatus:opportunityPopupEvents.eventStatus,tradeId:opportunityPopupEvents.tradeId,
-      executionStatus:opportunityPopupEvents.executionStatus,executionAttemptCount:opportunityPopupEvents.executionAttemptCount,
+      executionStatus:opportunityPopupEvents.executionStatus,executionAttemptCount:opportunityPopupEvents.executionAttemptCount,executionLeaseToken:opportunityPopupEvents.executionLeaseToken,
       executionRetryAfter:opportunityPopupEvents.executionRetryAfter,executionRetryDay:opportunityPopupEvents.executionRetryDay,executionLastErrorCode:opportunityPopupEvents.executionLastErrorCode,
     }).from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.id,Number(offer.deliveryEventId)),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,Number(offer.offerId)))).limit(1).for("update"))[0];
     if(!event||event.tradeId||["TRADED","SETTLED"].includes(String(event.eventStatus))||String(event.executionStatus)==="SUCCEEDED") return {claimed:false,reason:"terminal"};
@@ -2706,20 +2706,21 @@ async function claimOpportunityExecutionAttempt(userId:number, offer:any, maxAtt
       await tx.update(opportunityPopupEvents).set({executionStatus:"FAILED",executionRetryAfter:null,executionLastErrorCode:"TEMPORARY_EXECUTION_RETRIES_EXHAUSTED",updatedAt:now}).where(eq(opportunityPopupEvents.id,event.id));
       return {claimed:false,reason:"attempts-exhausted"};
     }
+    const executionLeaseToken=crypto.randomUUID();
     await tx.update(opportunityPopupEvents).set({
-      executionStatus:"RUNNING",executionAttemptCount:attempts+1,
+      executionStatus:"RUNNING",executionAttemptCount:attempts+1,executionLeaseToken,
       executionRetryAfter:new Date(now.getTime()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),executionRetryDay:day,updatedAt:now,
     }).where(eq(opportunityPopupEvents.id,event.id));
-    return {claimed:true,attemptNumber:attempts+1,eventId:Number(event.id)};
+    return {claimed:true,attemptNumber:attempts+1,eventId:Number(event.id),executionLeaseToken};
   });
 }
-async function recordOpportunityExecutionFailure(userId:number,eventId:number, state:{status:"RETRYING"|"FAILED";retryAt?:Date;errorCode:string;attemptNumber?:number;releaseAttempt?:boolean}){
+async function recordOpportunityExecutionFailure(userId:number,eventId:number, state:{status:"RETRYING"|"FAILED";retryAt?:Date;errorCode:string;attemptNumber?:number;releaseAttempt?:boolean;executionLeaseToken:string}){
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const now=new Date();
   const set:any={executionStatus:state.status,executionRetryAfter:state.retryAt||null,executionLastErrorCode:state.errorCode,updatedAt:now};
   if(state.releaseAttempt&&Number.isSafeInteger(state.attemptNumber)) set.executionAttemptCount=Math.max(0,Number(state.attemptNumber)-1);
   if(state.status==="RETRYING") set.executionRetryDay=now.toISOString().slice(0,10);
-  await db.update(opportunityPopupEvents).set(set).where(and(eq(opportunityPopupEvents.id,eventId),eq(opportunityPopupEvents.userId,userId),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED"])));
+  await db.update(opportunityPopupEvents).set(set).where(and(eq(opportunityPopupEvents.id,eventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.executionLeaseToken,state.executionLeaseToken),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED"])));
 }
 async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:any){
   const executed:any[]=[];
@@ -2760,12 +2761,12 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
     }
     try{
       const result=await createTrade(userId,{
-        offerId:offer.id,amountMinor:requestedAmount,
+        offerId:offer.id,amountMinor:requestedAmount,executionLeaseToken:claim.executionLeaseToken,
         deliveryEventId:offer.deliveryEventId ? Number(offer.deliveryEventId) : undefined,
         packageSubscriptionId:Number(offer.packageSubscriptionId||0)||undefined,
         packageId:Number(offer.packageId||0)||undefined,
       });
-      await markOpportunityExecuted(userId,offer.id);
+      await markOpportunityExecuted(userId,offer.id,claim.executionLeaseToken);
       executed.push({...result,offerId:offer.id,symbol:offer.symbol,amountMinor:requestedAmount,rewardBps:terms.rewardBps,calculationMethod:terms.method});
       existingTrades.push({offerId:offer.id,confirmedAt:new Date()});
       break;
@@ -2775,15 +2776,15 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
       // A pause must not consume the configured retry budget; release the claim
       // and wait briefly so the durable worker can resume after the administrator unpauses.
       if(/new trading allocations are paused by an administrator/i.test(message)){
-        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),errorCode:"ALLOCATION_PAUSED",attemptNumber:claim.attemptNumber,releaseAttempt:true});
+        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),errorCode:"ALLOCATION_PAUSED",attemptNumber:claim.attemptNumber,releaseAttempt:true,executionLeaseToken:claim.executionLeaseToken});
         continue;
       }
       const decision=decideTradeExecutionRetry(error,Number(claim.attemptNumber),Math.max(1,maxAttempts),new Date(),Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30)));
       if(decision.kind==="retry"){
-        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:decision.retryAt,errorCode:decision.errorCode});
+        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:decision.retryAt,errorCode:decision.errorCode,executionLeaseToken:claim.executionLeaseToken});
         continue;
       }
-      await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"FAILED",errorCode:decision.errorCode});
+      await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"FAILED",errorCode:decision.errorCode,executionLeaseToken:claim.executionLeaseToken});
       await markMissedOpportunity(userId,offer,requestedAmount,decision.errorCode);
       missedOfferIds.add(Number(offer.id));
     }
@@ -3059,7 +3060,7 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
   }
   return {customers:customers.length,allocations,batchSize};
 }
-export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number;packageId?:number}){
+export async function createTrade(userId:number,input:{offerId:number;amountMinor:number;deliveryEventId?:number;packageSubscriptionId?:number;packageId?:number;executionLeaseToken?:string}){
  const db=await getDb();if(!db)throw new Error("Database is not available");
  return db.transaction(async tx=>{
   // Serialize allocations for one customer. This makes daily caps and active-trade
@@ -3071,9 +3072,10 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   // If the original transaction committed but its response was lost, return that trade.
   if(input.deliveryEventId!==undefined){
    await tx.execute(sql`SELECT id FROM opportunity_popup_events WHERE id=${input.deliveryEventId} AND userId=${userId} FOR UPDATE`);
-   const event=(await tx.select({id:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,eventStatus:opportunityPopupEvents.eventStatus,tradeId:opportunityPopupEvents.tradeId}).from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId))).limit(1))[0];
+   const event=(await tx.select({id:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,eventStatus:opportunityPopupEvents.eventStatus,tradeId:opportunityPopupEvents.tradeId,executionLeaseToken:opportunityPopupEvents.executionLeaseToken}).from(opportunityPopupEvents).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId))).limit(1))[0];
    if(!event) throw new Error("Opportunity delivery event not found for this customer");
    if(Number(event.offerId)!==input.offerId) throw new Error("Opportunity delivery event does not match this offer");
+   if(input.executionLeaseToken && String(event.executionLeaseToken||"")!==input.executionLeaseToken) throw new Error("Opportunity execution lease was lost; stale worker fenced");
    if(event.eventStatus==="TRADED" && Number(event.tradeId)>0){
     const existing=(await tx.select().from(tradePositions).where(and(eq(tradePositions.id,Number(event.tradeId)),eq(tradePositions.userId,userId))).limit(1))[0];
     if(!existing) throw new Error("Previously allocated trade is missing; manual recovery review is required");
