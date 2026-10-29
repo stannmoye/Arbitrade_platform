@@ -69,7 +69,9 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
           // The per-customer/per-tier lock also serializes concurrent workers.
           // Re-check idempotency after waiting for that lock before advancing rotation.
           const [racedEvent] = await connection.query<any[]>(
-            "SELECT id FROM opportunity_popup_events WHERE eventKey=? LIMIT 1",
+            // A locking/current read is required here: a prior ordinary SELECT can
+            // keep its REPEATABLE READ snapshot while this worker waits for the cursor.
+            "SELECT id FROM opportunity_popup_events WHERE eventKey=? LIMIT 1 FOR UPDATE",
             [eventKey],
           );
           if (racedEvent.length) {
