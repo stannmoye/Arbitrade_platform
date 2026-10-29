@@ -206,7 +206,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(policyMigrationSource).toContain("INSERT INTO `opportunity_package_policies` (`packageName`)");
 
     const readerStart = databaseSource.indexOf("export async function listOpportunityPackagePolicies()");
-    const readerEnd = databaseSource.indexOf("\\n}", readerStart);
+    const readerEnd = databaseSource.indexOf("\n}", readerStart);
     expect(readerStart).toBeGreaterThanOrEqual(0);
     expect(readerEnd).toBeGreaterThan(readerStart);
     const policyReader = databaseSource.slice(readerStart, readerEnd);
