@@ -230,3 +230,10 @@ From the application's private root in the hosting panel's terminal:
 4. After restart, run `pnpm installer:diagnose` from the private application root and verify `GET /api/health` returns `{"status":"ok"}`. Check the panel's private logs if either check fails.
 
 This procedure does **not** run database migrations, replace account credentials, provision a new service, or alter SSL/proxy configuration. If this release requires schema changes, first verify a restorable database backup and the exact target database, then follow the documented migration/recovery procedure separately. Do not use fresh-install mode on an existing database.
+
+
+## Trading worker runtime verification
+
+After the normal installer checks, run `pnpm installer:verify-workers` from the private application root. This additional read-only check confirms that the supported production start wrapper performs guarded main migrations and worker-schema preflight before launching the persistent application process, and that the server entrypoint registers the server-managed Trading qualification and lifecycle loops.
+
+It also checks that the database contains `trading_tier_qualification_jobs` and `worker_health_registry`, and validates the health registry's required columns and indexes. It never runs migrations or changes financial records. If a check fails, take and verify a database backup before following the guarded migration workflow; do not create or alter worker tables manually. A passing check confirms source wiring and schema shape, not that the live workers are currently healthy; use **Trade Settings → Worker Health & Recovery** and private service logs to inspect runtime heartbeats and errors.
