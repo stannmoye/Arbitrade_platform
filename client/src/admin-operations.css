@@ -586,3 +586,23 @@
   .package-admin-head { align-items: flex-start; flex-direction: column; }
   .package-admin-card { padding: 13px; }
 }
+
+
+.trading-popup-package-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  margin: 8px 0 2px;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--arb-color-accent, #4fdcca) 45%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--arb-color-accent, #4fdcca) 12%, transparent);
+  color: var(--arb-color-accent, #4fdcca);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
