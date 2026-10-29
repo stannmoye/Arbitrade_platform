@@ -222,8 +222,8 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy,...UNCONFIGURED_TIER_POLICY_SENTINELS})");
     expect(databaseSource).toContain("const UNCONFIGURED_TIER_POLICY_SENTINELS = {");
     expect(databaseSource).toContain("minimumPayoutRateBps:null,maximumPayoutRateBps:null");
-    expect(databaseSource).toContain("if(input.enabled) throw new Error(\\"New Trading tiers must be created disabled.");
-    expect(databaseSource).toContain("throw new Error(\\"Save and enable a valid delivery policy with payout-rate and duration bounds before enabling this Trading tier.\\");");
+    expect(databaseSource).toContain('if(input.enabled) throw new Error("New Trading tiers must be created disabled.');
+    expect(databaseSource).toContain('throw new Error("Save and enable a valid delivery policy with payout-rate and duration bounds before enabling this Trading tier.");');
     expect(routerSource).toContain("enabled: z.boolean(), automaticDelivery: z.boolean(), automaticTradingEnabled: z.boolean()");
     expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
     expect(databaseSource).not.toContain("values({packageName:nextName,updatedBy})");
