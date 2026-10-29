@@ -108,6 +108,12 @@ async function main() {
     const tradingOpportunityWorkerMigration = await readFile(resolve(root, "drizzle/0083_trading_opportunity_worker_indexes.sql"), "utf8");
     await executeCompatibleMigrationSql(db, tradingOpportunityWorkerMigration);
 
+    // The worker health registry is required by worker wrappers and the admin
+    // monitor. Apply the same idempotent DDL during runtime preflight so the
+    // application never exposes a healthy monitor backed by a missing table.
+    const workerHealthMigration = await readFile(resolve(root, "drizzle/0084_worker_health_registry.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, workerHealthMigration);
+
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],
       ["category", "VARCHAR(40) NOT NULL DEFAULT 'account'"],

@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { sql } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { and, desc, eq, gte, or, sql } from "drizzle-orm";
 import { getDb } from "../db";
-import { tradingTierQualificationJobs, workerHealthRegistry } from "../../drizzle/schema";
+import { assertExactlyOneAffectedRow } from "../db-mutation-guards";
+import { balanceLedger, tradingTierQualificationJobs, v5AuditEvents, workerHealthRegistry } from "../../drizzle/schema";
 
 export const WORKER_HEALTH_REGISTRY = [
   { key: "trading-tier-qualification", label: "Trading tier qualification", description: "Assigns or upgrades tiers from committed qualifying admin-credit jobs.", expectedIntervalMs: 5_000, staleAfterMs: 60_000 },
@@ -9,6 +11,8 @@ export const WORKER_HEALTH_REGISTRY = [
   { key: "settlement-reconciliation", label: "Settlement reconciliation", description: "Marks due records for confirmation; elapsed time alone never settles or credits a trade.", expectedIntervalMs: 30_000, staleAfterMs: 180_000 },
   { key: "local-scheduled-jobs", label: "Local scheduled jobs", description: "Claims due application-local scheduled jobs using durable leases.", expectedIntervalMs: 15_000, staleAfterMs: 120_000 },
   { key: "notification-campaigns", label: "Notification campaigns", description: "Processes due and expired notification campaigns.", expectedIntervalMs: 30_000, staleAfterMs: 180_000 },
+  { key: "email-outbox", label: "Email delivery outbox", description: "Processes queued and retryable email notifications when an email provider is configured.", expectedIntervalMs: 30_000, staleAfterMs: 180_000 },
+  { key: "daily-digests", label: "Daily digest scheduler", description: "Queues scheduled account digests using the existing preferences and idempotency keys.", expectedIntervalMs: 30_000, staleAfterMs: 180_000 },
   { key: "mining-rewards", label: "Mining reward worker", description: "Processes the existing Mining background queue.", expectedIntervalMs: 30_000, staleAfterMs: 180_000 },
   { key: "mining-price-feeds", label: "Mining price feeds", description: "Refreshes configured Mining price-feed data.", expectedIntervalMs: 300_000, staleAfterMs: 1_200_000 },
   { key: "popup-retention", label: "Opportunity popup retention", description: "Prunes expired opportunity lifecycle and delivery records under retention policy.", expectedIntervalMs: 3_600_000, staleAfterMs: 10_800_000 },
@@ -21,11 +25,16 @@ export type DerivedWorkerStatus = PersistedStatus | "stale" | "not_started";
 
 const instanceId = randomUUID();
 let persistenceWarningLogged = false;
+const inFlightCycles = new Map<WorkerKey, Promise<unknown>>();
 
-function safeErrorMessage(error: unknown): string {
+export function sanitizeWorkerErrorMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error);
   return raw
     .replace(/\b(?:mysql|mariadb):\/\/[^\s"'<>]+/gi, "[database-url-redacted]")
+    .replace(/https?:\/\/[^\s/@]+:[^\s/@]+@/gi, "https://[credentials-redacted]@")
+    .replace(/\b(password|passwd|secret|token|authorization|api[_-]?key|credential)(\s*[:=]\s*)[^\s,;]+/gi, "$1$2[redacted]")
+    .replace(/\bBearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/\bsk-[A-Za-z0-9_-]{16,}\b/g, "[credential-redacted]")
     .replace(/[\r\n\t]/g, " ")
     .slice(0, 1000);
 }
@@ -52,7 +61,7 @@ async function persistCycleEvent(workerKey: WorkerKey, event: CycleEvent): Promi
     const db = await getDb();
     if (!db) return;
     const now = new Date();
-    const errorMessage = event.status === "degraded" ? safeErrorMessage(event.errorMessage ?? "Worker cycle failed") : null;
+    const errorMessage = event.status === "degraded" ? sanitizeWorkerErrorMessage(event.errorMessage ?? "Worker cycle failed") : null;
     await db.insert(workerHealthRegistry).values({
       workerKey,
       instanceId,
@@ -89,22 +98,41 @@ async function persistCycleEvent(workerKey: WorkerKey, event: CycleEvent): Promi
   }
 }
 
-export async function runMonitoredWorkerCycle<T>(workerKey: WorkerKey, task: () => Promise<T>): Promise<T> {
-  const startedAt = Date.now();
-  await persistCycleEvent(workerKey, { status: "running" });
-  try {
-    const result = await task();
-    await persistCycleEvent(workerKey, { status: "healthy", durationMs: Math.max(0, Date.now() - startedAt) });
-    return result;
-  } catch (error) {
-    await persistCycleEvent(workerKey, {
-      status: "degraded",
-      durationMs: Math.max(0, Date.now() - startedAt),
-      errorMessage: safeErrorMessage(error),
-    });
-    throw error;
-  }
+/** Prevent overlapping timer ticks from repeating a long-running worker cycle. */
+export function runMonitoredWorkerCycle<T>(workerKey: WorkerKey, task: () => Promise<T>): Promise<T> {
+  const current = inFlightCycles.get(workerKey);
+  if (current) return current as Promise<T>;
+  const cycle = (async () => {
+    const startedAt = Date.now();
+    await persistCycleEvent(workerKey, { status: "running" });
+    try {
+      const result = await task();
+      await persistCycleEvent(workerKey, { status: "healthy", durationMs: Math.max(0, Date.now() - startedAt) });
+      return result;
+    } catch (error) {
+      await persistCycleEvent(workerKey, {
+        status: "degraded",
+        durationMs: Math.max(0, Date.now() - startedAt),
+        errorMessage: sanitizeWorkerErrorMessage(error),
+      });
+      throw error;
+    }
+  })();
+  inFlightCycles.set(workerKey, cycle);
+  void cycle.finally(() => {
+    if (inFlightCycles.get(workerKey) === cycle) inFlightCycles.delete(workerKey);
+  }).catch(() => undefined);
+  return cycle;
 }
+
+export type DeadQualificationJob = {
+  id: number;
+  userId: number;
+  sourceLedgerId: number;
+  attempts: number;
+  lastError: string | null;
+  updatedAt: string | null;
+};
 
 export type WorkerHealthSummary = {
   generatedAt: string;
@@ -124,6 +152,7 @@ export type WorkerHealthSummary = {
     lastError: string | null;
   }>;
   qualificationQueue: { pending: number; processing: number; completed: number; dead: number; total: number } | null;
+  deadQualificationJobs: DeadQualificationJob[] | null;
 };
 
 function iso(value: Date | string | null | undefined): string | null {
@@ -137,9 +166,11 @@ export async function getWorkerHealthSummary(): Promise<WorkerHealthSummary> {
   if (!db) throw new Error("Worker health database is unavailable.");
   const now = Date.now();
   const since = new Date(now - 24 * 60 * 60_000);
-  const rows = await db.select().from(workerHealthRegistry).orderBy(workerHealthRegistry.workerKey, workerHealthRegistry.heartbeatAt);
-  const visibleRows = rows.filter((row) => row.instanceId === instanceId || (iso(row.heartbeatAt) !== null && new Date(row.heartbeatAt).getTime() >= since.getTime()));
-  const workers: WorkerHealthSummary["workers"] = visibleRows.map((row) => {
+  // Bound reads at the indexed database query so history cannot grow into a full-table scan.
+  const rows = await db.select().from(workerHealthRegistry)
+    .where(or(eq(workerHealthRegistry.instanceId, instanceId), gte(workerHealthRegistry.heartbeatAt, since)))
+    .orderBy(desc(workerHealthRegistry.heartbeatAt)).limit(500);
+  const workers: WorkerHealthSummary["workers"] = rows.map((row) => {
     const definition = WORKER_HEALTH_REGISTRY.find((worker) => worker.key === row.workerKey);
     const staleAfterMs = definition?.staleAfterMs ?? 60_000;
     return {
@@ -155,7 +186,7 @@ export async function getWorkerHealthSummary(): Promise<WorkerHealthSummary> {
       lastFailureAt: iso(row.lastFailureAt),
       lastDurationMs: row.lastDurationMs == null ? null : Number(row.lastDurationMs),
       consecutiveFailures: Number(row.consecutiveFailures ?? 0),
-      lastError: row.lastError,
+      lastError: row.lastError ? sanitizeWorkerErrorMessage(row.lastError) : null,
     };
   });
   for (const definition of WORKER_HEALTH_REGISTRY) {
@@ -179,6 +210,7 @@ export async function getWorkerHealthSummary(): Promise<WorkerHealthSummary> {
   }
 
   let qualificationQueue: WorkerHealthSummary["qualificationQueue"] = null;
+  let deadQualificationJobs: WorkerHealthSummary["deadQualificationJobs"] = null;
   try {
     const grouped = await db.select({
       status: tradingTierQualificationJobs.status,
@@ -190,10 +222,111 @@ export async function getWorkerHealthSummary(): Promise<WorkerHealthSummary> {
       qualificationQueue[item.status] = count;
       qualificationQueue.total += count;
     }
+    const deadRows = await db.select({
+      id: tradingTierQualificationJobs.id,
+      userId: tradingTierQualificationJobs.userId,
+      sourceLedgerId: tradingTierQualificationJobs.sourceLedgerId,
+      attempts: tradingTierQualificationJobs.attempts,
+      lastError: tradingTierQualificationJobs.lastError,
+      updatedAt: tradingTierQualificationJobs.updatedAt,
+    }).from(tradingTierQualificationJobs).where(eq(tradingTierQualificationJobs.status, "dead"))
+      .orderBy(desc(tradingTierQualificationJobs.updatedAt), desc(tradingTierQualificationJobs.id)).limit(25);
+    deadQualificationJobs = deadRows.map((row) => ({
+      id: Number(row.id),
+      userId: Number(row.userId),
+      sourceLedgerId: Number(row.sourceLedgerId),
+      attempts: Number(row.attempts),
+      lastError: row.lastError ? sanitizeWorkerErrorMessage(row.lastError) : null,
+      updatedAt: iso(row.updatedAt),
+    }));
   } catch {
     // Keep worker-health rows available while making a missing or unavailable queue explicit.
     qualificationQueue = null;
+    deadQualificationJobs = null;
   }
 
-  return { generatedAt: new Date(now).toISOString(), workers, qualificationQueue };
+  return { generatedAt: new Date(now).toISOString(), workers, qualificationQueue, deadQualificationJobs };
+}
+
+export async function requeueDeadQualificationJob(input: { jobId: number; adminId: number; reason: string }) {
+  const jobId = Number(input.jobId);
+  const adminId = Number(input.adminId);
+  const reason = String(input.reason ?? "").trim();
+  if (!Number.isSafeInteger(jobId) || jobId < 1) throw new TRPCError({ code: "BAD_REQUEST", message: "A valid qualification job ID is required." });
+  if (!Number.isSafeInteger(adminId) || adminId < 1) throw new TRPCError({ code: "UNAUTHORIZED", message: "An authenticated administrator is required." });
+  if (reason.length < 8 || reason.length > 500) throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a recovery reason between 8 and 500 characters." });
+
+  const db = await getDb();
+  if (!db) throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "Worker recovery database is unavailable." });
+  return db.transaction(async (tx) => {
+    const job = (await tx.select().from(tradingTierQualificationJobs)
+      .where(eq(tradingTierQualificationJobs.id, jobId)).limit(1).for("update"))[0];
+    if (!job) throw new TRPCError({ code: "NOT_FOUND", message: "Qualification job was not found." });
+    if (job.status !== "dead") throw new TRPCError({ code: "CONFLICT", message: "Only a dead-lettered qualification job can be retried." });
+
+    const source = (await tx.select().from(balanceLedger).where(and(
+      eq(balanceLedger.id, job.sourceLedgerId),
+      eq(balanceLedger.userId, job.userId),
+    )).limit(1).for("update"))[0];
+    if (!source || source.qualifyingDepositUsdMinor == null) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "The source ledger entry no longer proves a qualifying credit or reversal; no retry was queued." });
+    }
+    const attributedUsdMinor = Number(source.qualifyingDepositUsdMinor);
+    if (!Number.isSafeInteger(attributedUsdMinor)) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "The source ledger's USD attribution is invalid; no retry was queued." });
+    }
+    if (source.entryType === "admin_manual_deposit_credit") {
+      if (attributedUsdMinor <= 0 || source.qualifyingDepositReversalOfId != null) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The qualifying credit attribution is inconsistent; no retry was queued." });
+      }
+    } else if (source.entryType === "admin_manual_deposit_reversal") {
+      if (attributedUsdMinor > 0 || source.qualifyingDepositReversalOfId == null) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The qualifying reversal attribution is inconsistent; no retry was queued." });
+      }
+      const original = (await tx.select({
+        id: balanceLedger.id,
+        userId: balanceLedger.userId,
+        entryType: balanceLedger.entryType,
+        qualifyingDepositUsdMinor: balanceLedger.qualifyingDepositUsdMinor,
+      }).from(balanceLedger).where(and(
+        eq(balanceLedger.id, source.qualifyingDepositReversalOfId),
+        eq(balanceLedger.userId, job.userId),
+      )).limit(1).for("update"))[0];
+      const originalUsdMinor = Number(original?.qualifyingDepositUsdMinor);
+      if (!original || original.entryType !== "admin_manual_deposit_credit" || !Number.isSafeInteger(originalUsdMinor) || originalUsdMinor <= 0 || Math.abs(attributedUsdMinor) > originalUsdMinor) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The reversal does not match a valid original qualifying credit; no retry was queued." });
+      }
+    } else {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "The source ledger entry is not an eligible qualifying event." });
+    }
+
+    const now = new Date();
+    const update = await tx.update(tradingTierQualificationJobs).set({
+      status: "pending",
+      attempts: 0,
+      availableAt: now,
+      lockedAt: null,
+      lastError: null,
+      updatedAt: now,
+    }).where(and(
+      eq(tradingTierQualificationJobs.id, jobId),
+      eq(tradingTierQualificationJobs.status, "dead"),
+    ));
+    assertExactlyOneAffectedRow(update, "Requeue dead Trading qualification job");
+    await tx.insert(v5AuditEvents).values({
+      actorUserId: adminId,
+      action: "trading_tier_qualification_job.requeued",
+      entityType: "trading_tier_qualification_job",
+      entityId: String(jobId),
+      reason,
+      reference: String(job.sourceLedgerId),
+      metadataJson: JSON.stringify({
+        sourceLedgerId: Number(job.sourceLedgerId),
+        userId: Number(job.userId),
+        previousAttempts: Number(job.attempts),
+        previousStatus: job.status,
+      }),
+    });
+    return { success: true, jobId, sourceLedgerId: Number(job.sourceLedgerId), status: "pending" as const };
+  });
 }

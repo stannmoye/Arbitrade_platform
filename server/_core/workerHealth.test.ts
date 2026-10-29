@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveWorkerHealthStatus } from "./workerHealth";
+import { deriveWorkerHealthStatus, sanitizeWorkerErrorMessage } from "./workerHealth";
 
 describe("deriveWorkerHealthStatus", () => {
   const now = Date.parse("2026-10-29T12:00:00.000Z");
@@ -23,5 +23,19 @@ describe("deriveWorkerHealthStatus", () => {
 
   it("marks an abandoned running cycle stale after its health window", () => {
     expect(deriveWorkerHealthStatus({ status: "running", heartbeatAt: new Date(now - threshold - 1) }, threshold, now)).toBe("stale");
+  });
+});
+
+
+describe("sanitizeWorkerErrorMessage", () => {
+  it("removes connection credentials and common secret fields from errors", () => {
+    const message = sanitizeWorkerErrorMessage(
+      "mysql://user:password@db.example/app password=hunter2 Bearer abc.def.ghi API_KEY=sk-abcdefghijklmnopqrstuvwxyz123456",
+    );
+    expect(message).not.toContain("user:password");
+    expect(message).not.toContain("hunter2");
+    expect(message).not.toContain("abc.def.ghi");
+    expect(message).not.toContain("sk-abcdefghijklmnopqrstuvwxyz123456");
+    expect(message).toContain("[redacted]");
   });
 });

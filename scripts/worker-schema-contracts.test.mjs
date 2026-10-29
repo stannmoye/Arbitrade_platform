@@ -40,10 +40,11 @@ describe("worker schema contracts", () => {
 
   it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
     const root = new URL("../", import.meta.url);
-    const [runtimeSchema, migration, opportunityWorkerMigration] = await Promise.all([
+    const [runtimeSchema, migration, opportunityWorkerMigration, healthMigration] = await Promise.all([
       readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
       readFile(new URL("drizzle/0082_trading_tier_qualification_jobs.sql", root), "utf8"),
       readFile(new URL("drizzle/0083_trading_opportunity_worker_indexes.sql", root), "utf8"),
+      readFile(new URL("drizzle/0084_worker_health_registry.sql", root), "utf8"),
     ]);
     expect(WORKER_SCHEMA_CONTRACTS.trading_tier_qualification_jobs.indexes)
       .toHaveProperty("trading_tier_qualification_jobs_source_ledger_uq");
@@ -55,6 +56,11 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain('drizzle/0083_trading_opportunity_worker_indexes.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, tradingOpportunityWorkerMigration)");
     expect(opportunityWorkerMigration).toContain("customer_package_subscriptions_worker_status_user_idx");
+    expect(runtimeSchema).toContain('drizzle/0084_worker_health_registry.sql');
+    expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, workerHealthMigration)");
+    expect(healthMigration).toContain("CREATE TABLE IF NOT EXISTS `worker_health_registry`");
+    expect(healthMigration).toContain("worker_health_worker_instance_uq");
+    expect(healthMigration).toContain("worker_health_heartbeat_idx");
   });
 
   it("rejects present tables whose shape would still break worker SQL", () => {

@@ -11,6 +11,7 @@ The Trade Settings → **Worker Health & Recovery** page reads durable health ro
 - Settlement reconciliation (observed independently from opportunity allocation).
 - Application-local scheduled jobs (15-second queue polling).
 - Notification-campaign lifecycle (30-second cycle).
+- Email outbox delivery and daily digest queueing (30-second cycle, using the existing delivery settings and idempotency keys).
 - Mining reward processing and Mining price feeds.
 - Opportunity-popup retention and market-data refresh.
 
@@ -20,8 +21,8 @@ Each cycle records an instance identifier, latest heartbeat, last successful run
 
 The dashboard displays pending, processing, completed and dead-lettered Trading tier qualification jobs. A missing health table or inaccessible database is shown as unavailable, not as zero or healthy. Health-write failures are logged once per process and do not prevent the underlying worker from handling its durable work.
 
-The initial increment is intentionally read-only. Dead-lettered financial jobs are retained for investigation; the dashboard does not silently requeue or reset them. A later recovery action must verify the original ledger event, check idempotency/lease state, capture an administrator identity and reason, and write an audit record before reprocessing.
+The dashboard permits a guarded retry of dead-lettered tier-qualification jobs only. The server locks the job row, confirms it remains dead, locks and validates the linked source ledger record and its qualifying USD attribution, then resets the queue item to pending and inserts a `v5_audit_events` record in the same transaction. The admin must supply a reason of 8–500 characters. No wallet balance, customer entitlement, or trade settlement is directly changed; the normal idempotent worker performs the eligibility reconciliation. The latest 25 dead-lettered jobs are shown to bound reads and response size.
 
 ## Validation boundary
 
-The status classifier has pure unit tests. CI must run the full lockfile install, TypeScript check, test suite, production build and migration/installer checks on the exact feature-branch commit. The database migration is forward-only and adds `worker_health_registry`; it does not modify existing customer ledger or trade rows. Production migration and live-host acceptance have not been run by this change.
+The status classifier and error-sanitization functions have unit tests; the disposable-database tier worker integration also exercises valid audited requeue, invalid source rejection, and duplicate-entitlement prevention. CI must run the full lockfile install, TypeScript check, test suite, production build and migration/installer checks on the exact feature-branch commit. Migration `0084` is forward-only and adds `worker_health_registry`; deployment/runtime-schema bridge and installer tracking include it. It does not modify existing customer ledger or trade rows. Production migration and live-host acceptance have not been run by this change.
