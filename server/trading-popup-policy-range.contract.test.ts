@@ -23,7 +23,7 @@ describe("administrator-managed Trading popup policy bounds and snapshots", () =
       expect(lifecycle).toContain(field);
       expect(workerSchema).toContain(field);
     }
-    for (const field of ["configuredProfitRateBps", "configuredDurationSeconds", "configuredPopupDisplaySeconds", "packagePolicyVersionSnapshot", "packageBadgeLabel", "companyReferenceId", "companyDisplayName", "companyLogoUrl", "companyReferenceOnly"]) {
+    for (const field of ["configuredProfitRateBps", "configuredDurationSeconds", "configuredPopupDisplaySeconds", "packagePolicyVersionSnapshot", "packageBadgeLabel", "companyReferenceId", "companyDisplayName", "companyLogoUrl", "companyReferenceMetadataJson", "companyReferenceOnly"]) {
       expect(schema).toContain(field);
       expect(snapshotMigration).toContain(field);
       expect(workerSchema).toContain(field);
