@@ -159,6 +159,59 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     }
   });
 
+  it("persists and versions a full Trading tier policy, audits the change, and rejects customer writes", async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database is not available");
+    const rows = await admin.adminOperations.packagePolicies();
+    expect(rows.length).toBeGreaterThan(0);
+    const before = rows[0] as any;
+    const nextVisibleOffers = Number(before.maxVisibleOffers) >= 10000
+      ? Number(before.maxVisibleOffers) - 1
+      : Number(before.maxVisibleOffers) + 1;
+    const reason = "Part 1 Trading policy integration " + Date.now();
+    let updateCommitted = false;
+
+    try {
+      const saved = await admin.adminOperations.updatePackagePolicies({
+        policies: [{ ...before, maxVisibleOffers: nextVisibleOffers }],
+        reason,
+      });
+      updateCommitted = true;
+      const persisted = saved.find((row: any) => row.packageName === before.packageName) as any;
+      expect(persisted).toBeDefined();
+      expect(persisted.maxVisibleOffers).toBe(nextVisibleOffers);
+      expect(Number(persisted.policyVersion)).toBe(Number(before.policyVersion || 0) + 1);
+
+      const auditRows = await db.select().from(v5AuditEvents).where(and(
+        eq(v5AuditEvents.action, "trading_opportunity_package_policy_updated"),
+        eq(v5AuditEvents.reason, reason),
+      ));
+      expect(auditRows).toHaveLength(1);
+      expect(auditRows[0].actorUserId).toBe(administratorId);
+      expect(auditRows[0].entityType).toBe("trading_package_policy");
+      expect(auditRows[0].reference).toContain(before.packageName);
+      expect(auditRows[0].metadataJson).toContain('"previousPolicy"');
+      expect(auditRows[0].metadataJson).toContain('"nextPolicy"');
+
+      await expect(customer.adminOperations.updatePackagePolicies({
+        policies: [{ ...persisted, maxVisibleOffers: Number(persisted.maxVisibleOffers) + 1 }],
+        reason: "Customer must not change Trading policy",
+      })).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+      const afterRejectedWrite = await admin.adminOperations.packagePolicies();
+      const unchanged = afterRejectedWrite.find((row: any) => row.packageName === before.packageName) as any;
+      expect(unchanged.maxVisibleOffers).toBe(nextVisibleOffers);
+      expect(Number(unchanged.policyVersion)).toBe(Number(persisted.policyVersion));
+    } finally {
+      if (updateCommitted) {
+        await admin.adminOperations.updatePackagePolicies({
+          policies: [{ ...before }],
+          reason: "Part 1 integration cleanup " + Date.now(),
+        });
+      }
+    }
+  });
+
   it("persists an administrator policy, reads it back, and rejects customer writes", async () => {
     previousValue = await getAppSetting("appearance.settings", missingValue);
     const policy = {
