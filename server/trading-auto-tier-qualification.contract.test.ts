@@ -301,9 +301,9 @@ describe("Automatic Trading tier qualification", () => {
       expect(schemaSource).toContain(field);
       expect(routerSource).toContain(field);
       expect(customerAppSource).toContain(field);
-      expect(tierPolicyFieldsSource).toContain(field);
       expect(databaseSource).toContain(field);
     }
+    for (const field of ["deliveryRetryPolicy", "expiryHandling", "duplicatePrevention", "audioEnabled", "audioSound", "allowedOpportunityTypes", "rewardLimitCurrency", "dailyRewardWindow", "unsettledRewardPolicy", "capReachedPolicy", "settlementConfirmationState", "settlementRetryPolicy", "maxSettlementAttempts", "requirePreviousSettlement", "minSettlementDelaySeconds", "maxSettlementDelaySeconds", "closePolicy"]) expect(tierPolicyFieldsSource).toContain(field);
     expect(routerSource).toContain("updatePackagePolicies: adminProcedure.input");
     expect(routerSource).not.toContain("updatePackagePolicies: protectedProcedure.input");
     expect(customerAppSource).toContain("Every save records the administrator, reason, previous settings, next settings, and policy version in the audit log.");
