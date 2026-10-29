@@ -130,11 +130,13 @@ try {
     userId,
     offerId,
     quotaDay: new Date().toISOString().slice(0, 10),
-    packageName: "Integration",
+    packageName,
     symbol: "TEST",
     currency,
     minimumMinor: 25000,
     expectedRewardBps: 400,
+    configuredProfitRateBps: 400,
+    configuredDurationSeconds: 3600,
     balanceAvailableMinor: 100000,
     balanceStatus: "sufficient",
     eventStatus: "DELIVERED",
@@ -164,11 +166,13 @@ try {
     userId,
     offerId: secondOfferId,
     quotaDay: new Date().toISOString().slice(0, 10),
-    packageName: "Integration",
+    packageName,
     symbol: "TEST2",
     currency,
     minimumMinor: 25000,
     expectedRewardBps: 400,
+    configuredProfitRateBps: 400,
+    configuredDurationSeconds: 3600,
     balanceAvailableMinor: 100000,
     balanceStatus: "sufficient",
     eventStatus: "DELIVERED",
@@ -345,7 +349,8 @@ try {
   const fulfilledAllocations = allocationResults.filter((result) => result.status === "fulfilled");
   const rejectedAllocations = allocationResults.filter((result) => result.status === "rejected");
   assert.equal(fulfilledAllocations.length, 2,
-    "Exactly one of two competing opportunities should allocate; its duplicate request should replay.");
+    "Exactly one of two competing opportunities should allocate; its duplicate request should replay. Rejections: " +
+      rejectedAllocations.map((result) => String(result.reason?.message || result.reason)).join(" | "));
   assert.equal(rejectedAllocations.length, 2,
     "Both requests for the competing opportunity must be rejected once the one-per-day quota is consumed.");
   const successfulAllocationResults = fulfilledAllocations.map((result) => result.value);

@@ -392,6 +392,9 @@ export const appRouter = router({
       startsAt: z.string().datetime().nullable(),
       expiresAt: z.string().datetime().nullable(),
       enabled: z.boolean(),
+    }).refine(input => !input.startsAt || !input.expiresAt || Date.parse(input.expiresAt) > Date.parse(input.startsAt), {
+      message: "Package expiry must be later than its start time",
+      path: ["expiresAt"],
     })).mutation(({ ctx, input }) => updateAdminTradingPackage(ctx.user.id, {
       ...input, startsAt:input.startsAt?new Date(input.startsAt):null, expiresAt:input.expiresAt?new Date(input.expiresAt):null,
     })),

@@ -202,19 +202,19 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       expect(Number(persisted.policyVersion)).toBe(Number(before.policyVersion || 0) + 1);
 
       const auditRows = await db.select().from(v5AuditEvents).where(and(
-        eq(v5AuditEvents.action, "trading_opportunity_package_policy_updated"),
+        eq(v5AuditEvents.action, "trading_delivery_policy_updated"),
         eq(v5AuditEvents.reason, reason),
       ));
       expect(auditRows).toHaveLength(1);
       expect(auditRows[0].actorUserId).toBe(administratorId);
-      expect(auditRows[0].entityType).toBe("trading_package_policy");
-      expect(auditRows[0].reference).toContain(before.packageName);
-      expect(auditRows[0].metadataJson).toContain('"previousPolicy"');
-      expect(auditRows[0].metadataJson).toContain('"nextPolicy"');
+      expect(auditRows[0].entityType).toBe("opportunity_package_policy");
+      expect(auditRows[0].reference).toContain("trading-delivery-policy:" + before.packageName);
+      expect(auditRows[0].metadataJson).toContain('"oldPolicy"');
+      expect(auditRows[0].metadataJson).toContain('"newPolicy"');
       const auditMetadata = JSON.parse(String(auditRows[0].metadataJson));
-      expect(auditMetadata.previousPolicy.maxVisibleOffers).toBe(before.maxVisibleOffers);
-      expect(auditMetadata.nextPolicy.maxVisibleOffers).toBe(nextVisibleOffers);
-      expect(auditMetadata.policyVersion).toBe(Number(persisted.policyVersion));
+      expect(auditMetadata.oldPolicy.maxVisibleOffers).toBe(before.maxVisibleOffers);
+      expect(auditMetadata.newPolicy.maxVisibleOffers).toBe(nextVisibleOffers);
+      expect(auditMetadata.nextVersion).toBe(Number(persisted.policyVersion));
       expect(auditRows[0].reason).toBe(reason);
 
       await expect(customer.adminOperations.updatePackagePolicies({
