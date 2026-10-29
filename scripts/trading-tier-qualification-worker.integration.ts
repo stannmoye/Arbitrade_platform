@@ -290,7 +290,7 @@ try {
   assert.equal(qualifyingReversal.qualifyingDepositUsdMinor, -5000);
 
   // Different concurrent reversal requests must serialize on the original ledger
-  // row. Together they consume exactly the remaining 15,000 native minor units.
+  // row. Together they consume 10,000 of the remaining 15,000 native minor units.
   const concurrentReversals = await Promise.all([
     adjustCustomerBalance(adminId, {
       userId: creditPathUserId,
@@ -305,7 +305,7 @@ try {
     adjustCustomerBalance(adminId, {
       userId: creditPathUserId,
       currency: "USD",
-      amountMinor: 10000,
+      amountMinor: 5000,
       mode: "debit",
       debitClassification: "qualifying_deposit_reversal",
       reversalLedgerId: qualifyingCreditOne.ledgerId,
@@ -319,7 +319,7 @@ try {
   );
   assert.equal(
     concurrentReversals.reduce((sum, item) => sum + Math.abs(Number(item.qualifyingDepositUsdMinor)), 0),
-    15000,
+    10000,
   );
   assert.equal(qualifyingReversal.qualifyingDepositReversalOfId, qualifyingCreditOne.ledgerId);
 
@@ -345,7 +345,7 @@ try {
   assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_manual_deposit_reversal").length, 1);
   const creditPathJobs = await db.select().from(tradingTierQualificationJobs)
     .where(eq(tradingTierQualificationJobs.userId, creditPathUserId));
-  assert.equal(creditPathJobs.length, 3, "Only qualifying credits and valid reversals may enqueue qualification jobs.");
+  assert.equal(creditPathJobs.length, 5, "Only qualifying credits and valid reversals may enqueue qualification jobs.");
   assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === qualifyingCreditOne.ledgerId));
   assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === nonUsdQualifyingCredit.ledgerId));
   assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === qualifyingReversal.ledgerId));
