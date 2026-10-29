@@ -208,6 +208,11 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("await db.transaction(async tx=>");
     expect(databaseSource).toContain("const tierByName=new Map(tiers.map(tier=>[tier.name,tier.id]))");
     expect(databaseSource).toContain("Each Trading tier may appear only once in a policy update");
+    expect(databaseSource).toContain("enabled:policy.enabled??current?.enabled??false");
+    expect(databaseSource).toContain("automaticTradingEnabled:policy.automaticTradingEnabled??current?.automaticTradingEnabled??false");
+    expect(databaseSource).toContain("Missing policies must be explicit and fail closed");
+    expect(customerAppSource).toContain("Explicit enablement");
+    expect(routerSource).toContain("automaticTradingEnabled: z.boolean().optional()");
     expect(databaseSource).toContain("policyVersion:nextVersion");
     expect(databaseSource).toContain('action:"trading_opportunity_package_policy_updated"');
     expect(databaseSource).toContain("await tx.insert(v5AuditEvents).values");
