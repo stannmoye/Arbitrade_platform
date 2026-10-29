@@ -1,3 +1,14 @@
+## 2026-10-29 — PART 4 handoff status (latest verified source review)
+
+- Branch: `part4/company-rotation-opportunity-presentation-20261029`; draft PR #238 targets `feat/trading-package-popup-policy`, intentionally not `main`.
+- Latest code review correction: popup execution eligibility is restricted to schema-defined `READY`/`RETRYING`; `OPENED` and `DISMISSED` presentation events remain eligible when delivery succeeded. `RUNNING`, terminal, unknown, and invalid statuses fail closed.
+- Reviewed `package.json`: project verification commands are `pnpm check`, `pnpm test`, and `pnpm build`. Attempted a shallow Git clone for execution, but this environment cannot resolve `github.com`; these commands and database integration tests therefore remain unrun.
+- Latest verified PR head before this handoff note: `9cdfdf17f0b1cd7d5b62c6ac9e5b356b05746a55`. No GitHub Actions workflow runs or commit status checks were returned for that head.
+- Part 4 implementation slice is committed and ready for integration review, but it is **not acceptance-complete** until executable checks and MySQL concurrency/restart/idempotency/pool-exhaustion tests pass on the final combined head. Do not merge independently into `main` or deploy.
+- Related PR state checked: #230, #231, #232, #233, #234 and #238 remain open/unmerged. PR #238 is based on #233; Part 6 must reconcile overlapping schema/lifecycle/documentation changes before final merge.
+
+---
+
 
 ## 2026-10-29 — Part 4 execution-state fail-closed correction
 
