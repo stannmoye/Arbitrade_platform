@@ -63,7 +63,8 @@ export function registerGracefulShutdown(input: {
         console.info("[Shutdown] HTTP server, worker cycles, and database pool closed");
         process.exitCode = 0;
       } catch (error) {
-        clearTimeout(deadline);
+        // Keep the deadline armed if database closure fails; open handles must
+        // not leave the process stuck after a failed graceful-shutdown attempt.
         console.error("[Shutdown] Graceful shutdown failed", error instanceof Error ? error.name : "UnknownError");
         process.exitCode = 1;
       }
