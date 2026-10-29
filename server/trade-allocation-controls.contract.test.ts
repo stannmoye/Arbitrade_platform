@@ -46,7 +46,7 @@ describe("global trade allocation pause", () => {
   });
 
   it("filters automatic candidates and enforces the pause transactionally", () => {
-    expect(db).toContain("offer.popupEligible!==true || allocationControls.allocationsPaused");
+    expect(db).toContain("offer.executionEligible!==true || allocationControls.allocationsPaused");
     const start = db.indexOf("export async function createTrade(");
     const end = db.indexOf("\nexport async function ", start + 5);
     const implementation = db.slice(start, end);
