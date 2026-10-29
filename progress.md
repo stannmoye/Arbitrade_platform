@@ -271,3 +271,12 @@ This policy is final and must be followed throughout the application:
 - Commit: `f6910d86ecf473ea928ea14306b6c075632aa26c` (implementation); `1801d1bd45817ad6e2c4357a1a70607b9a89f7f2` (regression test).
 - CI has been triggered for the new head. Earlier exact-head workflow results were green for the recovery workflow, app validation, tier-qualification DB integration, and settlement reconciliation on MySQL 8.4/MariaDB 11.4. The new commit's complete CI set is queued/running and must be checked again before acceptance.
 - This change is intentionally narrow: it does not claim to add distributed opportunity leases, durable crash recovery, or multi-instance fencing. Those remain acceptance gaps for Part 3.
+
+
+## 2026-10-29 — Part 3 opportunity execution lease fencing increment
+
+- Added nullable `executionLeaseToken` to the canonical Drizzle schema and new forward migration `0086_trading_opportunity_execution_leases.sql`; registered the migration in the main journal, portal migration runner, migration recovery inventory, and runtime schema bridge.
+- Each automatic opportunity claim now creates a UUID lease token while holding the popup-event row lock. The token is passed into `createTrade`; the transaction rejects stale worker tokens before wallet allocation. Completion and failure updates are scoped to the current token, and a fenced stale worker does not mark the opportunity missed.
+- Added source-contract regression assertions for token generation, schema/migration registration, trade-creation fencing, and stale-worker handling.
+- Latest recorded commit at this note: `7068f09eef0c27f060f51b77b8b55607d08ff7ab`. CI for the new head must finish and be checked. No disposable MySQL/MariaDB integration test has yet proven lease expiry/reclaim, simultaneous workers, or crash/restart behavior on the actual opportunity lifecycle.
+- Remaining acceptance gaps: no separate customer-level distributed lease; database-backed race/restart/quota/financial-idempotency acceptance tests still required. Keep PR #235 draft and do not merge/deploy until exact-head checks and integration evidence pass.
