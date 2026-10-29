@@ -633,3 +633,26 @@
 .trading-popup-company > div { display: grid; gap: 4px; min-width: 0; }
 .trading-popup-company strong { overflow-wrap: anywhere; }
 .trading-popup-company small { color: var(--arb-color-text-muted, #9bb4c4); font-size: 11px; line-height: 1.4; }
+
+
+.customer-opportunity .customer-coin { display: grid; place-items: center; overflow: hidden; }
+.customer-opportunity .customer-coin img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  object-fit: contain;
+  border-radius: inherit;
+  background: #fff;
+}
+.customer-opportunity > div:nth-child(2) { min-width: 0; }
+.customer-opportunity > div:nth-child(2) strong,
+.customer-opportunity > div:nth-child(2) span,
+.customer-opportunity > div:nth-child(2) small { overflow-wrap: anywhere; }
+.customer-opportunity > div:nth-child(2) small {
+  display: block;
+  margin-top: 3px;
+  color: var(--arb-color-text-muted, #9bb4c4);
+  font-size: 10px;
+  line-height: 1.35;
+}
