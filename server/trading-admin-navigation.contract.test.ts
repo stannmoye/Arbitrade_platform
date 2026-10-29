@@ -91,7 +91,7 @@ describe("Admin customer Trading tier visibility", () => {
 describe("Trading tier policy audit and versioning", () => {
   it("requires an audit reason and persists each policy update with its previous and next values in one transaction", () => {
     const start = serverDb.indexOf("export async function updateOpportunityPackagePolicies");
-    const end = serverDb.indexOf("\\nasync function listMissedOpportunities", start);
+    const end = serverDb.indexOf("\nasync function listMissedOpportunities", start);
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
     const update = serverDb.slice(start, end);
