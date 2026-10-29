@@ -349,7 +349,7 @@ async function startServer() {
     };
     const autoTradeTimer = registerWorkerInterval(() => { void runTradeCycle().catch(() => undefined); }, 30_000);
     autoTradeTimer.unref();
-    void runTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error));
+    void runTradeCycle().catch(error => console.error("[AutoTrade]", sanitizeWorkerErrorMessage(error)));
     const refreshMinutes = Number(await getAppSetting("market.refreshIntervalMinutes", "120"));
     if (!Number.isFinite(refreshMinutes) || refreshMinutes < 1) { console.error("[MarketSync] Invalid market.refreshIntervalMinutes; using safe 120-minute fallback"); }
     const safeRefreshMinutes = Number.isFinite(refreshMinutes) && refreshMinutes >= 1 ? refreshMinutes : 120;
