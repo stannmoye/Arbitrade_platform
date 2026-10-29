@@ -4,10 +4,30 @@ import {
   countCompanyReferences,
   findCompanyReferencesBySymbol,
   getCompanyReferenceById,
+  getCompanyReferenceForRotation,
   getCompanyReferenceSummary,
   getRandomCompanyReference,
   searchCompanyReferences,
 } from "./company-catalogue-reference";
+
+describe("package-aware informational company rotation", () => {
+  it("keeps a company identity stable across retries and rotates sequential package quota slots", () => {
+    const input = { userId: 42, packageId: 3, quotaDay: "2026-10-29", slotIndex: 0 };
+    const first = getCompanyReferenceForRotation(input);
+    expect(getCompanyReferenceForRotation(input).id).toBe(first.id);
+    const second = getCompanyReferenceForRotation({ ...input, slotIndex: 1 });
+    expect(second.id).not.toBe(first.id);
+    expect(getCompanyReferenceForRotation({ ...input, packageId: 4 }).id).not.toBe(first.id);
+    expect(first.referenceOnly).toBe(true);
+    expect(first.eligibleForVerifiedTradeRotation).toBe(false);
+    expect(first.logoUrl).toContain("/assets/company-logo-source/by-country/");
+  });
+
+  it("rejects invalid rotation identity rather than selecting a fallback company", () => {
+    expect(() => getCompanyReferenceForRotation({ userId: 0, packageId: 1, quotaDay: "2026-10-29", slotIndex: 0 })).toThrow("Invalid company-rotation delivery identity");
+    expect(() => getCompanyReferenceForRotation({ userId: 1, packageId: 1, quotaDay: "bad-date", slotIndex: 0 })).toThrow("Invalid company-rotation delivery identity");
+  });
+});
 
 describe("Logo.dev brand-only static reference catalogue", () => {
   it("loads all 1,811 mapped brands with unique IDs and local logo paths", () => {
