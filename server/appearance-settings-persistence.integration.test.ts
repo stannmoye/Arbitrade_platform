@@ -556,6 +556,20 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
         expiresAt: expiresAt.toISOString(), enabled: true, reason: reasonUpdate,
       })).rejects.toMatchObject({ code: "FORBIDDEN" });
 
+      await expect(admin.adminOperations.updateTradingPackage({
+        id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
+        durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
+        maxActiveInvestments: 3, startsAt: expiresAt.toISOString(),
+        expiresAt: startsAt.toISOString(), enabled: true,
+        reason: "Reject invalid effective dates " + suffix,
+      })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      const [unchangedAfterInvalidUpdate] = await db.select().from(packages).where(eq(packages.id, createdPackage.id));
+      expect(unchangedAfterInvalidUpdate).toMatchObject({
+        minimumQualifyingBalanceUsdMinor: 12345, durationMonths: 3,
+        opportunitiesPerDay: 7, maxPopupsPerDay: 8, maxActiveInvestments: 2,
+        enabled: false, termsVersion: 1,
+      });
+
       const updatedPackage = await admin.adminOperations.updateTradingPackage({
         id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
         durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
