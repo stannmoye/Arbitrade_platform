@@ -65,6 +65,8 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("A fresh API conversion rate for this exact wallet configuration is required");
     expect(databaseSource).not.toContain('let rate=Number(currency.usdRate)');
     expect(databaseSource).toContain("rate:String(creditTimeRate.rate)");
+    expect(databaseSource).toContain("qualifyingDepositRate=String(creditTimeRate.rate)");
+    expect(databaseSource).not.toContain("qualifyingDepositRate=String(rate)");
     expect(databaseSource).toContain("fetchedAt:creditTimeRate.fetchedAt.toISOString()");
     expect(databaseSource).toContain("qualifyingDepositUsdMinor!==null?Math.abs(qualifyingDepositUsdMinor)/100");
   });
