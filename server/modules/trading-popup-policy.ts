@@ -63,6 +63,9 @@ export function validateTradingPopupPolicy(policy: TradingPopupPackagePolicy): T
   if (policy.minimumCapitalMinor > policy.maximumCapitalMinor) {
     throw new RangeError("Minimum capital cannot exceed maximum capital");
   }
+  if (policy.maximumProfitBps > 0 && policy.minimumProfitBps < 1) {
+    throw new RangeError("Configured profit range must have a positive minimum rate");
+  }
   if (policy.minimumProfitBps > policy.maximumProfitBps) {
     throw new RangeError("Minimum profit percentage cannot exceed maximum profit percentage");
   }
