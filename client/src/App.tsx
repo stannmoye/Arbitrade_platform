@@ -580,7 +580,7 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
         :!(trades.data||[]).length?<div className="empty-state">No trade allocations have been recorded.</div>
         :<div className="trading-opportunity-list">{(trades.data||[]).slice(0,30).map((trade:any)=>(
           <article className="trading-opportunity-row" key={trade.id}>
-            <div className="trading-opportunity-identity"><span className="trading-opportunity-symbol">#{trade.id}</span><div><strong>{trade.symbol||"Trade allocation"}</strong><small>{trade.status==="settled"?"Settled":trade.stage||"Pending settlement confirmation"}</small></div></div>
+            <div className="trading-opportunity-identity">{trade.companyDisplayName?<CompanyReferenceLogo name={String(trade.companyDisplayName)} logoUrl={trade.companyLogoUrl||null}/>:<span className="trading-opportunity-symbol">#{trade.id}</span>}<div><strong>{trade.companyDisplayName||trade.symbol||"Trade allocation"}</strong><small>Trade #{trade.id} · {trade.status==="settled"?"Settled":trade.stage||"Pending settlement confirmation"}{trade.companyReferenceOnly?" · Company reference only":""}</small></div></div>
             <div className="trading-opportunity-values">
               <div><span>Committed principal</span><strong>{format(Number(trade.principalMinor||0),trade.currency)}</strong></div>
               {trade.status==="settled"&&trade.settlementOutcome!=="legacy_unrecorded"&&<>
@@ -590,7 +590,7 @@ function CustomerOpportunities({opportunityData}:{push:(x:string)=>void;sound:bo
               </>}
               {trade.status!=="settled"&&<div><span>Expected reward</span><strong>Estimate only: {format(Number(trade.expectedRewardMinor||0),trade.currency)}</strong></div>}
             </div>
-            <small>{trade.status==="settled"&&trade.settlementOutcome==="legacy_unrecorded"?"Historical settlement: gross result and fee were not recorded; no estimate is shown as realized.":"Allocated "+(trade.confirmedAt?new Date(trade.confirmedAt).toLocaleString():"time unavailable")+" · "+(trade.status==="settled"?"Settled "+(trade.settledAt?new Date(trade.settledAt).toLocaleString():"time unavailable"):"Waiting for actual settlement confirmation")}</small>
+            <small>{trade.status==="settled"&&trade.settlementOutcome==="legacy_unrecorded"?"Historical settlement: gross result and fee were not recorded; no estimate is shown as realized.":"Allocated "+(trade.confirmedAt?new Date(trade.confirmedAt).toLocaleString():"time unavailable")+" · Configured return rate "+(Number(trade.configuredProfitRateBps||0)/100).toFixed(2)+"% · Duration "+Number(trade.configuredDurationSeconds||0)+"s · "+(trade.status==="settled"?"Settled "+(trade.settledAt?new Date(trade.settledAt).toLocaleString():"time unavailable"):"Waiting for actual settlement confirmation")}</small>
           </article>
         ))}</div>}
     </section>
