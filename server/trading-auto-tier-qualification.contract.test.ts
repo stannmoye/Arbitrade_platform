@@ -231,7 +231,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).toContain("New tiers start disabled.");
     expect(customerAppSource).toContain("const [policyReason,setPolicyReason]=useState(\"\")");
     expect(customerAppSource).toContain("reason:policyReason.trim()");
-    expect(customerAppSource).toContain("Provide a reason for this policy change");
+    expect(customerAppSource).toContain("Reason for changing Trading tier policies (required for audit)");
   });
 
   it("persists administrator-controlled effective dates and tier caps", () => {
