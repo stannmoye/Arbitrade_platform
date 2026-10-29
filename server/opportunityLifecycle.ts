@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import mysql from "mysql2/promise";
 import { mysqlConnectionOptions } from "./_core/mysql";
+import { getCompanyReferenceAtOffset, getCompanyReferenceCatalogueSize } from "./modules/company-catalogue-reference";
 
 type PopupDelivery = {
   userId: number;
@@ -30,13 +31,72 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
   if (!deliveries.length || !process.env.DATABASE_URL) return new Map<string, number>();
   return withConnection(async connection => {
     for (const item of deliveries) {
-      await connection.execute(
-        `INSERT INTO opportunity_popup_events
-          (eventKey,userId,offerId,quotaDay,packageName,symbol,currency,minimumMinor,expectedRewardBps,configuredProfitRateBps,configuredDurationSeconds,packageBadgeLabel,balanceAvailableMinor,balanceStatus,marketObservedAt,marketSnapshotJson,eventStatus,deliveredAt,createdAt,updatedAt)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
-         ON DUPLICATE KEY UPDATE updatedAt=CURRENT_TIMESTAMP`,
-        [`${item.userId}:${item.offerId}:${item.quotaDay}`, item.userId, item.offerId, item.quotaDay, item.packageName, item.symbol, item.currency, item.minimumMinor, item.expectedRewardBps, item.configuredProfitRateBps, item.configuredDurationSeconds, item.packageBadgeLabel || null, item.balanceAvailableMinor, item.balanceStatus, item.marketObservedAt || null, item.marketSnapshotJson || null],
-      );
+      const eventKey = `${item.userId}:${item.offerId}:${item.quotaDay}`;
+      await connection.beginTransaction();
+      try {
+        const [alreadyCreated] = await connection.query<any[]>(
+          "SELECT id FROM opportunity_popup_events WHERE eventKey=? LIMIT 1",
+          [eventKey],
+        );
+        if (alreadyCreated.length) {
+          await connection.execute(
+            "UPDATE opportunity_popup_events SET updatedAt=CURRENT_TIMESTAMP WHERE eventKey=?",
+            [eventKey],
+          );
+          await connection.commit();
+          continue;
+        }
+
+        // Lock one cursor per customer. Different customers never share cursor state;
+        // concurrent workers for the same customer serialize on this row.
+        await connection.execute(
+          "INSERT INTO trading_company_rotation_state (userId,nextCatalogueOffset) VALUES (?,0) ON DUPLICATE KEY UPDATE userId=VALUES(userId)",
+          [item.userId],
+        );
+        const [cursorRows] = await connection.query<any[]>(
+          "SELECT nextCatalogueOffset FROM trading_company_rotation_state WHERE userId=? FOR UPDATE",
+          [item.userId],
+        );
+
+        // Re-check after acquiring the per-customer lock. This closes the race where
+        // another worker created this event while this worker waited for the cursor.
+        const [racedEvent] = await connection.query<any[]>(
+          "SELECT id FROM opportunity_popup_events WHERE eventKey=? LIMIT 1",
+          [eventKey],
+        );
+        if (racedEvent.length) {
+          await connection.commit();
+          continue;
+        }
+
+        const catalogueSize = getCompanyReferenceCatalogueSize();
+        const rawOffset = Number(cursorRows[0]?.nextCatalogueOffset ?? 0);
+        const offset = Number.isSafeInteger(rawOffset) && rawOffset >= 0 ? rawOffset % catalogueSize : 0;
+        const company = getCompanyReferenceAtOffset(offset);
+        const nextOffset = (offset + 1) % catalogueSize;
+        await connection.execute(
+          `INSERT INTO opportunity_popup_events
+            (eventKey,userId,offerId,quotaDay,packageName,symbol,currency,minimumMinor,expectedRewardBps,
+             configuredProfitRateBps,configuredDurationSeconds,packageBadgeLabel,companyReferenceId,companyDisplayName,
+             companyLogoUrl,companyReferenceOnly,balanceAvailableMinor,balanceStatus,marketObservedAt,marketSnapshotJson,
+             eventStatus,deliveredAt,createdAt,updatedAt)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`,
+          [
+            eventKey, item.userId, item.offerId, item.quotaDay, item.packageName, item.symbol, item.currency,
+            item.minimumMinor, item.expectedRewardBps, item.configuredProfitRateBps, item.configuredDurationSeconds,
+            item.packageBadgeLabel || null, company.id, company.name, company.logoUrl, 1, item.balanceAvailableMinor,
+            item.balanceStatus, item.marketObservedAt || null, item.marketSnapshotJson || null,
+          ],
+        );
+        await connection.execute(
+          "UPDATE trading_company_rotation_state SET nextCatalogueOffset=?,updatedAt=CURRENT_TIMESTAMP WHERE userId=?",
+          [nextOffset, item.userId],
+        );
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      }
     }
     const keys = deliveries.map(item => `${item.userId}:${item.offerId}:${item.quotaDay}`);
     const placeholders = keys.map(() => "?").join(",");
