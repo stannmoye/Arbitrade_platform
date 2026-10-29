@@ -83,13 +83,39 @@ export function planCrossWalletFunding(input: {
   assertMinor("requiredTargetMinor", input.requiredTargetMinor);
   assertMinor("targetAvailableMinor", input.targetAvailableMinor);
   if (input.requiredTargetMinor < 1) throw new RangeError("Required target capital must be positive");
+  const targetCurrency = input.targetRate.currency.trim().toUpperCase();
+  if (!targetCurrency) throw new Error("Target FX rate must identify its currency");
+  if (!input.targetRate.provider.trim() || !input.targetRate.sourceDate.trim() ||
+      !Number.isFinite(input.targetRate.fetchedAt.getTime())) {
+    throw new Error("Target FX rate snapshot is missing valid provenance");
+  }
   const targetRateScaled = rateToScaled(input.targetRate.rateUsdPerUnit);
   const targetScaleFactor = pow10(input.targetRate.scale);
   let remainingTargetMinor = Math.max(0, input.requiredTargetMinor - input.targetAvailableMinor);
   const sourceDebits: CrossWalletDebit[] = [];
 
-  const ordered = [...input.sourceWallets]
-    .filter(wallet => wallet.currency.toUpperCase() !== input.targetRate.currency.toUpperCase())
+  const seenCurrencies = new Set<string>();
+  const ordered = [...input.sourceWallets].map(wallet => {
+    const currency = wallet.currency.trim().toUpperCase();
+    if (!currency) throw new Error("Every source wallet must identify its currency");
+    if (seenCurrencies.has(currency)) throw new Error(`Duplicate source wallet currency: ${currency}`);
+    seenCurrencies.add(currency);
+    pow10(wallet.scale);
+    if (wallet.rate) {
+      if (wallet.rate.currency.trim().toUpperCase() !== currency) {
+        throw new Error(`FX rate currency does not match source wallet currency: ${currency}`);
+      }
+      if (wallet.rate.scale !== wallet.scale) {
+        throw new Error(`FX rate scale does not match source wallet scale: ${currency}`);
+      }
+      if (!wallet.rate.provider.trim() || !wallet.rate.sourceDate.trim() ||
+          !Number.isFinite(wallet.rate.fetchedAt.getTime())) {
+        throw new Error(`FX rate snapshot is missing valid provenance: ${currency}`);
+      }
+    }
+    return { ...wallet, currency };
+  })
+    .filter(wallet => wallet.currency !== targetCurrency)
     .sort((a, b) => a.currency.localeCompare(b.currency));
 
   for (const wallet of ordered) {
