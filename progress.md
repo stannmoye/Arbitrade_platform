@@ -1,3 +1,16 @@
+## 2026-10-29 — PART 4 — COMPANY ROTATION & OPPORTUNITY PRESENTATION
+
+- Layered this Part 4 increment on the `feat/trading-package-popup-policy` review branch to avoid silently editing the Part 1 branch or merging into `main`.
+- Kept company assignment inside `ensurePopupDeliveries`: the per-customer/package rotation cursor is locked and advanced in the same transaction as the idempotent opportunity row and its company snapshot.
+- Added rotation cycle, sequence, filtered-pool fingerprint, repeat policy, and snapshot version to the saved company metadata so opportunity records preserve their exact assignment context across restart and review.
+- Converted the customer company spotlight endpoint to a read-only preview query and removed the customer's automatically fetched/next-reference spotlight. Customer company identity now comes from persisted opportunity/trade snapshots; the catalogue remains searchable as informational reference data.
+- Fixed a lifecycle boundary: dismissing a customer popup no longer suppresses automatic worker execution. Execution eligibility is computed independently of the presentation status, and regression tests cover dismissed, failed-delivery, and terminal-execution cases.
+- Updated the canonical Trading specification, companion admin manual, and `docs/trading/IMPLEMENTATION_COORDINATION.md` with the dismissal, snapshot, rotation, ownership and integration contracts.
+- Added tests for restart restoration, rotation sequence/cycle metadata, read-only preview, transactional snapshot expectations, and presentation/execution isolation.
+- Validation: source-contract review completed; local `pnpm check`, `pnpm test`, and `pnpm build` could not be run in this environment because GitHub network access is unavailable to the local shell. Exact-head GitHub CI remains required before acceptance. No merge to `main`, production migration, or deployment was performed.
+
+---
+
 ## 2026-10-29 — Durable package-scoped company spotlight rotation
 
 - Added administrator-controlled package settings for informational company spotlight rotation: enabled state, exact country-folder filters, and repeat behavior. The pool uses the existing 1,811-record catalogue and preserves each stable Logo ID, name, logo and country-folder metadata.
