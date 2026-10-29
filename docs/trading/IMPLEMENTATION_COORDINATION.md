@@ -74,3 +74,11 @@ Do not duplicate these changes or assume any PR is merged merely because its bra
 - This is a targeted source change only. No test runner or build has been executed in this environment; exact-head CI and disposable-database checks remain pending.
 - Additional blocking finding confirmed during service review: `adjustCustomerBalance` still generates a fresh random ledger reference per call and does not accept a stable request idempotency key. The transaction locks the target user and an existing wallet row, but the endpoint still requires concurrency tests for balance creation/update, reversals, and same-request replay. Do not treat per-ledger uniqueness or the qualification outbox key as request-level idempotency.
 - PR #230 is open and non-draft at head `e7c625471e7b19c68a3b0b56d8de6c01f4eb1b9d`; its changed files overlap `server/db.ts`, `server/routers.ts`, `drizzle/schema.ts`, and migration `0086_trading_popup_policy_snapshots.sql`. Reconcile that exact diff before implementing a new idempotency schema or funding transaction to avoid duplicate migration/table designs.
+
+
+## Part 2 — request idempotency increment (2026-10-29)
+
+- Administrator wallet adjustment submissions now carry a stable client request key; retries of the same payload reuse that key.
+- The request hash, idempotency key and serialized committed result are stored in a unique database record inside the same transaction as the wallet/ledger mutation. A repeated key with a different payload is rejected; a committed retry replays the original result without re-fetching FX or repeating post-commit side effects.
+- Added migration `0087_admin_wallet_adjustment_idempotency.sql`. Because PR #230 also carries migration 0086, the final integrator must preserve sequential journal indices and apply both migrations in order when reconciling the shared schema.
+- Database concurrency/rollback integration still must be run against the exact combined head before acceptance.
