@@ -28,3 +28,8 @@
 - [x] Internal CKI/USD is an admin-configured reference, not a live-market quote; no third-party settlement is connected.
 - [x] The legacy `expectedDailyRewardCki` package values remain `NULL`; global customer-credit posting is disabled. The service refuses to enable the legacy estimate engine as verified farm earnings.
 - [ ] Provide the third-party settlement source/asset, allocation share/cost formula, boost capacity, payout reservation choice and production target before enabling real credits, creating payout workflows or deploying production.
+
+
+## Trading policy precedence and conflict rule
+
+For Trading, `docs/TRADING_SYSTEM_SPECIFICATION.md` and `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md` are authoritative. Customers never browse, purchase, subscribe to, or activate Trading tiers; authorized admins configure them and the server assigns eligibility only from qualifying manual admin wallet credits. Pop-ups, company rotation, capital, rate, timing, quota and recovery behavior must be server-configured, persisted, and not hardcoded. Use the existing company catalogue and stable Logo IDs. Workers must recover durable jobs and preserve saved values across restarts without duplicate financial effects. Any older generic package checkout/purchase item in this file is **Mining-only** unless it explicitly says Trading; it must not be reused for Trading. Keep historical migrations/audit records intact. Track Trading implementation in Issue #228 and do not claim completion from documentation alone.
