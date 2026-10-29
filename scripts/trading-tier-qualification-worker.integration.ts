@@ -358,7 +358,7 @@ try {
 
   const creditPathLedger = await db.select().from(balanceLedger)
     .where(eq(balanceLedger.userId, creditPathUserId));
-  assert.equal(creditPathLedger.length, 4);
+  assert.equal(creditPathLedger.length, 8);
   assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_manual_deposit_credit").length, 2);
   assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_credit").length, 2);
   assert.equal(creditPathLedger.filter((row) => row.entryType === "admin_manual_deposit_reversal").length, 4);
@@ -368,6 +368,7 @@ try {
   assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === qualifyingCreditOne.ledgerId));
   assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === nonUsdQualifyingCredit.ledgerId));
   assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === qualifyingReversal.ledgerId));
+  assert.ok(creditPathJobs.some((row) => Number(row.sourceLedgerId) === concurrentFullReversals[0].ledgerId));
   assert.equal(creditPathJobs.every((row) => row.status === "pending"), true);
   await db.update(tradingTierQualificationJobs).set({
     availableAt: new Date(Date.now() - 10_000),
