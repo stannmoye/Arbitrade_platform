@@ -94,7 +94,7 @@ describe("automatic Trading execution lease fencing", () => {
     const migration = readFileSync(new URL("../drizzle/0086_trading_opportunity_execution_leases.sql", import.meta.url), "utf8");
     expect(schema).toContain('executionLeaseToken: varchar("executionLeaseToken", { length: 64 })');
     expect(migration).toContain("executionLeaseToken");
-    expect(source).toContain("executionLeaseToken:crypto.randomUUID()");
+    expect(source).toContain("const executionLeaseToken=crypto.randomUUID();");
     expect(source).toContain("Opportunity execution lease was lost; stale worker fenced");
     expect(source).toContain("eq(opportunityPopupEvents.executionLeaseToken,state.executionLeaseToken)");
     expect(source).toContain("eq(opportunityPopupEvents.executionLeaseToken,executionLeaseToken)");
