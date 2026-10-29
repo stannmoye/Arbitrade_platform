@@ -12,7 +12,7 @@ import { addCalendarMonths } from "./modules/calendar-months";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
-import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
+import { nativeMinorToUsd, nativeMinorToUsdMinorExact, usdUnitsToNativeMinor } from "../shared/money";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry } from "./modules/trade-execution-retry";
@@ -2034,8 +2034,7 @@ export async function adjustCustomerBalance(adminId:number,input:{
       if(!Number.isFinite(rate)||rate<=0||!Number.isFinite(rateAt.getTime())||rateAt.getTime()>Date.now()+60_000){
         throw new Error("A valid, timestamped API currency-to-USD rate is required before this qualifying deposit can be credited.");
       }
-      const usdValue=nativeMinorToUsd(input.amountMinor,Number(currency.scale),rate);
-      const usdMinor=Math.round(usdValue*100);
+      const usdMinor=nativeMinorToUsdMinorExact(input.amountMinor,Number(currency.scale),creditTimeRate.rate);
       if(!Number.isSafeInteger(usdMinor)||usdMinor<=0) throw new Error("Qualifying deposit USD value is invalid or below the supported precision.");
       qualifyingDepositUsdMinor=usdMinor;
       qualifyingDepositRate=String(rate);
