@@ -46,8 +46,11 @@ describe("Trading retry-policy navigation", () => {
     expect(end).toBeGreaterThan(start);
     const packageEditor = adminApp.slice(start, end);
     expect(packageEditor).toContain("maxTradeAttemptsPerDay");
+    expect(packageEditor).toContain("Tier availability & automation");
+    expect(packageEditor).toContain("automaticTradingEnabled");
     expect(packageEditor).toContain("tradeRetryDelaySeconds");
-    expect(packageEditor).toContain("Carry-forward controls are not yet implemented.");
+    expect(packageEditor).toContain("Carry-forward is unavailable: missed opportunities do not roll over and no carry-forward setting is active.");
+    expect(navigation).toContain("Carry-Forward Unavailable");
     expect(packageEditor).toContain('{!focus&&<><AdminTradingPackageCatalogue/><AdminTradeAllocationControl/></>}');
     expect(packageEditor).toContain('{!focus&&<div className="package-policy-section"><strong>Opportunity delivery & scheduling</strong>');
   });
@@ -84,7 +87,7 @@ describe("Trading overview and duration navigation", () => {
 });
 
 describe("Trading overview package-policy read", () => {
-  it("counts persisted package policies without invoking the lazy initializer", () => {
+  it("reads persisted package policies without creating lazy defaults", () => {
     expect(operationsUi).toContain("trpc.adminOperations.overviewPackagePolicies.useQuery");
     expect(serverRouters).toContain("overviewPackagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),");
 
@@ -95,5 +98,53 @@ describe("Trading overview package-policy read", () => {
     const reader = serverDb.slice(start, end);
     expect(reader).toContain("db.select().from(opportunityPackagePolicies)");
     expect(reader).not.toContain(".insert(");
+    const initializerStart = serverDb.indexOf("export async function listOpportunityPackagePolicies()");
+    const initializerEnd = serverDb.indexOf("\n}", initializerStart);
+    expect(initializerStart).toBeGreaterThanOrEqual(0);
+    expect(initializerEnd).toBeGreaterThan(initializerStart);
+    expect(serverDb.slice(initializerStart, initializerEnd)).toContain("return rows.filter(row=>tierNames.has(row.packageName))");
+    expect(serverDb.slice(initializerStart, initializerEnd)).not.toContain(".insert(");
+  });
+});
+
+
+describe("Trading policy defaults and fail-closed behavior", () => {
+  it("uses persisted package policy values instead of server-side fallback constants", () => {
+    const start = serverDb.indexOf("export async function updateOpportunityPackagePolicies(");
+    const end = serverDb.indexOf("\nasync function listMissedOpportunities", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const updater = serverDb.slice(start, end);
+    expect(updater).toContain("automaticTradingEnabled:current.automaticTradingEnabled");
+    expect(updater).toContain("enabled:current.enabled");
+    expect(updater).toContain("automaticDelivery:current.automaticDelivery");
+    expect(updater).toContain("maxTradeAttemptsPerDay:current.maxTradeAttemptsPerDay");
+    expect(updater).toContain("tradeRetryDelaySeconds:current.tradeRetryDelaySeconds");
+    expect(updater).not.toContain("maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay??5");
+    expect(updater).not.toContain("tradeRetryDelaySeconds:policy.tradeRetryDelaySeconds??30");
+    expect(serverDb).toContain("return Boolean(packagePolicy && packagePolicy.enabled && packagePolicy.automaticDelivery && packagePolicy.automaticTradingEnabled)");
+    expect(serverDb).not.toContain("maxTradeAttemptsPerDay:Number(policyByName.get(String(row.packageName))?.maxTradeAttemptsPerDay??5)");
+  });
+});
+
+
+describe("Trading policy defaults and fail-closed execution", () => {
+  it("does not substitute hardcoded fee, settlement, popup, or market timing values when policy rows are missing", () => {
+    expect(serverDb).not.toContain("DEFAULT_TRADE_FEE_POLICY");
+    expect(serverDb).toContain('requireTradePolicySetting("trade.platformFeeBps")');
+    expect(serverDb).toContain('requireTradePolicySetting("trade.settlementDelaySeconds")');
+    expect(serverDb).toContain('requireTradePolicySetting("opportunity.popup.displaySeconds")');
+    expect(serverDb).toContain('requireTradePolicySetting("market.refreshIntervalMinutes")');
+    expect(serverDb).toContain("Trading policy setting");
+  });
+
+  it("requires a persisted enabled policy with automatic delivery and execution before allocation", () => {
+    expect(serverDb).toContain("return Boolean(configured && configured.enabled && configured.automaticDelivery && configured.automaticTradingEnabled);");
+    expect(serverDb).not.toContain("return !configured||(Boolean(configured.enabled)&&configured.automaticTradingEnabled!==false);");
+  });
+
+  it("keeps carry-forward explicitly unavailable rather than presenting an implemented control", () => {
+    expect(navigation).toContain("Carry-Forward Unavailable");
+    expect(operationsUi).toContain("Carry-forward is unavailable: missed opportunities do not roll over and no carry-forward setting is active.");
   });
 });

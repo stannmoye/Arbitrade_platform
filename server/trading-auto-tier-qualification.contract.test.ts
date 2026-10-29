@@ -205,7 +205,10 @@ describe("Automatic Trading tier qualification", () => {
     expect(policyMigrationSource).toContain("MODIFY COLUMN `packageName` varchar(80) NOT NULL");
     expect(policyMigrationSource).toContain("INSERT INTO `opportunity_package_policies` (`packageName`)");
     expect(databaseSource).toContain("const tiers=await db.select({name:packages.name}).from(packages)");
-    expect(databaseSource).toContain("values({packageName:tier.name})");
+    expect(databaseSource).toContain("if(!existingPolicy) throw new Error(\"Saved Trading policy is missing for \"+policy.packageName");
+    expect(routerSource).toContain("packagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies())");
+    expect(databaseSource).toContain("return rows.filter(row=>tierNames.has(row.packageName))");
+    expect(databaseSource).not.toContain("values({packageName:tier.name})");
     expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy})");
     expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
     expect(databaseSource).toContain("const matchingRows=rows.filter(row=>tierNames.has(row.packageName))");
