@@ -69,4 +69,14 @@ describe("automatic Trading opportunity scheduler", () => {
     expect(cycleSource).toContain("finally");
     expect(cycleSource).toContain("tradeCycleRunning = false;");
   });
+  it("backs off repeated automatic-cycle failures and resets the delay after a successful cycle", () => {
+    expect(cycleSource).toContain("tradeCycleConsecutiveFailures = 0");
+    expect(cycleSource).toContain("tradeCycleRetryAfterMs = 0");
+    expect(cycleSource).toContain("Date.now() < tradeCycleRetryAfterMs");
+    expect(cycleSource).toContain("Math.min(tradeCycleMaximumBackoffMs");
+    expect(cycleSource).toContain("tradeCycleBaseIntervalMs * (2 ** (tradeCycleConsecutiveFailures - 1))");
+    expect(cycleSource).toContain("retryDelayMs: backoffMs");
+    expect(cycleSource).toContain("sanitizeWorkerErrorMessage(error)");
+    expect(cycleSource).toContain("tradeCycleMaximumBackoffMs = 5 * 60_000");
+  });
 });
