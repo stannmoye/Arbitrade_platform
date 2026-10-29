@@ -36,10 +36,11 @@ describe("Trading customer package subscription schema repair", () => {
     const entry = entries.find((item) => item.tag === "0078_trading_customer_package_subscription_repair");
     expect(entry).toBeDefined();
     expect(entry.idx).toBe(entries.length - 9);
-    expect(entries.at(-4).tag).toBe("0083_trading_opportunity_worker_indexes");
-    expect(entries.at(-3).tag).toBe("0084_worker_health_registry");
-    expect(entries.at(-2).tag).toBe("0085_trade_settlement_schema_reconciliation");
-    expect(entries.at(-1).tag).toBe("0086_trading_popup_policy_ranges");
+    expect(entries.at(-5).tag).toBe("0083_trading_opportunity_worker_indexes");
+    expect(entries.at(-4).tag).toBe("0084_worker_health_registry");
+    expect(entries.at(-3).tag).toBe("0085_trade_settlement_schema_reconciliation");
+    expect(entries.at(-2).tag).toBe("0086_trading_popup_policy_ranges");
+    expect(entries.at(-1).tag).toBe("0087_trading_company_spotlight_rotation");
     expect(entry.when).toBeGreaterThan(entries.slice(0, entry.idx).reduce((latest, item) => Math.max(latest, item.when), 0));
   });
 
