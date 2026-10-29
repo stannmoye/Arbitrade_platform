@@ -56,7 +56,8 @@ Controls may be grouped into tabs such as **Package & Badge**, **Capital & Profi
 - To enable automatic delivery, the administrator must save both a valid inclusive positive payout-rate range and a valid inclusive trade-duration range. The server rejects incomplete, incompatible or implicitly defaulted settings.
 - Policy saves include explicit enabled, automatic-delivery and automatic-trading booleans. Automatic trading cannot be enabled unless the policy and delivery are enabled; enabling a package is rejected until the saved policy is valid.
 - Reads never create policy rows. A missing or invalid saved policy pauses delivery/allocation for that tier; reconcile it through an audited administrator save or a reviewed forward migration.
-- Migration 0088_trading_popup_trade_snapshots.sql is forward-only after migrations 0086 and 0087. It stores configured rate/duration/display duration and policy version on the popup, plus a copy of the company reference metadata, and copies the same chosen rate/duration/company snapshot to trade_positions.
+- Migration `0088_trading_popup_trade_snapshots.sql` is forward-only after migrations 0086 and 0087. It stores configured rate/duration/display duration and policy version on the popup, plus a copy of the company reference metadata, and copies the same chosen rate/duration/company snapshot to `trade_positions`.
+- Migration `0089_trading_trade_wallet_funding_plan_snapshot.sql` is a separate forward-only correction that adds nullable `trade_positions.walletFundingPlanJson`. It must remain after 0088 and be present in the Drizzle journal, portal runner, installer recovery registry and runtime worker schema bridge. Keep historical migrations unchanged.
 
 ## 3. Customer pop-up: required content
 
@@ -83,7 +84,7 @@ If a field is not yet known, show “Pending” or “Unavailable”; never fill
 
 - **Minimize** collapses the expanded card into a fixed bottom-of-viewport dock.
 - **Maximize** reopens it without resetting countdowns or lifecycle state.
-- The expanded display timeout only changes presentation. It cannot discard the opportunity, cancel a trade, or settle an account.
+- The expanded display timeout and Dismiss control only change presentation. They cannot discard the durable opportunity, cancel or suppress server-owned automatic execution, alter entitlement/quota, debit or credit a wallet, or settle an account. A dismissed event remains eligible for automatic processing when its persisted delivery and execution states permit it.
 - Do not dismiss at countdown zero until the server reports an appropriate terminal status. Pending, retrying and awaiting-settlement items remain accessible.
 - Multiple cards must remain separately keyed; one card must not overwrite another.
 

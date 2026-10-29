@@ -52,7 +52,7 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
           continue;
         }
 
-        let company: { id: string; name: string; logoUrl: string; metadataJson: string } | null = null;
+        let company: { id: string; name: string; logoUrl: string; metadataJson: string; rotationCycle: number; rotationSequence: number; poolFingerprint: string } | null = null;
         if (item.companyRotationEnabled) {
           const stateKey = "trading.companyRotation." + item.userId + "." + item.packageName;
           if (stateKey.length > 120) throw new Error("Company rotation scope key exceeds the storage limit.");
@@ -69,7 +69,9 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
           // The per-customer/per-tier lock also serializes concurrent workers.
           // Re-check idempotency after waiting for that lock before advancing rotation.
           const [racedEvent] = await connection.query<any[]>(
-            "SELECT id FROM opportunity_popup_events WHERE eventKey=? LIMIT 1",
+            // A locking/current read is required here: a prior ordinary SELECT can
+            // keep its REPEATABLE READ snapshot while this worker waits for the cursor.
+            "SELECT id FROM opportunity_popup_events WHERE eventKey=? LIMIT 1 FOR UPDATE",
             [eventKey],
           );
           if (racedEvent.length) {
@@ -95,7 +97,15 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
             id: String(selection.company.id),
             name: String(selection.company.name),
             logoUrl: String(selection.company.logoUrl),
+            rotationCycle: selection.rotationCycle,
+            rotationSequence: selection.rotationSequence,
+            poolFingerprint: selection.poolFingerprint,
             metadataJson: JSON.stringify({
+              rotationStateVersion: 1,
+              rotationCycle: selection.rotationCycle,
+              rotationSequence: selection.rotationSequence,
+              poolFingerprint: selection.poolFingerprint,
+              repeatPolicy: item.companyRotationRepeatPolicy,
               ticker: selection.company.ticker,
               symbol: selection.company.symbol,
               exchangeCode: selection.company.exchangeCode,
@@ -124,6 +134,8 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
             "UPDATE app_settings SET settingValue=?,updatedBy=?,updatedAt=CURRENT_TIMESTAMP WHERE settingKey=?",
             [JSON.stringify(selection.state), item.userId, stateKey],
           );
+          // The opportunity row and its company/rotation snapshot are inserted in
+          // this same transaction. A rollback therefore restores the cursor too.
         }
 
         await connection.execute(
@@ -133,7 +145,7 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
              companyReferenceId,companyDisplayName,companyLogoUrl,companyReferenceMetadataJson,companyReferenceOnly,
              balanceAvailableMinor,balanceStatus,marketObservedAt,marketSnapshotJson,durationSeconds,badgeLabel,badgeStyle,policyVersion,
              eventStatus,deliveredAt,createdAt,updatedAt)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
            ON DUPLICATE KEY UPDATE updatedAt=CURRENT_TIMESTAMP`,
           [
             eventKey, item.userId, item.offerId, item.quotaDay, item.packageName, item.symbol, item.currency,

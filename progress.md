@@ -1,3 +1,47 @@
+## 2026-10-29 — PART 4 handoff status (latest verified source review)
+
+- Repository `stannmoye/Arbitrade_platform`; current `main`: `07b17ca401d5f0582bf09fba8b6625f4a8af42e6`.
+- PR #238 remains open/draft at head `1932435c93c04b46675d86ee44eb837c1a1f112f`, based on PR #233 branch `feat/trading-package-popup-policy` at `0c7302a6fd418af95d42e426b1e715976e7e7b5e`. Do not merge #238 independently to `main`.
+- Validation-only draft PR #242 targets `main` to trigger current workflows against the Part 4 head. Do not merge #242.
+- Added forward-only migration 0089 for `trade_positions.walletFundingPlanJson` and registered it in the journal, portal runner, installer recovery and worker runtime-schema path. Corrected migration-order tests, the popup INSERT bound-value count and duplicate-delivery current read. Added a disposable MySQL 8.4/MariaDB 11.4 integration workflow that follows installer migration order and tests durable rotation.
+- Exact-head rotation database run [40929821492](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821492) passed on both DBs; final fixture uses at least 3 companies and verifies one duplicate cursor advance, four unique concurrent assignments, snapshots, fresh-process restart, rollback and cycle 2 only after exhaustion.
+- Also passed exact-head application [40929821517](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821517), Trading recovery [40929821444](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821444), settlement DB integration [40929821435](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821435), tier/worker DB integration [40929821422](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821422), installer [40929821482](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821482), and Mining regression [40929821644](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821644). The type-check/test/build job in run [40929821416](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821416) passed; its separate generic customer portal browser-recovery job was still in progress, so the full workflow is not claimed completed.
+- Local `pnpm check`, `pnpm test`, and `pnpm build` were unavailable because GitHub DNS prevented local checkout. No production database/server was accessed.
+- Remaining blockers: PR #230 has a merge conflict; PR #233/#235 have conflicting 0086/0087 migration histories requiring a unified forward-only sequence. No source PR has been merged to main, so Part 4 is not integration-complete or final acceptance-complete.
+- PR #236 stays open/draft. Dedicated authenticated UI and persisted-settings acceptance on a suitable non-production server is explicitly deferred and remains unverified.
+
+---
+
+
+## 2026-10-29 — Part 4 execution-state fail-closed correction
+
+- Restricted popup execution eligibility to the schema's explicit retryable states `READY` and `RETRYING`; terminal, in-flight, unknown, and invalid `PENDING` states are not claimable through this presentation-policy helper.
+- Added regression assertions for retryable and unknown execution statuses. This follows the actual `opportunity_popup_events.executionStatus` enum in `drizzle/schema.ts`.
+- Exact-head GitHub Actions still reports zero PR workflow runs for the previously inspected commit; test execution remains pending.
+
+---
+## 2026-10-29 — Part 4 follow-up validation correction
+
+- Expanded automatic-execution eligibility to include the `OPENED` event status. Opening a popup is a presentation event and must not accidentally exclude an otherwise eligible server-owned automatic execution.
+- Kept `RUNNING` execution attempts excluded from new claims to avoid re-claiming in-flight work.
+- Added regression assertions for `NOTICED`, `OPENED`, and `DISMISSED` events plus failed delivery, terminal execution, in-flight execution and withdrawn events.
+- Validation remains source-level only: GitHub Actions reports zero check runs for the latest inspected commit. Local package scripts and database concurrency tests remain outstanding.
+
+---
+
+## 2026-10-29 — PART 4 — COMPANY ROTATION & OPPORTUNITY PRESENTATION
+
+- Layered this Part 4 increment on the `feat/trading-package-popup-policy` review branch to avoid silently editing the Part 1 branch or merging into `main`.
+- Kept company assignment inside `ensurePopupDeliveries`: the per-customer/package rotation cursor is locked and advanced in the same transaction as the idempotent opportunity row and its company snapshot.
+- Added rotation cycle, sequence, filtered-pool fingerprint, repeat policy, and snapshot version to the saved company metadata so opportunity records preserve their exact assignment context across restart and review.
+- Converted the customer company spotlight endpoint to a read-only preview query and removed the customer's automatically fetched/next-reference spotlight. Customer company identity now comes from persisted opportunity/trade snapshots; the catalogue remains searchable as informational reference data.
+- Fixed a lifecycle boundary: dismissing a customer popup no longer suppresses automatic worker execution. Execution eligibility is computed independently of the presentation status, and regression tests cover dismissed, failed-delivery, and terminal-execution cases.
+- Updated the canonical Trading specification, companion admin manual, and `docs/trading/IMPLEMENTATION_COORDINATION.md` with the dismissal, snapshot, rotation, ownership and integration contracts.
+- Added tests for restart restoration, rotation sequence/cycle metadata, read-only preview, transactional snapshot expectations, and presentation/execution isolation.
+- Validation: source-contract review completed; local `pnpm check`, `pnpm test`, and `pnpm build` could not be run in this environment because GitHub network access is unavailable to the local shell. Exact-head GitHub CI remains required before acceptance. No merge to `main`, production migration, or deployment was performed.
+
+---
+
 ## 2026-10-29 — Durable package-scoped company spotlight rotation
 
 - Added administrator-controlled package settings for informational company spotlight rotation: enabled state, exact country-folder filters, and repeat behavior. The pool uses the existing 1,811-record catalogue and preserves each stable Logo ID, name, logo and country-folder metadata.
@@ -262,3 +306,56 @@ This policy is final and must be followed throughout the application:
 - Use integer basis points, minor-unit money math, explicit rounding, exact fee/payout reconciliation, and persisted UTC deadlines. Startup recovery must find overdue work without resetting timers or duplicating debits, payouts, or company rotation.
 - A configured percentage formula is a platform-defined contractual payout unless supported by actual execution/result evidence; UI and terms must not misrepresent it as market-earned profit.
 - Documentation changes are on `docs/admin-editable-trading-popups` and await exact-head CI/review before merge. No production deployment or database operation was performed.
+
+
+## 2026-10-29 — Part 4 CI-driven schema correction and dependency handoff
+
+- Refreshed GitHub PRs #230–#238 and current `main`. Current `main`: `07b17ca401d5f0582bf09fba8b6625f4a8af42e6`. Part 4 PR #238 was at `fd0cf980929e03aa5cdb50c4582cf45585458cd5` before this correction; it had no exact-head workflow runs and remains draft/stacked on PR #233.
+- Investigated PR #233's failed MySQL 8.4 and MariaDB 11.4 settlement integrations. Both failed because Drizzle selected `trade_positions.walletFundingPlanJson` but migration 0088 did not add it to that table. A forward-only migration 0089 is being added, registered in the Drizzle journal, portal runner, installer recovery list and worker runtime-schema bridge, with a worker preflight contract.
+- Fixed the two migration-order tests whose hard-coded journal offsets failed and updated this handoff plus `docs/trading/IMPLEMENTATION_COORDINATION.md`.
+- Local validation is unavailable because GitHub host resolution prevented repository checkout; `pnpm check`, `pnpm test` and `pnpm build` have not been run locally. No production database/server was accessed. Exact-head CI must be checked after this source change.
+- Integration remains blocked: PRs #230–#237 remain open/unmerged in the latest refresh; PR #230 reports a merge conflict; main's historical `0086_trading_popup_policy_snapshots.sql` and PR #233/#235 same-numbered migrations require an explicit forward-only migration sequence. Do not merge #238 independently.
+- Part 5 PR #236 current head `e9184988c9dbfde346278e697d8a9b64f47ec229` has seven successful generic workflows. Its dedicated authenticated UI runner and persisted-settings server acceptance are not verified; the real-server run was explicitly deferred.
+- Disposition: Part 4 is not integration-complete or acceptance-complete. Exact-head CI and the integrated migration/lifecycle checks remain required; dedicated server acceptance remains deferred.
+
+
+- Exact source correction commit: `6f8da2dde430b15ad060eb7883f9642e342d4609`. Immediately after pushing that commit, the exact-SHA workflow and combined-status APIs returned no checks; the new source is not yet reported as passing. Refresh the PR head and CI results before acceptance.
+
+
+## 2026-10-29 — Exact-head CI results after schema and contract fixes
+
+- Code correction `6f8da2dde430b15ad060eb7883f9642e342d4609` adds migration 0089 and registers it across the Drizzle journal, portal runner, installer recovery and worker runtime-schema path. Follow-up test correction `928833c577518fad488b147f7e2cf63b73fd2edb` aligns popup contract assertions with the current `executionEligible` predicate and excludes `trade_positions` from a test that specifically asserts the legacy 0062 bridge tables. The separate migration contract asserts the 0089 column directly.
+- Validation-only draft PR #242 runs the existing `main`-targeted workflows against the exact Part 4 branch head `928833c577518fad488b147f7e2cf63b73fd2edb`; PR #238 remains stacked on #233. Exact-head run evidence:
+  - Verify application, run [40927079937](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40927079937): main install/type-check/test/build job passed.
+  - Trading recovery, run [40927079945](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40927079945): typecheck/tests/production-build job passed.
+  - Settlement integration, run [40927079950](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40927079950): MySQL 8.4 and MariaDB 11.4 passed.
+  - Tier qualification integration, run [40927080170](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40927080170): MySQL 8.4, MariaDB 11.4 and real worker assignment/reversal passed.
+  - Mining regression, run [40927079934](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40927079934): passed. No Mining files were changed.
+  - Installer validation, run [40927079996](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40927079996): application unit tests, installer/migration regressions, TypeScript, build/smoke, syntax, fresh MariaDB, MySQL compatibility/recovery and deployment package jobs passed.
+  - Build/test production, run [40927079932](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40927079932): its type-check/test/build job passed; the separate generic customer-portal real-browser recovery job was still running at this record time. This generic recovery job is not the dedicated Part 5 authenticated acceptance runner.
+- The first workflow pass exposed stale contract tests asserting the old `popupEligible` variable in execution guards, plus the legacy worker-bridge assertion applied to the new trade snapshot contract. Those assertions were corrected; the follow-up exact-head CI above passed on the revised source-test commit.
+- Local `pnpm check`, `pnpm test` and `pnpm build` were not executed because this environment could not resolve GitHub for a repository checkout. GitHub CI executed the project’s install/check/test/build workflows. No production database or server was used.
+- Current status remains **not integration-complete and not acceptance-complete**: PR #230 reports a merge conflict; PR #233 and #235 remain open and their overlapping 0086/0087 migration histories require a forward-only reconciliation against main's historical 0086 before merge. The dedicated authenticated Part 5 UI runner and persisted-settings server acceptance remain deferred by user decision. PR #242 is validation-only, draft, and must never be merged.
+
+
+## 2026-10-29 — Current Part 4 database acceptance and integration handoff
+
+- Exact tested source head: `1932435c93c04b46675d86ee44eb837c1a1f112f`. Rotation DB run [40929821492](https://github.com/stannmoye/Arbitrade_platform/actions/runs/40929821492) passed MySQL 8.4 and MariaDB 11.4 with a three-company pool; duplicate idempotency, concurrent sequence ordering, restart restoration, rollback and snapshot stability passed.
+- The same head passed application, Trading recovery, settlement DB integration, tier qualification/worker integration, installer validation and Mining regression workflows. The production build/test workflow's main build/test job passed; its generic browser-recovery subjob was still running at last check.
+- Database findings fixed: missing INSERT placeholder, stale-snapshot duplicate check, incomplete portal-migration setup in the initial test workflow, and a one-company exhaustion fixture that did not prove full traversal.
+- Part 4 remains not integration-complete because PR #230 is merge-conflicted and PR #233/#235 migrations collide numerically with the main branch's older 0086 file. Preserve historical migration files and reconcile the combined forward-only sequence before merge.
+- Dedicated Part 5 authenticated Playwright/persisted-settings acceptance remains deferred. No live production server/database was accessed.
+
+
+## Explicit migration-lineage blocker — verified from live branch files
+
+- Current `main` Drizzle journal has 55 entries and ends at `0085_trade_settlement_schema_reconciliation`. Main also contains `drizzle/0086_trading_popup_policy_snapshots.sql`, but that file is not in the current main Drizzle journal or portal migration registry. It overlaps policy and snapshot fields with the later feature migrations and therefore cannot be treated as a harmless unique next migration.
+- PR #233's journal records `0086_trading_popup_policy_ranges` at `1793318400005`, `0087_trading_company_spotlight_rotation` at `1793318400006`, then `0088_trading_popup_trade_snapshots` and Part 4's `0089_trading_trade_wallet_funding_plan_snapshot`.
+- PR #235's journal instead records `0086_trading_opportunity_execution_leases` at `1793318400004` and `0087_trading_package_policy_schema_reconciliation` at `1793318400005`. Their SQL adds lease/delivery state and broad package/trade schema reconciliation that partially overlaps the Part 4/policy schema.
+- This is a real upgrade-history conflict: `installer/main-migration-preflight.mjs` requires tracker hashes and `created_at` values to match an exact contiguous prefix of the repository journal. `scripts/guarded-main-migrate.mjs` rejects an unrecorded migration whose timestamp is less than or equal to the latest recorded timestamp. A simple union of the two journals can therefore reject installations that already applied only the #233 or only the #235 branch, even if the DDL is additive.
+- **Not resolved by the current Part 4 branch.** Before merging the dependency chain, implement and test an explicit forward-only migration-history/schema reconciliation strategy for databases with main-only, #233-only and #235-only migration histories (including duplicate timestamps, policy field nullability/defaults, lease columns and worker preflight). Preserve original migration SQL and existing tracker records; do not just rename files, retimestamp old entries, or bypass the guard. The new rotation workflow tests the current clean disposable install sequence, but it is not evidence that all these alternative upgrade histories are safe.
+
+
+## Final exact-head workflow outcome for documentation-reviewed head
+
+The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` received successful conclusions for all eight main-targeted workflows: `40930505736` rotation MySQL/MariaDB integration, `40930505775` settlement MySQL/MariaDB integration, `40930505738` tier/worker integration, `40930505737` application install/type-check/test/build, `40930505724` Trading recovery, `40930505718` installer validation, `40930505765` Mining regression, and `40930505771` build/test production including its generic browser-recovery job. These are source CI results, not live-server acceptance. The separate dedicated Part 5 authenticated UI and persisted-settings acceptance remains deferred.

@@ -49,6 +49,12 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
       opportunity_popup_event_key_unique: { unique: true, columns: ["eventKey"] },
     },
   },
+  trade_positions: {
+    columns: ["walletFundingPlanJson"],
+    dataTypes: { walletFundingPlanJson: "text" },
+    nullable: { walletFundingPlanJson: true },
+    indexes: {},
+  },
   notification_campaigns: {
     columns: [
       "id", "createdBy", "eventKey", "title", "body", "category", "priority",

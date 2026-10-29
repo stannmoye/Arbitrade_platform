@@ -407,6 +407,13 @@
       "when": 1793404800000,
       "tag": "0088_trading_popup_trade_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1793404800001,
+      "tag": "0089_trading_trade_wallet_funding_plan_snapshot",
+      "breakpoints": true
     }
   ]
 }

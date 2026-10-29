@@ -22,7 +22,7 @@ export function buildCompanySpotlightPool(countryNames:string,catalogue=COMPANY_
   if(new Set(pool.map(company=>company.id)).size!==pool.length) throw new Error("Company spotlight pool contains duplicate Logo IDs.");
   return pool;
 }
-export function nextCompanySpotlight(pool:CompanyReferenceRecord[],priorState:unknown,userId:number,packageName:string,repeatPolicy:CompanySpotlightRepeatPolicy):{company:CompanyReferenceRecord;state:CompanySpotlightState}{
+export function nextCompanySpotlight(pool:CompanyReferenceRecord[],priorState:unknown,userId:number,packageName:string,repeatPolicy:CompanySpotlightRepeatPolicy):{company:CompanyReferenceRecord;state:CompanySpotlightState;rotationCycle:number;rotationSequence:number;poolFingerprint:string}{
   if(!Number.isSafeInteger(userId)||userId<1) throw new Error("A valid customer identity is required for company rotation.");
   if(!packageName.trim()||packageName.length>80) throw new Error("A valid Trading package scope is required for company rotation.");
   if(repeatPolicy!=="avoid_until_exhausted"&&repeatPolicy!=="allow_repeats") throw new Error("Unsupported company rotation repeat policy.");
@@ -34,6 +34,8 @@ export function nextCompanySpotlight(pool:CompanyReferenceRecord[],priorState:un
   const state:CompanySpotlightState=raw&&raw.poolFingerprint===fingerprint&&raw.repeatPolicy===repeatPolicy&&Number.isSafeInteger(raw.cycleNumber)&&Number(raw.cycleNumber)>=1&&Number.isSafeInteger(raw.nextIndex)&&Number(raw.nextIndex)>=0&&Number(raw.nextIndex)<pool.length&&Number.isSafeInteger(raw.requestCount)&&Number(raw.requestCount)>=0
     ?{poolFingerprint:fingerprint,repeatPolicy,cycleNumber:Number(raw.cycleNumber),nextIndex:Number(raw.nextIndex),requestCount:Number(raw.requestCount),lastLogoId:typeof raw.lastLogoId==="string"?raw.lastLogoId:null}
     :{poolFingerprint:fingerprint,repeatPolicy,cycleNumber:1,nextIndex:0,requestCount:0,lastLogoId:null};
+  const rotationCycle=state.cycleNumber;
+  const rotationSequence=state.requestCount+1;
   let company:CompanyReferenceRecord,nextIndex=state.nextIndex,cycleNumber=state.cycleNumber;
   if(repeatPolicy==="allow_repeats"){
     const index=Number.parseInt(digest(userId+":"+packageName+":"+fingerprint+":"+state.requestCount).slice(0,8),16)%pool.length;
@@ -48,5 +50,5 @@ export function nextCompanySpotlight(pool:CompanyReferenceRecord[],priorState:un
     nextIndex++;
     if(nextIndex>=ordered.length){nextIndex=0;cycleNumber++;}
   }
-  return {company,state:{poolFingerprint:fingerprint,repeatPolicy,cycleNumber,nextIndex,requestCount:state.requestCount+1,lastLogoId:company.id}};
+  return {company,state:{poolFingerprint:fingerprint,repeatPolicy,cycleNumber,nextIndex,requestCount:state.requestCount+1,lastLogoId:company.id},rotationCycle,rotationSequence,poolFingerprint:fingerprint};
 }

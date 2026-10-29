@@ -16,6 +16,7 @@ import { planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-w
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, usdUnitsToNativeMinor } from "../shared/money";
 import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
+import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry } from "./modules/trade-execution-retry";
@@ -2700,10 +2701,10 @@ export async function getCustomerTradingEligibility(userId:number) {
 }
 
 
-export async function getNextCustomerCompanySpotlight(userId:number) {
+export async function previewNextCustomerCompanySpotlight(userId:number) {
   const eligibility=await getCustomerTradingEligibility(userId);
   const packageName=String(eligibility.currentPackage?.name||"").trim();
-  if(!eligibility.eligible||!packageName) throw new Error("An active automatically assigned Trading tier is required for company spotlight rotation.");
+  if(!eligibility.eligible||!packageName) throw new Error("An active automatically assigned Trading tier is required for company spotlight preview.");
   const policies=await listPersistedOpportunityPackagePolicies();
   const policy=policies.find(row=>row.packageName===packageName);
   if(!policy) throw new Error("The active Trading tier has no saved company rotation policy.");
@@ -2712,17 +2713,17 @@ export async function getNextCustomerCompanySpotlight(userId:number) {
   const stateKey="trading.companyRotation."+userId+"."+packageName;
   if(stateKey.length>120) throw new Error("Company rotation scope key exceeds the storage limit.");
   const db=await getDb();
-  if(!db) throw new Error("Company spotlight rotation is temporarily unavailable.");
-  return db.transaction(async tx=>{
-    await tx.insert(appSettings).values({settingKey:stateKey,settingValue:""}).onDuplicateKeyUpdate({set:{settingKey:stateKey}});
-    const row=(await tx.select({settingValue:appSettings.settingValue}).from(appSettings).where(eq(appSettings.settingKey,stateKey)).limit(1).for("update"))[0];
-    let priorState:CompanySpotlightState|null=null;
-    try { const parsed=JSON.parse(String(row?.settingValue||"")); if(parsed&&typeof parsed==="object") priorState=parsed as CompanySpotlightState; } catch {}
-    const repeatPolicy=String(policy.companyRotationRepeatPolicy||"avoid_until_exhausted") as "avoid_until_exhausted"|"allow_repeats";
-    const result=nextCompanySpotlight(pool,priorState,userId,packageName,repeatPolicy);
-    await tx.update(appSettings).set({settingValue:JSON.stringify(result.state),updatedBy:userId}).where(eq(appSettings.settingKey,stateKey));
-    return {...result.company,referenceOnly:true as const,rotationCycle:result.state.cycleNumber,packageName};
-  });
+  if(!db) throw new Error("Company spotlight preview is temporarily unavailable.");
+
+  // Preview reads the next candidate but never creates a cursor row or advances
+  // production state. The worker assigns the company inside the opportunity transaction.
+  const row=(await db.select({settingValue:appSettings.settingValue})
+    .from(appSettings).where(eq(appSettings.settingKey,stateKey)).limit(1))[0];
+  let priorState:CompanySpotlightState|null=null;
+  try { const parsed=JSON.parse(String(row?.settingValue||"")); if(parsed&&typeof parsed==="object") priorState=parsed as CompanySpotlightState; } catch {}
+  const repeatPolicy=String(policy.companyRotationRepeatPolicy||"avoid_until_exhausted") as "avoid_until_exhausted"|"allow_repeats";
+  const result=nextCompanySpotlight(pool,priorState,userId,packageName,repeatPolicy);
+  return {...result.company,referenceOnly:true as const,rotationCycle:result.rotationCycle,rotationSequence:result.rotationSequence,poolFingerprint:result.poolFingerprint,packageName,previewOnly:true as const};
 }
 
 /** Runtime reads never create policy rows from schema defaults; tiers without saved policy are ineligible. */
@@ -2921,7 +2922,7 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
   for(const offer of offers){
     // A pending/retrying card is not a delivered opportunity and must never trigger
     // a trade. Only authoritative DELIVERED/NOTICED popup states are eligible.
-    if(offer.popupEligible!==true) continue;
+    if(offer.executionEligible!==true) continue;
     if(existingTrades.some((trade:any)=>Number(trade.offerId)===Number(offer.id))||missedOfferIds.has(Number(offer.id))) continue;
     const offerMinimum=Number(offer.minimumMinor);
     const packageMinimum=Number(offer.packageMinimumTradeMinor||0);
@@ -3196,11 +3197,15 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       executionStatus:row.executionStatus,executionAttemptCount:Number(row.executionAttemptCount||0),executionRetryAfter:row.executionRetryAfter,executionRetryDay:row.executionRetryDay,executionLastErrorCode:row.executionLastErrorCode,
       maxTradeAttemptsPerDay:Number(policyByName.get(String(row.packageName))?.maxTradeAttemptsPerDay??5),
       tradeRetryDelaySeconds:Number(policyByName.get(String(row.packageName))?.tradeRetryDelaySeconds??30),
-      popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered"].includes(String(row.deliveryStatus)),eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus};
+      popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus)&&["delivered","received","rendered"].includes(String(row.deliveryStatus)),
+      executionEligible:isPopupExecutionEligible({eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus,executionStatus:row.executionStatus}),
+      eventStatus:row.eventStatus,deliveryStatus:row.deliveryStatus};
   }).filter((offer) => offer !== null);
   const allocationControls=await getTradeAllocationControls();
   const autoTradeCandidates=tradeCandidates.filter((offer:any)=>{
-    if(offer.popupEligible!==true || allocationControls.allocationsPaused) return false;
+    // Dismissing/minimizing a customer card is presentation-only and must not
+    // suppress an otherwise eligible server-owned automatic execution.
+    if(offer.executionEligible!==true || allocationControls.allocationsPaused) return false;
     const packagePolicy=policyByName.get(String(offer.packageName));
     // Disabled package policies or automatic execution must stop new allocations
     // without turning a merely visible/pending popup into a trade request.
