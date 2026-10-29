@@ -9,6 +9,7 @@ import { calculateTradeSettlement } from "./modules/trade-settlement";
 import { calculateRealizedProfitSettlement, type FeeRoundingMode } from "./modules/realized-profit-accounting";
 import { buildSettlementLedgerCandidateReferences, inspectSettlementLedgerPostings, inspectWalletLedgerSnapshot } from "./modules/wallet-ledger-reconciliation";
 import { addCalendarMonths } from "./modules/calendar-months";
+import { getCompanyReferenceById, getCompanyReferenceForRotation } from "./modules/company-catalogue-reference";
 import { ensurePopupDeliveries, updatePopupLifecycleForOffer } from "./opportunityLifecycle";
 import { assertTradeAmountWithinBounds, chooseSecureTradeAmount } from "./modules/package-trade-allocation";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
@@ -2868,7 +2869,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     return dailyQuota>0&&(usedBySubscription.get(Number(subscription.subscriptionId))||0)<dailyQuota;
   };
   const activePopupRows=await db.select({
-    eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
+    eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,companyLogoId:opportunityPopupEvents.companyLogoId,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
     balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,quotaDay:opportunityPopupEvents.quotaDay,
@@ -2906,7 +2907,15 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const terms=calculateTradeTerms(userId,offer,Math.max(Number(offer.minimumMinor),configuredMinimum));
       const minimumMinor=Math.max(Number(offer.minimumMinor),Number(terms.minimumMinor||0),configuredMinimum);
       if(!Number.isSafeInteger(minimumMinor)||minimumMinor<=0||minimumMinor>configuredMaximum) continue;
+      const companySlotIndex=Number(usedBySubscription.get(Number(subscription.subscriptionId))||0);
+      const companyReference=getCompanyReferenceForRotation({
+        userId,
+        packageId:Number(subscription.packageId),
+        quotaDay,
+        slotIndex:companySlotIndex,
+      });
       newlyEligible.push({...offer,packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
+        companyLogoId:companyReference.id,
         minimumMinor,packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
         expectedRewardBps:terms.rewardBps,calculationMethod:terms.method});
@@ -2919,7 +2928,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({userId,offerId:offer.id,quotaDay,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1)}))).onDuplicateKeyUpdate({set:{deliveredAt:new Date()}});
     const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{
       const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
-      return {userId,offerId:offer.id,quotaDay,packageName:offer.packageName,symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
+      return {userId,offerId:offer.id,quotaDay,packageName:offer.packageName,companyLogoId:String(offer.companyLogoId),symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
         expectedRewardBps:Number(offer.expectedRewardBps),balanceAvailableMinor:available,balanceStatus:available>=Number(offer.minimumMinor)?"sufficient":"insufficient",
         marketObservedAt:offer.marketObservedAt,marketSnapshotJson:JSON.stringify({symbol:offer.symbol,venueFrom:offer.venueFrom,venueTo:offer.venueTo,marketValueUsd:offer.marketValueUsd,sector:offer.sector,industry:offer.industry,listingStatus:offer.listingStatus,observedAt:offer.marketObservedAt})};
     }));
@@ -2957,7 +2966,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     const offerMinimum=Number(row.offerMinimumMinor??row.popupMinimumMinor);
     const configuredMinimum=configured&&currencyRow?packageUsdUnitsToNativeMinor(Number(configured.minimumTradeUnits),String(row.currency),currencyRows):offerMinimum;
     const configuredMaximum=configured&&currencyRow?Math.max(configuredMinimum,packageUsdUnitsToNativeMinor(Number(configured.maximumTradeUnits),String(row.currency),currencyRows)):Number.MAX_SAFE_INTEGER;
-    return {id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageId:Number(subscription.packageId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
+    return {id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageId:Number(subscription.packageId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),companyLogoId:row.companyLogoId||null,companyReference:row.companyLogoId?getCompanyReferenceById(String(row.companyLogoId))??null:null,
       symbol:row.symbol,venueFrom:row.venueFrom||"",venueTo:row.venueTo||"",currency:row.currency,minimumMinor:Math.max(offerMinimum,Number(row.popupMinimumMinor||0),configuredMinimum),
       packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,expectedRewardBps:Number(row.expectedRewardBps||0),
       opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,durationSeconds:Number(row.durationSeconds||0),marketObservedAt:row.marketObservedAt,
@@ -2981,7 +2990,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const enrichedOffers=popupRows.map(row=>{
     const base:any=tradeCandidates.find(offer=>Number(offer.offerId)===Number(row.offerId))||{};
     const executed=executedByOffer.get(Number(row.offerId))||null;
-    return {...base,id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageName:row.packageName,
+    return {...base,id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageName:row.packageName,companyLogoId:row.companyLogoId||null,companyReference:row.companyLogoId?getCompanyReferenceById(String(row.companyLogoId))??null:null,
       symbol:row.symbol,currency:row.currency,minimumMinor:Number(row.popupMinimumMinor),balanceAvailableMinor:Number(row.balanceAvailableMinor),
       balanceStatus:row.balanceStatus,expectedRewardBps:Number(row.expectedRewardBps),eventStatus:row.eventStatus,deliveredAt:row.deliveredAt,
       venueFrom:row.venueFrom||base.venueFrom||"",venueTo:row.venueTo||base.venueTo||"",opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,
