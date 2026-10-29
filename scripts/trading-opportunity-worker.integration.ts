@@ -180,7 +180,7 @@ try {
     .set({ executionRetryAfter: new Date(Date.now() - 1000) })
     .where(and(eq(opportunityPopupEvents.id, eventId), eq(opportunityPopupEvents.userId, userId)));
 
-  const crashedWorker = spawn("pnpm", ["exec", "tsx", "scripts/trading-opportunity-worker-crash-fixture.ts"], {
+  const crashedWorker = spawn(process.execPath, ["--import", "tsx", "scripts/trading-opportunity-worker-crash-fixture.ts"], {
     env: {
       ...process.env,
       WORKER_TEST_USER_ID: String(userId),
