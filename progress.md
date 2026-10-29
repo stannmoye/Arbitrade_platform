@@ -1,3 +1,13 @@
+## 2026-10-29 — Admin-editable Trading pop-up and company rotation requirements
+
+- Verified that PR #226, **Disable synthetic Trading opportunity generation**, merged into `main` as `21a9f6a95aa72d464886c1c164016491ec7391dd`. Its six main-commit workflows all completed successfully: Trading settlement DB integration, Trading tier qualification DB integration, Mining regression checks, application verification, installer validation, and production source build/test. No production deployment or production database change was performed.
+- Started documentation branch `docs/admin-editable-trading-popups` from that verified main commit.
+- Added `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md` with the admin package-edit buttons and meanings, badge settings, threshold/duration/quota, required capital and capital bounds, configurable profit percentage range, display duration, schedule, limits, company rotation, audit history, customer pop-up content, restart-safe worker requirements and acceptance checks.
+- Updated `docs/TRADING_SYSTEM_SPECIFICATION.md`, `AGENTS.md`, and `docs/admin-portal-menu-guide.md` to link to and enforce the manual.
+- Important financial integrity rule: an admin-configured percentage range is not permission to randomly generate realized profit. Until an approved auditable result exists, the customer sees a labelled policy/estimate range, not earned profit or a wallet credit. The catalogue remains local reference data and does not establish listing or execution.
+- Company rotation must use stable Logo IDs and the existing local 1,811-record catalogue, preserve matching name/logo/country metadata, persist rotation state, avoid repeats within the configured pool where possible, and resume safely after restart without duplicate opportunity/allocation/settlement.
+- Validation state for this documentation branch: edits are committed on the feature branch; exact-head CI has not yet run. Next step is to inspect the diff, open a PR, and merge to `main` only after the required checks pass. The repository currently has no tracked `docs/TRADING_SYSTEM_SPECIFICATION.pdf`; no PDF update is claimed.
+
 # Current Trading Handoff — 2026-10-29
 
 **Repository:** [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrade_platform)  
