@@ -2957,7 +2957,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const minimumMinor=Math.max(Number(offer.minimumMinor),Number(terms.minimumMinor||0),configuredMinimum);
       if(!Number.isSafeInteger(minimumMinor)||minimumMinor<=0||minimumMinor>configuredMaximum) continue;
       const minimumRewardBps=Number(configured?.minimumRewardBps||0);
-      const maximumRewardBps=Number(configured?.maximumRewardBps||0);
+      const configuredMaximumRewardBps=Number(configured?.maximumRewardBps||0);
+      const maximumRewardBps=configuredMaximumRewardBps>0?configuredMaximumRewardBps:(minimumRewardBps>0?minimumRewardBps:0);
       const configuredProfitRateBps=maximumRewardBps>0?crypto.randomInt(minimumRewardBps,maximumRewardBps+1):terms.rewardBps;
       const minimumTradeDurationSeconds=Number(configured?.minimumTradeDurationSeconds||0);
       const maximumTradeDurationSeconds=Number(configured?.maximumTradeDurationSeconds||0);
@@ -3317,7 +3318,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   // Customer-editable smart rules do not gate the approved automatic package lifecycle.
   const configuredRateBps=Number(popupSnapshot?.configuredProfitRateBps??offer.expectedRewardBps??terms.rewardBps);
   if(!Number.isSafeInteger(configuredRateBps)||configuredRateBps<1||configuredRateBps>10000) throw new Error("Selected Trading profit rate is outside the supported bounds");
-  const minimumConfiguredRateBps=Number(packagePolicy?.minimumRewardBps||0), maximumConfiguredRateBps=Number(packagePolicy?.maximumRewardBps||0);
+  const minimumConfiguredRateBps=Number(packagePolicy?.minimumRewardBps||0), configuredMaximumRateBps=Number(packagePolicy?.maximumRewardBps||0), maximumConfiguredRateBps=configuredMaximumRateBps>0?configuredMaximumRateBps:(minimumConfiguredRateBps>0?minimumConfiguredRateBps:0);
   if(maximumConfiguredRateBps>0&&(configuredRateBps<minimumConfiguredRateBps||configuredRateBps>maximumConfiguredRateBps)) throw new Error("Persisted pop-up profit rate is outside the package's configured range");
   const uncappedReward=calculateConfiguredProfitMinor(input.amountMinor,configuredRateBps);
   const reward=packagePolicy&&Number(packagePolicy.maxRewardPerTradeMinor||0)>0?Math.min(uncappedReward,Number(packagePolicy.maxRewardPerTradeMinor)):uncappedReward;
