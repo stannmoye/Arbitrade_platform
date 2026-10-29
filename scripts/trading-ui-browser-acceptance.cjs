@@ -70,17 +70,54 @@ async function main() {
       "Customer eligibility tRPC responses must contain successful result data, not only HTTP 2xx.");
     assert.doesNotMatch(bodyText, /retry needed|couldn.t load package details/i,
       "Customer eligibility must not remain in an API-error state.");
+
+    // Exercise the customer page at desktop and mobile widths without changing persisted data.
+    for (const viewport of [{ width: 1365, height: 900 }, { width: 390, height: 844 }]) {
+      await customerPage.setViewportSize(viewport);
+      const heading = customerPage.getByRole("heading", { name: /package progress/i });
+      const bounds = await heading.boundingBox();
+      assert.ok(bounds && bounds.width > 0 && bounds.height > 0,
+        `Package progress heading must remain visible at viewport ${viewport.width}x${viewport.height}.`);
+    }
     results.push({
       journey: "customer eligibility",
       status: "passed",
       apiResponses: eligibilityResponses.length,
       packageActivationControls: "not present",
+      responsiveViewports: ["1365x900", "390x844"],
     });
     await customerContext.close();
 
     const adminContext = await browser.newContext({ storageState: adminState });
     const adminPage = await adminContext.newPage();
     await adminPage.goto(baseURL, { waitUntil: "domcontentloaded" });
+
+    // An administrator must not be allowed to read a customer-only eligibility endpoint.
+    const forbiddenProbe = await adminPage.evaluate(async () => {
+      const response = await fetch("/api/trpc/customer.tradingEligibility", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: { accept: "application/json" },
+      });
+      let payload;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = undefined;
+      }
+      return {
+        status: response.status,
+        errorCode: payload?.error?.data?.code ?? payload?.error?.json?.data?.code,
+        hasResult: Boolean(payload?.result?.data),
+      };
+    });
+    assert.ok(
+      forbiddenProbe.status === 403 || forbiddenProbe.errorCode === "FORBIDDEN",
+      `Customer eligibility endpoint must reject administrator role; received HTTP ${forbiddenProbe.status}, code ${forbiddenProbe.errorCode ?? "none"}.`,
+    );
+    assert.equal(forbiddenProbe.hasResult, false,
+      "Forbidden administrator request must not return customer eligibility data.");
+
     await adminPage.getByText("Trade Settings", { exact: true }).waitFor({ timeout: 20_000 });
     await adminPage.getByText(/packages & eligibility/i).waitFor({ timeout: 20_000 });
     const adminBodyText = await adminPage.locator("body").innerText();
