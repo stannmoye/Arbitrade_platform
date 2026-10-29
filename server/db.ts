@@ -2305,6 +2305,7 @@ export async function createAdminTradingPackage(createdBy:number,input:{
   if(!Number.isSafeInteger(input.opportunitiesPerDay)||input.opportunitiesPerDay<1||input.opportunitiesPerDay>10000) throw new Error("Daily opportunity quota must be between 1 and 10000");
   if(!Number.isSafeInteger(input.maxPopupsPerDay)||input.maxPopupsPerDay<0||input.maxPopupsPerDay>10000) throw new Error("Package popup cap must be between 0 and 10000");
   if(!Number.isSafeInteger(input.maxActiveInvestments)||input.maxActiveInvestments<0||input.maxActiveInvestments>10000) throw new Error("Package active-investment cap must be between 0 and 10000");
+  if(input.enabled) throw new Error("New Trading tiers must be created disabled. Save and review the policy, then explicitly enable the tier.");
   if(input.startsAt&&!Number.isFinite(input.startsAt.getTime())) throw new Error("Package start time is invalid");
   if(input.expiresAt&&!Number.isFinite(input.expiresAt.getTime())) throw new Error("Package expiry time is invalid");
   if(input.startsAt&&input.expiresAt&&input.expiresAt<=input.startsAt) throw new Error("Package expiry must be later than its start time");
@@ -2318,7 +2319,7 @@ export async function createAdminTradingPackage(createdBy:number,input:{
       name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,
       durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,
       maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,
-      startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1,
+      startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:false,termsVersion:1,
     });
     const id=Number(inserted[0].insertId);
     await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy,enabled:false,automaticDelivery:false,automaticTradingEnabled:false,policyVersion:0});
@@ -2326,9 +2327,9 @@ export async function createAdminTradingPackage(createdBy:number,input:{
       actorUserId:createdBy,action:"trading_package_created",entityType:"trading_package",entityId:String(id),
       reason:"Administrator created an automatic Trading tier.",
       reference:"trading-package-created:"+id+":1",
-      metadataJson:JSON.stringify({id,...input,name,termsVersion:1}),
+      metadataJson:JSON.stringify({id,...input,name,enabled:false,termsVersion:1,policyStatus:"unconfigured_disabled"}),
     });
-    return {id,name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1};
+    return {id,name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:false,termsVersion:1};
   });
 }
 
@@ -2365,6 +2366,10 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
       }else{
         await tx.insert(opportunityPackagePolicies).values({packageName:nextName,updatedBy,enabled:false,automaticDelivery:false,automaticTradingEnabled:false,policyVersion:0});
       }
+    }
+    const effectivePolicy=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,nextName)).limit(1).for("update"))[0];
+    if(input.enabled&&(!effectivePolicy||Number(effectivePolicy.policyVersion)<1||!effectivePolicy.enabled||!effectivePolicy.automaticDelivery||!effectivePolicy.automaticTradingEnabled)) {
+      throw new Error("Configure and explicitly enable the saved tier delivery and automatic-trading policy before enabling this Trading tier.");
     }
     const nextVersion=Number(current.termsVersion||1)+1;
     if(!Number.isSafeInteger(nextVersion)) throw new Error("Package terms version has reached its limit");
