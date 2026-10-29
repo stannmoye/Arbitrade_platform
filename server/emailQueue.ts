@@ -133,6 +133,19 @@ export async function enqueueDailyDigests(now = new Date(), schedule = getDailyD
 }
 
 const retryDelaysMs = [60_000, 5 * 60_000, 30 * 60_000, 2 * 60 * 60_000];
+
+/**
+ * email_outbox.leaseUntil is a MySQL TIMESTAMP without fractional-second
+ * precision. Align lease tokens to whole seconds so the persisted value can
+ * also be used as a compare-and-set fencing token on terminal transitions.
+ */
+export function buildEmailOutboxLeaseUntil(now: Date, leaseMs = 120_000): Date {
+  if (!Number.isFinite(now.getTime()) || !Number.isSafeInteger(leaseMs) || leaseMs < 1) {
+    throw new Error("Invalid email outbox lease inputs");
+  }
+  return new Date(Math.ceil((now.getTime() + leaseMs) / 1000) * 1000);
+}
+
 let flushing = false;
 export async function flushEmailOutbox(limit = 20) {
   if (flushing || !(await isEmailDeliveryConfigured())) return { sent: 0, failed: 0 };
@@ -153,21 +166,24 @@ export async function flushEmailOutbox(limit = 20) {
         inArray(emailOutbox.status, ["QUEUED", "RETRYING"]),
         and(eq(emailOutbox.status, "PROCESSING"), or(isNull(emailOutbox.leaseUntil), lte(emailOutbox.leaseUntil, now))),
       );
-      const claim = await db.update(emailOutbox).set({ status: "PROCESSING", attempts: sql`${emailOutbox.attempts} + 1`, leaseUntil: new Date(Date.now() + 120_000) }).where(and(eq(emailOutbox.id, row.id), eligible, lte(emailOutbox.nextAttemptAt, now)));
+      const leaseUntil = buildEmailOutboxLeaseUntil(new Date());
+      const claim = await db.update(emailOutbox).set({ status: "PROCESSING", attempts: sql`${emailOutbox.attempts} + 1`, leaseUntil }).where(and(eq(emailOutbox.id, row.id), eligible, lte(emailOutbox.nextAttemptAt, now)));
       const affected = Number((claim as any)?.[0]?.affectedRows ?? (claim as any)?.affectedRows ?? 0);
       if (affected !== 1) continue;
       const attempt = Number(row.attempts) + 1;
       try {
         const rendered = renderEmail(row.templateKey as EmailTemplate, decryptEmailPayload(row.encryptedPayload));
         const result = await sendRenderedEmail(row.recipient, rendered);
-        await db.update(emailOutbox).set({ status: "SENT", encryptedPayload: "", providerMessageId: result.messageId || null, sentAt: new Date(), leaseUntil: null, lastError: null }).where(and(eq(emailOutbox.id, row.id), eq(emailOutbox.status, "PROCESSING")));
-        sent++;
+        const completed = await db.update(emailOutbox).set({ status: "SENT", encryptedPayload: "", providerMessageId: result.messageId || null, sentAt: new Date(), leaseUntil: null, lastError: null }).where(and(eq(emailOutbox.id, row.id), eq(emailOutbox.status, "PROCESSING"), eq(emailOutbox.leaseUntil, leaseUntil)));
+        const completedRows = Number((completed as any)?.[0]?.affectedRows ?? (completed as any)?.affectedRows ?? 0);
+        if (completedRows === 1) sent++;
       } catch (error) {
         const terminal = attempt >= 5;
         const retryDelay = retryDelaysMs[Math.min(attempt - 1, retryDelaysMs.length - 1)];
         const safeError = error instanceof Error ? error.name.slice(0, 120) : "DeliveryError";
-        await db.update(emailOutbox).set({ status: terminal ? "FAILED" : "RETRYING", nextAttemptAt: terminal ? now : new Date(Date.now() + retryDelay), leaseUntil: null, lastError: safeError }).where(and(eq(emailOutbox.id, row.id), eq(emailOutbox.status, "PROCESSING")));
-        if (terminal) failed++;
+        const transitioned = await db.update(emailOutbox).set({ status: terminal ? "FAILED" : "RETRYING", nextAttemptAt: terminal ? now : new Date(Date.now() + retryDelay), leaseUntil: null, lastError: safeError }).where(and(eq(emailOutbox.id, row.id), eq(emailOutbox.status, "PROCESSING"), eq(emailOutbox.leaseUntil, leaseUntil)));
+        const transitionedRows = Number((transitioned as any)?.[0]?.affectedRows ?? (transitioned as any)?.affectedRows ?? 0);
+        if (transitionedRows === 1 && terminal) failed++;
       }
     }
   } finally {
