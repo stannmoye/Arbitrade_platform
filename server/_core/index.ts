@@ -24,7 +24,7 @@ import { getLocalSessionFromRequest } from "./localAuth";
 import { confirmEmailVerification, requestEmailVerification, requestPasswordReset, resetPasswordWithCode } from "../emailAuth";
 import { startEmailWorkers } from "../emailQueue";
 import { startHeartbeatWorker } from "./heartbeat";
-import { runMonitoredWorkerCycle, waitForMonitoredWorkerCycles } from "./workerHealth";
+import { runMonitoredWorkerCycle, sanitizeWorkerErrorMessage, waitForMonitoredWorkerCycles } from "./workerHealth";
 import { registerGracefulShutdown, registerWorkerInterval } from "./workerRuntime";
 import { registerLocalStorageRoutes } from "./localStorageRoutes";
 import { refreshMiningPriceFeeds } from "../mining-admin";
@@ -307,8 +307,12 @@ async function startServer() {
     popupRetentionTimer.unref();
     void runMonitoredWorkerCycle("popup-retention", () => runOpportunityRetention()).catch(error => console.error("[PopupRetention]", error instanceof Error ? error.message : error));
     let tradeCycleRunning = false;
+    let tradeCycleConsecutiveFailures = 0;
+    let tradeCycleRetryAfterMs = 0;
+    const tradeCycleBaseIntervalMs = 30_000;
+    const tradeCycleMaximumBackoffMs = 5 * 60_000;
     const runTradeCycle = async () => {
-      if (tradeCycleRunning) return;
+      if (tradeCycleRunning || Date.now() < tradeCycleRetryAfterMs) return;
       tradeCycleRunning = true;
       try {
         let settlementReconciliation: Awaited<ReturnType<typeof reconcileAllDueTradesAwaitingConfirmation>> | null = null;
@@ -316,7 +320,7 @@ async function startServer() {
           settlementReconciliation = await runMonitoredWorkerCycle("settlement-reconciliation", () => reconcileAllDueTradesAwaitingConfirmation());
           if (settlementReconciliation.marked) console.log("[SettlementReconciliation] overdue trades marked for confirmation", settlementReconciliation);
         } catch (error) {
-          console.error("[SettlementReconciliation] sweep failed", error instanceof Error ? error.message : error);
+          console.error("[SettlementReconciliation] sweep failed", sanitizeWorkerErrorMessage(error));
         }
         const result = await runMonitoredWorkerCycle("trading-opportunities", async () => {
           const cycle = await runAutoTradeCycle();
@@ -324,12 +328,26 @@ async function startServer() {
           const opportunities = await ensureMarketDrivenOpportunities(new Date());
           return { ...cycle, outstandingTrades, opportunities };
         });
+        tradeCycleConsecutiveFailures = 0;
+        tradeCycleRetryAfterMs = 0;
         console.log("[AutoTrade] cycle", { ...result, settlementReconciliation });
+      } catch (error) {
+        tradeCycleConsecutiveFailures = Math.min(tradeCycleConsecutiveFailures + 1, 8);
+        const backoffMs = Math.min(tradeCycleMaximumBackoffMs, tradeCycleBaseIntervalMs * (2 ** (tradeCycleConsecutiveFailures - 1)));
+        tradeCycleRetryAfterMs = Date.now() + backoffMs;
+        console.error("[AutoTrade] cycle failed; retry deferred", {
+          event: "trading-cycle-failed",
+          consecutiveFailures: tradeCycleConsecutiveFailures,
+          retryDelayMs: backoffMs,
+          retryAt: new Date(tradeCycleRetryAfterMs).toISOString(),
+          error: sanitizeWorkerErrorMessage(error),
+        });
+        throw error;
       } finally {
         tradeCycleRunning = false;
       }
     };
-    const autoTradeTimer = registerWorkerInterval(() => { void runTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error)); }, 30_000);
+    const autoTradeTimer = registerWorkerInterval(() => { void runTradeCycle().catch(() => undefined); }, 30_000);
     autoTradeTimer.unref();
     void runTradeCycle().catch(error => console.error("[AutoTrade]", error instanceof Error ? error.message : error));
     const refreshMinutes = Number(await getAppSetting("market.refreshIntervalMinutes", "120"));
