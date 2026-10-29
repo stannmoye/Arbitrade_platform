@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { classifyMainMigrationPreflight, validateMainMigrationHistory } from "./main-migration-preflight.mjs";
+import { fileURLToPath } from "node:url";
+import { classifyMainMigrationPreflight, loadExpectedMainMigrationHistory, validateMainMigrationHistory } from "./main-migration-preflight.mjs";
 
 describe("main migration preflight", () => {
   it("does not require a Drizzle tracker for a verified fresh install", () => {
@@ -70,6 +71,24 @@ describe("main migration preflight", () => {
     expect(validateMainMigrationHistory([
       { hash: legacyHash, created_at: 2001 },
     ], expected).allowed).toBe(false);
+  });
+
+  it("accepts only exact archived Trading PR lineages and their canonical forward-only extensions", async () => {
+    const root = fileURLToPath(new URL("..", import.meta.url));
+    const { migrations } = await loadExpectedMainMigrationHistory(root);
+    for (const lineage of migrations.legacyLineages) {
+      const common = migrations.slice(0, migrations.commonPrefixLength).map((row) => ({ hash: row.hash, created_at: row.createdAt }));
+      const legacy = lineage.entries.map((row) => ({ hash: row.hash, created_at: row.createdAt }));
+      expect(validateMainMigrationHistory([...common, ...legacy], migrations).allowed).toBe(true);
+      const alreadyApplied = new Set(lineage.entries.map((row) => row.hash));
+      const canonicalTail = migrations.slice(migrations.commonPrefixLength).filter((row) => !alreadyApplied.has(row.hash));
+      const extended = [...common, ...legacy, ...canonicalTail.map((row) => ({ hash: row.hash, created_at: row.createdAt }))];
+      expect(validateMainMigrationHistory(extended, migrations).allowed).toBe(true);
+      if (legacy.length) {
+        const tampered = [...common, { ...legacy[0], hash: "f".repeat(64) }];
+        expect(validateMainMigrationHistory(tampered, migrations).allowed).toBe(false);
+      }
+    }
   });
 
   it("fails closed when database inventory counts are malformed", () => {

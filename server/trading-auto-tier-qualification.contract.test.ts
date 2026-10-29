@@ -241,7 +241,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(customerAppSource).toContain("New administrator-managed tier");
     expect(customerAppSource).toContain('trpc.adminOperations.createTradingPackage.useMutation');
     expect(customerAppSource).toContain('minimumQualifyingBalanceUsdMinor:"",durationMonths:"",opportunitiesPerDay:""');
-    expect(customerAppSource).toContain('maxActiveInvestments:0,startsAt:"",expiresAt:"",enabled:false}');
+    expect(customerAppSource).toContain('maxActiveInvestments:0,startsAt:"",expiresAt:"",reason:"",enabled:false}');
     expect(customerAppSource).toContain("no package threshold or quota is preselected");
     expect(customerAppSource).toContain("New tiers start disabled.");
     expect(databaseSource).toContain("const UNCONFIGURED_TIER_POLICY_SENTINELS = {");

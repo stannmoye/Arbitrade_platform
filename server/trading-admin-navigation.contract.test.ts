@@ -6,6 +6,7 @@ const adminApp = readFileSync(new URL("../client/src/App.tsx", import.meta.url),
 const operationsUi = readFileSync(new URL("../client/src/components/AdminOperationsPages.tsx", import.meta.url), "utf8");
 const serverDb = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const serverRouters = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
+const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
 
 describe("Trading tier creation defaults", () => {
   it("requires an administrator to explicitly enter threshold, duration, and daily quota", () => {
@@ -49,7 +50,7 @@ describe("Trading tier audit reasons", () => {
     expect(nextFunction).toBeGreaterThan(updateStart);
     const dbFunctions = serverDb.slice(createStart, nextFunction);
     expect(dbFunctions).toContain('Provide an audit reason of 5–500 characters');
-    expect(dbFunctions).toContain('reason,');
+    expect(dbFunctions).toContain('reason:auditReason');
     expect(dbFunctions).toContain('metadataJson:JSON.stringify({old:');
     expect(serverRouters).toContain('reason: z.string().trim().min(5).max(500)');
   });
@@ -64,9 +65,14 @@ describe("Trading tier effective-date validation", () => {
     expect(updateStart).toBeGreaterThan(createStart);
     expect(communicationStart).toBeGreaterThan(updateStart);
     const tierRoutes = serverRouters.slice(createStart, communicationStart);
-    expect(tierRoutes).toContain('({ startsAt, expiresAt }) => !startsAt || !expiresAt || new Date(expiresAt).getTime() > new Date(startsAt).getTime()');
-    expect(tierRoutes.match(/Expiry must be later than the start time\./g)).toHaveLength(2);
-    expect(tierRoutes).toContain('path: ["expiresAt"]');
+    expect(tierRoutes).toContain('startsAt: z.string().datetime().nullable()');
+    expect(tierRoutes).toContain('expiresAt: z.string().datetime().nullable()');
+    const createService = serverDb.indexOf("export async function createAdminTradingPackage");
+    const updateService = serverDb.indexOf("export async function updateAdminTradingPackage", createService);
+    const nextService = serverDb.indexOf("export async function", updateService + 5);
+    const tierServices = serverDb.slice(createService, nextService);
+    expect(tierServices.match(/input\.startsAt&&input\.expiresAt&&input\.expiresAt<=input\.startsAt/g)).toHaveLength(2);
+    expect(tierServices.match(/Package expiry must be later than its start time/g)).toHaveLength(2);
   });
 });
 
@@ -99,15 +105,15 @@ describe("Trading tier policy audit and versioning", () => {
     expect(update).toContain("auditReason.length<5||auditReason.length>500");
     expect(update).toContain("await db.transaction(async tx=>");
     expect(update).toContain("policyVersion:nextVersion");
-    expect(update).toContain('action:"trading_opportunity_package_policy_updated"');
-    expect(update).toContain("previousPolicy:current||null");
-    expect(update).toContain("nextPolicy:{...values}");
+    expect(update).toContain('action:"trading_delivery_policy_updated"');
+    expect(update).toContain("oldPolicy:current||null");
+    expect(update).toContain("newPolicy:next");
     expect(update).toContain("Each Trading tier may appear only once");
     expect(serverRouters).toContain("reason: z.string().trim().min(5).max(500)");
     expect(serverRouters).toContain("updateOpportunityPackagePolicies(ctx.user.id, input.policies, input.reason)");
     expect(adminApp).toContain("Reason for changing Trading tier policies (required for audit)");
-    expect(adminApp).toContain("policyReason.trim().length<5");
-    expect(adminApp).toContain("policyReason.trim(),policies:draft.map");
+    expect(policyEditor).toContain("policyReason.trim().length<5");
+    expect(adminApp).toContain("reason:policyReason.trim()})");
     expect(adminApp).toContain("policies.data.map(x=>({...x,packageName:x.packageName");
     expect(adminApp).toContain("updatePolicies.mutate({policies:policyRows,reason:policyReason.trim()})");
   });

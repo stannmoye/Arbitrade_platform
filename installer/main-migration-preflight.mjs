@@ -27,32 +27,99 @@ export async function loadExpectedMainMigrationHistory(root) {
     seenHashes.add(hash);
     migrations.push({ tag: entry.tag, hash, createdAt: Number(entry.when) });
   }
+
+  // These are exact open-PR migration tails that were observed on live branches.
+  // Their SQL is preserved verbatim under docs/trading/migration-history and is
+  // hash-checked here. They are accepted only as exact suffixes after the common
+  // applied prefix; current forward migrations can then be appended safely.
+  const legacyManifest = JSON.parse(await readFile(resolve(root, "installer/legacy-main-migration-histories.json"), "utf8"));
+  const commonPrefixLength = Number(legacyManifest.commonPrefixLength);
+  if (!Number.isSafeInteger(commonPrefixLength) || commonPrefixLength < 1 || commonPrefixLength > migrations.length ||
+      !Array.isArray(legacyManifest.lineages)) throw new Error("The archived Trading migration lineages are invalid.");
+  for (const lineage of legacyManifest.lineages) {
+    if (typeof lineage?.name !== "string" || typeof lineage?.headSha !== "string" || !/^[a-f0-9]{40}$/i.test(lineage.headSha) || !Array.isArray(lineage.entries)) {
+      throw new Error("An archived Trading migration lineage is malformed.");
+    }
+    for (const entry of lineage.entries) {
+      if (typeof entry?.tag !== "string" || !/^[0-9]{4}_[A-Za-z0-9_-]+$/.test(entry.tag) ||
+          !/^[a-f0-9]{64}$/i.test(String(entry.hash)) || !Number.isSafeInteger(Number(entry.createdAt)) ||
+          typeof entry.archivePath !== "string" || entry.archivePath.includes("..")) {
+        throw new Error("An archived Trading migration entry is malformed.");
+      }
+      const archivedSql = await readFile(resolve(root, entry.archivePath), "utf8");
+      const archivedHash = createHash("sha256").update(archivedSql).digest("hex");
+      if (archivedHash !== entry.hash) throw new Error(`Archived migration ${entry.tag} no longer matches its recorded hash.`);
+    }
+  }
+  migrations.commonPrefixLength = commonPrefixLength;
+  migrations.legacyLineages = legacyManifest.lineages;
   return { journal, migrations };
+}
+
+function rowMatchesCanonical(row, migration) {
+  const hash = String(row?.hash ?? "");
+  const createdAt = Number(row?.created_at);
+  const legacyTag = LEGACY_MIGRATION_HASH_ALIASES.get(hash);
+  return createdAt === migration.createdAt && (hash === migration.hash || (legacyTag !== undefined && legacyTag === migration.tag));
+}
+
+function rowMatchesLegacy(row, migration) {
+  return String(row?.hash ?? "") === migration.hash && Number(row?.created_at) === Number(migration.createdAt);
 }
 
 export function validateMainMigrationHistory(trackerRows, expectedMigrations) {
   if (!Array.isArray(trackerRows) || trackerRows.length === 0) return { allowed: false, reason: "The Drizzle migration tracker is empty or unreadable." };
   if (!Array.isArray(expectedMigrations) || expectedMigrations.length === 0) return { allowed: false, reason: "The repository migration journal could not be verified." };
-  const expectedByHash = new Map(expectedMigrations.map((migration, index) => [migration.hash, { createdAt: migration.createdAt, index }]));
-  const expectedByTag = new Map(expectedMigrations.map((migration, index) => [migration.tag, { createdAt: migration.createdAt, index }]));
-  const seen = new Set();
-  const seenIndexes = new Set();
-  for (const row of trackerRows) {
-    const hash = String(row?.hash ?? "");
-    const createdAt = Number(row?.created_at);
-    const legacyTag = LEGACY_MIGRATION_HASH_ALIASES.get(hash);
-    const expected = expectedByHash.get(hash) ?? (legacyTag ? expectedByTag.get(legacyTag) : undefined);
-    if (!/^[a-f0-9]{64}$/i.test(hash) || !expected) return { allowed: false, reason: "The Drizzle tracker contains a migration hash that does not match the repository journal." };
-    if (seen.has(hash)) return { allowed: false, reason: "The Drizzle tracker contains duplicate migration hashes." };
-    if (!Number.isSafeInteger(createdAt) || createdAt !== expected.createdAt) return { allowed: false, reason: "A recorded Drizzle migration timestamp does not match its repository journal entry." };
-    seen.add(hash);
-    seenIndexes.add(expected.index);
+  const hashes = trackerRows.map((row) => String(row?.hash ?? ""));
+  if (hashes.some((hash) => !/^[a-f0-9]{64}$/i.test(hash)) || new Set(hashes).size !== hashes.length) {
+    return { allowed: false, reason: "The Drizzle tracker contains malformed or duplicate migration hashes." };
   }
-  const appliedIndexes = [...seenIndexes].sort((left, right) => left - right);
-  if (appliedIndexes.some((index, position) => index !== position)) {
-    return { allowed: false, reason: "The Drizzle tracker has a gap in the ordered migration journal; automatic migration is unsafe." };
+
+  // Canonical main history remains a strict contiguous prefix.
+  if (trackerRows.length <= expectedMigrations.length &&
+      trackerRows.every((row, index) => rowMatchesCanonical(row, expectedMigrations[index]))) {
+    return { allowed: true, reason: "Recorded Drizzle migrations form a contiguous prefix matching the repository journal." };
   }
-  return { allowed: true, reason: "Recorded Drizzle migrations form a contiguous prefix matching the repository journal." };
+
+  const commonPrefixLength = Number(expectedMigrations.commonPrefixLength);
+  const lineages = expectedMigrations.legacyLineages;
+  if (!Number.isSafeInteger(commonPrefixLength) || commonPrefixLength < 1 || !Array.isArray(lineages) ||
+      trackerRows.length < commonPrefixLength || expectedMigrations.length < commonPrefixLength) {
+    return { allowed: false, reason: "The Drizzle tracker contains a migration hash that does not match the repository journal." };
+  }
+  for (let i = 0; i < commonPrefixLength; i++) {
+    if (!rowMatchesCanonical(trackerRows[i], expectedMigrations[i])) {
+      return { allowed: false, reason: "The Drizzle tracker does not match the established common migration prefix." };
+    }
+  }
+
+  for (const lineage of lineages) {
+    const legacyEntries = lineage.entries;
+    const availableSuffixLength = trackerRows.length - commonPrefixLength;
+    const suffixLength = Math.min(availableSuffixLength, legacyEntries.length);
+    let suffixMatches = true;
+    for (let i = 0; i < suffixLength; i++) {
+      if (!rowMatchesLegacy(trackerRows[commonPrefixLength + i], legacyEntries[i])) {
+        suffixMatches = false;
+        break;
+      }
+    }
+    if (!suffixMatches) continue;
+
+    // Once a known branch suffix is present, integrated migrations are appended in
+    // canonical order. Hashes already applied under the old branch tags are skipped
+    // by the migration runner; the PR #230 0086 variant is deliberately rerun because
+    // the current main 0086 file is a distinct, additive historical migration.
+    const legacyHashes = new Set(legacyEntries.slice(0, suffixLength).map((entry) => entry.hash));
+    const canonicalTail = expectedMigrations.slice(commonPrefixLength).filter((entry) => !legacyHashes.has(entry.hash));
+    const appendedRows = trackerRows.slice(commonPrefixLength + suffixLength);
+    if (appendedRows.length <= canonicalTail.length &&
+        appendedRows.every((row, index) => rowMatchesCanonical(row, canonicalTail[index]))) {
+      return { allowed: true, reason: `Recorded history matches the exact ${lineage.name} migration tail and any appended canonical forward migrations.` };
+    }
+  }
+
+  return { allowed: false, reason: "The Drizzle tracker history is not a known exact branch lineage or a safe forward-only extension; administrator review is required." };
 }
 
 export function classifyMainMigrationPreflight({ mode, tableCount, trackerExists, trackerCount, trackerHistoryValid }) {
@@ -61,5 +128,5 @@ export function classifyMainMigrationPreflight({ mode, tableCount, trackerExists
   if (!trackerExists) return { allowed: false, reason: "The imported database has no __drizzle_migrations tracker. Its migration history cannot be verified, so automatic main migrations are unsafe." };
   if (!Number.isInteger(trackerCount) || trackerCount < 1) return { allowed: false, reason: "The imported database has an empty or unreadable __drizzle_migrations tracker. Its migration history cannot be verified, so automatic main migrations are unsafe." };
   if (trackerHistoryValid !== true) return { allowed: false, reason: "The imported database migration history does not match the repository journal. No automatic main migrations are safe until an administrator reviews and establishes a verified baseline." };
-  return { allowed: true, reason: "Recorded Drizzle migration history matches the repository journal." };
+  return { allowed: true, reason: "Recorded Drizzle migration history matches the repository journal or an archived exact forward-only lineage." };
 }

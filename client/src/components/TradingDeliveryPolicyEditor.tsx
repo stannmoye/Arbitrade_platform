@@ -5,14 +5,16 @@ export type TradingDeliveryPolicyRow={packageName:string;enabled:boolean;automat
 type Props = {
   policyRows: TradingDeliveryPolicyRow[];
   policyMessage: string;
+  policyReason: string;
   isLoading: boolean;
   isSaving: boolean;
   updateRow: (index: number, key: Exclude<keyof TradingDeliveryPolicyRow, "packageName">, value: number | boolean | string | null) => void;
+  onPolicyReasonChange: (reason: string) => void;
   policyRowValid: (row: TradingDeliveryPolicyRow) => boolean;
   onSave: () => void;
 };
 
-export default function TradingDeliveryPolicyEditor({ policyRows, policyMessage, isLoading, isSaving, updateRow, policyRowValid, onSave }: Props) {
+export default function TradingDeliveryPolicyEditor({ policyRows, policyMessage, policyReason, isLoading, isSaving, updateRow, onPolicyReasonChange, policyRowValid, onSave }: Props) {
   return <div className="settings-card package-policy-card">
   <div className="eyebrow">Administrator-managed Trading policy</div>
   <h2>Tier delivery, timing and safety</h2>
@@ -86,6 +88,7 @@ export default function TradingDeliveryPolicyEditor({ policyRows, policyMessage,
     </div>
   </article>)}
   {policyRows.length===0&&<div className="empty-state">{isLoading?"Loading saved tier policies…":"No tier policies were returned. Refresh the policy list before editing."}</div>}
-  <button className="primary-button" disabled={!policyRows.length||isSaving||!policyRows.every(policyRowValid)} onClick={onSave}>{isSaving?"Saving policy…":"Save delivery and retry policy"} <Check size={14}/></button>
+  <label>Reason for changing Trading tier policies (required for audit)<textarea value={policyReason} maxLength={500} minLength={5} onChange={e=>onPolicyReasonChange(e.target.value)} placeholder="Explain why these delivery, automation, rate or duration controls are changing."/><small>Enter 5–500 characters for the administrator audit record.</small></label>
+  <button className="primary-button" disabled={!policyRows.length||isSaving||policyReason.trim().length<5||!policyRows.every(policyRowValid)} onClick={onSave}>{isSaving?"Saving policy…":"Save delivery and retry policy"} <Check size={14}/></button>
 </div>;
 }

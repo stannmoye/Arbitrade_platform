@@ -91,7 +91,7 @@ describe("automatic Trading execution lease fencing", () => {
   it("stores a durable lease token and fences stale workers before trade creation", () => {
     const source = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
     const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
-    const migration = readFileSync(new URL("../drizzle/0086_trading_opportunity_execution_leases.sql", import.meta.url), "utf8");
+    const migration = readFileSync(new URL("../drizzle/0087_trading_opportunity_execution_leases.sql", import.meta.url), "utf8");
     expect(schema).toContain('executionLeaseToken: varchar("executionLeaseToken", { length: 64 })');
     expect(migration).toContain("executionLeaseToken");
     expect(source).toContain("const executionLeaseToken=crypto.randomUUID();");

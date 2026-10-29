@@ -390,29 +390,57 @@
     {
       "idx": 55,
       "version": "7",
-      "when": 1793318400005,
-      "tag": "0086_trading_popup_policy_ranges",
+      "when": 1793404800002,
+      "tag": "0086_trading_popup_policy_snapshots",
       "breakpoints": true
     },
     {
       "idx": 56,
       "version": "7",
-      "when": 1793318400006,
-      "tag": "0087_trading_company_spotlight_rotation",
+      "when": 1793404800003,
+      "tag": "0087_trading_opportunity_execution_leases",
       "breakpoints": true
     },
     {
       "idx": 57,
       "version": "7",
-      "when": 1793404800000,
-      "tag": "0088_trading_popup_trade_snapshots",
+      "when": 1793404800004,
+      "tag": "0088_trading_package_policy_schema_reconciliation",
       "breakpoints": true
     },
     {
       "idx": 58,
       "version": "7",
-      "when": 1793404800001,
-      "tag": "0089_trading_trade_wallet_funding_plan_snapshot",
+      "when": 1793404800005,
+      "tag": "0089_trading_popup_policy_ranges",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1793404800006,
+      "tag": "0090_trading_company_spotlight_rotation",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1793404800007,
+      "tag": "0091_trading_popup_trade_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1793404800008,
+      "tag": "0092_trading_trade_wallet_funding_plan_snapshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1793404800009,
+      "tag": "0093_admin_wallet_adjustment_idempotency",
       "breakpoints": true
     }
   ]

@@ -49,6 +49,6 @@ describe("administrator Trading delivery policy controls", () => {
     expect(policyEditor).toContain("Controls display only; must not cancel an active trade.");
     expect(app).toContain("active trade snapshots are preserved");
     expect(policyEditor).toContain("This is a minimum eligibility constraint, not a generated or guaranteed return.");
-    expect(database).toContain("Saved policy version applies under the existing trade snapshot rules.");
+    expect(database).toContain("packagePolicyVersionSnapshot:snapshotVersion");
   });
 });

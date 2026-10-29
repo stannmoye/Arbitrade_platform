@@ -322,8 +322,8 @@ export const opportunityPackagePolicies = mysqlTable("opportunity_package_polici
   marketInfluenceBps: int("marketInfluenceBps").default(5000).notNull(),
   burstEnabled: boolean("burstEnabled").default(false).notNull(),
   maxBurstSize: int("maxBurstSize").default(0).notNull(),
-  enabled: boolean("enabled").default(true).notNull(),
-  automaticDelivery: boolean("automaticDelivery").default(true).notNull(),
+  enabled: boolean("enabled").default(false).notNull(),
+  automaticDelivery: boolean("automaticDelivery").default(false).notNull(),
   dailyPopupTarget: int("dailyPopupTarget").default(10).notNull(),
   schedulingPeriod: mysqlEnum("schedulingPeriod", ["rolling_24h", "calendar_day"]).default("rolling_24h").notNull(),
   minIntervalSeconds: int("minIntervalSeconds").default(45).notNull(),
@@ -339,7 +339,7 @@ export const opportunityPackagePolicies = mysqlTable("opportunity_package_polici
   duplicatePrevention: boolean("duplicatePrevention").default(true).notNull(),
   audioEnabled: boolean("audioEnabled").default(true).notNull(),
   audioSound: varchar("audioSound", { length: 80 }).default("soft-chime").notNull(),
-  automaticTradingEnabled: boolean("automaticTradingEnabled").default(true).notNull(),
+  automaticTradingEnabled: boolean("automaticTradingEnabled").default(false).notNull(),
   maxTradeAttemptsPerDay: int("maxTradeAttemptsPerDay").default(5).notNull(),
   tradeRetryDelaySeconds: int("tradeRetryDelaySeconds").default(30).notNull(),
   maxSuccessfulTradesPerDay: int("maxSuccessfulTradesPerDay").default(5).notNull(),
@@ -1158,4 +1158,22 @@ export const tradingTierQualificationJobs = mysqlTable("trading_tier_qualificati
   sourceLedgerUnique: uniqueIndex("trading_tier_qualification_jobs_source_ledger_uq").on(table.sourceLedgerId),
   statusAvailableIdx: index("trading_tier_qualification_jobs_status_available_idx").on(table.status, table.availableAt, table.id),
   userStatusIdx: index("trading_tier_qualification_jobs_user_status_idx").on(table.userId, table.status),
+}));
+
+/**
+ * Request-level idempotency for admin wallet adjustments. The key reservation,
+ * wallet/ledger mutation, audit event, qualification outbox, and response snapshot
+ * commit in one transaction.
+ */
+export const adminWalletAdjustmentIdempotency = mysqlTable("admin_wallet_adjustment_idempotency", {
+  id: bigint("id", { mode: "number" }).autoincrement().primaryKey(),
+  adminId: int("adminId").notNull(),
+  idempotencyKey: varchar("idempotencyKey", { length: 160 }).notNull(),
+  requestHash: varchar("requestHash", { length: 64 }).notNull(),
+  responseJson: longtext("responseJson"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  keyUnique: uniqueIndex("admin_wallet_adjustment_key_uq").on(table.idempotencyKey),
+  createdAtIdx: index("admin_wallet_adjustment_created_idx").on(table.createdAt),
 }));

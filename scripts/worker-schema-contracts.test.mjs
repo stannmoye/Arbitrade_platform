@@ -40,15 +40,19 @@ describe("worker schema contracts", () => {
 
   it("creates and validates the durable Trading tier queue in the runtime schema bridge", async () => {
     const root = new URL("../", import.meta.url);
-    const [runtimeSchema, migration, opportunityWorkerMigration, healthMigration, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration, walletFundingPlanMigration, portalRunner, installerRecovery] = await Promise.all([
+    const [runtimeSchema, migration, opportunityWorkerMigration, healthMigration, mainPopupPolicySnapshotMigration, executionLeaseMigration, packagePolicySchemaMigration, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration, walletFundingPlanMigration, walletAdjustmentIdempotencyMigration, portalRunner, installerRecovery] = await Promise.all([
       readFile(new URL("scripts/ensure-worker-runtime-schema.mjs", root), "utf8"),
       readFile(new URL("drizzle/0082_trading_tier_qualification_jobs.sql", root), "utf8"),
       readFile(new URL("drizzle/0083_trading_opportunity_worker_indexes.sql", root), "utf8"),
       readFile(new URL("drizzle/0084_worker_health_registry.sql", root), "utf8"),
-      readFile(new URL("drizzle/0086_trading_popup_policy_ranges.sql", root), "utf8"),
-      readFile(new URL("drizzle/0087_trading_company_spotlight_rotation.sql", root), "utf8"),
-      readFile(new URL("drizzle/0088_trading_popup_trade_snapshots.sql", root), "utf8"),
-      readFile(new URL("drizzle/0089_trading_trade_wallet_funding_plan_snapshot.sql", root), "utf8"),
+      readFile(new URL("drizzle/0086_trading_popup_policy_snapshots.sql", root), "utf8"),
+      readFile(new URL("drizzle/0087_trading_opportunity_execution_leases.sql", root), "utf8"),
+      readFile(new URL("drizzle/0088_trading_package_policy_schema_reconciliation.sql", root), "utf8"),
+      readFile(new URL("drizzle/0089_trading_popup_policy_ranges.sql", root), "utf8"),
+      readFile(new URL("drizzle/0090_trading_company_spotlight_rotation.sql", root), "utf8"),
+      readFile(new URL("drizzle/0091_trading_popup_trade_snapshots.sql", root), "utf8"),
+      readFile(new URL("drizzle/0092_trading_trade_wallet_funding_plan_snapshot.sql", root), "utf8"),
+      readFile(new URL("drizzle/0093_admin_wallet_adjustment_idempotency.sql", root), "utf8"),
       readFile(new URL("scripts/apply-portal-migrations.mjs", root), "utf8"),
       readFile(new URL("installer/migration-recovery-status.mjs", root), "utf8"),
     ]);
@@ -66,18 +70,29 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, workerHealthMigration)");
     expect(runtimeSchema).toContain('drizzle/0085_trade_settlement_schema_reconciliation.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, settlementSchemaMigration)");
-    expect(runtimeSchema).toContain('drizzle/0086_trading_popup_policy_ranges.sql');
+    expect(runtimeSchema).toContain('drizzle/0086_trading_popup_policy_snapshots.sql');
+    expect(runtimeSchema).toContain('drizzle/0087_trading_opportunity_execution_leases.sql');
+    expect(runtimeSchema).toContain('drizzle/0088_trading_package_policy_schema_reconciliation.sql');
+    expect(packagePolicySchemaMigration).toContain("`automaticDelivery` tinyint(1) NOT NULL DEFAULT 0");
+    expect(packagePolicySchemaMigration).toContain("`automaticTradingEnabled` tinyint(1) NOT NULL DEFAULT 0");
+    expect(runtimeSchema).toContain('drizzle/0089_trading_popup_policy_ranges.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, popupPolicyRangeMigration)");
-    expect(runtimeSchema).toContain('drizzle/0087_trading_company_spotlight_rotation.sql');
+    expect(runtimeSchema).toContain('drizzle/0090_trading_company_spotlight_rotation.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, companySpotlightRotationMigration)");
-    expect(runtimeSchema).toContain('drizzle/0088_trading_popup_trade_snapshots.sql');
+    expect(runtimeSchema).toContain('drizzle/0091_trading_popup_trade_snapshots.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, popupTradeSnapshotsMigration)");
-    expect(runtimeSchema).toContain('drizzle/0089_trading_trade_wallet_funding_plan_snapshot.sql');
+    expect(runtimeSchema).toContain('drizzle/0092_trading_trade_wallet_funding_plan_snapshot.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, walletFundingPlanMigration)");
+    expect(runtimeSchema).toContain('drizzle/0093_admin_wallet_adjustment_idempotency.sql');
+    expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, walletAdjustmentIdempotencyMigration)");
+    expect(walletAdjustmentIdempotencyMigration).toContain("CREATE TABLE IF NOT EXISTS `admin_wallet_adjustment_idempotency`");
+    expect(WORKER_SCHEMA_CONTRACTS.admin_wallet_adjustment_idempotency.indexes).toHaveProperty("admin_wallet_adjustment_key_uq");
+    expect(portalRunner).toContain('"0093_admin_wallet_adjustment_idempotency.sql"');
+    expect(installerRecovery).toContain('"0093_admin_wallet_adjustment_idempotency.sql"');
     expect(walletFundingPlanMigration).toContain("ALTER TABLE `trade_positions`");
     expect(walletFundingPlanMigration).toContain("ADD COLUMN IF NOT EXISTS `walletFundingPlanJson` TEXT NULL");
-    expect(portalRunner).toContain('"0089_trading_trade_wallet_funding_plan_snapshot.sql"');
-    expect(installerRecovery).toContain('"0089_trading_trade_wallet_funding_plan_snapshot.sql"');
+    expect(portalRunner).toContain('"0092_trading_trade_wallet_funding_plan_snapshot.sql"');
+    expect(installerRecovery).toContain('"0092_trading_trade_wallet_funding_plan_snapshot.sql"');
     expect(WORKER_SCHEMA_CONTRACTS.trade_positions.columns).toContain("walletFundingPlanJson");
     for (const column of ["configuredProfitRateBps", "configuredDurationSeconds", "configuredPopupDisplaySeconds", "packagePolicyVersionSnapshot", "companyReferenceId", "companyDisplayName", "companyLogoUrl", "companyReferenceMetadataJson", "companyReferenceOnly"]) expect(popupTradeSnapshotsMigration).toContain(column);
     for (const column of ["companyRotationEnabled", "companyRotationCountryNames", "companyRotationRepeatPolicy"]) expect(companyRotationMigration).toContain(column);
@@ -146,9 +161,9 @@ describe("worker schema contracts", () => {
       readFile(new URL("drizzle/0055_notification_campaign_delivery_tracking.sql", root), "utf8"),
       readFile(new URL("scripts/apply-portal-migrations.mjs", root), "utf8"),
       readFile(new URL("drizzle/0022_popup_lifecycle_reporting.sql", root), "utf8"),
-      readFile(new URL("drizzle/0086_trading_popup_policy_ranges.sql", root), "utf8"),
-      readFile(new URL("drizzle/0087_trading_company_spotlight_rotation.sql", root), "utf8"),
-      readFile(new URL("drizzle/0088_trading_popup_trade_snapshots.sql", root), "utf8"),
+      readFile(new URL("drizzle/0089_trading_popup_policy_ranges.sql", root), "utf8"),
+      readFile(new URL("drizzle/0090_trading_company_spotlight_rotation.sql", root), "utf8"),
+      readFile(new URL("drizzle/0091_trading_popup_trade_snapshots.sql", root), "utf8"),
     ]);
     const journal = JSON.parse(journalText);
     expect(journal.entries.some((entry) => entry.tag === "0062_worker_runtime_tables")).toBe(true);
@@ -158,13 +173,11 @@ describe("worker schema contracts", () => {
     const boostRewardsIndex = journal.entries.findIndex((entry) => entry.tag === "0048_pending_boost_rewards");
     const boostRewards = journal.entries.find((entry) => entry.tag === "0048_pending_boost_rewards");
     const last = journal.entries.at(-1);
-    const previous = journal.entries.at(-2);
     expect(workerBridgeIndex).toBeGreaterThanOrEqual(0);
     expect(boostRewardsIndex).toBeGreaterThan(workerBridgeIndex);
     expect(boostRewards.when).toBeGreaterThan(journal.entries[workerBridgeIndex].when);
-    expect(previous.tag).toBe("0088_trading_popup_trade_snapshots");
-    expect(last.tag).toBe("0089_trading_trade_wallet_funding_plan_snapshot");
-    expect(journal.entries.slice(-18).map((entry) => entry.tag)).toEqual([
+    expect(last.tag).toBe("0093_admin_wallet_adjustment_idempotency");
+    expect(journal.entries.slice(-22).map((entry) => entry.tag)).toEqual([
       "0072_wallet_ledger_reconciliation_indexes",
       "0073_trade_settlement_recovery_cases",
       "0074_trade_execution_retries",
@@ -179,10 +192,14 @@ describe("worker schema contracts", () => {
       "0083_trading_opportunity_worker_indexes",
       "0084_worker_health_registry",
       "0085_trade_settlement_schema_reconciliation",
-      "0086_trading_popup_policy_ranges",
-      "0087_trading_company_spotlight_rotation",
-      "0088_trading_popup_trade_snapshots",
-      "0089_trading_trade_wallet_funding_plan_snapshot",
+      "0086_trading_popup_policy_snapshots",
+      "0087_trading_opportunity_execution_leases",
+      "0088_trading_package_policy_schema_reconciliation",
+      "0089_trading_popup_policy_ranges",
+      "0090_trading_company_spotlight_rotation",
+      "0091_trading_popup_trade_snapshots",
+      "0092_trading_trade_wallet_funding_plan_snapshot",
+      "0093_admin_wallet_adjustment_idempotency",
     ]);
     expect(portalRunner).toContain('"0076_trading_admin_policy_read_repair.sql"');
     expect(portalRunner).toContain('"0077_trading_package_catalogue_schema_repair.sql"');
@@ -193,22 +210,25 @@ describe("worker schema contracts", () => {
     expect(portalRunner).toContain('"0082_trading_tier_qualification_jobs.sql"');
     expect(portalRunner).toContain('"0083_trading_opportunity_worker_indexes.sql"');
     expect(portalRunner).toContain('"0085_trade_settlement_schema_reconciliation.sql"');
-    expect(portalRunner).toContain('"0086_trading_popup_policy_ranges.sql"');
-    expect(portalRunner).toContain('"0087_trading_company_spotlight_rotation.sql"');
-    expect(portalRunner).toContain('"0088_trading_popup_trade_snapshots.sql"');
+    expect(portalRunner).toContain('"0086_trading_popup_policy_snapshots.sql"');
+    expect(portalRunner).toContain('"0087_trading_opportunity_execution_leases.sql"');
+    expect(portalRunner).toContain('"0088_trading_package_policy_schema_reconciliation.sql"');
+    expect(portalRunner).toContain('"0089_trading_popup_policy_ranges.sql"');
+    expect(portalRunner).toContain('"0090_trading_company_spotlight_rotation.sql"');
+    expect(portalRunner).toContain('"0091_trading_popup_trade_snapshots.sql"');
     expect(popupTradeSnapshotsMigration).toContain("ADD COLUMN IF NOT EXISTS `configuredProfitRateBps`");
     expect(companyRotationMigration).toContain("ADD COLUMN IF NOT EXISTS `companyRotationEnabled`");
     expect(popupLifecycleSql).toContain("opportunity_popup_events");
     expect(popupRangeMigration).toContain("ADD COLUMN IF NOT EXISTS `durationSeconds`");
-    expect(last.idx).toBe(previous.idx + 1);
-    expect(last.when).toBeGreaterThan(previous.when);
+    expect(last.idx).toBe(journal.entries.at(-2).idx + 1);
+    expect(last.when).toBeGreaterThan(journal.entries.at(-2).when);
     expect(portalRunner).toContain('"0055_notification_campaign_delivery_tracking.sql"');
     expect(portalRunner).toContain('"0058_withdrawable_notification_campaigns.sql"');
 
     // 0048 and 0055 remain authoritative standalone/portal-chain sources.
     // The journaled 0062 bridge intentionally provides their worker tables to
     // deployments that run only Drizzle's standard migration path.
-    for (const table of Object.keys(WORKER_SCHEMA_CONTRACTS).filter((name) => !["trading_tier_qualification_jobs", "opportunity_popup_events", "trade_positions"].includes(name))) {
+    for (const table of Object.keys(WORKER_SCHEMA_CONTRACTS).filter((name) => !["trading_tier_qualification_jobs", "opportunity_popup_events", "trade_positions", "admin_wallet_adjustment_idempotency"].includes(name))) {
       expect(mainSql).toContain(table);
     }
     for (const column of WORKER_SCHEMA_CONTRACTS.mining_pending_boost_rewards.columns) {

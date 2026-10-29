@@ -152,7 +152,7 @@ async function reconcileTradingPackagePolicySchema(connection, root) {
       existingTables.has("trade_reward_reservations") &&
       existingTables.has("opportunity_schedule_decisions")) return { repaired: false };
 
-  const migrationPath = resolve(root, "drizzle", "0087_trading_package_policy_schema_reconciliation.sql");
+  const migrationPath = resolve(root, "drizzle", "0088_trading_package_policy_schema_reconciliation.sql");
   const sql = await readFile(migrationPath, "utf8");
   await executeCompatibleMigrationSql(connection, sql);
   const [verifiedRows] = await connection.query(
@@ -172,7 +172,7 @@ async function reconcileTradingPackagePolicySchema(connection, root) {
     throw new Error("Trading package policy schema verification failed after additive repair: " +
       [...missingColumns.map((column) => "opportunity_package_policies." + column), ...missingTables].join(", "));
   }
-  console.log("[main-migrate] Reconciled Trading package policy schema using the idempotent 0087 repair.");
+  console.log("[main-migrate] Reconciled Trading package policy schema using the idempotent 0088 repair.");
   return { repaired: true };
 }
 
@@ -185,7 +185,7 @@ async function reconcileOpportunityExecutionLeaseSchema(connection, root) {
   );
   const existingColumns = new Set(rows.map((row) => String(row.columnName)));
   if (requiredColumns.every((column) => existingColumns.has(column))) return { repaired: false };
-  const migrationPath = resolve(root, "drizzle", "0086_trading_opportunity_execution_leases.sql");
+  const migrationPath = resolve(root, "drizzle", "0087_trading_opportunity_execution_leases.sql");
   const sql = await readFile(migrationPath, "utf8");
   await executeCompatibleMigrationSql(connection, sql);
   const [verified] = await connection.query(
@@ -195,7 +195,7 @@ async function reconcileOpportunityExecutionLeaseSchema(connection, root) {
   const verifiedColumns = new Set(verified.map((row) => String(row.columnName)));
   const missingColumns = requiredColumns.filter((column) => !verifiedColumns.has(column));
   if (missingColumns.length) throw new Error("Trading opportunity execution lease schema verification failed after additive repair: " + missingColumns.join(", "));
-  console.log("[main-migrate] Reconciled Trading opportunity execution lease schema using the idempotent 0086 repair.");
+  console.log("[main-migrate] Reconciled Trading opportunity execution lease schema using the idempotent 0087 repair.");
   return { repaired: true };
 }
 

@@ -101,6 +101,7 @@ try {
     mode: "credit",
     creditClassification: "qualifying_deposit",
     reason: "integration test qualifying admin wallet credit",
+    idempotencyKey: "tier-worker:" + token + ":qualifying-credit-usd",
   });
   assert.equal(qualifyingCreditOne.entryType, "admin_manual_deposit_credit");
   assert.equal(qualifyingCreditOne.qualifyingDepositUsdMinor, 20000);
@@ -111,6 +112,7 @@ try {
     mode: "credit",
     creditClassification: "non_qualifying_credit",
     reason: "integration test non-qualifying admin credit",
+    idempotencyKey: "tier-worker:" + token + ":non-qualifying-credit",
   });
   assert.equal(nonQualifyingCredit.entryType, "admin_credit");
   assert.equal(nonQualifyingCredit.qualifyingDepositUsdMinor, null);
@@ -151,6 +153,7 @@ try {
       mode: "credit",
       creditClassification: "qualifying_deposit",
       reason: "integration test non-USD qualifying admin wallet credit",
+      idempotencyKey: "tier-worker:" + token + ":qualifying-credit-fiat",
     });
   } finally {
     globalThis.fetch = originalFetch;
@@ -177,6 +180,7 @@ try {
     debitClassification: "qualifying_deposit_reversal",
     reversalLedgerId: qualifyingCreditOne.ledgerId,
     reason: "integration test partial qualifying deposit reversal",
+    idempotencyKey: "tier-worker:" + token + ":qualifying-reversal",
   });
   assert.equal(qualifyingReversal.entryType, "admin_manual_deposit_reversal");
   assert.equal(qualifyingReversal.qualifyingDepositUsdMinor, -5000);
@@ -191,6 +195,7 @@ try {
       debitClassification: "qualifying_deposit_reversal",
       reversalLedgerId: qualifyingCreditOne.ledgerId,
       reason: "integration test over-reversal must be rejected",
+      idempotencyKey: "tier-worker:" + token + ":qualifying-over-reversal",
     }),
     /reversal exceeds/i,
   );

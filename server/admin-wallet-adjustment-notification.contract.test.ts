@@ -10,7 +10,7 @@ const implementation = source.slice(start, end);
 describe("administrator wallet adjustment notification boundary", () => {
   it("persists the authoritative balance and ledger entry before attempting notification", () => {
     const transactionStart = implementation.indexOf("await db.transaction(async tx=>");
-    const transactionEnd = implementation.indexOf("\n\n  if(result.entryType===", transactionStart);
+    const transactionEnd = implementation.indexOf("\n\n  if(!result.idempotentReplay&&", transactionStart);
     const noticeAttempt = implementation.indexOf("await createNotification", transactionEnd);
     expect(transactionStart).toBeGreaterThanOrEqual(0);
     expect(transactionEnd).toBeGreaterThan(transactionStart);
@@ -52,5 +52,16 @@ describe("administrator wallet adjustment notification boundary", () => {
     expect(implementation).toContain("!Number.isSafeInteger(balance.promotionalMinor)");
     expect(implementation).toContain("!Number.isSafeInteger(balance.promotionalMinor+input.amountMinor)");
     expect(implementation).toContain("Wallet promotional balance is invalid or exceeds the safe integer range");
+  });
+
+  it("reserves a request key atomically and replays the stored response without repeating side effects", () => {
+    expect(implementation).toContain("adminWalletAdjustmentIdempotency");
+    expect(implementation).toContain("const requestHash=crypto.createHash(\"sha256\")");
+    expect(implementation).toContain(".onDuplicateKeyUpdate(");
+    expect(implementation).toContain("This wallet-adjustment idempotency key was already used for a different request.");
+    expect(implementation).toContain("idempotentReplay:true");
+    expect(implementation).toContain("responseJson:JSON.stringify(committedResponse)");
+    expect(implementation).toContain("if(!result.idempotentReplay) try {");
+    expect(routerSource).toContain("idempotencyKey: z.string().trim().regex(");
   });
 });

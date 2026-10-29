@@ -168,7 +168,7 @@ describe("authoritative financial-event notification contracts", () => {
     expect(adjustment).toContain("await db.transaction(async tx=>");
     expect(adjustment).toContain("await tx.insert(balanceLedger).values(");
     expect(adjustment).toContain("success:true,newAvailableMinor:next,");
-    const transactionEnd = adjustment.indexOf("\n\n  if(result.entryType===", adjustment.indexOf("await db.transaction(async tx=>"));
+    const transactionEnd = adjustment.indexOf("\n\n  if(!result.idempotentReplay&&", adjustment.indexOf("await db.transaction(async tx=>"));
     expect(transactionEnd).toBeGreaterThan(adjustment.indexOf("await tx.insert(balanceLedger).values("));
     expect(transactionEnd).toBeLessThan(adjustment.indexOf("await createNotification("));
     expect(adjustment).toContain("after ledger commit");
@@ -183,6 +183,18 @@ describe("authoritative financial-event notification contracts", () => {
     expect(route.indexOf("await adjustCustomerBalance(ctx.user.id, input)")).toBeGreaterThanOrEqual(0);
     expect(route.indexOf("await adjustCustomerBalance(ctx.user.id, input)")).toBeLessThan(route.indexOf("await recordTransactionConsoleEvent"));
     expect(route).toContain("eventType:`ADMIN_${input.mode.toUpperCase()}`");
+  });
+
+  it("retains each wallet retry key until that exact payload succeeds", () => {
+    const start = app.indexOf("function AdminCustomerBalance(");
+    const end = app.indexOf("\nfunction ", start + 10);
+    const walletForm = app.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(walletForm).toContain("requestKeys.current.get(signature)");
+    expect(walletForm).toContain("requestKeys.current.set(signature,idempotencyKey)");
+    expect(walletForm).toContain("requestKeys.current.delete(JSON.stringify(request))");
+    expect(walletForm).not.toContain("requestKeys.current.clear()");
   });
 
   it("uses stable event keys for committed trade-settlement notices and keeps delivery best-effort", () => {

@@ -1,7 +1,7 @@
 import {readFileSync} from "node:fs";
 import {describe,expect,it} from "vitest";
 const schema=readFileSync(new URL("../../drizzle/schema.ts",import.meta.url),"utf8");
-const migration=readFileSync(new URL("../../drizzle/0087_trading_company_spotlight_rotation.sql",import.meta.url),"utf8");
+const migration=readFileSync(new URL("../../drizzle/0090_trading_company_spotlight_rotation.sql",import.meta.url),"utf8");
 const db=readFileSync(new URL("../db.ts",import.meta.url),"utf8");
 const router=readFileSync(new URL("../routers.ts",import.meta.url),"utf8");
 const editor=readFileSync(new URL("../../client/src/components/TradingDeliveryPolicyEditor.tsx",import.meta.url),"utf8");
