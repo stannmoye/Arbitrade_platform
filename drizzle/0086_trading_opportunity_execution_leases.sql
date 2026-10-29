@@ -8,4 +8,6 @@ ALTER TABLE `opportunity_popup_events`
   ADD COLUMN IF NOT EXISTS `receivedAt` timestamp NULL,
   ADD COLUMN IF NOT EXISTS `renderedAt` timestamp NULL,
   ADD COLUMN IF NOT EXISTS `expiredAt` timestamp NULL,
+  ADD COLUMN IF NOT EXISTS `tradeId` int NULL,
+  ADD COLUMN IF NOT EXISTS `policyVersion` int NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS `executionLeaseToken` varchar(64) NULL;
