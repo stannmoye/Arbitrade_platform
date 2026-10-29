@@ -221,7 +221,7 @@ export const opportunityDeliveryEvents = mysqlTable("opportunity_delivery_events
   attemptCount: int("attemptCount").default(1).notNull(),
   lastErrorCode: varchar("lastErrorCode", { length: 80 }),
   expiresAt: timestamp("expiresAt"),
-  policyVersion: int("policyVersion").default(1).notNull(),
+  policyVersion: int("policyVersion").notNull(),
 });
 export const opportunityPopupEvents = mysqlTable("opportunity_popup_events", {
   id: int("id").autoincrement().primaryKey(),
