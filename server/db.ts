@@ -3054,7 +3054,7 @@ export async function runAutoTradeCycle(input:{batchSize?:number}={}){
         if(outcomes.some(outcome=>outcome.status==="rejected")) console.error("[Notifications] Automatic allocation notice failed after ledger commit.");
       }
     }catch(error){
-      console.error(`[AutoTrade] Customer ${customer.id} cycle failed:`,error instanceof Error?error.message:error);
+      console.error("[AutoTrade] Customer cycle failed:",error instanceof Error?error.name:"UnknownError");
     }
   }
   return {customers:customers.length,allocations,batchSize};
