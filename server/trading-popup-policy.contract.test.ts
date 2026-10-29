@@ -9,6 +9,7 @@ const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const adminApp = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const adminCss = readFileSync(new URL("../client/src/admin-operations.css", import.meta.url), "utf8");
+const walletFx = readFileSync(new URL("./modules/trading-wallet-fx.ts", import.meta.url), "utf8");
 
 describe("administrator-configured Trading pop-up policy", () => {
   it("stores bounded rate, duration, badge, and per-pop-up snapshots in the canonical schema", () => {
@@ -41,6 +42,11 @@ describe("administrator-configured Trading pop-up policy", () => {
     expect(lifecycle).toContain("await connection.rollback()");
     expect(lifecycle).toContain("companyReferenceOnly");
     expect(database).toContain("companyLogoUrl:row.companyLogoUrl||null");
+    expect(database).toContain("planCrossWalletFunding");
+    expect(database).toContain("trade_fx_conversion_debit");
+    expect(database).toContain("trade_fx_conversion_credit");
+    expect(database).toContain("getFreshTradingFxRate");
+    expect(walletFx).toContain("Insufficient combined spendable wallet balance");
   });
 
   it("exposes admin controls with confirmation, help text, responsive spacing, and focus states", () => {
