@@ -84,9 +84,18 @@ describe("Trading overview and duration navigation", () => {
 });
 
 describe("Trading overview package-policy read", () => {
-  it("counts persisted package policies without invoking the lazy initializer", () => {
+  it("reads saved policies without creating defaults and fails closed when a tier policy is missing", () => {
     expect(operationsUi).toContain("trpc.adminOperations.overviewPackagePolicies.useQuery");
+    expect(serverRouters).toContain("packagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),");
     expect(serverRouters).toContain("overviewPackagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),");
+
+    const runtimeStart = serverDb.indexOf("export async function listOpportunityPackagePolicies()");
+    const runtimeEnd = serverDb.indexOf("\n}", runtimeStart);
+    expect(runtimeStart).toBeGreaterThanOrEqual(0);
+    expect(runtimeEnd).toBeGreaterThan(runtimeStart);
+    const runtimeReader = serverDb.slice(runtimeStart, runtimeEnd);
+    expect(runtimeReader).toContain("return rows.filter(row=>tierNames.has(row.packageName))");
+    expect(runtimeReader).not.toContain(".insert(");
 
     const start = serverDb.indexOf("export async function listPersistedOpportunityPackagePolicies()");
     const end = serverDb.indexOf("\n}", start);
@@ -94,6 +103,19 @@ describe("Trading overview package-policy read", () => {
     expect(end).toBeGreaterThan(start);
     const reader = serverDb.slice(start, end);
     expect(reader).toContain("db.select().from(opportunityPackagePolicies)");
+    expect(reader).toContain("if(missing.length) throw new Error");
     expect(reader).not.toContain(".insert(");
+  });
+});
+
+describe("Trading tier rename policy safety", () => {
+  it("does not replace a missing tier policy with schema defaults during rename", () => {
+    const start = serverDb.indexOf("export async function updateAdminTradingPackage(");
+    const end = serverDb.indexOf("\nexport async function ", start + 5);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const implementation = serverDb.slice(start, end);
+    expect(implementation).toContain("if(!currentPolicy) throw new Error(\"Saved Trading policy is missing for \"+current.name+\"; reconcile it explicitly before renaming this tier.\");");
+    expect(implementation).not.toContain("values({packageName:nextName,updatedBy})");
   });
 });
