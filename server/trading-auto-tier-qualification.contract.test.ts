@@ -216,7 +216,7 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("policyVersion:nextVersion");
     expect(databaseSource).toContain('action:"trading_opportunity_package_policy_updated"');
     expect(databaseSource).toContain("await tx.insert(v5AuditEvents).values");
-    expect(databaseSource).toContain("values({packageName:tier.name})");
+    expect(databaseSource).toContain("packageName:tier.name,enabled:false,automaticDelivery:false,automaticTradingEnabled:false");
     expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy})");
     expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
     expect(databaseSource).toContain("const matchingRows=rows.filter(row=>tierNames.has(row.packageName))");
