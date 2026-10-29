@@ -127,6 +127,9 @@ async function main() {
     await executeCompatibleMigrationSql(db, companySpotlightRotationMigration);
     const popupTradeSnapshotsMigration = await readFile(resolve(root, "drizzle/0088_trading_popup_trade_snapshots.sql"), "utf8");
     await executeCompatibleMigrationSql(db, popupTradeSnapshotsMigration);
+    // Keep immutable funding-plan snapshots available on the allocated trade row.
+    const walletFundingPlanMigration = await readFile(resolve(root, "drizzle/0089_trading_trade_wallet_funding_plan_snapshot.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, walletFundingPlanMigration);
 
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],

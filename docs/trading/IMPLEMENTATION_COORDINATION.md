@@ -69,3 +69,14 @@ Because these changes overlap, Part 4 is layered on the PR #233 branch for revie
 - [ ] Verify the behavior against a disposable MySQL 8.4/MariaDB database with two concurrent worker instances, restart recovery, duplicate event delivery, and pool exhaustion.
 
 No merge into `main`, production migration, or deployment is authorized by this document.
+
+
+## 2026-10-29 — CI-driven Part 4 correction and current integration disposition
+
+- Refreshed live GitHub state before editing. `main` remains `07b17ca401d5f0582bf09fba8b6625f4a8af42e6`; PR #238 remains open/draft and stacked on PR #233. The previously reviewed Part 4 head had no workflow runs.
+- PR #233 exact-head CI exposed a real schema defect in disposable MySQL 8.4 and MariaDB 11.4 settlement tests: Drizzle inserts `trade_positions.walletFundingPlanJson`, but migration 0088 only added this snapshot to `opportunity_popup_events`. A forward-only `0089_trading_trade_wallet_funding_plan_snapshot.sql` is being added, registered in the journal, portal migration runner, installer recovery registry and runtime-schema bridge, with a worker preflight contract. Historical migrations 0086–0088 must not be rewritten.
+- Two migration-order regression tests had brittle hard-coded journal tail offsets; their assertions are changed to verify neighboring historical entries and the complete recent migration order.
+- The correction is not validated until fresh exact-head CI passes, including MySQL 8.4/MariaDB 11.4 settlement integration and installer regression tests. Local `pnpm` checks were unavailable because repository checkout failed when GitHub DNS could not resolve.
+- Live dependency state at review: PR #230 is open/non-draft and reports merge conflict; #231–#237 remain open/draft/unmerged. PR #235 migrations conflict numerically with #233's 0086–0088 and must be reconciled into one forward-only sequence before integration. PR #238 must not merge independently into `main`.
+- PR #236 is aligned to current `main` at head `e9184988c9dbfde346278e697d8a9b64f47ec229`; seven generic workflows passed on that exact head. Dedicated authenticated UI and persisted-settings acceptance remain unverified and deferred by user decision. Generic browser-recovery CI is not evidence that the dedicated runner ran.
+- Status: Part 4 implementation remains partially complete; integration and acceptance are not complete. Fresh exact-head CI and database concurrency/restart/idempotency/rollback/pool-exhaustion/snapshot coverage on the reconciled dependency branch remain required.

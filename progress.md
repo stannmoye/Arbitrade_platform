@@ -303,3 +303,14 @@ This policy is final and must be followed throughout the application:
 - Use integer basis points, minor-unit money math, explicit rounding, exact fee/payout reconciliation, and persisted UTC deadlines. Startup recovery must find overdue work without resetting timers or duplicating debits, payouts, or company rotation.
 - A configured percentage formula is a platform-defined contractual payout unless supported by actual execution/result evidence; UI and terms must not misrepresent it as market-earned profit.
 - Documentation changes are on `docs/admin-editable-trading-popups` and await exact-head CI/review before merge. No production deployment or database operation was performed.
+
+
+## 2026-10-29 — Part 4 CI-driven schema correction and dependency handoff
+
+- Refreshed GitHub PRs #230–#238 and current `main`. Current `main`: `07b17ca401d5f0582bf09fba8b6625f4a8af42e6`. Part 4 PR #238 was at `fd0cf980929e03aa5cdb50c4582cf45585458cd5` before this correction; it had no exact-head workflow runs and remains draft/stacked on PR #233.
+- Investigated PR #233's failed MySQL 8.4 and MariaDB 11.4 settlement integrations. Both failed because Drizzle selected `trade_positions.walletFundingPlanJson` but migration 0088 did not add it to that table. A forward-only migration 0089 is being added, registered in the Drizzle journal, portal runner, installer recovery list and worker runtime-schema bridge, with a worker preflight contract.
+- Fixed the two migration-order tests whose hard-coded journal offsets failed and updated this handoff plus `docs/trading/IMPLEMENTATION_COORDINATION.md`.
+- Local validation is unavailable because GitHub host resolution prevented repository checkout; `pnpm check`, `pnpm test` and `pnpm build` have not been run locally. No production database/server was accessed. Exact-head CI must be checked after this source change.
+- Integration remains blocked: PRs #230–#237 remain open/unmerged in the latest refresh; PR #230 reports a merge conflict; main's historical `0086_trading_popup_policy_snapshots.sql` and PR #233/#235 same-numbered migrations require an explicit forward-only migration sequence. Do not merge #238 independently.
+- Part 5 PR #236 current head `e9184988c9dbfde346278e697d8a9b64f47ec229` has seven successful generic workflows. Its dedicated authenticated UI runner and persisted-settings server acceptance are not verified; the real-server run was explicitly deferred.
+- Disposition: Part 4 is not integration-complete or acceptance-complete. Exact-head CI and the integrated migration/lifecycle checks remain required; dedicated server acceptance remains deferred.
