@@ -293,6 +293,8 @@ describe("Automatic Trading tier qualification", () => {
       "deliveryRetryPolicy", "expiryHandling", "duplicatePrevention", "audioEnabled", "audioSound",
       "allowedOpportunityTypes", "rewardLimitCurrency", "dailyRewardWindow", "unsettledRewardPolicy",
       "capReachedPolicy", "settlementConfirmationState", "settlementRetryPolicy", "maxSettlementAttempts",
+      "postCompletionIntervalSeconds", "maxPendingDeliveries", "maxDeliveryAttempts",
+      "requirePreviousSettlement", "minSettlementDelaySeconds", "maxSettlementDelaySeconds", "closePolicy",
     ];
     for (const field of fields) {
       expect(schemaSource).toContain(field);
