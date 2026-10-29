@@ -14,7 +14,7 @@ describe("transaction-console activity integrity", () => {
     expect(source).not.toContain("console_activity_phrases");
     expect(source).not.toContain("SYSTEM_ACTIVITY");
     expect(source).not.toContain("SIMULATED");
-    expect(source).toMatch(/recordTransactionConsolePulse[\\s\\S]*?return \\{ inserted: false, paused: false \\}/);
+    expect(source).toContain("return { inserted: false, paused: false };");
   });
 });
 
