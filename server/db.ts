@@ -2753,7 +2753,7 @@ async function claimOpportunityExecutionAttempt(userId:number, offer:any, maxAtt
     }
     await tx.update(opportunityPopupEvents).set({
       executionStatus:"RUNNING",executionAttemptCount:attempts+1,
-      executionRetryAfter:new Date(now.getTime()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),executionRetryDay:day,updatedAt:now,
+      executionRetryAfter:new Date(now.getTime()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)))*1000),executionRetryDay:day,updatedAt:now,
     }).where(eq(opportunityPopupEvents.id,event.id));
     return {claimed:true,attemptNumber:attempts+1,eventId:Number(event.id)};
   });
@@ -2820,10 +2820,10 @@ async function autoTradeOpenOpportunities(userId:number,offers:any[],controls:an
       // A pause must not consume the configured retry budget; release the claim
       // and wait briefly so the durable worker can resume after the administrator unpauses.
       if(/new trading allocations are paused by an administrator/i.test(message)){
-        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30))*1000),errorCode:"ALLOCATION_PAUSED",attemptNumber:claim.attemptNumber,releaseAttempt:true});
+        await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:new Date(Date.now()+Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)))*1000),errorCode:"ALLOCATION_PAUSED",attemptNumber:claim.attemptNumber,releaseAttempt:true});
         continue;
       }
-      const decision=decideTradeExecutionRetry(error,Number(claim.attemptNumber),Math.max(1,maxAttempts),new Date(),Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds)||30)));
+      const decision=decideTradeExecutionRetry(error,Number(claim.attemptNumber),Math.max(1,maxAttempts),new Date(),Math.max(5,Math.min(3600,Number(offer.tradeRetryDelaySeconds))));
       if(decision.kind==="retry"){
         await recordOpportunityExecutionFailure(userId,Number(claim.eventId),{status:"RETRYING",retryAt:decision.retryAt,errorCode:decision.errorCode});
         continue;
@@ -2866,7 +2866,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   // remains available for an administrator-configured review workflow.
   const eligibleSubscriptions=subscriptions.filter(subscription=>{
     const configured=policyByName.get(subscription.packageName);
-    return !configured||(Boolean(configured.enabled)&&configured.automaticDelivery!==false);
+    return Boolean(configured && Number(configured.policyVersion)>=1 && configured.enabled && configured.automaticDelivery);
   });
   if(!eligibleSubscriptions.length) return emptyResult({packageName:subscriptions.map(row=>row.packageName).join(", "),maxPopupsPerDay:0,maxVisibleOffers:0,enabled:false,packagePolicyPaused:true,popupPolicy:{}});
   const quotaFor=(subscription:any)=>{
@@ -2881,8 +2881,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const configuredPolicies=eligibleSubscriptions.map(subscription=>policyByName.get(subscription.packageName)).filter((row:any)=>Boolean(row));
   const policy=configuredPolicies[0]||null;
   const packageName=[...new Set(eligibleSubscriptions.map(row=>row.packageName))].join(", ");
-  const adminDeliveryCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);const configuredCap=Math.max(0,Number(row?.maxPopupsPerDay)||0);const policyCap=configuredCap>0?configuredCap:quotaFor(subscription);let snapshot:any={};try{snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}"))}catch{snapshot={}}const tierCap=Math.max(0,Number(snapshot.maxPopupsPerDay??subscription.packageMaxPopupsPerDay)||0);return sum+(tierCap>0?Math.min(policyCap,tierCap):policyCap);},0);
-  const adminVisibleCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);return sum+(row?Math.max(0,Number(row.maxVisibleOffers)||0):quotaFor(subscription));},0);
+  const adminDeliveryCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);const policyCap=Math.max(0,Number(row?.maxPopupsPerDay)||0);let snapshot:any={};try{snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}"))}catch{snapshot={}}const tierCap=Math.max(0,Number(snapshot.maxPopupsPerDay??subscription.packageMaxPopupsPerDay)||0);return sum+(tierCap>0?Math.min(policyCap,tierCap):0);},0);
+  const adminVisibleCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);return sum+Math.max(0,Number(row?.maxVisibleOffers)||0);},0);
   const maxPopupsPerDay=Math.min(combinedQuota,adminDeliveryCap||combinedQuota);
   const maxVisibleOffers=Math.min(combinedQuota,adminVisibleCap||combinedQuota);
   const popupPolicy={
@@ -2946,25 +2946,26 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       const configured=policyByName.get(subscription.packageName);
       const currencyRow=currencyRows.find((row:any)=>String(row.code).toUpperCase()===String(offer.currency).toUpperCase());
       if(!currencyRow) continue;
-      const configuredMinimum=configured?packageUsdMinorToNativeMinor(Number(configured.minimumCapitalUsdMinor??Number(configured.minimumTradeUnits)*100),String(offer.currency),currencyRows,"ceil"):Number(offer.minimumMinor);
-      const configuredMaximum=configured?packageUsdMinorToNativeMinor(Number(configured.maximumCapitalUsdMinor??Number(configured.maximumTradeUnits)*100),String(offer.currency),currencyRows,"floor"):Number.MAX_SAFE_INTEGER;
+      if(!configured) continue;
+       const configuredMinimum=packageUsdMinorToNativeMinor(Number(configured.minimumCapitalUsdMinor),String(offer.currency),currencyRows,"ceil");
+      const configuredMaximum=packageUsdMinorToNativeMinor(Number(configured.maximumCapitalUsdMinor),String(offer.currency),currencyRows,"floor");
       const publishedTerms=calculateTradeTerms(userId,offer,Math.max(Number(offer.minimumMinor),configuredMinimum));
       const minimumMinor=Math.max(Number(offer.minimumMinor),Number(publishedTerms.minimumMinor||0),configuredMinimum);
       if(!Number.isSafeInteger(minimumMinor)||minimumMinor<=0||minimumMinor>configuredMaximum) continue;
-      const expectedRewardBps=configured?chooseProfitRateBps(Number(configured.minimumRewardBps),Number(configured.maximumRewardBps)):publishedTerms.rewardBps;
-      const tradeDurationSeconds=configured?chooseTradeDurationSeconds(Number(configured.minimumTradeDurationSeconds),Number(configured.maximumTradeDurationSeconds)):Number(offer.durationSeconds);
+      const expectedRewardBps=chooseProfitRateBps(Number(configured.minimumRewardBps),Number(configured.maximumRewardBps));
+      const tradeDurationSeconds=chooseTradeDurationSeconds(Number(configured.minimumTradeDurationSeconds),Number(configured.maximumTradeDurationSeconds));
       if(!Number.isSafeInteger(tradeDurationSeconds)||tradeDurationSeconds<1) continue;
       newlyEligible.push({...offer,packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
         minimumMinor,packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,
         currencyRateUsd:Number(currencyRow.usdRate||0),currencyRateUpdatedAt:currencyRow.updatedAt||null,
-        expectedRewardBps,tradeDurationSeconds,companyRotationEnabled:configured?.companyRotationEnabled!==false,calculationMethod:configured?"admin-configured-range":publishedTerms.method});
+        expectedRewardBps,tradeDurationSeconds,companyRotationEnabled:Boolean(configured.companyRotationEnabled),calculationMethod:"admin-configured-range"});
       assignedSubscriptionByOffer.set(Number(offer.id),subscription);
       usedBySubscription.set(Number(subscription.subscriptionId),(usedBySubscription.get(Number(subscription.subscriptionId))||0)+1);
       remainingQuota--;
     }
   }
   if(newlyEligible.length){
-    await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({userId,offerId:offer.id,quotaDay,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion||1)}))).onDuplicateKeyUpdate({set:{deliveredAt:new Date()}});
+    await db.insert(opportunityDeliveryEvents).values(newlyEligible.map(offer=>({userId,offerId:offer.id,quotaDay,policyVersion:Number(policyByName.get(offer.packageName)?.policyVersion)}))).onDuplicateKeyUpdate({set:{deliveredAt:new Date()}});
     const lifecycleIds=await ensurePopupDeliveries(newlyEligible.map(offer=>{
       const available=Math.max(0,Number(balancesSnapshot.find((row:any)=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase())?.availableMinor||0));
       return {userId,offerId:offer.id,quotaDay,packageName:offer.packageName,symbol:offer.symbol,currency:offer.currency,minimumMinor:Number(offer.minimumMinor),
@@ -3195,7 +3196,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   for(const row of packagePolicies) policyByName.set(row.packageName,row);
   const eligibleSubscriptions=activePackageSubscriptions.filter(subscription=>{
     const configured=policyByName.get(subscription.packageName);
-    return Boolean(configured && configured.enabled && configured.automaticDelivery && configured.automaticTradingEnabled);
+    return Boolean(configured && Number(configured.policyVersion)>=1 && configured.enabled && configured.automaticDelivery && configured.automaticTradingEnabled && Number(configured.maxTradeAttemptsPerDay)>0 && Number(configured.tradeRetryDelaySeconds)>=5 && Number(configured.tradeRetryDelaySeconds)<=3600);
   });
   if(!eligibleSubscriptions.length) throw new Error("New allocations are paused for all eligible Trading tier policies");
   const quotaRows=await tx.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL AND confirmedAt>=${todayStartUtc} AND confirmedAt<${tomorrowStartUtc} AND status<>'cancelled' GROUP BY packageSubscriptionId`) as any;
@@ -3270,9 +3271,9 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   if(Number((balanceUpdate as any)[0]?.affectedRows||0)!==1) throw new Error("Insufficient available balance");
   const ref=`trade-${offer.id}-${userId}-${Date.now()}`;
   await tx.insert(balanceLedger).values({userId,currency:offer.currency,amountMinor:-input.amountMinor,entryType:"trade_reservation",reference:ref,withdrawable:false});
-  const settlesAt=new Date(Date.now()+selectedTradeDurationSeconds*1000); const creditAt=new Date(settlesAt.getTime()+settlementPolicy.creditDelaySeconds*1000); const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,profitRateBps:terms.rewardBps,tradeDurationSeconds:selectedTradeDurationSeconds,rewardReservedMinor:reward,settlesAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:Number(packagePolicy?.policyVersion||activePackageSubscription.termsVersion||1)} as any);
+  const settlesAt=new Date(Date.now()+selectedTradeDurationSeconds*1000); const creditAt=new Date(settlesAt.getTime()+settlementPolicy.creditDelaySeconds*1000); const result=await tx.insert(tradePositions).values({userId,offerId:offer.id,packageSubscriptionId:selectedSubscriptionId,currency:offer.currency,principalMinor:input.amountMinor,expectedRewardMinor:reward,profitRateBps:terms.rewardBps,tradeDurationSeconds:selectedTradeDurationSeconds,rewardReservedMinor:reward,settlesAt,creditAt,lifecycleStage:"Trade Allocated",settlementStatus:"pending",policyVersion:Number(packagePolicy!.policyVersion)} as any);
   const tradeId=Number(result[0].insertId);
-  await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:Number(packagePolicy?.policyVersion||activePackageSubscription.termsVersion||1)})});
+  await tx.insert(tradeLifecycleEvents).values({tradeId,userId,eventType:"trade_allocated",stage:"Trade Allocated",payloadJson:JSON.stringify({amountMinor:input.amountMinor,currency:offer.currency,packageSubscriptionId:selectedSubscriptionId,packageId:Number(activePackageSubscription.packageId),termsVersion:Number(activePackageSubscription.termsVersion||1),policyVersion:Number(packagePolicy!.policyVersion)})});
   if(input.deliveryEventId!==undefined) await tx.update(opportunityPopupEvents).set({tradeId,eventStatus:"TRADED",executionStatus:"SUCCEEDED",executionRetryAfter:null,executionLastErrorCode:null,tradedAt:new Date(),updatedAt:new Date()}).where(and(eq(opportunityPopupEvents.id,input.deliveryEventId),eq(opportunityPopupEvents.userId,userId),eq(opportunityPopupEvents.offerId,offer.id)));
   else await tx.execute(sql`UPDATE opportunity_popup_events SET tradeId=${tradeId},eventStatus='TRADED',executionStatus='SUCCEEDED',executionRetryAfter=NULL,executionLastErrorCode=NULL,deliveryStatus=CASE WHEN deliveryStatus='failed' THEN deliveryStatus ELSE 'rendered' END,tradedAt=COALESCE(tradedAt,CURRENT_TIMESTAMP),updatedAt=CURRENT_TIMESTAMP WHERE userId=${userId} AND offerId=${offer.id} ORDER BY deliveredAt DESC LIMIT 1`);
   await tx.insert(tradeRewardReservations).values({userId,tradeId,packageName:activePackageSubscription.packageName,windowKey:today,currency:offer.currency,reservedMinor:reward,status:"reserved"});
