@@ -216,6 +216,26 @@ try {
   assert.equal(fxRaw.sourceDate, fxSourceDate, "The raw snapshot must preserve the fiat provider source date.");
   assert.ok(String(fxRaw.fetchedAt).includes("T"), "The raw snapshot must preserve the full API fetch timestamp.");
 
+  // A committed non-USD request retry must replay the persisted quote and must
+  // not call the FX provider again, even if the provider is now unavailable.
+  globalThis.fetch = (async () => { throw new Error("FX provider must not be called on committed replay"); }) as typeof fetch;
+  try {
+    const replayedFxCredit = await adjustCustomerBalance(adminId, {
+      userId: creditPathUserId,
+      currency: testCurrencyCode,
+      amountMinor: 10000,
+      mode: "credit",
+      creditClassification: "qualifying_deposit",
+      reason: "integration test non-USD qualifying admin wallet credit",
+      idempotencyKey: "it-credit-nonusd-001",
+    });
+    assert.equal(replayedFxCredit.ledgerId, nonUsdQualifyingCredit.ledgerId);
+    assert.equal(replayedFxCredit.qualifyingDepositUsdMinor, nonUsdQualifyingCredit.qualifyingDepositUsdMinor);
+    assert.equal(replayedFxCredit.rateUsd, nonUsdQualifyingCredit.rateUsd);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
   // Stale, mismatched-pair and unavailable provider responses must fail closed
   // without committing any wallet or ledger mutation.
   for (const scenario of ["stale", "mismatched", "unavailable"] as const) {
