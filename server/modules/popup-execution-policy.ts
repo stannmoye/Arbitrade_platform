@@ -14,7 +14,7 @@ export function isPopupExecutionEligible(input: PopupExecutionEligibilityInput):
   const deliveryStatus = String(input.deliveryStatus ?? "").toLowerCase();
   const executionStatus = String(input.executionStatus ?? "").toUpperCase();
 
-  return ["DELIVERED", "NOTICED", "DISMISSED"].includes(eventStatus)
+  return ["DELIVERED", "NOTICED", "OPENED", "DISMISSED"].includes(eventStatus)
     && ["delivered", "received", "rendered"].includes(deliveryStatus)
     && !["SUCCEEDED", "FAILED", "RUNNING"].includes(executionStatus);
 }
