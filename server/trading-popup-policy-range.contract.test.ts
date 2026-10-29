@@ -41,7 +41,11 @@ describe("administrator-managed Trading popup policy bounds and snapshots", () =
     expect(database).toContain("Saved pop-up duration is outside the tier");
     expect(database).toContain("packagePolicyVersionSnapshot:snapshotVersion");
     expect(lifecycle).toContain("SELECT settingValue FROM app_settings WHERE settingKey=? FOR UPDATE");
-    expect(lifecycle).toContain("companyReferenceId,companyDisplayName,companyLogoUrl,companyReferenceOnly");
+    expect(lifecycle).toContain("companyReferenceId,companyDisplayName,companyLogoUrl,companyReferenceMetadataJson,companyReferenceOnly");
+    expect(lifecycle).toContain("tickerResearchStatus: selection.company.tickerResearchStatus");
+    expect(lifecycle).toContain("countryName: selection.company.countryName");
+    expect(app).toContain("formatCompanyReferenceMetadata");
+    expect(database).toContain("companyReferenceMetadataJson:tradePositions.companyReferenceMetadataJson");
     expect(policyEditor).toContain("Each newly delivered pop-up selects one rate and one duration inside the saved tier ranges.");
     expect(policyEditor).toContain("existing pop-ups keep their original snapshots.");
   });
