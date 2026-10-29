@@ -200,7 +200,7 @@ try {
     await db.execute(sql.raw(`CREATE TRIGGER \`${failureTriggerName}\` BEFORE INSERT ON balance_ledger FOR EACH ROW BEGIN IF NEW.userId = ${fundingUserId} AND NEW.entryType = 'trade_reservation' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected cross-wallet rollback failure'; END IF; END`));
     await assert.rejects(
       createTrade(fundingUserId, { offerId: fundingOfferId, amountMinor: 10000, packageId: fundingPackageId }),
-      /injected cross-wallet rollback failure|trade_reservation|45000/i,
+      /injected cross-wallet rollback failure/i,
     );
   } finally {
     globalThis.fetch = originalFetch;
