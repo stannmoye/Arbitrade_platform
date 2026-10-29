@@ -215,7 +215,7 @@ try {
   const afterFundingLedger = await db.select({ id: balanceLedger.id }).from(balanceLedger).where(eq(balanceLedger.userId, fundingUserId));
   const afterFundingFx = await db.select({ id: fxRateSnapshots.id }).from(fxRateSnapshots);
   assert.deepEqual(afterFundingWallets, beforeFundingWallets, "A mid-transaction failure must restore every source and target wallet balance.");
-  assert.deepEqual(afterFundingLedger, beforeFundingLedger, "A mid-transaction failure must remove all partial conversion/reservation ledger postings.");
+  assert.deepEqual(afterFundingLedger, beforeFundingLedger, "Injected cross-wallet failure must remove all partial conversion/reservation ledger postings.");
   assert.deepEqual(afterFundingFx, beforeFundingFx, "A mid-transaction failure must roll back all FX snapshots written for the failed funding operation.");
 
   const ledgerAfter = await db.select({ id: balanceLedger.id }).from(balanceLedger).where(eq(balanceLedger.userId, userId));
