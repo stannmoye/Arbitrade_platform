@@ -31,7 +31,7 @@ export function nextCompanySpotlight(pool:CompanyReferenceRecord[],priorState:un
   if(new Set(ids).size!==ids.length) throw new Error("Company spotlight pool contains duplicate Logo IDs.");
   const fingerprint=digest(ids.join("\n"));
   const raw=priorState as Partial<CompanySpotlightState>|null;
-  const state:CompanySpotlightState=raw&&raw.poolFingerprint===fingerprint&&raw.repeatPolicy===repeatPolicy&&Number.isSafeInteger(raw.cycleNumber)&&Number(raw.cycleNumber)>=1&&Number.isSafeInteger(raw.nextIndex)&&Number(raw.nextIndex)>=0&&Number.isSafeInteger(raw.requestCount)&&Number(raw.requestCount)>=0
+  const state:CompanySpotlightState=raw&&raw.poolFingerprint===fingerprint&&raw.repeatPolicy===repeatPolicy&&Number.isSafeInteger(raw.cycleNumber)&&Number(raw.cycleNumber)>=1&&Number.isSafeInteger(raw.nextIndex)&&Number(raw.nextIndex)>=0&&Number(raw.nextIndex)<pool.length&&Number.isSafeInteger(raw.requestCount)&&Number(raw.requestCount)>=0
     ?{poolFingerprint:fingerprint,repeatPolicy,cycleNumber:Number(raw.cycleNumber),nextIndex:Number(raw.nextIndex),requestCount:Number(raw.requestCount),lastLogoId:typeof raw.lastLogoId==="string"?raw.lastLogoId:null}
     :{poolFingerprint:fingerprint,repeatPolicy,cycleNumber:1,nextIndex:0,requestCount:0,lastLogoId:null};
   let company:CompanyReferenceRecord,nextIndex=state.nextIndex,cycleNumber=state.cycleNumber;

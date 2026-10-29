@@ -4,4 +4,4 @@ ALTER TABLE `opportunity_package_policies` ADD COLUMN IF NOT EXISTS `companyRota
 --> statement-breakpoint
 ALTER TABLE `opportunity_package_policies` ADD COLUMN IF NOT EXISTS `companyRotationCountryNames` text NULL;
 --> statement-breakpoint
-ALTER TABLE `opportunity_package_policies` ADD COLUMN IF NOT EXISTS `companyRotationRepeatPolicy` varchar(32) NOT NULL DEFAULT 'avoid_until_exhausted';
+ALTER TABLE `opportunity_package_policies` ADD COLUMN IF NOT EXISTS `companyRotationRepeatPolicy` enum('avoid_until_exhausted','allow_repeats') NOT NULL DEFAULT 'avoid_until_exhausted';
