@@ -280,3 +280,15 @@ This policy is final and must be followed throughout the application:
 - Added source-contract regression assertions for token generation, schema/migration registration, trade-creation fencing, and stale-worker handling.
 - Latest recorded commit at this note: `7068f09eef0c27f060f51b77b8b55607d08ff7ab`. CI for the new head must finish and be checked. No disposable MySQL/MariaDB integration test has yet proven lease expiry/reclaim, simultaneous workers, or crash/restart behavior on the actual opportunity lifecycle.
 - Remaining acceptance gaps: no separate customer-level distributed lease; database-backed race/restart/quota/financial-idempotency acceptance tests still required. Keep PR #235 draft and do not merge/deploy until exact-head checks and integration evidence pass.
+
+
+## 2026-10-29 — Part 3 worker integration tests and installer assertion correction
+
+- Fixed the installer regression assertion: `opportunity_popup_events` is no longer incorrectly required to appear in legacy migration `0062_worker_runtime_tables.sql`; its lease column is validated separately through migration `0086` and the worker schema contract.
+- Added `scripts/trading-opportunity-worker.integration.ts`, a disposable-database integration test that runs the actual database-backed claim function with competing concurrent claimants, verifies only one claim wins, forces an expired lease and verifies a new fencing token is issued, and confirms a stale token is rejected before wallet/ledger mutations.
+- The integration test also runs concurrent `createTrade` retries against a previously committed delivery-event trade and asserts both responses return the same trade ID with no extra trade row, ledger entry, or wallet balance change.
+- Added `.github/workflows/trading-opportunity-worker-integration.yml` to run the lifecycle test against MySQL 8.4 and MariaDB 11.4 after applying the guarded migration chain.
+- Fixed execution completion to require the active lease token, and exported the claim function for the integration harness.
+- Latest recorded head for this increment: `cb20c0bbd41b67b109ae0499bd222202342f269a`. Installer validation and all exact-head workflows must pass before accepting this Part. The new database integration run is queued and has not yet supplied results.
+- Coverage limitation: the lease-recovery test simulates a worker that disappears by allowing its persisted retry/lease deadline to expire; it does not restart a real server process. Concurrent quota enforcement and a full fresh-allocation race with wallet reservation still need explicit database acceptance evidence.
+- PR #235 remains draft, unmerged, and undeployed.
