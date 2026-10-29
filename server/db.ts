@@ -2617,9 +2617,16 @@ export async function getCustomerTradingEligibility(userId:number) {
   };
 }
 
-/** Reads saved policy only. Missing policy rows are errors; reads never create defaults. */
+/** Reads existing policy rows without creating defaults. A missing row disables only its own tier. */
 export async function listOpportunityPackagePolicies() {
-  return listPersistedOpportunityPackagePolicies();
+  const db=await getDb();
+  if(!db) throw new Error("Database is not available");
+  const [tiers,rows]=await Promise.all([
+    db.select({name:packages.name}).from(packages),
+    db.select().from(opportunityPackagePolicies),
+  ]);
+  const tierNames=new Set(tiers.map(tier=>tier.name));
+  return rows.filter(row=>tierNames.has(row.packageName));
 }
 
 /** Read-only policy snapshot; missing rows fail closed until admin/worker reconciliation creates them. */
