@@ -65,6 +65,8 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain('drizzle/0086_trading_opportunity_execution_leases.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, opportunityExecutionLeaseMigration)");
     expect(leaseMigration).toContain("ADD COLUMN IF NOT EXISTS `executionLeaseToken` varchar(64) NULL");
+    expect(leaseMigration).toContain("ADD COLUMN IF NOT EXISTS `tradeId` int NULL");
+    expect(leaseMigration).toContain("ADD COLUMN IF NOT EXISTS `policyVersion` int NOT NULL DEFAULT 1");
     expect(leaseMigration).toContain("ADD COLUMN IF NOT EXISTS `deliveryStatus` enum('pending','delivered','received','rendered','failed','expired')");
     expect(mainMigrationRunner).toContain("const requiredColumns = [\"deliveryStatus\", \"deliveryAttemptCount\", \"lastErrorCode\", \"receivedAt\", \"renderedAt\", \"expiredAt\", \"executionLeaseToken\"]");
     expect(mainMigrationRunner).toContain("async function reconcileOpportunityExecutionLeaseSchema(connection, root)");
