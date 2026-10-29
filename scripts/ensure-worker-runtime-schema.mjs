@@ -119,9 +119,10 @@ async function main() {
     const settlementSchemaMigration = await readFile(resolve(root, "drizzle/0085_trade_settlement_schema_reconciliation.sql"), "utf8");
     await executeCompatibleMigrationSql(db, settlementSchemaMigration);
 
-    // Admin-controlled Trading popup ranges are durable policy, not process memory.
-    const tradingPopupPolicyMigration = await readFile(resolve(root, "drizzle/0086_trading_popup_policy_ranges.sql"), "utf8");
-    await executeCompatibleMigrationSql(db, tradingPopupPolicyMigration);
+    // Do not replay migration 0086 from runtime preflight. It contains one-time
+    // data backfills as well as DDL; replaying it on every startup can overwrite
+    // administrator-edited capital and reward ranges. The guarded main migration
+    // runner is the sole owner of numbered, one-time Trading migrations.
 
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],
