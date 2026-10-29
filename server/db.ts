@@ -3362,7 +3362,7 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
         provider:debit.rate.provider,sourceDate:debit.rate.sourceDate.slice(0,16),
         rawJson:JSON.stringify({purpose:"trade_cross_wallet_conversion",tradeReference:ref,targetCurrency:offer.currency,
           targetCreditMinor:debit.convertedTargetMinor,sourceDebitMinor:debit.amountMinor,
-          roundingExcessSourceMinor:debit.roundingExcessSourceMinor,fetchedAt:debit.rate.fetchedAt.toISOString(),scale:debit.rate.scale}),
+          roundingExcessSourceMinor:debit.roundingExcessSourceMinor,roundingExcessUsdScaled:debit.roundingExcessUsdScaled,fetchedAt:debit.rate.fetchedAt.toISOString(),scale:debit.rate.scale}),
       });
     }
   }
