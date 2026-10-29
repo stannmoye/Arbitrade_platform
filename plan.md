@@ -121,3 +121,10 @@ The user's latest clarification supersedes the earlier demo-only reward model fo
 ### Mining interface design
 
 Preserve the dark, industrial mission-control Mining dashboard, electric-cyan data accents and restrained amber status warnings. Keep the existing asymmetric engine-and-controls layout, high-contrast tabular numbers and version/status chips. The flow animation runs continuously at a slow, reduced-motion-aware pace only while a customer has active purchased hash power; it uses real stored package and settlement states and never adds dummy balances or invented RPM. Distinguish a database-configured CKI valuation from market pricing and a verified third-party settlement from an estimate. Do not add decorative assets or a second admin interface.
+
+
+## Authoritative Trading policy — supersedes older Trading purchase/activation notes
+
+For **Trading only**, the current rules in `docs/TRADING_SYSTEM_SPECIFICATION.md` and `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md` take precedence over any older generic package/purchase wording in this plan. Trading tiers are admin-managed policy, not products customers buy: customers must not browse/select/subscribe/purchase/activate them. The server assigns eligibility only from qualifying manual administrator wallet credits under the canonical rules. Admin-controlled, persisted settings drive customer pop-ups and durable company rotation. Use the existing catalogue and stable Logo IDs; no hardcoded Trading package/pop-up/company/rate/capital/duration policy. Durable workers must resume persisted opportunity snapshots and recover overdue work without duplicate ledger effects.
+
+**Scope clarification:** package purchase/activation instructions in this plan apply to Mining packages only, never Trading tiers. Historical migrations are retained for schema/data compatibility and are not product authorization to expose customer Trading activation. See Issue #228 for implementation and acceptance work.
