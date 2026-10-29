@@ -3,6 +3,14 @@
 **Updated:** 2026-10-29  
 **Scope:** Trade/Trading only. Do not change Mining or unrelated application menus.
 
+## 2026-10-30 — Admin Trading navigation and clarity fixes
+
+- Shared Trading destinations now carry explicit focus identifiers. The admin portal compares both destination and focus when applying active navigation state, so package, quota, wallet, fee, settlement, delivery and company-reference items no longer appear to be the same selected page.
+- Trading labels were rewritten in plain language: **Customer tiers**, **Daily trade allowance**, **When offers appear**, **Money used for trades**, **Returns and fees**, **Try failed trades again**, **Check finished trades**, and **Pause new trades**. Short explanations are visible beside each menu item rather than being available only through a hover title.
+- Removed the duplicate tier-form fields for daily popup cap and maximum active investments. The central Trading delivery policy remains authoritative; the compatible server contract receives neutral legacy values of `0` when tier terms are created or saved.
+- Added larger touch targets, wrapped menu explanations, wider field spacing, and readable wrapping for operations tables. Added `docs/trading/ADMIN_UI_FIX_LOG.md` with the complete change record and validation results.
+- Regression coverage was updated in `server/trading-admin-navigation.contract.test.ts`.
+
 ## 2026-10-29 — Mainline Trading audit fixes
 
 - **FX evidence precision:** the qualifying-credit and cross-wallet allocation paths truncated provider source timestamps to 16 characters, while `fx_rate_snapshots.sourceDate` was also limited to `varchar(16)`. This discarded seconds and offset/provenance detail required by the FX contract. The paths now persist the complete provider timestamp; forward-only migration `0095_fx_snapshot_source_timestamp_precision.sql` widens the column to `varchar(64)` and is registered in the Drizzle journal, portal runner, installer recovery diagnostics, and worker runtime-schema bridge. Existing truncated rows cannot be reconstructed and remain historical evidence of the prior schema.

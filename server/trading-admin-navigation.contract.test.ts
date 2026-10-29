@@ -23,8 +23,9 @@ describe("Trading tier creation defaults", () => {
     const editFields = editor.slice(editor.indexOf("{(q.data as any[]).map"));
     expect(editFields).toContain('draft.minimumQualifyingBalanceUsdMinor===""?"":');
     expect(editFields).toContain('e.target.value===""?"":Number(e.target.value)');
-    expect(editFields).toContain('draft.maxPopupsPerDay===""');
-    expect(editFields).toContain('draft.maxActiveInvestments===""');
+    expect(editor).not.toContain("Daily popup cap");
+    expect(editor).not.toContain("Maximum active investments");
+    expect(editor).toContain("maxPopupsPerDay:0,maxActiveInvestments:0");
     expect(editFields).toContain("required maxLength={80} value={draft.name}");
   });
 });
@@ -127,7 +128,7 @@ describe("Trading fee-policy navigation", () => {
   it("opens the administrator screen that actually edits realized-profit fees", () => {
     const item = navigation.match(/id: "trade-profit-fees-limits", target: "([^"]+)"/);
     expect(item?.[1]).toBe("transactionReview");
-    expect(adminApp).toContain("{section===\"transactionReview\"&&<AdminTransactionReview/>}");
+    expect(adminApp).toContain("{section===\"transactionReview\"&&<AdminTransactionReview focus={focus as \"capital\"|\"fees\"|\"reconciliation\"|undefined}/>}");
     expect(operationsUi).toContain("trpc.adminOperations.updateTradeFeePolicy.useMutation");
   });
 });
@@ -163,12 +164,30 @@ describe("Trading retry-policy navigation", () => {
     const packageEditor = adminApp.slice(start, end);
     expect(packageEditor).toContain("maxTradeAttemptsPerDay");
     expect(packageEditor).toContain("tradeRetryDelaySeconds");
-    expect(packageEditor).toContain("Carry-forward controls are not yet implemented.");
-    expect(packageEditor).toContain('{!focus&&<><AdminTradingPackageCatalogue/><AdminTradeAllocationControl/></>}');
-    expect(packageEditor).toContain('{!focus&&<div className="package-policy-section"><strong>Opportunity delivery & scheduling</strong>');
+    expect(packageEditor).toContain("Carry-forward controls are not available yet.");
+    expect(packageEditor).toContain('{(!focus||focus==="quotas")&&<div className="package-policy-section"><strong>Daily customer allowance</strong>');
+    expect(packageEditor).toContain('focus==="quotas"');
   });
 });
 
+
+describe("Trading navigation focus and plain-language controls", () => {
+  it("gives shared screens distinct focus identifiers and uses the selected focus for active state", () => {
+    expect(navigation).toContain('target: "packages", focus: "tiers"');
+    expect(navigation).toContain('target: "packages", focus: "quotas"');
+    expect(navigation).toContain('target: "transactionReview", focus: "capital"');
+    expect(navigation).toContain('target: "transactionReview", focus: "fees"');
+    expect(navigation).toContain('target: "transactionReview", focus: "reconciliation"');
+    expect(adminApp).toContain('section===item.target && focus===item.focus');
+    expect(adminApp).toContain('setFocus(item.focus)');
+  });
+
+  it("shows the explanation beside each Trading menu item", () => {
+    expect(adminApp).toContain('className="admin-nav-item-detail"');
+    expect(navigation).toContain('label: "When offers appear"');
+    expect(navigation).toContain('label: "Try failed trades again"');
+  });
+});
 
 describe("Trading overview and duration navigation", () => {
   it("renders an operations snapshot using real persisted admin queries", () => {

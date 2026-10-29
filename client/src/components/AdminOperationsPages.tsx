@@ -272,7 +272,7 @@ export function AdminRiskWatchlist() {
   );
 }
 
-export function AdminTransactionReview() {
+export function AdminTransactionReview({ focus }: { focus?: "capital" | "fees" | "reconciliation" }) {
   const ledgerQuery = trpc.adminOperations.ledgerActivity.useQuery(undefined, { refetchInterval: 10_000 });
   const pendingQuery = trpc.adminOperations.pendingSettlements.useQuery(undefined, { refetchInterval: 5_000 });
   const [integrityBeforeTradeId, setIntegrityBeforeTradeId] = useState<number | undefined>(undefined);
@@ -312,7 +312,7 @@ export function AdminTransactionReview() {
   };
 
   return (
-    <ToolPage eyebrow="Append-only balance ledger" title="Transaction review" description="Review wallet ledger entries and confirm manually settled trades. Elapsed time never credits a reward or releases principal." icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { ledgerQuery.refetch(); pendingQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); payoutQuery.refetch(); }} disabled={ledgerQuery.isFetching || pendingQuery.isFetching || integrityQuery.isFetching || walletLedgerReconciliationQuery.isFetching || payoutQuery.isFetching}><RefreshCw size={14} /> Refresh</button>}>
+    <ToolPage eyebrow="Append-only balance ledger" title={focus === "fees" ? "Returns and fees" : focus === "capital" ? "Money used for trades" : focus === "reconciliation" ? "Check finished trades" : "Transaction review"} description={focus === "fees" ? "Set the fee taken only from confirmed positive profit. Losses and zero-profit trades have no profit fee." : focus === "capital" ? "Review wallet movements and the money reserved for trade activity." : focus === "reconciliation" ? "Compare finished trades with their ledger records before treating them as settled." : "Review wallet ledger entries and confirm manually settled trades. Elapsed time never credits a reward or releases principal."} icon={CircleDollarSign} action={<button className="admin-ops-button" type="button" onClick={() => { ledgerQuery.refetch(); pendingQuery.refetch(); integrityQuery.refetch(); walletLedgerReconciliationQuery.refetch(); payoutQuery.refetch(); }} disabled={ledgerQuery.isFetching || pendingQuery.isFetching || integrityQuery.isFetching || walletLedgerReconciliationQuery.isFetching || payoutQuery.isFetching}><RefreshCw size={14} /> Refresh</button>}>
       {ledgerQuery.isLoading ? <LoadingState /> : ledgerQuery.isError ? <div className="admin-ops-empty error">The balance ledger could not be loaded.</div> : <>
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Realized-profit fee policy</span><h2>Trading platform fee</h2></div><span className="admin-ops-subtle">Policy v{feePolicy?.policyVersion ?? 1}</span></div>
