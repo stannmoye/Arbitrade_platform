@@ -386,6 +386,13 @@
       "when": 1793318400003,
       "tag": "0085_trade_settlement_schema_reconciliation",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1793404800000,
+      "tag": "0086_package_aware_company_popup_rotation",
+      "breakpoints": true
     }
   ]
 }
