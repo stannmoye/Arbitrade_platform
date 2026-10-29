@@ -35,7 +35,7 @@ export async function refreshMarketData() {
   return { stocksStored, fxStored, refreshedAt, errors: [stocks, fiat, cryptoRates].filter(x => x.status === "rejected").map(x => x.status === "rejected" ? String(x.reason) : "") };
 }
 
-export async function ensureMarketDrivenOpportunities(refreshedAt = new Date()) {
+export async function ensureMarketDrivenOpportunities(_refreshedAt = new Date()) {
   const db = await getDb();
   if (!db) throw new Error("Database is not available");
   const now = new Date();
@@ -48,11 +48,12 @@ export async function ensureMarketDrivenOpportunities(refreshedAt = new Date()) 
     }
   }
 
-  // Expire stale offers, but do not invent trade economics from market snapshots.
-  // An offer must be explicitly published with auditable terms before customers can be allocated.
+  // Expire offers by their explicit expiry time. Comparing marketObservedAt with the
+  // refresh timestamp would close every offer based on any older market snapshot.
+  // Never invent trade economics from market snapshots; offers require published terms.
   await db.update(opportunityOffers)
     .set({ status: "closed" })
-    .where(and(eq(opportunityOffers.status, "open"), lt(opportunityOffers.marketObservedAt, refreshedAt)));
+    .where(and(eq(opportunityOffers.status, "open"), lt(opportunityOffers.closesAt, now)));
 
   const availableOffers = await db.select({ id: opportunityOffers.id })
     .from(opportunityOffers)
