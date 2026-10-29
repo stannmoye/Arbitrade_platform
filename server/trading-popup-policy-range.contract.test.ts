@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const schema = readFileSync(new URL("../drizzle/schema.ts", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../drizzle/0086_trading_popup_policy_ranges.sql", import.meta.url), "utf8");
+const snapshotMigration = readFileSync(new URL("../drizzle/0088_trading_popup_trade_snapshots.sql", import.meta.url), "utf8");
 const database = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const lifecycle = readFileSync(new URL("./opportunityLifecycle.ts", import.meta.url), "utf8");
@@ -22,20 +23,27 @@ describe("administrator-managed Trading popup policy bounds and snapshots", () =
       expect(lifecycle).toContain(field);
       expect(workerSchema).toContain(field);
     }
+    for (const field of ["configuredProfitRateBps", "configuredDurationSeconds", "configuredPopupDisplaySeconds", "packagePolicyVersionSnapshot", "packageBadgeLabel", "companyReferenceId", "companyDisplayName", "companyLogoUrl", "companyReferenceOnly"]) {
+      expect(schema).toContain(field);
+      expect(snapshotMigration).toContain(field);
+      expect(workerSchema).toContain(field);
+    }
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS");
     expect(migration).not.toMatch(/\bDROP\s+TABLE\b/i);
     expect(migration).not.toMatch(/\bDELETE\s+FROM\b/i);
   });
 
-  it("filters published values instead of synthesizing rates/durations and preserves existing popup snapshots", () => {
-    expect(database).toContain("publishedRewardBps<Number(minRate)");
-    expect(database).toContain("publishedDurationSeconds<Number(minDuration)");
-    expect(database).toContain("durationSeconds:publishedDurationSeconds");
-    expect(database).toContain("policyVersion:Number(configured?.policyVersion||1)");
-    expect(database).toContain("badgeLabel:configured?.badgeLabel==null?null:String(configured.badgeLabel)");
-    expect(lifecycle).toContain("ON DUPLICATE KEY UPDATE updatedAt=CURRENT_TIMESTAMP");
-    expect(policyEditor).toContain("These bounds filter already-published offer estimates and durations.");
-    expect(policyEditor).toContain("Existing pop-ups retain their original snapshots.");
+  it("selects and snapshots configured popup ranges before trade allocation", () => {
+    expect(database).toContain("chooseInclusiveInteger(Number(configured.minimumPayoutRateBps),Number(configured.maximumPayoutRateBps))");
+    expect(database).toContain("chooseInclusiveInteger(Number(configured.minimumTradeDurationSeconds),Number(configured.maximumTradeDurationSeconds))");
+    expect(database).toContain("configuredProfitRateBps,configuredDurationSeconds,configuredPopupDisplaySeconds");
+    expect(database).toContain("calculateConfiguredProfitMinor(input.amountMinor,effectiveRateBps)");
+    expect(database).toContain("Saved pop-up duration is outside the tier");
+    expect(database).toContain("packagePolicyVersionSnapshot:snapshotVersion");
+    expect(lifecycle).toContain("SELECT settingValue FROM app_settings WHERE settingKey=? FOR UPDATE");
+    expect(lifecycle).toContain("companyReferenceId,companyDisplayName,companyLogoUrl,companyReferenceOnly");
+    expect(policyEditor).toContain("Each newly delivered pop-up selects one rate and one duration inside the saved tier ranges.");
+    expect(policyEditor).toContain("existing pop-ups keep their original snapshots.");
   });
 
   it("limits badge styles to the allowlist and validates paired bounds in the service", () => {
