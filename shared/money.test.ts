@@ -32,4 +32,21 @@ describe("live currency conversion helpers", () => {
     expect(usdUnitsToNativeMinor(100, 2, 1.25)).toBe(8000);
     expect(usdUnitsToNativeMinor(100, 8, 50000)).toBe(200000);
   });
+  it("converts USD minor units with decimal-safe half-up rounding", async () => {
+    const { nativeMinorToUsdMinorExact } = await import("./money");
+    expect(nativeMinorToUsdMinorExact(10000, 2, "0.5")).toBe(5000);
+    expect(nativeMinorToUsdMinorExact(1, 2, "0.5")).toBe(1); // USD 0.005 rounds half-up to one cent.
+    expect(nativeMinorToUsdMinorExact(1, 2, "0.49")).toBe(0);
+    expect(nativeMinorToUsdMinorExact(100000000, 8, "65000")).toBe(6500000);
+    expect(nativeMinorToUsdMinorExact(12345, 2, "1.2345")).toBe(15240);
+  });
+
+  it("rejects invalid FX rates, invalid scales, and unsafe amounts", async () => {
+    const { nativeMinorToUsdMinorExact } = await import("./money");
+    expect(() => nativeMinorToUsdMinorExact(100, 2, "0")).toThrow("finite and positive");
+    expect(() => nativeMinorToUsdMinorExact(100, 2, "NaN")).toThrow("finite and positive");
+    expect(() => nativeMinorToUsdMinorExact(100, 31, "1")).toThrow("precision scale");
+    expect(() => nativeMinorToUsdMinorExact(Number.MAX_SAFE_INTEGER, 0, "1000000000000")).toThrow("safe integer range");
+  });
+
 });
