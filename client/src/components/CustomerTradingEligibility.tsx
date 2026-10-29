@@ -118,7 +118,7 @@ export function CustomerTradingEligibility() {
               <div className="trading-current-package-main">
               <div className="trading-tier-card-head">
                 <div className="trading-tier-heading">
-                  <div className="trading-tier-kicker"><CheckCircle2 size={19} strokeWidth={2.5} aria-hidden="true" /> Current Package</div>
+                  <div className="trading-tier-kicker"><CheckCircle2 size={19} strokeWidth={2.5} aria-hidden="true" /> Milestone Package</div>
                   <h3 className="trading-tier-name" id="current-trading-package">{currentPackage.name}</h3>
                 </div>
                 <span className="trading-tier-state"><ShieldCheck size={17} strokeWidth={2.5} aria-hidden="true" /> Automatically assigned</span>
@@ -145,7 +145,7 @@ export function CustomerTradingEligibility() {
                 <span className="trading-no-package-icon" aria-hidden="true"><ShieldCheck size={34} strokeWidth={2.2} /></span>
                 <div>
                   <h3 className="trading-tier-name" id="not-yet-qualified">No Package Assigned</h3>
-                  <span className="sr-only">You’re not yet qualified for a package</span>
+                  
                   <p className="trading-tier-explainer"><Info size={17} strokeWidth={2.5} aria-hidden="true" />Your package will be assigned automatically when the qualifying threshold is met.</p>
                 </div>
               </div>
@@ -158,7 +158,7 @@ export function CustomerTradingEligibility() {
               <div className="trading-next-package-main">
               <div className="trading-tier-card-head">
                 <div className="trading-tier-heading">
-                  <div className="trading-tier-kicker"><TrendingUp size={20} strokeWidth={2.5} aria-hidden="true" /> {currentPackage ? "Milestone Package" : "Next Milestone Package"}</div>
+                  <div className="trading-tier-kicker"><TrendingUp size={20} strokeWidth={2.5} aria-hidden="true" /> {currentPackage ? "Next Milestone Package" : "Milestone Package"}</div>
                   <h3 className="trading-tier-name" id="next-trading-package">{nextPackage.name}</h3>
                 </div>
                 <span className="trading-tier-state"><ArrowUpRight size={18} strokeWidth={2.5} aria-hidden="true" /> Next level</span>
@@ -188,7 +188,7 @@ export function CustomerTradingEligibility() {
                   <span className="sr-only">USD equivalent of qualifying admin wallet credits, valued at the rate recorded when credited.</span>
                 </div>
                 <div className="trading-candle-chart" aria-hidden="true">
-                  <div className="trading-candle-chart-heading"><span>MARKET MOVEMENT</span><span className="trading-candle-chart-live"><i /> LIVE</span></div>
+                  <div className="trading-candle-chart-heading"><span>MARKET MOVEMENT</span><span className="trading-candle-chart-live"><i /> ANIMATED</span></div>
                   <div className="trading-candle-chart-grid">
                     {candleSticks.map((candle, index) => (
                       <span className={`trading-candle ${candle.up ? "is-up" : "is-down"} candle-${index + 1}`} key={index} style={{ "--candle-height": `${candle.height}%`, "--candle-shift": `${candle.shift}px` } as React.CSSProperties}>
