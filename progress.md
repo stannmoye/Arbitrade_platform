@@ -229,3 +229,13 @@ This policy is final and must be followed throughout the application:
 - Adding forward migration `0085_trade_settlement_schema_reconciliation.sql` to restore the settlement columns/tables/indexes idempotently, and extending the guarded main migration's post-run schema verification to repair and verify the actual columns and lifecycle/reservation tables. Historical migration files/journal history are preserved.
 - The repair migration applied successfully in the follow-up MariaDB job, but the integration fixture then hit the existing unique `(userId, offerId)` trade constraint because all test rows reused offer ID 1. The fixture now gives each disposable trade a unique offer ID. Two journal-order contract tests also required their expected latest migration sequence to be updated for 0085.
 - The real-database integration still needs to pass on both MySQL 8.4 and MariaDB 11.4 after these fixture/contract fixes. This is verification-only; no production database or server was accessed, and no financial outcomes are rewritten.
+
+
+## 2026-10-29 — Trading pop-up financial rules clarified
+
+- Updated `docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md`, `docs/TRADING_SYSTEM_SPECIFICATION.md`, `AGENTS.md`, `.github/copilot-instructions.md`, the admin menu guide, worker health/recovery guide, and worker shutdown guide.
+- Admins configure inclusive per-pop-up percentage bounds (including decimals such as 2.7%), required capital/ranges, and trade-duration bounds. Server selects and persists each opportunity's rate/capital/duration once; retries and restarts must reuse the same snapshot.
+- Funding may span eligible customer wallets. Cross-currency funding requires a fresh timestamped FX quote, auditable native-currency ledger entries, stable wallet locking, and an all-or-none transaction. Invalid/stale FX or insufficient funds fails closed.
+- Use integer basis points, minor-unit money math, explicit rounding, exact fee/payout reconciliation, and persisted UTC deadlines. Startup recovery must find overdue work without resetting timers or duplicating debits, payouts, or company rotation.
+- A configured percentage formula is a platform-defined contractual payout unless supported by actual execution/result evidence; UI and terms must not misrepresent it as market-earned profit.
+- Documentation changes are on `docs/admin-editable-trading-popups` and await exact-head CI/review before merge. No production deployment or database operation was performed.
