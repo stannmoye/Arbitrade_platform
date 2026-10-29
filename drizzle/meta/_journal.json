@@ -393,6 +393,13 @@
       "when": 1793318400004,
       "tag": "0086_trading_popup_policy_ranges",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1793318400005,
+      "tag": "0087_trading_policy_fail_closed",
+      "breakpoints": true
     }
   ]
 }
