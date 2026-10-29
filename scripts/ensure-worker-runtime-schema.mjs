@@ -119,6 +119,28 @@ async function main() {
     const settlementSchemaMigration = await readFile(resolve(root, "drizzle/0085_trade_settlement_schema_reconciliation.sql"), "utf8");
     await executeCompatibleMigrationSql(db, settlementSchemaMigration);
 
+    // Bridge all known Trading migration branches in the canonical forward order.
+    // Every DDL file is idempotent; this also reconciles hosts with older trackers.
+    const popupPolicySnapshotMigration = await readFile(resolve(root, "drizzle/0086_trading_popup_policy_snapshots.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, popupPolicySnapshotMigration);
+    const opportunityExecutionLeaseMigration = await readFile(resolve(root, "drizzle/0087_trading_opportunity_execution_leases.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, opportunityExecutionLeaseMigration);
+    const packagePolicySchemaMigration = await readFile(resolve(root, "drizzle/0088_trading_package_policy_schema_reconciliation.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, packagePolicySchemaMigration);
+    const popupPolicyRangeMigration = await readFile(resolve(root, "drizzle/0089_trading_popup_policy_ranges.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, popupPolicyRangeMigration);
+    const companySpotlightRotationMigration = await readFile(resolve(root, "drizzle/0090_trading_company_spotlight_rotation.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, companySpotlightRotationMigration);
+    const popupTradeSnapshotsMigration = await readFile(resolve(root, "drizzle/0091_trading_popup_trade_snapshots.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, popupTradeSnapshotsMigration);
+    // Keep immutable funding-plan snapshots available on the allocated trade row.
+    const walletFundingPlanMigration = await readFile(resolve(root, "drizzle/0092_trading_trade_wallet_funding_plan_snapshot.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, walletFundingPlanMigration);
+    const walletAdjustmentIdempotencyMigration = await readFile(resolve(root, "drizzle/0093_admin_wallet_adjustment_idempotency.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, walletAdjustmentIdempotencyMigration);
+    const nullablePolicyDurationBoundsMigration = await readFile(resolve(root, "drizzle/0094_trading_policy_duration_bounds_nullable.sql"), "utf8");
+    await executeCompatibleMigrationSql(db, nullablePolicyDurationBoundsMigration);
+
     const columns = [
       ["eventKey", "VARCHAR(180) NULL"],
       ["category", "VARCHAR(40) NOT NULL DEFAULT 'account'"],

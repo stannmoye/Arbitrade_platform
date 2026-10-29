@@ -21,11 +21,22 @@ describe("Trading settlement timing schema drift repair", () => {
     const entries = journal.entries;
     const entry = entries.find((item) => item.tag === "0079_trade_settlement_timing_schema_repair");
     expect(entry).toBeDefined();
-    expect(entry.idx).toBe(entries.length - 7);
-    expect(entries.at(-3).tag).toBe("0083_trading_opportunity_worker_indexes");
-    expect(entries.at(-2).tag).toBe("0084_worker_health_registry");
-    expect(entries.at(-1).tag).toBe("0085_trade_settlement_schema_reconciliation");
-    expect(entry.when).toBeGreaterThan(entries.at(-8).when);
+    expect(entry.idx).toBe(entries.indexOf(entry));
+    expect(entries[entry.idx - 1].tag).toBe("0078_trading_customer_package_subscription_repair");
+    expect(entries[entry.idx + 1].tag).toBe("0080_qualifying_admin_deposit_attribution");
+    expect(entries.slice(-9).map((item) => item.tag)).toEqual([
+      "0086_trading_popup_policy_snapshots",
+      "0087_trading_opportunity_execution_leases",
+      "0088_trading_package_policy_schema_reconciliation",
+      "0089_trading_popup_policy_ranges",
+      "0090_trading_company_spotlight_rotation",
+      "0091_trading_popup_trade_snapshots",
+      "0092_trading_trade_wallet_funding_plan_snapshot",
+      "0093_admin_wallet_adjustment_idempotency",
+      "0094_trading_policy_duration_bounds_nullable",
+    ]);
+    expect(entry.idx).toBeGreaterThan(0);
+    expect(entry.when).toBeGreaterThan(entries[entry.idx - 1].when);
   });
 
   it("reconciles actual settlement timing schema drift even when migration history already records it", () => {
@@ -37,6 +48,12 @@ describe("Trading settlement timing schema drift repair", () => {
     expect(installerStatus).toContain('"0079_trade_settlement_timing_schema_repair.sql"');
     expect(portalRunner).toContain('"0085_trade_settlement_schema_reconciliation.sql"');
     expect(installerStatus).toContain('"0085_trade_settlement_schema_reconciliation.sql"');
+    expect(portalRunner).toContain('"0092_trading_trade_wallet_funding_plan_snapshot.sql"');
+    expect(installerStatus).toContain('"0092_trading_trade_wallet_funding_plan_snapshot.sql"');
+    expect(portalRunner).toContain('"0093_admin_wallet_adjustment_idempotency.sql"');
+    expect(installerStatus).toContain('"0093_admin_wallet_adjustment_idempotency.sql"');
+    expect(portalRunner).toContain('"0094_trading_policy_duration_bounds_nullable.sql"');
+    expect(installerStatus).toContain('"0094_trading_policy_duration_bounds_nullable.sql"');
   });
 
   it("repairs omitted settlement migrations additively without rewriting financial records", () => {

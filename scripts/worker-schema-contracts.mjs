@@ -40,6 +40,34 @@ export const WORKER_SCHEMA_CONTRACTS = Object.freeze({
       trading_tier_qualification_jobs_user_status_idx: { unique: false, columns: ["userId", "status"] },
     },
   },
+  opportunity_popup_events: {
+    // Delivery diagnostics, execution fencing, and immutable customer/trade
+    // snapshots are one contract for this table; duplicate object keys silently
+    // discarded the lease checks in the prior merged source.
+    columns: ["id", "eventKey", "deliveryStatus", "deliveryAttemptCount", "lastErrorCode", "receivedAt", "renderedAt", "expiredAt", "tradeId", "policyVersion", "executionLeaseToken", "durationSeconds", "badgeLabel", "badgeStyle", "configuredProfitRateBps", "configuredDurationSeconds", "configuredPopupDisplaySeconds", "packagePolicyVersionSnapshot", "packageBadgeLabel", "companyReferenceId", "companyDisplayName", "companyLogoUrl", "companyReferenceMetadataJson", "companyReferenceOnly"],
+    dataTypes: { id: "int", eventKey: "varchar", deliveryStatus: "enum", deliveryAttemptCount: "int", lastErrorCode: "varchar", receivedAt: "timestamp", renderedAt: "timestamp", expiredAt: "timestamp", tradeId: "int", policyVersion: "int", executionLeaseToken: "varchar", durationSeconds: "int", badgeLabel: "varchar", badgeStyle: "varchar", configuredProfitRateBps: "int", configuredDurationSeconds: "int", configuredPopupDisplaySeconds: "int", packagePolicyVersionSnapshot: "int", packageBadgeLabel: "varchar", companyReferenceId: "varchar", companyDisplayName: "varchar", companyLogoUrl: "varchar", companyReferenceMetadataJson: "text", companyReferenceOnly: "tinyint" },
+    nullable: { lastErrorCode: true, receivedAt: true, renderedAt: true, expiredAt: true, tradeId: true, executionLeaseToken: true, durationSeconds: true, badgeLabel: true, packageBadgeLabel: true, companyReferenceId: true, companyDisplayName: true, companyLogoUrl: true, companyReferenceMetadataJson: true },
+    indexes: {
+      PRIMARY: { unique: true, columns: ["id"] },
+      opportunity_popup_event_key_unique: { unique: true, columns: ["eventKey"] },
+    },
+  },
+  trade_positions: {
+    columns: ["walletFundingPlanJson"],
+    dataTypes: { walletFundingPlanJson: "text" },
+    nullable: { walletFundingPlanJson: true },
+    indexes: {},
+  },
+  admin_wallet_adjustment_idempotency: {
+    columns: ["id", "adminId", "idempotencyKey", "requestHash", "responseJson", "createdAt", "updatedAt"],
+    dataTypes: { id: "bigint", adminId: "int", idempotencyKey: "varchar", requestHash: "varchar", responseJson: "longtext", createdAt: "timestamp", updatedAt: "timestamp" },
+    nullable: { responseJson: true },
+    indexes: {
+      PRIMARY: { unique: true, columns: ["id"] },
+      admin_wallet_adjustment_key_uq: { unique: true, columns: ["idempotencyKey"] },
+      admin_wallet_adjustment_created_idx: { unique: false, columns: ["createdAt"] },
+    },
+  },
   notification_campaigns: {
     columns: [
       "id", "createdBy", "eventKey", "title", "body", "category", "priority",

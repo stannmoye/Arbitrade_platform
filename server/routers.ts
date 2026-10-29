@@ -7,7 +7,7 @@ import { countCompanyReferences, findCompanyReferencesBySymbol, getCompanyRefere
 import { z } from "zod";
 import { communicationSettingsInput, getAdminCommunicationSettings, getCustomerCommunicationOptions, saveAdminCommunicationSettings, validateCommunicationSettingsInput } from "./communicationSettings";
 import { TRPCError } from "@trpc/server";
-import { ACCOUNT_CLOSURE_TICKET_SUBJECT, AccountClosureDecisionError, applyAccountClosureDecision, assignSupportTicket, createAccountClosureTicket, listSupportAssignees, addTicketAttachment, addTicketMessage, adjustCustomerBalance, createAdminTradingPackage, broadcastCustomerNotification, listAdminNotificationCampaigns, retryNotificationCampaign, withdrawNotificationCampaign, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, deleteAdminCustomer, getCustomerTicket, getSupportTicketById, getAppSetting, getTradeSettlementPolicy, getTradeFeePolicy, setTradeFeePolicy, getTradeAllocationControls, setTradeAllocationControls, listAdminTradingPackages, updateAdminTradingPackage, getCustomerTradingEligibility, getCustomerBalanceSummary, getCustomerWalletPreferences, getCustomerPayoutEligibility, getCustomerAuthenticatorStatus, startCustomerAuthenticatorEnrollment, confirmCustomerAuthenticatorEnrollment, generateCustomerAuthenticatorRecoveryCodes, startCustomerAuthenticatorRecoveryReplacement, startCustomerAuthenticatorReplacement, confirmCustomerAuthenticatorReplacement, createCustomerPayoutRequest, listCustomerPayoutRequests, cancelCustomerPayoutRequest, listAdminPayoutRequests, resolveCustomerPayoutRequest, manuallySettleTrade, listPendingSettlements, listTradeSettlementIntegrityIssues, listWalletLedgerReconciliation, markCustomerNotificationsRead, updateCustomerWalletPreferences, getTicketUploadPolicy, setTradeSettlementPolicy, getNotificationCategoryVisibility, getCustomerNotificationUnreadCount, listCustomerNotificationPage, setNotificationCategoryVisibility, getUserById, getUserForSessionRevocation, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listCustomerNotifications, listNotifications, listNotificationEventCursor, listOpenOffers, listOpportunityPackagePolicies, listPersistedOpportunityPackagePolicies, listRiskReports, listTicketAttachments, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, reopenSupportTicket, setAppSetting, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
+import { ACCOUNT_CLOSURE_TICKET_SUBJECT, AccountClosureDecisionError, applyAccountClosureDecision, assignSupportTicket, createAccountClosureTicket, listSupportAssignees, addTicketAttachment, addTicketMessage, adjustCustomerBalance, createAdminTradingPackage, broadcastCustomerNotification, listAdminNotificationCampaigns, retryNotificationCampaign, withdrawNotificationCampaign, bulkCreateOpportunityOffers, createAdminCustomer, createNotification, createRiskReport, createTicket, deleteAdminCustomer, getCustomerTicket, getSupportTicketById, getAppSetting, getTradeSettlementPolicy, getTradeFeePolicy, setTradeFeePolicy, getTradeAllocationControls, setTradeAllocationControls, listAdminTradingPackages, updateAdminTradingPackage, getCustomerTradingEligibility, previewNextCustomerCompanySpotlight, getCustomerBalanceSummary, getCustomerWalletPreferences, getCustomerPayoutEligibility, getCustomerAuthenticatorStatus, startCustomerAuthenticatorEnrollment, confirmCustomerAuthenticatorEnrollment, generateCustomerAuthenticatorRecoveryCodes, startCustomerAuthenticatorRecoveryReplacement, startCustomerAuthenticatorReplacement, confirmCustomerAuthenticatorReplacement, createCustomerPayoutRequest, listCustomerPayoutRequests, cancelCustomerPayoutRequest, listAdminPayoutRequests, resolveCustomerPayoutRequest, manuallySettleTrade, listPendingSettlements, listTradeSettlementIntegrityIssues, listWalletLedgerReconciliation, markCustomerNotificationsRead, updateCustomerWalletPreferences, getTicketUploadPolicy, setTradeSettlementPolicy, getNotificationCategoryVisibility, getCustomerNotificationUnreadCount, listCustomerNotificationPage, setNotificationCategoryVisibility, getUserById, getUserForSessionRevocation, listAdminCustomers, listAdminAuditEvents, listAdminRecentLedgerActivity, listAllTickets, listBalances, listCurrencies, listCustomerOpportunities, listCustomerSessions, listCustomerTickets, listCustomerNotifications, listNotifications, listNotificationEventCursor, listOpenOffers, listOpportunityPackagePolicies, listPersistedOpportunityPackagePolicies, listRiskReports, listTicketAttachments, listTicketMessages, listTrades, provisionSignupCredit, revokeCustomerSession, reopenSupportTicket, setAppSetting, updateAdminCustomer, updateCustomerControls, updateOpportunityPackagePolicies, upsertCustomerSession, createOpportunityOffer, upsertCurrency } from "./db";
 import { allocateStake, cancelStake, getStakeDashboard, projectStake } from "./stakeEarn";
 import { closeTransactionConsoleSession, listTransactionConsoleEvents, recordTransactionConsoleEvent, recordTransactionConsolePulse } from "./transactionConsole";
 import { getOpportunityLifecycleSummary, runOpportunityRetention, updatePopupLifecycle, updatePopupDeliveryStatus } from "./opportunityLifecycle";
@@ -180,6 +180,10 @@ export const appRouter = router({
     tradingEligibility: protectedProcedure.query(({ ctx }) => {
       if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Trading eligibility is available to customer accounts." });
       return getCustomerTradingEligibility(ctx.user.id);
+    }),
+    companySpotlightPreview: protectedProcedure.query(({ ctx }) => {
+      if (ctx.user.role !== "user") throw new TRPCError({ code: "FORBIDDEN", message: "Company spotlight preview is available to customer accounts." });
+      return previewNextCustomerCompanySpotlight(ctx.user.id);
     }),
     communicationOptions: protectedProcedure.query(({ ctx }) => getCustomerCommunicationOptions(ctx.user.name, ctx.user.email)),
     authenticatorStatus: protectedProcedure.query(({ ctx }) => getCustomerAuthenticatorStatus(ctx.user.id)),
@@ -361,6 +365,7 @@ export const appRouter = router({
     tradingPackages: adminProcedure.query(() => listAdminTradingPackages()),
     createTradingPackage: adminProcedure.input(z.object({
       name: z.string().trim().min(1).max(80),
+      reason: z.string().trim().min(5).max(500),
       minimumQualifyingBalanceUsdMinor: z.number().int().positive().max(9007199254740991),
       durationMonths: z.number().int().min(1).max(1200),
       opportunitiesPerDay: z.number().int().min(1).max(10000),
@@ -369,11 +374,15 @@ export const appRouter = router({
       startsAt: z.string().datetime().nullable(),
       expiresAt: z.string().datetime().nullable(),
       enabled: z.boolean(),
+    }).refine(input => !input.startsAt || !input.expiresAt || Date.parse(input.expiresAt) > Date.parse(input.startsAt), {
+      message: "Package expiry must be later than its start time",
+      path: ["expiresAt"],
     })).mutation(({ ctx, input }) => createAdminTradingPackage(ctx.user.id, {
       ...input, startsAt:input.startsAt?new Date(input.startsAt):null, expiresAt:input.expiresAt?new Date(input.expiresAt):null,
     })),
     updateTradingPackage: adminProcedure.input(z.object({
       id: z.number().int().positive(),
+      reason: z.string().trim().min(5).max(500),
       name: z.string().trim().min(1).max(80),
       minimumQualifyingBalanceUsdMinor: z.number().int().positive().max(9007199254740991),
       durationMonths: z.number().int().min(1).max(1200),
@@ -383,6 +392,9 @@ export const appRouter = router({
       startsAt: z.string().datetime().nullable(),
       expiresAt: z.string().datetime().nullable(),
       enabled: z.boolean(),
+    }).refine(input => !input.startsAt || !input.expiresAt || Date.parse(input.expiresAt) > Date.parse(input.startsAt), {
+      message: "Package expiry must be later than its start time",
+      path: ["expiresAt"],
     })).mutation(({ ctx, input }) => updateAdminTradingPackage(ctx.user.id, {
       ...input, startsAt:input.startsAt?new Date(input.startsAt):null, expiresAt:input.expiresAt?new Date(input.expiresAt):null,
     })),
@@ -555,6 +567,7 @@ export const appRouter = router({
       debitClassification: z.enum(["ordinary_debit","qualifying_deposit_reversal"]).optional(),
       reversalLedgerId: z.number().int().positive().optional(),
       reason: z.string().trim().min(3).max(500),
+      idempotencyKey: z.string().trim().regex(/^[A-Za-z0-9._:-]{8,160}$/),
     })
       .refine(input => input.mode !== "credit" || Boolean(input.creditClassification), {
         message: "Choose whether this manual credit is a qualifying deposit or a non-qualifying credit.",
@@ -569,7 +582,7 @@ export const appRouter = router({
         path: ["reversalLedgerId"],
       })).mutation(async ({ ctx, input }) => {
       const result=await adjustCustomerBalance(ctx.user.id, input);
-      await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{
+      if(!result.idempotentReplay) await recordTransactionConsoleEvent(ctx.user.id,ctx.req,{
         eventType:`ADMIN_${input.mode.toUpperCase()}`,status:"COMPLETED",
         title:`Wallet ${input.mode} transaction completed`,
         message:`${input.currency} wallet adjustment was committed to the ledger for account ${input.userId}.`,
@@ -581,11 +594,60 @@ export const appRouter = router({
     settings: adminProcedure.query(async () => ({ sounds: await (async () => { const raw = await getAppSetting("sound.settings"); try { return JSON.parse(raw || "{}"); } catch { return {}; } })(), ticket: await getTicketUploadPolicy(), email: { provider: await getAppSetting("email.provider"), fromName: await getAppSetting("email.fromName"), fromAddress: await getAppSetting("email.fromAddress"), replyTo: await getAppSetting("email.replyTo", "") }, opportunity: { countdownSeconds: Number(await getAppSetting("opportunity.countdownSeconds")), signupCreditMinor: Number(await getAppSetting("signup.autoCreditMinor")), signupCreditCurrency: await getAppSetting("signup.autoCreditCurrency") }, policy: await (async()=>{ try{return JSON.parse((await getAppSetting("policy.defaults"))||"{}")}catch{return {}} })(), branding: await (async()=>{ try{return JSON.parse((await getAppSetting("branding.settings"))||"{}")}catch{return {}} })(), appearance: await normalizeAppearanceSettings(await getAppSetting("appearance.settings")), trade: await getTradeSettlementPolicy() })),
     updateSettings: adminProcedure.input(z.object({ ticket: z.object({ maxAttachmentMb: z.number().int().min(1).max(100), allowedMimeTypes: z.array(z.string().min(1).max(120)).min(1).max(50) }).optional(), email: z.object({ provider: z.enum(["smtp", "sendgrid", "disabled"]), fromName: z.string().min(1).max(120), fromAddress: z.string().email(), replyTo: z.string().email().or(z.literal("")) }).optional(), opportunity: z.object({ countdownSeconds: z.number().int().min(10).max(86400), signupCreditMinor: z.number().int().min(0).max(100000000), signupCreditCurrency: z.enum(["USD","EUR","GBP","BTC","ETH"]) }).optional(), sounds: z.object({ default: z.string().min(1).max(80), opportunity: z.string().min(1).max(80), deposit: z.string().min(1).max(80), credit: z.string().min(1).max(80), debit: z.string().min(1).max(80), withdrawal: z.string().min(1).max(80), trading: z.string().min(1).max(80), mining: z.string().min(1).max(80), support: z.string().min(1).max(80), announcement: z.string().min(1).max(80), failure: z.string().min(1).max(80), enabled: z.boolean(), loopOpportunity: z.boolean(), volume: z.number().int().min(0).max(100).default(80) }).optional(), policy: z.object({ kyc: z.boolean(), withdrawals: z.boolean(), twofa: z.boolean(), facial: z.boolean() }).optional(), branding: z.record(z.string(), z.string()).optional(), appearance: z.object({ defaultTheme: z.enum(["original","midnight-premium","clean-light","emerald-finance","aurora-modern","gold-luxe"]), enabledThemes: z.array(z.enum(["original","midnight-premium","clean-light","emerald-finance","aurora-modern","gold-luxe"])).min(1).max(6), customerCanSelect: z.boolean() }).optional(), trade: z.object({ settlementDelaySeconds: z.number().int().min(1).max(604800), creditDelaySeconds: z.number().int().min(0).max(604800), cooldownSeconds: z.number().int().min(0).max(604800), nextPopupFormulaDelaySeconds: z.number().int().min(0).max(604800), popupCooldownSeconds: z.number().int().min(0).max(604800), popupDisplaySeconds: z.number().int().min(1).max(3600), popupPreAlertSeconds: z.number().int().min(0).max(3600), popupJitterSeconds: z.number().int().min(0).max(604800), popupMaxPerHour: z.number().int().min(1).max(10000), marketRefreshIntervalMinutes: z.number().int().min(1).max(10080), blockUntilSettled: z.boolean() }).optional() })).mutation(async ({ ctx, input }) => { if (input.appearance && !input.appearance.enabledThemes.includes(input.appearance.defaultTheme)) throw new TRPCError({ code: "BAD_REQUEST", message: "The default theme must be enabled." }); if (input.ticket) { await setAppSetting("ticket.maxAttachmentMb", String(input.ticket.maxAttachmentMb), ctx.user.id); await setAppSetting("ticket.allowedMimeTypes", input.ticket.allowedMimeTypes.join(","), ctx.user.id); } if (input.email) { await setAppSetting("email.provider", input.email.provider, ctx.user.id); await setAppSetting("email.fromName", input.email.fromName, ctx.user.id); await setAppSetting("email.fromAddress", input.email.fromAddress, ctx.user.id); await setAppSetting("email.replyTo", input.email.replyTo, ctx.user.id); } if (input.sounds) { await setAppSetting("sound.settings", JSON.stringify(input.sounds), ctx.user.id); } if (input.policy) await setAppSetting("policy.defaults", JSON.stringify(input.policy), ctx.user.id); if (input.branding) await setAppSetting("branding.settings", JSON.stringify(input.branding), ctx.user.id); if (input.appearance) { await setAppSetting("appearance.settings", JSON.stringify(input.appearance), ctx.user.id); } if (input.trade) await setTradeSettlementPolicy({delaySeconds:input.trade.settlementDelaySeconds,creditDelaySeconds:input.trade.creditDelaySeconds,cooldownSeconds:input.trade.cooldownSeconds,nextPopupFormulaDelaySeconds:input.trade.nextPopupFormulaDelaySeconds,popupCooldownSeconds:input.trade.popupCooldownSeconds,popupDisplaySeconds:input.trade.popupDisplaySeconds,popupPreAlertSeconds:input.trade.popupPreAlertSeconds,popupJitterSeconds:input.trade.popupJitterSeconds,popupMaxPerHour:input.trade.popupMaxPerHour,marketRefreshIntervalMinutes:input.trade.marketRefreshIntervalMinutes,blockUntilSettled:input.trade.blockUntilSettled}, ctx.user.id); if (input.opportunity) { await setAppSetting("opportunity.countdownSeconds", String(input.opportunity.countdownSeconds), ctx.user.id); await setAppSetting("signup.autoCreditMinor", String(input.opportunity.signupCreditMinor), ctx.user.id); await setAppSetting("signup.autoCreditCurrency", input.opportunity.signupCreditCurrency, ctx.user.id); } return { success: true }; }),
     offers: adminProcedure.query(() => listOpenOffers()),
-    packagePolicies: adminProcedure.query(() => listOpportunityPackagePolicies()),
+    packagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),
     overviewPackagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),
     popupLifecycleSummary: adminProcedure.query(() => getOpportunityLifecycleSummary()),
     runPopupRetention: adminProcedure.mutation(() => runOpportunityRetention()),
-    updatePackagePolicies: adminProcedure.input(z.object({ policies: z.array(z.object({ packageName: z.string().trim().min(1).max(80), maxPopupsPerDay: z.number().int().min(1).max(1000), maxVisibleOffers: z.number().int().min(1).max(10000), minimumTradeUnits: z.number().int().min(1).max(2147483647), maximumTradeUnits: z.number().int().min(1).max(2147483647), minHourlyTarget: z.number().int().min(0).max(100), normalHourlyTarget: z.number().int().min(0).max(100), marketInfluenceBps: z.number().int().min(0).max(10000), burstEnabled: z.boolean(), maxBurstSize: z.number().int().min(0).max(100), dailyPopupTarget: z.number().int().min(0).max(10000).optional(), schedulingPeriod: z.enum(["rolling_24h","calendar_day"]).optional(), minIntervalSeconds: z.number().int().min(0).max(604800).optional(), maxIntervalSeconds: z.number().int().min(0).max(604800).optional(), randomizationEnabled: z.boolean().optional(), popupDisplayTargetSeconds: z.number().int().min(1).max(604800).optional(), completionDisplaySeconds: z.number().int().min(1).max(3600).optional(), postCompletionIntervalSeconds: z.number().int().min(0).max(604800).optional(), maxPendingDeliveries: z.number().int().min(0).max(1000).optional(), maxDeliveryAttempts: z.number().int().min(1).max(20).optional(), maxTradeAttemptsPerDay: z.number().int().min(0).max(10000).optional(), tradeRetryDelaySeconds: z.number().int().min(5).max(3600).optional(), maxSuccessfulTradesPerDay: z.number().int().min(0).max(10000).optional(), maxConcurrentActiveTrades: z.number().int().min(1).max(1000).optional(), requirePreviousSettlement: z.boolean().optional(), minSettlementDelaySeconds: z.number().int().min(0).max(604800).optional(), maxSettlementDelaySeconds: z.number().int().min(0).max(604800).optional(), minimumRewardBps: z.number().int().min(0).max(10000).optional(), maxDailyRewardMinor: z.number().int().min(0).max(2147483647).optional(), maxRewardPerTradeMinor: z.number().int().min(0).max(2147483647).optional(), closePolicy: z.enum(["after_completion","after_final_display"]).optional() })).min(1).max(1000) })).mutation(({ ctx, input }) => updateOpportunityPackagePolicies(ctx.user.id, input.policies)),
+    updatePackagePolicies: adminProcedure.input(z.object({
+      reason: z.string().trim().min(5).max(500),
+      policies: z.array(z.object({
+        packageName: z.string().trim().min(1).max(80),
+        // Core existing controls are explicit; omitted advanced settings are
+        // merged from the locked policy row by updateOpportunityPackagePolicies.
+        maxPopupsPerDay: z.number().int().min(1).max(1000),
+        maxVisibleOffers: z.number().int().min(1).max(10000),
+        minimumTradeUnits: z.number().int().min(1).max(2147483647),
+        maximumTradeUnits: z.number().int().min(1).max(2147483647),
+        minHourlyTarget: z.number().int().min(0).max(100),
+        normalHourlyTarget: z.number().int().min(0).max(100),
+        marketInfluenceBps: z.number().int().min(0).max(10000),
+        burstEnabled: z.boolean(),
+        maxBurstSize: z.number().int().min(0).max(100),
+        enabled: z.boolean().optional(),
+        automaticDelivery: z.boolean().optional(),
+        automaticTradingEnabled: z.boolean().optional(),
+        dailyPopupTarget: z.number().int().min(0).max(10000).optional(),
+        schedulingPeriod: z.enum(["rolling_24h","calendar_day"]).optional(),
+        minIntervalSeconds: z.number().int().min(0).max(604800).optional(),
+        maxIntervalSeconds: z.number().int().min(0).max(604800).optional(),
+        randomizationEnabled: z.boolean().optional(),
+        popupDisplayTargetSeconds: z.number().int().min(1).max(604800).optional(),
+        completionDisplaySeconds: z.number().int().min(1).max(3600).optional(),
+        postCompletionIntervalSeconds: z.number().int().min(0).max(604800).optional(),
+        maxPendingDeliveries: z.number().int().min(0).max(1000).optional(),
+        maxDeliveryAttempts: z.number().int().min(1).max(20).optional(),
+        maxTradeAttemptsPerDay: z.number().int().min(0).max(10000).optional(),
+        tradeRetryDelaySeconds: z.number().int().min(5).max(3600).optional(),
+        maxSuccessfulTradesPerDay: z.number().int().min(0).max(10000).optional(),
+        maxConcurrentActiveTrades: z.number().int().min(1).max(1000).optional(),
+        requirePreviousSettlement: z.boolean().optional(),
+        minSettlementDelaySeconds: z.number().int().min(0).max(604800).optional(),
+        maxSettlementDelaySeconds: z.number().int().min(0).max(604800).optional(),
+        minimumRewardBps: z.number().int().min(0).max(10000).optional(),
+        maxDailyRewardMinor: z.number().int().min(0).max(2147483647).optional(),
+        maxRewardPerTradeMinor: z.number().int().min(0).max(2147483647).optional(),
+        badgeLabel: z.string().trim().max(40).nullable().optional(),
+        badgeStyle: z.enum(["neutral","blue","purple","gold","green"]).optional(),
+        minimumPayoutRateBps: z.number().int().min(0).max(5000).nullable().optional(),
+        maximumPayoutRateBps: z.number().int().min(0).max(5000).nullable().optional(),
+        minimumTradeDurationSeconds: z.number().int().min(10).max(86400).nullable().optional(),
+        maximumTradeDurationSeconds: z.number().int().min(10).max(86400).nullable().optional(),
+        companyRotationEnabled: z.boolean().optional(),
+        companyRotationCountryNames: z.string().trim().max(2000).optional(),
+        companyRotationRepeatPolicy: z.enum(["avoid_until_exhausted","allow_repeats"]).optional(),
+        closePolicy: z.enum(["after_completion","after_final_display"]).optional(),
+      })).min(1).max(1000),
+    })).mutation(({ ctx, input }) => updateOpportunityPackagePolicies(ctx.user.id, input.policies, input.reason)),
     createOffer: adminProcedure.input(z.object({ symbol: z.string().min(1).max(40), venueFrom: z.string().min(1).max(80), venueTo: z.string().min(1).max(80), currency: z.enum(["USD","EUR","GBP","BTC","ETH"]), minimumMinor: z.number().int().positive(), expectedRewardBps: z.number().int().min(1).max(5000), durationSeconds: z.number().int().min(10).max(86400) })).mutation(({ input }) => createOpportunityOffer(input)),
     bulkCreateOffers: adminProcedure.input(z.object({ offers: z.array(z.object({ symbol: z.string().min(1).max(40), venueFrom: z.string().min(1).max(80), venueTo: z.string().min(1).max(80), currency: z.enum(["USD","EUR","GBP","BTC","ETH"]), minimumMinor: z.number().int().positive(), expectedRewardBps: z.number().int().min(1).max(5000), durationSeconds: z.number().int().min(10).max(86400) })).min(1).max(5000) })).mutation(({ input }) => bulkCreateOpportunityOffers(input.offers)),
     tickets: adminProcedure.query(() => listAllTickets()),

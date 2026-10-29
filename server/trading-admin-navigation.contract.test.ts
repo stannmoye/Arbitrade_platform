@@ -6,6 +6,122 @@ const adminApp = readFileSync(new URL("../client/src/App.tsx", import.meta.url),
 const operationsUi = readFileSync(new URL("../client/src/components/AdminOperationsPages.tsx", import.meta.url), "utf8");
 const serverDb = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const serverRouters = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
+const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
+
+describe("Trading tier creation defaults", () => {
+  it("requires an administrator to explicitly enter threshold, duration, and daily quota", () => {
+    const start = adminApp.indexOf("function AdminTradingPackageCatalogue()");
+    const end = adminApp.indexOf("function AdminPackages({focus}", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const editor = adminApp.slice(start, end);
+    expect(editor).toContain('minimumQualifyingBalanceUsdMinor:"",durationMonths:"",opportunitiesPerDay:""');
+    expect(editor).toContain('newTier.minimumQualifyingBalanceUsdMinor===""?"":');
+    expect(editor).toContain('e.target.value===""?"":Number(e.target.value)');
+    expect(editor).toContain("no package threshold or quota is preselected");
+    expect(editor).not.toContain('minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6');
+    const editFields = editor.slice(editor.indexOf("{(q.data as any[]).map"));
+    expect(editFields).toContain('draft.minimumQualifyingBalanceUsdMinor===""?"":');
+    expect(editFields).toContain('e.target.value===""?"":Number(e.target.value)');
+    expect(editFields).toContain('draft.maxPopupsPerDay===""');
+    expect(editFields).toContain('draft.maxActiveInvestments===""');
+    expect(editFields).toContain("required maxLength={80} value={draft.name}");
+  });
+});
+
+
+describe("Trading tier audit reasons", () => {
+  it("requires a reason in the admin UI and persists the supplied reason with old/new terms", () => {
+    const start = adminApp.indexOf("function AdminTradingPackageCatalogue()");
+    const end = adminApp.indexOf("function AdminPackages({focus}", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const editor = adminApp.slice(start, end);
+    expect(editor).toContain("Reason for creating this tier (required for audit)");
+    expect(editor).toContain("Reason for changing this tier (required for audit)");
+    expect(editor).toContain('reason:String(newTier.reason).trim()');
+    expect(editor).toContain('reason:String(draft.reason??"").trim()');
+
+    const createStart = serverDb.indexOf("export async function createAdminTradingPackage");
+    const updateStart = serverDb.indexOf("export async function updateAdminTradingPackage", createStart);
+    const nextFunction = serverDb.indexOf("/**\n * Customer-safe, read-only progressive eligibility summary.", updateStart);
+    expect(createStart).toBeGreaterThanOrEqual(0);
+    expect(updateStart).toBeGreaterThan(createStart);
+    expect(nextFunction).toBeGreaterThan(updateStart);
+    const dbFunctions = serverDb.slice(createStart, nextFunction);
+    expect(dbFunctions).toContain('Provide an audit reason of 5–500 characters');
+    expect(dbFunctions).toContain('reason:auditReason');
+    expect(dbFunctions).toContain('metadataJson:JSON.stringify({old:');
+    expect(serverRouters).toContain('reason: z.string().trim().min(5).max(500)');
+  });
+});
+
+describe("Trading tier effective-date validation", () => {
+  it("rejects an expiry that is not later than the configured start time on create and update", () => {
+    const createStart = serverRouters.indexOf("createTradingPackage: adminProcedure.input(z.object({");
+    const updateStart = serverRouters.indexOf("updateTradingPackage: adminProcedure.input(z.object({", createStart);
+    const communicationStart = serverRouters.indexOf("communicationSettings: adminProcedure.query", updateStart);
+    expect(createStart).toBeGreaterThanOrEqual(0);
+    expect(updateStart).toBeGreaterThan(createStart);
+    expect(communicationStart).toBeGreaterThan(updateStart);
+    const tierRoutes = serverRouters.slice(createStart, communicationStart);
+    expect(tierRoutes).toContain('startsAt: z.string().datetime().nullable()');
+    expect(tierRoutes).toContain('expiresAt: z.string().datetime().nullable()');
+    expect(tierRoutes).toContain('Date.parse(input.expiresAt) > Date.parse(input.startsAt)');
+    expect(tierRoutes.match(/Date.parse\(input\.expiresAt\) > Date.parse\(input\.startsAt\)/g)).toHaveLength(2);
+    expect(tierRoutes).toContain('path: ["expiresAt"]');
+    expect(tierRoutes.match(/path: \["expiresAt"\]/g)).toHaveLength(2);
+    const createService = serverDb.indexOf("export async function createAdminTradingPackage");
+    const updateService = serverDb.indexOf("export async function updateAdminTradingPackage", createService);
+    const nextService = serverDb.indexOf("export async function", updateService + 5);
+    const tierServices = serverDb.slice(createService, nextService);
+    expect(tierServices.match(/input\.startsAt&&input\.expiresAt&&input\.expiresAt<=input\.startsAt/g)).toHaveLength(2);
+    expect(tierServices.match(/Package expiry must be later than its start time/g)).toHaveLength(2);
+  });
+});
+
+describe("Admin customer Trading tier visibility", () => {
+  it("exposes automatic assignment package IDs, statuses, and saved terms without exposing the full catalogue", () => {
+    const start = serverDb.indexOf("export async function listAdminCustomers()");
+    const end = serverDb.indexOf("\nexport async function createAdminCustomer", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const listing = serverDb.slice(start, end);
+    expect(listing).toContain("assignedTierDetails");
+    expect(listing).toContain("customerPackageSubscriptions.packageId");
+    expect(listing).toContain("customerPackageSubscriptions.status");
+    expect(listing).toContain('startsWith("auto-tier:")');
+    expect(adminApp).toContain("Automatic Trading tier assignments");
+    expect(adminApp).toContain("Package ID {tier.packageId}");
+    expect(adminApp).toContain("{tier.status}");
+    expect(adminApp).toContain("Terms v{tier.termsVersion}");
+  });
+});
+
+describe("Trading tier policy audit and versioning", () => {
+  it("requires an audit reason and persists each policy update with its previous and next values in one transaction", () => {
+    const start = serverDb.indexOf("export async function updateOpportunityPackagePolicies");
+    const end = serverDb.indexOf("\nasync function listMissedOpportunities", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const update = serverDb.slice(start, end);
+    expect(update).toContain("reason:string");
+    expect(update).toContain("auditReason.length<5||auditReason.length>500");
+    expect(update).toContain("await db.transaction(async tx=>");
+    expect(update).toContain("policyVersion:nextVersion");
+    expect(update).toContain('action:"trading_delivery_policy_updated"');
+    expect(update).toContain("oldPolicy:current||null");
+    expect(update).toContain("newPolicy:next");
+    expect(update).toContain("Each Trading tier may appear only once");
+    expect(serverRouters).toContain("reason: z.string().trim().min(5).max(500)");
+    expect(serverRouters).toContain("updateOpportunityPackagePolicies(ctx.user.id, input.policies, input.reason)");
+    expect(adminApp).toContain("Reason for changing Trading tier policies (required for audit)");
+    expect(policyEditor).toContain("policyReason.trim().length<5");
+    expect(adminApp).toContain("reason:policyReason.trim()})");
+    expect(adminApp).toContain("policies.data.map(x=>({...x,packageName:x.packageName");
+    expect(adminApp).toContain("updatePolicies.mutate({policies:policyRows,reason:policyReason.trim()})");
+  });
+});
 
 describe("Trading fee-policy navigation", () => {
   it("opens the administrator screen that actually edits realized-profit fees", () => {
@@ -83,10 +199,36 @@ describe("Trading overview and duration navigation", () => {
   });
 });
 
+describe("Trading tier creation defaults", () => {
+  it("requires an administrator to enter threshold, duration and daily quota explicitly", () => {
+    const start = adminApp.indexOf("function AdminTradingPackageCatalogue()");
+    const end = adminApp.indexOf("function AdminPackages({focus}", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const editor = adminApp.slice(start, end);
+    expect(editor).toContain('minimumQualifyingBalanceUsdMinor:"",durationMonths:"",opportunitiesPerDay:""');
+    expect(editor).toContain('newTier.minimumQualifyingBalanceUsdMinor===""?"":');
+    expect(editor).toContain('e.target.value===""?"":Number(e.target.value)');
+    expect(editor).toContain("no package threshold or quota is preselected");
+    expect(editor).toContain("enabled:false})");
+    expect(editor).not.toContain('minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6');
+    expect(editor).not.toContain('<label>Enabled <input type="checkbox" checked={Boolean(newTier.enabled)}');
+  });
+});
+
 describe("Trading overview package-policy read", () => {
-  it("counts persisted package policies without invoking the lazy initializer", () => {
+  it("reads saved policies without creating defaults and fails closed when a tier policy is missing", () => {
     expect(operationsUi).toContain("trpc.adminOperations.overviewPackagePolicies.useQuery");
+    expect(serverRouters).toContain("packagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),");
     expect(serverRouters).toContain("overviewPackagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),");
+
+    const runtimeStart = serverDb.indexOf("export async function listOpportunityPackagePolicies()");
+    const runtimeEnd = serverDb.indexOf("\n}", runtimeStart);
+    expect(runtimeStart).toBeGreaterThanOrEqual(0);
+    expect(runtimeEnd).toBeGreaterThan(runtimeStart);
+    const runtimeReader = serverDb.slice(runtimeStart, runtimeEnd);
+    expect(runtimeReader).toContain("return rows.filter(row=>tierNames.has(row.packageName))");
+    expect(runtimeReader).not.toContain(".insert(");
 
     const start = serverDb.indexOf("export async function listPersistedOpportunityPackagePolicies()");
     const end = serverDb.indexOf("\n}", start);
@@ -94,6 +236,19 @@ describe("Trading overview package-policy read", () => {
     expect(end).toBeGreaterThan(start);
     const reader = serverDb.slice(start, end);
     expect(reader).toContain("db.select().from(opportunityPackagePolicies)");
+    expect(reader).toContain("if(missing.length) throw new Error");
     expect(reader).not.toContain(".insert(");
+  });
+});
+
+describe("Trading tier rename policy safety", () => {
+  it("does not replace a missing tier policy with schema defaults during rename", () => {
+    const start = serverDb.indexOf("export async function updateAdminTradingPackage(");
+    const end = serverDb.indexOf("\nexport async function ", start + 5);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const implementation = serverDb.slice(start, end);
+    expect(implementation).toContain("if(!currentPolicy) throw new Error(\"Saved Trading policy is missing for \"+current.name+\"; reconcile it explicitly before renaming this tier.\");");
+    expect(implementation).not.toContain("values({packageName:nextName,updatedBy})");
   });
 });

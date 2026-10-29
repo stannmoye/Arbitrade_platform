@@ -65,6 +65,8 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("A fresh API conversion rate for this exact wallet configuration is required");
     expect(databaseSource).not.toContain('let rate=Number(currency.usdRate)');
     expect(databaseSource).toContain("rate:String(creditTimeRate.rate)");
+    expect(databaseSource).toContain("qualifyingDepositRate=String(creditTimeRate.rate)");
+    expect(databaseSource).not.toContain("qualifyingDepositRate=String(rate)");
     expect(databaseSource).toContain("fetchedAt:creditTimeRate.fetchedAt.toISOString()");
     expect(databaseSource).toContain("qualifyingDepositUsdMinor!==null?Math.abs(qualifyingDepositUsdMinor)/100");
   });
@@ -200,29 +202,54 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("Math.min(policyCap,tierCap)");
   });
 
-  it("keeps opportunity-policy rows aligned with every administrator-managed tier", () => {
+  it("keeps opportunity-policy reads aligned with saved administrator-managed tiers and fails closed when policy is missing", () => {
     expect(schemaSource).toContain('packageName: varchar("packageName", { length: 80 }).notNull().unique()');
     expect(policyMigrationSource).toContain("MODIFY COLUMN `packageName` varchar(80) NOT NULL");
     expect(policyMigrationSource).toContain("INSERT INTO `opportunity_package_policies` (`packageName`)");
-    expect(databaseSource).toContain("const tiers=await db.select({name:packages.name}).from(packages)");
-    expect(databaseSource).toContain("values({packageName:tier.name})");
-    expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy})");
-    expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
+
+    expect(databaseSource).toContain("const [tiers,rows]=await Promise.all([");
     expect(databaseSource).toContain("const matchingRows=rows.filter(row=>tierNames.has(row.packageName))");
     expect(databaseSource).toContain('if(missing.length) throw new Error("Trading tier opportunity policy is missing for: "+missing.join(", "));');
+    expect(databaseSource).toContain("return rows.filter(row=>tierNames.has(row.packageName))");
+    expect(databaseSource).not.toContain("values({packageName:tier.name})");
+
+    const readerStart = databaseSource.indexOf("export async function listOpportunityPackagePolicies()");
+    const readerEnd = databaseSource.indexOf("\n}", readerStart);
+    expect(readerStart).toBeGreaterThanOrEqual(0);
+    expect(readerEnd).toBeGreaterThan(readerStart);
+    const policyReader = databaseSource.slice(readerStart, readerEnd);
+    expect(policyReader).not.toContain(".insert(");
+
+    expect(routerSource).toContain("packagePolicies: adminProcedure.query(() => listPersistedOpportunityPackagePolicies()),");
+    expect(databaseSource).toContain("values({packageName:name,updatedBy:createdBy,...UNCONFIGURED_TIER_POLICY_SENTINELS})");
+    expect(databaseSource).toContain("const UNCONFIGURED_TIER_POLICY_SENTINELS = {");
+    expect(databaseSource).toContain("minimumPayoutRateBps:null,maximumPayoutRateBps:null");
+    expect(databaseSource).toContain("New Trading tiers must be created disabled.");
+    expect(databaseSource).toContain("Save and enable a valid delivery policy with payout-rate and duration bounds before enabling this Trading tier.");
+    expect(routerSource).toContain("enabled: z.boolean().optional(),");
+    expect(routerSource).toContain("automaticDelivery: z.boolean().optional(),");
+    expect(routerSource).toContain("automaticTradingEnabled: z.boolean().optional(),");
+    expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
+    expect(databaseSource).not.toContain("values({packageName:nextName,updatedBy})");
   });
 
   it("creates tiers through the authorized audited admin route", () => {
     expect(routerSource).toContain("createTradingPackage: adminProcedure.input");
     expect(routerSource).toContain("packageName: z.string().trim().min(1).max(80)");
-    expect(routerSource).toContain(" })).min(1).max(1000) })).mutation(({ ctx, input }) => updateOpportunityPackagePolicies");
+    expect(routerSource).toContain("      })).min(1).max(1000),");
+    expect(routerSource).toContain("updateOpportunityPackagePolicies(ctx.user.id, input.policies, input.reason)");
     expect(databaseSource).toContain("Opportunity policy references an unknown Trading tier");
+    expect(databaseSource).toContain('where(eq(opportunityPackagePolicies.packageName,policy.packageName)).limit(1).for("update")');
+    expect(databaseSource).toContain("const effective:any={...UNCONFIGURED_TIER_POLICY_SENTINELS,...(current||{}),...supplied,packageName:policy.packageName,updatedBy}");
     expect(routerSource).toContain("createAdminTradingPackage(ctx.user.id");
     expect(databaseSource).toContain('action:"trading_package_created"');
     expect(customerAppSource).toContain("New administrator-managed tier");
     expect(customerAppSource).toContain('trpc.adminOperations.createTradingPackage.useMutation');
-    expect(customerAppSource).toContain('maxActiveInvestments:0,startsAt:"",expiresAt:"",enabled:false}');
+    expect(customerAppSource).toContain('minimumQualifyingBalanceUsdMinor:"",durationMonths:"",opportunitiesPerDay:""');
+    expect(customerAppSource).toContain('maxActiveInvestments:0,startsAt:"",expiresAt:"",reason:"",enabled:false}');
+    expect(customerAppSource).toContain("no package threshold or quota is preselected");
     expect(customerAppSource).toContain("New tiers start disabled.");
+    expect(databaseSource).toContain("const UNCONFIGURED_TIER_POLICY_SENTINELS = {");
   });
 
   it("persists administrator-controlled effective dates and tier caps", () => {

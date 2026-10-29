@@ -1,0 +1,93 @@
+{
+  "commonPrefixLength": 55,
+  "lineages": [
+    {
+      "name": "PR #230",
+      "sourceRef": "origin/pr/230",
+      "headSha": "85d224f7865a70d1aa004408125db291896d4c5f",
+      "entries": [
+        {
+          "tag": "0086_trading_popup_policy_snapshots",
+          "createdAt": 1793318400004,
+          "hash": "94a167994422e7b89beb46e35fc955a4df1463fdede8cb2ba6af70ddd8a37d76",
+          "archivePath": "docs/trading/migration-history/pr230/0086_trading_popup_policy_snapshots.sql"
+        }
+      ]
+    },
+    {
+      "name": "PR #233",
+      "sourceRef": "origin/pr/233",
+      "headSha": "0c7302a6fd418af95d42e426b1e715976e7e7b5e",
+      "entries": [
+        {
+          "tag": "0086_trading_popup_policy_ranges",
+          "createdAt": 1793318400005,
+          "hash": "84c60a974c67cf72873eefd49a0ce311df565b7045ce189b3dcbf0e06f4bf425",
+          "archivePath": "docs/trading/migration-history/pr233/0086_trading_popup_policy_ranges.sql"
+        },
+        {
+          "tag": "0087_trading_company_spotlight_rotation",
+          "createdAt": 1793318400006,
+          "hash": "20fc84420081c413f05c6a39488da4f0273277d7e0c19e60a4bb75613cd2e9e9",
+          "archivePath": "docs/trading/migration-history/pr233/0087_trading_company_spotlight_rotation.sql"
+        },
+        {
+          "tag": "0088_trading_popup_trade_snapshots",
+          "createdAt": 1793404800000,
+          "hash": "bb9cae5108f7854c918b39350a8ddebcba508767e9676eb293a01469703bbc18",
+          "archivePath": "docs/trading/migration-history/pr233/0088_trading_popup_trade_snapshots.sql"
+        }
+      ]
+    },
+    {
+      "name": "PR #235",
+      "sourceRef": "origin/pr/235",
+      "headSha": "98c45d59c5a9fb550865dd608192c75fba840c89",
+      "entries": [
+        {
+          "tag": "0086_trading_opportunity_execution_leases",
+          "createdAt": 1793318400004,
+          "hash": "1b1d9296486676eec9018017a25312b309535debddc19fa7b6ee2c6a517c687c",
+          "archivePath": "docs/trading/migration-history/pr235/0086_trading_opportunity_execution_leases.sql"
+        },
+        {
+          "tag": "0087_trading_package_policy_schema_reconciliation",
+          "createdAt": 1793318400005,
+          "hash": "9b0700dae2a783241d91c6ba3620f687ca5bfc12e85cea98a2b21f789fea0e70",
+          "archivePath": "docs/trading/migration-history/pr235/0087_trading_package_policy_schema_reconciliation.sql"
+        }
+      ]
+    },
+    {
+      "name": "PR #238",
+      "sourceRef": "origin/pr/238",
+      "headSha": "5152441dccdf9ab1a7a72312d15738fe10d4b022",
+      "entries": [
+        {
+          "tag": "0086_trading_popup_policy_ranges",
+          "createdAt": 1793318400005,
+          "hash": "84c60a974c67cf72873eefd49a0ce311df565b7045ce189b3dcbf0e06f4bf425",
+          "archivePath": "docs/trading/migration-history/pr233/0086_trading_popup_policy_ranges.sql"
+        },
+        {
+          "tag": "0087_trading_company_spotlight_rotation",
+          "createdAt": 1793318400006,
+          "hash": "20fc84420081c413f05c6a39488da4f0273277d7e0c19e60a4bb75613cd2e9e9",
+          "archivePath": "docs/trading/migration-history/pr233/0087_trading_company_spotlight_rotation.sql"
+        },
+        {
+          "tag": "0088_trading_popup_trade_snapshots",
+          "createdAt": 1793404800000,
+          "hash": "bb9cae5108f7854c918b39350a8ddebcba508767e9676eb293a01469703bbc18",
+          "archivePath": "docs/trading/migration-history/pr233/0088_trading_popup_trade_snapshots.sql"
+        },
+        {
+          "tag": "0089_trading_trade_wallet_funding_plan_snapshot",
+          "createdAt": 1793404800001,
+          "hash": "355a5b9b8414a87e8e057561e0d7b8e274cbf984822cf8532819bc446ac11134",
+          "archivePath": "docs/trading/migration-history/pr233/0089_trading_trade_wallet_funding_plan_snapshot.sql"
+        }
+      ]
+    }
+  ]
+}

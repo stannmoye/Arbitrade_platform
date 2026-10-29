@@ -35,10 +35,20 @@ describe("Trading customer package subscription schema repair", () => {
     const entries = journal.entries;
     const entry = entries.find((item) => item.tag === "0078_trading_customer_package_subscription_repair");
     expect(entry).toBeDefined();
-    expect(entry.idx).toBe(entries.length - 8);
-    expect(entries.at(-3).tag).toBe("0083_trading_opportunity_worker_indexes");
-    expect(entries.at(-2).tag).toBe("0084_worker_health_registry");
-    expect(entries.at(-1).tag).toBe("0085_trade_settlement_schema_reconciliation");
+    expect(entry.idx).toBe(entries.indexOf(entry));
+    expect(entries[entry.idx - 1].tag).toBe("0077_trading_package_catalogue_schema_repair");
+    expect(entries[entry.idx + 1].tag).toBe("0079_trade_settlement_timing_schema_repair");
+    expect(entries.slice(-9).map((item) => item.tag)).toEqual([
+      "0086_trading_popup_policy_snapshots",
+      "0087_trading_opportunity_execution_leases",
+      "0088_trading_package_policy_schema_reconciliation",
+      "0089_trading_popup_policy_ranges",
+      "0090_trading_company_spotlight_rotation",
+      "0091_trading_popup_trade_snapshots",
+      "0092_trading_trade_wallet_funding_plan_snapshot",
+      "0093_admin_wallet_adjustment_idempotency",
+      "0094_trading_policy_duration_bounds_nullable",
+    ]);
     expect(entry.when).toBeGreaterThan(entries.slice(0, entry.idx).reduce((latest, item) => Math.max(latest, item.when), 0));
   });
 

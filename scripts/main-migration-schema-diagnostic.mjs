@@ -8,6 +8,21 @@ const MIGRATION_PREREQUISITES = Object.freeze({
     ["opportunity_package_policies", "minimumTradeMinor"],
     ["opportunity_package_policies", "maximumTradeMinor"],
   ],
+  "0086_trading_popup_policy_snapshots": [
+    ["opportunity_package_policies", "maximumRewardBps"],
+    ["opportunity_popup_events", "configuredProfitRateBps"],
+    ["trade_positions", "configuredProfitRateBps"],
+    ["trading_company_rotation_state", "userId"],
+  ],
+  "0087_trading_opportunity_execution_leases": [
+    { label: "opportunity popup execution lease token", columns: [["opportunity_popup_events", "executionLeaseToken"]] },
+  ],
+  "0088_trading_package_policy_schema_reconciliation": [
+    ["opportunity_package_policies", "automaticDelivery"],
+    ["opportunity_package_policies", "automaticTradingEnabled"],
+    ["opportunity_package_policies", "maxDailyRewardMinor"],
+    ["trade_positions", "rewardReservedMinor"],
+  ],
   "0085_trade_settlement_schema_reconciliation": [
     { label: "trade_positions settlement lifecycle columns", columns: [
       ["trade_positions", "rewardReservedMinor"], ["trade_positions", "rewardCreditedMinor"],
@@ -15,6 +30,32 @@ const MIGRATION_PREREQUISITES = Object.freeze({
       ["trade_positions", "settlementReference"], ["trade_positions", "settlementConfirmedAt"],
       ["trade_positions", "settlementConfirmedBy"], ["trade_positions", "settlementNotes"],
     ] },
+  ],
+  "0089_trading_popup_policy_ranges": [
+    ["opportunity_package_policies", "packageName"],
+    ["opportunity_popup_events", "eventKey"],
+  ],
+  "0090_trading_company_spotlight_rotation": [
+    ["opportunity_package_policies", "companyRotationEnabled"],
+    ["opportunity_package_policies", "companyRotationCountryNames"],
+    ["opportunity_package_policies", "companyRotationRepeatPolicy"],
+  ],
+  "0091_trading_popup_trade_snapshots": [
+    ["opportunity_popup_events", "packageName"],
+    ["trade_positions", "id"],
+  ],
+  "0092_trading_trade_wallet_funding_plan_snapshot": [
+    ["trade_positions", "walletFundingPlanJson"],
+  ],
+  "0093_admin_wallet_adjustment_idempotency": [
+    ["admin_wallet_adjustment_idempotency", "adminId"],
+    ["admin_wallet_adjustment_idempotency", "idempotencyKey"],
+    ["admin_wallet_adjustment_idempotency", "requestHash"],
+    ["admin_wallet_adjustment_idempotency", "responseJson"],
+  ],
+  "0094_trading_policy_duration_bounds_nullable": [
+    ["opportunity_package_policies", "minimumTradeDurationSeconds"],
+    ["opportunity_package_policies", "maximumTradeDurationSeconds"],
   ],
   "0068_trade_realized_profit_accounting": [
     ["trade_positions", "id"],
@@ -70,6 +111,69 @@ const MIGRATION_PROGRESS_COLUMNS = Object.freeze({
       ["local_scheduled_jobs", "nextExecutionAt"], ["local_scheduled_jobs", "lockedUntil"],
     ] },
   ],
+  "0086_trading_popup_policy_snapshots": [
+    { label: "popup policy and immutable snapshot fields", columns: [
+      ["opportunity_package_policies", "maximumRewardBps"], ["opportunity_package_policies", "minimumTradeDurationSeconds"],
+      ["opportunity_popup_events", "configuredProfitRateBps"], ["trade_positions", "configuredProfitRateBps"],
+    ] },
+  ],
+  "0087_trading_opportunity_execution_leases": [
+    { label: "opportunity execution lease token", columns: [["opportunity_popup_events", "executionLeaseToken"]] },
+  ],
+  "0088_trading_package_policy_schema_reconciliation": [
+    { label: "Trading policy and worker reservation schema", columns: [
+      ["opportunity_package_policies", "automaticDelivery"], ["opportunity_package_policies", "automaticTradingEnabled"],
+      ["trade_positions", "rewardReservedMinor"], ["trade_reward_reservations", "tradeId"],
+    ] },
+  ],
+  "0089_trading_popup_policy_ranges": [
+    { label: "administrator Trading policy range columns", columns: [
+      ["opportunity_package_policies", "badgeLabel"], ["opportunity_package_policies", "badgeStyle"],
+      ["opportunity_package_policies", "minimumPayoutRateBps"], ["opportunity_package_policies", "maximumPayoutRateBps"],
+      ["opportunity_package_policies", "minimumTradeDurationSeconds"], ["opportunity_package_policies", "maximumTradeDurationSeconds"],
+    ] },
+    { label: "durable popup snapshot columns", columns: [
+      ["opportunity_popup_events", "policyVersion"], ["opportunity_popup_events", "durationSeconds"],
+      ["opportunity_popup_events", "badgeLabel"], ["opportunity_popup_events", "badgeStyle"],
+    ] },
+  ],
+  "0091_trading_popup_trade_snapshots": [
+    { label: "immutable popup snapshot columns", columns: [
+      ["opportunity_popup_events", "configuredProfitRateBps"], ["opportunity_popup_events", "configuredDurationSeconds"],
+      ["opportunity_popup_events", "configuredPopupDisplaySeconds"], ["opportunity_popup_events", "packagePolicyVersionSnapshot"],
+      ["opportunity_popup_events", "packageBadgeLabel"], ["opportunity_popup_events", "companyReferenceId"],
+      ["opportunity_popup_events", "companyDisplayName"], ["opportunity_popup_events", "companyLogoUrl"],
+      ["opportunity_popup_events", "companyReferenceMetadataJson"], ["opportunity_popup_events", "companyReferenceOnly"],
+    ] },
+    { label: "immutable trade snapshot columns", columns: [
+      ["trade_positions", "configuredProfitRateBps"], ["trade_positions", "configuredDurationSeconds"],
+      ["trade_positions", "packagePolicyVersionSnapshot"], ["trade_positions", "companyReferenceId"],
+      ["trade_positions", "companyDisplayName"], ["trade_positions", "companyLogoUrl"],
+      ["trade_positions", "companyReferenceMetadataJson"], ["trade_positions", "companyReferenceOnly"],
+    ] },
+  ],
+  "0092_trading_trade_wallet_funding_plan_snapshot": [
+    { label: "immutable trade wallet funding plan snapshot", columns: [["trade_positions", "walletFundingPlanJson"]] },
+  ],
+  "0093_admin_wallet_adjustment_idempotency": [
+    { label: "administrator wallet-adjustment idempotency response", columns: [
+      ["admin_wallet_adjustment_idempotency", "adminId"], ["admin_wallet_adjustment_idempotency", "idempotencyKey"],
+      ["admin_wallet_adjustment_idempotency", "requestHash"], ["admin_wallet_adjustment_idempotency", "responseJson"],
+    ] },
+  ],
+  "0094_trading_policy_duration_bounds_nullable": [
+    { label: "nullable unconfigured Trading duration bounds", columns: [
+      ["opportunity_package_policies", "minimumTradeDurationSeconds"],
+      ["opportunity_package_policies", "maximumTradeDurationSeconds"],
+    ] },
+  ],
+});
+
+const REQUIRED_NULLABLE_COLUMNS = Object.freeze({
+  "0094_trading_policy_duration_bounds_nullable": [
+    ["opportunity_package_policies", "minimumTradeDurationSeconds"],
+    ["opportunity_package_policies", "maximumTradeDurationSeconds"],
+  ],
 });
 
 const RENAMED_COLUMNS = Object.freeze([
@@ -84,9 +188,11 @@ const RENAMED_COLUMNS = Object.freeze([
  */
 export async function inspectMainMigrationSchema(connection, migrationTag) {
   const [rows] = await connection.query(
-    "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema=DATABASE()",
+    "SELECT table_name, column_name, is_nullable FROM information_schema.columns WHERE table_schema=DATABASE()",
   );
   const present = new Set(rows.map((row) => String(row.table_name) + "." + String(row.column_name)));
+  const nullable = new Set(rows.filter((row) => String(row.is_nullable).toUpperCase() === "YES")
+    .map((row) => String(row.table_name) + "." + String(row.column_name)));
   const diagnostics = [];
   const base = MIGRATION_PREREQUISITES[migrationTag] || [];
 
@@ -130,6 +236,12 @@ export async function inspectMainMigrationSchema(connection, migrationTag) {
         "Progress hint for " + migrationTag + ".sql: " + group.label +
         " is fully present in the schema. This describes resulting schema only and does not prove which statement failed.",
       );
+    }
+  }
+
+  for (const [table, column] of REQUIRED_NULLABLE_COLUMNS[migrationTag] || []) {
+    if (!nullable.has(table + "." + column)) {
+      diagnostics.push("Column " + table + "." + column + " must be nullable for " + migrationTag + ".sql.");
     }
   }
 

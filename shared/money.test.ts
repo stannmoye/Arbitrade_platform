@@ -32,4 +32,36 @@ describe("live currency conversion helpers", () => {
     expect(usdUnitsToNativeMinor(100, 2, 1.25)).toBe(8000);
     expect(usdUnitsToNativeMinor(100, 8, 50000)).toBe(200000);
   });
+  it("converts USD minor units with decimal-safe half-up rounding", async () => {
+    const { nativeMinorToUsdMinorExact } = await import("./money");
+    expect(nativeMinorToUsdMinorExact(10000, 2, "0.5")).toBe(5000);
+    expect(nativeMinorToUsdMinorExact(1, 2, "0.5")).toBe(1); // USD 0.005 rounds half-up to one cent.
+    expect(nativeMinorToUsdMinorExact(1, 2, "0.49")).toBe(0);
+    expect(nativeMinorToUsdMinorExact(100000000, 8, "65000")).toBe(6500000);
+    expect(nativeMinorToUsdMinorExact(12345, 2, "1.2345")).toBe(15240);
+  });
+
+  it("allocates partial qualifying-deposit reversals with decimal-safe half-up rounding", async () => {
+    const { proportionalMinorAmount } = await import("./money");
+    expect(proportionalMinorAmount(101, 1, 2)).toBe(51);
+    expect(proportionalMinorAmount(100000000000001, 3, 7)).toBe(42857142857143);
+    expect(proportionalMinorAmount(100, 4, 4)).toBe(100);
+  });
+
+  it("rejects invalid proportional reversal inputs", async () => {
+    const { proportionalMinorAmount } = await import("./money");
+    expect(() => proportionalMinorAmount(-1, 1, 2)).toThrow("non-negative safe integer");
+    expect(() => proportionalMinorAmount(100, 0, 2)).toThrow("positive safe integer");
+    expect(() => proportionalMinorAmount(100, 3, 2)).toThrow("at least as large");
+    expect(() => proportionalMinorAmount(Number.MAX_SAFE_INTEGER + 1, 1, 2)).toThrow("non-negative safe integer");
+  });
+
+  it("rejects invalid FX rates, invalid scales, and unsafe amounts", async () => {
+    const { nativeMinorToUsdMinorExact } = await import("./money");
+    expect(() => nativeMinorToUsdMinorExact(100, 2, "0")).toThrow("finite and positive");
+    expect(() => nativeMinorToUsdMinorExact(100, 2, "NaN")).toThrow("finite and positive");
+    expect(() => nativeMinorToUsdMinorExact(100, 31, "1")).toThrow("precision scale");
+    expect(() => nativeMinorToUsdMinorExact(Number.MAX_SAFE_INTEGER, 0, "1000000000000")).toThrow("safe integer range");
+  });
+
 });

@@ -605,3 +605,13 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
     -webkit-overflow-scrolling:touch!important;
   }
 }
+
+
+/* Administrator-configured Trading package badges shared by cards and pop-up toasts. */
+.trading-package-badge{display:inline-flex;align-items:center;align-self:flex-start;max-width:100%;padding:3px 8px;border:1px solid var(--arb-color-border,rgba(127,151,170,.55));border-radius:999px;font-size:11px;line-height:1.4;font-weight:750;letter-spacing:.02em;overflow-wrap:anywhere;}
+.trading-package-badge--neutral{background:rgba(130,145,160,.12);color:var(--arb-color-text,var(--wb-text,#e8edf3));}
+.trading-package-badge--blue{background:rgba(59,130,246,.13);border-color:rgba(96,165,250,.6);color:#9ec5ff;}
+.trading-package-badge--purple{background:rgba(139,92,246,.14);border-color:rgba(167,139,250,.6);color:#d2bdff;}
+.trading-package-badge--gold{background:rgba(217,160,60,.14);border-color:rgba(234,179,8,.62);color:#f4d58a;}
+.trading-package-badge--green{background:rgba(16,185,129,.14);border-color:rgba(52,211,153,.62);color:#8ce6c1;}
+.policy-help{margin:0 0 12px;color:var(--arb-color-text-muted,var(--wb-muted,#a8b7c6));font-size:13px;line-height:1.55}

@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import express from "express";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { and, eq, like, or } from "drizzle-orm";
-import { appSettings, customerNotifications, notificationCampaignDeliveries, notificationCampaigns, supportAttachments, supportMessages, supportTickets, users, v5AuditEvents } from "../drizzle/schema";
+import { appSettings, customerNotifications, notificationCampaignDeliveries, notificationCampaigns, opportunityPackagePolicies, packages, supportAttachments, supportMessages, supportTickets, users, v5AuditEvents } from "../drizzle/schema";
 import { createContext } from "./_core/context";
 import { createLocalSession } from "./_core/localAuth";
 import { appRouter } from "./routers";
@@ -31,6 +31,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
   let temporaryTicketNumber: string | undefined;
   let temporaryCampaignId: number | undefined;
   let temporaryNotificationId: number | undefined;
+  let temporaryTradingPackageId: number | undefined;
 
   it("resolves signed browser sessions against database roles before authorizing settings", async () => {
     const db = await getDb();
@@ -156,6 +157,104 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       await new Promise<void>((resolve, reject) => {
         server.close(error => error ? reject(error) : resolve());
       });
+    }
+  });
+
+  it("persists and versions a full Trading tier policy, audits the change, and rejects customer writes", async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database is not available");
+    const rows = await admin.adminOperations.packagePolicies();
+    expect(rows.length).toBeGreaterThan(0);
+    const before = rows[0] as any;
+    const partialPolicy = (row: any, overrides: any = {}) => ({
+      packageName: row.packageName,
+      maxPopupsPerDay: Number(row.maxPopupsPerDay),
+      maxVisibleOffers: Number(row.maxVisibleOffers),
+      minimumTradeUnits: Number(row.minimumTradeUnits),
+      maximumTradeUnits: Number(row.maximumTradeUnits),
+      minHourlyTarget: Number(row.minHourlyTarget),
+      normalHourlyTarget: Number(row.normalHourlyTarget),
+      marketInfluenceBps: Number(row.marketInfluenceBps),
+      burstEnabled: Boolean(row.burstEnabled),
+      maxBurstSize: Number(row.maxBurstSize),
+      ...overrides,
+    });
+    const nextVisibleOffers = Number(before.maxVisibleOffers) >= 10000
+      ? Number(before.maxVisibleOffers) - 1
+      : Number(before.maxVisibleOffers) + 1;
+    const reason = "Part 1 Trading policy integration " + Date.now();
+    let updateCommitted = false;
+
+    try {
+      // Exercise a true partial update: advanced settings are omitted and must
+      // be preserved from the locked persisted row.
+      const saved = await admin.adminOperations.updatePackagePolicies({
+        policies: [partialPolicy(before, { maxVisibleOffers: nextVisibleOffers })],
+        reason,
+      });
+      updateCommitted = true;
+      const persisted = saved.find((row: any) => row.packageName === before.packageName) as any;
+      expect(persisted).toBeDefined();
+      expect(persisted.maxVisibleOffers).toBe(nextVisibleOffers);
+      for (const field of ["enabled", "automaticDelivery", "automaticTradingEnabled", "dailyPopupTarget", "schedulingPeriod", "popupDisplayTargetSeconds", "completionDisplaySeconds", "maxSettlementAttempts", "maxTradeAttemptsPerDay", "settlementConfirmationState", "minimumPayoutRateBps", "maximumPayoutRateBps", "minimumTradeDurationSeconds", "maximumTradeDurationSeconds", "companyRotationCountryNames"]) {
+        expect(persisted[field], field).toEqual(before[field]);
+      }
+      expect(Number(persisted.policyVersion)).toBe(Number(before.policyVersion || 0) + 1);
+
+      const auditRows = await db.select().from(v5AuditEvents).where(and(
+        eq(v5AuditEvents.action, "trading_delivery_policy_updated"),
+        eq(v5AuditEvents.reason, reason),
+      ));
+      expect(auditRows).toHaveLength(1);
+      expect(auditRows[0].actorUserId).toBe(administratorId);
+      expect(auditRows[0].entityType).toBe("opportunity_package_policy");
+      expect(auditRows[0].reference).toContain("trading-delivery-policy:" + before.packageName);
+      expect(auditRows[0].metadataJson).toContain('"oldPolicy"');
+      expect(auditRows[0].metadataJson).toContain('"newPolicy"');
+      const auditMetadata = JSON.parse(String(auditRows[0].metadataJson));
+      expect(auditMetadata.oldPolicy.maxVisibleOffers).toBe(before.maxVisibleOffers);
+      expect(auditMetadata.newPolicy.maxVisibleOffers).toBe(nextVisibleOffers);
+      expect(auditMetadata.nextVersion).toBe(Number(persisted.policyVersion));
+      expect(auditRows[0].reason).toBe(reason);
+
+      await expect(customer.adminOperations.updatePackagePolicies({
+        policies: [partialPolicy(persisted, { maxVisibleOffers: Number(persisted.maxVisibleOffers) + 1 })],
+        reason: "Customer must not change Trading policy",
+      })).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+      const afterRejectedWrite = await admin.adminOperations.packagePolicies();
+      const unchanged = afterRejectedWrite.find((row: any) => row.packageName === before.packageName) as any;
+      expect(unchanged.maxVisibleOffers).toBe(nextVisibleOffers);
+      expect(Number(unchanged.policyVersion)).toBe(Number(persisted.policyVersion));
+
+      await expect(admin.adminOperations.updatePackagePolicies({
+        policies: [
+          partialPolicy(unchanged, { maxVisibleOffers: Number(unchanged.maxVisibleOffers) + 1 }),
+          partialPolicy(unchanged, { maxVisibleOffers: Number(unchanged.maxVisibleOffers) + 2 }),
+        ],
+        reason: "Reject duplicate tier rows " + Date.now(),
+      })).rejects.toThrow("Each Trading tier may appear only once in a policy update");
+      const afterDuplicate = (await admin.adminOperations.packagePolicies()).find((row: any) => row.packageName === before.packageName) as any;
+      expect(afterDuplicate.maxVisibleOffers).toBe(nextVisibleOffers);
+      expect(Number(afterDuplicate.policyVersion)).toBe(Number(persisted.policyVersion));
+
+      await expect(admin.adminOperations.updatePackagePolicies({
+        policies: [
+          partialPolicy(unchanged, { maxVisibleOffers: Number(unchanged.maxVisibleOffers) + 1 }),
+          partialPolicy(unchanged, { packageName: "__unknown_disposable_tier_" + Date.now() }),
+        ],
+        reason: "Reject unknown tier atomically " + Date.now(),
+      })).rejects.toThrow("Opportunity policy references an unknown Trading tier");
+      const afterAtomicReject = (await admin.adminOperations.packagePolicies()).find((row: any) => row.packageName === before.packageName) as any;
+      expect(afterAtomicReject.maxVisibleOffers).toBe(nextVisibleOffers);
+      expect(Number(afterAtomicReject.policyVersion)).toBe(Number(persisted.policyVersion));
+    } finally {
+      if (updateCommitted) {
+        await admin.adminOperations.updatePackagePolicies({
+          policies: [partialPolicy(before)],
+          reason: "Part 1 integration cleanup " + Date.now(),
+        });
+      }
     }
   });
 
@@ -393,9 +492,169 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     expect(messages.map(message => message.body)).toContain("Customer reply after reopening");
   });
 
+  it("creates, edits, reloads, and audits Trading tier terms only for administrators", async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database is not available");
+    const suffix = Date.now().toString() + "_" + Math.random().toString(36).slice(2, 8);
+    const name = "Part1 disposable tier " + suffix;
+    const reasonCreate = "Disposable Part 1 tier creation " + suffix;
+    const reasonUpdate = "Disposable Part 1 tier edit " + suffix;
+    const startsAt = new Date(Math.floor((Date.now() + 60_000) / 1000) * 1000);
+    const expiresAt = new Date(startsAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+    let created = false;
+
+    try {
+      const beforeCount = (await admin.adminOperations.tradingPackages()).length;
+      await expect(customer.adminOperations.createTradingPackage({
+        name, minimumQualifyingBalanceUsdMinor: 12345, durationMonths: 3,
+        opportunitiesPerDay: 7, maxPopupsPerDay: 8, maxActiveInvestments: 2,
+        startsAt: null, expiresAt: null, enabled: false, reason: reasonCreate,
+      })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect((await admin.adminOperations.tradingPackages()).length).toBe(beforeCount);
+
+      await expect(admin.adminOperations.createTradingPackage({
+        name, minimumQualifyingBalanceUsdMinor: 0, durationMonths: 3,
+        opportunitiesPerDay: 7, maxPopupsPerDay: 8, maxActiveInvestments: 2,
+        startsAt: null, expiresAt: null, enabled: false, reason: reasonCreate,
+      })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      await expect(admin.adminOperations.createTradingPackage({
+        name, minimumQualifyingBalanceUsdMinor: 12345, durationMonths: 3,
+        opportunitiesPerDay: 7, maxPopupsPerDay: 8, maxActiveInvestments: 2,
+        startsAt: expiresAt.toISOString(), expiresAt: startsAt.toISOString(),
+        enabled: false, reason: reasonCreate,
+      })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      expect((await admin.adminOperations.tradingPackages()).length).toBe(beforeCount);
+
+      const createdPackage = await admin.adminOperations.createTradingPackage({
+        name, minimumQualifyingBalanceUsdMinor: 12345, durationMonths: 3,
+        opportunitiesPerDay: 7, maxPopupsPerDay: 8, maxActiveInvestments: 2,
+        startsAt: null, expiresAt: null, enabled: false, reason: reasonCreate,
+      });
+      temporaryTradingPackageId = createdPackage.id;
+      created = true;
+      expect(createdPackage).toMatchObject({
+        name, minimumQualifyingBalanceUsdMinor: 12345, durationMonths: 3,
+        opportunitiesPerDay: 7, maxPopupsPerDay: 8, maxActiveInvestments: 2,
+        enabled: false, termsVersion: 1,
+      });
+
+      const afterCreate = await admin.adminOperations.tradingPackages();
+      expect(afterCreate.find((row: any) => row.id === createdPackage.id)).toMatchObject({
+        name, minimumQualifyingBalanceUsdMinor: 12345, durationMonths: 3,
+        opportunitiesPerDay: 7, maxPopupsPerDay: 8, maxActiveInvestments: 2,
+        enabled: false, termsVersion: 1,
+      });
+      const [persistedCreate] = await db.select().from(packages).where(eq(packages.id, createdPackage.id));
+      expect(persistedCreate).toMatchObject({
+        name, minimumQualifyingBalanceUsdMinor: 12345, durationMonths: 3,
+        opportunitiesPerDay: 7, maxPopupsPerDay: 8, maxActiveInvestments: 2,
+        enabled: false, termsVersion: 1,
+      });
+
+      await expect(customer.adminOperations.updateTradingPackage({
+        id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
+        durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
+        maxActiveInvestments: 3, startsAt: startsAt.toISOString(),
+        expiresAt: expiresAt.toISOString(), enabled: true, reason: reasonUpdate,
+      })).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+      await expect(admin.adminOperations.updateTradingPackage({
+        id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
+        durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
+        maxActiveInvestments: 3, startsAt: expiresAt.toISOString(),
+        expiresAt: startsAt.toISOString(), enabled: true,
+        reason: "Reject invalid effective dates " + suffix,
+      })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      const [unchangedAfterInvalidUpdate] = await db.select().from(packages).where(eq(packages.id, createdPackage.id));
+      expect(unchangedAfterInvalidUpdate).toMatchObject({
+        minimumQualifyingBalanceUsdMinor: 12345, durationMonths: 3,
+        opportunitiesPerDay: 7, maxPopupsPerDay: 8, maxActiveInvestments: 2,
+        enabled: false, termsVersion: 1,
+      });
+
+      // Tier activation requires a previously saved delivery policy with published terms.
+      await db.update(opportunityPackagePolicies).set({
+        policyVersion: 1,
+        enabled: true,
+        automaticDelivery: true,
+        automaticTradingEnabled: true,
+        minimumPayoutRateBps: 400,
+        maximumPayoutRateBps: 400,
+        minimumTradeDurationSeconds: 3600,
+        maximumTradeDurationSeconds: 3600,
+        updatedBy: administratorId,
+      }).where(eq(opportunityPackagePolicies.packageName, name));
+
+      const updatedPackage = await admin.adminOperations.updateTradingPackage({
+        id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
+        durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
+        maxActiveInvestments: 3, startsAt: startsAt.toISOString(),
+        expiresAt: expiresAt.toISOString(), enabled: true, reason: reasonUpdate,
+      });
+      expect(updatedPackage).toMatchObject({
+        id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
+        durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
+        maxActiveInvestments: 3, enabled: true, termsVersion: 2,
+      });
+      expect(new Date(updatedPackage.startsAt as unknown as string).getTime()).toBe(startsAt.getTime());
+      expect(new Date(updatedPackage.expiresAt as unknown as string).getTime()).toBe(expiresAt.getTime());
+
+      const reloaded = (await admin.adminOperations.tradingPackages()).find((row: any) => row.id === createdPackage.id) as any;
+      expect(reloaded).toMatchObject({
+        id: createdPackage.id, name, minimumQualifyingBalanceUsdMinor: 22345,
+        durationMonths: 4, opportunitiesPerDay: 9, maxPopupsPerDay: 10,
+        maxActiveInvestments: 3, enabled: true, termsVersion: 2,
+      });
+      expect(new Date(reloaded.startsAt).getTime()).toBe(startsAt.getTime());
+      expect(new Date(reloaded.expiresAt).getTime()).toBe(expiresAt.getTime());
+
+      const [persistedUpdate] = await db.select().from(packages).where(eq(packages.id, createdPackage.id));
+      expect(persistedUpdate).toMatchObject({
+        name, minimumQualifyingBalanceUsdMinor: 22345, durationMonths: 4,
+        opportunitiesPerDay: 9, maxPopupsPerDay: 10, maxActiveInvestments: 3,
+        enabled: true, termsVersion: 2,
+      });
+      expect(new Date(persistedUpdate.startsAt as Date).getTime()).toBe(startsAt.getTime());
+      expect(new Date(persistedUpdate.expiresAt as Date).getTime()).toBe(expiresAt.getTime());
+
+      const [policy] = await db.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, name));
+      expect(policy).toBeDefined();
+      const auditRows = await db.select().from(v5AuditEvents).where(and(
+        eq(v5AuditEvents.entityType, "trading_package"),
+        eq(v5AuditEvents.entityId, String(createdPackage.id)),
+      ));
+      expect(auditRows.map(row => row.action)).toEqual(expect.arrayContaining([
+        "trading_package_created", "trading_package_terms_updated",
+      ]));
+      const createAudit = auditRows.find(row => row.action === "trading_package_created");
+      const updateAudit = auditRows.find(row => row.action === "trading_package_terms_updated");
+      expect(createAudit?.actorUserId).toBe(administratorId);
+      expect(createAudit?.reason).toBe(reasonCreate);
+      expect(createAudit?.metadataJson).toContain('"minimumQualifyingBalanceUsdMinor":12345');
+      expect(updateAudit?.actorUserId).toBe(administratorId);
+      expect(updateAudit?.reason).toBe(reasonUpdate);
+      expect(updateAudit?.metadataJson).toContain('"old"');
+      expect(updateAudit?.metadataJson).toContain('"new"');
+    } finally {
+      if (!created) {
+        const [orphan] = await db.select({ id: packages.id }).from(packages).where(eq(packages.name, name));
+        if (orphan) temporaryTradingPackageId = orphan.id;
+      }
+    }
+  });
+
   afterAll(async () => {
     if (!enabled) return;
     const db = await getDb();
+    if (db && temporaryTradingPackageId !== undefined) {
+      await db.delete(v5AuditEvents).where(and(
+        eq(v5AuditEvents.entityType, "trading_package"),
+        eq(v5AuditEvents.entityId, String(temporaryTradingPackageId)),
+      ));
+      const [pkg] = await db.select({ name: packages.name }).from(packages).where(eq(packages.id, temporaryTradingPackageId));
+      if (pkg) await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, pkg.name));
+      await db.delete(packages).where(eq(packages.id, temporaryTradingPackageId));
+    }
     if (db && temporaryCampaignId !== undefined) {
       await db.delete(v5AuditEvents).where(and(eq(v5AuditEvents.action, "notification.campaign.withdrawn"), eq(v5AuditEvents.entityId, String(temporaryCampaignId))));
       await db.delete(notificationCampaignDeliveries).where(eq(notificationCampaignDeliveries.campaignId, temporaryCampaignId));
