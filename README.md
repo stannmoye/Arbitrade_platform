@@ -116,3 +116,10 @@ Trading tiers are assigned automatically from qualifying credits manually issued
 ## Automatic Trading tier qualification worker
 
 Qualifying administrator wallet credits and qualifying-deposit reversals enqueue durable jobs in the same database transaction as their ledger entry. A server-side worker polls the indexed queue every five seconds in bounded batches, independently of customer sessions. When idle it performs a lightweight indexed queue lookup rather than scanning all customers. Jobs are idempotent, recover stale leases after restarts, retry transient failures with backoff, and remain in a dead-letter state after eight failed attempts for operator review. Ordinary transfers and non-qualifying credits do not enter this queue. Migration `0082_trading_tier_qualification_jobs` creates the queue and its indexes.
+
+
+## Canonical Trading implementation contract
+
+Trading package eligibility, administrator-editable pop-ups, company rotation, exact financial accounting and restart-safe workers are governed by [the canonical Trading specification](docs/TRADING_SYSTEM_SPECIFICATION.md) and [the Trading Pop-up & Admin Configuration Manual](docs/TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md). The manual documents each required admin control and its meaning. Actual code implementation and acceptance remain tracked in [Issue #228](https://github.com/stannmoye/Arbitrade_platform/issues/228); do not treat documentation as evidence that the code is complete.
+
+Use the existing 1,811-record company catalogue and stable Logo IDs. Do not introduce hardcoded company lists or active hardcoded package, capital, rate, timing, quota, or pop-up settings. All behavior-affecting policy comes from validated, versioned server configuration. Worker processing must be durable, idempotent, isolated per customer/package, recoverable after restarts, and safe against duplicate ledger effects. Follow the manual's exact-money, timestamped-FX, all-or-none wallet funding and honest-return-disclosure requirements before release.
