@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { closeDbPool, createTrade, getDb, reconcileAllDueTradesAwaitingConfirmation } from "../server/db";
 import {
-  appSettings, balanceLedger, currencyRegistry, customerBalances, customerPackageSubscriptions,
+  balanceLedger, currencyRegistry, customerBalances, customerPackageSubscriptions,
   fxRateSnapshots, opportunityOffers, packages, tradeLifecycleEvents, tradePositions, users,
 } from "../drizzle/schema";
 
