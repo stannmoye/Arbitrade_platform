@@ -5,6 +5,7 @@ import { notificationSoundKeyForCategory } from "./notification-sound-policy";
 import { notificationAudioVolume, normalizeNotificationVolume } from "./notification-sound-volume";
 import { notificationPollingInterval } from "./notification-polling-policy";
 import PortalRenderBoundary from "@/components/PortalRenderBoundary";
+import type { TradingDeliveryPolicyRow } from "@/components/TradingDeliveryPolicyEditor";
 const AdminSlideMenu = lazy(() => import("@/components/AdminSlideMenu").then((module) => ({ default: module.AdminSlideMenu })));
 const TradingDeliveryPolicyEditor = lazy(() => import("@/components/TradingDeliveryPolicyEditor"));
 const AdminAppearance = lazy(() => import("@/components/AdminAppearance").then((module) => ({ default: module.AdminAppearance })));
