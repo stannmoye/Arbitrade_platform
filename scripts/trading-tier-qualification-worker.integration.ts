@@ -143,6 +143,24 @@ try {
   assert.equal(nonQualifyingCredit.entryType, "admin_credit");
   assert.equal(nonQualifyingCredit.qualifyingDepositUsdMinor, null);
 
+  // Race two identical first submissions. The unique request key must serialize
+  // them to one committed wallet mutation and one stable response.
+  const concurrentDuplicateCreditInput = {
+    userId: creditPathUserId,
+    currency: "USD",
+    amountMinor: 7000,
+    mode: "credit" as const,
+    creditClassification: "non_qualifying_credit" as const,
+    reason: "integration test concurrent duplicate admin credit",
+    idempotencyKey: "it-credit-concurrent-001",
+  };
+  const concurrentDuplicateCredits = await Promise.all([
+    adjustCustomerBalance(adminId, concurrentDuplicateCreditInput),
+    adjustCustomerBalance(adminId, concurrentDuplicateCreditInput),
+  ]);
+  assert.equal(concurrentDuplicateCredits[0].ledgerId, concurrentDuplicateCredits[1].ledgerId);
+  assert.equal(concurrentDuplicateCredits[0].ledgerReference, concurrentDuplicateCredits[1].ledgerReference);
+
   // Stub only the external HTTP boundary to prove the real credit path stores
   // a fresh API-derived non-USD conversion rather than the editable registry rate.
   const currencyInsert = await db.insert(currencyRegistry).values({
