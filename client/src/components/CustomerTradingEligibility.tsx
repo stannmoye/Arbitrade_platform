@@ -60,7 +60,7 @@ export function CustomerTradingEligibility() {
             </span>
             <span className="trading-status-copy">
               <strong className="trading-status-label">
-                {eligibilityQuery.isLoading ? "CHECKING" : eligibilityQuery.isError ? "RETRY NEEDED" : currentPackage ? "TIER ACTIVE" : "NO PACKAGE ASSIGNED"}
+                {eligibilityQuery.isLoading ? "CHECKING" : eligibilityQuery.isError ? "RETRY NEEDED" : currentPackage ? "PACKAGE ACTIVE" : "NO PACKAGE ASSIGNED"}
               </strong>
               <span className="trading-status-message">
                 {eligibilityQuery.isLoading
@@ -68,7 +68,7 @@ export function CustomerTradingEligibility() {
                   : eligibilityQuery.isError
                     ? "Your status could not load. Refresh to retry."
                     : currentPackage
-                      ? `${currentPackage.name} is assigned automatically.`
+                      ? `${currentPackage.name} is active. Your daily opportunity allowance is ready.`
                       : "Your package will be assigned automatically when you qualify."}
               </span>
             </span>
@@ -95,7 +95,7 @@ export function CustomerTradingEligibility() {
           <div className="trading-package-hero-copy">
             <span className="trading-package-hero-eyebrow">PACKAGE PROGRESS</span>
             <h3>{currentPackage ? currentPackage.name : "No Package Assigned"}</h3>
-            <p>{currentPackage ? "Your package is assigned automatically. Your daily opportunity allowance is shown below." : "Your account has not been assigned a trading package yet. You will be automatically assigned when you qualify."}</p>
+            <p>{currentPackage ? "Your package is active. Keep progressing toward the next milestone to unlock additional daily opportunities when you qualify." : "Your account has not been assigned a trading package yet. You will be automatically assigned when you qualify."}</p>
           </div>
           <div className="trading-package-hero-chart" aria-hidden="true">
             <div className="trading-package-hero-chart-line" />
@@ -212,7 +212,7 @@ export function CustomerTradingEligibility() {
                   <strong className="trading-tier-metric-value trading-next-number">+{nextPackage.additionalDailyOpportunities}</strong>
                 </div>
               </div>
-              <p className="trading-tier-explainer"><Info size={17} strokeWidth={2.5} aria-hidden="true" />Unlocks extra daily opportunities.</p>
+              <p className="trading-tier-explainer"><Info size={17} strokeWidth={2.5} aria-hidden="true" />Keep progressing toward this milestone to unlock +{nextPackage.additionalDailyOpportunities} extra daily opportunities when you qualify.</p>
               </div>
             </article>
           ) : (
