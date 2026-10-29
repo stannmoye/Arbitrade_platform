@@ -369,7 +369,10 @@ export const appRouter = router({
       startsAt: z.string().datetime().nullable(),
       expiresAt: z.string().datetime().nullable(),
       enabled: z.boolean(),
-    })).mutation(({ ctx, input }) => createAdminTradingPackage(ctx.user.id, {
+    }).refine(
+      ({ startsAt, expiresAt }) => !startsAt || !expiresAt || new Date(expiresAt).getTime() > new Date(startsAt).getTime(),
+      { message: "Expiry must be later than the start time.", path: ["expiresAt"] },
+    )).mutation(({ ctx, input }) => createAdminTradingPackage(ctx.user.id, {
       ...input, startsAt:input.startsAt?new Date(input.startsAt):null, expiresAt:input.expiresAt?new Date(input.expiresAt):null,
     })),
     updateTradingPackage: adminProcedure.input(z.object({
@@ -383,7 +386,10 @@ export const appRouter = router({
       startsAt: z.string().datetime().nullable(),
       expiresAt: z.string().datetime().nullable(),
       enabled: z.boolean(),
-    })).mutation(({ ctx, input }) => updateAdminTradingPackage(ctx.user.id, {
+    }).refine(
+      ({ startsAt, expiresAt }) => !startsAt || !expiresAt || new Date(expiresAt).getTime() > new Date(startsAt).getTime(),
+      { message: "Expiry must be later than the start time.", path: ["expiresAt"] },
+    )).mutation(({ ctx, input }) => updateAdminTradingPackage(ctx.user.id, {
       ...input, startsAt:input.startsAt?new Date(input.startsAt):null, expiresAt:input.expiresAt?new Date(input.expiresAt):null,
     })),
     communicationSettings: adminProcedure.query(() => getAdminCommunicationSettings()),
