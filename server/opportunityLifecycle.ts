@@ -12,6 +12,7 @@ type PopupDelivery = {
   minimumMinor: number;
   expectedRewardBps: number;
   tradeDurationSeconds: number;
+  policyVersion: number;
   companyRotationEnabled: boolean;
   balanceAvailableMinor: number;
   balanceStatus: "sufficient" | "insufficient" | "unknown";
@@ -45,8 +46,8 @@ export async function ensurePopupDeliveries(deliveries: PopupDelivery[]) {
           cursor = companyLogoId;
         }
         await connection.execute(
-          "INSERT INTO opportunity_popup_events (eventKey,userId,offerId,quotaDay,packageName,symbol,currency,minimumMinor,expectedRewardBps,tradeDurationSeconds,companyLogoId,balanceAvailableMinor,balanceStatus,marketObservedAt,marketSnapshotJson,eventStatus,deliveredAt,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
-          [eventKey, item.userId, item.offerId, item.quotaDay, item.packageName, item.symbol, item.currency, item.minimumMinor, item.expectedRewardBps, item.tradeDurationSeconds, companyLogoId, item.balanceAvailableMinor, item.balanceStatus, item.marketObservedAt || null, item.marketSnapshotJson || null],
+          "INSERT INTO opportunity_popup_events (eventKey,userId,offerId,quotaDay,packageName,symbol,currency,minimumMinor,expectedRewardBps,tradeDurationSeconds,policyVersion,companyLogoId,balanceAvailableMinor,balanceStatus,marketObservedAt,marketSnapshotJson,eventStatus,deliveredAt,createdAt,updatedAt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'DELIVERED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+          [eventKey, item.userId, item.offerId, item.quotaDay, item.packageName, item.symbol, item.currency, item.minimumMinor, item.expectedRewardBps, item.tradeDurationSeconds, item.policyVersion, companyLogoId, item.balanceAvailableMinor, item.balanceStatus, item.marketObservedAt || null, item.marketSnapshotJson || null],
         );
         const [insertedRows] = await connection.query<any[]>("SELECT id FROM opportunity_popup_events WHERE eventKey=?", [eventKey]);
         if (insertedRows[0]) result.set(eventKey, Number(insertedRows[0].id));
