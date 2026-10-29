@@ -16,13 +16,6 @@ const MIGRATION_PREREQUISITES = Object.freeze({
       ["trade_positions", "settlementConfirmedBy"], ["trade_positions", "settlementNotes"],
     ] },
   ],
-  "0087_admin_wallet_adjustment_idempotency": [
-    { label: "administrator wallet idempotency table columns", columns: [
-      ["admin_wallet_adjustment_requests", "id"], ["admin_wallet_adjustment_requests", "adminId"],
-      ["admin_wallet_adjustment_requests", "idempotencyKey"], ["admin_wallet_adjustment_requests", "requestHash"],
-      ["admin_wallet_adjustment_requests", "resultJson"], ["admin_wallet_adjustment_requests", "createdAt"],
-    ] },
-  ],
   "0068_trade_realized_profit_accounting": [
     ["trade_positions", "id"],
     ["trade_positions", "status"],
@@ -75,6 +68,13 @@ const MIGRATION_PROGRESS_COLUMNS = Object.freeze({
       ["local_scheduled_jobs", "taskUid"], ["local_scheduled_jobs", "ownerUserId"],
       ["local_scheduled_jobs", "cronExpression"], ["local_scheduled_jobs", "callbackPath"],
       ["local_scheduled_jobs", "nextExecutionAt"], ["local_scheduled_jobs", "lockedUntil"],
+    ] },
+  ],
+  "0087_admin_wallet_adjustment_idempotency": [
+    { label: "administrator wallet idempotency table columns", columns: [
+      ["admin_wallet_adjustment_requests", "id"], ["admin_wallet_adjustment_requests", "adminId"],
+      ["admin_wallet_adjustment_requests", "idempotencyKey"], ["admin_wallet_adjustment_requests", "requestHash"],
+      ["admin_wallet_adjustment_requests", "resultJson"], ["admin_wallet_adjustment_requests", "createdAt"],
     ] },
   ],
 });
