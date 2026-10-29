@@ -1,5 +1,4 @@
 import {
-  Activity,
   ArrowUpRight,
   CalendarClock,
   CheckCircle2,
@@ -18,23 +17,13 @@ import "./CustomerTradingEligibility.css";
 import "./CustomerTradingEligibility.polish.css";
 
 const usdEquivalent = (minor: number) => new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 }).format(minor / 100);
 
 const durationLabel = (months: number) => `${months} ${months === 1 ? "month" : "months"}`;
-
-const candleSticks = [
-  { height: 25, shift: 3, up: true },
-  { height: 38, shift: -4, up: true },
-  { height: 29, shift: 2, up: false },
-  { height: 48, shift: -7, up: true },
-  { height: 35, shift: 4, up: false },
-  { height: 55, shift: -5, up: true },
-  { height: 43, shift: 3, up: true },
-  { height: 62, shift: -6, up: true },
-  { height: 47, shift: 4, up: false },
-];
 
 // The visible inactive label is now "NO PACKAGE ASSIGNED" instead of the older "AWAITING TIER" wording.
 export function CustomerTradingEligibility() {
@@ -86,25 +75,6 @@ export function CustomerTradingEligibility() {
           {eligibilityQuery.isFetching ? "Updating…" : "Refresh"}
         </button>
       </header>
-
-      {!eligibilityQuery.isLoading && !eligibilityQuery.isError && (
-        <div className={`trading-package-hero ${currentPackage ? "has-current-package" : "has-no-package"}`} aria-live="polite">
-          <div className="trading-package-hero-emblem" aria-hidden="true">
-            {currentPackage ? <ShieldCheck size={70} strokeWidth={1.7} /> : <WalletCards size={70} strokeWidth={1.7} />}
-          </div>
-          <div className="trading-package-hero-copy">
-            <span className="trading-package-hero-eyebrow">PACKAGE PROGRESS</span>
-            <h3>{currentPackage ? currentPackage.name : "No Package Assigned"}</h3>
-            <p>{currentPackage ? "Your package is active. Keep progressing toward the next milestone to unlock additional daily opportunities when you qualify." : "Your account has not been assigned a trading package yet. You will be automatically assigned when you qualify."}</p>
-          </div>
-          <div className="trading-package-hero-chart" aria-hidden="true">
-            <div className="trading-package-hero-chart-line" />
-            {candleSticks.map((candle, index) => (
-              <span className={`trading-hero-candle ${candle.up ? "is-up" : "is-down"}`} key={index} style={{ "--hero-candle-height": `${candle.height}%`, "--hero-candle-shift": `${candle.shift}px` } as React.CSSProperties}><i /></span>
-            ))}
-          </div>
-        </div>
-      )}
 
       {eligibilityQuery.isLoading ? (
         <div className="trading-package-loading" role="status" aria-live="polite">Loading package details…</div>
@@ -185,19 +155,17 @@ export function CustomerTradingEligibility() {
                     <strong className="trading-threshold-amount">{usdEquivalent(nextPackage.amountNeededUsdMinor)}</strong>
                   </div>
                   <span className="trading-threshold-unit">USD equivalent</span>
-                  <span className="sr-only">USD equivalent of qualifying admin wallet credits, valued at the rate recorded when credited.</span>
-                </div>
-                <div className="trading-candle-chart" aria-hidden="true">
-                  <div className="trading-candle-chart-heading"><span>MARKET MOVEMENT</span><span className="trading-candle-chart-live"><i /> ANIMATED</span></div>
-                  <div className="trading-candle-chart-grid">
-                    {candleSticks.map((candle, index) => (
-                      <span className={`trading-candle ${candle.up ? "is-up" : "is-down"} candle-${index + 1}`} key={index} style={{ "--candle-height": `${candle.height}%`, "--candle-shift": `${candle.shift}px` } as React.CSSProperties}>
-                        <i />
-                      </span>
-                    ))}
+                  <div className="trading-progress-caption">
+                    <span>Qualifying credits</span>
+                    <strong>{usdEquivalent(qualifyingTotal)} <span aria-hidden="true">/</span> {usdEquivalent(nextThreshold)}</strong>
                   </div>
-                  <div className="trading-candle-chart-foot"><span>VISUAL INDICATOR</span><Activity size={14} strokeWidth={2.5} /></div>
+                  <div className="trading-progress-track" aria-hidden="true">
+                    <span style={{ width: `${progressPercent}%` }} />
+                  </div>
+                  <span className="trading-progress-note">Only qualifying credits manually issued by an administrator count. Your package is assigned automatically when you qualify.</span>
+                  <span className="sr-only">Qualifying admin wallet credits are valued in USD at the rate recorded when credited.</span>
                 </div>
+
               </div>
 
               <div className="trading-tier-metrics">
@@ -212,7 +180,7 @@ export function CustomerTradingEligibility() {
                   <strong className="trading-tier-metric-value trading-next-number">+{nextPackage.additionalDailyOpportunities}</strong>
                 </div>
               </div>
-              <p className="trading-tier-explainer"><Info size={17} strokeWidth={2.5} aria-hidden="true" />Keep progressing toward this milestone to unlock +{nextPackage.additionalDailyOpportunities} extra daily opportunities when you qualify.</p>
+              <p className="trading-tier-explainer"><Info size={17} strokeWidth={2.5} aria-hidden="true" />Qualify for this milestone and your package will be assigned automatically, adding +{nextPackage.additionalDailyOpportunities} extra opportunities every day.</p>
               </div>
             </article>
           ) : (
