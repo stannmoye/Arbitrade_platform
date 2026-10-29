@@ -724,3 +724,8 @@ When continuing this project:
 - [ ] Verify migration `0082_trading_tier_qualification_jobs` against the target database, run typecheck/build/contract tests and inspect CI for the exact commit before deployment.
 - [ ] Exercise restart recovery, retry/dead-letter behavior, multi-instance claims, tier upgrade/reversal and unchanged normal transfers in an integration environment.
 
+
+
+## 2026-10-29 — Canonical Trading pop-up and package editor requirements
+
+For all Trade/Trading implementation, the current detailed requirements are in [Trading System Specification](TRADING_SYSTEM_SPECIFICATION.md) and [Trading Pop-up & Admin Configuration Manual](TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md). These take precedence over older roadmap wording where they differ. Admin-editable package settings include package name and badge, threshold/duration, cumulative quota, capital rules, configured profit percentage bounds, expanded pop-up display duration, schedule, company rotation, limits, retries and audit/version history. Customer behaviour must consume saved server settings rather than hardcoded values. The 1,811-record local company catalogue must rotate by stable Logo ID with persisted state and correct logo/name/country metadata. Worker state must survive restart and remain idempotent. No generated/random financial result may be shown or credited as realized profit; configured ranges are estimates/policy bounds until a supported auditable result exists.
