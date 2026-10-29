@@ -1,4 +1,4 @@
--- Persist admin-controlled profit and trade-duration ranges, capital bounds, and package badges.
+-- Persist admin-controlled profit and trade-duration ranges, capital bounds, package badges, and company rotation.
 -- Existing USD-unit limits are converted to USD minor units without rewriting historical trades.
 ALTER TABLE `opportunity_package_policies`
   ADD COLUMN IF NOT EXISTS `maximumRewardBps` int NOT NULL DEFAULT 500,
@@ -10,13 +10,18 @@ ALTER TABLE `opportunity_package_policies`
   ADD COLUMN IF NOT EXISTS `badgeColor` varchar(24) NOT NULL DEFAULT 'violet',
   ADD COLUMN IF NOT EXISTS `companyRotationEnabled` tinyint(1) NOT NULL DEFAULT 1;
 --> statement-breakpoint
-UPDATE `opportunity_package_policies`
-SET `minimumCapitalUsdMinor` = GREATEST(1, `minimumTradeUnits`) * 100,
-    `maximumCapitalUsdMinor` = GREATEST(`minimumTradeUnits`, `maximumTradeUnits`) * 100
-WHERE `minimumCapitalUsdMinor` = 100000 AND `maximumCapitalUsdMinor` = 10000000;
+ALTER TABLE `opportunity_popup_events`
+  ADD COLUMN IF NOT EXISTS `tradeDurationSeconds` int NOT NULL DEFAULT 600,
+  ADD COLUMN IF NOT EXISTS `companyLogoId` int NULL;
+--> statement-breakpoint
+ALTER TABLE `trade_positions`
+  ADD COLUMN IF NOT EXISTS `profitRateBps` int NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `tradeDurationSeconds` int NOT NULL DEFAULT 0;
 --> statement-breakpoint
 UPDATE `opportunity_package_policies`
-SET `maximumRewardBps` = GREATEST(`minimumRewardBps`, 500),
-    `minimumTradeDurationSeconds` = LEAST(`minSettlementDelaySeconds`, 86400),
-    `maximumTradeDurationSeconds` = GREATEST(`minSettlementDelaySeconds`, `maxSettlementDelaySeconds`, 10)
-WHERE `maximumRewardBps` = 500 AND `minimumTradeDurationSeconds` = 10 AND `maximumTradeDurationSeconds` = 86400;
+SET `minimumCapitalUsdMinor` = GREATEST(1, `minimumTradeUnits`) * 100,
+    `maximumCapitalUsdMinor` = GREATEST(`minimumTradeUnits`, `maximumTradeUnits`) * 100;
+--> statement-breakpoint
+UPDATE `opportunity_package_policies`
+SET `minimumRewardBps` = 200
+WHERE `minimumRewardBps` = 0;
