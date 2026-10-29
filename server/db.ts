@@ -3275,11 +3275,40 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
   const currencyRow=(await tx.select({scale:currencyRegistry.scale,usdRate:currencyRegistry.usdRate,updatedAt:currencyRegistry.updatedAt}).from(currencyRegistry).where(eq(currencyRegistry.code,offer.currency)).limit(1))[0]; if(!currencyRow) throw new Error(`Currency ${offer.currency} is not configured`); const nativeFactor=Math.pow(10,Number(currencyRow.scale)); const nativeRate=Number(currencyRow.usdRate); if(!Number.isFinite(nativeRate)||nativeRate<=0) throw new Error(`Currency ${offer.currency} has no valid conversion rate`); const terms=calculateTradeTerms(userId,offer,input.amountMinor); const packageMinimumNative=packagePolicy?usdUnitsToNativeMinor(Number(packagePolicy.minimumTradeUnits),Number(currencyRow.scale),nativeRate):Number(offer.minimumMinor); const packageMaximumNative=packagePolicy?Math.max(packageMinimumNative,usdUnitsToNativeMinor(Number(packagePolicy.maximumTradeUnits),Number(currencyRow.scale),nativeRate)):Number.MAX_SAFE_INTEGER; assertTradeAmountWithinBounds(input.amountMinor,{minimumTradeMinor:Math.max(Number(offer.minimumMinor),Number(terms.minimumMinor),packageMinimumNative),maximumTradeMinor:packageMaximumNative},Number(offer.minimumMinor));
   const already=await tx.select({id:tradePositions.id}).from(tradePositions).where(and(eq(tradePositions.userId,userId),eq(tradePositions.offerId,input.offerId))).limit(1);
   if(already[0]) throw new Error("This opportunity has already been allocated");
-  // Lock the relevant wallet row as a second line of defence against concurrent
-  // debits, including writers that do not participate in the user-level lock.
-  const walletLock=await tx.execute(sql`SELECT id FROM customer_balances WHERE userId=${userId} AND currency=${offer.currency} FOR UPDATE`) as any;
-  const bal=(await tx.select().from(customerBalances).where(and(eq(customerBalances.userId,userId),eq(customerBalances.currency,offer.currency))).limit(1))[0];
-  if(!walletLock?.[0]?.length || !bal || bal.availableMinor<input.amountMinor) throw new Error("Insufficient available balance");
+  // Lock all wallets in stable currency order. The user row lock serializes this
+  // customer's allocations; row locks also protect against concurrent wallet writers.
+  await tx.execute(sql`SELECT id FROM customer_balances WHERE userId=${userId} ORDER BY currency FOR UPDATE`);
+  let walletRows=await tx.select().from(customerBalances).where(eq(customerBalances.userId,userId)).orderBy(customerBalances.currency).for("update");
+  let bal=walletRows.find(row=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase());
+  if(!bal){
+    await tx.insert(customerBalances).values({userId,currency:offer.currency,availableMinor:0,lockedMinor:0,promotionalMinor:0,earnedMinor:0});
+    walletRows=await tx.select().from(customerBalances).where(eq(customerBalances.userId,userId)).orderBy(customerBalances.currency).for("update");
+    bal=walletRows.find(row=>String(row.currency).toUpperCase()===String(offer.currency).toUpperCase());
+  }
+  if(!bal) throw new Error("Target currency wallet could not be initialized");
+  const ref=`trade-${offer.id}-${userId}-${Date.now()}`;
+  let fundingPlan:ReturnType<typeof planCrossWalletFunding>|null=null;
+  let convertedTargetMinor=0;
+  if(Number(bal.availableMinor)<input.amountMinor){
+    const targetRate=tradeFxRates.get(String(offer.currency).toUpperCase());
+    if(!targetRate) throw new Error("Insufficient target-wallet balance and no fresh FX snapshot is available for cross-wallet funding");
+    if(Number(targetRate.scale)!==Number(currencyRow.scale)) throw new Error("Target currency scale changed while the trade was being prepared; retry the opportunity");
+    const sourceWallets=walletRows
+      .filter(row=>String(row.currency).toUpperCase()!==String(offer.currency).toUpperCase())
+      .map(row=>{
+        const code=String(row.currency).toUpperCase();
+        const rate=tradeFxRates.get(code)||null;
+        const config=tradeFxConfigs.get(code);
+        return {currency:code,scale:Number(rate?.scale??config?.scale??2),availableMinor:Number(row.availableMinor||0),rate};
+      });
+    fundingPlan=planCrossWalletFunding({
+      requiredTargetMinor:input.amountMinor,
+      targetAvailableMinor:Number(bal.availableMinor||0),
+      targetRate,
+      sourceWallets,
+    });
+    convertedTargetMinor=fundingPlan.targetCreditMinor;
+  }
   // Customer-editable smart rules do not gate the approved automatic package lifecycle.
   const configuredRateBps=Number(offer.configuredProfitRateBps||offer.expectedRewardBps||terms.rewardBps);
   if(!Number.isSafeInteger(configuredRateBps)||configuredRateBps<0||configuredRateBps>10000) throw new Error("Selected Trading profit rate is outside the supported bounds");
@@ -3301,9 +3330,41 @@ export async function createTrade(userId:number,input:{offerId:number;amountMino
     const reserved=Number(reservationRows?.[0]?.[0]?.reserved||0), credited=Number(creditedRows?.[0]?.[0]?.credited||0);
     if (remainingRewardAllowance(Number(packagePolicy.maxDailyRewardMinor),credited,reserved)<reward) throw new Error("Daily reward cap reached for this package");
   }
-  const balanceUpdate=await tx.update(customerBalances).set({availableMinor:sql`${customerBalances.availableMinor}-${input.amountMinor}`,lockedMinor:sql`${customerBalances.lockedMinor}+${input.amountMinor}`,updatedAt:new Date()}).where(and(eq(customerBalances.id,bal.id),gte(customerBalances.availableMinor,input.amountMinor)));
-  if(Number((balanceUpdate as any)[0]?.affectedRows||0)!==1) throw new Error("Insufficient available balance");
-  const ref=`trade-${offer.id}-${userId}-${Date.now()}`;
+  if(fundingPlan&&fundingPlan.sourceDebits.length){
+    const targetRate=tradeFxRates.get(String(offer.currency).toUpperCase())!;
+    await tx.insert(fxRateSnapshots).values({
+      baseAsset:String(offer.currency).toUpperCase(),quoteAsset:"USD",rate:targetRate.rateUsdPerUnit,
+      provider:targetRate.provider,sourceDate:targetRate.sourceDate.slice(0,16),
+      rawJson:JSON.stringify({purpose:"trade_cross_wallet_conversion",tradeReference:ref,fetchedAt:targetRate.fetchedAt.toISOString(),scale:targetRate.scale}),
+    });
+    for(const debit of fundingPlan.sourceDebits){
+      const sourceBalance=walletRows.find(row=>String(row.currency).toUpperCase()===debit.currency);
+      if(!sourceBalance) throw new Error(`Source wallet ${debit.currency} disappeared during funding`);
+      const sourceUpdate=await tx.update(customerBalances).set({
+        availableMinor:sql`${customerBalances.availableMinor}-${debit.amountMinor}`,updatedAt:new Date(),
+      }).where(and(eq(customerBalances.id,sourceBalance.id),gte(customerBalances.availableMinor,debit.amountMinor)));
+      if(Number((sourceUpdate as any)[0]?.affectedRows||0)!==1) throw new Error(`Insufficient spendable balance in ${debit.currency}`);
+      const debitReference=`${ref}-fx-${debit.currency}-debit`;
+      const creditReference=`${ref}-fx-${debit.currency}-credit`;
+      await tx.insert(balanceLedger).values([
+        {userId,currency:debit.currency,amountMinor:-debit.amountMinor,entryType:"trade_fx_conversion_debit",reference:debitReference,withdrawable:false},
+        {userId,currency:offer.currency,amountMinor:debit.convertedTargetMinor,entryType:"trade_fx_conversion_credit",reference:creditReference,withdrawable:false},
+      ]);
+      await tx.insert(fxRateSnapshots).values({
+        baseAsset:debit.currency,quoteAsset:"USD",rate:debit.rate.rateUsdPerUnit,
+        provider:debit.rate.provider,sourceDate:debit.rate.sourceDate.slice(0,16),
+        rawJson:JSON.stringify({purpose:"trade_cross_wallet_conversion",tradeReference:ref,targetCurrency:offer.currency,
+          targetCreditMinor:debit.convertedTargetMinor,sourceDebitMinor:debit.amountMinor,
+          roundingExcessSourceMinor:debit.roundingExcessSourceMinor,fetchedAt:debit.rate.fetchedAt.toISOString(),scale:debit.rate.scale}),
+      });
+    }
+  }
+  const minimumRequiredFromTarget=Math.max(0,input.amountMinor-convertedTargetMinor);
+  const balanceUpdate=await tx.update(customerBalances).set({
+    availableMinor:sql`${customerBalances.availableMinor}+${convertedTargetMinor}-${input.amountMinor}`,
+    lockedMinor:sql`${customerBalances.lockedMinor}+${input.amountMinor}`,updatedAt:new Date(),
+  }).where(and(eq(customerBalances.id,bal.id),gte(customerBalances.availableMinor,minimumRequiredFromTarget)));
+  if(Number((balanceUpdate as any)[0]?.affectedRows||0)!==1) throw new Error("Insufficient available balance after FX conversion");
   await tx.insert(balanceLedger).values({userId,currency:offer.currency,amountMinor:-input.amountMinor,entryType:"trade_reservation",reference:ref,withdrawable:false});
   const settlementDelaySeconds=Math.max(Number(packagePolicy?.minSettlementDelaySeconds||0),Math.min(Number(packagePolicy?.maxSettlementDelaySeconds||settlementPolicy.delaySeconds),settlementPolicy.delaySeconds));
   const configuredDurationSeconds=Number(offer.configuredDurationSeconds||offer.durationSeconds||0);
