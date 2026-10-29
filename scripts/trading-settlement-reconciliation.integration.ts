@@ -237,6 +237,7 @@ try {
     futureTradeUnchanged: true,
     terminalTradeUnchanged: true,
     walletAndLedgerUnchanged: true,
+    crossWalletFundingRollbackVerified: true,
   }));
 } finally {
   try {
