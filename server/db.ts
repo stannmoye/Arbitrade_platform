@@ -2425,6 +2425,8 @@ export async function ensureAutomaticTradingTierEntitlements(userId:number) {
     const now=new Date();
     const tiers=await tx.select().from(packages)
       .orderBy(packages.minimumQualifyingBalanceUsdMinor,packages.id).for("update");
+    const savedPolicies=await tx.select().from(opportunityPackagePolicies).for("update");
+    const policyByName=new Map(savedPolicies.map(row=>[row.packageName,row]));
     const history=await tx.select().from(customerPackageSubscriptions)
       .where(eq(customerPackageSubscriptions.userId,userId))
       .orderBy(desc(customerPackageSubscriptions.activatedAt)).for("update");
@@ -2462,7 +2464,8 @@ export async function ensureAutomaticTradingTierEntitlements(userId:number) {
       if(stillActive) continue;
       if(qualifyingTotal<threshold) continue;
 
-      const tierAvailable=Boolean(tier.enabled)&&(!tier.startsAt||new Date(tier.startsAt)<=now)&&(!tier.expiresAt||new Date(tier.expiresAt)>now);
+      const savedPolicy=policyByName.get(tier.name);
+      const tierAvailable=Boolean(tier.enabled && savedPolicy && Number(savedPolicy.policyVersion)>=1 && savedPolicy.enabled && savedPolicy.automaticDelivery && savedPolicy.automaticTradingEnabled)&&(!tier.startsAt||new Date(tier.startsAt)<=now)&&(!tier.expiresAt||new Date(tier.expiresAt)>now);
       if(!tierAvailable) continue;
       const latest=tierHistory[0];
       // Do not silently renew an expired entitlement every worker tick. A new
@@ -2577,7 +2580,9 @@ export async function getCustomerTradingEligibility(userId:number) {
       or(isNull(packages.startsAt),lte(packages.startsAt,now)),
       or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
     ));
-  const eligibleRows=rows.filter(row=>String(row.activationKey||"").startsWith("auto-tier:"));
+  const policyRows=await db.select().from(opportunityPackagePolicies);
+  const enabledPolicyNames=new Set(policyRows.filter(row=>Number(row.policyVersion)>=1&&row.enabled&&row.automaticDelivery&&row.automaticTradingEnabled).map(row=>row.packageName));
+  const eligibleRows=rows.filter(row=>String(row.activationKey||"").startsWith("auto-tier:")&&enabledPolicyNames.has(String(row.packageName)));
   const snapshotFor=(row:typeof rows[number])=>{
     try { return JSON.parse(String(row.termsSnapshotJson||"{}")); } catch { return {}; }
   };
@@ -2611,7 +2616,7 @@ export async function getCustomerTradingEligibility(userId:number) {
   },0);
   if(!Number.isSafeInteger(qualifyingUsdMinor)) throw new Error("Trading qualifying-deposit total is invalid.");
   const qualifyingDepositUsdMinor=Math.max(0,qualifyingUsdMinor);
-  const tiers=await db.select({
+  const tiers=(await db.select({
     name:packages.name,
     minimumQualifyingBalanceUsdMinor:packages.minimumQualifyingBalanceUsdMinor,
     durationMonths:packages.durationMonths,
@@ -2620,7 +2625,7 @@ export async function getCustomerTradingEligibility(userId:number) {
     eq(packages.enabled,true),
     or(isNull(packages.startsAt),lte(packages.startsAt,now)),
     or(isNull(packages.expiresAt),gt(packages.expiresAt,now)),
-  ));
+  ))).filter(tier=>enabledPolicyNames.has(tier.name));
   tiers.sort((a,b)=>Number(a.minimumQualifyingBalanceUsdMinor)-Number(b.minimumQualifyingBalanceUsdMinor));
   const nextTier=tiers.find(tier=>Number(tier.minimumQualifyingBalanceUsdMinor)>qualifyingDepositUsdMinor);
   const currentPackage=activePackages[0]||null;
