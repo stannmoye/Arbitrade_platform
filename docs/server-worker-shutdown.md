@@ -22,3 +22,8 @@ Unit tests cover interval cancellation and waiting for a monitored worker cycle.
 ## Trading opportunity and company-rotation recovery
 
 See [Trading Pop-up & Admin Configuration Manual](TRADING_POPUP_ADMIN_CONFIGURATION_MANUAL.md) for the canonical configuration and rotation contract. Graceful shutdown alone is not enough: scheduled opportunities, policy versions, company rotation cursors, retry counts and lease state must be durable in the database. After restart, expired leases must be safely reclaimed and processing must resume idempotently without double-advancing rotation, allocating capital twice or duplicating settlement. Customer browser sessions must not be required. Never infer a completed trade or profit from a timer or company pop-up.
+
+
+### Durable financial snapshots
+
+Shutdown/restart recovery must preserve the selected capital, configured payout rate, trade duration, UTC due time, policy version, wallet allocation plan and timestamped FX evidence. A restarted worker must resume the original deadline and reuse the persisted rate and capital. It must not reroll values, re-debit a wallet, or duplicate a payout. Any overdue work is reconciled from durable state with idempotency and lease fencing; elapsed time alone is not proof of market execution.
