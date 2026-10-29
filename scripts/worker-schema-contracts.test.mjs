@@ -170,7 +170,7 @@ describe("worker schema contracts", () => {
     expect(portalRunner).toContain('"0083_trading_opportunity_worker_indexes.sql"');
     expect(portalRunner).toContain('"0085_trade_settlement_schema_reconciliation.sql"');
     expect(portalRunner).toContain('"0087_admin_wallet_adjustment_idempotency.sql"');
-    expect(installerVerifier).toContain('"0087_admin_wallet_adjustment_idempotency.sql"');
+    expect(installerVerifier).toContain("drizzle/0087_admin_wallet_adjustment_idempotency.sql");
     expect(last.idx).toBe(previous.idx + 1);
     expect(last.when).toBeGreaterThan(previous.when);
     expect(portalRunner).toContain('"0055_notification_campaign_delivery_tracking.sql"');
