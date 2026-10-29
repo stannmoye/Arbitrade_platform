@@ -3,7 +3,9 @@ import {isPopupExecutionEligible} from "./popup-execution-policy";
 
 describe("popup presentation and execution isolation",()=>{
   const delivered={deliveryStatus:"rendered",executionStatus:"PENDING"};
-  it("keeps a dismissed popup eligible for automatic execution",()=>{
+  it("keeps noticed, opened and dismissed popups eligible for automatic execution",()=>{
+    expect(isPopupExecutionEligible({...delivered,eventStatus:"NOTICED"})).toBe(true);
+    expect(isPopupExecutionEligible({...delivered,eventStatus:"OPENED"})).toBe(true);
     expect(isPopupExecutionEligible({...delivered,eventStatus:"DISMISSED"})).toBe(true);
   });
   it("does not execute when delivery failed or execution is terminal or already running",()=>{
