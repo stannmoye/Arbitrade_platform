@@ -419,3 +419,66 @@
 @media (prefers-reduced-motion: reduce) {
   .trading-package-hero-emblem, .trading-hero-candle, .trading-package-emblem { animation: none !important; }
 }
+
+
+/* Match the supplied package-progress mockup: remove the extra hero/chart and keep the milestone focused. */
+.trading-current-package-layout,
+.trading-next-package-layout {
+  display: block;
+}
+.trading-package-emblem {
+  display: none !important;
+}
+.trading-threshold-panel {
+  grid-template-columns: minmax(104px, .62fr) minmax(0, 1fr);
+}
+.trading-milestone-ring {
+  width: min(100%, 164px);
+  aspect-ratio: 1;
+}
+.trading-tier-card-current,
+.trading-tier-card-next {
+  border-radius: 3px;
+  box-shadow: 0 0 22px rgb(33 216 201 / 7%);
+}
+.trading-tier-card-current .trading-tier-kicker,
+.trading-tier-card-next .trading-tier-kicker {
+  color: #45e3ca;
+  font-size: 11px;
+  letter-spacing: .15em;
+}
+.trading-tier-name {
+  font-size: clamp(22px, 3vw, 30px);
+  letter-spacing: -.02em;
+}
+.trading-tier-metric {
+  border-radius: 4px;
+  min-height: 76px;
+  align-content: center;
+  padding: 12px;
+}
+.trading-tier-explainer {
+  display: none;
+}
+.trading-total-allowance {
+  border-radius: 3px;
+  margin-top: 20px;
+  border-color: #176d80;
+  background: #061c2c;
+}
+@media (max-width: 560px) {
+  .trading-threshold-panel {
+    grid-template-columns: minmax(94px, .6fr) minmax(0, 1fr);
+  }
+  .trading-milestone-ring {
+    width: min(100%, 164px);
+  }
+}
+@media (max-width: 360px) {
+  .trading-threshold-panel {
+    grid-template-columns: 86px minmax(0, 1fr);
+  }
+  .trading-milestone-ring {
+    width: 86px;
+  }
+}
