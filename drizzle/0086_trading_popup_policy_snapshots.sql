@@ -25,4 +25,7 @@ CREATE TABLE IF NOT EXISTS `trading_company_rotation_state` (
 ALTER TABLE `trade_positions`
   ADD COLUMN IF NOT EXISTS `configuredProfitRateBps` INT NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS `configuredDurationSeconds` INT NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS `packagePolicyVersionSnapshot` INT NOT NULL DEFAULT 1;
+  ADD COLUMN IF NOT EXISTS `packagePolicyVersionSnapshot` INT NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS `companyReferenceId` VARCHAR(80) NULL,
+  ADD COLUMN IF NOT EXISTS `companyDisplayName` VARCHAR(240) NULL,
+  ADD COLUMN IF NOT EXISTS `companyLogoUrl` VARCHAR(512) NULL;
