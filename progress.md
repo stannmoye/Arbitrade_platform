@@ -292,3 +292,11 @@ This policy is final and must be followed throughout the application:
 - Latest recorded head for this increment: `cb20c0bbd41b67b109ae0499bd222202342f269a`. Installer validation and all exact-head workflows must pass before accepting this Part. The new database integration run is queued and has not yet supplied results.
 - Coverage limitation: the lease-recovery test simulates a worker that disappears by allowing its persisted retry/lease deadline to expire; it does not restart a real server process. Concurrent quota enforcement and a full fresh-allocation race with wallet reservation still need explicit database acceptance evidence.
 - PR #235 remains draft, unmerged, and undeployed.
+
+
+## 2026-10-29 — Part 3 migration compatibility follow-up
+
+- The first disposable-database run uncovered a second legacy schema gap: `tradeId` and `policyVersion` from the historical delivery-diagnostics migration were also absent from the guarded migration path. The forward migration and startup schema reconciliation now repair and verify these fields as well.
+- Expanded the worker schema contract to validate delivery diagnostics, event-to-trade linkage, policy version, and execution lease token.
+- The earlier installer regression suite passed after the 0062 assertion correction. The new opportunity integration run exposed the missing `tradeId` column, so the run is correctly treated as failed; the expanded migration fix is awaiting a fresh exact-head run.
+- Current source head at this note: `39d7ffbfffedf5c45858420add9da63b627c0868`. Keep PR #235 draft and do not merge/deploy pending a successful fresh MySQL/MariaDB opportunity integration run and exact-head CI.
