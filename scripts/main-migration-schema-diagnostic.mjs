@@ -100,12 +100,13 @@ const MIGRATION_PROGRESS_COLUMNS = Object.freeze({
       ["opportunity_popup_events", "configuredPopupDisplaySeconds"], ["opportunity_popup_events", "packagePolicyVersionSnapshot"],
       ["opportunity_popup_events", "packageBadgeLabel"], ["opportunity_popup_events", "companyReferenceId"],
       ["opportunity_popup_events", "companyDisplayName"], ["opportunity_popup_events", "companyLogoUrl"],
-      ["opportunity_popup_events", "companyReferenceOnly"],
+      ["opportunity_popup_events", "companyReferenceMetadataJson"], ["opportunity_popup_events", "companyReferenceOnly"],
     ] },
     { label: "immutable trade snapshot columns", columns: [
       ["trade_positions", "configuredProfitRateBps"], ["trade_positions", "configuredDurationSeconds"],
       ["trade_positions", "packagePolicyVersionSnapshot"], ["trade_positions", "companyReferenceId"],
-      ["trade_positions", "companyDisplayName"], ["trade_positions", "companyLogoUrl"], ["trade_positions", "companyReferenceOnly"],
+      ["trade_positions", "companyDisplayName"], ["trade_positions", "companyLogoUrl"],
+      ["trade_positions", "companyReferenceMetadataJson"], ["trade_positions", "companyReferenceOnly"],
     ] },
   ],
   "0088_trading_popup_trade_snapshots": [
