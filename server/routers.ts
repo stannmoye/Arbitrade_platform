@@ -369,6 +369,7 @@ export const appRouter = router({
       startsAt: z.string().datetime().nullable(),
       expiresAt: z.string().datetime().nullable(),
       enabled: z.boolean(),
+      reason: z.string().trim().min(5).max(500),
     }).refine(
       ({ startsAt, expiresAt }) => !startsAt || !expiresAt || new Date(expiresAt).getTime() > new Date(startsAt).getTime(),
       { message: "Expiry must be later than the start time.", path: ["expiresAt"] },
@@ -386,6 +387,7 @@ export const appRouter = router({
       startsAt: z.string().datetime().nullable(),
       expiresAt: z.string().datetime().nullable(),
       enabled: z.boolean(),
+      reason: z.string().trim().min(5).max(500),
     }).refine(
       ({ startsAt, expiresAt }) => !startsAt || !expiresAt || new Date(expiresAt).getTime() > new Date(startsAt).getTime(),
       { message: "Expiry must be later than the start time.", path: ["expiresAt"] },
