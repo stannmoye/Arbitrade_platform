@@ -2307,9 +2307,11 @@ export async function listAdminTradingPackages() {
 export async function createAdminTradingPackage(createdBy:number,input:{
   name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
   opportunitiesPerDay:number; maxPopupsPerDay:number; maxActiveInvestments:number;
-  startsAt:Date|null; expiresAt:Date|null; enabled:boolean;
+  startsAt:Date|null; expiresAt:Date|null; enabled:boolean; reason:string;
 }) {
   const name=input.name.trim();
+  const reason=input.reason.trim();
+  if(!reason||reason.length<5||reason.length>500) throw new Error("Provide an audit reason of 5–500 characters");
   if(!name||name.length>80) throw new Error("Package name must contain 1–80 characters");
   if(!Number.isSafeInteger(input.minimumQualifyingBalanceUsdMinor)||input.minimumQualifyingBalanceUsdMinor<=0) throw new Error("Minimum qualifying balance must be a positive USD minor-unit integer");
   if(!Number.isSafeInteger(input.durationMonths)||input.durationMonths<1||input.durationMonths>1200) throw new Error("Package duration must be 1–1200 calendar months");
@@ -2335,9 +2337,9 @@ export async function createAdminTradingPackage(createdBy:number,input:{
     await tx.insert(opportunityPackagePolicies).values({packageName:name,updatedBy:createdBy});
     await tx.insert(v5AuditEvents).values({
       actorUserId:createdBy,action:"trading_package_created",entityType:"trading_package",entityId:String(id),
-      reason:"Administrator created an automatic Trading tier.",
+      reason,
       reference:"trading-package-created:"+id+":1",
-      metadataJson:JSON.stringify({id,...input,name,termsVersion:1}),
+      metadataJson:JSON.stringify({id,...input,name,reason,termsVersion:1}),
     });
     return {id,name,minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:1};
   });
@@ -2346,8 +2348,10 @@ export async function createAdminTradingPackage(createdBy:number,input:{
 export async function updateAdminTradingPackage(updatedBy:number,input:{
   id:number; name:string; minimumQualifyingBalanceUsdMinor:number; durationMonths:number;
   opportunitiesPerDay:number; maxPopupsPerDay:number; maxActiveInvestments:number;
-  startsAt:Date|null; expiresAt:Date|null; enabled:boolean;
+  startsAt:Date|null; expiresAt:Date|null; enabled:boolean; reason:string;
 }) {
+  const reason=input.reason.trim();
+  if(!reason||reason.length<5||reason.length>500) throw new Error("Provide an audit reason of 5–500 characters");
   if(!Number.isSafeInteger(input.id)||input.id<=0) throw new Error("Package ID is invalid");
   if(!input.name.trim()||input.name.trim().length>80) throw new Error("Package name must contain 1–80 characters");
   if(!Number.isSafeInteger(input.minimumQualifyingBalanceUsdMinor)||input.minimumQualifyingBalanceUsdMinor<=0) throw new Error("Minimum qualifying balance must be a positive USD minor-unit integer");
@@ -2394,9 +2398,9 @@ export async function updateAdminTradingPackage(updatedBy:number,input:{
     await tx.insert(v5AuditEvents).values({
       actorUserId:updatedBy,action:"trading_package_terms_updated",
       entityType:"trading_package",entityId:String(input.id),
-      reason:"Administrator updated tier terms. Existing entitlement snapshots retain their captured threshold, quota, duration and caps; enabled state and tier effective dates govern current eligibility.",
+      reason,
       reference:"trading-package-terms:"+input.id+":"+nextVersion,
-      metadataJson:JSON.stringify({old:{name:current.name,minimumQualifyingBalanceUsdMinor:Number(current.minimumQualifyingBalanceUsdMinor),durationMonths:current.durationMonths,opportunitiesPerDay:current.opportunitiesPerDay,maxPopupsPerDay:current.maxPopupsPerDay,maxActiveInvestments:current.maxActiveInvestments,startsAt:current.startsAt,expiresAt:current.expiresAt,enabled:current.enabled,termsVersion:current.termsVersion},new:{...input,name:input.name.trim(),termsVersion:nextVersion}}),
+      metadataJson:JSON.stringify({old:{name:current.name,minimumQualifyingBalanceUsdMinor:Number(current.minimumQualifyingBalanceUsdMinor),durationMonths:current.durationMonths,opportunitiesPerDay:current.opportunitiesPerDay,maxPopupsPerDay:current.maxPopupsPerDay,maxActiveInvestments:current.maxActiveInvestments,startsAt:current.startsAt,expiresAt:current.expiresAt,enabled:current.enabled,termsVersion:current.termsVersion},new:{...input,reason,name:input.name.trim(),termsVersion:nextVersion}}),
     });
     return {id:input.id,name:input.name.trim(),minimumQualifyingBalanceUsdMinor:input.minimumQualifyingBalanceUsdMinor,durationMonths:input.durationMonths,opportunitiesPerDay:input.opportunitiesPerDay,maxPopupsPerDay:input.maxPopupsPerDay,maxActiveInvestments:input.maxActiveInvestments,startsAt:input.startsAt,expiresAt:input.expiresAt,enabled:input.enabled,termsVersion:nextVersion};
   });
