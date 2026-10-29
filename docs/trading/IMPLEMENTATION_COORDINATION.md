@@ -44,3 +44,10 @@
 - **Tested:** GitHub Actions results must be checked for the exact current head; no local execution is claimed.
 - **Pending:** run browser acceptance in an authenticated disposable environment; add direct persisted admin-setting and opportunity lifecycle assertions; complete responsive/error/recovery coverage.
 - **Blocked:** a full end-to-end result cannot be claimed until the runner is executed against the application and database with valid test sessions.
+
+
+## 2026-10-29 — Browser acceptance runner correction
+
+- Corrected the customer-page heading locator: “Your Trading Journey” is an eyebrow label, while the actual heading is “Package progress”. The previous locator would time out despite the component being rendered.
+- Strengthened the tRPC response assertion so an HTTP 2xx response is not treated as success when the body contains a tRPC error or lacks result data.
+- Validation boundary: this correction is source-reviewed only. The runner has not been executed with authenticated test sessions; exact-head CI and browser results must be checked before acceptance.
