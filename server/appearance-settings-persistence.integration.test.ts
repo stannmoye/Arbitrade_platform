@@ -166,6 +166,19 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     const rows = await admin.adminOperations.packagePolicies();
     expect(rows.length).toBeGreaterThan(0);
     const before = rows[0] as any;
+    const partialPolicy = (row: any, overrides: any = {}) => ({
+      packageName: row.packageName,
+      maxPopupsPerDay: Number(row.maxPopupsPerDay),
+      maxVisibleOffers: Number(row.maxVisibleOffers),
+      minimumTradeUnits: Number(row.minimumTradeUnits),
+      maximumTradeUnits: Number(row.maximumTradeUnits),
+      minHourlyTarget: Number(row.minHourlyTarget),
+      normalHourlyTarget: Number(row.normalHourlyTarget),
+      marketInfluenceBps: Number(row.marketInfluenceBps),
+      burstEnabled: Boolean(row.burstEnabled),
+      maxBurstSize: Number(row.maxBurstSize),
+      ...overrides,
+    });
     const nextVisibleOffers = Number(before.maxVisibleOffers) >= 10000
       ? Number(before.maxVisibleOffers) - 1
       : Number(before.maxVisibleOffers) + 1;
@@ -173,28 +186,17 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     let updateCommitted = false;
 
     try {
-      // Exercise a real partial update: required base policy fields are supplied,
-      // while advanced optional fields must be preserved from the locked DB row.
+      // Exercise a true partial update: advanced settings are omitted and must
+      // be preserved from the locked persisted row.
       const saved = await admin.adminOperations.updatePackagePolicies({
-        policies: [{
-          packageName: before.packageName,
-          maxPopupsPerDay: Number(before.maxPopupsPerDay),
-          maxVisibleOffers: nextVisibleOffers,
-          minimumTradeUnits: Number(before.minimumTradeUnits),
-          maximumTradeUnits: Number(before.maximumTradeUnits),
-          minHourlyTarget: Number(before.minHourlyTarget),
-          normalHourlyTarget: Number(before.normalHourlyTarget),
-          marketInfluenceBps: Number(before.marketInfluenceBps),
-          burstEnabled: Boolean(before.burstEnabled),
-          maxBurstSize: Number(before.maxBurstSize),
-        }],
+        policies: [partialPolicy(before, { maxVisibleOffers: nextVisibleOffers })],
         reason,
       });
       updateCommitted = true;
       const persisted = saved.find((row: any) => row.packageName === before.packageName) as any;
       expect(persisted).toBeDefined();
       expect(persisted.maxVisibleOffers).toBe(nextVisibleOffers);
-      for (const field of ["enabled", "automaticDelivery", "automaticTradingEnabled", "popupDisplayTargetSeconds", "completionDisplaySeconds", "maxSettlementAttempts", "maxTradeAttemptsPerDay", "settlementConfirmationState"]) {
+      for (const field of ["enabled", "automaticDelivery", "automaticTradingEnabled", "dailyPopupTarget", "schedulingPeriod", "popupDisplayTargetSeconds", "completionDisplaySeconds", "maxSettlementAttempts", "maxTradeAttemptsPerDay", "settlementConfirmationState", "minimumPayoutRateBps", "maximumPayoutRateBps", "minimumTradeDurationSeconds", "maximumTradeDurationSeconds", "companyRotationCountryNames"]) {
         expect(persisted[field]).toEqual(before[field]);
       }
       expect(Number(persisted.policyVersion)).toBe(Number(before.policyVersion || 0) + 1);
@@ -216,7 +218,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
       expect(auditRows[0].reason).toBe(reason);
 
       await expect(customer.adminOperations.updatePackagePolicies({
-        policies: [{ ...persisted, maxVisibleOffers: Number(persisted.maxVisibleOffers) + 1 }],
+        policies: [partialPolicy(persisted, { maxVisibleOffers: Number(persisted.maxVisibleOffers) + 1 })],
         reason: "Customer must not change Trading policy",
       })).rejects.toMatchObject({ code: "FORBIDDEN" });
 
@@ -227,8 +229,8 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
 
       await expect(admin.adminOperations.updatePackagePolicies({
         policies: [
-          { ...unchanged, maxVisibleOffers: Number(unchanged.maxVisibleOffers) + 1 },
-          { ...unchanged, maxVisibleOffers: Number(unchanged.maxVisibleOffers) + 2 },
+          partialPolicy(unchanged, { maxVisibleOffers: Number(unchanged.maxVisibleOffers) + 1 }),
+          partialPolicy(unchanged, { maxVisibleOffers: Number(unchanged.maxVisibleOffers) + 2 }),
         ],
         reason: "Reject duplicate tier rows " + Date.now(),
       })).rejects.toThrow("Each Trading tier may appear only once in a policy update");
@@ -238,8 +240,8 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
 
       await expect(admin.adminOperations.updatePackagePolicies({
         policies: [
-          { ...unchanged, maxVisibleOffers: Number(unchanged.maxVisibleOffers) + 1 },
-          { ...unchanged, packageName: "__unknown_disposable_tier_" + Date.now() },
+          partialPolicy(unchanged, { maxVisibleOffers: Number(unchanged.maxVisibleOffers) + 1 }),
+          partialPolicy(unchanged, { packageName: "__unknown_disposable_tier_" + Date.now() }),
         ],
         reason: "Reject unknown tier atomically " + Date.now(),
       })).rejects.toThrow("Opportunity policy references an unknown Trading tier");
@@ -249,7 +251,7 @@ describe.skipIf(!enabled)("administrator appearance settings database integratio
     } finally {
       if (updateCommitted) {
         await admin.adminOperations.updatePackagePolicies({
-          policies: [{ ...before }],
+          policies: [partialPolicy(before)],
           reason: "Part 1 integration cleanup " + Date.now(),
         });
       }

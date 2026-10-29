@@ -33,10 +33,15 @@ describe("administrator Trading delivery policy controls", () => {
     ]) expect(policyEditor).toContain(binding);
   });
 
-  it("validates the whole policy batch before a transactional, versioned and audited write", () => {
-    expect(database).toContain("const prepared=policies.map(policy=>");
+  it("merges partial policy updates against locked rows before a transactional, versioned and audited write", () => {
+    expect(database).toContain("const requested=policies.map(policy=>");
     expect(database).toContain("await db.transaction(async tx=>");
-    expect(database).toContain('.for("update")');
+    const rowLock = database.indexOf('where(eq(opportunityPackagePolicies.packageName,policy.packageName)).limit(1).for("update")');
+    const merge = database.indexOf("const effective:any={...UNCONFIGURED_TIER_POLICY_SENTINELS,...(current||{}),...supplied,packageName:policy.packageName,updatedBy}");
+    const validation = database.indexOf("validatePackageAutomationPolicy(automation)", merge);
+    expect(rowLock).toBeGreaterThanOrEqual(0);
+    expect(merge).toBeGreaterThan(rowLock);
+    expect(validation).toBeGreaterThan(merge);
     expect(database).toContain("const nextVersion=current?currentVersion+1:1");
     expect(database).toContain('action:"trading_delivery_policy_updated"');
     expect(database).toContain("validatePackageAutomationPolicy(automation)");

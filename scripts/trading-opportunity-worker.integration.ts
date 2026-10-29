@@ -19,6 +19,7 @@ import {
   tradeLifecycleEvents,
   tradeRewardReservations,
   tradePositions,
+  opportunityPackagePolicies,
   users,
 } from "../drizzle/schema";
 
@@ -29,6 +30,7 @@ const token = crypto.randomUUID().replace(/-/g, "").slice(0, 10);
 const openId = "opportunity-worker-" + token;
 const eventKey = "worker-event-" + token;
 const currency = "T" + token.slice(0, 7).toUpperCase();
+const packageName = "Wkr" + token;
 let userId;
 let eventId;
 let offerId;
@@ -64,7 +66,6 @@ try {
   });
   currencyInserted = true;
 
-  const packageName = "Wkr" + token;
   const packageInsert = await db.insert(packages).values({
     name: packageName,
     minimumQualifyingBalanceUsdMinor: 1,
@@ -76,6 +77,16 @@ try {
   });
   packageId = Number(packageInsert[0].insertId);
   packageInserted = true;
+  await db.insert(opportunityPackagePolicies).values({
+    packageName,
+    enabled: true,
+    automaticDelivery: true,
+    automaticTradingEnabled: true,
+    minimumPayoutRateBps: 400,
+    maximumPayoutRateBps: 400,
+    minimumTradeDurationSeconds: 3600,
+    maximumTradeDurationSeconds: 3600,
+  });
   const subscriptionInsert = await db.insert(customerPackageSubscriptions).values({
     userId,
     packageId,
@@ -429,6 +440,7 @@ try {
       if (subscriptionId !== undefined) await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.id, subscriptionId));
       await db.delete(users).where(eq(users.id, userId));
     }
+    await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, packageName));
     if (packageInserted && packageId !== undefined) await db.delete(packages).where(eq(packages.id, packageId));
     if (offerInserted && offerId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, offerId));
     if (secondOfferInserted && secondOfferId !== undefined) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, secondOfferId));

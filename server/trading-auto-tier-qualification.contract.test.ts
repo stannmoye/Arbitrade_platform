@@ -226,7 +226,9 @@ describe("Automatic Trading tier qualification", () => {
     expect(databaseSource).toContain("minimumPayoutRateBps:null,maximumPayoutRateBps:null");
     expect(databaseSource).toContain("New Trading tiers must be created disabled.");
     expect(databaseSource).toContain("Save and enable a valid delivery policy with payout-rate and duration bounds before enabling this Trading tier.");
-    expect(routerSource).toContain("enabled: z.boolean(), automaticDelivery: z.boolean(), automaticTradingEnabled: z.boolean()");
+    expect(routerSource).toContain("enabled: z.boolean().optional(),");
+    expect(routerSource).toContain("automaticDelivery: z.boolean().optional(),");
+    expect(routerSource).toContain("automaticTradingEnabled: z.boolean().optional(),");
     expect(databaseSource).toContain("packageName:nextName,updatedBy,policyVersion:nextPolicyVersion");
     expect(databaseSource).not.toContain("values({packageName:nextName,updatedBy})");
   });
@@ -234,8 +236,11 @@ describe("Automatic Trading tier qualification", () => {
   it("creates tiers through the authorized audited admin route", () => {
     expect(routerSource).toContain("createTradingPackage: adminProcedure.input");
     expect(routerSource).toContain("packageName: z.string().trim().min(1).max(80)");
-    expect(routerSource).toContain(" })).min(1).max(1000) })).mutation(({ ctx, input }) => updateOpportunityPackagePolicies");
+    expect(routerSource).toContain("      })).min(1).max(1000),");
+    expect(routerSource).toContain("updateOpportunityPackagePolicies(ctx.user.id, input.policies, input.reason)");
     expect(databaseSource).toContain("Opportunity policy references an unknown Trading tier");
+    expect(databaseSource).toContain('where(eq(opportunityPackagePolicies.packageName,policy.packageName)).limit(1).for("update")');
+    expect(databaseSource).toContain("const effective:any={...UNCONFIGURED_TIER_POLICY_SENTINELS,...(current||{}),...supplied,packageName:policy.packageName,updatedBy}");
     expect(routerSource).toContain("createAdminTradingPackage(ctx.user.id");
     expect(databaseSource).toContain('action:"trading_package_created"');
     expect(customerAppSource).toContain("New administrator-managed tier");

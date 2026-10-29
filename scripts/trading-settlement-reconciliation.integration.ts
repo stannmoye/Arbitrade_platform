@@ -4,17 +4,19 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { closeDbPool, createTrade, getDb, reconcileAllDueTradesAwaitingConfirmation } from "../server/db";
 import {
   balanceLedger, currencyRegistry, customerBalances, customerPackageSubscriptions,
-  fxRateSnapshots, opportunityOffers, packages, tradeLifecycleEvents, tradePositions, users,
+  fxRateSnapshots, opportunityOffers, opportunityPackagePolicies, packages, tradeLifecycleEvents, tradePositions, users,
 } from "../drizzle/schema";
 
 const db = await getDb();
 if (!db) throw new Error("Settlement reconciliation integration requires DATABASE_URL to point to a disposable migrated database.");
+const database = db;
 
 const token = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
 const openId = "settlement-reconcile-" + token;
 let userId: number | undefined;
 let fundingUserId: number | undefined;
 let fundingPackageId: number | undefined;
+let fundingPackageName: string | undefined;
 let fundingOfferId: number | undefined;
 let fundingCurrencyCode: string | undefined;
 let fundingCurrencyId: number | undefined;
@@ -29,7 +31,7 @@ async function insertTrade(input: {
   lifecycleStage?: string;
 }) {
   assert.ok(userId, "Test user must exist before creating trades");
-  const inserted = await db.insert(tradePositions).values({
+  const inserted = await database.insert(tradePositions).values({
     userId,
     offerId: 100000 + tradeIds.length,
     currency: "USD",
@@ -135,8 +137,10 @@ try {
     enabled: true,
   });
   fundingCurrencyId = Number(currencyInsert[0].insertId);
+  const packageName = "RollbackTest-" + token;
+  fundingPackageName = packageName;
   const packageInsert = await db.insert(packages).values({
-    name: "RollbackTest-" + token,
+    name: packageName,
     minimumQualifyingBalanceUsdMinor: 1,
     durationMonths: 1,
     opportunitiesPerDay: 6,
@@ -146,6 +150,16 @@ try {
     maxActiveInvestments: 1,
   });
   fundingPackageId = Number(packageInsert[0].insertId);
+  await db.insert(opportunityPackagePolicies).values({
+    packageName,
+    enabled: true,
+    automaticDelivery: true,
+    automaticTradingEnabled: true,
+    minimumPayoutRateBps: 100,
+    maximumPayoutRateBps: 100,
+    minimumTradeDurationSeconds: 60,
+    maximumTradeDurationSeconds: 60,
+  });
   await db.insert(customerPackageSubscriptions).values({
     userId: fundingUserId,
     packageId: fundingPackageId,
@@ -252,6 +266,7 @@ try {
       await db.delete(customerBalances).where(eq(customerBalances.userId, fundingUserId)).catch(() => {});
       await db.delete(customerPackageSubscriptions).where(eq(customerPackageSubscriptions.userId, fundingUserId)).catch(() => {});
       if (fundingOfferId) await db.delete(opportunityOffers).where(eq(opportunityOffers.id, fundingOfferId)).catch(() => {});
+      if (fundingPackageName) await db.delete(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName, fundingPackageName)).catch(() => {});
       if (fundingPackageId) await db.delete(packages).where(eq(packages.id, fundingPackageId)).catch(() => {});
       if (fundingCurrencyId) {
         await db.delete(fxRateSnapshots).where(eq(fxRateSnapshots.baseAsset, fundingCurrencyCode!)).catch(() => {});

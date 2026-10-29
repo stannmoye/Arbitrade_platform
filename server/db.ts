@@ -2829,80 +2829,82 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
   const tiers=await db.select({name:packages.name}).from(packages);
   const tierNames=new Set(tiers.map(tier=>tier.name));
   const seenTierNames=new Set<string>();
-  // Validate the entire form before writing so one invalid tier cannot leave
-  // the administrator's batch partially saved.
-  const prepared=policies.map(policy=>{
+  const requested=policies.map(policy=>{
     if(typeof policy.packageName!=="string"||!tierNames.has(policy.packageName)) throw new Error("Opportunity policy references an unknown Trading tier");
     if(seenTierNames.has(policy.packageName)) throw new Error("Each Trading tier may appear only once in a policy update.");
     seenTierNames.add(policy.packageName);
-    if(policy.minHourlyTarget>policy.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
-    if(policy.normalHourlyTarget*24>policy.maxPopupsPerDay && policy.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
-    if(!Number.isSafeInteger(policy.minimumTradeUnits)||!Number.isSafeInteger(policy.maximumTradeUnits)||policy.minimumTradeUnits<1||policy.maximumTradeUnits<policy.minimumTradeUnits) throw new Error(`Trade amount bounds are invalid for ${policy.packageName}`);
-    const badgeLabel=policy.badgeLabel==null||String(policy.badgeLabel).trim()===""?null:String(policy.badgeLabel).trim();
-    const badgeStyle=String(policy.badgeStyle??"neutral");
-    if(badgeLabel!==null&&badgeLabel.length>40) throw new Error(`Badge label must be at most 40 characters for ${policy.packageName}`);
-    if(!["neutral","blue","purple","gold","green"].includes(badgeStyle)) throw new Error(`Badge style is not allowed for ${policy.packageName}`);
-    const minimumPayoutRateBps=policy.minimumPayoutRateBps==null?null:Number(policy.minimumPayoutRateBps);
-    const maximumPayoutRateBps=policy.maximumPayoutRateBps==null?null:Number(policy.maximumPayoutRateBps);
-    if((minimumPayoutRateBps===null)!==(maximumPayoutRateBps===null)) throw new Error(`Set both published reward-rate bounds or leave both blank for ${policy.packageName}`);
-    if(minimumPayoutRateBps!==null&&(maximumPayoutRateBps===null||!Number.isSafeInteger(minimumPayoutRateBps)||!Number.isSafeInteger(maximumPayoutRateBps)||minimumPayoutRateBps<0||maximumPayoutRateBps<minimumPayoutRateBps||maximumPayoutRateBps>5000)) throw new Error(`Published reward-rate bounds must satisfy 0 ≤ minimum ≤ maximum ≤ 5000 bps for ${policy.packageName}`);
-    const companyRotationEnabled=policy.companyRotationEnabled==null?true:Boolean(policy.companyRotationEnabled);
-    const companyRotationCountryNames=normalizeCompanyRotationCountryNames(policy.companyRotationCountryNames??"");
-    const companyRotationRepeatPolicy=String(policy.companyRotationRepeatPolicy??"avoid_until_exhausted");
-    if(!["avoid_until_exhausted","allow_repeats"].includes(companyRotationRepeatPolicy)) throw new Error(`Company rotation repeat policy is invalid for ${policy.packageName}`);
-    if(companyRotationEnabled) buildCompanySpotlightPool(companyRotationCountryNames);
-    const minimumTradeDurationSeconds=policy.minimumTradeDurationSeconds==null?null:Number(policy.minimumTradeDurationSeconds);
-    const maximumTradeDurationSeconds=policy.maximumTradeDurationSeconds==null?null:Number(policy.maximumTradeDurationSeconds);
-    if((minimumTradeDurationSeconds===null)!==(maximumTradeDurationSeconds===null)) throw new Error(`Set both published duration bounds or leave both blank for ${policy.packageName}`);
-    if(minimumTradeDurationSeconds!==null&&(maximumTradeDurationSeconds===null||!Number.isSafeInteger(minimumTradeDurationSeconds)||!Number.isSafeInteger(maximumTradeDurationSeconds)||minimumTradeDurationSeconds<10||maximumTradeDurationSeconds<minimumTradeDurationSeconds||maximumTradeDurationSeconds>86400)) throw new Error(`Published duration bounds must satisfy 10 ≤ minimum ≤ maximum ≤ 86400 seconds for ${policy.packageName}`);
-    if(typeof policy.enabled!=="boolean"||typeof policy.automaticDelivery!=="boolean"||typeof policy.automaticTradingEnabled!=="boolean") throw new Error(`Policy and automation switches must be explicitly set for ${policy.packageName}`);
-    const automation={
-      packageName:policy.packageName,
-      enabled:policy.enabled,
-      automaticDelivery:policy.automaticDelivery,
-      dailyPopupTarget:policy.dailyPopupTarget,
-      schedulingPeriod:policy.schedulingPeriod,
-      minIntervalSeconds:policy.minIntervalSeconds,
-      maxIntervalSeconds:policy.maxIntervalSeconds,
-      randomizationEnabled:policy.randomizationEnabled,
-      popupDisplayTargetSeconds:policy.popupDisplayTargetSeconds,
-      completionDisplaySeconds:policy.completionDisplaySeconds,
-      postCompletionIntervalSeconds:policy.postCompletionIntervalSeconds,
-      maxPendingDeliveries:policy.maxPendingDeliveries,
-      maxDeliveryAttempts:policy.maxDeliveryAttempts,
-      automaticTradingEnabled:policy.automaticTradingEnabled,
-      maxTradeAttemptsPerDay:policy.maxTradeAttemptsPerDay,
-      tradeRetryDelaySeconds:policy.tradeRetryDelaySeconds,
-      maxSuccessfulTradesPerDay:policy.maxSuccessfulTradesPerDay,
-      maxConcurrentActiveTrades:policy.maxConcurrentActiveTrades,
-      requirePreviousSettlement:policy.requirePreviousSettlement,
-      minSettlementDelaySeconds:policy.minSettlementDelaySeconds,
-      maxSettlementDelaySeconds:policy.maxSettlementDelaySeconds,
-      minimumRewardBps:policy.minimumRewardBps,
-      maxDailyRewardMinor:policy.maxDailyRewardMinor,
-      maxRewardPerTradeMinor:policy.maxRewardPerTradeMinor,
-      closePolicy:policy.closePolicy,
-    };
-    const requiresConfiguredOfferTerms=automation.enabled&&automation.automaticDelivery;
-    if(requiresConfiguredOfferTerms&&(
-      minimumPayoutRateBps===null||maximumPayoutRateBps===null||minimumPayoutRateBps<1||
-      minimumTradeDurationSeconds===null||maximumTradeDurationSeconds===null
-    )) throw new Error(`Set valid published reward-rate and duration bounds before enabling delivery for ${policy.packageName}`);
-    if(automation.automaticTradingEnabled&&(!automation.enabled||!automation.automaticDelivery)) throw new Error(`Automatic trading requires an enabled delivery policy for ${policy.packageName}`);
-    validatePackageAutomationPolicy(automation);
-    if(automation.minIntervalSeconds>automation.maxIntervalSeconds) throw new Error(`Delivery interval minimum exceeds maximum for ${policy.packageName}`);
-    if(automation.minSettlementDelaySeconds>automation.maxSettlementDelaySeconds) throw new Error(`Settlement delay minimum exceeds maximum for ${policy.packageName}`);
-    const values:any={...policy,...automation,badgeLabel,badgeStyle,minimumPayoutRateBps,maximumPayoutRateBps,minimumTradeDurationSeconds,maximumTradeDurationSeconds,companyRotationEnabled,companyRotationCountryNames,companyRotationRepeatPolicy,updatedBy};
-    delete values.id; delete values.updatedAt; delete values.policyVersion;
-    return {packageName:policy.packageName,values};
+    return policy;
   });
   await db.transaction(async tx=>{
-    for(const item of prepared){
-      const current=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,item.packageName)).limit(1).for("update"))[0];
+    // Lock before merging so concurrent partial saves cannot overwrite fields
+    // omitted from the other administrator's request.
+    for(const policy of requested){
+      const current=(await tx.select().from(opportunityPackagePolicies).where(eq(opportunityPackagePolicies.packageName,policy.packageName)).limit(1).for("update"))[0];
+      const supplied:any={};
+      for(const [key,value] of Object.entries(policy)){
+        if(value!==undefined&&!['id','updatedAt','policyVersion','updatedBy'].includes(key)) supplied[key]=value;
+      }
+      const effective:any={...UNCONFIGURED_TIER_POLICY_SENTINELS,...(current||{}),...supplied,packageName:policy.packageName,updatedBy};
+      if(effective.minHourlyTarget>effective.normalHourlyTarget) throw new Error(`Minimum hourly target cannot exceed normal target for ${policy.packageName}`);
+      if(effective.normalHourlyTarget*24>effective.maxPopupsPerDay&&effective.maxPopupsPerDay>0) throw new Error(`Normal hourly target exceeds daily quota for ${policy.packageName}`);
+      if(!Number.isSafeInteger(effective.minimumTradeUnits)||!Number.isSafeInteger(effective.maximumTradeUnits)||effective.minimumTradeUnits<1||effective.maximumTradeUnits<effective.minimumTradeUnits) throw new Error(`Trade amount bounds are invalid for ${policy.packageName}`);
+      const badgeLabel=effective.badgeLabel==null||String(effective.badgeLabel).trim()===""?null:String(effective.badgeLabel).trim();
+      const badgeStyle=String(effective.badgeStyle??"neutral");
+      if(badgeLabel!==null&&badgeLabel.length>40) throw new Error(`Badge label must be at most 40 characters for ${policy.packageName}`);
+      if(!["neutral","blue","purple","gold","green"].includes(badgeStyle)) throw new Error(`Badge style is not allowed for ${policy.packageName}`);
+      const minimumPayoutRateBps=effective.minimumPayoutRateBps==null?null:Number(effective.minimumPayoutRateBps);
+      const maximumPayoutRateBps=effective.maximumPayoutRateBps==null?null:Number(effective.maximumPayoutRateBps);
+      if((minimumPayoutRateBps===null)!==(maximumPayoutRateBps===null)) throw new Error(`Set both published reward-rate bounds or leave both blank for ${policy.packageName}`);
+      if(minimumPayoutRateBps!==null&&(maximumPayoutRateBps===null||!Number.isSafeInteger(minimumPayoutRateBps)||!Number.isSafeInteger(maximumPayoutRateBps)||minimumPayoutRateBps<0||maximumPayoutRateBps<minimumPayoutRateBps||maximumPayoutRateBps>5000)) throw new Error(`Published reward-rate bounds must satisfy 0 ≤ minimum ≤ maximum ≤ 5000 bps for ${policy.packageName}`);
+      const companyRotationEnabled=effective.companyRotationEnabled==null?false:Boolean(effective.companyRotationEnabled);
+      const companyRotationCountryNames=normalizeCompanyRotationCountryNames(effective.companyRotationCountryNames??"");
+      const companyRotationRepeatPolicy=String(effective.companyRotationRepeatPolicy??"avoid_until_exhausted");
+      if(!["avoid_until_exhausted","allow_repeats"].includes(companyRotationRepeatPolicy)) throw new Error(`Company rotation repeat policy is invalid for ${policy.packageName}`);
+      if(companyRotationEnabled) buildCompanySpotlightPool(companyRotationCountryNames);
+      const minimumTradeDurationSeconds=effective.minimumTradeDurationSeconds==null?null:Number(effective.minimumTradeDurationSeconds);
+      const maximumTradeDurationSeconds=effective.maximumTradeDurationSeconds==null?null:Number(effective.maximumTradeDurationSeconds);
+      if((minimumTradeDurationSeconds===null)!==(maximumTradeDurationSeconds===null)) throw new Error(`Set both published duration bounds or leave both blank for ${policy.packageName}`);
+      if(minimumTradeDurationSeconds!==null&&(maximumTradeDurationSeconds===null||!Number.isSafeInteger(minimumTradeDurationSeconds)||!Number.isSafeInteger(maximumTradeDurationSeconds)||minimumTradeDurationSeconds<10||maximumTradeDurationSeconds<minimumTradeDurationSeconds||maximumTradeDurationSeconds>86400)) throw new Error(`Published duration bounds must satisfy 10 ≤ minimum ≤ maximum ≤ 86400 seconds for ${policy.packageName}`);
+      if(typeof effective.enabled!=="boolean"||typeof effective.automaticDelivery!=="boolean"||typeof effective.automaticTradingEnabled!=="boolean") throw new Error(`Policy and automation switches must be explicitly set for ${policy.packageName}`);
+      const automation={
+        packageName:policy.packageName,
+        enabled:effective.enabled,
+        automaticDelivery:effective.automaticDelivery,
+        dailyPopupTarget:effective.dailyPopupTarget,
+        schedulingPeriod:effective.schedulingPeriod,
+        minIntervalSeconds:effective.minIntervalSeconds,
+        maxIntervalSeconds:effective.maxIntervalSeconds,
+        randomizationEnabled:effective.randomizationEnabled,
+        popupDisplayTargetSeconds:effective.popupDisplayTargetSeconds,
+        completionDisplaySeconds:effective.completionDisplaySeconds,
+        postCompletionIntervalSeconds:effective.postCompletionIntervalSeconds,
+        maxPendingDeliveries:effective.maxPendingDeliveries,
+        maxDeliveryAttempts:effective.maxDeliveryAttempts,
+        automaticTradingEnabled:effective.automaticTradingEnabled,
+        maxTradeAttemptsPerDay:effective.maxTradeAttemptsPerDay,
+        tradeRetryDelaySeconds:effective.tradeRetryDelaySeconds,
+        maxSuccessfulTradesPerDay:effective.maxSuccessfulTradesPerDay,
+        maxConcurrentActiveTrades:effective.maxConcurrentActiveTrades,
+        requirePreviousSettlement:effective.requirePreviousSettlement,
+        minSettlementDelaySeconds:effective.minSettlementDelaySeconds,
+        maxSettlementDelaySeconds:effective.maxSettlementDelaySeconds,
+        minimumRewardBps:effective.minimumRewardBps,
+        maxDailyRewardMinor:effective.maxDailyRewardMinor,
+        maxRewardPerTradeMinor:effective.maxRewardPerTradeMinor,
+        closePolicy:effective.closePolicy,
+      };
+      const requiresConfiguredOfferTerms=automation.enabled&&automation.automaticDelivery;
+      if(requiresConfiguredOfferTerms&&(minimumPayoutRateBps===null||maximumPayoutRateBps===null||minimumPayoutRateBps<1||minimumTradeDurationSeconds===null||maximumTradeDurationSeconds===null)) throw new Error(`Set valid published reward-rate and duration bounds before enabling delivery for ${policy.packageName}`);
+      if(automation.automaticTradingEnabled&&(!automation.enabled||!automation.automaticDelivery)) throw new Error(`Automatic trading requires an enabled delivery policy for ${policy.packageName}`);
+      validatePackageAutomationPolicy(automation);
+      if(automation.minIntervalSeconds>automation.maxIntervalSeconds) throw new Error(`Delivery interval minimum exceeds maximum for ${policy.packageName}`);
+      if(automation.minSettlementDelaySeconds>automation.maxSettlementDelaySeconds) throw new Error(`Settlement delay minimum exceeds maximum for ${policy.packageName}`);
+      const values:any={...effective,...automation,badgeLabel,badgeStyle,minimumPayoutRateBps,maximumPayoutRateBps,minimumTradeDurationSeconds,maximumTradeDurationSeconds,companyRotationEnabled,companyRotationCountryNames,companyRotationRepeatPolicy,updatedBy};
+      delete values.id; delete values.updatedAt; delete values.policyVersion;
       const currentVersion=Number(current?.policyVersion||0);
       const nextVersion=current?currentVersion+1:1;
-      if(!Number.isSafeInteger(nextVersion)||nextVersion<1) throw new Error(`Trading policy version is invalid for ${item.packageName}`);
-      const next={...item.values,policyVersion:nextVersion,updatedAt:new Date()};
+      if(!Number.isSafeInteger(nextVersion)||nextVersion<1) throw new Error(`Trading policy version is invalid for ${policy.packageName}`);
+      const next={...values,policyVersion:nextVersion,updatedAt:new Date()};
       if(current){
         await tx.update(opportunityPackagePolicies).set(next).where(eq(opportunityPackagePolicies.id,current.id));
       }else{
@@ -2910,10 +2912,10 @@ export async function updateOpportunityPackagePolicies(updatedBy:number, policie
       }
       await tx.insert(v5AuditEvents).values({
         actorUserId:updatedBy,action:"trading_delivery_policy_updated",
-        entityType:"opportunity_package_policy",entityId:String(current?.id??item.packageName),
+        entityType:"opportunity_package_policy",entityId:String(current?.id??policy.packageName),
         reason:auditReason,
-        reference:"trading-delivery-policy:"+item.packageName+":"+nextVersion,
-        metadataJson:JSON.stringify({packageName:item.packageName,previousVersion:currentVersion||null,nextVersion,oldPolicy:current||null,newPolicy:next}),
+        reference:"trading-delivery-policy:"+policy.packageName+":"+nextVersion,
+        metadataJson:JSON.stringify({packageName:policy.packageName,previousVersion:currentVersion||null,nextVersion,oldPolicy:current||null,newPolicy:next}),
       });
     }
   });

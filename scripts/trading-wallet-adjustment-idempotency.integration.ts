@@ -109,7 +109,7 @@ try {
     { ...creditRequest, userId: otherCustomerId },
     { ...creditRequest, currency: "EUR" },
     { ...creditRequest, reason: "A different administrator operation" },
-    { ...creditRequest, mode: "debit" as const, creditClassification: undefined },
+    { ...creditRequest, mode: "debit" as const, creditClassification: undefined, debitClassification: "ordinary_debit" as const },
   ]) {
     await assert.rejects(adjustCustomerBalance(adminId, changed), /already used for a different request/i);
   }
