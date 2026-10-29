@@ -64,7 +64,7 @@ describe("automatic Trading opportunity scheduler", () => {
   it("prevents overlapping Trading cycles within one server process", () => {
     expect(cycleStart).toBeGreaterThanOrEqual(0);
     expect(cycleEnd).toBeGreaterThan(cycleStart);
-    expect(cycleSource).toContain("if (tradeCycleRunning) return;");
+    expect(cycleSource).toContain("if (tradeCycleRunning || Date.now() < tradeCycleRetryAfterMs) return;");
     expect(cycleSource).toContain("tradeCycleRunning = true;");
     expect(cycleSource).toContain("finally");
     expect(cycleSource).toContain("tradeCycleRunning = false;");
