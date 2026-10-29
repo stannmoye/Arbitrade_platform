@@ -2,7 +2,7 @@
 
 **Repository:** [stannmoye/Arbitrade_platform](https://github.com/stannmoye/Arbitrade_platform)  
 **Canonical branch:** `main`  
-**Latest main commit at this handoff update:** `b07ef3b8bf87b723e975a92127fcbd1b83f2b750` (PR #217 squash merge)  
+**Baseline `main` before this increment:** `6befd5ed7036818abf05144a2b522f49e3715645` (PR #220 squash merge)  
 **Completed task:** Task 3 — durable worker health, recovery visibility and Trade Settings dashboard.  
 **Status:** PR #217 was merged after exact-head CI passed. Post-merge checks on `main` were started and must be verified before considering this increment fully accepted. No production migration or deployment has been run. Automated checks do not certify the user's live server.
 
@@ -208,3 +208,12 @@ This policy is final and must be followed throughout the application:
 - Shutdown stops future timer ticks, closes idle HTTP connections, drains active requests and monitored worker cycles, then closes the shared MySQL pool. A bounded deadline force-closes remaining HTTP connections if drain does not complete.
 - Added a database-pool close function, a monitored-worker drain function, unit tests for timer cancellation and cycle draining, and `docs/server-worker-shutdown.md`.
 - Validation is pending on the exact feature head. No production server or database was accessed; no financial records or migrations were changed.
+
+
+## 2026-10-29 — Database-backed settlement reconciliation verification
+
+- Started branch `test/settlement-reconciliation-db-integration` from the verified `main` commit `6befd5ed7036818abf05144a2b522f49e3715645`.
+- Adding an isolated integration test that applies the guarded migration chain and calls the actual `reconcileAllDueTradesAwaitingConfirmation` worker against disposable MySQL 8.4 and MariaDB 11.4 databases.
+- The test covers overdue trades using both the `creditAt` and `settlesAt` fallback, future and already-terminal records, pre-existing awaiting-confirmation state, concurrent reconciliation cycles, single lifecycle-event creation, and unchanged wallet/ledger records.
+- This increment is verification-first: the worker must never infer a real result from elapsed time, settle a trade, or post customer funds. No production database or server is accessed.
+- Validation and CI status: pending until the exact branch head runs the new database integration and the full required checks. No merge, deployment, or production migration is authorized by this increment.
