@@ -9,13 +9,21 @@ const { chromium } = require("playwright");
  *
  * Required environment:
  *   TRADING_ACCEPTANCE_BASE_URL
+ *   TRADING_ACCEPTANCE_ENVIRONMENT=non-production (required safety acknowledgement)
  *   TRADING_CUSTOMER_STORAGE_STATE
  *   TRADING_ADMIN_STORAGE_STATE
+ *
+ * Uses real application APIs only. Keep it read-only except for an intentionally invalid,
+ * server-rejected admin-policy form request; no valid policy/financial mutations are submitted.
  */
 async function main() {
   const baseURL = process.env.TRADING_ACCEPTANCE_BASE_URL;
+  const environment = process.env.TRADING_ACCEPTANCE_ENVIRONMENT;
   const customerState = process.env.TRADING_CUSTOMER_STORAGE_STATE;
   const adminState = process.env.TRADING_ADMIN_STORAGE_STATE;
+
+  assert.equal(environment, "non-production",
+    "Set TRADING_ACCEPTANCE_ENVIRONMENT=non-production only for an isolated acceptance deployment.");
 
   for (const [name, value] of Object.entries({
     TRADING_ACCEPTANCE_BASE_URL: baseURL,
@@ -59,6 +67,28 @@ async function main() {
     const customerContext = await browser.newContext({ storageState: customerState });
     const customerPage = await customerContext.newPage();
     const eligibilityResponses = [];
+    const extractTrpcData = (payload) => payload?.result?.data?.json ?? payload?.result?.data;
+    const summarizeEligibility = (payload) => {
+      const data = extractTrpcData(payload);
+      if (!data || typeof data !== "object") return undefined;
+      return {
+        eligible: data.eligible,
+        status: data.status,
+        qualifyingDepositUsdMinor: data.qualifyingDepositUsdMinor,
+        dailyOpportunityAllowance: data.dailyOpportunityAllowance,
+        currentPackage: data.currentPackage ? {
+          name: data.currentPackage.name,
+          durationMonths: data.currentPackage.durationMonths,
+          opportunitiesPerDay: data.currentPackage.opportunitiesPerDay,
+        } : null,
+        nextPackage: data.nextPackage ? {
+          name: data.nextPackage.name,
+          amountNeededUsdMinor: data.nextPackage.amountNeededUsdMinor,
+          durationMonths: data.nextPackage.durationMonths,
+          additionalDailyOpportunities: data.nextPackage.additionalDailyOpportunities,
+        } : null,
+      };
+    };
     customerPage.on("response", async (response) => {
       if (response.url().includes("/api/trpc/customer.tradingEligibility")) {
         let payload;
@@ -72,6 +102,7 @@ async function main() {
           url: response.url(),
           hasTrpcError: Boolean(payload?.error),
           hasTrpcResult: Boolean(payload?.result?.data),
+          data: summarizeEligibility(payload),
         });
       }
     });
@@ -118,6 +149,32 @@ async function main() {
     assert.ok(eligibilityResponses.every((response) =>
       response.status >= 200 && response.status < 300 && !response.hasTrpcError && response.hasTrpcResult),
       "Customer eligibility tRPC responses must contain successful result data, not only HTTP 2xx.");
+    const eligibilityData = [...eligibilityResponses].reverse().find((response) => response.data)?.data;
+    assert.ok(eligibilityData, "Real customer eligibility API data must include the eligibility contract.");
+    assert.ok(["eligible", "not_eligible"].includes(eligibilityData.status),
+      "Eligibility status must be one of the server contract states.");
+    assert.equal(eligibilityData.eligible, eligibilityData.status === "eligible",
+      "Eligibility boolean and status must agree.");
+    assert.ok(Number.isSafeInteger(eligibilityData.qualifyingDepositUsdMinor) &&
+      eligibilityData.qualifyingDepositUsdMinor >= 0,
+      "Qualifying USD amount must be a non-negative safe integer in minor units.");
+    assert.ok(Number.isSafeInteger(eligibilityData.dailyOpportunityAllowance) &&
+      eligibilityData.dailyOpportunityAllowance >= 0,
+      "Cumulative daily opportunity allowance must be a non-negative safe integer.");
+    if (eligibilityData.currentPackage) {
+      assert.ok(typeof eligibilityData.currentPackage.name === "string" && eligibilityData.currentPackage.name.length > 0);
+      assert.ok(Number.isSafeInteger(eligibilityData.currentPackage.opportunitiesPerDay) &&
+        eligibilityData.currentPackage.opportunitiesPerDay >= 0);
+    }
+    if (eligibilityData.nextPackage) {
+      assert.ok(Number.isSafeInteger(eligibilityData.nextPackage.amountNeededUsdMinor) &&
+        eligibilityData.nextPackage.amountNeededUsdMinor >= 0);
+      assert.ok(Number.isSafeInteger(eligibilityData.nextPackage.additionalDailyOpportunities) &&
+        eligibilityData.nextPackage.additionalDailyOpportunities >= 0);
+    }
+    const renderedAllowance = await customerPage.locator(".trading-total-allowance-value").innerText();
+    assert.equal(Number(renderedAllowance), eligibilityData.dailyOpportunityAllowance,
+      "Customer-visible daily allowance must match the real API's cumulative entitlement total.");
     assert.doesNotMatch(bodyText, /retry needed|couldn.t load package details/i,
       "Customer eligibility must not remain in an API-error state.");
 
@@ -178,6 +235,46 @@ async function main() {
     assert.doesNotMatch(refreshedBodyText, /retry needed|couldn.t load package details/i,
       "A successful refresh must not leave the customer in an API-error state.");
 
+    // Exercise a real browser network outage, not a mocked API response, then recover.
+    await customerContext.setOffline(true);
+    await refreshButton.click();
+    const eligibilityErrorAlert = customerPage.getByRole("alert")
+      .filter({ hasText: /couldn.t load package details/i });
+    await eligibilityErrorAlert.waitFor({ state: "visible", timeout: 45_000 });
+    await customerPage.getByText(/RETRY NEEDED/i).waitFor({ state: "visible", timeout: 10_000 });
+    const offlineBodyText = await customerPage.locator("body").innerText();
+    assert.doesNotMatch(offlineBodyText, /PACKAGE ACTIVE/i,
+      "A failed refresh must not present the cached package status as freshly confirmed.");
+    assert.equal(await customerPage.locator(".trading-tier-card").count(), 0,
+      "A failed eligibility refresh must not leave stale package cards displayed as current.");
+
+    await customerContext.setOffline(false);
+    await customerPage.waitForFunction(() => {
+      const button = document.querySelector('button[aria-label="Refresh Trading package progress"]');
+      return Boolean(button && !button.disabled);
+    }, { timeout: 30_000 });
+    const recoveryResponsePromise = customerPage.waitForResponse(
+      (response) => response.url().includes("/api/trpc/customer.tradingEligibility"),
+      { timeout: 20_000 },
+    );
+    await refreshButton.click();
+    const recoveryResponse = await recoveryResponsePromise;
+    let recoveryPayload;
+    try {
+      recoveryPayload = await recoveryResponse.json();
+    } catch {
+      recoveryPayload = undefined;
+    }
+    assert.ok(recoveryResponse.status() >= 200 && recoveryResponse.status() < 300 &&
+      !recoveryPayload?.error && extractTrpcData(recoveryPayload) !== undefined,
+      "Eligibility must recover from the network outage through the real application API.");
+    await eligibilityErrorAlert.waitFor({ state: "hidden", timeout: 20_000 });
+    const recoveryData = summarizeEligibility(recoveryPayload);
+    assert.ok(recoveryData && ["eligible", "not_eligible"].includes(recoveryData.status));
+    assert.equal(Number(await customerPage.locator(".trading-total-allowance-value").innerText()),
+      recoveryData.dailyOpportunityAllowance,
+      "Recovered customer allowance must again match current API data.");
+
     // Exercise the customer page at desktop and mobile widths without changing persisted data.
     for (const viewport of [{ width: 1365, height: 900 }, { width: 390, height: 844 }]) {
       await customerPage.setViewportSize(viewport);
@@ -193,6 +290,8 @@ async function main() {
       packageActivationControls: "not present",
       customerCannotReadAdminPackageApi: "FORBIDDEN",
       refreshApi: "real application response received",
+      networkErrorAndRetry: "real network outage surfaced; real API recovery verified",
+      cumulativeQuotaMatchesApi: true,
       visibleTierCards: tierCardCount,
       responsiveViewports: ["1365x900", "390x844"],
     });
@@ -283,16 +382,104 @@ async function main() {
     assert.ok(mobileHeadingBounds && mobileHeadingBounds.width > 0 && mobileHeadingBounds.height > 0,
       "Package settings heading must remain visible in the mobile administrator workflow.");
 
+
+    // Probe an invalid administrator setting. The server Zod schema rejects retry
+    // delay 4 (minimum 5) before the DB updater is invoked; values and versions must
+    // be unchanged immediately and after a reload.
+    await adminPage.setViewportSize({ width: 1365, height: 900 });
+    const firstPolicyCard = adminPage.locator(".package-admin-card").first();
+    await firstPolicyCard.waitFor({ state: "visible", timeout: 20_000 });
+    const packageName = (await firstPolicyCard.locator("h2").innerText()).trim();
+    const retryDelayInput = firstPolicyCard.getByLabel(/technical retry delay/i);
+    const originalRetryDelay = await retryDelayInput.inputValue();
+    const readPolicySnapshot = async () => adminPage.evaluate(async () => {
+      const response = await fetch("/api/trpc/adminOperations.packagePolicies", {
+        method: "GET",
+        credentials: "same-origin",
+        headers: { accept: "application/json" },
+      });
+      let payload;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = undefined;
+      }
+      const data = payload?.result?.data?.json ?? payload?.result?.data;
+      return {
+        status: response.status,
+        hasError: Boolean(payload?.error),
+        rows: Array.isArray(data) ? data.map((row) => ({
+          packageName: String(row.packageName),
+          tradeRetryDelaySeconds: Number(row.tradeRetryDelaySeconds ?? 30),
+          policyVersion: Number(row.policyVersion ?? 1),
+        })).sort((a, b) => a.packageName.localeCompare(b.packageName)) : null,
+      };
+    });
+    const beforeInvalidSave = await readPolicySnapshot();
+    assert.ok(beforeInvalidSave.status >= 200 && beforeInvalidSave.status < 300 &&
+      !beforeInvalidSave.hasError && Array.isArray(beforeInvalidSave.rows) && beforeInvalidSave.rows.length > 0,
+      "Disposable acceptance database must expose persisted package-policy rows before form validation.");
+    const beforeRow = beforeInvalidSave.rows.find((row) => row.packageName === packageName);
+    assert.ok(beforeRow, "The package editor card must map to a persisted package-policy row.");
+    assert.equal(Number(originalRetryDelay), beforeRow.tradeRetryDelaySeconds,
+      "Rendered retry delay must equal its persisted API value.");
+
+    await retryDelayInput.fill("4");
+    assert.equal(await retryDelayInput.inputValue(), "4");
+    const rejectedMutationPromise = adminPage.waitForResponse(
+      (response) => response.url().includes("/api/trpc/adminOperations.updatePackagePolicies"),
+      { timeout: 20_000 },
+    );
+    await adminPage.getByRole("button", { name: /save all tier policies/i }).click();
+    const rejectedMutation = await rejectedMutationPromise;
+    let rejectedPayload;
+    try {
+      rejectedPayload = await rejectedMutation.json();
+    } catch {
+      rejectedPayload = undefined;
+    }
+    const validationCode = rejectedPayload?.error?.data?.code ?? rejectedPayload?.error?.json?.data?.code;
+    assert.ok(rejectedMutation.status() >= 400 || validationCode === "BAD_REQUEST",
+      "Out-of-range policy submission must be rejected by server validation; received HTTP " +
+      rejectedMutation.status() + " and code " + (validationCode ?? "none") + ".");
+
+    const afterInvalidSave = await readPolicySnapshot();
+    assert.deepEqual(afterInvalidSave.rows, beforeInvalidSave.rows,
+      "Rejected invalid settings must leave every persisted package policy and policy version unchanged.");
+
+    await adminPage.reload({ waitUntil: "domcontentloaded" });
+    await adminPage.setViewportSize({ width: 1365, height: 900 });
+    const reloadedNavigation = adminPage.locator(".admin-canonical-nav");
+    await reloadedNavigation.getByRole("button", { name: /packages & eligibility/i }).click();
+    const reloadedPolicyHeading = adminPage.getByRole("heading", { name: /trading tiers & automation policy/i });
+    await reloadedPolicyHeading.waitFor({ state: "visible", timeout: 20_000 });
+    const reloadedCard = adminPage.locator(".package-admin-card")
+      .filter({ has: adminPage.getByRole("heading", { name: packageName, exact: true }) }).first();
+    const reloadedRetryInput = reloadedCard.getByLabel(/technical retry delay/i);
+    await reloadedRetryInput.waitFor({ state: "visible", timeout: 20_000 });
+    await adminPage.waitForFunction(({ name, value }) => {
+      const cards = Array.from(document.querySelectorAll(".package-admin-card"));
+      const card = cards.find((item) => item.querySelector("h2")?.textContent?.trim() === name);
+      const input = card ? Array.from(card.querySelectorAll("label"))
+        .find((label) => label.textContent?.toLowerCase().includes("technical retry delay"))
+        ?.querySelector("input") : null;
+      return Boolean(input && input.value === value);
+    }, { name: packageName, value: originalRetryDelay }, { timeout: 20_000 });
+    assert.equal(await reloadedRetryInput.inputValue(), originalRetryDelay,
+      "Reload after invalid submission must show the unchanged persisted retry delay.");
+
     const adminBodyText = await adminPage.locator("body").innerText();
     assert.match(adminBodyText, /trade settings/i);
     assert.match(adminBodyText, /packages & eligibility/i);
     assert.match(adminBodyText, /trading tiers & automation policy/i);
     results.push({
-      journey: "administrator Trade Settings and package configuration navigation",
+      journey: "administrator Trade Settings, package configuration, and invalid-form persistence",
       status: "passed",
       packageCatalogueApi: "authorized real application response",
+      invalidForm: "server rejected out-of-range value; persisted policy/version unchanged after reload",
       adminResponsiveViewports: ["1365x900", "390x844"],
-      mutationsSubmitted: 0,
+      successfulSettingsMutationsSubmitted: 0,
+      invalidMutationRejectedBeforePersistence: true,
     });
     await adminContext.close();
 
