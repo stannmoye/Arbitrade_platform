@@ -11,6 +11,7 @@ const schemaSource = readFileSync(new URL("../drizzle/schema.ts", import.meta.ur
 const migrationSource = readFileSync(new URL("../drizzle/0080_qualifying_admin_deposit_attribution.sql", import.meta.url), "utf8");
 const policyMigrationSource = readFileSync(new URL("../drizzle/0081_trading_tier_policy_alignment.sql", import.meta.url), "utf8");
 const customerAppSource = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
+const tierPolicyFieldsSource = readFileSync(new URL("../client/src/components/AdminTierPolicyFields.tsx", import.meta.url), "utf8");
 const eligibilityComponent = readFileSync(new URL("../client/src/components/CustomerTradingEligibility.tsx", import.meta.url), "utf8");
 const eligibilityStyles = readFileSync(new URL("../client/src/components/CustomerTradingEligibility.css", import.meta.url), "utf8");
 const specification = readFileSync(new URL("../docs/TRADING_SYSTEM_SPECIFICATION.md", import.meta.url), "utf8");
@@ -300,6 +301,7 @@ describe("Automatic Trading tier qualification", () => {
       expect(schemaSource).toContain(field);
       expect(routerSource).toContain(field);
       expect(customerAppSource).toContain(field);
+      expect(tierPolicyFieldsSource).toContain(field);
       expect(databaseSource).toContain(field);
     }
     expect(routerSource).toContain("updatePackagePolicies: adminProcedure.input");
