@@ -69,7 +69,7 @@ describe("worker schema contracts", () => {
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, companySpotlightRotationMigration)");
     expect(runtimeSchema).toContain('drizzle/0088_trading_popup_trade_snapshots.sql');
     expect(runtimeSchema).toContain("await executeCompatibleMigrationSql(db, popupTradeSnapshotsMigration)");
-    for (const column of ["configuredProfitRateBps", "configuredDurationSeconds", "configuredPopupDisplaySeconds", "packagePolicyVersionSnapshot", "companyReferenceId", "companyDisplayName", "companyLogoUrl", "companyReferenceOnly"]) expect(popupTradeSnapshotsMigration).toContain(column);
+    for (const column of ["configuredProfitRateBps", "configuredDurationSeconds", "configuredPopupDisplaySeconds", "packagePolicyVersionSnapshot", "companyReferenceId", "companyDisplayName", "companyLogoUrl", "companyReferenceMetadataJson", "companyReferenceOnly"]) expect(popupTradeSnapshotsMigration).toContain(column);
     for (const column of ["companyRotationEnabled", "companyRotationCountryNames", "companyRotationRepeatPolicy"]) expect(companyRotationMigration).toContain(column);
     for (const column of ["badgeLabel", "badgeStyle", "minimumPayoutRateBps", "maximumPayoutRateBps", "minimumTradeDurationSeconds", "maximumTradeDurationSeconds", "durationSeconds"]) expect(popupRangeMigration).toContain(column);
     expect(healthMigration).toContain("CREATE TABLE IF NOT EXISTS `worker_health_registry`");
