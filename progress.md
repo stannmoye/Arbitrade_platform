@@ -1,3 +1,15 @@
+## 2026-10-29 — Part 3 worker failure backoff and ownership alignment
+
+- Part identity: **PART 3 — AUTOMATIC TRADING WORKER & CUSTOMER ISOLATION**.
+- Baseline `main` SHA: `7356c5870807592c8e890a3937cf3fb0f2a403fc`. Work is isolated on `feat/trading-worker-isolation-recovery-part3`; no merge or deployment.
+- Updated the automatic Trading opportunity cycle to defer repeated failed cycles with capped exponential backoff (30s base, five-minute cap), reset the backoff after a successful cycle, and sanitize structured error diagnostics.
+- Added a source-contract regression test for backoff and recovery-to-normal-cadence behavior.
+- Added `docs/trading/IMPLEMENTATION_COORDINATION.md` with the six-part ownership map, shared contracts, active PR overlap list and worker integration boundaries.
+- Validation limitation: GitHub clone/network access was unavailable in this session, so `pnpm install --frozen-lockfile`, `pnpm check`, `pnpm test`, `pnpm build`, and disposable MySQL/MariaDB concurrency tests have not been run. The backoff guard is process-local load protection, not a distributed lease.
+- Still required before acceptance: exact-head CI, DB-backed multi-worker/expired-lease/restart/idempotency/customer-isolation tests, and a broader review of the existing lifecycle/settlement/reconciliation paths. No claims are made that these gaps are closed.
+
+---
+
 ## 2026-10-29 — Admin-editable Trading pop-up and company rotation requirements
 
 - Verified that PR #226, **Disable synthetic Trading opportunity generation**, merged into `main` as `21a9f6a95aa72d464886c1c164016491ec7391dd`. Its six main-commit workflows all completed successfully: Trading settlement DB integration, Trading tier qualification DB integration, Mining regression checks, application verification, installer validation, and production source build/test. No production deployment or production database change was performed.
