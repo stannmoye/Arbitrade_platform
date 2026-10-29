@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import { spawn } from "node:child_process";
 import { and, eq } from "drizzle-orm";
 import {
   claimOpportunityExecutionAttempt,
@@ -140,11 +141,72 @@ try {
   await db.update(opportunityPopupEvents)
     .set({ executionRetryAfter: new Date(Date.now() - 1000) })
     .where(and(eq(opportunityPopupEvents.id, eventId), eq(opportunityPopupEvents.userId, userId)));
+
+  const crashedWorker = spawn("pnpm", ["exec", "tsx", "scripts/trading-opportunity-worker-crash-fixture.ts"], {
+    env: {
+      ...process.env,
+      WORKER_TEST_USER_ID: String(userId),
+      WORKER_TEST_EVENT_ID: String(eventId),
+      WORKER_TEST_OFFER_ID: String(offerId),
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let crashedWorkerOutput = "";
+  const crashedWorkerExit = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve) => {
+    crashedWorker.once("exit", (code, signal) => resolve({ code, signal }));
+  });
+  const crashedWorkerToken = await new Promise<string>((resolve, reject) => {
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      crashedWorker.kill("SIGKILL");
+      reject(new Error("Timed out waiting for the child worker to persist its lease."));
+    }, 15000);
+    crashedWorker.stdout.on("data", (chunk: Buffer) => {
+      crashedWorkerOutput += chunk.toString();
+      const match = crashedWorkerOutput.match(/CLAIMED:([A-Za-z0-9-]+)/);
+      if (match && !settled) {
+        settled = true;
+        clearTimeout(timeout);
+        resolve(match[1]);
+      } else if (crashedWorkerOutput.includes("NOT_CLAIMED") && !settled) {
+        settled = true;
+        clearTimeout(timeout);
+        reject(new Error("The child worker could not claim the expired opportunity lease."));
+      }
+    });
+    crashedWorker.stderr.on("data", (chunk: Buffer) => {
+      crashedWorkerOutput += chunk.toString();
+    });
+    crashedWorker.once("error", (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      reject(error);
+    });
+    crashedWorker.once("exit", (code, signal) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      reject(new Error("The child worker exited before publishing its lease (code=" + code + ", signal=" + signal + ")."));
+    });
+  });
+  crashedWorker.kill("SIGKILL");
+  const crashedWorkerExitResult = await crashedWorkerExit;
+  assert.equal(crashedWorkerExitResult.signal, "SIGKILL",
+    "The test must terminate the lease-owning worker process before recovery.");
+
+  await db.update(opportunityPopupEvents)
+    .set({ executionRetryAfter: new Date(Date.now() - 1000) })
+    .where(and(eq(opportunityPopupEvents.id, eventId), eq(opportunityPopupEvents.userId, userId)));
   const recoveredClaim = await claimOpportunityExecutionAttempt(userId, offer, 5);
-  assert.equal(recoveredClaim.claimed, true, "An expired lease must be reclaimable after a worker crash.");
+  assert.equal(recoveredClaim.claimed, true, "A restarted worker must reclaim a lease abandoned by a crashed process.");
   assert.ok(recoveredClaim.executionLeaseToken);
   assert.notEqual(recoveredClaim.executionLeaseToken, firstClaim.executionLeaseToken,
     "A reclaimed lease must receive a new fencing token.");
+  assert.notEqual(recoveredClaim.executionLeaseToken, crashedWorkerToken,
+    "Recovery after a process crash must fence the token owned by the terminated process.");
 
   const ledgerBeforeStaleCall = await db.select({ id: balanceLedger.id })
     .from(balanceLedger).where(eq(balanceLedger.userId, userId));
@@ -163,6 +225,16 @@ try {
     }),
     /execution lease was lost/i,
     "A stale worker must be fenced before it can mutate financial state.",
+  );
+  await assert.rejects(
+    createTrade(userId, {
+      offerId,
+      amountMinor: 25000,
+      deliveryEventId: eventId,
+      executionLeaseToken: crashedWorkerToken,
+    }),
+    /execution lease was lost/i,
+    "A worker token left behind by a killed process must be fenced after recovery.",
   );
   assert.deepEqual(
     await db.select({ id: balanceLedger.id }).from(balanceLedger).where(eq(balanceLedger.userId, userId)),
@@ -261,6 +333,8 @@ try {
     concurrentClaims: 2,
     winningClaims: competingClaims.filter((claim) => claim.claimed).length,
     leaseRecovered: recoveredClaim.claimed,
+    crashedWorkerKilled: crashedWorkerExitResult.signal === "SIGKILL",
+    crashedWorkerTokenFenced: true,
     staleWorkerFenced: true,
     concurrentFreshAllocations: allocationResults.length,
     freshAllocationReplayCount: allocationResults.filter((result) => result.idempotentReplay === true).length,
