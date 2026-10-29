@@ -606,3 +606,30 @@
   overflow-wrap: anywhere;
   text-transform: uppercase;
 }
+
+
+.trading-popup-company {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--arb-color-border, #294355);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--arb-color-surface-raised, #10293a) 80%, transparent);
+}
+.trading-popup-company img {
+  display: block;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  padding: 4px;
+  border: 1px solid var(--arb-color-border, #294355);
+  border-radius: 10px;
+  background: #fff;
+}
+.trading-popup-company > div { display: grid; gap: 4px; min-width: 0; }
+.trading-popup-company strong { overflow-wrap: anywhere; }
+.trading-popup-company small { color: var(--arb-color-text-muted, #9bb4c4); font-size: 11px; line-height: 1.4; }
