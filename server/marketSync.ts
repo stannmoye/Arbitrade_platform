@@ -1,15 +1,7 @@
-import crypto from "node:crypto";
-import { and, desc, eq, gt, inArray, lt, lte } from "drizzle-orm";
-import { countOutstandingTrades, getAppSetting, getDb, getTradeSettlementPolicy } from "./db";
+import { and, desc, eq, gt, lt } from "drizzle-orm";
+import { countOutstandingTrades, getDb, getTradeSettlementPolicy } from "./db";
 import { currencyRegistry, fxRateSnapshots, marketInstruments, marketSnapshots, opportunityOffers } from "../drizzle/schema";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks } from "./marketProviders";
-
-const simulationValue = (symbol: string, observedAt: Date, min: number, max: number) => {
-  const bucket = Math.floor(observedAt.getTime() / (15 * 60 * 1000));
-  const digest = crypto.createHash("sha256").update(`${symbol}:${bucket}:${process.env.SIMULATION_SALT || "arbitrade-default"}`).digest();
-  const fraction = digest.readUInt32BE(0) / 0xffffffff;
-  return Math.round(min + fraction * (max - min));
-};
 
 export async function refreshMarketData() {
   const db = await getDb();
@@ -52,38 +44,19 @@ export async function ensureMarketDrivenOpportunities(refreshedAt = new Date()) 
     const outstandingTrades = await countOutstandingTrades();
     if (outstandingTrades > 0) {
       await db.update(opportunityOffers).set({ status: "closed" }).where(eq(opportunityOffers.status, "open"));
-      return { created: 0, available: 0, pausedUntilSettled: true, outstandingTrades, settlementDelaySeconds: settlementPolicy.delaySeconds };
+      return { created: 0, available: 0, pausedUntilSettled: true, outstandingTrades, settlementDelaySeconds: settlementPolicy.delaySeconds, generationDisabled: true };
     }
   }
-  await db.update(opportunityOffers).set({ status: "closed" }).where(and(eq(opportunityOffers.status, "open"), lt(opportunityOffers.marketObservedAt, refreshedAt)));
-  const active = await db.select({ symbol: opportunityOffers.symbol, currency: opportunityOffers.currency }).from(opportunityOffers).where(and(eq(opportunityOffers.status, "open"), gt(opportunityOffers.closesAt, now)));
-  const activeKeys = new Set(active.map(row => `${row.symbol}:${row.currency}`));
-  const instruments = await db.select().from(marketInstruments).orderBy(desc(marketInstruments.updatedAt)).limit(200);
-  // Legacy market offers use scaled signed-INT amounts; Mining-only USDT and TOKEN belong in the high-precision v5 ledger instead.
-  const currencies = await db.select({ code: currencyRegistry.code, scale: currencyRegistry.scale }).from(currencyRegistry).where(and(eq(currencyRegistry.enabled, true), inArray(currencyRegistry.code, ["USD", "EUR", "GBP", "BTC", "ETH"])));
-  const deskLabel = await getAppSetting("opportunity.deskLabel");
-  if (!deskLabel) throw new Error("Database setting opportunity.deskLabel is missing");
-  let created = 0;
-  for (const instrument of instruments) {
-    const snapshot = (await db.select().from(marketSnapshots).where(eq(marketSnapshots.instrumentId, instrument.id)).orderBy(desc(marketSnapshots.observedAt)).limit(1))[0];
-    if (!snapshot) continue;
-    for (const currency of currencies) {
-      const activeKey = `${instrument.symbol}:${currency.code}`;
-      if (activeKeys.has(activeKey)) continue;
-      const factor = Math.pow(10, currency.scale);
-      // Keep generated amounts within the wallet scale and the database INT range.
-      // Crypto opportunities use fractional coin amounts; fiat opportunities use currency units.
-      const minimumUnits = currency.scale >= 8 ? 0.0001 : 100;
-      const maximumUnits = currency.scale >= 8 ? 0.025 : 2500;
-      const minimumMinor = simulationValue(`${instrument.symbol}:${currency.code}:minimum`, snapshot.observedAt, Math.round(minimumUnits * factor), Math.round(maximumUnits * factor));
-      const expectedRewardBps = simulationValue(`${instrument.symbol}:${currency.code}:reward`, snapshot.observedAt, 1000, 3500);
-      const durationSeconds = simulationValue(`${instrument.symbol}:${currency.code}:duration`, snapshot.observedAt, 900, 3600);
-      const opensAt = new Date();
-      const closesAt = new Date(opensAt.getTime() + durationSeconds * 1000);
-      await db.insert(opportunityOffers).values({ symbol: instrument.symbol, venueFrom: instrument.exchange || "Listed market", venueTo: deskLabel, currency: currency.code, minimumMinor, expectedRewardBps, durationSeconds, opensAt, closesAt, rewardAt: closesAt, status: "open", instrumentId: instrument.id, marketSnapshotId: snapshot.id, marketValueUsd: snapshot.marketValueUsd, sector: instrument.sector, industry: instrument.industry, listingStatus: instrument.listingStatus, marketObservedAt: snapshot.observedAt, simulationSeed: crypto.createHash("sha256").update(`${instrument.symbol}:${currency.code}:${snapshot.id}:${snapshot.observedAt.toISOString()}:${process.env.SIMULATION_SALT || "arbitrade-default"}`).digest("hex") });
-      activeKeys.add(activeKey);
-      created++;
-    }
-  }
-  return { created, available: instruments.length * currencies.length };
+
+  // Expire stale offers, but do not invent trade economics from market snapshots.
+  // An offer must be explicitly published with auditable terms before customers can be allocated.
+  await db.update(opportunityOffers)
+    .set({ status: "closed" })
+    .where(and(eq(opportunityOffers.status, "open"), lt(opportunityOffers.marketObservedAt, refreshedAt)));
+
+  const availableOffers = await db.select({ id: opportunityOffers.id })
+    .from(opportunityOffers)
+    .where(and(eq(opportunityOffers.status, "open"), gt(opportunityOffers.closesAt, now)));
+
+  return { created: 0, available: availableOffers.length, generationDisabled: true };
 }
