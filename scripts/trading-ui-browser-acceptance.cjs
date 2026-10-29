@@ -98,14 +98,14 @@ async function main() {
           element.getAttribute("title"),
           element.textContent,
           inputValue,
-        ].filter(Boolean).join(" ").replace(/\\s+/g, " ").trim();
+        ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
       }).filter(Boolean));
-    const actionableText = actionableLabels.join("\\n");
+    const actionableText = actionableLabels.join("\n");
     assert.doesNotMatch(actionableText,
-      /(?:activate|subscribe|purchase|buy|select|choose)\\s+(?:a\\s+)?(?:package|tier)|(?:package|tier)\\s+(?:activation|subscription|purchase|management|catalog(?:ue)?)/i,
+      /(?:activate|subscribe|purchase|buy|select|choose)\s+(?:a\s+)?(?:package|tier)|(?:package|tier)\s+(?:activation|subscription|purchase|management|catalog(?:ue)?)/i,
       "Customer must not have package browsing, purchasing, selection, or activation controls.");
     assert.doesNotMatch(actionableText,
-      /(?:trading|opportunit(?:y|ies)|auto[\\s-]?trade)\\s*(?:on|off)/i,
+      /(?:trading|opportunit(?:y|ies)|auto[\s-]?trade)\s*(?:on|off)/i,
       "Customer must not control the server-managed Trading engine.");
 
     const tierCardCount = await customerPage.locator(".trading-tier-card").count();
