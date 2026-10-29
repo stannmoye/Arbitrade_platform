@@ -216,6 +216,46 @@ try {
   assert.equal(fxRaw.sourceDate, fxSourceDate, "The raw snapshot must preserve the fiat provider source date.");
   assert.ok(String(fxRaw.fetchedAt).includes("T"), "The raw snapshot must preserve the full API fetch timestamp.");
 
+  // Stale, mismatched-pair and unavailable provider responses must fail closed
+  // without committing any wallet or ledger mutation.
+  for (const scenario of ["stale", "mismatched", "unavailable"] as const) {
+    const beforeRows = await db.select({ id: balanceLedger.id }).from(balanceLedger).where(and(
+      eq(balanceLedger.userId, creditPathUserId),
+      eq(balanceLedger.currency, testCurrencyCode),
+    ));
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith("https://api.frankfurter.dev/v2/rates?base=USD&quotes=")) {
+        if (scenario === "unavailable") throw new Error("simulated provider outage");
+        return new Response(JSON.stringify([{
+          base: "USD",
+          quote: scenario === "mismatched" ? "OTHER" : testCurrencyCode,
+          rate: 2,
+          date: scenario === "stale" ? "2020-01-01" : fxSourceDate,
+        }]), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      throw new Error("Simulated fallback provider unavailable");
+    }) as typeof fetch;
+    try {
+      await assert.rejects(adjustCustomerBalance(adminId, {
+        userId: creditPathUserId,
+        currency: testCurrencyCode,
+        amountMinor: 10000,
+        mode: "credit",
+        creditClassification: "qualifying_deposit",
+        reason: `integration test ${scenario} FX quote rejection`,
+        idempotencyKey: `it-fx-${scenario}-001`,
+      }));
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    const afterRows = await db.select({ id: balanceLedger.id }).from(balanceLedger).where(and(
+      eq(balanceLedger.userId, creditPathUserId),
+      eq(balanceLedger.currency, testCurrencyCode),
+    ));
+    assert.equal(afterRows.length, beforeRows.length, `${scenario} FX rejection must not commit a ledger entry`);
+  }
+
   const qualifyingReversal = await adjustCustomerBalance(adminId, {
     userId: creditPathUserId,
     currency: "USD",
