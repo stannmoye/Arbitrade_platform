@@ -11,6 +11,8 @@ describe("Trade experience visual system", () => {
     expect(appSource).toContain("trade-nav-group");
     expect(stylesheet).toContain(".trade-admin-surface");
     expect(stylesheet).toContain(".admin-rail .trade-nav-group");
+    expect(stylesheet).toContain("--package-card-accent");
+    expect(stylesheet).toContain("--trading-tier-accent");
   });
 
   it("covers customer eligibility, opportunity history, and the persistent opportunity display", () => {
