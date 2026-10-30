@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
 const stylesheet = readFileSync(new URL("./trading-experience.css", import.meta.url), "utf8");
+const portalStylesheet = readFileSync(new URL("./index.css", import.meta.url), "utf8");
 
 describe("Trade experience visual system", () => {
   it("loads the Trade stylesheet and scopes administrator styling to Trade destinations", () => {
@@ -31,7 +32,7 @@ describe("Trade experience visual system", () => {
     expect(customerHeader).not.toMatch(/overflow:\s*hidden/i);
   });
 
-  it("covers customer eligibility, opportunity history, and the persistent opportunity display", () => {
+  it("gives every administrator menu a distinct parent accent and keeps expanded submenus fully sized", () => {\n    expect(appSource).toContain("admin-nav-group--${group.id}");\n    expect(portalStylesheet).toContain(".admin-nav-group:nth-child(13)");\n    expect(portalStylesheet).toContain("--nav-accent");\n    expect(portalStylesheet).toContain("display: block !important");\n    expect(portalStylesheet).toContain("overflow: visible !important");\n    expect(portalStylesheet).toContain("min-height: 0 !important");\n    expect(portalStylesheet).toContain("overscroll-behavior: contain");\n  });\n\n  it("covers customer eligibility, opportunity history, and the persistent opportunity display", () => {
     expect(stylesheet).toContain(".trading-packages-panel");
     expect(stylesheet).toContain(".customer-opportunities-page");
     expect(stylesheet).toContain(".trading-opportunity-row");
