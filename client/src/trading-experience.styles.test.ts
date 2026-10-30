@@ -8,6 +8,7 @@ describe("Trade experience visual system", () => {
   it("loads the Trade stylesheet and scopes administrator styling to Trade destinations", () => {
     expect(appSource).toContain('import "./trading-experience.css"');
     expect(appSource).toContain("trade-admin-surface");
+    expect(appSource).toContain('"transactionReview","audit"');
     expect(appSource).toContain("trade-nav-group");
     expect(stylesheet).toContain(".trade-admin-surface");
     expect(stylesheet).toContain(".admin-rail .trade-nav-group");
