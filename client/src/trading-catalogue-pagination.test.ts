@@ -20,13 +20,12 @@ describe("Trading catalogue pagination", () => {
 
   it("preserves every company when traversing ten-record pages", () => {
     const companies = Array.from({ length: 1811 }, (_, index) => index + 1);
-    const first = paginateItems(companies, 0, 10);
-    const second = paginateItems(companies, 1, 10);
-    const last = paginateItems(companies, 181, 10);
-    expect(first).toHaveLength(10);
-    expect(second).toHaveLength(10);
-    expect(last).toEqual([1811]);
-    expect(new Set([...first, ...second, ...last]).size).toBe(21);
+    const pageCount = getPageCount(companies.length, 10);
+    const traversed = Array.from({ length: pageCount }, (_, page) => paginateItems(companies, page, 10)).flat();
+    expect(pageCount).toBe(182);
+    expect(traversed).toHaveLength(1811);
+    expect(traversed).toEqual(companies);
+    expect(paginateItems(companies, 181, 10)).toEqual([1811]);
   });
 
   it("rejects invalid page sizes and totals", () => {
