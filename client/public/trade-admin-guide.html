@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1424">
+<title>Arbitrade · Trade Settings Guide</title>
+<style>
+:root{color-scheme:dark;--bg:#0a1220;--panel:#111e31;--panel2:#15243a;--line:#263852;--ink:#edf4ff;--muted:#a9bad0;--mint:#70e1c0;--blue:#79b8ff;--gold:#f1c878;--purple:#b6a0ff;--red:#ff9a9a;--radius:18px}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:radial-gradient(ellipse at 85% 0%,#19304b 0,transparent 34%),var(--bg);color:var(--ink);font:15px/1.65 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:#9bcaff;text-decoration:none}a:hover{text-decoration:underline}.shell{max-width:1440px;margin:auto;padding:28px 26px 70px}.hero{position:relative;overflow:hidden;border:1px solid #35506b;border-radius:26px;padding:38px;background:linear-gradient(120deg,#142942 0%,#102238 55%,#172b40 100%);box-shadow:0 24px 70px #0005}.hero:after{content:"";position:absolute;width:320px;height:320px;border:1px solid #70e1c033;border-radius:50%;right:-85px;top:-130px;box-shadow:0 0 0 35px #70e1c00c,0 0 0 75px #70e1c008}.eyebrow{color:var(--mint);font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.hero h1{font-size:clamp(30px,5vw,52px);line-height:1.08;max-width:780px;margin:12px 0}.hero p{max-width:800px;color:#c0d0e4;font-size:17px;margin:12px 0 0}.hero-meta{display:flex;flex-wrap:wrap;gap:9px;margin-top:24px}.pill{display:inline-flex;align-items:center;gap:7px;border:1px solid #47627c;background:#ffffff0a;border-radius:999px;padding:6px 11px;color:#d8e7f8;font-size:12px;font-weight:700}.pill svg{width:14px;height:14px}.layout{display:grid;grid-template-columns:265px minmax(0,1fr);gap:24px;margin-top:24px}.sidebar{align-self:start;position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto;border:1px solid var(--line);border-radius:20px;background:#0e1a2b;padding:17px}.sidebar h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#8298b4;margin:4px 0 12px}.sidebar a{display:block;padding:8px 10px;border-radius:9px;color:#b9c9dc;font-size:13px;line-height:1.35}.sidebar a:hover,.sidebar a.active{background:#203650;color:#fff;text-decoration:none}.content{min-width:0}.searchbar{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:11px 15px;margin-bottom:20px}.searchbar svg{width:18px;color:var(--mint);flex:none}.searchbar input{width:100%;border:0;outline:0;background:transparent;color:var(--ink);font:inherit}.section{border:1px solid var(--line);background:linear-gradient(180deg,#122137,#0f1b2d);border-radius:var(--radius);padding:25px;margin:0 0 20px;box-shadow:0 10px 30px #0002}.section h2{font-size:25px;line-height:1.2;margin:0 0 12px}.section h3{font-size:17px;margin:22px 0 8px;color:#e9f3ff}.section p{color:var(--muted);margin:8px 0}.section ul,.section ol{padding-left:21px;color:#c4d2e3}.section li{margin:6px 0}.intro{font-size:16px;color:#c4d2e3!important}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}.card{background:#172941;border:1px solid #2a405d;border-radius:14px;padding:16px}.card h3{margin:0 0 5px;font-size:15px}.card p{font-size:13px;margin:0;color:#aebfd3}.icon{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:#70e1c01a;color:var(--mint);margin-bottom:10px}.icon svg{width:19px;height:19px}.callout{border-left:3px solid var(--mint);background:#70e1c010;border-radius:0 12px 12px 0;padding:13px 15px;margin:15px 0;color:#d5e6f3}.callout.warn{border-color:var(--gold);background:#f1c87810}.callout.stop{border-color:var(--red);background:#ff9a9a10}.tag{display:inline-block;border:1px solid #39516d;border-radius:6px;padding:1px 7px;font-size:11px;color:#b9d8ff;font-weight:750;letter-spacing:.04em}.flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:18px 0}.step{position:relative;text-align:center;padding:15px 10px;background:#172941;border:1px solid #2a405d;border-radius:13px}.step b{display:block;color:var(--mint);font-size:12px;margin-bottom:5px}.step span{display:block;font-size:12px;color:#c5d4e5}.step:not(:last-child):after{content:"→";position:absolute;right:-12px;top:35%;z-index:2;color:var(--mint);font-weight:900}.table-wrap{overflow-x:auto;margin:12px 0}table{width:100%;border-collapse:collapse;min-width:620px;font-size:13px}th,td{text-align:left;vertical-align:top;padding:10px 11px;border-bottom:1px solid #2a3d56}th{color:#8fa9c6;font-size:11px;letter-spacing:.08em;text-transform:uppercase}td{color:#c5d4e5}td strong{color:#f1f6ff}.field-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.field{background:#14253b;border:1px solid #2b405a;border-radius:12px;padding:12px}.field b{display:block;color:#f0f6ff;font-size:13px}.field span{display:block;color:#afc0d4;font-size:12px;margin-top:3px}.field em{display:block;color:#70e1c0;font-style:normal;font-size:11px;margin-top:5px}.details{border:1px solid #2b405a;border-radius:12px;margin:10px 0;background:#13243a}.details summary{cursor:pointer;padding:12px 15px;font-weight:750;color:#e9f3ff}.details>div{padding:0 15px 14px;color:#bdcde0;font-size:13px}.muted{color:var(--muted)}.good{color:var(--mint)}.warntext{color:var(--gold)}.bad{color:var(--red)}.footer{color:#7f94af;text-align:center;font-size:12px;padding:22px}.hide{display:none!important}.small{font-size:12px;color:#91a7c1}.svg-flow{width:100%;max-width:680px;display:block;margin:14px auto}.anchor{scroll-margin-top:20px}
+@media(max-width:950px){.layout{grid-template-columns:1fr}.sidebar{position:relative;top:auto;max-height:none;display:flex;flex-wrap:wrap;gap:4px}.sidebar h2{width:100%}.sidebar a{padding:7px 9px}.flow{grid-template-columns:repeat(2,minmax(0,1fr))}.step:nth-child(2):after{display:none}}
+@media(max-width:620px){.shell{padding:12px 12px 38px}.hero{padding:25px 20px}.section{padding:18px}.grid,.field-list{grid-template-columns:1fr}.flow{grid-template-columns:1fr}.step:after{display:none!important}.section h2{font-size:22px}.hero p{font-size:15px}}
+@media print{body{background:#fff;color:#182437}.hero,.section,.sidebar,.card,.field,.details{background:#fff!important;color:#182437!important;box-shadow:none}.hero p,.section p,.section li,.field span,.card p,.details>div,td{color:#34465c!important}.layout{display:block}.sidebar,.searchbar{display:none}.section{break-inside:avoid;border-color:#ccd5df}.hero{border-color:#ccd5df}.hero h1,.section h2,.section h3{color:#14263b}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="hero">
+  <div class="eyebrow">Arbitrade · Administrator handbook</div>
+  <h1>Trade Settings, made simple.</h1>
+  <p>A plain-language guide to every Trading-related admin screen: what each menu is for, what every important input changes, which buttons save or act, and what customers can see when settings are active.</p>
+  <div class="hero-meta">
+    <span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18"/></svg> Admin guide</span>
+    <span class="pill">Based on the current portal source</span>
+    <span class="pill">Last reviewed: 30 October 2026</span>
+    <span class="pill">Simple HTML · no external libraries</span>
+  </div>
+</header>
+<div class="layout">
+<nav class="sidebar" aria-label="Guide contents">
+<h2>On this page</h2>
+<a href="#start">1. Start here</a>
+<a href="#menu">2. Trade menu map</a>
+<a href="#tiers">3. Packages & eligibility</a>
+<a href="#quotas">4. Daily quotas</a>
+<a href="#opportunity">5. Opportunity engine</a>
+<a href="#policy">6. Tier policy editor</a>
+<a href="#timing">7. Duration & closing</a>
+<a href="#fees">8. Fees & settlement</a>
+<a href="#monitor">9. Delivery & monitoring</a>
+<a href="#worker">10. Worker health</a>
+<a href="#audit">11. Audit history</a>
+<a href="#customer">12. Customer-side display</a>
+<a href="#recommended">13. Safe setup order</a>
+<a href="#glossary">14. Easy glossary</a>
+<a href="#limits">15. Important limits</a>
+</nav>
+<main class="content">
+<div class="searchbar">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
+<input id="guideSearch" type="search" placeholder="Search this guide: quota, duration, badge, fee, retry…" aria-label="Search this guide">
+</div>
+
+<section class="section anchor" id="start">
+<div class="eyebrow">01 · The big picture</div><h2>Start here: what Trading does</h2>
+<p class="intro">Think of Trade Settings as the control room. Administrators set the rules. The server checks the rules and handles the work. Customers see only their own eligibility, opportunities and recorded results.</p>
+<div class="flow">
+<div class="step"><b>1 · ADMIN</b><span>Create and configure tiers and policies</span></div>
+<div class="step"><b>2 · QUALIFY</b><span>Count only approved manual admin credits</span></div>
+<div class="step"><b>3 · SERVER</b><span>Check eligibility, schedule and balance</span></div>
+<div class="step"><b>4 · CUSTOMER</b><span>Show an opportunity and its real status</span></div>
+</div>
+<div class="callout"><strong>The most important rule:</strong> Customers do not choose, buy, activate or switch Trading packages. An authorized administrator configures tiers. The server assigns eligibility automatically when qualifying admin credits reach the saved threshold.</div>
+<h3>Which credit counts?</h3>
+<p>Only a positive credit that an authorized administrator submits through <strong>Admin → Credit Customer</strong>, explicitly marks as a qualifying deposit, and the server records as <code>admin_manual_deposit_credit</code>. Other credits do not count: customer/provider deposits, signup credits, imports, bonuses, rewards, profits, returned principal, transfers, swaps, conversions or ordinary adjustments.</p>
+<p>For a qualifying credit in a non-USD wallet, the server obtains a current supported FX rate at credit time and saves the USD value and rate evidence. If the rate is missing, invalid or stale, qualifying attribution must fail closed rather than guess.</p>
+<div class="callout warn"><strong>Remember:</strong> The “Automatic signup credit” field in Opportunity Engine is not a way to qualify a customer. Signup credit is excluded from Trading tier thresholds.</div>
+</section>
+
+<section class="section anchor" id="menu">
+<div class="eyebrow">02 · Find your way around</div><h2>Trade menu map</h2>
+<p>The current admin navigation separates Trading into these groups. The guide itself is added after the existing Trading history/audit item, following Worker Health in the menu sequence.</p>
+<div class="table-wrap"><table><thead><tr><th>Menu / submenu</th><th>What it is for</th><th>What you do there</th></tr></thead><tbody>
+<tr><td><strong>Set up trades → Trading home</strong></td><td>Quick status overview</td><td>Review recent lifecycle totals, enabled policy rows, open offers, pending settlements and the global allocation gate.</td></tr>
+<tr><td><strong>Set up trades → Customer tiers</strong></td><td>Tier definitions</td><td>Create or edit a tier's name, threshold, duration, daily allowance and effective dates.</td></tr>
+<tr><td><strong>Set up trades → Daily trade allowance</strong></td><td>Tier quotas</td><td>Review and configure daily delivery targets and quota windows.</td></tr>
+<tr><td><strong>Set up trades → How trades finish</strong></td><td>Timing rules</td><td>Set settlement timing, wallet-credit delay, cooldown and popup timing rules.</td></tr>
+<tr><td><strong>Show offers → When offers appear</strong></td><td>Opportunity Engine</td><td>Review delivery activity, set safety values, publish/import opportunities and edit tier policies.</td></tr>
+<tr><td><strong>Show offers → Customer pop-up timing</strong></td><td>Display-only settings</td><td>Adjust expanded and completed-card display times for each tier.</td></tr>
+<tr><td><strong>Show offers → Company names shown</strong></td><td>Company catalogue references</td><td>Configure country-folder filters and repeat handling. This is reference display, not trade proof.</td></tr>
+<tr><td><strong>Finish trades → Returns and fees</strong></td><td>Fee policy</td><td>Review or save the positive-profit fee rate and rounding rule.</td></tr>
+<tr><td><strong>Finish trades → Try failed trades again</strong></td><td>Technical retry settings</td><td>Set per-tier attempt limits and retry delay. Carry-forward is not currently available.</td></tr>
+<tr><td><strong>Finish trades → Check finished trades</strong></td><td>Settlement and ledger review</td><td>Inspect pending settlement, verify evidence, confirm actual results and review wallet/ledger differences.</td></tr>
+<tr><td><strong>Watch problems → Open and waiting work</strong></td><td>Delivery lifecycle</td><td>Review delivered, opened, dismissed, traded, settled and insufficient-balance counts.</td></tr>
+<tr><td><strong>Watch problems → Pause new trades</strong></td><td>Global safety switch</td><td>Pause or resume new allocations with an audit reason.</td></tr>
+<tr><td><strong>Watch problems → Worker health</strong></td><td>Background service monitor</td><td>Check persisted worker heartbeats and the tier-qualification job queue; retry a dead-lettered qualification job with a reason.</td></tr>
+<tr><td><strong>History → Who changed what</strong></td><td>Audit log</td><td>Review administrator changes and the reasons recorded for them.</td></tr>
+<tr><td><strong>History → Trade Settings Guide</strong></td><td>This handbook</td><td>Read explanations without changing Trading data.</td></tr>
+</tbody></table></div>
+<div class="callout warn">Some canonical Trading topics are not separate menu pages in the current UI. Capital limits, delivery cadence, retry limits, badge options and company rotation are grouped inside the Opportunity Engine's tier policy editor. There is no separate customer package activation page.</div>
+</section>
+
+<section class="section anchor" id="tiers">
+<div class="eyebrow">03 · Packages & eligibility</div><h2>Customer tiers: every input</h2>
+<p>This screen defines the milestones used by the automatic qualification system. A new tier is created disabled. It does not immediately become available to customers.</p>
+<div class="field-list">
+<div class="field"><b>Tier name</b><span>The name administrators and the eligible customer may see, such as Starter or Growth. Use a clear unique name.</span></div>
+<div class="field"><b>Qualifying deposit threshold (USD)</b><span>The cumulative qualifying admin-credit amount needed for this tier. The server compares saved USD-minor attribution, not a customer's ordinary wallet balance.</span></div>
+<div class="field"><b>Duration (calendar months)</b><span>How long the entitlement lasts after assignment. This is package duration—not the duration of an individual trade or popup.</span></div>
+<div class="field"><b>Daily opportunity quota</b><span>How many additional opportunities this tier contributes each day while its entitlement is active.</span></div>
+<div class="field"><b>Starts at</b><span>Optional local date/time when the tier becomes eligible. Blank means immediately, subject to the saved enabled state.</span></div>
+<div class="field"><b>Expires at</b><span>Optional end date/time for the tier configuration. Blank means no configured end date.</span></div>
+<div class="field"><b>Enabled</b><span>Controls whether the tier can participate in future automatic eligibility. A tier must also have a valid saved delivery policy.</span></div>
+<div class="field"><b>Reason for creating/changing this tier</b><span>Audit explanation. Enter a clear reason so the change can be reviewed later.</span><em>Required when creating or editing</em></div>
+</div>
+<h3>Buttons</h3>
+<ul>
+<li><strong>Create tier:</strong> saves a new tier in the disabled state. It does not manually assign it to a customer.</li>
+<li><strong>Save tier configuration:</strong> saves the edited tier terms. Future automatic assignments use the new terms; existing entitlement snapshots keep their saved terms.</li>
+<li><strong>Refresh / Retry loading:</strong> reloads the tier list if it is stale or failed to load.</li>
+</ul>
+<div class="callout">The customer is not given a package picker. The server assigns a tier when qualifying credits meet its threshold. When multiple active tiers apply, their daily opportunity contributions are cumulative, subject to the configured overall limits.</div>
+</section>
+
+<section class="section anchor" id="quotas">
+<div class="eyebrow">04 · How many opportunities</div><h2>Daily allowance and quota controls</h2>
+<p>Quota means the number of eligible opportunity deliveries a customer may receive in the chosen time window. It is not a promise that an opportunity will exist, nor does it force a trade to happen.</p>
+<div class="field-list">
+<div class="field"><b>Daily popup target</b><span>Target number of popups for the tier. The actual delivered count is still constrained by eligibility, available work and safety caps.</span></div>
+<div class="field"><b>Scheduling window</b><span><strong>Rolling 24 hours</strong> measures the previous 24-hour period. <strong>Calendar day</strong> resets on the calendar boundary used by the server.</span></div>
+<div class="field"><b>Maximum pop-ups per day</b><span>Upper daily cap for this tier. It should not be set above the intended quota.</span></div>
+<div class="field"><b>Maximum visible offers</b><span>Limits how many offers can be shown at once. It controls screen density, not how many entitlements a customer has.</span></div>
+<div class="field"><b>Maximum pending deliveries</b><span>Limits the number of waiting deliveries. Extra work should remain governed by server policy rather than being silently discarded.</span></div>
+<div class="field"><b>Minimum / maximum delivery interval</b><span>Smallest and largest spacing between scheduled deliveries, in seconds. The minimum must not exceed the maximum.</span></div>
+</div>
+<div class="callout warn">Do not set an extremely high quota just because the input accepts a number. Choose a quota that the worker, settlement process and support team can safely handle.</div>
+</section>
+
+<section class="section anchor" id="opportunity">
+<div class="eyebrow">05 · Opportunity engine</div><h2>When offers appear</h2>
+<p>This is the main workspace for offer delivery and the per-tier policy editor. It contains operational metrics, a small safety-settings area, a manual opportunity form, CSV import and the full tier policy editor.</p>
+<h3>Delivery accuracy & retention</h3>
+<ul>
+<li><strong>Delivered:</strong> how many opportunity delivery events were recorded in the rolling 24-hour window.</li>
+<li><strong>Noticed / opened:</strong> customer interface acknowledgements that an offer was noticed or opened.</li>
+<li><strong>Zero-balance:</strong> events recorded with insufficient balance at the opportunity check.</li>
+<li><strong>Settled:</strong> opportunities whose settlement event was recorded.</li>
+<li><strong>Run 24-hour cleanup:</strong> runs the retention cleanup action. Detailed lifecycle rows are aggregated/retained according to the current retention implementation; this is not a way to settle trades.</li>
+</ul>
+<h3>Delivery safety controls</h3>
+<div class="field-list">
+<div class="field"><b>Default submission countdown (seconds)</b><span>Legacy/global countdown value shown in this safety panel. It is not the authoritative close time of a saved trade.</span></div>
+<div class="field"><b>Automatic signup credit in minor units</b><span>Signup promotional credit amount in the smallest currency unit. For a two-decimal currency, 1000 means 10.00. Signup credit does not qualify a customer for a Trading tier.</span></div>
+<div class="field"><b>Credit currency</b><span>Currency used for the signup credit control. It does not change the qualifying-credit rule.</span></div>
+<div class="field"><b>Save safety settings</b><span>Saves the safety-panel values through the current admin settings mutation.</span></div>
+</div>
+<h3>Manual opportunity form</h3>
+<div class="field-list">
+<div class="field"><b>Asset or symbol</b><span>The reference symbol/name associated with the opportunity, such as a supplied code.</span></div>
+<div class="field"><b>Opening venue</b><span>Text describing the opening-side venue/reference.</span></div>
+<div class="field"><b>Closing venue</b><span>Text describing the closing-side venue/reference.</span></div>
+<div class="field"><b>Currency</b><span>Currency in which the minimum amount is expressed. The current form offers USD, EUR, GBP, BTC and ETH.</span></div>
+<div class="field"><b>Minimum native units</b><span>Minimum amount in the selected currency's native minor-unit precision. Check the currency scale carefully.</span></div>
+<div class="field"><b>Reward basis points</b><span>Rate stored as basis points. For example, 85 basis points equals 0.85%. This field is a configured offer term, not evidence of a market result.</span></div>
+<div class="field"><b>Duration seconds</b><span>Configured duration attached to the opportunity. The server's persisted timestamps and lifecycle rules remain authoritative.</span></div>
+</div>
+<h3>Buttons and import</h3>
+<ul>
+<li><strong>Publish to database:</strong> submits the manual opportunity form. Use only with reviewed, valid terms and the approved internal workflow.</li>
+<li><strong>Choose CSV file:</strong> imports a CSV with columns <code>symbol, venueFrom, venueTo, currency, minimumMinor, expectedRewardBps, durationSeconds</code>. The current import accepts valid rows in one batch (up to 5,000 rows).</li>
+<li><strong>Open database opportunities:</strong> read-only list of open records; the page shows up to the first 100.</li>
+</ul>
+<div class="callout stop"><strong>Financial safety:</strong> A published opportunity, a countdown, a company logo or a configured reward estimate is not proof of external-market execution or realized profit. Actual results must be supported by auditable evidence and settlement records. Do not treat the manual form or CSV as permission to invent a result.</div>
+</section>
+
+<section class="section anchor" id="policy">
+<div class="eyebrow">06 · The most detailed editor</div><h2>Tier delivery, timing and safety policy</h2>
+<p>The policy editor shows a separate saved row for each tier. Changes are validated by the server, audited and versioned. The policy must be valid before automatic delivery/trading can be enabled.</p>
+<div class="callout warn"><strong>Before enabling:</strong> save both a minimum and maximum configured return rate, and both a minimum and maximum trade duration. The two bounds in each pair must be present and valid. A newly created tier starts disabled.</div>
+<h3>Policy and automation switches</h3>
+<div class="field-list">
+<div class="field"><b>Policy enabled</b><span>Enables this saved delivery-policy row. This is separate from the tier's own Enabled switch.</span></div>
+<div class="field"><b>Automatic pop-up delivery</b><span>Allows eligible opportunities to be delivered to customers under the saved policy.</span></div>
+<div class="field"><b>Automatic trade execution</b><span>Allows the server-owned automatic trade workflow when all eligibility, balance, policy and safety checks pass.</span></div>
+</div>
+<h3>Daily delivery</h3>
+<div class="field-list">
+<div class="field"><b>Maximum pop-ups per day</b><span>Per-tier hard cap for daily pop-up deliveries.</span></div>
+<div class="field"><b>Maximum visible offers</b><span>Maximum offers visible at the same time.</span></div>
+<div class="field"><b>Daily delivery target</b><span>Target count used by the delivery policy.</span></div>
+<div class="field"><b>Daily quota window</b><span>Rolling 24 hours or calendar day (UTC). Pick the one that matches your reporting/reset expectations.</span></div>
+</div>
+<h3>Capital bounds</h3>
+<div class="field-list">
+<div class="field"><b>Minimum required capital (USD units)</b><span>Lowest configured capital amount. This legacy field uses whole USD units.</span></div>
+<div class="field"><b>Maximum required capital (USD units)</b><span>Highest configured capital amount. It must be at least the minimum.</span></div>
+</div>
+<h3>Delivery cadence and display</h3>
+<div class="field-list">
+<div class="field"><b>Minimum / maximum interval (seconds)</b><span>Lower and upper spacing between deliveries. The lower bound must not exceed the upper bound.</span></div>
+<div class="field"><b>Expanded pop-up display duration</b><span>How long the expanded presentation stays visible. It must not cancel an active trade.</span></div>
+<div class="field"><b>Completed card display duration</b><span>How long a completed result card remains visible.</span></div>
+<div class="field"><b>Interval after completion</b><span>Extra waiting time after completion before another delivery is considered.</span></div>
+<div class="field"><b>Maximum pending deliveries</b><span>Upper limit for pending delivery records in this tier's policy.</span></div>
+</div>
+<h3>Trade retry and concurrency limits</h3>
+<div class="field-list">
+<div class="field"><b>Maximum delivery attempts</b><span>How many attempts the delivery process may make before it stops retrying.</span></div>
+<div class="field"><b>Maximum trade attempts per day</b><span>Daily cap on automatic trade attempts.</span></div>
+<div class="field"><b>Trade retry delay (seconds)</b><span>Wait between eligible technical retry attempts. Current input accepts 5–3,600 seconds.</span></div>
+<div class="field"><b>Maximum successful trades per day</b><span>Daily cap on successful trades for the tier.</span></div>
+<div class="field"><b>Maximum concurrent active trades</b><span>How many active trades may overlap under the policy.</span></div>
+<div class="field"><b>Require previous trade settlement</b><span>If Yes, wait for the previous trade to settle before allowing another one. If No, use the configured concurrency cap.</span></div>
+<div class="field"><b>Minimum / maximum settlement delay</b><span>Lower and upper settlement timing bounds, in seconds.</span></div>
+</div>
+<h3>Package badge</h3>
+<div class="field-list">
+<div class="field"><b>Badge label</b><span>Short text shown as a small badge on customer opportunity cards. Leave blank for no badge. Existing delivered cards keep their snapshot.</span></div>
+<div class="field"><b>Badge style</b><span>One of Neutral, Blue, Purple, Gold or Green. This changes appearance only.</span></div>
+</div>
+<h3>Configured return and trade duration</h3>
+<div class="field-list">
+<div class="field"><b>Minimum configured return rate (%)</b><span>Lower allowed configured rate. The UI stores it as integer basis points: 2.70% becomes 270 bps.</span></div>
+<div class="field"><b>Maximum configured return rate (%)</b><span>Upper allowed configured rate. Must be set with the minimum and must be greater than or equal to it.</span></div>
+<div class="field"><b>Minimum / maximum trade duration (seconds)</b><span>Allowed duration range. Both values are required together; the server records the selected duration and due time.</span></div>
+</div>
+<h3>Company spotlight rotation</h3>
+<div class="field-list">
+<div class="field"><b>Enable company spotlight rotation</b><span>Shows catalogue reference information with the opportunity. It does not create a trade or verify a listing.</span></div>
+<div class="field"><b>Repeat policy</b><span><strong>Avoid repeats until the pool is traversed</strong> is the no-repeat preference. <strong>Allow repeats</strong> permits reuse sooner.</span></div>
+<div class="field"><b>Country-folder filters</b><span>Comma-separated exact catalogue folder labels. Blank includes the full catalogue. Folder labels are not proof of headquarters or exchange listing.</span></div>
+</div>
+<h3>Reward policy limits</h3>
+<div class="field-list">
+<div class="field"><b>Minimum eligible reward rate (basis points)</b><span>A minimum eligibility constraint; it is not a randomly generated or guaranteed result.</span></div>
+<div class="field"><b>Maximum daily reward cap (currency minor units)</b><span>Upper daily cap in the currency's smallest unit. For two-decimal currencies, 100 means 1.00.</span></div>
+<div class="field"><b>Maximum reward per trade (currency minor units)</b><span>Upper reward cap for one trade, also in minor units.</span></div>
+<div class="field"><b>Card close policy</b><span>After completion or after final status display. Pending, retrying and awaiting-settlement items must remain accessible.</span></div>
+</div>
+<h3>Save button and audit reason</h3>
+<p><strong>Reason for changing Trading tier policies</strong> must contain 5–500 characters. It explains why the settings changed. <strong>Save delivery and retry policy</strong> submits the policy rows. If the reason is too short or a row is invalid, the page blocks the save and tells the administrator what to correct. A successful save is audited and versioned; refresh the page to confirm the saved values.</p>
+</section>
+
+<section class="section anchor" id="timing">
+<div class="eyebrow">07 · Timing rules</div><h2>Trade Duration & Closing Rules</h2>
+<p>This page is in <strong>Set up trades → How trades finish</strong>. It has internal tabs for Ticket, Email, Trade and Password/Security; choose the Trade tab. The focused submenu opens the trade timing area directly.</p>
+<div class="field-list">
+<div class="field"><b>Settlement time (minutes)</b><span>Configured settlement delay value used by the timing policy.</span></div>
+<div class="field"><b>Wallet credit delay after trade completion (seconds)</b><span>Separates completion/settlement from when a wallet credit is posted.</span></div>
+<div class="field"><b>Cooldown before next automatic trade (seconds)</b><span>Wait after wallet credit before another automatic allocation may be allowed.</span></div>
+<div class="field"><b>Formula delay before next popup (seconds)</b><span>Server-side delay before another opportunity calculation/delivery can happen.</span></div>
+<div class="field"><b>Popup cooldown (seconds)</b><span>Minimum spacing between customer popup notifications.</span></div>
+<div class="field"><b>Popup display duration (seconds)</b><span>Presentation timing only. It must not cancel a trade or decide settlement.</span></div>
+<div class="field"><b>Pre-alert duration (seconds)</b><span>How long a pre-alert/preview is shown before it is withdrawn or replaced.</span></div>
+<div class="field"><b>Popup timing jitter (seconds)</b><span>Timing variation around the configured schedule. It does not change a saved trade deadline.</span></div>
+<div class="field"><b>Popup hourly cap</b><span>Maximum popup count within an hour under this timing policy.</span></div>
+<div class="field"><b>Market refresh interval (minutes)</b><span>How often the market/reference data refresh process is scheduled. It is not an execution result.</span></div>
+<div class="field"><b>Block opportunities until all trades settle</b><span>When enabled, new opportunities are held until the required prior trades are settled.</span></div>
+</div>
+<p><strong>Save timing policy / Save settings</strong> persists the selected timing values. A successful save message means the settings request succeeded; check the page again if you need to verify the saved values.</p>
+<div class="callout stop"><strong>Time is not settlement.</strong> The browser countdown is only a display of a server-recorded deadline. Reaching zero does not prove a trade completed, and it must not by itself credit a wallet.</div>
+</section>
+
+<section class="section anchor" id="fees">
+<div class="eyebrow">08 · Financial review</div><h2>Returns, fees and settlement</h2>
+<h3>Realized-profit fee policy</h3>
+<div class="field-list">
+<div class="field"><b>Fee rate (%)</b><span>Platform fee percentage. The default policy is 15% of confirmed positive gross profit only—not 15% of principal.</span></div>
+<div class="field"><b>Fee rounding</b><span>How fractional minor units are rounded: Half up, Down, Up or Half even.</span></div>
+<div class="field"><b>Save fee policy</b><span>Saves an audited, versioned fee policy. Each settlement retains the fee rate, rounding rule and policy version used.</span></div>
+</div>
+<h3>Manual settlement queue</h3>
+<p>The queue shows trades awaiting administrator confirmation. Review the customer/trade ID, due status, evidence health, principal, and reserved reward. A reserved reward is an estimate—not an actual result.</p>
+<div class="field-list">
+<div class="field"><b>Actual gross profit/loss (minor units)</b><span>Enter the independently verified actual result in the currency's smallest unit. A negative value represents a loss.</span></div>
+<div class="field"><b>Settlement evidence reference</b><span>Required reference to the evidence supporting the actual result. Do not invent a reference.</span></div>
+<div class="field"><b>Confirm actual result</b><span>Submits the result for server-side due-time/evidence checks and atomic ledger settlement. If it is early or invalid, the server rejects it.</span></div>
+</div>
+<h3>Wallet reconciliation</h3>
+<p>The read-only reconciliation compares available wallet balances with signed ledger entries and flags differences. It is for investigation; it does not let an administrator edit ledger history.</p>
+<div class="callout warn">Never settle a trade because the countdown reached zero. Verify the underlying evidence and confirm only the actual gross result. Principal, gross result, fee, net result and total credit are separate amounts.</div>
+</section>
+
+<section class="section anchor" id="monitor">
+<div class="eyebrow">09 · Delivery and pause controls</div><h2>Open work, delivery monitoring and global pause</h2>
+<h3>Open and waiting work</h3>
+<p>The delivery monitor reports lifecycle events over a rolling 24-hour window: <strong>Delivered, Noticed, Opened, Dismissed, Withdrawn, Traded, Settled</strong> and <strong>Insufficient balance</strong>. Retained daily delivery history is shown for up to 30 days where available. Use <strong>Refresh</strong> to reload the current report.</p>
+<p>A zero count is a recorded zero for that window; it does not automatically mean the worker failed. Compare the event stages and check Worker Health separately.</p>
+<h3>Pause new trades</h3>
+<p>This is the global safety control for new allocations. It does not cancel, erase, or settle existing trades. Settlement and reconciliation must remain available while new allocations are paused.</p>
+<div class="field-list">
+<div class="field"><b>Current status</b><span>Shows whether new allocations are ACTIVE or PAUSED, plus the last update and administrator ID.</span></div>
+<div class="field"><b>Administrator reason / audit note</b><span>Explain why you are pausing or resuming. Pausing requires a reason.</span><em>Required for pause/resume audit</em></div>
+<div class="field"><b>Pause new allocations</b><span>Stops new trade reservations and allocations across customers.</span></div>
+<div class="field"><b>Resume new allocations</b><span>Reopens new allocations after the issue is investigated and it is safe to continue.</span></div>
+</div>
+<p>If the status cannot load, the control is unavailable. Do not assume that an unavailable status means allocations are active or paused.</p>
+</section>
+
+<section class="section anchor" id="worker">
+<div class="eyebrow">10 · Background services</div><h2>Worker health & recovery</h2>
+<p>A worker is a server-side helper that performs scheduled tasks. It should keep working even when a customer closes a browser. This page refreshes automatically every 15 seconds and also has a <strong>Refresh</strong> button.</p>
+<div class="field-list">
+<div class="field"><b>Worker records</b><span>Number of persisted worker records/instances reported by the server.</span></div>
+<div class="field"><b>Healthy workers</b><span>Workers whose latest recorded cycle completed successfully.</span></div>
+<div class="field"><b>Needs attention</b><span>Workers marked degraded, stale or not started.</span></div>
+<div class="field"><b>Dead-lettered qualification jobs</b><span>Tier-qualification jobs that exhausted normal retries and need operator review.</span></div>
+</div>
+<h3>Worker table columns</h3>
+<p><strong>Worker</strong> and description; <strong>Status</strong>; <strong>Instance</strong>; <strong>Last heartbeat</strong>; <strong>Last success</strong>; <strong>Failures</strong>; <strong>Last cycle</strong> duration; and <strong>Last error</strong>.</p>
+<h3>Tier assignment job queue</h3>
+<p>Shows Pending, Processing, Completed and Dead-lettered counts. The queue is durable: it records work for automatic tier qualification. A missing queue or migration is shown as unavailable, not as zero.</p>
+<h3>Retry job</h3>
+<p>For a dead-lettered qualification job, enter a recovery reason of 8–500 characters and press <strong>Retry job</strong>. The server locks the job, checks its original qualifying ledger event and records the retry in the audit stream. This does not edit a wallet balance, directly grant a tier or force trade settlement.</p>
+<div class="callout warn">Worker Health is not a substitute for checking delivery records, pending settlement or the ledger. Check all of those screens when diagnosing a customer report.</div>
+</section>
+
+<section class="section anchor" id="audit">
+<div class="eyebrow">11 · History</div><h2>Who changed what</h2>
+<p>The Audit Log is the history book for administrator actions. Use it to answer: who changed a setting, when it changed, what record it affected and what reason was entered. Policy editors also maintain their own policy versions and before/after audit information where implemented.</p>
+<p>Use the audit history after changing tier terms, delivery settings, fee policy, global allocation pause or worker recovery. A screen message is useful feedback, but the persisted audit record and a fresh read are the proper confirmation.</p>
+</section>
+
+<section class="section anchor" id="customer">
+<div class="eyebrow">12 · What customers see</div><h2>How enabled settings appear in the customer portal</h2>
+<p>Customer screens show the customer's own saved eligibility and opportunity records. They do not show the full admin tier catalogue or controls to select, buy or activate a package.</p>
+<h3>A. Trading Journey / Package progress</h3>
+<ul>
+<li>If a tier is active, the customer sees the current package name, an “Automatically assigned” label, package duration and opportunities per day.</li>
+<li>The next milestone card shows the next package name, qualifying-credit progress, the additional USD-equivalent amount needed, next duration and extra daily opportunities.</li>
+<li>If no tier is active, the customer sees “No Package Assigned” and the first available qualifying milestone.</li>
+<li>The total daily opportunity allowance is shown as a combined total across active packages.</li>
+<li>The customer can press <strong>Refresh</strong> to reload progress. Refresh does not create or activate a tier.</li>
+</ul>
+<h3>B. Trading Opportunities list</h3>
+<p>When an eligible opportunity is available, the customer may see its company/reference name and logo, supplied symbol or code, venue/reference details, catalogue Logo ID, country-folder metadata and listing-status notes. Required capital, available balance, any shortfall, configured rate and configured duration are displayed when those values exist.</p>
+<p>Country-folder and ticker details are reference information. The customer display explicitly warns that listing verification is not implied. A logo or company name is not proof that a market trade occurred.</p>
+<h3>C. Insufficient balance</h3>
+<p>If the available balance is below the required capital, the customer can see a missed opportunity with required amount, available amount at the time, shortfall and reason. It is marked <strong>Missed — insufficient balance</strong>. No capital is debited, no trade is allocated and no profit is credited.</p>
+<h3>D. Automatic opportunity popup</h3>
+<ul>
+<li>Shows the configured package badge when present, company reference/logo when present, symbol, opportunity reference, minimum capital, configured return rate and trade duration.</li>
+<li>When an automatic trade record exists, the popup shows lifecycle progress and whether settlement/reward credit/wallet update is pending or complete.</li>
+<li>For a non-automatic review card, the current code path provides <strong>Review details</strong> and <strong>Dismiss notification</strong>. Dismissing the notification is not settlement and does not itself change wallet accounting.</li>
+</ul>
+<h3>E. Recorded trade history</h3>
+<ul>
+<li>Before settlement, expected reward is labelled as an estimate.</li>
+<li>After a supported settlement is recorded, the customer sees committed principal, realized gross result, platform fee and net result as separate values.</li>
+<li>Trade status and recorded timestamps are shown when available. Missing data must remain pending/unavailable rather than being invented.</li>
+</ul>
+<div class="callout warn"><strong>Important UI gap:</strong> The canonical Trading specification describes a Minimize/Maximize dock for customer popups. The current popup component inspected for this guide does not expose Minimize/Maximize buttons in that code path. Do not assume a display timeout or an admin setting creates a dock that is not currently rendered.</div>
+</section>
+
+<section class="section anchor" id="recommended">
+<div class="eyebrow">13 · A sensible setup order</div><h2>How to choose settings safely</h2>
+<p>There is no single magic number that is best for every business. Start with small, controlled settings, confirm that the records and customer screens behave correctly, and only then increase capacity.</p>
+<ol>
+<li><strong>Build the tiers first.</strong> Give each tier a clear name, threshold, duration and daily opportunity contribution. Keep new tiers disabled while you review them.</li>
+<li><strong>Check qualifying-credit rules.</strong> Make sure administrators understand that only the explicitly qualifying Credit Customer flow counts. Do not use signup credit or ordinary deposits to reach thresholds.</li>
+<li><strong>Start with a modest daily quota.</strong> Keep the daily target and maximum pop-ups aligned. Choose a rolling 24-hour or UTC calendar-day window deliberately.</li>
+<li><strong>Keep delivery intervals sensible.</strong> The minimum interval must be no greater than the maximum. Avoid bursts and high concurrency until the complete lifecycle has been tested.</li>
+<li><strong>Set capital limits that customers can actually meet.</strong> Keep the minimum and maximum coherent. Remember that the current tier policy editor expresses these capital bounds in whole USD units.</li>
+<li><strong>Set complete rate and duration bounds.</strong> Both ends of each range must be present. Keep configured rates and durations within the approved terms and system limits.</li>
+<li><strong>Make customer display clear.</strong> Use a short badge label and a matching built-in style. Keep popup display time separate from package duration and trade duration.</li>
+<li><strong>Set conservative retry limits.</strong> Allow only bounded technical retries with a clear delay. Carry-forward is not currently available in the menu.</li>
+<li><strong>Check settlement and fee rules.</strong> Confirm the fee basis and rounding method. Require evidence before confirming actual settlement.</li>
+<li><strong>Test the global pause.</strong> Confirm that pausing blocks new allocations but does not stop existing settlement or reconciliation.</li>
+<li><strong>Check Worker Health and delivery reports.</strong> Make sure the server records heartbeats and successful cycles. Investigate stale, degraded or dead-lettered items before enabling more volume.</li>
+<li><strong>Save every change with a clear reason.</strong> Reopen the screen, verify the values persisted, and inspect the audit record.</li>
+</ol>
+<div class="callout">A good starting posture is <strong>disabled until configured, low volume, low concurrency, bounded retries, complete audit reasons, and evidence-based settlement</strong>. Raise limits only after real tests demonstrate the system can safely support them.</div>
+</section>
+
+<section class="section anchor" id="glossary">
+<div class="eyebrow">14 · Simple words</div><h2>Easy glossary</h2>
+<div class="field-list">
+<div class="field"><b>Tier / package</b><span>A level of eligibility automatically assigned when the customer's qualifying admin credits meet its threshold.</span></div>
+<div class="field"><b>Qualifying credit</b><span>A specially classified admin wallet credit that counts toward the tier threshold.</span></div>
+<div class="field"><b>Quota</b><span>The allowed number of opportunities in a time window.</span></div>
+<div class="field"><b>Opportunity</b><span>A saved offer/record that may be presented to an eligible customer.</span></div>
+<div class="field"><b>Capital</b><span>The amount required or reserved for an eligible allocation.</span></div>
+<div class="field"><b>Basis point (bps)</b><span>A small rate unit. 100 bps = 1%; 270 bps = 2.70%.</span></div>
+<div class="field"><b>Minor units</b><span>The smallest currency unit. For a two-decimal currency, 100 minor units = 1.00.</span></div>
+<div class="field"><b>Settlement</b><span>The recorded final accounting of the trade result and related wallet entries.</span></div>
+<div class="field"><b>Retry</b><span>A controlled second attempt after a technical problem. It must not duplicate a debit or credit.</span></div>
+<div class="field"><b>Dead-lettered job</b><span>A job that used its normal attempts and now needs an administrator to review it.</span></div>
+<div class="field"><b>Policy version</b><span>A numbered saved version of the rules used by the server.</span></div>
+<div class="field"><b>Audit reason</b><span>A short explanation recorded with an administrator change.</span></div>
+</div>
+</section>
+
+<section class="section anchor" id="limits">
+<div class="eyebrow">15 · Read before using</div><h2>What this guide does—and does not—promise</h2>
+<ul>
+<li>This guide explains the current UI and the canonical Trading rules. It does not turn an unimplemented feature into an available button.</li>
+<li>The current menu does not expose a separate carry-forward editor or a separate Trade Notifications page.</li>
+<li>The current company rotation controls are informational catalogue presentation. They do not prove a listing, quote, external order or market execution.</li>
+<li>Configured return-rate bounds are saved offer terms. They are not proof of earned market profit or a guarantee of outcome.</li>
+<li>The fee editor and manual settlement queue are separate from the customer-facing countdown. Time passing does not settle a trade.</li>
+<li>Passing code checks does not prove the live server has been deployed or that a production database has been updated.</li>
+<li>When a value or monitor cannot be loaded, treat it as unavailable. Never assume a missing value is zero or healthy.</li>
+</ul>
+<div class="callout stop"><strong>Golden rule:</strong> Never invent a trade result, evidence reference, timestamp, FX rate or wallet credit. If the system cannot verify it, leave it pending and investigate.</div>
+</section>
+<div class="footer">Arbitrade Trade Settings Guide · Built into the admin portal · Read-only help page</div>
+</main>
+</div>
+</div>
+<script>
+(function(){
+ const input=document.getElementById("guideSearch");
+ const sections=Array.from(document.querySelectorAll("main .section"));
+ const links=Array.from(document.querySelectorAll(".sidebar a"));
+ input.addEventListener("input",function(){
+   const q=input.value.trim().toLowerCase();
+   sections.forEach(function(section){
+     section.classList.toggle("hide",Boolean(q)&&!section.innerText.toLowerCase().includes(q));
+   });
+ });
+ const observer=new IntersectionObserver(function(entries){
+   entries.forEach(function(entry){
+     if(entry.isIntersecting){
+       links.forEach(function(link){link.classList.toggle("active",link.getAttribute("href")==="#"+entry.target.id)});
+     }
+   });
+ },{rootMargin:"-15% 0px -70% 0px"});
+ sections.forEach(function(section){observer.observe(section)});
+})();
+</script>
+</body>
+</html>
