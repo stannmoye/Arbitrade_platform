@@ -34,9 +34,14 @@ describe("Trade experience visual system", () => {
 
   it("gives every administrator menu a distinct parent accent and keeps expanded submenus fully sized", () => {
     expect(appSource).toContain("admin-nav-group--${group.id}");
-    expect(portalStylesheet).toContain(".admin-nav-group--governance-reports");
-    expect(portalStylesheet).toContain(".admin-nav-group--trade-setup");
-    expect(portalStylesheet).toContain(".admin-nav-group--customers");
+    const menuIds = [
+      "overview", "customers", "finance", "trade-setup", "trade-offers", "trade-results",
+      "trade-monitoring", "trade-history", "verification-risk", "communications",
+      "platform-configuration", "integrations", "governance-reports",
+    ];
+    for (const id of menuIds) {
+      expect(portalStylesheet).toContain(`.admin-nav-group--${id}`);
+    }
     expect(portalStylesheet).not.toContain(".admin-nav-group:nth-child(");
     expect(portalStylesheet).toContain("--nav-accent-text");
     expect(portalStylesheet).toContain("var(--arb-color-surface-raised");
