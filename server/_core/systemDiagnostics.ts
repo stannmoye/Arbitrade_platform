@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { sql } from "drizzle-orm";
 import { getDb } from "../db";
@@ -25,6 +25,123 @@ async function readSourceFile(path: string): Promise<string | null> {
     return null;
   }
 }
+
+export type CodeReviewMarker = { path: string; line: number; marker: string };
+
+export function findCodeReviewMarkers(path: string, source: string): CodeReviewMarker[] {
+  const markers: CodeReviewMarker[] = [];
+  const pattern = /\\b(TODO|FIXME|XXX|HACK)\\b|NotImplementedError|not implemented/gi;
+  source.split(/\\r?\\n/).forEach((line, index) => {
+    for (const match of line.matchAll(pattern)) {
+      markers.push({ path, line: index + 1, marker: String(match[0]).toUpperCase().replace(/\\s+/g, "_") });
+    }
+  });
+  return markers;
+}
+
+const SOURCE_SCAN_ROOTS = ["client/src", "server", "shared", "drizzle", "scripts", "installer"] as const;
+const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".sql"]);
+const SOURCE_SCAN_MAX_FILES = 6_000;
+const SOURCE_SCAN_MAX_BYTES = 50 * 1024 * 1024;
+const SOURCE_REVIEW_MAX_BYTES = 20 * 1024 * 1024;
+const SOURCE_REVIEW_MAX_FILE_BYTES = 512 * 1024;
+const SOURCE_REVIEW_MAX_MARKERS = 250;
+
+async function collectSourceInventory() {
+  const files: Array<{ path: string; area: string; bytes: number; testFile: boolean }> = [];
+  const reviewMarkers: CodeReviewMarker[] = [];
+  const scanIssues: string[] = [];
+  const areaCounts: Record<string, { files: number; tests: number; bytes: number }> = {};
+  let totalBytes = 0;
+  let reviewBytes = 0;
+  let reviewScanComplete = true;
+  let truncated = false;
+
+  async function walk(directory: string, area: string, depth: number): Promise<void> {
+    if (depth > 10 || truncated) return;
+    let entries;
+    try {
+      entries = await readdir(resolve(process.cwd(), directory), { withFileTypes: true });
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "READ_FAILED";
+      scanIssues.push(`${directory}: ${code}`);
+      return;
+    }
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+    for (const entry of entries) {
+      if (entry.isSymbolicLink()) continue;
+      if (entry.isDirectory()) {
+        if (["node_modules", ".git", "dist", "coverage", ".cache", "build", "vendor"].includes(entry.name)) continue;
+        await walk(`${directory}/${entry.name}`, area, depth + 1);
+        if (truncated) return;
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      const extension = entry.name.includes(".") ? entry.name.slice(entry.name.lastIndexOf(".")).toLowerCase() : "";
+      if (!SOURCE_EXTENSIONS.has(extension)) continue;
+      const relativePath = `${directory}/${entry.name}`;
+      let bytes = 0;
+      try {
+        bytes = (await stat(resolve(process.cwd(), relativePath))).size;
+      } catch {
+        scanIssues.push(`${relativePath}: STAT_FAILED`);
+        continue;
+      }
+      if (files.length >= SOURCE_SCAN_MAX_FILES || totalBytes + bytes > SOURCE_SCAN_MAX_BYTES) {
+        truncated = true;
+        return;
+      }
+      const testFile = /(^|\\.)(test|spec)\\./i.test(entry.name) || relativePath.includes("/__tests__/");
+      files.push({ path: relativePath, area, bytes, testFile });
+      totalBytes += bytes;
+      const counts = areaCounts[area] ?? (areaCounts[area] = { files: 0, tests: 0, bytes: 0 });
+      counts.files += 1;
+      if (testFile) counts.tests += 1;
+      counts.bytes += bytes;
+
+      if (bytes > SOURCE_REVIEW_MAX_FILE_BYTES || reviewBytes + bytes > SOURCE_REVIEW_MAX_BYTES) {
+        reviewScanComplete = false;
+        continue;
+      }
+      try {
+        const source = await readFile(resolve(process.cwd(), relativePath), "utf8");
+        reviewBytes += bytes;
+        if (reviewMarkers.length < SOURCE_REVIEW_MAX_MARKERS) {
+          reviewMarkers.push(...findCodeReviewMarkers(relativePath, source).slice(0, SOURCE_REVIEW_MAX_MARKERS - reviewMarkers.length));
+        }
+      } catch {
+        reviewScanComplete = false;
+      }
+    }
+  }
+
+  for (const area of SOURCE_SCAN_ROOTS) await walk(area, area, 0);
+  return {
+    complete: !truncated && scanIssues.length === 0 && reviewScanComplete,
+    truncated,
+    filesScanned: files.length,
+    testFiles: files.filter((file) => file.testFile).length,
+    totalBytes,
+    areas: areaCounts,
+    files,
+    reviewMarkers,
+    reviewScanComplete,
+    scanIssues: scanIssues.slice(0, 50),
+    limits: { maxFiles: SOURCE_SCAN_MAX_FILES, maxSourceBytes: SOURCE_SCAN_MAX_BYTES, maxReviewBytes: SOURCE_REVIEW_MAX_BYTES, maxReviewFileBytes: SOURCE_REVIEW_MAX_FILE_BYTES, maxReviewMarkers: SOURCE_REVIEW_MAX_MARKERS },
+  };
+}
+
+const FEATURE_SOURCE_REQUIREMENTS = [
+  { key: "authentication-and-sessions", label: "Authentication and sessions", files: ["server/_core/localAuth.ts", "server/authSessions.ts"] },
+  { key: "customer-and-admin-portals", label: "Customer and administrator portals", files: ["client/src/App.tsx", "server/routers.ts"] },
+  { key: "wallets-and-ledger", label: "Wallets and ledger", files: ["server/db.ts", "drizzle/schema.ts"] },
+  { key: "trading-and-settlement", label: "Trading and settlement", files: ["server/routers.ts", "server/_core/workerHealth.ts", "server/db.ts"] },
+  { key: "notifications-and-email", label: "Notifications and email", files: ["server/email.ts", "server/emailQueue.ts"] },
+  { key: "mining", label: "Mining", files: ["server/mining.ts", "server/mining-admin.ts"] },
+  { key: "verification-and-kyc", label: "Verification and KYC", files: ["server/kyc.ts", "server/routers.ts"] },
+  { key: "privacy", label: "Privacy centre", files: ["server/privacy.ts", "server/routers.ts"] },
+  { key: "installer-and-deployment", label: "Installer and deployment", files: ["installer/diagnose-deployment.mjs", "scripts/start-with-diagnostics.mjs"] },
+] as const;
 
 function classifyWorkerChecks(workerHealth: WorkerHealthSummary, checks: DiagnosticCheck[]) {
   for (const worker of workerHealth.workers) {
@@ -136,6 +253,7 @@ export async function getSystemDiagnosticsReport() {
     "server/_core/workerHealth.ts",
     "drizzle/0084_worker_health_registry.sql",
     "installer/verify-worker-runtime.mjs",
+    "server/routers.ts",
   ];
   const sourceFiles = await Promise.all(sourcePaths.map(async (path) => ({ path, content: await readSourceFile(path) })));
   const missingFiles = sourceFiles.filter((item) => item.content === null).map((item) => item.path);
@@ -149,13 +267,20 @@ export async function getSystemDiagnosticsReport() {
   } catch {
     missingFiles.push("package.json (invalid JSON)");
   }
-  const requiredScripts = ["check", "test", "build", "installer:verify-workers"];
+  const requiredScripts = ["check", "test", "build", "start", "db:migrate", "db:ensure-worker-schema", "installer:verify-workers"];
   const missingScripts = requiredScripts.filter((name) => !packageScripts[name]);
   const workerSource = sourceFiles.find((item) => item.path === "server/_core/index.ts")?.content ?? "";
   const monitorSource = sourceFiles.find((item) => item.path === "server/_core/workerHealth.ts")?.content ?? "";
+  const routerSource = sourceFiles.find((item) => item.path === "server/routers.ts")?.content ?? "";
   const wiringProblems: string[] = [];
   if (!workerSource.includes("runMonitoredWorkerCycle")) wiringProblems.push("server entrypoint does not reference monitored worker cycles");
   if (!monitorSource.includes("worker_health_registry")) wiringProblems.push("worker health registry instrumentation is missing");
+  const workerKeys = [...monitorSource.matchAll(/key:\\s*"([^"]+)"/g)].map((match) => match[1]);
+  const unregisteredWorkers = workerKeys.filter((key) => !workerSource.includes(`"${key}"`));
+  if (unregisteredWorkers.length) wiringProblems.push(`worker cycles are not wired in the server entrypoint: ${unregisteredWorkers.join(", ")}`);
+  if (!routerSource.includes("systemDiagnostics: adminProcedure.query(() => getSystemDiagnosticsReport())")) wiringProblems.push("admin-only system diagnostics endpoint is missing");
+  const startScript = packageScripts.start ?? "";
+  if (!startScript.includes("scripts/start-with-diagnostics.mjs")) wiringProblems.push("production start script does not use the supported diagnostics/migration wrapper");
   const sourceProblems = [...missingFiles, ...missingScripts.map((name) => `package script: ${name}`), ...wiringProblems];
   checks.push(check(
     "source-contract-files",
@@ -183,6 +308,51 @@ export async function getSystemDiagnosticsReport() {
     checks.push(check("worker-health-registry", "workers", "fail", "Worker health registry read", sanitizeWorkerErrorMessage(error), "Verify migration 0084, database connectivity, and worker health persistence logs."));
   }
 
+  const sourceInventory = await collectSourceInventory();
+  const knownSourceFiles = new Set(sourceInventory.files.map((file) => file.path));
+  const featureCoverage = FEATURE_SOURCE_REQUIREMENTS.map((feature) => {
+    const sourceFiles = feature.files.map((path) => ({ path, present: knownSourceFiles.has(path) }));
+    const missing = sourceFiles.filter((file) => !file.present).map((file) => file.path);
+    return {
+      key: feature.key,
+      label: feature.label,
+      status: missing.length ? "source_incomplete" as const : "source_present_unverified" as const,
+      sourceFiles,
+      note: missing.length
+        ? `Required source files are missing from this runtime package: ${missing.join(", ")}.`
+        : "Source files are present. Runtime feature acceptance is not executed by this export.",
+    };
+  });
+  const missingFeatureSources = featureCoverage.filter((feature) => feature.status === "source_incomplete");
+  checks.push(check(
+    "full-source-inventory",
+    "code",
+    sourceInventory.complete ? "pass" : "warning",
+    "Application source inventory and review-marker scan",
+    `${sourceInventory.filesScanned} source files (${sourceInventory.testFiles} test files) inventoried across ${Object.keys(sourceInventory.areas).length} code areas; ${sourceInventory.reviewMarkers.length} potential TODO/FIXME/HACK markers found.`,
+    sourceInventory.complete ? null : "Inspect scanIssues and configured limits; run a full repository review and CI outside the live server.",
+  ));
+  if (sourceInventory.reviewMarkers.length) {
+    checks.push(check(
+      "source-review-markers",
+      "code",
+      "warning",
+      "Potential source review markers",
+      `${sourceInventory.reviewMarkers.length} TODO/FIXME/XXX/HACK or not-implemented marker(s) were found. These are review prompts, not automatically confirmed defects.`,
+      "Review the listed file and line references, confirm whether each marker represents unfinished work, and add or update acceptance tests.",
+    ));
+  }
+  checks.push(check(
+    "feature-source-coverage",
+    "code",
+    missingFeatureSources.length ? "warning" : "not_run",
+    "Core feature source coverage",
+    missingFeatureSources.length
+      ? `${missingFeatureSources.length} feature area(s) have missing expected source files.`
+      : "Core feature source files are present; feature behaviour has not been exercised by this live diagnostic.",
+    missingFeatureSources.length ? "Restore missing source files in the deployed application package." : "Run feature-specific automated and authenticated hosted acceptance tests; source presence alone does not prove functionality.",
+  ));
+
   const summary = summarizeDiagnosticChecks(checks);
   const findings = checks.filter((item) => item.status === "fail" || item.status === "warning");
   return {
@@ -192,7 +362,7 @@ export async function getSystemDiagnosticsReport() {
     scope: {
       description: "Read-only live server, database, worker, queue, configuration and source-contract diagnostics.",
       limitations: [
-        "This export does not execute the full test suite, type checker, production build, dependency vulnerability scan, or a complete static analysis of every source file.",
+        "The bounded source inventory scans application source areas and records potential TODO/FIXME/HACK markers; it is not a compiler, full static analyzer, dependency vulnerability scan, or proof that every feature works.",
         "Worker history is bounded by the health monitor's retained 24-hour/500-row query and dead-letter detail limit of 25.",
         "A passing source-contract check is not proof that every application feature works in production.",
         "Run CI against the exact deployed commit and perform feature-specific hosted acceptance for complete application verification.",
@@ -213,6 +383,8 @@ export async function getSystemDiagnosticsReport() {
     configuration: { requiredVariables: requiredEnv.map((name) => ({ name, configured: Boolean(process.env[name]?.trim()) })), missing: missingEnv },
     database: { ...database, schema },
     workerHealth,
+    sourceInventory,
+    featureCoverage,
     checks,
     findings,
     summary,
