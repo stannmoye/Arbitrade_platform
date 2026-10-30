@@ -15,8 +15,8 @@ The dashboard includes:
 ## Export formats
 
 - **JSON:** complete structured report, including the detailed source inventory, worker/queue data, checks, findings, feature coverage, environment-variable presence, database/schema status, runtime metrics and recommendations.
-- **Excel / CSV:** spreadsheet-compatible CSV containing diagnostic checks, severity, evidence, recommendations and feature assessments. Open it in Excel or another spreadsheet application.
-- **Print / PDF:** opens a print-ready report. Use the browser print dialog's **Save as PDF** destination to create a PDF file.
+- **Excel / CSV:** spreadsheet-compatible CSV containing diagnostic checks, severity, evidence, recommendations, feature assessments, worker records, source-file inventory, source review markers, runtime/database metrics and required configuration presence (values redacted). Open it in Excel or another spreadsheet application.
+- **Print / PDF:** opens a print-ready report containing findings, feature assessments, runtime/database details, worker detail, source inventory, review markers, recommendations and scope limitations. Use the browser print dialog's **Save as PDF** destination to create a PDF file.
 
 All formats are generated on demand from a fresh report. Secret values are never exported. Operational identifiers and sanitized error summaries may be present; keep exports private and share them only with trusted maintainers.
 
