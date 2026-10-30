@@ -195,7 +195,7 @@ export default function AdminCompanyCatalogue() {
         <button className="secondary-button" type="button" onClick={() => void applyStatus("unverified")} disabled={!selectedCount || updateStatus.isPending}>Mark selected unverified</button>
         {statusFilter === "archived"
           ? <button className="secondary-button" type="button" onClick={() => void restoreSelected()} disabled={!selectedCount || updateStatus.isPending}>Restore selected</button>
-          : <button className="danger-button" type="button" onClick={() => void applyStatus("archived")} disabled={!selectedCount || updateStatus.isPending}>Delete selected</button>}
+          : <button className="secondary-button danger-button" type="button" onClick={() => void applyStatus("archived")} disabled={!selectedCount || updateStatus.isPending}>Delete selected</button>}
       </div>
       {updateStatus.isError && <p className="admin-ops-empty error" role="alert">{updateStatus.error.message}</p>}
       {updateStatus.isSuccess && <p className="company-catalogue-success" role="status">Catalogue changes saved.</p>}
