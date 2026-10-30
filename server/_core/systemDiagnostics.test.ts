@@ -20,7 +20,7 @@ describe("system diagnostics summary", () => {
       "// TODO: wire provider response",
       "throw new NotImplementedError();",
       "// FIXME not implemented",
-    ].join("\\n"))).toEqual([
+    ].join("\n"))).toEqual([
       { path: "server/example.ts", line: 2, marker: "TODO" },
       { path: "server/example.ts", line: 3, marker: "NOTIMPLEMENTEDERROR" },
       { path: "server/example.ts", line: 4, marker: "FIXME" },
