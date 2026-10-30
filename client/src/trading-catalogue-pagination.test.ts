@@ -25,7 +25,7 @@ describe("Trading catalogue pagination", () => {
     const last = paginateItems(companies, 181, 10);
     expect(first).toHaveLength(10);
     expect(second).toHaveLength(10);
-    expect(last).toEqual([1801, 1802, 1803, 1804, 1805, 1806, 1807, 1808, 1809, 1810, 1811]);
+    expect(last).toEqual([1811]);
     expect(new Set([...first, ...second, ...last]).size).toBe(21);
   });
 
