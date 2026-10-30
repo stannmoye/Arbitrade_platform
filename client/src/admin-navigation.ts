@@ -1,6 +1,7 @@
 import {
   Activity,
   BadgeCheck,
+  BookOpen,
   Bell,
   CircleDollarSign,
   Clock3,
@@ -86,6 +87,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
   ]},
   { id: "trade-history", label: "History", detail: "See who changed Trading settings", items: [
     { id: "trade-audit-policy-versions", target: "audit", label: "Who changed what", detail: "Read the admin change history and policy versions", icon: FileText },
+    { id: "trade-admin-guide", target: "tradeAdminGuide", label: "Trade Settings Guide", detail: "Plain-language guide to every Trading admin control and customer display", icon: BookOpen },
   ]},
   { id: "verification-risk", label: "Verification & Risk", detail: "KYC, review, risk and session oversight", items: [
     { id: "kyc-overview", target: "kycCenter", label: "KYC Overview", detail: "Stages, metrics, settings and review posture", icon: ShieldCheck },
