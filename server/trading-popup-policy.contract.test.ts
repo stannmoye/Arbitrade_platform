@@ -60,7 +60,9 @@ describe("administrator-configured Trading pop-up policy", () => {
     expect(policyEditor).toContain("Maximum trade duration (seconds)");
     expect(policyEditor).toContain("Badge label");
     expect(policyEditor).toContain("Reason for changing Trading tier policies (required for audit)");
-    expect(adminApp).toContain("window.confirm(\"Save these administrator-managed Trading delivery and retry settings?");
+    expect(policyEditor).toContain("onClick={onSave}");
+    expect(adminApp).toContain("Requirement not met: A reason for changing Trading tier policies is required for audit.");
+    expect(adminApp).toContain("Trading policy saved successfully. The saved settings have been reloaded.");
     expect(adminCss).toContain(".package-policy-section");
     expect(adminCss).toContain("@media (max-width: 620px)");
     expect(adminCss).toContain(":focus-visible");
