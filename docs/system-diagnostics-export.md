@@ -11,7 +11,7 @@ The report includes:
 - Required environment-variable presence only; secret values are never exported.
 - Database connectivity and presence of critical worker, Trading, ledger, user and audit tables.
 - A bounded inventory of application source files across client, server, shared, migrations, scripts and installer areas, including file sizes and per-area/test counts.
-- Potential TODO/FIXME/XXX/HACK/not-implemented markers with file and line references. These are review prompts, not confirmed defects.
+- Potential TODO/FIXME/XXX/HACK/not-implemented markers in implementation files with file and line references. Test fixtures and the scanner's own marker vocabulary are excluded to avoid self-generated false positives. These are review prompts, not confirmed defects.
 - Core feature source-presence coverage, worker-registration wiring, admin diagnostic-route wiring, startup-wrapper checks, source-contract findings and actionable recommendations.
 
 ## Finding severity
