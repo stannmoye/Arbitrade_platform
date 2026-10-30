@@ -1,0 +1,30 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+const stylesheet = readFileSync(new URL("./trading-experience.css", import.meta.url), "utf8");
+
+describe("Trade experience visual system", () => {
+  it("loads the Trade stylesheet and scopes administrator styling to Trade destinations", () => {
+    expect(appSource).toContain('import "./trading-experience.css"');
+    expect(appSource).toContain("trade-admin-surface");
+    expect(appSource).toContain("trade-nav-group");
+    expect(stylesheet).toContain(".trade-admin-surface");
+    expect(stylesheet).toContain(".admin-rail .trade-nav-group");
+  });
+
+  it("covers customer eligibility, opportunity history, and the persistent opportunity display", () => {
+    expect(stylesheet).toContain(".trading-packages-panel");
+    expect(stylesheet).toContain(".customer-opportunities-page");
+    expect(stylesheet).toContain(".trading-opportunity-row");
+    expect(stylesheet).toContain(".center-opportunity-toast");
+    expect(stylesheet).toContain(".trade-progress-banner");
+  });
+
+  it("keeps interaction states accessible and honours reduced-motion preferences", () => {
+    expect(stylesheet).toContain(":focus-visible");
+    expect(stylesheet).toContain(":disabled");
+    expect(stylesheet).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(stylesheet).toContain("@media (forced-colors: active)");
+  });
+});
