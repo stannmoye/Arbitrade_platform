@@ -462,7 +462,7 @@ async function main() {
     await tradeSettingsGroup.waitFor({ state: "visible", timeout: 20_000 });
     assert.equal(await tradeSettingsGroup.getAttribute("aria-expanded"), "true",
       "Trade Settings navigation group must be expanded and available.");
-    const tradeGroupLayout = await tradeSettingsGroup.evaluate((heading) => {
+    const navigationPalette = await adminNavigation.locator(".admin-nav-group").evaluateAll((groups) => groups.map((group) => ({\n      accent: getComputedStyle(group).getPropertyValue("--nav-accent").trim(),\n      label: group.querySelector(".admin-nav-group-heading span")?.textContent?.trim() ?? "",\n    })));\n    assert.equal(navigationPalette.length, 13, "All canonical administrator menu groups must be present.");\n    assert.equal(new Set(navigationPalette.map((group) => group.accent)).size, navigationPalette.length,\n      "Every administrator menu must have its own distinct bright accent colour.");\n    assert.ok(navigationPalette.every((group) => group.accent), "Every menu accent must resolve to a visible colour.");\n    const tradeGroupLayout = await tradeSettingsGroup.evaluate((heading) => {
       const group = heading.closest(".trade-nav-group");
       const submenu = group?.querySelector(".admin-nav-group-items");
       const lastItem = group?.querySelector(".admin-nav-item-wrap:last-child");
