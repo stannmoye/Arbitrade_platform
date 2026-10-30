@@ -39,6 +39,12 @@ export function findCodeReviewMarkers(path: string, source: string): CodeReviewM
   return markers;
 }
 
+export function findUnregisteredWorkerKeys(registrySource: string, runtimeSources: string[]): string[] {
+  const keys = [...registrySource.matchAll(/key:\s*"([^"]+)"/g)].map((match) => match[1]);
+  const runtimeSource = runtimeSources.join("\n");
+  return keys.filter((key) => !runtimeSource.includes(`"${key}"`));
+}
+
 const SOURCE_SCAN_ROOTS = ["client/src", "server", "shared", "drizzle", "scripts", "installer"] as const;
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".sql"]);
 const SOURCE_SCAN_MAX_FILES = 6_000;
@@ -254,6 +260,8 @@ export async function getSystemDiagnosticsReport() {
     "drizzle/0084_worker_health_registry.sql",
     "installer/verify-worker-runtime.mjs",
     "server/routers.ts",
+    "server/emailQueue.ts",
+    "server/_core/heartbeat.ts",
   ];
   const sourceFiles = await Promise.all(sourcePaths.map(async (path) => ({ path, content: await readSourceFile(path) })));
   const missingFiles = sourceFiles.filter((item) => item.content === null).map((item) => item.path);
@@ -275,8 +283,8 @@ export async function getSystemDiagnosticsReport() {
   const wiringProblems: string[] = [];
   if (!workerSource.includes("runMonitoredWorkerCycle")) wiringProblems.push("server entrypoint does not reference monitored worker cycles");
   if (!monitorSource.includes("worker_health_registry")) wiringProblems.push("worker health registry instrumentation is missing");
-  const workerKeys = [...monitorSource.matchAll(/key:\s*"([^"]+)"/g)].map((match) => match[1]);
-  const unregisteredWorkers = workerKeys.filter((key) => !workerSource.includes(`"${key}"`));
+  const workerRuntimeSources = [workerSource, sourceFiles.find((item) => item.path === "server/emailQueue.ts")?.content ?? "", sourceFiles.find((item) => item.path === "server/_core/heartbeat.ts")?.content ?? ""];
+  const unregisteredWorkers = findUnregisteredWorkerKeys(monitorSource, workerRuntimeSources);
   if (unregisteredWorkers.length) wiringProblems.push(`worker cycles are not wired in the server entrypoint: ${unregisteredWorkers.join(", ")}`);
   if (!routerSource.includes("systemDiagnostics: adminProcedure.query(() => getSystemDiagnosticsReport())")) wiringProblems.push("admin-only system diagnostics endpoint is missing");
   const startScript = packageScripts.start ?? "";
