@@ -15,7 +15,7 @@ The dashboard includes:
 ## Export formats
 
 - **JSON:** complete structured report, including the detailed source inventory, worker/queue data, checks, findings, feature coverage, environment-variable presence, database/schema status, runtime metrics and recommendations.
-- **Excel / CSV:** spreadsheet-compatible CSV containing diagnostic checks, severity, evidence, recommendations, feature assessments, worker records, source-file inventory, source review markers, runtime/database metrics and required configuration presence (values redacted). Open it in Excel or another spreadsheet application.
+- **Excel / CSV:** spreadsheet-compatible CSV containing diagnostic checks, severity, evidence, recommendations, feature assessments, worker records, source-file inventory, source review markers, runtime/database metrics (including CPU load and host RAM) and required configuration presence (values redacted). Open it in Excel or another spreadsheet application.
 - **Print / PDF:** opens a print-ready report containing findings, feature assessments, runtime/database details, worker detail, source inventory, review markers, recommendations and scope limitations. Use the browser print dialog's **Save as PDF** destination to create a PDF file.
 
 All formats are generated on demand from a fresh report. Secret values are never exported. Operational identifiers and sanitized error summaries may be present; keep exports private and share them only with trusted maintainers.
@@ -27,7 +27,7 @@ The administrator-only `systemDiagnostics` query creates a fresh, read-only snap
 The report includes:
 - Monitored worker records, derived health state, expected/stale intervals, heartbeat/success/failure timestamps, duration, failure count and sanitized error detail.
 - Trading qualification queue counts and the latest retained dead-letter details.
-- Server runtime version, uptime, platform, CPU count, process memory and heap pressure.
+- Server runtime version, uptime, platform, CPU count and 1/5/15-minute load averages, total/free host memory, process memory and heap pressure.
 - Required environment-variable presence only; secret values are never exported.
 - Database connectivity and presence of critical worker, Trading, ledger, user and audit tables.
 - A bounded inventory of application source files across client, server, shared, migrations, scripts and installer areas, including file sizes and per-area/test counts.
