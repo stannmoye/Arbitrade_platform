@@ -62,6 +62,6 @@ describe("administrator company catalogue bulk controls", () => {
     expect(catalogue).toContain("internal catalogue label");
     expect(catalogue).toContain("ineligible for verified trade rotation");
     expect(specification).toContain("does not certify a public securities listing");
-    expect(specification).toContain("does not change `referenceOnly` / `eligibleForVerifiedTradeRotation`");
+    expect(specification).toContain("or change `referenceOnly` / `eligibleForVerifiedTradeRotation`");
   });
 });
