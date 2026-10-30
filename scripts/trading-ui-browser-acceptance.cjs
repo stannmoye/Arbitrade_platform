@@ -462,6 +462,29 @@ async function main() {
     await tradeSettingsGroup.waitFor({ state: "visible", timeout: 20_000 });
     assert.equal(await tradeSettingsGroup.getAttribute("aria-expanded"), "true",
       "Trade Settings navigation group must be expanded and available.");
+    const tradeGroupLayout = await tradeSettingsGroup.evaluate((group) => {
+      const submenu = group.querySelector(".admin-nav-group-items");
+      const lastItem = group.querySelector(".admin-nav-item-wrap:last-child");
+      const groupBounds = group.getBoundingClientRect();
+      const submenuBounds = submenu?.getBoundingClientRect();
+      const lastItemBounds = lastItem?.getBoundingClientRect();
+      return {
+        overflow: getComputedStyle(group).overflow,
+        submenuHeight: submenu?.scrollHeight ?? 0,
+        submenuClientHeight: submenu?.clientHeight ?? 0,
+        groupBottom: groupBounds.bottom,
+        submenuBottom: submenuBounds?.bottom ?? 0,
+        lastItemBottom: lastItemBounds?.bottom ?? 0,
+      };
+    });
+    assert.notEqual(tradeGroupLayout.overflow, "hidden",
+      "Expanded Trade submenu container must not clip menu content or keyboard focus.");
+    assert.ok(tradeGroupLayout.submenuHeight > 0 && tradeGroupLayout.submenuClientHeight > 0,
+      "Expanded Trade submenu content must retain its full layout height.");
+    assert.ok(tradeGroupLayout.submenuBottom <= tradeGroupLayout.groupBottom + 1 &&
+      tradeGroupLayout.lastItemBottom <= tradeGroupLayout.groupBottom + 1,
+      "The final expanded Trade submenu item must fit inside its visible navigation group.");
+
     const packagesNavigation = adminNavigation.getByRole("button", { name: /packages & eligibility/i });
     await packagesNavigation.waitFor({ state: "visible", timeout: 20_000 });
     await packagesNavigation.click();
