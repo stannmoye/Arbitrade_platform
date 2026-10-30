@@ -128,7 +128,7 @@ export async function updateCompanyCatalogueAdminState(input: {
   updatedBy: number;
 }) {
   const ids = [...new Set(input.ids)];
-  if (!ids.length || ids.length > 1811 || ids.some(id => !/^logo-brand-\\d{4}$/.test(id))) {
+  if (!ids.length || ids.length > 1811 || ids.some(id => !/^logo-brand-\d{4}$/.test(id))) {
     throw new Error("Select between 1 and 1,811 valid company catalogue IDs.");
   }
   if (!input.reason.trim() || input.reason.trim().length > 500) throw new Error("A valid reason is required.");
