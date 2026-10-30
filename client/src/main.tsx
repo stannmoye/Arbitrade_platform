@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import App from "./App";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import PortalRenderBoundary from "./components/PortalRenderBoundary";
@@ -70,6 +71,7 @@ const renderApp = () => createRoot(rootElement).render(
         </PortalRenderBoundary>
       </ThemeProvider>
     </QueryClientProvider>
+    <SpeedInsights />
   </trpc.Provider>
 );
 
