@@ -55,10 +55,9 @@ export const appRouter = router({
         const parsed = JSON.parse(raw || "{}") as { verifiedIds?: string[]; archivedIds?: string[] };
         const verifiedIds = (parsed.verifiedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
         const archivedIds = (parsed.archivedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
-        const statusById = Object.fromEntries([
-          ...verifiedIds.map(id => [id, { status: "verified" }]),
-          ...archivedIds.map(id => [id, { status: "archived" }]),
-        ]);
+        const statusById: Record<string, { status: "verified" | "archived" }> = {};
+        for (const id of verifiedIds) statusById[id] = { status: "verified" };
+        for (const id of archivedIds) statusById[id] = { status: "archived" };
         return { statusById };
       } catch {
         return { statusById: {} };
