@@ -6,6 +6,7 @@ import { notificationAudioVolume, normalizeNotificationVolume } from "./notifica
 import { notificationPollingInterval } from "./notification-polling-policy";
 import PortalRenderBoundary from "@/components/PortalRenderBoundary";
 import type { TradingDeliveryPolicyRow } from "@/components/TradingDeliveryPolicyEditor";
+import { getPageCount, paginateItems } from "./trading-catalogue-pagination";
 const AdminSlideMenu = lazy(() => import("@/components/AdminSlideMenu").then((module) => ({ default: module.AdminSlideMenu })));
 const AdminCompanyCatalogue = lazy(() => import("@/components/AdminCompanyCatalogue"));
 const TradingDeliveryPolicyEditor = lazy(() => import("@/components/TradingDeliveryPolicyEditor"));
@@ -752,8 +753,8 @@ function AdminTradingPackageCatalogue(){
   const toLocalDateTime=(value:any)=>{if(!value)return "";const date=new Date(value);if(!Number.isFinite(date.getTime()))return "";return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16)};
   const packageRows=(q.data as any[]|undefined)??[];
   const packagePageSize=5;
-  const packagePageCount=Math.max(1,Math.ceil(packageRows.length/packagePageSize));
-  const visiblePackageRows=packageRows.slice(packagePage*packagePageSize,(packagePage+1)*packagePageSize);
+  const packagePageCount=getPageCount(packageRows.length,packagePageSize);
+  const visiblePackageRows=paginateItems(packageRows,packagePage,packagePageSize);
   useEffect(()=>{if(packagePage>=packagePageCount)setPackagePage(Math.max(0,packagePageCount-1))},[packagePage,packagePageCount]);
   return <section className="admin-table-card" style={{marginBottom:24,padding:20}}>
     <div className="portal-page-top"><div><div className="eyebrow">Administrator-managed tiers</div><h1>Trading tier configuration</h1><p>Tier thresholds are measured against cumulative qualifying manual administrator deposit credits. Customers cannot browse or activate these tiers.</p></div><button className="secondary-button" type="button" onClick={()=>void q.refetch()} disabled={q.isFetching}><RefreshCw size={14}/> Refresh</button></div>
