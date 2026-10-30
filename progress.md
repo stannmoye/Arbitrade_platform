@@ -1,3 +1,14 @@
+## 2026-10-30 — Administrator company catalogue bulk controls (in progress)
+
+- Base: canonical `main` at `709c9e9da09e3188fb1a98a0714c8ae137e35f1f`; work branch: `feat/admin-company-catalogue-bulk-controls`.
+- Expanded the admin company catalogue with **View all companies** (one scrollable list), return to 10-per-page pagination, individual selection, Select visible, Select all filtered matches, Clear selection, selection count, bulk mark verified/unverified, and Delete selected.
+- Delete is implemented as an archive/soft-delete state. Archived rows are hidden from the default active view, can be filtered into view and restored as unverified; the static 1,811-row source catalogue and Logo IDs are preserved.
+- Added administrator-only state reads and bulk mutation. Changes are persisted in the existing app-settings store inside a row-locked transaction and create `v5_audit_events` records with actor, reason, selected IDs, status and timestamp.
+- **Verified** is explicitly an internal admin catalogue label only. It does not modify source listing verification, ticker classifications, `referenceOnly`, or verified-trade eligibility. This preserves the canonical data/execution boundary.
+- Updated the Trading specification, admin configuration manual and AGENTS instructions. Added frontend styling.
+- Validation still required: inspect exact branch source, add/execute contract tests, and run exact-head GitHub Actions for `pnpm check`, `pnpm test`, `pnpm build` and required integration workflows. No production deployment or database migration was performed.
+
+---
 ## 2026-10-30 — Administrator company catalogue and tier pagination
 
 - Canonical base: `main` at `edff87369ab61cea4c68c33a30aea9f47abf53ce`; work branch: `fix/admin-company-catalogue-pagination`.
