@@ -130,6 +130,28 @@ The server owns scheduling, package entitlement, quota checks, company selection
 - **Trade Settings → Set up trades → Customer tiers** displays 5 administrator-managed tiers per page with Previous/Next controls. Creating, editing, enabling, saving, and audit reasons remain unchanged by paging. Do not hide or discard tiers when moving between pages.
 - Package/tier policy settings remain in their dedicated submenu; company-catalogue navigation must not render package controls.
 
+## 6A. Administrator company catalogue bulk management
+
+Open **Trade Settings → Show offers → Company names shown** to manage the existing 1,811 logo-ID-aligned reference records.
+
+| Control | Behaviour |
+| --- | --- |
+| **View all companies** | Switches from the default 10-record page to one scrollable list of all matching active records. |
+| **Show 10 per page** | Returns to Previous/Next pagination without changing the catalogue. |
+| **Select visible** | Adds every record currently displayed to the selection. |
+| **Select all matches** | Selects every record matching the current search, country and status filters, not only the current page. |
+| **Individual checkbox** | Adds or removes that one stable Logo ID from the selection. |
+| **Clear selection** | Clears the current selection. |
+| **Mark selected verified** | Sets the internal **Admin marked verified** catalogue status for the selected records. This is an administrative label only and is not independent listing verification. |
+| **Mark selected unverified** | Removes the admin-verified label for the selected records. |
+| **Delete selected** | Archives selected records from the active catalogue view. The static source catalogue is not physically deleted. |
+| **Archived / deleted filter** | Displays archived records so they can be selected and restored. |
+| **Restore selected** | Restores archived records to the active catalogue as unverified. |
+
+Every bulk action requires a confirmation prompt. The server validates every Logo ID, requires administrator authorization, updates the status map inside a database transaction, and writes an audit event containing the action, reason, selected IDs, actor and timestamp. The default active view excludes archived records. Selection is explicit and the UI shows its count before any bulk action.
+
+**Important status boundary:** admin verification is a manually assigned catalogue label. It does not verify a company's legal identity, public listing, ticker, exchange, headquarters or country assignment. It does not change the static source record's `listingStatus`, `lastVerifiedAt`, `referenceOnly`, or `eligibleForVerifiedTradeRotation`; it cannot authorize market data, order execution, allocation or settlement.
+
 ## 7. Admin operational status and acceptance tests
 
 Admin-only **Trade Settings → Company Rotation & Pop-ups** should show current policy version, package settings, worker status, last successful cycle, due/queued counts, stale leases, retry/dead-letter counts, catalogue pool size and rotation health. Health data must be truthful; missing health data is “Unavailable”, not “Healthy”.
