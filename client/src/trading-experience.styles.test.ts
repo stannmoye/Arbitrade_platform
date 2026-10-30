@@ -16,6 +16,19 @@ describe("Trade experience visual system", () => {
     expect(stylesheet).toContain("--trading-tier-accent");
   });
 
+  it("keeps expandable Trade navigation and content containers from clipping their children", () => {
+    const navGroup = stylesheet.match(/\.admin-portal \.admin-rail \.trade-nav-group\s*\{([^}]*)\}/)?.[1] ?? "";
+    const packageCard = stylesheet.match(/\.trade-admin-surface \.package-admin-card\s*\{([^}]*)\}/)?.[1] ?? "";
+    const companyPanel = stylesheet.match(/\.customer-portal \.portal-main \.customer-opportunities-page \.company-reference-panel\s*\{([^}]*)\}/)?.[1] ?? "";
+
+    expect(navGroup).toContain("overflow: visible");
+    expect(navGroup).not.toMatch(/overflow:\s*hidden/i);
+    expect(packageCard).not.toMatch(/overflow:\s*hidden/i);
+    expect(companyPanel).not.toMatch(/overflow:\s*hidden/i);
+    expect(stylesheet).not.toMatch(/\.trade-admin-surface \.portal-page-top,[\s\S]{0,180}?overflow:\s*hidden/i);
+    expect(stylesheet).not.toMatch(/\.customer-portal \.portal-main \.customer-opportunities-page \.portal-page-top[\s\S]{0,180}?overflow:\s*hidden/i);
+  });
+
   it("covers customer eligibility, opportunity history, and the persistent opportunity display", () => {
     expect(stylesheet).toContain(".trading-packages-panel");
     expect(stylesheet).toContain(".customer-opportunities-page");
