@@ -630,7 +630,7 @@ function diagnosticSeverity(check: DiagnosticSnapshot["checks"][number]) {
   return "Informational";
 }
 
-function diagnosticFeatureState(feature: { status: string; sourceFiles?: Array<{ present: boolean }> }, checks: DiagnosticSnapshot["checks"]) {
+function diagnosticFeatureState(feature: { label: string; status: string; sourceFiles?: Array<{ present: boolean }> }, checks: DiagnosticSnapshot["checks"]) {
   if (feature.status === "source_incomplete" || feature.sourceFiles?.some((file) => !file.present)) return "Not Working";
   const terms = feature.label.toLowerCase().split(/[^a-z0-9]+/).filter((term) => term.length > 3);
   const related = checks.filter((item) => item.status !== "pass" && terms.some((term) =>
