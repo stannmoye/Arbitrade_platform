@@ -462,17 +462,18 @@ async function main() {
     await tradeSettingsGroup.waitFor({ state: "visible", timeout: 20_000 });
     assert.equal(await tradeSettingsGroup.getAttribute("aria-expanded"), "true",
       "Trade Settings navigation group must be expanded and available.");
-    const tradeGroupLayout = await tradeSettingsGroup.evaluate((group) => {
-      const submenu = group.querySelector(".admin-nav-group-items");
-      const lastItem = group.querySelector(".admin-nav-item-wrap:last-child");
-      const groupBounds = group.getBoundingClientRect();
+    const tradeGroupLayout = await tradeSettingsGroup.evaluate((heading) => {
+      const group = heading.closest(".trade-nav-group");
+      const submenu = group?.querySelector(".admin-nav-group-items");
+      const lastItem = group?.querySelector(".admin-nav-item-wrap:last-child");
+      const groupBounds = group?.getBoundingClientRect();
       const submenuBounds = submenu?.getBoundingClientRect();
       const lastItemBounds = lastItem?.getBoundingClientRect();
       return {
-        overflow: getComputedStyle(group).overflow,
+        overflow: group ? getComputedStyle(group).overflow : "missing",
         submenuHeight: submenu?.scrollHeight ?? 0,
         submenuClientHeight: submenu?.clientHeight ?? 0,
-        groupBottom: groupBounds.bottom,
+        groupBottom: groupBounds?.bottom ?? 0,
         submenuBottom: submenuBounds?.bottom ?? 0,
         lastItemBottom: lastItemBounds?.bottom ?? 0,
       };
