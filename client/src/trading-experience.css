@@ -23,7 +23,7 @@
   position: relative;
   margin-block: 8px;
   padding: 7px;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid color-mix(in srgb, var(--trade-accent) 17%, var(--trade-border));
   border-radius: 17px;
   background:
@@ -96,7 +96,6 @@
   gap: 20px;
   margin: 0 0 20px;
   padding: clamp(18px, 2.4vw, 28px);
-  overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--trade-accent) 24%, var(--trade-border));
   border-radius: 24px;
   background:
@@ -142,7 +141,6 @@
   --trade-package-accent: var(--package-card-accent, var(--trading-tier-accent, var(--trade-accent)));
   position: relative;
   padding: clamp(16px, 2vw, 22px);
-  overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--trade-package-accent) 48%, var(--trade-border));
   border-inline-start: 4px solid var(--trade-package-accent);
   background:
@@ -353,7 +351,6 @@
   isolation: isolate;
   margin: 0;
   padding: clamp(18px, 2.6vw, 30px);
-  overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--trade-accent) 30%, var(--trade-border));
   border-radius: 24px;
   background:
@@ -488,7 +485,8 @@
   font-weight: 850;
 }
 .customer-portal .portal-main .customer-opportunities-page .company-reference-panel {
-  overflow: hidden;
+  min-width: 0;
+  overflow: visible;
 }
 .customer-portal .portal-main .customer-opportunities-page :is(input, select) {
   min-height: 42px;
