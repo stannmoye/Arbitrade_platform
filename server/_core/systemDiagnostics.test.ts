@@ -62,6 +62,6 @@ describe("system diagnostics summary", () => {
     expect(adminUiSource).toContain("report.sourceInventory?.files");
     expect(diagnosticsSource).toContain("operatingSystem.loadavg()");
     expect(diagnosticsSource).toContain("operatingSystem.totalmem()");
-    expect(adminUiSource).toContain("Export full report");
+    expect(adminUiSource).toContain("Complete diagnostic exports");
   });
 });
