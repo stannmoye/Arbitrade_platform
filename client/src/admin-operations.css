@@ -656,3 +656,39 @@
   font-size: 10px;
   line-height: 1.35;
 }
+
+
+/* Subtle, theme-aware accents distinguish administrator Trading tier cards. */
+.trading-tier-card {
+  --trading-tier-accent: #4f9de8;
+  border-color: color-mix(in srgb, var(--trading-tier-accent) 42%, var(--arb-color-border, #294355));
+  border-inline-start: 4px solid var(--trading-tier-accent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--trading-tier-accent) 10%, var(--arb-color-surface, #081b2a)),
+    var(--arb-color-surface, #081b2a) 82%
+  );
+}
+.trading-tier-card--0 { --trading-tier-accent: #4f9de8; }
+.trading-tier-card--1 { --trading-tier-accent: #9a7be8; }
+.trading-tier-card--2 { --trading-tier-accent: #28a99a; }
+.trading-tier-card--3 { --trading-tier-accent: #d9a441; }
+.trading-tier-card--4 { --trading-tier-accent: #d8758f; }
+.trading-tier-card--5 { --trading-tier-accent: #4eafc2; }
+
+.trading-tier-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 7px;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--trading-tier-accent) 48%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--trading-tier-accent) 15%, var(--arb-color-surface, #081b2a));
+  color: var(--trading-tier-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  line-height: 1.35;
+}
