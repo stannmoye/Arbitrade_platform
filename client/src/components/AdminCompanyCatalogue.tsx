@@ -13,10 +13,6 @@ export default function AdminCompanyCatalogue() {
   const [statusFilter, setStatusFilter] = useState<"all" | AdminCompanyStatus>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const summary = trpc.companyCatalogueReference.summary.useQuery();
-  const count = trpc.companyCatalogueReference.count.useQuery({
-    search: search.trim() || undefined,
-    countryName: countryName || undefined,
-  });
   // Fetch the bounded, fixed catalogue once per filter so selection can span every
   // matching record without confusing "select all" with the current visible page.
   const records = trpc.companyCatalogueReference.search.useQuery({
@@ -34,7 +30,6 @@ export default function AdminCompanyCatalogue() {
     },
   });
 
-  const total = count.data ?? 0;
   const statuses = adminState.data?.statusById ?? {};
   const countries = useMemo(
     () => Object.keys(summary.data?.countryCounts ?? {}).sort((a, b) => a.localeCompare(b)),
@@ -102,12 +97,12 @@ export default function AdminCompanyCatalogue() {
         <h1>Company names shown</h1>
         <p>Manage the saved company/logo reference collection. Admin verification is an internal catalogue label; it does not certify a stock-market listing or make a company eligible for trade execution.</p>
       </div>
-      <button className="secondary-button" type="button" onClick={() => { void summary.refetch(); void count.refetch(); void records.refetch(); void adminState.refetch(); }} disabled={summary.isFetching || count.isFetching || records.isFetching || adminState.isFetching}>Refresh catalogue</button>
+      <button className="secondary-button" type="button" onClick={() => { void summary.refetch(); void records.refetch(); void adminState.refetch(); }} disabled={summary.isFetching || records.isFetching || adminState.isFetching}>Refresh catalogue</button>
     </div>
 
     <div className="admin-kpi-grid">
       <div><span>Saved company records</span><strong>{summary.data?.total?.toLocaleString() ?? "—"}</strong><b>Stable Logo ID catalogue</b></div>
-      <div><span>Matching records</span><strong>{total.toLocaleString()}</strong><b>Search and country filter</b></div>
+      <div><span>Matching records</span><strong>{filteredRecords.length.toLocaleString()}</strong><b>Current search, country and status filters</b></div>
       <div><span>Admin marked verified</span><strong>{Object.values(statuses).filter((entry) => entry.status === "verified").length.toLocaleString()}</strong><b>Internal admin status only</b></div>
       <div><span>Selected companies</span><strong>{selectedCount.toLocaleString()}</strong><b>Ready for bulk action</b></div>
     </div>
