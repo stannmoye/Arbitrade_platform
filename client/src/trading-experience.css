@@ -3,7 +3,7 @@
  * Scoped to Trading pages and Trading navigation only; no business or workflow rules live here.
  */
 
-:root[data-arb-theme] {
+:root {
   --trade-accent: var(--arb-color-accent, #72e4c1);
   --trade-accent-strong: color-mix(in srgb, var(--trade-accent) 78%, #ffffff);
   --trade-info: var(--arb-color-info, #6db9ff);
@@ -130,7 +130,7 @@
 .trade-admin-surface .package-grid-admin {
   gap: 17px;
 }
-.trade-admin-surface :is(.package-admin-card, .package-policy-card, .admin-control-card, .settings-card, .admin-ops-panel) {
+.trade-admin-surface :is(.package-policy-card, .admin-control-card, .settings-card, .admin-ops-panel) {
   min-width: 0;
   border: 1px solid var(--trade-border);
   border-radius: var(--trade-card-radius);
@@ -139,9 +139,15 @@
   box-shadow: var(--trade-shadow);
 }
 .trade-admin-surface .package-admin-card {
+  --trade-package-accent: var(--package-card-accent, var(--trading-tier-accent, var(--trade-accent)));
   position: relative;
   padding: clamp(16px, 2vw, 22px);
   overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--trade-package-accent) 48%, var(--trade-border));
+  border-inline-start: 4px solid var(--trade-package-accent);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--trade-package-accent) 17%, var(--trade-raised)), color-mix(in srgb, var(--trade-package-accent) 6%, var(--trade-surface)) 72%);
+  box-shadow: var(--trade-shadow);
   transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
 }
 .trade-admin-surface .package-admin-card::before {
@@ -149,10 +155,10 @@
   inset: 0 auto 0 0;
   width: 3px;
   content: "";
-  background: linear-gradient(180deg, var(--trade-accent), color-mix(in srgb, var(--trade-info) 55%, transparent));
+  background: linear-gradient(180deg, var(--trade-package-accent), color-mix(in srgb, var(--trade-info) 55%, transparent));
 }
 .trade-admin-surface .package-admin-card:hover {
-  border-color: color-mix(in srgb, var(--trade-accent) 42%, var(--trade-border));
+  border-color: color-mix(in srgb, var(--trade-package-accent) 72%, white);
   box-shadow: 0 22px 48px color-mix(in srgb, var(--trade-canvas) 38%, transparent),
     inset 0 1px color-mix(in srgb, var(--arb-color-text, #fff) 7%, transparent);
   transform: translateY(-2px);
