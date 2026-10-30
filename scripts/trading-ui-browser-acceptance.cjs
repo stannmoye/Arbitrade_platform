@@ -468,7 +468,7 @@ async function main() {
     })));
     assert.equal(navigationPalette.length, 13, "All canonical administrator menu groups must be present.");
     assert.equal(new Set(navigationPalette.map((group) => group.accent)).size, navigationPalette.length,
-      "Every administrator menu must have its own distinct saturated accent colour.");
+      "Every administrator menu must have its own distinct professional accent colour.");
     assert.ok(navigationPalette.every((group) => group.accent), "Every menu accent must resolve to a visible colour.");
     const submenuPalette = await adminNavigation.locator(".admin-nav-group").evaluateAll((groups) => groups.map((group) => {
       const accent = getComputedStyle(group).getPropertyValue("--nav-accent").trim();
