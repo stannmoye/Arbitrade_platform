@@ -121,6 +121,15 @@ The server owns scheduling, package entitlement, quota checks, company selection
 - Configuration changes are versioned and audited. Each scheduled item records the settings version that created it. Define whether edits apply only to future items or to open items before implementation; default to preserving the snapshot on already-open trades.
 - A restart test must prove a due item is resumed after process restart with one opportunity, one rotation advance, no duplicate allocation and no duplicate settlement. Multi-worker tests must prove only one worker owns a claimed item at a time.
 
+## 6. Administrator company catalogue and tier-list presentation
+
+- **Trade Settings → Show offers → Company names shown** opens a dedicated administrator company-catalogue page, not the opportunity engine or package/tier editor.
+- The page reads the existing 1,811 logo-ID-aligned records from `companyCatalogueReference`; it must not create a replacement catalogue or alter the source records.
+- Display 10 company records per page with Previous/Next controls, total/matching counts, search by company name/domain/supplied ticker/exchange, and exact country-folder filtering.
+- Each result keeps its local logo, stable Logo ID, company name, country folder, supplied ticker/code, exchange, workbook status/classification, parent ticker and reason together. Show reference-only/unverified status; do not imply that a supplied ticker is a verified active security.
+- **Trade Settings → Set up trades → Customer tiers** displays 5 administrator-managed tiers per page with Previous/Next controls. Creating, editing, enabling, saving, and audit reasons remain unchanged by paging. Do not hide or discard tiers when moving between pages.
+- Package/tier policy settings remain in their dedicated submenu; company-catalogue navigation must not render package controls.
+
 ## 6. Admin operational status and acceptance tests
 
 Admin-only **Trade Settings → Company Rotation & Pop-ups** should show current policy version, package settings, worker status, last successful cycle, due/queued counts, stale leases, retry/dead-letter counts, catalogue pool size and rotation health. Health data must be truthful; missing health data is “Unavailable”, not “Healthy”.
