@@ -624,8 +624,9 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
 @media(max-width:600px){.admin-portal .admin-nav-item-wrap>button{min-height:68px!important}.admin-portal .package-admin-card,.admin-portal .package-policy-section,.admin-portal .admin-ops-panel{padding:16px!important}}
 
 
-/* Administrator navigation colour system — each section owns its accent;
-   nested items inherit that accent so parent/child relationships stay obvious. */
+/* Administrator navigation palette: one distinct saturated colour per main menu.
+   Every item and nested submenu inherits its parent's colour family. Surface and text
+   colours use the active portal theme so accents remain visible in light and dark modes. */
 .admin-portal .admin-canonical-nav {
   flex: 1 1 auto !important;
   min-height: 0 !important;
@@ -638,69 +639,68 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
   scrollbar-gutter: stable;
 }
 .admin-portal .admin-nav-group {
-  --nav-accent: #48d8e8;
-  --nav-accent-soft: rgba(72,216,232,.13);
+  --nav-accent: #2563EB;
+  --nav-accent-soft: rgba(37,99,235,.16);
+  --nav-accent-wash: color-mix(in srgb,#2563EB 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92)));
+  --nav-accent-text: color-mix(in srgb,var(--nav-accent) 76%,var(--arb-color-text,#edf4fa));
   flex: 0 0 auto;
   min-width: 0;
   margin: 0 0 3px !important;
   padding: 7px !important;
   overflow: visible !important;
-  border: 1px solid color-mix(in srgb,var(--nav-accent) 34%,rgba(151,190,205,.12)) !important;
+  border: 1px solid color-mix(in srgb,var(--nav-accent) 52%,var(--arb-color-border,rgba(151,190,205,.2))) !important;
   border-radius: 17px !important;
   background:
-    radial-gradient(ellipse at 100% 0%,color-mix(in srgb,var(--nav-accent) 15%,transparent),transparent 66%),
-    linear-gradient(145deg,color-mix(in srgb,var(--nav-accent) 6%,rgba(16,37,57,.96)),rgba(7,21,36,.94)) !important;
+    linear-gradient(135deg,color-mix(in srgb,var(--nav-accent) 13%,var(--arb-color-surface-raised,rgba(16,37,57,.96))),var(--arb-color-surface,rgba(7,21,36,.94))) !important;
   box-shadow: inset 0 1px rgba(255,255,255,.055),0 9px 24px rgba(0,0,0,.13) !important;
   transition: border-color .2s ease,box-shadow .2s ease,background .2s ease !important;
 }
-.admin-portal .admin-nav-group:nth-child(1) { --nav-accent:#54d9ff; --nav-accent-soft:rgba(84,217,255,.14); }
-.admin-portal .admin-nav-group:nth-child(2) { --nav-accent:#ff78b7; --nav-accent-soft:rgba(255,120,183,.14); }
-.admin-portal .admin-nav-group:nth-child(3) { --nav-accent:#ffb454; --nav-accent-soft:rgba(255,180,84,.14); }
-.admin-portal .admin-nav-group:nth-child(4) { --nav-accent:#a98bff; --nav-accent-soft:rgba(169,139,255,.15); }
-.admin-portal .admin-nav-group:nth-child(5) { --nav-accent:#36d9bd; --nav-accent-soft:rgba(54,217,189,.14); }
-.admin-portal .admin-nav-group:nth-child(6) { --nav-accent:#ff7d68; --nav-accent-soft:rgba(255,125,104,.14); }
-.admin-portal .admin-nav-group:nth-child(7) { --nav-accent:#77a8ff; --nav-accent-soft:rgba(119,168,255,.15); }
-.admin-portal .admin-nav-group:nth-child(8) { --nav-accent:#e6a4ff; --nav-accent-soft:rgba(230,164,255,.15); }
-.admin-portal .admin-nav-group:nth-child(9) { --nav-accent:#f4d35e; --nav-accent-soft:rgba(244,211,94,.14); }
-.admin-portal .admin-nav-group:nth-child(10) { --nav-accent:#5ee1a0; --nav-accent-soft:rgba(94,225,160,.14); }
-.admin-portal .admin-nav-group:nth-child(11) { --nav-accent:#ff8f9b; --nav-accent-soft:rgba(255,143,155,.14); }
-.admin-portal .admin-nav-group:nth-child(12) { --nav-accent:#6dbbff; --nav-accent-soft:rgba(109,187,255,.15); }
-.admin-portal .admin-nav-group:nth-child(13) { --nav-accent:#d2a0ff; --nav-accent-soft:rgba(210,160,255,.15); }
+.admin-portal .admin-nav-group--overview { --nav-accent:#2563EB; --nav-accent-soft:color-mix(in srgb,#2563EB 16%,transparent); --nav-accent-wash:color-mix(in srgb,#2563EB 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--customers { --nav-accent:#DB2777; --nav-accent-soft:color-mix(in srgb,#DB2777 16%,transparent); --nav-accent-wash:color-mix(in srgb,#DB2777 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--finance { --nav-accent:#D97706; --nav-accent-soft:color-mix(in srgb,#D97706 16%,transparent); --nav-accent-wash:color-mix(in srgb,#D97706 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--trade-setup { --nav-accent:#7C3AED; --nav-accent-soft:color-mix(in srgb,#7C3AED 16%,transparent); --nav-accent-wash:color-mix(in srgb,#7C3AED 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--trade-offers { --nav-accent:#059669; --nav-accent-soft:color-mix(in srgb,#059669 16%,transparent); --nav-accent-wash:color-mix(in srgb,#059669 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--trade-results { --nav-accent:#DC2626; --nav-accent-soft:color-mix(in srgb,#DC2626 16%,transparent); --nav-accent-wash:color-mix(in srgb,#DC2626 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--trade-monitoring { --nav-accent:#0284C7; --nav-accent-soft:color-mix(in srgb,#0284C7 16%,transparent); --nav-accent-wash:color-mix(in srgb,#0284C7 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--trade-history { --nav-accent:#9333EA; --nav-accent-soft:color-mix(in srgb,#9333EA 16%,transparent); --nav-accent-wash:color-mix(in srgb,#9333EA 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--verification-risk { --nav-accent:#CA8A04; --nav-accent-soft:color-mix(in srgb,#CA8A04 16%,transparent); --nav-accent-wash:color-mix(in srgb,#CA8A04 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--communications { --nav-accent:#16A34A; --nav-accent-soft:color-mix(in srgb,#16A34A 16%,transparent); --nav-accent-wash:color-mix(in srgb,#16A34A 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--platform-configuration { --nav-accent:#E11D48; --nav-accent-soft:color-mix(in srgb,#E11D48 16%,transparent); --nav-accent-wash:color-mix(in srgb,#E11D48 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--integrations { --nav-accent:#0891B2; --nav-accent-soft:color-mix(in srgb,#0891B2 16%,transparent); --nav-accent-wash:color-mix(in srgb,#0891B2 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--governance-reports { --nav-accent:#A21CAF; --nav-accent-soft:color-mix(in srgb,#A21CAF 16%,transparent); --nav-accent-wash:color-mix(in srgb,#A21CAF 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
 .admin-portal .admin-nav-group.is-open {
-  border-color: color-mix(in srgb,var(--nav-accent) 66%,rgba(255,255,255,.12)) !important;
-  box-shadow: inset 0 1px rgba(255,255,255,.075),0 13px 32px rgba(0,0,0,.2),0 0 0 1px color-mix(in srgb,var(--nav-accent) 12%,transparent) !important;
+  border-color: var(--nav-accent) !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.075),0 13px 32px rgba(0,0,0,.2),0 0 0 1px color-mix(in srgb,var(--nav-accent) 22%,transparent) !important;
 }
 .admin-portal .admin-nav-group-heading {
   min-height: 57px !important;
   padding: 10px 11px !important;
-  border: 1px solid transparent !important;
+  border: 1px solid color-mix(in srgb,var(--nav-accent) 24%,transparent) !important;
   border-radius: 12px !important;
   background: linear-gradient(100deg,var(--nav-accent-soft),transparent 88%) !important;
   transition: background .18s ease,border-color .18s ease,transform .18s ease !important;
 }
 .admin-portal .admin-nav-group-heading:hover,
 .admin-portal .admin-nav-group-heading:focus-visible {
-  border-color: color-mix(in srgb,var(--nav-accent) 42%,transparent) !important;
-  background: color-mix(in srgb,var(--nav-accent) 17%,rgba(9,25,42,.88)) !important;
+  border-color: var(--nav-accent) !important;
+  background: color-mix(in srgb,var(--nav-accent) 19%,var(--arb-color-surface-raised,rgba(9,25,42,.88))) !important;
 }
 .admin-portal .admin-nav-group-heading span {
-  color: var(--nav-accent) !important;
+  color: var(--nav-accent-text) !important;
   font-size: 10px !important;
   font-weight: 850 !important;
   letter-spacing: .105em !important;
   text-transform: uppercase;
-  text-shadow: 0 0 18px color-mix(in srgb,var(--nav-accent) 28%,transparent);
 }
 .admin-portal .admin-nav-group-heading small {
-  color: #9ab2bf !important;
+  color: var(--arb-color-text-muted,#9ab2bf) !important;
   font-size: 9px !important;
   line-height: 1.4 !important;
   letter-spacing: 0 !important;
 }
 .admin-portal .admin-nav-group-chevron {
-  color: var(--nav-accent) !important;
+  color: var(--nav-accent-text) !important;
   font-size: 21px !important;
-  text-shadow: 0 0 14px color-mix(in srgb,var(--nav-accent) 38%,transparent);
 }
 .admin-portal .admin-nav-group-items {
   display: none !important;
@@ -724,62 +724,62 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
   min-height: 57px !important;
   margin: 0 !important;
   padding: 9px 10px !important;
-  border: 1px solid color-mix(in srgb,var(--nav-accent) 15%,transparent) !important;
+  border: 1px solid color-mix(in srgb,var(--nav-accent) 34%,var(--arb-color-border,transparent)) !important;
   border-radius: 12px !important;
-  color: #c1d1dc !important;
-  background: linear-gradient(110deg,color-mix(in srgb,var(--nav-accent) 6%,rgba(17,39,59,.88)),rgba(8,23,39,.78)) !important;
+  color: var(--arb-color-text,#c1d1dc) !important;
+  background: linear-gradient(110deg,color-mix(in srgb,var(--nav-accent) 12%,var(--arb-color-surface-raised,rgba(17,39,59,.88))),var(--arb-color-surface,rgba(8,23,39,.78))) !important;
   transition: color .18s ease,border-color .18s ease,background .18s ease,transform .18s ease,box-shadow .18s ease !important;
 }
 .admin-portal .admin-nav-item-wrap > button svg {
-  color: var(--nav-accent) !important;
-  filter: drop-shadow(0 0 5px color-mix(in srgb,var(--nav-accent) 28%,transparent));
+  color: var(--nav-accent-text) !important;
+  filter: drop-shadow(0 0 5px color-mix(in srgb,var(--nav-accent) 35%,transparent));
 }
 .admin-portal .admin-nav-item-wrap > button:hover {
   transform: translateX(2px) !important;
-  border-color: color-mix(in srgb,var(--nav-accent) 55%,transparent) !important;
-  color: #fff !important;
-  background: linear-gradient(105deg,color-mix(in srgb,var(--nav-accent) 18%,rgba(17,39,59,.96)),rgba(10,27,44,.96)) !important;
+  border-color: var(--nav-accent) !important;
+  color: var(--arb-color-text,#fff) !important;
+  background: color-mix(in srgb,var(--nav-accent) 21%,var(--arb-color-surface-raised,rgba(17,39,59,.96))) !important;
   box-shadow: 0 7px 18px rgba(0,0,0,.15) !important;
 }
 .admin-portal .admin-nav-item-wrap > button.active {
-  border-color: color-mix(in srgb,var(--nav-accent) 72%,rgba(255,255,255,.18)) !important;
-  color: #fff !important;
-  background: linear-gradient(105deg,color-mix(in srgb,var(--nav-accent) 23%,rgba(17,39,59,.96)),color-mix(in srgb,var(--nav-accent) 8%,rgba(8,23,39,.96))) !important;
+  border-color: var(--nav-accent) !important;
+  color: var(--arb-color-text,#fff) !important;
+  background: color-mix(in srgb,var(--nav-accent) 26%,var(--arb-color-surface-raised,rgba(8,23,39,.96))) !important;
   box-shadow: inset 3px 0 var(--nav-accent),0 8px 22px rgba(0,0,0,.18) !important;
 }
 .admin-portal .admin-nav-item-detail {
-  color: #91a8b8 !important;
+  color: var(--arb-color-text-muted,#91a8b8) !important;
   font-size: 9px !important;
   line-height: 1.4 !important;
 }
 .admin-portal .admin-nav-item-wrap > button:is(:hover,.active) .admin-nav-item-detail {
-  color: #e1edf4 !important;
+  color: var(--arb-color-text,#e1edf4) !important;
 }
 .admin-portal .admin-nav-submenu {
   display: grid !important;
   gap: 5px !important;
   margin: 6px 0 0 27px !important;
   padding: 5px 0 4px 12px !important;
-  border-left: 2px solid color-mix(in srgb,var(--nav-accent) 66%,transparent) !important;
+  border-left: 2px solid color-mix(in srgb,var(--nav-accent) 82%,transparent) !important;
   border-radius: 0 0 0 8px !important;
 }
 .admin-portal .admin-nav-submenu button {
   min-height: 35px !important;
   margin: 0 !important;
   padding: 7px 10px !important;
-  border: 1px solid color-mix(in srgb,var(--nav-accent) 18%,transparent) !important;
+  border: 1px solid color-mix(in srgb,var(--nav-accent) 38%,var(--arb-color-border,transparent)) !important;
   border-radius: 9px !important;
-  color: color-mix(in srgb,var(--nav-accent) 68%,#d7e4ed) !important;
-  background: color-mix(in srgb,var(--nav-accent) 8%,rgba(8,23,39,.82)) !important;
+  color: var(--nav-accent-text) !important;
+  background: color-mix(in srgb,var(--nav-accent) 13%,var(--arb-color-surface-raised,rgba(8,23,39,.82))) !important;
   font-size: 10px !important;
   line-height: 1.35 !important;
   text-align: left !important;
 }
 .admin-portal .admin-nav-submenu button:hover,
 .admin-portal .admin-nav-submenu button:focus-visible {
-  border-color: color-mix(in srgb,var(--nav-accent) 54%,transparent) !important;
-  color: #fff !important;
-  background: color-mix(in srgb,var(--nav-accent) 18%,rgba(8,23,39,.92)) !important;
+  border-color: var(--nav-accent) !important;
+  color: var(--arb-color-text,#fff) !important;
+  background: color-mix(in srgb,var(--nav-accent) 24%,var(--arb-color-surface-raised,rgba(8,23,39,.92))) !important;
 }
 .admin-portal .admin-nav-group :is(button,a):focus-visible {
   outline: 2px solid var(--nav-accent) !important;
