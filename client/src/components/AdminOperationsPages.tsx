@@ -525,6 +525,17 @@ function downloadCsv(filename: string, rows: Array<Record<string, unknown>>) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+
+function downloadJson(filename: string, value: unknown) {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function AdminReportsExports() {
   const customersQuery = trpc.adminOperations.customers.useQuery(undefined, { staleTime: 15_000 });
   const ledgerQuery = trpc.adminOperations.ledgerActivity.useQuery(undefined, { staleTime: 15_000 });
@@ -607,6 +618,24 @@ function workerStatusLabel(status: WorkerHealthEntry["status"]): string {
 
 export function AdminWorkerHealth() {
   const query = trpc.adminOperations.workerHealth.useQuery(undefined, { refetchInterval: 15_000, refetchOnWindowFocus: true });
+  const exportQuery = trpc.adminOperations.systemDiagnostics.useQuery(undefined, { enabled: false, retry: false });
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const exportReport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const result = await exportQuery.refetch();
+      if (result.error || !result.data) throw result.error ?? new Error("The diagnostics report returned no data.");
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      downloadJson("arbitrade-server-worker-diagnostics-" + stamp + ".json", result.data);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "The diagnostics report could not be generated.");
+    } finally {
+      setExporting(false);
+    }
+  };
   const data = (query.data ?? {}) as unknown as WorkerHealthData;
   const workers = data.workers ?? [];
   const healthy = workers.filter((worker) => worker.status === "healthy").length;
@@ -642,9 +671,11 @@ export function AdminWorkerHealth() {
       title="Worker health & recovery"
       description="Server-side worker heartbeats, recent outcomes, and durable qualification-queue totals. Status is derived from persisted worker records, not browser activity."
       icon={Activity}
-      action={<button className="admin-ops-button" type="button" onClick={refresh} disabled={query.isFetching}><RefreshCw size={14} /> Refresh</button>}
+      action={<><button className="admin-ops-button" type="button" onClick={refresh} disabled={query.isFetching}><RefreshCw size={14} /> Refresh</button><button className="admin-ops-button" type="button" onClick={() => void exportReport()} disabled={exporting}><Download size={14} /> {exporting ? "Preparing report…" : "Export full report"}</button></>}
     >
       <div className="admin-ops-meta-line"><span><Activity size={14} /> Auto-refresh every 15 seconds</span><span>Snapshot {timestamp(data.generatedAt)}</span></div>
+      {exportError && <div className="admin-ops-empty error" role="alert">Export failed: {exportError}</div>}
+      <div className="admin-ops-note"><Download size={16} /><span><strong>Full diagnostic export</strong> Downloads a JSON report containing worker history, queue findings, server resource and configuration status, database/schema checks, source-contract checks, and recommended corrections. Secrets are not exported. Full automated tests and production build checks must still be run in CI.</span></div>
       {query.isLoading ? <LoadingState /> : query.isError ? (
         <div className="admin-ops-empty error" role="alert">Worker health could not be loaded. Verify migration 0084 and the database connection; an unavailable monitor must not be interpreted as a healthy worker.</div>
       ) : <>
