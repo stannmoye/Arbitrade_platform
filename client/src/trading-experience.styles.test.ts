@@ -66,4 +66,15 @@ describe("Trade experience visual system", () => {
     expect(stylesheet).toContain("@media (prefers-reduced-motion: reduce)");
     expect(stylesheet).toContain("@media (forced-colors: active)");
   });
+
+  it("groups each main menu in a thick regional container with spaced, lightly outlined submenu containers", () => {
+    expect(portalStylesheet).toContain("gap: 22px !important");
+    expect(portalStylesheet).toContain("border-width: 3px !important");
+    expect(portalStylesheet).toContain("border: 1px solid color-mix(in srgb,var(--nav-accent) 36%");
+    expect(portalStylesheet).toContain("gap: 10px !important");
+    expect(portalStylesheet).toContain("margin-top: 8px !important");
+    expect(portalStylesheet).toContain(".admin-nav-item-wrap");
+    expect(portalStylesheet).toContain(".admin-nav-group");
+  });
+
 });
