@@ -371,6 +371,7 @@ export async function getSystemDiagnosticsReport() {
 
   const summary = summarizeDiagnosticChecks(checks);
   const findings = checks.filter((item) => item.status !== "pass");
+  const operatingSystem = await import("node:os");
   return {
     reportType: "arbitrade-server-and-application-diagnostics",
     reportVersion: 1,
@@ -392,7 +393,10 @@ export async function getSystemDiagnosticsReport() {
       architecture: process.arch,
       uptimeSeconds: Math.floor(process.uptime()),
       pid: process.pid,
-      cpuCount: (await import("node:os")).cpus().length,
+      cpuCount: operatingSystem.cpus().length,
+      cpuLoadAverage: operatingSystem.loadavg(),
+      totalMemoryBytes: operatingSystem.totalmem(),
+      freeMemoryBytes: operatingSystem.freemem(),
       memoryBytes: memory,
       heapUsePercent: Math.round(heapUseRatio * 100),
     },

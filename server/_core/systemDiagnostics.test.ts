@@ -48,12 +48,20 @@ describe("system diagnostics summary", () => {
     expect(schemaSource).toContain('mysqlTable("worker_health_registry"');
   });
 
-  it("wires the Worker Health export to an administrator-only on-demand JSON report", () => {
+  it("wires the administrator diagnostics dashboard, verification and complete report exports", () => {
     const routerSource = readFileSync(resolve(process.cwd(), "server/routers.ts"), "utf8");
     const adminUiSource = readFileSync(resolve(process.cwd(), "client/src/components/AdminOperationsPages.tsx"), "utf8");
+    const diagnosticsSource = readFileSync(resolve(process.cwd(), "server/_core/systemDiagnostics.ts"), "utf8");
     expect(routerSource).toContain("systemDiagnostics: adminProcedure.query(() => getSystemDiagnosticsReport())");
-    expect(adminUiSource).toContain("trpc.adminOperations.systemDiagnostics.useQuery(undefined, { enabled: false, retry: false })");
-    expect(adminUiSource).toContain('downloadJson("arbitrade-server-worker-diagnostics-" + stamp + ".json", result.data)');
-    expect(adminUiSource).toContain("Export full report");
+    expect(adminUiSource).toContain("trpc.adminOperations.systemDiagnostics.useQuery(undefined, { enabled: true, retry: false, staleTime: 60_000, refetchOnWindowFocus: false })");
+    expect(adminUiSource).toContain('downloadJson("arbitrade-full-system-diagnostics-" + stamp + ".json", report)');
+    expect(adminUiSource).toContain('downloadDiagnosticsCsv("arbitrade-system-diagnostics-" + stamp + ".csv", rows)');
+    expect(adminUiSource).toContain("Print / PDF");
+    expect(adminUiSource).toContain("Verify after fix");
+    expect(adminUiSource).toContain("arbitrade-diagnostic-history-v1");
+    expect(adminUiSource).toContain("report.sourceInventory?.files");
+    expect(diagnosticsSource).toContain("operatingSystem.loadavg()");
+    expect(diagnosticsSource).toContain("operatingSystem.totalmem()");
+    expect(adminUiSource).toContain("Complete diagnostic exports");
   });
 });
