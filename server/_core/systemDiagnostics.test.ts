@@ -41,6 +41,13 @@ describe("system diagnostics summary", () => {
       .toEqual(["daily-digests", "local-scheduled-jobs"]);
   });
 
+  it("checks the worker monitor against its actual Drizzle schema symbol", () => {
+    const workerHealthSource = readFileSync(resolve(process.cwd(), "server/_core/workerHealth.ts"), "utf8");
+    const schemaSource = readFileSync(resolve(process.cwd(), "drizzle/schema.ts"), "utf8");
+    expect(workerHealthSource).toContain("workerHealthRegistry");
+    expect(schemaSource).toContain('mysqlTable("worker_health_registry"');
+  });
+
   it("wires the Worker Health export to an administrator-only on-demand JSON report", () => {
     const routerSource = readFileSync(resolve(process.cwd(), "server/routers.ts"), "utf8");
     const adminUiSource = readFileSync(resolve(process.cwd(), "client/src/components/AdminOperationsPages.tsx"), "utf8");
