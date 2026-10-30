@@ -89,6 +89,6 @@ export default function TradingDeliveryPolicyEditor({ policyRows, policyMessage,
   </article>)}
   {policyRows.length===0&&<div className="empty-state">{isLoading?"Loading saved tier policies…":"No tier policies were returned. Refresh the policy list before editing."}</div>}
   <label>Reason for changing Trading tier policies (required for audit)<textarea value={policyReason} maxLength={500} minLength={5} onChange={e=>onPolicyReasonChange(e.target.value)} placeholder="Explain why these delivery, automation, rate or duration controls are changing."/><small>Enter 5–500 characters for the administrator audit record.</small></label>
-  <button className="primary-button" disabled={!policyRows.length||isSaving||policyReason.trim().length<5||!policyRows.every(policyRowValid)} onClick={onSave}>{isSaving?"Saving policy…":"Save delivery and retry policy"} <Check size={14}/></button>
+  <button className="primary-button" type="button" disabled={!policyRows.length||isLoading||isSaving} aria-busy={isSaving} onClick={onSave}>{isSaving?"Saving policy…":"Save delivery and retry policy"} <Check size={14}/></button>
 </div>;
 }
