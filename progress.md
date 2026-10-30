@@ -451,3 +451,6 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 - An earlier intermediate head passed the TypeScript check, but it predates the final expanded export content and is not used as final validation evidence. One intermediate Mining regression workflow failed; its cause has not yet been confirmed. Recheck all workflows on the final PR head before merge.
 
 - Added host-level CPU load averages and total/free system RAM to the live diagnostic report and surfaced them in the dashboard and exports, alongside process heap/memory. This extends the earlier CPU-core count with actual host load and memory capacity metrics.
+
+- Added exact source-contract coverage for the expanded administrator dashboard, JSON/CSV/print-PDF export actions, browser snapshot history, and host CPU/load/RAM fields. Updated the prior assertion that expected the old disabled-query/export-button implementation.
+- A pre-test-update Mining regression run exposed that stale assertion in `server/_core/systemDiagnostics.test.ts`; it was corrected to assert the new implementation. The final head must pass the full workflow before merge.
