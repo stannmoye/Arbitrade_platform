@@ -121,6 +121,53 @@ export async function setAppSetting(key: string, value: string, updatedBy?: numb
   else await db.insert(appSettings).values({ settingKey: key, settingValue: value, updatedBy: updatedBy ?? null });
 }
 
+export async function updateCompanyCatalogueAdminState(input: {
+  ids: string[];
+  status: "verified" | "unverified" | "archived";
+  reason: string;
+  updatedBy: number;
+}) {
+  const ids = [...new Set(input.ids)];
+  if (!ids.length || ids.length > 1811 || ids.some(id => !/^logo-brand-\\d{4}$/.test(id))) {
+    throw new Error("Select between 1 and 1,811 valid company catalogue IDs.");
+  }
+  if (!input.reason.trim() || input.reason.trim().length > 500) throw new Error("A valid reason is required.");
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db.transaction(async tx => {
+    const settingKey = "trade.companyCatalogue.adminState";
+    await tx.insert(appSettings).values({ settingKey, settingValue: "{}", updatedBy: input.updatedBy })
+      .onDuplicateKeyUpdate({ set: { settingKey } });
+    const row = (await tx.select().from(appSettings).where(eq(appSettings.settingKey, settingKey)).limit(1).for("update"))[0];
+    let statusById: Record<string, { status: "verified" | "archived"; updatedAt: string; updatedBy: number }> = {};
+    try {
+      const parsed = JSON.parse(row?.settingValue ?? "{}") as { statusById?: typeof statusById };
+      statusById = parsed.statusById ?? {};
+    } catch {
+      statusById = {};
+    }
+    const updatedAt = new Date().toISOString();
+    for (const id of ids) {
+      if (input.status === "unverified") delete statusById[id];
+      else statusById[id] = { status: input.status, updatedAt, updatedBy: input.updatedBy };
+    }
+    const nextValue = JSON.stringify({ statusById, lastAction: {
+      status: input.status, count: ids.length, reason: input.reason.trim(), updatedAt, updatedBy: input.updatedBy,
+    } });
+    await tx.update(appSettings).set({ settingValue: nextValue, updatedBy: input.updatedBy, updatedAt: new Date() }).where(eq(appSettings.settingKey, settingKey));
+    await tx.insert(v5AuditEvents).values({
+      actorUserId: input.updatedBy,
+      action: "company_catalogue.bulk_status_updated",
+      entityType: "company_catalogue",
+      entityId: "bulk",
+      reason: input.reason.trim(),
+      reference: `company-catalogue:${input.status}:${updatedAt}`,
+      metadataJson: JSON.stringify({ status: input.status, count: ids.length, ids, updatedAt }),
+    });
+    return { success: true, updated: ids.length, status: input.status, updatedAt };
+  });
+}
+
 export async function listAdminAuditEvents(){ const db=await getDb(); if(!db) throw new Error("Database is not available"); return db.select().from(v5AuditEvents).orderBy(desc(v5AuditEvents.createdAt)).limit(200); }
 const TRADE_FEE_SETTING_KEYS = ["trade.platformFeeBps", "trade.feeRoundingMode", "trade.feePolicyVersion"] as const;
 const DEFAULT_TRADE_FEE_POLICY = { feeRateBps: 1500, roundingMode: "half_up" as FeeRoundingMode, policyVersion: 1 };
