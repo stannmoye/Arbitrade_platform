@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { findCodeReviewMarkers, findUnregisteredWorkerKeys, summarizeDiagnosticChecks } from "./systemDiagnostics";
 
@@ -37,5 +39,14 @@ describe("system diagnostics summary", () => {
     ])).toEqual([]);
     expect(findUnregisteredWorkerKeys(registry, ['runMonitoredWorkerCycle("email-outbox", task)']))
       .toEqual(["daily-digests", "local-scheduled-jobs"]);
+  });
+
+  it("wires the Worker Health export to an administrator-only on-demand JSON report", () => {
+    const routerSource = readFileSync(resolve(process.cwd(), "server/routers.ts"), "utf8");
+    const adminUiSource = readFileSync(resolve(process.cwd(), "client/src/components/AdminOperationsPages.tsx"), "utf8");
+    expect(routerSource).toContain("systemDiagnostics: adminProcedure.query(() => getSystemDiagnosticsReport())");
+    expect(adminUiSource).toContain("trpc.adminOperations.systemDiagnostics.useQuery(undefined, { enabled: false, retry: false })");
+    expect(adminUiSource).toContain('downloadJson("arbitrade-server-worker-diagnostics-" + stamp + ".json", result.data)');
+    expect(adminUiSource).toContain("Export full report");
   });
 });
