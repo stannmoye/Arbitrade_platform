@@ -639,9 +639,9 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
   scrollbar-gutter: stable;
 }
 .admin-portal .admin-nav-group {
-  --nav-accent: #2563EB;
+  --nav-accent: #315B7D;
   --nav-accent-soft: rgba(37,99,235,.16);
-  --nav-accent-wash: color-mix(in srgb,#2563EB 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92)));
+  --nav-accent-wash: color-mix(in srgb,#315B7D 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92)));
   --nav-accent-text: color-mix(in srgb,var(--nav-accent) 76%,var(--arb-color-text,#edf4fa));
   flex: 0 0 auto;
   min-width: 0;
@@ -655,19 +655,19 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
   box-shadow: inset 0 1px rgba(255,255,255,.055),0 9px 24px rgba(0,0,0,.13) !important;
   transition: border-color .2s ease,box-shadow .2s ease,background .2s ease !important;
 }
-.admin-portal .admin-nav-group--overview { --nav-accent:#2563EB; --nav-accent-soft:color-mix(in srgb,#2563EB 16%,transparent); --nav-accent-wash:color-mix(in srgb,#2563EB 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
-.admin-portal .admin-nav-group--customers { --nav-accent:#DB2777; --nav-accent-soft:color-mix(in srgb,#DB2777 16%,transparent); --nav-accent-wash:color-mix(in srgb,#DB2777 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
-.admin-portal .admin-nav-group--finance { --nav-accent:#D97706; --nav-accent-soft:color-mix(in srgb,#D97706 16%,transparent); --nav-accent-wash:color-mix(in srgb,#D97706 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
-.admin-portal .admin-nav-group--trade-setup { --nav-accent:#7C3AED; --nav-accent-soft:color-mix(in srgb,#7C3AED 16%,transparent); --nav-accent-wash:color-mix(in srgb,#7C3AED 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
-.admin-portal .admin-nav-group--trade-offers { --nav-accent:#059669; --nav-accent-soft:color-mix(in srgb,#059669 16%,transparent); --nav-accent-wash:color-mix(in srgb,#059669 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
-.admin-portal .admin-nav-group--trade-results { --nav-accent:#DC2626; --nav-accent-soft:color-mix(in srgb,#DC2626 16%,transparent); --nav-accent-wash:color-mix(in srgb,#DC2626 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
-.admin-portal .admin-nav-group--trade-monitoring { --nav-accent:#0284C7; --nav-accent-soft:color-mix(in srgb,#0284C7 16%,transparent); --nav-accent-wash:color-mix(in srgb,#0284C7 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
-.admin-portal .admin-nav-group--trade-history { --nav-accent:#9333EA; --nav-accent-soft:color-mix(in srgb,#9333EA 16%,transparent); --nav-accent-wash:color-mix(in srgb,#9333EA 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
-.admin-portal .admin-nav-group--verification-risk { --nav-accent:#CA8A04; --nav-accent-soft:color-mix(in srgb,#CA8A04 16%,transparent); --nav-accent-wash:color-mix(in srgb,#CA8A04 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
-.admin-portal .admin-nav-group--communications { --nav-accent:#16A34A; --nav-accent-soft:color-mix(in srgb,#16A34A 16%,transparent); --nav-accent-wash:color-mix(in srgb,#16A34A 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
-.admin-portal .admin-nav-group--platform-configuration { --nav-accent:#E11D48; --nav-accent-soft:color-mix(in srgb,#E11D48 16%,transparent); --nav-accent-wash:color-mix(in srgb,#E11D48 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
-.admin-portal .admin-nav-group--integrations { --nav-accent:#0891B2; --nav-accent-soft:color-mix(in srgb,#0891B2 16%,transparent); --nav-accent-wash:color-mix(in srgb,#0891B2 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
-.admin-portal .admin-nav-group--governance-reports { --nav-accent:#A21CAF; --nav-accent-soft:color-mix(in srgb,#A21CAF 16%,transparent); --nav-accent-wash:color-mix(in srgb,#A21CAF 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--overview { --nav-accent:#315B7D; --nav-accent-soft:color-mix(in srgb,#315B7D 16%,transparent); --nav-accent-wash:color-mix(in srgb,#315B7D 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--customers { --nav-accent:#80627A; --nav-accent-soft:color-mix(in srgb,#80627A 16%,transparent); --nav-accent-wash:color-mix(in srgb,#80627A 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--finance { --nav-accent:#8B6A3E; --nav-accent-soft:color-mix(in srgb,#8B6A3E 16%,transparent); --nav-accent-wash:color-mix(in srgb,#8B6A3E 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--trade-setup { --nav-accent:#536A9A; --nav-accent-soft:color-mix(in srgb,#536A9A 16%,transparent); --nav-accent-wash:color-mix(in srgb,#536A9A 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--trade-offers { --nav-accent:#39796F; --nav-accent-soft:color-mix(in srgb,#39796F 16%,transparent); --nav-accent-wash:color-mix(in srgb,#39796F 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--trade-results { --nav-accent:#9A5A5A; --nav-accent-soft:color-mix(in srgb,#9A5A5A 16%,transparent); --nav-accent-wash:color-mix(in srgb,#9A5A5A 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--trade-monitoring { --nav-accent:#3F7188; --nav-accent-soft:color-mix(in srgb,#3F7188 16%,transparent); --nav-accent-wash:color-mix(in srgb,#3F7188 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--trade-history { --nav-accent:#6D668C; --nav-accent-soft:color-mix(in srgb,#6D668C 16%,transparent); --nav-accent-wash:color-mix(in srgb,#6D668C 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--verification-risk { --nav-accent:#8A7848; --nav-accent-soft:color-mix(in srgb,#8A7848 16%,transparent); --nav-accent-wash:color-mix(in srgb,#8A7848 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--communications { --nav-accent:#557A65; --nav-accent-soft:color-mix(in srgb,#557A65 16%,transparent); --nav-accent-wash:color-mix(in srgb,#557A65 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--platform-configuration { --nav-accent:#765E68; --nav-accent-soft:color-mix(in srgb,#765E68 16%,transparent); --nav-accent-wash:color-mix(in srgb,#765E68 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--integrations { --nav-accent:#477A82; --nav-accent-soft:color-mix(in srgb,#477A82 16%,transparent); --nav-accent-wash:color-mix(in srgb,#477A82 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
+.admin-portal .admin-nav-group--governance-reports { --nav-accent:#696F78; --nav-accent-soft:color-mix(in srgb,#696F78 16%,transparent); --nav-accent-wash:color-mix(in srgb,#696F78 9%,var(--arb-color-surface-raised,rgba(8,23,39,.92))); }
 .admin-portal .admin-nav-group.is-open {
   border-color: var(--nav-accent) !important;
   box-shadow: inset 0 1px rgba(255,255,255,.075),0 13px 32px rgba(0,0,0,.2),0 0 0 1px color-mix(in srgb,var(--nav-accent) 22%,transparent) !important;
