@@ -52,10 +52,13 @@ export const appRouter = router({
     adminState: adminProcedure.query(async () => {
       const raw = await getAppSetting("trade.companyCatalogue.adminState", "{}");
       try {
-        const parsed = JSON.parse(raw || "{}") as { statusById?: Record<string, { status?: string; updatedAt?: string; updatedBy?: number }> };
-        const statusById = Object.fromEntries(Object.entries(parsed.statusById ?? {}).filter(([id, value]) =>
-          /^logo-brand-\d{4}$/.test(id) && ["verified", "unverified", "archived"].includes(value?.status ?? "")
-        ));
+        const parsed = JSON.parse(raw || "{}") as { verifiedIds?: string[]; archivedIds?: string[] };
+        const verifiedIds = (parsed.verifiedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
+        const archivedIds = (parsed.archivedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
+        const statusById = Object.fromEntries([
+          ...verifiedIds.map(id => [id, { status: "verified" }]),
+          ...archivedIds.map(id => [id, { status: "archived" }]),
+        ]);
         return { statusById };
       } catch {
         return { statusById: {} };
