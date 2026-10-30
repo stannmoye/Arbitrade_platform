@@ -10,6 +10,7 @@ const router = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const adminApp = readFileSync(new URL("../client/src/App.tsx", import.meta.url), "utf8");
 const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
 const adminCss = readFileSync(new URL("../client/src/admin-operations.css", import.meta.url), "utf8");
+const packageCardColors = readFileSync(new URL("../client/src/components/trading-package-card-colors.css", import.meta.url), "utf8");
 const walletFx = readFileSync(new URL("./modules/trading-wallet-fx.ts", import.meta.url), "utf8");
 
 describe("administrator-configured Trading pop-up policy", () => {
@@ -68,6 +69,13 @@ describe("administrator-configured Trading pop-up policy", () => {
     expect(adminApp).toContain("trading-tier-badge");
     expect(adminCss).toContain(".trading-tier-card--5");
     expect(adminCss).toContain(".trading-tier-badge");
+    expect(policyEditor).toContain('import "./trading-package-card-colors.css"');
+    expect(packageCardColors).toContain(".package-admin-card:nth-of-type(6n + 1)");
+    expect(packageCardColors).toContain(".package-admin-card:nth-of-type(6n + 2)");
+    expect(packageCardColors).toContain(".package-admin-card:nth-of-type(6n + 3)");
+    expect(packageCardColors).toContain(".package-admin-card:nth-of-type(6n + 4)");
+    expect(packageCardColors).toContain(".package-admin-card:nth-of-type(6n + 5)");
+    expect(packageCardColors).toContain(".package-admin-card:nth-of-type(6n)");
     expect(adminCss).toContain("@media (max-width: 620px)");
     expect(adminCss).toContain(":focus-visible");
   });
