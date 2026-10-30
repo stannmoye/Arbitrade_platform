@@ -435,3 +435,14 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 - Source review covered `client/src/admin-navigation.ts`, the admin routing in `client/src/App.tsx`, tier configuration, Opportunity Engine, `TradingDeliveryPolicyEditor`, timing settings, fee/settlement review, delivery monitoring, worker health, `CustomerTradingEligibility`, customer opportunity cards/popups/history, and the canonical Trading specification/manual.
 - Important documented implementation boundaries: customer tier selection/activation is absent; only qualifying manual admin credits count; carry-forward is not available in the current menu; the worker page's qualification queue is not a substitute for settlement review; current popup component does not expose the specification's Minimize/Maximize dock; catalogue references do not prove market listing/execution.
 - Exact-head CI on `065950280d4d41e57a2a6e26962b222732b5e6b3` passed: 25/25 checks, including type-check, automated tests, production build, installer validation, Trading database integrations, and customer portal real-browser acceptance. PR #246 merged to `main` as `ffc9ec9d574735bc98a0fd33629f7ad5ba736b8a`. No production deployment or database operation was performed.
+
+
+## 2026-10-30 — System diagnostics readiness dashboard and exports (in progress)
+
+- Canonical base verified immediately before work: `main` at `042ba74bc397e77bb488c0cc28e609651b2997e7`.
+- Work branch: `feat/diagnostics-readiness-history-exports`.
+- Extended Trade Settings → Worker Health & Recovery with a system health overview, severity-labelled findings and recommended corrections, feature-by-feature evidence assessment, deployment-readiness interpretation, post-fix snapshot comparison, and up to 30 browser-local diagnostic history summaries.
+- Added fresh-report JSON, spreadsheet-compatible CSV (Excel), and print-ready PDF workflow (browser Print → Save as PDF). Existing worker refresh, durable queue view and audited retry controls are retained.
+- Feature states intentionally avoid false assurances: missing expected source files are Not Working; clearly related failing checks are Degraded; source presence without live feature acceptance is Not Verified. Source presence alone is not marked Working.
+- Updated `docs/system-diagnostics-export.md` with scope, severity, export, history and safety limitations. No production auto-fix, migration, or background polling process was added.
+- Validation still required on the exact PR head: `pnpm install --frozen-lockfile`, `pnpm check`, `pnpm test`, `pnpm build`, plus review of the CSV/PDF flows and authenticated hosted behaviour. This connector session cannot run the repository's Node/pnpm test suite or access the production server/database. Do not claim production verification.
