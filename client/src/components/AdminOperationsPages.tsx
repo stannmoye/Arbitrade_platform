@@ -648,7 +648,7 @@ function escapeReportHtml(value: unknown) {
   })[character] ?? character);
 }
 
-function downloadCsv(filename: string, rows: string[][]) {
+function downloadDiagnosticsCsv(filename: string, rows: string[][]) {
   const csv = rows.map((row) => row.map((value) => '"' + String(value ?? "").replace(/"/g, '""') + '"').join(",")).join("\r\n");
   const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -715,7 +715,7 @@ export function AdminWorkerHealth() {
           ["Feature", "Status", "Evidence note"],
           ...(report.featureCoverage ?? []).map((feature: any) => [feature.label, diagnosticFeatureState(feature, report.checks ?? []), feature.note ?? ""]),
         ];
-        downloadCsv("arbitrade-system-diagnostics-" + stamp + ".csv", rows);
+        downloadDiagnosticsCsv("arbitrade-system-diagnostics-" + stamp + ".csv", rows);
       } else {
         if (!printWindow) throw new Error("The PDF print window is unavailable.");
         const checks = (report.checks ?? []).map((item: any) => `<tr><td>${escapeReportHtml(diagnosticSeverity(item))}</td><td>${escapeReportHtml(item.status)}</td><td>${escapeReportHtml(item.area)}</td><td><strong>${escapeReportHtml(item.title)}</strong><br>${escapeReportHtml(item.detail)}${item.recommendation ? `<br><em>Action: ${escapeReportHtml(item.recommendation)}</em>` : ""}</td></tr>`).join("");
