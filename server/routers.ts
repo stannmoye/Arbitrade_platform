@@ -28,6 +28,7 @@ import * as privacyService from "./privacy";
 import { localIdentityService } from "./_core/localIdentityService";
 import { createHeartbeatJob, deleteHeartbeatJob, listHeartbeatJobs, updateHeartbeatJob } from "./_core/heartbeat";
 import { getWorkerHealthSummary, requeueDeadQualificationJob } from "./_core/workerHealth";
+import { getSystemDiagnosticsReport } from "./_core/systemDiagnostics";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -313,6 +314,7 @@ export const appRouter = router({
 
   adminOperations: router({
     workerHealth: adminProcedure.query(() => getWorkerHealthSummary()),
+    systemDiagnostics: adminProcedure.query(() => getSystemDiagnosticsReport()),
     requeueDeadQualificationJob: adminProcedure.input(z.object({
       jobId: z.number().int().positive(),
       reason: z.string().trim().min(8).max(500),
