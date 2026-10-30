@@ -61,6 +61,7 @@ async function collectSourceInventory() {
   let totalBytes = 0;
   let reviewBytes = 0;
   let reviewScanComplete = true;
+  let reviewMarkersTruncated = false;
   let truncated = false;
 
   async function walk(directory: string, area: string, depth: number): Promise<void> {
@@ -115,9 +116,10 @@ async function collectSourceInventory() {
       try {
         const source = await readFile(resolve(process.cwd(), relativePath), "utf8");
         reviewBytes += bytes;
-        if (reviewMarkers.length < SOURCE_REVIEW_MAX_MARKERS) {
-          reviewMarkers.push(...findCodeReviewMarkers(relativePath, source).slice(0, SOURCE_REVIEW_MAX_MARKERS - reviewMarkers.length));
-        }
+        const foundMarkers = findCodeReviewMarkers(relativePath, source);
+        const remainingMarkers = Math.max(0, SOURCE_REVIEW_MAX_MARKERS - reviewMarkers.length);
+        if (foundMarkers.length > remainingMarkers) reviewMarkersTruncated = true;
+        if (remainingMarkers > 0) reviewMarkers.push(...foundMarkers.slice(0, remainingMarkers));
       } catch {
         reviewScanComplete = false;
       }
@@ -126,7 +128,7 @@ async function collectSourceInventory() {
 
   for (const area of SOURCE_SCAN_ROOTS) await walk(area, area, 0);
   return {
-    complete: !truncated && scanIssues.length === 0 && reviewScanComplete,
+    complete: !truncated && scanIssues.length === 0 && reviewScanComplete && !reviewMarkersTruncated,
     truncated,
     filesScanned: files.length,
     testFiles: files.filter((file) => file.testFile).length,
@@ -135,6 +137,7 @@ async function collectSourceInventory() {
     files,
     reviewMarkers,
     reviewScanComplete,
+    reviewMarkersTruncated,
     scanIssues: scanIssues.slice(0, 50),
     limits: { maxFiles: SOURCE_SCAN_MAX_FILES, maxSourceBytes: SOURCE_SCAN_MAX_BYTES, maxReviewBytes: SOURCE_REVIEW_MAX_BYTES, maxReviewFileBytes: SOURCE_REVIEW_MAX_FILE_BYTES, maxReviewMarkers: SOURCE_REVIEW_MAX_MARKERS },
   };
