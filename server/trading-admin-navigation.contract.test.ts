@@ -22,7 +22,7 @@ describe("Administrator company catalogue navigation and pagination", () => {
     expect(catalogue).toContain("Logo ID {logoId}");
     expect(catalogue).toContain("Previous");
     expect(catalogue).toContain("Next");
-    expect(catalogue).toContain("reference-only/unverified");
+    expect(catalogue).toContain("Reference only · Unverified");
   });
 
   it("paginates all tier policy cards in groups of five without truncating the saved policy payload", () => {
