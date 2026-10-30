@@ -616,26 +616,143 @@ function workerStatusLabel(status: WorkerHealthEntry["status"]): string {
   return status === "not_started" ? "Not started" : status === "stale" ? "Stale heartbeat" : status[0].toUpperCase() + status.slice(1);
 }
 
+type DiagnosticSnapshot = {
+  generatedAt: string;
+  overallStatus: string;
+  summary: { pass: number; warning: number; fail: number; not_run: number };
+  checks: Array<{ id: string; area: string; status: "pass" | "warning" | "fail" | "not_run"; title: string; detail: string; recommendation: string | null }>;
+};
+
+function diagnosticSeverity(check: DiagnosticSnapshot["checks"][number]) {
+  if (check.status === "fail") return check.area === "database" || check.area === "configuration" ? "Critical" : "High";
+  if (check.status === "warning") return "Medium";
+  if (check.status === "not_run") return "Low";
+  return "Informational";
+}
+
+function diagnosticFeatureState(feature: { status: string; sourceFiles?: Array<{ present: boolean }> }, checks: DiagnosticSnapshot["checks"]) {
+  if (feature.status === "source_incomplete" || feature.sourceFiles?.some((file) => !file.present)) return "Not Working";
+  const related = checks.filter((item) => item.status !== "pass" && (
+    item.area === "database" || item.area === "workers" || item.area === "queues" || item.area === "code"
+  ));
+  if (related.some((item) => item.status === "fail")) return "Degraded";
+  // Source presence is not runtime acceptance. Do not label a feature working without
+  // an authenticated feature-level test result from the deployed revision.
+  return "Not Verified";
+}
+
+function escapeReportHtml(value: unknown) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[character] ?? character);
+}
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows.map((row) => row.map((value) => '"' + String(value ?? "").replace(/"/g, '""') + '"').join(",")).join("\r\n");
+  const blob = new Blob(["\\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function AdminWorkerHealth() {
   const query = trpc.adminOperations.workerHealth.useQuery(undefined, { refetchInterval: 15_000, refetchOnWindowFocus: true });
   const exportQuery = trpc.adminOperations.systemDiagnostics.useQuery(undefined, { enabled: false, retry: false });
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
-  const exportReport = async () => {
+  const [verification, setVerification] = useState<string | null>(null);
+  const [history, setHistory] = useState<Array<{ generatedAt: string; overallStatus: string; pass: number; warning: number; fail: number; not_run: number }>>(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem("arbitrade-diagnostic-history-v1") || "[]");
+      return Array.isArray(saved) ? saved.slice(0, 30) : [];
+    } catch { return []; }
+  });
+
+  const rememberSnapshot = (report: any) => {
+    const next = [{
+      generatedAt: report.generatedAt,
+      overallStatus: report.overallStatus,
+      pass: report.summary?.pass ?? 0,
+      warning: report.summary?.warning ?? 0,
+      fail: report.summary?.fail ?? 0,
+      not_run: report.summary?.not_run ?? 0,
+    }, ...history.filter((item) => item.generatedAt !== report.generatedAt)].slice(0, 30);
+    setHistory(next);
+    try { window.localStorage.setItem("arbitrade-diagnostic-history-v1", JSON.stringify(next)); } catch { /* Browser storage may be disabled or full. */ }
+  };
+
+  const fetchReport = async () => {
+    const result = await exportQuery.refetch();
+    if (result.error || !result.data) throw result.error ?? new Error("The diagnostics report returned no data.");
+    return result.data as any;
+  };
+
+  const exportReport = async (format: "json" | "csv" | "pdf") => {
     if (exporting) return;
     setExporting(true);
     setExportError(null);
     try {
-      const result = await exportQuery.refetch();
-      if (result.error || !result.data) throw result.error ?? new Error("The diagnostics report returned no data.");
+      const report = await fetchReport();
+      rememberSnapshot(report);
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      downloadJson("arbitrade-server-worker-diagnostics-" + stamp + ".json", result.data);
+      if (format === "json") {
+        downloadJson("arbitrade-full-system-diagnostics-" + stamp + ".json", report);
+      } else if (format === "csv") {
+        const rows: string[][] = [
+          ["Severity", "Status", "Area", "Check", "Finding", "Recommended correction"],
+          ...(report.checks ?? []).map((item: any) => [diagnosticSeverity(item), item.status, item.area, item.title, item.detail, item.recommendation ?? ""]),
+          [],
+          ["Feature", "Status", "Evidence note"],
+          ...(report.featureCoverage ?? []).map((feature: any) => [feature.label, diagnosticFeatureState(feature, report.checks ?? []), feature.note ?? ""]),
+        ];
+        downloadCsv("arbitrade-system-diagnostics-" + stamp + ".csv", rows);
+      } else {
+        const printWindow = window.open("", "_blank");
+        if (!printWindow) throw new Error("The PDF print window was blocked. Allow pop-ups for this site and try again.");
+        const checks = (report.checks ?? []).map((item: any) => `<tr><td>${escapeReportHtml(diagnosticSeverity(item))}</td><td>${escapeReportHtml(item.status)}</td><td>${escapeReportHtml(item.area)}</td><td><strong>${escapeReportHtml(item.title)}</strong><br>${escapeReportHtml(item.detail)}${item.recommendation ? `<br><em>Action: ${escapeReportHtml(item.recommendation)}</em>` : ""}</td></tr>`).join("");
+        const features = (report.featureCoverage ?? []).map((feature: any) => `<tr><td>${escapeReportHtml(feature.label)}</td><td>${escapeReportHtml(diagnosticFeatureState(feature, report.checks ?? []))}</td><td>${escapeReportHtml(feature.note)}</td></tr>`).join("");
+        printWindow.document.write(`<!doctype html><html><head><title>Arbitrade System Diagnostics</title><style>body{font:12px Arial,sans-serif;color:#172033;margin:28px}h1{font-size:22px}h2{font-size:16px;margin-top:24px}.meta{color:#526078}table{width:100%;border-collapse:collapse;margin:12px 0 20px}th,td{border:1px solid #cbd5e1;padding:7px;text-align:left;vertical-align:top}th{background:#eef2f7}em{display:block;margin-top:5px;color:#475569}.summary{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0}.summary b{font-size:18px}footer{margin-top:24px;color:#64748b}@media print{body{margin:12mm}tr{break-inside:avoid}}</style></head><body><h1>Arbitrade — Full System Diagnostics</h1><p class="meta">Generated: ${escapeReportHtml(report.generatedAt)} · Revision: ${escapeReportHtml(report.application?.sourceRevision || "Not supplied")} · Overall: ${escapeReportHtml(report.overallStatus)}</p><div class="summary"><span>Critical/High findings: <b>${(report.summary?.fail ?? 0)}</b></span><span>Warnings: <b>${(report.summary?.warning ?? 0)}</b></span><span>Not run: <b>${(report.summary?.not_run ?? 0)}</b></span><span>Passed: <b>${(report.summary?.pass ?? 0)}</b></span></div><h2>Detected issues and corrective actions</h2><table><thead><tr><th>Severity</th><th>Status</th><th>Area</th><th>Finding and recommended correction</th></tr></thead><tbody>${checks}</tbody></table><h2>Feature health assessment</h2><p>“Not Verified” means source files are present but live feature acceptance has not been proven by this diagnostic.</p><table><thead><tr><th>Feature</th><th>Assessment</th><th>Evidence</th></tr></thead><tbody>${features}</tbody></table><h2>Deployment readiness</h2><p>${escapeReportHtml(report.overallStatus)} — ${(report.summary?.fail ?? 0) ? "Do not treat this deployment as ready until critical/high findings are corrected and rechecked." : (report.summary?.warning ?? 0) || (report.summary?.not_run ?? 0) ? "Review warnings and complete checks not run before release." : "No issues were detected by the checks that ran; complete CI and hosted acceptance before production sign-off."}</p><h2>Scope and limitations</h2><ul>${(report.scope?.limitations ?? []).map((item: string) => `<li>${escapeReportHtml(item)}</li>`).join("")}</ul><footer>Read-only diagnostic snapshot. Recommendations do not modify production code or database records.</footer></body></html>`);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+      }
     } catch (error) {
       setExportError(error instanceof Error ? error.message : "The diagnostics report could not be generated.");
     } finally {
       setExporting(false);
     }
   };
+
+  const verifyAfterFix = async () => {
+    if (exporting) return;
+    setExporting(true);
+    setVerification(null);
+    setExportError(null);
+    try {
+      const previous = history[0];
+      const report = await fetchReport();
+      rememberSnapshot(report);
+      if (!previous) {
+        setVerification("Baseline saved. Apply a correction, then run verification again to compare the result.");
+      } else {
+        const before = previous.fail + previous.warning;
+        const after = (report.summary?.fail ?? 0) + (report.summary?.warning ?? 0);
+        const delta = before - after;
+        setVerification(delta > 0
+          ? `Verification improved: ${delta} fewer failed/warning checks than the previous saved snapshot.`
+          : delta < 0
+            ? `Verification regressed: ${Math.abs(delta)} more failed/warning checks than the previous saved snapshot.`
+            : "Verification complete: failed/warning check count is unchanged. Review individual check statuses for movement.");
+      }
+      await query.refetch();
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "Post-fix verification failed.");
+    } finally { setExporting(false); }
+  };
+
   const data = (query.data ?? {}) as unknown as WorkerHealthData;
   const workers = data.workers ?? [];
   const healthy = workers.filter((worker) => worker.status === "healthy").length;
@@ -651,10 +768,7 @@ export function AdminWorkerHealth() {
       setRecoveryError(null);
       void query.refetch();
     },
-    onError: (error) => {
-      setRecoveryError(error.message);
-      setLastRequeuedJobId(null);
-    },
+    onError: (error) => { setRecoveryError(error.message); setLastRequeuedJobId(null); },
   });
   const refresh = () => { void query.refetch(); };
   const retryJob = (job: DeadQualificationJob) => {
@@ -669,13 +783,52 @@ export function AdminWorkerHealth() {
     <ToolPage
       eyebrow="Trading operations"
       title="Worker health & recovery"
-      description="Server-side worker heartbeats, recent outcomes, and durable qualification-queue totals. Status is derived from persisted worker records, not browser activity."
+      description="Live server worker health, issue severity, application coverage, deployment readiness and post-fix verification. All assessments are read-only."
       icon={Activity}
-      action={<><button className="admin-ops-button" type="button" onClick={refresh} disabled={query.isFetching}><RefreshCw size={14} /> Refresh</button><button className="admin-ops-button" type="button" onClick={() => void exportReport()} disabled={exporting}><Download size={14} /> {exporting ? "Preparing report…" : "Export full report"}</button></>}
+      action={<>
+        <button className="admin-ops-button" type="button" onClick={refresh} disabled={query.isFetching}><RefreshCw size={14} /> Refresh</button>
+        <button className="admin-ops-button" type="button" onClick={() => void exportReport("json")} disabled={exporting}><Download size={14} /> JSON</button>
+        <button className="admin-ops-button" type="button" onClick={() => void exportReport("csv")} disabled={exporting}><Download size={14} /> Excel / CSV</button>
+        <button className="admin-ops-button" type="button" onClick={() => void exportReport("pdf")} disabled={exporting}><FileText size={14} /> Print / PDF</button>
+        <button className="admin-ops-button" type="button" onClick={() => void verifyAfterFix()} disabled={exporting}><CheckCircle2 size={14} /> {exporting ? "Checking…" : "Verify after fix"}</button>
+      </>}
     >
       <div className="admin-ops-meta-line"><span><Activity size={14} /> Auto-refresh every 15 seconds</span><span>Snapshot {timestamp(data.generatedAt)}</span></div>
-      {exportError && <div className="admin-ops-empty error" role="alert">Export failed: {exportError}</div>}
-      <div className="admin-ops-note"><Download size={16} /><span><strong>Full diagnostic export</strong> Downloads a JSON report containing worker history, queue findings, server resources, database/schema checks, a bounded inventory of application source files, potential unfinished-work markers, core feature source coverage, and recommended corrections. Secret values are never exported. Full automated tests and production build checks must still be run in CI.</span></div>
+      {exportError && <div className="admin-ops-empty error" role="alert">{exportError}</div>}
+      {verification && <div className="admin-ops-note" role="status"><CheckCircle2 size={16} /><span><strong>Post-fix comparison</strong> {verification}</span></div>}
+      <div className="admin-ops-note"><Download size={16} /><span><strong>Complete diagnostic exports</strong> JSON contains the full structured report; Excel/CSV exports checks and feature assessments; Print/PDF opens a print-ready report that can be saved as PDF. Snapshots are retained locally in this administrator's browser only. No secrets are exported.</span></div>
+
+      {exportQuery.data && <section className="admin-ops-panel">
+        <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">System health overview</span><h2>Latest full-system assessment</h2></div><span className="admin-ops-subtle">{exportQuery.data.overallStatus?.replaceAll("_", " ") ?? "Not checked"}</span></div>
+        <section className="admin-ops-metrics compact-metrics">
+          <Metric label="Critical / high findings" value={exportQuery.data.summary?.fail ?? "—"} detail="Failed diagnostic checks" icon={AlertTriangle} />
+          <Metric label="Warnings" value={exportQuery.data.summary?.warning ?? "—"} icon={AlertTriangle} />
+          <Metric label="Checks not run" value={exportQuery.data.summary?.not_run ?? "—"} icon={Clock3} />
+          <Metric label="Passed checks" value={exportQuery.data.summary?.pass ?? "—"} icon={CheckCircle2} />
+        </section>
+        <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Deployment readiness</strong> {exportQuery.data.summary?.fail ? "Not ready: correct failed checks before deployment." : exportQuery.data.summary?.warning || exportQuery.data.summary?.not_run ? "Review required: warnings and checks not run must be resolved or explicitly accepted before release." : "No issues detected by checks that ran. CI and hosted feature acceptance are still required for sign-off."}</span></div>
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Feature-by-feature assessment</span><h2>Application feature health</h2></div></div>
+          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Application feature health"><table className="admin-ops-table"><thead><tr><th>Feature</th><th>Assessment</th><th>Evidence</th></tr></thead><tbody>
+            {(exportQuery.data.featureCoverage ?? []).map((feature: any) => <tr key={feature.key}><td><strong>{feature.label}</strong></td><td><StatusPill tone={diagnosticFeatureState(feature, exportQuery.data.checks ?? []) === "Not Working" ? "high" : diagnosticFeatureState(feature, exportQuery.data.checks ?? []) === "Degraded" ? "watch" : "neutral"}>{diagnosticFeatureState(feature, exportQuery.data.checks ?? [])}</StatusPill></td><td>{feature.note}</td></tr>)}
+          </tbody></table></div>
+        </section>
+        <section className="admin-ops-panel">
+          <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Automatic issue detection</span><h2>Findings and recommended corrections</h2></div><span className="admin-ops-subtle">{(exportQuery.data.findings ?? []).length} findings</span></div>
+          <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Detected issues"><table className="admin-ops-table"><thead><tr><th>Severity</th><th>Finding</th><th>Recommended correction</th></tr></thead><tbody>
+            {(exportQuery.data.findings ?? []).map((item: any) => <tr key={item.id}><td><StatusPill tone={diagnosticSeverity(item) === "Critical" || diagnosticSeverity(item) === "High" ? "high" : diagnosticSeverity(item) === "Medium" ? "watch" : "neutral"}>{diagnosticSeverity(item)}</StatusPill></td><td><strong>{item.title}</strong><small>{item.area} · {item.status}</small>{item.detail}</td><td>{item.recommendation || "No automated recommendation. Review the evidence manually."}</td></tr>)}
+            {!exportQuery.data.findings?.length && <tr><td colSpan={3} className="admin-ops-table-empty">No issues were detected by the checks that ran.</td></tr>}
+          </tbody></table></div>
+        </section>
+      </section>}
+
+      {history.length > 0 && <section className="admin-ops-panel">
+        <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Historical snapshots</span><h2>Diagnostic trend</h2></div><span className="admin-ops-subtle">Latest {history.length} on this browser</span></div>
+        <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Diagnostic history"><table className="admin-ops-table"><thead><tr><th>Generated</th><th>Overall status</th><th>Failed</th><th>Warnings</th><th>Not run</th><th>Passed</th></tr></thead><tbody>
+          {history.map((item) => <tr key={item.generatedAt}><td>{timestamp(item.generatedAt)}</td><td>{item.overallStatus.replaceAll("_", " ")}</td><td>{item.fail}</td><td>{item.warning}</td><td>{item.not_run}</td><td>{item.pass}</td></tr>)}
+        </tbody></table></div>
+      </section>}
+
       {query.isLoading ? <LoadingState /> : query.isError ? (
         <div className="admin-ops-empty error" role="alert">Worker health could not be loaded. Verify migration 0084 and the database connection; an unavailable monitor must not be interpreted as a healthy worker.</div>
       ) : <>
@@ -685,31 +838,23 @@ export function AdminWorkerHealth() {
           <Metric label="Needs attention" value={attention} detail="Degraded, stale, or not started" icon={AlertTriangle} />
           <Metric label="Dead-lettered qualification jobs" value={queue === null ? "Unavailable" : queue.dead.toLocaleString()} detail="Requires operator review" icon={FileText} />
         </section>
-
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Background services</span><h2>Worker status</h2></div><span className="admin-ops-subtle">{workers.length} rows</span></div>
           <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Background worker health"><table className="admin-ops-table"><thead><tr><th>Worker</th><th>Status</th><th>Instance</th><th>Last heartbeat</th><th>Last success</th><th>Failures</th><th>Last cycle</th><th>Last error</th></tr></thead><tbody>
             {workers.map((worker) => <tr key={worker.workerKey + ":" + worker.instanceId}>
               <td><strong>{worker.displayName}</strong><small>{worker.description}</small><small>Expected interval: {Math.max(1, Math.round(worker.expectedIntervalMs / 1000))} seconds</small></td>
               <td><StatusPill tone={workerStatusTone(worker.status)}>{workerStatusLabel(worker.status)}</StatusPill></td>
-              <td><code>{worker.instanceId}</code></td>
-              <td>{timestamp(worker.heartbeatAt)}</td>
-              <td>{timestamp(worker.lastSuccessAt)}</td>
-              <td>{worker.consecutiveFailures}</td>
-              <td>{worker.lastDurationMs === null ? "—" : worker.lastDurationMs.toLocaleString() + " ms"}</td>
-              <td>{worker.lastError || "—"}</td>
+              <td><code>{worker.instanceId}</code></td><td>{timestamp(worker.heartbeatAt)}</td><td>{timestamp(worker.lastSuccessAt)}</td>
+              <td>{worker.consecutiveFailures}</td><td>{worker.lastDurationMs === null ? "—" : worker.lastDurationMs.toLocaleString() + " ms"}</td><td>{worker.lastError || "—"}</td>
             </tr>)}
             {!workers.length && <tr><td colSpan={8} className="admin-ops-table-empty">No worker records are available yet.</td></tr>}
           </tbody></table></div>
         </section>
-
         <section className="admin-ops-panel">
           <div className="admin-ops-panel-head"><div><span className="admin-ops-kicker">Durable qualification queue</span><h2>Tier assignment jobs</h2></div></div>
           {queue === null ? <div className="admin-ops-empty">Queue counts are unavailable. Verify migration 0082 and database access.</div> : <section className="admin-ops-metrics compact-metrics">
-            <Metric label="Pending" value={queue.pending} icon={Clock3} />
-            <Metric label="Processing" value={queue.processing} icon={Activity} />
-            <Metric label="Completed" value={queue.completed} icon={CheckCircle2} />
-            <Metric label="Dead-lettered" value={queue.dead} icon={AlertTriangle} />
+            <Metric label="Pending" value={queue.pending} icon={Clock3} /><Metric label="Processing" value={queue.processing} icon={Activity} />
+            <Metric label="Completed" value={queue.completed} icon={CheckCircle2} /><Metric label="Dead-lettered" value={queue.dead} icon={AlertTriangle} />
           </section>}
           <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Safe recovery boundary</strong> Retry uses a guarded, audited transaction; it does not change a wallet balance, grant an entitlement directly, or force a trade settlement. A missing monitor or queue is reported as unavailable, never as zero.</span></div>
         </section>
@@ -720,22 +865,12 @@ export function AdminWorkerHealth() {
           {data.deadQualificationJobs === null ? <div className="admin-ops-empty">Dead-letter details are unavailable. Verify the qualification queue migration and database connection.</div> : data.deadQualificationJobs.length === 0 ? <div className="admin-ops-empty">No dead-lettered qualification jobs need review.</div> : (
             <div className="admin-ops-table-wrap" role="region" tabIndex={0} aria-label="Dead-lettered qualification jobs"><table className="admin-ops-table"><thead><tr><th>Job / customer</th><th>Source ledger</th><th>Attempts</th><th>Last error</th><th>Last update</th><th>Audited retry</th></tr></thead><tbody>
               {data.deadQualificationJobs.map((job) => <tr key={job.id}>
-                <td><strong>Job #{job.id}</strong><small>Customer ID {job.userId}</small></td>
-                <td>Ledger #{job.sourceLedgerId}</td>
-                <td>{job.attempts}</td>
-                <td>{job.lastError || "No error detail retained"}</td>
-                <td>{timestamp(job.updatedAt)}</td>
+                <td><strong>Job #{job.id}</strong><small>Customer ID {job.userId}</small></td><td>Ledger #{job.sourceLedgerId}</td><td>{job.attempts}</td>
+                <td>{job.lastError || "No error detail retained"}</td><td>{timestamp(job.updatedAt)}</td>
                 <td><div className="admin-ops-actions" style={{ alignItems: "stretch", flexDirection: "column", gap: 8 }}>
-                  <input
-                    type="text"
-                    aria-label={"Recovery reason for qualification job " + job.id}
-                    minLength={8}
-                    maxLength={500}
-                    value={recoveryReasons[job.id] ?? ""}
-                    onChange={(event) => setRecoveryReasons((current) => ({ ...current, [job.id]: event.target.value }))}
-                    placeholder="Reason for retry (min. 8 chars)"
-                    style={{ minWidth: 220, padding: "8px 10px", border: "1px solid var(--admin-ops-border, #cbd5e1)", borderRadius: 8 }}
-                  />
+                  <input type="text" aria-label={"Recovery reason for qualification job " + job.id} minLength={8} maxLength={500}
+                    value={recoveryReasons[job.id] ?? ""} onChange={(event) => setRecoveryReasons((current) => ({ ...current, [job.id]: event.target.value }))}
+                    placeholder="Reason for retry (min. 8 chars)" style={{ minWidth: 220, padding: "8px 10px", border: "1px solid var(--admin-ops-border, #cbd5e1)", borderRadius: 8 }} />
                   <button className="admin-ops-button" type="button" disabled={retryMutation.isPending || (recoveryReasons[job.id] ?? "").trim().length < 8} onClick={() => retryJob(job)}>
                     <RefreshCw size={14} /> {retryMutation.isPending ? "Queueing…" : "Retry job"}
                   </button>
