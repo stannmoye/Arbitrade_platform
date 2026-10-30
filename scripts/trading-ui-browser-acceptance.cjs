@@ -473,11 +473,17 @@ async function main() {
     const submenuPalette = await adminNavigation.locator(".admin-nav-group").evaluateAll((groups) => groups.map((group) => {
       const accent = getComputedStyle(group).getPropertyValue("--nav-accent").trim();
       const submenu = group.querySelector(".admin-nav-submenu button");
-      return submenu ? { accent, submenuColor: getComputedStyle(submenu).color, submenuBackground: getComputedStyle(submenu).backgroundColor } : null;
+      return submenu ? {
+        accent,
+        inheritedAccent: getComputedStyle(submenu).getPropertyValue("--nav-accent").trim(),
+        submenuColor: getComputedStyle(submenu).color,
+        submenuBackground: getComputedStyle(submenu).backgroundColor,
+      } : null;
     }).filter(Boolean));
     assert.ok(submenuPalette.length > 0, "At least one nested submenu must be available for colour-family verification.");
-    assert.ok(submenuPalette.every((entry) => entry.accent && entry.submenuColor && entry.submenuBackground),
-      "Nested submenu entries must inherit a rendered colour family from their parent menu.");
+    assert.ok(submenuPalette.every((entry) => entry.accent && entry.inheritedAccent === entry.accent &&
+      entry.submenuColor && entry.submenuBackground),
+      "Every nested submenu must inherit the exact parent menu accent and render its related colour family.");
     const tradeGroupLayout = await tradeSettingsGroup.evaluate((heading) => {
       const group = heading.closest(".trade-nav-group");
       const submenu = group?.querySelector(".admin-nav-group-items");
