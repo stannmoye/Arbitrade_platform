@@ -1,8 +1,28 @@
 # Worker health and full system diagnostic export
 
-## Admin export
+## Admin health dashboard
 
-Trade Settings → Worker Health & Recovery includes **Export full report**. The administrator-only `systemDiagnostics` query creates a fresh, read-only JSON snapshot when the button is clicked. The browser downloads the report directly; it does not require a report-storage table or background job.
+Trade Settings → Worker Health & Recovery presents live worker heartbeats, queue state and a full-system diagnostic assessment. The administrator can refresh worker health, generate a fresh diagnostic snapshot, and compare a post-fix snapshot with the previous saved snapshot.
+
+The dashboard includes:
+- **System health overview:** pass, warning, failed and not-run check totals plus a deployment-readiness interpretation.
+- **Severity classification:** Critical for failed database/configuration checks, High for other failed checks, Medium for warnings, Low for checks not run, and Informational for passes.
+- **Automatic issue detection:** all non-pass diagnostic checks are surfaced with evidence and a recommended correction where available.
+- **Feature-by-feature assessment:** Not Working when expected source files are missing, Degraded when a check clearly relates to that feature and is not passing, and Not Verified when runtime acceptance evidence is unavailable. Source presence alone is never described as Working.
+- **Post-fix verification:** obtains a fresh server-side snapshot and compares failed/warning totals with the previous saved snapshot. Review individual checks as well as the total; a lower count is not proof that a correction is safe or complete.
+- **Historical trend:** retains up to 30 snapshot summaries in local browser storage for the current administrator/browser. This history is not shared across browsers or devices and is not a server-side audit archive.
+
+## Export formats
+
+- **JSON:** complete structured report, including the detailed source inventory, worker/queue data, checks, findings, feature coverage, environment-variable presence, database/schema status, runtime metrics and recommendations.
+- **Excel / CSV:** spreadsheet-compatible CSV containing diagnostic checks, severity, evidence, recommendations and feature assessments. Open it in Excel or another spreadsheet application.
+- **Print / PDF:** opens a print-ready report. Use the browser print dialog's **Save as PDF** destination to create a PDF file.
+
+All formats are generated on demand from a fresh report. Secret values are never exported. Operational identifiers and sanitized error summaries may be present; keep exports private and share them only with trusted maintainers.
+
+## Admin export endpoint and report scope
+
+The administrator-only `systemDiagnostics` query creates a fresh, read-only snapshot when requested. The browser downloads the report directly; it does not run compilers, tests or builds in the live request path.
 
 The report includes:
 - Monitored worker records, derived health state, expected/stale intervals, heartbeat/success/failure timestamps, duration, failure count and sanitized error detail.
@@ -14,19 +34,22 @@ The report includes:
 - Potential TODO/FIXME/XXX/HACK/not-implemented markers in implementation files with file and line references. Test fixtures and the scanner's own marker vocabulary are excluded to avoid self-generated false positives. These are review prompts, not confirmed defects.
 - Core feature source-presence coverage, worker-registration wiring, admin diagnostic-route wiring, startup-wrapper checks, source-contract findings and actionable recommendations.
 
-## Finding severity
+## Finding severity and readiness
 
-- **fail**: a required runtime, database, schema, or source contract check failed.
-- **warning**: stale/not-started/degraded worker state, dead-lettered work, missing source files, source review markers, or an operational concern needs review.
-- **not_run**: a check could not be performed or is intentionally not executed by an export request.
-- **pass**: the specific check completed successfully. This is not a certification of the entire application.
+- **Critical:** failed database connectivity, required runtime configuration or equivalent deployment-blocking prerequisites.
+- **High:** other failed source/runtime contract checks.
+- **Medium:** warnings such as stale/degraded/not-started workers, dead-lettered work, incomplete scans or review markers.
+- **Low:** checks intentionally not run or unavailable; absence of evidence is not a pass.
+- **Informational:** checks that passed.
 
-The overall status is `action_required`, `review_required`, or `no_detected_issues` based on the recorded checks. A missing database or unavailable queue is never represented as zero or healthy.
+The overall status remains `action_required`, `review_required`, or `no_detected_issues` based on recorded checks. A missing database or unavailable queue is never represented as zero or healthy. “No detected issues” means only that the checks which ran did not detect an issue; it is not production certification.
 
-## Important limits
+## Important limits and safety boundaries
 
-The source inventory is bounded to 6,000 files/50 MiB and the marker scan to 20 MiB/512 KiB per file, with at most 250 marker references. Any truncated or incomplete scan is reported as incomplete. It is an inventory and review-marker scan, not a compiler, complete static analyzer, or proof that every feature works.
+The source inventory is bounded to 6,000 files/50 MiB and the marker scan to 20 MiB/512 KiB per file, with at most 250 marker references. Any truncated or incomplete scan is reported as incomplete. It is an inventory and review-marker scan, not a compiler, complete static analyzer, dependency vulnerability scan, or proof that every feature works.
 
-The export does not run `pnpm check`, `pnpm test`, `pnpm build`, dependency vulnerability scans, or feature-specific authenticated acceptance. Executing those operations inside a live HTTP request would be unsafe and could consume server resources or disrupt service. They remain CI/release checks and must be run against the exact deployed commit.
+The live export does not run `pnpm check`, `pnpm test`, `pnpm build`, dependency vulnerability scans, or feature-specific authenticated acceptance. These remain CI/release checks and must be run against the exact deployed commit.
 
-Worker history is limited to the monitor's retained 24-hour/500-row read and latest 25 dead-lettered qualification jobs. The report is a point-in-time snapshot, not a permanent archive. It contains operational identifiers and error summaries, so keep the downloaded file private and share it only with trusted maintainers. No credentials or secret values should appear in the report.
+Worker history is limited to the monitor's retained 24-hour/500-row read and latest 25 dead-lettered qualification jobs. Browser snapshot history is local to that browser and can be cleared by browser storage policies; it is not an authoritative audit log.
+
+Recommendations and verification are read-only. They do not edit production code, apply database migrations, change financial records, retry jobs, or restart services. Corrective actions must be reviewed and applied through the normal authorized development/deployment process, then verified again. A passing source check or reduced issue count must never be treated as proof of financial correctness or production readiness.
