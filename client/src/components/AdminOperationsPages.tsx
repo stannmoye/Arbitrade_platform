@@ -632,8 +632,9 @@ function diagnosticSeverity(check: DiagnosticSnapshot["checks"][number]) {
 
 function diagnosticFeatureState(feature: { status: string; sourceFiles?: Array<{ present: boolean }> }, checks: DiagnosticSnapshot["checks"]) {
   if (feature.status === "source_incomplete" || feature.sourceFiles?.some((file) => !file.present)) return "Not Working";
-  const related = checks.filter((item) => item.status !== "pass" && (
-    item.area === "database" || item.area === "workers" || item.area === "queues" || item.area === "code"
+  const terms = feature.label.toLowerCase().split(/[^a-z0-9]+/).filter((term) => term.length > 3);
+  const related = checks.filter((item) => item.status !== "pass" && terms.some((term) =>
+    (item.title + " " + item.detail + " " + item.area).toLowerCase().includes(term)
   ));
   if (related.some((item) => item.status === "fail")) return "Degraded";
   // Source presence is not runtime acceptance. Do not label a feature working without
@@ -694,6 +695,12 @@ export function AdminWorkerHealth() {
     if (exporting) return;
     setExporting(true);
     setExportError(null);
+    const printWindow = format === "pdf" ? window.open("", "_blank") : null;
+    if (format === "pdf" && !printWindow) {
+      setExportError("The PDF print window was blocked. Allow pop-ups for this site and try again.");
+      setExporting(false);
+      return;
+    }
     try {
       const report = await fetchReport();
       rememberSnapshot(report);
@@ -710,8 +717,7 @@ export function AdminWorkerHealth() {
         ];
         downloadCsv("arbitrade-system-diagnostics-" + stamp + ".csv", rows);
       } else {
-        const printWindow = window.open("", "_blank");
-        if (!printWindow) throw new Error("The PDF print window was blocked. Allow pop-ups for this site and try again.");
+        if (!printWindow) throw new Error("The PDF print window is unavailable.");
         const checks = (report.checks ?? []).map((item: any) => `<tr><td>${escapeReportHtml(diagnosticSeverity(item))}</td><td>${escapeReportHtml(item.status)}</td><td>${escapeReportHtml(item.area)}</td><td><strong>${escapeReportHtml(item.title)}</strong><br>${escapeReportHtml(item.detail)}${item.recommendation ? `<br><em>Action: ${escapeReportHtml(item.recommendation)}</em>` : ""}</td></tr>`).join("");
         const features = (report.featureCoverage ?? []).map((feature: any) => `<tr><td>${escapeReportHtml(feature.label)}</td><td>${escapeReportHtml(diagnosticFeatureState(feature, report.checks ?? []))}</td><td>${escapeReportHtml(feature.note)}</td></tr>`).join("");
         printWindow.document.write(`<!doctype html><html><head><title>Arbitrade System Diagnostics</title><style>body{font:12px Arial,sans-serif;color:#172033;margin:28px}h1{font-size:22px}h2{font-size:16px;margin-top:24px}.meta{color:#526078}table{width:100%;border-collapse:collapse;margin:12px 0 20px}th,td{border:1px solid #cbd5e1;padding:7px;text-align:left;vertical-align:top}th{background:#eef2f7}em{display:block;margin-top:5px;color:#475569}.summary{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0}.summary b{font-size:18px}footer{margin-top:24px;color:#64748b}@media print{body{margin:12mm}tr{break-inside:avoid}}</style></head><body><h1>Arbitrade — Full System Diagnostics</h1><p class="meta">Generated: ${escapeReportHtml(report.generatedAt)} · Revision: ${escapeReportHtml(report.application?.sourceRevision || "Not supplied")} · Overall: ${escapeReportHtml(report.overallStatus)}</p><div class="summary"><span>Critical/High findings: <b>${(report.summary?.fail ?? 0)}</b></span><span>Warnings: <b>${(report.summary?.warning ?? 0)}</b></span><span>Not run: <b>${(report.summary?.not_run ?? 0)}</b></span><span>Passed: <b>${(report.summary?.pass ?? 0)}</b></span></div><h2>Detected issues and corrective actions</h2><table><thead><tr><th>Severity</th><th>Status</th><th>Area</th><th>Finding and recommended correction</th></tr></thead><tbody>${checks}</tbody></table><h2>Feature health assessment</h2><p>“Not Verified” means source files are present but live feature acceptance has not been proven by this diagnostic.</p><table><thead><tr><th>Feature</th><th>Assessment</th><th>Evidence</th></tr></thead><tbody>${features}</tbody></table><h2>Deployment readiness</h2><p>${escapeReportHtml(report.overallStatus)} — ${(report.summary?.fail ?? 0) ? "Do not treat this deployment as ready until critical/high findings are corrected and rechecked." : (report.summary?.warning ?? 0) || (report.summary?.not_run ?? 0) ? "Review warnings and complete checks not run before release." : "No issues were detected by the checks that ran; complete CI and hosted acceptance before production sign-off."}</p><h2>Scope and limitations</h2><ul>${(report.scope?.limitations ?? []).map((item: string) => `<li>${escapeReportHtml(item)}</li>`).join("")}</ul><footer>Read-only diagnostic snapshot. Recommendations do not modify production code or database records.</footer></body></html>`);
@@ -720,6 +726,7 @@ export function AdminWorkerHealth() {
         printWindow.print();
       }
     } catch (error) {
+      if (printWindow && !printWindow.closed) printWindow.close();
       setExportError(error instanceof Error ? error.message : "The diagnostics report could not be generated.");
     } finally {
       setExporting(false);
