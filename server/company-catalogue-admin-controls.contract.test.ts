@@ -32,6 +32,14 @@ describe("administrator company catalogue bulk controls", () => {
     expect(implementation).toContain("input.status === \"archived\"");
   });
 
+  it("keeps a full 1,811-ID status snapshot within the app-settings TEXT limit", () => {
+    const ids = Array.from({ length: 1811 }, (_, index) => `logo-brand-${String(index + 1).padStart(4, "0")}`);
+    const settingPayload = JSON.stringify({ verifiedIds: ids, archivedIds: [] });
+    const auditPayload = JSON.stringify({ status: "verified", count: ids.length, ids, updatedAt: "2026-10-30T00:00:00.000Z" });
+    expect(Buffer.byteLength(settingPayload, "utf8")).toBeLessThan(65_535);
+    expect(Buffer.byteLength(auditPayload, "utf8")).toBeLessThan(65_535);
+  });
+
   it("supports all-company view, page view, explicit selection and reversible archive", () => {
     for (const phrase of [
       "View all companies",
