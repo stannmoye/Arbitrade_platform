@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { sql } from "drizzle-orm";
 import { getDb } from "../db";
-import { getWorkerHealthSummary, type WorkerHealthSummary } from "./workerHealth";
+import { getWorkerHealthSummary, sanitizeWorkerErrorMessage, type WorkerHealthSummary } from "./workerHealth";
 
 type CheckStatus = "pass" | "warning" | "fail" | "not_run";
 type DiagnosticCheck = { id: string; area: string; status: CheckStatus; title: string; detail: string; recommendation: string | null };
@@ -81,11 +82,11 @@ export async function getSystemDiagnosticsReport() {
     checks.push(check("database-connectivity", "database", "fail", "Database connection", database.error, "Verify the protected database configuration, network access, database availability, and server logs."));
   } else {
     try {
-      await db.execute((await import("drizzle-orm")).sql`SELECT 1 AS connected`);
+      await db.execute(sql`SELECT 1 AS connected`);
       database.status = "connected";
       checks.push(check("database-connectivity", "database", "pass", "Database connection", "A live SELECT 1 query completed successfully."));
     } catch (error) {
-      database.error = error instanceof Error ? error.message.slice(0, 500) : "Unknown database error";
+      database.error = sanitizeWorkerErrorMessage(error);
       checks.push(check("database-connectivity", "database", "fail", "Database connection", database.error, "Check database availability, credentials, network access, and connection limits."));
     }
   }
@@ -101,7 +102,7 @@ export async function getSystemDiagnosticsReport() {
   let schema: { available: string[]; missing: string[]; checked: boolean } = { available: [], missing: requiredTables, checked: false };
   if (db && database.status === "connected") {
     try {
-      const result = await db.execute((await import("drizzle-orm")).sql`
+      const result = await db.execute(sql`
         SELECT TABLE_NAME AS tableName
         FROM information_schema.tables
         WHERE table_schema = DATABASE()
@@ -120,7 +121,7 @@ export async function getSystemDiagnosticsReport() {
         schema.missing.length ? "Take a verified backup, then use the guarded main migration workflow. Do not create tables manually." : null,
       ));
     } catch (error) {
-      checks.push(check("database-required-tables", "database", "warning", "Required application tables", error instanceof Error ? error.message.slice(0, 500) : "Schema inspection failed.", "Verify information_schema access and the guarded migration status."));
+      checks.push(check("database-required-tables", "database", "warning", "Required application tables", sanitizeWorkerErrorMessage(error), "Verify information_schema access and the guarded migration status."));
     }
   } else {
     checks.push(check("database-required-tables", "database", "not_run", "Required application tables", "Not checked because the database connection is unavailable.", "Restore database connectivity, then export a fresh report."));
@@ -179,7 +180,7 @@ export async function getSystemDiagnosticsReport() {
     classifyWorkerChecks(workerHealth, checks);
     checks.push(check("worker-health-registry", "workers", "pass", "Worker health registry read", `${workerHealth.workers.length} worker records/definitions were returned by the durable monitor.`));
   } catch (error) {
-    checks.push(check("worker-health-registry", "workers", "fail", "Worker health registry read", error instanceof Error ? error.message.slice(0, 500) : "Worker health read failed.", "Verify migration 0084, database connectivity, and worker health persistence logs."));
+    checks.push(check("worker-health-registry", "workers", "fail", "Worker health registry read", sanitizeWorkerErrorMessage(error), "Verify migration 0084, database connectivity, and worker health persistence logs."));
   }
 
   const summary = summarizeDiagnosticChecks(checks);
