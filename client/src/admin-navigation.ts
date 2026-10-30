@@ -73,7 +73,7 @@ export const adminNavigationGroups: AdminNavigationGroup[] = [
   { id: "trade-offers", label: "Show offers", detail: "Choose when offers appear and what customers see", items: [
     { id: "trade-opportunity-schedule", target: "opportunity", focus: "delivery", label: "When offers appear", detail: "Choose how often customer trade offers can appear", icon: Zap },
     { id: "trade-popup-display", target: "tradeCustomerDisplay", label: "Customer pop-up timing", detail: "Choose how long an offer and its completed message stay visible", icon: SlidersHorizontal },
-    { id: "trade-company-catalogue", target: "opportunity", focus: "rotation", label: "Company names shown", detail: "Choose the company references customers may see; this never creates a trade", icon: Globe2 },
+    { id: "trade-company-catalogue", target: "companyCatalogue", label: "Company names shown", detail: "Browse and search all saved company references; this never creates a trade", icon: Globe2 },
   ]},
   { id: "trade-results", label: "Finish trades", detail: "Handle returns, retries and finished trade records", items: [
     { id: "trade-profit-fees-limits", target: "transactionReview", focus: "fees", label: "Returns and fees", detail: "Review configured return limits and the fee policy for completed trades", icon: CircleDollarSign },
