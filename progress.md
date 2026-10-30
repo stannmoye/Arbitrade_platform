@@ -1,3 +1,16 @@
+## 2026-10-30 — Administrator company catalogue and tier pagination
+
+- Canonical base: `main` at `edff87369ab61cea4c68c33a30aea9f47abf53ce`; work branch: `fix/admin-company-catalogue-pagination`.
+- Repaired the **Trade Settings → Show offers → Company names shown** route so it opens a dedicated administrator company-catalogue page instead of the opportunity/package-policy editor.
+- The new page queries the existing `companyCatalogueReference` API and displays the existing 1,811 Logo ID-aligned company references, 10 at a time, with Previous/Next, company/domain/ticker/exchange search, country-folder filtering, local logos, source classifications and explicit reference-only/unverified labels.
+- Kept the customer-facing catalogue and the underlying company dataset unchanged.
+- Updated the administrator tier catalogue to display 5 tiers at a time with Previous/Next; tier editing and server mutations remain unchanged.
+- Added shared pagination helpers and Vitest coverage for page counts, five-tier paging, all 1,811 company records across ten-record pages, final-page boundaries and invalid inputs.
+- Updated the canonical Trading specification and admin configuration manual to describe the distinct company-catalogue destination and both pagination sizes.
+- Validation still required on this branch: `pnpm install --frozen-lockfile`, `pnpm check`, `pnpm test`, and `pnpm build` via exact-head CI. No local shell checkout or hosted browser session is available in this task environment; no production deployment or database changes were performed.
+
+---
+
 ## 2026-10-30 — Worker health and full system diagnostics export
 
 - Canonical base: `main` at `c1ce17af1b32cce93beb0b47561d92c78d36ec6c`; implementation branch: `feat/worker-health-full-code-inventory`; PR #250 merged to `main` as `e39ecfd852924696e281d14b9cb74a3e44b7aa06`.
