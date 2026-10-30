@@ -20,13 +20,15 @@ describe("Trade experience visual system", () => {
     const navGroup = stylesheet.match(/\.admin-portal \.admin-rail \.trade-nav-group\s*\{([^}]*)\}/)?.[1] ?? "";
     const packageCard = stylesheet.match(/\.trade-admin-surface \.package-admin-card\s*\{([^}]*)\}/)?.[1] ?? "";
     const companyPanel = stylesheet.match(/\.customer-portal \.portal-main \.customer-opportunities-page \.company-reference-panel\s*\{([^}]*)\}/)?.[1] ?? "";
+    const adminHeader = stylesheet.match(/\.trade-admin-surface \.portal-page-top,\s*\.trade-admin-surface \.admin-ops-head\s*\{([^}]*)\}/)?.[1] ?? "";
+    const customerHeader = stylesheet.match(/\.customer-portal \.portal-main \.customer-opportunities-page \.portal-page-top\s*\{([^}]*)\}/)?.[1] ?? "";
 
     expect(navGroup).toContain("overflow: visible");
     expect(navGroup).not.toMatch(/overflow:\s*hidden/i);
     expect(packageCard).not.toMatch(/overflow:\s*hidden/i);
     expect(companyPanel).not.toMatch(/overflow:\s*hidden/i);
-    expect(stylesheet).not.toMatch(/\.trade-admin-surface \.portal-page-top,[\s\S]{0,180}?overflow:\s*hidden/i);
-    expect(stylesheet).not.toMatch(/\.customer-portal \.portal-main \.customer-opportunities-page \.portal-page-top[\s\S]{0,180}?overflow:\s*hidden/i);
+    expect(adminHeader).not.toMatch(/overflow:\s*hidden/i);
+    expect(customerHeader).not.toMatch(/overflow:\s*hidden/i);
   });
 
   it("covers customer eligibility, opportunity history, and the persistent opportunity display", () => {
