@@ -25,7 +25,7 @@ describe("administrator company catalogue bulk controls", () => {
     expect(implementation).toContain("actorUserId: input.updatedBy");
     expect(implementation).toContain("reason: input.reason.trim()");
     expect(implementation).toContain("ids, updatedAt");
-        expect(implementation).toContain("verified.delete(id)");
+    expect(implementation).toContain("verified.delete(id)");
     expect(implementation).toContain("archived.delete(id)");
     expect(implementation).toContain("verifiedIds: [...verified].sort()");
     expect(implementation).toContain("archivedIds: [...archived].sort()");
