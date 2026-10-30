@@ -52,7 +52,8 @@ export default function AdminCompanyCatalogue() {
   const allMatchingSelected = filteredRecords.length > 0 && filteredRecords.every((company) => selectedIds.has(company.id));
   const allVisibleSelected = displayedRecords.length > 0 && displayedRecords.every((company) => selectedIds.has(company.id));
 
-  useEffect(() => { setPage(0); }, [search, countryName, statusFilter, viewAll]);
+  useEffect(() => { setPage(0); setSelectedIds(new Set()); }, [search, countryName, statusFilter]);
+  useEffect(() => { setPage(0); }, [viewAll]);
   useEffect(() => {
     if (page > 0 && page >= pageCount) setPage(Math.max(0, pageCount - 1));
   }, [page, pageCount]);
