@@ -105,6 +105,9 @@ async function collectSourceInventory() {
       if (testFile) counts.tests += 1;
       counts.bytes += bytes;
 
+      // Test fixtures intentionally contain marker examples, and this scanner's own
+      // regex documents the marker vocabulary; neither should self-report as unfinished work.
+      if (testFile || relativePath === "server/_core/systemDiagnostics.ts") continue;
       if (bytes > SOURCE_REVIEW_MAX_FILE_BYTES || reviewBytes + bytes > SOURCE_REVIEW_MAX_BYTES) {
         reviewScanComplete = false;
         continue;
