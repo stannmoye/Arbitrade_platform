@@ -384,3 +384,15 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 - Next: commit with required attribution, push to update PR #243, inspect and wait for all exact-head jobs (including both MySQL and MariaDB), resolve any further failures, then merge only when the brief's acceptance conditions and applicable required checks are met. After merge, fetch and verify actual `main` and its post-merge CI before reporting deployment steps.
 
 - Exact source repair commit after those checks: `fe090cea277d3e7ec2c42d4edcdb6716d1efb16f`. This commit contains the verified source and test changes above; it is not yet pushed, and exact-head GitHub database workflows remain the next acceptance gate.
+
+
+## 2026-10-30 — Trade Settings administrator guide
+
+- Canonical baseline: `main` at `5985767ced083a86e5941cc493324a2c323d8d51`; work is isolated on `docs/trade-admin-user-guide`.
+- Added `client/public/trade-admin-guide.html`: a standalone responsive guide with inline CSS, inline SVG-style icons, section navigation, search, menu map, field explanations, button actions, recommended setup order, customer-side display behaviour, and explicit notes for unavailable/not-yet-exposed features.
+- Added the guide as the final Trading navigation destination after Worker Health (after the existing audit/history entry) and mounted the static HTML page inside the admin portal through a same-origin iframe.
+- Updated the stale admin-navigation test expectations to match the actual navigation groups in source and added a contract test for the standalone guide content.
+- Scope is documentation and navigation only; no Trading business logic, schema, migrations, workers, customer controls, or financial rules were changed.
+- Source review covered `client/src/admin-navigation.ts`, the admin routing in `client/src/App.tsx`, tier configuration, Opportunity Engine, `TradingDeliveryPolicyEditor`, timing settings, fee/settlement review, delivery monitoring, worker health, `CustomerTradingEligibility`, customer opportunity cards/popups/history, and the canonical Trading specification/manual.
+- Important documented implementation boundaries: customer tier selection/activation is absent; only qualifying manual admin credits count; carry-forward is not available in the current menu; the worker page's qualification queue is not a substitute for settlement review; current popup component does not expose the specification's Minimize/Maximize dock; catalogue references do not prove market listing/execution.
+- Validation and exact-head CI are pending. Do not merge until the branch checks pass. No production deployment or database operation was performed.
