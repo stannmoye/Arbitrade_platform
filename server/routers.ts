@@ -49,6 +49,45 @@ export const appRouter = router({
       offset: z.number().int().min(0).max(1810).optional(),
       limit: z.number().int().min(1).max(1811).optional(),
     }).optional()).query(({ input }) => searchCompanyReferences(input ?? {})),
+    adminState: adminProcedure.query(async () => {
+      const raw = await getAppSetting("trade.companyCatalogue.adminState", "{}");
+      try {
+        const parsed = JSON.parse(raw || "{}") as { statusById?: Record<string, { status?: string; updatedAt?: string; updatedBy?: number }> };
+        const statusById = Object.fromEntries(Object.entries(parsed.statusById ?? {}).filter(([id, value]) =>
+          /^logo-brand-\d{4}$/.test(id) && ["verified", "unverified", "archived"].includes(value?.status ?? "")
+        ));
+        return { statusById };
+      } catch {
+        return { statusById: {} };
+      }
+    }),
+    updateAdminState: adminProcedure.input(z.object({
+      ids: z.array(z.string().regex(/^logo-brand-\d{4}$/)).min(1).max(1811),
+      status: z.enum(["verified", "unverified", "archived"]),
+      reason: z.string().trim().min(3).max(500),
+    })).mutation(async ({ ctx, input }) => {
+      const ids = [...new Set(input.ids)];
+      if (ids.some(id => !getCompanyReferenceById(id))) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "One or more selected company IDs do not exist in the catalogue." });
+      }
+      const raw = await getAppSetting("trade.companyCatalogue.adminState", "{}");
+      let statusById: Record<string, { status: "verified" | "unverified" | "archived"; updatedAt: string; updatedBy: number }> = {};
+      try {
+        const parsed = JSON.parse(raw || "{}") as { statusById?: Record<string, { status: "verified" | "unverified" | "archived"; updatedAt: string; updatedBy: number }> };
+        statusById = parsed.statusById ?? {};
+      } catch {
+        statusById = {};
+      }
+      const updatedAt = new Date().toISOString();
+      for (const id of ids) {
+        if (input.status === "unverified") delete statusById[id];
+        else statusById[id] = { status: input.status, updatedAt, updatedBy: ctx.user.id };
+      }
+      await setAppSetting("trade.companyCatalogue.adminState", JSON.stringify({ statusById, lastAction: {
+        status: input.status, count: ids.length, reason: input.reason, updatedAt, updatedBy: ctx.user.id,
+      } }), ctx.user.id);
+      return { success: true, updated: ids.length, status: input.status, updatedAt };
+    }),
     byId: publicProcedure.input(z.object({
       id: z.string().trim().min(1).max(180),
     })).query(({ input }) => getCompanyReferenceById(input.id) ?? null),
