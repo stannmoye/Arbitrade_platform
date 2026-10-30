@@ -57,3 +57,13 @@ Removed from Trading because the same functionality already belongs elsewhere:
 - **Trade messages** was a duplicate of Communications → Announcements & Notifications.
 
 The navigation renderer now expands a group only when both its destination and focus match the current screen. This prevents Finance from appearing open when an administrator is viewing a focused Trading ledger screen, and prevents shared destinations from looking duplicated.
+
+
+## 2026-10-30 — Trade content clipping regression
+
+- Removed clipping overflow from the expandable Trade navigation group so submenu items, hover translations and keyboard-focus outlines are not cut off by the decorative container.
+- Removed clipping from Trade page headers, administrator package cards and the customer company-reference panel. These are content containers, not image masks; their children and focus indicators must remain visible.
+- Kept clipping only on the embedded guide frame, where the iframe is intentionally masked to the rounded frame.
+- Added stylesheet contract coverage and desktop browser acceptance assertions for the expanded Trade submenu's full layout bounds.
+- No routes, menu destinations, customer eligibility, package policy, wallet, trade or settlement behaviour changed.
+- Exact-head CI and authenticated browser acceptance are required before merge.
