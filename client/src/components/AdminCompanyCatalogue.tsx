@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { getPageCount } from "../trading-catalogue-pagination";
 
 const PAGE_SIZE = 10;
 
@@ -17,10 +18,10 @@ export default function AdminCompanyCatalogue() {
     countryName: countryName || undefined,
     offset: page * PAGE_SIZE,
     limit: PAGE_SIZE,
-  }, { keepPreviousData: true });
+  });
 
   const total = count.data ?? 0;
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageCount = getPageCount(total, PAGE_SIZE);
   const firstRecord = total === 0 ? 0 : page * PAGE_SIZE + 1;
   const lastRecord = Math.min((page + 1) * PAGE_SIZE, total);
   const countries = useMemo(
