@@ -1,12 +1,12 @@
 ## 2026-10-30 — Worker health and full system diagnostics export
 
-- Canonical base: `main` at `c1ce17af1b32cce93beb0b47561d92c78d36ec6c`; implementation branch: `feat/worker-health-full-code-inventory`.
-- Added an administrator-only `systemDiagnostics` query and **Trade Settings → Worker Health & Recovery → Export full report** action. The browser downloads a fresh JSON snapshot; no report-storage table, scheduled job or background process is added.
+- Canonical base: `main` at `c1ce17af1b32cce93beb0b47561d92c78d36ec6c`; implementation branch: `feat/worker-health-full-code-inventory`; PR #250 merged to `main` as `e39ecfd852924696e281d14b9cb74a3e44b7aa06`.
+- Added an administrator-only `systemDiagnostics` query and **Trade Settings → Worker Health & Recovery → Export full report** action. The browser downloads a fresh JSON snapshot; no report-storage table, scheduled job, background process, or migration is added.
 - The report includes live Node.js process/runtime metrics, required environment-variable presence (never secret values), database connectivity and critical table checks, persisted worker health and bounded qualification queue/dead-letter findings, source-contract and worker-registration wiring checks, core feature source-presence coverage, and actionable findings/recommendations.
-- Expanded code diagnostics with a bounded inventory of client/server/shared/migration/script/installer source files, test-file counts, file sizes, and potential TODO/FIXME/XXX/HACK/not-implemented markers with file/line references. Markers are explicitly review prompts, not automatically classified defects; incomplete scans report their limits.
-- Added unit coverage for source-marker line references and documented report scope/limits. The export does not run the full test suite, type checker, build, dependency audit, or feature-specific hosted acceptance inside a live request.
-- Validation: exact-head GitHub Actions has not yet been triggered for this branch. Local checkout/test execution is unavailable because this environment cannot resolve `github.com`; do not claim `pnpm check`, `pnpm test`, or `pnpm build` passed. Run exact-head CI before merge.
-- No merge to `main`, production database/server access, migration, or deployment was performed.
+- Expanded code diagnostics with a bounded inventory of client/server/shared/migration/script/installer source files, test-file counts, file sizes, and potential TODO/FIXME/XXX/HACK/not-implemented markers with file/line references. Markers are review prompts, not confirmed defects; test fixtures and the scanner itself are excluded to avoid self-generated false positives. Incomplete scans and marker caps are disclosed.
+- Added unit/contract coverage for status summaries, marker locations, worker wiring, schema declaration, and the admin-only on-demand export. Documented scope and limits. The live export does not execute the full test suite, type checker, production build, dependency audit, or feature-specific hosted acceptance.
+- Exact-head CI on `1fbbb6a8be915904f115c227b2213858283d2c51` passed all 10 workflows: application install/type-check/tests/build, production build and browser recovery, installer validation, Trading recovery, tier qualification, settlement, wallet idempotency, opportunity-worker concurrency/recovery, company rotation, and Mining regression.
+- Local checkout/test execution was unavailable because this environment could not resolve `github.com`; exact-head GitHub CI provided the validation. No production database/server access, migration, or deployment was performed. Post-merge checks on `e39ecfd852924696e281d14b9cb74a3e44b7aa06` have not yet been reported.
 
 ---
 
