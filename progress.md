@@ -454,3 +454,13 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 
 - Added exact source-contract coverage for the expanded administrator dashboard, JSON/CSV/print-PDF export actions, browser snapshot history, and host CPU/load/RAM fields. Updated the prior assertion that expected the old disabled-query/export-button implementation.
 - A pre-test-update Mining regression run exposed that stale assertion in `server/_core/systemDiagnostics.test.ts`; it was corrected to assert the new implementation. The final head must pass the full workflow before merge.
+
+
+## 2026-10-30 — Trade menu and content clipping correction (pending CI)
+
+- Reviewed PR #249's visual-only Trade stylesheet and compared its scope with the pre-redesign commit `cefa5fcb03078c9c4d8dbfad3744c585985385fe`.
+- Identified clipping overflow on the Trade navigation group, Trade headers, administrator package cards and customer company-reference container. These rules could cut off focus rings, hover states and content extending to container edges.
+- Removed those clipping constraints; retained the rounded iframe mask for the embedded Trade guide.
+- Added CSS contract coverage and an authenticated desktop browser assertion that checks the expanded Trade submenu's content bounds.
+- Branch: `fix/trade-layout-overflow-visibility`. No Trading business logic or financial behaviour changed.
+- Validation pending: `pnpm check`, `pnpm test`, `pnpm build`, and the authenticated Trading browser acceptance workflow on the exact PR head. This connector session cannot run the Node/pnpm suite locally.
