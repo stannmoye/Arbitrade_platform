@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findCodeReviewMarkers, summarizeDiagnosticChecks } from "./systemDiagnostics";
+import { findCodeReviewMarkers, findUnregisteredWorkerKeys, summarizeDiagnosticChecks } from "./systemDiagnostics";
 
 describe("system diagnostics summary", () => {
   it("counts each check outcome without treating unrun checks as passes", () => {
@@ -26,5 +26,16 @@ describe("system diagnostics summary", () => {
       { path: "server/example.ts", line: 4, marker: "FIXME" },
       { path: "server/example.ts", line: 4, marker: "NOT_IMPLEMENTED" },
     ]);
+  });
+
+  it("recognizes worker registrations across the modules that own their cycles", () => {
+    const registry = 'key: "email-outbox" key: "daily-digests" key: "local-scheduled-jobs"';
+    expect(findUnregisteredWorkerKeys(registry, [
+      'runMonitoredWorkerCycle("email-outbox", task)',
+      'runMonitoredWorkerCycle("daily-digests", task)',
+      'runMonitoredWorkerCycle("local-scheduled-jobs", task)',
+    ])).toEqual([]);
+    expect(findUnregisteredWorkerKeys(registry, ['runMonitoredWorkerCycle("email-outbox", task)']))
+      .toEqual(["daily-digests", "local-scheduled-jobs"]);
   });
 });
