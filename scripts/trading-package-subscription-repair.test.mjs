@@ -39,6 +39,7 @@ describe("Trading customer package subscription schema repair", () => {
     expect(entries[entry.idx - 1].tag).toBe("0077_trading_package_catalogue_schema_repair");
     expect(entries[entry.idx + 1].tag).toBe("0079_trade_settlement_timing_schema_repair");
     expect(entries.slice(-9).map((item) => item.tag)).toEqual([
+      "0086_trading_popup_policy_snapshots",
       "0087_trading_opportunity_execution_leases",
       "0088_trading_package_policy_schema_reconciliation",
       "0089_trading_popup_policy_ranges",
@@ -47,7 +48,6 @@ describe("Trading customer package subscription schema repair", () => {
       "0092_trading_trade_wallet_funding_plan_snapshot",
       "0093_admin_wallet_adjustment_idempotency",
       "0094_trading_policy_duration_bounds_nullable",
-      "0095_fx_snapshot_source_timestamp_precision",
     ]);
     expect(entry.when).toBeGreaterThan(entries.slice(0, entry.idx).reduce((latest, item) => Math.max(latest, item.when), 0));
   });
