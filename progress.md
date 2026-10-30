@@ -1,3 +1,16 @@
+## 2026-10-30 — Trade-wide visual refresh
+
+- Canonical base: `main` at `cefa5fcb03078c9c4d8dbfad3744c585985385fe` (PR #247 merged).
+- Working branch: `style/trade-portal-visual-refresh`.
+- Scope: presentation-only refresh across customer Trading eligibility/progress, customer opportunity cards and popup, admin Trade Settings pages and nested navigation groups, package policy editor, admin forms, tables, metrics, and action buttons.
+- Added `client/src/trade-visual-system.css` with theme-token-driven premium gradients, layered containers, refined radii/shadows, differentiated package panels, modern form/button states, improved table surfaces, responsive layouts, focus visibility, and reduced-motion handling.
+- Added scoped `trade-workspace` and `trade-nav-group` classes to the existing admin portal shell so styling applies to all Trade submenus without restyling unrelated admin areas. Added a customer opportunities workspace hook while preserving current routing.
+- Added `client/src/trade-visual-system.contract.test.ts` for CSS loading, scope coverage, customer/admin surfaces, responsive breakpoints, theme tokens, and accessibility hooks.
+- No trading calculations, package eligibility, quotas, wallet flows, API calls, navigation targets, persistence, worker logic, settlement behaviour, or financial controls were intentionally changed.
+- Validation: pending exact-head GitHub CI and source-diff review. No production deployment or database operation performed.
+
+---
+
 ## 2026-10-29 — PART 4 handoff status (latest verified source review)
 
 - Repository `stannmoye/Arbitrade_platform`; current `main`: `07b17ca401d5f0582bf09fba8b6625f4a8af42e6`.
