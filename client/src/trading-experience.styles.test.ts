@@ -32,7 +32,17 @@ describe("Trade experience visual system", () => {
     expect(customerHeader).not.toMatch(/overflow:\s*hidden/i);
   });
 
-  it("gives every administrator menu a distinct parent accent and keeps expanded submenus fully sized", () => {\n    expect(appSource).toContain("admin-nav-group--${group.id}");\n    expect(portalStylesheet).toContain(".admin-nav-group:nth-child(13)");\n    expect(portalStylesheet).toContain("--nav-accent");\n    expect(portalStylesheet).toContain("display: block !important");\n    expect(portalStylesheet).toContain("overflow: visible !important");\n    expect(portalStylesheet).toContain("min-height: 0 !important");\n    expect(portalStylesheet).toContain("overscroll-behavior: contain");\n  });\n\n  it("covers customer eligibility, opportunity history, and the persistent opportunity display", () => {
+  it("gives every administrator menu a distinct parent accent and keeps expanded submenus fully sized", () => {
+    expect(appSource).toContain("admin-nav-group--${group.id}");
+    expect(portalStylesheet).toContain(".admin-nav-group:nth-child(13)");
+    expect(portalStylesheet).toContain("--nav-accent");
+    expect(portalStylesheet).toContain("display: block !important");
+    expect(portalStylesheet).toContain("overflow: visible !important");
+    expect(portalStylesheet).toContain("min-height: 0 !important");
+    expect(portalStylesheet).toContain("overscroll-behavior: contain");
+  });
+
+  it("covers customer eligibility, opportunity history, and the persistent opportunity display", () => {
     expect(stylesheet).toContain(".trading-packages-panel");
     expect(stylesheet).toContain(".customer-opportunities-page");
     expect(stylesheet).toContain(".trading-opportunity-row");
