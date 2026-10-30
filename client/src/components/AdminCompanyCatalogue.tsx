@@ -42,7 +42,7 @@ export default function AdminCompanyCatalogue() {
   );
   const filteredRecords = useMemo(() => (records.data ?? []).filter((company) => {
     const status = (statuses[company.id]?.status ?? "unverified") as AdminCompanyStatus;
-    return statusFilter === "all" || status === statusFilter;
+    return statusFilter === "all" ? status !== "archived" : status === statusFilter;
   }), [records.data, statuses, statusFilter]);
   const pageCount = getPageCount(filteredRecords.length, PAGE_SIZE);
   const displayedRecords = viewAll ? filteredRecords : filteredRecords.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -124,10 +124,10 @@ export default function AdminCompanyCatalogue() {
         </label>
         <label>Catalogue status
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "all" | AdminCompanyStatus)}>
-            <option value="all">All statuses</option>
+            <option value="all">All active companies</option>
             <option value="unverified">Unverified</option>
             <option value="verified">Admin marked verified</option>
-            <option value="archived">Archived</option>
+            <option value="archived">Archived / deleted</option>
           </select>
         </label>
       </div>
