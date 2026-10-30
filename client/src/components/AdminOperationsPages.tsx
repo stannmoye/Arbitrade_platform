@@ -675,7 +675,7 @@ export function AdminWorkerHealth() {
     >
       <div className="admin-ops-meta-line"><span><Activity size={14} /> Auto-refresh every 15 seconds</span><span>Snapshot {timestamp(data.generatedAt)}</span></div>
       {exportError && <div className="admin-ops-empty error" role="alert">Export failed: {exportError}</div>}
-      <div className="admin-ops-note"><Download size={16} /><span><strong>Full diagnostic export</strong> Downloads a JSON report containing worker history, queue findings, server resource and configuration status, database/schema checks, source-contract checks, and recommended corrections. Secrets are not exported. Full automated tests and production build checks must still be run in CI.</span></div>
+      <div className="admin-ops-note"><Download size={16} /><span><strong>Full diagnostic export</strong> Downloads a JSON report containing worker history, queue findings, server resources, database/schema checks, a bounded inventory of application source files, potential unfinished-work markers, core feature source coverage, and recommended corrections. Secret values are never exported. Full automated tests and production build checks must still be run in CI.</span></div>
       {query.isLoading ? <LoadingState /> : query.isError ? (
         <div className="admin-ops-empty error" role="alert">Worker health could not be loaded. Verify migration 0084 and the database connection; an unavailable monitor must not be interpreted as a healthy worker.</div>
       ) : <>
