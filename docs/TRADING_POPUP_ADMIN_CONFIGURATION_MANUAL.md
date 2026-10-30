@@ -130,7 +130,7 @@ The server owns scheduling, package entitlement, quota checks, company selection
 - **Trade Settings → Set up trades → Customer tiers** displays 5 administrator-managed tiers per page with Previous/Next controls. Creating, editing, enabling, saving, and audit reasons remain unchanged by paging. Do not hide or discard tiers when moving between pages.
 - Package/tier policy settings remain in their dedicated submenu; company-catalogue navigation must not render package controls.
 
-## 6. Admin operational status and acceptance tests
+## 7. Admin operational status and acceptance tests
 
 Admin-only **Trade Settings → Company Rotation & Pop-ups** should show current policy version, package settings, worker status, last successful cycle, due/queued counts, stale leases, retry/dead-letter counts, catalogue pool size and rotation health. Health data must be truthful; missing health data is “Unavailable”, not “Healthy”.
 
@@ -150,7 +150,7 @@ Acceptance must cover:
 - All admin edits have role checks, validation, audit history and policy versions.
 - No production deployment or database migration is implied by passing source CI.
 
-## 7. Canonical references
+## 8. Canonical references
 
 - Main product contract: `docs/TRADING_SYSTEM_SPECIFICATION.md`
 - Mandatory coding-agent instructions: `AGENTS.md`
