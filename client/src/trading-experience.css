@@ -1,0 +1,823 @@
+/*
+ * Trade experience visual system.
+ * Scoped to Trading pages and Trading navigation only; no business or workflow rules live here.
+ */
+
+:root {
+  --trade-accent: var(--arb-color-accent, #72e4c1);
+  --trade-accent-strong: color-mix(in srgb, var(--trade-accent) 78%, #ffffff);
+  --trade-info: var(--arb-color-info, #6db9ff);
+  --trade-success: var(--arb-color-success, #55d6a4);
+  --trade-warning: var(--arb-color-warning, #edbd67);
+  --trade-danger: var(--arb-color-danger, #f28b91);
+  --trade-surface: var(--arb-color-surface, #101d2d);
+  --trade-raised: var(--arb-color-surface-raised, #17283b);
+  --trade-canvas: var(--arb-color-canvas, #0b1422);
+  --trade-border: color-mix(in srgb, var(--arb-color-border, #34465a) 82%, transparent);
+  --trade-shadow: 0 18px 42px color-mix(in srgb, var(--trade-canvas) 36%, transparent),
+    inset 0 1px color-mix(in srgb, var(--arb-color-text, #ffffff) 5%, transparent);
+}
+
+/* Administrator Trade navigation: visually distinct without changing destinations. */
+.admin-portal .admin-rail .trade-nav-group {
+  position: relative;
+  margin-block: 8px;
+  padding: 7px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--trade-accent) 17%, var(--trade-border));
+  border-radius: 17px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--trade-accent) 9%, transparent), transparent 58%),
+    linear-gradient(145deg, color-mix(in srgb, var(--trade-raised) 92%, transparent), var(--trade-surface));
+  box-shadow: inset 0 1px color-mix(in srgb, var(--arb-color-text, #fff) 4%, transparent);
+}
+.admin-portal .admin-rail .trade-nav-group.is-open {
+  border-color: color-mix(in srgb, var(--trade-accent) 35%, var(--trade-border));
+  box-shadow: var(--trade-shadow);
+}
+.admin-portal .admin-rail .trade-nav-group .admin-nav-group-heading {
+  min-height: 52px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  color: var(--arb-color-text, #edf5f5);
+  background: color-mix(in srgb, var(--trade-accent) 5%, transparent);
+}
+.admin-portal .admin-rail .trade-nav-group .admin-nav-group-heading > span {
+  color: var(--arb-color-text, #edf5f5);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .015em;
+}
+.admin-portal .admin-rail .trade-nav-group .admin-nav-group-heading small {
+  color: var(--arb-color-text-muted, #91a5b6);
+  line-height: 1.4;
+}
+.admin-portal .admin-rail .trade-nav-group .admin-nav-group-chevron {
+  color: var(--trade-accent);
+}
+.admin-portal .admin-rail .trade-nav-group .admin-nav-item-wrap > button {
+  min-height: 43px;
+  margin-block: 3px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: var(--arb-color-text-soft, #c2d0db);
+  transition: color .18s ease, background .18s ease, border-color .18s ease, transform .18s ease;
+}
+.admin-portal .admin-rail .trade-nav-group .admin-nav-item-wrap > button:hover {
+  color: var(--arb-color-text, #f4f8fb);
+  border-color: color-mix(in srgb, var(--trade-accent) 25%, transparent);
+  background: color-mix(in srgb, var(--trade-accent) 9%, var(--trade-surface));
+  transform: translateX(2px);
+}
+.admin-portal .admin-rail .trade-nav-group .admin-nav-item-wrap > button.active {
+  color: var(--arb-color-text, #ffffff);
+  border-color: color-mix(in srgb, var(--trade-accent) 45%, var(--trade-border));
+  background: linear-gradient(110deg, color-mix(in srgb, var(--trade-accent) 18%, var(--trade-raised)), color-mix(in srgb, var(--trade-info) 8%, var(--trade-surface)));
+  box-shadow: inset 3px 0 var(--trade-accent), 0 7px 18px color-mix(in srgb, var(--trade-canvas) 28%, transparent);
+}
+.admin-portal .admin-rail .trade-nav-group .admin-nav-item-detail {
+  color: var(--arb-color-text-muted, #8ea3b5);
+}
+
+/* Administrator Trade workspace: headers, cards, forms, buttons and data tables. */
+.admin-portal .portal-main.trade-admin-surface {
+  --trade-card-radius: 20px;
+  min-width: 0;
+  color: var(--arb-color-text, #edf4f8);
+}
+.trade-admin-surface .portal-page-top,
+.trade-admin-surface .admin-ops-head {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 0 0 20px;
+  padding: clamp(18px, 2.4vw, 28px);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--trade-accent) 24%, var(--trade-border));
+  border-radius: 24px;
+  background:
+    radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--trade-info) 14%, transparent), transparent 48%),
+    radial-gradient(ellipse at 0% 100%, color-mix(in srgb, var(--trade-accent) 10%, transparent), transparent 55%),
+    linear-gradient(135deg, var(--trade-raised), var(--trade-surface) 72%);
+  box-shadow: var(--trade-shadow);
+}
+.trade-admin-surface .portal-page-top > *,
+.trade-admin-surface .admin-ops-head > * { position: relative; z-index: 1; min-width: 0; }
+.trade-admin-surface .portal-page-top h1,
+.trade-admin-surface .admin-ops-heading h1 {
+  color: var(--arb-color-text, #f3f8fb);
+  font-size: clamp(25px, 3vw, 36px);
+  font-weight: 820;
+  letter-spacing: -.045em;
+  line-height: 1.08;
+}
+.trade-admin-surface .portal-page-top p,
+.trade-admin-surface .admin-ops-heading p {
+  max-width: 76ch;
+  color: var(--arb-color-text-muted, #9aafbf);
+  line-height: 1.7;
+}
+.trade-admin-surface .eyebrow,
+.trade-admin-surface .admin-ops-kicker {
+  color: var(--trade-accent);
+  font-weight: 800;
+  letter-spacing: .13em;
+}
+.trade-admin-surface .package-grid-admin {
+  gap: 17px;
+}
+.trade-admin-surface :is(.package-policy-card, .admin-control-card, .settings-card, .admin-ops-panel) {
+  min-width: 0;
+  border: 1px solid var(--trade-border);
+  border-radius: var(--trade-card-radius);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--trade-accent) 4%, var(--trade-raised)), var(--trade-surface) 72%);
+  box-shadow: var(--trade-shadow);
+}
+.trade-admin-surface .package-admin-card {
+  --trade-package-accent: var(--package-card-accent, var(--trading-tier-accent, var(--trade-accent)));
+  position: relative;
+  padding: clamp(16px, 2vw, 22px);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--trade-package-accent) 48%, var(--trade-border));
+  border-inline-start: 4px solid var(--trade-package-accent);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--trade-package-accent) 17%, var(--trade-raised)), color-mix(in srgb, var(--trade-package-accent) 6%, var(--trade-surface)) 72%);
+  box-shadow: var(--trade-shadow);
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+.trade-admin-surface .package-admin-card::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  content: "";
+  background: linear-gradient(180deg, var(--trade-package-accent), color-mix(in srgb, var(--trade-info) 55%, transparent));
+}
+.trade-admin-surface .package-admin-card:hover {
+  border-color: color-mix(in srgb, var(--trade-package-accent) 72%, white);
+  box-shadow: 0 22px 48px color-mix(in srgb, var(--trade-canvas) 38%, transparent),
+    inset 0 1px color-mix(in srgb, var(--arb-color-text, #fff) 7%, transparent);
+  transform: translateY(-2px);
+}
+.trade-admin-surface .package-admin-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 17px;
+}
+.trade-admin-surface .package-admin-head :is(h2, h3) {
+  margin: 5px 0 0;
+  color: var(--arb-color-text, #f1f6fa);
+  font-size: clamp(17px, 2vw, 21px);
+  font-weight: 780;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+}
+.trade-admin-surface .package-admin-card > .eyebrow,
+.trade-admin-surface .package-policy-section > strong {
+  display: block;
+  margin: 16px 0 10px;
+  color: var(--trade-accent-strong);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.trade-admin-surface .package-policy-section {
+  margin-top: 13px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--trade-info) 17%, var(--trade-border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--trade-info) 4%, var(--trade-surface));
+}
+.trade-admin-surface .package-detail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-block: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--trade-border);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--trade-raised) 80%, transparent);
+}
+.trade-admin-surface .package-detail span,
+.trade-admin-surface .package-admin-card label small,
+.trade-admin-surface .admin-ops-page small {
+  color: var(--arb-color-text-muted, #91a6b6);
+  line-height: 1.55;
+}
+.trade-admin-surface .package-detail b { color: var(--trade-accent-strong); font-variant-numeric: tabular-nums; }
+.trade-admin-surface :is(.form-two, .admin-ops-form-grid) { gap: 15px; }
+.trade-admin-surface label {
+  display: grid;
+  gap: 7px;
+  color: var(--arb-color-text-soft, #cbd8e1);
+  font-size: 12px;
+  font-weight: 680;
+  line-height: 1.45;
+}
+.trade-admin-surface :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  width: 100%;
+  min-width: 0;
+  min-height: 43px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--trade-info) 22%, var(--trade-border));
+  border-radius: 12px;
+  color: var(--arb-color-text, #f2f7fa);
+  background: linear-gradient(180deg, var(--trade-raised), color-mix(in srgb, var(--trade-surface) 90%, #000));
+  box-shadow: inset 0 1px color-mix(in srgb, var(--arb-color-text, #fff) 4%, transparent);
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+.trade-admin-surface :is(input, select, textarea)::placeholder { color: var(--arb-color-text-muted, #8299aa); opacity: 1; }
+.trade-admin-surface :is(input, select, textarea):focus-visible {
+  border-color: var(--trade-accent);
+  outline: 3px solid color-mix(in srgb, var(--trade-accent) 20%, transparent);
+  outline-offset: 1px;
+}
+.trade-admin-surface :is(input, select, textarea):disabled {
+  cursor: not-allowed;
+  opacity: .58;
+}
+.trade-admin-surface input[type="checkbox"],
+.trade-admin-surface input[type="radio"] { accent-color: var(--trade-accent); }
+.trade-admin-surface :is(.primary-button, .secondary-button, .portal-action, .admin-ops-button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 1px solid color-mix(in srgb, var(--trade-accent) 38%, var(--trade-border));
+  border-radius: 13px;
+  color: var(--arb-color-text, #f4fbf8);
+  background: linear-gradient(120deg, color-mix(in srgb, var(--trade-accent) 20%, var(--trade-raised)), color-mix(in srgb, var(--trade-info) 10%, var(--trade-surface)));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--trade-canvas) 24%, transparent), inset 0 1px color-mix(in srgb, #fff 8%, transparent);
+  font-size: 12px;
+  font-weight: 780;
+  letter-spacing: .01em;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, filter .18s ease;
+}
+.trade-admin-surface :is(.primary-button, .portal-action, .admin-ops-button) {
+  border-color: color-mix(in srgb, var(--trade-accent) 55%, var(--trade-border));
+  background: linear-gradient(115deg, color-mix(in srgb, var(--trade-accent) 27%, var(--trade-raised)), color-mix(in srgb, var(--trade-info) 14%, var(--trade-surface)));
+}
+.trade-admin-surface :is(.primary-button, .secondary-button, .portal-action, .admin-ops-button):hover:not(:disabled) {
+  border-color: var(--trade-accent);
+  filter: brightness(1.08);
+  box-shadow: 0 13px 25px color-mix(in srgb, var(--trade-canvas) 34%, transparent), 0 0 0 3px color-mix(in srgb, var(--trade-accent) 10%, transparent);
+  transform: translateY(-2px);
+}
+.trade-admin-surface :is(.primary-button, .secondary-button, .portal-action, .admin-ops-button):active:not(:disabled) { transform: translateY(0); }
+.trade-admin-surface :is(.primary-button, .secondary-button, .portal-action, .admin-ops-button):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--trade-accent) 35%, transparent);
+  outline-offset: 3px;
+}
+.trade-admin-surface :is(.primary-button, .secondary-button, .portal-action, .admin-ops-button):disabled {
+  cursor: not-allowed;
+  opacity: .48;
+  filter: saturate(.55);
+  transform: none;
+}
+.trade-admin-surface .admin-ops-page { max-width: 1560px; padding: clamp(12px, 1.8vw, 22px); }
+.trade-admin-surface .admin-ops-page .admin-ops-panel {
+  margin-top: 16px;
+  padding: clamp(15px, 2vw, 22px);
+}
+.trade-admin-surface .admin-ops-page .admin-ops-metric {
+  min-height: 124px;
+  padding: 17px;
+  border: 1px solid var(--trade-border);
+  border-radius: 17px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--trade-accent) 10%, transparent), transparent 52%),
+    linear-gradient(145deg, var(--trade-raised), var(--trade-surface));
+  box-shadow: var(--trade-shadow);
+}
+.trade-admin-surface .admin-ops-page .admin-ops-metric strong {
+  color: var(--arb-color-text, #f5f9fb);
+  font-size: clamp(21px, 2vw, 26px);
+  letter-spacing: -.035em;
+}
+.trade-admin-surface .admin-ops-page .admin-ops-table-wrap {
+  border: 1px solid var(--trade-border);
+  border-radius: 15px;
+  background: var(--trade-surface);
+}
+.trade-admin-surface .admin-ops-page .admin-ops-table th {
+  color: var(--arb-color-text-muted, #9aafbf);
+  background: color-mix(in srgb, var(--trade-accent) 7%, var(--trade-raised));
+  letter-spacing: .08em;
+}
+.trade-admin-surface .admin-ops-page .admin-ops-table td {
+  color: var(--arb-color-text-soft, #c4d2dd);
+  border-bottom-color: color-mix(in srgb, var(--trade-border) 72%, transparent);
+}
+.trade-admin-surface .admin-ops-page .admin-ops-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--trade-accent) 6%, transparent);
+}
+.trade-admin-surface .admin-ops-page .admin-ops-status {
+  min-height: 25px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-weight: 750;
+}
+.trade-admin-surface .admin-ops-page .admin-ops-note {
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--trade-accent) 7%, var(--trade-surface));
+}
+.trade-admin-surface .trade-admin-guide-frame {
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--trade-border);
+  border-radius: 22px;
+  background: var(--trade-surface);
+  box-shadow: var(--trade-shadow);
+}
+.trade-admin-surface .trade-admin-guide-frame iframe { display: block; }
+
+/* Customer Trading: package progress, opportunity feed, records and company catalogue. */
+.customer-portal .portal-main .customer-home-page,
+.customer-portal .portal-main .customer-opportunities-page {
+  --trade-card-radius: 22px;
+  display: grid;
+  gap: 18px;
+}
+.customer-portal .portal-main .customer-opportunities-page .portal-page-top {
+  position: relative;
+  isolation: isolate;
+  margin: 0;
+  padding: clamp(18px, 2.6vw, 30px);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--trade-accent) 30%, var(--trade-border));
+  border-radius: 24px;
+  background:
+    radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--trade-info) 17%, transparent), transparent 48%),
+    radial-gradient(ellipse at 0% 100%, color-mix(in srgb, var(--trade-accent) 12%, transparent), transparent 52%),
+    linear-gradient(135deg, var(--trade-raised), var(--trade-surface) 72%);
+  box-shadow: var(--trade-shadow);
+}
+.customer-portal .portal-main .customer-opportunities-page .portal-page-top h1 {
+  color: var(--arb-color-text, #f3f8fb);
+  font-size: clamp(27px, 3.4vw, 40px);
+  font-weight: 840;
+  letter-spacing: -.05em;
+}
+.customer-portal .portal-main .customer-opportunities-page .portal-page-top p {
+  max-width: 75ch;
+  color: var(--arb-color-text-muted, #9aafbf);
+  line-height: 1.7;
+}
+.customer-portal .portal-main .customer-opportunities-page > .customer-panel {
+  margin: 0;
+  padding: clamp(15px, 2vw, 23px);
+  border: 1px solid var(--trade-border);
+  border-radius: var(--trade-card-radius);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--trade-accent) 4%, var(--trade-raised)), var(--trade-surface) 72%);
+  box-shadow: var(--trade-shadow);
+}
+.customer-portal .portal-main .customer-opportunities-page .customer-panel-head {
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--trade-border);
+}
+.customer-portal .portal-main .customer-opportunities-page .customer-panel-head h2 {
+  color: var(--arb-color-text, #eff7f8);
+  font-size: clamp(17px, 2vw, 21px);
+  font-weight: 790;
+  letter-spacing: -.025em;
+}
+.customer-portal .portal-main .customer-opportunities-page .trading-opportunity-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 15px;
+}
+.customer-portal .portal-main .customer-opportunities-page .trading-opportunity-row {
+  display: grid;
+  gap: 15px;
+  padding: clamp(14px, 2vw, 19px);
+  border: 1px solid color-mix(in srgb, var(--trade-info) 17%, var(--trade-border));
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--trade-info) 8%, transparent), transparent 48%),
+    linear-gradient(145deg, var(--trade-raised), var(--trade-surface));
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--trade-canvas) 20%, transparent), inset 0 1px color-mix(in srgb, #fff 4%, transparent);
+  transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+.customer-portal .portal-main .customer-opportunities-page .trading-opportunity-row:hover {
+  border-color: color-mix(in srgb, var(--trade-accent) 42%, var(--trade-border));
+  box-shadow: 0 16px 34px color-mix(in srgb, var(--trade-canvas) 30%, transparent);
+  transform: translateY(-1px);
+}
+.customer-portal .portal-main .customer-opportunities-page .trading-opportunity-row.missed {
+  border-color: color-mix(in srgb, var(--trade-warning) 28%, var(--trade-border));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--trade-warning) 7%, var(--trade-raised)), var(--trade-surface));
+}
+.customer-portal .portal-main .customer-opportunities-page .trading-opportunity-identity {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+}
+.customer-portal .portal-main .customer-opportunities-page .trading-opportunity-identity > img {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  padding: 5px;
+  border: 1px solid var(--trade-border);
+  border-radius: 14px;
+  background: var(--trade-raised);
+  object-fit: contain;
+}
+.customer-portal .portal-main .customer-opportunities-page .trading-opportunity-identity strong {
+  color: var(--arb-color-text, #eff7f8);
+  font-size: 14px;
+  font-weight: 780;
+  overflow-wrap: anywhere;
+}
+.customer-portal .portal-main .customer-opportunities-page .trading-opportunity-identity small,
+.customer-portal .portal-main .customer-opportunities-page .trading-opportunity-row > small {
+  color: var(--arb-color-text-muted, #91a6b6);
+  line-height: 1.55;
+}
+.customer-portal .portal-main .customer-opportunities-page .trading-opportunity-values {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+  gap: 9px;
+}
+.customer-portal .portal-main .customer-opportunities-page .trading-opportunity-values > div {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--trade-border);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--trade-accent) 5%, var(--trade-surface));
+}
+.customer-portal .portal-main .customer-opportunities-page .trading-opportunity-values span {
+  color: var(--arb-color-text-muted, #8ea4b4);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .035em;
+}
+.customer-portal .portal-main .customer-opportunities-page .trading-opportunity-values strong {
+  color: var(--arb-color-text, #eff7f8);
+  font-size: 13px;
+  font-weight: 790;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.customer-portal .portal-main .customer-opportunities-page .trading-opportunity-symbol {
+  display: grid;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--trade-accent) 32%, var(--trade-border));
+  border-radius: 15px;
+  color: var(--trade-accent-strong);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--trade-accent) 15%, var(--trade-raised)), var(--trade-surface));
+  font-weight: 850;
+}
+.customer-portal .portal-main .customer-opportunities-page .company-reference-panel {
+  overflow: hidden;
+}
+.customer-portal .portal-main .customer-opportunities-page :is(input, select) {
+  min-height: 42px;
+  border: 1px solid var(--trade-border);
+  border-radius: 12px;
+  color: var(--arb-color-text, #f2f7fa);
+  background: var(--trade-raised);
+}
+.customer-portal .portal-main .customer-opportunities-page button {
+  border-radius: 12px;
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.customer-portal .portal-main .customer-opportunities-page button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--trade-accent) 42%, var(--trade-border));
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--trade-canvas) 22%, transparent);
+}
+.customer-portal .portal-main .customer-opportunities-page :is(button, input, select, a):focus-visible,
+.customer-portal .trading-packages-panel :is(button, input, select, a):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--trade-accent) 42%, transparent);
+  outline-offset: 3px;
+}
+
+/* The eligibility panel appears on the customer home page; its data remains server-owned. */
+.customer-portal .portal-main .trading-packages-panel {
+  border: 1px solid color-mix(in srgb, var(--trade-accent) 27%, var(--trade-border));
+  border-radius: 24px;
+  background:
+    radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--trade-info) 12%, transparent), transparent 48%),
+    linear-gradient(145deg, var(--trade-raised), var(--trade-surface) 76%);
+  box-shadow: var(--trade-shadow);
+}
+.customer-portal .portal-main .trading-packages-panel .trading-journey-header {
+  align-items: center;
+  gap: 16px;
+}
+.customer-portal .portal-main .trading-packages-panel .trading-journey-title {
+  color: var(--arb-color-text, #f2f8fb);
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 840;
+  letter-spacing: -.045em;
+}
+.customer-portal .portal-main .trading-packages-panel .trading-bot-status {
+  border-color: var(--trade-border);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--trade-accent) 6%, var(--trade-surface));
+}
+.customer-portal .portal-main .trading-packages-panel .trading-tier-card {
+  border-radius: 21px;
+  box-shadow: 0 15px 34px color-mix(in srgb, var(--trade-canvas) 27%, transparent), inset 0 1px color-mix(in srgb, #fff 5%, transparent);
+}
+.customer-portal .portal-main .trading-packages-panel .trading-tier-metric {
+  border: 1px solid var(--trade-border);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--trade-info) 6%, var(--trade-surface));
+}
+.customer-portal .portal-main .trading-packages-panel .trading-tier-metric-value,
+.customer-portal .portal-main .trading-packages-panel .trading-tier-name {
+  color: var(--arb-color-text, #f3f8fb);
+}
+.customer-portal .portal-main .trading-packages-panel .trading-total-allowance {
+  border: 1px solid color-mix(in srgb, var(--trade-warning) 36%, var(--trade-border));
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--trade-warning) 12%, transparent), transparent 55%),
+    linear-gradient(120deg, color-mix(in srgb, var(--trade-warning) 8%, var(--trade-raised)), var(--trade-surface));
+  box-shadow: 0 12px 26px color-mix(in srgb, var(--trade-canvas) 25%, transparent);
+}
+.customer-portal .portal-main .trading-packages-panel .trading-journey-refresh {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid color-mix(in srgb, var(--trade-accent) 42%, var(--trade-border));
+  border-radius: 12px;
+  color: var(--arb-color-text, #f4fbf8);
+  background: linear-gradient(120deg, color-mix(in srgb, var(--trade-accent) 20%, var(--trade-raised)), var(--trade-surface));
+  font-weight: 760;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.customer-portal .portal-main .trading-packages-panel .trading-journey-refresh:hover:not(:disabled) {
+  box-shadow: 0 10px 23px color-mix(in srgb, var(--trade-canvas) 30%, transparent);
+  transform: translateY(-2px);
+}
+.customer-portal .portal-main .customer-home-page .customer-quick-feature.trade {
+  border: 1px solid color-mix(in srgb, var(--trade-accent) 38%, var(--trade-border));
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--trade-info) 14%, transparent), transparent 56%),
+    linear-gradient(130deg, color-mix(in srgb, var(--trade-accent) 12%, var(--trade-raised)), var(--trade-surface));
+  box-shadow: var(--trade-shadow);
+}
+.customer-portal .portal-main .customer-home-page .customer-quick-feature.trade:hover {
+  border-color: color-mix(in srgb, var(--trade-accent) 60%, var(--trade-border));
+  transform: translateY(-2px);
+}
+
+/* Persistent opportunity display and lifecycle banner. */
+.customer-portal .center-opportunity-toast {
+  border: 1px solid color-mix(in srgb, var(--trade-accent) 48%, var(--trade-border));
+  border-radius: 22px;
+  background:
+    radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--trade-info) 17%, transparent), transparent 48%),
+    linear-gradient(145deg, var(--trade-raised), var(--trade-surface) 75%);
+  box-shadow: 0 24px 70px color-mix(in srgb, var(--trade-canvas) 58%, transparent), 0 0 0 1px color-mix(in srgb, var(--trade-accent) 10%, transparent);
+}
+.customer-portal .center-opportunity-toast .toast-actions :is(button, a) {
+  min-height: 42px;
+  border-radius: 12px;
+  font-weight: 760;
+}
+.customer-portal .center-opportunity-toast .toast-actions .primary-button {
+  border: 1px solid color-mix(in srgb, var(--trade-accent) 55%, var(--trade-border));
+  color: var(--arb-color-text, #f4fbf8);
+  background: linear-gradient(115deg, color-mix(in srgb, var(--trade-accent) 28%, var(--trade-raised)), color-mix(in srgb, var(--trade-info) 16%, var(--trade-surface)));
+}
+.customer-portal .trade-progress-banner {
+  border: 1px solid color-mix(in srgb, var(--trade-info) 30%, var(--trade-border));
+  border-radius: 17px;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--trade-info) 9%, var(--trade-raised)), var(--trade-surface));
+  box-shadow: var(--trade-shadow);
+}
+
+@media (max-width: 760px) {
+  .trade-admin-surface .portal-page-top,
+  .trade-admin-surface .admin-ops-head { flex-direction: column; }
+  .trade-admin-surface .portal-page-top > :last-child,
+  .trade-admin-surface .admin-ops-actions { width: 100%; }
+  .trade-admin-surface .admin-ops-actions > * { flex: 1 1 auto; }
+  .customer-portal .portal-main .customer-opportunities-page .trading-opportunity-row { gap: 12px; }
+  .customer-portal .portal-main .customer-opportunities-page .trading-opportunity-values { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 440px) {
+  .customer-portal .portal-main .customer-opportunities-page .trading-opportunity-values { grid-template-columns: minmax(0, 1fr); }
+  .trade-admin-surface .package-admin-head { flex-direction: column; }
+  .trade-admin-surface :is(.primary-button, .secondary-button, .portal-action, .admin-ops-button) { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trade-admin-surface *,
+  .trade-admin-surface *::before,
+  .trade-admin-surface *::after,
+  .customer-portal .portal-main .customer-opportunities-page *,
+  .customer-portal .portal-main .customer-opportunities-page *::before,
+  .customer-portal .portal-main .customer-opportunities-page *::after,
+  .customer-portal .trading-packages-panel *,
+  .customer-portal .center-opportunity-toast * {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
+@media (forced-colors: active) {
+  .trade-admin-surface :is(.package-admin-card, .package-policy-card, .admin-control-card, .admin-ops-panel),
+  .customer-portal .portal-main .customer-opportunities-page :is(.portal-page-top, .customer-panel, .trading-opportunity-row),
+  .customer-portal .portal-main .trading-packages-panel .trading-tier-card {
+    border: 1px solid CanvasText;
+  }
+  .trade-admin-surface :is(button, input, select, textarea):focus-visible,
+  .customer-portal .portal-main .customer-opportunities-page :is(button, input, select):focus-visible {
+    outline: 2px solid Highlight;
+  }
+}
+
+
+/* Trade configuration and company-reference workbench. */
+.trade-admin-surface .opportunity-admin-page {
+  display: grid;
+  gap: 16px;
+}
+.trade-admin-surface .opportunity-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.trade-admin-surface .opportunity-admin-grid > .settings-card,
+.trade-admin-surface .popup-accuracy-card,
+.trade-admin-surface .published-offers {
+  min-width: 0;
+  padding: clamp(15px, 2vw, 22px);
+  border: 1px solid var(--trade-border);
+  border-radius: 19px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--trade-accent) 4%, var(--trade-raised)), var(--trade-surface) 75%);
+  box-shadow: var(--trade-shadow);
+}
+.trade-admin-surface .admin-kpi-grid > div {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--trade-border);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--trade-info) 9%, transparent), transparent 55%),
+    linear-gradient(145deg, var(--trade-raised), var(--trade-surface));
+  box-shadow: var(--trade-shadow);
+}
+.trade-admin-surface .admin-kpi-grid > div > span {
+  color: var(--arb-color-text-muted, #91a6b6);
+  font-size: 11px;
+  font-weight: 700;
+}
+.trade-admin-surface .admin-kpi-grid > div > strong {
+  color: var(--arb-color-text, #f3f8fb);
+  font-size: clamp(22px, 2.5vw, 29px);
+  font-variant-numeric: tabular-nums;
+}
+.trade-admin-surface .admin-kpi-grid > div > b {
+  color: var(--trade-accent);
+  font-size: 10px;
+}
+.trade-admin-surface .published-offers .panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 13px;
+}
+.trade-admin-surface .published-offers .panel-heading h2 {
+  color: var(--arb-color-text, #f2f8fb);
+  font-size: 18px;
+  font-weight: 800;
+}
+.trade-admin-surface .published-offers .trade-history-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) minmax(120px, 1.4fr) repeat(3, minmax(70px, auto));
+  align-items: center;
+  gap: 12px;
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--trade-border);
+  border-radius: 10px;
+  color: var(--arb-color-text-soft, #c3d2dc);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.trade-admin-surface .published-offers .trade-history-row:hover {
+  background: color-mix(in srgb, var(--trade-accent) 6%, transparent);
+}
+.trade-admin-surface .published-offers .trade-history-row strong {
+  color: var(--arb-color-text, #f3f8fb);
+}
+.trade-admin-surface .published-offers .trade-history-row .open {
+  color: var(--trade-success);
+}
+.trade-admin-surface .toggle-switch {
+  display: inline-grid;
+  min-width: 48px;
+  min-height: 38px;
+  place-items: center;
+  border: 1px solid var(--trade-border);
+  border-radius: 12px;
+  color: var(--arb-color-text-muted, #91a6b6);
+  background: var(--trade-raised);
+  transition: color .18s ease, border-color .18s ease, background .18s ease, transform .18s ease;
+}
+.trade-admin-surface .toggle-switch.on,
+.trade-admin-surface .toggle-switch.enabled {
+  border-color: color-mix(in srgb, var(--trade-success) 50%, var(--trade-border));
+  color: var(--trade-success);
+  background: color-mix(in srgb, var(--trade-success) 12%, var(--trade-surface));
+}
+.trade-admin-surface .toggle-switch:hover:not(:disabled) {
+  border-color: var(--trade-accent);
+  transform: translateY(-1px);
+}
+.trade-admin-surface .admin-ops-page .admin-ops-empty {
+  border-color: var(--trade-border);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--trade-info) 4%, var(--trade-surface));
+}
+.trade-admin-surface .admin-ops-page .admin-ops-empty.error {
+  border-color: color-mix(in srgb, var(--trade-danger) 42%, var(--trade-border));
+  background: color-mix(in srgb, var(--trade-danger) 8%, var(--trade-surface));
+}
+.trade-admin-surface .admin-ops-page .admin-ops-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.trade-admin-surface .admin-ops-page .admin-ops-form-actions > * { flex: 0 1 auto; }
+
+/* Audit history is shared by admin quick actions and the Trade history submenu. */
+.admin-portal .portal-main .admin-audit-list {
+  display: grid;
+  gap: 10px;
+}
+.admin-portal .portal-main .admin-audit-row {
+  display: grid;
+  grid-template-columns: minmax(145px, .7fr) minmax(0, 2fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--trade-border);
+  border-radius: 15px;
+  background: linear-gradient(140deg, var(--trade-raised), var(--trade-surface));
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--trade-canvas) 20%, transparent);
+}
+.admin-portal .portal-main .admin-audit-row .audit-time,
+.admin-portal .portal-main .admin-audit-row .audit-event span {
+  color: var(--arb-color-text-muted, #91a6b6);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.admin-portal .portal-main .admin-audit-row .audit-event {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px 9px;
+  min-width: 0;
+}
+.admin-portal .portal-main .admin-audit-row .audit-event svg { color: var(--trade-accent); }
+.admin-portal .portal-main .admin-audit-row .audit-event strong {
+  color: var(--arb-color-text, #f2f8fb);
+  overflow-wrap: anywhere;
+}
+.admin-portal .portal-main .admin-audit-row .audit-event span { grid-column: 2; overflow-wrap: anywhere; }
+.admin-portal .portal-main .admin-audit-row .audit-verified {
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--trade-success) 35%, var(--trade-border));
+  border-radius: 999px;
+  color: var(--trade-success);
+  background: color-mix(in srgb, var(--trade-success) 8%, var(--trade-surface));
+  font-size: 10px;
+  font-weight: 750;
+}
+
+@media (max-width: 760px) {
+  .trade-admin-surface .opportunity-admin-grid { grid-template-columns: minmax(0, 1fr); }
+  .trade-admin-surface .published-offers .trade-history-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .admin-portal .portal-main .admin-audit-row {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+  .admin-portal .portal-main .admin-audit-row .audit-event span { grid-column: 1 / -1; }
+}

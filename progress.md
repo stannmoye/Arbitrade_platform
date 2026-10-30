@@ -1,3 +1,30 @@
+## 2026-10-30 — Trade interface visual redesign (PR #249)
+
+- Canonical base: `main` at `cefa5fcb03078c9c4d8dbfad3744c585985385fe`.
+- Work branch: `style/trade-wide-premium-redesign`; latest implementation head before this handoff update: `e936bb3688f40274fed2388e7e5f551bb9aae2c3`.
+- PR #249: https://github.com/stannmoye/Arbitrade_platform/pull/249 (open; not merged).
+- Added `client/src/trading-experience.css`, loaded from `client/src/App.tsx`, for a Trade-scoped visual redesign across customer eligibility/progress, opportunity feed and history, company catalogue references, live popup/progress banner, admin Trade submenu groups, package/policy configuration, delivery and operations pages, fee/retry/health/settlement screens, and audit history.
+- Refined containers, buttons, input controls, typography, operational cards, status pills, data tables, gradients, borders, radii and hover states using semantic theme variables. Retained the existing six distinct Trading package-card accent colours.
+- Added responsive rules, focus-visible states, disabled states, reduced-motion and forced-colour handling.
+- Added `client/src/trading-experience.styles.test.ts` and `docs/trading/TRADE_INTERFACE_VISUAL_REDESIGN.md`.
+- Presentation-only: no routes/destinations or Trading qualification, package, quota, wallet/FX, allocation, return/fee, retry, settlement, worker or audit semantics were changed.
+- Exact-head CI for the final PR head is pending. Confirm style contract test, typecheck, full test suite, production build and all required integration workflows before merge. No production deployment performed.
+
+---
+
+## 2026-10-30 — Trade interface visual redesign (in progress)
+
+- Canonical base: `main` at `cefa5fcb03078c9c4d8dbfad3744c585985385fe`.
+- Work branch: `style/trade-wide-premium-redesign`.
+- Presentation-only redesign added in `client/src/trading-experience.css`, scoped to customer Trade surfaces, Trade opportunity displays, administrator Trade destinations, and the five Trade navigation groups.
+- Customer styling covers eligibility progress, current/next tier cards, cumulative allowance, opportunity feed, missed opportunities, recorded trade history, company references, and the persistent opportunity/progress display.
+- Admin styling covers Trade navigation groups/submenus, tier/package and policy cards, configuration forms, action buttons, operational metrics, status pills, tables, and the Trade guide frame.
+- Styling uses active theme tokens and includes mobile layouts, focus-visible states, disabled states, reduced-motion handling, and forced-colour support. No Trading business logic, route destinations, package policy, wallet, FX, allocation, settlement, worker, or audit behaviour was changed.
+- Added `client/src/trading-experience.styles.test.ts` and `docs/trading/TRADE_INTERFACE_VISUAL_REDESIGN.md`.
+- Validation is pending exact-head GitHub Actions. Run the style contract test, full type check, full test suite, and production build; review visual scope before merge.
+
+---
+
 ## 2026-10-29 — PART 4 handoff status (latest verified source review)
 
 - Repository `stannmoye/Arbitrade_platform`; current `main`: `07b17ca401d5f0582bf09fba8b6625f4a8af42e6`.
