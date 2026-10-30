@@ -1,3 +1,15 @@
+## 2026-10-30 — Worker health and full system diagnostics export
+
+- Canonical base: `main` at `c1ce17af1b32cce93beb0b47561d92c78d36ec6c`; implementation branch: `feat/worker-health-full-code-inventory`.
+- Added an administrator-only `systemDiagnostics` query and **Trade Settings → Worker Health & Recovery → Export full report** action. The browser downloads a fresh JSON snapshot; no report-storage table, scheduled job or background process is added.
+- The report includes live Node.js process/runtime metrics, required environment-variable presence (never secret values), database connectivity and critical table checks, persisted worker health and bounded qualification queue/dead-letter findings, source-contract and worker-registration wiring checks, core feature source-presence coverage, and actionable findings/recommendations.
+- Expanded code diagnostics with a bounded inventory of client/server/shared/migration/script/installer source files, test-file counts, file sizes, and potential TODO/FIXME/XXX/HACK/not-implemented markers with file/line references. Markers are explicitly review prompts, not automatically classified defects; incomplete scans report their limits.
+- Added unit coverage for source-marker line references and documented report scope/limits. The export does not run the full test suite, type checker, build, dependency audit, or feature-specific hosted acceptance inside a live request.
+- Validation: exact-head GitHub Actions has not yet been triggered for this branch. Local checkout/test execution is unavailable because this environment cannot resolve `github.com`; do not claim `pnpm check`, `pnpm test`, or `pnpm build` passed. Run exact-head CI before merge.
+- No merge to `main`, production database/server access, migration, or deployment was performed.
+
+---
+
 ## 2026-10-30 — Trade interface visual redesign (PR #249)
 
 - Canonical base: `main` at `cefa5fcb03078c9c4d8dbfad3744c585985385fe`.
