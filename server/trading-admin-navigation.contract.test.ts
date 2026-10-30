@@ -8,6 +8,36 @@ const serverDb = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const serverRouters = readFileSync(new URL("./routers.ts", import.meta.url), "utf8");
 const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
 
+describe("Administrator company catalogue navigation and pagination", () => {
+  it("opens the dedicated 1,811-record catalogue and requests ten records per page", () => {
+    const catalogue = readFileSync(new URL("../client/src/components/AdminCompanyCatalogue.tsx", import.meta.url), "utf8");
+    expect(navigation).toContain('id: "trade-company-catalogue", target: "companyCatalogue"');
+    expect(navigation).not.toContain('id: "trade-company-catalogue", target: "opportunity"');
+    expect(adminApp).toContain('section==="companyCatalogue"&&<Suspense');
+    expect(catalogue).toContain("const PAGE_SIZE = 10");
+    expect(catalogue).toContain("trpc.companyCatalogueReference.search.useQuery");
+    expect(catalogue).toContain("limit: PAGE_SIZE");
+    expect(catalogue).toContain("countryName: countryName || undefined");
+    expect(catalogue).toContain("company.logoUrl");
+    expect(catalogue).toContain("Logo ID {logoId}");
+    expect(catalogue).toContain("Previous");
+    expect(catalogue).toContain("Next");
+    expect(catalogue).toContain("reference-only/unverified");
+  });
+
+  it("paginates all tier policy cards in groups of five without truncating the saved policy payload", () => {
+    const start = adminApp.indexOf("function AdminPackages({focus}");
+    const end = adminApp.indexOf("function AdminTradeAllocationControl()", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const editor = adminApp.slice(start, end);
+    expect(editor).toContain("const policyPageSize=5");
+    expect(editor).toContain("paginateItems(draft,policyPage,policyPageSize)");
+    expect(editor).toContain("policies:draft.map");
+    expect(editor).toContain('aria-label="Tier policy pagination"');
+  });
+});
+
 describe("Trading tier creation defaults", () => {
   it("requires an administrator to explicitly enter threshold, duration, and daily quota", () => {
     const start = adminApp.indexOf("function AdminTradingPackageCatalogue()");
@@ -20,13 +50,17 @@ describe("Trading tier creation defaults", () => {
     expect(editor).toContain('e.target.value===""?"":Number(e.target.value)');
     expect(editor).toContain("no package threshold or quota is preselected");
     expect(editor).not.toContain('minimumQualifyingBalanceUsdMinor:10000,durationMonths:1,opportunitiesPerDay:6');
-    const editFields = editor.slice(editor.indexOf("{(q.data as any[]).map"));
+    const editFields = editor.slice(editor.indexOf("{visiblePackageRows.map"));
     expect(editFields).toContain('draft.minimumQualifyingBalanceUsdMinor===""?"":');
     expect(editFields).toContain('e.target.value===""?"":Number(e.target.value)');
     expect(editor).not.toContain("Daily popup cap");
     expect(editor).not.toContain("Maximum active investments");
     expect(editor).toContain("maxPopupsPerDay:0,maxActiveInvestments:0");
     expect(editFields).toContain("required maxLength={80} value={draft.name}");
+    expect(editor).toContain("const packagePageSize=5");
+    expect(editor).toContain("paginateItems(packageRows,packagePage,packagePageSize)");
+    expect(editor).toContain('aria-label="Trading tier pagination"');
+    expect(editor).toContain("setPackagePage((current)=>Math.min(packagePageCount-1,current+1))");
   });
 });
 
