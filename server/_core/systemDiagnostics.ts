@@ -362,7 +362,7 @@ export async function getSystemDiagnosticsReport() {
   ));
 
   const summary = summarizeDiagnosticChecks(checks);
-  const findings = checks.filter((item) => item.status === "fail" || item.status === "warning");
+  const findings = checks.filter((item) => item.status !== "pass");
   return {
     reportType: "arbitrade-server-and-application-diagnostics",
     reportVersion: 1,
