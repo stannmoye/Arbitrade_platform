@@ -77,4 +77,14 @@ describe("Trade experience visual system", () => {
     expect(portalStylesheet).toContain(".admin-nav-group");
   });
 
+
+  it("uses a restrained professional financial palette with a distinct accent for every menu", () => {
+    const accents = [
+      "#315B7D", "#80627A", "#8B6A3E", "#536A9A", "#39796F", "#9A5A5A",
+      "#3F7188", "#6D668C", "#8A7848", "#557A65", "#765E68", "#477A82", "#696F78",
+    ];
+    expect(new Set(accents).size).toBe(13);
+    for (const accent of accents) expect(portalStylesheet).toContain(`--nav-accent:${accent}`);
+  });
+
 });
