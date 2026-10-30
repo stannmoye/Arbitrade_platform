@@ -650,7 +650,7 @@ function escapeReportHtml(value: unknown) {
 
 function downloadCsv(filename: string, rows: string[][]) {
   const csv = rows.map((row) => row.map((value) => '"' + String(value ?? "").replace(/"/g, '""') + '"').join(",")).join("\r\n");
-  const blob = new Blob(["\\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -661,7 +661,7 @@ function downloadCsv(filename: string, rows: string[][]) {
 
 export function AdminWorkerHealth() {
   const query = trpc.adminOperations.workerHealth.useQuery(undefined, { refetchInterval: 15_000, refetchOnWindowFocus: true });
-  const exportQuery = trpc.adminOperations.systemDiagnostics.useQuery(undefined, { enabled: false, retry: false });
+  const exportQuery = trpc.adminOperations.systemDiagnostics.useQuery(undefined, { enabled: true, retry: false, staleTime: 60_000, refetchOnWindowFocus: false });
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [verification, setVerification] = useState<string | null>(null);
@@ -777,7 +777,7 @@ export function AdminWorkerHealth() {
     },
     onError: (error) => { setRecoveryError(error.message); setLastRequeuedJobId(null); },
   });
-  const refresh = () => { void query.refetch(); };
+  const refresh = () => { void Promise.all([query.refetch(), exportQuery.refetch()]); };
   const retryJob = (job: DeadQualificationJob) => {
     const reason = (recoveryReasons[job.id] ?? "").trim();
     if (reason.length < 8 || reason.length > 500 || retryMutation.isPending) return;
@@ -812,6 +812,12 @@ export function AdminWorkerHealth() {
           <Metric label="Warnings" value={exportQuery.data.summary?.warning ?? "—"} icon={AlertTriangle} />
           <Metric label="Checks not run" value={exportQuery.data.summary?.not_run ?? "—"} icon={Clock3} />
           <Metric label="Passed checks" value={exportQuery.data.summary?.pass ?? "—"} icon={CheckCircle2} />
+          <Metric label="Workers registered" value={exportQuery.data.workerHealth?.workers?.length ?? "Unavailable"} icon={Activity} />
+          <Metric label="Dead-letter jobs" value={exportQuery.data.workerHealth?.qualificationQueue?.dead ?? "Unavailable"} icon={AlertTriangle} />
+          <Metric label="Database" value={exportQuery.data.database?.status ?? "Unavailable"} icon={ShieldCheck} />
+          <Metric label="Heap used" value={exportQuery.data.server?.heapUsePercent == null ? "Unavailable" : exportQuery.data.server.heapUsePercent + "%"} detail={exportQuery.data.server?.cpuCount == null ? "CPU data unavailable" : exportQuery.data.server.cpuCount + " CPU cores"} icon={Activity} />
+          <Metric label="Application version" value={exportQuery.data.application?.version ?? "Unknown"} detail={exportQuery.data.application?.sourceRevision ?? "Revision not supplied"} icon={FileText} />
+          <Metric label="Last full check" value={timestamp(exportQuery.data.generatedAt)} icon={CalendarClock} />
         </section>
         <div className="admin-ops-note"><ShieldCheck size={16} /><span><strong>Deployment readiness</strong> {exportQuery.data.summary?.fail ? "Not ready: correct failed checks before deployment." : exportQuery.data.summary?.warning || exportQuery.data.summary?.not_run ? "Review required: warnings and checks not run must be resolved or explicitly accepted before release." : "No issues detected by checks that ran. CI and hosted feature acceptance are still required for sign-off."}</span></div>
         <section className="admin-ops-panel">
