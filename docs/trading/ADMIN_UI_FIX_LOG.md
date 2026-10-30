@@ -57,3 +57,14 @@ Removed from Trading because the same functionality already belongs elsewhere:
 - **Trade messages** was a duplicate of Communications → Announcements & Notifications.
 
 The navigation renderer now expands a group only when both its destination and focus match the current screen. This prevents Finance from appearing open when an administrator is viewing a focused Trading ledger screen, and prevents shared destinations from looking duplicated.
+
+
+## 2026-10-30 — Trade content clipping regression
+
+- Removed clipping overflow from the expandable Trade navigation group so submenu items, hover translations and keyboard-focus outlines are not cut off by the decorative container.
+- Removed clipping from administrator Trade page headers and administrator package cards so their children and focus indicators remain visible. Customer portal styles are unchanged.
+- Kept clipping only on the embedded guide frame, where the iframe is intentionally masked to the rounded frame.
+- Added administrator-only stylesheet contract coverage and desktop browser acceptance assertions for the expanded Trade submenu's full layout bounds.
+- No routes, menu destinations, customer eligibility, package policy, wallet, trade or settlement behaviour changed.
+- Exact-head CI and authenticated browser acceptance are required before merge.
+\n\n## 2026-10-30 — Administrator navigation visual system\n\n- Extended the navigation redesign to all 13 canonical administrator menu groups, each with a distinct bright accent identity; nested submenu controls inherit their parent group's accent.\n- Added semantic per-group classes without changing labels, destinations, focus routing, permission checks or menu state behaviour.\n- Increased menu-group separation, heading height, item spacing and submenu padding for clearer hierarchy and touch-friendly use.\n- Reworked expanded submenu sizing so it uses its natural content height instead of a constrained zero-fraction grid row with hidden overflow. The navigation rail remains independently scrollable when the full menu exceeds the viewport.\n- Added responsive styling, keyboard-focus treatment and reduced-motion support.\n- Added CSS contract and authenticated browser checks for all 13 unique menu accents and complete Trade submenu bounds.\n

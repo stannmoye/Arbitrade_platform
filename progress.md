@@ -454,3 +454,20 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 
 - Added exact source-contract coverage for the expanded administrator dashboard, JSON/CSV/print-PDF export actions, browser snapshot history, and host CPU/load/RAM fields. Updated the prior assertion that expected the old disabled-query/export-button implementation.
 - A pre-test-update Mining regression run exposed that stale assertion in `server/_core/systemDiagnostics.test.ts`; it was corrected to assert the new implementation. The final head must pass the full workflow before merge.
+
+
+## 2026-10-30 — Trade menu and content clipping correction (pending CI)
+
+- Reviewed PR #249's visual-only Trade stylesheet and compared its scope with the pre-redesign commit `cefa5fcb03078c9c4d8dbfad3744c585985385fe`.
+- Identified clipping overflow on the Trade navigation group, Trade headers, administrator package cards and customer company-reference container. These rules could cut off focus rings, hover states and content extending to container edges.
+- Removed those clipping constraints; retained the rounded iframe mask for the embedded Trade guide.
+- Added CSS contract coverage and an authenticated desktop browser assertion that checks the expanded Trade submenu's content bounds.
+- Branch: `fix/trade-layout-overflow-visibility`. No Trading business logic or financial behaviour changed.
+- Validation pending: `pnpm check`, `pnpm test`, `pnpm build`, and the authenticated Trading browser acceptance workflow on the exact PR head. This connector session cannot run the Node/pnpm suite locally.
+\n\n## 2026-10-30 — Full administrator navigation colour and spacing redesign\n\n- Added unique vivid accent colours to all 13 administrator navigation groups. Every group's submenu controls, active state, icon, hover state and nested submenu inherit that group's accent.\n- Added semantic group classes to the existing navigation renderer; no menu item, route, focus target, permission or workflow was changed.\n- Increased parent container spacing and heading/item heights. Replaced the constrained `grid-template-rows: 0fr/1fr` submenu layout and hidden inner overflow with natural-height expanded content, so Trade and other long groups are not clipped. The rail scrolls independently when needed.\n- Added desktop/tablet/mobile spacing and accessibility focus/reduced-motion states.\n- Added stylesheet assertions and browser acceptance checks for 13 distinct accent colors plus expanded Trade submenu bounds.\n- Included in PR #252; CI and authenticated browser acceptance remain required before merge.\n
+
+## 2026-10-30 — Administrator-only scope correction for PR #252
+
+- Restored the pre-existing customer Trade overflow rules for the customer opportunity header and company-reference panel; the administrator clipping fixes remain scoped to administrator Trade navigation, headers and package cards.
+- Removed customer-page clipping assertions from the new administrator regression test. Existing customer feature-coverage tests were left intact and no customer portal implementation was redesigned.
+- PR #252 remains administrator-portal-only. Exact-head CI and authenticated administrator browser acceptance are required before merge.

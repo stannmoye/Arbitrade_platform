@@ -462,6 +462,52 @@ async function main() {
     await tradeSettingsGroup.waitFor({ state: "visible", timeout: 20_000 });
     assert.equal(await tradeSettingsGroup.getAttribute("aria-expanded"), "true",
       "Trade Settings navigation group must be expanded and available.");
+    const navigationPalette = await adminNavigation.locator(".admin-nav-group").evaluateAll((groups) => groups.map((group) => ({
+      accent: getComputedStyle(group).getPropertyValue("--nav-accent").trim(),
+      label: group.querySelector(".admin-nav-group-heading span")?.textContent?.trim() ?? "",
+    })));
+    assert.equal(navigationPalette.length, 13, "All canonical administrator menu groups must be present.");
+    assert.equal(new Set(navigationPalette.map((group) => group.accent)).size, navigationPalette.length,
+      "Every administrator menu must have its own distinct professional accent colour.");
+    assert.ok(navigationPalette.every((group) => group.accent), "Every menu accent must resolve to a visible colour.");
+    const submenuPalette = await adminNavigation.locator(".admin-nav-group").evaluateAll((groups) => groups.map((group) => {
+      const accent = getComputedStyle(group).getPropertyValue("--nav-accent").trim();
+      const submenu = group.querySelector(".admin-nav-submenu button");
+      return submenu ? {
+        accent,
+        inheritedAccent: getComputedStyle(submenu).getPropertyValue("--nav-accent").trim(),
+        submenuColor: getComputedStyle(submenu).color,
+        submenuBackground: getComputedStyle(submenu).backgroundColor,
+      } : null;
+    }).filter(Boolean));
+    assert.ok(submenuPalette.length > 0, "At least one nested submenu must be available for colour-family verification.");
+    assert.ok(submenuPalette.every((entry) => entry.accent && entry.inheritedAccent === entry.accent &&
+      entry.submenuColor && entry.submenuBackground),
+      "Every nested submenu must inherit the exact parent menu accent and render its related colour family.");
+    const tradeGroupLayout = await tradeSettingsGroup.evaluate((heading) => {
+      const group = heading.closest(".trade-nav-group");
+      const submenu = group?.querySelector(".admin-nav-group-items");
+      const lastItem = group?.querySelector(".admin-nav-item-wrap:last-child");
+      const groupBounds = group?.getBoundingClientRect();
+      const submenuBounds = submenu?.getBoundingClientRect();
+      const lastItemBounds = lastItem?.getBoundingClientRect();
+      return {
+        overflow: group ? getComputedStyle(group).overflow : "missing",
+        submenuHeight: submenu?.scrollHeight ?? 0,
+        submenuClientHeight: submenu?.clientHeight ?? 0,
+        groupBottom: groupBounds?.bottom ?? 0,
+        submenuBottom: submenuBounds?.bottom ?? 0,
+        lastItemBottom: lastItemBounds?.bottom ?? 0,
+      };
+    });
+    assert.notEqual(tradeGroupLayout.overflow, "hidden",
+      "Expanded Trade submenu container must not clip menu content or keyboard focus.");
+    assert.ok(tradeGroupLayout.submenuHeight > 0 && tradeGroupLayout.submenuClientHeight > 0,
+      "Expanded Trade submenu content must retain its full layout height.");
+    assert.ok(tradeGroupLayout.submenuBottom <= tradeGroupLayout.groupBottom + 1 &&
+      tradeGroupLayout.lastItemBottom <= tradeGroupLayout.groupBottom + 1,
+      "The final expanded Trade submenu item must fit inside its visible navigation group.");
+
     const packagesNavigation = adminNavigation.getByRole("button", { name: /packages & eligibility/i });
     await packagesNavigation.waitFor({ state: "visible", timeout: 20_000 });
     await packagesNavigation.click();
