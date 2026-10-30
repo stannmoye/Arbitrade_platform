@@ -258,6 +258,7 @@ export async function getSystemDiagnosticsReport() {
     "server/_core/index.ts",
     "server/_core/workerHealth.ts",
     "drizzle/0084_worker_health_registry.sql",
+    "drizzle/schema.ts",
     "installer/verify-worker-runtime.mjs",
     "server/routers.ts",
     "server/emailQueue.ts",
@@ -279,10 +280,11 @@ export async function getSystemDiagnosticsReport() {
   const missingScripts = requiredScripts.filter((name) => !packageScripts[name]);
   const workerSource = sourceFiles.find((item) => item.path === "server/_core/index.ts")?.content ?? "";
   const monitorSource = sourceFiles.find((item) => item.path === "server/_core/workerHealth.ts")?.content ?? "";
+  const schemaSource = sourceFiles.find((item) => item.path === "drizzle/schema.ts")?.content ?? "";
   const routerSource = sourceFiles.find((item) => item.path === "server/routers.ts")?.content ?? "";
   const wiringProblems: string[] = [];
   if (!workerSource.includes("runMonitoredWorkerCycle")) wiringProblems.push("server entrypoint does not reference monitored worker cycles");
-  if (!monitorSource.includes("worker_health_registry")) wiringProblems.push("worker health registry instrumentation is missing");
+  if (!monitorSource.includes("workerHealthRegistry") || !schemaSource.includes('mysqlTable("worker_health_registry"')) wiringProblems.push("worker health registry instrumentation or schema declaration is missing");
   const workerRuntimeSources = [workerSource, sourceFiles.find((item) => item.path === "server/emailQueue.ts")?.content ?? "", sourceFiles.find((item) => item.path === "server/_core/heartbeat.ts")?.content ?? ""];
   const unregisteredWorkers = findUnregisteredWorkerKeys(monitorSource, workerRuntimeSources);
   if (unregisteredWorkers.length) wiringProblems.push(`worker cycles are not wired in the server entrypoint: ${unregisteredWorkers.join(", ")}`);
