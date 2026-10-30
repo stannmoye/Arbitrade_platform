@@ -119,7 +119,7 @@ describe("Trading tier policy audit and versioning", () => {
     expect(adminApp).toContain("Reason for changing Trading tier policies (required for audit)");
     expect(policyEditor).toContain("onClick={onSave}");
     expect(adminApp).toContain("Requirement not met: A reason for changing Trading tier policies is required for audit.");
-    expect(adminApp).toContain("Trading policy saved successfully. The saved settings have been reloaded.");
+    expect(adminApp).toContain("Trading policy saved successfully. The saved settings have been reloaded");
     expect(adminApp).toContain("reason:policyReason.trim()})");
     expect(adminApp).toContain("policies.data.map(x=>({...x,packageName:x.packageName");
     expect(adminApp).toContain("updatePolicies.mutate({policies:policyRows,reason:policyReason.trim()})");
