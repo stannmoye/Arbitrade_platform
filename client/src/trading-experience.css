@@ -348,6 +348,7 @@
 }
 .customer-portal .portal-main .customer-opportunities-page .portal-page-top {
   position: relative;
+  overflow: hidden;
   isolation: isolate;
   margin: 0;
   padding: clamp(18px, 2.6vw, 30px);
@@ -485,8 +486,7 @@
   font-weight: 850;
 }
 .customer-portal .portal-main .customer-opportunities-page .company-reference-panel {
-  min-width: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 .customer-portal .portal-main .customer-opportunities-page :is(input, select) {
   min-height: 42px;
