@@ -9,20 +9,24 @@ const serverRouters = readFileSync(new URL("./routers.ts", import.meta.url), "ut
 const policyEditor = readFileSync(new URL("../client/src/components/TradingDeliveryPolicyEditor.tsx", import.meta.url), "utf8");
 
 describe("Administrator company catalogue navigation and pagination", () => {
-  it("opens the dedicated 1,811-record catalogue and requests ten records per page", () => {
+  it("opens the dedicated 1,811-record catalogue and supports server-backed all-company selection with local ten-record pages", () => {
     const catalogue = readFileSync(new URL("../client/src/components/AdminCompanyCatalogue.tsx", import.meta.url), "utf8");
     expect(navigation).toContain('id: "trade-company-catalogue", target: "companyCatalogue"');
     expect(navigation).not.toContain('id: "trade-company-catalogue", target: "opportunity"');
     expect(adminApp).toContain('section==="companyCatalogue"&&<Suspense');
     expect(catalogue).toContain("const PAGE_SIZE = 10");
     expect(catalogue).toContain("trpc.companyCatalogueReference.search.useQuery");
-    expect(catalogue).toContain("limit: PAGE_SIZE");
+    expect(catalogue).toContain("limit: 1811");
+    expect(catalogue).toContain("filteredRecords.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)");
+    expect(catalogue).toContain("View all companies");
+    expect(catalogue).toContain("Select all");
     expect(catalogue).toContain("countryName: countryName || undefined");
     expect(catalogue).toContain("company.logoUrl");
     expect(catalogue).toContain("Logo ID {logoId}");
     expect(catalogue).toContain("Previous");
     expect(catalogue).toContain("Next");
-    expect(catalogue).toContain("Reference only · Unverified");
+    expect(catalogue).toContain("Admin marked verified");
+    expect(catalogue).toContain("internal catalogue label");
   });
 
   it("paginates all tier policy cards in groups of five without truncating the saved policy payload", () => {
