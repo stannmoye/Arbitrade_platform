@@ -449,3 +449,5 @@ The documentation-only branch head `df5f98871770e48453d22fc6b4b1fa9e0d751fc1` re
 
 - Follow-up refinement: CSV and print-ready PDF now also include worker-level detail, the bounded source-file inventory, source review-marker references, runtime/database metrics, required configuration presence (names/status only), and recommendations—not only the check summary. Latest implementation head before this handoff note: `f7419c96b60977beecd0c57ae39453163731df35`; exact-head CI has been triggered and is pending.
 - An earlier intermediate head passed the TypeScript check, but it predates the final expanded export content and is not used as final validation evidence. One intermediate Mining regression workflow failed; its cause has not yet been confirmed. Recheck all workflows on the final PR head before merge.
+
+- Added host-level CPU load averages and total/free system RAM to the live diagnostic report and surfaced them in the dashboard and exports, alongside process heap/memory. This extends the earlier CPU-core count with actual host load and memory capacity metrics.
