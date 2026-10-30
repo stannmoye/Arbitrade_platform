@@ -139,21 +139,30 @@ export async function updateCompanyCatalogueAdminState(input: {
     await tx.insert(appSettings).values({ settingKey, settingValue: "{}", updatedBy: input.updatedBy })
       .onDuplicateKeyUpdate({ set: { settingKey } });
     const row = (await tx.select().from(appSettings).where(eq(appSettings.settingKey, settingKey)).limit(1).for("update"))[0];
-    let statusById: Record<string, { status: "verified" | "archived"; updatedAt: string; updatedBy: number }> = {};
+    let verifiedIds: string[] = [];
+    let archivedIds: string[] = [];
     try {
-      const parsed = JSON.parse(row?.settingValue ?? "{}") as { statusById?: typeof statusById };
-      statusById = parsed.statusById ?? {};
+      const parsed = JSON.parse(row?.settingValue ?? "{}") as { verifiedIds?: string[]; archivedIds?: string[] };
+      verifiedIds = (parsed.verifiedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
+      archivedIds = (parsed.archivedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
     } catch {
-      statusById = {};
+      verifiedIds = [];
+      archivedIds = [];
     }
+    const verified = new Set(verifiedIds);
+    const archived = new Set(archivedIds);
     const updatedAt = new Date().toISOString();
     for (const id of ids) {
-      if (input.status === "unverified") delete statusById[id];
-      else statusById[id] = { status: input.status, updatedAt, updatedBy: input.updatedBy };
+      verified.delete(id);
+      archived.delete(id);
+      if (input.status === "verified") verified.add(id);
+      if (input.status === "archived") archived.add(id);
     }
-    const nextValue = JSON.stringify({ statusById, lastAction: {
-      status: input.status, count: ids.length, reason: input.reason.trim(), updatedAt, updatedBy: input.updatedBy,
-    } });
+    const nextValue = JSON.stringify({
+      verifiedIds: [...verified].sort(),
+      archivedIds: [...archived].sort(),
+      lastAction: { status: input.status, count: ids.length, reason: input.reason.trim(), updatedAt, updatedBy: input.updatedBy },
+    });
     await tx.update(appSettings).set({ settingValue: nextValue, updatedBy: input.updatedBy, updatedAt: new Date() }).where(eq(appSettings.settingKey, settingKey));
     await tx.insert(v5AuditEvents).values({
       actorUserId: input.updatedBy,
