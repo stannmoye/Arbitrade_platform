@@ -1,74 +1,68 @@
 import { describe, expect, it } from "vitest";
 import { adminNavigationGroups } from "./admin-navigation";
 
-describe("Trade Settings administrator navigation", () => {
-  it("provides one top-level Trade Settings group for trading operations", () => {
-    const tradeGroups = adminNavigationGroups.filter((group) => group.label === "Trade Settings");
-    expect(tradeGroups).toHaveLength(1);
-    expect(adminNavigationGroups.some((group) => group.label === "Opportunities")).toBe(false);
-  });
+describe("Trading administrator navigation", () => {
+  const group = (id: string) => adminNavigationGroups.find((item) => item.id === id);
 
-  it("exposes the documented trading policy and operations destinations", () => {
-    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
-    expect(group).toBeDefined();
-    const labels = group!.items.map((item) => item.label);
-    expect(labels).toEqual([
-      "Overview",
-      "Packages & Eligibility",
-      "Package Quotas & Customer Limits",
-      "Opportunity Schedule",
-      "Trade Duration & Closing Rules",
-      "Capital Allocation & Wallet Rules",
-      "Profit, Fees & Earnings Limits",
-      "Retries & Carry-Forward",
-      "Company Catalogue & Rotation",
-      "Trade Pop-up & Customer Display",
-      "Notifications",
-      "Active Trades & Pending Work",
-      "Settlement & Reconciliation",
-      "System Health & Pause Controls",
-      "Audit Log & Policy Versions",
+  it("keeps the Trading destinations in their existing admin navigation groups", () => {
+    expect(group("trade-setup")?.items.map((item) => item.label)).toEqual([
+      "Trading home",
+      "Customer tiers",
+      "Daily trade allowance",
+      "How trades finish",
+    ]);
+    expect(group("trade-offers")?.items.map((item) => item.label)).toEqual([
+      "When offers appear",
+      "Customer pop-up timing",
+      "Company names shown",
+    ]);
+    expect(group("trade-results")?.items.map((item) => item.label)).toEqual([
+      "Returns and fees",
+      "Try failed trades again",
+      "Check finished trades",
+    ]);
+    expect(group("trade-monitoring")?.items.map((item) => item.label)).toEqual([
+      "Open and waiting work",
+      "Pause new trades",
+      "Worker health",
     ]);
   });
 
-  it("opens focused retry settings and discloses that carry-forward is unavailable", () => {
-    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
-    const item = group?.items.find((candidate) => candidate.id === "trade-retries-carry-forward");
-    expect(item?.target).toBe("tradeRetryPolicy");
-    expect(item?.detail).toBe("Configure per-package retry attempts and delay; carry-forward controls are not yet implemented");
+  it("places the plain-language guide after Worker Health as the final Trading submenu", () => {
+    const tradeItems = adminNavigationGroups
+      .filter((item) => item.id.startsWith("trade-"))
+      .flatMap((item) => item.items);
+    const workerIndex = tradeItems.findIndex((item) => item.id === "trade-worker-health");
+    const guideIndex = tradeItems.findIndex((item) => item.id === "trade-admin-guide");
+
+    expect(workerIndex).toBeGreaterThanOrEqual(0);
+    expect(guideIndex).toBeGreaterThan(workerIndex);
+    expect(guideIndex).toBe(tradeItems.length - 1);
+    expect(tradeItems[guideIndex]?.target).toBe("tradeAdminGuide");
+    expect(tradeItems[guideIndex]?.icon).toBeDefined();
   });
 
-  it("routes the trading overview to persisted operational data", () => {
-    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
-    const item = group?.items.find((candidate) => candidate.id === "trade-settings-overview");
-    expect(item?.target).toBe("tradeSystemOverview");
-  });
-
-  it("routes duration and closing rules to the persisted timing policy", () => {
-    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
-    const item = group?.items.find((candidate) => candidate.id === "trade-duration-closing");
-    expect(item?.target).toBe("tradeDurationRules");
-    expect(item?.detail).toContain("elapsed time never settles a trade");
-  });
-
-  it("routes customer display settings to their focused editor", () => {
-    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
-    const item = group?.items.find((candidate) => candidate.id === "trade-popup-display");
-    expect(item?.target).toBe("tradeCustomerDisplay");
-    expect(item?.detail).toContain("does not change execution or settlement");
-  });
-
-  it("routes every Trade Settings item to an existing portal destination", () => {
-    const group = adminNavigationGroups.find((item) => item.id === "trade-settings");
-    expect(group).toBeDefined();
-    const supportedTargets = new Set([
-      "overview", "customers", "transactionReview", "credit", "debit", "currencies",
-      "mining", "opportunity", "deliveryMonitor", "packages", "tradeRetryPolicy", "tradeCustomerDisplay", "kycCenter",
-      "verificationOversight", "riskWatchlist", "emailCenter", "smtpCenter",
-      "suiteTickets", "notificationCenter", "communicationSettings", "signup",
-      "policies", "privacyManagement", "settings", "tradeSystemOverview", "tradeDurationRules", "sound", "branding",
-      "appearance", "apis", "audit", "reportsExports", "tradeSystemHealth",
+  it("keeps the existing destinations for the Trading operational screens", () => {
+    expect(group("trade-setup")?.items.map((item) => item.target)).toEqual([
+      "tradeSystemOverview",
+      "packages",
+      "packages",
+      "tradeDurationRules",
     ]);
-    for (const item of group!.items) expect(supportedTargets.has(item.target), item.label).toBe(true);
+    expect(group("trade-offers")?.items.map((item) => item.target)).toEqual([
+      "opportunity",
+      "tradeCustomerDisplay",
+      "opportunity",
+    ]);
+    expect(group("trade-results")?.items.map((item) => item.target)).toEqual([
+      "transactionReview",
+      "tradeRetryPolicy",
+      "transactionReview",
+    ]);
+    expect(group("trade-monitoring")?.items.map((item) => item.target)).toEqual([
+      "deliveryMonitor",
+      "tradeSystemHealth",
+      "tradeWorkerHealth",
+    ]);
   });
 });
