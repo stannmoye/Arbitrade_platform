@@ -15,7 +15,7 @@ describe("evidence-confirmed delayed wallet-credit lifecycle", () => {
   it("allows administrator review at trade completion, independently of the wallet-credit time", () => {
     expect(confirmationStart).toBeGreaterThanOrEqual(0);
     expect(confirmationEnd).toBeGreaterThan(confirmationStart);
-    expect(confirmation).toContain("const settlementDueAt=trade.settlementReviewAt||trade.settlesAt");
+    expect(confirmation).toContain("const settlementDueAt=trade.settlementReviewAt||trade.creditAt||trade.settlesAt");
     expect(database).toContain("const settlementReviewAt=new Date(settlesAt.getTime()+settlementDelaySeconds*1000)");
     expect(database).toContain("const creditAt=new Date(settlementReviewAt.getTime()+settlementPolicy.creditDelaySeconds*1000)");
     expect(confirmation).not.toContain("const settlementDueAt=trade.creditAt||trade.settlesAt");
@@ -41,7 +41,7 @@ describe("evidence-confirmed delayed wallet-credit lifecycle", () => {
     expect(credit).toContain('eq(tradePositions.status,"confirmed")');
     expect(credit).toContain('eq(tradePositions.settlementStatus,"confirmed_awaiting_credit")');
     expect(credit).toContain("lte(tradePositions.creditAt,now)");
-    expect(credit).toContain("const creditDueAt=trade.creditAt||trade.settlementReviewAt||trade.settlesAt");
+    expect(credit).toContain("const creditDueAt=trade.creditAt||trade.settlementReviewAt||trade.creditAt||trade.settlesAt");
     expect(credit).toContain("new Date(creditDueAt).getTime()>now.getTime()");
   });
 
