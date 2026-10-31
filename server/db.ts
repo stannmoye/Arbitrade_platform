@@ -3817,14 +3817,14 @@ export async function markDueTradesAwaitingConfirmation(userId:number){
   const now=new Date();
   const due=await db.select({id:tradePositions.id}).from(tradePositions).where(and(
     eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed"),
-    eq(tradePositions.settlementStatus,"pending"),or(lte(tradePositions.settlementReviewAt,now),and(isNull(tradePositions.settlementReviewAt),lte(tradePositions.settlesAt,now))),
+    eq(tradePositions.settlementStatus,"pending"),or(lte(tradePositions.settlementReviewAt,now),and(isNull(tradePositions.settlementReviewAt),or(lte(tradePositions.creditAt,now),and(isNull(tradePositions.creditAt),lte(tradePositions.settlesAt,now))))),
   )).orderBy(tradePositions.settlementReviewAt,tradePositions.settlesAt);
   let marked=0;
   for(const item of due){
     const markedOne=await db.transaction(async tx=>{
       const trade=(await tx.select().from(tradePositions).where(and(eq(tradePositions.id,item.id),eq(tradePositions.userId,userId))).limit(1).for("update"))[0];
       if(!trade||trade.status!=="confirmed"||trade.settlementStatus!=="pending") return false;
-      const dueAt=trade.settlementReviewAt||trade.settlesAt;
+      const dueAt=trade.settlementReviewAt||trade.creditAt||trade.settlesAt;
       if(!dueAt||new Date(dueAt).getTime()>now.getTime()) return false;
       if(trade.lifecycleStage==="Awaiting Settlement Confirmation") return false;
 
@@ -3853,14 +3853,14 @@ export async function reconcileAllDueTradesAwaitingConfirmation(){
   const due=await db.select({id:tradePositions.id}).from(tradePositions).where(and(
     eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),
     or(isNull(tradePositions.lifecycleStage),notInArray(tradePositions.lifecycleStage,["Awaiting Settlement Confirmation"])),
-    or(lte(tradePositions.settlementReviewAt,now),and(isNull(tradePositions.settlementReviewAt),lte(tradePositions.settlesAt,now))),
+    or(lte(tradePositions.settlementReviewAt,now),and(isNull(tradePositions.settlementReviewAt),or(lte(tradePositions.creditAt,now),and(isNull(tradePositions.creditAt),lte(tradePositions.settlesAt,now))))),
   )).orderBy(tradePositions.settlementReviewAt,tradePositions.settlesAt).limit(1000);
   let marked=0;
   for(const item of due){
     const markedOne=await db.transaction(async tx=>{
       const trade=(await tx.select().from(tradePositions).where(eq(tradePositions.id,item.id)).limit(1).for("update"))[0];
       if(!trade||trade.status!=="confirmed"||trade.settlementStatus!=="pending") return false;
-      const dueAt=trade.settlementReviewAt||trade.settlesAt;
+      const dueAt=trade.settlementReviewAt||trade.creditAt||trade.settlesAt;
       if(!dueAt||new Date(dueAt).getTime()>now.getTime()) return false;
       if(trade.lifecycleStage==="Awaiting Settlement Confirmation") return false;
       const stateUpdate=await tx.update(tradePositions).set({
@@ -4209,7 +4209,7 @@ export async function manuallySettleTrade(tradeId:number, adminId:number, input:
     if(trade.status!=="confirmed"||trade.settlementStatus!=="pending") throw new Error("Trade is not pending manual settlement");
     // The saved review timestamp includes the configured settlement delay.
     // creditAt separately includes the wallet-credit delay after review becomes due.
-    const settlementDueAt=trade.settlementReviewAt||trade.settlesAt;
+    const settlementDueAt=trade.settlementReviewAt||trade.creditAt||trade.settlesAt;
     if(!settlementDueAt||!Number.isFinite(new Date(settlementDueAt).getTime())||new Date(settlementDueAt).getTime()>Date.now()) {
       throw new Error("Trade is not yet due for settlement confirmation");
     }
