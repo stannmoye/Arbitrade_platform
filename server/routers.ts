@@ -616,17 +616,17 @@ export const appRouter = router({
       reason: z.string().trim().min(5).max(500),
       policies: z.array(z.object({
         packageName: z.string().trim().min(1).max(80),
-        // Core existing controls are explicit; omitted advanced settings are
-        // merged from the locked policy row by updateOpportunityPackagePolicies.
-        maxPopupsPerDay: z.number().int().min(1).max(1000),
-        maxVisibleOffers: z.number().int().min(1).max(10000),
-        minimumTradeUnits: z.number().int().min(1).max(2147483647),
-        maximumTradeUnits: z.number().int().min(1).max(2147483647),
-        minHourlyTarget: z.number().int().min(0).max(100),
-        normalHourlyTarget: z.number().int().min(0).max(100),
-        marketInfluenceBps: z.number().int().min(0).max(10000),
-        burstEnabled: z.boolean(),
-        maxBurstSize: z.number().int().min(0).max(100),
+        // All policy fields are patchable; omitted fields are merged from the
+        // locked current row so stale browser snapshots cannot overwrite them.
+        maxPopupsPerDay: z.number().int().min(1).max(1000).optional(),
+        maxVisibleOffers: z.number().int().min(1).max(10000).optional(),
+        minimumTradeUnits: z.number().int().min(1).max(2147483647).optional(),
+        maximumTradeUnits: z.number().int().min(1).max(2147483647).optional(),
+        minHourlyTarget: z.number().int().min(0).max(100).optional(),
+        normalHourlyTarget: z.number().int().min(0).max(100).optional(),
+        marketInfluenceBps: z.number().int().min(0).max(10000).optional(),
+        burstEnabled: z.boolean().optional(),
+        maxBurstSize: z.number().int().min(0).max(100).optional(),
         enabled: z.boolean().optional(),
         automaticDelivery: z.boolean().optional(),
         automaticTradingEnabled: z.boolean().optional(),
