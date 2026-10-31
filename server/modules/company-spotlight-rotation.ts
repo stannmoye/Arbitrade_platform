@@ -29,7 +29,7 @@ export function parseCompanyCatalogueAdminState(raw: unknown): CompanyCatalogueA
     parsed = null;
   }
   const validIds = (value: unknown): string[] => Array.isArray(value)
-    ? [...new Set(value.filter((id): id is string => typeof id === "string" && /^logo-brand-\\d{4}$/.test(id)))]
+    ? [...new Set(value.filter((id): id is string => typeof id === "string" && /^logo-brand-\d{4}$/.test(id)))]
     : [];
   return {
     verifiedIds: validIds(parsed?.verifiedIds),
