@@ -892,3 +892,10 @@ button,a,[role=button]{-webkit-tap-highlight-color:transparent}button{position:r
 .admin-secondary-drawer .admin-slide-footer{padding-top:8px}
 .admin-secondary-drawer .admin-slide-footer-note{padding:0;color:#7893a2;line-height:1.5;text-align:left}
 @media(max-width:600px){.admin-secondary-group-heading{padding:9px}.admin-secondary-item-wrap .admin-slide-item{min-height:46px}}
+
+/* Keep the Admin Menus trigger outside the full-screen drawer hit-test layer. */
+.admin-slide-portal-trigger{
+  position:fixed!important;
+  z-index:2147483647!important;
+  pointer-events:auto!important;
+}
