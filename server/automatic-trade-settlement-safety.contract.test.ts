@@ -20,6 +20,9 @@ describe("global overdue trade reconciliation", () => {
     expect(globalImplementation).toContain("limit(1000)");
     expect(globalImplementation).toContain('notInArray(tradePositions.lifecycleStage,["Awaiting Settlement Confirmation"])');
     expect(globalImplementation).toContain("settlement_due_waiting_for_confirmation");
+    expect(globalImplementation).toContain("tradePositions.settlementReviewAt");
+    expect(globalImplementation).toContain("trade.settlementReviewAt||trade.settlesAt");
+    expect(globalImplementation).not.toContain("tradePositions.creditAt");
     expect(globalImplementation).not.toContain("balanceLedger");
     expect(globalImplementation).not.toContain("customerBalances");
     expect(globalImplementation).not.toContain('status:"settled"');
@@ -50,5 +53,8 @@ describe("automatic trade settlement safety", () => {
     expect(implementation).toContain('eq(tradePositions.status,"confirmed")');
     expect(implementation).toContain('eq(tradePositions.settlementStatus,"pending")');
     expect(implementation).toContain('assertExactlyOneAffectedRow(stateUpdate,"Due trade awaiting-confirmation transition")');
+    expect(implementation).toContain("tradePositions.settlementReviewAt");
+    expect(implementation).toContain("trade.settlementReviewAt||trade.settlesAt");
+    expect(implementation).not.toContain("tradePositions.creditAt");
   });
 });
