@@ -47,12 +47,3 @@ The authenticated integration uses a deterministic response at the external FX-p
 
 A successful typecheck or build alone is not evidence of financial correctness. Require disposable-database integration tests and exact-head CI before accepting this contract.
 
-## Required verification
-
-- Decimal rounding: half-up boundaries, high precision rates, non-two-decimal source currencies, overflow and amounts below one USD cent.
-- FX: invalid/zero/negative rates, mismatched currency pair, stale/future timestamps, provider outage and timeout.
-- Concurrency and failure: duplicate requests, simultaneous wallet updates, insufficient aggregate funding, mid-transaction failure and process retry.
-- Provenance: qualifying versus non-qualifying credit, ordinary transfer, reversal, and worker event uniqueness.
-- Regression: existing wallet transfers and non-Trading wallet adjustments behave as before.
-
-A successful typecheck or build alone is not evidence of financial correctness. Require disposable-database integration tests and exact-head CI before accepting this contract.
