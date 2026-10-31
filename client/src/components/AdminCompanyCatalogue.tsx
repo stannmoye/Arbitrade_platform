@@ -196,6 +196,6 @@ export default function AdminCompanyCatalogue() {
       {updateStatus.isError && <p className="admin-ops-empty error" role="alert">{updateStatus.error.message}</p>}
       {updateStatus.isSuccess && <p className="company-catalogue-success" role="status">Catalogue changes saved.</p>}
     </section>
-    <p className="company-catalogue-disclaimer">Delete moves records to Archived; it does not permanently remove the source catalogue. Archived records can be restored. Only Verified, non-archived records can appear as company references in customer opportunity pop-ups. Admin verification is display approval only: all records remain reference-only and ineligible for verified securities/trade execution.</p>
+    <p className="company-catalogue-disclaimer">Delete moves records to Archived; it does not permanently remove the source catalogue. Archived records can be restored. Only Verified, enabled, non-archived records can appear in customer-facing company search and opportunity pop-ups. Admin verification is display approval only: all records remain reference-only and ineligible for verified securities/trade execution.</p>
   </div>;
 }
