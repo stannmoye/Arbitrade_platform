@@ -40,6 +40,7 @@ function matchesInjectedSqlSignal(error: unknown, expectedMessage: string): bool
 
 async function insertTrade(input: {
   settlesAt: Date;
+  settlementReviewAt?: Date | null;
   creditAt?: Date | null;
   status?: "pending" | "confirmed" | "settled" | "cancelled";
   settlementStatus?: string;
@@ -53,6 +54,7 @@ async function insertTrade(input: {
     principalMinor: 25000,
     expectedRewardMinor: 1000,
     settlesAt: input.settlesAt,
+    settlementReviewAt: input.settlementReviewAt ?? null,
     creditAt: input.creditAt ?? null,
     status: input.status ?? "confirmed",
     settlementStatus: input.settlementStatus ?? "pending",
@@ -87,7 +89,8 @@ try {
   // Administrator review becomes available at trade completion even when
   // the separately saved wallet-credit time is still in the future.
   const reviewDueBeforeCreditAt = await insertTrade({
-    settlesAt: new Date(now - 30_000),
+    settlesAt: new Date(now - 60_000),
+    settlementReviewAt: new Date(now - 30_000),
     creditAt: new Date(now + 3_600_000),
   });
   const futureTrade = await insertTrade({ settlesAt: new Date(now + 3_600_000) });
@@ -178,6 +181,7 @@ try {
     expectedRewardMinor: 1000,
     rewardReservedMinor: 1000,
     settlesAt: new Date(now - 60_000),
+    settlementReviewAt: new Date(now - 30_000),
     creditAt: new Date(now + 3_600_000),
     status: "confirmed",
     settlementStatus: "pending",
