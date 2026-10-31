@@ -3810,8 +3810,8 @@ export async function markDueTradesAwaitingConfirmation(userId:number){
   const now=new Date();
   const due=await db.select({id:tradePositions.id}).from(tradePositions).where(and(
     eq(tradePositions.userId,userId),eq(tradePositions.status,"confirmed"),
-    eq(tradePositions.settlementStatus,"pending"),or(lte(tradePositions.creditAt,now),and(isNull(tradePositions.creditAt),lte(tradePositions.settlesAt,now))),
-  )).orderBy(tradePositions.creditAt);
+    eq(tradePositions.settlementStatus,"pending"),lte(tradePositions.settlesAt,now),
+  )).orderBy(tradePositions.settlesAt);
   let marked=0;
   for(const item of due){
     const markedOne=await db.transaction(async tx=>{
@@ -3846,8 +3846,8 @@ export async function reconcileAllDueTradesAwaitingConfirmation(){
   const due=await db.select({id:tradePositions.id}).from(tradePositions).where(and(
     eq(tradePositions.status,"confirmed"),eq(tradePositions.settlementStatus,"pending"),
     or(isNull(tradePositions.lifecycleStage),notInArray(tradePositions.lifecycleStage,["Awaiting Settlement Confirmation"])),
-    or(lte(tradePositions.creditAt,now),and(isNull(tradePositions.creditAt),lte(tradePositions.settlesAt,now))),
-  )).orderBy(tradePositions.creditAt).limit(1000);
+    lte(tradePositions.settlesAt,now),
+  )).orderBy(tradePositions.settlesAt).limit(1000);
   let marked=0;
   for(const item of due){
     const markedOne=await db.transaction(async tx=>{
