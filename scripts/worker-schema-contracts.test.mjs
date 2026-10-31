@@ -184,13 +184,14 @@ describe("worker schema contracts", () => {
 
   it("keeps the standalone mining and portal campaign migrations covered by the standard journal bridge", async () => {
     const root = new URL("../", import.meta.url);
-    const [journalText, mainSql, miningSql, portalSql, portalRunner, popupLifecycleSql, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration] = await Promise.all([
+    const [journalText, mainSql, miningSql, portalSql, portalRunner, popupLifecycleSql, deliveryDiagnosticsSql, popupRangeMigration, companyRotationMigration, popupTradeSnapshotsMigration] = await Promise.all([
       readFile(new URL("drizzle/meta/_journal.json", root), "utf8"),
       readFile(new URL("drizzle/0062_worker_runtime_tables.sql", root), "utf8"),
       readFile(new URL("drizzle/0048_pending_boost_rewards.sql", root), "utf8"),
       readFile(new URL("drizzle/0055_notification_campaign_delivery_tracking.sql", root), "utf8"),
       readFile(new URL("scripts/apply-portal-migrations.mjs", root), "utf8"),
       readFile(new URL("drizzle/0022_popup_lifecycle_reporting.sql", root), "utf8"),
+      readFile(new URL("drizzle/0052_delivery_diagnostics.sql", root), "utf8"),
       readFile(new URL("drizzle/0089_trading_popup_policy_ranges.sql", root), "utf8"),
       readFile(new URL("drizzle/0090_trading_company_spotlight_rotation.sql", root), "utf8"),
       readFile(new URL("drizzle/0091_trading_popup_trade_snapshots.sql", root), "utf8"),
@@ -268,8 +269,8 @@ describe("worker schema contracts", () => {
       expect(miningSql).toContain(column);
       expect(mainSql).toContain(column);
     }
-    expect(deliveryDiagnosticsMigration).toContain("ALTER TABLE `opportunity_delivery_events`");
-    expect(deliveryDiagnosticsMigration).toContain("ADD COLUMN IF NOT EXISTS `status`");
+    expect(deliveryDiagnosticsSql).toContain("ALTER TABLE `opportunity_delivery_events`");
+    expect(deliveryDiagnosticsSql).toContain("ADD COLUMN IF NOT EXISTS `status`");
     for (const table of ["notification_campaigns", "notification_campaign_deliveries"]) {
       expect(portalSql).toContain(table);
       expect(mainSql).toContain(table);
