@@ -130,12 +130,12 @@ describe("manual trade settlement idempotency", () => {
     expect(creditImplementation).toContain('assertExactlyOneAffectedRow(reservationUpdate,"Confirmed trade reward reservation posting")');
   });
 
-  it("validates the reservation identity and amount before settlement postings", () => {
+  it("validates reservation identity and amount before confirming the actual result", () => {
     expect(implementation).toContain("const reservation=(await tx.select().from(tradeRewardReservations)");
     expect(implementation).toContain("reservation.userId!==trade.userId||reservation.currency!==trade.currency||reservation.tradeId!==trade.id");
     expect(implementation).toContain("Number(reservation.reservedMinor)!==reservedMinor");
     expect(implementation).toContain("Trade has a reserved reward amount but its reservation record is missing");
-    expect(implementation).toContain("assertExactlyOneAffectedRow(reservationUpdate,\"Trade reward reservation settlement\")");
+    expect(implementation).not.toContain("tx.update(tradeRewardReservations)");
   });
 
   it("validates package subscription ownership and reservation package identity before postings", () => {
