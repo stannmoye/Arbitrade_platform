@@ -166,7 +166,7 @@ describe("Trading tier policy audit and versioning", () => {
     expect(update).toContain("Each Trading tier may appear only once");
     expect(serverRouters).toContain("reason: z.string().trim().min(5).max(500)");
     expect(serverRouters).toContain("updateOpportunityPackagePolicies(ctx.user.id, input.policies, input.reason)");
-    expect(adminApp).toContain("Reason for changing Trading tier policies (required for audit)");
+    expect(policyEditor).toContain("Reason for changing Trading tier policies (required for audit)");
     expect(policyEditor).toContain("onClick={onSave}");
     expect(adminApp).toContain("Enter at least 5 characters explaining this policy change.");
     expect(adminApp).toContain("Trading policy saved successfully. Active trade snapshots were preserved.");
