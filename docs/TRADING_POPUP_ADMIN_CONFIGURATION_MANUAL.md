@@ -123,6 +123,21 @@ The server owns scheduling, package entitlement, quota checks, company selection
 - Configuration changes are versioned and audited. Each scheduled item records the settings version that created it. Define whether edits apply only to future items or to open items before implementation; default to preserving the snapshot on already-open trades.
 - A restart test must prove a due item is resumed after process restart with one opportunity, one rotation advance, no duplicate allocation and no duplicate settlement. Multi-worker tests must prove only one worker owns a claimed item at a time.
 
+### Settlement review and delayed wallet-credit timing
+
+The settlement timing controls and manual settlement queue represent separate stages:
+
+- Trade duration ends at the persisted `settlesAt`.
+- The configured settlement delay produces `settlementReviewAt = settlesAt + settlementDelaySeconds`. Administrators can review and confirm the actual result only at or after this timestamp.
+- The wallet-credit delay produces `creditAt = settlementReviewAt + creditDelaySeconds`. This is the earliest time the server may post the confirmed result to the wallet.
+- A legacy trade without `settlementReviewAt` uses `settlesAt` as its review deadline. A legacy trade without `creditAt` uses its review deadline as the credit deadline. Historical rows are not rewritten to invent missing delays.
+
+When an administrator confirms the actual gross result and evidence reference, the server saves the result and immutable fee-policy snapshot, claims the reference, and changes the settlement state to `confirmed_awaiting_credit`. This is not a wallet credit: principal remains locked, the reward reservation remains reserved, and no ledger row or balance update is made by the confirmation request.
+
+The monitored `settlement-credit-posting` worker posts only after both conditions are true: the result has been administrator-confirmed and `creditAt` has arrived. It verifies the saved reference, fee calculation, reservation and locked principal, then writes ledger entries, updates the wallet and marks the trade completed in one idempotent transaction. If confirmation occurs after `creditAt`, posting can occur on the next worker cycle. Notifications and terminal popup completion follow the committed wallet posting, not the administrator confirmation.
+
+Never interpret a countdown, `settlesAt`, `settlementReviewAt` or `creditAt` as proof of an actual result. A timer alone cannot confirm a trade or release funds.
+
 ## 6. Administrator company catalogue and tier-list presentation
 
 - **Trade Settings → Show offers → Company names shown** opens a dedicated administrator company-catalogue page, not the opportunity engine or package/tier editor.
