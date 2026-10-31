@@ -11,7 +11,7 @@ describe("administrator company catalogue bulk controls", () => {
     expect(router).toContain("adminState: adminProcedure.query");
     expect(router).toContain("updateAdminState: adminProcedure.input");
     expect(router).toContain("updateCompanyCatalogueAdminState({ ...input, ids, updatedBy: ctx.user.id })");
-    expect(router).toContain('z.enum(["verified", "unverified", "archived"])');
+    expect(router).toContain('z.enum(["verified", "unverified", "archived", "disabled", "enabled"])');
     expect(router).toContain(".max(1811)");
   });
 
@@ -25,8 +25,11 @@ describe("administrator company catalogue bulk controls", () => {
     expect(implementation).toContain("actorUserId: input.updatedBy");
     expect(implementation).toContain("reason: input.reason.trim()");
     expect(implementation).toContain("ids, updatedAt");
-    expect(implementation).toContain("verified.delete(id)");
+    expect(implementation).toContain("verified.add(id)");
     expect(implementation).toContain("archived.delete(id)");
+    expect(implementation).toContain("disabled.add(id)");
+    expect(implementation).toContain("disabled.delete(id)");
+    expect(implementation).toContain("disabledIds: [...disabled].sort()");
     expect(implementation).toContain("verifiedIds: [...verified].sort()");
     expect(implementation).toContain("archivedIds: [...archived].sort()");
     expect(implementation).toContain("input.status === \"archived\"");
@@ -34,7 +37,7 @@ describe("administrator company catalogue bulk controls", () => {
 
   it("keeps a full 1,811-ID status snapshot within the app-settings TEXT limit", () => {
     const ids = Array.from({ length: 1811 }, (_, index) => `logo-brand-${String(index + 1).padStart(4, "0")}`);
-    const settingPayload = JSON.stringify({ verifiedIds: ids, archivedIds: [] });
+    const settingPayload = JSON.stringify({ verifiedIds: ids, archivedIds: [], disabledIds: ids.slice(0, 100) });
     const auditPayload = JSON.stringify({ status: "verified", count: ids.length, ids, updatedAt: "2026-10-30T00:00:00.000Z" });
     expect(Buffer.byteLength(settingPayload, "utf8")).toBeLessThan(65_535);
     expect(Buffer.byteLength(auditPayload, "utf8")).toBeLessThan(65_535);
@@ -48,12 +51,15 @@ describe("administrator company catalogue bulk controls", () => {
       "Select all",
       "Clear selection",
       "Mark selected verified",
-      "Mark selected unverified",
+      "Reject / mark unverified",
+      "Enable selected",
+      "Disable selected",
       "Delete selected",
       "Restore selected",
       "Archived / deleted",
     ]) expect(catalogue).toContain(phrase);
     expect(catalogue).toContain("selectedIds");
+    expect(catalogue).toContain('<option value="disabled">Disabled</option>');
     expect(catalogue).toContain("window.confirm");
     expect(catalogue).toContain('status !== "archived"');
   });
