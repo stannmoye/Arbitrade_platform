@@ -42,6 +42,8 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
       <label>Daily delivery target<input type="number" min="0" max="10000" step="1" value={row.dailyPopupTarget} onChange={e=>updateRow(index,"dailyPopupTarget",Number(e.target.value))}/></label>
       <label>Daily quota window<select value={row.schedulingPeriod} onChange={e=>updateRow(index,"schedulingPeriod",e.target.value)}><option value="rolling_24h">Rolling 24 hours</option><option value="calendar_day">Calendar day (UTC)</option></select></label>
     </div>
+    </>}
+    {show("tiers")&&<>
     <div className="eyebrow">Capital bounds</div>
     <div className="form-two">
       <label>Minimum required capital (USD units)<input type="number" min="1" max="2147483647" step="1" value={row.minimumTradeUnits} onChange={e=>updateRow(index,"minimumTradeUnits",Number(e.target.value))}/><small>Whole USD units in the existing policy schema.</small></label>
@@ -107,9 +109,12 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
       <label>Minimum eligible reward rate (basis points)<input type="number" min="0" max="10000" step="1" value={row.minimumRewardBps} onChange={e=>updateRow(index,"minimumRewardBps",Number(e.target.value))}/><small>100 basis points = 1%. This is a minimum eligibility constraint, not a generated or guaranteed return.</small></label>
       <label>Maximum daily reward cap (currency minor units)<input type="number" min="0" max="2147483647" step="1" value={row.maxDailyRewardMinor} onChange={e=>updateRow(index,"maxDailyRewardMinor",Number(e.target.value))}/></label>
       <label>Maximum reward per trade (currency minor units)<input type="number" min="0" max="2147483647" step="1" value={row.maxRewardPerTradeMinor} onChange={e=>updateRow(index,"maxRewardPerTradeMinor",Number(e.target.value))}/></label>
-      {show("display")&&<>
+    </div>
+    </>}
+    {show("display")&&<>
+    <div className="eyebrow">Card close policy</div>
+    <div className="form-two">
       <label>Card close policy<select value={row.closePolicy} onChange={e=>updateRow(index,"closePolicy",e.target.value)}><option value="after_completion">After completion</option><option value="after_final_display">After final status display</option></select><small>Pending, retrying and awaiting-settlement cards remain accessible.</small></label>
-      </>}
     </div>
     </>}
   </article>)}
