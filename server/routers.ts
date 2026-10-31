@@ -89,11 +89,13 @@ export const appRouter = router({
     adminState: adminProcedure.query(async () => {
       const raw = await getAppSetting("trade.companyCatalogue.adminState", "{}");
       try {
-        const parsed = JSON.parse(raw || "{}") as { verifiedIds?: string[]; archivedIds?: string[] };
+        const parsed = JSON.parse(raw || "{}") as { verifiedIds?: string[]; archivedIds?: string[]; disabledIds?: string[] };
         const verifiedIds = (parsed.verifiedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
         const archivedIds = (parsed.archivedIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
-        const statusById: Record<string, { status: "verified" | "archived" }> = {};
+        const disabledIds = (parsed.disabledIds ?? []).filter(id => /^logo-brand-\d{4}$/.test(id));
+        const statusById: Record<string, { status: "verified" | "archived" | "disabled" }> = {};
         for (const id of verifiedIds) statusById[id] = { status: "verified" };
+        for (const id of disabledIds) statusById[id] = { status: "disabled" };
         for (const id of archivedIds) statusById[id] = { status: "archived" };
         return { statusById };
       } catch {
@@ -102,7 +104,7 @@ export const appRouter = router({
     }),
     updateAdminState: adminProcedure.input(z.object({
       ids: z.array(z.string().regex(/^logo-brand-\d{4}$/)).min(1).max(1811),
-      status: z.enum(["verified", "unverified", "archived"]),
+      status: z.enum(["verified", "unverified", "archived", "disabled", "enabled"]),
       reason: z.string().trim().min(3).max(500),
     })).mutation(async ({ ctx, input }) => {
       const ids = [...new Set(input.ids)];
