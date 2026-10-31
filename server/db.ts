@@ -1820,16 +1820,19 @@ export async function listAdminCustomers(){
   }
   const packageByUser=new Map<number,string[]>();
   for(const subscription of activePackages){const names=packageByUser.get(subscription.userId)||[];names.push(subscription.packageName);packageByUser.set(subscription.userId,names);}
-  const qualifyingLedgerRows=await db.select({
+  // Aggregate in the database so the admin directory materializes at most one
+  // qualifying-credit summary row per customer, not every historical ledger entry.
+  const qualifyingLedgerTotals=await db.select({
     userId:balanceLedger.userId,
-    qualifyingDepositUsdMinor:balanceLedger.qualifyingDepositUsdMinor,
-    entryType:balanceLedger.entryType,
-  }).from(balanceLedger).where(inArray(balanceLedger.entryType,["admin_manual_deposit_credit","admin_manual_deposit_reversal"]));
+    qualifyingDepositUsdMinor:sql<number>`COALESCE(SUM(${balanceLedger.qualifyingDepositUsdMinor}),0)`,
+  }).from(balanceLedger)
+    .where(inArray(balanceLedger.entryType,["admin_manual_deposit_credit","admin_manual_deposit_reversal"]))
+    .groupBy(balanceLedger.userId);
   const qualifyingUsdMinorByUser=new Map<number,number>();
-  for(const entry of qualifyingLedgerRows){
+  for(const entry of qualifyingLedgerTotals){
     const attributed=Number(entry.qualifyingDepositUsdMinor||0);
     if(!Number.isSafeInteger(attributed)) continue;
-    qualifyingUsdMinorByUser.set(entry.userId,(qualifyingUsdMinorByUser.get(entry.userId)||0)+attributed);
+    qualifyingUsdMinorByUser.set(entry.userId,attributed);
   }
   return rows.filter(row=>row.role!=="admin").map(row=>{
     const control=byUser.get(row.id);
