@@ -69,6 +69,7 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
     </>}
     {show("retries")&&<>
     <div className="eyebrow">Trade retry and concurrency limits</div>
+    <p className="policy-note">Carry-forward across daily windows is not enabled. A retry window that expires is marked failed for review.</p>
     <div className="form-two">
       <label>Maximum delivery attempts<input type="number" min="1" max="20" step="1" value={row.maxDeliveryAttempts} onChange={e=>updateRow(index,"maxDeliveryAttempts",Number(e.target.value))}/></label>
       <label>Maximum trade attempts per day<input type="number" min="0" max="10000" step="1" value={row.maxTradeAttemptsPerDay} onChange={e=>updateRow(index,"maxTradeAttemptsPerDay",Number(e.target.value))}/></label>
