@@ -198,8 +198,8 @@ describe("authoritative financial-event notification contracts", () => {
   });
 
   it("uses stable event keys for settlement notices only after delayed wallet posting", () => {
-    const settlementStart = routers.indexOf("await manuallySettleTrade(input.tradeId,ctx.user.id,input)");
-    const settlementEnd = routers.indexOf("return await manuallySettleTrade", settlementStart);
+    const settlementStart = routers.indexOf("return await manuallySettleTrade(input.tradeId,ctx.user.id,input)");
+    const settlementEnd = routers.indexOf("customerBalances:", settlementStart);
     const settlement = routers.slice(settlementStart, settlementEnd);
     const dbSource = readFileSync(new URL("../../server/db.ts", import.meta.url), "utf8");
     const creditStart = dbSource.indexOf("export async function processConfirmedTradeCredits(");
