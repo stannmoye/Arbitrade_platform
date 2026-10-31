@@ -106,3 +106,30 @@
 @media(prefers-reduced-motion:reduce) {
   :root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page) *,:root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page)::before,:root[data-arb-theme] :is(.customer-portal,.admin-portal,.arb-page)::after {animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+
+/* Mobile administrator navigation scroll recovery.
+   The compact layout must keep the rail viewport-bounded and let the menu list,
+   rather than the page or the entire rail, own vertical touch scrolling. */
+@media(max-width:900px) {
+  .admin-portal .portal-rail {
+    min-height:0!important;
+    overflow:hidden!important;
+  }
+  .admin-portal .admin-canonical-nav {
+    display:flex!important;
+    flex:1 1 auto!important;
+    flex-direction:column!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior-y:contain!important;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+    scrollbar-width:thin;
+  }
+  .admin-portal .admin-nav-group {
+    flex:0 0 auto!important;
+  }
+}
