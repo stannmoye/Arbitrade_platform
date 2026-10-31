@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import {describe,expect,it} from "vitest";
 import {COMPANY_REFERENCE_CATALOGUE} from "./company-catalogue-reference";
 import {buildCompanySpotlightPool,isCompanySpotlightDisplayAllowed,nextCompanySpotlight,normalizeCompanyRotationCountryNames,parseCompanyCatalogueAdminState} from "./company-spotlight-rotation";
@@ -86,5 +87,27 @@ describe("current customer company snapshot authorization",()=>{
     for(const id of [null,undefined,42,"logo-brand-0000","logo-brand-0001"]) {
       expect(isCompanySpotlightDisplayAllowed(id,state)).toBe(false);
     }
+  });
+});
+
+describe("customer company catalogue access boundary",()=>{
+  const routerSource=readFileSync(new URL("../routers.ts",import.meta.url),"utf8");
+  const customerPortal=readFileSync(new URL("../../client/src/App.tsx",import.meta.url),"utf8");
+  it("keeps the full catalogue and direct lookup endpoints administrator-only",()=>{
+    for(const endpoint of ["summary","count","search","byId","bySymbol","random","next"]) {
+      const match=routerSource.match(new RegExp(endpoint+": adminProcedure"));
+      expect(match,endpoint+" must require administrator authorization").not.toBeNull();
+    }
+  });
+  it("uses customer-only catalogue routes that filter current approvals before pagination",()=>{
+    expect(routerSource).toContain("customerSearch: protectedProcedure");
+    expect(routerSource).toContain("customerCount: protectedProcedure");
+    expect(routerSource).toContain("customerSummary: protectedProcedure");
+    expect(routerSource).toContain(".filter((company) => isCompanySpotlightDisplayAllowed(company.id, adminState))");
+    expect(routerSource).toContain(".slice(offset, offset + limit)");
+    expect(customerPortal).toContain("companyCatalogueReference.customerSearch.useQuery");
+    expect(customerPortal).toContain("companyCatalogueReference.customerCount.useQuery");
+    expect(customerPortal).toContain("companyCatalogueReference.customerSummary.useQuery");
+    expect(customerPortal).not.toContain("companyCatalogueReference.search.useQuery");
   });
 });
