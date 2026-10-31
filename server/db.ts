@@ -15,7 +15,7 @@ import { calculateConfiguredProfitMinor, chooseInclusiveInteger } from "./module
 import { planCrossWalletFunding, type FxRateSnapshot } from "./modules/trading-wallet-fx";
 import { fetchCryptoRates, fetchFiatRates, fetchMostActiveStocks, fetchCurrencyUsdRate } from "./marketProviders";
 import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, usdUnitsToNativeMinor } from "../shared/money";
-import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
+import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
@@ -2824,13 +2824,17 @@ export async function previewNextCustomerCompanySpotlight(userId:number) {
   const policy=policies.find(row=>row.packageName===packageName);
   if(!policy) throw new Error("The active Trading tier has no saved company rotation policy.");
   if(!policy.companyRotationEnabled) return null;
-  const pool=buildCompanySpotlightPool(String(policy.companyRotationCountryNames||""));
-  const stateKey="trading.companyRotation."+userId+"."+packageName;
-  if(stateKey.length>120) throw new Error("Company rotation scope key exceeds the storage limit.");
   const db=await getDb();
   if(!db) throw new Error("Company spotlight preview is temporarily unavailable.");
+  const catalogueRow=(await db.select({settingValue:appSettings.settingValue})
+    .from(appSettings).where(eq(appSettings.settingKey,"trade.companyCatalogue.adminState")).limit(1))[0];
+  const catalogueState=parseCompanyCatalogueAdminState(catalogueRow?.settingValue??"{}");
+  const pool=buildCompanySpotlightPool(String(policy.companyRotationCountryNames||""),catalogueState);
+  if(!pool.length) return null;
+  const stateKey="trading.companyRotation."+userId+"."+packageName;
+  if(stateKey.length>120) throw new Error("Company rotation scope key exceeds the storage limit.");
 
-  // Preview reads the next candidate but never creates a cursor row or advances
+  // Preview reads the next approved candidate but never creates a cursor row or advances
   // production state. The worker assigns the company inside the opportunity transaction.
   const row=(await db.select({settingValue:appSettings.settingValue})
     .from(appSettings).where(eq(appSettings.settingKey,stateKey)).limit(1))[0];
@@ -2838,7 +2842,7 @@ export async function previewNextCustomerCompanySpotlight(userId:number) {
   try { const parsed=JSON.parse(String(row?.settingValue||"")); if(parsed&&typeof parsed==="object") priorState=parsed as CompanySpotlightState; } catch {}
   const repeatPolicy=String(policy.companyRotationRepeatPolicy||"avoid_until_exhausted") as "avoid_until_exhausted"|"allow_repeats";
   const result=nextCompanySpotlight(pool,priorState,userId,packageName,repeatPolicy);
-  return {...result.company,referenceOnly:true as const,rotationCycle:result.rotationCycle,rotationSequence:result.rotationSequence,poolFingerprint:result.poolFingerprint,packageName,previewOnly:true as const};
+  return {...result.company,adminCatalogueStatus:"verified" as const,referenceOnly:true as const,rotationCycle:result.rotationCycle,rotationSequence:result.rotationSequence,poolFingerprint:result.poolFingerprint,packageName,previewOnly:true as const};
 }
 
 /** Runtime reads never create policy rows from schema defaults; tiers without saved policy are ineligible. */
@@ -3299,6 +3303,14 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   }).from(opportunityPopupEvents).leftJoin(opportunityOffers,eq(opportunityPopupEvents.offerId,opportunityOffers.id))
     .where(and(eq(opportunityPopupEvents.userId,userId),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN"])))
     .orderBy(desc(opportunityPopupEvents.deliveredAt));
+  // Enforce current admin status at read time too: previously-created active popups
+  // lose their company identity immediately when that company is unverified/archived.
+  const catalogueAdminRow=(await db.select({settingValue:appSettings.settingValue})
+    .from(appSettings).where(eq(appSettings.settingKey,"trade.companyCatalogue.adminState")).limit(1))[0];
+  const catalogueAdminState=parseCompanyCatalogueAdminState(catalogueAdminRow?.settingValue??"{}");
+  const currentlyVerifiedCompanyIds=new Set(catalogueAdminState.verifiedIds);
+  const archivedCompanyIds=new Set(catalogueAdminState.archivedIds);
+  const companyDisplayAllowed=(id:unknown)=>typeof id==="string"&&currentlyVerifiedCompanyIds.has(id)&&!archivedCompanyIds.has(id);
   const tradeCandidates=popupRows.filter(row=>row.offerStatus==="open"&&row.closesAt&&new Date(row.closesAt).getTime()>now.getTime()).map(row=>{
     // Never reassign an existing popup to another package when its original
     // package is renamed, disabled, expired, or otherwise no longer eligible.
@@ -3320,7 +3332,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     return {id:Number(row.offerId),offerId:Number(row.offerId),deliveryEventId:Number(row.eventId),packageId:Number(subscription.packageId),packageName:subscription.packageName,packageSubscriptionId:Number(subscription.subscriptionId),
       symbol:row.symbol,venueFrom:row.venueFrom||"",venueTo:row.venueTo||"",currency:row.currency,minimumMinor:Math.max(offerMinimum,Number(row.popupMinimumMinor||0),configuredMinimum),
       packageMinimumTradeMinor:configuredMinimum,packageMaximumTradeMinor:configuredMaximum,expectedRewardBps:Number(row.expectedRewardBps||0),
-      durationSeconds:Number(row.popupDurationSeconds??row.durationSeconds??0),configuredProfitRateBps:Number(row.configuredProfitRateBps||row.expectedRewardBps||0),configuredDurationSeconds:Number(row.configuredDurationSeconds||row.popupDurationSeconds||row.durationSeconds||0),configuredPopupDisplaySeconds:Number(row.configuredPopupDisplaySeconds||0),packagePolicyVersionSnapshot:Number(row.packagePolicyVersionSnapshot||row.policyVersion||1),packageBadgeLabel:row.packageBadgeLabel??row.badgeLabel??null,companyReferenceId:row.companyReferenceId??null,companyDisplayName:row.companyDisplayName??null,companyLogoUrl:row.companyLogoUrl??null,companyReferenceMetadataJson:row.companyReferenceMetadataJson??null,companyReferenceOnly:Boolean(row.companyReferenceOnly),badgeLabel:row.badgeLabel??null,badgeStyle:["neutral","blue","purple","gold","green"].includes(String(row.badgeStyle))?String(row.badgeStyle):"neutral",policyVersion:Number(row.policyVersion||1),
+      durationSeconds:Number(row.popupDurationSeconds??row.durationSeconds??0),configuredProfitRateBps:Number(row.configuredProfitRateBps||row.expectedRewardBps||0),configuredDurationSeconds:Number(row.configuredDurationSeconds||row.popupDurationSeconds||row.durationSeconds||0),configuredPopupDisplaySeconds:Number(row.configuredPopupDisplaySeconds||0),packagePolicyVersionSnapshot:Number(row.packagePolicyVersionSnapshot||row.policyVersion||1),packageBadgeLabel:row.packageBadgeLabel??row.badgeLabel??null,companyReferenceId:companyDisplayAllowed(row.companyReferenceId)?row.companyReferenceId:null,companyDisplayName:companyDisplayAllowed(row.companyReferenceId)?row.companyDisplayName:null,companyLogoUrl:companyDisplayAllowed(row.companyReferenceId)?row.companyLogoUrl:null,companyReferenceMetadataJson:companyDisplayAllowed(row.companyReferenceId)?row.companyReferenceMetadataJson:null,companyReferenceOnly:companyDisplayAllowed(row.companyReferenceId)&&Boolean(row.companyReferenceOnly),badgeLabel:row.badgeLabel??null,badgeStyle:["neutral","blue","purple","gold","green"].includes(String(row.badgeStyle))?String(row.badgeStyle):"neutral",policyVersion:Number(row.policyVersion||1),
       opensAt:row.opensAt,closesAt:row.closesAt,rewardAt:row.rewardAt,marketObservedAt:row.marketObservedAt,
       marketSnapshotId:row.marketSnapshotId,sector:row.sector,industry:row.industry,listingStatus:row.listingStatus,
       executionStatus:row.executionStatus,executionAttemptCount:Number(row.executionAttemptCount||0),executionRetryAfter:row.executionRetryAfter,executionRetryDay:row.executionRetryDay,executionLastErrorCode:row.executionLastErrorCode,
@@ -3353,8 +3365,8 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
       durationSeconds:Number(row.popupDurationSeconds??row.durationSeconds??base.durationSeconds??0),
       configuredProfitRateBps:Number(row.configuredProfitRateBps||row.expectedRewardBps||0),configuredDurationSeconds:Number(row.configuredDurationSeconds||row.popupDurationSeconds||row.durationSeconds||base.durationSeconds||0),
       configuredPopupDisplaySeconds:Number(row.configuredPopupDisplaySeconds||0),packagePolicyVersionSnapshot:Number(row.packagePolicyVersionSnapshot||row.policyVersion||1),
-      packageBadgeLabel:row.packageBadgeLabel??row.badgeLabel??null,companyReferenceId:row.companyReferenceId??null,companyDisplayName:row.companyDisplayName??null,
-      companyLogoUrl:row.companyLogoUrl??null,companyReferenceOnly:Boolean(row.companyReferenceOnly),
+      packageBadgeLabel:row.packageBadgeLabel??row.badgeLabel??null,companyReferenceId:companyDisplayAllowed(row.companyReferenceId)?row.companyReferenceId:null,companyDisplayName:companyDisplayAllowed(row.companyReferenceId)?row.companyDisplayName:null,
+      companyLogoUrl:companyDisplayAllowed(row.companyReferenceId)?row.companyLogoUrl:null,companyReferenceMetadataJson:companyDisplayAllowed(row.companyReferenceId)?row.companyReferenceMetadataJson:null,companyReferenceOnly:companyDisplayAllowed(row.companyReferenceId)&&Boolean(row.companyReferenceOnly),
       badgeLabel:row.badgeLabel??null,badgeStyle:["neutral","blue","purple","gold","green"].includes(String(row.badgeStyle))?String(row.badgeStyle):"neutral",
       policyVersion:Number(row.policyVersion||base.policyVersion||1),marketObservedAt:row.marketObservedAt,sector:row.sector,industry:row.industry,
       listingStatus:row.listingStatus,popupEligible:["DELIVERED","NOTICED"].includes(row.eventStatus),automaticTrade:executed};
