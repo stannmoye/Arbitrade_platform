@@ -61,7 +61,7 @@ describe("automatic Trading opportunity scheduler", () => {
     expect(reconciliationSource).toContain('eq(tradePositions.settlementStatus,"pending")');
     expect(reconciliationSource).toContain("tradePositions.settlementReviewAt");
     expect(reconciliationSource).toContain("trade.settlementReviewAt||trade.creditAt||trade.settlesAt");
-    expect(reconciliationSource).not.toContain("tradePositions.creditAt");
+    expect(reconciliationSource).toContain("tradePositions.creditAt");
   });
 
   it("prevents overlapping Trading cycles within one server process", () => {
