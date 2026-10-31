@@ -22,9 +22,30 @@
 
 Multi-wallet funding is covered by overlapping PR #230 and must be reviewed as part of integration, not duplicated in this branch. Acceptance requires stable-order row locks, a fresh quote per required currency pair, persisted native/USD snapshots, documented rounding and fees, and a single database transaction that commits every debit/reservation and ledger posting or none. Normal wallet transfers must retain their existing behavior and must not create Trading qualification attribution.
 
-## Idempotency boundary and known gap
+## Administrator wallet-adjustment idempotency boundary
 
-The current admin adjustment path generates a new random ledger reference per call and does not yet require a caller-supplied request idempotency key. Consequently, a client retry after an uncertain response can still create a second wallet adjustment even though each individual write is transactional. This remains a blocking integrity gap for release. A follow-up must add database-backed request idempotency, bind a key to a canonical request fingerprint, return the original committed result on a matching replay, reject key reuse with different parameters, and test concurrent duplicates. The same principle must be reviewed for funding, debit, refund and settlement entry points.
+The administrator wallet-adjustment path (`adminOperations.adjustCustomerBalance` → `adjustCustomerBalance`) requires a caller-supplied idempotency key. The server validates and normalizes the request, then binds the key to a SHA-256 fingerprint covering the administrator, customer, currency, amount, credit/debit mode, explicit classification, reversal target and audit reason. The key is unique in `admin_wallet_adjustment_idempotency`.
+
+The reservation is rechecked under a database row lock. The wallet balance change, ledger entry, qualifying-credit FX snapshot, audit record, qualifying-tier outbox record (when applicable), and committed response snapshot are written in the same transaction. A matching retry returns the original committed response and ledger ID without applying another balance change or fetching a replacement FX quote. Reusing the same key with a different request is rejected. Post-commit notifications and email enqueueing are skipped for idempotent replays.
+
+This enforcement is specific to the administrator wallet-adjustment service. It must not be generalized to payout, external funding, refund or settlement entry points without separate inspection and tests for those flows.
+
+The regression coverage is split across:
+- `scripts/trading-wallet-adjustment-idempotency.integration.ts`: concurrent duplicates, matching replay, key/payload mismatch, FX failure/staleness and transaction rollback.
+- `scripts/trading-wallet-authenticated-api.integration.ts`: real HTTP requests through the production tRPC router and context, signed database-backed customer/admin sessions, role and ownership checks, qualifying/non-qualifying credits, administrator self-credit exclusion, customer ledger-history access, credit-time FX evidence and replay behaviour.
+
+The authenticated integration uses a deterministic response at the external FX-provider boundary while retaining the actual conversion service, API router, session validation, database transactions and persisted evidence. It does not claim live-provider availability.
+
+## Required verification
+
+- Decimal rounding: half-up boundaries, high precision rates, non-two-decimal source currencies, overflow and amounts below one USD cent.
+- FX: invalid/zero/negative rates, mismatched currency pair, stale/future timestamps, provider outage and timeout.
+- Concurrency and failure: duplicate requests, simultaneous wallet updates, insufficient aggregate funding, mid-transaction failure and process retry.
+- Provenance: qualifying versus non-qualifying credit, reversal and worker event uniqueness. Non-qualifying administrator credits and administrator self-credits must not create tier-qualification attribution or jobs.
+- Authenticated API: anonymous and stale sessions are rejected; customer roles cannot call administrator credit or admin wallet routes; an administrator can credit a customer; one customer cannot read another customer's balances or wallet-ledger history.
+- Regression: inspect and test ordinary wallet transfers separately. No customer-to-customer wallet-transfer route or service was found during this Stage 1 branch review, so ordinary-transfer behaviour has not been independently verified here; do not report it as tested.
+
+A successful typecheck or build alone is not evidence of financial correctness. Require disposable-database integration tests and exact-head CI before accepting this contract.
 
 ## Required verification
 
