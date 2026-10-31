@@ -50,12 +50,11 @@ export function AdminSlideMenu({ section, onNavigate }: AdminSlideMenuProps) {
   const close = () => { setOpen(false); window.requestAnimationFrame(() => triggerRef.current?.focus()); };
   const navigate = (target: string, focus?: string) => { onNavigate(target, focus); close(); };
 
-  return <><div className={`admin-slide-layer arb-page${open ? " is-open" : ""}`}>
+  return <>{typeof document !== "undefined" && createPortal(
+      <div className={`admin-slide-layer admin-slide-portal-layer arb-page${open ? " is-open" : ""}`}>
     <button ref={triggerRef} className="admin-slide-trigger" type="button" aria-label={open ? "Close Admin Menus" : "Open Admin Menus"} aria-controls="admin-navigation-drawer" aria-expanded={open} tabIndex={open ? -1 : 0} onClick={() => setOpen(true)}>
       <span className="admin-slide-trigger-icon"><Menu size={18} /></span><span className="admin-slide-trigger-copy">ADMIN MENUS</span><span className="admin-slide-trigger-led" />
     </button>
-    </div>{typeof document !== "undefined" && createPortal(
-      <div className={`admin-slide-layer admin-slide-portal-layer arb-page${open ? " is-open" : ""}`}>
     <button className="admin-slide-backdrop" type="button" aria-label="Close Admin Menus" tabIndex={open ? 0 : -1} onClick={close} />
     <aside id="admin-navigation-drawer" ref={menuRef} className="admin-slide-drawer quick-actions-drawer admin-secondary-drawer" aria-label="Additional admin navigation" aria-hidden={!open} inert={!open} role="dialog" aria-modal={open}>
       <div className="admin-slide-drawer-topline"><span><i /> ADMINISTRATION</span><span className="admin-slide-count">MORE SECTIONS</span></div>
