@@ -95,11 +95,16 @@ describe("current customer company snapshot authorization",()=>{
 describe("customer company catalogue access boundary",()=>{
   const routerSource=readFileSync(new URL("../routers.ts",import.meta.url),"utf8");
   const customerPortal=readFileSync(new URL("../../client/src/App.tsx",import.meta.url),"utf8");
+  const adminCatalogue=readFileSync(new URL("../../client/src/components/AdminCompanyCatalogue.tsx",import.meta.url),"utf8");
   it("keeps the full catalogue and direct lookup endpoints administrator-only",()=>{
     for(const endpoint of ["summary","count","search","byId","bySymbol","random","next"]) {
       const match=routerSource.match(new RegExp(endpoint+": adminProcedure"));
       expect(match,endpoint+" must require administrator authorization").not.toBeNull();
     }
+  });
+  it("exposes separate administrator verify, reject, enable, disable, and archive controls",()=>{
+    for(const action of ["Mark selected verified","Reject / mark unverified","Enable selected","Disable selected","Delete selected"]) expect(adminCatalogue).toContain(action);
+    expect(adminCatalogue).toContain('<option value="disabled">Disabled</option>');
   });
   it("uses customer-only catalogue routes that filter current approvals before pagination",()=>{
     expect(routerSource).toContain("customerSearch: protectedProcedure");
