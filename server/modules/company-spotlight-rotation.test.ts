@@ -22,7 +22,13 @@ describe("package-scoped company spotlight rotation",()=>{
     expect(parseCompanyCatalogueAdminState(null)).toEqual({verifiedIds:[],archivedIds:[],disabledIds:[]});
     expect(parseCompanyCatalogueAdminState("{not-json")).toEqual({verifiedIds:[],archivedIds:[],disabledIds:[]});
     expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001"],archivedIds:[],disabledIds:["logo-brand-0001"]})).toEqual({verifiedIds:["logo-brand-0001"],archivedIds:[],disabledIds:["logo-brand-0001"]});
-    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001","invalid"],archivedIds:["logo-brand-0001"]})).toEqual({verifiedIds:["logo-brand-0001"],archivedIds:["logo-brand-0001"],disabledIds:[]});
+    const closed = {verifiedIds:[],archivedIds:[],disabledIds:[]};
+    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001","invalid"],archivedIds:["logo-brand-0001"]})).toEqual(closed);
+    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001"],archivedIds:"corrupt"})).toEqual(closed);
+    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001"],archivedIds:[],disabledIds:"corrupt"})).toEqual(closed);
+    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001"],archivedIds:[],disabledIds:[42]})).toEqual(closed);
+    // Legacy state without the newer disabledIds property remains readable.
+    expect(parseCompanyCatalogueAdminState({verifiedIds:["logo-brand-0001"],archivedIds:[]})).toEqual({verifiedIds:["logo-brand-0001"],archivedIds:[],disabledIds:[]});
   });
   it("normalizes exact country-folder filters and rejects unknown labels",()=>{
     const country=COMPANY_REFERENCE_CATALOGUE[0]!.countryName;
