@@ -72,7 +72,7 @@ export default function TradingDeliveryPolicyEditor({ focus, policyRows, policyM
     <p className="policy-note">Carry-forward across daily windows is not enabled. A retry window that expires is marked failed for review.</p>
     <div className="form-two">
       <label>Maximum delivery attempts<input type="number" min="1" max="20" step="1" value={row.maxDeliveryAttempts} onChange={e=>updateRow(index,"maxDeliveryAttempts",Number(e.target.value))}/></label>
-      <label>Maximum trade attempts per day<input type="number" min="0" max="10000" step="1" value={row.maxTradeAttemptsPerDay} onChange={e=>updateRow(index,"maxTradeAttemptsPerDay",Number(e.target.value))}/></label>
+      <label>Maximum trade attempts per day<input type="number" min="0" max="10000" step="1" value={row.maxTradeAttemptsPerDay} onChange={e=>updateRow(index,"maxTradeAttemptsPerDay",Number(e.target.value))}/><small>Customer-wide daily cap across all opportunities, including technical retries. Set to 0 for no daily cap.</small></label>
       <label>Trade retry delay (seconds)<input type="number" min="5" max="3600" step="1" value={row.tradeRetryDelaySeconds} onChange={e=>updateRow(index,"tradeRetryDelaySeconds",Number(e.target.value))}/></label>
       <label>Maximum successful trades per day<input type="number" min="0" max="10000" step="1" value={row.maxSuccessfulTradesPerDay} onChange={e=>updateRow(index,"maxSuccessfulTradesPerDay",Number(e.target.value))}/></label>
       <label>Maximum concurrent active trades<input type="number" min="1" max="1000" step="1" value={row.maxConcurrentActiveTrades} onChange={e=>updateRow(index,"maxConcurrentActiveTrades",Number(e.target.value))}/></label>
