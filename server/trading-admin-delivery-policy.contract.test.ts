@@ -61,8 +61,8 @@ describe("administrator Trading delivery policy controls", () => {
     expect(database).toContain('action:"trading_delivery_policy_updated"');
     expect(database).toContain("validatePackageAutomationPolicy(automation)");
     expect(router).toContain("updatePackagePolicies: adminProcedure.input");
-    expect(app).toContain('onError:error=>{setPolicyMessage(error.message);window.alert("Trading policy could not be saved.');
-    expect(app).toContain('if(policyReason.trim().length<5){window.alert("Requirement not met: A reason for changing Trading tier policies is required for audit.');
+    expect(app).toContain("onError:error=>setPolicyMessage(error.message)");
+    expect(app).toContain('if(policyReason.trim().length<5){setPolicyMessage("Enter at least 5 characters explaining this policy change.");return;}');
   });
 
   it("keeps display timeout presentation-only and avoids promising a configured reward as earned profit", () => {
