@@ -37,6 +37,16 @@ export function parseCompanyCatalogueAdminState(raw: unknown): CompanyCatalogueA
   };
 }
 
+/** Customer reads must revalidate persisted snapshots against current admin approval. */
+export function isCompanySpotlightDisplayAllowed(
+  companyId: unknown,
+  adminState: CompanyCatalogueAdminState,
+): boolean {
+  return typeof companyId === "string" &&
+    adminState.verifiedIds.includes(companyId) &&
+    !adminState.archivedIds.includes(companyId);
+}
+
 export function buildCompanySpotlightPool(
   countryNames: string,
   adminState: CompanyCatalogueAdminState,
