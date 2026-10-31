@@ -18,6 +18,7 @@ import { nativeMinorToUsd, nativeMinorToUsdMinorExact, proportionalMinorAmount, 
 import { normalizeCompanyRotationCountryNames, buildCompanySpotlightPool, nextCompanySpotlight, parseCompanyCatalogueAdminState, type CompanySpotlightState } from "./modules/company-spotlight-rotation";
 import { isPopupExecutionEligible } from "./modules/popup-execution-policy";
 import { validatePackageAutomationPolicy, remainingRewardAllowance } from "./modules/advanced-auto-trading";
+import { calculateTradingDeliveryCapacity, countConsumedDeliveryOffers, resolveTradingQuotaWindow } from "./modules/trading-delivery-quota";
 import { isWithinDailyAllocationLimit } from "./modules/daily-allocation";
 import { decideTradeExecutionRetry } from "./modules/trade-execution-retry";
 import { normalizeTicketUploadPolicy } from "./modules/ticket-upload-policy";
@@ -3120,8 +3121,6 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const db=await getDb(); if(!db) throw new Error("Database is not available");
   const now=new Date();
   const quotaDay=now.toISOString().slice(0,10);
-  const quotaDayStartUtc=new Date(`${quotaDay}T00:00:00.000Z`);
-  const nextQuotaDayStartUtc=new Date(quotaDayStartUtc.getTime()+24*60*60*1000);
   const settled:Array<{tradeId:number;rewardMinor:number;currency:string;totalMinor:number}>=[];
   if(options.workerCycle===true) await markDueTradesAwaitingConfirmation(userId);
   const controls=await ensureCustomerControls(userId);
@@ -3163,9 +3162,12 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const policy=configuredPolicies[0]||null;
   const packageName=[...new Set(eligibleSubscriptions.map(row=>row.packageName))].join(", ");
   const adminDeliveryCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);const configuredCap=Math.max(0,Number(row?.maxPopupsPerDay)||0);const policyCap=configuredCap>0?configuredCap:quotaFor(subscription);let snapshot:any={};try{snapshot=JSON.parse(String(subscription.termsSnapshotJson||"{}"))}catch{snapshot={}}const tierCap=Math.max(0,Number(snapshot.maxPopupsPerDay??subscription.packageMaxPopupsPerDay)||0);return sum+(tierCap>0?Math.min(policyCap,tierCap):policyCap);},0);
-  const adminVisibleCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);return sum+(row?Math.max(0,Number(row.maxVisibleOffers)||0):quotaFor(subscription));},0);
-  const maxPopupsPerDay=Math.min(combinedQuota,adminDeliveryCap||combinedQuota);
-  const maxVisibleOffers=Math.min(combinedQuota,adminVisibleCap||combinedQuota);
+  const adminDailyTarget=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);const target=Math.max(0,Number(row?.dailyPopupTarget)||0);const quota=quotaFor(subscription);return sum+(target>0?Math.min(target,quota):quota);},0);
+  const adminVisibleCap=eligibleSubscriptions.reduce((sum,subscription)=>{const row=policyByName.get(subscription.packageName);const configuredCap=Math.max(0,Number(row?.maxVisibleOffers)||0);return sum+(configuredCap>0?configuredCap:quotaFor(subscription));},0);
+  const maxPopupsPerDay=Math.min(combinedQuota,adminDeliveryCap||combinedQuota,adminDailyTarget||combinedQuota);
+  const maxVisibleOffers=adminVisibleCap>0?adminVisibleCap:combinedQuota;
+  const effectiveSchedulingPeriod=configuredPolicies.some((row:any)=>row.schedulingPeriod==="rolling_24h")?"rolling_24h":"calendar_day";
+  const quotaWindow=resolveTradingQuotaWindow(now,effectiveSchedulingPeriod);
   const popupPolicy={
     popupMinGapSeconds:Math.max(0,Number(policy?.minIntervalSeconds||0)),
     popupDisplaySeconds:Math.max(1,Number(policy?.popupDisplayTargetSeconds||120)),
@@ -3178,13 +3180,17 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
   const tradeOfferIds=new Set(tradeHistory.map((row:any)=>Number(row.offerId)));
   const missedHistory=await listMissedOpportunities(userId);
   const missedOfferIds=new Set(missedHistory.map((row:any)=>Number(row.offerId)));
-  const deliveredToday=await db.select({offerId:opportunityDeliveryEvents.offerId}).from(opportunityDeliveryEvents).where(and(eq(opportunityDeliveryEvents.userId,userId),eq(opportunityDeliveryEvents.quotaDay,quotaDay)));
-  const deliveredOfferIds=new Set(deliveredToday.map(row=>Number(row.offerId)));
+  const deliveredToday=await db.select({offerId:opportunityDeliveryEvents.offerId,status:opportunityDeliveryEvents.status}).from(opportunityDeliveryEvents).where(and(
+    eq(opportunityDeliveryEvents.userId,userId),gte(opportunityDeliveryEvents.deliveredAt,quotaWindow.start),
+    lt(opportunityDeliveryEvents.deliveredAt,quotaWindow.end),notInArray(opportunityDeliveryEvents.status,["failed"])
+  ));
+  const deliveredOfferIds=new Set(deliveredToday.filter(row=>row.status!=="failed").map(row=>Number(row.offerId)));
+  const deliveredOfferCount=countConsumedDeliveryOffers(deliveredToday);
   // Package copies are separate entitlements: count allocations against each
-  // subscription's own daily quota instead of pooling copies under package name.
+  // subscription's own quota window instead of pooling copies under package name.
   const usedQuotaRows=await db.execute(sql`SELECT packageSubscriptionId,COUNT(*) AS used FROM trade_positions
     WHERE userId=${userId} AND packageSubscriptionId IS NOT NULL
-      AND confirmedAt>=${quotaDayStartUtc} AND confirmedAt<${nextQuotaDayStartUtc}
+      AND confirmedAt>=${quotaWindow.start} AND confirmedAt<${quotaWindow.end}
       AND status<>'cancelled'
     GROUP BY packageSubscriptionId`) as any;
   const usedBySubscription=new Map<number,number>();
@@ -3197,7 +3203,7 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     eventId:opportunityPopupEvents.id,offerId:opportunityPopupEvents.offerId,packageName:opportunityPopupEvents.packageName,
     symbol:opportunityPopupEvents.symbol,currency:opportunityPopupEvents.currency,popupMinimumMinor:opportunityPopupEvents.minimumMinor,
     expectedRewardBps:opportunityPopupEvents.expectedRewardBps,balanceAvailableMinor:opportunityPopupEvents.balanceAvailableMinor,
-    balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,quotaDay:opportunityPopupEvents.quotaDay,
+    balanceStatus:opportunityPopupEvents.balanceStatus,eventStatus:opportunityPopupEvents.eventStatus,deliveryStatus:opportunityPopupEvents.deliveryStatus,quotaDay:opportunityPopupEvents.quotaDay,
     deliveredAt:opportunityPopupEvents.deliveredAt,venueFrom:opportunityOffers.venueFrom,venueTo:opportunityOffers.venueTo,
     offerStatus:opportunityOffers.status,offerMinimumMinor:opportunityOffers.minimumMinor,opensAt:opportunityOffers.opensAt,
     closesAt:opportunityOffers.closesAt,rewardAt:opportunityOffers.rewardAt,durationSeconds:opportunityOffers.durationSeconds,
@@ -3207,11 +3213,16 @@ export async function listCustomerOpportunities(userId:number, options:{consumeD
     .where(and(eq(opportunityPopupEvents.userId,userId),notInArray(opportunityPopupEvents.eventStatus,["TRADED","SETTLED","WITHDRAWN"])))
     .orderBy(desc(opportunityPopupEvents.deliveredAt));
   const activePopupOfferIds=new Set(activePopupRows.map(row=>Number(row.offerId)));
+  const activeVisibleCount=activePopupRows.filter(row=>{
+    const eventStatus=String(row.eventStatus||"").toUpperCase();
+    const deliveryStatus=String(row.deliveryStatus||"pending").toLowerCase();
+    return ["DELIVERED","NOTICED","OPENED"].includes(eventStatus)&&["pending","delivered","received","rendered"].includes(deliveryStatus);
+  }).length;
   const lastDelivery=Number(policy?.postCompletionIntervalSeconds||0)>0?(await db.select({deliveredAt:opportunityDeliveryEvents.deliveredAt}).from(opportunityDeliveryEvents).where(eq(opportunityDeliveryEvents.userId,userId)).orderBy(desc(opportunityDeliveryEvents.deliveredAt)).limit(1))[0]:undefined;
   const formulaReadyAt=lastDelivery?new Date(new Date(lastDelivery.deliveredAt).getTime()+Number(policy?.postCompletionIntervalSeconds||0)*1000):null;
   const formulaCooling=Boolean(formulaReadyAt&&formulaReadyAt.getTime()>now.getTime());
-  const dailyCap=Math.min(maxPopupsPerDay,maxVisibleOffers);
-  let remainingQuota=Math.max(0,dailyCap-deliveredToday.length);
+  const dailyCap=maxPopupsPerDay;
+  let remainingQuota=calculateTradingDeliveryCapacity({dailyCap,deliveredOfferCount,maxVisibleOffers,activeVisibleCount}).remainingQuota;
   const balancesSnapshot=await listBalances(userId);
   const newlyEligible:any[]=[];
   // Preserve the entitlement selected for newly created popups during this cycle,
