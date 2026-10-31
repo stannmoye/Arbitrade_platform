@@ -95,7 +95,7 @@ export default function AdminCompanyCatalogue() {
       <div>
         <div className="eyebrow">Trade · Company reference catalogue</div>
         <h1>Company names shown</h1>
-        <p>Manage the saved company/logo reference collection. Admin verification is an internal catalogue label that approves Verified companies for customer opportunity pop-up display; Unverified and Archived companies are excluded. Enable/disable is separate from verification: only records that are both admin-verified and enabled can appear in customer Trade surfaces. This is display approval only, not stock-market listing or trade-execution verification.</p>
+        <p>Manage the saved company/logo reference collection. Admin verification is an internal catalogue label that approves Verified companies for customer opportunity pop-up display; Unverified, Disabled and Archived companies are excluded. Enable/disable is separate from verification: only records that are both admin-verified and enabled can appear in customer Trade surfaces. This is display approval only, not stock-market listing or trade-execution verification.</p>
       </div>
       <button className="secondary-button" type="button" onClick={() => { void summary.refetch(); void records.refetch(); void adminState.refetch(); }} disabled={summary.isFetching || records.isFetching || adminState.isFetching}>Refresh catalogue</button>
     </div>
